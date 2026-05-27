@@ -226,6 +226,13 @@ impl AnyTlsStream {
         }
         Ok(self.read_buffer.drain(..len).collect())
     }
+
+    pub async fn read_chunk(&mut self) -> Result<Vec<u8>, AnyTlsError> {
+        if !self.read_buffer.is_empty() {
+            return Ok(self.read_buffer.drain(..).collect());
+        }
+        self.inbound.recv().await.ok_or(AnyTlsError::SessionClosed)
+    }
 }
 
 impl AnyTlsUdpOverTcp {

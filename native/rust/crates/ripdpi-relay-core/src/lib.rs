@@ -15,10 +15,10 @@ mod telemetry;
 mod transport_descriptor;
 
 pub use config::{
-    ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig, MasqueRelayConfig,
-    NaiveProxyRelayConfig, RelayBackendConfig, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
-    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, TrojanRelayConfig, TuicRelayConfig,
-    UnsupportedRelayConfig, VlessRealityRelayConfig,
+    AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
+    MasqueRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, ResolvedRelayFinalmaskConfig,
+    ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, TrojanRelayConfig,
+    TuicRelayConfig, UnsupportedRelayConfig, VlessRealityRelayConfig,
 };
 pub use runtime::RelayRuntime;
 pub use telemetry::{RelayTelemetry, TcpConnectObservation};

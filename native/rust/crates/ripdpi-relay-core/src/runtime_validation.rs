@@ -55,7 +55,7 @@ pub(crate) fn planned_backend_fallback_mode(config: &ResolvedRelayRuntimeConfig)
 
 pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> RelayPoolConfig {
     match RelayKind::from_config(config) {
-        RelayKind::Hysteria2 | RelayKind::TuicV5 | RelayKind::Masque => {
+        RelayKind::Hysteria2 | RelayKind::TuicV5 | RelayKind::Masque | RelayKind::AnyTls => {
             RelayPoolConfig { max_active_leases: 64, idle_timeout: Duration::from_secs(45) }
         }
         RelayKind::CloudflareTunnel | RelayKind::VlessReality { xhttp: true } => {

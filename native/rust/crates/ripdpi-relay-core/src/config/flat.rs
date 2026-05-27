@@ -114,6 +114,8 @@ struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub trojan_root_certificate_pem: Option<String>,
     #[serde(default)]
+    pub anytls_root_certificate_pem: Option<String>,
+    #[serde(default)]
     pub naive_path: String,
     pub local_socks_host: String,
     pub local_socks_port: i32,
@@ -139,6 +141,8 @@ struct FlatResolvedRelayRuntimeConfig {
     pub shadow_tls_password: Option<String>,
     #[serde(default)]
     pub trojan_password: Option<String>,
+    #[serde(default)]
+    pub anytls_password: Option<String>,
     #[serde(default)]
     pub shadowsocks_method: String,
     #[serde(default)]

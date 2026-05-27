@@ -82,6 +82,10 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 password: flat.trojan_password,
                 root_certificate_pem: flat.trojan_root_certificate_pem,
             }),
+            "anytls" => RelayBackendConfig::AnyTls(AnyTlsRelayConfig {
+                password: flat.anytls_password,
+                root_certificate_pem: flat.anytls_root_certificate_pem,
+            }),
             "shadowsocks" => RelayBackendConfig::Shadowsocks(ShadowsocksRelayConfig {
                 method: flat.shadowsocks_method,
                 password: flat.shadowsocks_password,
@@ -136,6 +140,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             shadow_tls_inner_profile_id: String::new(),
             shadow_tls_inner: None,
             trojan_root_certificate_pem: None,
+            anytls_root_certificate_pem: None,
             naive_path: String::new(),
             local_socks_host: config.common.local_socks_host.clone(),
             local_socks_port: config.common.local_socks_port,
@@ -152,6 +157,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             tuic_password: None,
             shadow_tls_password: None,
             trojan_password: None,
+            anytls_password: None,
             shadowsocks_method: String::new(),
             shadowsocks_password: None,
             naive_username: None,
@@ -233,6 +239,10 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             RelayBackendConfig::Trojan(config) => {
                 flat.trojan_password = config.password.clone();
                 flat.trojan_root_certificate_pem = config.root_certificate_pem.clone();
+            }
+            RelayBackendConfig::AnyTls(config) => {
+                flat.anytls_password = config.password.clone();
+                flat.anytls_root_certificate_pem = config.root_certificate_pem.clone();
             }
             RelayBackendConfig::Shadowsocks(config) => {
                 flat.shadowsocks_method = config.method.clone();

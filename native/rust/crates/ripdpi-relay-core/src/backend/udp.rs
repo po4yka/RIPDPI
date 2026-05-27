@@ -3,8 +3,8 @@ use std::io;
 use ripdpi_relay_mux::MuxLease;
 
 use crate::protocols::{
-    Hysteria2Session, MasqueSession, ShadowsocksSession, ShadowsocksUdpSession, TrojanSession, TrojanUdpSession,
-    TuicSession,
+    AnyTlsSession, AnyTlsUdpSession, Hysteria2Session, MasqueSession, ShadowsocksSession, ShadowsocksUdpSession,
+    TrojanSession, TrojanUdpSession, TuicSession,
 };
 use crate::socks::RelayTargetAddr;
 use crate::telemetry::{sync_quic_migration_state, QuicMigrationTelemetryState};
@@ -23,6 +23,7 @@ pub(crate) enum RelayUdpSession {
         migration: QuicMigrationTelemetryState,
     },
     Trojan(MuxLease<TrojanUdpSession, TrojanSession>),
+    AnyTls(MuxLease<AnyTlsUdpSession, AnyTlsSession>),
     Shadowsocks(MuxLease<ShadowsocksUdpSession, ShadowsocksSession>),
 }
 
@@ -45,6 +46,7 @@ impl RelayUdpSession {
                 result
             }
             Self::Trojan(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
+            Self::AnyTls(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
             Self::Shadowsocks(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
         }
     }
@@ -67,6 +69,10 @@ impl RelayUdpSession {
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
             Self::Trojan(session) => {
+                let (address, payload) = session.get_mut().recv_from().await?;
+                Ok((RelayTargetAddr::from_authority(&address)?, payload))
+            }
+            Self::AnyTls(session) => {
                 let (address, payload) = session.get_mut().recv_from().await?;
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }

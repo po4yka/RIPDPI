@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 ripdpi-relay-mux = { workspace = true }
+ripdpi-anytls = { workspace = true }
 ripdpi-shadowtls = { workspace = true }
 ripdpi-shadowsocks = { workspace = true }
 ripdpi-trojan = { workspace = true }

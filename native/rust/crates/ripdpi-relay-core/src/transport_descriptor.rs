@@ -189,6 +189,18 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
     },
     RelayTransportRegistration {
         descriptor: RelayTransportDescriptor {
+            kind_id: "anytls",
+            label: "AnyTLS",
+            tcp: true,
+            udp: true,
+            reusable: true,
+            supports_outbound_bind_ip: true,
+        },
+        builder: Some(builders::build_anytls),
+        fallback_mode: None,
+    },
+    RelayTransportRegistration {
+        descriptor: RelayTransportDescriptor {
             kind_id: "shadowsocks",
             label: "Shadowsocks",
             tcp: true,

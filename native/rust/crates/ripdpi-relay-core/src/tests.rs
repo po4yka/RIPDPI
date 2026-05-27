@@ -2,16 +2,16 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
-use local_network_fixture::{ShadowsocksLoopback, TrojanLoopback};
+use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig, ShadowsocksLoopback, TrojanLoopback};
 use ripdpi_relay_mux::RelayPoolConfig;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::backend::{build_backend, RelayBackend};
 use crate::config::{
-    ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig, MasqueRelayConfig,
-    NaiveProxyRelayConfig, RelayBackendConfig, RelayKind, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
-    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, ShadowsocksRelayConfig, TrojanRelayConfig,
-    TuicRelayConfig, VlessRealityRelayConfig,
+    AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
+    MasqueRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind, ResolvedRelayFinalmaskConfig,
+    ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, ShadowsocksRelayConfig,
+    TrojanRelayConfig, TuicRelayConfig, VlessRealityRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
@@ -88,6 +88,10 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             password: Some("secret".to_string()),
             root_certificate_pem: None,
         }),
+        "anytls" => RelayBackendConfig::AnyTls(AnyTlsRelayConfig {
+            password: Some("secret".to_string()),
+            root_certificate_pem: None,
+        }),
         "shadowsocks" => RelayBackendConfig::Shadowsocks(ShadowsocksRelayConfig {
             method: "aes-256-gcm".to_string(),
             password: Some("secret".to_string()),
@@ -109,6 +113,7 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
         "masque",
         "shadowtls_v3",
         "trojan",
+        "anytls",
         "shadowsocks",
     ] {
         let config = sample_config(kind);
@@ -171,6 +176,13 @@ fn trojan_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut TrojanRela
     match &mut config.backend {
         RelayBackendConfig::Trojan(trojan) => trojan,
         _ => panic!("expected Trojan config"),
+    }
+}
+
+fn anytls_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut AnyTlsRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::AnyTls(anytls) => anytls,
+        _ => panic!("expected AnyTLS config"),
     }
 }
 
@@ -441,6 +453,58 @@ async fn relay_runtime_builds_trojan_udp_associate_fixture() {
 }
 
 #[tokio::test]
+async fn relay_runtime_builds_anytls_backend_and_connects_tcp_fixture() {
+    const PAYLOAD: &[u8] = b"relay-core anytls tcp payload";
+
+    let fixture = AnyTlsLoopback::start("secret", AnyTlsLoopbackConfig::default()).await.expect("start anytls fixture");
+    let mut config = sample_config("anytls");
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    config.common.server_name = fixture.server_name().to_string();
+    anytls_config_mut(&mut config).root_certificate_pem = Some(fixture.certificate_pem().to_string());
+
+    let backend = build_backend(&config).await.expect("anytls backend");
+    match &backend {
+        RelayBackend::AnyTls(_) => {}
+        other => panic!("expected AnyTLS backend, got {:?}", std::mem::discriminant(other)),
+    }
+
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
+    let mut stream = backend.connect_tcp(&target).await.expect("anytls connect tcp");
+    stream.write_all(PAYLOAD).await.expect("write tunnel payload");
+    let mut echoed = vec![0_u8; PAYLOAD.len()];
+    stream.read_exact(&mut echoed).await.expect("read tunnel payload");
+    assert_eq!(echoed, PAYLOAD);
+    assert_eq!(fixture.observed().tls_session_count, 1);
+}
+
+#[tokio::test]
+async fn relay_runtime_builds_anytls_udp_over_tcp_fixture() {
+    const PAYLOAD: &[u8] = b"relay-core anytls udp payload";
+
+    let fixture = AnyTlsLoopback::start("secret", AnyTlsLoopbackConfig::default()).await.expect("start anytls fixture");
+    let mut config = sample_config("anytls");
+    config.common.udp_enabled = true;
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    config.common.server_name = fixture.server_name().to_string();
+    anytls_config_mut(&mut config).root_certificate_pem = Some(fixture.certificate_pem().to_string());
+
+    let capabilities = planned_backend_capabilities(&config);
+    assert_eq!((true, true, true), (capabilities.tcp, capabilities.udp, capabilities.reusable));
+    let backend = build_backend(&config).await.expect("anytls backend");
+    validate_runtime_config(&config, &backend).expect("anytls udp should validate");
+
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.udp_target_port()));
+    let mut udp = backend.open_udp_session().await.expect("anytls udp-over-tcp session");
+    udp.send_to(&target, PAYLOAD).await.expect("send udp payload");
+    let (source, echoed) = udp.recv_from().await.expect("receive udp payload");
+    assert_eq!(source, target);
+    assert_eq!(echoed, PAYLOAD);
+    assert_eq!(fixture.observed().udp_magic_targets, vec!["sp.v2.udp-over-tcp.arpa:0".to_string()]);
+}
+
+#[tokio::test]
 async fn relay_runtime_builds_shadowsocks_backend_and_connects_tcp_fixture() {
     const PAYLOAD: &[u8] = b"relay-core shadowsocks tcp payload";
 
@@ -510,7 +574,7 @@ fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeCon
 #[test]
 fn relay_planned_capabilities_are_pinned_for_every_kind() {
     // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
-    let pinned: [(&str, bool, bool, bool, bool); 10] = [
+    let pinned: [(&str, bool, bool, bool, bool); 11] = [
         ("hysteria2", true, true, true, false),
         ("tuic_v5", true, true, true, true),
         ("vless_reality", true, false, false, true),
@@ -519,6 +583,7 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
         ("masque", true, true, true, false),
         ("shadowtls_v3", true, false, false, true),
         ("trojan", true, true, false, true),
+        ("anytls", true, true, true, true),
         ("shadowsocks", true, true, false, true),
         ("naiveproxy", true, false, false, true),
     ];
@@ -586,6 +651,7 @@ fn relay_dispatch_class(kind: RelayKind<'_>) -> RelayDispatchClass {
         | RelayKind::Masque
         | RelayKind::ShadowTlsV3
         | RelayKind::Trojan
+        | RelayKind::AnyTls
         | RelayKind::Shadowsocks => RelayDispatchClass::InProcessBackend,
         RelayKind::NaiveProxy => RelayDispatchClass::SubprocessFallback,
         RelayKind::Unsupported(_) => RelayDispatchClass::Unsupported,
@@ -606,6 +672,7 @@ fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
         RelayBackend::Masque(_) => Some("masque"),
         RelayBackend::ShadowTls(_) => Some("shadowtls_v3"),
         RelayBackend::Trojan(_) => Some("trojan"),
+        RelayBackend::AnyTls(_) => Some("anytls"),
         RelayBackend::Shadowsocks(_) => Some("shadowsocks"),
         RelayBackend::Unsupported { .. } => None,
     }
@@ -643,6 +710,7 @@ fn relay_transport_registry_is_consistent() {
         sample_config("masque"),
         sample_config("shadowtls_v3"),
         sample_config("trojan"),
+        sample_config("anytls"),
         sample_config("shadowsocks"),
         sample_config("naiveproxy"),
         sample_config("off"),
@@ -723,9 +791,17 @@ fn relay_transport_registry_is_consistent() {
     // kind. `relay_backend_kind_id` is exhaustive: a new variant breaks
     // compilation until mapped.
     assert_eq!(None, relay_backend_kind_id(&RelayBackend::Unsupported { kind: "off".to_string() }));
-    for kind_id in
-        ["hysteria2", "tuic_v5", "vless_reality", "chain_relay", "masque", "shadowtls_v3", "trojan", "shadowsocks"]
-    {
+    for kind_id in [
+        "hysteria2",
+        "tuic_v5",
+        "vless_reality",
+        "chain_relay",
+        "masque",
+        "shadowtls_v3",
+        "trojan",
+        "anytls",
+        "shadowsocks",
+    ] {
         assert!(
             relay_transport_registration(kind_id).is_some(),
             "runtime-dispatch backend kind {kind_id} must have a registration",
@@ -769,7 +845,7 @@ async fn relay_transport_registry_dispatches_vless_sub_modes() {
 #[test]
 fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
     // kind_id, fallback_mode, pool max_active_leases, pool idle_timeout (secs)
-    let pinned: [(&str, Option<&str>, usize, u64); 10] = [
+    let pinned: [(&str, Option<&str>, usize, u64); 11] = [
         ("hysteria2", None, 64, 45),
         ("tuic_v5", None, 64, 45),
         ("vless_reality", None, 16, 5), // reality_tcp sub-mode
@@ -778,6 +854,7 @@ fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
         ("masque", None, 64, 45),
         ("shadowtls_v3", None, 16, 5),
         ("trojan", None, 16, 5),
+        ("anytls", None, 64, 45),
         ("shadowsocks", None, 16, 5),
         ("naiveproxy", Some("subprocess"), 16, 5),
     ];

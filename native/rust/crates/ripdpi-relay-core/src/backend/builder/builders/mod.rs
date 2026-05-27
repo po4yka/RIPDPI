@@ -6,6 +6,7 @@
 //! module dispatches by `relay_kind`, so a builder no longer carries its own
 //! `supports` predicate — the registry key is the `relay_kind` string.
 
+mod anytls;
 mod chain_relay;
 mod cloudflare_tunnel;
 mod common;
@@ -17,6 +18,7 @@ mod trojan;
 mod tuic;
 mod vless_reality;
 
+pub(crate) use anytls::build as build_anytls;
 pub(crate) use chain_relay::build as build_chain_relay;
 pub(crate) use cloudflare_tunnel::build as build_cloudflare_tunnel;
 pub(crate) use hysteria2::build as build_hysteria2;
