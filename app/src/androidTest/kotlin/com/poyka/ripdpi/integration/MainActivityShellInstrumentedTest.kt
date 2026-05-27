@@ -274,11 +274,16 @@ class MainActivityShellInstrumentedTest {
                 notifications = PermissionStatus.RequiresSystemPrompt,
                 batteryOptimization = PermissionStatus.Granted,
             )
-        val host: RecordingMainActivityHost = recordingMainActivityHost
         composeRule.runOnUiThread {
-            host.refreshPermissionSnapshot()
-            host.requestPrimaryConnectionAction()
+            recordingMainActivityHost.refreshPermissionSnapshot()
         }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule
+                .onAllNodes(hasTestTag(RipDpiTestTags.HomeConnectionButton))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).performClick()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
             recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission)
