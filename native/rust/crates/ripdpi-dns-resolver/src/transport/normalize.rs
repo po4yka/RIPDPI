@@ -47,6 +47,7 @@ fn normalize_odoh_endpoint(endpoint: &mut EncryptedDnsEndpoint) -> Result<(), En
         .odoh
         .as_ref()
         .ok_or_else(|| EncryptedDnsError::InvalidEndpoint("ODoH config is required".to_string()))?;
+    validate_odoh_non_collusion(odoh)?;
     let parsed = Url::parse(&odoh.proxy_url).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
     let url_host = parsed.host_str().ok_or(EncryptedDnsError::MissingHost)?.to_string();
     if endpoint.host.is_empty() {
@@ -57,6 +58,23 @@ fn normalize_odoh_endpoint(endpoint: &mut EncryptedDnsEndpoint) -> Result<(), En
     }
     if endpoint.tls_server_name.as_deref().unwrap_or_default().is_empty() {
         endpoint.tls_server_name = Some(url_host);
+    }
+    Ok(())
+}
+
+fn validate_odoh_non_collusion(odoh: &crate::types::OdohEndpointConfig) -> Result<(), EncryptedDnsError> {
+    let proxy_operator = odoh.proxy_operator_id.trim();
+    if proxy_operator.is_empty() {
+        return Err(EncryptedDnsError::InvalidEndpoint("ODoH proxy operator is required".to_string()));
+    }
+    let target_operator = odoh.target_operator_id.trim();
+    if target_operator.is_empty() {
+        return Err(EncryptedDnsError::InvalidEndpoint("ODoH target operator is required".to_string()));
+    }
+    if proxy_operator.eq_ignore_ascii_case(target_operator) {
+        return Err(EncryptedDnsError::InvalidEndpoint(format!(
+            "ODoH proxy and target must be non-colluding operators: {proxy_operator}"
+        )));
     }
     Ok(())
 }

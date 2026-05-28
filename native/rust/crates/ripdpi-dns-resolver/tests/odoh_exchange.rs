@@ -69,8 +69,10 @@ fn odoh_endpoint(bind_host: &str, proxy_port: u16, target_port: u16) -> Encrypte
         dnscrypt_public_key: None,
         odoh: Some(OdohEndpointConfig {
             proxy_url: format!("http://{bind_host}:{proxy_port}/proxy"),
+            proxy_operator_id: "fixture-proxy".to_string(),
             target_host: format!("{bind_host}:{target_port}"),
             target_path: "/dns-query".to_string(),
+            target_operator_id: "fixture-target".to_string(),
             config_source: OdohConfigSource::Bundled {
                 configs_wire: hex::decode(local_network_fixture::ODOH_TARGET_CONFIGS_HEX)
                     .expect("fixture ODoH config hex"),

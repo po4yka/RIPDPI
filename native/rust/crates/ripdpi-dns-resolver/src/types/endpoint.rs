@@ -39,8 +39,10 @@ impl EncryptedDnsProtocol {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OdohEndpointConfig {
     pub proxy_url: String,
+    pub proxy_operator_id: String,
     pub target_host: String,
     pub target_path: String,
+    pub target_operator_id: String,
     pub config_source: OdohConfigSource,
 }
 
