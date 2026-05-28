@@ -18,13 +18,10 @@
 //!   bytes of session_id, which has neither authentication nor the
 //!   correct keyspace.
 //!
-//! This module is the crypto primitive only. Wiring it into the live
-//! handshake path additionally requires extracting the TLS 1.3 client
-//! `key_share` X25519 private key from BoringSSL — that is audit
-//! finding **H1**, tracked in `docs/design/reality-boringssl-patch.md`
-//! § "Hook point". Until the BoringSSL patch lands, the live
-//! [`crate::reality::connect_reality_tls`] path continues to drive
-//! traffic through the (known-broken) ephemeral keypair.
+//! This module is the crypto primitive only. The live handshake path
+//! extracts the TLS 1.3 client `key_share` X25519 private key through
+//! [`crate::reality_hook`], the H1 BoringSSL hook described in
+//! `docs/design/reality-boringssl-patch.md`.
 
 use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};

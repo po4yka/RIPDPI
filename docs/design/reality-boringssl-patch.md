@@ -15,17 +15,17 @@ Remaining work that is intentionally **not** part of H1 itself:
 - Native `.so` size baselines will need to be updated once a real Android build runs through the patched boring-sys. Gated by the project's hook-enforced `*baseline*` policy.
 - `test-lab/` integration test that brings up a real Xray-core Reality server in docker-compose and asserts the full handshake completes against it. Tracked in the "Integration test" section below.
 
-Original design context follows.
+Archived pre-implementation design context follows. In that section, "current" describes the pre-H1 implementation that existed before the commits named above, not the current source tree.
 
-## Background — verified non-interoperability
+## Background — archived verified non-interoperability
 
-Three independent bugs in the current Rust implementation, verified against xray-core upstream (`github.com/XTLS/Xray-core/transport/internet/reality/reality.go`) and the XTLS/REALITY package (`tls.go`):
+Three independent bugs in the pre-H1 Rust implementation, verified against xray-core upstream (`github.com/XTLS/Xray-core/transport/internet/reality/reality.go`) and the XTLS/REALITY package (`tls.go`):
 
-1. **Wrong HKDF salt**. Current: `client_random[20..]` (last 12 B). Spec: `Random[:20]` (first 20 B). Cite: xray-core/transport/internet/reality/reality.go:167 `hkdf.New(sha256.New, uConn.AuthKey, hello.Random[:20], []byte("REALITY")).Read(uConn.AuthKey)`.
-2. **Wrong cipher**. Current: AES-128-ECB on first 16 B of `session_id`. Spec: **AES-256-GCM** with the full 32-byte AuthKey, nonce = `Random[20:]` (last 12 B), AAD = the entire raw ClientHello with the session_id slot zeroed, plaintext = `SessionId[:16]`. Cite: xray-core/transport/internet/reality/reality.go:170 `aead := crypto.NewAesGcm(uConn.AuthKey)` and :174 `aead.Seal(hello.SessionId[:0], hello.Random[20:], hello.SessionId[:16], hello.Raw)`. The GCM output (16 B ciphertext + 16 B tag) fills the entire 32-byte `SessionId`.
-3. **Architectural blocker — wrong ECDH partner key**. Current: `EphemeralSecret::random()` generates an independent X25519 keypair. Spec: client MUST ECDH with the **TLS 1.3 client `key_share` extension private key**. Cite: xray-core/.../reality.go:156-163 `ecdhe := uConn.HandshakeState.State13.KeyShareKeys.Ecdhe; uConn.AuthKey, _ = ecdhe.ECDH(publicKey)`. The server side reads the client's key_share extension public key from the ClientHello (`XTLS/REALITY/tls.go:215-217` `for _, keyShare := range hs.clientHello.keyShares { if keyShare.group == X25519 ... peerPub = keyShare.data }`) and ECDHs with its static Reality private key. The two sides arrive at the same AuthKey only when the client's ECDH used the TLS key_share private key.
+1. **Wrong HKDF salt**. Pre-H1: `client_random[20..]` (last 12 B). Spec: `Random[:20]` (first 20 B). Cite: xray-core/transport/internet/reality/reality.go:167 `hkdf.New(sha256.New, uConn.AuthKey, hello.Random[:20], []byte("REALITY")).Read(uConn.AuthKey)`.
+2. **Wrong cipher**. Pre-H1: AES-128-ECB on first 16 B of `session_id`. Spec: **AES-256-GCM** with the full 32-byte AuthKey, nonce = `Random[20:]` (last 12 B), AAD = the entire raw ClientHello with the session_id slot zeroed, plaintext = `SessionId[:16]`. Cite: xray-core/transport/internet/reality/reality.go:170 `aead := crypto.NewAesGcm(uConn.AuthKey)` and :174 `aead.Seal(hello.SessionId[:0], hello.Random[20:], hello.SessionId[:16], hello.Raw)`. The GCM output (16 B ciphertext + 16 B tag) fills the entire 32-byte `SessionId`.
+3. **Architectural blocker — wrong ECDH partner key**. Pre-H1: `EphemeralSecret::random()` generated an independent X25519 keypair. Spec: client MUST ECDH with the **TLS 1.3 client `key_share` extension private key**. Cite: xray-core/.../reality.go:156-163 `ecdhe := uConn.HandshakeState.State13.KeyShareKeys.Ecdhe; uConn.AuthKey, _ = ecdhe.ECDH(publicKey)`. The server side reads the client's key_share extension public key from the ClientHello (`XTLS/REALITY/tls.go:215-217` `for _, keyShare := range hs.clientHello.keyShares { if keyShare.group == X25519 ... peerPub = keyShare.data }`) and ECDHs with its static Reality private key. The two sides arrive at the same AuthKey only when the client's ECDH used the TLS key_share private key.
 
-The current Rust code generates a separate ephemeral X25519 keypair with no relationship to the TLS key_share, so the server's AuthKey will never match the client's. Patching salt and cipher alone does not enable interop.
+The pre-H1 Rust code generated a separate ephemeral X25519 keypair with no relationship to the TLS key_share, so the server's AuthKey could never match the client's. Patching salt and cipher alone did not enable interop.
 
 ## Constraint — BoringSSL exposes nothing useful
 
@@ -137,7 +137,7 @@ Mitigations:
 
 ## Pivot — `rustls` fork
 
-If the BoringSSL path is blocked, replace `tokio_boring` with `tokio-rustls` + a `rustls` fork that exposes `ClientHelloPayload::key_shares` private keys. Scope: ~400 LOC across `ripdpi-vless`, `ripdpi-tls-profiles`, `ripdpi-xhttp` (xHTTP transports over Reality). `ripdpi-tls-profiles` currently configures `boring::ssl::SslContextBuilder`; would need to rebuild on top of `rustls::ClientConfig` and a `rustls-fingerprint`/`rustls-fork-utls` equivalent. The TLS fingerprint profiles (Chrome/Firefox/Safari/Edge cipher orders, GREASE, extension permutation) would have to be re-validated against the new stack.
+If the BoringSSL path had been blocked, the fallback was to replace `tokio_boring` with `tokio-rustls` + a `rustls` fork that exposes `ClientHelloPayload::key_shares` private keys. Scope estimate at the time was ~400 LOC across `ripdpi-vless`, `ripdpi-tls-profiles`, `ripdpi-xhttp` (xHTTP transports over Reality). `ripdpi-tls-profiles` currently configures `boring::ssl::SslContextBuilder`; a rustls pivot would rebuild on top of `rustls::ClientConfig` and a `rustls-fingerprint`/`rustls-fork-utls` equivalent. The TLS fingerprint profiles (Chrome/Firefox/Safari/Edge cipher orders, GREASE, extension permutation) would have to be re-validated against the new stack.
 
 ## Scope estimate
 
@@ -151,8 +151,8 @@ Total ≈ 470 LOC. Estimated wall-clock: ~10 business days for an engineer famil
 
 ## References
 
-- `native/rust/crates/ripdpi-vless/src/reality.rs:162` — current wrong HKDF salt slice
-- `native/rust/crates/ripdpi-vless/src/reality.rs:191-196` — current wrong AES-128-ECB
+- `native/rust/crates/ripdpi-vless/src/reality_seal.rs` — current C1/C2 AES-256-GCM session_id sealing primitive
+- `native/rust/crates/ripdpi-vless/src/reality_hook.rs` — current H1 BoringSSL ClientHello hook glue
 - `native/rust/vendor/boring-sys/deps/boringssl/ssl/ssl_key_share.cc:140-194` — `X25519KeyShare`; `private_key_[32]` at L193
 - `native/rust/vendor/boring-sys/deps/boringssl/ssl/extensions.cc:2190` — `ssl_setup_key_shares`
 - `native/rust/vendor/boring-sys/deps/boringssl/ssl/handshake_client.cc:218-234` — `ssl_add_client_hello`; `Array<uint8_t> msg` finalized before `add_message`
