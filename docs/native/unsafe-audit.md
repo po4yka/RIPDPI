@@ -69,10 +69,10 @@ Use this map instead of starting every audit from a raw `unsafe` grep.
 | Module | Invariant family | Current containment | Review status |
 | --- | --- | --- | --- |
 | `ripdpi-privileged-ops/src/linux/` | socket ABI, raw fd ownership, `sockaddr` casts, raw socket and socket-option syscalls | `socket_options`, `fd`, raw-packet helpers, and TCP repair modules keep unsafe behind focused wrappers | active hotspot; largest remaining syscall surface |
-| `ripdpi-root-helper-protocol/src/scm_rights.rs` | ancillary data traversal, unaligned fd reads, `recvmsg` setup | shared `extract_scm_rights_fd`, `recv_line_with_optional_fd`, Miri-covered unaligned-fd helper | wrapped |
+| `ripdpi-root-helper-protocol/src/scm_rights.rs` | ancillary data traversal, fd rejection cleanup, `recvmsg` setup | shared `extract_scm_rights_fd`, `recv_line_with_optional_fd`, unit and integration coverage for fd transfer and rejection paths | wrapped |
 | `ripdpi-runtime-platform/src/root_helper_client.rs` | Unix-socket IPC with fd passing | delegates receive-side unsafe to `ripdpi-root-helper-protocol` SCM_RIGHTS helpers | wrapped |
 | `ripdpi-root-helper/src/handlers/fd_adoption.rs` | adopting SCM_RIGHTS-owned TCP/UDP fds | small `adopt_*` helpers keep `from_raw_fd` localized | wrapped |
-| `ripdpi-android-vpn-protect-adapter/src/` and `ripdpi-android/src/support.rs` | JNI env/object lifetimes, `Send`/`Sync` promises | narrow helpers plus explicit `SAFETY` notes | comment-sensitive |
+| `ripdpi-android-vpn-protect-adapter/src/`, `ripdpi-android/src/ffi/vpn_protect_bridge.rs`, and `ripdpi-android-bridge-support/src/lib.rs` | JNI env/object lifetimes, `Send`/`Sync` promises, handle/error helpers | narrow helpers plus explicit `SAFETY` notes | comment-sensitive |
 | `ripdpi-runtime-platform/src/process.rs` | signal handlers, pid-file locking, daemonization | isolated libc calls with documented invariants | keep |
 
 Test-only raw packet plumbing is intentionally lower priority than shipped runtime code.
@@ -114,11 +114,9 @@ Minimum bar before landing a change:
 
 ## Miri Validation Path
 
-Use Miri only on pure host-side helpers that do not cross JNI, raw syscalls, or Android-only FFI. The current supported lane is:
+Use Miri only on pure host-side helpers that do not cross JNI, raw syscalls, or Android-only FFI. The current script covers Miri-compatible host-side slices such as VLESS scoped-handle and Reality-hook ownership tests plus the privileged-ops `experimental_tier3` unit suite; SCM_RIGHTS fd passing is covered by regular unit and Unix integration tests because it depends on real ancillary-data socket behavior.
 
-- `ripdpi-root-helper-protocol::scm_rights::read_unaligned_raw_fd`
-
-Run it with:
+Run the Miri lane with:
 
 ```bash
 bash scripts/ci/run-rust-miri.sh
