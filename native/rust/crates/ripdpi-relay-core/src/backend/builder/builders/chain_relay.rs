@@ -1,4 +1,5 @@
 use std::io;
+use std::net::IpAddr;
 
 use crate::backend::builder::builders::common::vless_reality_config;
 use crate::backend::builder::BuildContext;
@@ -11,7 +12,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     let RelayBackendConfig::ChainRelay(chain) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected chain relay config"));
     };
-    let entry = chain_entry_connector(chain, &config.common.tls_fingerprint_profile)?;
+    let entry = chain_entry_connector(chain, &config.common.tls_fingerprint_profile, context.outbound_bind_ip)?;
     let exit = chain_exit_connector(chain, &config.common.tls_fingerprint_profile)?;
 
     let telemetry = ChainHopTelemetryState::default();
@@ -47,6 +48,7 @@ impl ChainHopRole {
 fn chain_entry_connector(
     chain: &ChainRelayConfig,
     default_tls_fingerprint_profile: &str,
+    outbound_bind_ip: Option<IpAddr>,
 ) -> io::Result<ChainEntryConnector> {
     let Some(hop) = chain.entry.as_deref() else {
         return legacy_hop_vless_reality_config(chain, ChainHopRole::Entry, default_tls_fingerprint_profile)
@@ -58,6 +60,8 @@ fn chain_entry_connector(
         }
         "masque" => resolved_hop_masque_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::Masque),
         "trojan" => resolved_hop_trojan_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::Trojan),
+        "shadowsocks" => resolved_hop_shadowsocks_factory(hop, ChainHopRole::Entry, outbound_bind_ip)
+            .map(ChainEntryConnector::Shadowsocks),
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("chain entry: resolved hop kind {other} is not supported by chain relay"),
@@ -79,6 +83,9 @@ fn chain_exit_connector(
         }
         "masque" => resolved_hop_masque_config(hop, ChainHopRole::Exit).map(ChainExitConnector::Masque),
         "trojan" => resolved_hop_trojan_config(hop, ChainHopRole::Exit).map(ChainExitConnector::Trojan),
+        "shadowsocks" => {
+            resolved_hop_shadowsocks_factory(hop, ChainHopRole::Exit, None).map(ChainExitConnector::Shadowsocks)
+        }
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("chain exit: resolved hop kind {other} is not supported by chain relay"),
@@ -160,6 +167,31 @@ fn resolved_hop_trojan_config(
         tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
         root_certificate_pem: hop.trojan_root_certificate_pem.clone(),
     })
+}
+
+fn resolved_hop_shadowsocks_factory(
+    hop: &ResolvedChainRelayHopConfig,
+    role: ChainHopRole,
+    outbound_bind_ip: Option<IpAddr>,
+) -> io::Result<ripdpi_relay_tls_transports::ShadowsocksSessionFactory> {
+    let label = role.label();
+    let server_port = u16::try_from(hop.server_port).map_err(|_| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Shadowsocks server port must fit u16"))
+    })?;
+    let method = hop.shadowsocks_method.clone().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Shadowsocks method is required"))
+    })?;
+    let password = hop.shadowsocks_password.clone().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Shadowsocks password is required"))
+    })?;
+    ripdpi_relay_tls_transports::ShadowsocksSessionFactory::new(
+        hop.server.clone(),
+        server_port,
+        method,
+        password,
+        outbound_bind_ip,
+    )
+    .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))
 }
 
 fn legacy_hop_vless_reality_config(

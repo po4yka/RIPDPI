@@ -24,6 +24,7 @@ pub(crate) enum ChainEntryConnector {
     VlessReality(ripdpi_vless::config::VlessRealityConfig),
     Masque(ripdpi_masque::config::MasqueConfig),
     Trojan(ripdpi_relay_tls_transports::TrojanClientConfig),
+    Shadowsocks(ripdpi_relay_tls_transports::ShadowsocksSessionFactory),
 }
 
 impl ChainEntryConnector {
@@ -58,6 +59,10 @@ impl ChainEntryConnector {
                 let stream = ripdpi_relay_tls_transports::connect_trojan_tcp(config, target).await?;
                 Ok(Box::new(stream))
             }
+            Self::Shadowsocks(factory) => {
+                let stream = ripdpi_relay_tls_transports::connect_shadowsocks_tcp(factory, target).await?;
+                Ok(Box::new(stream))
+            }
         }
     }
 }
@@ -67,6 +72,7 @@ pub(crate) enum ChainExitConnector {
     VlessReality(ripdpi_vless::config::VlessRealityConfig),
     Masque(ripdpi_masque::config::MasqueConfig),
     Trojan(ripdpi_relay_tls_transports::TrojanClientConfig),
+    Shadowsocks(ripdpi_relay_tls_transports::ShadowsocksSessionFactory),
 }
 
 impl ChainExitConnector {
@@ -75,6 +81,7 @@ impl ChainExitConnector {
             Self::VlessReality(config) => Ok(format!("{}:{}", config.server, config.port)),
             Self::Masque(config) => masque_proxy_target(config),
             Self::Trojan(config) => Ok(ripdpi_relay_tls_transports::trojan_proxy_target(config)),
+            Self::Shadowsocks(factory) => Ok(ripdpi_relay_tls_transports::shadowsocks_proxy_target(factory)),
         }
     }
 
@@ -90,6 +97,11 @@ impl ChainExitConnector {
             }
             Self::Trojan(config) => {
                 let stream = ripdpi_relay_tls_transports::connect_trojan_tcp_over(config, transport, target).await?;
+                Ok(Box::new(stream))
+            }
+            Self::Shadowsocks(factory) => {
+                let stream =
+                    ripdpi_relay_tls_transports::connect_shadowsocks_tcp_over(factory, transport, target).await?;
                 Ok(Box::new(stream))
             }
         }

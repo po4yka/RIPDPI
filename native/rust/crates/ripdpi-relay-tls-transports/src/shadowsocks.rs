@@ -9,7 +9,7 @@ use ripdpi_shadowsocks::{
     Aead2022UdpPacketType, Aead2022UdpSession, Cipher, PresharedKey, SecretString, TcpStream as ShadowsocksTcpCodec,
     UdpPacket,
 };
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{lookup_host, TcpSocket, TcpStream, UdpSocket};
 
 const BUFFER_SIZE: usize = 65_536;
@@ -131,23 +131,56 @@ impl ShadowsocksUdpSession {
     }
 }
 
+pub async fn connect_shadowsocks_tcp(
+    factory: &ShadowsocksSessionFactory,
+    target: &str,
+) -> io::Result<tokio::io::DuplexStream> {
+    connect_tcp(Arc::clone(&factory.config), target).await
+}
+
+pub async fn connect_shadowsocks_tcp_over<S>(
+    factory: &ShadowsocksSessionFactory,
+    transport: S,
+    target: &str,
+) -> io::Result<tokio::io::DuplexStream>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    connect_tcp_over_transport(Arc::clone(&factory.config), transport, target).await
+}
+
+pub fn shadowsocks_proxy_target(factory: &ShadowsocksSessionFactory) -> String {
+    format!("{}:{}", factory.config.server_host, factory.config.server_port)
+}
+
 async fn connect_tcp(config: Arc<ShadowsocksClientConfig>, target: &str) -> io::Result<tokio::io::DuplexStream> {
-    let mut socket = connect_server(&config).await?;
+    let socket = connect_server(&config).await?;
+    connect_tcp_over_transport(config, socket, target).await
+}
+
+async fn connect_tcp_over_transport<S>(
+    config: Arc<ShadowsocksClientConfig>,
+    mut transport: S,
+    target: &str,
+) -> io::Result<tokio::io::DuplexStream>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     let secret = SecretString::new(config.password.clone());
     let (mut encrypt, salt) =
         ShadowsocksTcpCodec::new_encrypt(config.cipher, &secret, config.cipher.is_aead_2022()).map_err(to_io)?;
-    socket.write_all(&salt).await?;
+    transport.write_all(&salt).await?;
     let request = encode_address(target, &[])?;
-    socket.write_all(&encrypt.encrypt_payload(&request).map_err(to_io)?).await?;
+    transport.write_all(&encrypt.encrypt_payload(&request).map_err(to_io)?).await?;
 
     let mut response_salt = vec![0_u8; config.cipher.salt_len()];
-    socket.read_exact(&mut response_salt).await?;
+    transport.read_exact(&mut response_salt).await?;
     let mut decrypt =
         ShadowsocksTcpCodec::new_decrypt(config.cipher, &secret, &response_salt, config.cipher.is_aead_2022())
             .map_err(to_io)?;
     let (app_stream, relay_stream) = tokio::io::duplex(BUFFER_SIZE);
     let (mut app_read, mut app_write) = tokio::io::split(relay_stream);
-    let (mut socket_read, mut socket_write) = socket.into_split();
+    let (mut socket_read, mut socket_write) = tokio::io::split(transport);
 
     tokio::spawn(async move {
         let mut buffer = [0_u8; 4096];

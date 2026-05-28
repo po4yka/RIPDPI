@@ -450,6 +450,44 @@ async fn chain_relay_builds_trojan_entry_trojan_exit_from_resolved_hops() {
 }
 
 #[tokio::test]
+async fn chain_relay_routes_tcp_through_shadowsocks_entry_and_exit() {
+    const PAYLOAD: &[u8] = b"chain shadowsocks entry exit payload";
+
+    let entry =
+        ShadowsocksLoopback::start("aes-256-gcm", "entry-secret").await.expect("start entry shadowsocks fixture");
+    let exit = ShadowsocksLoopback::start("aes-256-gcm", "exit-secret").await.expect("start exit shadowsocks fixture");
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "shadowsocks".to_string(),
+        profile_id: "shadowsocks-entry".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: i32::from(entry.port()),
+        shadowsocks_method: Some("aes-256-gcm".to_string()),
+        shadowsocks_password: Some("entry-secret".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+    chain.exit = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "shadowsocks".to_string(),
+        profile_id: "shadowsocks-exit".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: i32::from(exit.port()),
+        shadowsocks_method: Some("aes-256-gcm".to_string()),
+        shadowsocks_password: Some("exit-secret".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+
+    let backend = build_backend(&config).await.expect("chain backend builds Shadowsocks entry and exit");
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), exit.target_port()));
+    let mut stream = backend.connect_tcp(&target).await.expect("connect through Shadowsocks chain");
+    stream.write_all(PAYLOAD).await.expect("write chain payload");
+    let mut echoed = vec![0_u8; PAYLOAD.len()];
+    stream.read_exact(&mut echoed).await.expect("read chain payload");
+
+    assert_eq!(echoed, PAYLOAD);
+}
+
+#[tokio::test]
 async fn chain_relay_dead_resolved_entry_does_not_bypass_to_legacy_entry() {
     let legacy_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind legacy entry probe");
     let legacy_addr = legacy_listener.local_addr().expect("legacy entry address");
