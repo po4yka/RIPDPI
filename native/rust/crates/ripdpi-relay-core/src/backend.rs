@@ -14,6 +14,7 @@ use crate::protocols::{
     VlessRealitySessionFactory, XhttpSessionFactory,
 };
 use crate::socks::RelayTargetAddr;
+use crate::telemetry::{ChainHopTelemetrySnapshot, ChainHopTelemetryState};
 
 pub(crate) use builder::build_backend;
 pub(crate) use pool::PooledRelayBackend;
@@ -25,7 +26,7 @@ macro_rules! dispatch_pooled_backend {
             RelayBackend::Tuic($backend) => $expr,
             RelayBackend::VlessReality($backend) => $expr,
             RelayBackend::Xhttp($backend) => $expr,
-            RelayBackend::ChainRelay($backend) => $expr,
+            RelayBackend::ChainRelay { backend: $backend, .. } => $expr,
             RelayBackend::Masque($backend) => $expr,
             RelayBackend::ShadowTls($backend) => $expr,
             RelayBackend::Trojan($backend) => $expr,
@@ -50,7 +51,7 @@ pub(crate) enum RelayBackend {
     Tuic(PooledRelayBackend<TuicSessionFactory>),
     VlessReality(PooledRelayBackend<VlessRealitySessionFactory>),
     Xhttp(PooledRelayBackend<XhttpSessionFactory>),
-    ChainRelay(PooledRelayBackend<ChainRelaySessionFactory>),
+    ChainRelay { backend: PooledRelayBackend<ChainRelaySessionFactory>, telemetry: ChainHopTelemetryState },
     Masque(PooledRelayBackend<MasqueSessionFactory>),
     ShadowTls(PooledRelayBackend<ShadowTlsSessionFactory>),
     Trojan(PooledRelayBackend<TrojanSessionFactory>),
@@ -83,12 +84,19 @@ impl RelayBackend {
             Self::Masque(backend) => backend.quic_migration_snapshot(),
             Self::VlessReality(_)
             | Self::Xhttp(_)
-            | Self::ChainRelay(_)
+            | Self::ChainRelay { .. }
             | Self::ShadowTls(_)
             | Self::Trojan(_)
             | Self::AnyTls(_)
             | Self::Shadowsocks(_)
             | Self::Unsupported { .. } => (None, None),
+        }
+    }
+
+    pub(crate) fn chain_hop_snapshot(&self) -> Option<ChainHopTelemetrySnapshot> {
+        match self {
+            Self::ChainRelay { telemetry, .. } => Some(telemetry.snapshot()),
+            _ => None,
         }
     }
 
@@ -111,7 +119,7 @@ impl RelayBackend {
             Self::Trojan(backend) => backend.open_udp_session(RelayUdpSession::Trojan).await,
             Self::AnyTls(backend) => backend.open_udp_session(RelayUdpSession::AnyTls).await,
             Self::Shadowsocks(backend) => backend.open_udp_session(RelayUdpSession::Shadowsocks).await,
-            Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay(_) | Self::ShadowTls(_) => {
+            Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay { .. } | Self::ShadowTls(_) => {
                 Err(io::Error::new(io::ErrorKind::Unsupported, "relay backend does not support UDP ASSOCIATE"))
             }
             Self::Unsupported { kind, .. } => Err(Self::unsupported_error(kind)),

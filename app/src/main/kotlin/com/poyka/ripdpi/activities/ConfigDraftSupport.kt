@@ -194,6 +194,7 @@ data class ConfigUiState(
     val validationErrors: ImmutableMap<String, String> = persistentMapOf(),
     val relayProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
     val relayChainTrustWarning: RelayTrustDomainWarning? = null,
+    val relayChainHopStatus: RelayChainHopStatusUiState = RelayChainHopStatusUiState(),
     val relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
     val relayPresetSuggestion: RelayPresetSuggestionUiState? = null,
     val supportsMasquePrivacyPass: Boolean = false,

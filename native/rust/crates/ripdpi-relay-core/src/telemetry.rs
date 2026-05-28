@@ -23,6 +23,45 @@ pub struct TcpConnectObservation {
     pub succeeded: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum ChainHopRole {
+    Entry,
+    Exit,
+}
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct ChainHopTelemetrySnapshot {
+    pub entry_state: Option<String>,
+    pub entry_latency_ms: Option<u64>,
+    pub exit_state: Option<String>,
+    pub exit_latency_ms: Option<u64>,
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct ChainHopTelemetryState {
+    inner: Arc<Mutex<ChainHopTelemetrySnapshot>>,
+}
+
+impl ChainHopTelemetryState {
+    pub(crate) fn record(&self, role: ChainHopRole, state: &str, latency_ms: Option<u64>) {
+        let mut snapshot = self.inner.lock().expect("chain hop telemetry");
+        match role {
+            ChainHopRole::Entry => {
+                snapshot.entry_state = Some(state.to_string());
+                snapshot.entry_latency_ms = latency_ms;
+            }
+            ChainHopRole::Exit => {
+                snapshot.exit_state = Some(state.to_string());
+                snapshot.exit_latency_ms = latency_ms;
+            }
+        }
+    }
+
+    pub(crate) fn snapshot(&self) -> ChainHopTelemetrySnapshot {
+        self.inner.lock().expect("chain hop telemetry").clone()
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelayTelemetry {
@@ -42,7 +81,9 @@ pub struct RelayTelemetry {
     pub fallback_mode: Option<String>,
     pub last_handshake_error: Option<String>,
     pub chain_entry_state: Option<String>,
+    pub chain_entry_latency_ms: Option<u64>,
     pub chain_exit_state: Option<String>,
+    pub chain_exit_latency_ms: Option<u64>,
     pub strategy_pack_id: Option<String>,
     pub strategy_pack_version: Option<String>,
     pub tls_profile_id: Option<String>,

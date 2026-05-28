@@ -5,6 +5,7 @@ use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{ChainRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::ChainRelaySessionFactory;
+use crate::telemetry::ChainHopTelemetryState;
 
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::ChainRelay(chain) = &config.backend else {
@@ -13,11 +14,19 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     let entry = chain_hop_vless_reality_config(chain, ChainHopRole::Entry, &config.common.tls_fingerprint_profile)?;
     let exit = chain_hop_vless_reality_config(chain, ChainHopRole::Exit, &config.common.tls_fingerprint_profile)?;
 
-    Ok(RelayBackend::ChainRelay(PooledRelayBackend::new(
-        ChainRelaySessionFactory { entry, exit, outbound_bind_ip: context.outbound_bind_ip },
+    let telemetry = ChainHopTelemetryState::default();
+    let backend = PooledRelayBackend::new(
+        ChainRelaySessionFactory {
+            entry,
+            exit,
+            outbound_bind_ip: context.outbound_bind_ip,
+            telemetry: telemetry.clone(),
+        },
         context.pool_config,
         None,
-    )))
+    );
+
+    Ok(RelayBackend::ChainRelay { backend, telemetry })
 }
 
 #[derive(Clone, Copy)]

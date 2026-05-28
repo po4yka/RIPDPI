@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 
-use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
+use crate::config::{RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayRuntimeConfig};
 
 pub(crate) trait RelayEndpointBootstrapResolver {
     async fn resolve_direct(&mut self, host: &str, port: u16) -> io::Result<SocketAddr>;
@@ -30,8 +30,11 @@ pub(crate) async fn bootstrap_relay_endpoints_with(
     let mut bootstrapped = config.clone();
     match &mut bootstrapped.backend {
         RelayBackendConfig::ChainRelay(chain) => {
-            chain.entry_server = resolve_endpoint(&chain.entry_server, chain.entry_port, resolver).await?;
-            chain.exit_server = resolve_endpoint(&chain.exit_server, chain.exit_port, resolver).await?;
+            if let Some(entry) = chain.entry.as_mut() {
+                resolve_chain_entry_hop(entry, resolver).await?;
+            } else {
+                chain.entry_server = resolve_endpoint(&chain.entry_server, chain.entry_port, resolver).await?;
+            }
         }
         RelayBackendConfig::ShadowTlsV3(shadowtls) => {
             bootstrapped.common.server =
@@ -50,6 +53,17 @@ pub(crate) async fn bootstrap_relay_endpoints_with(
         }
     }
     Ok(bootstrapped)
+}
+
+async fn resolve_chain_entry_hop(
+    hop: &mut ResolvedChainRelayHopConfig,
+    resolver: &mut impl RelayEndpointBootstrapResolver,
+) -> io::Result<()> {
+    if hop.server.is_empty() {
+        return Ok(());
+    }
+    hop.server = resolve_endpoint(&hop.server, hop.server_port, resolver).await?;
+    Ok(())
 }
 
 async fn resolve_masque_url_endpoint(

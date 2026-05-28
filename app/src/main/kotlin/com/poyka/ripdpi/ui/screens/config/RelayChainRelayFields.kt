@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldRelayChain
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.activities.RelayChainHopUiState
 import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -47,6 +48,7 @@ internal fun RelayChainFields(
         )
         RelayChainSelectedProfileDetails(
             profile = uiState.relayProfiles.firstOrNull { it.id == draft.relayChainEntryProfileId },
+            hopStatus = uiState.relayChainHopStatus.entry,
         )
         RelayChainProfileSelector(
             label = "Exit hop",
@@ -57,6 +59,7 @@ internal fun RelayChainFields(
         )
         RelayChainSelectedProfileDetails(
             profile = uiState.relayProfiles.firstOrNull { it.id == draft.relayChainExitProfileId },
+            hopStatus = uiState.relayChainHopStatus.exit,
         )
         RelayChainValidationError(chainErrorText)
         RipDpiButton(
@@ -105,15 +108,27 @@ private fun RelayChainProfileSelector(
 }
 
 @Composable
-private fun RelayChainSelectedProfileDetails(profile: RelayProfileUiState?) {
-    if (profile == null) {
+private fun RelayChainSelectedProfileDetails(
+    profile: RelayProfileUiState?,
+    hopStatus: RelayChainHopUiState,
+) {
+    if (profile == null && hopStatus.displayLabel == null) {
         return
     }
-    Text(
-        text = profile.trustLabel,
-        style = RipDpiThemeTokens.type.caption,
-        color = RipDpiThemeTokens.colors.mutedForeground,
-    )
+    profile?.let {
+        Text(
+            text = it.trustLabel,
+            style = RipDpiThemeTokens.type.caption,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+    }
+    hopStatus.displayLabel?.let { label ->
+        Text(
+            text = label,
+            style = RipDpiThemeTokens.type.caption,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+    }
 }
 
 @Composable

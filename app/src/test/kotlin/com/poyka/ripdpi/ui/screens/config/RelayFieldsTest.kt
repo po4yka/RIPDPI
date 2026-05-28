@@ -8,6 +8,8 @@ import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldRelayChain
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaivePath
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.activities.RelayChainHopStatusUiState
+import com.poyka.ripdpi.activities.RelayChainHopUiState
 import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindMasque
@@ -180,6 +182,11 @@ class RelayFieldsTest {
                                         operatorName = "Exit Transit",
                                     ),
                                 ),
+                            relayChainHopStatus =
+                                RelayChainHopStatusUiState(
+                                    entry = RelayChainHopUiState(statusLabel = "Connected", latencyLabel = "24 ms"),
+                                    exit = RelayChainHopUiState(statusLabel = "Connecting", latencyLabel = "61 ms"),
+                                ),
                             relayChainTrustWarning = RelayTrustDomainWarning(sharedJurisdiction = "RU"),
                         ),
                 )
@@ -190,6 +197,8 @@ class RelayFieldsTest {
         composeRule.onNodeWithText("Exit hop").assertExists()
         composeRule.onNodeWithText("entry · VLESS + Reality").assertExists()
         composeRule.onNodeWithText("Exit Transit · ru").assertExists()
+        composeRule.onNodeWithText("Connected · 24 ms").assertExists()
+        composeRule.onNodeWithText("Connecting · 61 ms").assertExists()
         composeRule.onNodeWithText("Shared trust domain").assertExists()
         composeRule.onNodeWithText("Swap entry/exit").assertExists()
     }

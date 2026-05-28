@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
@@ -129,5 +130,24 @@ class ConfigChainRelayUiStateTest {
                 relayProfiles = profiles,
             )[ConfigFieldRelayChain],
         )
+    }
+
+    @Test
+    fun `chain relay hop status is projected from native telemetry`() {
+        val status =
+            buildRelayChainHopStatus(
+                NativeRuntimeSnapshot(
+                    source = "relay",
+                    chainEntryState = "connected",
+                    chainEntryLatencyMs = 24,
+                    chainExitState = "connecting",
+                    chainExitLatencyMs = 61,
+                ),
+            )
+
+        assertEquals("Connected", status.entry.statusLabel)
+        assertEquals("24 ms", status.entry.latencyLabel)
+        assertEquals("Connecting", status.exit.statusLabel)
+        assertEquals("61 ms", status.exit.latencyLabel)
     }
 }

@@ -15,6 +15,7 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
         backend.map_or((None, None), |backend| backend.quic_migration_snapshot());
     let is_running = runtime.state.is_running();
     let state = if is_running { "running" } else { "idle" };
+    let chain_hops = backend.and_then(|backend| backend.chain_hop_snapshot());
 
     RelayTelemetry {
         source: "relay",
@@ -32,8 +33,16 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
         udp_capable: Some(capabilities.udp),
         fallback_mode: planned_backend_fallback_mode(&runtime.config),
         last_handshake_error: runtime.state.last_handshake_error(),
-        chain_entry_state: chain_state(&runtime.config, is_running),
-        chain_exit_state: chain_state(&runtime.config, is_running),
+        chain_entry_state: chain_hops
+            .as_ref()
+            .and_then(|snapshot| snapshot.entry_state.clone())
+            .or_else(|| chain_state(&runtime.config, is_running)),
+        chain_entry_latency_ms: chain_hops.as_ref().and_then(|snapshot| snapshot.entry_latency_ms),
+        chain_exit_state: chain_hops
+            .as_ref()
+            .and_then(|snapshot| snapshot.exit_state.clone())
+            .or_else(|| chain_state(&runtime.config, is_running)),
+        chain_exit_latency_ms: chain_hops.as_ref().and_then(|snapshot| snapshot.exit_latency_ms),
         strategy_pack_id: None,
         strategy_pack_version: None,
         tls_profile_id: Some(runtime.config.common.tls_fingerprint_profile.clone()),
@@ -50,4 +59,47 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
 fn chain_state(config: &ResolvedRelayRuntimeConfig, is_running: bool) -> Option<String> {
     matches!(RelayKind::from_config(config), RelayKind::ChainRelay)
         .then(|| if is_running { "connected" } else { "idle" }.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::config::{
+        ChainRelayConfig, CommonRelayConfig, RelayBackendConfig, ResolvedRelayFinalmaskConfig,
+        ResolvedRelayRuntimeConfig,
+    };
+    use crate::runtime::RelayRuntime;
+
+    #[test]
+    fn chain_telemetry_exposes_per_hop_latency_fields() {
+        let runtime = RelayRuntime::new(chain_config());
+
+        let telemetry = runtime.telemetry();
+
+        assert_eq!(Some("idle"), telemetry.chain_entry_state.as_deref());
+        assert_eq!(Some("idle"), telemetry.chain_exit_state.as_deref());
+        assert_eq!(None, telemetry.chain_entry_latency_ms);
+        assert_eq!(None, telemetry.chain_exit_latency_ms);
+    }
+
+    fn chain_config() -> ResolvedRelayRuntimeConfig {
+        ResolvedRelayRuntimeConfig {
+            common: CommonRelayConfig {
+                enabled: true,
+                profile_id: "chain".to_string(),
+                outbound_bind_ip: String::new(),
+                server: "relay.example".to_string(),
+                server_port: 443,
+                server_name: "relay.example".to_string(),
+                local_socks_host: "127.0.0.1".to_string(),
+                local_socks_port: 10_80,
+                udp_enabled: false,
+                tcp_fallback_enabled: true,
+                quic_bind_low_port: false,
+                quic_migrate_after_handshake: false,
+                tls_fingerprint_profile: "chrome_stable".to_string(),
+                finalmask: ResolvedRelayFinalmaskConfig::default(),
+            },
+            backend: RelayBackendConfig::ChainRelay(ChainRelayConfig::default()),
+        }
+    }
 }

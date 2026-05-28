@@ -105,6 +105,7 @@ class ConfigViewModel
                         ),
                     relayProfiles = relayProfiles,
                     relayChainTrustWarning = resolveRelayChainTrustWarning(draft, relayProfiles),
+                    relayChainHopStatus = buildRelayChainHopStatus(serviceTelemetry.relayTelemetry),
                     relayPresets =
                         relayPresets
                             .map { preset ->

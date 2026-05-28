@@ -164,7 +164,7 @@ async fn relay_endpoint_bootstrap_skips_ip_literals() {
 }
 
 #[tokio::test]
-async fn relay_endpoint_bootstrap_resolves_only_active_chain_endpoints() {
+async fn relay_endpoint_bootstrap_resolves_chain_entry_direct_and_leaves_exit_for_relay_dns() {
     let mut config = sample_config("chain_relay");
     let chain = chain_config_mut(&mut config);
     chain.entry_server = "entry.example".to_string();
@@ -175,14 +175,54 @@ async fn relay_endpoint_bootstrap_resolves_only_active_chain_endpoints() {
 
     let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
 
-    assert_eq!(resolver.requests, vec![("entry.example".to_string(), 443), ("exit.example".to_string(), 443)]);
+    assert_eq!(resolver.requests, vec![("entry.example".to_string(), 443)]);
     let RelayBackendConfig::ChainRelay(chain) = bootstrapped.backend else {
         panic!("expected chain config");
     };
     assert_eq!(chain.entry_server, "203.0.113.1");
     assert_eq!(chain.entry_server_name, "entry.example");
-    assert_eq!(chain.exit_server, "203.0.113.2");
+    assert_eq!(chain.exit_server, "exit.example");
     assert_eq!(chain.exit_server_name, "exit.example");
+}
+
+#[tokio::test]
+async fn relay_endpoint_bootstrap_resolves_resolved_chain_entry_and_leaves_resolved_exit_for_relay_dns() {
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry_server = "stale-entry.example".to_string();
+    chain.entry_port = 443;
+    chain.exit_server = "stale-exit.example".to_string();
+    chain.exit_port = 443;
+    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "vless_reality".to_string(),
+        profile_id: "entry".to_string(),
+        server: "entry.example".to_string(),
+        server_port: 443,
+        server_name: "entry.example".to_string(),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+    chain.exit = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "vless_reality".to_string(),
+        profile_id: "exit".to_string(),
+        server: "exit.example".to_string(),
+        server_port: 443,
+        server_name: "exit.example".to_string(),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+    let mut resolver = FakeBootstrapResolver::default();
+
+    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+
+    assert_eq!(resolver.requests, vec![("entry.example".to_string(), 443)]);
+    let RelayBackendConfig::ChainRelay(chain) = bootstrapped.backend else {
+        panic!("expected chain config");
+    };
+    let entry = chain.entry.expect("resolved entry");
+    let exit = chain.exit.expect("resolved exit");
+    assert_eq!(entry.server, "203.0.113.1");
+    assert_eq!(entry.server_name, "entry.example");
+    assert_eq!(exit.server, "exit.example");
+    assert_eq!(exit.server_name, "exit.example");
 }
 
 #[tokio::test]
@@ -928,7 +968,7 @@ fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
         RelayBackend::Hysteria2(_) => Some("hysteria2"),
         RelayBackend::Tuic(_) => Some("tuic_v5"),
         RelayBackend::VlessReality(_) | RelayBackend::Xhttp(_) => Some("vless_reality"),
-        RelayBackend::ChainRelay(_) => Some("chain_relay"),
+        RelayBackend::ChainRelay { .. } => Some("chain_relay"),
         RelayBackend::Masque(_) => Some("masque"),
         RelayBackend::ShadowTls(_) => Some("shadowtls_v3"),
         RelayBackend::Trojan(_) => Some("trojan"),
