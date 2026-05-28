@@ -9,7 +9,7 @@ parent: epic-direct-mode-diagnostic-state-machine
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-28
 ---
 
 - [ ] #task Persist direct-mode policy with revalidation #repo/RIPDPI #area/diagnostics #status/todo 🔼
@@ -34,7 +34,7 @@ Phase 5 of the diagnostic. Policy is pinned with a TTL and invalidated on enviro
 
 ## Progress
 
-The repo-owned persistence path is now partially landed:
+Verified 2026-05-28 against the current persistence path:
 
 - confirmed direct-path policy is stored with a 7-day TTL;
 - runtime ignores unconfirmed authority policy records instead of blindly replaying one-off diagnostics results;

@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-16
+updated: 2026-05-28
 ---
 
 - [ ] #task Add network-security-config with opportunistic domainEncryption #repo/RIPDPI #area/diagnostics #status/backlog 🔼
@@ -34,11 +34,13 @@ Add `res/xml/network_security_config.xml` with `<domainEncryption mode="opportun
 
 ## Current status
 
-This task is partially landed in `/Users/po4yka/GitRep/RIPDPI`:
+Verified 2026-05-28 against the current tree:
 
 - The manifest was already wired to `@xml/network_security_config`, and this pass adds `xml-v37` overlays so Android 17+ gets opportunistic `domainEncryption` without changing older-platform resources.
 - The same pass adds enabled per-domain config blocks for the current owned-stack probe hosts used by the first browser/remediation slice.
-- Still open: broader per-domain policy generation and Android 17 instrumented proof that ECH is attempted when DNS supplies a config.
+- `NscDomainEncryptionGeneratorTest` covers generated enabled, disabled, and opportunistic `domainEncryption` blocks.
+- `EchReadinessProbeInstrumentedTest` covers native HTTPS-RR plus rustls ECH negotiation when network tests are enabled; it does not prove platform Network Security Config ECH behavior.
+- Still open: Android 17 instrumented proof that the platform stack attempts ECH from Network Security Config when DNS supplies a config.
 
 ## Acceptance criteria
 
@@ -49,6 +51,7 @@ This task is partially landed in `/Users/po4yka/GitRep/RIPDPI`:
 
 ## Work log
 
+- **2026-05-28** — Docs audit refreshed the status. The static Network Security Config path and generated domain-encryption XML are covered by source/tests. The current instrumented ECH probe proves native ECH readiness, not platform Network Security Config ECH behavior, so the Android 17 platform proof remains open.
 - **2026-05-16** — Blocked on Android 17 instrumented test requiring a physical device for ECH attempt verification. Static parts (config file `res/xml/network_security_config.xml` + `res/xml-v37/network_security_config.xml` overlay, manifest reference `@xml/network_security_config`, multi-platform build passing `just build`) are landed and verified. The remaining acceptance criterion (instrumented test on Android 17 confirming ECH is attempted when DNS surfaces an ECH config) cannot run in CI — no physical Android 17 device available.
 - 2026-05-16: Reclassified to backlog — no concrete blocker recorded in frontmatter (physical device constraint is an environment limitation, not a tracked dependency slug).
 

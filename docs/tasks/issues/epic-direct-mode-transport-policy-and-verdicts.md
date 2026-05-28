@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-28
 ---
 
 - [ ] #task Epic - Direct-mode transport policy and verdicts #repo/RIPDPI #area/epic #status/todo ⏫
@@ -54,7 +54,7 @@ Aggressive QUIC packet rewriting in transparent TUN mode is expensive and brittl
 
 ## Implementation note
 
-As of 2026-04-23, the honest-verdict slice is live in `/Users/po4yka/GitRep/RIPDPI`: diagnostics now keep distinct TLS, QUIC, and likely-IP-block `NO_DIRECT_SOLUTION` causes instead of collapsing them all into `IP_BLOCK_SUSPECT`, runtime `ALL_IPS_FAILED` learning now requires a second flow before persisting the negative verdict, and the runtime enforcement path now applies the cached tuple-scoped QUIC suppression more consistently. In particular, `NO_TCP_FALLBACK` no longer leaves the runtime in the contradictory state where UDP suppression is lifted but the adaptive UDP/QUIC hint layer still behaves as if QUIC is broken for the same authority. Remaining work is now the true per-app-family `NO_TCP_FALLBACK` memory and invalidation on app package-version change.
+Verified 2026-05-28 against the current transport-policy code: diagnostics keep distinct TLS, QUIC, and likely-IP-block `NO_DIRECT_SOLUTION` causes instead of collapsing them all into `IP_BLOCK_SUSPECT`, runtime `ALL_IPS_FAILED` learning requires a second flow before persisting the negative verdict, and the runtime enforcement path applies cached tuple-scoped QUIC suppression consistently. In particular, `NO_TCP_FALLBACK` no longer leaves the runtime in the contradictory state where UDP suppression is lifted but the adaptive UDP/QUIC hint layer still behaves as if QUIC is broken for the same authority. Remaining work is the true per-app-family `NO_TCP_FALLBACK` memory and invalidation on app package-version change.
 
 ## Child tasks
 

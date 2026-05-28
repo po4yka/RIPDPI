@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-28
 ---
 
 - [ ] #task Epic - Privacy-preserving strategy learner #repo/RIPDPI #area/epic #status/todo ⏫
@@ -73,7 +73,7 @@ stop_on_first_stable_success = true
 
 ## Current status
 
-The first offline-generation slice is now landed in `/Users/po4yka/GitRep/RIPDPI`:
+Verified 2026-05-28 against the current offline analytics pipeline:
 
 - the existing offline analytics pipeline no longer stops at device-fingerprint clusters and winner mappings; it now also emits a review-gated `strategy-pack-catalog.candidate.json`
 - generated packs reuse the live strategy-pack schema and baseline catalog metadata, and append staged `offline-*` packs derived from stable winner mappings

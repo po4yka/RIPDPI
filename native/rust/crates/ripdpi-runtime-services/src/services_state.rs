@@ -25,7 +25,7 @@ pub use warmup::WarmupRequest;
 // - strategy_evolver: strategy-evolution experiment state.
 // - direct_path_learning: direct-path UDP/QUIC/TCP reachability state.
 //
-// Lock order (same as former RuntimeState): cache -> adaptive_fake_ttl -> adaptive_tuning.
+// Lock order: policy cache -> adaptive fake-TTL -> adaptive tuning.
 // Never acquire more than one simultaneously; if needed, always in this order.
 pub struct ServicesState {
     pub(crate) config: Arc<RuntimeConfig>,

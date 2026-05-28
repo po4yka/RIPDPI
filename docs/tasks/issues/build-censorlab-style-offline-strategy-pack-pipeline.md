@@ -9,7 +9,7 @@ parent: epic-privacy-preserving-strategy-learner
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-28
 ---
 
 - [ ] #task Build CensorLab-style offline strategy-pack pipeline #repo/RIPDPI #area/service #status/todo 🔼
@@ -34,7 +34,7 @@ Generate strategy packs in an emulator pipeline, not only from field failures. G
 
 ## Current status
 
-This task is partially landed in `/Users/po4yka/GitRep/RIPDPI`:
+Verified 2026-05-28 against the current offline analytics pipeline:
 
 - the repo-local offline analytics pipeline now emits `strategy-pack-catalog.candidate.json` during `publish` / `run-all`
 - generated catalogs conform to the current strategy-pack schema and preserve baseline metadata while appending staged `offline-*` packs derived from stable winner mappings

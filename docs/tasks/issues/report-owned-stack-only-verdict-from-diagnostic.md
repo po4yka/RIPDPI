@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-28
 ---
 
 - [ ] #task Report OWNED_STACK_ONLY verdict from diagnostic #repo/RIPDPI #area/diagnostics #status/todo 🔼
@@ -34,17 +34,19 @@ When transparent arms (A3–A8) all fail but an owned-stack arm (A9/A10) works, 
 
 ## Current status
 
-This task is partially landed in `/Users/po4yka/GitRep/RIPDPI`:
+Verified 2026-05-28 against the current diagnostics and policy code:
 
+- `DirectModeOutcome.OWNED_STACK_ONLY` exists in the shared transport-policy model and round-trips through the versioned envelope.
+- `DirectModePolicySupport` derives `outcome = OWNED_STACK_ONLY` and `DirectModeReasonCode.OWNED_STACK_REQUIRED` from owned-stack-only diagnostic signals.
 - The diagnostics UI now treats `OWNED_STACK_ONLY` as a real outcome and offers a direct action to open the authority in the RIPDPI browser.
 - Session-row projections carry the launch URL and owned-stack-only flag so remediation can be derived from persisted diagnostic output.
-- Remaining work still belongs to the direct-mode state-machine / policy path: owning the final classifier arm mapping, persisting the verdict as a reusable transport-policy outcome for future flows, and returning a structured transparent-mode-not-supported result to third-party traffic.
+- Remaining work still belongs to the transparent-mode handoff: the pure orchestrator currently reports executed owned-stack arms and pin confirmation, but does not emit a final `OWNED_STACK_ONLY` `OrchestratorResult.verdict`; third-party transparent traffic still needs a structured not-supported result.
 
 ## Acceptance criteria
 
-- [ ] Diagnostic's `classify_success` returns `OWNED_STACK_ONLY` when the winning arm is A9 or A10 and no transparent arm succeeded.
+- [ ] Diagnostic orchestrator emits `OWNED_STACK_ONLY` when the winning arm is A9 or A10 and no transparent arm succeeded.
 - [x] UI/diagnostics surface: "Transparent mode: no / Owned-stack mode: yes" with a direct action to open the URL in the in-app browser.
-- [ ] Persisted policy sets `outcome = OWNED_STACK_ONLY` on the `TransportPolicy` so subsequent flows skip transparent attempts.
+- [x] Persisted policy sets `outcome = OWNED_STACK_ONLY` on the `TransportPolicy` when owned-stack-only diagnostic evidence is present.
 - [ ] Third-party apps hitting this host in transparent mode get a structured "not supported in transparent mode" result, not a silent failure.
 
 ## Links

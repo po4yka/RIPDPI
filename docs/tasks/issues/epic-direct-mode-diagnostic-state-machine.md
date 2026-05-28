@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-28
 ---
 
 - [ ] #task Epic - Direct-mode diagnostic state machine #repo/RIPDPI #area/epic #status/todo ⏫
@@ -53,7 +53,7 @@ DiagnosticResult = TRANSPARENT_WORKS
 - **In scope:** direct-mode product-mode boundary, `DiagnosticResult` types and classification taxonomy, Phase 0 passive observation, Phases 1–4 orchestration, Phase 5 persistence and revalidation, Phase 6 variant rotation, integration tests per result class.
 - **Out of scope:** subsystem internals (owned by the other epics).
 
-## Current landing
+## Verified current state
 
 The repo-owned direct-mode state machine is now substantially more real, but the epic is still not fully closed:
 
@@ -62,15 +62,16 @@ The repo-owned direct-mode state machine is now substantially more real, but the
 - persisted `strategyRecommendation` is available again to the Home audit workflow, so the subsystem outputs now survive finalization and storage;
 - diagnostics finalization now consults the last stored authority policy before pinning a new verdict, which gives the current implementation a lightweight Phase 0 passive prior from the last confirmed flow;
 - persisted direct-mode policy now honors `confirm-before-pin`: transparent / owned-stack outcomes need corroborating evidence or a matching prior, while negative outcomes need repeated active failures before they become stored policy;
-- Phase 5 persistence is now partially landed in repo scope: stored authority policy has a 7-day TTL, runtime ignores unconfirmed entries, and three consecutive revalidation failures retire the cached policy.
+- Phase 5 persistence is partially implemented in repo scope: stored authority policy has a 7-day TTL, runtime ignores unconfirmed entries, and three consecutive revalidation failures retire the cached policy.
+- Phase 1 through Phase 4 now have a pure `DirectModeOrchestrator` dispatcher with hard `AttemptBudget` enforcement and a source-backed per-class candidate-arm table.
 
-Still open: the explicit ranked-arm dispatcher, hard attempt-budget enforcement, the exact class-to-arm ladder from the plan, ASN / HTTPS-RR-specific invalidation triggers, and deterministic integration coverage for every result class.
+Still open: wiring the pure orchestrator to the production probe executors, emitting a final `OrchestratorResult.verdict`, ASN / HTTPS-RR-specific invalidation triggers, and deterministic integration coverage for every result class.
 
 ## Ship definition
 
 - [x] One diagnostic run produces exactly one `DiagnosticResult` variant, each with a structured reason.
-- [ ] Attempt budget hard-enforced (delegated to [[Enforce diagnostic attempt budget]]).
-- [ ] Per-class arm lists match the plan exactly:
+- [x] Attempt budget hard-enforced in `DirectModeOrchestrator` and covered by `AttemptBudgetEnforcementTest`.
+- [x] Per-class arm lists match the plan exactly and are covered by `PerClassArmListTest`:
 - `DNS_BLOCK`: A1, A3, A4, A5, A6, A10, A9
 - `SNI_TLS_SUSPECT`: A3, A5, A6, A7, A8, A10, A9
 - `QUIC_BLOCK_SUSPECT`: A3, A4, A5, A6, A9
@@ -99,9 +100,9 @@ Still open: the explicit ranked-arm dispatcher, hard attempt-budget enforcement,
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 
-## Current landing status
+## Remediation status
 
-As of 2026-04-23, the transport-specific remediation child task is partially landed in `/Users/po4yka/GitRep/RIPDPI`: Diagnostics and Home now branch from typed direct-mode verdicts into owned-stack, browser-camouflage relay, QUIC-heavy relay, or "no reliable relay hint" ladders instead of one generic relay fallback. The remaining gap in this epic area is config-side unification: relay preset suggestions still use their older heuristic path rather than the same shared remediation selector.
+As of 2026-05-28, Diagnostics and Home branch from typed direct-mode verdicts into owned-stack, browser-camouflage relay, QUIC-heavy relay, or "no reliable relay hint" ladders instead of one generic relay fallback. The remaining gap in this epic area is config-side unification: relay preset suggestions still use their older heuristic path rather than the same shared remediation selector.
 
 ## Dependencies
 
