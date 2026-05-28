@@ -119,6 +119,8 @@ RIPDPI does not record:
 
 Relay traffic privacy depends on the relay endpoint and profile you configure.
 
+Multi-hop relay chains are scoped to two TCP hops for the current UX and runtime contract: entry and exit. Chains longer than two hops are a follow-up because the stored profile model, native wire schema, telemetry, and editor are currently fixed to entry/exit fields. UDP through a chain is intentionally unsupported (`udpCapable=false`). A chain only improves anti-correlation when hops are in different trust domains; using the same operator or jurisdiction for both hops can create false confidence and must be treated as a warning condition in the UX.
+
 ## Build
 
 Requirements: JDK 17, Android SDK, Android NDK `29.0.14206865`, Rust toolchain `1.94.0`, Android Rust targets for the needed ABIs.
