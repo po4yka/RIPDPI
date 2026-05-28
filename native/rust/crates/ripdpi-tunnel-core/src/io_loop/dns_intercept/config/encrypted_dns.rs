@@ -4,7 +4,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport};
-use ripdpi_tunnel_config::Config;
+use ripdpi_tunnel_config::{Config, MapDnsConfig};
 use rustls::pki_types::{pem::PemObject, CertificateDer};
 use rustls::RootCertStore;
 
@@ -55,7 +55,7 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
             dnscrypt_provider_name: mapdns.encrypted_dns_dnscrypt_provider_name.clone(),
             dnscrypt_public_key: mapdns.encrypted_dns_dnscrypt_public_key.clone(),
         },
-        EncryptedDnsTransport::Direct,
+        mapdns_resolver_transport(config, mapdns),
         Duration::from_millis(u64::from(mapdns.dns_query_timeout_ms)),
         tls_roots,
         encrypted_dns_connect_hooks(config.misc.protect_path.clone()),
@@ -65,6 +65,14 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
     })?;
 
     Ok(Some(resolver))
+}
+
+pub(in crate::io_loop) fn mapdns_resolver_transport(config: &Config, mapdns: &MapDnsConfig) -> EncryptedDnsTransport {
+    if mapdns.route_dns_through_socks5 {
+        EncryptedDnsTransport::Socks5 { host: config.socks5.address.clone(), port: config.socks5.port }
+    } else {
+        EncryptedDnsTransport::Direct
+    }
 }
 
 fn parse_encrypted_dns_protocol(value: &str) -> Option<EncryptedDnsProtocol> {

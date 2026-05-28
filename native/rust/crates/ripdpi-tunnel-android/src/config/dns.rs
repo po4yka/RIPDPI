@@ -26,5 +26,6 @@ pub(crate) fn mapdns_config_from_payload(payload: &TunnelConfigPayload) -> Optio
         dns_query_timeout_ms: payload.dns_query_timeout_ms.unwrap_or(4_000),
         resolver_fallback_active: payload.resolver_fallback_active.unwrap_or(false),
         resolver_fallback_reason: payload.resolver_fallback_reason.clone(),
+        route_dns_through_socks5: payload.route_dns_through_socks5.unwrap_or(false),
     })
 }

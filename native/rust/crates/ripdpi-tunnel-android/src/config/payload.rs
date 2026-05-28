@@ -51,6 +51,7 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) dns_query_timeout_ms: Option<u32>,
     pub(crate) resolver_fallback_active: Option<bool>,
     pub(crate) resolver_fallback_reason: Option<String>,
+    pub(crate) route_dns_through_socks5: Option<bool>,
     pub(crate) strategy_chain_yaml: Option<String>,
     pub(crate) protect_path: Option<String>,
     pub(crate) root_helper_socket_path: Option<String>,

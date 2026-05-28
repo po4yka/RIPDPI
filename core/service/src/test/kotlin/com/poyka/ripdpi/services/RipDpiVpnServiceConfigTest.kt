@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -27,7 +28,7 @@ class RipDpiVpnServiceConfigTest {
     fun buildTun2SocksConfigIncludesIpv6TunnelAddressWhenEnabled() {
         val config =
             RipDpiVpnService.buildTun2SocksConfig(
-                activeDns = plainDns("2606:4700:4700::1111"),
+                dnsPlan = vpnTunnelDnsPlan(plainDns("2606:4700:4700::1111"), forceTunnelDns = false),
                 overrideReason = null,
                 localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = true,
@@ -61,7 +62,7 @@ class RipDpiVpnServiceConfigTest {
         val tlsRootsPem = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----"
         val config =
             RipDpiVpnService.buildTun2SocksConfig(
-                activeDns = encryptedDns(),
+                dnsPlan = vpnTunnelDnsPlan(encryptedDns(), forceTunnelDns = false),
                 overrideReason = "dns_probe_failed",
                 localProxyEndpoint =
                     localProxyEndpoint.copy(port = 2080, password = TestRotatedLocalProxyAuth),
@@ -86,6 +87,27 @@ class RipDpiVpnServiceConfigTest {
         val routePlan = RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled = false)
         assertTrue(routePlan.addresses.none { it.address.contains(":") })
         assertTrue(routePlan.routes.none { it.address == "::" })
+    }
+
+    @Test
+    fun buildTun2SocksConfigRoutesPlainDnsThroughMapDnsWhenRelayDnsIsActive() {
+        val defaultEncryptedDns = canonicalDefaultEncryptedDnsSettings()
+        val config =
+            RipDpiVpnService.buildTun2SocksConfig(
+                dnsPlan = vpnTunnelDnsPlan(plainDns("8.8.8.8"), forceTunnelDns = true),
+                overrideReason = null,
+                localProxyEndpoint = localProxyEndpoint.copy(port = 2080),
+                ipv6Enabled = false,
+            )
+
+        assertEquals("198.18.0.53", config.mapdnsAddress)
+        assertEquals(53, config.mapdnsPort)
+        assertEquals(defaultEncryptedDns.providerId, config.encryptedDnsResolverId)
+        assertEquals(defaultEncryptedDns.encryptedDnsProtocol, config.encryptedDnsProtocol)
+        assertEquals(defaultEncryptedDns.encryptedDnsHost, config.encryptedDnsHost)
+        assertEquals(defaultEncryptedDns.encryptedDnsPort, config.encryptedDnsPort)
+        assertEquals(defaultEncryptedDns.encryptedDnsDohUrl, config.encryptedDnsDohUrl)
+        assertTrue(config.routeDnsThroughSocks5 == true)
     }
 
     @Test

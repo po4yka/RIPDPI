@@ -8,6 +8,8 @@ mod worker;
 
 use std::net::SocketAddr;
 
+#[cfg(test)]
+pub(super) use self::config::mapdns_resolver_transport;
 pub(super) use self::config::{build_encrypted_dns_resolver, parse_dns_cache, parse_mapdns_runtime};
 pub(super) use self::mapping::resolve_mapped_target;
 pub(super) use self::responses::handle_dns_result;

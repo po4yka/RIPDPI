@@ -32,6 +32,17 @@ class VpnDnsBuilderTest {
     }
 
     @Test
+    fun `relay routed dns returns interceptor address even for plain profile`() {
+        val result =
+            vpnDnsAddressForProfile(
+                dnsMode = "plain_udp",
+                plainDnsIp = "8.8.8.8",
+                forceTunnelDns = true,
+            )
+        assertEquals(VpnInterceptorDnsAddress, result)
+    }
+
+    @Test
     fun `encrypted profile dns address is always non-blank`() {
         val result =
             vpnDnsAddressForProfile(
@@ -55,6 +66,11 @@ class VpnDnsBuilderTest {
     @Test
     fun `isSecureVpnDnsProfile returns false for system mode`() {
         assertFalse(isSecureVpnDnsProfile("system"))
+    }
+
+    @Test
+    fun `isSecureVpnDnsProfile returns true when relay routes dns over tunnel`() {
+        assertTrue(isSecureVpnDnsProfile("plain_udp", forceTunnelDns = true))
     }
 
     @Test

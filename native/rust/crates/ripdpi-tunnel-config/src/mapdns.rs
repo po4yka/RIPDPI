@@ -26,6 +26,8 @@ pub struct MapDnsConfig {
     #[serde(default)]
     pub resolver_fallback_active: bool,
     pub resolver_fallback_reason: Option<String>,
+    #[serde(default)]
+    pub route_dns_through_socks5: bool,
 }
 
 fn default_mapdns_port() -> u16 {

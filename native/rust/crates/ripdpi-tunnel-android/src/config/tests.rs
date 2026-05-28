@@ -117,6 +117,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 dns_query_timeout_ms: None,
                 resolver_fallback_active: None,
                 resolver_fallback_reason: None,
+                route_dns_through_socks5: None,
                 strategy_chain_yaml: None,
                 protect_path: None,
                 root_helper_socket_path: None,
@@ -238,6 +239,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 dns_query_timeout_ms: None,
                 resolver_fallback_active: None,
                 resolver_fallback_reason: None,
+                route_dns_through_socks5: None,
                 strategy_chain_yaml: None,
                 protect_path: None,
                 root_helper_socket_path: None,
@@ -271,6 +273,17 @@ fn builds_config_from_json_payload() {
         config.mapdns.and_then(|mapdns| mapdns.encrypted_dns_tls_roots_pem),
         Some("-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----".to_string()),
     );
+}
+
+#[test]
+fn maps_relay_dns_route_flag_to_mapdns_config() {
+    let mut payload = sample_payload();
+    payload.mapdns_address = Some("198.18.0.53".to_string());
+    payload.route_dns_through_socks5 = Some(true);
+
+    let config = config_from_payload(payload).expect("config");
+
+    assert!(config.mapdns.expect("mapdns").route_dns_through_socks5);
 }
 
 #[test]

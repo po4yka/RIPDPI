@@ -290,6 +290,7 @@ data class Tun2SocksConfig(
     val dnsQueryTimeoutMs: Int? = null,
     val resolverFallbackActive: Boolean? = null,
     val resolverFallbackReason: String? = null,
+    val routeDnsThroughSocks5: Boolean? = null,
     val strategyChainYaml: String? = null,
     val protectPath: String? = null,
     val rootHelperSocketPath: String? = null,

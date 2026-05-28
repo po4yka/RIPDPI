@@ -5,7 +5,6 @@ import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 
 internal class VpnTunnelRuntime(
@@ -16,10 +15,6 @@ internal class VpnTunnelRuntime(
     private val protectPath: String? = null,
     private val rootHelperSocketPathProvider: () -> String? = { null },
 ) {
-    private companion object {
-        private const val MapDnsAddress = "198.18.0.53"
-    }
-
     private var tun2SocksBridge: Tun2SocksBridge? = null
     private var tunSession: VpnTunnelSession? = null
     private var tunnelStartCount: Int = 0
@@ -42,15 +37,16 @@ internal class VpnTunnelRuntime(
         overrideReason: String?,
         logContext: RipDpiLogContext?,
         localProxyEndpoint: LocalProxyEndpoint,
+        forceTunnelDns: Boolean = false,
     ) {
         check(tunSession == null) { "VPN field not null" }
 
         val settings = appSettingsRepository.snapshot()
-        val dns = if (activeDns.mode == DnsModeEncrypted) MapDnsAddress else activeDns.dnsIp
+        val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns)
         val ipv6 = settings.ipv6Enable
         val config =
             RipDpiVpnService.buildTun2SocksConfig(
-                activeDns = activeDns,
+                dnsPlan = dnsPlan,
                 overrideReason = overrideReason,
                 localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = ipv6,
@@ -61,7 +57,7 @@ internal class VpnTunnelRuntime(
                 rootHelperSocketPath = rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
             )
 
-        val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dns, ipv6)
+        val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dnsPlan.builderDnsAddress, ipv6)
         try {
             val tunnelBridge = tun2SocksBridgeFactory.create()
             tunnelBridge.start(config, tunnelSession.tunFd)

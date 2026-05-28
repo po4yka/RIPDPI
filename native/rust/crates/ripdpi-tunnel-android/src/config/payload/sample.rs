@@ -33,6 +33,7 @@ pub(crate) fn sample_payload() -> TunnelConfigPayload {
         dns_query_timeout_ms: None,
         resolver_fallback_active: None,
         resolver_fallback_reason: None,
+        route_dns_through_socks5: None,
         strategy_chain_yaml: None,
         protect_path: None,
         root_helper_socket_path: None,

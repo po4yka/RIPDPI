@@ -12,8 +12,6 @@ import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.core.service.R
-import com.poyka.ripdpi.data.ActiveDnsSettings
-import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
@@ -211,7 +209,7 @@ class RipDpiVpnService :
         private const val DNS_QUERY_TIMEOUT_MS = 4_000
 
         internal fun buildTun2SocksConfig(
-            activeDns: ActiveDnsSettings,
+            dnsPlan: VpnTunnelDnsPlan,
             overrideReason: String?,
             localProxyEndpoint: LocalProxyEndpoint,
             ipv6Enabled: Boolean,
@@ -220,62 +218,65 @@ class RipDpiVpnService :
             strategyChainYaml: String? = null,
             protectPath: String? = null,
             rootHelperSocketPath: String? = null,
-        ): Tun2SocksConfig =
-            Tun2SocksConfig(
+        ): Tun2SocksConfig {
+            val tunnelDns = dnsPlan.resolverDns
+            val mapDnsEnabled = dnsPlan.mapDnsEnabled
+            return Tun2SocksConfig(
                 tunnelMtu = defaultTun2SocksTunnelMtu,
                 tunnelIpv4 = TUNNEL_IPV4_CIDR,
                 tunnelIpv6 = if (ipv6Enabled) TUNNEL_IPV6_CIDR else null,
                 socks5Address = localProxyEndpoint.host,
                 socks5Port = localProxyEndpoint.port,
                 socks5Udp = "udp",
-                mapdnsAddress = if (activeDns.mode == DnsModeEncrypted) MAPDNS_ADDRESS else null,
-                mapdnsPort = if (activeDns.mode == DnsModeEncrypted) MAPDNS_PORT else null,
-                mapdnsNetwork = if (activeDns.mode == DnsModeEncrypted) MAPDNS_NETWORK else null,
-                mapdnsNetmask = if (activeDns.mode == DnsModeEncrypted) MAPDNS_NETMASK else null,
-                mapdnsCacheSize = if (activeDns.mode == DnsModeEncrypted) MAPDNS_CACHE_SIZE else null,
-                encryptedDnsResolverId = if (activeDns.mode == DnsModeEncrypted) activeDns.providerId else null,
-                encryptedDnsProtocol = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsProtocol else null,
-                encryptedDnsHost = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsHost else null,
-                encryptedDnsPort = if (activeDns.mode == DnsModeEncrypted) activeDns.encryptedDnsPort else null,
+                mapdnsAddress = if (mapDnsEnabled) MAPDNS_ADDRESS else null,
+                mapdnsPort = if (mapDnsEnabled) MAPDNS_PORT else null,
+                mapdnsNetwork = if (mapDnsEnabled) MAPDNS_NETWORK else null,
+                mapdnsNetmask = if (mapDnsEnabled) MAPDNS_NETMASK else null,
+                mapdnsCacheSize = if (mapDnsEnabled) MAPDNS_CACHE_SIZE else null,
+                encryptedDnsResolverId = if (mapDnsEnabled) tunnelDns.providerId else null,
+                encryptedDnsProtocol = if (mapDnsEnabled) tunnelDns.encryptedDnsProtocol else null,
+                encryptedDnsHost = if (mapDnsEnabled) tunnelDns.encryptedDnsHost else null,
+                encryptedDnsPort = if (mapDnsEnabled) tunnelDns.encryptedDnsPort else null,
                 encryptedDnsTlsServerName =
-                    if (activeDns.mode == DnsModeEncrypted) {
-                        activeDns.encryptedDnsTlsServerName
+                    if (mapDnsEnabled) {
+                        tunnelDns.encryptedDnsTlsServerName
                     } else {
                         null
                     },
                 encryptedDnsBootstrapIps =
-                    if (activeDns.mode == DnsModeEncrypted) {
-                        activeDns.encryptedDnsBootstrapIps
+                    if (mapDnsEnabled) {
+                        tunnelDns.encryptedDnsBootstrapIps
                     } else {
                         emptyList()
                     },
                 encryptedDnsDohUrl =
-                    if (activeDns.mode == DnsModeEncrypted) {
-                        activeDns.encryptedDnsDohUrl
+                    if (mapDnsEnabled) {
+                        tunnelDns.encryptedDnsDohUrl
                     } else {
                         null
                     },
                 encryptedDnsDnscryptProviderName =
-                    if (activeDns.mode == DnsModeEncrypted) {
-                        activeDns.encryptedDnsDnscryptProviderName
+                    if (mapDnsEnabled) {
+                        tunnelDns.encryptedDnsDnscryptProviderName
                     } else {
                         null
                     },
                 encryptedDnsDnscryptPublicKey =
-                    if (activeDns.mode == DnsModeEncrypted) {
-                        activeDns.encryptedDnsDnscryptPublicKey
+                    if (mapDnsEnabled) {
+                        tunnelDns.encryptedDnsDnscryptPublicKey
                     } else {
                         null
                     },
                 encryptedDnsTlsRootsPem =
-                    if (activeDns.mode == DnsModeEncrypted) {
+                    if (mapDnsEnabled) {
                         encryptedDnsTlsRootsPem?.takeIf { it.isNotBlank() }
                     } else {
                         null
                     },
-                dnsQueryTimeoutMs = if (activeDns.mode == DnsModeEncrypted) DNS_QUERY_TIMEOUT_MS else null,
+                dnsQueryTimeoutMs = if (mapDnsEnabled) DNS_QUERY_TIMEOUT_MS else null,
                 resolverFallbackActive = overrideReason != null,
                 resolverFallbackReason = overrideReason,
+                routeDnsThroughSocks5 = dnsPlan.routeDnsThroughSocks5,
                 strategyChainYaml = strategyChainYaml,
                 protectPath = protectPath,
                 rootHelperSocketPath = rootHelperSocketPath,
@@ -283,6 +284,7 @@ class RipDpiVpnService :
                 username = localProxyEndpoint.username,
                 password = localProxyEndpoint.password,
             )
+        }
 
         internal fun vpnTunnelRoutePlan(ipv6Enabled: Boolean): VpnTunnelRoutePlan =
             VpnTunnelRoutePlan(

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.relayConfigOrNull
 import java.util.UUID
 
 /**
@@ -113,6 +114,7 @@ internal class VpnRuntimeCompositionCoordinator(
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
             localProxyEndpoint = localProxyEndpoint,
+            forceTunnelDns = resolution.proxyPreferences.relayConfigOrNull() != null,
         )
         updateRuntimeDnsState(session, resolution)
     }

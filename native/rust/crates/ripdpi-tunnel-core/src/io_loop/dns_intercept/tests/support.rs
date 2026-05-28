@@ -46,6 +46,7 @@ pub(super) fn mapdns_config(cache_size: u32) -> ripdpi_tunnel_config::MapDnsConf
         dns_query_timeout_ms: 4000,
         resolver_fallback_active: false,
         resolver_fallback_reason: None,
+        route_dns_through_socks5: false,
     }
 }
 

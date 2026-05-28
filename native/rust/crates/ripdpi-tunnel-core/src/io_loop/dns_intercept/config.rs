@@ -10,6 +10,8 @@ use crate::dns_cache::DnsCache;
 use super::MapDnsRuntime;
 
 pub(in crate::io_loop) use encrypted_dns::build_encrypted_dns_resolver;
+#[cfg(test)]
+pub(in crate::io_loop) use encrypted_dns::mapdns_resolver_transport;
 
 pub(in crate::io_loop) fn parse_mapdns_runtime(config: &Config) -> io::Result<Option<MapDnsRuntime>> {
     let Some(mapdns) = &config.mapdns else {

@@ -24,10 +24,14 @@ internal const val VpnInterceptorDnsAddress = "198.18.0.53"
 internal fun vpnDnsAddressForProfile(
     dnsMode: String,
     plainDnsIp: String,
-): String = if (dnsMode == DnsModeEncrypted) VpnInterceptorDnsAddress else plainDnsIp
+    forceTunnelDns: Boolean = false,
+): String = if (isSecureVpnDnsProfile(dnsMode, forceTunnelDns)) VpnInterceptorDnsAddress else plainDnsIp
 
 /**
  * Returns true when [dnsMode] identifies a secure (encrypted) VPN profile
  * that must use the interceptor DNS and may never fall back to the system resolver.
  */
-internal fun isSecureVpnDnsProfile(dnsMode: String): Boolean = dnsMode == DnsModeEncrypted
+internal fun isSecureVpnDnsProfile(
+    dnsMode: String,
+    forceTunnelDns: Boolean = false,
+): Boolean = dnsMode == DnsModeEncrypted || forceTunnelDns
