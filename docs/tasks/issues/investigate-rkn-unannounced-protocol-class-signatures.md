@@ -12,7 +12,7 @@ created: 2026-05-22
 updated: 2026-05-22
 source_wiki_pages:
   - "[[rkn-protocol-class-blocking-shift-dec-2025]]"
-linked_task: ../../../../ripdpi-vpn-deploy/docs/tasks/issues/investigate-rkn-unannounced-protocol-class-signatures-deploy.md
+linked_task: null
 ---
 
 - [ ] #task Investigate RKN unannounced protocol-class signatures #repo/RIPDPI #area/transport #status/backlog 🔼

@@ -26,13 +26,14 @@ See `wire.rs` for the encoder; the response header is one version byte + one add
 
 ## REALITY TLS handshake
 
-1. Generate ephemeral X25519 keypair.
-2. ECDH shared secret with the server's static public key.
-3. Derive auth key via HKDF-SHA256 with `client_random[20..]` as salt.
-4. Encrypt and inject the session_id into the ClientHello.
-5. Disable standard cert verification (REALITY uses its own auth model).
+1. Build a BoringSSL client connection with a vendored ClientHello callback hook.
+2. The callback reads the TLS 1.3 X25519 key_share private key via `SSL_handshake_get_x25519_private_key`.
+3. It derives the REALITY auth key with HKDF-SHA256 using `client_random[..20]` as salt.
+4. It seals the 32-byte `session_id` with AES-256-GCM, using `client_random[20..32]` as nonce and the raw ClientHello as AAD.
+5. It patches the serialized ClientHello before BoringSSL adds it to the transcript.
+6. Standard certificate verification is disabled because REALITY uses its own authentication model.
 
-Six BoringSSL FFI symbols are declared locally (see `reality.rs` extern block). Pinning policy in `docs/tasks/issues/pin-boringssl-symbols-with-build-time-existence-check.md`.
+The vendored BoringSSL hook surface is declared in `reality_hook.rs`; `reality_seal.rs` owns the HKDF/AES-GCM sealing logic. Pinning policy lives in `docs/tasks/issues/pin-boringssl-symbols-with-build-time-existence-check.md`.
 
 ## XTLS-Vision
 
@@ -42,7 +43,7 @@ Vision is an addon string carried in the request `Addons` field. It controls TLS
 
 - VLESS-mux protocol may lag upstream framing tweaks; see `docs/tasks/issues/add-vless-mux-conformance-tests-against-xray-core.md`.
 - UDP forwarding (`Command = 0x02`) is not implemented; only TCP CONNECT.
-- Some flow variants (e.g. `xtls-rprx-vision-udp443`) are not covered; see `docs/tasks/issues/add-vless-flow-xtls-rprx-vision-udp443-support.md`.
+- `VlessRealityConfig::flow` supports empty flow, `xtls-rprx-vision`, and `xtls-rprx-vision-udp443`; Android profile UX may expose only a subset.
 
 ## Non-goals
 

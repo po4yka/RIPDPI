@@ -1,6 +1,6 @@
 # Protocol Loopback Harness — Design
 
-> Status: **design**. Authored: 2026-05-15.
+> Status: **scaffold implemented; per-protocol loopbacks pending**. Authored: 2026-05-15, refreshed 2026-05-28 against `native/rust/crates/ripdpi-protocol-loopback`.
 
 ## Why this design exists
 
@@ -15,37 +15,25 @@ Building one harness shared across these four tasks is much cheaper than buildin
 
 ## Shape
 
-A new dev-only crate `ripdpi-protocol-loopback` (under `native/rust/crates/`) gated by a `loopback-servers` feature flag.
+The dev-only crate `ripdpi-protocol-loopback` now exists under `native/rust/crates/`. It is a workspace crate marked `publish = false`; it currently provides the shared `ProtocolLoopbackServer` trait and a plain-TCP `EchoLoopback` test fixture. Protocol-specific loopbacks are still pending.
 
 ```
 ripdpi-protocol-loopback/
-├── Cargo.toml             # dev-deps only; never linked into release
-├── src/
-│   ├── lib.rs             # pub use re-exports
-│   ├── vless.rs           # echo-server + cover handshake
-│   ├── xhttp.rs           # echoes on the xhttp transport
-│   ├── hysteria2.rs       # QUIC loopback w/ Salamander
-│   ├── tuic.rs            # TUIC v5 loopback
-│   ├── shadowtls.rs       # v3 cover handshake + framed echo
-│   ├── naiveproxy.rs      # subprocess fixture
-│   ├── ws_tunnel.rs       # WS+MTProto loopback
-│   └── masque.rs          # h3-CONNECT echo
+├── Cargo.toml
+└── src/
+    └── lib.rs             # ProtocolLoopbackServer + EchoLoopback
 ```
 
-Each module exposes:
+The current trait exposes:
 
 ```rust
-pub struct ProtocolLoopbackServer { /* opaque */ }
-
-impl ProtocolLoopbackServer {
-    pub async fn start() -> io::Result<Self>;
-    pub fn local_addr(&self) -> SocketAddr;
-    /// Echoes back exactly what the client sends, framed/wrapped
-    /// per the protocol. Bounded so tests can assert payload integrity.
-    pub async fn run_echo(&self, max_bytes: usize) -> io::Result<()>;
-    pub async fn shutdown(self);
+pub trait ProtocolLoopbackServer: Send {
+    fn local_addr(&self) -> SocketAddr;
+    fn protocol_id(&self) -> &'static str;
 }
 ```
+
+`EchoLoopback::start(max_bytes_per_connection)` starts the plain-TCP echo fixture and owns shutdown via an explicit `shutdown()` method or `Drop`.
 
 ## What this unblocks
 
@@ -70,8 +58,8 @@ impl ProtocolLoopbackServer {
 
 ## Sequencing
 
-1. Land an empty `ripdpi-protocol-loopback` crate scaffold (this doc + Cargo.toml stub).
-2. First module: `tuic.rs` — simplest non-async-cover-handshake server, drives the QUIC PMTU task immediately.
+1. ~~Land the `ripdpi-protocol-loopback` crate scaffold~~ — done; the crate contains `ProtocolLoopbackServer` and `EchoLoopback`.
+2. Add the first protocol module, likely `tuic.rs`, to drive the QUIC PMTU task.
 3. Then `hysteria2.rs` to share the Quinn endpoint.
 4. Then the higher-cover-handshake protocols (VLESS, xHTTP, ShadowTLS).
 5. Finally MASQUE and ws-tunnel which need additional middleware (h3, fake-SNI gating).

@@ -44,9 +44,5 @@ Salamander is XOR-style obfuscation keyed by a server-supplied key. Reference ve
 
 ## Links
 
-- [[tag-protocol-contract-fixtures-by-upstream-version]]
-- [[add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols]]
-
-## Work log
-
-- 2026-05-16: Dropped orphaned blocker reference 'add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols' (file does not exist).
+- `contract-fixtures/`
+- `docs/native/upstream-spec-watch-runbook.md`

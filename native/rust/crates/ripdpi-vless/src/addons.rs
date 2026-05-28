@@ -28,12 +28,10 @@ pub const VISION_ADDONS: &[u8] = &[
 /// This variant signals to the server that the client wants UDP-443
 /// behavior on top of Vision; the wire encoding is otherwise identical.
 ///
-/// **Selecting which variant to send** is a per-profile decision that
-/// the engine must make; this crate exposes both byte slices and the
-/// caller picks. Until that selection is wired through the profile
-/// editor, default flow remains `VISION_ADDONS` and the UDP-443 path
-/// is opt-in via configuration. See
-/// `docs/tasks/issues/add-vless-flow-xtls-rprx-vision-udp443-support.md`.
+/// **Selecting which variant to send** is a per-profile decision. This crate
+/// exposes all supported byte slices and [`crate::config::VlessRealityConfig`]
+/// carries the selected flow. The default remains `VISION_ADDONS` for
+/// compatibility; Android profile UX may expose only a subset.
 pub const VISION_UDP443_ADDONS: &[u8] = &[
     0x0a, 0x17, // field 1, length 23
     b'x', b't', b'l', b's', b'-', b'r', b'p', b'r', b'x', b'-', b'v', b'i', b's', b'i', b'o', b'n', b'-', b'u', b'd',

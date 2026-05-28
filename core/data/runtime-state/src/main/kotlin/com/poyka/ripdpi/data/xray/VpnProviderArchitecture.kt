@@ -5,11 +5,12 @@ package com.poyka.ripdpi.data.xray
  *
  * - [Native] — the original RIPDPI native Rust/WireGuard provider managed by
  *   `:core:service` directly.
- * - [Xray] — the embedded Xray-core provider routed through a local inbound;
- *   managed by the Xray adapter module generated from `:core:engine`.
+ * - [Xray] — reserved for the embedded Xray-core provider routed through a
+ *   local inbound. The adapter/runtime work is tracked separately and is not
+ *   implemented in `:core:engine` yet.
  *
- * Both provider kinds share the same [VpnProviderState] machine so that the
- * VPN service layer needs no provider-specific lifecycle branches.
+ * Both provider kinds share the same [VpnProviderState] machine in the model.
+ * The VPN service layer does not yet select or run the Xray provider.
  */
 enum class VpnProviderKind {
     Native,
@@ -89,8 +90,9 @@ sealed class XrayTunnelTopology {
 /**
  * Runtime configuration snapshot for the Xray provider.
  *
- * Immutable; produced by the Xray adapter and consumed by `:core:service`
- * to parameterise the VPN session without reaching into libXray internals.
+ * Immutable; intended to be produced by the future Xray adapter and consumed by
+ * `:core:service` to parameterise the VPN session without reaching into
+ * libXray internals.
  *
  * @param tunnelTopology Chosen tunnel topology. Defaults to [XrayTunnelTopology.TunToLocalInbound].
  * @param localInboundPort Loopback port used by [XrayTunnelTopology.TunToLocalInbound].

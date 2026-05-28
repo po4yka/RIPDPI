@@ -12,7 +12,7 @@ created: 2026-05-22
 updated: 2026-05-22
 source_wiki_pages:
   - "[[hysteria2-tuic]]"
-linked_task: ../../../../ripdpi-vpn-deploy/docs/tasks/issues/add-hysteria-realm-rendezvous-role.md
+linked_task: null
 ---
 
 - [ ] #task Wire Hysteria Realm STUN-discovered NAT traversal #repo/RIPDPI #area/transport #status/backlog 🔼

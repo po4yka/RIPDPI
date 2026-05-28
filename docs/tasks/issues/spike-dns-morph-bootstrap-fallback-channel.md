@@ -12,7 +12,7 @@ created: 2026-05-22
 updated: 2026-05-22
 source_wiki_pages:
   - "[[dns-morph-bootstrap]]"
-linked_task: ../../../../ripdpi-vpn-deploy/docs/tasks/issues/add-dns-morph-bridge-ansible-role.md
+linked_task: null
 ---
 
 - [ ] #task Spike: DNS-Morph bootstrap as fallback bootstrap channel #repo/RIPDPI #area/transport #status/backlog 🔼

@@ -199,7 +199,7 @@ The IPv4 DC range table in `native/rust/crates/ripdpi-ws-tunnel/src/dc.rs` must 
 - **Cadence:** quarterly, or sooner if the upstream-spec-watch job flags Telegram-side changes.
 - **On review:** 1. Cross-check `dc::dc_from_ip` ranges against Telegram's current published list. 2. Update the table when ranges have rotated; add a matching unit test for each new range. 3. Bump `TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED` to the review date. 4. Record the review in `docs/strategy-pack-tls-refresh-log.json` if a strategy-pack republication is needed; otherwise the dc.rs git history is the audit trail.
 
-The IPv6 DC table gap is tracked under `docs/tasks/issues/add-ipv6-telegram-dc-classification-to-ws-tunnel.md`.
+IPv6 DC classification is currently passthrough-only in `ripdpi-ws-tunnel`; open a fresh task if product requirements need first-class IPv6 DC mapping.
 
 ## What Not To Do
 

@@ -1,6 +1,6 @@
 # QUIC-Common Extraction Audit
 
-> Status: **audit complete** — recommendation: **do not extract a new crate; tighten the existing re-export surface instead**. Authored: 2026-05-15. Tracking task: `docs/tasks/issues/audit-quic-common-extraction-from-masque-and-hysteria2.md`.
+> Status: **audit complete** — recommendation: **do not extract a new crate; tighten the existing re-export surface instead**. Authored: 2026-05-15. The original tracking task has been closed/removed; this file is retained as the decision record.
 
 ## Question
 

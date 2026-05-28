@@ -14,9 +14,9 @@ This crate implements the VLESS client wire protocol, the REALITY TLS handshake 
 
 ## Drift policy
 
-xray-core is on a fast release cadence. The recurring upstream watch documented in `docs/tasks/issues/recurring-upstream-watch-for-xray-core-reality-ech-xhttp-changes.md` plus the workflow in `.github/workflows/upstream-spec-watch.yml` diff this pin against upstream `main` weekly. Known deadlines as of 2026-05-15:
+xray-core is on a fast release cadence. `.github/workflows/upstream-spec-watch.yml` and `docs/native/upstream-spec-watch-runbook.md` document the current pin-review process. Known deadlines as of 2026-05-15:
 
 - 2026-06-01 — VLESS-without-flow deprecation + `allowInsecure` auto-disable
 - xray-core v26.1.18 — XHTTP+REALITY combination breakage
 
-When drift is detected, the watch job opens or updates a tracking issue.
+When drift is detected, open or update the relevant protocol task and keep this pin explicit until the wire change has been reviewed.

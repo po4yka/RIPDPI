@@ -14,10 +14,6 @@ updated: 2026-05-16
 
 - [ ] #task Add integration tests per diagnostic result class #repo/RIPDPI #area/diagnostics #status/backlog 🔼
 
-## Work log
-
-- 2026-05-16: Dropped orphaned blocker reference 'UNRESOLVED-POY-129' (file does not exist); reclassified to backlog.
-
 ## Goal contract
 
 <!-- goal-contract:auto -->

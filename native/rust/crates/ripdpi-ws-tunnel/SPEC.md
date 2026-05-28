@@ -25,9 +25,9 @@ Recognized encrypted prefixes: TLS, GET, HEAD, OPTIONS, POST, plus padded-interm
 
 ## Telegram DC IP table
 
-Production DCs 1-5 are mapped from IPv4 addresses in `dc.rs`. IPv6 is returned as passthrough; see `docs/tasks/issues/add-ipv6-telegram-dc-classification-to-ws-tunnel.md`.
+Production DCs 1-5 are mapped from IPv4 addresses in `dc.rs`. IPv6 is returned as passthrough.
 
-Quarterly review obligation for the v4 table: `docs/tasks/issues/refresh-telegram-dc-ipv4-range-table-and-add-quarterly-review.md`.
+Review the v4 table when Telegram publishes data-center range changes; there is no active recurring task note in this tree.
 
 ## HTTPUpgrade (non-RFC-6455 variant)
 

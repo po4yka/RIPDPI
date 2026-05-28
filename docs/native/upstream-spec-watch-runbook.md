@@ -34,7 +34,7 @@ When you (the native-runtime maintainer) review the upstream's release notes bet
 | No wire change | Bump `Last reviewed:` in `SPEC_VERSION.md`. |
 | Non-breaking wire addition | Bump `Last reviewed:` and `Upstream tag:`; consider whether RIPDPI should adopt the new field. |
 | Breaking wire change | Open a task under `docs/tasks/issues/` and add `blocked_by:` to any client work that depends on the broken combination. Do not auto-bump the pin. |
-| Field deprecation (xray-core flow deprecation, etc.) | Update the host-pack validator per `recurring-upstream-watch-for-xray-core-reality-ech-xhttp-changes`. |
+| Field deprecation (xray-core flow deprecation, etc.) | Update the relevant validator or renderer task; the current Xray config validator is `core/data/catalog/src/main/kotlin/com/poyka/ripdpi/data/XrayConfigValidator.kt`. |
 
 ## Running on-demand
 
@@ -47,12 +47,6 @@ just verify-spec-versions
 ```
 
 Runs the two verify scripts in sequence.
-
-## Related tasks
-
-- `docs/tasks/issues/add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols.md` (done) — set up the pins and the workflow.
-- `docs/tasks/issues/recurring-upstream-watch-for-xray-core-reality-ech-xhttp-changes.md` — host-pack validator integration.
-- `docs/tasks/issues/tag-protocol-contract-fixtures-by-upstream-version.md` (blocked) — once wire-format fixtures exist, tag them by upstream tag so drift detection becomes structural.
 
 ## Owner
 

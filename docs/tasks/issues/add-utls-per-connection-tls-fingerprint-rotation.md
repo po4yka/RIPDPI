@@ -46,9 +46,8 @@ Reference implementations: refraction-networking/utls (Go), sing-box's uTLS inte
 ## Risks / open questions
 
 - BoringSSL's ClientHello composition is opinionated; per-profile overrides may require digging into `SSL_set_quic_use_legacy_codepoint`- style hooks for less-common extensions.
-- Pool maintenance: browser fingerprints rotate with major releases. Pair with `recurring-upstream-watch-for-xray-core-reality-ech-xhttp-changes` cadence.
+- Pool maintenance: browser fingerprints rotate with major releases. Pair reviews with the upstream-spec-watch cadence in `docs/native/upstream-spec-watch-runbook.md`.
 
 ## Links
 
 - [[Epic - Control-plane hardening]]
-- [[add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols]]

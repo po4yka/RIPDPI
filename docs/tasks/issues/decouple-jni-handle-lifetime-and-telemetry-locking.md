@@ -45,7 +45,3 @@ updated: 2026-05-16
 - [[Epic - Runtime lifecycle and supervisors]]
 - [[Add native readiness events to RipDpi wrappers]]
 - [[ripdpi-android-audit-2026-04-20]]
-
-## Work log
-
-- 2026-05-16: Dropped orphaned blocker reference 'surface-typed-cache-degradation-reasons' (file does not exist); reclassified to backlog.

@@ -1,19 +1,19 @@
 # Xray VPN Provider Architecture
 
-**Created:** 2026-05-16 **Epic:** [[Epic - Xray provider mode]] **Plan reference:** [[ripdpi-android-xray-provider-plan-2026-04-24]] **Status:** design — no endpoints, credentials, or sample live configs stored here
+**Created:** 2026-05-16 **Epic:** [[Epic - Xray provider mode]] **Plan reference:** [[ripdpi-android-xray-provider-plan-2026-04-24]] **Status:** model-only design — `:core:data:runtime-state` contains the provider enums/topology model, while the libXray adapter, local-inbound bridge, profile renderer, telemetry, and UX remain backlog work under `docs/tasks/issues/epic-xray-provider-mode.md`.
 
 ---
 
 ## 1. Provider Kinds
 
-`VpnProviderKind` (enum, `:core:data:runtime-state`) names the two first-class providers:
+`VpnProviderKind` (enum, `:core:data:runtime-state`) reserves the two provider kinds:
 
 | Variant | Description |
 |---------|-------------|
 | `Native` | Existing RIPDPI Rust/WireGuard provider; managed directly by `:core:service`. |
-| `Xray` | Embedded Xray-core provider; managed through the Xray adapter in `:core:engine`. |
+| `Xray` | Planned embedded Xray-core provider; adapter/runtime work is not implemented yet. |
 
-Both variants are governed by the same `VpnProviderState` machine so that `:core:service` needs no provider-specific lifecycle branching.
+Both variants are governed by the same `VpnProviderState` machine in the model. `:core:service` does not yet select or run the Xray provider.
 
 ---
 
@@ -76,11 +76,11 @@ Revisit when loopback overhead is measurably significant (> 5 % CPU or > 2 ms p9
 | Module | Owner | Role |
 |--------|-------|------|
 | `:core:data:runtime-state` | data layer | `VpnProviderKind`, `VpnProviderState`, `XrayTunnelTopology`, `XrayProviderConfig` typed model. No Android deps; pure Kotlin. |
-| `:core:service` | service layer | Android `VpnService` lifecycle; owns the TUN fd, socket protector, DNS-loop guard, and `VpnProviderState` machine. Calls into the Xray adapter via interface only. |
-| `:core:engine` | engine layer | Xray adapter interface + generated binding. Hides `libXray` API churn. Exposes `XrayAdapterController` (start/stop/readiness). |
-| Xray adapter (generated, inside `:core:engine`) | engine layer | Wraps `libXray` Go-bridge JNI calls. Starts/stops local inbound, reports readiness, shuts down cleanly. |
+| `:core:service` | service layer | Android `VpnService` lifecycle; owns the TUN fd, socket protector, and DNS-loop guard. Xray-provider branching is not wired yet. |
+| `:core:engine` | engine layer | Planned home for the Xray adapter interface + generated binding. Not present yet. |
+| Xray adapter | engine layer | Planned wrapper around `libXray` Go-bridge JNI calls. Not present yet. |
 
-Dependency direction: `:core:service` → `:core:engine` (interface only) → `libXray` JNI. `:core:data:runtime-state` is depended upon by both; it depends on neither.
+Intended dependency direction for the future runtime is `:core:service` → `:core:engine` (interface only) → `libXray` JNI. The current implemented artifact is the `:core:data:runtime-state` model.
 
 ---
 
@@ -98,16 +98,16 @@ If `LibXraySetTunFd` is adopted in a future revision, an explicit Xray routing r
 
 ### 5.3 Telemetry
 
-The Xray adapter exposes a `XrayRuntimeSnapshot` (to be defined in `:core:data:runtime-state`) analogous to `NativeRuntimeSnapshot`. `ServiceTelemetrySnapshot` gains an `xrayTelemetry` field in a follow-up task. Telemetry is pull-only: `:core:service` polls the adapter on a fixed cadence; the adapter does not push.
+The Xray adapter is expected to expose a future `XrayRuntimeSnapshot` analogous to `NativeRuntimeSnapshot`. `ServiceTelemetrySnapshot` gains an Xray field only when the adapter lands. Telemetry remains pull-only: `:core:service` should poll the adapter on a fixed cadence; the adapter should not push.
 
 ### 5.4 Readiness
 
-The adapter signals readiness through a `StateFlow<XrayAdapterState>` (Stopped / Starting / Ready / Failed). `:core:service` waits for `Ready` before marking `VpnProviderState.Running`. Timeout is 10 s; on expiry the service transitions `Starting → Stopped` (abort edge).
+The future adapter should signal readiness through a `StateFlow<XrayAdapterState>` (Stopped / Starting / Ready / Failed). `:core:service` should wait for `Ready` before marking `VpnProviderState.Running`. Timeout is 10 s; on expiry the service transitions `Starting → Stopped` (abort edge).
 
 ### 5.5 Stop Semantics
 
 On `VpnProviderState.Running → Stopping`:
-1. `:core:service` signals the adapter to stop.
+1. `:core:service` signals the future adapter to stop.
 2. Adapter drains in-flight packets (best-effort, 2 s deadline).
 3. Adapter closes the local inbound listener.
 4. Adapter transitions to `Stopped`; `:core:service` transitions `Stopping → Stopped`.
@@ -120,7 +120,7 @@ Stop is idempotent: calling stop on an already-stopped adapter is a no-op.
 
 1. **This task** — typed model in `:core:data:runtime-state` (done).
 2. `bridge-tun-traffic-through-xray-local-inbound` — wire the local inbound forwarding path in `:core:service`.
-3. Xray adapter stub in `:core:engine` (future task).
+3. Xray adapter in `:core:engine` (future task).
 4. `XrayRuntimeSnapshot` + telemetry integration (future task).
 
 ---

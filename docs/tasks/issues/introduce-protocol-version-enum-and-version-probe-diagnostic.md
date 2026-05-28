@@ -58,9 +58,4 @@ Failure mode today: when an upstream server bumps the wire version, clients fail
 
 ## Links
 
-- [[add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols]]
 - [[Epic - Control-plane hardening]]
-
-## Work log
-
-- 2026-05-16: Dropped orphaned blocker reference 'add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols' (file does not exist).

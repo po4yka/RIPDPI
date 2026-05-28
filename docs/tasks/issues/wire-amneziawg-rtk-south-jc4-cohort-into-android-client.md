@@ -12,7 +12,7 @@ created: 2026-05-22
 updated: 2026-05-22
 source_wiki_pages:
   - "[[wireguard-rtk-south-amneziawg-bypass]]"
-linked_task: ../../../../ripdpi-vpn-deploy/docs/tasks/issues/add-amneziawg-rtk-south-cohort.md
+linked_task: null
 ---
 
 - [ ] #task Wire AmneziaWG RTK South cohort (Jc=4) into Android client #repo/RIPDPI #area/transport #status/backlog 🔼

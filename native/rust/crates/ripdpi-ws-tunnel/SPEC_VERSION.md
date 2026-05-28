@@ -30,5 +30,5 @@ This crate implements:
 ## Drift policy
 
 - RFC 6455 is stable; drift not expected.
-- Telegram DC IP table is rotated by Telegram; reviewed quarterly per `docs/tasks/issues/refresh-telegram-dc-ipv4-range-table-and-add-quarterly-review.md`.
-- IPv6 DC support is a tracked gap: see `docs/tasks/issues/add-ipv6-telegram-dc-classification-to-ws-tunnel.md`.
+- Telegram DC IP table is rotated by Telegram; review when Telegram publishes data-center range changes.
+- IPv6 DC support is currently passthrough-only.

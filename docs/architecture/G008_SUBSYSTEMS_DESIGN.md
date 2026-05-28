@@ -1,5 +1,7 @@
 # G008 Subsystems Design — Connection-Quality Telemetry / PCAP Export / Replay Orchestrator
 
+> Status: **dated design record, not the current implementation map**. Several P5/P3 slices have landed and diverged from the plan below, including `ripdpi-quality`, `ripdpi-pcap`, Kotlin `ConnectionQualitySnapshot`, PCAP UI strings/screens, and proxy-adapter PCAP/quality wiring. Use the source tree and focused living docs for current behavior; keep this file as architecture rationale for the G008 rollout.
+
 ## Summary
 
 Three subsystems wire data-plane realities (TUN packet flow, SOCKS5 connect latency, probe failures) into three already-shipped UI surfaces. The order is **P5 first (telemetry) → P3 (PCAP) → P4 (replay)** because P5 reuses the strongest existing pattern (additive snapshot field plus observer-callback into a histogram, exactly mirroring `Stats::set_dns_latency_observer` at `native/rust/crates/ripdpi-tunnel-core/src/stats.rs:79`), and P5's bounded-ring shape becomes the template that P4's step events follow. P3 is the largest greenfield piece and benefits from the JNI conventions already locked by P5.
