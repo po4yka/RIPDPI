@@ -13,15 +13,12 @@
 //! crate can wire whatever HTTP stack is available without pulling a new
 //! dependency through this crate.
 //!
-//! # Parent-integration notes
+//! # HTTP client integration
 //!
 //! ```text
-//! PARENT-INTEGRATION: The async runner requires an HTTP client that
-//! implements `DohHttpClient`. If `reqwest` (with the `json` or `rustls-tls`
-//! feature) is already in the workspace, implement the trait for a thin
-//! `reqwest::Client` newtype in the runner crate and pass it in. If only
-//! `hyper` + `hyper-tls` is available, the same approach works. No new
-//! dependency needs to be added to *this* crate's Cargo.toml.
+//! The async runner requires an HTTP client that implements `DohHttpClient`.
+//! Wire the concrete client in the runner crate by wrapping the available HTTP
+//! stack in a newtype and passing it to `DohSurveyRunner`.
 //! ```
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
@@ -164,10 +161,10 @@ pub struct DohResolverEndpoint {
 /// — this crate stays HTTP-stack agnostic.
 ///
 /// ```text
-/// PARENT-INTEGRATION: Implement DohHttpClient for your HTTP client type.
-/// For reqwest: wrap `reqwest::Client` in a newtype and call
+/// Implement this trait for the HTTP client used by the runner crate.
+/// For reqwest, wrap `reqwest::Client` in a newtype and call
 /// `client.get(url).timeout(timeout).send().await`.
-/// For hyper: build a Request and drive it through hyper's client.
+/// For hyper, build a request and drive it through hyper's client.
 /// ```
 pub trait DohHttpClient: Send + Sync {
     /// Execute a GET request to `url` and return the raw body bytes and HTTP

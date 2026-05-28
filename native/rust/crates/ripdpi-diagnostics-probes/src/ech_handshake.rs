@@ -11,11 +11,10 @@
 //! * **Async Runner** ([`EchHandshakeRunner`]) — performs the live DNS + TLS
 //!   work and returns a populated `EchHandshakeProbe` ready to be scheduled.
 //!
-// PARENT-INTEGRATION: EchHandshakeRunner dispatches through the
-// EchHandshakeDriver trait. The real Hickory + rustls driver lives in
-// hickory_rustls_ech_driver.rs; NoopEchHandshakeDriver remains available for
-// tests and callers that intentionally want the historical "not implemented"
-// verdict.
+//! `EchHandshakeRunner` dispatches through the [`EchHandshakeDriver`] trait.
+//! The live Hickory + rustls backend lives in `hickory_rustls_ech_driver.rs`;
+//! [`NoopEchHandshakeDriver`] remains available for tests and callers that
+//! intentionally want the historical `"ech-runner-not-implemented"` verdict.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 

@@ -26,15 +26,8 @@
 //! DC5  91.108.4.136    (IPv4 production)
 //! ```
 //!
-//! // PARENT-INTEGRATION:
-//! // The async Runner requires two workspace dependencies that are NOT yet
-//! // declared in `ripdpi-diagnostics-probes/Cargo.toml`:
-//! //
-//! //   tokio = { workspace = true, features = ["net", "time", "rt"] }
-//! //   futures = { workspace = true }
-//! //
-//! // Both are already in the workspace `[dependencies]` table. Add them
-//! // to this crate's `[dependencies]` section to enable compilation.
+//! The async runner depends on the crate-local `tokio` and `futures`
+//! dependencies declared in this crate's `Cargo.toml`.
 
 use std::time::{Duration, Instant};
 
@@ -213,12 +206,13 @@ impl MtprotoReachabilityRunner {
     /// (`td/telegram/DcId.cpp`). See the module-level doc for the full
     /// provenance note.
     ///
-    /// // PARENT-INTEGRATION: IPs used:
-    /// //   DC1 149.154.175.53:443  (IPv4)
-    /// //   DC2 149.154.167.51:443  (IPv4)
-    /// //   DC3 149.154.175.100:443 (IPv4)
-    /// //   DC4 149.154.167.91:443  (IPv4)
-    /// //   DC5 91.108.4.136:443    (IPv4)
+    /// Default IPv4 endpoints:
+    ///
+    /// - DC1 `149.154.175.53:443`
+    /// - DC2 `149.154.167.51:443`
+    /// - DC3 `149.154.175.100:443`
+    /// - DC4 `149.154.167.91:443`
+    /// - DC5 `91.108.4.136:443`
     pub fn default_endpoints() -> Vec<DcEndpoint> {
         vec![
             DcEndpoint { dc_id: 1, host: "149.154.175.53".to_string(), port: 443, family: DcEndpointFamily::Ipv4 },

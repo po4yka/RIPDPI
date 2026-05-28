@@ -1,10 +1,8 @@
 //! TDD test file for the EchHandshakeRunner driver dispatcher.
 //!
-//! Written before the driver abstraction exists. The runner currently
-//! returns a hard-coded SetupError; this file expects the new
-//! `EchHandshakeDriver` trait + generic `EchHandshakeRunner<D>` so the
-//! dispatcher's per-outcome mapping is independently testable with a
-//! fake driver -- no DNS or TLS I/O.
+//! Exercises the `EchHandshakeDriver` trait + generic `EchHandshakeRunner<D>`
+//! dispatcher with fake drivers so per-outcome mapping stays testable without
+//! DNS or TLS I/O.
 
 use std::time::Duration;
 
