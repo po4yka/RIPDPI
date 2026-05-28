@@ -115,10 +115,9 @@ impl PolicyPort for ServicesStateHandle {
         _signatures: &[(usize, u64)],
         _now_ms: u64,
     ) -> BTreeMap<usize, RetrySelectionPenalty> {
-        // Phase 3 will wire full RetrySignature objects through the port.
-        // RetrySignature cannot be reconstructed from a raw hash alone because
-        // the pacer also needs the family_hash; both are fields on RetrySignature
-        // and are not stored separately in this crate.
+        // This legacy PolicyPort hook only receives raw signature hashes.
+        // The live retry-pacing path uses RetryPacingPort, which has enough
+        // target/host/payload context to build full RetrySignature objects.
         BTreeMap::new()
     }
 

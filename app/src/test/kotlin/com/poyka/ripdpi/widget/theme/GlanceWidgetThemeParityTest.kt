@@ -21,9 +21,8 @@ import org.junit.Test
  * rule). When a deliberate edit is made, this snapshot moves in
  * lock-step.
  *
- * This satisfies the G002 brief's criterion 8: "Glance widget
- * theme parity: any new theme token has a matching widget/theme
- * entry; a parity test enforces this."
+ * This satisfies the widget-theme parity invariant: any new theme token has a
+ * matching widget/theme entry, and a parity test enforces this.
  */
 class GlanceWidgetThemeParityTest {
     @Test

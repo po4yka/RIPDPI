@@ -16,7 +16,7 @@
 //! ([`crate::lifecycle_start`]) and is the only android adapter that
 //! depends on `ripdpi-proxy-runtime`. Hosting it in `ripdpi-relay-core` /
 //! `ripdpi-warp-core` would push those crates past their
-//! `DEPENDENCY_HUB_LIMITS` ceiling and is forbidden by the path-B charter.
+//! `DEPENDENCY_HUB_LIMITS` ceiling and violate their dependency boundary.
 //!
 //! Composition: [`CompositeProxyTelemetrySink`] wraps the pre-existing
 //! [`ProxyTelemetryObserver`] and the new [`QualityWindowSink`], forwarding

@@ -14,8 +14,8 @@ import javax.inject.Inject
 
 /**
  * Surfaces the [ReplayResultStore] ring buffer to the past-replays
- * history screen (G010 P4.8). The store is filled by
- * [ReplayFailureViewModel] on terminal events.
+ * history screen. The store is filled by [ReplayFailureViewModel] on
+ * terminal events.
  *
  * State is refreshed on every [refresh] call — the store has no
  * observable surface (it's a synchronized snapshot), so we re-read on

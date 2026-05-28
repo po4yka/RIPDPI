@@ -310,11 +310,10 @@ mod tests {
         assert!(snapshot.last_dht_trigger_at_ms.is_none());
     }
 
-    // P3.3: PacketObserver — synchronous packet-flow observer wired
-    // into io_loop drain/flush phases. Tests verify (a) no observer
-    // is a safe no-op, (b) installed observer receives every packet,
-    // and (c) replacing the observer routes subsequent invocations
-    // to the new one.
+    // PacketObserver: synchronous packet-flow observer wired into io_loop
+    // drain/flush phases. Tests verify (a) no observer is a safe no-op,
+    // (b) installed observer receives every packet, and (c) replacing the
+    // observer routes subsequent invocations to the new one.
 
     struct RecordingObserver(Arc<Mutex<Vec<Vec<u8>>>>);
     impl PacketObserver for RecordingObserver {

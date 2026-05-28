@@ -30,10 +30,10 @@ enum class TransportKind {
  * native data plane.
  *
  * Carries aggregate per-transport quality metrics for UI consumption
- * (DegradationStrip + throughput / latency graphs in P5.6 / P5.7). All
- * fields are aggregate-only — per `.claude/rules/network-fingerprint-privacy.md`
- * § "Forbidden inputs" none of them carry host, IP, port, BSSID, SSID,
- * IMEI, IMSI, or any other identifier.
+ * (degradation strip plus throughput and latency graphs). All fields are
+ * aggregate-only — per `.claude/rules/network-fingerprint-privacy.md`
+ * § "Forbidden inputs" none of them carry host, IP, port, BSSID, SSID, IMEI,
+ * IMSI, or any other identifier.
  *
  * Wire shape: camelCase JSON. All fields are defaulted so the decoder
  * tolerates a payload that omits the field — the Rust side wraps the field

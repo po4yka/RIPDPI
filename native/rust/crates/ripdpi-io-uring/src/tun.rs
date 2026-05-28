@@ -75,12 +75,12 @@ pub fn batch_tun_read(
 
 /// Submit a batch of writes to the TUN fd from the smoltcp tx_queue.
 ///
-/// Returns the number of packets successfully submitted. Per io_uring architecture note (P5.2.2)
-/// each packet is staged through the registered buffer pool and submitted via
-/// `IORING_OP_WRITE_FIXED` when a slot is available. When the pool is
-/// exhausted, or the packet does not fit in `pool.buffer_size()`, the path
-/// falls back to a caller-owned plain `opcode::Write`. The buffer slot is
-/// returned to the pool only after the matching completion is reaped.
+/// Returns the number of packets successfully submitted. Each packet is staged
+/// through the registered buffer pool and submitted via `IORING_OP_WRITE_FIXED`
+/// when a slot is available. When the pool is exhausted, or the packet does not
+/// fit in `pool.buffer_size()`, the path falls back to a caller-owned plain
+/// `opcode::Write`. The buffer slot is returned to the pool only after the
+/// matching completion is reaped.
 ///
 /// This is a blocking function.
 pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: RawFd, packets: &[Vec<u8>]) -> std::io::Result<usize> {
