@@ -7,6 +7,8 @@ ignore = [
     # daemonize -- unmaintained but no replacement available; used only in the
     # root-helper binary which is opt-in behind root_mode_enabled.
     "RUSTSEC-2025-0069",
+    # rsa 0.9.10 via Arti's ssh-key-fork-arti path has no safe upgrade yet; RIPDPI uses Arti as a Tor client backend and does not expose RSA private-key service operations.
+    { id = "RUSTSEC-2023-0071", reason = "Arti 0.42.0 transitively depends on rsa through ssh-key-fork-arti; no safe upgrade exists, and RIPDPI only uses Arti as a client backend." },
 ]
 
 [licenses]
@@ -24,6 +26,12 @@ allow = [
     "Unicode-3.0",
     # aws-lc-sys (used by rustls)
     "OpenSSL",
+]
+exceptions = [
+    { allow = ["Unlicense"], crate = "async_executors@0.7.0" },
+    { allow = ["CC0-1.0"], crate = "notify@8.2.0" },
+    { allow = ["MPL-2.0"], crate = "option-ext@0.2.0" },
+    { allow = ["MPL-2.0"], crate = "priority-queue@2.7.0" },
 ]
 
 [bans]

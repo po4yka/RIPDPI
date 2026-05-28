@@ -1,0 +1,17 @@
+[package]
+name = "ripdpi-tor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+arti-client = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["io-util"] }
+tor-rtcompat = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[lints]
+workspace = true
