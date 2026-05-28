@@ -131,7 +131,7 @@ Tombstone analysis: `adb pull /data/tombstones/<latest>` and grep for `MTEAERR` 
 
 Same UB class as HWASan: use-after-free on heap allocations, double-free, buffer overflow into adjacent tagged allocation, type confusion that crosses allocation boundaries. NOT caught: stack-based UAF (different mechanism — Stack-MTE is a separate, less-deployed extension), uninit reads (use MSan or Miri), data races (use TSan or loom).
 
-For RIPDPI's hot-path code with raw pointers (`ripdpi-runtime/platform/linux.rs`, packet parsers using `ptr::read_unaligned`), MTE is the right production-grade safety net once the hardware supports it.
+For RIPDPI's hot-path code with raw pointers (`ripdpi-runtime-platform/src/linux.rs`, packet parsers using `ptr::read_unaligned`), MTE is the right production-grade safety net once the hardware supports it.
 
 #### Rollout
 

@@ -47,7 +47,7 @@ Reference implementation's `mixedPort` accepts SOCKS5 greeting and HTTP CONNECT 
 - `app/src/main/java/io/nekohasekai/sagernet/fmt/ConfigBuilder.kt` — the sing-box `mixed` inbound generation (search for `"mixed"` as `type:` value). reference implementation delegates the actual listener to sing-box; `mixedPort` from `DataStore` flows into the generated JSON config.
 - `app/src/main/java/io/nekohasekai/sagernet/database/DataStore.kt` — `mixedPort` property (default 2080), `socksPort`, `httpPort`. Port the default port, offset-by-user-index pattern (for multi-user Android support).
 
-**Outbound engine (NOT from reference implementation):** sing-box's `protocol/mixed` inbound in Go handles the first-byte dispatch (`0x05` → SOCKS5, `CONNECT ` → HTTP). RIPDPI implements this in Rust — simple state machine, ~50 lines. Reuse the existing SOCKS5 inbound code in `ripdpi-runtime`; add HTTP CONNECT branch.
+**Outbound engine (NOT from reference implementation):** sing-box's `protocol/mixed` inbound in Go handles the first-byte dispatch (`0x05` → SOCKS5, `CONNECT ` → HTTP). RIPDPI implements this in Rust — simple state machine, ~50 lines. Reuse the existing SOCKS5 inbound code in `ripdpi-proxy-runtime`; add HTTP CONNECT branch.
 
 **Adapt:** Default port 2080, multi-user port-offset pattern. **Skip:** sing-box Go implementation.
 

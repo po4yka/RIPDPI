@@ -6,7 +6,8 @@ The wire protocol version is a single integer constant maintained in two places:
 
 | Location | Constant | Language |
 |----------|----------|----------|
-| `native/rust/crates/ripdpi-monitor/src/wire.rs` | `DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 1` | Rust |
+| `native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs` | `DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 1` | Rust |
+| `native/rust/crates/ripdpi-monitor-engine/src/wire.rs` | Re-export of the diagnostics contract constant | Rust |
 | `core/diagnostics/src/main/kotlin/.../contract/engine/EngineContract.kt` | `DiagnosticsEngineSchemaVersion = 1` | Kotlin |
 
 These must always be equal. The contract governance test
@@ -166,7 +167,7 @@ Retrieved by Kotlin via `MonitorSession::take_report_json()`.
 
 ### Rust contract tests
 
-`native/rust/crates/ripdpi-monitor/tests/contract_fixtures.rs`:
+`native/rust/crates/ripdpi-monitor-engine/tests/contract_fixtures.rs`:
 - `shared_contract_fixtures_decode_successfully` -- all fixtures deserialize
 - `engine_schema_version_matches_kotlin_contract_constant` -- reads Kotlin source
 - `outcome_fixture_covers_emitted_native_outcome_tokens` -- scans Rust probe

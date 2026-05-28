@@ -95,7 +95,8 @@ Every outbound socket constructed in Rust whose target is NOT `127.0.0.1` / `[::
 Audit recipe:
 ```bash
 rg "TcpStream::connect|UdpSocket::bind|mio::net::TcpSocket::connect|tokio::net::TcpStream::connect" \
-   native/rust/crates/ripdpi-runtime/ \
+   native/rust/crates/ripdpi-proxy-runtime/ \
+   native/rust/crates/ripdpi-runtime-platform/ \
    native/rust/crates/ripdpi-dns-resolver/ \
    native/rust/crates/ripdpi-ws-tunnel/ \
    --type rust -n

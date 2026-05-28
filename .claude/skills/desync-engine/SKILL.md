@@ -1,13 +1,13 @@
 ---
 name: desync-engine
-description: Use when designing or reviewing DPI desync evasion chains, TcpChainStep/UdpChainStep configurations, OffsetExpr/OffsetBase expressions, fake-packet injection, TLS-prelude steps, strategy-probe candidate behavior, fake-TTL semantics across TUN vs proxy mode, or anything in the ripdpi-config/ripdpi-desync/ripdpi-runtime desync pipeline. Triggers on "desync", "DesyncMode", "fake packet", "TTL", "OOB", "tlsrec", "QUIC initial split", or DPI-bypass strategy questions.
+description: Use when designing or reviewing DPI desync evasion chains, TcpChainStep/UdpChainStep configurations, OffsetExpr/OffsetBase expressions, fake-packet injection, TLS-prelude steps, strategy-probe candidate behavior, fake-TTL semantics across TUN vs proxy mode, or anything in the ripdpi-config/ripdpi-desync/ripdpi-desync-runtime/ripdpi-proxy-runtime desync pipeline. Triggers on "desync", "DesyncMode", "fake packet", "TTL", "OOB", "tlsrec", "QUIC initial split", or DPI-bypass strategy questions.
 ---
 
 # Desync Engine -- RIPDPI
 
 ## Purpose
 
-Document the three-layer DPI desync pipeline that RIPDPI uses to evade middlebox inspection: configuration model (`ripdpi-config`), planning (`ripdpi-desync`), and execution (`ripdpi-runtime`). Apply this skill when modifying any layer of the pipeline, adding new desync techniques, or reasoning about why a strategy works (or doesn't) on a specific Android deployment mode.
+Document the three-layer DPI desync pipeline that RIPDPI uses to evade middlebox inspection: configuration model (`ripdpi-config`), planning (`ripdpi-desync`), and execution (`ripdpi-desync-runtime` through `ripdpi-proxy-runtime`). Apply this skill when modifying any layer of the pipeline, adding new desync techniques, or reasoning about why a strategy works (or doesn't) on a specific Android deployment mode.
 
 ## Conceptual model
 
@@ -266,7 +266,7 @@ Gated by `seqovl_hard_gate_matches()` (round 1 only, small payloads).
 ### PcapHook
 Optional `PcapHook` callback invoked on each outbound packet during
 `execute_tcp_actions()` and `execute_tcp_plan()`. When registered, captures
-raw packet bytes to a `PcapRecordingSession` in `ripdpi-monitor` for
+raw packet bytes to a `PcapRecordingSession` in `ripdpi-diagnostics-pcap` for
 diagnostic PCAP recording. No-op when not registered; zero overhead on the
 hot path.
 
@@ -371,7 +371,7 @@ New in the 2025-2026 QUIC-evasion research cycle:
 
 `quinn` 0.11.x merged [PR #2274](https://github.com/quinn-rs/quinn/pull/2274) (June 2025) adding a `pad_to_mtu` transport config flag. When enabled, every application-data QUIC packet is padded to the path MTU regardless of payload size. This defeats size-based QUIC flow fingerprinting on censoring middleboxes that profile short application packets as distinct from Initial/Handshake packets.
 
-**RIPDPI applicability**: the QUIC-carrying crates (`ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, and the optional QUIC probe path in `ripdpi-monitor`) should expose `pad_to_mtu` as a `QuicFakeProfile` variant or a per-session toggle. Size normalisation is cheap at the quinn layer — no application changes needed once the flag is set.
+**RIPDPI applicability**: the QUIC-carrying crates (`ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, and the optional QUIC probe path in `ripdpi-diagnostics-runner`) should expose `pad_to_mtu` as a `QuicFakeProfile` variant or a per-session toggle. Size normalisation is cheap at the quinn layer — no application changes needed once the flag is set.
 
 ### USENIX Security 2025: GFW QUIC censorship
 

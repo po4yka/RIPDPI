@@ -45,7 +45,7 @@ cargo install cargo-careful
 # Run for crates with unsafe + FFI where Miri is unavailable.
 cd native/rust
 cargo +nightly careful test -p ripdpi-tunnel-android --no-fail-fast
-cargo +nightly careful test -p ripdpi-runtime --no-fail-fast
+cargo +nightly careful test -p ripdpi-proxy-runtime --no-fail-fast
 ```
 
 Use when:
@@ -58,7 +58,7 @@ Use when:
 `loom` exhaustively explores thread interleavings for code under `#[cfg(loom)]`. It is a model checker, not a stress test — it proves absence of races within the bounded interleaving set, where stress tests only fail to find one in a finite run.
 
 Apply to:
-- Custom atomic-based publish/subscribe flags (e.g., the `ripdpi-monitor::engine.rs` cancel pattern, the `ripdpi-ws-tunnel::relay.rs` shutdown flag).
+- Custom atomic-based publish/subscribe flags (e.g., the `ripdpi-monitor-engine` scan cancellation path, the `ripdpi-ws-tunnel::relay.rs` shutdown flag).
 - Any new lock-free data structure or hand-rolled spinlock.
 - Code that uses `Ordering::Relaxed` on a publish/subscribe pair (the `memory-model` skill enumerates known sites).
 

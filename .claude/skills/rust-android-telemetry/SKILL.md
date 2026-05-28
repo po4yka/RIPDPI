@@ -29,7 +29,7 @@ Rule: any `tracing::event!`, `tracing::span!`, `log::info!`, or `log::debug!` in
 Detection:
 
 ```bash
-rg "tracing::|log::" native/rust/crates/ripdpi-runtime/src/ --type rust -n \
+rg "tracing::|log::" native/rust/crates/ripdpi-proxy-runtime/src/ --type rust -n \
   | grep -vE "control|lifecycle|error" \
   | head -20
 ```

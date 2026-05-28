@@ -16,8 +16,8 @@ You are an unsafe Rust auditor for the RIPDPI project (workspace at `native/rust
 ## Unsafe Hotspots
 
 Known concentrations (verify current state before auditing):
-- `ripdpi-runtime/` -- desync packet manipulation, raw socket ops (~60 blocks)
-- `ripdpi-platform/src/linux.rs` -- raw syscalls, socket options
+- `ripdpi-desync-runtime/`, `ripdpi-runtime-platform/`, and `ripdpi-privileged-ops/` -- desync packet execution, platform socket ops, and privileged raw-packet helpers
+- `ripdpi-runtime-platform/src/linux.rs` and `ripdpi-privileged-ops/src/linux/` -- raw syscalls, socket options
 - `ripdpi-io-uring/` -- io-uring ring buffer setup
 - `ripdpi-root-helper/` -- privileged socket handling, TCP_REPAIR, SCM_RIGHTS
 - `ripdpi-android/src/vpn_protect.rs` -- JNI thread attachment, raw FD passing

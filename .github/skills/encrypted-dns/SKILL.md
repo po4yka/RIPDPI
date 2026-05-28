@@ -159,7 +159,7 @@ support. DoQ is not routed through hickory either.
 
 ## DNS tamper detection
 
-The `ripdpi-monitor` crate uses encrypted DNS as a ground-truth oracle to
+The diagnostics runner uses encrypted DNS as a ground-truth oracle to
 detect DNS tampering by the ISP/middlebox.
 
 **Detection flow** (`strategy.rs:detect_strategy_probe_dns_tampering()`):
@@ -171,7 +171,7 @@ detect DNS tampering by the ISP/middlebox.
    - System resolves suspiciously fast -> `is_dns_injection_suspected()` heuristic
 4. Results feed into `diagnosis.rs` which emits `dns_tampering` diagnostic codes
 
-**Monitor's DNS helper** (`ripdpi-monitor/src/dns.rs`):
+**Diagnostics DNS helper** (`ripdpi-diagnostics-dns/src/dns.rs`, consumed through `ripdpi-diagnostics-runner`):
 - `resolve_via_encrypted_dns()` creates a one-shot `EncryptedDnsResolver` with
   a preconfigured endpoint and calls `exchange_blocking()`
 - `extract_ip_answers()` (re-exported from ripdpi-dns-resolver) parses A/AAAA

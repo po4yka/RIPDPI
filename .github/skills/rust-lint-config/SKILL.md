@@ -115,7 +115,7 @@ The `.github/workflows/ci.yml` pipeline runs these as separate steps. Clippy and
 ### Single-crate iteration
 
 ```bash
-cargo clippy -p ripdpi-monitor --all-targets -- -D warnings
+cargo clippy -p ripdpi-monitor-engine --all-targets -- -D warnings
 ```
 
 ## Adding a New Lint

@@ -44,8 +44,10 @@ Parse the output into a change map: `{ crate_or_area: [changed_files] }`.
 | `native/rust/crates/ripdpi-failure-classifier/` | `tspu-dpi-internals/wiki/concepts/ripdpi-failure-classifier.md` |
 | `native/rust/crates/ripdpi-desync/` | `tspu-dpi-internals/wiki/concepts/ripdpi-desync-strategy-catalog.md` |
 | `native/rust/crates/ripdpi-config/` | `tspu-dpi-internals/wiki/concepts/ripdpi-strategy-config-system.md` |
-| `native/rust/crates/ripdpi-runtime/` | `tspu-dpi-internals/wiki/concepts/ripdpi-strategy-evolver-ucb1.md` |
-| `native/rust/crates/ripdpi-monitor/` | `tspu-dpi-internals/wiki/concepts/ripdpi-desync-strategy-catalog.md` |
+| `native/rust/crates/ripdpi-proxy-runtime/` | `tspu-dpi-internals/wiki/concepts/ripdpi-strategy-evolver-ucb1.md` |
+| `native/rust/crates/ripdpi-desync-runtime/` | `tspu-dpi-internals/wiki/concepts/ripdpi-desync-strategy-catalog.md` |
+| `native/rust/crates/ripdpi-monitor-engine/` | `tspu-dpi-internals/wiki/concepts/ripdpi-desync-strategy-catalog.md` |
+| `native/rust/crates/ripdpi-diagnostics-*/` | `tspu-dpi-internals/wiki/concepts/ripdpi-desync-strategy-catalog.md` |
 | `native/rust/crates/ripdpi-dns-resolver/` | `mobile-platform-enforcement/wiki/concepts/ripdpi-android-service-architecture.md` |
 | `native/rust/crates/ripdpi-vless/` | `transport-protocols/wiki/concepts/ripdpi-relay-transport-catalog.md` |
 | `native/rust/crates/ripdpi-hysteria2/` | `transport-protocols/wiki/concepts/ripdpi-relay-transport-catalog.md` |

@@ -7,7 +7,7 @@ description: Rust code discipline for the RIPDPI workspace — API design, anti-
 
 ## Purpose
 
-Encode API-design discipline and catch high-signal Rust mistakes before they land in the 23-crate native workspace. Apply these rules when authoring or reviewing public (`pub`) and crate-public (`pub(crate)`) function signatures, struct definitions, and trait bounds anywhere in the workspace, and during code review, pre-merge self-check, and when tightening existing code.
+Encode API-design discipline and catch high-signal Rust mistakes before they land in the native Rust workspace. Apply these rules when authoring or reviewing public (`pub`) and crate-public (`pub(crate)`) function signatures, struct definitions, and trait bounds anywhere in the workspace, and during code review, pre-merge self-check, and when tightening existing code.
 
 Apply every rule to every changed signature in a diff, not only the first one.
 
@@ -141,7 +141,7 @@ Reference: `crabbook/borrowing_in_generic_functions.md`
 - Every new `AtomicBool`/`AtomicUsize`/`AtomicPtr` call site must carry a `// Ordering:` comment explaining the happens-before contract.
 - Do not copy `Relaxed` from neighbouring code without re-auditing — ordering is per-use, not per-type.
 - Publish/subscribe atomics (flag signalling a completed write) require `Release` on the store and `Acquire` on the load. `Relaxed` here is silently wrong on ARM64.
-- Add a loom or targeted test for any new publish/subscribe atomic, mirroring the `ripdpi-monitor::engine.rs` pattern.
+- Add a loom or targeted test for any new publish/subscribe atomic, mirroring the `ripdpi-monitor-engine` scan cancellation pattern.
 - See also: `memory-model`.
 
 ### `spawn_blocking` vs dedicated thread

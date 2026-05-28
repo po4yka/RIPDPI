@@ -140,7 +140,7 @@ automatically by tungstenite.
 `ProxyRuntimeContext` if available, falling back to default context. Prevents
 DNS-based blocking of the WS tunnel endpoint.
 
-## 9. Diagnostics Integration (`ripdpi-monitor/src/telegram.rs`)
+## 9. Diagnostics Integration (`ripdpi-diagnostics-telegram/src/telegram.rs`)
 
 The `telegram_availability` probe includes `telegram_ws_tunnel_probe()`:
 TLS+WS handshake to DC2 without sending MTProto data. Reports `wsTunnelStatus`,

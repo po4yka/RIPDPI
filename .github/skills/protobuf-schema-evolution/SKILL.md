@@ -50,10 +50,10 @@ Highest field number in use: **129** (`freeze_detection_enabled`).
 
 ## Diagnostics Wire Contract
 
-Rust (`ripdpi-monitor`) and Kotlin exchange JSON wire messages. Schema version
+Rust (`ripdpi-diagnostics-contracts`, re-exported by `ripdpi-monitor-engine`) and Kotlin exchange JSON wire messages. Schema version
 is tracked by a constant that must be equal on both sides:
 
-- Rust: `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` in `native/rust/crates/ripdpi-monitor/src/wire.rs`
+- Rust: `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` in `native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs`
 - Kotlin: `DiagnosticsEngineSchemaVersion` in `core/diagnostics/.../contract/engine/EngineContract.kt`
 
 `DiagnosticsContractGovernanceTest` enforces equality by parsing the Rust
@@ -120,4 +120,4 @@ update mode), then run Kotlin tests. Commit updated fixtures with the code.
 - [ ] Wire changes have `#[serde(default)]` / Kotlin defaults
 - [ ] Schema version bumped if wire change is breaking
 - [ ] Golden contract fixtures updated
-- [ ] Both Rust (`cargo test -p ripdpi-monitor`) and Kotlin contract tests pass
+- [ ] Both Rust (`cargo test -p ripdpi-monitor-engine`) and Kotlin contract tests pass

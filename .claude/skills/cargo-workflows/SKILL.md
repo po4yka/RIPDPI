@@ -223,9 +223,9 @@ cargo nextest run -p <leaf-crate>
 
 ### Breaking changes that bite
 
-- **Stricter `unsafe` in `extern` blocks.** Every item declared in `extern "C" { ... }` or `extern "system" { ... }` now requires explicit `unsafe {}` at the declaration site. `ripdpi-runtime/platform/linux.rs` (83 unsafe blocks) and the JNI adapter crates must be reviewed carefully. The `#[unsafe(no_mangle)]` syntax (used in JNI entry points) is already 2024-style.
+- **Stricter `unsafe` in `extern` blocks.** Every item declared in `extern "C" { ... }` or `extern "system" { ... }` now requires explicit `unsafe {}` at the declaration site. `ripdpi-runtime-platform`, `ripdpi-privileged-ops`, and the JNI adapter crates must be reviewed carefully. The `#[unsafe(no_mangle)]` syntax (used in JNI entry points) is already 2024-style.
 - **`gen` keyword reserved.** Any identifier named `gen` needs renaming before migration. Check for `let gen = …`, `fn gen(…)`, `mod gen`.
-- **Precise-capturing `impl Trait`.** Functions returning `impl Trait` that should capture only a subset of input lifetimes now need `use<'a, T>` syntax. Most affected: the tokio task spawners in `ripdpi-runtime` that return `impl Future + Send + 'static`. `cargo fix --edition` usually handles this but check the diff.
+- **Precise-capturing `impl Trait`.** Functions returning `impl Trait` that should capture only a subset of input lifetimes now need `use<'a, T>` syntax. Most affected: tokio task spawners in runtime crates that return `impl Future + Send + 'static`. `cargo fix --edition` usually handles this but check the diff.
 - **`if let` / `while let` chains stabilize.** No breaking change, but existing nested `if let Some(…) = … { if let Some(…) = … { … } }` patterns can be collapsed to `if let Some(…) = … && let Some(…) = … { … }`. Do not do this in the migration commit — keep the migration diff surgical.
 - **`async || {}` closures** are now stable. You don't have to rewrite `|| async { … }` patterns, but new code should prefer the closure form. Do not mass-rewrite — violates `rust-unsafe` surgical-changes discipline.
 
@@ -236,7 +236,7 @@ Leaf crates first (no internal dependents). Suggested order:
 1. `ripdpi-bench`, `ripdpi-cli` — host-only, low blast radius.
 2. `ripdpi-desync`, `ripdpi-packets`, `ripdpi-ipfrag` — pure-logic crates under `#![forbid(unsafe_code)]`.
 3. `ripdpi-tls-profiles`, `ripdpi-config`, `ripdpi-failure-classifier` — cross-crate consumers but still leaf-ish.
-4. `ripdpi-runtime` — large, has the 83 unsafe blocks; allocate at least a day for the `extern` block review.
+4. `ripdpi-proxy-runtime`, `ripdpi-runtime-platform`, and `ripdpi-privileged-ops` — larger runtime/platform crates; allocate time for the `extern` block and unsafe-wrapper review.
 5. JNI adapter crates (`ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-warp-android`, `ripdpi-relay-android`) — last, because they depend on everything else and most affected by the stricter `extern` rules.
 
 ### Don't bump rustfmt edition

@@ -53,7 +53,7 @@ Flamegraph output: `native/rust/flamegraph.svg`
 
 ```bash
 cd native/rust
-cargo llvm-lines --package ripdpi-runtime --release 2>/dev/null | head -30
+cargo llvm-lines --package ripdpi-proxy-runtime --release 2>/dev/null | head -30
 ```
 
 Flag functions with >1000 copies or >10000 lines of LLVM IR.
@@ -79,7 +79,7 @@ perf stat -e cache-misses,cache-references,instructions,cycles \
 - **Relay throughput** is the critical hot path -- regressions here affect user-facing VPN speed
 - **Config parsing** is startup-sensitive -- regressions add to app launch time
 - Compare flamegraphs visually: wide plateaus = CPU bottleneck, deep stacks = call overhead
-- Monomorphization: generics in `ripdpi-runtime` and `ripdpi-relay-core` are prime suspects
+- Monomorphization: generics in `ripdpi-proxy-runtime` and `ripdpi-relay-core` are prime suspects
 - Binary size: `.so` for arm64-v8a must stay under baseline (check `scripts/ci/native-size-baseline.json`)
 
 ## Response Protocol

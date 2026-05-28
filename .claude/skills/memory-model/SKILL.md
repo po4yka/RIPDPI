@@ -28,7 +28,7 @@ No C++ source code. All concurrency is in Rust crates under `native/rust/`.
 | ripdpi-cli | telemetry.rs | AtomicU64 | Relaxed | Statistics counters |
 | ripdpi-ws-tunnel | relay.rs | AtomicBool | Release/Acquire | Shutdown flag (cross-thread signal) |
 | ripdpi-ws-tunnel | connect.rs | AtomicBool | SeqCst | Test-only assertion flag |
-| ripdpi-monitor | engine.rs | AtomicBool | (needs audit) | Cancel flag |
+| ripdpi-monitor-engine | engine/runtime.rs | AtomicBool | Acquire/Release at cancellation boundaries | Scan cancel flag |
 | ripdpi-dns-resolver | tests.rs | AtomicUsize | Relaxed | Test call counters |
 | local-network-fixture | http/socks/echo.rs | AtomicBool | Relaxed | Stop flags (poll loops) |
 

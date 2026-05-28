@@ -13,7 +13,7 @@ Full documentation: `docs/testing.md` (Golden contracts section).
 
 | Layer | Location | Examples |
 |-------|----------|----------|
-| Rust | `native/rust/crates/{crate}/tests/golden/` | android-support, ripdpi-android, ripdpi-tunnel-android, ripdpi-monitor |
+| Rust | `native/rust/crates/{crate}/tests/golden/` | android-support, ripdpi-android, ripdpi-tunnel-android, ripdpi-monitor-engine |
 | JVM | `core/{module}/src/test/resources/golden/` | engine, service, diagnostics |
 | Android instrumentation | `app/src/androidTest/assets/golden/` | Copies of JVM fixtures for on-device smoke tests |
 
@@ -33,7 +33,7 @@ bash scripts/tests/bless-telemetry-goldens.sh
 ```
 
 This script:
-1. Blesses Rust goldens (`android-support`, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-monitor`)
+1. Blesses Rust goldens (`android-support`, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-monitor-engine`)
 2. Blesses JVM goldens (`NativeTelemetryGoldenTest`, `ServiceTelemetryGoldenTest`)
 3. Syncs instrumentation fixtures (copies JVM fixtures to `app/src/androidTest/assets/golden/`)
 

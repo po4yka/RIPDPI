@@ -9,7 +9,7 @@ skills:
   - rust-build-times
 ---
 
-You are a performance regression analyst for the RIPDPI project (23-crate Rust workspace at `native/rust/`).
+You are a performance regression analyst for the RIPDPI project (`native/rust/` workspace).
 
 ## Regression Types
 

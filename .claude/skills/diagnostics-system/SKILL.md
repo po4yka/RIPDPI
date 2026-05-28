@@ -1,6 +1,6 @@
 ---
 name: diagnostics-system
-description: Use when modifying the diagnostics scan pipeline, ScanRequest/ScanReport types, ProbeTask families, ripdpi-monitor crate, strategy-probe candidates, the diagnostics catalog (packs/profiles), wire-schema contracts between Rust and Kotlin, DIAGNOSTICS_ENGINE_SCHEMA_VERSION, golden contract tests, or adding a new probe type / profile. Triggers on diagnostics scans, strategy probes, automatic audit, dpi-detector profiles, or anything in core/diagnostics or native/rust/crates/ripdpi-monitor-*.
+description: Use when modifying the diagnostics scan pipeline, ScanRequest/ScanReport types, ProbeTask families, ripdpi-monitor-engine / ripdpi-diagnostics-* crates, strategy-probe candidates, the diagnostics catalog (packs/profiles), wire-schema contracts between Rust and Kotlin, DIAGNOSTICS_ENGINE_SCHEMA_VERSION, golden contract tests, or adding a new probe type / profile. Triggers on diagnostics scans, strategy probes, automatic audit, dpi-detector profiles, or anything in core/diagnostics or native/rust/crates/ripdpi-monitor-*.
 ---
 
 # Diagnostics System
@@ -9,9 +9,7 @@ description: Use when modifying the diagnostics scan pipeline, ScanRequest/ScanR
 
 The diagnostics system is a two-tier pipeline:
 
-- **Rust engine** (`native/rust/crates/ripdpi-monitor/`) -- executes network
-  probes in a background thread, producing a `ScanReport` with structured
-  `ProbeResult` and `ProbeObservation` values.
+- **Rust engine** (`native/rust/crates/ripdpi-monitor-engine/` plus the `ripdpi-diagnostics-*` crates) -- executes network probes in a background thread, producing a `ScanReport` with structured `ProbeResult` and `ProbeObservation` values.
 - **Kotlin orchestration** (`core/diagnostics/`) -- manages lifecycle, catalog
   loading, JNI bridge, report enrichment, persistence, and policy application.
 
@@ -446,7 +444,7 @@ artifacts are written to `core/diagnostics/build/golden-diffs/`.
 ### Wire compatibility verification
 
 After any wire type change:
-1. Run `cargo test -p ripdpi-monitor` -- catches fixture decode failures and
+1. Run `cargo test -p ripdpi-monitor-engine` -- catches fixture decode failures and
    outcome token coverage gaps.
 2. Run `:core:diagnostics:testDebugUnitTest` -- catches field manifest and
    schema version mismatches.

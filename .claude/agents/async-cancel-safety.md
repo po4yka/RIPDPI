@@ -23,7 +23,7 @@ Known concentrations (verify current state before auditing):
 - `ripdpi-tunnel-android/src/session/lifecycle.rs` — JNI-to-async bridge; the `block_on(run_tunnel(...))` future is the cancel-boundary for the entire session.
 - `ripdpi-android/src/session/proxy_lifecycle.rs` — proxy session lifecycle, similar pattern.
 - `ripdpi-ws-tunnel/` — synchronous std-thread relay (not tokio); cancel-safety does not apply to the relay loop itself, but it does apply to the tokio-side connect / handshake path.
-- `ripdpi-monitor/src/engine.rs` — periodic poll loop with cancel-flag.
+- `ripdpi-monitor-engine/src/engine/` and `ripdpi-diagnostics-runner/src/` — scan execution and strategy/connectivity probe cancellation paths.
 - `ripdpi-dns-resolver` — has both async (resolve) and sync (`resolve_blocking`) paths.
 - Strategy probes (`ripdpi-diagnostics-*`) — bounded async work inside `tokio::time::timeout`; cancel-safety of probe candidates is load-bearing.
 

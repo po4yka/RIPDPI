@@ -42,7 +42,7 @@ RIPDPI supports all four ABIs with minSdk 27.
 
 This creates `generated/jniLibs/<abi>/libripdpi.so` and `generated/jniLibs/<abi>/libripdpi-tunnel.so`.
 
-`libripdpi.so` includes both the proxy runtime bridge and the diagnostics monitor (`ripdpi-monitor`). Native diagnostics changes use the same Android build path as proxy changes.
+`libripdpi.so` includes both the proxy runtime bridge and the diagnostics monitor path (`ripdpi-monitor-engine` through the Android diagnostics adapter). Native diagnostics changes use the same Android build path as proxy changes.
 
 ### Gradle Task Integration
 
