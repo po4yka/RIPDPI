@@ -12,7 +12,7 @@ and the `native/rust/crates/` tree.
 
 ## Workspace facts
 
-- **99 crates**, all under `native/rust/crates/`. Every directory is a declared
+- **108 crates**, all under `native/rust/crates/`. Every directory is a declared
   `[workspace] members` entry — **no orphan directories, no missing members.**
 - `edition = "2021"`, `version = "0.1.0"`, `license = "MIT"` (workspace-inherited).
 - Build profiles: `release` (thin LTO, `panic = "abort"`, stripped),
@@ -29,7 +29,7 @@ and the `native/rust/crates/` tree.
 
 ## 1. Production artifacts
 
-Eight crates are artifact roots. Everything else is a library crate compiled
+Nine crates are artifact roots. Everything else is a library crate compiled
 **into** one of them. Artifacts are produced by the `ripdpi.android.rust-native`
 convention plugin
 ([`build-logic/.../ripdpi.android.rust-native.gradle.kts`](../../build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts)).
@@ -43,22 +43,27 @@ convention plugin
 | `ripdpi-root-helper` | `ripdpi-root-helper` | `bin` | `:core:engine:buildRustRootHelper` | APK assets (`rootHelperAssets/bin/<abi>/`) — run via `su` |
 | `ripdpi-naiveproxy` | `ripdpi-naiveproxy` | `bin` (`src/main.rs`) | NaiveProxy artifact task | APK assets — run as a subprocess helper |
 | `ripdpi-cloudflare-origin` | `ripdpi-cloudflare-origin` | `bin` | Cloudflare-origin artifact task | APK assets — run as a subprocess helper |
+| `ripdpi-webtunnel` | `ripdpi-webtunnel` | `bin` (`src/main.rs`) | Pluggable-transport asset task | APK assets — run as a Tor PT managed-client helper |
 | `ripdpi` | `ripdpi-cli` | `bin` | `cargo build` (desktop) | **Not** in the APK — macOS/Linux dev binary |
 
-> **Native artifact map.** The Gradle plugin's artifact specs build four JNI `.so` libraries: `libripdpi.so`, `libripdpi-tunnel.so`, `libripdpi-relay.so`, and `libripdpi-warp.so`. Relay and WARP ship as their own libraries, not as code linked into `libripdpi.so`.
+> **Native artifact map.** The Gradle plugin's artifact specs build four JNI
+> `.so` libraries: `libripdpi.so`, `libripdpi-tunnel.so`,
+> `libripdpi-relay.so`, and `libripdpi-warp.so`. Relay and WARP ship as their
+> own libraries, not as code linked into `libripdpi.so`.
 
 First-level composition of each artifact root (direct internal dependencies):
 
-- **`ripdpi-android`** → the seven `ripdpi-android-*` adapters + `android-support`
+- **`ripdpi-android`** → the eight `ripdpi-android-*` adapters + `android-support`
   + `ripdpi-strategy-config` + `ripdpi-strategy-lua`.
 - **`ripdpi-tunnel-android`** → `ripdpi-tunnel-core`, `ripdpi-tunnel-config`,
-  `ripdpi-runtime-platform`, `ripdpi-telemetry`, `android-support`.
+  `ripdpi-runtime-platform`, `ripdpi-telemetry`, `ripdpi-pcap`,
+  `ripdpi-quality`, `android-support`.
 - **`ripdpi-relay-android`** → `ripdpi-relay-core`, `ripdpi-apps-script-core`,
-  `android-support`. `ripdpi-relay-core` then pulls the native in-process
-  relay backends from the L7 transport crates; NaiveProxy and pluggable
-  transports remain subprocess/helper paths.
+  `ripdpi-quality`, `android-support`. `ripdpi-relay-core` then pulls the
+  native in-process relay backends from the L7 transport crates; NaiveProxy and
+  pluggable transports remain subprocess/helper paths.
 - **`ripdpi-warp-android`** → `ripdpi-warp-core`, `ripdpi-native-protect`,
-  `ripdpi-tls-profiles`, `android-support`.
+  `ripdpi-tls-profiles`, `ripdpi-quality`, `android-support`.
 - **`ripdpi-root-helper`** → `ripdpi-privileged-ops`, `ripdpi-ipfrag`,
   `ripdpi-root-helper-protocol`.
 
@@ -66,19 +71,21 @@ First-level composition of each artifact root (direct internal dependencies):
 
 ## 2. Crate taxonomy
 
-Nine layers. A crate appears in exactly one layer. Counts below are an inventory aid; verify against `native/rust/Cargo.toml` and `native/rust/crates/*/Cargo.toml` before using them as a gate.
+Nine layers. A crate appears in exactly one layer. Counts below are an
+inventory aid; verify against `native/rust/Cargo.toml` and
+`native/rust/crates/*/Cargo.toml` before using them as a gate.
 
 | # | Layer | Count | Crates |
 |---|-------|-------|--------|
-| L0 | **support / test / dev** | 5 | `golden-test-support`, `local-network-fixture`, `native-soak-support`, `ripdpi-bench`, `ripdpi-cli` |
-| L1 | **protocol / core** | 9 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver` |
+| L0 | **support / test / dev** | 6 | `feature-contract-harness`, `golden-test-support`, `local-network-fixture`, `native-soak-support`, `ripdpi-bench`, `ripdpi-cli` |
+| L1 | **protocol / core** | 10 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-pcap` |
 | L2 | **contracts / config** | 9 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry` |
-| L3 | **domain logic** | 16 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-routing`, `ripdpi-shared-priors`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
+| L3 | **domain logic** | 18 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-routing`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
 | L5 | **platform / privileged** | 8 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
 | L6 | **diagnostics / monitor** | 18 | 14 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
-| L7 | **relay transports** | 18 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel` |
-| L8 | **Android / JNI adapters** | 12 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android` |
+| L7 | **relay transports** | 19 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel` |
+| L8 | **Android / JNI adapters** | 12 | `android-support`, the eight `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android` |
 
 `ripdpi-diagnostics-contracts` is counted under L2 (it is a wire contract); the
 other 14 `ripdpi-diagnostics-*` crates are L6.
@@ -120,10 +127,12 @@ Rules, all of which **hold today** in `Cargo.toml`:
    `ripdpi-runtime-api`, `ripdpi-root-helper-protocol`) carry wide fan-in by
    design. Treat any change to their public types as a breaking wire-contract
    change; golden contract tests cover them.
-6. **Support crates are dev-only.** The four `test-support-crates` must appear
-   only in `[dev-dependencies]`; `ripdpi-cli` (`local-debug-crates`) is desktop
-   tooling and must never be an Android dependency. Verified: every occurrence
-   of those five crates today is a dev-dependency or none.
+6. **Support crates are dev-only.** The four metadata-listed
+   `test-support-crates` must appear only in `[dev-dependencies]`;
+   `ripdpi-cli` (`local-debug-crates`) is desktop tooling and must never be an
+   Android dependency. `feature-contract-harness` is also L0 test
+   infrastructure. Verified: these six crates are either dev-dependencies or
+   standalone tools, not production runtime dependencies.
 
 **Enforcement.** The dependency-direction and JNI-containment rules (1–2) are
 machine-checked by `scripts/ci/check_native_architecture_contracts.py`, the
@@ -153,6 +162,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | Crate | Responsibility | API surface | Key internal deps | Coupling / risk | Action |
 |-------|----------------|-------------|-------------------|-----------------|--------|
 | `golden-test-support` | Golden-fixture comparison + bless helpers | Test helpers | — | None — dev-only | Keep |
+| `feature-contract-harness` | Cross-layer feature-contract manifests + drift tests | Test harness | `serde`, `serde_json`; dev-deps on registry crates | Test-only; no production consumer | Keep |
 | `local-network-fixture` | In-process network fixture (also builds a fixture binary) | Test fixtures + `bin` | — | `kind=bin`; dev-only | Keep |
 | `native-soak-support` | Soak-test scaffolding | Test helpers | — | Dev-only | Keep |
 | `ripdpi-bench` | Criterion benchmark harness | Bench harness | — (dev-deps on runtime crates) | No workspace consumer (expected) | Keep |
@@ -171,6 +181,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-protocol-detect` | Stream protocol detection | Detector types | `ripdpi-strategy-trait` | No runtime consumer; crate-local regression tests only | Keep only if the standalone detector test surface remains useful |
 | `ripdpi-protocol-loopback` | Loopback protocol test harness | Harness API | — (leaf) | Harness-only crate; no runtime consumer | Keep as a test harness or prune if no test plan uses it |
 | `ripdpi-dns-resolver` | Encrypted DNS client (DoH/DoT/DNSCrypt/DoQ) | Resolver API (async) | `ripdpi-socks5-core` | Fan-in 7; heavy ext deps (`quinn`, `boring`, `reqwest`) | Keep |
+| `ripdpi-pcap` | Classic pcap writer/reader + endpoint redaction | Pcap I/O API | — (leaf) | Used by tunnel Android capture/export paths | Keep |
 
 ### L2 — contracts / config
 
@@ -196,6 +207,8 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-session` | Session state machine + policy store | State-machine API | `ripdpi-packets` | Fan-in 5 | Keep |
 | `ripdpi-routing` | Routing rule engine | Rule API | — (leaf) | No runtime consumer | Prune candidate unless a routing feature wires it |
 | `ripdpi-shared-priors` | Offline-learner signed shared-priors bundles | Parser + verifier API | — (leaf) | Fail-secure parser (see architecture/README) | Keep |
+| `ripdpi-quality` | Rolling-window connection-quality telemetry | Quality-window API | — (leaf) | Consumed by tunnel/relay/warp Android adapters | Keep |
+| `ripdpi-runtime-decision-engine` | Delegating runtime-decision facade over decision ports and services | Decision API | `ripdpi-runtime-decision-ports`, `ripdpi-runtime-services` | Thin facade; keep policy logic centralized here | Keep |
 | `ripdpi-runtime-policy` | Runtime policy logic | Policy types | `ripdpi-desync`, `ripdpi-session`, `ripdpi-runtime-decision-ports`, … | Mid | Keep |
 | `ripdpi-runtime-adaptive` | Adaptive runtime (UCB1 / bandit scoring) | Scorer API | `ripdpi-runtime-policy`, `ripdpi-runtime-decision-ports`, … | Mid | Keep |
 | `ripdpi-runtime-strategy` | Runtime strategy selection | Selector API | `ripdpi-desync`, `ripdpi-shared-priors`, … | `ripdpi-shared-priors` is both dep and dev-dep | Keep |
@@ -272,6 +285,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-tor` | Arti-backed Tor relay backend | Transport client | `ripdpi-relay-tls-transports` | Opt-in TCP-only anonymity backend with bridge/PT bootstrap | Keep |
 | `ripdpi-vless` | VLESS Reality / xHTTP transport | Transport client | `ripdpi-relay-mux`, `ripdpi-tls-profiles` | `boring`; used by `xhttp`, `cloudflare-origin` | Keep |
 | `ripdpi-xhttp` | xHTTP transport (VLESS xHTTP, CF Tunnel) | Transport client | `ripdpi-vless`, `ripdpi-tls-profiles` | — | Keep |
+| `ripdpi-webtunnel` | WebTunnel PT client and managed-client binary | Transport client + `bin` | `ripdpi-tls-profiles` | External PT helper path; packaged by PT asset task | Keep |
 | `ripdpi-cloudflare-origin` | Local xHTTP origin helper for CF Tunnel publish | `bin` | `ripdpi-vless` | Subprocess helper binary | Keep |
 | `ripdpi-naiveproxy` | NaiveProxy helper | `bin` (`src/main.rs`) | — (leaf) | Subprocess helper binary | Keep |
 | `ripdpi-relay-tls-transports` | Shared TLS relay helpers | Library | `ripdpi-tls-profiles` | Shared by TLS-shaped relay transports | Keep |
@@ -291,29 +305,31 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-android-platform-adapter` | Platform-port JNI adapter | JNI exports | `ripdpi-runtime-platform`, `ripdpi-shared-priors`, … (7) | `jni` | Keep |
 | `ripdpi-android-vpn-protect-adapter` | `VpnService.protect` JNI adapter | JNI exports | `ripdpi-native-protect` | `jni` | Keep |
 | `ripdpi-android-telemetry-adapter` | Telemetry projection adapter | Projection API | `ripdpi-telemetry`, `ripdpi-runtime-api`, … (5) | **No `jni` dep** — pure projection, still L8 | Keep |
-| `ripdpi-android` | `libripdpi.so` — proxy/diagnostics/strategy JNI entrypoint | `cdylib` + `JNI_OnLoad` | the 7 `ripdpi-android-*` adapters + `android-support` + 2 strategy crates | `jni`; artifact root | Keep |
-| `ripdpi-tunnel-android` | `libripdpi-tunnel.so` — TUN bridge JNI entrypoint | `cdylib` + JNI | `ripdpi-tunnel-core`, `ripdpi-runtime-platform`, … | `jni`; artifact root | Keep |
-| `ripdpi-relay-android` | `libripdpi-relay.so` — relay JNI entrypoint (`RipDpiRelayNativeBindings`) | `cdylib` + JNI | `ripdpi-relay-core`, `ripdpi-apps-script-core`, `android-support` | `jni`; artifact root | Keep — Kotlin counterpart `RipDpiRelayNativeBindings` at `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt:82`; `System.loadLibrary("ripdpi-relay")` at `RipDpiRelayNativeLoader:76` |
-| `ripdpi-warp-android` | `libripdpi-warp.so` — WARP JNI entrypoint | `cdylib` + JNI | `ripdpi-warp-core`, `ripdpi-native-protect`, `ripdpi-tls-profiles`, `android-support` | `jni`; artifact root | Keep |
+| `ripdpi-android` | `libripdpi.so` — proxy/diagnostics/strategy JNI entrypoint | `cdylib` + `JNI_OnLoad` | the 8 `ripdpi-android-*` adapters + `android-support` + 2 strategy crates | `jni`; artifact root | Keep |
+| `ripdpi-tunnel-android` | `libripdpi-tunnel.so` — TUN bridge JNI entrypoint | `cdylib` + JNI | `ripdpi-tunnel-core`, `ripdpi-runtime-platform`, `ripdpi-pcap`, `ripdpi-quality`, … | `jni`; artifact root | Keep |
+| `ripdpi-relay-android` | `libripdpi-relay.so` — relay JNI entrypoint (`RipDpiRelayNativeBindings`) | `cdylib` + JNI | `ripdpi-relay-core`, `ripdpi-apps-script-core`, `ripdpi-quality`, `android-support` | `jni`; artifact root | Keep — Kotlin counterpart `RipDpiRelayNativeBindings` at `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt:82`; `System.loadLibrary("ripdpi-relay")` at `RipDpiRelayNativeLoader:76` |
+| `ripdpi-warp-android` | `libripdpi-warp.so` — WARP JNI entrypoint | `cdylib` + JNI | `ripdpi-warp-core`, `ripdpi-native-protect`, `ripdpi-tls-profiles`, `ripdpi-quality`, `android-support` | `jni`; artifact root | Keep |
 
 ---
 
 ## 5. Crates that must stay Android/JNI-free
 
 Every crate **except the 12 L8 crates** must not depend on `jni`,
-`android-support`, `android_logger`, or any `ndk-*` crate. That is **87 crates**
+`android-support`, `android_logger`, or any `ndk-*` crate. That is **96 crates**
 — all of L0–L7:
 
-> `golden-test-support`, `local-network-fixture`, `native-soak-support`,
-> `ripdpi-bench`, `ripdpi-cli`, `ripdpi-packets`, `ripdpi-tls-profiles`,
+> `feature-contract-harness`, `golden-test-support`, `local-network-fixture`,
+> `native-soak-support`, `ripdpi-bench`, `ripdpi-cli`, `ripdpi-packets`, `ripdpi-tls-profiles`,
 > `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`,
 > `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`,
+> `ripdpi-pcap`,
 > `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`,
 > `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`,
 > `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`,
 > `ripdpi-telemetry`, `ripdpi-desync`, `ripdpi-desync-runtime`,
 > `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-routing`,
-> `ripdpi-shared-priors`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`,
+> `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`,
+> `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`,
 > `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`,
 > `ripdpi-strategy-ipv6`,
 > `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`,
@@ -397,10 +413,12 @@ declared in `[workspace.metadata.ripdpi]`:
 - `local-debug-crates = ["ripdpi-cli"]` — the desktop CLI (`ripdpi` binary).
   Useful for running the proxy runtime on macOS/Linux; **not packaged in the
   APK** and never an Android dependency.
+- `feature-contract-harness` is also L0 test infrastructure, but it is a
+  workspace member rather than part of the metadata allowlist above.
 
-When reasoning about what ships, exclude these five crates. `local-network-fixture`
-also builds a fixture `bin`, and `ripdpi-bench` is a Criterion harness — neither
-is a runtime artifact.
+When reasoning about what ships, exclude these six L0 crates. `local-network-fixture`
+also builds a fixture `bin`, `feature-contract-harness` is test-only, and
+`ripdpi-bench` is a Criterion harness — none is a runtime artifact.
 
 ---
 
@@ -408,9 +426,17 @@ is a runtime artifact.
 
 These are current source-state notes for triage. None block the build.
 
-- **`ripdpi-relay-android` Kotlin counterpart exists** — `RipDpiRelayNativeBindings` is in `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`, and `RipDpiRelayNativeLoader` loads `"ripdpi-relay"`.
-- **Library crates with no runtime consumer** — `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-routing`, `ripdpi-runtime-dns-cache`, `ripdpi-diagnostics-net`, and `ripdpi-diagnostics-parsers` still have no workspace consumer beyond their own crate entry. They remain prune candidates unless a feature or test plan wires them.
-- **Relay transport crates are wired** — `ripdpi-shadowsocks` and `ripdpi-trojan` are consumed by `ripdpi-relay-tls-transports`, which is consumed by `ripdpi-relay-core`; they are not prune candidates.
+- **`ripdpi-relay-android` Kotlin counterpart exists** — `RipDpiRelayNativeBindings`
+  is in `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`, and
+  `RipDpiRelayNativeLoader` loads `"ripdpi-relay"`.
+- **Library crates with no runtime consumer** — `ripdpi-protocol-detect`,
+  `ripdpi-protocol-loopback`, `ripdpi-routing`, `ripdpi-runtime-dns-cache`,
+  `ripdpi-diagnostics-net`, and `ripdpi-diagnostics-parsers` still have no
+  workspace consumer beyond their own crate entry. They remain prune candidates
+  unless a feature or test plan wires them.
+- **Relay transport crates are wired** — `ripdpi-shadowsocks` and
+  `ripdpi-trojan` are consumed by `ripdpi-relay-tls-transports`, which is
+  consumed by `ripdpi-relay-core`; they are not prune candidates.
 - **`ripdpi-diagnostics-net`** mirrors `ripdpi-diagnostics-protocols`' dependency set and is currently superseded in practice by `ripdpi-diagnostics-protocols`.
 
 ---
