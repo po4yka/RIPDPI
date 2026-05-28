@@ -39,7 +39,7 @@ This crate intentionally does not aim for a TLS or HTTP/2 fingerprint identical 
 
 ## Test Coverage
 
-The old slice plan has landed into focused Rust and Kotlin tests. Current coverage is:
+Current focused Rust and Kotlin coverage is:
 
 - Padding codec: `padding_frame_encodes_big_endian_length_and_zero_padding`, `padding_frame_splits_payload_larger_than_u16_max`, `padding_decoder_handles_fragmented_header_payload_and_padding`, `padding_decoder_switches_to_plain_after_eight_frames`, `padding_encoder_switches_to_plain_after_eight_frames`, and `padding_vectors_match_spec_golden`.
 - HTTP/2 CONNECT framing and padding negotiation: `h2_connect_request_sends_naive_headers`, `h2_connect_rejects_request_padding_outside_spec_range`, `h2_connect_response_without_padding_disables_payload_padding`, `h2_connect_response_with_padding_reply_enables_variant1`, and `h2_connect_rejects_response_padding_outside_spec_range`.
