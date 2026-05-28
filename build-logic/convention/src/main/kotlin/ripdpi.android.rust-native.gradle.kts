@@ -557,6 +557,10 @@ abstract class BuildPluggableTransportAssetsTask
         @get:PathSensitive(PathSensitivity.RELATIVE)
         abstract val sourcesManifest: RegularFileProperty
 
+        @get:InputFile
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val rustWorkspaceManifest: RegularFileProperty
+
         @get:Input
         abstract val gitExecutable: Property<String>
 
@@ -944,10 +948,7 @@ abstract class BuildPluggableTransportAssetsTask
                 )
             resolveAndroidSdkCmake()?.let { cargoEnvironment["CMAKE"] = it.absolutePath }
 
-            val manifest =
-                project.layout.projectDirectory
-                    .file("native/rust/Cargo.toml")
-                    .asFile
+            val manifest = rustWorkspaceManifest.get().asFile
             execOperations
                 .exec {
                     workingDir = manifest.parentFile
@@ -1413,6 +1414,7 @@ val buildPluggableTransportAssets =
         description = "Builds source-pinned pluggable transport helper assets or stub launchers."
 
         sourcesManifest.set(ptSourcesManifestFile)
+        rustWorkspaceManifest.set(rustWorkspaceManifestFile)
         gitExecutable.set(resolveHostTool("git"))
         goExecutable.set(resolveHostTool("go"))
         cargoExecutable.set(resolveHostTool("cargo"))
