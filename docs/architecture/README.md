@@ -13,7 +13,7 @@ The canonical architecture docs, in reading order:
 5. [CONFIG_CONTRACTS.md](CONFIG_CONTRACTS.md) — settings, protobuf, native JSON, and Rust config compatibility
 6. [FEATURE_EXTENSION_GUIDE.md](FEATURE_EXTENSION_GUIDE.md) — how to add features safely
 
-The notes below this point are compact, topic-specific records; the five docs above are the entry points.
+The notes below this point are compact, topic-specific records; the six docs above are the entry points.
 
 Protocol decisions that should not be re-litigated from old plans are indexed in [../adr/README.md](../adr/README.md), including the VLESS Reality ECH policy and the Snowflake native Rust no-go decision.
 
