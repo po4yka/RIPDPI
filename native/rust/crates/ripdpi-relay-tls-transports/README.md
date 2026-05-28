@@ -15,5 +15,5 @@ This crate is the adapter layer between protocol clients and `ripdpi-relay-core`
 ## Boundaries
 
 - NaiveProxy is not adapted here because it is supervised as an external helper subprocess.
-- Snowflake, WebTunnel, and obfs4 are external pluggable transports managed by Kotlin service code, not relay-core TLS transport adapters.
+- WebTunnel is an in-repository Rust pluggable-transport helper, while Snowflake and obfs4 are external pluggable transports; Kotlin service code manages all three outside relay-core TLS transport adapters.
 - VLESS Reality and xHTTP live in their own crates because they have dedicated Reality/xHTTP behavior and Finalmask interactions.

@@ -19,7 +19,7 @@ Project Rules). Three capabilities work independently or combined:
 2. **VPN relay** — chains local proxy or VPN traffic through encrypted relay
    protocols (VLESS Reality/xHTTP, Hysteria2, TUIC v5, MASQUE, ShadowTLS,
    Trojan, AnyTLS, Shadowsocks, Tor, NaiveProxy, Google Apps Script, Cloudflare
-   Tunnel, and external PT paths such as Snowflake/WebTunnel/obfs4) to a server
+   Tunnel, in-repository WebTunnel, and external Snowflake/obfs4 PT paths) to a server
    or bridge path the user controls. WARP and AmneziaWG are separate VPN/tunnel
    profile surfaces, not `relay_kind` values.
    Owner-operated relay promotion is governed by the deployment-plane controls in

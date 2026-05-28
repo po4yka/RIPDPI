@@ -43,7 +43,7 @@ The same bridge also carries the runtime context used by the service layer:
 
 ## Relay Transport Expansion
 
-The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust `ripdpi-relay-core` transport registry. The native registry currently wires in-process backends for Hysteria2, TUIC v5, VLESS Reality TCP/xHTTP, Cloudflare Tunnel consume mode, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, and Tor; NaiveProxy is intentionally a subprocess fallback. Snowflake, WebTunnel, and obfs4 are external pluggable-transport binaries managed by Kotlin service code, not relay-core backends. Google Apps Script is an in-repository Rust Apps Script relay runtime selected by service orchestration, not a relay-core descriptor row. WARP and AmneziaWG are separate VPN/tunnel profile surfaces rather than `relay_kind` values.
+The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust `ripdpi-relay-core` transport registry. The native registry currently wires in-process backends for Hysteria2, TUIC v5, VLESS Reality TCP/xHTTP, Cloudflare Tunnel consume mode, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, and Tor; NaiveProxy is intentionally a subprocess fallback. WebTunnel is an in-repository Rust PT helper binary managed by Kotlin service code, while Snowflake and obfs4 are external PT binaries; none of those PT helpers are relay-core backends. Google Apps Script is an in-repository Rust Apps Script relay runtime selected by service orchestration, not a relay-core descriptor row. WARP and AmneziaWG are separate VPN/tunnel profile surfaces rather than `relay_kind` values.
 
 - `native/rust/crates/ripdpi-relay-core` is the shared relay backend and pooling layer used by Android service orchestration.
 - `native/rust/crates/ripdpi-relay-mux` provides reusable relay-session pooling and stream-lease logic for reusable transports.
@@ -57,7 +57,7 @@ The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust
 - `native/rust/crates/ripdpi-naiveproxy` is a standalone helper binary used through the Android subprocess manager rather than JNI embedding.
 - `native/rust/crates/ripdpi-apps-script-core` provides the Rust Apps Script relay runtime used by the `google_apps_script` profile path.
 - `native/rust/crates/ripdpi-warp-core` and `native/rust/crates/ripdpi-warp-android` provide the native WARP runtime used by the Kotlin service and settings stack.
-- External PT binaries `ripdpi-snowflake`, `ripdpi-webtunnel`, and `ripdpi-obfs4` are launched by `PluggableTransportManager`; Snowflake intentionally remains the Go binary described in [the Snowflake no-go decision](../architecture/snowflake-native-rust-decision.md).
+- PT helper binaries `ripdpi-snowflake`, `ripdpi-webtunnel`, and `ripdpi-obfs4` are launched by `PluggableTransportManager`; WebTunnel is the in-repository Rust helper, while Snowflake intentionally remains the Go binary described in [the Snowflake no-go decision](../architecture/snowflake-native-rust-decision.md).
 
 Recent integration hardening in this layer:
 

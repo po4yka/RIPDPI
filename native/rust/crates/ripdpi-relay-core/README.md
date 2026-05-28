@@ -11,8 +11,9 @@ transports), runtime/config wiring, runtime validation, and the telemetry
 surface. It rejects unsupported relay/mode combinations early rather than
 dropping them silently. NaiveProxy is registered with `builder = None` and
 `fallback_mode = "subprocess"` because Kotlin supervises the helper process
-outside relay-core. Snowflake, WebTunnel, and obfs4 are external pluggable
-transport binaries and are not relay-core descriptor rows.
+outside relay-core. WebTunnel is an in-repository Rust pluggable-transport
+helper binary, while Snowflake and obfs4 are external pluggable-transport
+binaries; none of those PT helpers are relay-core descriptor rows.
 
 ## Stable identifiers / contracts
 

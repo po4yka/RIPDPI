@@ -26,7 +26,7 @@ Every feature should be tested against the dimensions that can affect it.
 | Runtime mode | Stopped app, proxy service, VPN service, VPN plus relay, diagnostics-only debug probe |
 | Network | Wi-Fi, cellular, dual-stack, IPv4-only, IPv6-only, private DNS enabled, metered, network handover, captive or limited path |
 | DNS mode | System DNS, plain resolver override, DoH, DoT, DNSCrypt, DoQ, fallback resolver loop |
-| Relay path | None, mock relay, VLESS Reality TCP, VLESS xHTTP, chain relay, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Tor, NaiveProxy subprocess, Google Apps Script path, external PT paths (Snowflake Go binary, WebTunnel, obfs4), separate WARP/AmneziaWG tunnel profiles |
+| Relay path | None, mock relay, VLESS Reality TCP, VLESS xHTTP, chain relay, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Tor, NaiveProxy subprocess, Google Apps Script path, in-repository WebTunnel PT helper, external PT paths (Snowflake Go binary, obfs4), separate WARP/AmneziaWG tunnel profiles |
 | Packet strategy | None, split, disorder, fake, TLS record, TLS random record, hostfake, OOB, delayed split, parser variants, QUIC, DTLS, UDP length, IPv6 extension headers, Lua rawsend, root-only FakeRst, root-only MultiDisorder, root-only IpFrag2, root-only SeqOverlap, adaptive marker offsets |
 | Diagnostics profile | Connectivity, quick strategy probe, full matrix audit, home composite run, RAW_PATH run |
 | Data state | Fresh install, migrated install, cleared app data, imported profile, remembered network, full history |

@@ -359,7 +359,7 @@ Notes:
 
 ## Pluggable Transports
 
-Snowflake, WebTunnel, and obfs4 are external PT binary paths managed by `PluggableTransportManager`, not native relay-core backends. Snowflake remains the Go `ripdpi-snowflake` binary by decision; see [the Snowflake native Rust no-go ADR](architecture/snowflake-native-rust-decision.md).
+WebTunnel is the in-repository Rust `ripdpi-webtunnel` PT helper binary managed by `PluggableTransportManager`; Snowflake and obfs4 are external PT binary paths. None of these PT helpers are native relay-core backends. Snowflake remains the Go `ripdpi-snowflake` binary by decision; see [the Snowflake native Rust no-go ADR](architecture/snowflake-native-rust-decision.md).
 
 Profile fields:
 

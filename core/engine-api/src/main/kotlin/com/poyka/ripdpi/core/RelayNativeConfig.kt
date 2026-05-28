@@ -321,7 +321,7 @@ data class RelayAnyTlsSection(
     val anyTlsPassword: String?,
 )
 
-/** Pluggable-transport fields: NaiveProxy plus obfs4 / WebTunnel / Snowflake. */
+/** Subprocess relay fields: NaiveProxy plus obfs4 / WebTunnel / Snowflake. */
 data class RelayPluggableTransportSection(
     val naivePath: String,
     val naiveUsername: String?,
