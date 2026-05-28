@@ -204,6 +204,7 @@ mod tests {
     ) -> MasqueConfig {
         MasqueConfig {
             url: "https://masque.example/".to_string(),
+            proxy_socket_addr: None,
             use_http2_fallback: true,
             auth_mode: auth_mode.map(ToOwned::to_owned),
             auth_token: auth_token.map(ToOwned::to_owned),

@@ -182,6 +182,7 @@ mod tests {
     fn preshared_header_uses_proxy_authorization() {
         let header = build_static_auth_header(&MasqueConfig {
             url: "https://masque.example/".to_string(),
+            proxy_socket_addr: None,
             use_http2_fallback: true,
             auth_mode: Some("preshared".to_string()),
             auth_token: Some("secret".to_string()),
@@ -205,6 +206,7 @@ mod tests {
     fn privacy_pass_mode_does_not_require_static_secret() {
         let header = build_static_auth_header(&MasqueConfig {
             url: "https://masque.example/".to_string(),
+            proxy_socket_addr: None,
             use_http2_fallback: false,
             auth_mode: Some("privacy_pass".to_string()),
             auth_token: None,
@@ -227,6 +229,7 @@ mod tests {
     fn cloudflare_mtls_mode_does_not_emit_static_auth_headers() {
         let header = build_static_auth_header(&MasqueConfig {
             url: "https://masque.example/".to_string(),
+            proxy_socket_addr: None,
             use_http2_fallback: true,
             auth_mode: Some("cloudflare_mtls".to_string()),
             auth_token: None,

@@ -1,5 +1,6 @@
 pub use ripdpi_tls_profiles::OutboundEchConfig;
 use std::io;
+use std::net::SocketAddr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MasqueAuthMode {
@@ -15,6 +16,8 @@ pub enum MasqueAuthMode {
 pub struct MasqueConfig {
     /// MASQUE server URL, e.g. `"https://masque.example.com/"`.
     pub url: String,
+    /// Pre-resolved proxy socket address from relay bootstrap; leaves URL host available for SNI and HTTP authority.
+    pub proxy_socket_addr: Option<SocketAddr>,
     /// Whether to fall back to HTTP/2 CONNECT if HTTP/3 (QUIC) fails.
     pub use_http2_fallback: bool,
     /// Auth mode: `"bearer"`, `"preshared"`, `"privacy_pass"`, or legacy `"token"`.

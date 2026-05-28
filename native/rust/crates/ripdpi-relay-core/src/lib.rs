@@ -6,6 +6,7 @@
 //! telemetry projection as separate runtime slices.
 
 mod backend;
+mod bootstrap;
 mod config;
 mod protocols;
 mod runtime;

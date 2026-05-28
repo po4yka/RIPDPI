@@ -11,6 +11,7 @@ use std::time::Duration;
 use tokio::net::TcpListener;
 
 use crate::backend::build_backend;
+use crate::bootstrap::bootstrap_relay_endpoints;
 use crate::config::ResolvedRelayRuntimeConfig;
 use crate::runtime::events::{emit_runtime_ready, emit_runtime_stopped};
 use crate::runtime::listener::run_accept_loop;
@@ -49,8 +50,9 @@ impl RelayRuntime {
     }
 
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
-        let backend = Arc::new(build_backend(&self.config).await?);
-        validate_runtime_config(&self.config, &backend)?;
+        let bootstrapped_config = bootstrap_relay_endpoints(&self.config).await?;
+        let backend = Arc::new(build_backend(&bootstrapped_config).await?);
+        validate_runtime_config(&bootstrapped_config, &backend)?;
         self.state.set_backend(Arc::clone(&backend))?;
 
         let bind_addr = format!("{}:{}", self.config.common.local_socks_host, self.config.common.local_socks_port);

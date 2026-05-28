@@ -63,6 +63,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
             }),
             "masque" => RelayBackendConfig::Masque(MasqueRelayConfig {
                 url: flat.masque_url,
+                proxy_socket_addr: None,
                 use_http2_fallback: flat.masque_use_http2_fallback,
                 cloudflare_geohash_enabled: flat.masque_cloudflare_geohash_enabled,
                 auth_mode: flat.masque_auth_mode,

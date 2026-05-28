@@ -1,6 +1,9 @@
+use std::net::SocketAddr;
+
 #[derive(Debug, Clone, Default)]
 pub struct MasqueRelayConfig {
     pub url: String,
+    pub proxy_socket_addr: Option<SocketAddr>,
     pub use_http2_fallback: bool,
     pub cloudflare_geohash_enabled: bool,
     pub auth_mode: Option<String>,

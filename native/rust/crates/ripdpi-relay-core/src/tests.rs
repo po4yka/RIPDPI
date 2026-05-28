@@ -7,6 +7,7 @@ use ripdpi_relay_mux::RelayPoolConfig;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::backend::{build_backend, RelayBackend};
+use crate::bootstrap::{bootstrap_relay_endpoints_with, RelayEndpointBootstrapResolver};
 use crate::config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
     MasqueRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind, ResolvedRelayFinalmaskConfig,
@@ -19,6 +20,19 @@ use crate::runtime_validation::{
     validate_finalmask_config, validate_runtime_config,
 };
 use crate::socks::RelayTargetAddr;
+
+#[derive(Default)]
+struct FakeBootstrapResolver {
+    requests: Vec<(String, u16)>,
+}
+
+impl RelayEndpointBootstrapResolver for FakeBootstrapResolver {
+    async fn resolve_direct(&mut self, host: &str, port: u16) -> io::Result<SocketAddr> {
+        self.requests.push((host.to_string(), port));
+        let octet = u8::try_from(self.requests.len()).expect("fixture request count fits u8");
+        Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, octet)), port))
+    }
+}
 
 fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
     let common = CommonRelayConfig {
@@ -102,6 +116,106 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
     ResolvedRelayRuntimeConfig { common, backend }
 }
 
+#[tokio::test]
+async fn relay_endpoint_bootstrap_resolves_common_hostname_once_and_preserves_sni() {
+    let config = sample_config("vless_reality");
+    let mut resolver = FakeBootstrapResolver::default();
+
+    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+
+    assert_eq!(resolver.requests, vec![("relay.example".to_string(), 443)]);
+    assert_eq!(bootstrapped.common.server, "203.0.113.1");
+    assert_eq!(bootstrapped.common.server_name, "relay.example");
+}
+
+#[tokio::test]
+async fn relay_endpoint_bootstrap_skips_ip_literals() {
+    let mut config = sample_config("trojan");
+    config.common.server = "198.51.100.8".to_string();
+    let mut resolver = FakeBootstrapResolver::default();
+
+    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+
+    assert!(resolver.requests.is_empty(), "IP relay endpoints must not trigger bootstrap DNS");
+    assert_eq!(bootstrapped.common.server, "198.51.100.8");
+    assert_eq!(bootstrapped.common.server_name, "relay.example");
+}
+
+#[tokio::test]
+async fn relay_endpoint_bootstrap_resolves_only_active_chain_endpoints() {
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry_server = "entry.example".to_string();
+    chain.entry_server_name = "entry.example".to_string();
+    chain.exit_server = "exit.example".to_string();
+    chain.exit_server_name = "exit.example".to_string();
+    let mut resolver = FakeBootstrapResolver::default();
+
+    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+
+    assert_eq!(resolver.requests, vec![("entry.example".to_string(), 443), ("exit.example".to_string(), 443)]);
+    let RelayBackendConfig::ChainRelay(chain) = bootstrapped.backend else {
+        panic!("expected chain config");
+    };
+    assert_eq!(chain.entry_server, "203.0.113.1");
+    assert_eq!(chain.entry_server_name, "entry.example");
+    assert_eq!(chain.exit_server, "203.0.113.2");
+    assert_eq!(chain.exit_server_name, "exit.example");
+}
+
+#[tokio::test]
+async fn relay_endpoint_bootstrap_resolves_shadowtls_outer_and_inner_endpoints() {
+    let mut config = sample_config("shadowtls_v3");
+    config.common.server = "outer.example".to_string();
+    config.common.server_name = "outer.example".to_string();
+    let shadowtls = shadowtls_config_mut(&mut config);
+    shadowtls.inner_profile_id = "inner-vless".to_string();
+    shadowtls.inner = Some(ResolvedShadowTlsInnerRelayConfig {
+        kind: "vless_reality".to_string(),
+        profile_id: "inner-vless".to_string(),
+        server: "inner.example".to_string(),
+        server_port: 443,
+        server_name: "inner.example".to_string(),
+        reality_public_key: "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=".to_string(),
+        reality_short_id: String::new(),
+        vless_transport: "reality_tcp".to_string(),
+        vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+    });
+    let mut resolver = FakeBootstrapResolver::default();
+
+    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+
+    assert_eq!(resolver.requests, vec![("outer.example".to_string(), 443), ("inner.example".to_string(), 443)]);
+    assert_eq!(bootstrapped.common.server, "203.0.113.1");
+    assert_eq!(bootstrapped.common.server_name, "outer.example");
+    let RelayBackendConfig::ShadowTlsV3(shadowtls) = bootstrapped.backend else {
+        panic!("expected shadowtls config");
+    };
+    let inner = shadowtls.inner.expect("inner relay config");
+    assert_eq!(inner.server, "203.0.113.2");
+    assert_eq!(inner.server_name, "inner.example");
+}
+
+#[tokio::test]
+async fn relay_endpoint_bootstrap_resolves_masque_url_host_without_rewriting_authority() {
+    let mut config = sample_config("masque");
+    config.common.server = "unused-common.example".to_string();
+    let RelayBackendConfig::Masque(masque) = &mut config.backend else {
+        panic!("expected MASQUE config");
+    };
+    masque.url = "https://masque.example:8443/.well-known/masque/ip".to_string();
+    let mut resolver = FakeBootstrapResolver::default();
+
+    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+
+    assert_eq!(resolver.requests, vec![("masque.example".to_string(), 8443)]);
+    let RelayBackendConfig::Masque(masque) = bootstrapped.backend else {
+        panic!("expected MASQUE config");
+    };
+    assert_eq!(masque.url, "https://masque.example:8443/.well-known/masque/ip");
+    assert_eq!(masque.proxy_socket_addr.expect("MASQUE bootstrap addr").to_string(), "203.0.113.1:8443");
+}
+
 #[test]
 fn relay_runtime_config_round_trips_flattened_backend_fields() {
     for kind in [
@@ -141,6 +255,13 @@ fn tuic_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut TuicRelayCon
     match &mut config.backend {
         RelayBackendConfig::TuicV5(tuic) => tuic,
         _ => panic!("expected TUIC config"),
+    }
+}
+
+fn chain_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut ChainRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::ChainRelay(chain) => chain,
+        _ => panic!("expected chain relay config"),
     }
 }
 

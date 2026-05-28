@@ -44,7 +44,10 @@ pub(crate) fn parse_proxy_origin(config: &MasqueConfig) -> io::Result<ProxyOrigi
     Ok(ProxyOrigin { host, authority, request_uri, udp_base_path })
 }
 
-pub(crate) fn resolve_proxy_socket_addr(proxy_origin: &ProxyOrigin) -> io::Result<SocketAddr> {
+pub(crate) fn resolve_proxy_socket_addr(config: &MasqueConfig, proxy_origin: &ProxyOrigin) -> io::Result<SocketAddr> {
+    if let Some(addr) = config.proxy_socket_addr {
+        return Ok(addr);
+    }
     proxy_origin
         .authority
         .to_socket_addrs()?

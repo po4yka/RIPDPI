@@ -53,7 +53,7 @@ pub(crate) async fn attempt_h2_connect_tcp(
     auth_header: Option<&AuthHeader>,
 ) -> Result<impl AsyncIo, AttemptError> {
     let proxy_origin = parse_proxy_origin(config)?;
-    let tcp = TcpStream::connect(resolve_proxy_socket_addr(&proxy_origin)?)
+    let tcp = TcpStream::connect(resolve_proxy_socket_addr(config, &proxy_origin)?)
         .await
         .map_err(|error| io::Error::new(error.kind(), format!("failed to connect to MASQUE proxy: {error}")))?;
     tcp.set_nodelay(true)?;
@@ -117,7 +117,7 @@ pub(crate) async fn attempt_h2_connect_udp(
     let target = crate::url::parse_target(target)?;
     let target_label = target.authority();
     let proxy_origin = parse_proxy_origin(config)?;
-    let tcp = TcpStream::connect(resolve_proxy_socket_addr(&proxy_origin)?)
+    let tcp = TcpStream::connect(resolve_proxy_socket_addr(config, &proxy_origin)?)
         .await
         .map_err(|error| io::Error::new(error.kind(), format!("failed to connect to MASQUE proxy: {error}")))?;
     tcp.set_nodelay(true)?;

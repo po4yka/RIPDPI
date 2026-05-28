@@ -28,6 +28,7 @@ fn build_masque_client_config_with_ech_lookup(
     let ech_config = resolve_masque_ech_config(&masque.url, ech_lookup)?;
     Ok(ripdpi_masque::config::MasqueConfig {
         url: masque.url.clone(),
+        proxy_socket_addr: masque.proxy_socket_addr,
         use_http2_fallback: masque.use_http2_fallback,
         auth_mode: masque.auth_mode.clone(),
         auth_token: masque.auth_token.clone(),

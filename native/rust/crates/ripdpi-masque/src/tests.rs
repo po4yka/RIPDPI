@@ -1,4 +1,5 @@
 use std::io;
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -17,7 +18,9 @@ use crate::h2::{build_h2_connect_udp_request, decode_h2_datagram_capsules, encod
 use crate::h3::decode_udp_payload;
 use crate::request::apply_request_headers;
 use crate::response::{validate_connect_udp_response, validate_proxy_response, AttemptError};
-use crate::url::{build_connect_udp_path, parse_proxy_origin, parse_target, ProxyOrigin, TargetAuthority};
+use crate::url::{
+    build_connect_udp_path, parse_proxy_origin, parse_target, resolve_proxy_socket_addr, ProxyOrigin, TargetAuthority,
+};
 
 const BORING_ECH_CONFIG_LIST: &[u8] = &[
     0x00, 0x3e, 0xfe, 0x0d, 0x00, 0x3a, 0x00, 0x00, 0x20, 0x00, 0x20, 0xbb, 0x2f, 0x29, 0xe3, 0xe3, 0x05, 0x7e, 0x04,
@@ -29,6 +32,7 @@ const BORING_ECH_CONFIG_LIST: &[u8] = &[
 fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&str>) -> MasqueConfig {
     MasqueConfig {
         url: "https://masque.example/".to_string(),
+        proxy_socket_addr: None,
         use_http2_fallback: false,
         auth_mode: Some("privacy_pass".to_string()),
         auth_token: None,
@@ -142,6 +146,7 @@ fn connect_udp_path_percent_encodes_ipv6_hosts() {
 fn new_client_starts_with_not_attempted_quic_snapshot() {
     let client = MasqueClient::new(MasqueConfig {
         url: "https://masque.example/".to_string(),
+        proxy_socket_addr: None,
         use_http2_fallback: true,
         auth_mode: Some("bearer".to_string()),
         auth_token: Some("secret".to_string()),
@@ -165,6 +170,7 @@ fn masque_config_accepts_ech_and_boring_h2_backend_can_apply_it() {
     let ech = ripdpi_tls_profiles::OutboundEchConfig::new("ech.com", BORING_ECH_CONFIG_LIST.to_vec()).expect("ech");
     let config = MasqueConfig {
         url: "https://masque.example/".to_string(),
+        proxy_socket_addr: None,
         use_http2_fallback: true,
         auth_mode: None,
         auth_token: None,
@@ -190,6 +196,7 @@ fn masque_config_accepts_ech_and_boring_h2_backend_can_apply_it() {
 fn parse_proxy_origin_preserves_request_path_and_query() {
     let origin = parse_proxy_origin(&MasqueConfig {
         url: "https://masque.example/.well-known/masque/ip?cf=1".to_string(),
+        proxy_socket_addr: None,
         use_http2_fallback: true,
         auth_mode: Some("bearer".to_string()),
         auth_token: Some("secret".to_string()),
@@ -207,6 +214,32 @@ fn parse_proxy_origin_preserves_request_path_and_query() {
 
     assert_eq!("/.well-known/masque/ip?cf=1", origin.request_uri);
     assert_eq!("/.well-known/masque", origin.udp_base_path);
+}
+
+#[test]
+fn proxy_socket_addr_prefers_bootstrapped_endpoint_without_rewriting_origin_host() {
+    let bootstrapped_addr: SocketAddr = "203.0.113.8:8443".parse().expect("socket addr");
+    let config = MasqueConfig {
+        url: "https://masque.example:8443/.well-known/masque/ip".to_string(),
+        use_http2_fallback: true,
+        auth_mode: Some("bearer".to_string()),
+        auth_token: Some("secret".to_string()),
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+        proxy_socket_addr: Some(bootstrapped_addr),
+    };
+
+    let origin = parse_proxy_origin(&config).expect("proxy origin");
+
+    assert_eq!(origin.host, "masque.example");
+    assert_eq!(resolve_proxy_socket_addr(&config, &origin).expect("proxy socket addr"), bootstrapped_addr);
 }
 
 #[test]
@@ -229,6 +262,7 @@ fn parse_target_supports_domain_and_ipv6_authorities() {
 fn apply_request_headers_does_not_add_proprietary_geohash() {
     let config = MasqueConfig {
         url: "https://masque.example/".to_string(),
+        proxy_socket_addr: None,
         use_http2_fallback: true,
         auth_mode: Some("cloudflare_mtls".to_string()),
         auth_token: None,
@@ -390,6 +424,7 @@ async fn privacy_pass_provider_fetch_caches_spare_headers() {
 async fn quic_migration_snapshot_records_http2_fallback_reason() {
     let client = MasqueClient::new(MasqueConfig {
         url: "https://masque.example/".to_string(),
+        proxy_socket_addr: None,
         use_http2_fallback: true,
         auth_mode: Some("bearer".to_string()),
         auth_token: Some("secret".to_string()),
@@ -445,6 +480,7 @@ async fn udp_session_round_trips_through_conformant_h2_connect_udp_fixture() {
     let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
     let client = MasqueClient::new(MasqueConfig {
         url: fixture.masque_url(),
+        proxy_socket_addr: None,
         use_http2_fallback: true,
         auth_mode: None,
         auth_token: None,
