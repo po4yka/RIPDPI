@@ -594,6 +594,65 @@ async fn chain_relay_builds_shadowsocks_entry_shadowtls_exit_from_resolved_hops(
 }
 
 #[tokio::test]
+async fn chain_relay_builds_hysteria2_entry_shadowsocks_exit_from_resolved_hops() {
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "hysteria2".to_string(),
+        profile_id: "hysteria-entry".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 443,
+        server_name: "entry.example".to_string(),
+        hysteria_password: Some("entry-secret".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+    chain.exit = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "shadowsocks".to_string(),
+        profile_id: "shadowsocks-exit".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 8443,
+        shadowsocks_method: Some("aes-256-gcm".to_string()),
+        shadowsocks_password: Some("exit-secret".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+
+    let backend = build_backend(&config).await.expect("chain backend builds Hysteria2 entry and Shadowsocks exit");
+
+    assert_eq!(Some("chain_relay"), relay_backend_kind_id(&backend));
+}
+
+#[tokio::test]
+async fn chain_relay_builds_tuic_entry_shadowsocks_exit_from_resolved_hops() {
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "tuic_v5".to_string(),
+        profile_id: "tuic-entry".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 443,
+        server_name: "entry.example".to_string(),
+        tuic_uuid: Some("55555555-5555-5555-5555-555555555555".to_string()),
+        tuic_password: Some("entry-secret".to_string()),
+        tuic_zero_rtt: false,
+        tuic_congestion_control: "bbr".to_string(),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+    chain.exit = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "shadowsocks".to_string(),
+        profile_id: "shadowsocks-exit".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 8443,
+        shadowsocks_method: Some("aes-256-gcm".to_string()),
+        shadowsocks_password: Some("exit-secret".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+
+    let backend = build_backend(&config).await.expect("chain backend builds TUIC entry and Shadowsocks exit");
+
+    assert_eq!(Some("chain_relay"), relay_backend_kind_id(&backend));
+}
+
+#[tokio::test]
 async fn chain_relay_routes_tcp_through_shadowsocks_entry_and_anytls_exit() {
     const PAYLOAD: &[u8] = b"chain shadowsocks entry anytls exit payload";
 

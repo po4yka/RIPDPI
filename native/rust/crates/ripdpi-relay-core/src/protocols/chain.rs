@@ -27,6 +27,8 @@ pub(crate) enum ChainEntryConnector {
     AnyTls(ripdpi_relay_tls_transports::AnyTlsClientConfig),
     Shadowsocks(ripdpi_relay_tls_transports::ShadowsocksSessionFactory),
     ShadowTls(ripdpi_relay_tls_transports::ShadowTlsSessionFactory),
+    Hysteria2(crate::protocols::Hysteria2SessionFactory),
+    Tuic(crate::protocols::TuicSessionFactory),
 }
 
 impl ChainEntryConnector {
@@ -83,6 +85,28 @@ impl ChainEntryConnector {
                     ));
                 }
                 let stream = ripdpi_relay_tls_transports::connect_shadowtls_tcp(factory, target).await?;
+                Ok(Box::new(stream))
+            }
+            Self::Hysteria2(factory) => {
+                if outbound_bind_ip.is_some() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "chain Hysteria2 entry does not support outbound bind IP",
+                    ));
+                }
+                let session = factory.create_session().await?;
+                let stream = session.open_stream(target).await?;
+                Ok(Box::new(stream))
+            }
+            Self::Tuic(factory) => {
+                if outbound_bind_ip.is_some() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "chain TUIC entry does not support outbound bind IP",
+                    ));
+                }
+                let session = factory.create_session().await?;
+                let stream = session.open_stream(target).await?;
                 Ok(Box::new(stream))
             }
         }

@@ -6,13 +6,18 @@ use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{ChainRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::{ChainEntryConnector, ChainExitConnector, ChainRelaySessionFactory};
-use crate::telemetry::ChainHopTelemetryState;
+use crate::telemetry::{ChainHopTelemetryState, QuicMigrationTelemetryState};
 
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::ChainRelay(chain) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected chain relay config"));
     };
-    let entry = chain_entry_connector(chain, &config.common.tls_fingerprint_profile, context.outbound_bind_ip)?;
+    let entry = chain_entry_connector(
+        chain,
+        &config.common.tls_fingerprint_profile,
+        context.outbound_bind_ip,
+        context.quic_migration.clone(),
+    )?;
     let exit = chain_exit_connector(chain, &config.common.tls_fingerprint_profile)?;
 
     let telemetry = ChainHopTelemetryState::default();
@@ -49,6 +54,7 @@ fn chain_entry_connector(
     chain: &ChainRelayConfig,
     default_tls_fingerprint_profile: &str,
     outbound_bind_ip: Option<IpAddr>,
+    quic_migration: QuicMigrationTelemetryState,
 ) -> io::Result<ChainEntryConnector> {
     let Some(hop) = chain.entry.as_deref() else {
         return legacy_hop_vless_reality_config(chain, ChainHopRole::Entry, default_tls_fingerprint_profile)
@@ -64,6 +70,10 @@ fn chain_entry_connector(
         "shadowsocks" => resolved_hop_shadowsocks_factory(hop, ChainHopRole::Entry, outbound_bind_ip)
             .map(ChainEntryConnector::Shadowsocks),
         "shadowtls_v3" => resolved_hop_shadowtls_factory(hop, ChainHopRole::Entry).map(ChainEntryConnector::ShadowTls),
+        "hysteria2" => {
+            resolved_hop_hysteria2_factory(hop, ChainHopRole::Entry, quic_migration).map(ChainEntryConnector::Hysteria2)
+        }
+        "tuic_v5" => resolved_hop_tuic_factory(hop, ChainHopRole::Entry, quic_migration).map(ChainEntryConnector::Tuic),
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("chain entry: resolved hop kind {other} is not supported by chain relay"),
@@ -243,6 +253,53 @@ fn resolved_hop_shadowtls_factory(
             vless_transport: inner.vless_transport.clone(),
             vless_uuid: inner.vless_uuid.clone(),
         },
+    })
+}
+
+fn resolved_hop_hysteria2_factory(
+    hop: &ResolvedChainRelayHopConfig,
+    role: ChainHopRole,
+    quic_migration: QuicMigrationTelemetryState,
+) -> io::Result<crate::protocols::Hysteria2SessionFactory> {
+    let label = role.label();
+    let password = hop.hysteria_password.as_ref().filter(|value| !value.trim().is_empty()).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Hysteria2 password is required"))
+    })?;
+    let mut config = ripdpi_hysteria2::Config::from_url(&format!(
+        "hysteria2://{password}@{}:{}/?sni={}",
+        hop.server, hop.server_port, hop.server_name,
+    ))
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))?;
+    config.salamander_key = hop.hysteria_salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
+    config.quic_bind_low_port = false;
+    config.quic_migrate_after_handshake = false;
+    Ok(crate::protocols::Hysteria2SessionFactory { config, migration: quic_migration })
+}
+
+fn resolved_hop_tuic_factory(
+    hop: &ResolvedChainRelayHopConfig,
+    role: ChainHopRole,
+    quic_migration: QuicMigrationTelemetryState,
+) -> io::Result<crate::protocols::TuicSessionFactory> {
+    let label = role.label();
+    let server_port = u16::try_from(hop.server_port).map_err(|_| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: TUIC server port must fit u16"))
+    })?;
+    Ok(crate::protocols::TuicSessionFactory {
+        config: ripdpi_tuic::Config {
+            server: hop.server.clone(),
+            server_port: i32::from(server_port),
+            server_name: hop.server_name.clone(),
+            uuid: hop.tuic_uuid.clone().unwrap_or_default(),
+            password: hop.tuic_password.clone().unwrap_or_default(),
+            zero_rtt: hop.tuic_zero_rtt,
+            congestion_control: hop.tuic_congestion_control.clone(),
+            udp_enabled: false,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            keepalive_interval_ms: 0,
+        },
+        migration: quic_migration,
     })
 }
 
