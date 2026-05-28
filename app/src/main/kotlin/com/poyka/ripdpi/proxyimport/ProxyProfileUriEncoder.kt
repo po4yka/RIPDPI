@@ -36,6 +36,10 @@ object ProxyProfileUriEncoder {
                 userInfoUri("vless", profile.uuid, profile.server, profile.serverPort, profile.displayName)
             }
 
+            is ProxyProfile.VlessReality -> {
+                encodeVlessReality(profile)
+            }
+
             is ProxyProfile.Trojan -> {
                 userInfoUri("trojan", profile.password, profile.server, profile.serverPort, profile.displayName)
             }
@@ -68,6 +72,28 @@ object ProxyProfileUriEncoder {
         port: Int,
         displayName: String,
     ): String = "$scheme://$userInfo@$host:$port#${encodeFragment(displayName)}"
+
+    private fun encodeVlessReality(profile: ProxyProfile.VlessReality): String {
+        // Produce: vless://<uuid>@<host>:<port>?security=reality&pbk=<key>&sid=<id>&sni=<sni>&flow=<flow>[&fp=<fp>]#<name>
+        val params = buildList {
+            add("security=reality")
+            add("pbk=${encodeQueryValue(profile.realityPublicKey)}")
+            if (profile.realityShortId.isNotEmpty()) add("sid=${encodeQueryValue(profile.realityShortId)}")
+            add("sni=${encodeQueryValue(profile.serverName)}")
+            add("flow=${encodeQueryValue(profile.flow)}")
+            profile.fingerprint?.let { add("fp=${encodeQueryValue(it)}") }
+            if (profile.xhttpPath != null || profile.xhttpHost != null) {
+                add("type=xhttp")
+                profile.xhttpPath?.let { add("path=${encodeQueryValue(it)}") }
+                profile.xhttpHost?.let { add("host=${encodeQueryValue(it)}") }
+            }
+        }.joinToString("&")
+        return "vless://${profile.uuid}@${profile.server}:${profile.serverPort}" +
+            "?$params#${encodeFragment(profile.displayName)}"
+    }
+
+    private fun encodeQueryValue(value: String): String =
+        URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
     private fun encodeShadowsocks(profile: ProxyProfile.Shadowsocks): String {
         // SIP002: ss://base64url(method:password)@host:port#tag

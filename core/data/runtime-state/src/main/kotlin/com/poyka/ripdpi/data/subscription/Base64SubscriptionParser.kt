@@ -116,6 +116,7 @@ object Base64SubscriptionParser {
     ): ProxyProfile =
         when (profile) {
             is ProxyProfile.Vless -> profile.copy(groupId = groupId)
+            is ProxyProfile.VlessReality -> profile.copy(groupId = groupId)
             is ProxyProfile.Shadowsocks -> profile.copy(groupId = groupId)
             is ProxyProfile.Trojan -> profile.copy(groupId = groupId)
             is ProxyProfile.Hysteria2 -> profile.copy(groupId = groupId)

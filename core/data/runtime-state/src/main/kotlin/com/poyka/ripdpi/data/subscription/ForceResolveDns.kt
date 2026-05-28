@@ -80,6 +80,7 @@ object ForceResolveDns {
     private fun addressableHost(profile: ProxyProfile): String? =
         when (profile) {
             is ProxyProfile.Vless -> profile.server
+            is ProxyProfile.VlessReality -> profile.server
             is ProxyProfile.Shadowsocks -> profile.server
             is ProxyProfile.Trojan -> profile.server
             is ProxyProfile.Hysteria2 -> profile.server
@@ -99,6 +100,7 @@ object ForceResolveDns {
             } ?: return profile
         return when (profile) {
             is ProxyProfile.Vless -> profile.copy(server = resolvedAddress)
+            is ProxyProfile.VlessReality -> profile.copy(server = resolvedAddress)
             is ProxyProfile.Shadowsocks -> profile.copy(server = resolvedAddress)
             is ProxyProfile.Trojan -> profile.copy(server = resolvedAddress)
             is ProxyProfile.Hysteria2 -> profile.copy(server = resolvedAddress)

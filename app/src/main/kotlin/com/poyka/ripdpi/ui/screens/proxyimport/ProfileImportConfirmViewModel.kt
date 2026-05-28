@@ -150,6 +150,7 @@ class ProfileImportConfirmViewModel
                 }
 
                 else -> {
+                    // VlessReality, Vless, Hysteria2, TrojanGo, RawConfig — not relay-importable
                     error("unsupported relay import profile ${profile::class.simpleName}")
                 }
             }
@@ -182,6 +183,7 @@ class ProfileImportConfirmViewModel
                 }
 
                 else -> {
+                    // VlessReality, Vless, Hysteria2, TrojanGo, RawConfig — not relay-importable
                     error("unsupported relay import profile ${profile::class.simpleName}")
                 }
             }

@@ -135,14 +135,48 @@ object SingBoxSubscriptionParser {
         return when (type.lowercase()) {
             "vless", "vmess" -> {
                 if (server != null && port != null) {
-                    ProxyProfile.Vless(
-                        id = newId(),
-                        displayName = name,
-                        groupId = groupId,
-                        server = server,
-                        serverPort = port,
-                        uuid = obj.string("uuid").orEmpty(),
-                    )
+                    val tlsObj = obj["tls"] as? JsonObject
+                    val realityObj = tlsObj?.get("reality") as? JsonObject
+                    // Detect REALITY: tls.reality.enabled == true, OR tls.reality.public_key is non-empty.
+                    val realityPublicKey = realityObj?.string("public_key")
+                    val realityEnabled = realityObj?.let { r ->
+                        (r["enabled"] as? JsonPrimitive)?.contentOrNull?.toBooleanStrictOrNull()
+                    }
+                    val isReality = (realityEnabled == true) || !realityPublicKey.isNullOrBlank()
+                    if (isReality) {
+                        val realityShortId = realityObj?.string("short_id").orEmpty()
+                        val serverName = tlsObj?.string("server_name") ?: server
+                        val flow = obj.string("flow") ?: "xtls-rprx-vision"
+                        val fingerprint = (tlsObj?.get("utls") as? JsonObject)?.string("fingerprint")
+                        val transportObj = obj["transport"] as? JsonObject
+                        val isXhttp = transportObj?.string("type")?.lowercase() == "xhttp"
+                        val xhttpPath = if (isXhttp) transportObj?.string("path") else null
+                        val xhttpHost = if (isXhttp) transportObj?.string("host") else null
+                        ProxyProfile.VlessReality(
+                            id = newId(),
+                            displayName = name,
+                            groupId = groupId,
+                            server = server,
+                            serverPort = port,
+                            uuid = obj.string("uuid").orEmpty(),
+                            realityPublicKey = realityPublicKey.orEmpty(),
+                            realityShortId = realityShortId,
+                            serverName = serverName,
+                            flow = flow,
+                            fingerprint = fingerprint,
+                            xhttpPath = xhttpPath,
+                            xhttpHost = xhttpHost,
+                        )
+                    } else {
+                        ProxyProfile.Vless(
+                            id = newId(),
+                            displayName = name,
+                            groupId = groupId,
+                            server = server,
+                            serverPort = port,
+                            uuid = obj.string("uuid").orEmpty(),
+                        )
+                    }
                 } else {
                     rawConfig(name, groupId, obj)
                 }

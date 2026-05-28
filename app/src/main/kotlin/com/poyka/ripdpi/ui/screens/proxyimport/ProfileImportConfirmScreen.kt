@@ -107,6 +107,15 @@ private fun profileSummary(profile: ProxyProfile): String =
             stringResource(R.string.import_profile_summary_endpoint, "VLESS", profile.server, profile.serverPort)
         }
 
+        is ProxyProfile.VlessReality -> {
+            stringResource(
+                R.string.import_profile_summary_endpoint,
+                "VLESS (REALITY)",
+                profile.server,
+                profile.serverPort,
+            )
+        }
+
         is ProxyProfile.Shadowsocks -> {
             stringResource(
                 R.string.import_profile_summary_endpoint,

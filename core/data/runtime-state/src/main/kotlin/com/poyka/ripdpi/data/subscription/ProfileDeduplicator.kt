@@ -68,6 +68,7 @@ object ProfileDeduplicator {
     private fun identityKey(profile: ProxyProfile): ProxyProfile =
         when (profile) {
             is ProxyProfile.Vless -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
+            is ProxyProfile.VlessReality -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
             is ProxyProfile.Shadowsocks -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
             is ProxyProfile.Trojan -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
             is ProxyProfile.Hysteria2 -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
@@ -83,6 +84,7 @@ object ProfileDeduplicator {
     ): ProxyProfile =
         when (profile) {
             is ProxyProfile.Vless -> profile.copy(displayName = displayName)
+            is ProxyProfile.VlessReality -> profile.copy(displayName = displayName)
             is ProxyProfile.Shadowsocks -> profile.copy(displayName = displayName)
             is ProxyProfile.Trojan -> profile.copy(displayName = displayName)
             is ProxyProfile.Hysteria2 -> profile.copy(displayName = displayName)

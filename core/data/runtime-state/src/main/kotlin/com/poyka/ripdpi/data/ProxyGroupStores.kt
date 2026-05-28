@@ -117,6 +117,35 @@ sealed interface ProxyProfile {
         val uuid: String,
     ) : ProxyProfile
 
+    /**
+     * VLESS outbound secured with REALITY (XTLS/Vision). Carries the full set of
+     * connection-critical parameters that [Vless] intentionally omits for plain
+     * proxies. A parser emits this variant IFF reality material is present (sing-box
+     * `tls.reality.enabled == true` or a non-empty `public_key`; URI
+     * `security=reality` or a `pbk` query param).
+     */
+    @Serializable
+    @SerialName("vless-reality")
+    data class VlessReality(
+        override val id: String,
+        override val displayName: String,
+        override val groupId: String,
+        val server: String,
+        val serverPort: Int,
+        val uuid: String,
+        val realityPublicKey: String,
+        val realityShortId: String,
+        val serverName: String,
+        /** Defaults to `xtls-rprx-vision` when omitted from the source. */
+        val flow: String = "xtls-rprx-vision",
+        /** Optional uTLS fingerprint (e.g. `chrome`). `null` means use library default. */
+        val fingerprint: String? = null,
+        /** xhttp transport path; `null` when transport is plain TCP. */
+        val xhttpPath: String? = null,
+        /** xhttp transport host override; `null` when transport is plain TCP. */
+        val xhttpHost: String? = null,
+    ) : ProxyProfile
+
     @Serializable
     @SerialName("shadowsocks")
     data class Shadowsocks(

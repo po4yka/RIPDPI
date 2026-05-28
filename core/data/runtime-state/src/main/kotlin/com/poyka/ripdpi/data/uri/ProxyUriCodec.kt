@@ -68,14 +68,44 @@ object ProxyUriCodec {
         val uuid = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
         val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
-        return ProxyProfile.Vless(
-            id = newId(),
-            displayName = displayName(parsed.fragment, host),
-            groupId = "",
-            server = host,
-            serverPort = port,
-            uuid = uuid,
-        )
+        val rawQuery = parsed.rawQuery
+        // Detect REALITY: security=reality query param, OR a non-empty pbk param.
+        val security = queryValue(rawQuery, "security")
+        val pbk = queryValue(rawQuery, "pbk")
+        val isReality = security?.lowercase() == "reality" || !pbk.isNullOrBlank()
+        return if (isReality) {
+            val sid = queryValue(rawQuery, "sid").orEmpty()
+            val sni = queryValue(rawQuery, "sni") ?: host
+            val flow = queryValue(rawQuery, "flow") ?: "xtls-rprx-vision"
+            val fp = queryValue(rawQuery, "fp")
+            val transportType = queryValue(rawQuery, "type")?.lowercase()
+            val xhttpPath = if (transportType == "xhttp") queryValue(rawQuery, "path") else null
+            val xhttpHost = if (transportType == "xhttp") queryValue(rawQuery, "host") else null
+            ProxyProfile.VlessReality(
+                id = newId(),
+                displayName = displayName(parsed.fragment, host),
+                groupId = "",
+                server = host,
+                serverPort = port,
+                uuid = uuid,
+                realityPublicKey = pbk.orEmpty(),
+                realityShortId = sid,
+                serverName = sni,
+                flow = flow,
+                fingerprint = fp,
+                xhttpPath = xhttpPath,
+                xhttpHost = xhttpHost,
+            )
+        } else {
+            ProxyProfile.Vless(
+                id = newId(),
+                displayName = displayName(parsed.fragment, host),
+                groupId = "",
+                server = host,
+                serverPort = port,
+                uuid = uuid,
+            )
+        }
     }
 
     @Suppress("ReturnCount")
