@@ -51,7 +51,7 @@ Current PT build-system blocker: `:core:engine:buildPluggableTransportAssets -Pr
 
 Arti exposes `TorClientConfigBuilder::from_directories(state_dir, cache_dir)` and validates a writable `state_dir`; with `pt-client`, Arti also creates `pt_state` under that state directory. RIPDPI already creates app-private PT state under `Context.filesDir/pluggable-transports/<profile>-<method>` in `PluggableTransportManager`, so the Tor backend should use app-private directories such as `Context.filesDir/tor/<profile>/state` and `Context.cacheDir/tor/<profile>/cache`, create them on the Kotlin side, and pass literal paths through JNI to `ripdpi-tor`.
 
-No Android device was attached during STEP 0 (`adb devices` returned only the header), so the gate did not run an on-device write. Slice 1 must add a JVM contract test for path construction and an instrumentation or emulator smoke that creates, writes, and reopens the Tor state/cache directories before bootstrapping.
+On an API 34 arm64 emulator repaired from `system-images;android-34;aosp_atd;arm64-v8a`, the existing `app-github-arm64-v8a-debug.apk` installed as `com.poyka.ripdpi`; `run-as com.poyka.ripdpi` created `/data/data/com.poyka.ripdpi/files/tor/step0/state` and `/data/data/com.poyka.ripdpi/files/tor/step0/cache`, wrote `write-smoke.txt` in both directories, read both files back, and listed them as owned by the app UID. This confirms the Android app-private state/cache directory route is writable for Arti state. Slice 1 should still add a JVM contract test for path construction and an instrumentation or emulator smoke that creates, writes, and reopens the Tor state/cache directories before bootstrapping.
 
 ## Test Plan After GO
 
