@@ -1,6 +1,6 @@
 # Protocol Loopback Harness — Design
 
-> Status: **scaffold implemented; per-protocol loopbacks pending**. Authored: 2026-05-15, refreshed 2026-05-28 against `native/rust/crates/ripdpi-protocol-loopback`.
+> Status: **scaffold implemented; per-protocol loopbacks pending in this crate**. Authored: 2026-05-15, refreshed 2026-05-28 against `native/rust/crates/ripdpi-protocol-loopback` and the current `local-network-fixture` loopbacks.
 
 ## Why this design exists
 
@@ -15,7 +15,9 @@ Building one harness shared across these four tasks is much cheaper than buildin
 
 ## Shape
 
-The dev-only crate `ripdpi-protocol-loopback` now exists under `native/rust/crates/`. It is a workspace crate marked `publish = false`; it currently provides the shared `ProtocolLoopbackServer` trait and a plain-TCP `EchoLoopback` test fixture. Protocol-specific loopbacks are still pending.
+The dev-only crate `ripdpi-protocol-loopback` now exists under `native/rust/crates/`. It is a workspace crate marked `publish = false`; it currently provides the shared `ProtocolLoopbackServer` trait and a plain-TCP `EchoLoopback` test fixture. Protocol-specific loopbacks are still pending in this crate, and the crate has no in-tree consumers today.
+
+Do not confuse this scaffold with `local-network-fixture`: that crate now carries several protocol-specific fixtures used by current tests, including `AnyTlsLoopback`, `TrojanLoopback`, `ShadowsocksLoopback`, `NaiveH2PaddingFixture`, and MASQUE HTTP/2 CONNECT-UDP fixtures. New work should either extend those existing fixtures or deliberately move shared loopback code into `ripdpi-protocol-loopback`; do not assume this design doc's 2026-05-15 plan is the only active harness path.
 
 ```
 ripdpi-protocol-loopback/
