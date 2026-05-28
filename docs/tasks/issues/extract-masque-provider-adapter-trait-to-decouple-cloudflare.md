@@ -16,29 +16,28 @@ updated: 2026-05-29
 
 ## Summary
 
-Move Cloudflare-specific MASQUE behavior (mTLS identity, `sec-ch-geohash` header, Privacy Pass retry policy) behind a `MasqueProviderAdapter` trait so non-Cloudflare MASQUE providers can be supported without editing core auth code.
+Keep MASQUE provider behavior behind `MasqueProviderAdapter` so self-hosted RFC 9298 providers can use bearer, preshared, Privacy Pass, or TLS client certificate auth without adding proprietary Cloudflare routing behavior to the generic auth path.
 
 ## Context
 
-`native/rust/crates/ripdpi-masque/CONFORMANCE.md` documents the Cloudflare-direct hardening fixes (mTLS classification, geohash header, Privacy Pass retry, H3→H2 fallback) as part of the core auth path. The `ripdpi-masque/Cargo.toml` directly depends on `reqwest` (HTTP client) and `serde_json`, both reasonable for Cloudflare, but they couple the crate to one vendor. Future providers will need different identity flows.
+`native/rust/crates/ripdpi-masque/CONFORMANCE.md` now documents the generic/self-hosted adapter surface. `provider_adapter.rs` exposes one `GenericSelfHostedAdapter` selected by `MasqueAuthMode`; Privacy Pass retry and TLS client certificate requirements are auth-mode behavior, while proprietary commercial-provider flows remain out of scope.
 
 ## Acceptance criteria
 
-- [x] (partial, 2026-05-15) A new `trait MasqueProviderAdapter` describes the provider surface. **First iteration shipped** in `ripdpi-masque::provider_adapter` with `provider_id`, `auth_mode`, and `uses_privacy_pass_retry`. Richer methods (header decoration, challenge classification, retry policy) will land alongside the in-tree refactor of `auth.rs`.
-- [x] (partial, 2026-05-15) `CloudflareDirectAdapter` implements the trait. **Shipped as a stub** mapping to `MasqueAuthMode::CloudflareMtls`. Cloudflare-specific code (geohash header, mTLS identity) stays in `auth.rs` until the refactor follow-up.
-- [x] (partial, 2026-05-15) `PrivacyPassAdapter` implements the trait for the deployer-supplied Privacy Pass flow. **Shipped as a stub** advertising `uses_privacy_pass_retry == true`.
-- [ ] The MASQUE client takes `Arc<dyn MasqueProviderAdapter>` instead of a concrete enum branch. **DEFERRED:** the in-tree refactor of `auth.rs` callers is the larger remaining piece.
-- [ ] All existing MASQUE tests pass without modification. **DEFERRED:** pairs with the refactor above; current tests continue to pass since `auth.rs` is unchanged.
-- [x] (2026-05-15) At least one negative-path test exercises a `NoneAdapter` (renamed from `NoopAdapter` for clarity) to prove the core client works without provider extensions. Covered by `adapter_for_each_mode_reports_consistent_metadata` and `only_privacy_pass_adapter_requests_retry_flow`.
+- [x] `MasqueProviderAdapter` describes the provider surface with `provider_id`, `auth_mode`, `auth_header`, `uses_privacy_pass_retry`, `requires_client_certificate`, and `wants_geohash_header`.
+- [x] `GenericSelfHostedAdapter` implements the trait for all current `MasqueAuthMode` values. `CloudflareMtls` is treated as generic TLS client certificate auth for compatibility with the existing mode string; there is no `CloudflareDirectAdapter` type in current source.
+- [x] Privacy Pass is represented by `MasqueAuthMode::PrivacyPass`; `GenericSelfHostedAdapter` advertises `uses_privacy_pass_retry == true` only for that mode. There is no separate `PrivacyPassAdapter` type in current source.
+- [x] Adapter tests cover mode metadata, static bearer/preshared auth header construction, Privacy Pass retry eligibility, TLS client certificate requirements, and the invariant that no adapter requests proprietary geohash headers.
+- [ ] Integration coverage proves the adapter-selected auth mode is applied across request construction, Privacy Pass retry handling, TLS client certificate setup, and relay traffic against a conformant CONNECT-UDP proxy.
 
 ## Definition of done
 
-- No `cloudflare_mtls` or `sec-ch-geohash` literal lives outside the Cloudflare adapter module.
+- `cloudflare_mtls` remains only as a legacy mode string for TLS client certificate auth; no adapter emits `sec-ch-geohash`.
 - Trait is documented in `native/rust/crates/ripdpi-masque/CONFORMANCE.md`.
 
 ## Risks / open questions
 
-- The `reqwest` dependency may still be needed by the Cloudflare adapter for token fetches. Consider isolating it behind a feature flag so a Cloudflare-free build does not pull `reqwest`.
+- Privacy Pass provider retrieval still uses HTTP client code in the crate. Consider isolating provider-fetch dependencies behind a feature flag if a minimal self-hosted build target needs to avoid them.
 
 ## Links
 
