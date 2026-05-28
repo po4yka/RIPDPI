@@ -4,8 +4,8 @@
 
 ## Responsibility
 
-Response parsers (HTTP / TLS / SSH) that extract structured fields from probe
-responses for downstream classification.
+Response parsers for HTTP responses and DNS packets that extract structured
+fields from probe responses for downstream classification and fuzz coverage.
 
 > **No current workspace consumer.** No other crate references this crate in `[dependencies]` / `[dev-dependencies]`. Treat it as a prune candidate unless parser extraction is revived.
 
