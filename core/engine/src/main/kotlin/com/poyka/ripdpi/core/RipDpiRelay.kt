@@ -129,8 +129,7 @@ private val relayJson = Json { ignoreUnknownKeys = true }
  * is harmless. A second [start] while a handle is live throws
  * `NativeError.AlreadyRunning`.
  *
- * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle) and
- * `docs/architecture/jni-handle-lifetime-telemetry-lock.md` (lock model).
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle).
  */
 class RipDpiRelay(
     private val nativeBindings: RipDpiRelayBindings,

@@ -86,5 +86,4 @@ The io_uring path has two landed performance improvements:
 - [quic-initial-packetizer.md](quic-initial-packetizer.md) — QUIC initial packetizer design.
 - [native-runner-and-platform-decomposition.md](native-runner-and-platform-decomposition.md) — Connectivity runner split, diagnostics-probes compat facade, and `TcpDesyncPlatform` capability decomposition.
 - [post-poy7-decomposition-gradient.md](post-poy7-decomposition-gradient.md) — Android adapter crate decomposition, runtime-adaptive policy sink, and Kotlin sub-service splits (`9884feef..d6f5f59f`); pins JNI-export-in-cdylib rule and dependency direction.
-- [jni-handle-lifetime-telemetry-lock.md](jni-handle-lifetime-telemetry-lock.md) — Two-region lock model for `RipDpiProxy` / `RipDpiRelay` JNI wrappers (design-only, implementation queued).
 - [quality-gates.md](quality-gates.md) — Architecture quality gates.

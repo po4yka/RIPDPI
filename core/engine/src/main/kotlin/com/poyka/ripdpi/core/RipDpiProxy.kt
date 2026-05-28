@@ -271,8 +271,7 @@ class RipDpiProxyNativeBindings
  * calling [stopProxy] with no live handle throws `NativeError.NotRunning`, and
  * [pollTelemetry] yields an idle snapshot.
  *
- * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle) and
- * `docs/architecture/jni-handle-lifetime-telemetry-lock.md` (lock model).
+ * See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle).
  */
 class RipDpiProxy(
     private val nativeBindings: RipDpiProxyBindings,

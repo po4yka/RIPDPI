@@ -62,7 +62,6 @@ Three supervisors today fire `onUnexpectedExit` on every completion, with correc
 - [[Type-safe pollTelemetry results]]
 
 **JNI wrappers**
-- [[Decouple JNI handle-lifetime and telemetry locking]]
 - [[Add native readiness events to RipDpi wrappers]]
 
 Child tasks roll up via the TaskNotes relationships view on this note.
@@ -74,7 +73,6 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Risks / open questions
 
 - JNI callback model vs pollable fd: spike before implementation. Thread-ownership concerns differ materially.
-- Avoid a lock-hierarchy regression when splitting handle-lifetime from telemetry locks — document the acquisition order.
 
 ## Links
 
