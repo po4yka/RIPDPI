@@ -221,6 +221,7 @@ async fn handle_connection(
                         observed.lock().expect("anytls observed").update_padding_scheme_count += 1;
                         write_frame(&mut tls, CMD_UPDATE_PADDING_SCHEME, 0, scheme.as_bytes()).await?;
                         if config.close_after_update {
+                            tls.shutdown().await?;
                             return Ok(());
                         }
                     }
