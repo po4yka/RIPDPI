@@ -1,6 +1,6 @@
 # TSPU adversarial emulator (v1)
 
-Tracked by [`docs/architecture/spike-l7-adversarial-emulator.md`](../../../docs/architecture/spike-l7-adversarial-emulator.md).
+Current Phase-16 wiring is documented in [`docs/testing.md`](../../../docs/testing.md#phase-16-real-world-confidence-status).
 
 v1.1 ships five patterns and a matrix-runner that reports per-cell verdicts (`bypassed` / `blocked` / `degraded` / `inconclusive`) per `(desync_mode_id, pattern_id)` cell:
 
@@ -66,7 +66,7 @@ Builds the container in `Dockerfile`, attaches nfqueue rules, and dispatches rea
 | `degraded` | Pattern matched on a non-initial packet, or fixture explicitly flags partial. Reserved primarily for live mode. |
 | `inconclusive` | Trace malformed or missing data the pattern requires. Does not gate PRs. |
 
-`blocked` cells gate PRs that touch `ripdpi-desync`; `inconclusive` cells do not. See the design spike for the contract details.
+`blocked` cells gate PRs that touch `ripdpi-desync`; `inconclusive` cells do not. See `docs/testing.md` for the Phase-16 release-gate contract.
 
 ## Combination matrices
 
@@ -85,6 +85,5 @@ Combinations expand the matrix to 7 desync modes × (5 patterns + 4 combinations
 
 ## Not in v1.x
 
-- Real-time nfqueue wiring exercised against synthetic outbound traffic is in CI under `tspu-live`; bringing in *real* internet-facing carriers belongs to the Phase-16 real-provider spike.
-- Generator-driven sampling across the 7-dim desync space (separate spike).
+- Real-time nfqueue wiring exercised against synthetic outbound traffic is in CI under `tspu-live`; real-provider carrier evidence is handled by the opt-in Phase-16 real-provider rows.
 - Stateful per-flow tracking across multiple SrcPort/DstPort tuples — the dry-run runner treats each fixture as a single flow.

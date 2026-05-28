@@ -3,8 +3,8 @@ package com.poyka.ripdpi.data
 /**
  * Typed verdict for a Cloudflare-path degradation event.
  *
- * Use [userVisibleSummary] to obtain the four user-facing strings
- * defined in the Cloudflare degradation runbook.
+ * Use [userVisibleSummary] to obtain the four user-facing strings used by
+ * settings and telemetry surfaces.
  */
 enum class CloudflareDegradationClass {
     /** Cloudflare edge is rate-limiting or throttling the connection. */
@@ -24,7 +24,7 @@ enum class CloudflareDegradationClass {
     ;
 
     /**
-     * Returns one of the four user-visible summary strings from the runbook.
+     * Returns one of the four user-visible summary strings.
      *
      * Mapping:
      * - EdgeThrottling, DomainBlocked → "degraded Cloudflare-like path"

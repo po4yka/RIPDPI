@@ -35,7 +35,7 @@ Hand-authored packet-smoke scenarios preserve known recipes, but they do not cov
 ## Scope
 
 - In scope: generator manifest format, PR sample budget, nightly sample budget, deterministic seed recording, and packet-smoke registry integration.
-- Out of scope: replacing named scenarios or widening the threat model beyond the axes in the design spike.
+- Out of scope: replacing named scenarios or widening the threat model beyond the implemented generator axes.
 
 ## Acceptance criteria
 
@@ -46,7 +46,7 @@ Hand-authored packet-smoke scenarios preserve known recipes, but they do not cov
 
 ## Links
 
-- [Design spike: generator-driven packet-smoke](../../architecture/spike-generator-packet-smoke.md)
+- [Phase-16 real-world confidence status](../../testing.md#phase-16-real-world-confidence-status)
 
 ## Work log
 

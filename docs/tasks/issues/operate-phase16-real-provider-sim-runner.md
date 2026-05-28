@@ -46,7 +46,7 @@ The repository now has a contract that separates synthetic lab evidence from rea
 
 ## Links
 
-- [Design spike: Phase-16 lab matrix on real-provider SIM](../../architecture/spike-phase16-real-provider.md)
+- [Phase-16 real-world confidence status](../../testing.md#phase-16-real-world-confidence-status)
 
 ## Work log
 

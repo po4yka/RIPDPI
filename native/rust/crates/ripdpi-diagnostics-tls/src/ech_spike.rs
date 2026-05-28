@@ -1,19 +1,16 @@
-//! Typed scaffold for ECH end-to-end spike findings (Android 17 Beta 4).
+//! Typed scaffold for platform ECH end-to-end spike findings.
 //!
 //! This module records the shape of findings that a real device run would
 //! populate. All fields are `Option` because the spike was conducted without
 //! device access; a future integration test can supply real values and assert
 //! round-trip fidelity.
-//!
-//! See `core/diagnostics/docs/spikes/ech-end-to-end-android-17-beta-4-2026-05-16.md`
-//! for the full research note.
 
 use serde::{Deserialize, Serialize};
 
 /// Outcome of a single ECH probe attempt on a target device.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EchSpikeFinding {
-    /// Android API level on which the probe ran (e.g. 36 for Beta 4).
+    /// Android API level on which the probe ran.
     pub api_level: u32,
 
     /// Whether the HTTPS-RR query via `DnsResolver` returned a parseable
@@ -99,8 +96,8 @@ mod tests {
             ech_accepted: false,
             bypass_verdict_delta: None,
             notes: vec![
-                "Spike conducted without Android 17 Beta 4 device.".to_string(),
-                "Matrix is theoretical; validate on Pixel 9 with Beta 4 OTA.".to_string(),
+                "Spike conducted without device access.".to_string(),
+                "Validate platform ECH behavior on a physical device before using these findings.".to_string(),
             ],
         }
     }
@@ -127,7 +124,7 @@ mod tests {
                 after: "ech_bypassed".to_string(),
                 explanation: "SNI hidden in ClientHelloInner; outer carries cover domain".to_string(),
             }),
-            notes: vec!["Verified on Pixel 9 with Beta 4 OTA against cloudflare.com".to_string()],
+            notes: vec!["Verified on a physical device against cloudflare.com".to_string()],
         };
         let json = serde_json::to_string_pretty(&finding).expect("serialize");
         let recovered: EchSpikeFinding = serde_json::from_str(&json).expect("deserialize");

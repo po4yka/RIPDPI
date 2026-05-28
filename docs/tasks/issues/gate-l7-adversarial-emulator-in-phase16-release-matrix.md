@@ -52,4 +52,5 @@ The emulator now reproduces deterministic L7-path failure modes, but release con
 
 ## Links
 
-- [Design spike: L7 adversarial emulator](../../architecture/spike-l7-adversarial-emulator.md)
+- [TSPU adversarial emulator](../../../test-lab/chaos/tspu/README.md)
+- [Phase-16 real-world confidence status](../../testing.md#phase-16-real-world-confidence-status)
