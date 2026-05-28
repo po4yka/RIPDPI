@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -126,6 +127,28 @@ class ConfigChainRelayUiStateTest {
                     relayKind = RelayKindChainRelay,
                     relayChainEntryProfileId = "entry",
                     relayChainExitProfileId = "chain-hop",
+                ),
+                relayProfiles = profiles,
+            )[ConfigFieldRelayChain],
+        )
+    }
+
+    @Test
+    fun `chain relay validation rejects quic exit profiles`() {
+        val profiles =
+            listOf(
+                RelayProfileRecord(id = "entry", kind = RelayKindVlessReality),
+                RelayProfileRecord(id = "quic-exit", kind = RelayKindHysteria2),
+            )
+
+        assertEquals(
+            "unsupported_exit",
+            validateConfigDraft(
+                ConfigDraft(
+                    relayEnabled = true,
+                    relayKind = RelayKindChainRelay,
+                    relayChainEntryProfileId = "entry",
+                    relayChainExitProfileId = "quic-exit",
                 ),
                 relayProfiles = profiles,
             )[ConfigFieldRelayChain],

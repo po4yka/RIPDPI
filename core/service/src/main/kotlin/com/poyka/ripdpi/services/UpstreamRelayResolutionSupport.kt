@@ -8,12 +8,10 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindAnyTls
-import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
-import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTrojan
@@ -29,6 +27,8 @@ import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.detectRelayChainTrustWarning
+import com.poyka.ripdpi.data.isSupportedChainEntryHop
+import com.poyka.ripdpi.data.isSupportedChainExitHop
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.toRelayTrustDomain
 
@@ -155,7 +155,7 @@ private suspend fun resolveChainRelayHopSupport(
     if (profileId.isNotBlank()) {
         val profile = loadChainRelayHopProfile(hopName, profileId, relayProfileStore)
         rejectSelfReferentialChainRelayHop(hopName, profile.id, chainProfileId)
-        rejectUnsupportedChainRelayHopKind(hopName, profile.kind)
+        rejectUnsupportedChainRelayHopKind(hopName, profile)
         val hopCredentials = relayCredentialStore.load(profileId)
         val hopConfig = profile.toResolvedChainRelayHopConfig(hopCredentials)
         return ResolvedChainRelayHop(
@@ -242,15 +242,27 @@ private fun rejectSelfReferentialChainRelayHop(
 
 private fun rejectUnsupportedChainRelayHopKind(
     hopName: String,
-    kind: String,
+    profile: RelayProfileRecord,
 ) {
-    if (kind == RelayKindChainRelay || kind == RelayKindOff) {
-        throw ServiceStartupRejectedException(
-            FailureReason.RelayConfigRejected(
-                "Chain relay $hopName profile kind $kind is not supported yet",
-            ),
-        )
+    val isSupported =
+        when (hopName) {
+            "entry" -> profile.isSupportedChainEntryHop()
+            "exit" -> profile.isSupportedChainExitHop()
+            else -> false
+        }
+    if (isSupported) {
+        return
     }
+    val isSupportedInOtherRole = profile.isSupportedChainEntryHop() || profile.isSupportedChainExitHop()
+    val message =
+        if (isSupportedInOtherRole) {
+            "chain relay $hopName profile kind ${profile.kind} is not supported by chain relay as $hopName hop"
+        } else {
+            "chain relay $hopName profile kind ${profile.kind} is not supported by chain relay"
+        }
+    throw ServiceStartupRejectedException(
+        FailureReason.RelayConfigRejected(message),
+    )
 }
 
 private fun RelayProfileRecord.toResolvedChainRelayHopConfig(

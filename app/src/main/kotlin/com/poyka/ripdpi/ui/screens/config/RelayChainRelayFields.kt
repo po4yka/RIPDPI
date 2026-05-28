@@ -162,5 +162,7 @@ private fun RelayChainTrustWarning(uiState: ConfigUiState) {
 private fun chainValidationMessage(errorKey: String?): String? =
     when (errorKey) {
         "required" -> "Select both entry and exit profiles."
+        "unsupported_entry" -> "Selected entry profile cannot be used as a chain entry."
+        "unsupported_exit" -> "Selected exit profile cannot be used as a chain exit."
         else -> validationMessage(errorKey)
     }

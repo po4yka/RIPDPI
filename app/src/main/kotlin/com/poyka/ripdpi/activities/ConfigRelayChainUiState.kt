@@ -1,13 +1,14 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindObfs4
-import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
@@ -17,6 +18,8 @@ import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayTrustDomain
 import com.poyka.ripdpi.data.RelayTrustDomainWarning
 import com.poyka.ripdpi.data.detectRelayChainTrustWarning
+import com.poyka.ripdpi.data.isSupportedChainEntryHop
+import com.poyka.ripdpi.data.isSupportedChainExitHop
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -45,7 +48,7 @@ internal fun buildRelayProfileOptions(
     records
         .asSequence()
         .filter { it.id != chainProfileId }
-        .filter { it.kind != RelayKindOff && it.kind != RelayKindChainRelay }
+        .filter { it.isSupportedChainEntryHop() || it.isSupportedChainExitHop() }
         .sortedBy { it.id }
         .map { record ->
             RelayProfileUiState(
@@ -90,6 +93,8 @@ internal fun String.relayKindLabel(): String =
         RelayKindTuicV5 -> "TUIC v5"
         RelayKindShadowTlsV3 -> "ShadowTLS v3"
         RelayKindTrojan -> "Trojan"
+        RelayKindAnyTls -> "AnyTLS"
+        RelayKindShadowsocks -> "Shadowsocks"
         RelayKindSnowflake -> "Snowflake"
         RelayKindWebTunnel -> "WebTunnel"
         RelayKindObfs4 -> "obfs4"

@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindObfs4
-import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTrojan
@@ -21,6 +20,8 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.isSupportedChainEntryHop
+import com.poyka.ripdpi.data.isSupportedChainExitHop
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.parseStrategyChainDsl
@@ -316,9 +317,10 @@ private fun validateResolvedChainProfiles(
     val exit = byId[exitId]
     return when {
         entry == null || exit == null -> "required"
-        !entry.isSupportedChainHop() || !exit.isSupportedChainHop() -> "unsupported"
+        !entry.isSupportedChainEntryHop() && !entry.isSupportedChainExitHop() -> "unsupported"
+        !exit.isSupportedChainEntryHop() && !exit.isSupportedChainExitHop() -> "unsupported"
+        !entry.isSupportedChainEntryHop() -> "unsupported_entry"
+        !exit.isSupportedChainExitHop() -> "unsupported_exit"
         else -> null
     }
 }
-
-private fun RelayProfileRecord.isSupportedChainHop(): Boolean = kind != RelayKindOff && kind != RelayKindChainRelay

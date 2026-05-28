@@ -2,15 +2,20 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class ChainRelayTrustDomainResolverTest {
@@ -252,6 +257,52 @@ class ChainRelayTrustDomainResolverTest {
 
             assertEquals(null, resolved.trustWarning?.sharedJurisdiction)
             assertEquals("Acme Relay", resolved.trustWarning?.sharedOperatorName)
+        }
+
+    @Test
+    fun `resolve chain relay config rejects quic exit profile before native launch`() =
+        runTest {
+            try {
+                resolveChainRelayConfigSupport(
+                    chainProfileId = "chain",
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindChainRelay,
+                            profileId = "chain",
+                            chainEntryProfileId = "entry-hop",
+                            chainExitProfileId = "quic-exit",
+                        ),
+                    credentials = null,
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "entry-hop",
+                                    kind = RelayKindVlessReality,
+                                    server = "entry.example",
+                                    serverName = "entry.example",
+                                ),
+                            )
+                            save(
+                                RelayProfileRecord(
+                                    id = "quic-exit",
+                                    kind = RelayKindHysteria2,
+                                    server = "exit.example",
+                                    serverName = "exit.example",
+                                ),
+                            )
+                        },
+                    relayCredentialStore = entryCredentialStore(),
+                )
+                fail("Expected QUIC exit profile to be rejected")
+            } catch (error: ServiceStartupRejectedException) {
+                val reason = error.reason as? FailureReason.RelayConfigRejected
+                assertTrue(reason != null)
+                assertTrue(
+                    reason?.message?.contains("chain relay exit profile kind hysteria2 is not supported") == true,
+                )
+            }
         }
 
     private suspend fun entryCredentialStore(): TestRelayCredentialStore =

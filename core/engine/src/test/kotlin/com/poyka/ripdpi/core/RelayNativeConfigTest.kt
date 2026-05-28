@@ -277,7 +277,14 @@ class RelayNativeConfigTest {
     // Every defaulted field set to a non-default value so all 78 wire keys
     // appear and every field exercises the section round-trip.
     private fun fullyPopulatedRelayConfig(): ResolvedRipDpiRelayConfig =
-        baseConfig("vless_reality").copy(
+        baseConfig("vless_reality")
+            .withTransportFixture()
+            .withResolvedChainFixture()
+            .withCredentialFixture()
+            .withAppsScriptAndFinalmaskFixture()
+
+    private fun ResolvedRipDpiRelayConfig.withTransportFixture(): ResolvedRipDpiRelayConfig =
+        copy(
             outboundBindIp = "10.0.0.9",
             vlessTransport = "xhttp",
             xhttpPath = "/wire/path",
@@ -285,6 +292,23 @@ class RelayNativeConfigTest {
             cloudflareTunnelMode = "publish_managed",
             cloudflarePublishLocalOriginUrl = "http://origin.local",
             cloudflareCredentialsRef = "credentials-ref",
+            masqueCloudflareGeohashEnabled = true,
+            tuicZeroRtt = true,
+            tuicCongestionControl = "cubic",
+            shadowTlsInnerProfileId = "shadowtls-inner-profile-id",
+            naivePath = "/naive/path",
+            ptBridgeLine = "pt-bridge-line",
+            ptWebTunnelUrl = "https://webtunnel.example",
+            ptSnowflakeBrokerUrl = "https://broker.example",
+            ptSnowflakeFrontDomain = "front.example",
+            quicBindLowPort = true,
+            quicMigrateAfterHandshake = true,
+            tlsFingerprintProfile = "firefox_stable",
+            trojanRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntrojan-root\n-----END CERTIFICATE-----",
+        )
+
+    private fun ResolvedRipDpiRelayConfig.withResolvedChainFixture(): ResolvedRipDpiRelayConfig =
+        copy(
             chainEntry =
                 ResolvedChainRelayHopConfig(
                     kind = "vless_reality",
@@ -307,10 +331,6 @@ class RelayNativeConfigTest {
                     masqueAuthToken = placeholder(12),
                 ),
             chainExitProfileId = "chain-exit-profile-id",
-            masqueCloudflareGeohashEnabled = true,
-            tuicZeroRtt = true,
-            tuicCongestionControl = "cubic",
-            shadowTlsInnerProfileId = "shadowtls-inner-profile-id",
             shadowTlsInner =
                 ResolvedShadowTlsInnerRelayConfig(
                     kind = "vless_reality",
@@ -323,13 +343,10 @@ class RelayNativeConfigTest {
                     vlessTransport = "xhttp",
                     vlessUuid = "inner-uuid",
                 ),
-            naivePath = "/naive/path",
-            ptBridgeLine = "pt-bridge-line",
-            ptWebTunnelUrl = "https://webtunnel.example",
-            ptSnowflakeBrokerUrl = "https://broker.example",
-            ptSnowflakeFrontDomain = "front.example",
-            quicBindLowPort = true,
-            quicMigrateAfterHandshake = true,
+        )
+
+    private fun ResolvedRipDpiRelayConfig.withCredentialFixture(): ResolvedRipDpiRelayConfig =
+        copy(
             vlessUuid = "vless-uuid",
             chainEntryUuid = "chain-entry-uuid",
             chainExitUuid = "chain-exit-uuid",
@@ -343,10 +360,8 @@ class RelayNativeConfigTest {
             shadowsocksPassword = placeholder(10),
             naiveUsername = "naive-username",
             naivePassword = placeholder(4),
-            tlsFingerprintProfile = "firefox_stable",
             masqueAuthMode = "token",
             trojanPassword = placeholder(5),
-            trojanRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntrojan-root\n-----END CERTIFICATE-----",
             masqueAuthToken = placeholder(6),
             masqueClientCertificateChainPem = "masque-cert-chain-pem",
             masqueClientPrivateKeyPem = "masque-private-key-pem",
@@ -355,6 +370,10 @@ class RelayNativeConfigTest {
             masquePrivacyPassProviderAuthToken = placeholder(7),
             cloudflareTunnelToken = placeholder(8),
             cloudflareTunnelCredentialsJson = "{\"cloudflare\":\"credentials\"}",
+        )
+
+    private fun ResolvedRipDpiRelayConfig.withAppsScriptAndFinalmaskFixture(): ResolvedRipDpiRelayConfig =
+        copy(
             appsScriptScriptIds = listOf("apps-script-id"),
             appsScriptGoogleIp = "10.1.2.3",
             appsScriptFrontDomain = "apps-script-front.example",

@@ -77,6 +77,36 @@ data class RelayProfileRecord(
     val finalmaskFragmentMaxBytes: Int = 0,
 )
 
+fun RelayProfileRecord.isSupportedChainEntryHop(): Boolean =
+    when (kind) {
+        RelayKindVlessReality -> normalizeRelayVlessTransport(vlessTransport, kind) == RelayVlessTransportRealityTcp
+
+        RelayKindMasque,
+        RelayKindTrojan,
+        RelayKindAnyTls,
+        RelayKindShadowsocks,
+        RelayKindShadowTlsV3,
+        RelayKindHysteria2,
+        RelayKindTuicV5,
+        -> true
+
+        else -> false
+    }
+
+fun RelayProfileRecord.isSupportedChainExitHop(): Boolean =
+    when (kind) {
+        RelayKindVlessReality -> normalizeRelayVlessTransport(vlessTransport, kind) == RelayVlessTransportRealityTcp
+
+        RelayKindMasque,
+        RelayKindTrojan,
+        RelayKindAnyTls,
+        RelayKindShadowsocks,
+        RelayKindShadowTlsV3,
+        -> true
+
+        else -> false
+    }
+
 @Serializable
 data class RelayCredentialRecord(
     val profileId: String,
