@@ -68,7 +68,7 @@ Cross-boundary contract docs:
 - malformed or missing remote data never clears the previous usable config;
 - Kotlin persists refreshed bytes with `EncryptedSharedPreferences` and seeds the native updater on process start.
 
-The remaining follow-up is wiring the TLS path to consume the process-wide updater snapshot before falling back to bundled bytes.
+Current TLS consumers do not read the process-wide updater snapshot. The MASQUE path resolves per-target ECH directly through encrypted DNS via `resolve_outbound_ech_config_via_encrypted_dns`; the updater is a refresh/persistence cache until a future consumer is explicitly wired to it.
 
 ## io_uring
 
