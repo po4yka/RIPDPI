@@ -5644,6 +5644,7 @@ dependencies = [
  "ripdpi-relay-mux",
  "ripdpi-shadowsocks",
  "ripdpi-shadowtls",
+ "ripdpi-tor",
  "ripdpi-trojan",
  "ripdpi-vless",
  "tokio",

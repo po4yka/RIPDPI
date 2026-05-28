@@ -6,18 +6,17 @@ use std::io;
 
 use ripdpi_relay_mux::{RelayCapabilities, RelayPoolHealth};
 
-use crate::backend::pool::BoxedIo;
 use crate::backend::udp::RelayUdpSession;
 use crate::protocols::{
     AnyTlsSessionFactory, ChainRelaySessionFactory, Hysteria2SessionFactory, MasqueSessionFactory,
-    ShadowTlsSessionFactory, ShadowsocksSessionFactory, TrojanSessionFactory, TuicSessionFactory,
+    ShadowTlsSessionFactory, ShadowsocksSessionFactory, TorRelayBackend, TrojanSessionFactory, TuicSessionFactory,
     VlessRealitySessionFactory, XhttpSessionFactory,
 };
 use crate::socks::RelayTargetAddr;
 use crate::telemetry::{ChainHopTelemetrySnapshot, ChainHopTelemetryState};
 
 pub(crate) use builder::build_backend;
-pub(crate) use pool::PooledRelayBackend;
+pub(crate) use pool::{BoxedIo, PooledRelayBackend};
 
 macro_rules! dispatch_pooled_backend {
     ($self:expr, $backend:ident => $expr:expr, unsupported => $unsupported:expr) => {
@@ -32,6 +31,7 @@ macro_rules! dispatch_pooled_backend {
             RelayBackend::Trojan($backend) => $expr,
             RelayBackend::AnyTls($backend) => $expr,
             RelayBackend::Shadowsocks($backend) => $expr,
+            RelayBackend::Tor($backend) => $expr,
             RelayBackend::Unsupported { .. } => $unsupported,
         }
     };
@@ -57,6 +57,7 @@ pub(crate) enum RelayBackend {
     Trojan(PooledRelayBackend<TrojanSessionFactory>),
     AnyTls(PooledRelayBackend<AnyTlsSessionFactory>),
     Shadowsocks(PooledRelayBackend<ShadowsocksSessionFactory>),
+    Tor(Box<TorRelayBackend>),
     Unsupported { kind: String },
 }
 
@@ -89,6 +90,7 @@ impl RelayBackend {
             | Self::Trojan(_)
             | Self::AnyTls(_)
             | Self::Shadowsocks(_)
+            | Self::Tor(_)
             | Self::Unsupported { .. } => (None, None),
         }
     }
@@ -119,7 +121,7 @@ impl RelayBackend {
             Self::Trojan(backend) => backend.open_udp_session(RelayUdpSession::Trojan).await,
             Self::AnyTls(backend) => backend.open_udp_session(RelayUdpSession::AnyTls).await,
             Self::Shadowsocks(backend) => backend.open_udp_session(RelayUdpSession::Shadowsocks).await,
-            Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay { .. } | Self::ShadowTls(_) => {
+            Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay { .. } | Self::ShadowTls(_) | Self::Tor(_) => {
                 Err(io::Error::new(io::ErrorKind::Unsupported, "relay backend does not support UDP ASSOCIATE"))
             }
             Self::Unsupported { kind, .. } => Err(Self::unsupported_error(kind)),

@@ -284,6 +284,12 @@ pub struct TorRelayClient {
 }
 
 impl TorRelayClient {
+    pub fn create_unbootstrapped(config: ArtiTorClientConfig) -> arti_client::Result<Self> {
+        ensure_rustls_crypto_provider();
+        let inner = ArtiTorClient::builder().config(config).create_unbootstrapped()?;
+        Ok(Self { inner })
+    }
+
     pub async fn create_bootstrapped(config: ArtiTorClientConfig) -> arti_client::Result<Self> {
         ensure_rustls_crypto_provider();
         let inner = ArtiTorClient::create_bootstrapped(config).await?;

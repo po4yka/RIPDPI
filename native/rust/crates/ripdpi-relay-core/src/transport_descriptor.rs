@@ -213,6 +213,18 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
     },
     RelayTransportRegistration {
         descriptor: RelayTransportDescriptor {
+            kind_id: "tor",
+            label: "Tor",
+            tcp: true,
+            udp: false,
+            reusable: true,
+            supports_outbound_bind_ip: false,
+        },
+        builder: Some(builders::build_tor),
+        fallback_mode: None,
+    },
+    RelayTransportRegistration {
+        descriptor: RelayTransportDescriptor {
             kind_id: "naiveproxy",
             label: "NaiveProxy",
             tcp: true,

@@ -9,6 +9,7 @@ ripdpi-relay-mux = { workspace = true }
 ripdpi-anytls = { workspace = true }
 ripdpi-shadowtls = { workspace = true }
 ripdpi-shadowsocks = { workspace = true }
+ripdpi-tor = { workspace = true }
 ripdpi-trojan = { workspace = true }
 ripdpi-vless = { workspace = true }
 rand = { workspace = true }

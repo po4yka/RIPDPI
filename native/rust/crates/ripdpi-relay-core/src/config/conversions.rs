@@ -93,6 +93,12 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 method: flat.shadowsocks_method,
                 password: flat.shadowsocks_password,
             }),
+            "tor" => RelayBackendConfig::Tor(TorRelayConfig {
+                state_dir: flat.tor_state_dir,
+                cache_dir: flat.tor_cache_dir,
+                bridge_lines: flat.tor_bridge_lines,
+                transports: flat.tor_transports,
+            }),
             "naiveproxy" => RelayBackendConfig::NaiveProxy(NaiveProxyRelayConfig {
                 path: flat.naive_path,
                 username: flat.naive_username,
@@ -147,6 +153,10 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             trojan_root_certificate_pem: None,
             anytls_root_certificate_pem: None,
             naive_path: String::new(),
+            tor_state_dir: String::new(),
+            tor_cache_dir: String::new(),
+            tor_bridge_lines: Vec::new(),
+            tor_transports: Vec::new(),
             local_socks_host: config.common.local_socks_host.clone(),
             local_socks_port: config.common.local_socks_port,
             udp_enabled: config.common.udp_enabled,
@@ -254,6 +264,12 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             RelayBackendConfig::Shadowsocks(config) => {
                 flat.shadowsocks_method = config.method.clone();
                 flat.shadowsocks_password = config.password.clone();
+            }
+            RelayBackendConfig::Tor(config) => {
+                flat.tor_state_dir = config.state_dir.clone();
+                flat.tor_cache_dir = config.cache_dir.clone();
+                flat.tor_bridge_lines = config.bridge_lines.clone();
+                flat.tor_transports = config.transports.clone();
             }
             RelayBackendConfig::NaiveProxy(config) => {
                 flat.naive_path = config.path.clone();

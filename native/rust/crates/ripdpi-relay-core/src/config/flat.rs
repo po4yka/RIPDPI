@@ -121,6 +121,14 @@ struct FlatResolvedRelayRuntimeConfig {
     pub anytls_root_certificate_pem: Option<String>,
     #[serde(default)]
     pub naive_path: String,
+    #[serde(default)]
+    pub tor_state_dir: String,
+    #[serde(default)]
+    pub tor_cache_dir: String,
+    #[serde(default)]
+    pub tor_bridge_lines: Vec<String>,
+    #[serde(default)]
+    pub tor_transports: Vec<TorPluggableTransportConfig>,
     pub local_socks_host: String,
     pub local_socks_port: i32,
     pub udp_enabled: bool,

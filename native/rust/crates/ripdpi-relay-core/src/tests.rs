@@ -16,7 +16,8 @@ use crate::config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
     MasqueRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind, ResolvedChainRelayHopConfig,
     ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig,
-    ShadowsocksRelayConfig, TrojanRelayConfig, TuicRelayConfig, VlessRealityRelayConfig,
+    ShadowsocksRelayConfig, TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig, TuicRelayConfig,
+    VlessRealityRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
@@ -113,6 +114,17 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
         "shadowsocks" => RelayBackendConfig::Shadowsocks(ShadowsocksRelayConfig {
             method: "aes-256-gcm".to_string(),
             password: Some("secret".to_string()),
+        }),
+        "tor" => RelayBackendConfig::Tor(TorRelayConfig {
+            state_dir: std::env::temp_dir().join("ripdpi-relay-core-tor-state").to_string_lossy().into_owned(),
+            cache_dir: std::env::temp_dir().join("ripdpi-relay-core-tor-cache").to_string_lossy().into_owned(),
+            bridge_lines: vec!["Bridge obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=YXJlIGZyZXF1ZW50bHkgZnVsbCBvZiBsaXR0bGUgbWVzc2FnZXMgeW91IGNhbiBmaW5kLg iat-mode=0".to_string()],
+            transports: vec![TorPluggableTransportConfig {
+                protocols: vec!["obfs4".to_string()],
+                binary_path: "/usr/local/bin/ripdpi-obfs4".to_string(),
+                arguments: Vec::new(),
+                run_on_startup: false,
+            }],
         }),
         "naiveproxy" => RelayBackendConfig::NaiveProxy(NaiveProxyRelayConfig::default()),
         other => RelayBackendConfig::Unsupported(crate::config::UnsupportedRelayConfig { kind: other.to_string() }),
@@ -1183,6 +1195,19 @@ async fn relay_runtime_builds_shadowsocks_udp_associate_fixture() {
     assert_eq!(echoed, PAYLOAD);
 }
 
+#[tokio::test]
+async fn tor_backend_builds_in_process_and_rejects_udp() {
+    let mut config = sample_config("tor");
+    config.common.udp_enabled = true;
+
+    let backend = build_backend(&config).await.expect("tor backend builds");
+
+    assert_eq!(Some("tor"), relay_backend_kind_id(&backend));
+    assert!(!backend.udp_capable(), "Tor is TCP-only");
+    let error = validate_runtime_config(&config, &backend).expect_err("Tor backend must reject UDP");
+    assert_eq!(io::ErrorKind::Unsupported, error.kind());
+}
+
 /// Asserts whether `validate_runtime_config` accepts an outbound bind IP for a
 /// relay kind, exercising the descriptor-driven capability gate end to end.
 fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeConfig, supported: bool) {
@@ -1206,7 +1231,7 @@ fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeCon
 #[test]
 fn relay_planned_capabilities_are_pinned_for_every_kind() {
     // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
-    let pinned: [(&str, bool, bool, bool, bool); 11] = [
+    let pinned: [(&str, bool, bool, bool, bool); 12] = [
         ("hysteria2", true, true, true, false),
         ("tuic_v5", true, true, true, true),
         ("vless_reality", true, false, false, true),
@@ -1217,6 +1242,7 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
         ("trojan", true, true, false, true),
         ("anytls", true, true, true, true),
         ("shadowsocks", true, true, false, true),
+        ("tor", true, false, true, false),
         ("naiveproxy", true, false, false, true),
     ];
 
@@ -1284,7 +1310,8 @@ fn relay_dispatch_class(kind: RelayKind<'_>) -> RelayDispatchClass {
         | RelayKind::ShadowTlsV3
         | RelayKind::Trojan
         | RelayKind::AnyTls
-        | RelayKind::Shadowsocks => RelayDispatchClass::InProcessBackend,
+        | RelayKind::Shadowsocks
+        | RelayKind::Tor => RelayDispatchClass::InProcessBackend,
         RelayKind::NaiveProxy => RelayDispatchClass::SubprocessFallback,
         RelayKind::Unsupported(_) => RelayDispatchClass::Unsupported,
     }
@@ -1306,6 +1333,7 @@ fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
         RelayBackend::Trojan(_) => Some("trojan"),
         RelayBackend::AnyTls(_) => Some("anytls"),
         RelayBackend::Shadowsocks(_) => Some("shadowsocks"),
+        RelayBackend::Tor(_) => Some("tor"),
         RelayBackend::Unsupported { .. } => None,
     }
 }
@@ -1344,6 +1372,7 @@ fn relay_transport_registry_is_consistent() {
         sample_config("trojan"),
         sample_config("anytls"),
         sample_config("shadowsocks"),
+        sample_config("tor"),
         sample_config("naiveproxy"),
         sample_config("off"),
         sample_config("totally_unknown"),
@@ -1433,6 +1462,7 @@ fn relay_transport_registry_is_consistent() {
         "trojan",
         "anytls",
         "shadowsocks",
+        "tor",
     ] {
         assert!(
             relay_transport_registration(kind_id).is_some(),
@@ -1477,7 +1507,7 @@ async fn relay_transport_registry_dispatches_vless_sub_modes() {
 #[test]
 fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
     // kind_id, fallback_mode, pool max_active_leases, pool idle_timeout (secs)
-    let pinned: [(&str, Option<&str>, usize, u64); 11] = [
+    let pinned: [(&str, Option<&str>, usize, u64); 12] = [
         ("hysteria2", None, 64, 45),
         ("tuic_v5", None, 64, 45),
         ("vless_reality", None, 16, 5), // reality_tcp sub-mode
@@ -1488,6 +1518,7 @@ fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
         ("trojan", None, 16, 5),
         ("anytls", None, 64, 45),
         ("shadowsocks", None, 16, 5),
+        ("tor", None, 16, 5),
         ("naiveproxy", Some("subprocess"), 16, 5),
     ];
 

@@ -6,6 +6,7 @@ include!("backend/chain.rs");
 include!("backend/masque.rs");
 include!("backend/shadowtls.rs");
 include!("backend/trojan.rs");
+include!("backend/tor.rs");
 include!("backend/anytls.rs");
 include!("backend/shadowsocks.rs");
 include!("backend/naive.rs");
@@ -21,6 +22,7 @@ pub enum RelayBackendConfig {
     Masque(MasqueRelayConfig),
     ShadowTlsV3(ShadowTlsRelayConfig),
     Trojan(TrojanRelayConfig),
+    Tor(TorRelayConfig),
     AnyTls(AnyTlsRelayConfig),
     Shadowsocks(ShadowsocksRelayConfig),
     NaiveProxy(NaiveProxyRelayConfig),
@@ -38,6 +40,7 @@ impl RelayBackendConfig {
             Self::Masque(_) => "masque",
             Self::ShadowTlsV3(_) => "shadowtls_v3",
             Self::Trojan(_) => "trojan",
+            Self::Tor(_) => "tor",
             Self::AnyTls(_) => "anytls",
             Self::Shadowsocks(_) => "shadowsocks",
             Self::NaiveProxy(_) => "naiveproxy",
