@@ -335,10 +335,11 @@ class MainActivityShellInstrumentedTest {
         val originalIntent = Intent(composeRule.activity.intent)
         composeRule.runOnUiThread {
             composeRule.activity.startActivity(
-                MainActivity.createLaunchIntent(
-                    context = composeRule.activity,
-                    requestStartConfiguredMode = true,
-                ),
+                MainActivity
+                    .createLaunchIntent(
+                        context = composeRule.activity,
+                        requestStartConfiguredMode = true,
+                    ).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             )
         }
         return originalIntent
