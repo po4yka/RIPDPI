@@ -1387,7 +1387,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo doc --workspace --all-features --no-deps
 ```
 
-The rustdoc step is included to catch new doc-comment compile errors but runs at default warning level — a small set of pre-existing broken intra-doc links in legacy crates would otherwise mask the new check. The soundness epic's closing PR upgrades it to `-D warnings`.
+The rustdoc step is included to catch new doc-comment compile errors but runs at default warning level because the workspace still has a small tail of pre-existing intra-doc-link warnings in legacy crates. Upgrading rustdoc to `-D warnings` requires clearing that warning tail first.
 
 The dedicated `rust-miri` job runs `scripts/ci/run-rust-miri.sh`, which extends miri coverage opportunistically to crates with raw-pointer code (see commentary in that script).
 
