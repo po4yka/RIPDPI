@@ -180,6 +180,7 @@ private class ResolvedRelayConfigBuilder(
     // referenced-profile resolution (`chainRelay`) is present.
     private fun chainSection(): RelayChainSection =
         RelayChainSection(
+            chainEntry = chainRelay?.entry?.config,
             chainEntryServer = chainRelay?.entry?.server ?: effectiveConfig.chainEntryServer,
             chainEntryPort = chainRelay?.entry?.serverPort ?: effectiveConfig.chainEntryPort,
             chainEntryServerName = chainRelay?.entry?.serverName ?: effectiveConfig.chainEntryServerName,
@@ -187,6 +188,7 @@ private class ResolvedRelayConfigBuilder(
             chainEntryShortId = chainRelay?.entry?.shortId ?: effectiveConfig.chainEntryShortId,
             chainEntryProfileId = chainRelay?.entry?.profileId ?: effectiveConfig.chainEntryProfileId,
             chainEntryUuid = chainRelay?.entry?.uuid ?: credentials?.chainEntryUuid,
+            chainExit = chainRelay?.exit?.config,
             chainExitServer = chainRelay?.exit?.server ?: effectiveConfig.chainExitServer,
             chainExitPort = chainRelay?.exit?.serverPort ?: effectiveConfig.chainExitPort,
             chainExitServerName = chainRelay?.exit?.serverName ?: effectiveConfig.chainExitServerName,
@@ -281,7 +283,7 @@ private class ResolvedRelayConfigBuilder(
         )
 }
 
-private fun RipDpiRelayFinalmaskConfig.toResolvedFinalmaskConfig(): ResolvedRelayFinalmaskConfig =
+internal fun RipDpiRelayFinalmaskConfig.toResolvedFinalmaskConfig(): ResolvedRelayFinalmaskConfig =
     ResolvedRelayFinalmaskConfig(
         type = type,
         headerHex = headerHex,

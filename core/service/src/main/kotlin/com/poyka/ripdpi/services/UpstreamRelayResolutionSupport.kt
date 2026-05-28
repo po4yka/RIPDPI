@@ -1,10 +1,23 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.ResolvedChainRelayHopConfig
+import com.poyka.ripdpi.core.ResolvedRelayFinalmaskConfig
 import com.poyka.ripdpi.core.ResolvedShadowTlsInnerRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindAnyTls
+import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindOff
+import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindShadowsocks
+import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
@@ -23,6 +36,7 @@ internal data class ResolvedChainRelayHop(
     val publicKey: String,
     val shortId: String,
     val uuid: String,
+    val config: ResolvedChainRelayHopConfig,
 )
 
 internal data class ResolvedChainRelayConfig(
@@ -136,20 +150,17 @@ private suspend fun resolveChainRelayHopSupport(
         val profile = loadChainRelayHopProfile(hopName, profileId, relayProfileStore)
         rejectSelfReferentialChainRelayHop(hopName, profile.id, chainProfileId)
         rejectUnsupportedChainRelayHopKind(hopName, profile.kind)
-        require(profile.vlessTransport != RelayVlessTransportXhttp) {
-            "Chain relay $hopName profile must use direct Reality TCP transport"
-        }
         val hopCredentials = relayCredentialStore.load(profileId)
-        val hopUuid = hopCredentials?.vlessUuid
-        require(!hopUuid.isNullOrBlank()) { "Relay credentials missing for profile $profileId" }
+        val hopConfig = profile.toResolvedChainRelayHopConfig(hopCredentials)
         return ResolvedChainRelayHop(
-            profileId = profile.id,
-            server = profile.server,
-            serverPort = profile.serverPort,
-            serverName = profile.serverName,
-            publicKey = profile.realityPublicKey,
-            shortId = profile.realityShortId,
-            uuid = hopUuid,
+            profileId = hopConfig.profileId,
+            server = hopConfig.server,
+            serverPort = hopConfig.serverPort,
+            serverName = hopConfig.serverName,
+            publicKey = hopConfig.realityPublicKey,
+            shortId = hopConfig.realityShortId,
+            uuid = hopConfig.vlessUuid.orEmpty(),
+            config = hopConfig,
         )
     }
     require(legacyServer.isNotBlank()) { "Chain relay $hopName profile reference is required" }
@@ -165,6 +176,17 @@ private suspend fun resolveChainRelayHopSupport(
         publicKey = legacyPublicKey,
         shortId = legacyShortId,
         uuid = legacyUuid,
+        config =
+            ResolvedChainRelayHopConfig(
+                kind = RelayKindVlessReality,
+                server = legacyServer,
+                serverPort = legacyServerPort,
+                serverName = legacyServerName,
+                realityPublicKey = legacyPublicKey,
+                realityShortId = legacyShortId,
+                vlessTransport = RelayVlessTransportRealityTcp,
+                vlessUuid = legacyUuid,
+            ),
     )
 }
 
@@ -214,11 +236,126 @@ private fun rejectUnsupportedChainRelayHopKind(
     hopName: String,
     kind: String,
 ) {
-    if (kind != RelayKindVlessReality) {
+    if (kind == RelayKindChainRelay || kind == RelayKindOff) {
         throw ServiceStartupRejectedException(
             FailureReason.RelayConfigRejected(
                 "Chain relay $hopName profile kind $kind is not supported yet",
             ),
         )
+    }
+}
+
+private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
+    credentials: RelayCredentialRecord?,
+): ResolvedChainRelayHopConfig =
+    ResolvedChainRelayHopConfig(
+        kind = kind,
+        profileId = id,
+        server = server,
+        serverPort = serverPort,
+        serverName = serverName,
+        realityPublicKey = realityPublicKey,
+        realityShortId = realityShortId,
+        vlessTransport = vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
+        xhttpPath = xhttpPath,
+        xhttpHost = xhttpHost,
+        cloudflareTunnelMode = cloudflareTunnelMode,
+        cloudflarePublishLocalOriginUrl = cloudflarePublishLocalOriginUrl,
+        cloudflareCredentialsRef = cloudflareCredentialsRef,
+        masqueUrl = masqueUrl,
+        masqueUseHttp2Fallback = masqueUseHttp2Fallback,
+        masqueCloudflareGeohashEnabled = masqueCloudflareGeohashEnabled,
+        tuicZeroRtt = tuicZeroRtt,
+        tuicCongestionControl = tuicCongestionControl,
+        shadowTlsInnerProfileId = shadowTlsInnerProfileId,
+        naivePath = naivePath,
+        vlessUuid = credentials?.vlessUuid,
+        hysteriaPassword = credentials?.hysteriaPassword,
+        hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
+        anyTlsPassword = credentials?.anyTlsPassword,
+        tuicUuid = credentials?.tuicUuid,
+        tuicPassword = credentials?.tuicPassword,
+        shadowTlsPassword = credentials?.shadowTlsPassword,
+        trojanPassword = credentials?.trojanPassword,
+        shadowsocksMethod = credentials?.shadowsocksMethod,
+        shadowsocksPassword = credentials?.shadowsocksPassword,
+        naiveUsername = credentials?.naiveUsername,
+        naivePassword = credentials?.naivePassword,
+        masqueAuthMode = resolveMasqueAuthModeSupport(credentials),
+        masqueAuthToken = credentials?.masqueAuthToken,
+        masqueClientCertificateChainPem = credentials?.masqueClientCertificateChainPem,
+        masqueClientPrivateKeyPem = credentials?.masqueClientPrivateKeyPem,
+        cloudflareTunnelToken = credentials?.cloudflareTunnelToken,
+        cloudflareTunnelCredentialsJson = credentials?.cloudflareTunnelCredentialsJson,
+        finalmask =
+            ResolvedRelayFinalmaskConfig(
+                type = finalmaskType,
+                headerHex = finalmaskHeaderHex,
+                trailerHex = finalmaskTrailerHex,
+                randRange = finalmaskRandRange,
+                sudokuSeed = finalmaskSudokuSeed,
+                fragmentPackets = finalmaskFragmentPackets,
+                fragmentMinBytes = finalmaskFragmentMinBytes,
+                fragmentMaxBytes = finalmaskFragmentMaxBytes,
+            ),
+    ).also { hop ->
+        validateChainHopCredentials(hop)
+    }
+
+private fun validateChainHopCredentials(hop: ResolvedChainRelayHopConfig) {
+    when (hop.kind) {
+        RelayKindVlessReality,
+        RelayKindCloudflareTunnel,
+        -> {
+            require(!hop.vlessUuid.isNullOrBlank()) { "Relay credentials missing for profile ${hop.profileId}" }
+        }
+
+        RelayKindHysteria2 -> {
+            require(!hop.hysteriaPassword.isNullOrBlank()) {
+                "Relay credentials missing for profile ${hop.profileId}"
+            }
+        }
+
+        RelayKindTuicV5 -> {
+            require(!hop.tuicUuid.isNullOrBlank() && !hop.tuicPassword.isNullOrBlank()) {
+                "Relay credentials missing for profile ${hop.profileId}"
+            }
+        }
+
+        RelayKindShadowTlsV3 -> {
+            require(!hop.shadowTlsPassword.isNullOrBlank()) {
+                "Relay credentials missing for profile ${hop.profileId}"
+            }
+        }
+
+        RelayKindTrojan -> {
+            require(!hop.trojanPassword.isNullOrBlank()) {
+                "Relay credentials missing for profile ${hop.profileId}"
+            }
+        }
+
+        RelayKindAnyTls -> {
+            require(!hop.anyTlsPassword.isNullOrBlank()) {
+                "Relay credentials missing for profile ${hop.profileId}"
+            }
+        }
+
+        RelayKindShadowsocks -> {
+            require(!hop.shadowsocksPassword.isNullOrBlank()) {
+                "Relay credentials missing for profile ${hop.profileId}"
+            }
+        }
+
+        RelayKindNaiveProxy -> {
+            require(!hop.naiveUsername.isNullOrBlank() && !hop.naivePassword.isNullOrBlank()) {
+                "Relay credentials missing for profile ${hop.profileId}"
+            }
+        }
+
+        RelayKindMasque -> {
+            if (hop.masqueAuthMode == RelayMasqueAuthModeBearer && hop.masqueAuthToken.isNullOrBlank()) {
+                throw IllegalArgumentException("Relay credentials missing for profile ${hop.profileId}")
+            }
+        }
     }
 }

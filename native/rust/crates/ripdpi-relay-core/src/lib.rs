@@ -17,9 +17,9 @@ mod transport_descriptor;
 
 pub use config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
-    MasqueRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, ResolvedRelayFinalmaskConfig,
-    ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, TrojanRelayConfig,
-    TuicRelayConfig, UnsupportedRelayConfig, VlessRealityRelayConfig,
+    MasqueRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig,
+    ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig,
+    TrojanRelayConfig, TuicRelayConfig, UnsupportedRelayConfig, VlessRealityRelayConfig,
 };
 pub use runtime::RelayRuntime;
 pub use telemetry::{RelayTelemetry, TcpConnectObservation};

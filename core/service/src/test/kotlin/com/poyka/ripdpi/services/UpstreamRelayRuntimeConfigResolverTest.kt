@@ -267,6 +267,80 @@ class UpstreamRelayRuntimeConfigResolverTest {
         }
 
     @Test
+    fun `resolve chain relay family preserves heterogeneous referenced hop configs`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "chain",
+                                    kind = RelayKindChainRelay,
+                                    chainEntryProfileId = "entry-hop",
+                                    chainExitProfileId = "masque-exit",
+                                ),
+                            )
+                            save(
+                                RelayProfileRecord(
+                                    id = "entry-hop",
+                                    kind = RelayKindVlessReality,
+                                    server = "entry.example",
+                                    serverPort = 443,
+                                    serverName = "entry-sni.example",
+                                    realityPublicKey = "entry-public",
+                                    realityShortId = "entry-short",
+                                ),
+                            )
+                            save(
+                                RelayProfileRecord(
+                                    id = "masque-exit",
+                                    kind = RelayKindMasque,
+                                    masqueUrl = "https://masque.example/.well-known/masque/tcp/",
+                                    masqueUseHttp2Fallback = true,
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "entry-hop",
+                                    vlessUuid = "11111111-1111-1111-1111-111111111111",
+                                ),
+                            )
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "masque-exit",
+                                    masqueAuthToken = credentialFixture("masque-exit"),
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindChainRelay,
+                            profileId = "chain",
+                        ),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertNotNull(resolved.chainEntry)
+            assertNotNull(resolved.chainExit)
+            assertEquals(RelayKindVlessReality, resolved.chainEntry?.kind)
+            assertEquals("entry-hop", resolved.chainEntry?.profileId)
+            assertEquals("11111111-1111-1111-1111-111111111111", resolved.chainEntry?.vlessUuid)
+            assertEquals(RelayKindMasque, resolved.chainExit?.kind)
+            assertEquals("masque-exit", resolved.chainExit?.profileId)
+            assertEquals("https://masque.example/.well-known/masque/tcp/", resolved.chainExit?.masqueUrl)
+            assertEquals(credentialFixture("masque-exit"), resolved.chainExit?.masqueAuthToken)
+        }
+
+    @Test
     fun `resolve shadowtls family resolves inner relay config`() =
         runTest {
             val resolver =

@@ -178,8 +178,28 @@ class RelayNativeConfigTest {
 
     private fun chainRelayConfig(): ResolvedRipDpiRelayConfig =
         baseConfig("chain_relay").copy(
+            chainEntry =
+                ResolvedChainRelayHopConfig(
+                    kind = "vless_reality",
+                    profileId = "chain-entry-profile-id",
+                    server = "entry.example",
+                    serverPort = 443,
+                    serverName = "entry-sni.example",
+                    realityPublicKey = "entry-public-key",
+                    realityShortId = "entry-short-id",
+                    vlessUuid = "chain-entry-uuid",
+                ),
             chainEntryProfileId = "chain-entry-profile-id",
             chainEntryUuid = "chain-entry-uuid",
+            chainExit =
+                ResolvedChainRelayHopConfig(
+                    kind = "masque",
+                    profileId = "chain-exit-profile-id",
+                    masqueUrl = "https://masque.example/.well-known/masque/tcp/",
+                    masqueUseHttp2Fallback = true,
+                    masqueAuthMode = "bearer",
+                    masqueAuthToken = placeholder(12),
+                ),
             chainExitProfileId = "chain-exit-profile-id",
             chainExitUuid = "chain-exit-uuid",
         )
@@ -265,7 +285,27 @@ class RelayNativeConfigTest {
             cloudflareTunnelMode = "publish_managed",
             cloudflarePublishLocalOriginUrl = "http://origin.local",
             cloudflareCredentialsRef = "credentials-ref",
+            chainEntry =
+                ResolvedChainRelayHopConfig(
+                    kind = "vless_reality",
+                    profileId = "chain-entry-profile-id",
+                    server = "entry.example",
+                    serverPort = 443,
+                    serverName = "entry-sni.example",
+                    realityPublicKey = "entry-public-key",
+                    realityShortId = "entry-short-id",
+                    vlessUuid = "chain-entry-uuid",
+                ),
             chainEntryProfileId = "chain-entry-profile-id",
+            chainExit =
+                ResolvedChainRelayHopConfig(
+                    kind = "masque",
+                    profileId = "chain-exit-profile-id",
+                    masqueUrl = "https://masque.example/.well-known/masque/tcp/",
+                    masqueUseHttp2Fallback = true,
+                    masqueAuthMode = "bearer",
+                    masqueAuthToken = placeholder(12),
+                ),
             chainExitProfileId = "chain-exit-profile-id",
             masqueCloudflareGeohashEnabled = true,
             tuicZeroRtt = true,
@@ -366,7 +406,7 @@ class RelayNativeConfigTest {
                 "tcpFallbackEnabled",
             )
 
-        // The 55 keys carrying a default; emitted only when set off-default.
+        // The 57 keys carrying a default; emitted only when set off-default.
         private val defaultedWireKeys =
             setOf(
                 "outboundBindIp",
@@ -376,7 +416,9 @@ class RelayNativeConfigTest {
                 "cloudflareTunnelMode",
                 "cloudflarePublishLocalOriginUrl",
                 "cloudflareCredentialsRef",
+                "chainEntry",
                 "chainEntryProfileId",
+                "chainExit",
                 "chainExitProfileId",
                 "masqueCloudflareGeohashEnabled",
                 "tuicZeroRtt",
@@ -426,7 +468,7 @@ class RelayNativeConfigTest {
                 "finalmask",
             )
 
-        // The complete flat wire object: required + defaulted = 79 keys.
+        // The complete flat wire object: required + defaulted = 81 keys.
         private val expectedWireKeys = requiredWireKeys + defaultedWireKeys
     }
 }

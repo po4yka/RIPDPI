@@ -2,7 +2,7 @@
 ///
 /// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant. A payload
 /// carrying any other version is rejected by [`validate_schema_version`].
-const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 4;
+const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 5;
 
 /// `serde(default)` provider for the additive `schemaVersion` envelope field.
 ///
@@ -74,6 +74,8 @@ struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub cloudflare_credentials_ref: String,
     #[serde(default)]
+    pub chain_entry: Option<ResolvedChainRelayHopConfig>,
+    #[serde(default)]
     pub chain_entry_server: String,
     #[serde(default)]
     pub chain_entry_port: i32,
@@ -85,6 +87,8 @@ struct FlatResolvedRelayRuntimeConfig {
     pub chain_entry_short_id: String,
     #[serde(default)]
     pub chain_entry_profile_id: String,
+    #[serde(default)]
+    pub chain_exit: Option<ResolvedChainRelayHopConfig>,
     #[serde(default)]
     pub chain_exit_server: String,
     #[serde(default)]

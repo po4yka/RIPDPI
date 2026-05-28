@@ -54,6 +54,56 @@ data class ResolvedShadowTlsInnerRelayConfig(
 )
 
 @Serializable
+data class ResolvedChainRelayHopConfig(
+    val kind: String = "",
+    val profileId: String = "",
+    val server: String = "",
+    val serverPort: Int = 443,
+    val serverName: String = "",
+    val realityPublicKey: String = "",
+    val realityShortId: String = "",
+    val vlessTransport: String = RelayVlessTransportRealityTcp,
+    val xhttpPath: String = "",
+    val xhttpHost: String = "",
+    val cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
+    val cloudflarePublishLocalOriginUrl: String = "",
+    val cloudflareCredentialsRef: String = "",
+    val masqueUrl: String = "",
+    val masqueUseHttp2Fallback: Boolean = true,
+    val masqueCloudflareGeohashEnabled: Boolean = false,
+    val tuicZeroRtt: Boolean = false,
+    val tuicCongestionControl: String = RelayCongestionControlBbr,
+    val shadowTlsInnerProfileId: String = "",
+    val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
+    val trojanRootCertificatePem: String? = null,
+    val naivePath: String = "",
+    val vlessUuid: String? = null,
+    val hysteriaPassword: String? = null,
+    val hysteriaSalamanderKey: String? = null,
+    @SerialName("anytlsPassword")
+    val anyTlsPassword: String? = null,
+    val tuicUuid: String? = null,
+    val tuicPassword: String? = null,
+    val shadowTlsPassword: String? = null,
+    val trojanPassword: String? = null,
+    val shadowsocksMethod: String? = null,
+    val shadowsocksPassword: String? = null,
+    val naiveUsername: String? = null,
+    val naivePassword: String? = null,
+    val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
+    val masqueAuthMode: String? = null,
+    val masqueAuthToken: String? = null,
+    val masqueClientCertificateChainPem: String? = null,
+    val masqueClientPrivateKeyPem: String? = null,
+    val masqueCloudflareGeohashHeader: String? = null,
+    val masquePrivacyPassProviderUrl: String? = null,
+    val masquePrivacyPassProviderAuthToken: String? = null,
+    val cloudflareTunnelToken: String? = null,
+    val cloudflareTunnelCredentialsJson: String? = null,
+    val finalmask: ResolvedRelayFinalmaskConfig = ResolvedRelayFinalmaskConfig(),
+)
+
+@Serializable
 data class ResolvedRipDpiRelayConfig(
     val enabled: Boolean,
     val kind: String,
@@ -70,12 +120,14 @@ data class ResolvedRipDpiRelayConfig(
     val cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
     val cloudflarePublishLocalOriginUrl: String = "",
     val cloudflareCredentialsRef: String = "",
+    val chainEntry: ResolvedChainRelayHopConfig? = null,
     val chainEntryServer: String,
     val chainEntryPort: Int,
     val chainEntryServerName: String,
     val chainEntryPublicKey: String,
     val chainEntryShortId: String,
     val chainEntryProfileId: String = "",
+    val chainExit: ResolvedChainRelayHopConfig? = null,
     val chainExitServer: String,
     val chainExitPort: Int,
     val chainExitServerName: String,
@@ -146,7 +198,7 @@ data class ResolvedRipDpiRelayConfig(
  * value. Bumped only on a genuinely breaking shape change. See
  * `docs/architecture/CONFIG_CONTRACTS.md` §8.
  */
-const val RelayNativeConfigSchemaVersion: Int = 4
+const val RelayNativeConfigSchemaVersion: Int = 5
 
 // === Section models ======================================================
 //
@@ -186,6 +238,7 @@ data class RelayVlessSection(
 
 /** Chain-relay entry and exit hop fields. */
 data class RelayChainSection(
+    val chainEntry: ResolvedChainRelayHopConfig?,
     val chainEntryServer: String,
     val chainEntryPort: Int,
     val chainEntryServerName: String,
@@ -193,6 +246,7 @@ data class RelayChainSection(
     val chainEntryShortId: String,
     val chainEntryProfileId: String,
     val chainEntryUuid: String?,
+    val chainExit: ResolvedChainRelayHopConfig?,
     val chainExitServer: String,
     val chainExitPort: Int,
     val chainExitServerName: String,
@@ -337,6 +391,7 @@ private fun ResolvedRipDpiRelayConfig.vlessSection(): RelayVlessSection =
 
 private fun ResolvedRipDpiRelayConfig.chainSection(): RelayChainSection =
     RelayChainSection(
+        chainEntry = chainEntry,
         chainEntryServer = chainEntryServer,
         chainEntryPort = chainEntryPort,
         chainEntryServerName = chainEntryServerName,
@@ -344,6 +399,7 @@ private fun ResolvedRipDpiRelayConfig.chainSection(): RelayChainSection =
         chainEntryShortId = chainEntryShortId,
         chainEntryProfileId = chainEntryProfileId,
         chainEntryUuid = chainEntryUuid,
+        chainExit = chainExit,
         chainExitServer = chainExitServer,
         chainExitPort = chainExitPort,
         chainExitServerName = chainExitServerName,
@@ -478,12 +534,14 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         cloudflareTunnelMode = cloudflare.cloudflareTunnelMode,
         cloudflarePublishLocalOriginUrl = cloudflare.cloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef = cloudflare.cloudflareCredentialsRef,
+        chainEntry = chain.chainEntry,
         chainEntryServer = chain.chainEntryServer,
         chainEntryPort = chain.chainEntryPort,
         chainEntryServerName = chain.chainEntryServerName,
         chainEntryPublicKey = chain.chainEntryPublicKey,
         chainEntryShortId = chain.chainEntryShortId,
         chainEntryProfileId = chain.chainEntryProfileId,
+        chainExit = chain.chainExit,
         chainExitServer = chain.chainExitServer,
         chainExitPort = chain.chainExitPort,
         chainExitServerName = chain.chainExitServerName,

@@ -46,6 +46,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 tunnel_credentials_json: flat.cloudflare_tunnel_credentials_json,
             }),
             "chain_relay" => RelayBackendConfig::ChainRelay(ChainRelayConfig {
+                entry: flat.chain_entry.map(Box::new),
                 entry_server: flat.chain_entry_server,
                 entry_port: flat.chain_entry_port,
                 entry_server_name: flat.chain_entry_server_name,
@@ -53,6 +54,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 entry_short_id: flat.chain_entry_short_id,
                 entry_profile_id: flat.chain_entry_profile_id,
                 entry_uuid: flat.chain_entry_uuid,
+                exit: flat.chain_exit.map(Box::new),
                 exit_server: flat.chain_exit_server,
                 exit_port: flat.chain_exit_port,
                 exit_server_name: flat.chain_exit_server_name,
@@ -127,12 +129,14 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             chain_entry_public_key: String::new(),
             chain_entry_short_id: String::new(),
             chain_entry_profile_id: String::new(),
+            chain_entry: None,
             chain_exit_server: String::new(),
             chain_exit_port: 0,
             chain_exit_server_name: String::new(),
             chain_exit_public_key: String::new(),
             chain_exit_short_id: String::new(),
             chain_exit_profile_id: String::new(),
+            chain_exit: None,
             masque_url: String::new(),
             masque_use_http2_fallback: false,
             masque_cloudflare_geohash_enabled: false,
@@ -205,6 +209,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.cloudflare_tunnel_credentials_json = config.tunnel_credentials_json.clone();
             }
             RelayBackendConfig::ChainRelay(config) => {
+                flat.chain_entry = config.entry.as_deref().cloned();
                 flat.chain_entry_server = config.entry_server.clone();
                 flat.chain_entry_port = config.entry_port;
                 flat.chain_entry_server_name = config.entry_server_name.clone();
@@ -212,6 +217,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.chain_entry_short_id = config.entry_short_id.clone();
                 flat.chain_entry_profile_id = config.entry_profile_id.clone();
                 flat.chain_entry_uuid = config.entry_uuid.clone();
+                flat.chain_exit = config.exit.as_deref().cloned();
                 flat.chain_exit_server = config.exit_server.clone();
                 flat.chain_exit_port = config.exit_port;
                 flat.chain_exit_server_name = config.exit_server_name.clone();

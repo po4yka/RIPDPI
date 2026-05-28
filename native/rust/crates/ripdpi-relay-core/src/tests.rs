@@ -12,9 +12,9 @@ use crate::backend::{build_backend, RelayBackend};
 use crate::bootstrap::{bootstrap_relay_endpoints_with, RelayEndpointBootstrapResolver};
 use crate::config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
-    MasqueRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind, ResolvedRelayFinalmaskConfig,
-    ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, ShadowsocksRelayConfig,
-    TrojanRelayConfig, TuicRelayConfig, VlessRealityRelayConfig,
+    MasqueRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind, ResolvedChainRelayHopConfig,
+    ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig,
+    ShadowsocksRelayConfig, TrojanRelayConfig, TuicRelayConfig, VlessRealityRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
@@ -262,6 +262,61 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
         assert_eq!(kind, round_trip.kind_id());
         assert_eq!(serialized, serde_json::to_value(&round_trip).expect("reserialize relay config"));
     }
+}
+
+#[test]
+fn chain_relay_heterogeneous_hop_config_round_trips() {
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "vless_reality".to_string(),
+        profile_id: "entry-hop".to_string(),
+        server: "entry.example".to_string(),
+        server_port: 443,
+        server_name: "entry-sni.example".to_string(),
+        reality_public_key: "entry-public".to_string(),
+        reality_short_id: "entry-short".to_string(),
+        vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+    chain.exit = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "masque".to_string(),
+        profile_id: "masque-exit".to_string(),
+        masque_url: "https://masque.example/.well-known/masque/tcp/".to_string(),
+        masque_use_http2_fallback: true,
+        masque_auth_mode: Some("bearer".to_string()),
+        masque_auth_token: Some("relay-fixture-placeholder".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+
+    let serialized = serde_json::to_value(&config).expect("serialize chain config");
+    assert_eq!(serialized["chainEntry"]["kind"], serde_json::json!("vless_reality"));
+    assert_eq!(serialized["chainExit"]["kind"], serde_json::json!("masque"));
+    assert_eq!(
+        serialized["chainExit"]["masqueUrl"],
+        serde_json::json!("https://masque.example/.well-known/masque/tcp/"),
+    );
+
+    let round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(serialized.clone()).expect("deserialize chain config");
+    assert_eq!(serialized, serde_json::to_value(&round_trip).expect("reserialize chain config"));
+}
+
+#[test]
+fn chain_relay_hop_config_uses_kotlin_wire_defaults() {
+    let hop: ResolvedChainRelayHopConfig = serde_json::from_value(serde_json::json!({
+        "kind": "masque",
+        "profileId": "masque-exit"
+    }))
+    .expect("deserialize sparse Kotlin-style chain hop config");
+
+    assert_eq!(443, hop.server_port);
+    assert_eq!("reality_tcp", hop.vless_transport);
+    assert_eq!("consume_existing", hop.cloudflare_tunnel_mode);
+    assert!(hop.masque_use_http2_fallback);
+    assert_eq!("bbr", hop.tuic_congestion_control);
+    assert_eq!("chrome_stable", hop.tls_fingerprint_profile);
+    assert_eq!("off", hop.finalmask.r#type);
 }
 
 fn hysteria_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut Hysteria2RelayConfig {
@@ -1058,16 +1113,16 @@ fn legacy_payload_without_schema_version_defaults_to_current_version() {
     assert_eq!("hysteria2", config.kind_id());
     // The flat form re-serializes with the defaulted `schemaVersion`.
     let reserialized = serde_json::to_value(&config).expect("reserialize relay config");
-    assert_eq!(reserialized["schemaVersion"], serde_json::json!(4), "absent schemaVersion defaults to 4");
+    assert_eq!(reserialized["schemaVersion"], serde_json::json!(5), "absent schemaVersion defaults to 5");
 }
 
 #[test]
-fn payload_with_explicit_schema_version_four_deserializes() {
+fn payload_with_explicit_schema_version_five_deserializes() {
     let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(4));
+    object.insert("schemaVersion".to_string(), serde_json::json!(5));
 
     let config: ResolvedRelayRuntimeConfig = serde_json::from_value(serde_json::Value::Object(object))
-        .expect("payload with schemaVersion 4 should deserialize");
+        .expect("payload with schemaVersion 5 should deserialize");
 
     assert_eq!("hysteria2", config.kind_id());
 }
@@ -1075,13 +1130,13 @@ fn payload_with_explicit_schema_version_four_deserializes() {
 #[test]
 fn payload_with_unsupported_schema_version_is_rejected() {
     let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(5));
+    object.insert("schemaVersion".to_string(), serde_json::json!(6));
 
     let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(serde_json::Value::Object(object))
-        .expect_err("payload with schemaVersion 5 should be rejected");
+        .expect_err("payload with schemaVersion 6 should be rejected");
 
     assert!(
-        err.to_string().contains("unsupported native config schemaVersion 5"),
+        err.to_string().contains("unsupported native config schemaVersion 6"),
         "error should name the found version, got: {err}"
     );
 }
