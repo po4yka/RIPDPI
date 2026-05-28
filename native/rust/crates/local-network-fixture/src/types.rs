@@ -17,6 +17,8 @@ pub const DEFAULT_DNS_HTTP_PORT: u16 = 46054;
 pub const DEFAULT_DNS_DOT_PORT: u16 = 46055;
 pub const DEFAULT_DNS_DNSCRYPT_PORT: u16 = 46056;
 pub const DEFAULT_DNS_DOQ_PORT: u16 = 46057;
+pub const DEFAULT_DNS_ODOH_PROXY_PORT: u16 = 46058;
+pub const DEFAULT_DNS_ODOH_TARGET_PORT: u16 = 46059;
 pub const DEFAULT_SOCKS5_PORT: u16 = 46080;
 pub const DEFAULT_CONTROL_PORT: u16 = 46090;
 pub const DEFAULT_FIXTURE_DOMAIN: &str = "fixture.test";
@@ -25,6 +27,8 @@ pub const DEFAULT_DNS_ANSWER_IPV4: &str = "198.18.0.10";
 pub const DEFAULT_ANDROID_HOST: &str = "10.0.2.2";
 pub const DEFAULT_DNSCRYPT_PROVIDER_NAME: &str = "2.dnscrypt-cert.fixture.test";
 pub const DEFAULT_DNSCRYPT_PUBLIC_KEY: &str = "ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c";
+pub const ODOH_TARGET_CONFIGS_HEX: &str =
+    "002c000100280020000100010020c6a793bedbd601c25970b1cc46bea80fdb1a8ec51540d79e4f9f17b8baa9da33";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -39,6 +43,8 @@ pub struct FixtureConfig {
     pub dns_dot_port: u16,
     pub dns_dnscrypt_port: u16,
     pub dns_doq_port: u16,
+    pub dns_odoh_proxy_port: u16,
+    pub dns_odoh_target_port: u16,
     pub socks5_port: u16,
     pub control_port: u16,
     pub fixture_domain: String,
@@ -61,6 +67,8 @@ impl Default for FixtureConfig {
             dns_dot_port: DEFAULT_DNS_DOT_PORT,
             dns_dnscrypt_port: DEFAULT_DNS_DNSCRYPT_PORT,
             dns_doq_port: DEFAULT_DNS_DOQ_PORT,
+            dns_odoh_proxy_port: DEFAULT_DNS_ODOH_PROXY_PORT,
+            dns_odoh_target_port: DEFAULT_DNS_ODOH_TARGET_PORT,
             socks5_port: DEFAULT_SOCKS5_PORT,
             control_port: DEFAULT_CONTROL_PORT,
             fixture_domain: DEFAULT_FIXTURE_DOMAIN.to_string(),
@@ -85,6 +93,8 @@ impl FixtureConfig {
         config.dns_dot_port = util::env_u16("RIPDPI_FIXTURE_DNS_DOT_PORT", config.dns_dot_port);
         config.dns_dnscrypt_port = util::env_u16("RIPDPI_FIXTURE_DNS_DNSCRYPT_PORT", config.dns_dnscrypt_port);
         config.dns_doq_port = util::env_u16("RIPDPI_FIXTURE_DNS_DOQ_PORT", config.dns_doq_port);
+        config.dns_odoh_proxy_port = util::env_u16("RIPDPI_FIXTURE_DNS_ODOH_PROXY_PORT", config.dns_odoh_proxy_port);
+        config.dns_odoh_target_port = util::env_u16("RIPDPI_FIXTURE_DNS_ODOH_TARGET_PORT", config.dns_odoh_target_port);
         config.socks5_port = util::env_u16("RIPDPI_FIXTURE_SOCKS5_PORT", config.socks5_port);
         config.control_port = util::env_u16("RIPDPI_FIXTURE_CONTROL_PORT", config.control_port);
         config.fixture_domain = util::env_string("RIPDPI_FIXTURE_DOMAIN", &config.fixture_domain);
@@ -111,6 +121,8 @@ pub struct FixtureManifest {
     pub dns_dot_port: u16,
     pub dns_dnscrypt_port: u16,
     pub dns_doq_port: u16,
+    pub dns_odoh_proxy_port: u16,
+    pub dns_odoh_target_port: u16,
     pub socks5_port: u16,
     pub control_port: u16,
     pub fixture_domain: String,

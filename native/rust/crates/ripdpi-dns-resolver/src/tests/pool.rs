@@ -70,6 +70,7 @@ fn fixture_doh_endpoint(port: u16) -> EncryptedDnsEndpoint {
         doh_url: Some(format!("https://fixture.test:{port}/dns-query")),
         dnscrypt_provider_name: None,
         dnscrypt_public_key: None,
+        odoh: None,
     }
 }
 
@@ -170,6 +171,7 @@ fn pool_cold_start_with_empty_cache_uses_rank_zero() {
                 doh_url: Some("https://unreachable.test:1/dns-query".to_string()),
                 dnscrypt_provider_name: None,
                 dnscrypt_public_key: None,
+                odoh: None,
             },
             EncryptedDnsTransport::Direct,
         )
@@ -261,6 +263,7 @@ mod hickory_backend_tests {
                 doh_url: None,
                 dnscrypt_provider_name: None,
                 dnscrypt_public_key: None,
+                odoh: None,
             },
             EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: proxy_port },
             DEFAULT_TIMEOUT,
@@ -315,6 +318,7 @@ mod hickory_backend_tests {
                 doh_url: Some(format!("https://fixture.test:{port}/dns-query")),
                 dnscrypt_provider_name: None,
                 dnscrypt_public_key: None,
+                odoh: None,
             },
             EncryptedDnsTransport::Direct,
             DEFAULT_TIMEOUT,
@@ -346,6 +350,7 @@ mod hickory_backend_tests {
             doh_url: None,
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         };
 
         // This test tries to reach the real Cloudflare DNS. If the network is
@@ -389,6 +394,7 @@ mod hickory_backend_tests {
             doh_url: None,
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         };
         let result = hickory_backend::exchange_dot(&endpoint, &[], Duration::from_secs(2)).await;
         assert!(
@@ -413,6 +419,7 @@ mod hickory_backend_tests {
             doh_url: None,
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         };
         let result = hickory_backend::exchange_dot(&endpoint, &wire, Duration::from_secs(2)).await;
         match &result {
@@ -437,6 +444,7 @@ mod hickory_backend_tests {
             doh_url: Some("https://dns.example/dns-query".to_string()),
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         };
         let result = hickory_backend::exchange_doh(&endpoint, &query, Duration::from_secs(2)).await;
         assert!(result.is_err(), "expected error with empty bootstrap IPs");
@@ -456,6 +464,7 @@ mod hickory_backend_tests {
             doh_url: Some("https://dns.example/custom-path".to_string()),
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         };
         let result = hickory_backend::exchange_doh(&endpoint, &query, Duration::from_millis(500)).await;
         assert!(result.is_err(), "expected connection error, got success");
@@ -479,6 +488,7 @@ mod hickory_backend_tests {
             doh_url: None,
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         };
         let result = hickory_backend::exchange_doh(&endpoint, &query, Duration::from_millis(500)).await;
         assert!(result.is_err(), "expected connection error, got success");
@@ -526,6 +536,7 @@ mod hickory_backend_tests {
                 doh_url: None,
                 dnscrypt_provider_name: None,
                 dnscrypt_public_key: None,
+                odoh: None,
             },
             EncryptedDnsTransport::Direct,
             DEFAULT_TIMEOUT,
@@ -555,6 +566,7 @@ mod hickory_backend_tests {
                 doh_url: None,
                 dnscrypt_provider_name: Some(server.provider_name.clone()),
                 dnscrypt_public_key: Some(server.provider_public_key_hex.clone()),
+                odoh: None,
             },
             EncryptedDnsTransport::Direct,
         )

@@ -5,14 +5,21 @@ use crate::transport::DNS_MESSAGE_MEDIA_TYPE;
 use crate::types::EncryptedDnsError;
 
 pub(super) fn build_doh_http1_request(url: &Url, query_len: usize) -> Result<String, EncryptedDnsError> {
+    build_post_http1_request(url, query_len, DNS_MESSAGE_MEDIA_TYPE, DNS_MESSAGE_MEDIA_TYPE)
+}
+
+pub(super) fn build_post_http1_request(
+    url: &Url,
+    body_len: usize,
+    content_type: &str,
+    accept: &str,
+) -> Result<String, EncryptedDnsError> {
     let request_target = doh_request_target(url);
     let host_header = doh_host_header(url)?;
     Ok(format!(
-        "POST {request_target} HTTP/1.1\r\nHost: {host_header}\r\n{}: {}\r\n{}: {}\r\nContent-Length: {query_len}\r\nConnection: close\r\n\r\n",
+        "POST {request_target} HTTP/1.1\r\nHost: {host_header}\r\n{}: {content_type}\r\n{}: {accept}\r\nContent-Length: {body_len}\r\nConnection: close\r\n\r\n",
         CONTENT_TYPE.as_str(),
-        DNS_MESSAGE_MEDIA_TYPE,
         ACCEPT.as_str(),
-        DNS_MESSAGE_MEDIA_TYPE,
     ))
 }
 

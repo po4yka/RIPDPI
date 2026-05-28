@@ -96,7 +96,7 @@ fn build_doh_client_for_endpoint(
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     connect_hooks: &EncryptedDnsConnectHooks,
 ) -> Result<Option<reqwest::Client>, EncryptedDnsError> {
-    if endpoint.protocol != EncryptedDnsProtocol::Doh
+    if !matches!(endpoint.protocol, EncryptedDnsProtocol::Doh | EncryptedDnsProtocol::Odoh)
         || matches!(transport, EncryptedDnsTransport::Direct)
             && (connect_hooks.has_direct_tcp_connector() || connect_hooks.requires_direct_tcp_connector())
     {

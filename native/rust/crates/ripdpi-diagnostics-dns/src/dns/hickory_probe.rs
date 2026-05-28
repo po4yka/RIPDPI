@@ -71,6 +71,7 @@ mod tests {
             doh_url: Some("https://dns.google/dns-query".to_string()),
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         }
     }
 
@@ -85,6 +86,7 @@ mod tests {
             doh_url: None,
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         }
     }
 
@@ -120,6 +122,7 @@ mod tests {
             doh_url: None,
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         };
         let err = resolver_config_for_endpoint(&endpoint).unwrap_err();
         assert!(err.contains("DNSCrypt"), "expected DNSCrypt error, got: {err}");

@@ -42,5 +42,6 @@ pub(crate) fn encrypted_dns_endpoint(context: &ProxyEncryptedDnsContext) -> io::
         doh_url: context.doh_url.clone(),
         dnscrypt_provider_name: context.dnscrypt_provider_name.clone(),
         dnscrypt_public_key: context.dnscrypt_public_key.clone(),
+        odoh: None,
     })
 }

@@ -42,6 +42,10 @@ impl HttpResponse {
         Self { status_line: "HTTP/1.1 200 OK", content_type: "application/dns-message", body }
     }
 
+    pub(crate) fn odoh_message(body: Vec<u8>) -> Self {
+        Self { status_line: "HTTP/1.1 200 OK", content_type: "application/oblivious-dns-message", body }
+    }
+
     pub(crate) fn text(body: &str) -> Self {
         Self {
             status_line: "HTTP/1.1 200 OK",

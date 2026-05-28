@@ -41,6 +41,7 @@ pub fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(Encrypte
             doh_url,
             dnscrypt_provider_name: target.encrypted_dnscrypt_provider_name.clone(),
             dnscrypt_public_key: target.encrypted_dnscrypt_public_key.clone(),
+            odoh: None,
         },
         bootstrap_strings,
     ))

@@ -1,5 +1,7 @@
 use std::net::IpAddr;
 
+use crate::odoh::OdohConfigSource;
+
 pub const DOT_DEFAULT_PORT: u16 = 853;
 pub const DOQ_DEFAULT_PORT: u16 = 853;
 
@@ -9,6 +11,7 @@ pub enum EncryptedDnsProtocol {
     Dot,
     DnsCrypt,
     Doq,
+    Odoh,
 }
 
 impl EncryptedDnsProtocol {
@@ -18,6 +21,7 @@ impl EncryptedDnsProtocol {
             Self::Dot => "dot",
             Self::DnsCrypt => "dnscrypt",
             Self::Doq => "doq",
+            Self::Odoh => "odoh",
         }
     }
 
@@ -27,8 +31,17 @@ impl EncryptedDnsProtocol {
             Self::Dot => DOT_DEFAULT_PORT,
             Self::DnsCrypt => 443,
             Self::Doq => DOQ_DEFAULT_PORT,
+            Self::Odoh => 443,
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OdohEndpointConfig {
+    pub proxy_url: String,
+    pub target_host: String,
+    pub target_path: String,
+    pub config_source: OdohConfigSource,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,6 +55,7 @@ pub struct EncryptedDnsEndpoint {
     pub doh_url: Option<String>,
     pub dnscrypt_provider_name: Option<String>,
     pub dnscrypt_public_key: Option<String>,
+    pub odoh: Option<OdohEndpointConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

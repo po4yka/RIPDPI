@@ -17,6 +17,7 @@ fn google_doh_endpoint() -> EncryptedDnsEndpoint {
         doh_url: Some("https://dns.google/dns-query".to_string()),
         dnscrypt_provider_name: None,
         dnscrypt_public_key: None,
+        odoh: None,
     }
 }
 
@@ -31,6 +32,7 @@ fn cloudflare_doh_endpoint() -> EncryptedDnsEndpoint {
         doh_url: Some("https://cloudflare-dns.com/dns-query".to_string()),
         dnscrypt_provider_name: None,
         dnscrypt_public_key: None,
+        odoh: None,
     }
 }
 

@@ -79,6 +79,8 @@ mod tests {
             dns_dot_port: 6,
             dns_dnscrypt_port: 7,
             dns_doq_port: 8,
+            dns_odoh_proxy_port: 11,
+            dns_odoh_target_port: 12,
             socks5_port: 9,
             control_port: 10,
             fixture_domain: "fixture.test".to_string(),
@@ -218,6 +220,8 @@ mod tests {
         assert!(stack.manifest().dns_dot_port > 0);
         assert!(stack.manifest().dns_dnscrypt_port > 0);
         assert!(stack.manifest().dns_doq_port > 0);
+        assert!(stack.manifest().dns_odoh_proxy_port > 0);
+        assert!(stack.manifest().dns_odoh_target_port > 0);
         assert!(stack.manifest().dnscrypt_provider_name.starts_with("2.dnscrypt-cert."));
         assert_eq!(stack.manifest().dnscrypt_public_key.len(), 64);
     }
@@ -288,6 +292,7 @@ mod tests {
                 doh_url: None,
                 dnscrypt_provider_name: None,
                 dnscrypt_public_key: None,
+                odoh: None,
             },
             EncryptedDnsTransport::Direct,
             Duration::from_secs(2),
@@ -308,6 +313,7 @@ mod tests {
                 doh_url: None,
                 dnscrypt_provider_name: Some(manifest.dnscrypt_provider_name.clone()),
                 dnscrypt_public_key: Some(manifest.dnscrypt_public_key.clone()),
+                odoh: None,
             },
             EncryptedDnsTransport::Direct,
         )
@@ -331,6 +337,7 @@ mod tests {
                         doh_url: None,
                         dnscrypt_provider_name: None,
                         dnscrypt_public_key: None,
+                        odoh: None,
                     },
                     EncryptedDnsTransport::Direct,
                     Duration::from_secs(2),
@@ -586,6 +593,8 @@ mod tests {
             dns_dot_port: 0,
             dns_dnscrypt_port: 0,
             dns_doq_port: 0,
+            dns_odoh_proxy_port: 0,
+            dns_odoh_target_port: 0,
             socks5_port: 0,
             control_port: 0,
             ..FixtureConfig::default()

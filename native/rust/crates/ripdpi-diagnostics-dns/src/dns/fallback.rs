@@ -38,6 +38,7 @@ pub fn build_fallback_encrypted_dns_endpoints(primary_resolver_id: Option<&str>)
                 doh_url: Some(doh_url.to_string()),
                 dnscrypt_provider_name: None,
                 dnscrypt_public_key: None,
+                odoh: None,
             })
         })
         .collect()

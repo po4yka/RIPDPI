@@ -64,6 +64,7 @@ fn fixture_endpoint(port: u16, resolver_id: &str) -> EncryptedDnsEndpoint {
         doh_url: Some(format!("https://fixture.test:{port}/dns-query")),
         dnscrypt_provider_name: None,
         dnscrypt_public_key: None,
+        odoh: None,
     }
 }
 

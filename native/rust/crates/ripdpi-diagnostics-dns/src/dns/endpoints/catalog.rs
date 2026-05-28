@@ -101,6 +101,7 @@ pub(super) fn default_port(protocol: EncryptedDnsProtocol) -> u16 {
         EncryptedDnsProtocol::Dot => 853,
         EncryptedDnsProtocol::DnsCrypt => 443,
         EncryptedDnsProtocol::Doq => 853,
+        EncryptedDnsProtocol::Odoh => DEFAULT_DOH_PORT,
     }
 }
 
@@ -116,5 +117,6 @@ pub(super) fn resolver_entry_endpoint(entry: ResolverCatalogEntry) -> EncryptedD
         doh_url: Some(entry.doh_url.to_string()),
         dnscrypt_provider_name: None,
         dnscrypt_public_key: None,
+        odoh: None,
     }
 }

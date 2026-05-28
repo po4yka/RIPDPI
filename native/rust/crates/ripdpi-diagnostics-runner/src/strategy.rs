@@ -150,6 +150,7 @@ mod tests {
             doh_url: Some(format!("https://{id}.example/dns-query")),
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         }
     }
 

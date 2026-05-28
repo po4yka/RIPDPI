@@ -65,6 +65,7 @@ mod tests {
             doh_url: None,
             dnscrypt_provider_name: Some("test".into()),
             dnscrypt_public_key: public_key.map(String::from),
+            odoh: None,
         }
     }
 

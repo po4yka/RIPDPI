@@ -18,6 +18,7 @@ pub(crate) fn normalize_endpoint(
 
     match endpoint.protocol {
         EncryptedDnsProtocol::Doh => normalize_doh_endpoint(&mut endpoint)?,
+        EncryptedDnsProtocol::Odoh => normalize_odoh_endpoint(&mut endpoint)?,
         EncryptedDnsProtocol::Dot | EncryptedDnsProtocol::Doq => normalize_tls_endpoint(&mut endpoint)?,
         EncryptedDnsProtocol::DnsCrypt => normalize_dnscrypt_endpoint(&endpoint)?,
     }
@@ -28,6 +29,25 @@ pub(crate) fn normalize_endpoint(
 fn normalize_doh_endpoint(endpoint: &mut EncryptedDnsEndpoint) -> Result<(), EncryptedDnsError> {
     let doh_url = endpoint.doh_url.clone().ok_or(EncryptedDnsError::MissingDohUrl)?;
     let parsed = Url::parse(&doh_url).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
+    let url_host = parsed.host_str().ok_or(EncryptedDnsError::MissingHost)?.to_string();
+    if endpoint.host.is_empty() {
+        endpoint.host = url_host.clone();
+    }
+    if endpoint.port == endpoint.protocol.default_port() {
+        endpoint.port = parsed.port_or_known_default().unwrap_or(443);
+    }
+    if endpoint.tls_server_name.as_deref().unwrap_or_default().is_empty() {
+        endpoint.tls_server_name = Some(url_host);
+    }
+    Ok(())
+}
+
+fn normalize_odoh_endpoint(endpoint: &mut EncryptedDnsEndpoint) -> Result<(), EncryptedDnsError> {
+    let odoh = endpoint
+        .odoh
+        .as_ref()
+        .ok_or_else(|| EncryptedDnsError::InvalidEndpoint("ODoH config is required".to_string()))?;
+    let parsed = Url::parse(&odoh.proxy_url).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
     let url_host = parsed.host_str().ok_or(EncryptedDnsError::MissingHost)?.to_string();
     if endpoint.host.is_empty() {
         endpoint.host = url_host.clone();

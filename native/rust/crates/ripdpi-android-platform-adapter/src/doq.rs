@@ -73,6 +73,7 @@ async fn exchange_async(
             doh_url: None,
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         },
         EncryptedDnsTransport::Direct,
         timeout_duration,

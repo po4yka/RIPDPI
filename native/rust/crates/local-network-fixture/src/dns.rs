@@ -1,19 +1,26 @@
 use std::io::{self, ErrorKind, Read, Write};
-use std::net::{Ipv4Addr, Shutdown, SocketAddr, TcpListener, ToSocketAddrs, UdpSocket};
+use std::net::{Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+use bytes::Bytes;
+use odoh_rs::{
+    compose, decrypt_query, encrypt_response, parse, ObliviousDoHKeyPair, ObliviousDoHMessage,
+    ObliviousDoHMessagePlaintext,
+};
 use quinn::crypto::rustls::QuicServerConfig;
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use tokio::runtime::Builder;
 
 use crate::event::{event, EventLog};
 use crate::fault::FaultController;
-use crate::http::{start_http_server, HttpResponse};
-use crate::types::{FixtureFaultOutcome, FixtureFaultTarget, IO_POLL_DELAY, IO_TIMEOUT, SOCKS_IO_TIMEOUT};
+use crate::http::{read_until_marker, start_http_server, HttpResponse};
+use crate::types::{
+    FixtureFaultOutcome, FixtureFaultTarget, IO_POLL_DELAY, IO_TIMEOUT, ODOH_TARGET_CONFIGS_HEX, SOCKS_IO_TIMEOUT,
+};
 use crate::util;
 
 mod dnscrypt;
@@ -159,6 +166,59 @@ pub(crate) fn start_dns_http_server(
         } else {
             let body = format!(r#"{{"Answer":[{{"type":1,"data":"{answer_ip}"}}]}}"#);
             HttpResponse::json(body)
+        }
+    })
+}
+
+pub(crate) fn start_dns_odoh_target_server(
+    bind_host: String,
+    port: u16,
+    stop: Arc<AtomicBool>,
+    events: EventLog,
+    answer_ip: String,
+) -> io::Result<(JoinHandle<()>, u16)> {
+    let answer_ip =
+        Ipv4Addr::from_str(&answer_ip).map_err(|err| io::Error::new(ErrorKind::InvalidInput, err.to_string()))?;
+    let key_pair = odoh_key_pair();
+    start_http_server(bind_host, port, stop, events.clone(), move |request, peer, local| {
+        if !request.method.eq_ignore_ascii_case("POST") || request.path != "/dns-query" {
+            return HttpResponse::not_found();
+        }
+        match handle_odoh_target_request(&request.body, &key_pair, answer_ip) {
+            Ok((query_name, response)) => {
+                events.record(event("dns_odoh_target", "odoh", peer, local, &query_name, request.raw.len(), None));
+                HttpResponse::odoh_message(response)
+            }
+            Err(err) => HttpResponse::bad_request(&err),
+        }
+    })
+}
+
+pub(crate) fn start_dns_odoh_proxy_server(
+    bind_host: String,
+    port: u16,
+    stop: Arc<AtomicBool>,
+    events: EventLog,
+) -> io::Result<(JoinHandle<()>, u16)> {
+    start_http_server(bind_host, port, stop, events.clone(), move |request, peer, local| {
+        if !request.method.eq_ignore_ascii_case("POST") || request.path != "/proxy" {
+            return HttpResponse::not_found();
+        }
+        let target_host = request.query_param("targethost").unwrap_or_default();
+        let target_path = request.query_param("targetpath").unwrap_or_default();
+        let content_type = http_header(&request.raw, "content-type").unwrap_or_default();
+        events.record(event(
+            "dns_odoh_proxy",
+            "odoh",
+            peer,
+            local,
+            &format!("targethost={target_host} targetpath={target_path} content-type={content_type}"),
+            request.raw.len(),
+            None,
+        ));
+        match forward_odoh_proxy_request(&target_host, &target_path, &request.body) {
+            Ok(response) => HttpResponse::odoh_message(response),
+            Err(err) => HttpResponse::bad_request(&err),
         }
     })
 }
@@ -370,6 +430,74 @@ pub(crate) fn build_udp_dns_error_response(request: &[u8], rcode: u16) -> Result
     answer.extend(0u16.to_be_bytes());
     answer.extend(&request[12..]);
     Ok(answer)
+}
+
+fn handle_odoh_target_request(
+    request_body: &[u8],
+    key_pair: &ObliviousDoHKeyPair,
+    answer_ip: Ipv4Addr,
+) -> Result<(String, Vec<u8>), String> {
+    let mut request_bytes: Bytes = request_body.to_vec().into();
+    let query: ObliviousDoHMessage = parse(&mut request_bytes).map_err(|err| err.to_string())?;
+    let (plain_query, response_secret) = decrypt_query(&query, key_pair).map_err(|err| err.to_string())?;
+    let query_bytes = plain_query.clone().into_msg().to_vec();
+    let query_name = parse_dns_question_name(&query_bytes).unwrap_or_else(|| "unknown".to_string());
+    let response_bytes = build_udp_dns_answer(&query_bytes, answer_ip)?;
+    let response_plaintext = ObliviousDoHMessagePlaintext::new(response_bytes, 0);
+    let response =
+        encrypt_response(&plain_query, &response_plaintext, response_secret, [0; 16]).map_err(|err| err.to_string())?;
+    let wire = compose(&response).map_err(|err| err.to_string())?;
+    Ok((query_name, wire.to_vec()))
+}
+
+fn forward_odoh_proxy_request(target_host: &str, target_path: &str, body: &[u8]) -> Result<Vec<u8>, String> {
+    if target_host.is_empty() || target_path.is_empty() {
+        return Err("missing ODoH targethost or targetpath".to_string());
+    }
+    let mut stream = TcpStream::connect(target_host).map_err(|err| err.to_string())?;
+    stream.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    stream.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    let request = format!(
+        "POST {target_path} HTTP/1.1\r\nHost: {target_host}\r\nContent-Type: application/oblivious-dns-message\r\nAccept: application/oblivious-dns-message\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    stream.write_all(request.as_bytes()).map_err(|err| err.to_string())?;
+    stream.write_all(body).map_err(|err| err.to_string())?;
+    stream.flush().map_err(|err| err.to_string())?;
+    let headers = read_until_marker(&mut stream, b"\r\n\r\n");
+    let headers_text = String::from_utf8_lossy(&headers);
+    if !headers_text.starts_with("HTTP/1.1 200") {
+        return Err(format!("ODoH target returned {}", headers_text.lines().next().unwrap_or("invalid response")));
+    }
+    let content_length = headers_text
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("content-length").then(|| value.trim().parse::<usize>().ok()).flatten()
+        })
+        .ok_or_else(|| "ODoH target response missing Content-Length".to_string())?;
+    let mut response = vec![0u8; content_length];
+    stream.read_exact(&mut response).map_err(|err| err.to_string())?;
+    Ok(response)
+}
+
+fn http_header(raw_request: &[u8], name: &str) -> Option<String> {
+    let request = String::from_utf8_lossy(raw_request);
+    request.lines().find_map(|line| {
+        let (header, value) = line.split_once(':')?;
+        header.eq_ignore_ascii_case(name).then(|| value.trim().to_string())
+    })
+}
+
+fn odoh_key_pair() -> ObliviousDoHKeyPair {
+    const KEM_ID: u16 = 32;
+    const KDF_ID: u16 = 1;
+    const AEAD_ID: u16 = 1;
+    const PUBLIC_KEY_SEED: &str = "c9d84d04e6369fccb8a4d5a264001491221f1b97d9b80dd32c35834bb4462383";
+    let seed = hex::decode(PUBLIC_KEY_SEED).expect("ODoH key seed hex");
+    let configs = hex::decode(ODOH_TARGET_CONFIGS_HEX).expect("ODoH target config hex");
+    debug_assert!(!configs.is_empty());
+    ObliviousDoHKeyPair::from_parameters(KEM_ID, KDF_ID, AEAD_ID, &seed)
 }
 
 pub(crate) fn parse_dns_question_name(request: &[u8]) -> Option<String> {

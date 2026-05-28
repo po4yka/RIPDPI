@@ -54,6 +54,7 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
             doh_url,
             dnscrypt_provider_name: mapdns.encrypted_dns_dnscrypt_provider_name.clone(),
             dnscrypt_public_key: mapdns.encrypted_dns_dnscrypt_public_key.clone(),
+            odoh: None,
         },
         mapdns_resolver_transport(config, mapdns),
         Duration::from_millis(u64::from(mapdns.dns_query_timeout_ms)),

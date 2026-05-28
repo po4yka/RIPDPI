@@ -239,6 +239,7 @@ mod tests {
             doh_url: Some("https://resolver.internal/dns-query".to_string()),
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         };
         let approved = PolicyApprovedEncryptedDnsEndpoint { endpoint };
         assert_eq!(approved.endpoint().host, "resolver.internal");

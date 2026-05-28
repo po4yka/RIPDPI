@@ -2248,6 +2248,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "md5",
+ "odoh-rs",
  "quinn",
  "rcgen",
  "ring",

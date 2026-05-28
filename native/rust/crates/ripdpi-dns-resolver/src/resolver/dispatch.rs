@@ -10,6 +10,7 @@ impl EncryptedDnsResolver {
             EncryptedDnsProtocol::Dot => self.exchange_dot_protocol(query_bytes).await,
             EncryptedDnsProtocol::DnsCrypt => self.exchange_dnscrypt(query_bytes).await,
             EncryptedDnsProtocol::Doq => self.exchange_doq(query_bytes).await,
+            EncryptedDnsProtocol::Odoh => self.exchange_odoh(query_bytes).await,
         }
     }
 

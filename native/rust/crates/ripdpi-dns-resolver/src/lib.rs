@@ -34,7 +34,7 @@ pub use transport::{extract_ip_answer_records, extract_ip_answers, IpAnswerFamil
 pub use types::{
     BoxedDnsTcpStream, DirectTcpConnection, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError,
     EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol, EncryptedDnsTransport,
-    ResolverNetworkScope, ResolverOracleObservation,
+    OdohEndpointConfig, ResolverNetworkScope, ResolverOracleObservation,
 };
 
 // Internal re-exports for test access

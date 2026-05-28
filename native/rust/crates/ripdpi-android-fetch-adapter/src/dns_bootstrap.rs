@@ -53,6 +53,7 @@ fn owned_fetch_encrypted_resolver() -> io::Result<EncryptedDnsResolver> {
             doh_url: Some(OWNED_FETCH_DOH_URL.to_string()),
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+            odoh: None,
         },
         EncryptedDnsTransport::Direct,
         owned_fetch_dns_connect_hooks(),

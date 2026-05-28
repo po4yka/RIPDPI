@@ -20,7 +20,14 @@ pub(crate) fn env_u16(key: &str, default: u16) -> u16 {
 }
 
 pub(crate) fn percent_decode(value: &str) -> String {
-    value.replace("%2E", ".").replace("%2e", ".").replace("%3A", ":").replace("%3a", ":").replace('+', " ")
+    value
+        .replace("%2E", ".")
+        .replace("%2e", ".")
+        .replace("%2F", "/")
+        .replace("%2f", "/")
+        .replace("%3A", ":")
+        .replace("%3a", ":")
+        .replace('+', " ")
 }
 
 pub(crate) fn other_io<E>(error: E) -> io::Error

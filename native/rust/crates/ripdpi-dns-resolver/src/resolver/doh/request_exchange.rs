@@ -35,3 +35,36 @@ pub(super) async fn exchange_doh(
 
     response.bytes().await.map(|value| value.to_vec()).map_err(|err| EncryptedDnsError::Request(err.to_string()))
 }
+
+pub(super) async fn exchange_binary_post(
+    resolver: &EncryptedDnsResolver,
+    url: &str,
+    body: &[u8],
+    content_type: &str,
+    accept: &str,
+) -> Result<Vec<u8>, EncryptedDnsError> {
+    if resolver.uses_direct_tcp_connector() || resolver.requires_direct_tcp_connector() {
+        return manual_exchange::exchange_binary_post_manually(resolver, url, body, content_type, accept).await;
+    }
+
+    let client = resolver
+        .inner
+        .doh_client
+        .as_ref()
+        .ok_or_else(|| EncryptedDnsError::InvalidEndpoint("DoH client not initialized".to_string()))?;
+
+    let response = client
+        .post(url)
+        .header(CONTENT_TYPE, content_type)
+        .header(ACCEPT, accept)
+        .body(body.to_vec())
+        .send()
+        .await
+        .map_err(|err| EncryptedDnsError::Request(format_error_chain(&err)))?;
+
+    if !response.status().is_success() {
+        return Err(EncryptedDnsError::HttpStatus(response.status()));
+    }
+
+    response.bytes().await.map(|value| value.to_vec()).map_err(|err| EncryptedDnsError::Request(err.to_string()))
+}

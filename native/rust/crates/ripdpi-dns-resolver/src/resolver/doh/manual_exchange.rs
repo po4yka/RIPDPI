@@ -4,7 +4,7 @@ use tokio::time::timeout;
 use tokio_rustls::TlsConnector;
 use url::Url;
 
-use super::http1_request::build_doh_http1_request;
+use super::http1_request::{build_doh_http1_request, build_post_http1_request};
 use super::http1_response::read_doh_response;
 use crate::resolver::EncryptedDnsResolver;
 use crate::types::EncryptedDnsError;
@@ -14,6 +14,23 @@ pub(super) async fn exchange_doh_manually(
     query_bytes: &[u8],
 ) -> Result<Vec<u8>, EncryptedDnsError> {
     let base_url = resolver.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
+    exchange_binary_post_manually(
+        resolver,
+        base_url,
+        query_bytes,
+        crate::transport::DNS_MESSAGE_MEDIA_TYPE,
+        crate::transport::DNS_MESSAGE_MEDIA_TYPE,
+    )
+    .await
+}
+
+pub(super) async fn exchange_binary_post_manually(
+    resolver: &EncryptedDnsResolver,
+    base_url: &str,
+    body: &[u8],
+    content_type: &str,
+    accept: &str,
+) -> Result<Vec<u8>, EncryptedDnsError> {
     let url = Url::parse(base_url).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
     let mut tcp_stream = resolver.connect_doh_tcp().await?;
 
@@ -28,22 +45,30 @@ pub(super) async fn exchange_doh_manually(
             Ok(Err(err)) => return Err(EncryptedDnsError::Tls(format!("DoH TLS handshake to {tls_name}: {err}"))),
             Err(_) => return Err(EncryptedDnsError::Tls(format!("DoH TLS handshake to {tls_name} timed out"))),
         };
-        exchange_doh_over_stream(resolver, &mut tls_stream, &url, query_bytes).await
+        exchange_binary_post_over_stream(resolver, &mut tls_stream, &url, body, content_type, accept).await
     } else {
-        exchange_doh_over_stream(resolver, &mut tcp_stream, &url, query_bytes).await
+        exchange_binary_post_over_stream(resolver, &mut tcp_stream, &url, body, content_type, accept).await
     }
 }
 
-async fn exchange_doh_over_stream<S>(
+async fn exchange_binary_post_over_stream<S>(
     resolver: &EncryptedDnsResolver,
     stream: &mut S,
     url: &Url,
-    query_bytes: &[u8],
+    body: &[u8],
+    content_type: &str,
+    accept: &str,
 ) -> Result<Vec<u8>, EncryptedDnsError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let request = build_doh_http1_request(url, query_bytes.len())?;
+    let request = if content_type == crate::transport::DNS_MESSAGE_MEDIA_TYPE
+        && accept == crate::transport::DNS_MESSAGE_MEDIA_TYPE
+    {
+        build_doh_http1_request(url, body.len())?
+    } else {
+        build_post_http1_request(url, body.len(), content_type, accept)?
+    };
     let mut response = Vec::new();
     match timeout(resolver.inner.timeout, async {
         stream
@@ -51,9 +76,9 @@ where
             .await
             .map_err(|err| EncryptedDnsError::Request(format!("DoH write request headers: {err}")))?;
         stream
-            .write_all(query_bytes)
+            .write_all(body)
             .await
-            .map_err(|err| EncryptedDnsError::Request(format!("DoH write query body: {err}")))?;
+            .map_err(|err| EncryptedDnsError::Request(format!("DoH write request body: {err}")))?;
         stream.flush().await.map_err(|err| EncryptedDnsError::Request(format!("DoH flush stream: {err}")))?;
         response = read_doh_response(stream).await?;
         Ok::<(), EncryptedDnsError>(())

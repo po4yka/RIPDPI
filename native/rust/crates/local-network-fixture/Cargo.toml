@@ -17,6 +17,7 @@ md5 = { workspace = true }
 bytes = { workspace = true }
 base64 = { workspace = true }
 boring = { workspace = true }
+odoh-rs = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }

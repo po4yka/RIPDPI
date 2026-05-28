@@ -59,11 +59,13 @@ fn default_root_store(extra_roots: &[CertificateDer<'static>]) -> RootCertStore 
 }
 
 fn doh_uses_tls(endpoint: &EncryptedDnsEndpoint) -> bool {
-    endpoint
-        .doh_url
-        .as_deref()
+    endpoint_doh_url(endpoint)
         .and_then(|value| Url::parse(value).ok())
         .is_none_or(|url| url.scheme().eq_ignore_ascii_case("https"))
+}
+
+fn endpoint_doh_url(endpoint: &EncryptedDnsEndpoint) -> Option<&str> {
+    endpoint.odoh.as_ref().map(|config| config.proxy_url.as_str()).or(endpoint.doh_url.as_deref())
 }
 
 fn doh_tls_config(

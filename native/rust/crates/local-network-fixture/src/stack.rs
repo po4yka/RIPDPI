@@ -43,11 +43,15 @@ struct DnsServices {
     dot_handle: JoinHandle<()>,
     dnscrypt_handle: JoinHandle<()>,
     doq_handle: JoinHandle<()>,
+    odoh_target_handle: JoinHandle<()>,
+    odoh_proxy_handle: JoinHandle<()>,
     udp_port: u16,
     http_port: u16,
     dot_port: u16,
     dnscrypt_port: u16,
     doq_port: u16,
+    odoh_proxy_port: u16,
+    odoh_target_port: u16,
 }
 
 struct SocksService {
@@ -89,6 +93,8 @@ impl FixtureStack {
             dns.dot_handle,
             dns.dnscrypt_handle,
             dns.doq_handle,
+            dns.odoh_target_handle,
+            dns.odoh_proxy_handle,
             socks.handle,
             control.handle,
         ];
@@ -117,6 +123,8 @@ impl Drop for FixtureStack {
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_http_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_dot_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_dnscrypt_port);
+        util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_odoh_proxy_port);
+        util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_odoh_target_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.socks5_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.control_port);
         util::wake_udp(&self.manifest.bind_host, self.manifest.udp_echo_port);
@@ -210,6 +218,19 @@ fn start_dns_services(config: &FixtureConfig, context: &ServiceContext, tls: &Tl
         config.dns_answer_ipv4.clone(),
         tls.server_config.clone(),
     )?;
+    let (odoh_target_handle, odoh_target_port) = dns::start_dns_odoh_target_server(
+        config.bind_host.clone(),
+        config.dns_odoh_target_port,
+        context.stop.clone(),
+        context.events.clone(),
+        config.dns_answer_ipv4.clone(),
+    )?;
+    let (odoh_proxy_handle, odoh_proxy_port) = dns::start_dns_odoh_proxy_server(
+        config.bind_host.clone(),
+        config.dns_odoh_proxy_port,
+        context.stop.clone(),
+        context.events.clone(),
+    )?;
 
     Ok(DnsServices {
         udp_handle,
@@ -217,11 +238,15 @@ fn start_dns_services(config: &FixtureConfig, context: &ServiceContext, tls: &Tl
         dot_handle,
         dnscrypt_handle,
         doq_handle,
+        odoh_target_handle,
+        odoh_proxy_handle,
         udp_port,
         http_port,
         dot_port,
         dnscrypt_port,
         doq_port,
+        odoh_proxy_port,
+        odoh_target_port,
     })
 }
 
@@ -270,6 +295,8 @@ fn build_manifest(
         dns_dot_port: dns.dot_port,
         dns_dnscrypt_port: dns.dnscrypt_port,
         dns_doq_port: dns.doq_port,
+        dns_odoh_proxy_port: dns.odoh_proxy_port,
+        dns_odoh_target_port: dns.odoh_target_port,
         socks5_port: socks.port,
         control_port: 0,
         fixture_domain: config.fixture_domain.clone(),
