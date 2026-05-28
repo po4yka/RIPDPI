@@ -1,11 +1,8 @@
 //! [`QualityWindowSink`] — producer-side feeder for the process-wide TCP-proxy
-//! connection-quality window (G011, path B).
+//! connection-quality window.
 //!
-//! G009 wired `ripdpi-proxy-runtime`'s upstream-connect error arm to
-//! `RuntimeTelemetrySink::on_upstream_connect_failed(addr, rtt_ms, kind)`.
-//! G011 path B installs *here* the sink that turns those events (plus the
-//! pre-existing `on_upstream_connected` success path) into
-//! [`QualitySample`]s recorded into a [`QualityWindow`].
+//! This sink turns `ripdpi-proxy-runtime` connect success and failure events
+//! into [`QualitySample`]s recorded into a [`QualityWindow`].
 //!
 //! Sized scope: this slice only wires the producer side. The window
 //! snapshot is not yet projected into the proxy `NativeRuntimeSnapshot` —

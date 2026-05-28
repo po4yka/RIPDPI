@@ -5,7 +5,7 @@ import javax.inject.Singleton
 
 /**
  * Strips IPv4 / IPv6 substrings from replay event detail strings before
- * they land in `replay-results.json` (G010 P4.8).
+ * they land in `replay-results.json`.
  *
  * Background: `ReplayStepEvent.StepCompleted` for the DNS step carries
  * `detail = "resolved <ip>"`; persisting raw resolver output would

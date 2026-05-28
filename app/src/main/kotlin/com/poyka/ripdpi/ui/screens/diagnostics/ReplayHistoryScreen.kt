@@ -19,8 +19,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 
 /**
- * G010 P4.8. Lists the in-memory [ReplayResultStore] ring buffer of
- * past replay runs. Token-only consumer: no MaterialTheme.* reads, no
+ * Lists the in-memory [ReplayResultStore] ring buffer of past replay
+ * runs. Token-only consumer: no MaterialTheme.* reads, no
  * literal Color() / .dp values, all tokens come from RipDpiThemeTokens.
  *
  * Empty state shows a hint pointing the user at the Replay Failure

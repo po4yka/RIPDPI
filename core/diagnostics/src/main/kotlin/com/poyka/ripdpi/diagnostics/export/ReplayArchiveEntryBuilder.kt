@@ -12,7 +12,7 @@ import javax.inject.Named
 
 /**
  * Maps recent in-memory [ReplayProbeResult] aggregates to the
- * `replay-results.json` archive entry (G010 P4.8). Each event's
+ * `replay-results.json` archive entry. Each event's
  * `detail` string is run through [ReplayArchiveRedactor] before
  * serialization, so resolver IPs from the DNS step never reach disk.
  *

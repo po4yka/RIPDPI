@@ -11,7 +11,7 @@ import javax.inject.Singleton
  *
  * Consumers:
  * - [com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceLoader]
- *   reads [recent] when the user exports a diagnostics bundle (G010 P4.8).
+ *   reads [recent] when the user exports a diagnostics bundle.
  * - Past-replays UI screen reads [recent] for in-app browsing.
  *
  * State is intentionally process-scoped — replay results are diagnostic

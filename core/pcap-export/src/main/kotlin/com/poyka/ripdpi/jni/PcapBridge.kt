@@ -2,7 +2,7 @@ package com.poyka.ripdpi.jni
 
 /**
  * JNI bindings for the libpcap capture pipeline exposed by
- * libripdpi-tunnel.so (Rust crate ripdpi-tunnel-android, P3.4).
+ * libripdpi-tunnel.so (Rust crate ripdpi-tunnel-android).
  *
  * Native-side contract:
  *  - jniPcapStart returns positive capture-set id on success, 0 on

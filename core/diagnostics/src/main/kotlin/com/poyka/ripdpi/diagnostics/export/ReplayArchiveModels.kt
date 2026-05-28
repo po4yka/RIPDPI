@@ -7,7 +7,7 @@ import kotlinx.serialization.json.JsonClassDiscriminator
 
 /**
  * Wire schema for `replay-results.json` inside the diagnostics archive
- * zip (G010 P4.8).
+ * zip.
  *
  * Deliberately decoupled from the in-memory `ReplayProbeResult` /
  * `ReplayStepEvent` orchestration types so the orchestrator can evolve

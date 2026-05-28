@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 /**
- * Hilt wiring for the probe-replay subsystem (P4.4).
+ * Hilt wiring for the probe-replay subsystem.
  *
  * - Binds [DefaultProbeReplayService] as the production [ProbeReplayService].
  * - Provides a [ReplayHttpClientFactory] that builds a per-call

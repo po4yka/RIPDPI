@@ -151,8 +151,8 @@ data class ReplayHttpClient(
  * Builds the [OkHttpClient] + URL pair for a single replay run. The
  * factory must apply the request's `timeoutMs` to connect / read /
  * write / call timeouts and attach the supplied [EventListener]. Tests
- * substitute MockWebServer-routed clients; production wiring lands in
- * P4.4 via the diagnostics module.
+ * substitute MockWebServer-routed clients; production wiring lives in
+ * the diagnostics module.
  */
 fun interface ReplayHttpClientFactory {
     fun build(
