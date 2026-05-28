@@ -262,6 +262,24 @@ fn cli_packet_smoke_generated_cell() {
     }
 }
 
+#[test]
+fn generated_tcp_tls_args_place_tlsrec_before_send_steps() {
+    let metadata = serde_json::json!({
+        "generator_axis_values": {
+            "fake_ttl_ladder": "4",
+            "oob_byte_placement": "off",
+            "split_offset": "endhost-1",
+            "tls_record_split": "auto_midsld",
+            "tlsrandrec_profile": "google_chrome"
+        }
+    });
+
+    let args = generated_tcp_tls_args(&metadata);
+    let leading_args = args.iter().take(5).map(String::as_str).collect::<Vec<_>>();
+
+    assert_eq!(leading_args, vec!["--tlsrec", "auto(midsld)", "-t", "4", "-f"]);
+}
+
 fn run_capture_scenario<Args, Filter, Drive, Assert>(
     id: &str,
     build_args: Args,
@@ -434,14 +452,6 @@ fn generated_tcp_tls_args(metadata: &Value) -> Vec<String> {
     let fake_ttl = generated_axis_value(metadata, "fake_ttl_ladder");
     let oob_placement = generated_axis_value(metadata, "oob_byte_placement");
     let mut args = Vec::new();
-    if fake_ttl != "off" && oob_placement != "off" {
-        push_args(&mut args, ["-t", fake_ttl, "-q", split_offset, "--oob-data", generated_oob_data(oob_placement)]);
-    } else if fake_ttl != "off" {
-        push_args(&mut args, ["-t", fake_ttl, "-f", split_offset]);
-        push_args(&mut args, ["--fake-tls-profile", generated_tls_profile(tls_profile)]);
-    } else {
-        push_args(&mut args, ["-s", split_offset]);
-    }
     match tls_record_split {
         "none" => {}
         "sniext" => push_args(&mut args, ["--tlsrec", "sniext"]),
@@ -449,8 +459,15 @@ fn generated_tcp_tls_args(metadata: &Value) -> Vec<String> {
         "auto_midsld" => push_args(&mut args, ["--tlsrec", "auto(midsld)"]),
         other => panic!("unsupported tls_record_split generated axis value: {other}"),
     }
-    if fake_ttl == "off" && oob_placement != "off" {
+    if fake_ttl != "off" && oob_placement != "off" {
+        push_args(&mut args, ["-t", fake_ttl, "-q", split_offset, "--oob-data", generated_oob_data(oob_placement)]);
+    } else if fake_ttl != "off" {
+        push_args(&mut args, ["-t", fake_ttl, "-f", split_offset]);
+        push_args(&mut args, ["--fake-tls-profile", generated_tls_profile(tls_profile)]);
+    } else if oob_placement != "off" {
         push_args(&mut args, ["-o", split_offset, "--oob-data", generated_oob_data(oob_placement)]);
+    } else {
+        push_args(&mut args, ["-s", split_offset]);
     }
     args
 }
