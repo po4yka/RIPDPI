@@ -78,10 +78,12 @@ deferred — none is a safe mechanical change today:
   change (`capability::detected_parallelism` → `process::detected_parallelism`)
   and would need every downstream caller updated plus a compatibility
   re-export.
-- **`root_helper_client` visibility.** `pub mod root_helper_client` has no
-  external workspace consumers; a live `RootHelperClient` is reachable only
-  through the `root_helper` registry. It is a `pub(crate)` candidate, pending
-  a deliberate visibility decision.
+- **`root_helper_client` visibility.** `pub mod root_helper_client` remains a
+  public API because downstream raw-packet requirement tests call
+  `RootHelperClient::socket_path` across the crate boundary and the API
+  snapshot records the module. Runtime-adaptation modules still reach live
+  clients through the `root_helper` registry; narrowing visibility would need a
+  replacement public diagnostic helper or a test-boundary move first.
 - **OS-primitive sub-crate.** The nine OS-primitive adapter modules are a
   cohesive, dispatch-free group. If the crate grows further they could move to
   a dedicated `ripdpi-os-primitives` crate, leaving this crate as pure runtime
