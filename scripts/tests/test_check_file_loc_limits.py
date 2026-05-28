@@ -88,7 +88,7 @@ class CheckFileLocLimitsTest(unittest.TestCase):
             "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/HomeScreen.kt",
             "app/src/test/kotlin/com/poyka/ripdpi/ui/screens/HomeScreenTest.kt",
             "core/service/build/generated/Test.kt",
-            "native/rust/crates/ripdpi-runtime/src/lib.rs",
+            "native/rust/crates/ripdpi-proxy-runtime/src/lib.rs",
             "native/rust/vendor/example/src/runtime.rs",
         ]
 
@@ -97,7 +97,7 @@ class CheckFileLocLimitsTest(unittest.TestCase):
         self.assertEqual(
             [
                 Path("app/src/main/kotlin/com/poyka/ripdpi/ui/screens/HomeScreen.kt"),
-                Path("native/rust/crates/ripdpi-runtime/src/lib.rs"),
+                Path("native/rust/crates/ripdpi-proxy-runtime/src/lib.rs"),
             ],
             paths,
         )
@@ -144,16 +144,16 @@ class CheckFileLocLimitsTest(unittest.TestCase):
     def test_baseline_exemption_without_growth_does_not_fail_growth_gate(self) -> None:
         measurements = [
             check_file_loc_limits.SourceMeasurement(
-                path="native/rust/crates/ripdpi-runtime/src/runtime_policy.rs",
+                path="native/rust/crates/ripdpi-runtime-policy/src/runtime_policy.rs",
                 kind="rust",
                 measured_loc=1600,
                 limit=1500,
             ),
         ]
         baseline = {
-            ("native/rust/crates/ripdpi-runtime/src/runtime_policy.rs", "rust", 1500):
+            ("native/rust/crates/ripdpi-runtime-policy/src/runtime_policy.rs", "rust", 1500):
                 check_file_loc_limits.BaselineEntry(
-                    path="native/rust/crates/ripdpi-runtime/src/runtime_policy.rs",
+                    path="native/rust/crates/ripdpi-runtime-policy/src/runtime_policy.rs",
                     kind="rust",
                     measured_loc=1600,
                     limit=1500,
@@ -182,9 +182,9 @@ class CheckFileLocLimitsTest(unittest.TestCase):
                     measured_loc=720,
                     limit=700,
                 ),
-            ("native/rust/crates/ripdpi-runtime/src/runtime_policy.rs", "rust", 1500):
+            ("native/rust/crates/ripdpi-runtime-policy/src/runtime_policy.rs", "rust", 1500):
                 check_file_loc_limits.BaselineEntry(
-                    path="native/rust/crates/ripdpi-runtime/src/runtime_policy.rs",
+                    path="native/rust/crates/ripdpi-runtime-policy/src/runtime_policy.rs",
                     kind="rust",
                     measured_loc=1600,
                     limit=1500,
@@ -207,13 +207,13 @@ class CheckFileLocLimitsTest(unittest.TestCase):
     def test_build_baseline_only_contains_over_limit_entries(self) -> None:
         measurements = [
             check_file_loc_limits.SourceMeasurement(
-                path="native/rust/crates/ripdpi-runtime/src/lib.rs",
+                path="native/rust/crates/ripdpi-proxy-runtime/src/lib.rs",
                 kind="rust",
                 measured_loc=1400,
                 limit=1500,
             ),
             check_file_loc_limits.SourceMeasurement(
-                path="native/rust/crates/ripdpi-monitor/src/lib.rs",
+                path="native/rust/crates/ripdpi-monitor-engine/src/lib.rs",
                 kind="rust",
                 measured_loc=5200,
                 limit=1500,
@@ -223,7 +223,7 @@ class CheckFileLocLimitsTest(unittest.TestCase):
         baseline = check_file_loc_limits.build_baseline(measurements)
 
         self.assertEqual(1, len(baseline["entries"]))
-        self.assertEqual("native/rust/crates/ripdpi-monitor/src/lib.rs", baseline["entries"][0]["path"])
+        self.assertEqual("native/rust/crates/ripdpi-monitor-engine/src/lib.rs", baseline["entries"][0]["path"])
 
 
 if __name__ == "__main__":

@@ -301,19 +301,19 @@ and a TUN-based VPN tunnel.
 
 \`\`\`
 ripdpi-android (cdylib, JNI)
-  +-- ripdpi-runtime
+  +-- ripdpi-proxy-runtime
   |     +-- ripdpi-config
   |     |     +-- ripdpi-packets
   |     +-- ripdpi-desync
   |     |     +-- ripdpi-packets
-  |     +-- ripdpi-session
   |     +-- ripdpi-proxy-config
   |     |     +-- ripdpi-config
   |     +-- ripdpi-dns-resolver
   |     +-- ripdpi-failure-classifier
-  |     +-- ripdpi-telemetry
-  |     +-- ripdpi-ws-tunnel
-  |     +-- ripdpi-monitor
+  |     +-- ripdpi-runtime-platform
+  |     +-- ripdpi-runtime-services
+  |     +-- ripdpi-ws-bootstrap
+  +-- ripdpi-monitor-engine
   +-- android-support (JNI utilities)
 
 ripdpi-tunnel-android (cdylib, JNI)
@@ -336,7 +336,7 @@ VpnService / ProxyService     [core:service module]
 JNI Bridge                     [ripdpi-android: lib.rs]
   |  Java_com_poyka_ripdpi_*() entry points
   v
-Proxy Runtime                  [ripdpi-runtime]
+Proxy Runtime                  [ripdpi-proxy-runtime]
   |  SOCKS5 listener -> accept -> handshake -> relay
   |  Applies desync strategies per connection
   v
@@ -549,7 +549,7 @@ emit_summaries() {
 These crates are not included verbatim due to token budget constraints. Their
 public APIs and security-relevant characteristics are summarized below.
 
-### 7.1 ripdpi-monitor (11,437 lines)
+### 7.1 ripdpi-monitor-engine
 
 **Purpose**: Diagnostics engine for network censorship detection. Probes
 HTTP/HTTPS/QUIC/DNS endpoints and Telegram DCs. Executes strategy-based probe
@@ -559,11 +559,12 @@ recommendations and reports observations with failure classification.
 \`ProbeResult\`, \`ScanRequest\`, \`ScanReport\`, \`Diagnosis\`, etc.), wire-format
 types for JNI serialization.
 
-**Dependencies**: rustls, hickory-resolver (optional), tokio, ripdpi-runtime,
-ripdpi-dns-resolver, ripdpi-failure-classifier.
+**Dependencies**: rustls, hickory-resolver (optional), tokio,
+ripdpi-diagnostics-*, ripdpi-dns-resolver, ripdpi-failure-classifier.
 
 **Security notes**: Uses rustls for TLS verification during probes. No
-\`forbid(unsafe_code)\`. Network I/O is delegated to ripdpi-runtime. The main
+\`forbid(unsafe_code)\`. Probe execution is delegated through the diagnostics
+runner and platform adapter crates. The main
 risk is information leakage through probe traffic patterns.
 
 ### 7.2 ripdpi-dns-resolver (3,728 lines)
@@ -668,14 +669,13 @@ The following tunnel-core files are NOT included in Section 5 due to budget:
 upstream connections and could have resource exhaustion or fd leak issues.
 \`dns_cache\` could be susceptible to cache poisoning. Available in extended mode.
 
-### 7.11 ripdpi-runtime -- Excluded Files
+### 7.11 ripdpi-proxy-runtime -- Excluded Files
 
 The following runtime files are NOT included in Section 6 due to budget:
 
-- \`adaptive_fake_ttl.rs\` (289 lines) -- Adaptive TTL learning
-- \`adaptive_tuning.rs\` (664 lines) -- Runtime parameter auto-tuning
-- \`retry_stealth.rs\` (370 lines) -- Stealth retry strategies
-- \`ws_bootstrap.rs\` (189 lines) -- WebSocket tunnel bootstrap
+- \`runtime/adaptive/*.rs\` -- Adaptive direct-path and fake-TTL learning
+- \`runtime/retry.rs\` -- Stealth retry strategies
+- \`runtime/ws.rs\` -- WebSocket tunnel bootstrap
 - \`runtime/desync.rs\` (23K chars) -- Desync strategy application
 - \`runtime/handshake/*.rs\` (4 files, ~22K chars) -- TLS/WS handshake setup
 - \`runtime/routing.rs\` (20K chars) -- Connection routing decisions
@@ -829,12 +829,12 @@ main() {
     emit_crate_src "$RUST_ROOT/crates/ripdpi-tunnel-android" "ripdpi-tunnel-android"
     emit_crate_src "$RUST_ROOT/crates/ripdpi-tun-driver" "ripdpi-tun-driver"
 
-    # platform/linux.rs from ripdpi-runtime
+    # Platform syscall wrappers split out of the proxy runtime.
     emit_line ""
-    emit_line "### ripdpi-runtime/platform (unsafe syscalls)"
+    emit_line "### ripdpi-runtime-platform (unsafe syscalls)"
     emit_line ""
-    local platform_dir="$RUST_ROOT/crates/ripdpi-runtime/src/platform"
-    for f in "$platform_dir"/mod.rs "$platform_dir"/linux.rs; do
+    local platform_dir="$RUST_ROOT/crates/ripdpi-runtime-platform/src"
+    for f in "$platform_dir"/lib.rs "$platform_dir"/socket_options.rs "$platform_dir"/raw_packet.rs "$platform_dir"/root_helper_client.rs; do
         if [[ -f "$f" ]]; then
             emit_file "$f" "${f#"$RUST_ROOT"/}"
         fi
@@ -878,11 +878,11 @@ main() {
     emit_line ""
     emit_line "## 6. Source Code -- Core Runtime (Selected Files)"
     emit_line ""
-    emit_line "Selected security-critical files from ripdpi-runtime. Policy/tuning"
+    emit_line "Selected security-critical files from ripdpi-proxy-runtime. Policy/tuning"
     emit_line "modules are omitted to stay within token budget."
 
     # Core relay path: listener -> handshake -> relay. Omit policy/tuning/adaptive.
-    emit_selective_crate "$RUST_ROOT/crates/ripdpi-runtime" "ripdpi-runtime" \
+    emit_selective_crate "$RUST_ROOT/crates/ripdpi-proxy-runtime" "ripdpi-proxy-runtime" \
         "lib.rs" \
         "runtime.rs" \
         "sync.rs" \
@@ -912,7 +912,7 @@ main() {
         emit_line ""
 
         for crate_dir in \
-            "$RUST_ROOT/crates/ripdpi-monitor" \
+            "$RUST_ROOT/crates/ripdpi-monitor-engine" \
             "$RUST_ROOT/crates/ripdpi-dns-resolver" \
             "$RUST_ROOT/crates/ripdpi-config" \
             "$RUST_ROOT/crates/ripdpi-proxy-config" \
@@ -927,26 +927,25 @@ main() {
             emit_crate_src "$crate_dir" "$name"
         done
 
-        # Remaining runtime files not in selective list
+        # Remaining proxy-runtime files not in selective list
         emit_line ""
-        emit_line "### ripdpi-runtime (remaining files)"
+        emit_line "### ripdpi-proxy-runtime (remaining files)"
         emit_line ""
         for f in \
-            "$RUST_ROOT/crates/ripdpi-runtime/src/adaptive_fake_ttl.rs" \
-            "$RUST_ROOT/crates/ripdpi-runtime/src/adaptive_tuning.rs" \
-            "$RUST_ROOT/crates/ripdpi-runtime/src/retry_stealth.rs" \
-            "$RUST_ROOT/crates/ripdpi-runtime/src/ws_bootstrap.rs"; do
+            "$RUST_ROOT/crates/ripdpi-proxy-runtime/src/runtime/adaptive.rs" \
+            "$RUST_ROOT/crates/ripdpi-proxy-runtime/src/runtime/retry.rs" \
+            "$RUST_ROOT/crates/ripdpi-proxy-runtime/src/runtime/ws.rs"; do
             if [[ -f "$f" ]]; then
                 emit_file "$f" "${f#"$RUST_ROOT"/}"
             fi
         done
-        for f in $(find "$RUST_ROOT/crates/ripdpi-runtime/src/runtime_policy" -name '*.rs' -type f | sort); do
+        for f in $(find "$RUST_ROOT/crates/ripdpi-runtime-policy/src/runtime_policy" -name '*.rs' -type f | sort); do
             emit_file "$f" "${f#"$RUST_ROOT"/}"
         done
-        # runtime/adaptive.rs and runtime/retry.rs
+        # split runtime service/strategy crates
         for f in \
-            "$RUST_ROOT/crates/ripdpi-runtime/src/runtime/adaptive.rs" \
-            "$RUST_ROOT/crates/ripdpi-runtime/src/runtime/retry.rs"; do
+            "$RUST_ROOT/crates/ripdpi-runtime-services/src/lib.rs" \
+            "$RUST_ROOT/crates/ripdpi-runtime-strategy/src/lib.rs"; do
             if [[ -f "$f" ]]; then
                 emit_file "$f" "${f#"$RUST_ROOT"/}"
             fi
@@ -966,7 +965,7 @@ main() {
         for crate_dir in \
             "$RUST_ROOT/crates/ripdpi-android" \
             "$RUST_ROOT/crates/ripdpi-tunnel-android" \
-            "$RUST_ROOT/crates/ripdpi-runtime" \
+            "$RUST_ROOT/crates/ripdpi-proxy-runtime" \
             "$RUST_ROOT/crates/ripdpi-packets" \
             "$RUST_ROOT/crates/ripdpi-tunnel-core"; do
             local name
@@ -987,8 +986,8 @@ main() {
         emit_line "Protobuf schemas, Android manifests, and build configuration."
         emit_line ""
 
-        emit_android_file "$REPO_ROOT/core/data/src/main/proto/app_settings.proto"
-        emit_android_file "$REPO_ROOT/core/data/src/main/proto/geosite.proto"
+        emit_android_file "$REPO_ROOT/core/data/model/src/main/proto/app_settings.proto"
+        emit_android_file "$REPO_ROOT/core/data/model/src/main/proto/geosite.proto"
         emit_android_file "$REPO_ROOT/app/src/main/AndroidManifest.xml"
         emit_android_file "$REPO_ROOT/core/service/src/main/AndroidManifest.xml"
         emit_android_file "$REPO_ROOT/core/engine/src/main/AndroidManifest.xml"
@@ -1094,7 +1093,7 @@ main() {
         for f in \
             "$REPO_ROOT/app/src/main/kotlin/com/poyka/ripdpi/services/QuickTileService.kt" \
             "$REPO_ROOT/app/src/main/kotlin/com/poyka/ripdpi/services/QuickTileController.kt" \
-            "$REPO_ROOT/app/src/main/kotlin/com/poyka/ripdpi/hosts/HostPackCatalogRepository.kt"; do
+            "$REPO_ROOT/core/service/src/main/kotlin/com/poyka/ripdpi/hosts/HostPackCatalogRepository.kt"; do
             emit_android_file "$f"
         done
 
@@ -1172,7 +1171,7 @@ pipeline is auditable via core:data + core:engine sections.
 ### Diagnostics Engine (core:diagnostics, ~9,200 lines excluded)
 
 Orchestrates network diagnostic scans, generates reports, manages scan sessions.
-Uses the Rust ripdpi-monitor crate via JNI. Exports diagnostic archives as ZIP
+Uses the Rust \`ripdpi-monitor-engine\` crate via JNI. Exports diagnostic archives as ZIP
 files -- potential data leakage vector but no direct network manipulation.
 
 ### Diagnostics Data (core:diagnostics-data, ~1,580 lines excluded)
