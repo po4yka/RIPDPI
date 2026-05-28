@@ -155,11 +155,12 @@ pub trait Probe {
 A probe is stateless: it captures its parameters at construction and the
 runner invokes `run()` once per tick with a `ProbeContext` (the *active*
 network scope / resolver / relay / strategy hints — so a probe validates the
-user's real path, not a hard-coded baseline). The 13 concrete probes are
-plain modules re-exported from `src/probes.rs`; each owns a
-`pub const <NAME>_PROBE_ID: &str`. The trait is a migration target —
-concrete probes move behind it over time, and the `compat-facade` feature is
-reserved for those re-exports (empty today).
+user's real path, not a hard-coded baseline). The 16 concrete probe structs
+are plain modules re-exported from `src/probes.rs`; each owns a
+`pub const <NAME>_PROBE_ID: &str`. The ECH implementation also exports a
+driver (`HickoryRustlsEchHandshakeDriver`) alongside the probe structs. The
+`compat-facade` feature is still an empty default-on compatibility marker;
+root exports are unconditional today.
 
 ### 4. Strategy candidates — `StrategyCandidateSpec`
 

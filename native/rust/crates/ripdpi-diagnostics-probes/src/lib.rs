@@ -18,8 +18,8 @@
 //!    user's *active* DNS / relay / desync policy — closing the historical
 //!    "probe always uses Cloudflare DoH" blind spot (audit finding A-1).
 //!
-//! The `compat-facade` feature is on by default and reserved for future
-//! re-exports as concrete probes migrate in.
+//! The `compat-facade` feature is on by default as an empty compatibility
+//! marker. Root exports are unconditional today.
 
 #![deny(missing_docs)]
 
@@ -134,7 +134,7 @@ pub use probes::{
 };
 
 #[cfg(feature = "compat-facade")]
-/// Reserved for re-exports as concrete probes migrate in. Empty today.
+/// Reserved compatibility namespace. Empty today.
 pub mod compat {}
 
 #[cfg(test)]
