@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::Path;
 
 use ring::digest;
@@ -137,10 +137,15 @@ fn atomic_write(path: &Path, payload: &[u8]) -> io::Result<()> {
         std::process::id(),
         next_temp_file_nonce()
     );
-    let tmp_path = parent.join(tmp_name);
-    fs::write(&tmp_path, payload)?;
-    if path.exists() {
-        let _ = fs::remove_file(path);
+    let tmp_path = parent.join(&tmp_name);
+    {
+        let mut file = fs::File::create(&tmp_path)?;
+        file.write_all(payload)?;
+        file.sync_all()?;
     }
-    fs::rename(tmp_path, path)
+    fs::rename(&tmp_path, path)?;
+    // Best-effort: fsync the parent directory so the rename itself is durable.
+    // Some filesystems/platforms reject fsync on directories; ignore that gracefully.
+    let _ = fs::File::open(parent).and_then(|dir| dir.sync_all());
+    Ok(())
 }

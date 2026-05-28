@@ -124,8 +124,10 @@ impl Entry {
 
 // ── AtomicFile ───────────────────────────────────────────────────────────────
 
-/// Writes `data` to `path` atomically: write to a sibling `.tmp` file, then
-/// rename into place.  The rename is atomic on all POSIX systems and on NTFS.
+/// Writes `data` to `path` atomically: write to a sibling `.tmp` file,
+/// fsync the file data, rename into place, then best-effort fsync the parent
+/// directory so the rename itself survives a crash (LMK SIGKILL durability).
+/// The rename is atomic on all POSIX systems and on NTFS.
 pub struct AtomicFile {
     path: PathBuf,
 }
@@ -136,9 +138,20 @@ impl AtomicFile {
     }
 
     pub fn write(&self, data: &[u8]) -> io::Result<()> {
+        use std::io::Write as _;
         let tmp = self.path.with_extension("tmp");
-        std::fs::write(&tmp, data)?;
-        std::fs::rename(&tmp, &self.path)
+        {
+            let mut file = std::fs::File::create(&tmp)?;
+            file.write_all(data)?;
+            file.sync_all()?;
+        }
+        std::fs::rename(&tmp, &self.path)?;
+        // Best-effort: fsync the parent directory so the rename itself is durable.
+        // Some filesystems/platforms reject fsync on directories; ignore that gracefully.
+        if let Some(parent) = self.path.parent() {
+            let _ = std::fs::File::open(parent).and_then(|dir| dir.sync_all());
+        }
+        Ok(())
     }
 
     pub fn path(&self) -> &Path {
