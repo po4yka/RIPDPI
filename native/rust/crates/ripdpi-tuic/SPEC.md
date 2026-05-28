@@ -35,7 +35,7 @@ Constants from `protocol.rs`:
 ## Known divergences from upstream
 
 - v4 is intentionally unsupported; `docs/architecture/tuic-v4-policy.md` records the v5-only decision and the version-unsupported classifier surface.
-- UDP forward mode is native/datagram-only; `docs/architecture/tuic-udp-forward-mode-audit.md` records the decision to defer a reliable-stream `quic` mode until telemetry justifies it.
+- UDP forward mode is native/datagram-only. `udp.rs` uses QUIC datagrams (`read_datagram` / `send_datagram`) and `client.rs` rejects UDP when `max_datagram_size` is absent. Reliable-stream `quic` UDP forwarding is intentionally deferred until telemetry shows a real need.
 - App-level keepalive policy not yet defined; see `docs/tasks/issues/add-tuic-heartbeat-and-keepalive-policy.md`.
 
 ## Non-goals

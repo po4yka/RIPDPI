@@ -34,7 +34,7 @@ Chain relay is a multi-hop tunnel where the second hop's TLS is nested inside th
 
 ## Acceptance criteria
 
-- [x] A short audit doc (one paragraph in `lib.rs` module docs or as a `CHAIN.md`) names what is and is not covered today. **DONE 2026-05-15:** see `docs/architecture/vless-chain-coverage-audit.md`.
+- [x] The current task note names what is and is not covered today; the obsolete point-in-time audit file was removed on 2026-05-28.
 - [ ] At least one end-to-end test drives data through a two-hop chain on loopback, asserting bidirectional payload integrity.
 - [ ] One negative test asserts that a chain failure on the second hop surfaces a recognizable error class to the caller.
 

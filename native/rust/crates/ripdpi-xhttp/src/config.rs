@@ -16,8 +16,7 @@ impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 /// Upstream supports four modes: `stream-up`, `packet-up`, `stream-one`,
 /// and `stream-down` (split-endpoint variant of `stream-up`). This crate
 /// currently implements `stream-up` (the historical default) and
-/// `stream-one`; `packet-up` and split-endpoint are tracked in
-/// `docs/design/xhttp-mode-coverage-audit.md`.
+/// `stream-one`; `packet-up` and split-endpoint remain unsupported.
 ///
 /// `Default` resolves to [`Self::StreamUp`] so existing callers — and
 /// any Kotlin/JNI binding that has not yet been taught about the mode

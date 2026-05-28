@@ -9,8 +9,9 @@ and gRPC framing.
 
 Used when `relay_vless_transport = "xhttp"` and by `relay_kind =
 "cloudflare_tunnel"` profiles. Supports the `stream-up` and `stream-one`
-xHTTP protocol modes; `packet-up` and split-endpoint `stream-down` remain
-deferred in [`xhttp-mode-coverage-audit.md`](../../../../docs/design/xhttp-mode-coverage-audit.md). Carries the Finalmask modes
+xHTTP protocol modes. `packet-up` and split-endpoint `stream-down` are
+rejected by `XhttpProtocolMode::parse` until the crate grows a per-chunk POST
+path and split download endpoint support. Carries the Finalmask modes
 (`header_custom` / `fragment` / `sudoku` / `noise`) applied directly on the
 outbound xHTTP transport; xHTTP path/host come from `relay_xhttp_path` /
 `relay_xhttp_host`.
