@@ -14,7 +14,7 @@ interop contract.
 
 ## Dependency direction
 
-**Upstream:** none internal (`tokio`, `rustls`). **Downstream:**
+**Upstream:** `ripdpi-tls-profiles` (`tokio`, `rustls`). **Downstream:**
 `ripdpi-relay-android` → `libripdpi-relay.so`.
 
 ## Non-root fallback
