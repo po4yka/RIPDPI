@@ -112,6 +112,7 @@ class RecordingInstrumentedServiceController : ServiceController {
 }
 
 class MutablePermissionStatusProvider(
+    @Volatile
     var snapshot: PermissionSnapshot = PermissionSnapshot(),
 ) : PermissionStatusProvider {
     override fun currentSnapshot(): PermissionSnapshot = snapshot
