@@ -13,10 +13,42 @@ impl<T> ChainAsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 
 #[derive(Clone)]
 pub(crate) struct ChainRelaySessionFactory {
-    pub(crate) entry: ripdpi_vless::config::VlessRealityConfig,
+    pub(crate) entry: ChainEntryConnector,
     pub(crate) exit: ChainExitConnector,
     pub(crate) outbound_bind_ip: Option<IpAddr>,
     pub(crate) telemetry: ChainHopTelemetryState,
+}
+
+#[derive(Clone)]
+pub(crate) enum ChainEntryConnector {
+    VlessReality(ripdpi_vless::config::VlessRealityConfig),
+    Masque(ripdpi_masque::config::MasqueConfig),
+}
+
+impl ChainEntryConnector {
+    async fn connect(&self, outbound_bind_ip: Option<IpAddr>, target: &str) -> io::Result<Box<dyn ChainAsyncIo>> {
+        match self {
+            Self::VlessReality(config) => {
+                let stream = match outbound_bind_ip {
+                    Some(bind_ip) => {
+                        ripdpi_vless::VlessRealityClient::connect_with_bind(config, bind_ip, target).await?
+                    }
+                    None => ripdpi_vless::VlessRealityClient::connect(config, target).await?,
+                };
+                Ok(Box::new(stream))
+            }
+            Self::Masque(config) => {
+                if outbound_bind_ip.is_some() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "chain MASQUE entry does not support outbound bind IP",
+                    ));
+                }
+                let stream = ripdpi_masque::MasqueClient::connect(config, target).await?;
+                Ok(Box::new(stream))
+            }
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -61,7 +93,7 @@ fn masque_proxy_target(config: &ripdpi_masque::config::MasqueConfig) -> io::Resu
 }
 
 pub(crate) struct ChainRelaySession {
-    pub(crate) entry: ripdpi_vless::config::VlessRealityConfig,
+    pub(crate) entry: ChainEntryConnector,
     pub(crate) exit: ChainExitConnector,
     pub(crate) outbound_bind_ip: Option<IpAddr>,
     pub(crate) telemetry: ChainHopTelemetryState,
@@ -77,12 +109,7 @@ impl RelaySession for ChainRelaySession {
             let exit_target = self.exit.proxy_target()?;
             self.telemetry.record(ChainHopRole::Entry, "connecting", None);
             let entry_started = Instant::now();
-            let first_hop_result = match self.outbound_bind_ip {
-                Some(bind_ip) => {
-                    ripdpi_vless::VlessRealityClient::connect_with_bind(&self.entry, bind_ip, &exit_target).await
-                }
-                None => ripdpi_vless::VlessRealityClient::connect(&self.entry, &exit_target).await,
-            };
+            let first_hop_result = self.entry.connect(self.outbound_bind_ip, &exit_target).await;
             let first_hop = match first_hop_result {
                 Ok(stream) => {
                     self.telemetry.record(
@@ -90,7 +117,7 @@ impl RelaySession for ChainRelaySession {
                         "connected",
                         Some(entry_started.elapsed().as_millis() as u64),
                     );
-                    Box::new(stream) as Box<dyn ChainAsyncIo>
+                    stream
                 }
                 Err(error) => {
                     self.telemetry.record(

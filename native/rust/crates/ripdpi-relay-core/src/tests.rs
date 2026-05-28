@@ -392,6 +392,36 @@ async fn chain_relay_builds_vless_entry_masque_exit_from_resolved_hops() {
 }
 
 #[tokio::test]
+async fn chain_relay_builds_masque_entry_vless_exit_from_resolved_hops() {
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "masque".to_string(),
+        profile_id: "masque-entry".to_string(),
+        masque_url: "https://masque.example/.well-known/masque/tcp/".to_string(),
+        masque_use_http2_fallback: true,
+        masque_auth_mode: Some("bearer".to_string()),
+        masque_auth_token: Some("relay-fixture-placeholder".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+    chain.exit = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "vless_reality".to_string(),
+        profile_id: "exit-hop".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 443,
+        server_name: "exit.example".to_string(),
+        reality_public_key: valid_reality_public_key(),
+        reality_short_id: String::new(),
+        vless_uuid: Some("22222222-2222-2222-2222-222222222222".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+
+    let backend = build_backend(&config).await.expect("chain backend builds mixed MASQUE entry and VLESS exit");
+
+    assert_eq!(Some("chain_relay"), relay_backend_kind_id(&backend));
+}
+
+#[tokio::test]
 async fn chain_relay_dead_resolved_entry_does_not_bypass_to_legacy_entry() {
     let legacy_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind legacy entry probe");
     let legacy_addr = legacy_listener.local_addr().expect("legacy entry address");

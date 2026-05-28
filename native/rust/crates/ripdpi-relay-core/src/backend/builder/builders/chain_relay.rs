@@ -4,14 +4,14 @@ use crate::backend::builder::builders::common::vless_reality_config;
 use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{ChainRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayRuntimeConfig};
-use crate::protocols::{ChainExitConnector, ChainRelaySessionFactory};
+use crate::protocols::{ChainEntryConnector, ChainExitConnector, ChainRelaySessionFactory};
 use crate::telemetry::ChainHopTelemetryState;
 
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::ChainRelay(chain) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected chain relay config"));
     };
-    let entry = chain_hop_vless_reality_config(chain, ChainHopRole::Entry, &config.common.tls_fingerprint_profile)?;
+    let entry = chain_entry_connector(chain, &config.common.tls_fingerprint_profile)?;
     let exit = chain_exit_connector(chain, &config.common.tls_fingerprint_profile)?;
 
     let telemetry = ChainHopTelemetryState::default();
@@ -44,19 +44,24 @@ impl ChainHopRole {
     }
 }
 
-fn chain_hop_vless_reality_config(
+fn chain_entry_connector(
     chain: &ChainRelayConfig,
-    role: ChainHopRole,
     default_tls_fingerprint_profile: &str,
-) -> io::Result<ripdpi_vless::config::VlessRealityConfig> {
-    if let Some(hop) = match role {
-        ChainHopRole::Entry => chain.entry.as_deref(),
-        ChainHopRole::Exit => chain.exit.as_deref(),
-    } {
-        return resolved_hop_vless_reality_config(hop, role);
+) -> io::Result<ChainEntryConnector> {
+    let Some(hop) = chain.entry.as_deref() else {
+        return legacy_hop_vless_reality_config(chain, ChainHopRole::Entry, default_tls_fingerprint_profile)
+            .map(ChainEntryConnector::VlessReality);
+    };
+    match hop.kind.as_str() {
+        "vless_reality" => {
+            resolved_hop_vless_reality_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::VlessReality)
+        }
+        "masque" => resolved_hop_masque_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::Masque),
+        other => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("chain entry: resolved hop kind {other} is not supported by chain relay"),
+        )),
     }
-
-    legacy_hop_vless_reality_config(chain, role, default_tls_fingerprint_profile)
 }
 
 fn chain_exit_connector(
@@ -71,7 +76,7 @@ fn chain_exit_connector(
         "vless_reality" => {
             resolved_hop_vless_reality_config(hop, ChainHopRole::Exit).map(ChainExitConnector::VlessReality)
         }
-        "masque" => resolved_hop_masque_config(hop).map(ChainExitConnector::Masque),
+        "masque" => resolved_hop_masque_config(hop, ChainHopRole::Exit).map(ChainExitConnector::Masque),
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("chain exit: resolved hop kind {other} is not supported by chain relay"),
@@ -111,9 +116,13 @@ fn resolved_hop_vless_reality_config(
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))
 }
 
-fn resolved_hop_masque_config(hop: &ResolvedChainRelayHopConfig) -> io::Result<ripdpi_masque::config::MasqueConfig> {
+fn resolved_hop_masque_config(
+    hop: &ResolvedChainRelayHopConfig,
+    role: ChainHopRole,
+) -> io::Result<ripdpi_masque::config::MasqueConfig> {
+    let label = role.label();
     if hop.masque_url.trim().is_empty() {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "chain exit: MASQUE URL is required"));
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: MASQUE URL is required")));
     }
     Ok(ripdpi_masque::config::MasqueConfig {
         url: hop.masque_url.clone(),
