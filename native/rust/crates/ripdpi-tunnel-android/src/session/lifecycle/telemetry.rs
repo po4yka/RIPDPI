@@ -22,4 +22,7 @@ pub(crate) fn wire_session_telemetry(stats: &Arc<Stats>, telemetry: &Arc<TunnelT
 
 pub(crate) fn mark_session_started(telemetry: &TunnelTelemetryState, config: &ripdpi_tunnel_config::Config) {
     telemetry.mark_started(format!("{}:{}", config.socks5.address, config.socks5.port));
+    if config.mapdns.as_ref().is_some_and(|mapdns| mapdns.route_dns_through_socks5) {
+        telemetry.mark_relay_dns_route("socks5", true);
+    }
 }

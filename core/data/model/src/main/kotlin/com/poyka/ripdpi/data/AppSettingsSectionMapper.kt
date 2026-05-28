@@ -125,6 +125,7 @@ private fun AppSettings.relaySection(): RelaySettingsSection =
         relayXhttpPath = relayXhttpPath,
         relayXhttpHost = relayXhttpHost,
         relayOutboundBindIp = relayOutboundBindIp,
+        relayDnsOverTunnelEnabled = effectiveRelayDnsOverTunnelEnabled(),
     )
 
 private fun AppSettings.warpSection(): WarpSettingsSection =

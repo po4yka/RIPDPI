@@ -370,4 +370,5 @@ message AppSettings {
 
   // P3.8: PCAP capture toggle (developer diagnostics)
   bool pcap_capture_enabled = 286;
+  optional bool relay_dns_over_tunnel_enabled = 287; // Unset means true: relay-active DNS is fail-closed through the relay path.
 }

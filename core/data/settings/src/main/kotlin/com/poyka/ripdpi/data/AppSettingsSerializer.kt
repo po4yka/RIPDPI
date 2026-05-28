@@ -100,6 +100,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setWarpScannerParallelism(DefaultWarpScannerParallelism)
             .setWarpScannerMaxRttMs(DefaultWarpScannerMaxRttMs)
             .setRelayEnabled(false)
+            .setRelayDnsOverTunnelEnabled(true)
             .setRelayKind(RelayKindOff)
             .setRelayProfileId(DefaultRelayProfileId)
             .setRelayCloudflareTunnelMode(RelayCloudflareTunnelModeConsumeExisting)

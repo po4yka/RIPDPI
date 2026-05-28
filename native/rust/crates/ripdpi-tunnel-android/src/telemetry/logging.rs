@@ -93,4 +93,49 @@ impl TunnelTelemetryState {
     pub(crate) fn push_event(&self, source: &str, level: &str, message: String) {
         self.log_line(source, level, &message);
     }
+
+    pub(crate) fn push_event_kind(&self, source: &str, level: &str, kind: &str, message: String) {
+        let context = LogContextProjection::from_state(self);
+        match level.trim().to_ascii_lowercase().as_str() {
+            "warn" | "warning" => tracing::warn!(
+                ring = "tunnel",
+                subsystem = "tunnel",
+                session = self.session_id.as_str(),
+                source,
+                kind,
+                runtime_id = context.runtime_id,
+                mode = context.mode,
+                policy_signature = context.policy_signature,
+                fingerprint_hash = context.fingerprint_hash,
+                diagnostics_session_id = context.diagnostics_session_id,
+                "{message}"
+            ),
+            "error" => tracing::error!(
+                ring = "tunnel",
+                subsystem = "tunnel",
+                session = self.session_id.as_str(),
+                source,
+                kind,
+                runtime_id = context.runtime_id,
+                mode = context.mode,
+                policy_signature = context.policy_signature,
+                fingerprint_hash = context.fingerprint_hash,
+                diagnostics_session_id = context.diagnostics_session_id,
+                "{message}"
+            ),
+            _ => tracing::info!(
+                ring = "tunnel",
+                subsystem = "tunnel",
+                session = self.session_id.as_str(),
+                source,
+                kind,
+                runtime_id = context.runtime_id,
+                mode = context.mode,
+                policy_signature = context.policy_signature,
+                fingerprint_hash = context.fingerprint_hash,
+                diagnostics_session_id = context.diagnostics_session_id,
+                "{message}"
+            ),
+        }
+    }
 }

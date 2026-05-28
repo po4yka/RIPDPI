@@ -4158,6 +4158,7 @@ dependencies = [
 name = "ripdpi-relay-core"
 version = "0.1.0"
 dependencies = [
+ "android-support",
  "arc-swap",
  "local-network-fixture",
  "ripdpi-hysteria2",
@@ -4171,6 +4172,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "url",
 ]
 

@@ -172,6 +172,24 @@ fn tunnel_snapshot_exposes_dht_trigger_observations() {
 }
 
 #[test]
+fn tunnel_snapshot_marks_relay_dns_route_as_fail_closed() {
+    let subscriber = tracing_subscriber::registry().with(EventRingLayer::global());
+    tracing::subscriber::with_default(subscriber, || {
+        let state = TunnelTelemetryState::new(None);
+
+        state.mark_relay_dns_route("socks5", true);
+        let snapshot = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+
+        assert_eq!(snapshot.relay_dns_route.as_deref(), Some("socks5"));
+        assert!(snapshot.relay_dns_fail_closed);
+        assert!(
+            snapshot.native_events.iter().any(|event| event.kind.as_deref() == Some("relay_dns_route")),
+            "relay DNS route event must be visible to Android telemetry",
+        );
+    });
+}
+
+#[test]
 fn tunnel_snapshot_reads_do_not_block_under_concurrent_writes() {
     use std::sync::Barrier;
 
@@ -251,6 +269,8 @@ fn tunnel_snapshot_field_manifest_matches_contract_fixture() {
         resolver_latency_avg_ms: dns_stats.resolver_latency_avg_ms,
         resolver_fallback_active: dns_stats.resolver_fallback_active,
         resolver_fallback_reason: dns_stats.resolver_fallback_reason,
+        relay_dns_route: Some("socks5".to_string()),
+        relay_dns_fail_closed: true,
         dht_trigger_observations: Some(2),
         last_dht_trigger_endpoint: Some("134.195.198.23:6881".to_string()),
         last_dht_trigger_at: Some(4242),

@@ -119,6 +119,7 @@ data class RelaySettingsSection(
     val relayXhttpPath: String = "",
     val relayXhttpHost: String = "",
     val relayOutboundBindIp: String = "",
+    val relayDnsOverTunnelEnabled: Boolean = true,
 )
 
 /** WARP integration, scanner, Amnezia obfuscation, and active-profile metadata. */

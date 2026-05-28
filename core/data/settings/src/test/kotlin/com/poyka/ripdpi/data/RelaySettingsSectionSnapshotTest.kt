@@ -42,4 +42,19 @@ class RelaySettingsSectionSnapshotTest {
         assertEquals(DefaultRelayProfileId, relay.relayProfileId)
         assertTrue(relay.relayKind.isNotBlank())
     }
+
+    @Test
+    fun `relay dns over tunnel defaults on when unset and preserves explicit opt out`() {
+        val unset = AppSettings.newBuilder().build()
+        val explicitOff =
+            AppSettings
+                .newBuilder()
+                .setRelayDnsOverTunnelEnabled(false)
+                .build()
+
+        assertEquals(true, unset.effectiveRelayDnsOverTunnelEnabled())
+        assertEquals(true, AppSettingsSerializer.defaultValue.effectiveRelayDnsOverTunnelEnabled())
+        assertEquals(false, explicitOff.effectiveRelayDnsOverTunnelEnabled())
+        assertEquals(false, explicitOff.toSnapshot().relay.relayDnsOverTunnelEnabled)
+    }
 }

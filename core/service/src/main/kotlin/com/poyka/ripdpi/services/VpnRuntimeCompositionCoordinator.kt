@@ -114,7 +114,8 @@ internal class VpnRuntimeCompositionCoordinator(
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
             localProxyEndpoint = localProxyEndpoint,
-            forceTunnelDns = resolution.proxyPreferences.relayConfigOrNull() != null,
+            forceTunnelDns =
+                forceTunnelDnsForRelay(resolution.settings) && resolution.proxyPreferences.relayConfigOrNull() != null,
         )
         updateRuntimeDnsState(session, resolution)
     }

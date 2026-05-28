@@ -50,6 +50,7 @@ internal data class AppSettingsRelaySnapshot(
     val relayLocalSocksPort: Int = defaultSettings.relayLocalSocksPort,
     val relayUdpEnabled: Boolean = defaultSettings.relayUdpEnabled,
     val relayTcpFallbackEnabled: Boolean = defaultSettings.relayTcpFallbackEnabled,
+    val relayDnsOverTunnelEnabled: Boolean = defaultSettings.effectiveRelayDnsOverTunnelEnabled(),
     val relayFinalmaskType: String = defaultSettings.relayFinalmaskType,
     val relayFinalmaskHeaderHex: String = defaultSettings.relayFinalmaskHeaderHex,
     val relayFinalmaskTrailerHex: String = defaultSettings.relayFinalmaskTrailerHex,
@@ -107,6 +108,7 @@ internal fun JsonObjectBuilder.writeRelaySnapshot(snapshot: AppSettingsRelaySnap
     put("relayLocalSocksPort", snapshot.relayLocalSocksPort)
     put("relayUdpEnabled", snapshot.relayUdpEnabled)
     put("relayTcpFallbackEnabled", snapshot.relayTcpFallbackEnabled)
+    put("relayDnsOverTunnelEnabled", snapshot.relayDnsOverTunnelEnabled)
     put("relayFinalmaskType", snapshot.relayFinalmaskType)
     put("relayFinalmaskHeaderHex", snapshot.relayFinalmaskHeaderHex)
     put("relayFinalmaskTrailerHex", snapshot.relayFinalmaskTrailerHex)
@@ -174,6 +176,8 @@ internal fun JsonObject.readRelaySnapshot(defaults: AppSettingsRelaySnapshot): A
         relayLocalSocksPort = intValue("relayLocalSocksPort", defaults.relayLocalSocksPort),
         relayUdpEnabled = booleanValue("relayUdpEnabled", defaults.relayUdpEnabled),
         relayTcpFallbackEnabled = booleanValue("relayTcpFallbackEnabled", defaults.relayTcpFallbackEnabled),
+        relayDnsOverTunnelEnabled =
+            booleanValue("relayDnsOverTunnelEnabled", defaults.relayDnsOverTunnelEnabled),
         relayFinalmaskType = stringValue("relayFinalmaskType", defaults.relayFinalmaskType),
         relayFinalmaskHeaderHex = stringValue("relayFinalmaskHeaderHex", defaults.relayFinalmaskHeaderHex),
         relayFinalmaskTrailerHex = stringValue("relayFinalmaskTrailerHex", defaults.relayFinalmaskTrailerHex),

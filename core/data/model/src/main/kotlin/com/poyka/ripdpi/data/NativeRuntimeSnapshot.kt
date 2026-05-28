@@ -121,6 +121,8 @@ data class NativeRuntimeSnapshot(
     val resolverLatencyAvgMs: Long? = null,
     val resolverFallbackActive: Boolean = false,
     val resolverFallbackReason: String? = null,
+    val relayDnsRoute: String? = null,
+    val relayDnsFailClosed: Boolean = false,
     val dhtTriggerObservations: Long? = null,
     val lastDhtTriggerEndpoint: String? = null,
     val lastDhtTriggerAt: Long? = null,

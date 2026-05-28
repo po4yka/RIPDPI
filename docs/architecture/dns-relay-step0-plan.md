@@ -73,3 +73,11 @@ Bootstrap prevents relay self-deadlock and bootstrap leaks: a relay hostname may
 Android VPN DNS capture prevents app DNS bypass: encrypted and relay-forced profiles program `198.18.0.53` into `VpnService.Builder`, mapdns is enabled in `Tun2SocksConfig`, and native DNS resolution uses the relay-required connector.
 
 Fallback resolver pool prevents hidden fallback leaks: every fallback endpoint uses the same relay connector when relay-DNS is required, and a down relay fails the pool rather than trying protected direct sockets.
+
+## Implemented Contract
+
+The relay DNS policy is default-on when relay mode is active. The persisted setting is `relay_dns_over_tunnel_enabled`; unset values are treated as enabled so upgraded installations fail closed without requiring a migration write. An explicit false value disables forced relay DNS for operator troubleshooting, but the default app settings serialize the field as true.
+
+Android VPN mode closes the app-DNS leak by programming the map-DNS interceptor address when relay DNS is forced, even if the selected profile is plain DNS. The native tunnel config then marks `routeDnsThroughSocks5`, causing the encrypted resolver to use the existing local SOCKS5 path rather than direct/protected resolver sockets; because the local proxy stack is relay-backed when relay mode is active, relay-down DNS fails instead of falling back to system DNS.
+
+Telemetry exposes `relayDnsRoute` and `relayDnsFailClosed` on the tunnel runtime snapshot, emits a `relay_dns_route` native event when the fail-closed route is active, and emits `relay_endpoint_bootstrap_direct_lookup` on the relay event ring for the one allowed direct relay endpoint lookup before tunnel startup.

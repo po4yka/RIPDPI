@@ -25,6 +25,8 @@ impl TunnelTelemetryState {
             total_errors: AtomicU64::default(),
             upstream_address: ArcSwapOption::empty(),
             last_error: ArcSwapOption::empty(),
+            relay_dns_route: ArcSwapOption::empty(),
+            relay_dns_fail_closed: AtomicBool::default(),
             dns_histogram: LatencyHistogram::new(),
             quality_window: Arc::new(QualityWindow::new(TransportKind::TcpTunnel)),
         }

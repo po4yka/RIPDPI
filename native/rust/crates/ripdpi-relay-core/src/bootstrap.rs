@@ -63,6 +63,7 @@ async fn resolve_masque_url_endpoint(
     if let Ok(ip) = host.parse::<IpAddr>() {
         return Ok(SocketAddr::new(ip, port));
     }
+    emit_direct_bootstrap_lookup(host, port);
     resolver.resolve_direct(host, port).await
 }
 
@@ -76,5 +77,16 @@ async fn resolve_endpoint(
     }
     let port = u16::try_from(port)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "relay endpoint port must fit u16"))?;
+    emit_direct_bootstrap_lookup(host, port);
     Ok(resolver.resolve_direct(host, port).await?.ip().to_string())
+}
+
+fn emit_direct_bootstrap_lookup(host: &str, port: u16) {
+    tracing::info!(
+        ring = "relay",
+        subsystem = "relay",
+        source = "relay",
+        kind = "relay_endpoint_bootstrap_direct_lookup",
+        "direct relay endpoint bootstrap lookup host={host} port={port}"
+    );
 }

@@ -18,6 +18,8 @@ pub(crate) struct TunnelTelemetryState {
     pub(crate) total_errors: AtomicU64,
     pub(crate) upstream_address: ArcSwapOption<String>,
     pub(crate) last_error: ArcSwapOption<String>,
+    pub(crate) relay_dns_route: ArcSwapOption<String>,
+    pub(crate) relay_dns_fail_closed: AtomicBool,
     pub(crate) dns_histogram: LatencyHistogram,
     pub(crate) quality_window: Arc<QualityWindow>,
 }
@@ -47,5 +49,16 @@ impl TunnelTelemetryState {
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         self.last_error.store(Some(Arc::new(error.clone())));
         self.push_event("tunnel", "warn", format!("tunnel error: {error}"));
+    }
+
+    pub(crate) fn mark_relay_dns_route(&self, route: &str, fail_closed: bool) {
+        self.relay_dns_route.store(Some(Arc::new(route.to_string())));
+        self.relay_dns_fail_closed.store(fail_closed, Ordering::Relaxed);
+        self.push_event_kind(
+            "tunnel",
+            "info",
+            "relay_dns_route",
+            format!("relay DNS route={route} fail_closed={fail_closed}"),
+        );
     }
 }

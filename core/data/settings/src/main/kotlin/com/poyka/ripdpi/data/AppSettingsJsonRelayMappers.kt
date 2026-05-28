@@ -55,6 +55,7 @@ internal fun AppSettingsSnapshot.withRelaySnapshot(relaySection: RelaySettingsSe
                 relayLocalSocksPort = relaySection.relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort,
                 relayUdpEnabled = relaySection.relayUdpEnabled,
                 relayTcpFallbackEnabled = relaySection.relayTcpFallbackEnabled,
+                relayDnsOverTunnelEnabled = relaySection.relayDnsOverTunnelEnabled,
                 relayFinalmaskType = normalizeRelayFinalmaskType(relaySection.relayFinalmaskType),
                 relayFinalmaskHeaderHex = relaySection.relayFinalmaskHeaderHex,
                 relayFinalmaskTrailerHex = relaySection.relayFinalmaskTrailerHex,
@@ -120,6 +121,7 @@ private fun AppSettings.Builder.applyRelaySnapshot(snapshot: AppSettingsRelaySna
         .setRelayLocalSocksPort(snapshot.relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort)
         .setRelayUdpEnabled(snapshot.relayUdpEnabled)
         .setRelayTcpFallbackEnabled(snapshot.relayTcpFallbackEnabled)
+        .setRelayDnsOverTunnelEnabled(snapshot.relayDnsOverTunnelEnabled)
         .setRelayFinalmaskType(normalizeRelayFinalmaskType(snapshot.relayFinalmaskType))
         .setRelayFinalmaskHeaderHex(snapshot.relayFinalmaskHeaderHex)
         .setRelayFinalmaskTrailerHex(snapshot.relayFinalmaskTrailerHex)

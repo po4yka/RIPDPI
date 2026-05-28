@@ -2,9 +2,11 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
+use android_support::EventRingLayer;
 use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig, ShadowsocksLoopback, TrojanLoopback};
 use ripdpi_relay_mux::RelayPoolConfig;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tracing_subscriber::prelude::*;
 
 use crate::backend::{build_backend, RelayBackend};
 use crate::bootstrap::{bootstrap_relay_endpoints_with, RelayEndpointBootstrapResolver};
@@ -126,6 +128,24 @@ async fn relay_endpoint_bootstrap_resolves_common_hostname_once_and_preserves_sn
     assert_eq!(resolver.requests, vec![("relay.example".to_string(), 443)]);
     assert_eq!(bootstrapped.common.server, "203.0.113.1");
     assert_eq!(bootstrapped.common.server_name, "relay.example");
+}
+
+#[tokio::test]
+async fn relay_endpoint_bootstrap_emits_direct_lookup_event() {
+    let buffers = android_support::EventRingBuffers::default();
+    let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
+    let dispatch = tracing::Dispatch::new(subscriber);
+    let _guard = tracing::dispatcher::set_default(&dispatch);
+    let config = sample_config("vless_reality");
+    let mut resolver = FakeBootstrapResolver::default();
+
+    let _bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+
+    let events = buffers.drain_relay();
+    assert!(
+        events.iter().any(|event| event.kind.as_deref() == Some("relay_endpoint_bootstrap_direct_lookup")),
+        "bootstrap must publish the one allowed direct DNS lookup",
+    );
 }
 
 #[tokio::test]

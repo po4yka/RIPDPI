@@ -39,6 +39,8 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) resolver_latency_avg_ms: Option<u64>,
     pub(crate) resolver_fallback_active: bool,
     pub(crate) resolver_fallback_reason: Option<String>,
+    pub(crate) relay_dns_route: Option<String>,
+    pub(crate) relay_dns_fail_closed: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) dht_trigger_observations: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]

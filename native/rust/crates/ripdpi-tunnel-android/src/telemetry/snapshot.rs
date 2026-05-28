@@ -42,6 +42,8 @@ impl TunnelTelemetryState {
             resolver_latency_avg_ms: dns_stats.resolver_latency_avg_ms,
             resolver_fallback_active: dns_stats.resolver_fallback_active,
             resolver_fallback_reason: dns_stats.resolver_fallback_reason,
+            relay_dns_route: self.relay_dns_route.load().as_ref().map(|route| (**route).clone()),
+            relay_dns_fail_closed: self.relay_dns_fail_closed.load(Ordering::Relaxed),
             dht_trigger_observations: (dns_stats.dht_trigger_observations != 0)
                 .then_some(dns_stats.dht_trigger_observations),
             last_dht_trigger_endpoint: dns_stats.last_dht_trigger_endpoint,

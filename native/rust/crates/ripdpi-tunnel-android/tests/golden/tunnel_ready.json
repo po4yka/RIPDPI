@@ -20,6 +20,8 @@
   "ptRuntimeState": null,
   "quicMigrationReason": null,
   "quicMigrationStatus": null,
+  "relayDnsFailClosed": false,
+  "relayDnsRoute": null,
   "resolverEndpoint": null,
   "resolverFallbackActive": false,
   "resolverFallbackReason": null,
