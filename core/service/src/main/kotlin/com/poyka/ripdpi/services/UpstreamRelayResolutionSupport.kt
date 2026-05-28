@@ -23,13 +23,18 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelayTrustDomain
+import com.poyka.ripdpi.data.RelayTrustDomainWarning
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.detectRelayChainTrustWarning
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
+import com.poyka.ripdpi.data.toRelayTrustDomain
 
 internal data class ResolvedChainRelayHop(
     val profileId: String,
+    val trustDomain: RelayTrustDomain,
     val server: String,
     val serverPort: Int,
     val serverName: String,
@@ -42,6 +47,7 @@ internal data class ResolvedChainRelayHop(
 internal data class ResolvedChainRelayConfig(
     val entry: ResolvedChainRelayHop,
     val exit: ResolvedChainRelayHop,
+    val trustWarning: RelayTrustDomainWarning? = detectRelayChainTrustWarning(entry.trustDomain, exit.trustDomain),
 )
 
 internal suspend fun resolveChainRelayConfigSupport(
@@ -154,6 +160,7 @@ private suspend fun resolveChainRelayHopSupport(
         val hopConfig = profile.toResolvedChainRelayHopConfig(hopCredentials)
         return ResolvedChainRelayHop(
             profileId = hopConfig.profileId,
+            trustDomain = profile.toRelayTrustDomain(),
             server = hopConfig.server,
             serverPort = hopConfig.serverPort,
             serverName = hopConfig.serverName,
@@ -170,6 +177,7 @@ private suspend fun resolveChainRelayHopSupport(
     require(!legacyUuid.isNullOrBlank()) { "Relay credentials missing for chain relay $hopName" }
     return ResolvedChainRelayHop(
         profileId = "",
+        trustDomain = RelayTrustDomain(),
         server = legacyServer,
         serverPort = legacyServerPort,
         serverName = legacyServerName,
@@ -353,8 +361,8 @@ private fun validateChainHopCredentials(hop: ResolvedChainRelayHopConfig) {
         }
 
         RelayKindMasque -> {
-            if (hop.masqueAuthMode == RelayMasqueAuthModeBearer && hop.masqueAuthToken.isNullOrBlank()) {
-                throw IllegalArgumentException("Relay credentials missing for profile ${hop.profileId}")
+            require(hop.masqueAuthMode != RelayMasqueAuthModeBearer || !hop.masqueAuthToken.isNullOrBlank()) {
+                "Relay credentials missing for profile ${hop.profileId}"
             }
         }
     }

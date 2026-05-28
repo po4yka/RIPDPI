@@ -111,6 +111,8 @@ class RelayStoresTest {
                 kind = RelayKindTuicV5,
                 chainEntryProfileId = "entry",
                 chainExitProfileId = "exit",
+                jurisdiction = "RU",
+                operatorName = "Entry Transit",
                 masqueCloudflareGeohashEnabled = true,
                 tuicZeroRtt = true,
                 tuicCongestionControl = RelayCongestionControlCubic,

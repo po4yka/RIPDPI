@@ -19,6 +19,8 @@ data class RelayProfileRecord(
     val kind: String = RelayKindOff,
     val presetId: String = "",
     val outboundBindIp: String = "",
+    val jurisdiction: String = "",
+    val operatorName: String = "",
     val server: String = "",
     val serverPort: Int = 443,
     val serverName: String = "",
