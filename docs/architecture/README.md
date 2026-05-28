@@ -41,7 +41,7 @@ Cross-boundary contract docs:
 
 **Emitter tiers:** Tactics are classified as `non_root_production`, `rooted_production`, or `lab_diagnostics_only`. Device capability checks decide whether an emitter can run; they do not change the tactic taxonomy.
 
-**Tier-3 platform primitives:** SYN-hide and ICMP-wrapped UDP are implemented root-helper/platform primitives, but are not wired through `DesyncMode`, protobuf settings, or UI. Future activation requires schema, UI, packet-smoke, and security review work.
+**Tier-3 platform primitives:** SYN-hide and ICMP-wrapped UDP are implemented root-helper/platform primitives, but are not wired through `DesyncMode`, protobuf settings, or UI. `synack` / `synack_split` are different: strategy YAML can configure the TUN ingress SYN-ACK interceptor, while the strategy registry still treats them as descriptor-only `DesyncStrategy` placeholders. Future activation through the general desync action pipeline requires schema, UI, packet-smoke, and security review work.
 
 **`RelaySession::open_datagram`:** The API is live for relay implementations that support datagrams. The absence of broad call sites does not make it dead code.
 

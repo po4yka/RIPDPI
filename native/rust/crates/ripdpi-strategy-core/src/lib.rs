@@ -10,11 +10,11 @@
 //! is one `core_strategy!` invocation here, not a parallel edit to a
 //! definition table and an action match.
 //!
-//! `synack` / `synack_split` are *registered but unimplemented*: they carry a
-//! descriptor (tier, capabilities) for inventory and UI surfaces but have no
-//! `DesyncStrategy` impl yet — the registry materializes a placeholder whose
-//! `plan` fails, so an `OnFail::Next` chain skips past them, exactly as the
-//! former `BuiltinTechnique` adapter did.
+//! `synack` / `synack_split` are *registered but unimplemented* in the strategy
+//! registry: they carry descriptors for inventory/capability surfaces, but the
+//! registry materializes placeholders whose `plan` fails. The TUN ingress
+//! interceptor consumes the same YAML step ids separately for SYN-ACK packet
+//! injection.
 
 #![forbid(unsafe_code)]
 
@@ -212,8 +212,9 @@ core_strategy!(
 );
 
 /// `synack` — SYN-ACK low-TTL technique. Registered with a descriptor for
-/// inventory and capability surfaces; the underlying Tier-3 primitive is not
-/// wired through `DesyncMode` yet, so it has no `DesyncStrategy` impl.
+/// inventory and capability surfaces; the strategy registry does not produce a
+/// `DesyncAction` for it. The TUN ingress interceptor consumes the YAML step id
+/// separately.
 #[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]
 static SYNACK_REGISTRATION: StrategyStepRegistration = StrategyStepRegistration {
     descriptor: StrategyStepDescriptor {

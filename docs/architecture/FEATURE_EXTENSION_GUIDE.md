@@ -92,7 +92,7 @@ file-/CLI-driven config — the `ripdpi-strategy-*` crates behind the
 | Crate | Role |
 |-------|------|
 | `ripdpi-strategy-trait` | The `DesyncStrategy` contract + the `STRATEGY_STEP_REGISTRATIONS` / `STRATEGY_DESCRIPTOR_REGISTRATIONS` `linkme` slices, the `StrategyStepDescriptor` / `StrategyStepFactory` platform types |
-| `ripdpi-strategy-core` | The stateless core techniques (`split`, `disorder`, `fake`, `oob`, `fake_rst`, `seq_overlap`, `ip_frag`, `multi_disorder`, `tls_rec`, `tls_rand_rec`) + the descriptor-only `synack` / `synack_split` placeholders |
+| `ripdpi-strategy-core` | The stateless core techniques (`split`, `disorder`, `fake`, `oob`, `fake_rst`, `seq_overlap`, `ip_frag`, `multi_disorder`, `tls_rec`, `tls_rand_rec`) + descriptor-only `synack` / `synack_split` registry placeholders. The TUN ingress SYN-ACK interceptor consumes those YAML step ids separately. |
 | `ripdpi-strategy-{http,ipv6,udp,window,lua}` | Built-in strategy implementations |
 | `ripdpi-strategy-config` | YAML/TOML strategy-file model (`StepType`, `LoadedStrategyConfig`) |
 | `ripdpi-strategy-registry` | Aggregates the impls into a `StrategyRegistry` and executes the chain |
@@ -113,7 +113,7 @@ over step ids.
    variant: `Stateless` for a zero-argument default (`ripdpi-strategy-window`
    is the minimal worked example, `ripdpi-strategy-core` the macro-driven one),
    `Configured` for a step built from parsed parameters (`udplen`, `ipv6_ext`),
-   or `Unimplemented` for a descriptor-only placeholder (`synack`).
+   or `Unimplemented` for a descriptor-only registry placeholder (`synack` / `synack_split`; TUN ingress handles those ids separately).
 3. **Central edit:** if the strategy lives in a *new* crate, add
    `extern crate ripdpi_strategy_<name> as _;` to
    `ripdpi-strategy-registry/src/lib.rs` — `linkme` only collects slice entries
