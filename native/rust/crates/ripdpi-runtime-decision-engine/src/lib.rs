@@ -27,23 +27,25 @@
 //!
 //! Behaviour today is byte-identical to invoking the underlying helpers
 //! directly — the engine is a **delegating facade**, not a replacement
-//! decision algorithm. The behaviour-parity tests in this module pin that
-//! invariant. Future commits move per-feature selection logic INTO the
-//! engine without changing call sites.
+//! decision algorithm. `proxy-runtime` constructs it through
+//! `ripdpi-proxy-runtime-adapter`, emits the per-runtime snapshot through
+//! `RuntimeTelemetrySink::on_runtime_decision_snapshot`, and still keeps the
+//! field as the migration seam for per-flow routing call sites. The
+//! behaviour-parity tests in this module pin the current delegation invariant
+//! so later enrichment can move behind this boundary without changing call
+//! sites.
 //!
 //! # Scope today vs. follow-up
 //!
-//! In scope (this commit): engine struct, typed `Inputs` / `Outputs`,
+//! In scope today: engine struct, typed `Inputs` / `Outputs`,
 //! `decide_runtime`, `decide_flow_route`, direct-path observation hooks,
-//! parity tests proving the engine reproduces snapshot derivation
-//! byte-identically.
+//! `proxy-runtime` startup snapshot emission, and parity tests proving the
+//! engine reproduces snapshot derivation byte-identically.
 //!
-//! Out of scope (follow-up): wiring `proxy-runtime`'s `RuntimeState` to
-//! consume the engine, migrating in-place per-flow logic from the
-//! `decision_helpers` re-export wrappers, emitting the snapshot through
-//! `ripdpi-telemetry`. These are sequenced separately to keep each
-//! refactor reviewable; the engine is the seam every follow-up flows
-//! through.
+//! Out of scope (follow-up): migrating in-place per-flow logic from the
+//! `decision_helpers` re-export wrappers into [`decide_flow_route`] call
+//! sites and enriching the engine with adaptive/retry hints. These remain
+//! sequenced separately to keep each refactor reviewable.
 
 use std::net::SocketAddr;
 use std::sync::Arc;
