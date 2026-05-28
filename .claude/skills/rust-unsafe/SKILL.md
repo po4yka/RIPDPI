@@ -194,9 +194,9 @@ unsafe {
 }
 ```
 
-## Syscall FFI wrappers (ripdpi-runtime/platform/linux.rs)
+## Syscall FFI Wrappers
 
-The Linux platform module (`native/rust/crates/ripdpi-runtime/src/platform/linux.rs`, 83 unsafe blocks — the largest concentration in the workspace) wraps raw `libc::setsockopt` / `getsockopt` / `recvmsg` for kernel-specific options unavailable in `socket2`: `TCP_INFO`, `TCP_MD5SIG`, `TCP_FASTOPEN_CONNECT`, `SO_ORIGINAL_DST`, `IP_RECVTTL`, and CMSG-carrying `recvmsg`.
+The Linux syscall surface is split across `native/rust/crates/ripdpi-privileged-ops/src/linux/` and `native/rust/crates/ripdpi-root-helper-protocol/src/scm_rights.rs`. `ripdpi-privileged-ops` wraps raw `libc::setsockopt` / `getsockopt` for kernel-specific options unavailable in `socket2`: `TCP_INFO`, `TCP_MD5SIG`, `TCP_FASTOPEN_CONNECT`, `SO_ORIGINAL_DST`, `IP_RECVTTL`, raw-socket headers, BPF filter attachment, and TCP repair options. `ripdpi-root-helper-protocol` owns the CMSG-carrying `recvmsg` helpers for SCM_RIGHTS fd passing.
 
 The canonical wrapper idiom — `zeroed::<T>() + cast-to-*mut-T` for variadic kernel structs:
 
@@ -216,17 +216,18 @@ unsafe fn getsockopt_raw<T>(
 }
 ```
 
-**Rule**: every new syscall wrapper in this module MUST:
+**Rule**: every new syscall wrapper in these modules MUST:
 
 1. Carry a `# Safety` rustdoc block on the `unsafe fn` signature listing the fd-validity and layout-match invariants.
 2. Use `zeroed()` only for plain C structs (no Rust-level invariants — no `bool`, `enum`, `NonNull`, or references).
 3. Cast `&mut val as *mut T` via `.cast()` rather than `as *mut _` — the method preserves pointer provenance and plays well with Miri's Tree Borrows checker.
 4. Check the syscall return value and convert `io::Error::last_os_error()` — never discard `errno`.
-5. Preserve the module's `Last audited: <date> against socket2 <ver>` header when adding new wrappers. The header signals a human has reconciled the kernel-ABI-vs-socket2 boundary; bumping the date on each audit is mandatory.
+5. Refresh the relevant module-level audit note when adding new wrappers. The note signals a human has reconciled the kernel-ABI-vs-socket2 boundary.
 
 Anchors:
-- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs:46-60` — `setsockopt_raw` reference
-- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs:69-83` — `getsockopt_raw` reference
+- `native/rust/crates/ripdpi-privileged-ops/src/linux/socket_options.rs:24-38` — `setsockopt_raw` reference
+- `native/rust/crates/ripdpi-privileged-ops/src/linux/socket_options.rs:48-65` — `getsockopt_raw` reference
+- `native/rust/crates/ripdpi-root-helper-protocol/src/scm_rights.rs` — SCM_RIGHTS `recvmsg` / control-message traversal
 
 ## Signal handling (android-support)
 

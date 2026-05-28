@@ -178,8 +178,8 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-ipfrag` | IP-level fragmentation (TCP + UDP/QUIC, v4/v6) | Functions + types | — (leaf) | Fan-in 6 | Keep |
 | `ripdpi-collections` | Generic data structures | Container types | — (leaf) | Low | Keep |
 | `ripdpi-geo` | Geo / IP database lookup (maxminddb) | Lookup API | — (leaf) | Used by `ripdpi-proxy-runtime` | Keep |
-| `ripdpi-protocol-detect` | Stream protocol detection | Detector types | `ripdpi-strategy-trait` | **No workspace consumer found** | Verify wiring (feature-gated / pending?) |
-| `ripdpi-protocol-loopback` | Loopback protocol test harness | Harness API | — (leaf) | **No workspace consumer found**; pulls `tokio` | Verify role — may be harness-only |
+| `ripdpi-protocol-detect` | Stream protocol detection | Detector types | `ripdpi-strategy-trait` | No runtime consumer; crate-local regression tests only | Keep only if the standalone detector test surface remains useful |
+| `ripdpi-protocol-loopback` | Loopback protocol test harness | Harness API | — (leaf) | Harness-only crate; no runtime consumer | Keep as a test harness or prune if no test plan uses it |
 | `ripdpi-dns-resolver` | Encrypted DNS client (DoH/DoT/DNSCrypt/DoQ) | Resolver API (async) | `ripdpi-socks5-core` | Fan-in 7; heavy ext deps (`quinn`, `boring`, `reqwest`) | Keep |
 
 ### L2 — contracts / config
@@ -204,7 +204,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-desync-runtime` | Desync execution runtime | Runtime types | `ripdpi-desync`, `ripdpi-session`, `ripdpi-proxy-config`, … | Mid fan-out | Keep |
 | `ripdpi-failure-classifier` | Connection-failure + block-signal classification | `classify_*` fns + types | `ripdpi-packets` | **Fan-in 17 (highest)** — shared by L6 + L4 | Keep — treat API as a contract |
 | `ripdpi-session` | Session state machine + policy store | State-machine API | `ripdpi-packets` | Fan-in 5 | Keep |
-| `ripdpi-routing` | Routing rule engine | Rule API | — (leaf) | **No workspace consumer found** | Verify wiring |
+| `ripdpi-routing` | Routing rule engine | Rule API | — (leaf) | No runtime consumer | Prune candidate unless a routing feature wires it |
 | `ripdpi-shared-priors` | Offline-learner signed shared-priors bundles | Parser + verifier API | — (leaf) | Fail-secure parser (see architecture/README) | Keep |
 | `ripdpi-runtime-policy` | Runtime policy logic | Policy types | `ripdpi-desync`, `ripdpi-session`, `ripdpi-runtime-decision-ports`, … | Mid | Keep |
 | `ripdpi-runtime-adaptive` | Adaptive runtime (UCB1 / bandit scoring) | Scorer API | `ripdpi-runtime-policy`, `ripdpi-runtime-decision-ports`, … | Mid | Keep |
@@ -225,7 +225,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-proxy-runtime-adapter` | Composition/wiring for the proxy runtime | Builder/wiring API | 10 internal deps | High fan-out — wiring crate | Keep thin; resist absorbing logic |
 | `ripdpi-proxy-runtime-desync-adapter` | Wires desync pipeline into the proxy runtime | Adapter API | **12 internal deps** | Highest fan-out in workspace — god-adapter risk | Watch — keep wiring-only |
 | `ripdpi-runtime-services` | Runtime service composition | Service API | `ripdpi-runtime-{adaptive,api,policy,strategy}`, … | Mid | Keep |
-| `ripdpi-runtime-dns-cache` | Runtime DNS cache | Cache API | — (leaf) | **No workspace consumer found** | Verify wiring |
+| `ripdpi-runtime-dns-cache` | Runtime DNS cache | Cache API | — (leaf) | No runtime consumer; crate-local route-aware cache tests only | Prune candidate unless runtime DNS routing adopts it |
 | `ripdpi-tunnel-core` | TUN-to-SOCKS bridge runtime | Runtime entrypoint | `ripdpi-tun-driver`, `ripdpi-tunnel-intercept`, `ripdpi-dns-resolver`, … | Core of `libripdpi-tunnel.so`; `smoltcp` | Keep |
 | `ripdpi-tunnel-intercept` | TUN-egress packet interception + mutation | Intercept API | `ripdpi-strategy-registry`, `ripdpi-runtime-platform`, … | Mid | Keep |
 | `ripdpi-ws-bootstrap` | WebSocket-tunnel bootstrap orchestration | Bootstrap API | `ripdpi-ws-tunnel`, `ripdpi-dns-resolver`, `ripdpi-runtime-platform`, … | Mid | Keep |
@@ -252,8 +252,8 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-diagnostics-dns` | DNS integrity / tampering probes | Probe API | `ripdpi-diagnostics-transport`, `ripdpi-dns-resolver`, … | Fan-in 6 | Keep |
 | `ripdpi-diagnostics-fat-header` | TCP fat-header probes | Probe API | `ripdpi-diagnostics-{http,tls,transport}` | — | Keep |
 | `ripdpi-diagnostics-http` | HTTP reachability probes | Probe API | `ripdpi-diagnostics-{tls,transport}`, `ripdpi-failure-classifier` | Fan-in 6 | Keep |
-| `ripdpi-diagnostics-net` | Net-probe aggregation | Probe API | `ripdpi-diagnostics-{contracts,dns,fat-header,http,telegram,tls,transport}` | **No workspace consumer**; dep set mirrors `ripdpi-diagnostics-protocols` | Verify — possibly superseded by `-protocols` |
-| `ripdpi-diagnostics-parsers` | Response parsers (HTTP/TLS/SSH) | Parser API | `ripdpi-failure-classifier` | **No workspace consumer found** | Verify wiring |
+| `ripdpi-diagnostics-net` | Net-probe aggregation | Probe API | `ripdpi-diagnostics-{contracts,dns,fat-header,http,telegram,tls,transport}` | No runtime consumer; dep set mirrors `ripdpi-diagnostics-protocols` | Prune candidate unless a net-probe aggregator plan still needs it |
+| `ripdpi-diagnostics-parsers` | Response parsers (HTTP/TLS/SSH) | Parser API | `ripdpi-failure-classifier` | No runtime consumer | Prune candidate unless parser extraction is revived |
 | `ripdpi-diagnostics-pcap` | PCAP diagnostic recording | Recorder API | — (leaf) | Used by `ripdpi-android-proxy-adapter` | Keep |
 | `ripdpi-diagnostics-probes` | Probe-task execution | Probe API | `ripdpi-diagnostics-{classification,contracts,http}`, … | — | Keep |
 | `ripdpi-diagnostics-protocols` | Protocol-probe aggregation | Probe API | `ripdpi-diagnostics-{contracts,dns,fat-header,http,telegram,tls,transport}` | Consumed by `-runner` | Keep |

@@ -29,7 +29,7 @@ App -> TUN -> ripdpi-proxy -> handshake pipeline
   7. ws_relay(client, ws, seed_request)     -- relay.rs: bidirectional relay
 ```
 
-Runtime entry points (`ripdpi-runtime/src/runtime/handshake/ws_tunnel.rs`):
+Runtime entry points (`ripdpi-proxy-runtime/src/runtime/handshake/ws_tunnel.rs`):
 - `should_ws_tunnel_first()` -- `WsTunnelMode::Always` + known Telegram IP
 - `should_ws_tunnel_fallback()` -- `WsTunnelMode::Fallback` + known Telegram IP
 - `run_ws_tunnel()` / `run_ws_tunnel_with_seed()` -- classify, resolve, relay

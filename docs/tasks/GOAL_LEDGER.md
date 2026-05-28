@@ -51,13 +51,13 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 28 | P2 | `add-integration-tests-per-diagnostic-result-class`<br>Add integration tests per diagnostic result class | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | 🔼 | TODO | |
 | 29 | P2 | `add-network-security-config-with-opportunistic-domainencryption`<br>Add network-security-config with opportunistic domainEncryption | task | `(no epic)` | diagnostics | 🔼 | TODO | |
 | 30 | P2 | `build-censorlab-style-offline-strategy-pack-pipeline`<br>Build CensorLab-style offline strategy-pack pipeline | task | `epic-privacy-preserving-strategy-learner` | service | 🔼 | TODO | |
-| 31 | P2 | `decompose-desync-rs-by-responsibility`<br>Decompose desync.rs by responsibility | task | `epic-native-hotspot-decomposition` | service | 🔼 | TODO | |
-| 32 | P2 | `decompose-linux-rs-by-responsibility`<br>Decompose linux.rs by responsibility | task | `epic-native-hotspot-decomposition` | service | 🔼 | TODO | |
-| 33 | P2 | `decompose-ripdpiproxyjsoncodec`<br>Decompose RipDpiProxyJsonCodec | task | `epic-native-hotspot-decomposition` | service | 🔼 | TODO | |
+| 31 | P2 | `decompose-desync-rs-by-responsibility`<br>Decompose desync.rs by responsibility | task | `epic-native-hotspot-decomposition` | service | 🔼 | DONE | 2026-05-28 docs cleanup: `native/rust/crates/ripdpi-proxy-runtime/src/runtime/desync.rs` is 24 LOC and desync planning/execution now lives in split `ripdpi-desync` / `ripdpi-desync-runtime` crates. |
+| 32 | P2 | `decompose-linux-rs-by-responsibility`<br>Decompose linux.rs by responsibility | task | `epic-native-hotspot-decomposition` | service | 🔼 | DONE | 2026-05-28 docs cleanup: the former monolithic Linux platform file no longer exists; Linux privileged operations now live under `ripdpi-privileged-ops/src/linux/` and runtime dispatch under `ripdpi-runtime-platform`. |
+| 33 | P2 | `decompose-ripdpiproxyjsoncodec`<br>Decompose RipDpiProxyJsonCodec | task | `epic-native-hotspot-decomposition` | service | 🔼 | DONE | 2026-05-28 docs cleanup: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyJsonCodec.kt` is 199 LOC, below the task's 300 LOC target. |
 | 34 | P2 | `decouple-jni-handle-lifetime-and-telemetry-locking`<br>Decouple JNI handle-lifetime and telemetry locking | task | `epic-runtime-lifecycle-and-supervisors` | service | 🔼 | TODO | |
 | 35 | P2 | `epic-runtime-lifecycle-and-supervisors`<br>Epic - Runtime lifecycle and supervisors | epic | `—` | epic | 🔺 | TODO | |
-| 36 | P2 | `extract-native-actionplan-ir`<br>Extract native ActionPlan IR | task | `epic-native-hotspot-decomposition` | service | 🔼 | TODO | |
-| 37 | P3 | `epic-native-hotspot-decomposition`<br>Epic - Native hotspot decomposition | epic | `—` | epic | 🔼 | TODO | |
+| 36 | P2 | `extract-native-actionplan-ir`<br>Extract native ActionPlan IR | task | `epic-native-hotspot-decomposition` | service | 🔼 | DONE | 2026-05-28 docs cleanup: `DesyncPlan`/`PlannedStep` are the current internal plan IR in `ripdpi-desync`; execution is split through `ripdpi-desync-runtime`. |
+| 37 | P3 | `epic-native-hotspot-decomposition`<br>Epic - Native hotspot decomposition | epic | `—` | epic | 🔼 | DONE | 2026-05-28 docs cleanup: child notes closed because their cited hotspot files are split, removed, or below their LOC targets. |
 | 38 | P3 | `implement-phase-0-passive-observation-from-last-flow`<br>Implement Phase 0 passive observation from last flow | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | 🔼 | TODO | |
 | 39 | P3 | `install-cloudflare-binaries-once-per-abi-and-version`<br>Install Cloudflare binaries once per ABI and version | task | `epic-cloudflare-publish-hardening` | relay | 🔼 | TODO | |
 | 40 | P3 | `limit-dns-measurement-to-user-requested-destinations`<br>Limit DNS measurement to user-requested destinations | task | `epic-encrypted-dns-and-https-svcb-classifier` | dns | 🔼 | TODO | |
@@ -144,4 +144,3 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 121 | P7 | `add-format-transforming-encryption-marionette-style-protocol-shapeshift`<br>Add format-transforming encryption (Marionette-style) for protocol shape-shifting | task | `(no epic)` | rust-native | 🔽 | TODO | |
 | 122 | P7 | `epic-direct-mode-diagnostic-state-machine`<br>Epic - Direct-mode diagnostic state machine | epic | `—` | epic | ⏫ | TODO | |
 | 123 | P7 | `epic-orchestration-test-posture`<br>Epic - Orchestration test posture | epic | `—` | testing | ⏫ | TODO | |
-

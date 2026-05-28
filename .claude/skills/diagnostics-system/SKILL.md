@@ -458,9 +458,9 @@ After any wire type change:
 On-device packet capture for DPI evasion debugging without external tools.
 
 **Rust components:**
-- `ripdpi-monitor/src/pcap.rs` -- `PcapWriter` (standard pcap format, 10 MB cap) + `PcapRecordingSession` (thread-safe, 50 connection limit, auto-stop)
-- `ripdpi-runtime/src/runtime/desync.rs` -- `PcapHook` callback invoked on each outbound packet during desync execution
-- `ripdpi-android/src/proxy/pcap.rs` -- JNI bridge: `jniStartPcapRecording`, `jniStopPcapRecording`, `jniIsPcapRecording`
+- `ripdpi-monitor-engine` / diagnostics archive support -- standard pcap export, retention, and archive bundling for captured sessions
+- `ripdpi-proxy-runtime/src/runtime/state/desync.rs` plus the runtime desync context -- `PcapHook` callback invoked on outbound desync execution
+- `ripdpi-android/src/ffi/proxy_bridge/pcap.rs` -- JNI bridge: `jniStartPcapRecording`, `jniStopPcapRecording`, `jniIsPcapRecording`
 
 **Android components:**
 - `DiagnosticsViewModel` -- `togglePcapRecording()` action, `pcapRecording` state flow

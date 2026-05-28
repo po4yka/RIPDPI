@@ -87,8 +87,8 @@ Relevant sources:
 - `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`
 - `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt`
 - `native/rust/crates/ripdpi-android/src/lib.rs`
-- `native/rust/crates/ripdpi-runtime/src/runtime.rs`
-- `native/rust/crates/ripdpi-monitor/src/lib.rs`
+- `native/rust/crates/ripdpi-proxy-runtime/src/runtime.rs`
+- `native/rust/crates/ripdpi-monitor-engine/src/lib.rs`
 
 ## Methods Actually Used
 
@@ -96,12 +96,12 @@ Relevant sources:
 | --- | --- | --- | --- | --- |
 | `ripdpi_config::parse_cli` | `native/rust/crates/ripdpi-config/src/lib.rs` | `jniCreate(configJson)` | Command-line mode only | Parses user-supplied CLI arguments into a `RuntimeConfig`. |
 | `ripdpi_config::parse_hosts_spec` | `native/rust/crates/ripdpi-config/src/lib.rs` | `jniCreate(configJson)` | UI mode host list setup | Parses the app host list string into normalized host rules. |
-| `runtime::create_listener` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Start only | Opens the local listening socket for the proxy runtime. |
-| `runtime::run_proxy_with_embedded_control` | `native/rust/crates/ripdpi-runtime/src/runtime.rs` | `jniStart(handle)` | Always after session start | Runs the Rust proxy loop on the listener owned by the native session, with session-local shutdown state, telemetry sink, and runtime context. |
-| `EmbeddedProxyControl::request_shutdown` | `native/rust/crates/ripdpi-runtime/src/lib.rs` | `jniStop(handle)` | Stop path | Signals the active embedded proxy session to exit without relying on standalone daemon/process control. |
+| `ripdpi_proxy_runtime::create_listener` | `native/rust/crates/ripdpi-proxy-runtime/src/runtime.rs` | `jniStart(handle)` | Start only | Opens the local listening socket for the proxy runtime. |
+| `ripdpi_proxy_runtime::run_proxy_with_embedded_control` | `native/rust/crates/ripdpi-proxy-runtime/src/runtime.rs` | `jniStart(handle)` | Always after session start | Runs the Rust proxy loop on the listener owned by the native session, with session-local shutdown state, telemetry sink, and runtime context. |
+| `EmbeddedProxyControl::request_shutdown` | `native/rust/crates/ripdpi-proxy-runtime/src/lib.rs` | `jniStop(handle)` | Stop path | Signals the active embedded proxy session to exit without relying on standalone daemon/process control. |
 | `platform::detect_default_ttl` | `native/rust/crates/ripdpi-proxy-runtime-adapter/src/platform.rs` via `ripdpi-runtime-platform::capability` | `runtime::run_proxy_with_embedded_control` | When custom TTL is not supplied | Detects the system default TTL before the proxy loop starts. |
-| `MonitorSession::start_scan` | `native/rust/crates/ripdpi-monitor/src/lib.rs` | `NetworkDiagnostics.jniStartScan()` | Diagnostics screen | Starts an active diagnostics session with structured phase progress, live strategy-candidate progress, and reports. |
-| `MonitorSession::poll_progress_json` / `take_report_json` / `poll_passive_events_json` | `native/rust/crates/ripdpi-monitor/src/lib.rs` | `NetworkDiagnostics` JNI methods | Diagnostics screen | Returns scan progress, scan report, and scan-time native events. |
+| `MonitorSession::start_scan` | `native/rust/crates/ripdpi-monitor-engine/src/lib.rs` | `NetworkDiagnostics.jniStartScan()` | Diagnostics screen | Starts an active diagnostics session with structured phase progress, live strategy-candidate progress, and reports. |
+| `MonitorSession::poll_progress_json` / `take_report_json` / `poll_passive_events_json` | `native/rust/crates/ripdpi-monitor-engine/src/lib.rs` | `NetworkDiagnostics` JNI methods | Diagnostics screen | Returns scan progress, scan report, and scan-time native events. |
 
 ## UI Mode Compatibility
 
@@ -762,7 +762,7 @@ Relevant sources:
 - `native/rust/crates/ripdpi-ws-tunnel/src/mtproto.rs`
 - `native/rust/crates/ripdpi-ws-tunnel/src/connect.rs`
 - `native/rust/crates/ripdpi-ws-tunnel/src/relay.rs`
-- `native/rust/crates/ripdpi-runtime/src/runtime/handshake/ws_tunnel.rs`
+- `native/rust/crates/ripdpi-proxy-runtime/src/runtime/handshake/ws_tunnel.rs`
 
 ## Failure Classification and Block Detection
 

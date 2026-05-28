@@ -28,7 +28,7 @@ only executable additions are unit tests and a CI/pre-commit Python check.
 | `b23eb3e8d` | Root-helper protocol tests | Compatibility tests pinning `CMD_*` wire strings, params JSON round-trips, session-nonce bounds, request/response shapes, and unknown-command tolerance (`commands.rs`, `params.rs`, `wire.rs`). |
 | `bf83b39e7` | `:core:service` ownership | **New** `core/service/README.md` ownership map (10 sub-areas, central coordinators); class-level KDoc on 11 service/runtime coordinators. |
 | `d09ff768d` | Runtime mode state model | KDoc on `Mode` / `AppStatus` / `ServiceStatus` / `ServiceStateStore.status`; the "runtime mode state model" section in [`RUNTIME_MODES.md`](RUNTIME_MODES.md). |
-| `71463df25` | Architecture guardrail + doc consistency | New JNI-containment check in `scripts/ci/check_native_architecture_contracts.py` (non-L8 crates may not pull `jni` / `android-support` / `android_logger` / `ndk-*`); doc consistency pass — stale `ripdpi-runtime` reference fixed, resolved proto-path `TODO verify`, historical-crate-name banners on `docs/native/proxy-engine.md` and `docs/native/unsafe-audit.md`, enforcement cross-links. |
+| `71463df25` | Architecture guardrail + doc consistency | New JNI-containment check in `scripts/ci/check_native_architecture_contracts.py` (non-L8 crates may not pull `jni` / `android-support` / `android_logger` / `ndk-*`); doc consistency pass — stale `ripdpi-runtime` reference fixed, resolved proto-path verification marker, historical-crate-name banners on `docs/native/proxy-engine.md` and `docs/native/unsafe-audit.md`, enforcement cross-links. |
 
 Net effect: the five canonical architecture docs
 ([`ARCHITECTURE.md`](ARCHITECTURE.md), [`NATIVE_RUST.md`](NATIVE_RUST.md),
@@ -158,7 +158,7 @@ Right-sized, accurate, low-risk — each is a single focused change:
 1. ~~**Fix the `AGENTS.md` proto path** to
    `core/data/model/src/main/proto/app_settings.proto`~~ — **done** in the
    doc audit pass.
-2. ~~**Resolve the `ARCHITECTURE.md` §3 `TODO verify`** for the
+2. ~~**Resolve the `ARCHITECTURE.md` §3 verification marker** for the
    `:core:data:settings` ↔ `:core:data:model` split~~ — **done** in the doc
    audit pass; the split (schema vs. persistence) is now stated inline.
 3. **Rewrite the historical crate names** in the *bodies* of

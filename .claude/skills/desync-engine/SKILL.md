@@ -65,14 +65,14 @@ The planner takes a `DesyncGroup` + raw payload + `ActivationContext` and
 produces a `DesyncPlan` containing a `Vec<DesyncAction>`. No I/O happens here
 -- pure computation over bytes.
 
-### Layer 3: Execution (`ripdpi-runtime`)
+### Layer 3: Execution (`ripdpi-desync-runtime` via proxy runtime adapters)
 
-File: `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs`
+Files:
+- `native/rust/crates/ripdpi-desync-runtime/src/tcp.rs`
+- `native/rust/crates/ripdpi-desync-runtime/src/tcp_plan/`
+- `native/rust/crates/ripdpi-proxy-runtime/src/runtime/desync.rs`
 
-Functions: `send_with_group()`, `execute_tcp_plan()`, `execute_tcp_actions()`.
-Takes the `DesyncPlan` and executes `DesyncAction` variants against a real
-`TcpStream`, calling platform-specific socket operations (TTL, MD5 sig,
-window clamp, IP fragmentation).
+The proxy runtime builds the runtime desync context and delegates TCP execution to `ripdpi-desync-runtime`, which takes the `DesyncPlan` and executes `DesyncAction` variants against a real `TcpStream`, calling platform-specific socket operations (TTL, MD5 sig, window clamp, IP fragmentation).
 
 ## The desync pipeline
 
@@ -294,21 +294,20 @@ In `native/rust/crates/ripdpi-desync/src/plan_tcp.rs`:
   type, add a variant to `DesyncAction` in `types.rs`.
 
 ### 4. Implement execution
-In `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs`:
-- Add handling for any new `DesyncAction` variant in `execute_tcp_actions()`.
-- If the step needs special multi-disorder-style execution, add a handler in
-  `execute_tcp_plan()` and update `requires_special_tcp_execution()`.
-- Update `primary_tcp_strategy_family()` to return a label for the new step.
+In `native/rust/crates/ripdpi-desync-runtime/src/tcp.rs` and `native/rust/crates/ripdpi-desync-runtime/src/tcp_plan/`:
+- Add handling for any new `DesyncAction` variant in the TCP lowering/execution path.
+- If the step needs special multi-disorder-style execution, add a handler in the `tcp_plan` module and update the special-plan decision logic.
+- Update `primary_tcp_strategy_family()` in the proxy-runtime state/config layer if the new step needs a user-visible strategy-family label.
 
 ### 5. Add tests
 In `native/rust/crates/ripdpi-desync/src/tests/` -- add plan-level tests.
-In `native/rust/crates/ripdpi-runtime/src/runtime/` -- add execution tests
+In `native/rust/crates/ripdpi-desync-runtime/src/tcp/tests/` or the relevant proxy-runtime adapter tests -- add execution tests
 if the new action involves socket operations.
 
 ### 6. Update adaptive layer (if applicable)
 If the new technique has tunable parameters, add fields to
 `AdaptivePlannerHints` and wire them through the strategy evolution system
-in `native/rust/crates/ripdpi-runtime/src/runtime/adaptive.rs`.
+in `native/rust/crates/ripdpi-proxy-runtime/src/runtime/adaptive/`.
 
 ## Common pitfalls
 

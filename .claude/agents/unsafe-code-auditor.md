@@ -78,14 +78,14 @@ MIRIFLAGS="-Zmiri-tree-borrows -Zmiri-disable-isolation -Zmiri-symbolic-alignmen
 
 Known Miri limitations: cannot test io-uring, raw sockets, or JNI. Focus on pure logic crates.
 
-## Syscall FFI wrapper protocol (ripdpi-runtime/platform/linux.rs)
+## Syscall FFI Wrapper Protocol
 
-When auditing a diff that touches `ripdpi-runtime/src/platform/linux.rs` (83 unsafe blocks — the largest concentration in the workspace), apply the syscall FFI wrapper checklist from `rust-unsafe` skill:
+When auditing a diff that touches `ripdpi-privileged-ops/src/linux/`, apply the syscall FFI wrapper checklist from the `rust-unsafe` skill. The Linux syscall surface is now split across focused privileged-ops and runtime-platform modules instead of a monolithic runtime platform file.
 
 1. Every `unsafe fn` with a syscall wrapper has a `# Safety` rustdoc block naming the fd-validity and layout-match invariants.
 2. `zeroed::<T>()` is used only for plain C structs (no `bool`, `enum`, `NonNull`, or references).
 3. Pointer casts use `(&mut val as *mut T).cast()` rather than `as *mut _` (preserves provenance for Tree Borrows).
-4. The `Last audited: <date> against socket2 <ver>` header is bumped when a new wrapper lands.
+4. The relevant module-level audit note is refreshed when a new wrapper lands.
 
 ## `extern` boundary `catch_unwind` audit
 
