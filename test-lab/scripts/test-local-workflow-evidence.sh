@@ -24,12 +24,12 @@ import time
 
 output, head_sha, mutation = sys.argv[1:4]
 checks = [
-    {"name": "ci", "status": "passed", "source": "act", "command": "scripts/ci/act-local.sh build native-bloat release-verification coverage rust-cross-check rust-lint", "evidence": "docs/feature-test-evidence-2026-05-14.md"},
-    {"name": "codeql", "status": "passed", "source": "github", "evidence": "docs/feature-test-evidence-2026-05-14.md"},
-    {"name": "local-network-lab", "status": "passed", "source": "act", "command": "scripts/ci/act-local.sh local-network-lab", "evidence": "docs/feature-test-evidence-2026-05-14.md"},
-    {"name": "offline-analytics", "status": "passed", "source": "local", "command": "python3 -m unittest scripts.tests.test_offline_analytics_pipeline && python3 -m scripts.analytics.pipeline run-all --manifest scripts/analytics/sample-corpus.json", "evidence": "docs/feature-test-evidence-2026-05-14.md"},
-    {"name": "mutation-testing", "status": "passed", "source": "act", "command": "act workflow_dispatch -j mutants -W .github/workflows/mutation-testing.yml", "evidence": "docs/feature-test-evidence-2026-05-14.md"},
-    {"name": "fuzz-nightly", "status": "passed", "source": "local", "command": "RIPDPI_FUZZ_SECONDS=30 bash scripts/ci/run-rust-fuzz-smoke.sh", "evidence": "docs/feature-test-evidence-2026-05-14.md"},
+    {"name": "ci", "status": "passed", "source": "act", "command": "scripts/ci/act-local.sh build native-bloat release-verification coverage rust-cross-check rust-lint", "evidence": "operator-current-evidence.md"},
+    {"name": "codeql", "status": "passed", "source": "github", "evidence": "operator-current-evidence.md"},
+    {"name": "local-network-lab", "status": "passed", "source": "act", "command": "scripts/ci/act-local.sh local-network-lab", "evidence": "operator-current-evidence.md"},
+    {"name": "offline-analytics", "status": "passed", "source": "local", "command": "python3 -m unittest scripts.tests.test_offline_analytics_pipeline && python3 -m scripts.analytics.pipeline run-all --manifest scripts/analytics/sample-corpus.json", "evidence": "operator-current-evidence.md"},
+    {"name": "mutation-testing", "status": "passed", "source": "act", "command": "act workflow_dispatch -j mutants -W .github/workflows/mutation-testing.yml", "evidence": "operator-current-evidence.md"},
+    {"name": "fuzz-nightly", "status": "passed", "source": "local", "command": "RIPDPI_FUZZ_SECONDS=30 bash scripts/ci/run-rust-fuzz-smoke.sh", "evidence": "operator-current-evidence.md"},
 ]
 commit = head_sha
 if mutation == "missing":

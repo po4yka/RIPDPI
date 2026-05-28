@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-audit_path="$repo_root/docs/feature-test-completion-audit-2026-05-14.md"
+audit_path=""
 readiness_path=""
 keep_readiness=false
 list_required_readiness=false
@@ -40,7 +40,7 @@ python_bin="$(ripdpi_resolve_python "feature sign-off checks")"
 
 usage() {
   cat <<USAGE
-Usage: $0 [--audit PATH] [--readiness PATH] [--list-required-readiness] [--list-required-audit-rows]
+Usage: $0 --audit PATH [--readiness PATH] [--list-required-readiness] [--list-required-audit-rows]
 
 Read-only pre-signoff guard for docs/feature-test-checklist.md.
 
@@ -102,6 +102,11 @@ fi
 if [[ "$list_required_audit_rows" == "true" ]]; then
   printf '%s\n' "${required_audit_rows[@]}"
   exit 0
+fi
+
+if [[ -z "$audit_path" ]]; then
+  echo "Completion audit path is required; pass --audit PATH." >&2
+  exit 2
 fi
 
 if [[ ! -f "$audit_path" ]]; then

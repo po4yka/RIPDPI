@@ -2,11 +2,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-checklist_path="${1:-$repo_root/docs/feature-test-checklist.md}"
-evidence_path="${2:-$repo_root/docs/feature-test-evidence-2026-05-14.md}"
+checklist_path="${1:-}"
+evidence_path="${2:-}"
 
-if [[ $# -gt 2 ]]; then
-  echo "Usage: $0 [CHECKLIST_MD EVIDENCE_MD]" >&2
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 CHECKLIST_MD EVIDENCE_MD" >&2
   exit 2
 fi
 

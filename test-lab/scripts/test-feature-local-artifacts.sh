@@ -2,11 +2,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-evidence_path="${1:-$repo_root/docs/feature-test-evidence-2026-05-14.md}"
+evidence_path="${1:-}"
 artifact_root="${RIPDPI_ARTIFACT_ROOT:-$repo_root}"
 
-if [[ $# -gt 1 ]]; then
-  echo "Usage: $0 [EVIDENCE_MD]" >&2
+if [[ $# -ne 1 ]]; then
+  echo "Usage: $0 EVIDENCE_MD" >&2
   exit 2
 fi
 

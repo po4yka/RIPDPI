@@ -64,7 +64,7 @@ It is read-only and expected to fail while the completion audit is not marked co
 
 ```bash
 ./test-lab/scripts/check-feature-test-signoff.sh \
-  --audit docs/feature-test-completion-audit-2026-05-14.md \
+  --audit /path/to/current-completion-audit.md \
   --readiness /path/to/operator-reviewed-feature-readiness.json
 ```
 
