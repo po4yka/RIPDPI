@@ -28,7 +28,12 @@ import org.junit.Test
  * If a field is added or removed on either side, these tests catch the drift at CI time.
  */
 class NativeBinaryContractTest {
-    private val kotlinOnlySnapshotFields = setOf("ptRuntimeVersion")
+    private val kotlinOnlySnapshotFields =
+        setOf(
+            "chainEntryLatencyMs",
+            "chainExitLatencyMs",
+            "ptRuntimeVersion",
+        )
 
     private val contractJson =
         Json {
