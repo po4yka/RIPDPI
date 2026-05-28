@@ -137,16 +137,12 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 
 ### ❌ Missing Implementation (0 specs — all closed)
 
-All 6 previously-deferred VPN screens now ship as presentation-only
-composables. Each accepts a typed UI state + lambda callbacks and is
-not yet wired into navigation — adoption follows when the corresponding
-subsystem (PCAP export, replay orchestrator, connection-quality
-telemetry, etc.) is ready to feed real data.
+All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer`, `PcapCaptureList`, `ReplayFailure`, and the diagnostics graph/recovery screens are registered in `Route` and `RipDpiNavHost`; some routes still use demo/default data until their producer subsystem supplies real capture or replay context.
 
-- ~~**Pcap Viewer** (`vpn-pcap-viewer.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PcapViewerScreen.kt`; scrollable packet table with NO/TIME/SRC/DST/SUMMARY columns, protocol-coded badges (TCP/UDP/TLS/Other), selection state + inline HEX DUMP detail card
-- ~~**Replay Failure** (`vpn-replay-failure.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/ReplayFailureScreen.kt`; 4-step vertical timeline with success/failure/pending dot markers, REPLAY button, recommendation banner via `WarningBanner` (Info tone)
+- ~~**Pcap Viewer** (`vpn-pcap-viewer.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PcapViewerScreen.kt` plus `PcapViewerRoute`; scrollable packet table with NO/TIME/SRC/DST/SUMMARY columns, protocol-coded badges (TCP/UDP/TLS/Other), selection state + inline HEX DUMP detail card. `PcapCaptureListRoute` is navigable from diagnostics, but selected-capture-to-viewer parsing is still a follow-up.
+- ~~**Replay Failure** (`vpn-replay-failure.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/ReplayFailureScreen.kt` plus `ReplayFailureRoute`; 4-step vertical timeline with success/failure/pending dot markers, REPLAY button, recommendation banner via `WarningBanner` (Info tone). The route currently uses default replay target arguments until typed route args land.
 - ~~**Export Consent** (`vpn-export-consent.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiExportConsentDialog.kt`; warning icon dialog with contents checklist (Check/Warning icons), redact-endpoints toggle, Cancel/Export actions
-- ~~**First-Run Test** (`vpn-first-run-test.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/onboarding/FirstRunTestScreen.kt`; brand icon + intro title/caption + 5-target row list with status-coded icons (Ok/Warn/Running/Queued), Skip + Apply Recommendation CTA row
+- ~~**First-Run Test** (`vpn-first-run-test.html`)~~ — implemented inside `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/onboarding/OnboardingSetupPages.kt` as `OnboardingModeValidationContent`; validation states cover idle, permission requests, mode startup, traffic check, success, failure, suggested-mode recovery, and finish actions.
 - ~~**Confirm Disconnect** (`vpn-confirm-disconnect.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiConfirmDisconnectDialog.kt`; `RipDpiDialog` (tone=Destructive) with session-duration line, body paragraph, "Don't ask again" checkbox, Stay/Disconnect actions
 - ~~**Degradation Strip** (`vpn-degradation-strip.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiDegradationStrip.kt`; tone-coded (Warning|Critical) inline `Surface` with title + body + 3 metric chips (Loss/RTT/Jitter with deltas) + 2-button action column. Sparkline intentionally omitted — measurable engineering cost vs marginal information value
 
