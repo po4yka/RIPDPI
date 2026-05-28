@@ -422,6 +422,34 @@ async fn chain_relay_builds_masque_entry_vless_exit_from_resolved_hops() {
 }
 
 #[tokio::test]
+async fn chain_relay_builds_trojan_entry_trojan_exit_from_resolved_hops() {
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "trojan".to_string(),
+        profile_id: "trojan-entry".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 443,
+        server_name: "entry.example".to_string(),
+        trojan_password: Some("entry-secret".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+    chain.exit = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "trojan".to_string(),
+        profile_id: "trojan-exit".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 8443,
+        server_name: "exit.example".to_string(),
+        trojan_password: Some("exit-secret".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+
+    let backend = build_backend(&config).await.expect("chain backend builds Trojan entry and Trojan exit");
+
+    assert_eq!(Some("chain_relay"), relay_backend_kind_id(&backend));
+}
+
+#[tokio::test]
 async fn chain_relay_dead_resolved_entry_does_not_bypass_to_legacy_entry() {
     let legacy_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind legacy entry probe");
     let legacy_addr = legacy_listener.local_addr().expect("legacy entry address");

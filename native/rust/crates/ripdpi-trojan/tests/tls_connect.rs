@@ -3,6 +3,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use local_network_fixture::TrojanLoopback;
 use ripdpi_trojan::{TrojanAddr, TrojanClient, TrojanClientConfig};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 
 const PASSWORD: &str = "correct horse battery staple";
 const FIRST_PAYLOAD: &[u8] = b"trojan connect first payload";
@@ -41,4 +42,27 @@ async fn tls_client_sends_connect_request_and_pipes_payload_to_target() {
     assert_eq!(observed.target_addr, Some(IpAddr::V4(Ipv4Addr::LOCALHOST)));
     assert_eq!(observed.target_port, Some(fixture.target_port()));
     assert_eq!(observed.initial_payload_len, FIRST_PAYLOAD.len());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn tls_client_can_connect_over_existing_transport() {
+    let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");
+    let config = TrojanClientConfig {
+        server_host: "127.0.0.1".to_owned(),
+        server_port: fixture.port(),
+        server_name: fixture.server_name().to_owned(),
+        password: PASSWORD.to_owned(),
+        tls_fingerprint_profile: "chrome_stable".to_owned(),
+        root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
+    };
+    let transport = TcpStream::connect(("127.0.0.1", fixture.port())).await.expect("connect fixture transport");
+    let target = TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST);
+
+    let mut stream = TrojanClient::connect_tcp_over(&config, transport, &target, fixture.target_port(), FIRST_PAYLOAD)
+        .await
+        .expect("connect over existing transport");
+
+    let mut echoed_first_payload = vec![0_u8; FIRST_PAYLOAD.len()];
+    stream.read_exact(&mut echoed_first_payload).await.expect("read first echoed payload");
+    assert_eq!(echoed_first_payload, FIRST_PAYLOAD);
 }

@@ -253,13 +253,39 @@ impl TrojanClient {
         target_port: u16,
         first_payload: &[u8],
     ) -> Result<SslStream<TcpStream>, TrojanError> {
-        connect_with_request(config, TrojanCommand::TcpConnect, target_addr, target_port, first_payload).await
+        let tcp = TcpStream::connect((config.server_host.as_str(), config.server_port)).await?;
+        tcp.set_nodelay(true)?;
+        connect_with_request_over(config, tcp, TrojanCommand::TcpConnect, target_addr, target_port, first_payload).await
+    }
+
+    /// Complete TLS and send a TCP CONNECT request over an existing transport to the Trojan server.
+    pub async fn connect_tcp_over<S>(
+        config: &TrojanClientConfig,
+        transport: S,
+        target_addr: &TrojanAddr,
+        target_port: u16,
+        first_payload: &[u8],
+    ) -> Result<SslStream<S>, TrojanError>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
+        connect_with_request_over(config, transport, TrojanCommand::TcpConnect, target_addr, target_port, first_payload)
+            .await
     }
 
     /// Open a TCP connection to the Trojan server, complete TLS with certificate verification, then send a UDP ASSOCIATE request.
     pub async fn connect_udp_associate(config: &TrojanClientConfig) -> Result<SslStream<TcpStream>, TrojanError> {
-        connect_with_request(config, TrojanCommand::UdpAssociate, &TrojanAddr::Ipv4(Ipv4Addr::UNSPECIFIED), 0, &[])
-            .await
+        let tcp = TcpStream::connect((config.server_host.as_str(), config.server_port)).await?;
+        tcp.set_nodelay(true)?;
+        connect_with_request_over(
+            config,
+            tcp,
+            TrojanCommand::UdpAssociate,
+            &TrojanAddr::Ipv4(Ipv4Addr::UNSPECIFIED),
+            0,
+            &[],
+        )
+        .await
     }
 
     /// Write a Trojan request header onto `stream`.
@@ -282,16 +308,17 @@ impl TrojanClient {
     }
 }
 
-async fn connect_with_request(
+async fn connect_with_request_over<S>(
     config: &TrojanClientConfig,
+    transport: S,
     command: TrojanCommand,
     target_addr: &TrojanAddr,
     target_port: u16,
     first_payload: &[u8],
-) -> Result<SslStream<TcpStream>, TrojanError> {
-    let tcp = TcpStream::connect((config.server_host.as_str(), config.server_port)).await?;
-    tcp.set_nodelay(true)?;
-
+) -> Result<SslStream<S>, TrojanError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| TrojanError::TlsProfile(error.to_string()))?;
     if let Some(root_pem) = &config.root_certificate_pem {
@@ -301,7 +328,7 @@ async fn connect_with_request(
 
     let connector = builder.build();
     let config_ssl = connector.configure().map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
-    let mut stream = tokio_boring::connect(config_ssl, &config.server_name, tcp)
+    let mut stream = tokio_boring::connect(config_ssl, &config.server_name, transport)
         .await
         .map_err(|error| TrojanError::TlsHandshake(error.to_string()))?;
     let frame = build_request_frame(&config.password, command, target_addr, target_port, first_payload)?;

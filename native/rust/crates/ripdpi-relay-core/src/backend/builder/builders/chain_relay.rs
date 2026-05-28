@@ -57,6 +57,7 @@ fn chain_entry_connector(
             resolved_hop_vless_reality_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::VlessReality)
         }
         "masque" => resolved_hop_masque_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::Masque),
+        "trojan" => resolved_hop_trojan_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::Trojan),
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("chain entry: resolved hop kind {other} is not supported by chain relay"),
@@ -77,6 +78,7 @@ fn chain_exit_connector(
             resolved_hop_vless_reality_config(hop, ChainHopRole::Exit).map(ChainExitConnector::VlessReality)
         }
         "masque" => resolved_hop_masque_config(hop, ChainHopRole::Exit).map(ChainExitConnector::Masque),
+        "trojan" => resolved_hop_trojan_config(hop, ChainHopRole::Exit).map(ChainExitConnector::Trojan),
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("chain exit: resolved hop kind {other} is not supported by chain relay"),
@@ -139,6 +141,24 @@ fn resolved_hop_masque_config(
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,
+    })
+}
+
+fn resolved_hop_trojan_config(
+    hop: &ResolvedChainRelayHopConfig,
+    role: ChainHopRole,
+) -> io::Result<ripdpi_relay_tls_transports::TrojanClientConfig> {
+    let label = role.label();
+    let server_port = u16::try_from(hop.server_port).map_err(|_| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Trojan server port must fit u16"))
+    })?;
+    Ok(ripdpi_relay_tls_transports::TrojanClientConfig {
+        server_host: hop.server.clone(),
+        server_port,
+        server_name: hop.server_name.clone(),
+        password: hop.trojan_password.clone().unwrap_or_default(),
+        tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
+        root_certificate_pem: hop.trojan_root_certificate_pem.clone(),
     })
 }
 

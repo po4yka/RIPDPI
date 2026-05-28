@@ -23,6 +23,7 @@ pub(crate) struct ChainRelaySessionFactory {
 pub(crate) enum ChainEntryConnector {
     VlessReality(ripdpi_vless::config::VlessRealityConfig),
     Masque(ripdpi_masque::config::MasqueConfig),
+    Trojan(ripdpi_relay_tls_transports::TrojanClientConfig),
 }
 
 impl ChainEntryConnector {
@@ -47,6 +48,16 @@ impl ChainEntryConnector {
                 let stream = ripdpi_masque::MasqueClient::connect(config, target).await?;
                 Ok(Box::new(stream))
             }
+            Self::Trojan(config) => {
+                if outbound_bind_ip.is_some() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "chain Trojan entry does not support outbound bind IP",
+                    ));
+                }
+                let stream = ripdpi_relay_tls_transports::connect_trojan_tcp(config, target).await?;
+                Ok(Box::new(stream))
+            }
         }
     }
 }
@@ -55,6 +66,7 @@ impl ChainEntryConnector {
 pub(crate) enum ChainExitConnector {
     VlessReality(ripdpi_vless::config::VlessRealityConfig),
     Masque(ripdpi_masque::config::MasqueConfig),
+    Trojan(ripdpi_relay_tls_transports::TrojanClientConfig),
 }
 
 impl ChainExitConnector {
@@ -62,6 +74,7 @@ impl ChainExitConnector {
         match self {
             Self::VlessReality(config) => Ok(format!("{}:{}", config.server, config.port)),
             Self::Masque(config) => masque_proxy_target(config),
+            Self::Trojan(config) => Ok(ripdpi_relay_tls_transports::trojan_proxy_target(config)),
         }
     }
 
@@ -73,6 +86,10 @@ impl ChainExitConnector {
             }
             Self::Masque(config) => {
                 let stream = ripdpi_masque::MasqueClient::connect_over(config, transport, target).await?;
+                Ok(Box::new(stream))
+            }
+            Self::Trojan(config) => {
+                let stream = ripdpi_relay_tls_transports::connect_trojan_tcp_over(config, transport, target).await?;
                 Ok(Box::new(stream))
             }
         }

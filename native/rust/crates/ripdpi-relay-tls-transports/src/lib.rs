@@ -8,4 +8,7 @@ mod trojan;
 pub use anytls::{AnyTlsClientConfig, AnyTlsSession, AnyTlsSessionFactory, AnyTlsUdpSession};
 pub use shadowsocks::{ShadowsocksSession, ShadowsocksSessionFactory, ShadowsocksUdpSession};
 pub use shadowtls::{ShadowTlsClientConfig, ShadowTlsInnerConfig, ShadowTlsSessionFactory};
-pub use trojan::{TrojanClientConfig, TrojanSession, TrojanSessionFactory, TrojanUdpSession};
+pub use trojan::{
+    connect_trojan_tcp, connect_trojan_tcp_over, trojan_proxy_target, TrojanClientConfig, TrojanSession,
+    TrojanSessionFactory, TrojanUdpSession,
+};

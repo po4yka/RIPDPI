@@ -60,6 +60,30 @@ impl RelaySession for TrojanSession {
     }
 }
 
+pub async fn connect_trojan_tcp(
+    config: &TrojanClientConfig,
+    target: &str,
+) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send> {
+    let (addr, port) = target_to_trojan(target)?;
+    ripdpi_trojan::TrojanClient::connect_tcp(config, &addr, port, &[]).await.map_err(to_io_error)
+}
+
+pub async fn connect_trojan_tcp_over<S>(
+    config: &TrojanClientConfig,
+    transport: S,
+    target: &str,
+) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send,
+{
+    let (addr, port) = target_to_trojan(target)?;
+    ripdpi_trojan::TrojanClient::connect_tcp_over(config, transport, &addr, port, &[]).await.map_err(to_io_error)
+}
+
+pub fn trojan_proxy_target(config: &TrojanClientConfig) -> String {
+    format!("{}:{}", config.server_host, config.server_port)
+}
+
 impl RelaySessionFactory for TrojanSessionFactory {
     type Session = TrojanSession;
     type Error = io::Error;
