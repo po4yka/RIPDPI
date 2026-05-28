@@ -430,10 +430,12 @@ These are current source-state notes for triage. None block the build.
   is in `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`, and
   `RipDpiRelayNativeLoader` loads `"ripdpi-relay"`.
 - **Library crates with no runtime consumer** — `ripdpi-protocol-detect`,
-  `ripdpi-protocol-loopback`, `ripdpi-routing`, `ripdpi-runtime-dns-cache`,
-  `ripdpi-diagnostics-net`, and `ripdpi-diagnostics-parsers` still have no
-  workspace consumer beyond their own crate entry. They remain prune candidates
-  unless a feature or test plan wires them.
+  `ripdpi-routing`, `ripdpi-runtime-dns-cache`, `ripdpi-diagnostics-net`, and
+  `ripdpi-diagnostics-parsers` still have no workspace consumer beyond their
+  own crate entry. They remain prune candidates unless a feature or test plan
+  wires them. `ripdpi-protocol-loopback` is also standalone today, but it is the
+  scaffold tracked by `protocol-loopback-harness-design.md`, so it is not part
+  of this prune-candidate set.
 - **Relay transport crates are wired** — `ripdpi-shadowsocks` and
   `ripdpi-trojan` are consumed by `ripdpi-relay-tls-transports`, which is
   consumed by `ripdpi-relay-core`; they are not prune candidates.
