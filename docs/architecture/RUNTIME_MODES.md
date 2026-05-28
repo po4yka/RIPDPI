@@ -211,17 +211,19 @@ relay (`app_settings.proto`: `relay_enabled`, `relay_kind`, `relay_profile_id`).
 
 - A **relay profile** is a saved endpoint + credentials + transport parameters,
   created by hand or imported (QR scan, clipboard, share-sheet, subscription).
-- `relay_kind` selects the transport (`off`, `vless_reality`, `hysteria2`,
-  `chain_relay`, `masque`, `cloudflare_tunnel`, `tuic_v5`, `shadowtls_v3`,
-  `naiveproxy`, `google_apps_script`). Kotlin resolves it through the
+- `relay_kind` selects the transport (`off`, `vless`, `vless_reality`,
+  `hysteria2`, `chain_relay`, `masque`, `anytls`, `cloudflare_tunnel`,
+  `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `naiveproxy`, `tor`,
+  `google_apps_script`, `snowflake`, `webtunnel`, `obfs4`). Kotlin resolves it through the
   `*RelayKindResolver` classes + `RelayKindResolverRegistry` in
   `core/service/.../services/`.
 - JNI-embedded relays run in `libripdpi-relay.so` (crate `ripdpi-relay-android`,
   bridge `core/engine/.../core/RipDpiRelay.kt`); shared orchestration is
-  `ripdpi-relay-core`. WARP runs in `libripdpi-warp.so`
-  (`ripdpi-warp-android` / `RipDpiWarp.kt`). NaiveProxy and the
-  Cloudflare-origin helper run as **subprocess** binaries supervised by the
-  `Subprocess*` / `Cloudflare*` services.
+  `ripdpi-relay-core` for the native-wired backends. WARP runs in
+  `libripdpi-warp.so` (`ripdpi-warp-android` / `RipDpiWarp.kt`). NaiveProxy,
+  Cloudflare-origin publish helper, Snowflake, WebTunnel, and obfs4 run as
+  **subprocess** or external pluggable-transport binaries supervised by service
+  code. Snowflake remains the external Go `ripdpi-snowflake` binary by decision.
 - When no relay is configured, traffic exits the device directly and only the
   on-device packet strategies change the path.
 
