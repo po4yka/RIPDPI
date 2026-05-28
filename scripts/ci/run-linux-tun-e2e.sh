@@ -21,7 +21,7 @@ metadata = json.loads(
 )
 
 for package in metadata["packages"]:
-    if package["name"] != "ripdpi-tunnel-android":
+    if package["name"] != "ripdpi-tunnel-core":
         continue
     for target in package["targets"]:
         if target["name"] == "linux_tun_e2e" and "test" in target["kind"]:
@@ -33,9 +33,9 @@ PY
 )"
 
 if [ "$target_exists" != "yes" ]; then
-    echo "==> linux_tun_e2e target is not present in ripdpi-tunnel-android; skipping stale privileged lane"
+    echo "==> linux_tun_e2e target is not present in ripdpi-tunnel-core; skipping privileged lane"
     exit 0
 fi
 
-echo "==> ripdpi-tunnel-android linux tun e2e"
-cargo test --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android --test linux_tun_e2e -- --ignored --nocapture
+echo "==> ripdpi-tunnel-core linux tun e2e"
+cargo test --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --test linux_tun_e2e -- --ignored --nocapture

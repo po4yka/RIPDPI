@@ -515,12 +515,20 @@ Artifacts are written to `target/soak-artifacts/` (JSONL samples + JSON result s
 
 The real TUN data-plane tests are Linux-only and require privileged setup.
 
-Privileged TUN soak:
+Privileged TUN E2E:
+
+```bash
+RIPDPI_RUN_TUN_E2E=1 bash scripts/ci/run-linux-tun-e2e.sh
+```
+
+Privileged TUN soak wrapper:
 
 ```bash
 RIPDPI_RUN_TUN_E2E=1 RIPDPI_SOAK_PROFILE=smoke \
   bash scripts/ci/run-linux-tun-soak.sh
 ```
+
+The current native workspace has `ripdpi-tunnel-core --test linux_tun_e2e`; no `linux_tun_soak` target is registered today, so the soak wrapper exits after reporting that the privileged soak lane is unavailable.
 
 Host-side native soak:
 
@@ -602,8 +610,8 @@ Nightly/manual lanes add:
 
 - `rust-native-soak` -- endurance tests (restart, sustained traffic, fault recovery)
 - `rust-native-load` -- high-concurrency ramp-up, burst, and saturation tests
-- `linux-tun-e2e` -- privileged TUN data-plane tests
-- `linux-tun-soak` -- privileged TUN endurance tests
+- `linux-tun-e2e` -- privileged TUN data-plane tests in `ripdpi-tunnel-core --test linux_tun_e2e`
+- `linux-tun-soak` -- reserved privileged TUN endurance wrapper; currently skips because no `linux_tun_soak` test target is registered
 - `nightly-rust-coverage` -- coverage including ignored tests
 
 The CI jobs upload test reports, golden diffs, logcat, fixture logs, soak/load artifacts, and coverage reports when available.

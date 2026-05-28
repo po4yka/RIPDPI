@@ -185,6 +185,6 @@ The tunnel stack is currently covered by:
 - Rust unit, property-based, state-machine, fault-injection, and telemetry-golden tests in `ripdpi-tunnel-android`
 - Android instrumentation integration tests for tunnel lifecycle, JNI error paths, and VPN-service restart flows
 - local-network Android E2E that exercises VPN mode against the shared fixture stack
-- Linux-only privileged real-TUN E2E and TUN soak runs
+- Linux-only privileged real-TUN E2E in `ripdpi-tunnel-core --test linux_tun_e2e`; the TUN soak wrapper is present but currently skips because no `linux_tun_soak` target is registered
 
 See [../testing.md](../testing.md) for commands, CI lanes, and soak profiles.

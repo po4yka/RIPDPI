@@ -232,8 +232,8 @@ Native integration is covered at several layers:
 - Rust crate tests for config parsing, lifecycle, state machines, fault injection, retry-stealth behavior, and telemetry/logging goldens
 - JVM tests for Kotlin wrappers, diagnostics orchestration, service state aggregation, handover-aware policy resolution, and structured golden contracts
 - Android instrumentation tests for JNI/service integration and local-network E2E against the real packaged `.so` files
-- Linux-only privileged tests for real TUN E2E and TUN soak
-- nightly/manual soak suites for proxy runtime, diagnostics runtime, and TUN runtime longevity
+- Linux-only privileged tests for real TUN E2E in `ripdpi-tunnel-core --test linux_tun_e2e`; the TUN soak wrapper is present but currently skips because no `linux_tun_soak` target is registered
+- nightly/manual soak suites for proxy runtime and diagnostics runtime longevity
 
 Testing commands and CI mapping are documented in [../testing.md](../testing.md).
 
