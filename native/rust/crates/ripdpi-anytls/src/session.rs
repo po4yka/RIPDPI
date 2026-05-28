@@ -1,5 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use boring::ssl::SslVersion;
@@ -93,6 +94,7 @@ struct SessionHandle {
     outbound: mpsc::Sender<Outbound>,
     streams: Arc<Mutex<HashMap<u32, StreamRoute>>>,
     next_stream_id: Arc<Mutex<u32>>,
+    closing: Arc<AtomicBool>,
 }
 
 impl Clone for SessionHandle {
@@ -101,6 +103,7 @@ impl Clone for SessionHandle {
             outbound: self.outbound.clone(),
             streams: Arc::clone(&self.streams),
             next_stream_id: Arc::clone(&self.next_stream_id),
+            closing: Arc::clone(&self.closing),
         }
     }
 }
@@ -216,7 +219,7 @@ impl AnyTlsClient {
 
     async fn session(&self) -> Result<SessionHandle, AnyTlsError> {
         if let Some(session) = self.state.lock().await.session.clone() {
-            if !session.outbound.is_closed() {
+            if !session.outbound.is_closed() && !session.closing.load(Ordering::Acquire) {
                 return Ok(session);
             }
             self.clear_cached_session(&session).await;
@@ -240,11 +243,13 @@ impl AnyTlsClient {
             outbound: outbound_tx,
             streams: Arc::clone(&streams),
             next_stream_id: Arc::new(Mutex::new(1)),
+            closing: Arc::new(AtomicBool::new(false)),
         };
         let state = Arc::clone(&self.state);
+        let closing = Arc::clone(&session.closing);
         let reader_outbound = session.outbound.clone();
         tokio::spawn(async move {
-            run_session(tls, outbound_rx, reader_outbound, streams, state).await;
+            run_session(tls, outbound_rx, reader_outbound, streams, state, closing).await;
         });
         self.state.lock().await.session = Some(session.clone());
         Ok(session)
@@ -379,6 +384,7 @@ async fn run_session<S>(
     outbound_tx: mpsc::Sender<Outbound>,
     streams: Arc<Mutex<HashMap<u32, StreamRoute>>>,
     client_state: Arc<Mutex<ClientState>>,
+    closing: Arc<AtomicBool>,
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
@@ -450,8 +456,13 @@ async fn run_session<S>(
         }
     }
     .await;
+    closing.store(true, Ordering::Release);
     writer_task.abort();
-    client_state.lock().await.session = None;
+    let mut state = client_state.lock().await;
+    if state.session.as_ref().is_some_and(|session| Arc::ptr_eq(&session.closing, &closing)) {
+        state.session = None;
+    }
+    drop(state);
     if !matches!(reader_result, Err(AnyTlsError::Alert(_))) {
         fail_all_streams(&streams, AnyTlsError::SessionClosed).await;
     }
