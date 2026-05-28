@@ -33,6 +33,7 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 - **Goal-driven execution** -- before implementing, convert each task into verifiable success criteria (test name, metric delta, UI render) and verify each before reporting completion. Ask for clarification when criteria are ambiguous rather than guessing.
 - **Surface ambiguity early** -- an undocumented JNI contract, a missing schema migration, an unclear protobuf field number, a `DesyncMode` without documented activation: name it, do not guess.
 - **Reproduce before fixing** -- a packet-smoke scenario, a `cargo nextest` test, or a Roborazzi baseline is the artifact you change; the source edit follows.
+- **Document code, not plans** -- for protocol/docs work, derive claims from current source and tests first: Kotlin `RelayKindDescriptors`, Rust `ripdpi-relay-core` `RelayKind`/`RelayBackend`/transport descriptors, crate existence under `native/rust/crates/`, `RelayNativeConfigSchemaVersion`, and relevant tests/git history. Old goals, old README text, or rollout notes are not authoritative when code disagrees.
 - Removing custom detekt rules, lint baselines, or other quality gates is out of scope unless explicitly requested.
 - **Keep all locales in sync** -- the app ships 7 locales (en, ru, es, de, fr, fa, zh-CN). Any new key added to `app/src/main/res/values/strings.xml` must land in all six other locale files in the same commit; same rule for `core/service/src/main/res/values/strings.xml`. `lint.xml` sets `MissingTranslation` to severity `error`, so a missing key fails CI. Verify with `comm -23 <(grep -oE 'name="[^"]+"' app/src/main/res/values/strings.xml | sort -u) <(grep -oE 'name="[^"]+"' app/src/main/res/values-XX/strings.xml | sort -u) | wc -l` returning `0` for each `XX` in `{ru,es,de,fr,fa,zh-rCN}`. `language_name_*` keys carry NATIVE display names (Español, Deutsch, etc.) and stay byte-identical across every locale file. Android resource keys forbid hyphens, so BCP-47 `zh-CN` maps to resource key `language_name_zh_cn`. New locales must be registered in `app/src/main/res/xml/locales_config.xml` and added to `app/src/test/kotlin/com/poyka/ripdpi/platform/LocalesConfigTest.kt`. Any change to a README selector block must keep `scripts/check-readme-selectors.sh` green (42 link + 7 bold-tag assertions across all 7 README files).
 
@@ -227,10 +228,14 @@ JNI native libraries are built from repo-owned Android adapter crates in the nat
 |---------|-------------|--------|--------|
 | `libripdpi.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-android/` | `core/engine/build/generated/jniLibs/` |
 | `libripdpi-tunnel.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-tunnel-android/` | `core/engine/build/generated/jniLibs/` |
+| `libripdpi-relay.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-relay-android/` | `core/engine/build/generated/jniLibs/` |
+| `libripdpi-warp.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-warp-android/` | `core/engine/build/generated/jniLibs/` |
 | `ripdpi-root-helper` | Cargo + Android NDK linker via `:core:engine:buildRustRootHelper` | `native/rust/crates/ripdpi-root-helper/` | `core/engine/build/generated/rootHelperAssets/bin/` |
 
 - Kotlin bridge for `libripdpi.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`
 - Kotlin bridge for `libripdpi-tunnel.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`
+- Kotlin bridge for `libripdpi-relay.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`
+- Kotlin bridge for `libripdpi-warp.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiWarp.kt`
 - Kotlin lifecycle for `ripdpi-root-helper`: `core/service/src/main/kotlin/com/poyka/ripdpi/services/RootHelperManager.kt`
 - Supported ABIs: armeabi-v7a, arm64-v8a, x86, x86_64
 - Never edit `.so` files -- they are compiled from source
@@ -246,6 +251,14 @@ Supporting crates providing shared traits, data structures, and classification:
 - **`ripdpi-monitor-engine`** (active-scan engine) plus the `ripdpi-diagnostics-*` family -- DNS tampering detection (`ripdpi-diagnostics-dns`, `dns_analysis` with 8 anomaly signals + record-level comparison + compression pointer validation), response parsers (`ripdpi-diagnostics-parsers`, HTTP/TLS/SSH), PCAP diagnostic recording (`ripdpi-diagnostics-pcap`). See `docs/architecture/DIAGNOSTICS_ARCHITECTURE.md`.
 - **`ripdpi-root-helper`** -- standalone privileged binary for rooted devices; Unix socket IPC with SCM_RIGHTS fd passing for raw socket operations (`send_fake_rst`, `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ip_fragmented_tcp/udp`, `probe_capabilities`); IPC client in `ripdpi-runtime/src/platform/root_helper_client.rs`
 - **`android-support`** -- generic data structures: `BoundedHeap<T>` (fixed-capacity min-heap for session eviction), `EnumMap<K,V>` (O(1) enum-keyed dispatch for registries)
+
+### Relay Ground Truth
+
+- Current relay kind strings are `off`, `vless`, `vless_reality`, `hysteria2`, `chain_relay`, `masque`, `anytls`, `cloudflare_tunnel`, `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `naiveproxy`, `tor`, `google_apps_script`, `snowflake`, `webtunnel`, and `obfs4`.
+- Native relay-core descriptor-backed backends are Hysteria2, TUIC v5, VLESS Reality/xHTTP, Cloudflare Tunnel consume path, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, and Tor. NaiveProxy is a subprocess fallback. Snowflake, WebTunnel, and obfs4 are external PT binaries managed by Kotlin service code. Google Apps Script uses the in-repository Apps Script runtime. WARP and AmneziaWG are separate VPN/tunnel profile surfaces.
+- `RelayNativeConfigSchemaVersion` and Rust `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are currently `6`; bump them together only for a breaking relay native-config shape change.
+- Snowflake remains the external Go `ripdpi-snowflake` binary; do not document or create native Rust Snowflake unless the no-go decision is superseded. VLESS Reality does not use real ECH; link `docs/adr/0001-reality-ech.md` for the GREASE-only policy.
+- Relay/test oracles include `local-network-fixture`, `rust-turmoil`, Chutney-gated Tor tests, relay-core descriptor/schema tests, and golden fixtures. Use `RIPDPI_BLESS_GOLDENS=1` only intentionally and under the golden bless discipline.
 
 ## Build Logic
 
