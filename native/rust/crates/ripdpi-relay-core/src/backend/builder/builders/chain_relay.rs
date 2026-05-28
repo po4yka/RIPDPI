@@ -4,7 +4,7 @@ use crate::backend::builder::builders::common::vless_reality_config;
 use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{ChainRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayRuntimeConfig};
-use crate::protocols::ChainRelaySessionFactory;
+use crate::protocols::{ChainExitConnector, ChainRelaySessionFactory};
 use crate::telemetry::ChainHopTelemetryState;
 
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
@@ -12,7 +12,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected chain relay config"));
     };
     let entry = chain_hop_vless_reality_config(chain, ChainHopRole::Entry, &config.common.tls_fingerprint_profile)?;
-    let exit = chain_hop_vless_reality_config(chain, ChainHopRole::Exit, &config.common.tls_fingerprint_profile)?;
+    let exit = chain_exit_connector(chain, &config.common.tls_fingerprint_profile)?;
 
     let telemetry = ChainHopTelemetryState::default();
     let backend = PooledRelayBackend::new(
@@ -59,6 +59,26 @@ fn chain_hop_vless_reality_config(
     legacy_hop_vless_reality_config(chain, role, default_tls_fingerprint_profile)
 }
 
+fn chain_exit_connector(
+    chain: &ChainRelayConfig,
+    default_tls_fingerprint_profile: &str,
+) -> io::Result<ChainExitConnector> {
+    let Some(hop) = chain.exit.as_deref() else {
+        return legacy_hop_vless_reality_config(chain, ChainHopRole::Exit, default_tls_fingerprint_profile)
+            .map(ChainExitConnector::VlessReality);
+    };
+    match hop.kind.as_str() {
+        "vless_reality" => {
+            resolved_hop_vless_reality_config(hop, ChainHopRole::Exit).map(ChainExitConnector::VlessReality)
+        }
+        "masque" => resolved_hop_masque_config(hop).map(ChainExitConnector::Masque),
+        other => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("chain exit: resolved hop kind {other} is not supported by chain relay"),
+        )),
+    }
+}
+
 fn resolved_hop_vless_reality_config(
     hop: &ResolvedChainRelayHopConfig,
     role: ChainHopRole,
@@ -89,6 +109,28 @@ fn resolved_hop_vless_reality_config(
         &hop.tls_fingerprint_profile,
     )
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))
+}
+
+fn resolved_hop_masque_config(hop: &ResolvedChainRelayHopConfig) -> io::Result<ripdpi_masque::config::MasqueConfig> {
+    if hop.masque_url.trim().is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "chain exit: MASQUE URL is required"));
+    }
+    Ok(ripdpi_masque::config::MasqueConfig {
+        url: hop.masque_url.clone(),
+        proxy_socket_addr: None,
+        use_http2_fallback: hop.masque_use_http2_fallback,
+        auth_mode: hop.masque_auth_mode.clone(),
+        auth_token: hop.masque_auth_token.clone(),
+        client_certificate_chain_pem: hop.masque_client_certificate_chain_pem.clone(),
+        client_private_key_pem: hop.masque_client_private_key_pem.clone(),
+        cloudflare_geohash_header: hop.masque_cloudflare_geohash_header.clone(),
+        privacy_pass_provider_url: hop.masque_privacy_pass_provider_url.clone(),
+        privacy_pass_provider_auth_token: hop.masque_privacy_pass_provider_auth_token.clone(),
+        tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    })
 }
 
 fn legacy_hop_vless_reality_config(

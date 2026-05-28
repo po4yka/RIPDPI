@@ -510,3 +510,42 @@ async fn udp_session_round_trips_through_conformant_h2_connect_udp_fixture() {
     assert_eq!(observed[0].protocol.as_deref(), Some("connect-udp"));
     assert_eq!(observed[0].capsule_protocol.as_deref(), Some("?1"));
 }
+
+#[tokio::test]
+async fn connect_over_h2_transport_tunnels_tcp_to_target() {
+    let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+    let config = MasqueConfig {
+        url: fixture.masque_url(),
+        proxy_socket_addr: None,
+        use_http2_fallback: true,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    };
+    let proxy_origin = parse_proxy_origin(&config).expect("proxy origin");
+    let transport =
+        tokio::net::TcpStream::connect(resolve_proxy_socket_addr(&config, &proxy_origin).expect("proxy addr"))
+            .await
+            .expect("connect proxy transport");
+
+    let mut stream = MasqueClient::connect_over(&config, transport, &fixture.tcp_echo_target())
+        .await
+        .expect("connect over existing transport");
+
+    stream.write_all(b"chain-ping").await.expect("write chained stream");
+    let mut reply = [0u8; 10];
+    stream.read_exact(&mut reply).await.expect("read chained stream");
+
+    assert_eq!(&reply, b"chain-ping");
+    let observed = fixture.observed_requests();
+    assert_eq!(observed[0].protocol.as_deref(), Some("connect-tcp"));
+    assert_eq!(observed[0].target.as_deref(), Some(fixture.tcp_echo_target().as_str()));
+}

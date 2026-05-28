@@ -8,7 +8,7 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::auth::PrivacyPassCache;
 use crate::config::MasqueConfig;
-use crate::h2::attempt_h2_connect_tcp;
+use crate::h2::{attempt_h2_connect_tcp, attempt_h2_connect_tcp_over_transport};
 use crate::h3::attempt_h3_connect_tcp;
 use crate::migration::QuicMigrationSnapshot;
 use crate::response::{classify_attempt_failure, AttemptError};
@@ -57,6 +57,13 @@ impl MasqueClient {
         Self::new(config.clone())?.connect_tcp(target).await
     }
 
+    pub async fn connect_over<S>(config: &MasqueConfig, transport: S, target: &str) -> io::Result<Box<dyn AsyncIo>>
+    where
+        S: AsyncIo + 'static,
+    {
+        Self::new(config.clone())?.connect_tcp_over(transport, target).await
+    }
+
     pub async fn connect_tcp(&self, target: &str) -> io::Result<Box<dyn AsyncIo>> {
         if !self.inner.config.use_http2_fallback {
             return self.connect_tcp_h3(target).await;
@@ -102,6 +109,29 @@ impl MasqueClient {
                         Err(error)
                     }
                 }
+            }
+        }
+    }
+
+    pub async fn connect_tcp_over<S>(&self, transport: S, target: &str) -> io::Result<Box<dyn AsyncIo>>
+    where
+        S: AsyncIo + 'static,
+    {
+        let auth_header = self.inner.request_auth_header(target).await?;
+        match attempt_h2_connect_tcp_over_transport(&self.inner.config, transport, target, auth_header.as_ref()).await {
+            Ok(stream) => {
+                self.inner
+                    .record_quic_migration_status("http2_chained", Some("http2_connect_tcp_over_entry_hop"))
+                    .await;
+                Ok(Box::new(stream))
+            }
+            Err(AttemptError::PrivacyPassChallenge(_)) => Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "MASQUE Privacy Pass retry is unavailable for chained TCP exits",
+            )),
+            Err(AttemptError::Io(error)) => {
+                self.inner.record_quic_migration_status("failed", Some("http2_chained_connect_failed")).await;
+                Err(error)
             }
         }
     }

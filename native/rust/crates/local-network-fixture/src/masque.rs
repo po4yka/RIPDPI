@@ -22,6 +22,7 @@ use tokio_rustls::TlsAcceptor;
 use crate::util::percent_decode;
 
 const CONNECT_UDP_PROTOCOL: &str = "connect-udp";
+const CONNECT_TCP_PROTOCOL: &str = "connect-tcp";
 const CAPSULE_PROTOCOL: &str = "?1";
 const DATAGRAM_CAPSULE_TYPE: u64 = 0x00;
 const MASQUE_PATH_PREFIX: &str = "/.well-known/masque/udp/";
@@ -39,6 +40,7 @@ pub struct MasqueObservedRequest {
 pub struct MasqueH2ConnectUdpFixture {
     address: SocketAddr,
     udp_echo_address: SocketAddr,
+    tcp_echo_address: SocketAddr,
     observed: Arc<Mutex<Vec<MasqueObservedRequest>>>,
     shutdown: Option<oneshot::Sender<()>>,
     thread: Option<JoinHandle<()>>,
@@ -58,17 +60,27 @@ impl MasqueH2ConnectUdpFixture {
             runtime.block_on(async move {
                 let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind MASQUE H2 fixture");
                 let udp_echo = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind MASQUE UDP echo fixture");
+                let tcp_echo = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind MASQUE TCP echo fixture");
                 let tcp_address = listener.local_addr().expect("MASQUE fixture local TCP address");
                 let udp_address = udp_echo.local_addr().expect("MASQUE fixture local UDP address");
-                addr_tx.send((tcp_address, udp_address)).ok();
+                let tcp_echo_address = tcp_echo.local_addr().expect("MASQUE fixture local TCP echo address");
+                addr_tx.send((tcp_address, udp_address, tcp_echo_address)).ok();
                 tokio::spawn(echo_udp(udp_echo));
+                tokio::spawn(echo_tcp(tcp_echo));
                 serve(listener, tls, observed_for_thread, shutdown_rx).await;
             });
         });
 
-        let (address, udp_echo_address) =
+        let (address, udp_echo_address, tcp_echo_address) =
             addr_rx.recv().map_err(|error| io::Error::other(format!("fixture failed to start: {error}")))?;
-        Ok(Self { address, udp_echo_address, observed, shutdown: Some(shutdown_tx), thread: Some(thread) })
+        Ok(Self {
+            address,
+            udp_echo_address,
+            tcp_echo_address,
+            observed,
+            shutdown: Some(shutdown_tx),
+            thread: Some(thread),
+        })
     }
 
     pub fn masque_url(&self) -> String {
@@ -77,6 +89,10 @@ impl MasqueH2ConnectUdpFixture {
 
     pub fn udp_echo_target(&self) -> String {
         self.udp_echo_address.to_string()
+    }
+
+    pub fn tcp_echo_target(&self) -> String {
+        self.tcp_echo_address.to_string()
     }
 
     pub fn observed_requests(&self) -> Vec<MasqueObservedRequest> {
@@ -156,11 +172,16 @@ async fn handle_request(
     let capsule_protocol =
         request.headers().get("capsule-protocol").and_then(|value| value.to_str().ok()).map(ToOwned::to_owned);
     let path = request.uri().path().to_string();
-    let target = parse_connect_udp_target(&path);
+    let udp_target = parse_connect_udp_target(&path);
+    let tcp_target = request.uri().authority().and_then(|authority| authority.as_str().parse::<SocketAddr>().ok());
+    let observed_target = match protocol.as_deref() {
+        Some(CONNECT_TCP_PROTOCOL) => tcp_target.as_ref(),
+        _ => udp_target.as_ref(),
+    };
     observed.lock().expect("MASQUE fixture observations").push(MasqueObservedRequest {
         method: request.method().to_string(),
         path,
-        target: target.as_ref().map(ToString::to_string),
+        target: observed_target.map(ToString::to_string),
         protocol: protocol.clone(),
         capsule_protocol: capsule_protocol.clone(),
     });
@@ -168,13 +189,28 @@ async fn handle_request(
     if request.method() != Method::CONNECT {
         return Ok(response(StatusCode::METHOD_NOT_ALLOWED));
     }
+    if protocol.as_deref() == Some(CONNECT_TCP_PROTOCOL) {
+        let Some(target) = tcp_target else {
+            return Ok(response(StatusCode::BAD_REQUEST));
+        };
+        let upgraded = hyper::upgrade::on(request);
+        tokio::spawn(async move {
+            if let Ok(upgraded) = upgraded.await {
+                relay_tcp_stream(TokioIo::new(upgraded), target).await;
+            }
+        });
+        return Ok(Response::builder()
+            .status(StatusCode::OK)
+            .body(Empty::<Bytes>::new())
+            .expect("valid MASQUE fixture response"));
+    }
     if protocol.as_deref() != Some(CONNECT_UDP_PROTOCOL) {
         return Ok(response(StatusCode::BAD_REQUEST));
     }
     if capsule_protocol.as_deref() != Some(CAPSULE_PROTOCOL) {
         return Ok(response(StatusCode::BAD_REQUEST));
     }
-    let Some(target) = target else {
+    let Some(target) = udp_target else {
         return Ok(response(StatusCode::BAD_REQUEST));
     };
 
@@ -226,6 +262,33 @@ async fn relay_udp_capsules(mut io: TokioIo<hyper::upgrade::Upgraded>, target: S
             Err(DecodeError::Truncated) => {}
             Err(DecodeError::Malformed) => break,
         }
+    }
+}
+
+async fn relay_tcp_stream(mut io: TokioIo<hyper::upgrade::Upgraded>, target: SocketAddr) {
+    if let Ok(mut upstream) = tokio::net::TcpStream::connect(target).await {
+        let _ = tokio::io::copy_bidirectional(&mut io, &mut upstream).await;
+    }
+}
+
+async fn echo_tcp(listener: TcpListener) {
+    loop {
+        let Ok((mut socket, _)) = listener.accept().await else {
+            break;
+        };
+        tokio::spawn(async move {
+            let mut buffer = [0u8; 4096];
+            loop {
+                let read = match socket.read(&mut buffer).await {
+                    Ok(0) => break,
+                    Ok(read) => read,
+                    Err(_) => break,
+                };
+                if socket.write_all(&buffer[..read]).await.is_err() {
+                    break;
+                }
+            }
+        });
     }
 }
 

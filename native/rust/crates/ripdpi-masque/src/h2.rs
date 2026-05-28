@@ -47,9 +47,25 @@ pub(crate) fn build_h2_connect_udp_request(
     Ok(request)
 }
 
+fn build_h2_connect_tcp_request(
+    target: &str,
+    config: &MasqueConfig,
+    auth_header: Option<&AuthHeader>,
+) -> io::Result<hyper::Request<http_body_util::Empty<Bytes>>> {
+    let mut request = apply_request_headers(
+        hyper::Request::builder().method("CONNECT").uri(format!("https://{target}")),
+        config,
+        auth_header,
+    )?
+    .body(http_body_util::Empty::<Bytes>::new())
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H2 CONNECT request: {error}")))?;
+    request.extensions_mut().insert(Protocol::from_static("connect-tcp"));
+    Ok(request)
+}
+
 pub(crate) async fn attempt_h2_connect_tcp(
     config: &MasqueConfig,
-    _target: &str,
+    target: &str,
     auth_header: Option<&AuthHeader>,
 ) -> Result<impl AsyncIo, AttemptError> {
     let proxy_origin = parse_proxy_origin(config)?;
@@ -57,7 +73,19 @@ pub(crate) async fn attempt_h2_connect_tcp(
         .await
         .map_err(|error| io::Error::new(error.kind(), format!("failed to connect to MASQUE proxy: {error}")))?;
     tcp.set_nodelay(true)?;
+    attempt_h2_connect_tcp_over_transport(config, tcp, target, auth_header).await
+}
 
+pub(crate) async fn attempt_h2_connect_tcp_over_transport<S>(
+    config: &MasqueConfig,
+    transport: S,
+    target: &str,
+    auth_header: Option<&AuthHeader>,
+) -> Result<impl AsyncIo, AttemptError>
+where
+    S: AsyncIo + 'static,
+{
+    let proxy_origin = parse_proxy_origin(config)?;
     let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
     apply_h2_client_auth(&mut connector_builder, config)?;
@@ -69,7 +97,7 @@ pub(crate) async fn attempt_h2_connect_tcp(
         .map_err(|error| io::Error::other(format!("failed to configure H2 TLS profile: {error}")))?;
     ripdpi_tls_profiles::configure_boring_ech(&mut ssl, config.ech_config.as_ref())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("MASQUE H2 ECH: {error}")))?;
-    let tls = tokio_boring::connect(ssl, &proxy_origin.host, tcp).await.map_err(|error| {
+    let tls = tokio_boring::connect(ssl, &proxy_origin.host, transport).await.map_err(|error| {
         if config.ech_config.is_some() && error.ssl().is_some_and(|ssl| ssl.get_ech_retry_configs().is_some()) {
             return io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -90,13 +118,7 @@ pub(crate) async fn attempt_h2_connect_tcp(
         }
     });
 
-    let request = apply_request_headers(
-        hyper::Request::builder().method("CONNECT").uri(proxy_origin.request_uri),
-        config,
-        auth_header,
-    )?
-    .body(http_body_util::Empty::<Bytes>::new())
-    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H2 CONNECT request: {error}")))?;
+    let request = build_h2_connect_tcp_request(target, config, auth_header)?;
     let response = sender.send_request(request).await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to send H2 CONNECT request: {error}"))
     })?;

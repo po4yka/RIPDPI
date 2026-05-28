@@ -4,32 +4,77 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
+use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::telemetry::{ChainHopRole, ChainHopTelemetryState};
+
+pub(crate) trait ChainAsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
+impl<T> ChainAsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 
 #[derive(Clone)]
 pub(crate) struct ChainRelaySessionFactory {
     pub(crate) entry: ripdpi_vless::config::VlessRealityConfig,
-    pub(crate) exit: ripdpi_vless::config::VlessRealityConfig,
+    pub(crate) exit: ChainExitConnector,
     pub(crate) outbound_bind_ip: Option<IpAddr>,
     pub(crate) telemetry: ChainHopTelemetryState,
 }
 
+#[derive(Clone)]
+pub(crate) enum ChainExitConnector {
+    VlessReality(ripdpi_vless::config::VlessRealityConfig),
+    Masque(ripdpi_masque::config::MasqueConfig),
+}
+
+impl ChainExitConnector {
+    pub(crate) fn proxy_target(&self) -> io::Result<String> {
+        match self {
+            Self::VlessReality(config) => Ok(format!("{}:{}", config.server, config.port)),
+            Self::Masque(config) => masque_proxy_target(config),
+        }
+    }
+
+    async fn connect_over(&self, transport: Box<dyn ChainAsyncIo>, target: &str) -> io::Result<Box<dyn ChainAsyncIo>> {
+        match self {
+            Self::VlessReality(config) => {
+                let stream = ripdpi_vless::VlessRealityClient::connect_over(config, transport, target).await?;
+                Ok(Box::new(stream))
+            }
+            Self::Masque(config) => {
+                let stream = ripdpi_masque::MasqueClient::connect_over(config, transport, target).await?;
+                Ok(Box::new(stream))
+            }
+        }
+    }
+}
+
+fn masque_proxy_target(config: &ripdpi_masque::config::MasqueConfig) -> io::Result<String> {
+    if let Some(address) = config.proxy_socket_addr {
+        return Ok(address.to_string());
+    }
+    let parsed = url::Url::parse(&config.url).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    let host =
+        parsed.host_str().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL is missing a host"))?;
+    let port = parsed
+        .port_or_known_default()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL is missing a port"))?;
+    Ok(format!("{host}:{port}"))
+}
+
 pub(crate) struct ChainRelaySession {
     pub(crate) entry: ripdpi_vless::config::VlessRealityConfig,
-    pub(crate) exit: ripdpi_vless::config::VlessRealityConfig,
+    pub(crate) exit: ChainExitConnector,
     pub(crate) outbound_bind_ip: Option<IpAddr>,
     pub(crate) telemetry: ChainHopTelemetryState,
 }
 
 impl RelaySession for ChainRelaySession {
-    type Stream = Box<dyn ripdpi_vless::AsyncIo>;
+    type Stream = Box<dyn ChainAsyncIo>;
     type Datagram = ();
     type Error = io::Error;
 
     fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
         Box::pin(async move {
-            let exit_target = format!("{}:{}", self.exit.server, self.exit.port);
+            let exit_target = self.exit.proxy_target()?;
             self.telemetry.record(ChainHopRole::Entry, "connecting", None);
             let entry_started = Instant::now();
             let first_hop_result = match self.outbound_bind_ip {
@@ -45,7 +90,7 @@ impl RelaySession for ChainRelaySession {
                         "connected",
                         Some(entry_started.elapsed().as_millis() as u64),
                     );
-                    stream
+                    Box::new(stream) as Box<dyn ChainAsyncIo>
                 }
                 Err(error) => {
                     self.telemetry.record(
@@ -58,7 +103,7 @@ impl RelaySession for ChainRelaySession {
             };
             self.telemetry.record(ChainHopRole::Exit, "connecting", None);
             let exit_started = Instant::now();
-            let second_hop_result = ripdpi_vless::VlessRealityClient::connect_over(&self.exit, first_hop, target).await;
+            let second_hop_result = self.exit.connect_over(first_hop, target).await;
             let second_hop = match second_hop_result {
                 Ok(stream) => {
                     self.telemetry.record(
@@ -77,8 +122,7 @@ impl RelaySession for ChainRelaySession {
                     return Err(error);
                 }
             };
-            let stream: Box<dyn ripdpi_vless::AsyncIo> = Box::new(second_hop);
-            Ok(stream)
+            Ok(second_hop)
         })
     }
 
