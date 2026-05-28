@@ -311,7 +311,7 @@ Three Rust+JNI+Kotlin subsystems back the VPN-flow screens that were previously 
 
 ✅ **Current:** `ripdpi-pcap` handles classic libpcap read/write/redaction; `ripdpi-tunnel-android` owns the capture set and JNI exports (`jniPcapStart`, `jniPcapStop`, `jniPcapListCaptures`, `jniPcapRedactToFile`); `:core:pcap-export` provides `PcapBridge`, `PcapController`, and `PcapReader`; the Advanced Settings capture toggle and consent dialog are wired; diagnostics can navigate to `PcapCaptureListRoute`.
 
-⚠️ **Known limits:** `PcapCaptureListRoute` currently uses demo metadata and capture selection does not yet route parsed capture packets into `PcapViewerRoute`; `PcapViewerRoute` renders demo packets.
+⚠️ **Known limits:** `PcapCaptureListRoute` currently uses demo metadata and capture selection does not yet route parsed capture packets into `PcapViewerRoute`; `PcapViewerRoute` renders demo packets. `PcapReader` already exists in `:core:pcap-export`; the remaining app integration is selected-capture route state plus reader-record-to-`PcapPacket` mapping, not a Rust/JNI capture gap.
 
 ### Replay orchestrator
 

@@ -625,8 +625,8 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
     composable<Route.PcapCaptureList> {
         PcapCaptureListRoute(
             onCaptureSelected = { _ ->
-                // No PcapViewer routing yet — wiring real capture-file -> PcapPacket
-                // flow depends on PcapReader integration in a follow-up.
+                // PcapReader exists in :core:pcap-export; this route still needs
+                // selected-capture state and reader-record -> PcapPacket mapping.
             },
         )
     }
