@@ -899,7 +899,7 @@ fn ech_bucket_pilot_prefers_ech_offset_combo() {
     assert_eq!(combo.split_offset_base, Some(OffsetBase::EchExt));
 }
 
-// ── Asymmetric ArmStats decay (row 103) ──
+// ── Asymmetric ArmStats decay ──
 
 #[test]
 fn apply_decay_zero_elapsed_is_idempotent() {

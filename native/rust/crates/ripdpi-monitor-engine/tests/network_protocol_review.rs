@@ -1,7 +1,7 @@
 /// Network protocol review: diagnostics connectivity behavior after runner refactor.
 ///
-/// Ledger row 78. Locks in protocol-correctness invariants for all 9 connectivity
-/// runners without making live network connections.
+/// Locks in protocol-correctness invariants for all 9 connectivity runners
+/// without making live network connections.
 ///
 /// Invariants covered:
 /// - Canonical stage order and count (9 runners)
@@ -30,7 +30,7 @@ fn record<'a>(records: &'a [RunnerParityRecord], stage_id: &str) -> &'a RunnerPa
 // PR-1: Canonical runner count
 // ---------------------------------------------------------------------------
 
-/// Exactly 9 connectivity runners must be present (row-73 parity contract).
+/// Exactly 9 connectivity runners must be present.
 /// Adding or removing a runner without updating the snapshot is a protocol risk.
 #[test]
 fn pr1_exactly_nine_connectivity_runners() {

@@ -161,7 +161,7 @@ fn oracle_quarantine_changes_pool_selection_order() {
 }
 
 // ---------------------------------------------------------------------------
-// DoQ session-level demotion tests (row 114)
+// DoQ session-level demotion tests.
 //
 // These tests exercise the demotion state API directly using DoH endpoints.
 // The demotion logic is keyed by ResolverNetworkScope and lives in PoolInner,

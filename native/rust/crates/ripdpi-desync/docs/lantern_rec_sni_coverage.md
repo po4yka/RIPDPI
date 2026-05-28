@@ -1,6 +1,6 @@
 # Lantern rec-SNI offset coverage analysis
 
-**Date:** 2026-05-16 **Task:** `cross-check-lantern-record-fragmentation-offsets-against-rec-sni-arms` (ledger row 102)
+**Date:** 2026-05-16 **Task:** `cross-check-lantern-record-fragmentation-offsets-against-rec-sni-arms`
 
 ## Lantern offsets
 

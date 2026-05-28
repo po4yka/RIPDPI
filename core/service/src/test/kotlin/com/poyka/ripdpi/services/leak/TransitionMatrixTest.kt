@@ -11,7 +11,7 @@ import org.junit.Test
  * Transition matrix: for each of Wi-Fi→LTE, LTE→Wi-Fi, sleep→wake, captive→post-captive,
  * the tunnel must not transition to Connected until health checks pass.
  *
- * Reuses [ReconnectHealthGate] from row 57 without duplication.
+ * Reuses [ReconnectHealthGate] without duplicating the reconnect gate logic.
  */
 class TransitionMatrixTest {
     @Test

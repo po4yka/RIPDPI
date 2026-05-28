@@ -2,19 +2,17 @@
 //!
 //! The type-level guarantee: `DohClientError` has no variant that represents
 //! "fall back to port-53 plaintext DNS".  Integration with `StrictDnsResult`
-//! (row 67) is validated by asserting that every `DohClientError` variant maps
-//! to a hard failure and not to a "retry via system DNS" path.
+//! is validated by asserting that every `DohClientError` variant maps to a hard
+//! failure and not to a "retry via system DNS" path.
 
 use ripdpi_dns_resolver::doh::DohClientError;
 use std::net::{IpAddr, Ipv4Addr};
 
 // ---------------------------------------------------------------------------
-// StrictDnsResult mirror — matches the row-67 type without depending on it.
+// StrictDnsResult mirror used by this regression test.
 // ---------------------------------------------------------------------------
 
-/// Local mirror of the row-67 `StrictDnsResult` interface.
-/// When row 67 is promoted to a public export this can be replaced with the
-/// real import.
+/// Local mirror of the strict resolver result interface.
 #[derive(Debug, PartialEq, Eq)]
 enum StrictDnsResult {
     /// Resolution succeeded via an encrypted path.

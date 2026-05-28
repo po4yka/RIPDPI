@@ -1,4 +1,4 @@
-/// dMAP ambiguity-probe regression — ledger row 110
+/// dMAP ambiguity-probe regression.
 ///
 /// Regression anchor: defensive-dmap-ambiguity-probe-regression-for-semantic-tls-engine
 ///
@@ -191,9 +191,9 @@ fn dmap_ambiguity_probe_regression_no_stable_cross_probe_fingerprint() {
     // If any such arms exist they are recorded here.  The test PASSES but records
     // the finding for human review.
     //
-    // TODO(row-110): If an arm appears in known_stable_arms, widen its
-    // weighted_family_delta neighbourhood (add more non-zero buckets) or retire
-    // the arm.  See docs/dmap_ambiguity_analysis.md.
+    // If an arm appears in known_stable_arms, widen its weighted_family_delta
+    // neighbourhood (add more non-zero buckets) or retire the arm. See
+    // docs/dmap_ambiguity_analysis.md.
     let mut known_stable_arms: Vec<(&str, &str)> = Vec::new();
 
     for &arm in ALL_ARMS {
@@ -251,8 +251,8 @@ fn dmap_ambiguity_probe_regression_no_stable_cross_probe_fingerprint() {
     // probes with the same sni_ext_start / host markers — which all P0-P4
     // fixtures share (mutations are post-SNI or length-only).
     //
-    // TODO(row-110): widen weighted_family_delta to include payload-content-
-    // dependent noise, or diversify probe fixtures so SNI marker offsets differ.
+    // Follow-up: widen weighted_family_delta to include payload-content-dependent
+    // noise, or diversify probe fixtures so SNI marker offsets differ.
     // Remove arms from this list once they pass the cross-probe variance check.
     // See docs/dmap_ambiguity_analysis.md § Findings.
     const KNOWN_STABLE_ARMS: &[&str] =

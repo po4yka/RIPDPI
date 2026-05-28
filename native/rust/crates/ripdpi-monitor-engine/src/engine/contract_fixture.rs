@@ -29,7 +29,7 @@ pub struct RunnerParityRecord {
     pub steps: Vec<RunnerStepSnapshot>,
 }
 
-/// Public entry point for the behavioral-parity snapshot (row 73).
+/// Public entry point for the behavioral-parity snapshot.
 ///
 /// Builds the deterministic no-network fixture plan then delegates to the
 /// runners module (the only place runner structs are in scope).

@@ -1,6 +1,5 @@
 # dMAP Ambiguity-Probe Regression Analysis
 
-**Ledger row:** 110  
 **Key:** `defensive-dmap-ambiguity-probe-regression-for-semantic-tls-engine`  
 **Test module:** `ripdpi-desync::tests::dmap_ambiguity_probe`  
 **Verify:** `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-desync`

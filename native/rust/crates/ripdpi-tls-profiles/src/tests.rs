@@ -244,7 +244,7 @@ fn phase11_acceptance_fixture_covers_all_catalog_profiles() {
     }
 }
 
-/// Chrome 120 ClientHello fingerprint regression tests (row 174).
+/// Chrome 120 ClientHello fingerprint regression tests.
 ///
 /// These tests are deterministic — they operate entirely on the `ProfileConfig`
 /// struct fields with no network I/O and no real TLS handshake. The intent

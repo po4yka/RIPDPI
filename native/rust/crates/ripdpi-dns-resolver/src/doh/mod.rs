@@ -102,7 +102,7 @@ impl DohAuthPolicy {
 ///
 /// **Design invariant**: none of these variants trigger or encode a fallback
 /// to plaintext (port-53) DNS.  The caller is responsible for integrating with
-/// `StrictDnsResult::StrictFailure` from the resolver pool / row-67 work.
+/// the resolver pool's strict fail-closed result path.
 #[derive(Debug, thiserror::Error)]
 pub enum DohClientError {
     /// The runtime mode is `Get` but the profile has not opted in.
