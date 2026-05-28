@@ -49,7 +49,6 @@ New developers should read these in order:
 
 - [Feature test checklist](feature-test-checklist.md)
 - [Testing, E2E, golden contracts, and soak coverage](testing.md)
-- [CI performance baseline](ci-perf-baseline.md)
 - [Local network test lab](../test-lab/README.md)
 - [Local network lab coverage](../test-lab/SPEC.md)
 - [Android logcat filtering](android-logcat-filtering.md)

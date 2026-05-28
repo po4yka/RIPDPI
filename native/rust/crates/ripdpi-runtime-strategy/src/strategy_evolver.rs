@@ -10,8 +10,7 @@
 //!
 //! The bandit is connection-event driven, but it consumes wall-clock time on
 //! three read-side checks so it stays responsive to network drift without
-//! adding a background timer thread (see
-//! `docs/architecture/spike-evolver-timer-ttl-decay.md`):
+//! adding a background timer thread:
 //!
 //! 1. **Active-experiment TTL** -- if a pending experiment has not seen a
 //!    success/failure within [`StrategyEvolver::experiment_ttl_ms`], the
