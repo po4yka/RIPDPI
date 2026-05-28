@@ -66,7 +66,7 @@ Recent integration hardening in this layer:
 - `ripdpi-xhttp` now applies Finalmask directly on the outbound xHTTP transport for VLESS xHTTP and Cloudflare Tunnel profiles; `ripdpi-relay-core` rejects unsupported relay and mode combinations early rather than dropping them silently.
 - `ripdpi-xhttp` now supports the `noise` Finalmask mode in addition to `header_custom`, `fragment`, and `sudoku` for xHTTP-backed relays.
 - `ripdpi-masque` preserves configured endpoint paths for HTTP/3 and HTTP/2, reports HTTP/3 to HTTP/2 fallback in telemetry, and classifies Cloudflare direct auth failures by their actual cause.
-- `ripdpi-masque` includes provider-adapter fields for bearer/preshared-key auth, Privacy Pass provider retrieval, Cloudflare direct mTLS credentials, and Cloudflare geohash metadata.
+- `ripdpi-masque` includes provider-adapter support for bearer/preshared-key auth, deployer-supplied Privacy Pass provider retrieval, and TLS client-certificate auth; the legacy Cloudflare geohash field is retained for config compatibility but the generic adapter does not emit proprietary `sec-ch-geohash` headers.
 - `ripdpi-naiveproxy` emits structured readiness and failure events (`RIPDPI-READY`, `RIPDPI-ERROR`) so the Android service can classify DNS/TLS/HTTP CONNECT/auth failures and expose watchdog state.
 - The Android subprocess supervisor now probes helper versions, redacts configured secrets from surfaced error text, and performs reason-aware bounded restart attempts for NaiveProxy helper failures.
 - Tor relay profiles disable UDP at resolver time and require bridge lines for censored-network bootstrap.
