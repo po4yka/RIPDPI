@@ -5,7 +5,8 @@
 
 ## Boundary owner (Kotlin)
 
-`RipDpiWarpNativeBindings` (in `core/engine/.../core/RipDpiWarp.kt`). It runs the
+`RipDpiWarpNativeBindings` (in
+`core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiWarp.kt`). It runs the
 WARP / AmneziaWG runtime behind `jniCreate` / `jniStart` / `jniStop` /
 `jniPollTelemetry` / `jniDestroy`, plus `jniExecuteProvisioning` and
 `jniProbeEndpoint`, and its own `jniRegisterVpnProtect` /

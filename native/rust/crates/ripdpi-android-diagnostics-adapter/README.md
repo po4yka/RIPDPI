@@ -5,7 +5,8 @@
 
 ## Boundary owner (Kotlin)
 
-`NetworkDiagnosticsNativeBindings` (in `core/engine/.../core/NetworkDiagnostics.kt`),
+`NetworkDiagnosticsNativeBindings` (in
+`core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt`),
 driven from the `:core:diagnostics` UI. This adapter implements the scan
 lifecycle behind `jniCreate` / `jniStartScan` / `jniCancelScan` /
 `jniPollProgress` / `jniTakeReport` / `jniPollPassiveEvents` / `jniDestroy`.

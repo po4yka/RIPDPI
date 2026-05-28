@@ -5,7 +5,8 @@
 
 ## Boundary owner (Kotlin)
 
-`Tun2SocksNativeBindings` (in `core/engine/.../core/Tun2SocksTunnel.kt`), wrapped
+`Tun2SocksNativeBindings` (in
+`core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`), wrapped
 by the coroutine-facing `Tun2SocksTunnel`. Used in **VPN mode only**: it runs
 the TUN-to-SOCKS bridge behind `jniCreate` / `jniStart(handle, tunFd)` /
 `jniStop` / `jniGetStats` / `jniGetTelemetry` / `jniDestroy`.

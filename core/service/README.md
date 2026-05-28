@@ -65,8 +65,9 @@ files; `RuntimeLifecycleRunner`; `PermissionWatchdog{,Coordinator}`,
 - **`ServiceLifecycleStateMachine`** enforces `STOPPED → STARTING → RUNNING →
   STOPPING` transitions.
 - **`RuntimeLifecycleRunner`** drives runtime startup/shutdown with cleanup.
-- **`DefaultServiceController`** (`ServiceManager.kt`) issues the start/stop
-  intents, with an optional `ServiceAutomationController` intercept.
+- **`DefaultServiceController`** (`core/service/src/main/kotlin/com/poyka/ripdpi/services/ServiceManager.kt`)
+  issues the start/stop intents, with an optional
+  `ServiceAutomationController` intercept.
 
 ### 2. Runtime / proxy / VPN orchestration
 
@@ -75,11 +76,14 @@ Composing the live runtime stack for each mode. Owners: `service.runtime.*`,
 `VpnTunnel*`, `ProxyRuntime*`, `VpnProtect*` / `ProtectSocket*`, and
 `SharedProxyRuntimeStack` files.
 
-- **`BaseServiceRuntimeCoordinator`** (`ServiceRuntimeCoordinator.kt`) — the
-  abstract per-mode orchestrator (runtime state, policy resolution, handover,
-  permissions).
+- **`BaseServiceRuntimeCoordinator`** (`core/service/src/main/kotlin/com/poyka/ripdpi/services/ServiceRuntimeCoordinator.kt`)
+  — the abstract per-mode orchestrator (runtime state, policy resolution,
+  handover, permissions).
 - **`VpnServiceRuntimeCoordinator`** / **`ProxyServiceRuntimeCoordinator`**
-  (`service.runtime.{vpn,proxy}`) — the concrete per-mode coordinators.
+  (`core/service/src/main/kotlin/com/poyka/ripdpi/service/runtime/vpn/VpnServiceRuntimeCoordinator.kt`
+  and
+  `core/service/src/main/kotlin/com/poyka/ripdpi/service/runtime/proxy/ProxyServiceRuntimeCoordinator.kt`)
+  — the concrete per-mode coordinators.
 - **`VpnRuntimeCompositionCoordinator`** / **`ProxyRuntimeSupervisor`** —
   compose and supervise the tunnel / DNS / relay / protect stack.
 - **`ServiceRuntimeRegistry`** tracks the live `ServiceRuntimeSession`.
@@ -133,8 +137,8 @@ matching, and direct-path learning. Owners: `ConnectionPolicy*`,
 `AntiCorrelationRoutingPolicy`, `RuntimeExperimentSelectionProvider`,
 `NetworkFingerprintProvider`, `NetworkSnapshotFactory`.
 
-- **`DefaultConnectionPolicyResolver`** (`ConnectionPolicyResolver.kt`) is the
-  policy-decision authority — it merges app settings, DNS, VPN, and the
+- **`DefaultConnectionPolicyResolver`** (`core/service/src/main/kotlin/com/poyka/ripdpi/services/ConnectionPolicyResolver.kt`)
+  is the policy-decision authority — it merges app settings, DNS, VPN, and the
   network-specific remembered policy.
 - Persistence and the SHA-256 fingerprint key live in `:core:diagnostics-data`;
   see [`network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md).
