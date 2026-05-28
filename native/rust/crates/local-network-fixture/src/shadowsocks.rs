@@ -11,6 +11,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::sync::oneshot;
 
+// Drop order: shutdown sends before thread join; fixture tasks need the shutdown signal before their runtime thread is joined.
 pub struct ShadowsocksLoopback {
     address: SocketAddr,
     target_address: SocketAddr,

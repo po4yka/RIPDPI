@@ -56,6 +56,7 @@ internal class MainActivityShellController(
         )
     private val _hostCommands =
         MutableSharedFlow<MainActivityHostCommand>(
+            replay = 1,
             extraBufferCapacity = 1,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )

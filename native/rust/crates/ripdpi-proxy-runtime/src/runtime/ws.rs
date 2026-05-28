@@ -154,7 +154,9 @@ pub(super) fn runtime_relay_ws_tunnel(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use local_network_fixture::{FixtureConfig, FixtureStack};
     use ripdpi_proxy_runtime_adapter::model::config::{ws_tunnel_settings, RuntimeConfig, WsTunnelMode};
+    use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyEncryptedDnsContext;
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::time::Duration;
 
@@ -209,16 +211,59 @@ mod tests {
     }
 
     #[test]
-    fn encrypted_dns_ws_helpers_report_missing_runtime_context() {
-        let host_addr = runtime_resolve_host_via_encrypted_dns("kws2.web.telegram.org", None, None, true)
-            .expect("fallback host addr");
-        let answers = runtime_encrypted_dns_ip_answers_for_host("kws2.web.telegram.org", None, None)
+    fn encrypted_dns_ws_helpers_use_runtime_context() {
+        let fixture = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
+        let runtime_context = fixture_runtime_context(fixture.manifest().dns_http_port);
+
+        let host_addr =
+            runtime_resolve_host_via_encrypted_dns("kws2.web.telegram.org", Some(&runtime_context), None, true)
+                .expect("fallback host addr");
+        let answers = runtime_encrypted_dns_ip_answers_for_host("kws2.web.telegram.org", Some(&runtime_context), None)
             .expect("fallback dns answers");
-        let tunnel_addr = runtime_resolve_ws_tunnel_addr(RuntimeTelegramDc::production(2), None, None)
-            .expect("fallback bootstrap addr");
+        let tunnel_addr =
+            runtime_resolve_ws_tunnel_addr(RuntimeTelegramDc::production(2), Some(&runtime_context), None)
+                .expect("fallback bootstrap addr");
 
         assert_eq!(host_addr.port(), 0);
         assert!(!answers.answers.is_empty());
         assert_eq!(tunnel_addr.port(), 443);
+    }
+
+    fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {
+        ProxyRuntimeContext {
+            encrypted_dns: Some(ProxyEncryptedDnsContext {
+                resolver_id: Some("fixture-doh".to_string()),
+                protocol: "doh".to_string(),
+                host: "127.0.0.1".to_string(),
+                port: dns_http_port,
+                tls_server_name: None,
+                bootstrap_ips: vec!["127.0.0.1".to_string()],
+                doh_url: Some(format!("http://127.0.0.1:{dns_http_port}/dns-query")),
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            }),
+            protect_path: None,
+            preferred_edges: std::collections::BTreeMap::default(),
+            direct_path_capabilities: Vec::new(),
+            morph_policy: None,
+        }
+    }
+
+    fn dynamic_fixture_config() -> FixtureConfig {
+        FixtureConfig {
+            tcp_echo_port: 0,
+            udp_echo_port: 0,
+            tls_echo_port: 0,
+            dns_udp_port: 0,
+            dns_http_port: 0,
+            dns_dot_port: 0,
+            dns_dnscrypt_port: 0,
+            dns_doq_port: 0,
+            dns_odoh_proxy_port: 0,
+            dns_odoh_target_port: 0,
+            socks5_port: 0,
+            control_port: 0,
+            ..FixtureConfig::default()
+        }
     }
 }

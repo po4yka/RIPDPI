@@ -1,3 +1,5 @@
+use tracing::Level;
+
 use super::state::TunnelTelemetryState;
 
 struct LogContextProjection<'a> {
@@ -25,69 +27,7 @@ impl<'a> LogContextProjection<'a> {
 
 impl TunnelTelemetryState {
     pub(crate) fn log_line(&self, source: &str, level: &str, message: &str) {
-        let context = LogContextProjection::from_state(self);
-        match level.trim().to_ascii_lowercase().as_str() {
-            "trace" => tracing::trace!(
-                ring = "tunnel",
-                subsystem = "tunnel",
-                session = self.session_id.as_str(),
-                source,
-                runtime_id = context.runtime_id,
-                mode = context.mode,
-                policy_signature = context.policy_signature,
-                fingerprint_hash = context.fingerprint_hash,
-                diagnostics_session_id = context.diagnostics_session_id,
-                "{message}"
-            ),
-            "debug" => tracing::debug!(
-                ring = "tunnel",
-                subsystem = "tunnel",
-                session = self.session_id.as_str(),
-                source,
-                runtime_id = context.runtime_id,
-                mode = context.mode,
-                policy_signature = context.policy_signature,
-                fingerprint_hash = context.fingerprint_hash,
-                diagnostics_session_id = context.diagnostics_session_id,
-                "{message}"
-            ),
-            "warn" | "warning" => tracing::warn!(
-                ring = "tunnel",
-                subsystem = "tunnel",
-                session = self.session_id.as_str(),
-                source,
-                runtime_id = context.runtime_id,
-                mode = context.mode,
-                policy_signature = context.policy_signature,
-                fingerprint_hash = context.fingerprint_hash,
-                diagnostics_session_id = context.diagnostics_session_id,
-                "{message}"
-            ),
-            "error" => tracing::error!(
-                ring = "tunnel",
-                subsystem = "tunnel",
-                session = self.session_id.as_str(),
-                source,
-                runtime_id = context.runtime_id,
-                mode = context.mode,
-                policy_signature = context.policy_signature,
-                fingerprint_hash = context.fingerprint_hash,
-                diagnostics_session_id = context.diagnostics_session_id,
-                "{message}"
-            ),
-            _ => tracing::info!(
-                ring = "tunnel",
-                subsystem = "tunnel",
-                session = self.session_id.as_str(),
-                source,
-                runtime_id = context.runtime_id,
-                mode = context.mode,
-                policy_signature = context.policy_signature,
-                fingerprint_hash = context.fingerprint_hash,
-                diagnostics_session_id = context.diagnostics_session_id,
-                "{message}"
-            ),
-        }
+        emit_tunnel_log(self, source, None, level, message);
     }
 
     pub(crate) fn push_event(&self, source: &str, level: &str, message: String) {
@@ -95,47 +35,47 @@ impl TunnelTelemetryState {
     }
 
     pub(crate) fn push_event_kind(&self, source: &str, level: &str, kind: &str, message: String) {
-        let context = LogContextProjection::from_state(self);
-        match level.trim().to_ascii_lowercase().as_str() {
-            "warn" | "warning" => tracing::warn!(
-                ring = "tunnel",
-                subsystem = "tunnel",
-                session = self.session_id.as_str(),
-                source,
-                kind,
-                runtime_id = context.runtime_id,
-                mode = context.mode,
-                policy_signature = context.policy_signature,
-                fingerprint_hash = context.fingerprint_hash,
-                diagnostics_session_id = context.diagnostics_session_id,
-                "{message}"
-            ),
-            "error" => tracing::error!(
-                ring = "tunnel",
-                subsystem = "tunnel",
-                session = self.session_id.as_str(),
-                source,
-                kind,
-                runtime_id = context.runtime_id,
-                mode = context.mode,
-                policy_signature = context.policy_signature,
-                fingerprint_hash = context.fingerprint_hash,
-                diagnostics_session_id = context.diagnostics_session_id,
-                "{message}"
-            ),
-            _ => tracing::info!(
-                ring = "tunnel",
-                subsystem = "tunnel",
-                session = self.session_id.as_str(),
-                source,
-                kind,
-                runtime_id = context.runtime_id,
-                mode = context.mode,
-                policy_signature = context.policy_signature,
-                fingerprint_hash = context.fingerprint_hash,
-                diagnostics_session_id = context.diagnostics_session_id,
-                "{message}"
-            ),
-        }
+        emit_tunnel_log(self, source, Some(kind), level, &message);
+    }
+}
+
+macro_rules! emit_tunnel_event {
+    ($level:expr, $state:expr, $source:expr, $kind:expr, $message:expr) => {{
+        let context = LogContextProjection::from_state($state);
+        tracing::event!(
+            $level,
+            ring = "tunnel",
+            subsystem = "tunnel",
+            session = $state.session_id.as_str(),
+            source = $source,
+            kind = $kind,
+            runtime_id = context.runtime_id,
+            mode = context.mode,
+            policy_signature = context.policy_signature,
+            fingerprint_hash = context.fingerprint_hash,
+            diagnostics_session_id = context.diagnostics_session_id,
+            "{}",
+            $message
+        );
+    }};
+}
+
+fn emit_tunnel_log(state: &TunnelTelemetryState, source: &str, kind: Option<&str>, level: &str, message: &str) {
+    match normalized_level(level) {
+        Level::TRACE => emit_tunnel_event!(Level::TRACE, state, source, kind, message),
+        Level::DEBUG => emit_tunnel_event!(Level::DEBUG, state, source, kind, message),
+        Level::WARN => emit_tunnel_event!(Level::WARN, state, source, kind, message),
+        Level::ERROR => emit_tunnel_event!(Level::ERROR, state, source, kind, message),
+        _ => emit_tunnel_event!(Level::INFO, state, source, kind, message),
+    }
+}
+
+fn normalized_level(level: &str) -> Level {
+    match level.trim().to_ascii_lowercase().as_str() {
+        "trace" => Level::TRACE,
+        "debug" => Level::DEBUG,
+        "warn" | "warning" => Level::WARN,
+        "error" => Level::ERROR,
+        _ => Level::INFO,
     }
 }

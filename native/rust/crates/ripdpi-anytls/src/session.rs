@@ -89,11 +89,20 @@ struct ClientState {
     session: Option<SessionHandle>,
 }
 
-#[derive(Clone)]
 struct SessionHandle {
     outbound: mpsc::Sender<Outbound>,
     streams: Arc<Mutex<HashMap<u32, StreamRoute>>>,
     next_stream_id: Arc<Mutex<u32>>,
+}
+
+impl Clone for SessionHandle {
+    fn clone(&self) -> Self {
+        Self {
+            outbound: self.outbound.clone(),
+            streams: Arc::clone(&self.streams),
+            next_stream_id: Arc::clone(&self.next_stream_id),
+        }
+    }
 }
 
 struct StreamRoute {
@@ -150,19 +159,39 @@ impl AnyTlsClient {
         }
         frames.push(Frame::control(Command::Syn, stream_id));
         frames.push(Frame::with_data(Command::Psh, stream_id, encode_target(&target, port)?));
-        session.send_batch(frames).await?;
+        if let Err(error) = session.send_batch(frames).await {
+            session.streams.lock().await.remove(&stream_id);
+            self.clear_cached_session(&session).await;
+            return Err(error);
+        }
 
-        match ack_rx.await.map_err(|_| AnyTlsError::SessionClosed)? {
-            Ok(()) => Ok(AnyTlsStream {
+        match ack_rx.await {
+            Ok(Ok(())) => Ok(AnyTlsStream {
                 stream_id,
                 outbound: session.outbound.clone(),
                 inbound: inbound_rx,
                 read_buffer: VecDeque::new(),
             }),
-            Err(error) => {
+            Ok(Err(error)) => {
                 session.streams.lock().await.remove(&stream_id);
+                if matches!(error, AnyTlsError::SessionClosed) {
+                    self.clear_cached_session(&session).await;
+                }
                 Err(error)
             }
+            Err(_) => {
+                session.streams.lock().await.remove(&stream_id);
+                self.clear_cached_session(&session).await;
+                Err(AnyTlsError::SessionClosed)
+            }
+        }
+    }
+
+    async fn clear_cached_session(&self, session: &SessionHandle) {
+        let mut state = self.state.lock().await;
+        let should_clear = state.session.as_ref().is_some_and(|cached| cached.same_session(session));
+        if should_clear {
+            state.session = None;
         }
     }
 
@@ -187,7 +216,10 @@ impl AnyTlsClient {
 
     async fn session(&self) -> Result<SessionHandle, AnyTlsError> {
         if let Some(session) = self.state.lock().await.session.clone() {
-            return Ok(session);
+            if !session.outbound.is_closed() {
+                return Ok(session);
+            }
+            self.clear_cached_session(&session).await;
         }
 
         let tcp = TcpStream::connect((self.config.server_host.as_str(), self.config.server_port)).await?;
@@ -220,6 +252,10 @@ impl AnyTlsClient {
 }
 
 impl SessionHandle {
+    fn same_session(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.next_stream_id, &other.next_stream_id)
+    }
+
     async fn allocate_stream_id(&self) -> u32 {
         let mut guard = self.next_stream_id.lock().await;
         let id = *guard;
@@ -255,7 +291,6 @@ impl AnyTlsStream {
         self.inbound.recv().await.ok_or(AnyTlsError::SessionClosed)
     }
 }
-
 impl AnyTlsUdpOverTcp {
     pub async fn send_datagram(&mut self, target: TargetAddr, port: u16, payload: &[u8]) -> Result<(), AnyTlsError> {
         let mut packet = encode_target(&target, port)?;

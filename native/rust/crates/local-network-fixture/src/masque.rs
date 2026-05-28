@@ -37,6 +37,7 @@ pub struct MasqueObservedRequest {
     pub capsule_protocol: Option<String>,
 }
 
+// Drop order: shutdown sends before thread join; fixture tasks need the shutdown signal before their runtime thread is joined.
 pub struct MasqueH2ConnectUdpFixture {
     address: SocketAddr,
     udp_echo_address: SocketAddr,

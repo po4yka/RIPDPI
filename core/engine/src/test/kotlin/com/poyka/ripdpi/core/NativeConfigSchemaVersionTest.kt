@@ -112,7 +112,8 @@ class NativeConfigSchemaVersionTest {
                 torCacheDir = "/data/user/0/com.poyka.ripdpi/cache/tor/default/cache",
                 torBridgeLines =
                     listOf(
-                        "Bridge obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=fixture iat-mode=0",
+                        "Bridge obfs4 192.0.2.55:38114 " +
+                            "316E643333645F6D79216558614D3931657A5F5F cert=fixture iat-mode=0",
                     ),
                 torTransports =
                     listOf(

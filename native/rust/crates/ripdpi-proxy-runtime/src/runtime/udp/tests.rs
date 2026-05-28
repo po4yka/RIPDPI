@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{
@@ -66,6 +66,8 @@ fn dynamic_fixture_config() -> FixtureConfig {
         dns_dot_port: 0,
         dns_dnscrypt_port: 0,
         dns_doq_port: 0,
+        dns_odoh_proxy_port: 0,
+        dns_odoh_target_port: 0,
         socks5_port: 0,
         control_port: 0,
         ..FixtureConfig::default()
@@ -247,8 +249,17 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
     upstream_peer.send(b"edge-response").expect("send upstream response");
 
     let mut upstream_buffer = [0u8; 1500];
-    assert!(pump_udp_upstream_responses(&state, &client_relay, &mut upstream_buffer, &mut flow_state, None)
-        .expect("pump upstream response"));
+    let deadline = Instant::now() + Duration::from_secs(1);
+    let made_progress = loop {
+        let made_progress =
+            pump_udp_upstream_responses(&state, &client_relay, &mut upstream_buffer, &mut flow_state, None)
+                .expect("pump upstream response");
+        if made_progress || Instant::now() >= deadline {
+            break made_progress;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    assert!(made_progress);
     let mut client_buffer = [0u8; 1500];
     let (n, _) = client_receiver.recv_from(&mut client_buffer).expect("client response");
     let (decoded_target, payload) =
@@ -300,11 +311,16 @@ fn udp_upstream_poll_returns_only_ready_flow_keys() {
     let client = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 10_800);
     let ready_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 30)), 443);
     let idle_target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 31)), 443);
-    let ready = ready_udp_poll_keys(&[
-        ((client, ready_target), ready_receiver.as_raw_fd()),
-        ((client, idle_target), idle_receiver.as_raw_fd()),
-    ])
-    .expect("poll ready udp sockets");
+    let poll_entries =
+        [((client, ready_target), ready_receiver.as_raw_fd()), ((client, idle_target), idle_receiver.as_raw_fd())];
+    let deadline = Instant::now() + Duration::from_secs(1);
+    let ready = loop {
+        let ready = ready_udp_poll_keys(&poll_entries).expect("poll ready udp sockets");
+        if !ready.is_empty() || Instant::now() >= deadline {
+            break ready;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
 
     assert_eq!(ready, vec![(client, ready_target)]);
 }

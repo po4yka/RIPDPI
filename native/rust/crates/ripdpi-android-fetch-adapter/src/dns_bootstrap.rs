@@ -8,7 +8,6 @@ use ripdpi_dns_resolver::{
 use crate::socket_protection::owned_fetch_dns_connect_hooks;
 
 const DNS_RECORD_TYPE_A: u16 = 1;
-const DNS_RECORD_TYPE_AAAA: u16 = 28;
 const OWNED_FETCH_DOH_HOST: &str = "dns.adguard-dns.com";
 const OWNED_FETCH_DOH_URL: &str = "https://dns.adguard-dns.com/dns-query";
 const OWNED_FETCH_DOH_BOOTSTRAP_IPS: &[&str] = &["94.140.14.14", "94.140.15.15"];
@@ -20,7 +19,7 @@ pub(crate) async fn resolve_connect_targets(host: &str, port: u16) -> io::Result
 
     let resolver = owned_fetch_encrypted_resolver()?;
     let mut targets = encrypted_dns_targets(&resolver, host, port, DNS_RECORD_TYPE_A).await?;
-    targets.extend(encrypted_dns_targets(&resolver, host, port, DNS_RECORD_TYPE_AAAA).await?);
+    targets.extend(encrypted_dns_targets(&resolver, host, port, 28).await?);
     if targets.is_empty() {
         return Err(io::Error::new(
             io::ErrorKind::AddrNotAvailable,

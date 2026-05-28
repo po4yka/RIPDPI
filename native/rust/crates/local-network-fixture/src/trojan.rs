@@ -24,6 +24,7 @@ pub struct TrojanLoopbackObserved {
     pub initial_payload_len: usize,
 }
 
+// Drop order: shutdown sends before thread join; fixture tasks need the shutdown signal before their runtime thread is joined.
 pub struct TrojanLoopback {
     address: SocketAddr,
     target_address: SocketAddr,

@@ -84,9 +84,7 @@ internal class UpstreamRelaySupervisor(
             object : RuntimeExperimentSelectionProvider {
                 override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
             },
-        torRuntimePathProvider: TorRuntimePathProvider = LocalTorRuntimePathProvider(),
-        torPluggableTransportProvider: TorPluggableTransportProvider = UnconfiguredTorPluggableTransportProvider(),
-        stopTimeoutMillis: Long = 5_000L,
+        torRuntimeProviders: TorRelayRuntimeProviders = TorRelayRuntimeProviders(),
     ) : this(
         scope = scope,
         dispatcher = dispatcher,
@@ -103,10 +101,9 @@ internal class UpstreamRelaySupervisor(
                 masquePrivacyPassProvider = masquePrivacyPassProvider,
                 tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
                 runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
-                torRuntimePathProvider = torRuntimePathProvider,
-                torPluggableTransportProvider = torPluggableTransportProvider,
+                torRuntimePathProvider = torRuntimeProviders.pathProvider,
+                torPluggableTransportProvider = torRuntimeProviders.pluggableTransportProvider,
             ),
-        stopTimeoutMillis = stopTimeoutMillis,
     )
 
     private var relayRuntime: RipDpiRelayRuntime? = null
@@ -240,6 +237,11 @@ internal class UpstreamRelaySupervisor(
             )
     }
 }
+
+internal data class TorRelayRuntimeProviders(
+    val pathProvider: TorRuntimePathProvider = LocalTorRuntimePathProvider(),
+    val pluggableTransportProvider: TorPluggableTransportProvider = UnconfiguredTorPluggableTransportProvider(),
+)
 
 internal open class UpstreamRelaySupervisorFactory
     @Inject

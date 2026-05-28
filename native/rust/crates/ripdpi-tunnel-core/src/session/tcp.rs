@@ -425,6 +425,8 @@ mod tests {
             dns_dot_port: 0,
             dns_dnscrypt_port: 0,
             dns_doq_port: 0,
+            dns_odoh_proxy_port: 0,
+            dns_odoh_target_port: 0,
             socks5_port: 0,
             control_port: 0,
             ..FixtureConfig::default()
@@ -466,6 +468,8 @@ mod tests {
             dns_dot_port: 0,
             dns_dnscrypt_port: 0,
             dns_doq_port: 0,
+            dns_odoh_proxy_port: 0,
+            dns_odoh_target_port: 0,
             socks5_port: 0,
             control_port: 0,
             ..FixtureConfig::default()
@@ -508,6 +512,8 @@ mod tests {
             dns_dot_port: 0,
             dns_dnscrypt_port: 0,
             dns_doq_port: 0,
+            dns_odoh_proxy_port: 0,
+            dns_odoh_target_port: 0,
             socks5_port: 0,
             control_port: 0,
             ..FixtureConfig::default()

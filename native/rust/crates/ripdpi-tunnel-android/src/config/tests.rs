@@ -582,6 +582,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "dnsQueryTimeoutMs": 4000,
         "resolverFallbackActive": true,
         "resolverFallbackReason": "timeout",
+        "routeDnsThroughSocks5": true,
         "strategyChainYaml": "version: 1\nchains:\n  - id: vpn-synack",
         "protectPath": "/data/user/0/com.poyka.ripdpi/files/protect_path",
         "rootHelperSocketPath": "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",

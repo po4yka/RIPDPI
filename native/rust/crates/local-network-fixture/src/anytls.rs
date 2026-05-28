@@ -37,6 +37,7 @@ pub struct AnyTlsLoopbackObserved {
     pub heart_responses: usize,
 }
 
+// Drop order: shutdown sends before thread join; fixture tasks need the shutdown signal before their runtime thread is joined.
 pub struct AnyTlsLoopback {
     address: SocketAddr,
     target_address: SocketAddr,

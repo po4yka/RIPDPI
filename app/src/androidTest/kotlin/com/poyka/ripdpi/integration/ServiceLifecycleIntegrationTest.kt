@@ -546,6 +546,7 @@ class ServiceLifecycleIntegrationTest {
         runBlocking {
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
+            awaitPermissionWatchdogSubscribers(1)
 
             IntegrationTestOverrides.permissionWatchdog.emit(
                 PermissionChangeEvent(
@@ -796,6 +797,14 @@ class ServiceLifecycleIntegrationTest {
     private suspend fun awaitHandoverMonitorSubscribers(expected: Int) {
         withTimeout(10.seconds) {
             while (IntegrationTestOverrides.networkHandoverMonitor.subscriberCount < expected) {
+                delay(50)
+            }
+        }
+    }
+
+    private suspend fun awaitPermissionWatchdogSubscribers(expected: Int) {
+        withTimeout(10.seconds) {
+            while (IntegrationTestOverrides.permissionWatchdog.subscriberCount < expected) {
                 delay(50)
             }
         }

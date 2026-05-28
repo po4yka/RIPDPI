@@ -31,6 +31,7 @@ pub struct NaiveH2PaddingObserved {
     pub decoded_payload_bytes: usize,
 }
 
+// Drop order: shutdown sends before thread join; fixture tasks need the shutdown signal before their runtime thread is joined.
 pub struct NaiveH2PaddingFixture {
     address: SocketAddr,
     client_tls_config: Arc<ClientConfig>,

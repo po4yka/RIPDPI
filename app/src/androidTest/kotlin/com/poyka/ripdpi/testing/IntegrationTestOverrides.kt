@@ -389,6 +389,9 @@ class RecordingPermissionWatchdog : PermissionWatchdog {
 
     override val changes: SharedFlow<PermissionChangeEvent> = changeFlow.asSharedFlow()
 
+    val subscriberCount: Int
+        get() = changeFlow.subscriptionCount.value
+
     fun emit(event: PermissionChangeEvent) {
         changeFlow.tryEmit(event)
     }

@@ -11,28 +11,14 @@ pub(crate) fn wake_udp(host: &str, port: u16) {
     }
 }
 
-pub(crate) fn env_string(key: &str, default: &str) -> String {
-    std::env::var(key).unwrap_or_else(|_| default.to_string())
-}
-
-pub(crate) fn env_u16(key: &str, default: u16) -> u16 {
-    std::env::var(key).ok().and_then(|value| value.parse::<u16>().ok()).unwrap_or(default)
-}
-
 pub(crate) fn percent_decode(value: &str) -> String {
-    value
-        .replace("%2E", ".")
-        .replace("%2e", ".")
-        .replace("%2F", "/")
-        .replace("%2f", "/")
-        .replace("%3A", ":")
-        .replace("%3a", ":")
-        .replace('+', " ")
+    let mut decoded = value.replace('+', " ");
+    for (encoded, replacement) in [("%2E", "."), ("%2e", "."), ("%2F", "/"), ("%2f", "/"), ("%3A", ":"), ("%3a", ":")] {
+        decoded = decoded.replace(encoded, replacement);
+    }
+    decoded
 }
 
-pub(crate) fn other_io<E>(error: E) -> io::Error
-where
-    E: ToString,
-{
+pub(crate) fn other_io(error: impl ToString) -> io::Error {
     io::Error::other(error.to_string())
 }
