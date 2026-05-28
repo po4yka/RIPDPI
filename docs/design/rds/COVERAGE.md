@@ -1,6 +1,6 @@
 # RDS Design System Coverage Audit
 
-**Last Updated:** 2026-05-25 (share-link-preview closed, 129/129 = 100%)  
+**Last Updated:** 2026-05-28 (stale closed-state audit labels removed, 129/129 = 100%)
 **Spec Inventory:** 146 HTML preview files  
 **Audit Scope:** Kotlin implementation alignment with RDS specs
 
@@ -63,37 +63,37 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 - **Stepper** (`components-stepper.html`) — Implementation in diagnostic workflows
 - **Empty State** (`components-empty-state.html`) — `RipDpiEmptyStateCard` in history and diagnostics
 
-### ⚠️ Partial Implementation (pattern exists, gaps remain)
+### ✅ Full Implementation Continued
 
-- ~~**Accordion** (`components-accordion.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiAccordion.kt`; golden `RdsComponentsScreenshotTest.accordion`
-- ~~**Toggle Alternatives** (`components-toggle-alternatives.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiToggleAlternatives.kt`; golden `RdsComponentsScreenshotTest.toggleAlternatives`
-- ~~**Spinner** (`components-spinner.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiSpinner.kt`; golden `RdsComponentsScreenshotTest.spinner`
-- ~~**Segmented Controls** (`components-segmented.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiSegmentedButton.kt`; golden `RdsComponentsScreenshotTest.segmentedButton`
-- ~~**Tooltip** (`components-tooltip.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiTooltip.kt` + rich variant `RipDpiTooltipRich.kt`; goldens `RdsComponentsScreenshotTest.tooltip` and `.tooltipRich`
-- ~~**Command Palette** (`components-command-palette.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiCommandPalette.kt` (Esc/Enter keyboard wired); golden `RdsComponentsScreenshotTest.commandPalettePlaceholder`
-- ~~**Combobox** (`components-combobox.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiCombobox.kt`; golden `RdsComponentsScreenshotTest.combobox`
-- ~~**Page Indicators** (`components-page-indicators.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiPageIndicators.kt`; golden `RdsComponentsScreenshotTest.pageIndicators`
-- ~~**Progress Bar** (`components-progress-bar.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiProgressBar.kt`; golden `RdsComponentsScreenshotTest.progressBar`
-- ~~**Shimmer** (`components-shimmer.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiShimmer.kt` (Modifier.ripDpiShimmer + RipDpiSkeletonBox); golden `RdsComponentsScreenshotTest.skeletonBox`. Uses `RipDpiMotion.shimmerSpec()`.
-- ~~**JSON Tree** (`components-json-tree.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiJsonTree.kt`; golden `RdsComponentsScreenshotTest.jsonTree`
-- ~~**Log Stream** (`components-log-stream.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiLogStream.kt` (with levelFilter integration); golden `RdsComponentsScreenshotTest.logStream`
+- **Accordion** (`components-accordion.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiAccordion.kt`; golden `RdsComponentsScreenshotTest.accordion`
+- **Toggle Alternatives** (`components-toggle-alternatives.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiToggleAlternatives.kt`; golden `RdsComponentsScreenshotTest.toggleAlternatives`
+- **Spinner** (`components-spinner.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiSpinner.kt`; golden `RdsComponentsScreenshotTest.spinner`
+- **Segmented Controls** (`components-segmented.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiSegmentedButton.kt`; golden `RdsComponentsScreenshotTest.segmentedButton`
+- **Tooltip** (`components-tooltip.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiTooltip.kt` + rich variant `RipDpiTooltipRich.kt`; goldens `RdsComponentsScreenshotTest.tooltip` and `.tooltipRich`
+- **Command Palette** (`components-command-palette.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiCommandPalette.kt` (Esc/Enter keyboard wired); golden `RdsComponentsScreenshotTest.commandPalettePlaceholder`
+- **Combobox** (`components-combobox.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiCombobox.kt`; golden `RdsComponentsScreenshotTest.combobox`
+- **Page Indicators** (`components-page-indicators.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiPageIndicators.kt`; golden `RdsComponentsScreenshotTest.pageIndicators`
+- **Progress Bar** (`components-progress-bar.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiProgressBar.kt`; golden `RdsComponentsScreenshotTest.progressBar`
+- **Shimmer** (`components-shimmer.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiShimmer.kt` (Modifier.ripDpiShimmer + RipDpiSkeletonBox); golden `RdsComponentsScreenshotTest.skeletonBox`. Uses `RipDpiMotion.shimmerSpec()`.
+- **JSON Tree** (`components-json-tree.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiJsonTree.kt`; golden `RdsComponentsScreenshotTest.jsonTree`
+- **Log Stream** (`components-log-stream.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiLogStream.kt` (with levelFilter integration); golden `RdsComponentsScreenshotTest.logStream`
 
-### ❌ Missing Implementation (0 specs — all closed)
+### ✅ Full Implementation Continued
 
-- ~~**Actuator States** (`components-actuator-states.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiActuatorStates.kt` (gallery showcase composable); golden `RdsComponentsScreenshotTest.actuatorStatesGallery`
-- ~~**Analysis Progress** (`components-analysis-progress.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/AnalysisProgressIndicator.kt`; golden `RdsComponentsScreenshotTest.analysisProgress`
-- ~~**Cidr Input** (`components-cidr-input.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiCidrInput.kt` (with IPv4/IPv6 family toggle); golden `RdsComponentsScreenshotTest.cidrInput`
-- ~~**Diff Viewer** (`components-diff-viewer.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiDiffViewer.kt` (unified + side-by-side layouts); golden `RdsComponentsScreenshotTest.diffViewer`
-- ~~**Filter Bar** (`components-filter-bar.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiFilterBar.kt`; golden `RdsComponentsScreenshotTest.filterBar`
-- ~~**Heartbeat Indicator** (`components-heartbeat-indicator.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiHeartbeatIndicator.kt`; golden `RdsComponentsScreenshotTest.heartbeatIndicator`. Uses `RipDpiMotion.pulseSpec()`.
-- ~~**Kbd Shortcut** (`components-kbd-shortcut.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiKbdShortcut.kt`; golden `RdsComponentsScreenshotTest.kbdShortcut`
-- ~~**Live Counter** (`components-live-counter.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiLiveCounter.kt`; golden `RdsComponentsScreenshotTest.liveCounter`
-- ~~**Log Row** (`components-log-row.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/LogRow.kt`; golden `RdsComponentsScreenshotTest.logRow`
-- ~~**Metric Pill** (`components-metric-pill.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiMetricPill.kt`; golden `RdsComponentsScreenshotTest.metricPill`
-- ~~**Preset Card** (`components-preset-card.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/PresetCard.kt`; golden `RdsComponentsScreenshotTest.presetCard`
-- ~~**Stage Progress** (`components-stage-progress.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/StageProgressIndicator.kt`; golden `RdsComponentsScreenshotTest.stageProgress`
-- ~~**Stale Data Badge** (`components-stale-data-badge.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiStaleDataBadge.kt` (Fresh tier wired to `RipDpiMotion.pulseSpec()`); golden `RdsComponentsScreenshotTest.staleDataBadge`
-- ~~**Brand Badge** (`components-brand-badge.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiBrandBadge.kt`; golden `RdsComponentsScreenshotTest.brandBadgeAllSizes`
+- **Actuator States** (`components-actuator-states.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiActuatorStates.kt` (gallery showcase composable); golden `RdsComponentsScreenshotTest.actuatorStatesGallery`
+- **Analysis Progress** (`components-analysis-progress.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/AnalysisProgressIndicator.kt`; golden `RdsComponentsScreenshotTest.analysisProgress`
+- **Cidr Input** (`components-cidr-input.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiCidrInput.kt` (with IPv4/IPv6 family toggle); golden `RdsComponentsScreenshotTest.cidrInput`
+- **Diff Viewer** (`components-diff-viewer.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiDiffViewer.kt` (unified + side-by-side layouts); golden `RdsComponentsScreenshotTest.diffViewer`
+- **Filter Bar** (`components-filter-bar.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/inputs/RipDpiFilterBar.kt`; golden `RdsComponentsScreenshotTest.filterBar`
+- **Heartbeat Indicator** (`components-heartbeat-indicator.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiHeartbeatIndicator.kt`; golden `RdsComponentsScreenshotTest.heartbeatIndicator`. Uses `RipDpiMotion.pulseSpec()`.
+- **Kbd Shortcut** (`components-kbd-shortcut.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiKbdShortcut.kt`; golden `RdsComponentsScreenshotTest.kbdShortcut`
+- **Live Counter** (`components-live-counter.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiLiveCounter.kt`; golden `RdsComponentsScreenshotTest.liveCounter`
+- **Log Row** (`components-log-row.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/LogRow.kt`; golden `RdsComponentsScreenshotTest.logRow`
+- **Metric Pill** (`components-metric-pill.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiMetricPill.kt`; golden `RdsComponentsScreenshotTest.metricPill`
+- **Preset Card** (`components-preset-card.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/PresetCard.kt`; golden `RdsComponentsScreenshotTest.presetCard`
+- **Stage Progress** (`components-stage-progress.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/StageProgressIndicator.kt`; golden `RdsComponentsScreenshotTest.stageProgress`
+- **Stale Data Badge** (`components-stale-data-badge.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiStaleDataBadge.kt` (Fresh tier wired to `RipDpiMotion.pulseSpec()`); golden `RdsComponentsScreenshotTest.staleDataBadge`
+- **Brand Badge** (`components-brand-badge.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/indicators/RipDpiBrandBadge.kt`; golden `RdsComponentsScreenshotTest.brandBadgeAllSizes`
 
 ---
 
@@ -123,28 +123,28 @@ Row totals reconcile against the actual `preview/*.html` file count: 35 VPN + 47
 - **Network Change** (`vpn-network-change.html`) — network transition handling UI
 - **Snooze** (`vpn-snooze.html`) — VPN suspend/snooze UI
 - **Reconnect Toast** (`vpn-reconnect-toast.html`) — reconnection notification
-- ~~**Profile Variants** (`vpn-profile-switcher.html` gallery variant)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/ProfileVariantsScreen.kt`; vertical gallery of strategy profile cards (Balanced / Aggressive / Stealth) each with a tinted header chip, 3-row metric strip (latency / throughput / detection risk), description, and Select CTA. Sample data in `ProfileVariantsSampleData.kt`. Roborazzi `profileVariants` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.ProfileVariants`.
+- **Profile Variants** (`vpn-profile-switcher.html` gallery variant) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/ProfileVariantsScreen.kt`; vertical gallery of strategy profile cards (Balanced / Aggressive / Stealth) each with a tinted header chip, 3-row metric strip (latency / throughput / detection risk), description, and Select CTA. Sample data in `ProfileVariantsSampleData.kt`. Roborazzi `profileVariants` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.ProfileVariants`.
 
-### ⚠️ Partial Implementation (0 specs — all closed)
+### ✅ Full Implementation Continued
 
-- ~~**State Machine** (`vpn-state-machine.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/StateMachineScreen.kt`; 7-node Canvas state graph (Disconnected / Permissioning / Connecting / Tunneling / Reconnecting / Failed / Degraded) with directed edges, active-node ring, active-edge dashed highlight, and colour-coded legend. Sample data in `StateMachineSampleData.kt`. Roborazzi `stateMachine` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.StateMachine`.
-- ~~**Handshake Timeline** (`vpn-handshake-timeline.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/HandshakeTimelineScreen.kt`; Gantt-style per-stage timeline (label / bar / duration tracks, NOW overlay line, slowest-stage footer). Roborazzi `handshakeTimeline` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.HandshakeTimeline`.
-- ~~**Throughput Graph** (`vpn-throughput-graph.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/ThroughputGraphScreen.kt`; dual-series Canvas line plot (download = foreground + fill, upload = info) with time-range chips, three-stat summary grid (down/up/session), and legend row. Sample data in `ThroughputGraphSampleData.kt`. Roborazzi `throughputGraph` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.ThroughputGraph`.
-- ~~**Latency Graph** (`vpn-latency-graph.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/LatencyGraphScreen.kt`; single-series Canvas RTT line plot with dashed 100 ms threshold band (warning color), packet-loss bar row, and legend (Now / p99 / spike count). Sample data in `LatencyGraphSampleData.kt`. Roborazzi `latencyGraph` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.LatencyGraph`.
-- ~~**Strategy A/B** (`vpn-strategy-ab.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/StrategyAbScreen.kt`; two-column side-by-side compare layout (strategy A vs B), per-target pass/fail rows with latency, winner-border highlight, and verdict strip with Switch CTA. Sample data in `StrategyAbSampleData.kt`. Roborazzi `strategyAb` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.StrategyAb`.
-- ~~**Strategy Import** (`vpn-strategy-import.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/StrategyImportScreen.kt`; 2×2 source-picker grid (file / QR / URL / clipboard) with circular icon tiles, recent-imports section with divider rows, and caption footer. Sample data in `StrategyImportSampleData.kt`. Roborazzi `strategyImport` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.StrategyImport`.
-- ~~**OOM Recovery** (`vpn-oom-recovery.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/OomRecoveryScreen.kt`; warning-tone banner with kill-time, downtime duration, Reconnect/View-incident actions, dismissible via close icon. Sample data in `OomRecoverySampleData.kt`. Roborazzi `oomRecovery` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.OomRecovery`.
+- **State Machine** (`vpn-state-machine.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/StateMachineScreen.kt`; 7-node Canvas state graph (Disconnected / Permissioning / Connecting / Tunneling / Reconnecting / Failed / Degraded) with directed edges, active-node ring, active-edge dashed highlight, and colour-coded legend. Sample data in `StateMachineSampleData.kt`. Roborazzi `stateMachine` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.StateMachine`.
+- **Handshake Timeline** (`vpn-handshake-timeline.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/HandshakeTimelineScreen.kt`; Gantt-style per-stage timeline (label / bar / duration tracks, NOW overlay line, slowest-stage footer). Roborazzi `handshakeTimeline` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.HandshakeTimeline`.
+- **Throughput Graph** (`vpn-throughput-graph.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/ThroughputGraphScreen.kt`; dual-series Canvas line plot (download = foreground + fill, upload = info) with time-range chips, three-stat summary grid (down/up/session), and legend row. Sample data in `ThroughputGraphSampleData.kt`. Roborazzi `throughputGraph` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.ThroughputGraph`.
+- **Latency Graph** (`vpn-latency-graph.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/LatencyGraphScreen.kt`; single-series Canvas RTT line plot with dashed 100 ms threshold band (warning color), packet-loss bar row, and legend (Now / p99 / spike count). Sample data in `LatencyGraphSampleData.kt`. Roborazzi `latencyGraph` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.LatencyGraph`.
+- **Strategy A/B** (`vpn-strategy-ab.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/StrategyAbScreen.kt`; two-column side-by-side compare layout (strategy A vs B), per-target pass/fail rows with latency, winner-border highlight, and verdict strip with Switch CTA. Sample data in `StrategyAbSampleData.kt`. Roborazzi `strategyAb` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.StrategyAb`.
+- **Strategy Import** (`vpn-strategy-import.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/StrategyImportScreen.kt`; 2×2 source-picker grid (file / QR / URL / clipboard) with circular icon tiles, recent-imports section with divider rows, and caption footer. Sample data in `StrategyImportSampleData.kt`. Roborazzi `strategyImport` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.StrategyImport`.
+- **OOM Recovery** (`vpn-oom-recovery.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/OomRecoveryScreen.kt`; warning-tone banner with kill-time, downtime duration, Reconnect/View-incident actions, dismissible via close icon. Sample data in `OomRecoverySampleData.kt`. Roborazzi `oomRecovery` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.OomRecovery`.
 
-### ❌ Missing Implementation (0 specs — all closed)
+### ✅ Full Implementation Continued
 
 All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer`, `PcapCaptureList`, `ReplayFailure`, and the diagnostics graph/recovery screens are registered in `Route` and `RipDpiNavHost`; some routes still use demo/default data until their producer subsystem supplies real capture or replay context.
 
-- ~~**Pcap Viewer** (`vpn-pcap-viewer.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PcapViewerScreen.kt` plus `PcapViewerRoute`; scrollable packet table with NO/TIME/SRC/DST/SUMMARY columns, protocol-coded badges (TCP/UDP/TLS/Other), selection state + inline HEX DUMP detail card. `PcapCaptureListRoute` is navigable from diagnostics, but selected-capture-to-viewer parsing is still a follow-up.
-- ~~**Replay Failure** (`vpn-replay-failure.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/ReplayFailureScreen.kt` plus `ReplayFailureRoute`; 4-step vertical timeline with success/failure/pending dot markers, REPLAY button, recommendation banner via `WarningBanner` (Info tone). The route currently uses default replay target arguments until typed route args land.
-- ~~**Export Consent** (`vpn-export-consent.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiExportConsentDialog.kt`; warning icon dialog with contents checklist (Check/Warning icons), redact-endpoints toggle, Cancel/Export actions
-- ~~**First-Run Test** (`vpn-first-run-test.html`)~~ — implemented inside `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/onboarding/OnboardingSetupPages.kt` as `OnboardingModeValidationContent`; validation states cover idle, permission requests, mode startup, traffic check, success, failure, suggested-mode recovery, and finish actions.
-- ~~**Confirm Disconnect** (`vpn-confirm-disconnect.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiConfirmDisconnectDialog.kt`; `RipDpiDialog` (tone=Destructive) with session-duration line, body paragraph, "Don't ask again" checkbox, Stay/Disconnect actions
-- ~~**Degradation Strip** (`vpn-degradation-strip.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiDegradationStrip.kt`; tone-coded (Warning|Critical) inline `Surface` with title + body + 3 metric chips (Loss/RTT/Jitter with deltas) + 2-button action column. Sparkline intentionally omitted — measurable engineering cost vs marginal information value
+- **Pcap Viewer** (`vpn-pcap-viewer.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PcapViewerScreen.kt` plus `PcapViewerRoute`; scrollable packet table with NO/TIME/SRC/DST/SUMMARY columns, protocol-coded badges (TCP/UDP/TLS/Other), selection state + inline HEX DUMP detail card. `PcapCaptureListRoute` is navigable from diagnostics, but selected-capture-to-viewer parsing is still a follow-up.
+- **Replay Failure** (`vpn-replay-failure.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/ReplayFailureScreen.kt` plus `ReplayFailureRoute`; 4-step vertical timeline with success/failure/pending dot markers, REPLAY button, recommendation banner via `WarningBanner` (Info tone). The route currently uses default replay target arguments until typed route args land.
+- **Export Consent** (`vpn-export-consent.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiExportConsentDialog.kt`; warning icon dialog with contents checklist (Check/Warning icons), redact-endpoints toggle, Cancel/Export actions
+- **First-Run Test** (`vpn-first-run-test.html`) — implemented inside `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/onboarding/OnboardingSetupPages.kt` as `OnboardingModeValidationContent`; validation states cover idle, permission requests, mode startup, traffic check, success, failure, suggested-mode recovery, and finish actions.
+- **Confirm Disconnect** (`vpn-confirm-disconnect.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiConfirmDisconnectDialog.kt`; `RipDpiDialog` (tone=Destructive) with session-duration line, body paragraph, "Don't ask again" checkbox, Stay/Disconnect actions
+- **Degradation Strip** (`vpn-degradation-strip.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiDegradationStrip.kt`; tone-coded (Warning|Critical) inline `Surface` with title + body + 3 metric chips (Loss/RTT/Jitter with deltas) + 2-button action column. Sparkline intentionally omitted — measurable engineering cost vs marginal information value
 
 ---
 
@@ -165,15 +165,15 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 - **Crash Screen** (`android-crash-screen.html`)
 - **Split Columns** (`android-split-columns.html`) — responsive layout adaptation
 
-### ⚠️ Partial Implementation (0 specs — all closed)
+### ✅ Full Implementation Continued
 
-- ~~**Nav Rail** (`android-nav-rail.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavRail.kt`; wired into RipDpiNavHost via rememberIsWideScreen() at the 600dp breakpoint
-- ~~**Glance Widget** (`android-glance-widget.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/widget/{ConnectToggleWidget, ModePickerWidget, StatusDisplayWidget, TelemetryWidget}.kt`; SizeMode.Responsive across 3 size buckets; theme via RipDpiGlanceTheme; Hilt-injected state via WidgetEntryPoint + WidgetStateLoader
-- ~~**QS Tile** (`android-qs-tile.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/services/QuickTileService.kt` + `QuickTileController.kt`; Hilt-injected (`AppSettingsRepository`, `ServiceController`, `ServiceStateStore`); manifest entry under `.services.QuickTileService`
+- **Nav Rail** (`android-nav-rail.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavRail.kt`; wired into RipDpiNavHost via rememberIsWideScreen() at the 600dp breakpoint
+- **Glance Widget** (`android-glance-widget.html`) — `app/src/main/kotlin/com/poyka/ripdpi/widget/{ConnectToggleWidget, ModePickerWidget, StatusDisplayWidget, TelemetryWidget}.kt`; SizeMode.Responsive across 3 size buckets; theme via RipDpiGlanceTheme; Hilt-injected state via WidgetEntryPoint + WidgetStateLoader
+- **QS Tile** (`android-qs-tile.html`) — `app/src/main/kotlin/com/poyka/ripdpi/services/QuickTileService.kt` + `QuickTileController.kt`; Hilt-injected (`AppSettingsRepository`, `ServiceController`, `ServiceStateStore`); manifest entry under `.services.QuickTileService`
 
-### ❌ Missing Implementation (0 specs — all closed)
+### ✅ Full Implementation Continued
 
-- ~~**Splash Screen** (`android-splash.html`)~~ — Android 12+ SplashScreen API wired via `installSplashScreen()` in MainActivity + `Theme.RIPDPI.Starting` theme (`windowSplashScreenAnimatedIcon = @drawable/ic_launcher_foreground_ripdpi_clean`, day=`@color/white` / night=`@color/black` via values-night override, `postSplashScreenTheme = Theme.RIPDPI`)
+- **Splash Screen** (`android-splash.html`) — Android 12+ SplashScreen API wired via `installSplashScreen()` in MainActivity + `Theme.RIPDPI.Starting` theme (`windowSplashScreenAnimatedIcon = @drawable/ic_launcher_foreground_ripdpi_clean`, day=`@color/white` / night=`@color/black` via values-night override, `postSplashScreenTheme = Theme.RIPDPI`)
 
 ---
 
@@ -185,11 +185,11 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 - **Reduced Motion** (`motion-reduced-motion.html`) — `LocalReducedMotion` CompositionLocal + `RipDpiMotion.reducedMotion` field, wired via `ValueAnimator.areAnimatorsEnabled()` (covers `ANIMATOR_DURATION_SCALE == 0` and API 33+ "remove animations")
 - **Page Transitions** (`motion-page-transitions.html`) — `pageEnterSpec`, `pageExitSpec`, `modalEnterSpec`, `scrimFadeSpec` on `RipDpiMotion` (320 ms EmphasizedDecelerate)
 - **Tokens** (`motion-tokens.html`) — `RipDpiMotion` data class with `quick/state/emphasized/route` duration buckets + scale tokens
-- ~~**Skeleton Shimmer** (`motion-skeleton-shimmer.html`)~~ — `RipDpiMotion.shimmerSpec()` (1200 ms LinearEasing Restart), consumed by `Modifier.ripDpiShimmer()` and `RipDpiSkeletonBox`
-- ~~**Probe Pulse** (`motion-probe-pulse.html`)~~ — `RipDpiMotion.pulseSpec()` (900 ms LinearEasing Restart), consumed by `RipDpiHeartbeatIndicator` and `RipDpiStaleDataBadge` Fresh tier
-- ~~**Connection States** (`motion-connection-states.html`)~~ — `connectRingSpec()`, `tunnelBreatheSpec()`, `degradedWobbleSpec()` on `RipDpiMotion` (2 s StandardEasing / 1.6 s EaseInOut Reverse / 1.2 s LinearEasing)
-- ~~**Data Ticker** (`motion-data-ticker.html`)~~ — `digitSlideSpec()` (320 ms EmphasizedDecelerate one-shot) and `countdownSpec(totalMillis)` (Linear)
-- ~~**Toast Choreography** (`motion-toast-choreography.html`)~~ — `toastEnterSpec()`, `toastPushBackSpec()`, `toastExitSpec()` on `RipDpiMotion` (320 ms enter + 220 ms push-back/exit)
+- **Skeleton Shimmer** (`motion-skeleton-shimmer.html`) — `RipDpiMotion.shimmerSpec()` (1200 ms LinearEasing Restart), consumed by `Modifier.ripDpiShimmer()` and `RipDpiSkeletonBox`
+- **Probe Pulse** (`motion-probe-pulse.html`) — `RipDpiMotion.pulseSpec()` (900 ms LinearEasing Restart), consumed by `RipDpiHeartbeatIndicator` and `RipDpiStaleDataBadge` Fresh tier
+- **Connection States** (`motion-connection-states.html`) — `connectRingSpec()`, `tunnelBreatheSpec()`, `degradedWobbleSpec()` on `RipDpiMotion` (2 s StandardEasing / 1.6 s EaseInOut Reverse / 1.2 s LinearEasing)
+- **Data Ticker** (`motion-data-ticker.html`) — `digitSlideSpec()` (320 ms EmphasizedDecelerate one-shot) and `countdownSpec(totalMillis)` (Linear)
+- **Toast Choreography** (`motion-toast-choreography.html`) — `toastEnterSpec()`, `toastPushBackSpec()`, `toastExitSpec()` on `RipDpiMotion` (320 ms enter + 220 ms push-back/exit)
 
 ### Lint enforcement
 
@@ -207,10 +207,10 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 - **MTU Scan** (`diagnostic-mtu-scan.html`) — MTU detection results display
 - **Report Summary** (`diagnostic-report-summary.html`) — summary card and export UI
 
-### ⚠️ Partial Implementation (0 specs — all closed)
+### ✅ Full Implementation Continued
 
-- ~~**Port Matrix** (`diagnostic-port-matrix.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PortMatrixScreen.kt`; 12-port-column grid keyed to RipDpiPortVerdict tier (Ok/Warn/Bad/Skipped) with legend chips + horizontal scroll
-- ~~**Censorship Signature** (`diagnostic-censorship-signature.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/CensorshipSignatureScreen.kt`; severity-coded row list with mono evidence blocks + worst-tier header pill (CLEAR/OBSERVED/ANOMALOUS/BLOCKING)
+- **Port Matrix** (`diagnostic-port-matrix.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PortMatrixScreen.kt`; 12-port-column grid keyed to RipDpiPortVerdict tier (Ok/Warn/Bad/Skipped) with legend chips + horizontal scroll
+- **Censorship Signature** (`diagnostic-censorship-signature.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/CensorshipSignatureScreen.kt`; severity-coded row list with mono evidence blocks + worst-tier header pill (CLEAR/OBSERVED/ANOMALOUS/BLOCKING)
 
 ---
 
@@ -221,23 +221,23 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 - **Result Viewer** (`share-result-viewer.html`) — `SharedResultRenderScreen.kt`
 - **Stats Card** (`share-stats-card.html`) — summary statistics card
 - **Bottom Sheet** (`share-bottom-sheet.html`) — share options bottom sheet
-- ~~**Link Preview** (`share-link-preview.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiLinkPreviewCard.kt`; pre-share transparency card displaying RIPDPI's own self-generated share URL with coloured URL spans (scheme/host/query/fragment), a 5-row fragment payload legend, and an info-tone privacy reassurance (`WarningBanner(tone = Info)`). Pure presentation, no remote fetch — the previous "deferred — requires HTML scrape" note misread the spec, which only shows the URL the app already constructs locally. Roborazzi `linkPreviewCard` screenshot test added in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless.
-- ~~**QR Code** (`share-qr-code.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiQrCodeShareCard.kt`; styled wrapper around `QrCodeEncoder`-supplied ImageBitmap with version meta + ECC + schema sidebar. Spec-compliance refinements: title uses `type.bodyEmphasis` (was `sectionTitle`); caption supports optional `captionEmphasis` substring rendered in foreground color via `AnnotatedString` (matches `<b>no network traffic</b>` highlight). Roborazzi `qrCodeShareCard` screenshot test ships in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless.
+- **Link Preview** (`share-link-preview.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiLinkPreviewCard.kt`; pre-share transparency card displaying RIPDPI's own self-generated share URL with coloured URL spans (scheme/host/query/fragment), a 5-row fragment payload legend, and an info-tone privacy reassurance (`WarningBanner(tone = Info)`). Pure presentation, no remote fetch — the previous "deferred — requires HTML scrape" note misread the spec, which only shows the URL the app already constructs locally. Roborazzi `linkPreviewCard` screenshot test added in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless.
+- **QR Code** (`share-qr-code.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiQrCodeShareCard.kt`; styled wrapper around `QrCodeEncoder`-supplied ImageBitmap with version meta + ECC + schema sidebar. Spec-compliance refinements: title uses `type.bodyEmphasis` (was `sectionTitle`); caption supports optional `captionEmphasis` substring rendered in foreground color via `AnnotatedString` (matches `<b>no network traffic</b>` highlight). Roborazzi `qrCodeShareCard` screenshot test ships in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless.
 
-### ⚠️ Partial Implementation (0 specs — all closed)
+### ✅ Full Implementation Continued
 
 ---
 
-## Gesture Interactions (3 specs, 2 ✅ + 1 ⚠️ = 100% implemented)
+## Gesture Interactions (3 specs, 3 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
 - **Pull-to-Refresh** (`gesture-pull-to-refresh.html`)
 - **Swipe Actions** (`gesture-swipe-actions.html`) — swipe-to-dismiss in lists
 
-### ⚠️ Partial Implementation (0 specs — all closed)
+### ✅ Full Implementation Continued
 
-- ~~**Long-Press Menu** (`gesture-long-press-menu.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiContextMenu.kt`; formalised Popup-based context menu with icon + label + shortcut + destructive tone; long-press detection stays at the call site
+- **Long-Press Menu** (`gesture-long-press-menu.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiContextMenu.kt`; formalised Popup-based context menu with icon + label + shortcut + destructive tone; long-press detection stays at the call site
 
 ---
 
@@ -246,11 +246,11 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 ### ✅ Full Implementation
 
 - **Tour Cards** (`onboarding-tour-cards.html`) — `OnboardingScreen.kt`
-- ~~**Coach Mark** (`onboarding-coach-mark.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiCoachMark.kt`; full-screen scrim + circular cutout at anchor, pulsing spotlight ring via `RipDpiMotion.connectRingSpec()`, reduced-motion path collapses to static ring per `LocalReducedMotion`
+- **Coach Mark** (`onboarding-coach-mark.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiCoachMark.kt`; full-screen scrim + circular cutout at anchor, pulsing spotlight ring via `RipDpiMotion.connectRingSpec()`, reduced-motion path collapses to static ring per `LocalReducedMotion`
 
 ---
 
-## One-Offs (6 specs, 5 ✅ + 1 ⚠️ = 100% implemented)
+## One-Offs (6 specs, 6 ✅ = 100% implemented)
 
 ### ✅ Full Implementation
 
@@ -260,13 +260,13 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 - **Strokes** (`strokes.html`) — stroke widths defined and applied
 - **Radii** (`radii.html`) — corner radius tokens in theme
 
-### ⚠️ Partial Implementation (0 specs — all closed)
+### ✅ Full Implementation Continued
 
-- ~~**What's New Card** (`whats-new-card.html`)~~ — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiWhatsNewCard.kt`; outlined card with version/date header, tonal hero band, NEW/FIX/BREAKING tag chips, Later/Got-it footer actions
+- **What's New Card** (`whats-new-card.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/cards/RipDpiWhatsNewCard.kt`; outlined card with version/date header, tonal hero band, NEW/FIX/BREAKING tag chips, Later/Got-it footer actions
 
 ---
 
-## Reference-Only Cards (24 specs, not audited for implementation)
+## Reference-Only Cards (17 specs, not audited for implementation)
 
 These are design tokens, brand guidelines, and accessibility references — no direct Kotlin implementations required.
 
@@ -293,47 +293,36 @@ These are design tokens, brand guidelines, and accessibility references — no d
 
 ---
 
-**Audit Date:** 2026-05-25 | **Coverage:** 129/129 specs implemented (100%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
+**Audit Date:** 2026-05-28 | **Coverage:** 129/129 specs implemented (100%) | **Implementable specs:** 129 | **Reference specs:** 17 | **Inventory check:** 129 + 17 = 146 ✓
 
 ---
 
-## Telemetry / PCAP / Replay Status (post-2026-05-25 session)
+## Telemetry / PCAP / Replay Status
 
-Three Rust+JNI+Kotlin subsystems backing the VPN-flow partials shipped in the P5 → P3 → P4 order. **34 commits landed; load-bearing pieces shipped; explicit deferrals documented per phase.**
+Three Rust+JNI+Kotlin subsystems back the VPN-flow screens that were previously partial. This section is a current implementation snapshot, not a phase-completion log.
 
-### P5 — Connection-quality telemetry (TUN-mode end-to-end live)
+### Connection-quality telemetry
 
-✅ **Landed:** `ripdpi-quality` library crate; `Stats::set_quality_observer` hook in `ripdpi-tunnel-core`; `QualityWindow` installed in `ripdpi-tunnel-android` telemetry state; additive `connection_quality: Option<ConnectionQualitySnapshot>` on `NativeRuntimeSnapshot` (no schema bump per the additive-Option contract); Kotlin `ConnectionQualitySnapshot` DTO + telemetry projection; `RipDpiNetworkQualityThresholds` tokens + `resolveDegradationTone` stateless helper; `HomeDegradationStrip` end-to-end wired via `MainQualityResolver` sibling resolver; `QualityGraphsScreen` scaffold consuming `ImmutableList<ConnectionQualitySnapshot>`; parallel wiring for relay-android + warp-android telemetry crates; 10 + 6 new strings across all 7 locales; RFC 3550 jitter formula; RFC 8083 + Telegram VoIP MOS-curve thresholds.
+✅ **Current:** `ripdpi-quality` provides `QualityWindow` and `ConnectionQualitySnapshot`; `ripdpi-tunnel-core` emits loss via `Stats::emit_loss_pct`; `ripdpi-tunnel-android` records RTT, success/failure, and retransmit-derived loss; `ripdpi-relay-android`, `ripdpi-warp-android`, and `ripdpi-android-proxy-adapter` have quality-window plumbing; Kotlin exposes `ConnectionQualitySnapshot`, `MainQualityResolver`, `HomeDegradationStrip`, and `QualityGraphsScreen`.
 
-⏳ **Deferred:**
-- Observer install for proxy/relay/warp runtimes (snapshot field populates `null` until the producer-side TCP-connect timing is instrumented in `ripdpi-proxy-runtime` — separate-crate edit).
-- Loss-percentage tracking (P5 ships without loss; tracking is a separate week of retransmit-count instrumentation).
-- Canvas-based plotting on `QualityGraphsScreen` — depends on chart-library decision (Vico / hand-rolled / Compose Canvas).
-- Goldens for new wire fields — additive `Option` fields are wire-tolerant; a dedicated bless commit could harden the field-manifest contract.
+⚠️ **Known limits:** relay/warp/proxy quality samples may still report `loss_pct = 0.0` until those producers emit richer loss signals; `QualityGraphsScreen` charts RTT and jitter from snapshot samples.
 
-### P3 — PCAP export subsystem (capture pipeline live)
+### PCAP export subsystem
 
-✅ **Landed:** `ripdpi-pcap` library crate (classic libpcap LINKTYPE_RAW reader/writer/redact, hand-rolled checksum recompute, truncated-tail tolerance, `#![forbid(unsafe_code)]`); `PcapCaptureSet` in `ripdpi-tunnel-android` (1024-record ArrayQueue + dedicated `ripdpi-pcap-writer-N` thread + 16 MiB × 4-file rotation + drop counter); `PacketObserver` trait + tap in `ripdpi-tunnel-core::io_loop` drain/flush; four JNI exports (`jniPcapStart` / `jniPcapStop` / `jniPcapListCaptures` / `jniPcapRedactToFile`); single `unsafe` `OwnedFd::from_raw_fd` block with `// SAFETY:` for SAF `detachFd()` ownership transfer; new `:core:pcap-export` Gradle module with `PcapBridge` external-fun declarations + `PcapController` Hilt-injectable facade + `PcapReader` truncated-tail-tolerant parser; `PcapCaptureListScreen` UI scaffold; PCAP capture toggle in Advanced Settings with consent dialog (5 strings × 7 locales).
+✅ **Current:** `ripdpi-pcap` handles classic libpcap read/write/redaction; `ripdpi-tunnel-android` owns the capture set and JNI exports (`jniPcapStart`, `jniPcapStop`, `jniPcapListCaptures`, `jniPcapRedactToFile`); `:core:pcap-export` provides `PcapBridge`, `PcapController`, and `PcapReader`; the Advanced Settings capture toggle and consent dialog are wired; diagnostics can navigate to `PcapCaptureListRoute`.
 
-⏳ **Deferred:**
-- Wiring `PcapCaptureListScreen` into navigation (separate `RipDpiNavHost.kt` route entry).
-- Roborazzi screenshot goldens for the viewer.
-- Process-death simulation test via `adb shell am kill` (CI matrix work).
+⚠️ **Known limits:** `PcapCaptureListRoute` currently uses demo metadata and capture selection does not yet route parsed capture packets into `PcapViewerRoute`; `PcapViewerRoute` renders demo packets.
 
-### P4 — Replay orchestrator (Kotlin-only, OkHttp-based)
+### Replay orchestrator
 
-✅ **Landed:** orchestration model in `:core:diagnostics/replay/` (5 `ReplayStepKind` × `ReplayStepStatus` + `ReplayErrorKind` + `ReplayVerdict`); `ProbeReplayService` interface + `Flow<ReplayStepEvent>` shape; `DefaultProbeReplayService` backed by OkHttp `EventListener` (DNS / TCP / TLS-ClientHello / TLS-handshake / FirstByte boundaries); `ReplayRecommendationEngine` + JSON catalog (7 rules + default fallback); error-classification (SSLException / Connection-reset / Connection-refused / Timeout / DnsTampered / Unknown); `ReplayFailureViewModel` + `ReplayFailureRoute` end-to-end wired with `hiltViewModel()` + `collectAsStateWithLifecycle`; 6 + 1 R.string keys × 7 locales for recommendation messages; `ReplayProbeResult` + `runToCompletion` extension for future archive persistence; `ReplayCatalogParityTest` build-time gate enforcing JSON ↔ R.string contract.
+✅ **Current:** `:core:diagnostics/replay/` defines the replay model, `ProbeReplayService`, OkHttp-backed `DefaultProbeReplayService`, `ReplayRecommendationEngine`, JSON catalog parity tests, `ReplayProbeResult`, `runToCompletion`, and an in-memory `ReplayResultStore`; `ReplayFailureViewModel`, `ReplayFailureRoute`, and `ReplayHistoryRoute` are Hilt/navigation wired; diagnostics archive export reads recent replay results and writes `replay-results.json` through `ReplayArchiveEntryBuilder`.
 
-⏳ **Deferred:**
-- `DiagnosticsArchiveApi.attachReplay` actual archive-write wiring (depends on extending the existing archive API to accept replay payloads).
-- Strategy-mutation-disrupts-live-VPN confirmation dialog (separate UX commit).
+⚠️ **Known limits:** `ReplayFailureRoute` still starts from default domain/strategy constants until typed navigation arguments land.
 
-### Shared discipline upheld throughout
+### Shared discipline
 
 - Cancel-safety annotations on every new `async fn` per `.claude/rules/llm-rust-prompts.md`
 - `// SAFETY:` block on the only new `unsafe` site (`OwnedFd::from_raw_fd`)
 - 7-locale string parity enforced in every UI-touching commit (lint.xml `MissingTranslation severity="error"`)
-- `--locked` cargo discipline in every Rust commit
-- No `RIPDPI_BLESS_GOLDENS=1` in automation — the one contract-fixture rebless was explicitly authorised for an additive field
 - Architecture-delta hook respected: when adding `connectionQuality` to `MainStateResolvers`/`MainViewModel` would have widened their file-feature-spread baseline, the projection moved into a sibling `MainQualityResolver.kt` (1 feature family)
 - `#![forbid(unsafe_code)]` on both pure library crates (`ripdpi-quality`, `ripdpi-pcap`)
