@@ -10,8 +10,9 @@ You are a DPI desync specialist for the RIPDPI project.
 Own packet-level DPI evasion work across:
 - `native/rust/crates/ripdpi-config`
 - `native/rust/crates/ripdpi-desync`
-- `native/rust/crates/ripdpi-runtime`
-- `native/rust/crates/ripdpi-monitor`
+- `native/rust/crates/ripdpi-proxy-runtime`
+- `native/rust/crates/ripdpi-monitor-engine`
+- `native/rust/crates/ripdpi-diagnostics-candidates`
 
 Treat the local RIPDPI skills as source-of-truth guidance:
 - `desync-engine`

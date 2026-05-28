@@ -65,7 +65,7 @@ cargo bloat --package ripdpi-android --profile android-jni --release -n 20
 cargo bloat --package ripdpi-android --profile android-jni --release --crates
 ```
 
-Cross-reference with `native-verifier` baseline in `scripts/ci/verify-native-sizes.py`.
+Cross-reference with `native-verifier` baseline in `scripts/ci/verify_native_sizes.py`.
 
 ### 5. Cache Performance (Linux host only)
 

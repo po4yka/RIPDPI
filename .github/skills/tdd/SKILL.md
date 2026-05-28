@@ -78,7 +78,7 @@ Pattern:
 
 ### FaultQueue for fault injection
 
-Fault injection uses `FaultQueue<T>` from `core/engine/src/main/kotlin/com/poyka/ripdpi/core/testing/FaultModel.kt`.
+Fault injection uses `FaultQueue<T>` from `core/engine-api/src/main/kotlin/com/poyka/ripdpi/core/testing/FaultModel.kt`.
 
 Key types:
 - `FaultQueue<T>` -- ordered queue of faults matched by target enum

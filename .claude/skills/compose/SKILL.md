@@ -245,4 +245,4 @@ The top-three fixes in the chat summary MUST be the same items as the report's `
 - `references/report-template.md` — required structure for **COMPOSE-AUDIT-REPORT.md**
 - `references/canonical-sources.md` — the official URLs every deduction must cite
 - `references/diagnostics.md` — Gradle/code snippets for compiler reports, stability config, baseline profiles, R8 checks
-- `scripts/compose-reports.init.gradle` — Gradle init script fallback
+- `.claude/skills/compose/scripts/compose-reports.init.gradle` — Gradle init script fallback

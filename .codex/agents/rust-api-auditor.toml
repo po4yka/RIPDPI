@@ -33,17 +33,17 @@ Run: rg 'pub trait' native/rust/ --type rust -n
 - #[target_feature] requires cfg_feature!-guarded call sites; bare usage is a portability bug on ARMv7 vs ARMv8.
 
 ### 4. Hot-Path Contention Audit
-Focus on ripdpi-runtime and ripdpi-relay-core:
-- rg 'Arc<Mutex' native/rust/crates/ripdpi-runtime/src/ --type rust -n
-- rg '\\.lock\\(\\)' native/rust/crates/ripdpi-runtime/src/ --type rust -n
+Focus on ripdpi-proxy-runtime, ripdpi-runtime-services, and ripdpi-relay-core:
+- rg 'Arc<Mutex' native/rust/crates/ripdpi-proxy-runtime/src/ native/rust/crates/ripdpi-runtime-services/src/ --type rust -n
+- rg '\\.lock\\(\\)' native/rust/crates/ripdpi-proxy-runtime/src/ native/rust/crates/ripdpi-runtime-services/src/ --type rust -n
 - Identify where RwLock or ArcSwap could replace Mutex.
 - Check for Mutex held across .await points (deadlock risk).
-- Track RuntimeState Arc<Mutex> fields -- currently 5.
+- Track the current `Arc<Mutex<...>>` inventory in `ripdpi-proxy-runtime`; current hits are relay/session-copy state rather than `RuntimeState` fields.
 
 ### 5. Enum Delegation Bloat
 - rg 'match self' native/rust/crates/ripdpi-relay-core/src/ --type rust -n
 - Flag enums with > 5 variants and identical method delegation.
-- Track RelayBackend enum (known 7-variant issue).
+- Track `RelayBackend` enum delegation bloat; current in-process dispatch variants are `Hysteria2`, `Tuic`, `VlessReality`, `Xhttp`, `ChainRelay`, `Masque`, `ShadowTls`, `Trojan`, `AnyTls`, `Shadowsocks`, and `Tor`, plus `Unsupported`.
 
 ### 6. Crate Cohesion
 - rg '^pub mod|^mod ' native/rust/crates/<name>/src/lib.rs --type rust -c
@@ -55,9 +55,9 @@ Focus on ripdpi-runtime and ripdpi-relay-core:
 - rg 'ripdpi-android|ripdpi-tunnel-android|ripdpi-warp-android|ripdpi-relay-android' native/rust/crates/*/Cargo.toml --type toml -l
 
 ## Known Issues to Track
-- RuntimeState: 5 Arc<Mutex<...>> on hot path
-- RelayBackend enum: 7 variants with identical delegation
-- ripdpi-runtime pub item count
+- ripdpi-proxy-runtime relay/session-copy `Arc<Mutex<...>>` inventory
+- RelayBackend enum: 11 in-process dispatch variants plus Unsupported
+- ripdpi-proxy-runtime pub item count
 
 ## Response Protocol
 Return ONLY:

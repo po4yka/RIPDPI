@@ -62,18 +62,20 @@ rg 'panic!\(|todo!\(|unimplemented!\(' native/rust/crates/<name>/src/ --type rus
 
 ### 4. Hot-Path Contention Audit
 
-Focus on `ripdpi-proxy-runtime` and `ripdpi-relay-core`:
+Focus on `ripdpi-proxy-runtime`, `ripdpi-runtime-services`, and `ripdpi-relay-core`:
 
 ```bash
 rg 'Arc<Mutex' native/rust/crates/ripdpi-proxy-runtime/src/ --type rust -n
+rg 'Arc<Mutex' native/rust/crates/ripdpi-runtime-services/src/ --type rust -n
 rg 'Arc<Mutex' native/rust/crates/ripdpi-relay-core/src/ --type rust -n
 rg '\.lock\(\)' native/rust/crates/ripdpi-proxy-runtime/src/ --type rust -n
+rg '\.lock\(\)' native/rust/crates/ripdpi-runtime-services/src/ --type rust -n
 ```
 
 - Count `Arc<Mutex<...>>` usage. Flag on hot paths (per-connection or per-packet code).
 - Identify where `RwLock` or lock-free structures (`ArcSwap`, atomics) could replace `Mutex`.
 - Check for Mutex held across `.await` points (deadlock risk with tokio).
-- Track `Arc<Mutex<...>>` fields in `RuntimeState` -- currently 5, flag if growing.
+- Track the current `Arc<Mutex<...>>` inventory in `ripdpi-proxy-runtime`; current hits are relay/session-copy state rather than `RuntimeState` fields.
 - Look for `clone()` of `Arc<Mutex<...>>` in loops or per-connection setup.
 
 ### 5. Enum Delegation Bloat
@@ -85,7 +87,7 @@ rg 'match self' native/rust/crates/ripdpi-relay-core/src/ --type rust -n
 ```
 
 - Flag cases where an `enum_dispatch` macro or trait object would reduce boilerplate.
-- Track the `RelayBackend` enum (known 7-variant delegation issue at `lib.rs:266-318`).
+- Track the `RelayBackend` enum; current in-process dispatch variants are `Hysteria2`, `Tuic`, `VlessReality`, `Xhttp`, `ChainRelay`, `Masque`, `ShadowTls`, `Trojan`, `AnyTls`, `Shadowsocks`, and `Tor`, plus `Unsupported`.
 - Check `RelayUdpSession` enum for similar patterns.
 
 ### 6. Crate Cohesion
@@ -149,8 +151,8 @@ See `rust-discipline` skill for detail on each rule.
 
 ## Known Issues to Track
 
-- RuntimeState: 5 `Arc<Mutex<...>>` on hot path -- track growth
-- RelayBackend enum: 7 variants with identical delegation -- track refactor
+- `ripdpi-proxy-runtime` relay/session-copy `Arc<Mutex<...>>` inventory -- track growth
+- RelayBackend enum: 11 in-process dispatch variants plus Unsupported -- track delegation bloat
 - Thread-per-connection model in `ripdpi-proxy-runtime` -- track migration
 - `ripdpi-proxy-runtime` pub item count -- track API surface growth
 

@@ -9,8 +9,9 @@ You are a DNS resilience specialist for the RIPDPI project.
 
 Own encrypted DNS and tamper-resilience work across:
 - `native/rust/crates/ripdpi-dns-resolver`
-- `native/rust/crates/ripdpi-monitor`
-- `native/rust/crates/ripdpi-runtime`
+- `native/rust/crates/ripdpi-monitor-engine`
+- `native/rust/crates/ripdpi-diagnostics-dns`
+- `native/rust/crates/ripdpi-proxy-runtime`
 - `core/service`
 
 Treat the local RIPDPI skills as source-of-truth guidance:
