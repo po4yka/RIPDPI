@@ -279,7 +279,7 @@ is a `kind` string) — but an old Rust build will drop it (§5).
 
 ## 8. Native config schema versions
 
-**Current state.** Versioning is *partial*:
+**Current state.** Versioning is explicit for native-facing JSON contracts:
 
 - The **diagnostics** wire contract is explicitly versioned —
   `DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 1`
@@ -294,41 +294,20 @@ is a `kind` string) — but an old Rust build will drop it (§5).
   `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `6`. A legacy relay payload
   with no `schemaVersion` defaults to the current value, while any explicit
   unsupported value is rejected by `ripdpi-relay-core`.
-- The **proxy / tunnel native config JSON has no version field.**
-  `NativeProxyConfig` is discriminated only by `kind` (`command_line` / `ui`);
-  `RuntimeConfigEnvelope { config, runtime_context, log_context,
-  native_log_level }` carries no version. Compatibility today rests entirely on
-  `serde(default)` tolerance and the no-rename rule.
+- The **proxy native config** carries `schemaVersion` on every
+  `NativeProxyConfig` variant. Kotlin `NativeProxyConfigSchemaVersion` and Rust
+  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `1`; absent legacy payloads
+  default to version `1`, while explicit unsupported values are rejected by
+  `ripdpi-proxy-config`.
+- The **tunnel native config** carries `schemaVersion` on `Tun2SocksConfig`.
+  Kotlin `Tun2SocksConfigSchemaVersion` and Rust
+  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `1`; absent legacy payloads
+  default to version `1`, while explicit unsupported values are rejected by
+  `ripdpi-tunnel-config`.
 
-**Deferred proxy/tunnel improvement.** Add a small integer `schemaVersion` to
-the proxy/tunnel config envelope, mirroring the diagnostics and relay
-precedent:
-
-```jsonc
-// illustrative shape only — NOT a change to apply
-{
-  "schemaVersion": 1,        // serde(default = "default_schema_version")
-  "kind": "ui",
-  "listen": { ... },
-  ...
-}
-```
-
-- `schemaVersion` defaults (via `#[serde(default = …)]`) so every existing JSON
-  blob and every persisted remembered policy reads as version `1`.
-- It is bumped **only** on a genuinely breaking shape change — a field whose
-  meaning changed, or a removed section — never for an additive field (additive
-  changes stay covered by §6).
-- It lets the native side detect a config produced by a newer or older app
-  build and pick an explicit migration path, instead of silently relying on
-  default-tolerance.
-- It should be surfaced to a governance test analogous to
-  `DiagnosticsContractGovernanceTest`.
-
-**Benefit:** turns the proxy-config compatibility story from implicit
-("`serde(default)` happens to absorb it") into explicit and testable. **Cost:**
-a migration shim per breaking version and one more golden surface — which is
-why it is deferred, not adopted here.
+For proxy and tunnel payloads, `schemaVersion` is bumped **only** on a genuinely
+breaking shape change — a field whose meaning changed, or a removed section —
+never for an additive field. Additive changes stay covered by §6.
 
 ---
 
