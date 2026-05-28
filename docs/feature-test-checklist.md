@@ -26,7 +26,7 @@ Every feature should be tested against the dimensions that can affect it.
 | Runtime mode | Stopped app, proxy service, VPN service, VPN plus relay, diagnostics-only debug probe |
 | Network | Wi-Fi, cellular, dual-stack, IPv4-only, IPv6-only, private DNS enabled, metered, network handover, captive or limited path |
 | DNS mode | System DNS, plain resolver override, DoH, DoT, DNSCrypt, DoQ, fallback resolver loop |
-| Relay path | None, mock relay, VLESS Reality TCP, VLESS xHTTP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Tor, NaiveProxy subprocess, Google Apps Script path, external PT paths (Snowflake Go binary, WebTunnel, obfs4), separate WARP/AmneziaWG tunnel profiles |
+| Relay path | None, mock relay, VLESS Reality TCP, VLESS xHTTP, chain relay, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Tor, NaiveProxy subprocess, Google Apps Script path, external PT paths (Snowflake Go binary, WebTunnel, obfs4), separate WARP/AmneziaWG tunnel profiles |
 | Packet strategy | None, split, disorder, fake, TLS record, TLS random record, hostfake, OOB, delayed split, parser variants, QUIC, DTLS, UDP length, IPv6 extension headers, Lua rawsend, root-only FakeRst, root-only MultiDisorder, root-only IpFrag2, root-only SeqOverlap, adaptive marker offsets |
 | Diagnostics profile | Connectivity, quick strategy probe, full matrix audit, home composite run, RAW_PATH run |
 | Data state | Fresh install, migrated install, cleared app data, imported profile, remembered network, full history |
@@ -192,12 +192,17 @@ Each path needs validation in proxy mode, VPN mode, restart behavior, failure cl
 | Mock relay | Local deterministic success, forced failure, archive artifact |
 | VLESS Reality | Required fields, TLS settings, invalid credential handling, reconnect |
 | VLESS xHTTP | HTTP transport settings, path/header validation, reconnect |
+| Chain relay | Entry and exit profile resolution, unsupported hop rejection, two-hop telemetry |
 | WARP | Enrollment state, endpoint selection, reconnect, missing state handling |
 | Cloudflare Tunnel | Published config validation, local config validation, failure reporting |
 | MASQUE | HTTP/3 availability, fallback when QUIC is unavailable, auth failure |
 | Hysteria2 | UDP availability, auth failure, reconnect, loss handling |
 | TUIC v5 | UDP availability, auth failure, reconnect, loss handling |
 | ShadowTLS v3 | TLS settings, password failure, reconnect |
+| Trojan | TLS settings, password failure, TCP and UDP forwarding, reconnect |
+| AnyTLS | TLS settings, auth failure, TCP and UDP forwarding, reconnect |
+| Shadowsocks | Cipher/password validation, TCP and UDP forwarding, reconnect |
+| Tor | Bridge and pluggable-transport bootstrap, opt-in latency expectations, reconnect |
 | NaiveProxy | HTTP auth, TLS verification, reconnect |
 | WebTunnel | URL/path validation, HTTP error handling, reconnect |
 | obfs4 | Bridge config validation, missing cert handling, reconnect |
