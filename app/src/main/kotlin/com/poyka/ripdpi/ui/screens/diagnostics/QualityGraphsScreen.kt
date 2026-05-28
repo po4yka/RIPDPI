@@ -43,8 +43,8 @@ private const val QualityAxisTickCount = 4
  *   with a fill under the line, axis ticks, header pill, and legend row.
  * - Jitter chart: same layout for [ConnectionQualitySnapshot.jitterMs].
  *
- * Loss-percentage chart is deferred until [ConnectionQualitySnapshot.lossPct]
- * is populated by the parallel tunnel-core retransmit-tracking PR.
+ * Loss is surfaced by the home degradation strip; this screen currently charts
+ * RTT and jitter only.
  * All visual values read exclusively from [RipDpiThemeTokens] and [RipDpiStroke].
  */
 @Composable
