@@ -136,24 +136,18 @@ The home analysis runs 4 stages sequentially:
 
 ### Strategy Probe Candidates
 
-**24 TCP candidates** (ordered modern-first for censored networks):
+Candidate planning lives in `native/rust/crates/ripdpi-diagnostics-candidates`. The source of truth is `build_strategy_probe_suite()`: `quick_v1` combines `build_tcp_candidates()` and `build_quic_candidates()`, while `full_matrix_v1` extends those pools with lab/audit-only variants. Exact counts vary because TCP Fast Open and IP fragmentation candidates are included only when runtime capability probes allow them.
 
-| Category | Candidates | requires_fake_ttl |
-|----------|-----------|-------------------|
-| TLS record + split/hostfake | tlsrec_split_host, tlsrec_hostfake_split | false |
-| TLS record + fake | tlsrec_fake_rich, tlsrec_fakedsplit, tlsrec_fakeddisorder | true |
-| Split | split_host | false |
-| Disorder | disorder_host, tlsrec_disorder | true |
-| OOB (TCP urgent pointer) | oob_host, tlsrec_oob | false |
-| Disorder + OOB | disoob_host, tlsrec_disoob | true |
-| TLS random record | tlsrandrec_split, tlsrandrec_disorder | mixed |
-| Hostfake | tlsrec_hostfake | true |
-| Hostfake (random) | tlsrec_hostfake_random | false |
-| Delayed split | split_delayed_50ms, split_delayed_150ms | false |
-| Parser (legacy) | parser_only, parser_unixeol, parser_methodeol | false |
-| ECH (specialized) | ech_split, ech_tlsrec | false |
+**TCP candidate families** (ordered modern-first for censored networks):
 
-**6 QUIC candidates**: quic_disabled, quic_compat_burst, quic_realistic_burst, quic_sni_split, quic_fake_version, quic_dummy_prepend
+| Builder | Families / notable IDs | Capability gate |
+|---------|------------------------|-----------------|
+| `build_primary_candidates()` | `baseline_current`, TLS record split/hostfake, split, OOB, TLS random record split, seq-overlap, delayed split, parser variants, ECH split/TLS record | ECH candidates require an ECH-capable HTTPS path; TFO and `ipfrag2` variants are platform-gated |
+| `build_opportunistic_candidates()` | disorder, disorder+OOB, TLS random record disorder, rich/HRR/seqgroup fake TLS, fake-approx, fixed hostfake | `TtlWrite` / fake TTL path |
+| `build_rooted_candidates()` | `multi_disorder` | `RawTcpFakeSend` / `RootHelperAvailable` |
+| `build_full_matrix_tcp_candidates()` | fake RST, fake flags, circular TLS record split, fakedsplit alt-order, activation-window, adaptive fake TTL, fake-payload library, IPv6 extension IP-fragmentation variants | lab/audit tier; IP-fragmentation variants are platform-gated |
+
+**QUIC candidate families**: `quic_multi_initial_realistic`, `quic_sni_split`, `quic_crypto_split`, `quic_padding_ladder`, `quic_version_negotiation_decoy`, `quic_fake_version`, `quic_dummy_prepend`, optional `quic_ipfrag2` / IPv6-extension variants, and `quic_disabled`.
 
 **Performance optimizations**:
 - CONNECT_TIMEOUT: 2.5s (reduced from 4s)

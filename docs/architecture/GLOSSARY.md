@@ -19,10 +19,11 @@ chain**, which is a fixed ordered list; adaptive fallback *chooses between*
 options at runtime.
 
 **candidate** — One concrete **strategy** configuration that a strategy
-**probe** tests during a diagnostics scan. The probe matrix has 24 TCP + 6 QUIC
-candidates (see [`AGENTS.md`](../../AGENTS.md) § Strategy Probe Candidates);
-candidate planning lives in `native/rust/crates/ripdpi-diagnostics-candidates`.
-A candidate is what is *tried*; a **verdict** is the conclusion.
+**probe** tests during a diagnostics scan. The current TCP and QUIC suites are
+planned by `native/rust/crates/ripdpi-diagnostics-candidates` (see
+[`AGENTS.md`](../../AGENTS.md) § Strategy Probe Candidates); exact membership
+depends on the selected suite and runtime capability probes. A candidate is
+what is *tried*; a **verdict** is the conclusion.
 
 **control plane** — Everything that configures, starts, stops, and observes the
 runtime: config translation, JNI lifecycle calls, ~1 Hz telemetry polling,

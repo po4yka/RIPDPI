@@ -72,7 +72,7 @@ Scans each connection target independently and produces a typed verdict:
 - `NO_DIRECT_SOLUTION` — on-device mutations cannot recover this target; relay required
 - `IP_BLOCK_SUSPECT` — IP-level block detected
 
-Verdicts are stored per network fingerprint and replayed automatically when the same network is seen again. The diagnostics screen adds TCP and QUIC strategy probing across 24 TCP + 6 QUIC candidates, DNS tampering detection, DoH/DoT/DNSCrypt/DoQ resolver recommendations, and exportable diagnostic archives.
+Verdicts are stored per network fingerprint and replayed automatically when the same network is seen again. The diagnostics screen adds TCP and QUIC strategy probing from the `ripdpi-diagnostics-candidates` quick/full-matrix suites, DNS tampering detection, DoH/DoT/DNSCrypt/DoQ resolver recommendations, and exportable diagnostic archives.
 
 ## Why RIPDPI
 

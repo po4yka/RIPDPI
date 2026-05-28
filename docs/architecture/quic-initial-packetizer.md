@@ -45,7 +45,7 @@ Production-facing families:
 - `quic_fake_version`
 - `quic_dummy_prepend`
 
-Lab-only or demotable families:
+Supported by the UDP/desync layer but not currently emitted by `ripdpi-diagnostics-candidates`:
 
 - `quic_compat_burst`
 - `quic_realistic_burst`

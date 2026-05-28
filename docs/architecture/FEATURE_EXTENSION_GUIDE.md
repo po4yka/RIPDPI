@@ -79,7 +79,7 @@ these breaks something downstream:
   handling in `ripdpi-desync`; see
   [`architecture/quic-initial-packetizer.md`](quic-initial-packetizer.md).
 - To make a strategy **probeable** by diagnostics, also add it as a candidate
-  (see §3) — the 24 TCP + 6 QUIC candidates are listed in
+  (see §3) — the current candidate families and builder locations are listed in
   [`AGENTS.md`](../../AGENTS.md) § Strategy Probe Candidates.
 
 ### The strategy registration seam (`ripdpi-strategy-*`)
@@ -296,8 +296,8 @@ still function with no relay configured (proxy/VPN modes work standalone).
   the matching `ripdpi-diagnostics-*` crate, register it in
   `ripdpi-diagnostics-runner` / `ripdpi-monitor-lane-adapter`, and surface its
   result through `ripdpi-monitor-engine`.
-- Strategy-probe candidates (the 24 TCP / 6 QUIC set) are planned in
-  `ripdpi-diagnostics-candidates` — extend the candidate planner there.
+- Strategy-probe candidates are planned in `ripdpi-diagnostics-candidates` —
+  extend the candidate planner there and keep capability gates explicit.
 - Use the `diagnostics-system` skill — it owns `ScanRequest`/`ScanReport`/
   `ProbeTask` and the catalog pipeline.
 

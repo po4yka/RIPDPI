@@ -169,11 +169,13 @@ The strategy probe tests an ordered matrix of strategy configurations.
 (`src/candidates/types.rs`) is a static metadata struct per configuration,
 and `build_strategy_probe_suite(suite_id, base)` (`src/candidates/suite.rs`)
 returns a `StrategyProbeSuite` (TCP + QUIC candidate `Vec`s) for a named
-suite — `quick_v1` (short list, short-circuit on a host-fake win) or
-`full_matrix_v1` (the full 24 TCP + 6 QUIC audit matrix). Candidates are a
-**plan**, not an executor: the spec describes the required packet-level
-behaviour and the runtime capabilities it needs; the engine builds the
-emitter from it.
+suite — `quick_v1` (current TCP and QUIC pools, short-circuit on a host-fake
+win) or `full_matrix_v1` (the quick pools plus lab/audit-only variants).
+Candidate counts are builder- and capability-dependent: TCP Fast Open and IP
+fragmentation candidates are added only when the platform probes allow them.
+Candidates are a **plan**, not an executor: the spec describes the required
+packet-level behaviour and the runtime capabilities it needs; the engine builds
+the emitter from it.
 
 ---
 
