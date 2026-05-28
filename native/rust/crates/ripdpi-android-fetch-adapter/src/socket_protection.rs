@@ -18,7 +18,7 @@ pub(crate) async fn connect_transport(host: &str, port: u16, connect_timeout_ms:
 }
 
 pub(crate) fn owned_fetch_dns_connect_hooks() -> EncryptedDnsConnectHooks {
-    EncryptedDnsConnectHooks::new().with_direct_tcp_connector(|target, timeout| {
+    EncryptedDnsConnectHooks::new().with_direct_tcp_connector(|target, timeout| async move {
         let domain = match target {
             SocketAddr::V4(_) => Domain::IPV4,
             SocketAddr::V6(_) => Domain::IPV6,

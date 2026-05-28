@@ -11,7 +11,8 @@ pub(in crate::io_loop) fn encrypted_dns_connect_hooks(protect_path: Option<Strin
     let udp_protect_path = protect_path;
     EncryptedDnsConnectHooks::new()
         .with_direct_tcp_connector(move |target, timeout| {
-            connect_protected_tcp(target, timeout, tcp_protect_path.as_deref())
+            let tcp_protect_path = tcp_protect_path.clone();
+            async move { connect_protected_tcp(target, timeout, tcp_protect_path.as_deref()) }
         })
         .with_direct_udp_binder(move |bind_addr| bind_protected_udp(bind_addr, udp_protect_path.as_deref()))
 }

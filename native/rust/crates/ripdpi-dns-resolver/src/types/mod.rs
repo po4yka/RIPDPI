@@ -13,5 +13,8 @@ pub use endpoint::{
 pub use error::{EncryptedDnsError, EncryptedDnsErrorKind};
 pub use exchange::EncryptedDnsExchangeSuccess;
 #[allow(unused_imports)]
-pub use hooks::{DirectTcpConnector, DirectUdpBinder, DotTlsConnectorBuilder, EncryptedDnsConnectHooks};
+pub use hooks::{
+    BoxedDnsTcpStream, DirectTcpConnection, DirectTcpConnector, DirectTcpConnectorFuture, DirectUdpBinder,
+    DnsTcpStream, DotTlsConnectorBuilder, EncryptedDnsConnectHooks,
+};
 pub use oracle::{ResolverNetworkScope, ResolverOracleObservation};

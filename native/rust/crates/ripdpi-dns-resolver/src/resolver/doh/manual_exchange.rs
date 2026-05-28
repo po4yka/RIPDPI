@@ -15,7 +15,7 @@ pub(super) async fn exchange_doh_manually(
 ) -> Result<Vec<u8>, EncryptedDnsError> {
     let base_url = resolver.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
     let url = Url::parse(base_url).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
-    let mut tcp_stream = resolver.connect_plain_tcp().await?;
+    let mut tcp_stream = resolver.connect_doh_tcp().await?;
 
     if url.scheme().eq_ignore_ascii_case("https") {
         let tls_name =

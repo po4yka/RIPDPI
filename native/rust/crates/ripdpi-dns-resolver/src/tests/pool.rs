@@ -80,7 +80,7 @@ fn manual_doh_resolver(port: u16, certificate_der: CertificateDer<'static>) -> E
         DEFAULT_TIMEOUT,
         vec![certificate_der],
         EncryptedDnsConnectHooks::new()
-            .with_direct_tcp_connector(|target, timeout| TcpStream::connect_timeout(&target, timeout)),
+            .with_direct_tcp_connector(|target, timeout| async move { TcpStream::connect_timeout(&target, timeout) }),
     )
     .expect("resolver builds")
 }

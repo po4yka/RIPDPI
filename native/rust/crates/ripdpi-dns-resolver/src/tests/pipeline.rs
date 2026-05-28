@@ -77,8 +77,9 @@ fn pipeline_with_fixture(
         .secondary_endpoint(secondary)
         .tls_roots(vec![certificate])
         .connect_hooks(
-            EncryptedDnsConnectHooks::new()
-                .with_direct_tcp_connector(|target, timeout| TcpStream::connect_timeout(&target, timeout)),
+            EncryptedDnsConnectHooks::new().with_direct_tcp_connector(|target, timeout| async move {
+                TcpStream::connect_timeout(&target, timeout)
+            }),
         )
         .build()
         .expect("pipeline builds")

@@ -275,7 +275,7 @@ async fn direct_doh_connect_hooks_are_used_for_manual_transport() {
         vec![certificate_der],
         EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |target, timeout| {
             connect_hook_calls.fetch_add(1, Ordering::Relaxed);
-            TcpStream::connect_timeout(&target, timeout)
+            async move { TcpStream::connect_timeout(&target, timeout) }
         }),
     )
     .expect("resolver builds");
@@ -428,7 +428,7 @@ fn direct_dot_connect_hooks_are_used() {
         vec![certificate_der],
         EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |target, timeout| {
             connect_hook_calls.fetch_add(1, Ordering::Relaxed);
-            TcpStream::connect_timeout(&target, timeout)
+            async move { TcpStream::connect_timeout(&target, timeout) }
         }),
     )
     .expect("resolver builds");
@@ -628,7 +628,7 @@ fn direct_dnscrypt_connect_hooks_are_used() {
         EncryptedDnsTransport::Direct,
         EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |target, timeout| {
             connect_hook_calls.fetch_add(1, Ordering::Relaxed);
-            TcpStream::connect_timeout(&target, timeout)
+            async move { TcpStream::connect_timeout(&target, timeout) }
         }),
     )
     .expect("resolver builds");
