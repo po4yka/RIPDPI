@@ -5,6 +5,7 @@ mod health;
 #[cfg(feature = "hickory-backend")]
 mod hickory_backend;
 mod https_service_binding;
+mod odoh;
 mod pool;
 mod resolver;
 mod transport;
@@ -22,6 +23,9 @@ pub use health::{HealthRegistry, HealthScoreSnapshot};
 pub use https_service_binding::{
     parse_ech_config_list, parse_https_service_bindings, EchCipherSuite, EchConfig, EchConfigEntry, EchExtension,
     HttpsRr, HttpsRrRecordType, HttpsSvcbParseError,
+};
+pub use odoh::{
+    OdohEncryptedQuery, OdohError, OdohPlainResponse, OdohQueryContext, OdohTargetConfig, ODOH_MESSAGE_MEDIA_TYPE,
 };
 pub use pool::{ResolverPool, ResolverPoolBuilder};
 pub use resolver::EncryptedDnsResolver;

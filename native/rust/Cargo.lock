@@ -1672,6 +1672,15 @@ dependencies = [
 
 [[package]]
 name = "hkdf"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
+dependencies = [
+ "hmac 0.12.1",
+]
+
+[[package]]
+name = "hkdf"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4aaa26c720c68b866f2c96ef5c1264b3e6f473fe5d4ce61cd44bbe913e553018"
@@ -1695,6 +1704,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6303bc9732ae41b04cb554b844a762b4115a61bfaa81e3e83050991eeb56863f"
 dependencies = [
  "digest 0.11.2",
+]
+
+[[package]]
+name = "hpke"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f65d16b699dd1a1fa2d851c970b0c971b388eeeb40f744252b8de48860980c8f"
+dependencies = [
+ "aead",
+ "aes-gcm",
+ "chacha20poly1305",
+ "digest 0.10.7",
+ "generic-array",
+ "hkdf 0.12.4",
+ "hmac 0.12.1",
+ "rand_core 0.9.5",
+ "sha2 0.10.9",
+ "subtle",
+ "x25519-dalek",
+ "zeroize",
 ]
 
 [[package]]
@@ -2227,7 +2256,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tokio",
  "tokio-rustls",
 ]
@@ -2632,6 +2661,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.106",
+]
+
+[[package]]
+name = "odoh-rs"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cbb89720b7dfdddc89bc7560669d41a0bb68eb64784a4aebd293308a489f3837"
+dependencies = [
+ "aes-gcm",
+ "bytes",
+ "hkdf 0.12.4",
+ "hpke",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -3365,7 +3407,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "socket2",
  "tokio",
  "tokio-boring",
@@ -3451,7 +3493,7 @@ dependencies = [
  "local-network-fixture",
  "md5",
  "ripdpi-tls-profiles",
- "sha2",
+ "sha2 0.11.0",
  "thiserror 2.0.18",
  "tokio",
  "tokio-boring",
@@ -3789,8 +3831,10 @@ dependencies = [
  "local-network-fixture",
  "lru",
  "metrics",
+ "odoh-rs",
  "once_cell",
  "quinn",
+ "rand 0.9.3",
  "rcgen",
  "reqwest",
  "ring",
@@ -4377,7 +4421,7 @@ dependencies = [
  "bytes",
  "chacha20poly1305",
  "hex",
- "hkdf",
+ "hkdf 0.13.0",
  "md5",
  "rand 0.10.1",
  "sha1 0.11.0",
@@ -4531,7 +4575,7 @@ dependencies = [
  "ripdpi-packets",
  "rustls",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "thiserror 2.0.18",
  "tokio",
  "tokio-boring",
@@ -4547,7 +4591,7 @@ dependencies = [
  "hex",
  "local-network-fixture",
  "ripdpi-tls-profiles",
- "sha2",
+ "sha2 0.11.0",
  "thiserror 2.0.18",
  "tokio",
  "tokio-boring",
@@ -4797,7 +4841,7 @@ dependencies = [
  "rand 0.10.1",
  "ripdpi-tls-profiles",
  "ripdpi-vless",
- "sha2",
+ "sha2 0.11.0",
  "thiserror 2.0.18",
  "tokio",
  "tokio-boring",
@@ -5109,6 +5153,17 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.3.0",
  "digest 0.11.2",
+]
+
+[[package]]
+name = "sha2"
+version = "0.10.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.2.17",
+ "digest 0.10.7",
 ]
 
 [[package]]
