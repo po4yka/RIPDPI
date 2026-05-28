@@ -552,8 +552,8 @@ Findings from earlier audits that were still open at the start of 2026-Q2 and ha
 - **B-1** -- "Unbounded retry loop in `connect_target_with_route`." Bounded in `native/rust/crates/ripdpi-proxy-runtime/src/runtime/routing/retry.rs` by `state.max_route_retries()`, default 8. Covered by `max_route_retries_default_is_eight` and `max_route_retries_is_customizable` unit tests in the same file.
 - **C-1** -- "Dual adaptive systems (`adaptive_tuning` + `strategy_evolver`) uncoordinated." Resolved via a documented priority chain in `ripdpi-runtime-strategy/src/strategy_evolver.rs` and `ripdpi-runtime-adaptive/src/adaptive_tuning.rs`: evolver hints override per-flow adaptive hints when the evolver is enabled, otherwise per-flow cycling drives the dimensions.
 - **E-1** -- "`adaptive_tuning.rs` has no dedicated unit tests." `#[cfg(test)] mod tests;` is declared and the module covers candidate cycling and dimension-order shuffling.
-- **VPN/DNS-leak instrumentation matrix** -- landed under `core:service`'s androidTest sources; the original task issue is marked `status: done`.
-- **HTTP-injection error-page probe** -- landed as `ripdpi-diagnostics-http::http_injection_probe`; task `status: done`.
+- **VPN/DNS-leak instrumentation matrix** -- landed as JVM coverage under `core/service/src/test/kotlin/com/poyka/ripdpi/services/`: `DnsLeakDetectorTest`, `DnsLeakReportTest`, `DnsPolicyNetworkSwitchTest`, and the `services/leak/*` matrix tests cover DNS, IPv6, lifecycle, revoked-credential, per-app, and transition leak cases.
+- **HTTP-injection error-page probe** -- landed as `ripdpi-diagnostics-http::http_injection_probe` with classifier unit tests and the `ripdpi-diagnostics-probes::http_injection` adapter.
 - **Owned-stack JA3/JA4 fingerprint snapshot** -- release CI runs `scripts/ci/check-owned-stack-tls-fingerprint.sh`, which captures the native owned-TLS fallback ClientHello against a loopback fixture and compares it with `contract-fixtures/owned_stack_tls_fingerprint_snapshot.json`. To intentionally accept a reviewed upstream TLS profile rotation, run `CARGO_TARGET_DIR=/tmp/ripdpi-owned-stack-fingerprint-target RIPDPI_REGENERATE_OWNED_STACK_TLS_FINGERPRINT_FIXTURE=1 cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-android-fetch-adapter owned_stack_tls_fingerprint_snapshot_matches_fixture -- --nocapture`, inspect the JSON diff for `ja4RipdpiV1`, `keyShareGroupsNoGrease`, and `containsX25519Mlkem768KeyShare`, then rerun `bash scripts/ci/check-owned-stack-tls-fingerprint.sh`.
 - **D-1 adaptive strategy residual** -- `ripdpi-runtime-strategy` now includes adaptive timing jitter and OOB byte placement in the evolver combo identity and shared-prior pool; `ripdpi-runtime-adaptive` threads those hints into the morph policy.
 - **A-1 ProbeExecutionContext enforcement** -- `ripdpi-diagnostics-runner::ProbeExecutionContext` now owns approved resolver policy and active transport config, and monitor connectivity/strategy DNS stages receive that context instead of rebuilding ad hoc direct resolver paths.
@@ -564,12 +564,13 @@ Findings from earlier audits that were still open at the start of 2026-Q2 and ha
 
 These have task issues under `docs/tasks/issues/` and are sized for routine roadmap work, not new design.
 
-- Android lockdown / kill-switch onboarding health checks (`add-android-lockdown-onboarding-and-kill-switch-health-checks.md`).
-- Split-DNS interceptor leak coverage (`add-dns-interceptor-and-split-dns-leak-tests.md`, currently `blocked`).
+- Android Private DNS conflict warning (`add-android-private-dns-conflict-warning.md`).
+- TUN UID validation against `SO_BINDTODEVICE` bypass (`add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md`).
+- DNS measurement scope tightening (`limit-dns-measurement-to-user-requested-destinations.md`).
 
 ### Phase-16 real-world confidence status
 
-The original infrastructure spike is closed and its task note was removed per task-board lifecycle rules. The Phase-16 follow-ups now have repo-side implementation: [`gate-l7-adversarial-emulator-in-phase16-release-matrix.md`](tasks/issues/gate-l7-adversarial-emulator-in-phase16-release-matrix.md) adds the synthetic-adversarial release lane, [`add-generator-driven-packet-smoke-sampling.md`](tasks/issues/add-generator-driven-packet-smoke-sampling.md) adds deterministic generated CLI packet-smoke samples, and [`operate-phase16-real-provider-sim-runner.md`](tasks/issues/operate-phase16-real-provider-sim-runner.md) adds the fail-closed real-provider runner contract. The only remaining non-repo requirement is running a private self-hosted SIM runner with the `real-provider` and namespace labels to collect real-provider artifacts.
+The original infrastructure spike is closed and its task note was removed per task-board lifecycle rules. The L7 adversarial emulator and generator-driven packet-smoke follow-ups are closed in `docs/tasks/GOAL_LEDGER.md`: the synthetic-adversarial release lane and deterministic generated CLI packet-smoke samples are now repo-side release evidence. [`operate-phase16-real-provider-sim-runner.md`](tasks/issues/operate-phase16-real-provider-sim-runner.md) remains open for the operator-owned private SIM runner; the repo-side fail-closed runner contract exists, but real-provider confidence still requires a self-hosted runner with the `real-provider` and namespace labels to upload the required artifacts.
 
 **L7 adversarial emulator v1 landed.** Dry-run behavior is verifiable on any host:
 
