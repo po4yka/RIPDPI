@@ -15,7 +15,7 @@ Do not paste live endpoints, credentials, subscription identifiers, SSIDs, BSSID
 | Device model / Android API | |
 | Network label | |
 | Artifact directory or archive | |
-| `check-feature-gap-readiness.sh` output | |
+| `test-lab/scripts/check-feature-gap-readiness.sh` output | |
 
 ## Rooted Physical Device
 
@@ -112,7 +112,7 @@ Run `test-lab/scripts/check-relay-matrix-config.sh --config <private-matrix>` be
 
 ## Operator-Reviewed Readiness JSON
 
-The final `check-feature-test-signoff.sh --readiness` artifact must include these required rows, and each must be set to `ready` only when the matching manual evidence above is complete:
+The operator-reviewed readiness JSON passed to `test-lab/scripts/check-feature-test-signoff.sh --readiness` must include these required rows, and each must be set to `ready` only when the matching manual evidence above is complete:
 
 | Readiness row | Matching evidence section |
 | --- | --- |
