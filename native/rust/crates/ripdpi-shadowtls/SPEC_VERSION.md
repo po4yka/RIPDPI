@@ -16,7 +16,7 @@ This crate implements the ShadowTLS v3 client, including:
 - HMAC-tagged framing
 - TLS-cover handshake against the configured upstream server name
 
-ShadowTLS v2 is intentionally unsupported pending the policy decision in `docs/tasks/issues/add-shadowtls-v2-compatibility-or-document-v3-only.md`.
+ShadowTLS v2 is intentionally unsupported. The v3-only decision and failure-classification surface are documented in `docs/architecture/shadowtls-version-policy.md`.
 
 ## Drift policy
 

@@ -53,4 +53,3 @@ The emulator now reproduces deterministic L7-path failure modes, but release con
 ## Links
 
 - [Design spike: L7 adversarial emulator](../../architecture/spike-l7-adversarial-emulator.md)
-- [Parent spike](spike-adversarial-network-harness-and-realprovider-matrix.md)

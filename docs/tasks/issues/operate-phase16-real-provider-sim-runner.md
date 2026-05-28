@@ -47,7 +47,6 @@ The repository now has a contract that separates synthetic lab evidence from rea
 ## Links
 
 - [Design spike: Phase-16 lab matrix on real-provider SIM](../../architecture/spike-phase16-real-provider.md)
-- [Parent spike](spike-adversarial-network-harness-and-realprovider-matrix.md)
 
 ## Work log
 

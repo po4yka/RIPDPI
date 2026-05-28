@@ -23,7 +23,7 @@ The TLS cover handshake is performed against the configured upstream server name
 
 ## Known divergences from upstream
 
-- v2 is unsupported pending policy decision; see `docs/tasks/issues/add-shadowtls-v2-compatibility-or-document-v3-only.md`.
+- v2 is intentionally unsupported; `docs/architecture/shadowtls-version-policy.md` records the v3-only decision and the version-mismatch classifier surface.
 - No in-tree server; see `docs/tasks/issues/add-shadowtls-loopback-test-server-for-soak-runs.md`.
 
 ## Non-goals

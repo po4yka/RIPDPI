@@ -30,12 +30,12 @@ updated: 2026-05-15
 
 ## Context
 
-ihciah/shadow-tls v2 and v3 diverged on handshake derivation and framing. A v2 server today produces an opaque connect or HMAC failure.
+ihciah/shadow-tls v2 and v3 diverged on handshake derivation and framing. The crate now has a local `ShadowTlsFailureKind::VersionMismatch` classifier for v2-shaped failure payloads, but runtime mapping from handshake failure to user-facing diagnostics remains the open part.
 
 ## Acceptance criteria
 
 - [x] An ADR records the chosen policy. **DONE 2026-05-15:** v3 only; see `docs/architecture/shadowtls-version-policy.md`.
-- [x] (2026-05-16, TDD) If "v3 only", the failure classifier reports `ShadowTlsVersionMismatch` distinctly from auth failures. **DONE:** `FailureClass::ShadowTlsVersionMismatch` variant added to `ripdpi-failure-classifier::types` with `as_str() -> "shadowtls_version_mismatch"`. Two new tests: `shadowtls_version_mismatch_distinct_from_tls_handshake_failure` + extended `failure_class_as_str_covers_all_variants`. Wiring the actual v2-response detection inside `ripdpi-shadowtls::handshake` remains a follow-up but the typed class now exists to map to.
+- [x] (2026-05-16, TDD) If "v3 only", the failure classifier reports `ShadowTlsVersionMismatch` distinctly from auth failures. **DONE:** `FailureClass::ShadowTlsVersionMismatch` variant added to `ripdpi-failure-classifier::types` with `as_str() -> "shadowtls_version_mismatch"`. `ripdpi-shadowtls::classify_failure_payload` maps a v2 TLS-record-at-offset-0 payload to `ShadowTlsFailureKind::VersionMismatch`; runtime mapping inside handshake failure handling remains a follow-up.
 - [ ] If "v2 supported", the config exposes `shadowtls_version: 2 | 3` and both wire paths are covered by tests.
 
 ## Definition of done

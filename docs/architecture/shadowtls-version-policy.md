@@ -1,6 +1,6 @@
 # ShadowTLS Version Policy — ADR
 
-> Status: **draft; awaiting code implementation**. Authored: 2026-05-15. Tracking task: `docs/tasks/issues/add-shadowtls-v2-compatibility-or-document-v3-only.md`.
+> Status: **decision recorded; v3-only classifier hooks implemented**. Authored: 2026-05-15, refreshed 2026-05-28 against `ripdpi-shadowtls` and `ripdpi-failure-classifier`.
 
 ## Question
 
@@ -11,7 +11,8 @@
 **v3 only**, with explicit failure classification.
 
 - v3 handshake (HKDF + HMAC) is the only supported wire.
-- v2-server responses are classified as `FailureClass::ShadowTlsVersionMismatch` in the failure classifier, distinct from auth or cert failures.
+- v2-shaped failure payloads are classified locally as `ShadowTlsFailureKind::VersionMismatch` in `ripdpi-shadowtls::classify_failure_payload`.
+- The shared failure classifier has `FailureClass::ShadowTlsVersionMismatch`, distinct from auth or cert failures.
 - User-facing remediation text: "Server speaks ShadowTLS v2; upgrade the server."
 
 ## Rationale
@@ -24,11 +25,15 @@
 
 - **No v2 connectivity.** Users with v2 servers cannot connect. The ShadowTLS deployer ecosystem migrated to v3 several releases ago, so impact is low.
 
-## Implementation outline
+## Implemented Surface
 
-1. In `ripdpi-failure-classifier`, add `ShadowTlsVersionMismatch`.
-2. In `ripdpi-shadowtls::handshake`, detect v2-server HMAC-tag shape on rejection and surface `ShadowTlsVersionMismatch`.
-3. Add a unit test that feeds a v2-style response into the v3 handshake path and asserts the classifier output.
+1. `ripdpi-failure-classifier::FailureClass` includes `ShadowTlsVersionMismatch` and pins its stable string as `shadowtls_version_mismatch`.
+2. `ripdpi-shadowtls::classify_failure_payload` detects the v2 TLS-record-at-offset-0 shape and returns `ShadowTlsFailureKind::VersionMismatch`.
+3. Unit tests pin the v2 signature and ensure normal v3 HMAC-prefixed payloads pass through as `Other`.
+
+## Remaining Work
+
+Map `ShadowTlsFailureKind::VersionMismatch` at runtime wherever ShadowTLS handshake failures are converted into user-facing failure classes.
 
 ## Owner
 

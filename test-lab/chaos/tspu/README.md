@@ -1,6 +1,6 @@
 # TSPU adversarial emulator (v1)
 
-Tracked by [`docs/architecture/spike-tspu-adversarial-emulator.md`](../../../docs/architecture/spike-tspu-adversarial-emulator.md).
+Tracked by [`docs/architecture/spike-l7-adversarial-emulator.md`](../../../docs/architecture/spike-l7-adversarial-emulator.md).
 
 v1.1 ships five patterns and a matrix-runner that reports per-cell verdicts (`bypassed` / `blocked` / `degraded` / `inconclusive`) per `(desync_mode_id, pattern_id)` cell:
 

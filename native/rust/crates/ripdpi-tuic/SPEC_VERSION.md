@@ -17,7 +17,7 @@ This crate implements the TUIC v5 client over Quinn, including:
 - Address representation: `None`, `Domain(host, port)`, `Socket(SocketAddr)`
 - QUIC bi-stream lifecycle and UDP packet forwarding
 
-TUIC v4 is intentionally unsupported pending the policy decision in `docs/tasks/issues/add-tuic-v4-fallback-or-version-detection.md`.
+TUIC v4 is intentionally unsupported. The v5-only decision and failure-classification surface are documented in `docs/architecture/tuic-v4-policy.md`.
 
 ## Drift policy
 

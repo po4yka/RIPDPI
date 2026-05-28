@@ -1,6 +1,6 @@
 # TUIC v4 Policy — ADR
 
-> Status: **draft; awaiting code implementation**. Authored: 2026-05-15. Tracking task: `docs/tasks/issues/add-tuic-v4-fallback-or-version-detection.md`.
+> Status: **decision recorded; v5-only classifier hooks implemented**. Authored: 2026-05-15, refreshed 2026-05-28 against `ripdpi-tuic` and `ripdpi-failure-classifier`.
 
 ## Question
 
@@ -11,7 +11,8 @@
 **v5 only**, with explicit failure classification.
 
 - The wire constant remains `TUIC_VERSION = 0x05`.
-- A v4-server response is classified as `FailureClass::TuicVersionUnsupported` in the failure classifier, not as a generic protocol error.
+- Non-v5 failure payloads are classified locally as `TuicFailureKind::VersionUnsupported` in `ripdpi-tuic::classify_failure_payload`.
+- The shared failure classifier has `FailureClass::TuicVersionUnsupported`, distinct from generic protocol errors.
 - User-facing remediation text: "Server speaks TUIC v4; upgrade the server or remove this profile."
 
 ## Rationale
@@ -24,11 +25,16 @@
 
 - **No v4 connectivity.** Users with v4-only servers cannot connect. This is documented in the editor UI and surfaced in the failure classifier.
 
-## Implementation outline
+## Implemented Surface
 
-1. In `ripdpi-failure-classifier`, add a `TuicVersionUnsupported` variant.
-2. In `ripdpi-tuic::client`, identify the v4-server signature on handshake failure (the v4 server's reply differs from v5's `AUTHENTICATE` response shape) and surface `TuicVersionUnsupported`.
-3. Add a unit test that feeds a v4-style response into the v5 handshake path and asserts the classifier output.
+1. `ripdpi-failure-classifier::FailureClass` includes `TuicVersionUnsupported` and pins its stable string as `tuic_version_unsupported`.
+2. `ripdpi-tuic::ProtocolVersion` supports only `V5`; `TUIC_VERSION` is derived from it.
+3. `ripdpi-tuic::classify_failure_payload` maps any non-v5 leading version byte to `TuicFailureKind::VersionUnsupported`.
+4. Unit tests pin the v4 byte path, the v5 pass-through path, and arbitrary non-v5 bytes.
+
+## Remaining Work
+
+Map `TuicFailureKind::VersionUnsupported` at runtime wherever TUIC handshake failures are converted into user-facing failure classes.
 
 ## Owner
 

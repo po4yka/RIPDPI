@@ -1,6 +1,6 @@
 # Design spike: Phase-16 lab matrix on real-provider SIM
 
-Status: repository contract wired (2026-05-25); private runner operation is now a self-hosted operator responsibility guarded by fail-closed repo contracts. Tracks: [`spike-adversarial-network-harness-and-realprovider-matrix.md`](../tasks/issues/spike-adversarial-network-harness-and-realprovider-matrix.md)
+Status: repository contract wired (2026-05-25); private runner operation is now a self-hosted operator responsibility guarded by fail-closed repo contracts. Implementation status is tracked from [`docs/testing.md`](../testing.md#phase-16-real-world-confidence-status).
 
 ## Problem
 

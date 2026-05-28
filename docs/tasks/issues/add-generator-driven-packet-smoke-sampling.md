@@ -47,7 +47,6 @@ Hand-authored packet-smoke scenarios preserve known recipes, but they do not cov
 ## Links
 
 - [Design spike: generator-driven packet-smoke](../../architecture/spike-generator-packet-smoke.md)
-- [Parent spike](spike-adversarial-network-harness-and-realprovider-matrix.md)
 
 ## Work log
 
