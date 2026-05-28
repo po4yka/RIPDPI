@@ -5,8 +5,14 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Once;
+use std::{collections::BTreeSet, result::Result as StdResult};
 
-use arti_client::{config::TorClientConfigBuilder, IntoTorAddr, TorClient as ArtiTorClient};
+use arti_client::{
+    config::{
+        pt::TransportConfigBuilder, BoolOrAuto, BridgeConfigBuilder, CfgPath, PtTransportName, TorClientConfigBuilder,
+    },
+    IntoTorAddr, TorClient as ArtiTorClient,
+};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tor_rtcompat::PreferredRuntime;
 
@@ -18,6 +24,22 @@ impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 pub type BoxedIo = Box<dyn AsyncIo>;
 
 static RUSTLS_PROVIDER: Once = Once::new();
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TorPluggableTransport {
+    pub protocols: Vec<String>,
+    pub binary_path: PathBuf,
+    pub arguments: Vec<String>,
+    pub run_on_startup: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TorBridgePtConfig {
+    pub state_dir: PathBuf,
+    pub cache_dir: PathBuf,
+    pub bridge_lines: Vec<String>,
+    pub transports: Vec<TorPluggableTransport>,
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum TorTargetError {
@@ -32,6 +54,24 @@ pub enum TorTargetError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum TorConfigError {
+    #[error("Tor bridge+PT config requires at least one bridge line")]
+    MissingBridgeLines,
+    #[error("Tor bridge+PT config requires at least one PT binary")]
+    MissingTransportBinaries,
+    #[error("PT binary {binary_path} must declare at least one transport protocol")]
+    MissingTransportProtocols { binary_path: PathBuf },
+    #[error("invalid Tor bridge line {bridge_line}: {source}")]
+    InvalidBridgeLine {
+        bridge_line: String,
+        #[source]
+        source: arti_client::config::BridgeParseError,
+    },
+    #[error("direct Tor bridge line is forbidden in censored bridge+PT profile: {bridge_line}")]
+    DirectBridgeLine { bridge_line: String },
+    #[error("no PT binary configured for bridge transport {transport}")]
+    MissingTransportBinary { transport: String },
+    #[error("invalid PT transport protocol {protocol}: {message}")]
+    InvalidTransportProtocol { protocol: String, message: String },
     #[error("failed to read Arti config {path}: {source}")]
     Read {
         path: PathBuf,
@@ -52,6 +92,11 @@ pub enum TorConfigError {
         #[source]
         source: arti_client::config::ConfigBuildError,
     },
+    #[error("failed to build Arti bridge+PT config: {source}")]
+    BuildBridgePt {
+        #[source]
+        source: arti_client::config::ConfigBuildError,
+    },
 }
 
 pub fn load_arti_config_from_toml(path: impl AsRef<Path>) -> Result<ArtiTorClientConfig, TorConfigError> {
@@ -63,6 +108,73 @@ pub fn load_arti_config_from_toml(path: impl AsRef<Path>) -> Result<ArtiTorClien
         TorConfigError::Deserialize { path: path.clone(), message: source.to_string() }
     })?;
     builder.build().map_err(|source| TorConfigError::Build { path, source })
+}
+
+pub fn build_bridge_pt_config(config: TorBridgePtConfig) -> Result<ArtiTorClientConfig, TorConfigError> {
+    if config.bridge_lines.is_empty() {
+        return Err(TorConfigError::MissingBridgeLines);
+    }
+    if config.transports.is_empty() {
+        return Err(TorConfigError::MissingTransportBinaries);
+    }
+
+    let mut configured_transports = BTreeSet::new();
+    for transport in &config.transports {
+        if transport.protocols.is_empty() {
+            return Err(TorConfigError::MissingTransportProtocols { binary_path: transport.binary_path.clone() });
+        }
+        configured_transports.extend(transport.protocols.iter().cloned());
+    }
+
+    let mut builder = TorClientConfigBuilder::from_directories(&config.state_dir, &config.cache_dir);
+    builder.bridges().enabled(BoolOrAuto::Explicit(true));
+
+    for bridge_line in config.bridge_lines {
+        let bridge: BridgeConfigBuilder = bridge_line
+            .parse()
+            .map_err(|source| TorConfigError::InvalidBridgeLine { bridge_line: bridge_line.clone(), source })?;
+        let transport = required_bridge_transport(&bridge_line, &bridge)?;
+        if !configured_transports.contains(transport) {
+            return Err(TorConfigError::MissingTransportBinary { transport: transport.to_owned() });
+        }
+        builder.bridges().bridges().push(bridge);
+    }
+
+    for transport in config.transports {
+        builder.bridges().transports().push(build_transport_config(transport)?);
+    }
+
+    builder.build().map_err(|source| TorConfigError::BuildBridgePt { source })
+}
+
+fn required_bridge_transport<'a>(
+    bridge_line: &str,
+    bridge: &'a BridgeConfigBuilder,
+) -> Result<&'a str, TorConfigError> {
+    match bridge.get_transport().unwrap_or_default() {
+        "" | "-" | "bridge" => Err(TorConfigError::DirectBridgeLine { bridge_line: bridge_line.to_owned() }),
+        transport => Ok(transport),
+    }
+}
+
+fn build_transport_config(transport: TorPluggableTransport) -> Result<TransportConfigBuilder, TorConfigError> {
+    let protocols = transport
+        .protocols
+        .iter()
+        .map(|protocol| {
+            protocol.parse::<PtTransportName>().map_err(|source| TorConfigError::InvalidTransportProtocol {
+                protocol: protocol.clone(),
+                message: source.to_string(),
+            })
+        })
+        .collect::<StdResult<Vec<_>, _>>()?;
+    let mut builder = TransportConfigBuilder::default();
+    builder
+        .protocols(protocols)
+        .path(CfgPath::new_literal(transport.binary_path))
+        .arguments(transport.arguments)
+        .run_on_startup(transport.run_on_startup);
+    Ok(builder)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
