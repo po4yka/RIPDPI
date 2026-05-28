@@ -1,6 +1,6 @@
 # Xray VPN Provider Architecture
 
-**Created:** 2026-05-16 **Epic:** [[Epic - Xray provider mode]] **Plan reference:** [[ripdpi-android-xray-provider-plan-2026-04-24]] **Status:** model-only design — `:core:data:runtime-state` contains the provider enums/topology model, while the libXray adapter, local-inbound bridge, profile renderer, telemetry, and UX remain backlog work under `docs/tasks/issues/epic-xray-provider-mode.md`.
+**Created:** 2026-05-16 **Epic:** [[Epic - Xray provider mode]] **Plan reference:** [[ripdpi-android-xray-provider-plan-2026-04-24]] **Status:** model + detection support only. The current tree contains the `:core:data:runtime-state` provider enums/topology model, `:xray-protos` generated classes for the localhost Xray API scanner, and a catalog-time `XrayConfigValidator`. The libXray runtime adapter, local-inbound VPN bridge, product profile renderer, provider telemetry, and UX remain backlog work under `docs/tasks/issues/epic-xray-provider-mode.md`.
 
 ---
 
@@ -14,6 +14,8 @@
 | `Xray` | Planned embedded Xray-core provider; adapter/runtime work is not implemented yet. |
 
 Both variants are governed by the same `VpnProviderState` machine in the model. `:core:service` does not yet select or run the Xray provider.
+
+This document is not the Xray API scanner design. The current scanner lives in `:core:detection`, uses generated classes from `:xray-protos`, and inspects an already-running localhost Xray HandlerService endpoint. That scanner detects external Xray clients; it is not a managed RIPDPI Xray runtime.
 
 ---
 
@@ -56,7 +58,13 @@ The native runner reads IP packets from the TUN fd and forwards them to a local 
 
 **Tradeoffs:**
 
-| | | |-|-| | Pro | No libXray ABI surface for fd hand-off; survives Xray version upgrades. | | Pro | Socket protection stays in one place (`:core:service` `SocketProtector`). | | Pro | DNS traffic naturally passes through the native DNS-loop guard. | | Con | One extra loopback copy per packet vs. direct fd hand-off. | | Con | Requires a live local inbound listener; port conflicts must be handled at startup. |
+| Type | Detail |
+| --- | --- |
+| Pro | No libXray ABI surface for fd hand-off; survives Xray version upgrades. |
+| Pro | Socket protection stays in one place (`:core:service` `SocketProtector`). |
+| Pro | DNS traffic naturally passes through the native DNS-loop guard. |
+| Con | One extra loopback copy per packet vs. direct fd hand-off. |
+| Con | Requires a live local inbound listener; port conflicts must be handled at startup. |
 
 ### 3.2 LibXraySetTunFd (rejected for now)
 
@@ -76,11 +84,14 @@ Revisit when loopback overhead is measurably significant (> 5 % CPU or > 2 ms p9
 | Module | Owner | Role |
 |--------|-------|------|
 | `:core:data:runtime-state` | data layer | `VpnProviderKind`, `VpnProviderState`, `XrayTunnelTopology`, `XrayProviderConfig` typed model. No Android deps; pure Kotlin. |
+| `:xray-protos` | schema/generated API layer | Vendored Xray/V2Ray protobuf schemas and generated Java lite + gRPC classes for the current localhost Xray API scanner. Not a managed runtime. |
+| `:core:detection` | detection layer | `XrayApiScanner` / `XrayApiClient` scan localhost HandlerService endpoints exposed by external Xray clients. Does not start or supervise Xray. |
+| `:core:data:catalog` | catalog layer | `XrayConfigValidator` validates raw Xray-style outbound JSON before catalog/profile publication. Does not render product profiles or call libXray. |
 | `:core:service` | service layer | Android `VpnService` lifecycle; owns the TUN fd, socket protector, and DNS-loop guard. Xray-provider branching is not wired yet. |
 | `:core:engine` | engine layer | Planned home for the Xray adapter interface + generated binding. Not present yet. |
 | Xray adapter | engine layer | Planned wrapper around `libXray` Go-bridge JNI calls. Not present yet. |
 
-Intended dependency direction for the future runtime is `:core:service` → `:core:engine` (interface only) → `libXray` JNI. The current implemented artifact is the `:core:data:runtime-state` model.
+Intended dependency direction for the future managed runtime is `:core:service` → `:core:engine` (interface only) → `libXray` JNI. The current implemented managed-provider artifact is the `:core:data:runtime-state` model; detection/proto/validator support exists for adjacent Xray inspection and catalog validation work.
 
 ---
 
@@ -118,10 +129,13 @@ Stop is idempotent: calling stop on an already-stopped adapter is a no-op.
 
 ## 6. Implementation Task Order
 
-1. **This task** — typed model in `:core:data:runtime-state` (done).
-2. `bridge-tun-traffic-through-xray-local-inbound` — wire the local inbound forwarding path in `:core:service`.
-3. Xray adapter in `:core:engine` (future task).
-4. `XrayRuntimeSnapshot` + telemetry integration (future task).
+1. Typed provider model in `:core:data:runtime-state` (done).
+2. Xray/V2Ray proto generation for the localhost API scanner in `:xray-protos` (done).
+3. Localhost Xray API scanning in `:core:detection` (done for detecting external clients, not for managed runtime control).
+4. Catalog-time Xray JSON validation in `:core:data:catalog` (done for known unsafe/broken raw config shapes).
+5. `bridge-tun-traffic-through-xray-local-inbound` — wire the local inbound forwarding path in `:core:service` (backlog).
+6. Xray adapter in `:core:engine` (backlog).
+7. `XrayRuntimeSnapshot` + telemetry integration (backlog).
 
 ---
 
