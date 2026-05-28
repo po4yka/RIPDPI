@@ -15,6 +15,8 @@ New developers should read these in order:
 
 [Architecture notes](architecture/README.md) holds the compact, topic-specific ownership records behind these docs.
 
+[Architecture decision records](adr/README.md) index settled protocol decisions, including the Snowflake native Rust no-go and the VLESS Reality ECH policy.
+
 ## Native Libraries
 
 - [Native integration and modules](native/README.md)
