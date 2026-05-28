@@ -17,14 +17,13 @@ The notes below this point are compact, topic-specific records; the five docs ab
 
 Protocol decisions that should not be re-litigated from old plans are indexed in [../adr/README.md](../adr/README.md), including the VLESS Reality ECH policy and the Snowflake native Rust no-go decision.
 
-## Contracts and migration backlog
+## Contracts
 
-Cross-boundary contract docs and the standing maintainability backlog:
+Cross-boundary contract docs:
 
 - [DIAGNOSTICS_ARCHITECTURE.md](DIAGNOSTICS_ARCHITECTURE.md) — diagnostics probe/candidate registration seams, raw-path vs in-path, lifecycle/policy-memory interaction
 - [TELEMETRY_CONTRACT.md](TELEMETRY_CONTRACT.md) — runtime telemetry event/snapshot ownership, payload rules, Rust↔Kotlin forward-compatibility
 - [ROOT_HELPER_CONTRACT.md](ROOT_HELPER_CONTRACT.md) — root-helper IPC protocol, command table, session nonce, fd passing, and the non-root fallback invariant
-- [MIGRATION_BACKLOG.md](MIGRATION_BACKLOG.md) — completed maintainability work, deferred refactors and why, hotspots, compatibility risks, and next small tasks
 
 ## Ownership Boundaries
 
