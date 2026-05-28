@@ -6,6 +6,8 @@ use android_support::EventRingLayer;
 use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig, ShadowsocksLoopback, TrojanLoopback};
 use ripdpi_relay_mux::RelayPoolConfig;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpListener;
+use tokio::sync::oneshot;
 use tracing_subscriber::prelude::*;
 
 use crate::backend::{build_backend, RelayBackend};
@@ -317,6 +319,68 @@ fn chain_relay_hop_config_uses_kotlin_wire_defaults() {
     assert_eq!("bbr", hop.tuic_congestion_control);
     assert_eq!("chrome_stable", hop.tls_fingerprint_profile);
     assert_eq!("off", hop.finalmask.r#type);
+}
+
+#[tokio::test]
+async fn chain_relay_dead_resolved_entry_does_not_bypass_to_legacy_entry() {
+    let legacy_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind legacy entry probe");
+    let legacy_addr = legacy_listener.local_addr().expect("legacy entry address");
+    let dead_entry_port = reserve_unused_local_port().await;
+    let (legacy_entry_seen_tx, legacy_entry_seen_rx) = oneshot::channel();
+    tokio::spawn(async move {
+        if legacy_listener.accept().await.is_ok() {
+            let _ = legacy_entry_seen_tx.send(());
+        }
+    });
+
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry_server = legacy_addr.ip().to_string();
+    chain.entry_port = i32::from(legacy_addr.port());
+    chain.entry_server_name = "legacy-entry.example".to_string();
+    chain.entry_public_key = valid_reality_public_key();
+    chain.entry_short_id = String::new();
+    chain.entry_uuid = Some("00000000-0000-0000-0000-000000000000".to_string());
+    chain.exit_server = "127.0.0.1".to_string();
+    chain.exit_port = 443;
+    chain.exit_server_name = "exit.example".to_string();
+    chain.exit_public_key = valid_reality_public_key();
+    chain.exit_short_id = String::new();
+    chain.exit_uuid = Some("00000000-0000-0000-0000-000000000000".to_string());
+    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "vless_reality".to_string(),
+        profile_id: "dead-entry".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: i32::from(dead_entry_port),
+        server_name: "dead-entry.example".to_string(),
+        reality_public_key: valid_reality_public_key(),
+        reality_short_id: String::new(),
+        vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+
+    let backend = build_backend(&config).await.expect("chain backend builds from resolved hops");
+    let connect_result = tokio::time::timeout(
+        Duration::from_secs(2),
+        backend.connect_tcp(&RelayTargetAddr::Domain("target.example".to_string(), 443)),
+    )
+    .await
+    .expect("dead entry must fail promptly");
+
+    assert!(connect_result.is_err(), "dead resolved entry must fail the whole chain");
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), legacy_entry_seen_rx).await.is_err(),
+        "chain must not route around a dead resolved entry by dialing stale legacy entry fields",
+    );
+}
+
+async fn reserve_unused_local_port() -> u16 {
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("reserve local port");
+    listener.local_addr().expect("reserved local address").port()
+}
+
+fn valid_reality_public_key() -> String {
+    "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=".to_string()
 }
 
 fn hysteria_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut Hysteria2RelayConfig {
