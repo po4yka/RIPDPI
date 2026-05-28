@@ -16,12 +16,11 @@ mirrors `ripdpi-diagnostics-protocols`.
 
 ## Extension points
 
-None while it has no workspace consumer — prefer `ripdpi-diagnostics-protocols`.
+None while it has no workspace consumer — prefer `ripdpi-diagnostics-protocols` or the split `ripdpi-diagnostics-*` protocol crates directly.
 
 ## What must not be added here
 
-New probe logic. Treat this as a compat shim pending confirmation, not an
-active extension surface.
+New probe logic. This crate is a deprecated compatibility namespace over the split diagnostics protocol crates, not an active extension surface.
 
 ---
 See [`DIAGNOSTICS_ARCHITECTURE.md`](../../../../docs/architecture/DIAGNOSTICS_ARCHITECTURE.md)

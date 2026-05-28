@@ -36,7 +36,7 @@ Constants from `protocol.rs`:
 
 - v4 is intentionally unsupported; `docs/architecture/tuic-v4-policy.md` records the v5-only decision and the version-unsupported classifier surface.
 - UDP forward mode is native/datagram-only. `udp.rs` uses QUIC datagrams (`read_datagram` / `send_datagram`) and `client.rs` rejects UDP when `max_datagram_size` is absent. Reliable-stream `quic` UDP forwarding is intentionally deferred until telemetry shows a real need.
-- App-level keepalive policy not yet defined; see `docs/tasks/issues/add-tuic-heartbeat-and-keepalive-policy.md`.
+- `Config.keepalive_interval_ms` is wired to `quinn::TransportConfig::keep_alive_interval`; `0` disables it and legacy configs default to `0`. Relay profiles do not yet expose a TUIC keepalive field, so `ripdpi-relay-core` currently passes `0` for direct TUIC and chain TUIC sessions.
 
 ## Non-goals
 
