@@ -15,6 +15,7 @@ const val RelayKindShadowTlsV3 = "shadowtls_v3"
 const val RelayKindShadowsocks = "shadowsocks"
 const val RelayKindTrojan = "trojan"
 const val RelayKindNaiveProxy = "naiveproxy"
+const val RelayKindTor = "tor"
 const val RelayKindGoogleAppsScript = "google_apps_script"
 const val RelayKindSnowflake = "snowflake"
 const val RelayKindWebTunnel = "webtunnel"
@@ -57,6 +58,7 @@ fun normalizeRelayKind(value: String): String =
         RelayKindShadowsocks -> RelayKindShadowsocks
         RelayKindTrojan -> RelayKindTrojan
         RelayKindNaiveProxy -> RelayKindNaiveProxy
+        RelayKindTor -> RelayKindTor
         RelayKindGoogleAppsScript -> RelayKindGoogleAppsScript
         RelayKindSnowflake -> RelayKindSnowflake
         RelayKindWebTunnel -> RelayKindWebTunnel

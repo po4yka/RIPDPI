@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.content.Context
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.RelayAnyTlsSection
 import com.poyka.ripdpi.core.RelayAppsScriptSection
@@ -12,24 +13,29 @@ import com.poyka.ripdpi.core.RelayMasqueSection
 import com.poyka.ripdpi.core.RelayPluggableTransportSection
 import com.poyka.ripdpi.core.RelayShadowTlsSection
 import com.poyka.ripdpi.core.RelayShadowsocksSection
+import com.poyka.ripdpi.core.RelayTorSection
 import com.poyka.ripdpi.core.RelayTrojanSection
 import com.poyka.ripdpi.core.RelayTuicSection
 import com.poyka.ripdpi.core.RelayVlessSection
 import com.poyka.ripdpi.core.ResolvedRelayFinalmaskConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.ResolvedShadowTlsInnerRelayConfig
+import com.poyka.ripdpi.core.ResolvedTorPluggableTransportConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFinalmaskConfig
 import com.poyka.ripdpi.core.toResolvedConfig
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -64,6 +70,63 @@ internal interface RelayKindResolver {
     suspend fun resolve(request: RelayResolverRequest): RelayResolverResult
 }
 
+internal data class TorRuntimePaths(
+    val stateDir: String,
+    val cacheDir: String,
+)
+
+internal interface TorRuntimePathProvider {
+    fun pathsFor(profileId: String): TorRuntimePaths
+}
+
+@Singleton
+internal class AndroidTorRuntimePathProvider
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+    ) : TorRuntimePathProvider {
+        override fun pathsFor(profileId: String): TorRuntimePaths {
+            val stateSegment = sanitizeTorPathSegment(profileId)
+            return TorRuntimePaths(
+                stateDir = File(context.noBackupFilesDir, "tor/$stateSegment/state").apply { mkdirs() }.absolutePath,
+                cacheDir = File(context.cacheDir, "tor/$stateSegment/cache").apply { mkdirs() }.absolutePath,
+            )
+        }
+    }
+
+internal interface TorPluggableTransportProvider {
+    fun transportsFor(config: RipDpiRelayConfig): List<ResolvedTorPluggableTransportConfig>
+}
+
+@Singleton
+internal class ManagedTorPluggableTransportProvider
+    @Inject
+    constructor(
+        private val manager: PluggableTransportManager,
+    ) : TorPluggableTransportProvider {
+        override fun transportsFor(config: RipDpiRelayConfig): List<ResolvedTorPluggableTransportConfig> =
+            manager.torManagedTransports(config)
+    }
+
+internal class LocalTorRuntimePathProvider(
+    private val rootDir: File = File(System.getProperty("java.io.tmpdir"), "ripdpi-tor"),
+) : TorRuntimePathProvider {
+    override fun pathsFor(profileId: String): TorRuntimePaths {
+        val stateSegment = sanitizeTorPathSegment(profileId)
+        return TorRuntimePaths(
+            stateDir = File(rootDir, "$stateSegment/state").absolutePath,
+            cacheDir = File(rootDir, "$stateSegment/cache").absolutePath,
+        )
+    }
+}
+
+internal class UnconfiguredTorPluggableTransportProvider : TorPluggableTransportProvider {
+    override fun transportsFor(config: RipDpiRelayConfig): List<ResolvedTorPluggableTransportConfig> =
+        error("Tor pluggable transport provider is not configured")
+}
+
+private fun sanitizeTorPathSegment(value: String): String = value.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+
 @Singleton
 internal class DefaultUpstreamRelayRuntimeConfigResolver
     @Inject
@@ -73,6 +136,8 @@ internal class DefaultUpstreamRelayRuntimeConfigResolver
         private val relayKindResolverRegistry: RelayKindResolverRegistry,
         private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider,
         private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
+        private val torRuntimePathProvider: TorRuntimePathProvider,
+        private val torPluggableTransportProvider: TorPluggableTransportProvider,
     ) : UpstreamRelayRuntimeConfigResolver {
         override suspend fun resolve(
             config: RipDpiRelayConfig,
@@ -97,6 +162,8 @@ internal class DefaultUpstreamRelayRuntimeConfigResolver
                 resolution = resolution,
                 credentials = credentials,
                 quicMigrationConfig = quicMigrationConfig,
+                torRuntimePathProvider = torRuntimePathProvider,
+                torPluggableTransportProvider = torPluggableTransportProvider,
             )
         }
     }
@@ -106,12 +173,16 @@ private fun buildResolvedRelayConfig(
     resolution: RelayResolverResult,
     credentials: RelayCredentialRecord?,
     quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+    torRuntimePathProvider: TorRuntimePathProvider,
+    torPluggableTransportProvider: TorPluggableTransportProvider,
 ): ResolvedRipDpiRelayConfig =
     ResolvedRelayConfigBuilder(
         profileId = profileId,
         resolution = resolution,
         credentials = credentials,
         quicMigrationConfig = quicMigrationConfig,
+        torRuntimePathProvider = torRuntimePathProvider,
+        torPluggableTransportProvider = torPluggableTransportProvider,
     ).build()
 
 private class ResolvedRelayConfigBuilder(
@@ -119,6 +190,8 @@ private class ResolvedRelayConfigBuilder(
     private val resolution: RelayResolverResult,
     private val credentials: RelayCredentialRecord?,
     private val quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+    private val torRuntimePathProvider: TorRuntimePathProvider,
+    private val torPluggableTransportProvider: TorPluggableTransportProvider,
 ) {
     private val effectiveConfig = resolution.effectiveConfig
     private val chainRelay = resolution.resolvedChainRelay
@@ -143,6 +216,7 @@ private class ResolvedRelayConfigBuilder(
             hysteria2 = hysteria2Section(),
             anyTls = anyTlsSection(),
             pluggableTransport = pluggableTransportSection(),
+            tor = torSection(),
             cloudflare = cloudflareSection(),
             appsScript = appsScriptSection(),
             finalmask = effectiveConfig.finalmask.toResolvedFinalmaskConfig(),
@@ -159,7 +233,7 @@ private class ResolvedRelayConfigBuilder(
             serverName = effectiveConfig.serverName,
             localSocksHost = effectiveConfig.localSocksHost,
             localSocksPort = effectiveConfig.localSocksPort,
-            udpEnabled = effectiveConfig.udpEnabled,
+            udpEnabled = if (effectiveConfig.kind == RelayKindTor) false else effectiveConfig.udpEnabled,
             tcpFallbackEnabled = effectiveConfig.tcpFallbackEnabled,
             quicBindLowPort = quicMigrationConfig.bindLowPort,
             quicMigrateAfterHandshake = quicMigrationConfig.migrateAfterHandshake,
@@ -261,6 +335,24 @@ private class ResolvedRelayConfigBuilder(
             ptSnowflakeFrontDomain = effectiveConfig.ptSnowflakeFrontDomain,
         )
 
+    private fun torSection(): RelayTorSection {
+        if (effectiveConfig.kind != RelayKindTor) {
+            return RelayTorSection(
+                torStateDir = "",
+                torCacheDir = "",
+                torBridgeLines = emptyList(),
+                torTransports = emptyList(),
+            )
+        }
+        val paths = torRuntimePathProvider.pathsFor(profileId)
+        return RelayTorSection(
+            torStateDir = paths.stateDir,
+            torCacheDir = paths.cacheDir,
+            torBridgeLines = listOf(effectiveConfig.ptBridgeLine).filter(String::isNotBlank),
+            torTransports = torPluggableTransportProvider.transportsFor(effectiveConfig),
+        )
+    }
+
     private fun cloudflareSection(): RelayCloudflareSection =
         RelayCloudflareSection(
             cloudflareTunnelMode = effectiveConfig.cloudflareTunnelMode,
@@ -302,6 +394,8 @@ internal fun createDefaultUpstreamRelayRuntimeConfigResolver(
     masquePrivacyPassProvider: MasquePrivacyPassProvider,
     tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider,
     runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
+    torRuntimePathProvider: TorRuntimePathProvider,
+    torPluggableTransportProvider: TorPluggableTransportProvider,
 ): UpstreamRelayRuntimeConfigResolver =
     DefaultUpstreamRelayRuntimeConfigResolver(
         relayProfileStore = relayProfileStore,
@@ -315,6 +409,8 @@ internal fun createDefaultUpstreamRelayRuntimeConfigResolver(
             ),
         tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
         runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
+        torRuntimePathProvider = torRuntimePathProvider,
+        torPluggableTransportProvider = torPluggableTransportProvider,
     )
 
 @Module
@@ -325,4 +421,14 @@ internal abstract class UpstreamRelayRuntimeConfigResolverModule {
     abstract fun bindUpstreamRelayRuntimeConfigResolver(
         resolver: DefaultUpstreamRelayRuntimeConfigResolver,
     ): UpstreamRelayRuntimeConfigResolver
+
+    @Binds
+    @Singleton
+    abstract fun bindTorRuntimePathProvider(provider: AndroidTorRuntimePathProvider): TorRuntimePathProvider
+
+    @Binds
+    @Singleton
+    abstract fun bindTorPluggableTransportProvider(
+        provider: ManagedTorPluggableTransportProvider,
+    ): TorPluggableTransportProvider
 }

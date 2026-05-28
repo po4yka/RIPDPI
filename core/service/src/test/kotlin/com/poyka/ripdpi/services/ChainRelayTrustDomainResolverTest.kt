@@ -342,5 +342,7 @@ class ChainRelayTrustDomainResolverTest {
                 object : RuntimeExperimentSelectionProvider {
                     override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
                 },
+            torRuntimePathProvider = StaticTorRuntimePathProvider(),
+            torPluggableTransportProvider = StaticTorPluggableTransportProvider(),
         )
 }

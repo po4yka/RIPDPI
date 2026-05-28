@@ -105,6 +105,14 @@ data class ResolvedChainRelayHopConfig(
 )
 
 @Serializable
+data class ResolvedTorPluggableTransportConfig(
+    val protocols: List<String> = emptyList(),
+    val binaryPath: String = "",
+    val arguments: List<String> = emptyList(),
+    val runOnStartup: Boolean = false,
+)
+
+@Serializable
 data class ResolvedRipDpiRelayConfig(
     val enabled: Boolean,
     val kind: String,
@@ -148,6 +156,10 @@ data class ResolvedRipDpiRelayConfig(
     val ptWebTunnelUrl: String = "",
     val ptSnowflakeBrokerUrl: String = "",
     val ptSnowflakeFrontDomain: String = "",
+    val torStateDir: String = "",
+    val torCacheDir: String = "",
+    val torBridgeLines: List<String> = emptyList(),
+    val torTransports: List<ResolvedTorPluggableTransportConfig> = emptyList(),
     val localSocksHost: String,
     val localSocksPort: Int,
     val udpEnabled: Boolean,
@@ -199,7 +211,7 @@ data class ResolvedRipDpiRelayConfig(
  * value. Bumped only on a genuinely breaking shape change. See
  * `docs/architecture/CONFIG_CONTRACTS.md` §8.
  */
-const val RelayNativeConfigSchemaVersion: Int = 5
+const val RelayNativeConfigSchemaVersion: Int = 6
 
 // === Section models ======================================================
 //
@@ -320,6 +332,14 @@ data class RelayPluggableTransportSection(
     val ptSnowflakeFrontDomain: String,
 )
 
+/** Arti Tor state/cache directories and managed pluggable transport config. */
+data class RelayTorSection(
+    val torStateDir: String,
+    val torCacheDir: String,
+    val torBridgeLines: List<String>,
+    val torTransports: List<ResolvedTorPluggableTransportConfig>,
+)
+
 /** Cloudflare Tunnel mode, publish origin, and credential references. */
 data class RelayCloudflareSection(
     val cloudflareTunnelMode: String,
@@ -357,6 +377,7 @@ data class RelayConfigSections(
     val hysteria2: RelayHysteria2Section,
     val anyTls: RelayAnyTlsSection,
     val pluggableTransport: RelayPluggableTransportSection,
+    val tor: RelayTorSection,
     val cloudflare: RelayCloudflareSection,
     val appsScript: RelayAppsScriptSection,
     val finalmask: ResolvedRelayFinalmaskConfig,
@@ -473,6 +494,14 @@ private fun ResolvedRipDpiRelayConfig.pluggableTransportSection(): RelayPluggabl
         ptSnowflakeFrontDomain = ptSnowflakeFrontDomain,
     )
 
+private fun ResolvedRipDpiRelayConfig.torSection(): RelayTorSection =
+    RelayTorSection(
+        torStateDir = torStateDir,
+        torCacheDir = torCacheDir,
+        torBridgeLines = torBridgeLines,
+        torTransports = torTransports,
+    )
+
 private fun ResolvedRipDpiRelayConfig.cloudflareSection(): RelayCloudflareSection =
     RelayCloudflareSection(
         cloudflareTunnelMode = cloudflareTunnelMode,
@@ -508,6 +537,7 @@ fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
         hysteria2 = hysteria2Section(),
         anyTls = anyTlsSection(),
         pluggableTransport = pluggableTransportSection(),
+        tor = torSection(),
         cloudflare = cloudflareSection(),
         appsScript = appsScriptSection(),
         finalmask = finalmask,
@@ -562,6 +592,10 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         ptWebTunnelUrl = pluggableTransport.ptWebTunnelUrl,
         ptSnowflakeBrokerUrl = pluggableTransport.ptSnowflakeBrokerUrl,
         ptSnowflakeFrontDomain = pluggableTransport.ptSnowflakeFrontDomain,
+        torStateDir = tor.torStateDir,
+        torCacheDir = tor.torCacheDir,
+        torBridgeLines = tor.torBridgeLines,
+        torTransports = tor.torTransports,
         localSocksHost = common.localSocksHost,
         localSocksPort = common.localSocksPort,
         udpEnabled = common.udpEnabled,

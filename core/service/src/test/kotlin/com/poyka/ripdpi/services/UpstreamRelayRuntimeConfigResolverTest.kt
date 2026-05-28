@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
+import com.poyka.ripdpi.core.ResolvedTorPluggableTransportConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -12,6 +13,7 @@ import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -37,6 +39,8 @@ class UpstreamRelayRuntimeConfigResolverTest {
         masquePrivacyPassProvider: MasquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
         featureFlags: Map<String, Boolean> = emptyMap(),
         masqueGeohashHeader: String? = null,
+        torRuntimePathProvider: TorRuntimePathProvider = StaticTorRuntimePathProvider(),
+        torPluggableTransportProvider: TorPluggableTransportProvider = StaticTorPluggableTransportProvider(),
     ): DefaultUpstreamRelayRuntimeConfigResolver =
         DefaultUpstreamRelayRuntimeConfigResolver(
             relayProfileStore = relayProfileStore,
@@ -60,12 +64,57 @@ class UpstreamRelayRuntimeConfigResolverTest {
                     override fun current(): RuntimeExperimentSelection =
                         RuntimeExperimentSelection(featureFlags = featureFlags)
                 },
+            torRuntimePathProvider = torRuntimePathProvider,
+            torPluggableTransportProvider = torPluggableTransportProvider,
         )
 
     // A quoted `...Password = "..."` literal trips the no-secrets pre-commit
     // scanner; fixture credentials are built at runtime to stay legible
     // without tripping it.
     private fun credentialFixture(label: String): String = "relay-test-credential-$label"
+
+    @Test
+    fun `resolve tor family emits state directories bridge lines and managed pt binaries`() =
+        runTest {
+            val bridgeLine =
+                "Bridge obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=fixture iat-mode=0"
+            val transport =
+                ResolvedTorPluggableTransportConfig(
+                    protocols = listOf("obfs4"),
+                    binaryPath = "/data/user/0/com.poyka.ripdpi/files/subprocess-relays/arm64-v8a/ripdpi-obfs4",
+                    arguments = emptyList(),
+                    runOnStartup = false,
+                )
+            val resolver =
+                resolver(
+                    torRuntimePathProvider =
+                        StaticTorRuntimePathProvider(
+                            stateDir = "/data/user/0/com.poyka.ripdpi/no_backup/tor/tor-profile/state",
+                            cacheDir = "/data/user/0/com.poyka.ripdpi/cache/tor/tor-profile/cache",
+                        ),
+                    torPluggableTransportProvider = StaticTorPluggableTransportProvider(listOf(transport)),
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindTor,
+                            profileId = "tor-profile",
+                            ptBridgeLine = bridgeLine,
+                            udpEnabled = true,
+                        ),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertEquals(RelayKindTor, resolved.kind)
+            assertFalse("Tor is TCP-only even when the draft has UDP enabled", resolved.udpEnabled)
+            assertEquals("/data/user/0/com.poyka.ripdpi/no_backup/tor/tor-profile/state", resolved.torStateDir)
+            assertEquals("/data/user/0/com.poyka.ripdpi/cache/tor/tor-profile/cache", resolved.torCacheDir)
+            assertEquals(listOf(bridgeLine), resolved.torBridgeLines)
+            assertEquals(listOf(transport), resolved.torTransports)
+        }
 
     @Test
     fun `resolve cloudflare tunnel family applies runtime overrides and credentials`() =

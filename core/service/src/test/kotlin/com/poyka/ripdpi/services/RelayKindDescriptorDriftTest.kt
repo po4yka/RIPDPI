@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -71,6 +72,7 @@ class RelayKindDescriptorDriftTest {
                 TrojanRelayKindResolver::class,
                 NaiveRelayKindResolver::class,
                 LocalPathRelayKindResolver::class,
+                TorRelayKindResolver::class,
                 DefaultRelayKindResolver::class,
             )
         assertEquals(
@@ -116,6 +118,7 @@ class RelayKindDescriptorDriftTest {
                 "shadowtls_v3" to listOf(true, false, false, true),
                 "trojan" to listOf(true, true, false, true),
                 "shadowsocks" to listOf(true, true, false, true),
+                "tor" to listOf(true, false, true, false),
                 "naiveproxy" to listOf(true, false, false, true),
             )
         rustPinned.forEach { (kindId, caps) ->
@@ -168,7 +171,7 @@ class RelayKindDescriptorDriftTest {
 
     @Test
     fun `udp gate rejects udp for tcp-only kinds through the descriptor`() {
-        listOf(RelayKindVlessReality, RelayKindSnowflake, RelayKindOff).forEach { kind ->
+        listOf(RelayKindVlessReality, RelayKindSnowflake, RelayKindTor, RelayKindOff).forEach { kind ->
             assertThrows(IllegalArgumentException::class.java) {
                 validateSharedRelayTransportFeatures(RipDpiRelayConfig(kind = kind, udpEnabled = true))
             }

@@ -4,6 +4,8 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+import com.poyka.ripdpi.core.ResolvedTorPluggableTransportConfig
+import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindObfs4
@@ -120,6 +122,31 @@ class PluggableTransportManager
 
         suspend fun stop() = subprocessManager.stop()
 
+        fun torManagedTransports(config: RipDpiRelayConfig): List<ResolvedTorPluggableTransportConfig> =
+            buildList {
+                val bridgeTransport = config.ptBridgeLine.bridgeTransportName()
+                if (bridgeTransport == RelayKindObfs4) {
+                    add(
+                        ResolvedTorPluggableTransportConfig(
+                            protocols = listOf(RelayKindObfs4),
+                            binaryPath = subprocessManager.extractBinary(Obfs4BinaryName).absolutePath,
+                            arguments = emptyList(),
+                            runOnStartup = false,
+                        ),
+                    )
+                }
+                if (bridgeTransport == RelayKindWebTunnel || config.ptWebTunnelUrl.isNotBlank()) {
+                    add(
+                        ResolvedTorPluggableTransportConfig(
+                            protocols = listOf(RelayKindWebTunnel),
+                            binaryPath = subprocessManager.extractBinary(WebTunnelBinaryName).absolutePath,
+                            arguments = emptyList(),
+                            runOnStartup = false,
+                        ),
+                    )
+                }
+            }
+
         private fun launchSpec(config: ResolvedRipDpiRelayConfig): SubprocessSocksRelayLaunchSpec =
             when (config.kind) {
                 RelayKindSnowflake -> {
@@ -211,6 +238,15 @@ class PluggableTransportManager
 
         private fun sanitizeStateDirSegment(value: String): String = value.replace(Regex("[^a-zA-Z0-9._-]"), "_")
     }
+
+private fun String.bridgeTransportName(): String? {
+    val tokens = trim().split(Regex("\\s+")).filter(String::isNotBlank)
+    return when {
+        tokens.isEmpty() -> null
+        tokens[0].equals("Bridge", ignoreCase = true) -> tokens.getOrNull(1)
+        else -> tokens[0]
+    }
+}
 
 class PluggableTransportRuntime
     @Inject

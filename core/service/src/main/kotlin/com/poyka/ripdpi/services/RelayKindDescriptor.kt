@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVless
@@ -239,6 +240,17 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             reusable = false,
             supportsOutboundBindIp = true,
             subprocessBacked = true,
+            finalmaskSupport = RelayFinalmaskSupport.NONE,
+            configBacking = RelayConfigBacking.INLINE_SETTINGS_BACKED,
+        ),
+        RelayKindDescriptor(
+            kindId = RelayKindTor,
+            label = "Tor",
+            tcp = true,
+            udp = false,
+            reusable = true,
+            supportsOutboundBindIp = false,
+            subprocessBacked = false,
             finalmaskSupport = RelayFinalmaskSupport.NONE,
             configBacking = RelayConfigBacking.INLINE_SETTINGS_BACKED,
         ),

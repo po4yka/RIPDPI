@@ -94,12 +94,44 @@ class NativeConfigSchemaVersionTest {
         val versioned =
             relayJson.decodeFromString(
                 ResolvedRipDpiRelayConfig.serializer(),
-                encoded.replaceFirst("{", """{"schemaVersion":5,"""),
+                encoded.replaceFirst("{", """{"schemaVersion":6,"""),
             )
 
         assertEquals(RelayNativeConfigSchemaVersion, legacy.schemaVersion)
-        assertEquals(5, RelayNativeConfigSchemaVersion)
+        assertEquals(6, RelayNativeConfigSchemaVersion)
         assertEquals(RelayNativeConfigSchemaVersion, versioned.schemaVersion)
+    }
+
+    @Test
+    fun `relay tor payload carries bridge pt bootstrap fields`() {
+        val config =
+            sampleRelayConfig().copy(
+                enabled = true,
+                kind = "tor",
+                torStateDir = "/data/user/0/com.poyka.ripdpi/no_backup/tor/default/state",
+                torCacheDir = "/data/user/0/com.poyka.ripdpi/cache/tor/default/cache",
+                torBridgeLines =
+                    listOf(
+                        "Bridge obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=fixture iat-mode=0",
+                    ),
+                torTransports =
+                    listOf(
+                        ResolvedTorPluggableTransportConfig(
+                            protocols = listOf("obfs4"),
+                            binaryPath = "/data/user/0/com.poyka.ripdpi/files/subprocess-relays/arm64-v8a/ripdpi-obfs4",
+                            arguments = emptyList(),
+                            runOnStartup = false,
+                        ),
+                    ),
+            )
+
+        val encoded = relayJson.encodeToString(ResolvedRipDpiRelayConfig.serializer(), config)
+        val decoded = relayJson.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), encoded)
+
+        assertEquals("/data/user/0/com.poyka.ripdpi/no_backup/tor/default/state", decoded.torStateDir)
+        assertEquals("/data/user/0/com.poyka.ripdpi/cache/tor/default/cache", decoded.torCacheDir)
+        assertEquals(config.torBridgeLines, decoded.torBridgeLines)
+        assertEquals(config.torTransports, decoded.torTransports)
     }
 
     private fun sampleRelayConfig(): ResolvedRipDpiRelayConfig =

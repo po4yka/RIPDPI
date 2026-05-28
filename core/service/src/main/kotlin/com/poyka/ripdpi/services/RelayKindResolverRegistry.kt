@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayProfileStore
@@ -42,6 +43,7 @@ internal fun buildRelayKindRegistrations(
     trojanRelayKindResolver: TrojanRelayKindResolver,
     naiveRelayKindResolver: NaiveRelayKindResolver,
     localPathRelayKindResolver: LocalPathRelayKindResolver,
+    torRelayKindResolver: TorRelayKindResolver,
     defaultRelayKindResolver: DefaultRelayKindResolver,
 ): List<RelayKindRegistration> {
     val dedicatedResolvers: Map<String, RelayKindResolver> =
@@ -55,6 +57,7 @@ internal fun buildRelayKindRegistrations(
             put(RelayKindNaiveProxy, naiveRelayKindResolver)
             put(RelayKindWebTunnel, localPathRelayKindResolver)
             put(RelayKindObfs4, localPathRelayKindResolver)
+            put(RelayKindTor, torRelayKindResolver)
         }
     return RelayKindDescriptors.map { descriptor ->
         RelayKindRegistration(
@@ -90,6 +93,7 @@ internal class RelayKindResolverRegistry
         trojanRelayKindResolver: TrojanRelayKindResolver,
         naiveRelayKindResolver: NaiveRelayKindResolver,
         localPathRelayKindResolver: LocalPathRelayKindResolver,
+        torRelayKindResolver: TorRelayKindResolver,
         defaultRelayKindResolver: DefaultRelayKindResolver,
     ) {
         val registrations: List<RelayKindRegistration> =
@@ -102,6 +106,7 @@ internal class RelayKindResolverRegistry
                 trojanRelayKindResolver = trojanRelayKindResolver,
                 naiveRelayKindResolver = naiveRelayKindResolver,
                 localPathRelayKindResolver = localPathRelayKindResolver,
+                torRelayKindResolver = torRelayKindResolver,
                 defaultRelayKindResolver = defaultRelayKindResolver,
             )
 
@@ -141,5 +146,6 @@ internal fun createDefaultRelayKindResolverRegistry(
         trojanRelayKindResolver = TrojanRelayKindResolver(),
         naiveRelayKindResolver = NaiveRelayKindResolver(),
         localPathRelayKindResolver = LocalPathRelayKindResolver(),
+        torRelayKindResolver = TorRelayKindResolver(),
         defaultRelayKindResolver = DefaultRelayKindResolver(),
     )

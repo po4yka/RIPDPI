@@ -1580,16 +1580,16 @@ fn legacy_payload_without_schema_version_defaults_to_current_version() {
     assert_eq!("hysteria2", config.kind_id());
     // The flat form re-serializes with the defaulted `schemaVersion`.
     let reserialized = serde_json::to_value(&config).expect("reserialize relay config");
-    assert_eq!(reserialized["schemaVersion"], serde_json::json!(5), "absent schemaVersion defaults to 5");
+    assert_eq!(reserialized["schemaVersion"], serde_json::json!(6), "absent schemaVersion defaults to 6");
 }
 
 #[test]
-fn payload_with_explicit_schema_version_five_deserializes() {
+fn payload_with_explicit_schema_version_six_deserializes() {
     let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(5));
+    object.insert("schemaVersion".to_string(), serde_json::json!(6));
 
     let config: ResolvedRelayRuntimeConfig = serde_json::from_value(serde_json::Value::Object(object))
-        .expect("payload with schemaVersion 5 should deserialize");
+        .expect("payload with schemaVersion 6 should deserialize");
 
     assert_eq!("hysteria2", config.kind_id());
 }
@@ -1597,13 +1597,13 @@ fn payload_with_explicit_schema_version_five_deserializes() {
 #[test]
 fn payload_with_unsupported_schema_version_is_rejected() {
     let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(6));
+    object.insert("schemaVersion".to_string(), serde_json::json!(7));
 
     let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(serde_json::Value::Object(object))
-        .expect_err("payload with schemaVersion 6 should be rejected");
+        .expect_err("payload with schemaVersion 7 should be rejected");
 
     assert!(
-        err.to_string().contains("unsupported native config schemaVersion 6"),
+        err.to_string().contains("unsupported native config schemaVersion 7"),
         "error should name the found version, got: {err}"
     );
 }

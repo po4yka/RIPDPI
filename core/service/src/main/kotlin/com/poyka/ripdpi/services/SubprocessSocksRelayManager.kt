@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,6 +49,8 @@ class SubprocessSocksRelayManager
         @Volatile private var lastFailureClass: String? = null
 
         @Volatile private var runtimeStateOverride: String? = null
+
+        fun extractBinary(binaryName: String): File = binaryExtractor.extract(binaryName)
 
         suspend fun start(
             config: ResolvedRipDpiRelayConfig,
