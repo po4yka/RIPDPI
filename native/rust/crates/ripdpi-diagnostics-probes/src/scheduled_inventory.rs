@@ -7,9 +7,10 @@
 //! ## What is in scope
 //!
 //! [`SCHEDULED_PROBE_INVENTORY`] enumerates the 9 connectivity stage
-//! runners. Each [`ScheduledProbeStage::backing`] either names the backing
-//! probe's [`crate::Probe::id`] (via [`ProbeTraitBacking::Backed`]) or
-//! marks the stage as not yet migrated ([`ProbeTraitBacking::NotBacked`]).
+//! runners. Each [`ScheduledProbeStage::backing`] names the backing probe's
+//! [`crate::Probe::id`] via [`ProbeTraitBacking::Backed`]. The
+//! [`ProbeTraitBacking::NotBacked`] variant remains available only to make a
+//! future newly scheduled, not-yet-ported stage explicit instead of silent.
 //! The `Backed(...)` rows reference the real `*_PROBE_ID` consts from the
 //! probe modules, so this list is compile-time-coupled to the probe
 //! implementations — deleting or renaming a probe const breaks this file.
@@ -48,7 +49,8 @@ pub enum ProbeTraitBacking {
     /// The stage is backed by a [`crate::Probe`]. Carries the backing
     /// probe's [`crate::Probe::id`].
     Backed(&'static str),
-    /// The stage has not yet been migrated to the [`crate::Probe`] trait.
+    /// A future newly scheduled stage has not yet been migrated to the
+    /// [`crate::Probe`] trait.
     NotBacked,
 }
 
@@ -129,8 +131,8 @@ pub const SCHEDULED_PROBE_INVENTORY: &[ScheduledProbeStage] = &[
     },
 ];
 
-/// The `probe_type`s of every scheduled stage that does not yet have a
-/// backing [`crate::Probe`] implementation.
+/// The `probe_type`s of every scheduled stage without a backing
+/// [`crate::Probe`] implementation.
 pub fn unbacked_stages() -> Vec<&'static str> {
     SCHEDULED_PROBE_INVENTORY
         .iter()
