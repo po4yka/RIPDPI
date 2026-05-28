@@ -11,6 +11,7 @@ import com.poyka.ripdpi.activities.ConfigFieldRelayChain
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.RelayChainHopUiState
 import com.poyka.ripdpi.activities.RelayProfileUiState
+import com.poyka.ripdpi.data.RelayTrustDomainWarning
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -151,12 +152,40 @@ private fun RelayChainTrustWarning(uiState: ConfigUiState) {
             warning.sharedJurisdiction?.let { "jurisdiction $it" },
             warning.sharedOperatorName?.let { "operator $it" },
         ).joinToString(" and ")
+    val missing = warning.missingTrustDomainMessage()
+    if (shared.isBlank()) {
+        WarningBanner(
+            title = "Missing trust metadata",
+            message = missing,
+            tone = WarningBannerTone.Warning,
+        )
+        return
+    }
     WarningBanner(
         title = "Shared trust domain",
-        message = "Entry and exit share $shared. Use different jurisdictions and operators to reduce correlation risk.",
+        message = sharedTrustDomainMessage(shared, missing),
         tone = WarningBannerTone.Warning,
     )
 }
+
+private fun sharedTrustDomainMessage(
+    shared: String,
+    missing: String,
+): String =
+    listOf(
+        "Entry and exit share $shared. Use different jurisdictions and operators to reduce correlation risk.",
+        missing,
+    ).filter(String::isNotBlank).joinToString(" ")
+
+private fun RelayTrustDomainWarning.missingTrustDomainMessage(): String =
+    buildList {
+        if (missingEntryTrustDomain) {
+            add("Entry hop is missing jurisdiction or operator metadata.")
+        }
+        if (missingExitTrustDomain) {
+            add("Exit hop is missing jurisdiction or operator metadata.")
+        }
+    }.joinToString(" ")
 
 @Composable
 private fun chainValidationMessage(errorKey: String?): String? =

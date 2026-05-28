@@ -219,4 +219,30 @@ class RelayFieldsTest {
 
         composeRule.onNodeWithText("Select both entry and exit profiles.").assertExists()
     }
+
+    @Test
+    fun chainRelayFieldsWarnWhenTrustMetadataIsMissing() {
+        composeRule.setContent {
+            RipDpiTheme {
+                RelayKindFields(
+                    draft =
+                        ConfigDraft(
+                            relayKind = RelayKindChainRelay,
+                            relayChainEntryProfileId = "entry",
+                            relayChainExitProfileId = "exit",
+                        ),
+                    uiState =
+                        ConfigUiState(
+                            relayChainTrustWarning =
+                                RelayTrustDomainWarning(
+                                    missingEntryTrustDomain = true,
+                                ),
+                        ),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Missing trust metadata").assertExists()
+        composeRule.onNodeWithText("Entry hop is missing jurisdiction or operator metadata.").assertExists()
+    }
 }

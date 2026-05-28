@@ -9,6 +9,20 @@ private const val SampleCloudflareValue = "sample-cloudflare-value"
 
 class RelayStoresTest {
     @Test
+    fun `relay chain trust warning reports missing hop metadata`() {
+        val warning =
+            detectRelayChainTrustWarning(
+                entry = RelayTrustDomain(jurisdiction = "", operatorName = "Entry Transit"),
+                exit = RelayTrustDomain(jurisdiction = "NL", operatorName = "Exit Transit"),
+            )
+
+        assertEquals(true, warning?.missingEntryTrustDomain)
+        assertEquals(false, warning?.missingExitTrustDomain)
+        assertEquals(null, warning?.sharedJurisdiction)
+        assertEquals(null, warning?.sharedOperatorName)
+    }
+
+    @Test
     fun `relay credential record preserves masque auth variants`() {
         val json = Json { ignoreUnknownKeys = true }
         val record =

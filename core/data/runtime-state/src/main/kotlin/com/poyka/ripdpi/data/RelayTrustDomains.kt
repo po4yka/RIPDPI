@@ -10,6 +10,8 @@ data class RelayTrustDomain(
 data class RelayTrustDomainWarning(
     val sharedJurisdiction: String? = null,
     val sharedOperatorName: String? = null,
+    val missingEntryTrustDomain: Boolean = false,
+    val missingExitTrustDomain: Boolean = false,
 )
 
 fun RelayProfileRecord.toRelayTrustDomain(): RelayTrustDomain =
@@ -26,12 +28,16 @@ fun detectRelayChainTrustWarning(
         sharedTrustDomainValue(entry.jurisdiction, exit.jurisdiction)
     val sharedOperator =
         sharedTrustDomainValue(entry.operatorName, exit.operatorName)
-    if (sharedJurisdiction == null && sharedOperator == null) {
+    val missingEntryTrustDomain = entry.hasIncompleteTrustDomain()
+    val missingExitTrustDomain = exit.hasIncompleteTrustDomain()
+    if (sharedJurisdiction == null && sharedOperator == null && !missingEntryTrustDomain && !missingExitTrustDomain) {
         return null
     }
     return RelayTrustDomainWarning(
         sharedJurisdiction = sharedJurisdiction,
         sharedOperatorName = sharedOperator,
+        missingEntryTrustDomain = missingEntryTrustDomain,
+        missingExitTrustDomain = missingExitTrustDomain,
     )
 }
 
@@ -45,5 +51,8 @@ private fun sharedTrustDomainValue(
     }
     return entryValue.trim()
 }
+
+private fun RelayTrustDomain.hasIncompleteTrustDomain(): Boolean =
+    jurisdiction.trim().isEmpty() || operatorName.trim().isEmpty()
 
 private fun String.normalizedTrustDomain(): String = trim().lowercase(Locale.ROOT)
