@@ -152,8 +152,8 @@ impl AwgParams {
     /// Validate a [`WarpAmneziaConfig`] into [`AwgParams`].
     ///
     /// The `i1..i5` hex strings are optional and default to empty (`&[]`);
-    /// `WarpAmneziaConfig` does not yet carry them, so callers pass them
-    /// explicitly. Pass `&["", "", "", "", ""]` for "no special junk".
+    /// the native WARP runtime config does not carry them, so callers pass
+    /// them explicitly. Pass `&["", "", "", "", ""]` for "no special junk".
     pub(crate) fn from_config(cfg: &WarpAmneziaConfig, special_junk_hex: &[&str]) -> Result<Self, AwgParamsError> {
         let junk_packet_count = cfg.jc.max(0) as u32;
         let junk_packet_min_size = cfg.jmin.max(0) as u32;

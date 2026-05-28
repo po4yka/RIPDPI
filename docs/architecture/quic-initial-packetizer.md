@@ -45,6 +45,11 @@ Production-facing families:
 - `quic_fake_version`
 - `quic_dummy_prepend`
 
+Production-facing QUIC candidates that do not use the Initial packetizer:
+
+- `quic_ipfrag2` when UDP raw-packet capability is available
+- full-matrix `quic_ipfrag2_*` IPv6 extension-header variants when UDP raw-packet capability is available
+
 Supported by the UDP/desync layer but not currently emitted by `ripdpi-diagnostics-candidates`:
 
 - `quic_compat_burst`

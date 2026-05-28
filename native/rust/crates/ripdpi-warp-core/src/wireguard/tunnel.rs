@@ -17,9 +17,9 @@ use crate::virtual_iface::{Bus, Event};
 
 /// Build the AmneziaWG wire codec for a tunnel from its config.
 ///
-/// `WarpAmneziaConfig` does not yet carry the AWG 2.0 `I1..I5` special-junk
-/// hex strings, so they are passed empty here; the handshake prelude still
-/// emits the `Jc` random junk packets. An invalid config (e.g. inverted
+/// The native WARP runtime config does not carry the AWG 2.0 `I1..I5`
+/// special-junk hex strings, so they are passed empty here; the handshake
+/// prelude still emits the `Jc` random junk packets. An invalid config (e.g. inverted
 /// junk range, colliding headers) is logged and treated as disabled rather
 /// than failing tunnel construction -- a malformed obfuscation knob must
 /// not take the whole WARP runtime down.
