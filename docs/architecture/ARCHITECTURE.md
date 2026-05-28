@@ -93,9 +93,10 @@ classpath. Native-crate dependency direction is enforced separately by
 ## 4. Native Rust artifact map
 
 The Rust workspace is at [`native/rust/`](../../native/rust/Cargo.toml) — a
-Cargo workspace of 99 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
+Cargo workspace of 108 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
 builds it via the `ripdpi.android.rust-native` convention plugin: **four** JNI
-`.so` libraries plus three helper binaries are packaged into the APK. See
+`.so` libraries, three managed Rust helper binaries, and pluggable-transport
+assets are packaged into the APK. See
 [`NATIVE_RUST.md`](NATIVE_RUST.md) for the full crate taxonomy and dependency map.
 
 | Artifact | Kind | Source crate | Kotlin bridge | Role |
@@ -105,6 +106,9 @@ builds it via the `ripdpi.android.rust-native` convention plugin: **four** JNI
 | `libripdpi-relay.so` | JNI shared library | `crates/ripdpi-relay-android` | `RipDpiRelay.kt` | Encrypted relay transports |
 | `libripdpi-warp.so` | JNI shared library | `crates/ripdpi-warp-android` | `RipDpiWarp.kt` | WARP / AmneziaWG runtime |
 | `ripdpi-root-helper` | Standalone ELF binary | `crates/ripdpi-root-helper` | `RootHelperManager.kt`, `RootDetector.kt` | Privileged raw-socket ops, rooted devices only |
+| `ripdpi-naiveproxy` | Standalone helper binary | `crates/ripdpi-naiveproxy` | `Subprocess*` services | NaiveProxy relay helper process |
+| `ripdpi-cloudflare-origin` | Standalone helper binary | `crates/ripdpi-cloudflare-origin` | `Cloudflare*` services | Local xHTTP origin helper for Cloudflare Tunnel publish mode |
+| `ripdpi-webtunnel` | Pluggable-transport helper binary | `crates/ripdpi-webtunnel` | Tor PT bootstrap path | WebTunnel managed-client helper |
 
 - `libripdpi.so` is loaded by `RipDpiNativeLoader.kt` via
   `System.loadLibrary("ripdpi")`. The relay and WARP runtimes ship as
@@ -113,11 +117,12 @@ builds it via the `ripdpi.android.rust-native` convention plugin: **four** JNI
   The relay transport crates (`ripdpi-relay-core`, `ripdpi-vless`,
   `ripdpi-xhttp`, `ripdpi-tuic`, `ripdpi-shadowtls`, …) link into
   `libripdpi-relay.so`.
-- **Subprocess helper binaries** — `ripdpi-naiveproxy` and
-  `ripdpi-cloudflare-origin` are workspace `bin` crates packaged into APK
-  assets and run as separate processes (not JNI-embedded), supervised by the
-  `Subprocess*` / `Cloudflare*` services in `:core:service`. A third-party
-  `cloudflared` sidecar is bundled for Cloudflare Tunnel publish mode.
+- **Subprocess and PT helper binaries** — `ripdpi-naiveproxy`,
+  `ripdpi-cloudflare-origin`, and `ripdpi-webtunnel` are workspace `bin` crates
+  packaged into APK assets and run as separate processes (not JNI-embedded).
+  `native/pluggable-transports/sources.json` also describes external PT assets:
+  `ripdpi-snowflake` / `ripdpi-obfs4` from Lyrebird and `ripdpi-cloudflared`
+  from Cloudflare's `cloudflared`.
 - `ripdpi` (desktop CLI, `crates/ripdpi-cli`) is a development binary for
   macOS/Linux and is **not** packaged in the APK.
 - Full crate taxonomy, layering, and dependency-direction policy live in

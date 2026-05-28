@@ -53,7 +53,7 @@ convention plugin
 
 First-level composition of each artifact root (direct internal dependencies):
 
-- **`ripdpi-android`** → the eight `ripdpi-android-*` adapters + `android-support`
+- **`ripdpi-android`** → the seven `ripdpi-android-*` adapters + `android-support`
   + `ripdpi-strategy-config` + `ripdpi-strategy-lua`.
 - **`ripdpi-tunnel-android`** → `ripdpi-tunnel-core`, `ripdpi-tunnel-config`,
   `ripdpi-runtime-platform`, `ripdpi-telemetry`, `ripdpi-pcap`,
@@ -85,7 +85,7 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 | L5 | **platform / privileged** | 8 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
 | L6 | **diagnostics / monitor** | 18 | 14 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
 | L7 | **relay transports** | 19 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel` |
-| L8 | **Android / JNI adapters** | 12 | `android-support`, the eight `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android` |
+| L8 | **Android / JNI adapters** | 12 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android` |
 
 `ripdpi-diagnostics-contracts` is counted under L2 (it is a wire contract); the
 other 14 `ripdpi-diagnostics-*` crates are L6.
@@ -305,7 +305,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-android-platform-adapter` | Platform-port JNI adapter | JNI exports | `ripdpi-runtime-platform`, `ripdpi-shared-priors`, … (7) | `jni` | Keep |
 | `ripdpi-android-vpn-protect-adapter` | `VpnService.protect` JNI adapter | JNI exports | `ripdpi-native-protect` | `jni` | Keep |
 | `ripdpi-android-telemetry-adapter` | Telemetry projection adapter | Projection API | `ripdpi-telemetry`, `ripdpi-runtime-api`, … (5) | **No `jni` dep** — pure projection, still L8 | Keep |
-| `ripdpi-android` | `libripdpi.so` — proxy/diagnostics/strategy JNI entrypoint | `cdylib` + `JNI_OnLoad` | the 8 `ripdpi-android-*` adapters + `android-support` + 2 strategy crates | `jni`; artifact root | Keep |
+| `ripdpi-android` | `libripdpi.so` — proxy/diagnostics/strategy JNI entrypoint | `cdylib` + `JNI_OnLoad` | the 7 `ripdpi-android-*` adapters + `android-support` + 2 strategy crates | `jni`; artifact root | Keep |
 | `ripdpi-tunnel-android` | `libripdpi-tunnel.so` — TUN bridge JNI entrypoint | `cdylib` + JNI | `ripdpi-tunnel-core`, `ripdpi-runtime-platform`, `ripdpi-pcap`, `ripdpi-quality`, … | `jni`; artifact root | Keep |
 | `ripdpi-relay-android` | `libripdpi-relay.so` — relay JNI entrypoint (`RipDpiRelayNativeBindings`) | `cdylib` + JNI | `ripdpi-relay-core`, `ripdpi-apps-script-core`, `ripdpi-quality`, `android-support` | `jni`; artifact root | Keep — Kotlin counterpart `RipDpiRelayNativeBindings` at `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt:82`; `System.loadLibrary("ripdpi-relay")` at `RipDpiRelayNativeLoader:76` |
 | `ripdpi-warp-android` | `libripdpi-warp.so` — WARP JNI entrypoint | `cdylib` + JNI | `ripdpi-warp-core`, `ripdpi-native-protect`, `ripdpi-tls-profiles`, `ripdpi-quality`, `android-support` | `jni`; artifact root | Keep |
