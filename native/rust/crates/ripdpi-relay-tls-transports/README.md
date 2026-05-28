@@ -4,6 +4,8 @@
 
 This crate is the adapter layer between protocol clients and `ripdpi-relay-core` factories. It exposes session factories and relay-stream wrappers for AnyTLS, Shadowsocks, ShadowTLS, Tor, and Trojan so relay-core can build pooled backends without duplicating protocol-specific connection code.
 
+**Upstream:** `ripdpi-relay-mux`, `ripdpi-anytls`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-tor`, `ripdpi-trojan`, and `ripdpi-vless`. **Downstream:** `ripdpi-relay-core`.
+
 ## Exported Adapters
 
 - AnyTLS: `AnyTlsSessionFactory`, `AnyTlsSession`, `AnyTlsUdpSession`, and helper target conversion.

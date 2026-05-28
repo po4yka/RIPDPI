@@ -163,7 +163,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 |-------|----------------|-------------|-------------------|-----------------|--------|
 | `golden-test-support` | Golden-fixture comparison + bless helpers | Test helpers | — | None — dev-only | Keep |
 | `feature-contract-harness` | Cross-layer feature-contract manifests + drift tests | Test harness | `serde`, `serde_json`; dev-deps on registry crates | Test-only; no production consumer | Keep |
-| `local-network-fixture` | In-process network fixture (also builds a fixture binary) | Test fixtures + `bin` | — | `kind=bin`; dev-only | Keep |
+| `local-network-fixture` | In-process network fixture (also builds a fixture binary) | Test fixtures + `bin` | `ripdpi-shadowsocks` | `kind=bin`; dev-only | Keep |
 | `native-soak-support` | Soak-test scaffolding | Test helpers | — | Dev-only | Keep |
 | `ripdpi-bench` | Criterion benchmark harness | Bench harness | — (dev-deps on runtime crates) | No workspace consumer (expected) | Keep |
 | `ripdpi-cli` | Desktop CLI (`ripdpi`) for proxy runtime dev | `bin` | `ripdpi-config`, `ripdpi-proxy-runtime`, `ripdpi-runtime-api`, `ripdpi-failure-classifier`, `ripdpi-telemetry` | Desktop-only; not in APK | Keep — never make it an Android dep |
@@ -276,19 +276,19 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-relay-core` | Shared relay backend + capability surface | Relay traits + orchestration | `ripdpi-relay-mux` + native relay transport crates | Aggregates in-process relay-core backends; NaiveProxy is subprocess fallback | Keep |
 | `ripdpi-relay-mux` | Relay-session pooling + stream-lease mux | Pool API | — (leaf) | Fan-in via `relay-core`, `vless` | Keep |
 | `ripdpi-hysteria2` | Hysteria2 transport | Transport client | — (leaf) | `quinn` | Keep |
-| `ripdpi-masque` | MASQUE / HTTP-3 proxy transport | Transport client | `ripdpi-hysteria2`, `ripdpi-tls-profiles` | `quinn`, `boring` | Keep |
+| `ripdpi-masque` | MASQUE / HTTP-3 proxy transport | Transport client | `ripdpi-diagnostics-dns`, `ripdpi-hysteria2`, `ripdpi-tls-profiles` | `quinn`, `boring` | Keep |
 | `ripdpi-tuic` | TUIC v5 transport | Transport client | — (leaf) | `quinn` | Keep |
 | `ripdpi-shadowtls` | ShadowTLS v3 camouflage | Transport client | — (leaf) | Used by `relay-core` | Keep |
 | `ripdpi-shadowsocks` | Shadowsocks transport | Transport client | — (leaf) | Used by `relay-core`; TCP + UDP capable | Keep |
-| `ripdpi-trojan` | Trojan transport | Transport client | — (leaf) | Used by `relay-core`; TCP + UDP capable | Keep |
-| `ripdpi-anytls` | AnyTLS transport | Transport client | `ripdpi-relay-tls-transports` | Used by `relay-core`; TCP + UDP capable | Keep |
+| `ripdpi-trojan` | Trojan transport | Transport client | `ripdpi-tls-profiles` | Used by `relay-core`; TCP + UDP capable | Keep |
+| `ripdpi-anytls` | AnyTLS transport | Transport client | `ripdpi-tls-profiles` | Used by `relay-core`; TCP + UDP capable | Keep |
 | `ripdpi-tor` | Arti-backed Tor relay backend | Transport client | `ripdpi-relay-tls-transports` | Opt-in TCP-only anonymity backend with bridge/PT bootstrap | Keep |
 | `ripdpi-vless` | VLESS Reality / xHTTP transport | Transport client | `ripdpi-relay-mux`, `ripdpi-tls-profiles` | `boring`; used by `xhttp`, `cloudflare-origin` | Keep |
 | `ripdpi-xhttp` | xHTTP transport (VLESS xHTTP, CF Tunnel) | Transport client | `ripdpi-vless`, `ripdpi-tls-profiles` | — | Keep |
 | `ripdpi-webtunnel` | WebTunnel PT client and managed-client binary | Transport client + `bin` | `ripdpi-tls-profiles` | In-repository PT helper binary packaged by PT asset task | Keep |
 | `ripdpi-cloudflare-origin` | Local xHTTP origin helper for CF Tunnel publish | `bin` | `ripdpi-vless` | Subprocess helper binary | Keep |
-| `ripdpi-naiveproxy` | NaiveProxy helper | `bin` (`src/main.rs`) | — (leaf) | Subprocess helper binary | Keep |
-| `ripdpi-relay-tls-transports` | Shared TLS relay helpers | Library | `ripdpi-tls-profiles` | Shared by TLS-shaped relay transports | Keep |
+| `ripdpi-naiveproxy` | NaiveProxy helper | `bin` (`src/main.rs`) | `ripdpi-tls-profiles` | Subprocess helper binary | Keep |
+| `ripdpi-relay-tls-transports` | Shared TLS relay helpers | Library | `ripdpi-relay-mux`, `ripdpi-anytls`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-tor`, `ripdpi-trojan`, `ripdpi-vless` | Shared by TLS-shaped relay transports | Keep |
 | `ripdpi-warp-core` | WARP runtime + AmneziaWG codec | Runtime API | — (leaf) | `smoltcp`; root of `libripdpi-warp.so` | Keep |
 | `ripdpi-apps-script-core` | Google Apps Script relay path | Transport client | — (leaf) | Consumed by `ripdpi-relay-android` | Keep |
 | `ripdpi-ws-tunnel` | MTProto WebSocket tunnel for Telegram | Tunnel client | `ripdpi-tls-profiles` | `boring` | Keep |

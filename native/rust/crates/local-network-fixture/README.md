@@ -4,6 +4,8 @@
 
 The crate provides fixture servers and manifests for echo traffic, DNS, HTTP/TLS, SOCKS, MASQUE, NaiveProxy readiness, WebTunnel, Trojan, AnyTLS, and Shadowsocks. It is test infrastructure, not production runtime code.
 
+**Internal dependency:** `ripdpi-shadowsocks`, used by the Shadowsocks loopback fixture.
+
 ## Current Use
 
 - Relay crates use it as an oracle for loopback protocol behavior and failure classification.

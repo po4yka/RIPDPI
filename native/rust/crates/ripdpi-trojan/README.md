@@ -2,6 +2,8 @@
 
 Trojan outbound client library for RIPDPI relay-core integration.
 
+**Upstream:** `ripdpi-tls-profiles` for the BoringSSL/TLS client path. **Downstream:** `ripdpi-relay-tls-transports`, then `ripdpi-relay-core`.
+
 ## Protocol Notes
 
 - Source of truth: the Trojan protocol page at `https://trojan-gfw.github.io/trojan/protocol.html`; reimplementations are cross-checks only.
