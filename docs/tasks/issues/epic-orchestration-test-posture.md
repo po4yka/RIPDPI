@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-28
 ---
 
 - [ ] #task Epic - Orchestration test posture #repo/RIPDPI #area/testing #status/todo ⏫
@@ -80,5 +80,4 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Links
 
 - [[ripdpi-android]]
-- ripdpi-android-audit-2026-04-20 §"Test posture", Highest-ROI #4
 - Child issues: 2

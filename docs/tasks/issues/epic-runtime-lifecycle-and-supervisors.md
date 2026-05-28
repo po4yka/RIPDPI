@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-28
 ---
 
 - [ ] #task Epic - Runtime lifecycle and supervisors #repo/RIPDPI #area/epic #status/todo 🔺
@@ -77,5 +77,4 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Links
 
 - [[ripdpi-android]]
-- ripdpi-android-audit-2026-04-20 §4, §5, §6, Highest-ROI #2
 - Child issues: 4

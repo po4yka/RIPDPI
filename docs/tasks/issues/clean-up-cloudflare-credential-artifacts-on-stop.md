@@ -9,7 +9,7 @@ parent: epic-cloudflare-publish-hardening
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-14
+updated: 2026-05-28
 ---
 
 - [ ] #task Clean up Cloudflare credential artifacts on stop #repo/RIPDPI #area/relay #status/backlog ⏫
@@ -41,4 +41,3 @@ Named-tunnel credentials and config are written to persistent `filesDir` state a
 ## Links
 
 - [[Epic - Cloudflare publish hardening]]
-- ripdpi-android-audit-2026-04-20

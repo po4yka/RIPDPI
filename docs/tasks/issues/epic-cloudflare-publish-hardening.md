@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-14
+updated: 2026-05-28
 ---
 
 - [ ] #task Epic - Cloudflare publish hardening #repo/RIPDPI #area/relay #status/backlog ⏫
@@ -73,5 +73,4 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Links
 
 - [[ripdpi-android]]
-- ripdpi-android-audit-2026-04-20 §7
 - Child issues: 4
