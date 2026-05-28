@@ -1,10 +1,8 @@
-//! Scheduled-probe inventory and Probe-trait migration drift artifact.
+//! Scheduled-probe inventory and Probe-trait parity table.
 //!
-//! This module is the task-5 drift artifact for the diagnostics
-//! "Probe-trait migration". It is the compile-time list of every scheduled
-//! *connectivity* stage the `ripdpi-monitor-engine` runs, paired with
-//! whether that stage has a backing [`crate::Probe`] implementation in this
-//! crate.
+//! This module is the compile-time list of every scheduled *connectivity*
+//! stage the `ripdpi-monitor-engine` runs, paired with whether that stage has
+//! a backing [`crate::Probe`] implementation in this crate.
 //!
 //! ## What is in scope
 //!
