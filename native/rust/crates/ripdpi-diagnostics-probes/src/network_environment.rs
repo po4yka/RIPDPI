@@ -20,8 +20,9 @@
 //! [`ProbeTaskFamily`] has no `Environment` variant, and adding one would
 //! change the diagnostics contract enum, so [`crate::Probe::family`] reports
 //! [`ProbeTaskFamily::Service`] as the nearest fit. The family is inert for
-//! this probe today — nothing routes `network_environment` outcomes by family
-//! (the unified `ProbeDescriptor` table is not built yet).
+//! this probe today — nothing routes `network_environment` outcomes by family,
+//! though its scheduled-stage metadata is now present in
+//! [`crate::PROBE_DESCRIPTORS`].
 
 use ripdpi_diagnostics_contracts::{ProbeResult, ProbeTaskFamily};
 

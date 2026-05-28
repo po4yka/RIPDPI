@@ -178,32 +178,24 @@ emitter from it.
 
 ## The probe descriptor seam
 
-There is **no single `ProbeDescriptor` type**, and adding one was assessed as
-not yet a clean fit (see below). The descriptor-shaped types that already
-exist, by layer:
+`ripdpi-diagnostics-probes` now owns the scheduled connectivity descriptor
+table. The descriptor-shaped types that exist, by layer:
 
 | Layer | Descriptor-shaped type | Shape |
 |-------|------------------------|-------|
 | Strategy candidate | `StrategyCandidateSpec` (`ripdpi-diagnostics-candidates`) | A full static descriptor — id, label, family, emitter tier, `requires_fake_ttl` / `requires_tcp_fast_open` / `requires_capabilities`, eligibility, warmup, config. **This is the canonical descriptor pattern in diagnostics.** |
 | Lane adapter | `LaneAdapter` + `LANE_ADAPTERS` (`ripdpi-monitor-lane-adapter`) | A static `&[LaneAdapter]` inventory table — name, module path, source crate. Read-only metadata. |
-| Concrete probe | the `Probe` trait + per-probe `*_PROBE_ID` const | A per-instance contract, not a table. |
-| Scan stage | `ExecutionStageRunner` (trait) + the hand-written `vec![]` | No descriptor — the stage list is enumerated by hand in `execution_coordinator()`. |
+| Concrete connectivity probe | the `Probe` trait + per-probe `*_PROBE_ID` const | Backing contract for each scheduled connectivity stage. |
+| Scheduled connectivity stage | `ProbeDescriptor` + `PROBE_DESCRIPTORS` (`ripdpi-diagnostics-probes`) | One static row per scheduled connectivity stage: probe id, family, scheduled `probe_type`, runner name, path-mode requirement, and label. Drift tests pin the table to `SCHEDULED_PROBE_INVENTORY`. |
+| Monitor-engine stage runner | `ProbeStageRegistration` (`ripdpi-monitor-engine`) | The runtime scheduler registry. It mirrors descriptor fields without importing the probes crate; parity tests and the probes crate drift tests pin the seam. |
 
-A unified `ProbeDescriptor` table (one static row per scheduled probe — id,
-family, path-mode support, capability requirements — analogous to
-`RELAY_TRANSPORT_DESCRIPTORS` in `ripdpi-relay-core`) would naturally live in
-`ripdpi-diagnostics-probes`. It is **not built today** because the scheduled
-units are the stage runners, while the `Probe`-trait probes are a *different,
-still-incomplete* set — concrete probes are mid-migration into the trait. A
-descriptor table would either describe the partial `Probe` set (and silently
-drift from what actually runs) or duplicate the stage list with no
-drift-guard test. The prerequisite for a low-risk `ProbeDescriptor` is
-**finishing the `Probe`-trait migration** so every scheduled probe is a
-`Probe` impl carrying its descriptor as an associated `const`, with a
-consistency test pinning the table to the impls. Until then, `StrategyCandidateSpec`
-remains the descriptor to extend and imitate. See
-[`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) §3,
-"The probe registration seam".
+`PROBE_DESCRIPTORS` intentionally covers only the 9 scheduled connectivity
+stages. The 4 strategy runners remain out of scope because they consume
+`StrategyCandidateSpec` inputs rather than the `Probe` trait. For new
+connectivity probes, add the backing `Probe`, the scheduled-inventory row, and
+the matching `ProbeDescriptor` row. For new strategy candidates, extend
+`StrategyCandidateSpec` instead. See [`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md)
+§3, "The probe registration seam".
 
 ---
 
