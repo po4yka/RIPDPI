@@ -18,8 +18,8 @@ updated: 2026-05-25
 
 <!-- goal-contract:auto -->
 - **Ledger key:** `gate-l7-adversarial-emulator-in-phase16-release-matrix`
-- **Verify:** `TODO(verify): ./gradlew test`
-- **Scope (only modify these + this file + the ledger):** TODO(scope): <module path(s) this task may modify>
+- **Verify:** `python3 scripts/ci/phase16_matrix.py validate && python3 -m unittest scripts.tests.test_phase16_matrix && python3 scripts/ci/phase16_matrix.py emit-github-matrix --filter l7_adversarial_emulator_v1_1 && bash -n scripts/ci/run-phase16-matrix-entry.sh`
+- **Scope (only modify these + this file + the ledger):** `.github/workflows/phase16-matrix.yml`, `contract-fixtures/phase16_lab_matrix.json`, `scripts/ci/**`, `scripts/tests/**`, `docs/testing.md`
 - **Blocked-by (must be DONE in the ledger first):** _none_
 - **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
 <!-- /goal-contract:auto -->

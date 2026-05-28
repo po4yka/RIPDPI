@@ -52,12 +52,12 @@ the goal clears on success so you can chain them. Between phases run:
 | Phase | Ledger rows | Count | First task | Last task |
 |-------|-------------|-------|------------|-----------|
 | P1 | 1–18 | 18 | `epic-remove-cloudflare-from-critical-path` | `add-miri-test-pass-for-vless-reality-ffi-unsafe-blocks` |
-| P2 | 19–36 | 18 | `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry` | `extract-native-actionplan-ir` |
-| P3 | 37–54 | 18 | `epic-native-hotspot-decomposition` | `add-mieru-outbound-client-crate-and-profile-editor` |
-| P4 | 55–72 | 18 | `add-mixed-socks5-and-http-connect-inbound-listener` | `epic-advanced-routing-rules-and-geoip-enforcement` |
-| P5 | 73–90 | 18 | `add-android-private-dns-conflict-warning` | `epic-control-plane-hardening` |
-| P6 | 91–108 | 18 | `epic-privacy-preserving-strategy-learner` | `epic-system-http-proxy-service-mode` |
-| P7 | 109–123 | 15 | `epic-boot-autostart-and-session-persistence` | `epic-orchestration-test-posture` |
+| P2 | 19–36 | 18 | `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry` | `epic-encrypted-dns-and-https-svcb-classifier` |
+| P3 | 37–54 | 18 | `per-session-cloudflarepublishruntime-instances` | `add-service-mode-picker-to-settings-and-onboarding` |
+| P4 | 55–72 | 18 | `add-ssh-outbound-client-crate-and-profile-editor` | `wire-home-diagnostic-card-run-action` |
+| P5 | 73–90 | 18 | `epic-home-config-diagnostics-mode-first-ux` | `add-dns-over-https-tunnel-mode-for-arbitrary-payloads` |
+| P6 | 91–108 | 18 | `add-post-quantum-hybrid-kem-x25519mlkem768-for-tls-handshakes` | `epic-extended-outbound-protocol-support` |
+| P7 | 109–118 | 10 | `add-doh-json-api-resolver-path-alongside-rfc-8484-wire` | `epic-orchestration-test-posture` |
 
 ## 3. The `/goal` command (one per phase)
 

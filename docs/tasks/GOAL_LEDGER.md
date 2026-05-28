@@ -9,10 +9,10 @@ Rows are in **topological order — feeders before dependents**.
 Working strictly top-to-bottom guarantees every task's
 `Blocked-by` set is already DONE when the loop reaches it.
 
-- Tasks: **104**  ·  Epics: **19**  ·  Total rows: **123**
+- Tasks: **100**  ·  Epics: **18**  ·  Total rows: **118**
 - Dependency cycles broken during sort: **1** — `epic-direct-mode-diagnostic-state-machine`
-- Rows needing a human-pinned verify command (`TODO(verify)`): **9**
-- Rows needing a human-pinned scope (`TODO(scope)`): **4**
+- Rows needing a human-pinned verify command (`TODO(verify)`): **0**
+- Rows needing a human-pinned scope (`TODO(scope)`): **0**
 - Suggested phase size for `/goal`: **18** rows → **7** phases (see `GOAL_LAUNCH.md`).
 
 Status legend: `TODO` (not started) · `DONE` (verified, proof in
@@ -51,96 +51,91 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 28 | P2 | `add-integration-tests-per-diagnostic-result-class`<br>Add integration tests per diagnostic result class | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | 🔼 | TODO | |
 | 29 | P2 | `add-network-security-config-with-opportunistic-domainencryption`<br>Add network-security-config with opportunistic domainEncryption | task | `(no epic)` | diagnostics | 🔼 | TODO | |
 | 30 | P2 | `build-censorlab-style-offline-strategy-pack-pipeline`<br>Build CensorLab-style offline strategy-pack pipeline | task | `epic-privacy-preserving-strategy-learner` | service | 🔼 | TODO | |
-| 31 | P2 | `decompose-desync-rs-by-responsibility`<br>Decompose desync.rs by responsibility | task | `epic-native-hotspot-decomposition` | service | 🔼 | DONE | 2026-05-28 docs cleanup: `native/rust/crates/ripdpi-proxy-runtime/src/runtime/desync.rs` is 24 LOC and desync planning/execution now lives in split `ripdpi-desync` / `ripdpi-desync-runtime` crates. |
-| 32 | P2 | `decompose-linux-rs-by-responsibility`<br>Decompose linux.rs by responsibility | task | `epic-native-hotspot-decomposition` | service | 🔼 | DONE | 2026-05-28 docs cleanup: the former monolithic Linux platform file no longer exists; Linux privileged operations now live under `ripdpi-privileged-ops/src/linux/` and runtime dispatch under `ripdpi-runtime-platform`. |
-| 33 | P2 | `decompose-ripdpiproxyjsoncodec`<br>Decompose RipDpiProxyJsonCodec | task | `epic-native-hotspot-decomposition` | service | 🔼 | DONE | 2026-05-28 docs cleanup: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyJsonCodec.kt` is 199 LOC, below the task's 300 LOC target. |
-| 34 | P2 | `decouple-jni-handle-lifetime-and-telemetry-locking`<br>Decouple JNI handle-lifetime and telemetry locking | task | `epic-runtime-lifecycle-and-supervisors` | service | 🔼 | TODO | |
-| 35 | P2 | `epic-runtime-lifecycle-and-supervisors`<br>Epic - Runtime lifecycle and supervisors | epic | `—` | epic | 🔺 | TODO | |
-| 36 | P2 | `extract-native-actionplan-ir`<br>Extract native ActionPlan IR | task | `epic-native-hotspot-decomposition` | service | 🔼 | DONE | 2026-05-28 docs cleanup: `DesyncPlan`/`PlannedStep` are the current internal plan IR in `ripdpi-desync`; execution is split through `ripdpi-desync-runtime`. |
-| 37 | P3 | `epic-native-hotspot-decomposition`<br>Epic - Native hotspot decomposition | epic | `—` | epic | 🔼 | DONE | 2026-05-28 docs cleanup: child notes closed because their cited hotspot files are split, removed, or below their LOC targets. |
-| 38 | P3 | `implement-phase-0-passive-observation-from-last-flow`<br>Implement Phase 0 passive observation from last flow | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | 🔼 | TODO | |
-| 39 | P3 | `install-cloudflare-binaries-once-per-abi-and-version`<br>Install Cloudflare binaries once per ABI and version | task | `epic-cloudflare-publish-hardening` | relay | 🔼 | TODO | |
-| 40 | P3 | `limit-dns-measurement-to-user-requested-destinations`<br>Limit DNS measurement to user-requested destinations | task | `epic-encrypted-dns-and-https-svcb-classifier` | dns | 🔼 | TODO | |
-| 41 | P3 | `epic-encrypted-dns-and-https-svcb-classifier`<br>Epic - Encrypted DNS and HTTPS SVCB classifier | epic | `—` | dns | 🔺 | TODO | |
-| 42 | P3 | `per-session-cloudflarepublishruntime-instances`<br>Per-session CloudflarePublishRuntime instances | task | `epic-cloudflare-publish-hardening` | relay | 🔼 | TODO | |
-| 43 | P3 | `epic-cloudflare-publish-hardening`<br>Epic - Cloudflare publish hardening | epic | `—` | relay | ⏫ | TODO | |
-| 44 | P3 | `persist-direct-mode-policy-with-revalidation`<br>Persist direct-mode policy with revalidation | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | 🔼 | TODO | |
-| 45 | P3 | `report-owned-stack-only-verdict-from-diagnostic`<br>Report OWNED_STACK_ONLY verdict from diagnostic | task | `(no epic)` | diagnostics | 🔼 | TODO | |
-| 46 | P3 | `spike-censorlab-as-offline-censor-replay-harness`<br>Spike CensorLab as offline censor-replay harness | task | `epic-orchestration-test-posture` | testing | 🔼 | TODO | |
-| 47 | P3 | `surface-no-direct-solution-verdict-honestly`<br>Surface NO_DIRECT_SOLUTION verdict honestly | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | 🔼 | TODO | |
-| 48 | P3 | `add-anytls-outbound-client-crate-and-profile-editor`<br>Finish AnyTLS profile editor and compatibility gaps | task | `epic-extended-outbound-protocol-support` | outbound | 🔼 | TODO | 2026-05-28 docs cleanup: source already has `ripdpi-anytls`, `RelayKindAnyTls`, `RelayBackendConfig::AnyTls`, `anytls://` import, and relay-core TCP/UDP tests; task narrowed to remaining editor/interop gaps. |
-| 49 | P3 | `add-boot-completed-receiver-with-dynamic-enable`<br>Add boot-completed receiver with dynamic enable | task | `epic-boot-autostart-and-session-persistence` | service | 🔼 | TODO | |
-| 50 | P3 | `add-configurable-asset-provider-picker-with-four-presets`<br>Add configurable asset provider picker with four presets | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
-| 51 | P3 | `add-custom-domain-bypass-list-screen`<br>Add custom domain bypass list screen | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
-| 52 | P3 | `add-fa-ar-de-es-fr-translations-and-rtl-screenshot-tests`<br>Add fa ar de es fr translations and RTL screenshot tests | task | `epic-localization-expansion` | ui | 🔼 | TODO | |
-| 53 | P3 | `add-last-active-profile-persistence-in-direct-boot-storage`<br>Add last-active-profile persistence in direct-boot storage | task | `epic-boot-autostart-and-session-persistence` | service | 🔼 | TODO | |
-| 54 | P3 | `add-mieru-outbound-client-crate-and-profile-editor`<br>Add Mieru outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔼 | TODO | |
-| 55 | P4 | `add-mixed-socks5-and-http-connect-inbound-listener`<br>Add mixed SOCKS5 and HTTP CONNECT inbound listener | task | `epic-system-http-proxy-service-mode` | proxy | 🔼 | TODO | |
-| 56 | P4 | `add-proxyservice-foreground-service-as-alternative-to-tun-vpn`<br>Add ProxyService foreground service as alternative to TUN VPN | task | `epic-system-http-proxy-service-mode` | proxy | 🔼 | TODO | |
-| 57 | P4 | `add-saf-export-action-with-full-and-share-variants`<br>Add SAF export action with FULL and SHARE variants | task | `epic-settings-backup-and-restore` | data | 🔼 | TODO | |
-| 58 | P4 | `add-saf-import-flow-with-selective-restore`<br>Add SAF import flow with selective restore | task | `epic-settings-backup-and-restore` | data | 🔼 | TODO | |
-| 59 | P4 | `add-service-mode-picker-to-settings-and-onboarding`<br>Add service-mode picker to Settings and onboarding | task | `epic-system-http-proxy-service-mode` | proxy | 🔼 | TODO | |
-| 60 | P4 | `add-ssh-outbound-client-crate-and-profile-editor`<br>Add SSH outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔼 | TODO | |
-| 61 | P4 | `add-start-on-boot-user-toggle-and-permission-guard`<br>Add start-on-boot user toggle and permission guard | task | `epic-boot-autostart-and-session-persistence` | service | 🔼 | TODO | |
-| 62 | P4 | `add-vmess-outbound-client-crate-and-profile-editor`<br>Add VMess outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔼 | TODO | |
-| 63 | P4 | `add-xray-profile-ux-and-import-flow`<br>Add Xray profile UX and import flow | task | `epic-xray-provider-mode` | outbound | 🔼 | TODO | |
-| 64 | P4 | `add-xray-provider-regression-matrix`<br>Add Xray provider regression matrix | task | `epic-xray-provider-mode` | outbound | 🔼 | TODO | |
-| 65 | P4 | `add-zh-cn-translation-and-initial-human-review`<br>Add zh-CN translation and initial human review | task | `epic-localization-expansion` | ui | 🔼 | TODO | |
-| 66 | P4 | `select-and-set-up-translation-pipeline-for-ripdpi`<br>Select and set up translation pipeline for RIPDPI | task | `epic-localization-expansion` | ui | 🔼 | TODO | |
-| 67 | P4 | `epic-localization-expansion`<br>Epic - Localization expansion | epic | `—` | epic | 🔼 | TODO | |
-| 68 | P4 | `surface-xray-diagnostics-and-telemetry`<br>Surface Xray diagnostics and telemetry | task | `epic-xray-provider-mode` | outbound | 🔼 | TODO | |
-| 69 | P4 | `epic-xray-provider-mode`<br>Epic - Xray provider mode | epic | `—` | outbound | ⏫ | TODO | |
-| 70 | P4 | `adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion`<br>Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
-| 71 | P4 | `adopt-process-based-per-package-routing-via-xray-tun-routeonly`<br>Adopt process-based per-package routing via Xray TUN routeOnly | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
-| 72 | P4 | `epic-advanced-routing-rules-and-geoip-enforcement`<br>Epic - Advanced routing rules and geoip enforcement | epic | `—` | epic | ⏫ | TODO | |
-| 73 | P5 | `add-android-private-dns-conflict-warning`<br>Add Android Private DNS conflict warning | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔼 | TODO | |
-| 74 | P5 | `add-captive-portal-and-whitelist-mode-connection-states`<br>Add captive-portal and whitelist-mode connection states | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔼 | TODO | |
-| 75 | P5 | `ci-build-ripdpi-diagnostics-probes-with-both-compat-facade-on-and-off`<br>CI: build ripdpi-diagnostics-probes with both compat-facade on and off | task | `(no epic)` | ci | 🔼 | TODO | |
-| 76 | P5 | `rework-diagnostics-tab-consolidate-entry-points`<br>Rework Diagnostics tab to be fully standalone with consolidated entry points | task | `epic-home-config-diagnostics-mode-first-ux` | diagnostics | 🔼 | TODO | |
-| 77 | P5 | `wire-home-diagnostic-card-run-action`<br>Wire Home diagnostic card Run button and navigate to Diagnostics tab | task | `epic-home-config-diagnostics-mode-first-ux` | ui | 🔼 | TODO | |
-| 78 | P5 | `epic-home-config-diagnostics-mode-first-ux`<br>Redesign Home / Config / Diagnostics tabs for mode-first UX | epic | `—` | ui | ⏫ | TODO | |
-| 79 | P5 | `add-h3-to-h2-fallback-telemetry-rollout-validation`<br>Validate H3-to-H2 MASQUE fallback telemetry sufficiency | task | `(no epic)` | rust-native | 🔼 | TODO | |
-| 80 | P5 | `add-hysteria2-salamander-obfuscation-conformance-fixtures`<br>Add Hysteria 2 Salamander obfuscation conformance fixtures | task | `(no epic)` | testing | 🔼 | TODO | |
-| 81 | P5 | `add-port-hopping-window-soak-test-for-hysteria2`<br>Add port-hopping window soak test for Hysteria 2 | task | `(no epic)` | testing | 🔼 | TODO | |
-| 82 | P5 | `add-protocol-throughput-benchmarks-for-each-transport`<br>Add Criterion throughput benchmarks for each transport | task | `(no epic)` | testing | 🔼 | TODO | |
-| 83 | P5 | `add-quic-path-mtu-discovery-regression-test`<br>Add QUIC path-MTU discovery regression test | task | `(no epic)` | testing | 🔼 | TODO | |
-| 84 | P5 | `add-tuic-heartbeat-and-keepalive-policy`<br>Add TUIC heartbeat and keepalive policy | task | `(no epic)` | rust-native | 🔼 | TODO | |
-| 85 | P5 | `add-tuic-v4-fallback-or-version-detection`<br>Add TUIC v4 fallback or explicit version detection | task | `(no epic)` | rust-native | 🔼 | TODO | |
-| 86 | P5 | `add-vless-mux-conformance-tests-against-xray-core`<br>Add VLESS mux conformance tests against xray-core | task | `(no epic)` | testing | 🔼 | TODO | |
-| 87 | P5 | `audit-vless-chained-connect-over-relay-end-to-end-tests`<br>Audit VLESS chained connect_over relay end-to-end test coverage | task | `(no epic)` | testing | 🔼 | TODO | |
-| 88 | P5 | `extract-masque-provider-adapter-trait-to-decouple-cloudflare`<br>Extract MasqueProviderAdapter trait to decouple Cloudflare-specific paths | task | `(no epic)` | rust-native | 🔼 | TODO | |
-| 89 | P5 | `introduce-protocol-version-enum-and-version-probe-diagnostic`<br>Introduce ProtocolVersion enum and version-mismatch probe diagnostic | task | `epic-control-plane-hardening` | rust-native | 🔼 | TODO | |
-| 90 | P5 | `epic-control-plane-hardening`<br>Epic - Control-plane hardening | epic | `—` | epic | 🔺 | TODO | |
-| 91 | P6 | `epic-privacy-preserving-strategy-learner`<br>Epic - Privacy-preserving strategy learner | epic | `—` | epic | ⏫ | TODO | |
-| 92 | P6 | `make-naiveproxy-helper-probe-return-structured-version-json`<br>Wire NaiveProxy helper probe into manager startup | task | `(no epic)` | service | 🔼 | TODO | 2026-05-28 docs cleanup: helper `--probe` and Kotlin parser exist, but `NaiveProxyManager` does not yet run probe as a launch gate. |
-| 93 | P6 | `add-cloudflare-workers-domain-fronting-bypass`<br>Add Cloudflare Workers domain-fronting bypass adapter | task | `(no epic)` | rust-native | 🔼 | TODO | |
-| 94 | P6 | `add-constant-rate-traffic-shaping-voip-camouflage`<br>Add constant-rate traffic shaping with VoIP camouflage profile | task | `(no epic)` | rust-native | 🔼 | TODO | |
-| 95 | P6 | `add-dns-over-https-tunnel-mode-for-arbitrary-payloads`<br>Add DNS-over-HTTPS tunnel mode for arbitrary payloads | task | `(no epic)` | rust-native | 🔼 | TODO | |
-| 96 | P6 | `add-post-quantum-hybrid-kem-x25519mlkem768-for-tls-handshakes`<br>Add post-quantum hybrid KEM (X25519MLKEM768) for outbound TLS handshakes | task | `(no epic)` | rust-native | 🔼 | TODO | |
-| 97 | P6 | `investigate-rkn-unannounced-protocol-class-signatures`<br>Investigate RKN unannounced protocol-class signatures (Dec 2025 shift) | task | `epic-direct-mode-transport-policy-and-verdicts` | transport | 🔼 | TODO | |
-| 98 | P6 | `spike-dns-morph-bootstrap-fallback-channel`<br>Spike: DNS-Morph bootstrap as fallback bootstrap channel | task | `(no epic)` | transport | 🔼 | TODO | |
-| 99 | P6 | `wire-amneziawg-rtk-south-jc4-cohort-into-android-client`<br>Wire AmneziaWG RTK South cohort (Jc=4) into Android client | task | `(no epic)` | transport | 🔼 | TODO | |
-| 100 | P6 | `wire-hysteria-realm-stun-nat-traversal`<br>Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22) | task | `(no epic)` | transport | 🔼 | TODO | |
-| 101 | P6 | `evaluate-sing-box-1-14-rule-action-model-for-policy-dsl-parity`<br>Evaluate sing-box 1.14 rule-action model for policy DSL parity | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | 🔽 | TODO | |
-| 102 | P6 | `epic-direct-mode-transport-policy-and-verdicts`<br>Epic - Direct-mode transport policy and verdicts | epic | `—` | epic | ⏫ | TODO | |
-| 103 | P6 | `spike-relay-assisted-quicstep-rescue-mode-after-no-direct-solution`<br>Spike relay-assisted QUICstep rescue mode after NO_DIRECT_SOLUTION | task | `(no epic)` | diagnostics | 🔽 | TODO | |
-| 104 | P6 | `add-hysteria-v1-outbound-client-crate-and-profile-editor`<br>Add Hysteria v1 outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔽 | TODO | |
-| 105 | P6 | `add-package-replaced-restart-gated-on-prior-running-state`<br>Add package-replaced restart gated on prior running state | task | `epic-boot-autostart-and-session-persistence` | service | 🔽 | TODO | |
-| 106 | P6 | `add-reset-all-settings-action-with-confirmation-and-restart`<br>Add reset-all-settings action with confirmation and restart | task | `epic-settings-backup-and-restore` | data | 🔽 | TODO | |
-| 107 | P6 | `add-sethttpproxy-integration-for-vpnservice-on-android-10`<br>Add setHttpProxy integration for VpnService on Android 10+ | task | `epic-system-http-proxy-service-mode` | proxy | 🔽 | TODO | |
-| 108 | P6 | `epic-system-http-proxy-service-mode`<br>Epic - System HTTP proxy service mode | epic | `—` | epic | 🔼 | TODO | |
-| 109 | P7 | `epic-boot-autostart-and-session-persistence`<br>Epic - Boot autostart and session persistence | epic | `—` | service | 🔼 | TODO | |
-| 110 | P7 | `add-share-sheet-intent-for-redacted-share-backups`<br>Add share-sheet intent for redacted SHARE backups | task | `epic-settings-backup-and-restore` | data | 🔽 | TODO | |
-| 111 | P7 | `epic-settings-backup-and-restore`<br>Epic - Settings backup and restore | epic | `—` | epic | 🔼 | TODO | |
-| 112 | P7 | `add-trojan-go-outbound-client-crate-and-profile-editor`<br>Add Trojan-Go outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔽 | TODO | |
-| 113 | P7 | `epic-extended-outbound-protocol-support`<br>Epic - Extended outbound protocol support | epic | `—` | epic | ⏫ | TODO | |
-| 114 | P7 | `add-doh-json-api-resolver-path-alongside-rfc-8484-wire`<br>Add DoH JSON API resolver path alongside RFC 8484 wire | task | `(no epic)` | dns | 🔽 | TODO | |
-| 115 | P7 | `add-upstream-http-and-socks5-proxy-override-for-diagnostic-probes`<br>Add upstream HTTP and SOCKS5 proxy override for diagnostic probes | task | `(no epic)` | rust-native | 🔽 | TODO | |
-| 116 | P7 | `spike-fakeip-mode-compatibility-on-android`<br>Spike FakeIP mode compatibility on Android | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔽 | TODO | |
-| 117 | P7 | `epic-fail-closed-android-vpn-policy-engine`<br>Epic - Fail-closed Android VPN policy engine | epic | `—` | vpn | 🔺 | TODO | |
-| 118 | P7 | `add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality`<br>Add cross-stack chain tests (VLESS over xHTTP over Reality) | task | `(no epic)` | testing | 🔽 | TODO | |
-| 119 | P7 | `add-shadowtls-loopback-test-server-for-soak-runs`<br>Add ShadowTLS loopback test server for soak runs | task | `(no epic)` | testing | 🔽 | TODO | |
-| 120 | P7 | `add-shadowtls-v2-compatibility-or-document-v3-only`<br>Add ShadowTLS v2 compatibility or document v3-only policy | task | `(no epic)` | rust-native | 🔽 | TODO | |
-| 121 | P7 | `add-format-transforming-encryption-marionette-style-protocol-shapeshift`<br>Add format-transforming encryption (Marionette-style) for protocol shape-shifting | task | `(no epic)` | rust-native | 🔽 | TODO | |
-| 122 | P7 | `epic-direct-mode-diagnostic-state-machine`<br>Epic - Direct-mode diagnostic state machine | epic | `—` | epic | ⏫ | TODO | |
-| 123 | P7 | `epic-orchestration-test-posture`<br>Epic - Orchestration test posture | epic | `—` | testing | ⏫ | TODO | |
+| 31 | P2 | `decouple-jni-handle-lifetime-and-telemetry-locking`<br>Decouple JNI handle-lifetime and telemetry locking | task | `epic-runtime-lifecycle-and-supervisors` | service | 🔼 | TODO | |
+| 32 | P2 | `epic-runtime-lifecycle-and-supervisors`<br>Epic - Runtime lifecycle and supervisors | epic | `—` | epic | 🔺 | TODO | |
+| 33 | P2 | `implement-phase-0-passive-observation-from-last-flow`<br>Implement Phase 0 passive observation from last flow | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | 🔼 | TODO | |
+| 34 | P2 | `install-cloudflare-binaries-once-per-abi-and-version`<br>Install Cloudflare binaries once per ABI and version | task | `epic-cloudflare-publish-hardening` | relay | 🔼 | TODO | |
+| 35 | P2 | `limit-dns-measurement-to-user-requested-destinations`<br>Limit DNS measurement to user-requested destinations | task | `epic-encrypted-dns-and-https-svcb-classifier` | dns | 🔼 | TODO | |
+| 36 | P2 | `epic-encrypted-dns-and-https-svcb-classifier`<br>Epic - Encrypted DNS and HTTPS SVCB classifier | epic | `—` | dns | 🔺 | TODO | |
+| 37 | P3 | `per-session-cloudflarepublishruntime-instances`<br>Per-session CloudflarePublishRuntime instances | task | `epic-cloudflare-publish-hardening` | relay | 🔼 | TODO | |
+| 38 | P3 | `epic-cloudflare-publish-hardening`<br>Epic - Cloudflare publish hardening | epic | `—` | relay | ⏫ | TODO | |
+| 39 | P3 | `persist-direct-mode-policy-with-revalidation`<br>Persist direct-mode policy with revalidation | task | `epic-direct-mode-diagnostic-state-machine` | diagnostics | 🔼 | TODO | |
+| 40 | P3 | `report-owned-stack-only-verdict-from-diagnostic`<br>Report OWNED_STACK_ONLY verdict from diagnostic | task | `(no epic)` | diagnostics | 🔼 | TODO | |
+| 41 | P3 | `spike-censorlab-as-offline-censor-replay-harness`<br>Spike CensorLab as offline censor-replay harness | task | `epic-orchestration-test-posture` | testing | 🔼 | TODO | |
+| 42 | P3 | `surface-no-direct-solution-verdict-honestly`<br>Surface NO_DIRECT_SOLUTION verdict honestly | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | 🔼 | TODO | |
+| 43 | P3 | `add-anytls-outbound-client-crate-and-profile-editor`<br>Finish AnyTLS profile editor and compatibility gaps | task | `epic-extended-outbound-protocol-support` | outbound | 🔼 | TODO | |
+| 44 | P3 | `add-boot-completed-receiver-with-dynamic-enable`<br>Add boot-completed receiver with dynamic enable | task | `epic-boot-autostart-and-session-persistence` | service | 🔼 | TODO | |
+| 45 | P3 | `add-configurable-asset-provider-picker-with-four-presets`<br>Add configurable asset provider picker with four presets | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
+| 46 | P3 | `add-custom-domain-bypass-list-screen`<br>Add custom domain bypass list screen | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
+| 47 | P3 | `add-fa-ar-de-es-fr-translations-and-rtl-screenshot-tests`<br>Add fa ar de es fr translations and RTL screenshot tests | task | `epic-localization-expansion` | ui | 🔼 | TODO | |
+| 48 | P3 | `add-last-active-profile-persistence-in-direct-boot-storage`<br>Add last-active-profile persistence in direct-boot storage | task | `epic-boot-autostart-and-session-persistence` | service | 🔼 | TODO | |
+| 49 | P3 | `add-mieru-outbound-client-crate-and-profile-editor`<br>Add Mieru outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔼 | TODO | |
+| 50 | P3 | `add-mixed-socks5-and-http-connect-inbound-listener`<br>Add mixed SOCKS5 and HTTP CONNECT inbound listener | task | `epic-system-http-proxy-service-mode` | proxy | 🔼 | TODO | |
+| 51 | P3 | `add-proxyservice-foreground-service-as-alternative-to-tun-vpn`<br>Add ProxyService foreground service as alternative to TUN VPN | task | `epic-system-http-proxy-service-mode` | proxy | 🔼 | TODO | |
+| 52 | P3 | `add-saf-export-action-with-full-and-share-variants`<br>Add SAF export action with FULL and SHARE variants | task | `epic-settings-backup-and-restore` | data | 🔼 | TODO | |
+| 53 | P3 | `add-saf-import-flow-with-selective-restore`<br>Add SAF import flow with selective restore | task | `epic-settings-backup-and-restore` | data | 🔼 | TODO | |
+| 54 | P3 | `add-service-mode-picker-to-settings-and-onboarding`<br>Add service-mode picker to Settings and onboarding | task | `epic-system-http-proxy-service-mode` | proxy | 🔼 | TODO | |
+| 55 | P4 | `add-ssh-outbound-client-crate-and-profile-editor`<br>Add SSH outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔼 | TODO | |
+| 56 | P4 | `add-start-on-boot-user-toggle-and-permission-guard`<br>Add start-on-boot user toggle and permission guard | task | `epic-boot-autostart-and-session-persistence` | service | 🔼 | TODO | |
+| 57 | P4 | `add-vmess-outbound-client-crate-and-profile-editor`<br>Add VMess outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔼 | TODO | |
+| 58 | P4 | `add-xray-profile-ux-and-import-flow`<br>Add Xray profile UX and import flow | task | `epic-xray-provider-mode` | outbound | 🔼 | TODO | |
+| 59 | P4 | `add-xray-provider-regression-matrix`<br>Add Xray provider regression matrix | task | `epic-xray-provider-mode` | outbound | 🔼 | TODO | |
+| 60 | P4 | `add-zh-cn-translation-and-initial-human-review`<br>Add zh-CN translation and initial human review | task | `epic-localization-expansion` | ui | 🔼 | TODO | |
+| 61 | P4 | `select-and-set-up-translation-pipeline-for-ripdpi`<br>Select and set up translation pipeline for RIPDPI | task | `epic-localization-expansion` | ui | 🔼 | TODO | |
+| 62 | P4 | `epic-localization-expansion`<br>Epic - Localization expansion | epic | `—` | epic | 🔼 | TODO | |
+| 63 | P4 | `surface-xray-diagnostics-and-telemetry`<br>Surface Xray diagnostics and telemetry | task | `epic-xray-provider-mode` | outbound | 🔼 | TODO | |
+| 64 | P4 | `epic-xray-provider-mode`<br>Epic - Xray provider mode | epic | `—` | outbound | ⏫ | TODO | |
+| 65 | P4 | `adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion`<br>Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
+| 66 | P4 | `adopt-process-based-per-package-routing-via-xray-tun-routeonly`<br>Adopt process-based per-package routing via Xray TUN routeOnly | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
+| 67 | P4 | `epic-advanced-routing-rules-and-geoip-enforcement`<br>Epic - Advanced routing rules and geoip enforcement | epic | `—` | epic | ⏫ | TODO | |
+| 68 | P4 | `add-android-private-dns-conflict-warning`<br>Add Android Private DNS conflict warning | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔼 | TODO | |
+| 69 | P4 | `add-captive-portal-and-whitelist-mode-connection-states`<br>Add captive-portal and whitelist-mode connection states | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔼 | TODO | |
+| 70 | P4 | `ci-build-ripdpi-diagnostics-probes-with-both-compat-facade-on-and-off`<br>CI: build ripdpi-diagnostics-probes with both compat-facade on and off | task | `(no epic)` | ci | 🔼 | TODO | |
+| 71 | P4 | `rework-diagnostics-tab-consolidate-entry-points`<br>Rework Diagnostics tab to be fully standalone with consolidated entry points | task | `epic-home-config-diagnostics-mode-first-ux` | diagnostics | 🔼 | TODO | |
+| 72 | P4 | `wire-home-diagnostic-card-run-action`<br>Wire Home diagnostic card Run button and navigate to Diagnostics tab | task | `epic-home-config-diagnostics-mode-first-ux` | ui | 🔼 | TODO | |
+| 73 | P5 | `epic-home-config-diagnostics-mode-first-ux`<br>Redesign Home / Config / Diagnostics tabs for mode-first UX | epic | `—` | ui | ⏫ | TODO | |
+| 74 | P5 | `add-h3-to-h2-fallback-telemetry-rollout-validation`<br>Validate H3-to-H2 MASQUE fallback telemetry sufficiency | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 75 | P5 | `add-hysteria2-salamander-obfuscation-conformance-fixtures`<br>Add Hysteria 2 Salamander obfuscation conformance fixtures | task | `(no epic)` | testing | 🔼 | TODO | |
+| 76 | P5 | `add-port-hopping-window-soak-test-for-hysteria2`<br>Add port-hopping window soak test for Hysteria 2 | task | `(no epic)` | testing | 🔼 | TODO | |
+| 77 | P5 | `add-protocol-throughput-benchmarks-for-each-transport`<br>Add Criterion throughput benchmarks for each transport | task | `(no epic)` | testing | 🔼 | TODO | |
+| 78 | P5 | `add-quic-path-mtu-discovery-regression-test`<br>Add QUIC path-MTU discovery regression test | task | `(no epic)` | testing | 🔼 | TODO | |
+| 79 | P5 | `add-tuic-heartbeat-and-keepalive-policy`<br>Add TUIC heartbeat and keepalive policy | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 80 | P5 | `add-tuic-v4-fallback-or-version-detection`<br>Add TUIC v4 fallback or explicit version detection | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 81 | P5 | `add-vless-mux-conformance-tests-against-xray-core`<br>Add VLESS mux conformance tests against xray-core | task | `(no epic)` | testing | 🔼 | TODO | |
+| 82 | P5 | `audit-vless-chained-connect-over-relay-end-to-end-tests`<br>Audit VLESS chained connect_over relay end-to-end test coverage | task | `(no epic)` | testing | 🔼 | TODO | |
+| 83 | P5 | `extract-masque-provider-adapter-trait-to-decouple-cloudflare`<br>Extract MasqueProviderAdapter trait to decouple Cloudflare-specific paths | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 84 | P5 | `introduce-protocol-version-enum-and-version-probe-diagnostic`<br>Introduce ProtocolVersion enum and version-mismatch probe diagnostic | task | `epic-control-plane-hardening` | rust-native | 🔼 | TODO | |
+| 85 | P5 | `epic-control-plane-hardening`<br>Epic - Control-plane hardening | epic | `—` | epic | 🔺 | TODO | |
+| 86 | P5 | `epic-privacy-preserving-strategy-learner`<br>Epic - Privacy-preserving strategy learner | epic | `—` | epic | ⏫ | TODO | |
+| 87 | P5 | `make-naiveproxy-helper-probe-return-structured-version-json`<br>Wire NaiveProxy helper probe into manager startup | task | `(no epic)` | service | 🔼 | TODO | |
+| 88 | P5 | `add-cloudflare-workers-domain-fronting-bypass`<br>Add Cloudflare Workers domain-fronting bypass adapter | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 89 | P5 | `add-constant-rate-traffic-shaping-voip-camouflage`<br>Add constant-rate traffic shaping with VoIP camouflage profile | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 90 | P5 | `add-dns-over-https-tunnel-mode-for-arbitrary-payloads`<br>Add DNS-over-HTTPS tunnel mode for arbitrary payloads | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 91 | P6 | `add-post-quantum-hybrid-kem-x25519mlkem768-for-tls-handshakes`<br>Add post-quantum hybrid KEM (X25519MLKEM768) for outbound TLS handshakes | task | `(no epic)` | rust-native | 🔼 | TODO | |
+| 92 | P6 | `investigate-rkn-unannounced-protocol-class-signatures`<br>Investigate RKN unannounced protocol-class signatures (Dec 2025 shift) | task | `epic-direct-mode-transport-policy-and-verdicts` | transport | 🔼 | TODO | |
+| 93 | P6 | `spike-dns-morph-bootstrap-fallback-channel`<br>Spike: DNS-Morph bootstrap as fallback bootstrap channel | task | `(no epic)` | transport | 🔼 | TODO | |
+| 94 | P6 | `wire-amneziawg-rtk-south-jc4-cohort-into-android-client`<br>Wire AmneziaWG RTK South cohort (Jc=4) into Android client | task | `(no epic)` | transport | 🔼 | TODO | |
+| 95 | P6 | `wire-hysteria-realm-stun-nat-traversal`<br>Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22) | task | `(no epic)` | transport | 🔼 | TODO | |
+| 96 | P6 | `evaluate-sing-box-1-14-rule-action-model-for-policy-dsl-parity`<br>Evaluate sing-box 1.14 rule-action model for policy DSL parity | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | 🔽 | TODO | |
+| 97 | P6 | `epic-direct-mode-transport-policy-and-verdicts`<br>Epic - Direct-mode transport policy and verdicts | epic | `—` | epic | ⏫ | TODO | |
+| 98 | P6 | `spike-relay-assisted-quicstep-rescue-mode-after-no-direct-solution`<br>Spike relay-assisted QUICstep rescue mode after NO_DIRECT_SOLUTION | task | `(no epic)` | diagnostics | 🔽 | TODO | |
+| 99 | P6 | `add-hysteria-v1-outbound-client-crate-and-profile-editor`<br>Add Hysteria v1 outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔽 | TODO | |
+| 100 | P6 | `add-package-replaced-restart-gated-on-prior-running-state`<br>Add package-replaced restart gated on prior running state | task | `epic-boot-autostart-and-session-persistence` | service | 🔽 | TODO | |
+| 101 | P6 | `add-reset-all-settings-action-with-confirmation-and-restart`<br>Add reset-all-settings action with confirmation and restart | task | `epic-settings-backup-and-restore` | data | 🔽 | TODO | |
+| 102 | P6 | `add-sethttpproxy-integration-for-vpnservice-on-android-10`<br>Add setHttpProxy integration for VpnService on Android 10+ | task | `epic-system-http-proxy-service-mode` | proxy | 🔽 | TODO | |
+| 103 | P6 | `epic-system-http-proxy-service-mode`<br>Epic - System HTTP proxy service mode | epic | `—` | epic | 🔼 | TODO | |
+| 104 | P6 | `epic-boot-autostart-and-session-persistence`<br>Epic - Boot autostart and session persistence | epic | `—` | service | 🔼 | TODO | |
+| 105 | P6 | `add-share-sheet-intent-for-redacted-share-backups`<br>Add share-sheet intent for redacted SHARE backups | task | `epic-settings-backup-and-restore` | data | 🔽 | TODO | |
+| 106 | P6 | `epic-settings-backup-and-restore`<br>Epic - Settings backup and restore | epic | `—` | epic | 🔼 | TODO | |
+| 107 | P6 | `add-trojan-go-outbound-client-crate-and-profile-editor`<br>Add Trojan-Go outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔽 | TODO | |
+| 108 | P6 | `epic-extended-outbound-protocol-support`<br>Epic - Extended outbound protocol support | epic | `—` | epic | ⏫ | TODO | |
+| 109 | P7 | `add-doh-json-api-resolver-path-alongside-rfc-8484-wire`<br>Add DoH JSON API resolver path alongside RFC 8484 wire | task | `(no epic)` | dns | 🔽 | TODO | |
+| 110 | P7 | `add-upstream-http-and-socks5-proxy-override-for-diagnostic-probes`<br>Add upstream HTTP and SOCKS5 proxy override for diagnostic probes | task | `(no epic)` | rust-native | 🔽 | TODO | |
+| 111 | P7 | `spike-fakeip-mode-compatibility-on-android`<br>Spike FakeIP mode compatibility on Android | task | `epic-fail-closed-android-vpn-policy-engine` | vpn | 🔽 | TODO | |
+| 112 | P7 | `epic-fail-closed-android-vpn-policy-engine`<br>Epic - Fail-closed Android VPN policy engine | epic | `—` | vpn | 🔺 | TODO | |
+| 113 | P7 | `add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality`<br>Add cross-stack chain tests (VLESS over xHTTP over Reality) | task | `(no epic)` | testing | 🔽 | TODO | |
+| 114 | P7 | `add-shadowtls-loopback-test-server-for-soak-runs`<br>Add ShadowTLS loopback test server for soak runs | task | `(no epic)` | testing | 🔽 | TODO | |
+| 115 | P7 | `add-shadowtls-v2-compatibility-or-document-v3-only`<br>Add ShadowTLS v2 compatibility or document v3-only policy | task | `(no epic)` | rust-native | 🔽 | TODO | |
+| 116 | P7 | `add-format-transforming-encryption-marionette-style-protocol-shapeshift`<br>Add format-transforming encryption (Marionette-style) for protocol shape-shifting | task | `(no epic)` | rust-native | 🔽 | TODO | |
+| 117 | P7 | `epic-direct-mode-diagnostic-state-machine`<br>Epic - Direct-mode diagnostic state machine | epic | `—` | epic | ⏫ | TODO | |
+| 118 | P7 | `epic-orchestration-test-posture`<br>Epic - Orchestration test posture | epic | `—` | testing | ⏫ | TODO | |
