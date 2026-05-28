@@ -1287,8 +1287,8 @@ enum RelayDispatchClass {
     /// carries a backend builder that constructs a `RelayBackend` variant.
     InProcessBackend,
     /// A registered kind with a descriptor but no in-process builder; it routes
-    /// through an out-of-process subprocess. NaiveProxy is the only such kind
-    /// today -- its registration's `fallback_mode` is `"subprocess"` and
+    /// through an out-of-process subprocess. NaiveProxy is the descriptor-backed
+    /// kind in this class: its registration's `fallback_mode` is `"subprocess"` and
     /// `build_backend` deliberately yields `RelayBackend::Unsupported`.
     SubprocessFallback,
     /// Not a relay transport (`"off"`, unknown kinds): no registration.

@@ -22,8 +22,8 @@ data class LatestDirectModeOutcomeSnapshot(
 
 // Singleton hand-off channel between the diagnostics workflow (producer)
 // and any UI surface that wants the latest direct-mode verdict (consumer).
-// Today the consumers are MainViewModel (via MainHomeDiagnosticsActions)
-// and ConfigViewModel; the latter feeds the verdict into
+// MainViewModel consumes this through MainHomeDiagnosticsActions.
+// ConfigViewModel also consumes it and feeds the verdict into
 // resolveRelayPresetSuggestion so the Config relay-preset hint stays in
 // sync with the Diagnostics / Home remediation ladder.
 interface LatestDirectModeOutcomeStore {
