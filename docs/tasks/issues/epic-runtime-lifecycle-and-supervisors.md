@@ -55,14 +55,14 @@ Three supervisors today fire `onUnexpectedExit` on every completion, with correc
 ## Child tasks
 
 **Startup**
-- [[Split AppStartupInitializer failure domains]]
+- Split AppStartupInitializer failure domains
 
 **Supervisor exit semantics**
-- [[Add explicit supervisor exit cause types]]
-- [[Type-safe pollTelemetry results]]
+- Add explicit supervisor exit cause types
+- Type-safe pollTelemetry results
 
 **JNI wrappers**
-- [[Add native readiness events to RipDpi wrappers]]
+- Add native readiness events to RipDpi wrappers
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 
@@ -77,5 +77,5 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-audit-2026-04-20]] §4, §5, §6, Highest-ROI #2
+- ripdpi-android-audit-2026-04-20 §4, §5, §6, Highest-ROI #2
 - Child issues: 4

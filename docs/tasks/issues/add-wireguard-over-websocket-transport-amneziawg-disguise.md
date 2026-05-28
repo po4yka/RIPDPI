@@ -50,5 +50,5 @@ WireGuard's UDP fingerprint is one of the easiest DPI signatures in the wild: a 
 ## Links
 
 - `docs/amneziawg-uri-scheme.md`
-- [[ws-tunnel-telegram]]
+- ws-tunnel-telegram
 - AmneziaWG protocol spec

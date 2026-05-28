@@ -45,7 +45,7 @@ This is intentionally low priority. The current production recommendation is Rea
 
 ## Links
 
-- [[ripdpi-android-split-strict-dns-architecture-2026-05-01]]
+- ripdpi-android-split-strict-dns-architecture-2026-05-01
 - Bind DNS answers to route decisions (closed task)
 
 

@@ -11,7 +11,7 @@ blocked_by: []
 created: 2026-05-22
 updated: 2026-05-22
 source_wiki_pages:
-  - "[[dns-morph-bootstrap]]"
+  - "dns-morph-bootstrap"
 linked_task: null
 ---
 
@@ -62,6 +62,6 @@ Stand up DNS-Morph bootstrap as a fallback bootstrap channel in RIPDPI Android:
 
 ## References
 
-- [[dns-morph-bootstrap]] — wiki concept page with mechanism + threat-model comparison
-- [[censorship-update-net4people-2026-05-22]] — net4people #619 source
+- dns-morph-bootstrap — wiki concept page with mechanism + threat-model comparison
+- censorship-update-net4people-2026-05-22 — net4people #619 source
 - Linked deploy task: `add-dns-morph-bridge-ansible-role`

@@ -30,7 +30,7 @@ Add `res/xml/network_security_config.xml` with `<domainEncryption mode="opportun
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] §4A.
+ripdpi-android-direct-mode-plan-2026-04-20 §4A.
 
 ## Current status
 
@@ -57,5 +57,5 @@ Verified 2026-05-28 against the current tree:
 
 ## Links
 
-- [[Epic - Owned-stack mode with Android 17 ECH]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]]
+- Epic - Owned-stack mode with Android 17 ECH
+- ripdpi-android-direct-mode-plan-2026-04-20

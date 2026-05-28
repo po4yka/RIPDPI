@@ -42,4 +42,4 @@ Binaries are copied from assets on every start — slow startup and extra flash 
 ## Links
 
 - [[Epic - Cloudflare publish hardening]]
-- [[ripdpi-android-audit-2026-04-20]]
+- ripdpi-android-audit-2026-04-20

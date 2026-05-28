@@ -58,4 +58,4 @@ Keep the direct `SetTunFd` path as an explicit follow-up decision, not an accide
 
 - [[Epic - Xray provider mode]]
 - [[Run Xray as managed VPN relay runtime]]
-- [[ripdpi-android-xray-provider-plan-2026-04-24]]
+- ripdpi-android-xray-provider-plan-2026-04-24

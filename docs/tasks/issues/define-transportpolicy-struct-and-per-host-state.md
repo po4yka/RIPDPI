@@ -40,7 +40,7 @@ outcome: TRANSPARENT_OK | OWNED_STACK_ONLY | NO_DIRECT_SOLUTION
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] §3.
+ripdpi-android-direct-mode-plan-2026-04-20 §3.
 
 ## Acceptance criteria
 
@@ -52,4 +52,4 @@ outcome: TRANSPARENT_OK | OWNED_STACK_ONLY | NO_DIRECT_SOLUTION
 ## Links
 
 - [[Epic - Direct-mode transport policy and verdicts]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]]
+- ripdpi-android-direct-mode-plan-2026-04-20

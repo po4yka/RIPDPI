@@ -57,5 +57,5 @@ Reuse the existing `:xray-protos` and Xray API scanner knowledge where it helps,
 ## Links
 
 - [[Epic - Xray provider mode]]
-- [[vless-reality-stack-research-2026-04-22]]
-- [[ripdpi-android-xray-provider-plan-2026-04-24]]
+- vless-reality-stack-research-2026-04-22
+- ripdpi-android-xray-provider-plan-2026-04-24

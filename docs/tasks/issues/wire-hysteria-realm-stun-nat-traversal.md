@@ -11,7 +11,7 @@ blocked_by: []
 created: 2026-05-22
 updated: 2026-05-22
 source_wiki_pages:
-  - "[[hysteria2-tuic]]"
+  - "hysteria2-tuic"
 linked_task: null
 ---
 
@@ -62,6 +62,6 @@ Extend `ripdpi-hysteria2` (or add a sibling `ripdpi-hysteria-realm` crate) to su
 
 ## References
 
-- [[hysteria2-tuic#Hysteria Realm NAT-Traversal (sing-box v1.14.0-alpha.22, 2026-05-11)]] — wiki concept page section
-- [[censorship-update-github-releases-2026-05-22]] — source digest
+- hysteria2-tuic section Hysteria Realm NAT-Traversal (sing-box v1.14.0-alpha.22, 2026-05-11) — wiki concept page section
+- censorship-update-github-releases-2026-05-22 — source digest
 - Linked deploy task: `add-hysteria-realm-rendezvous-role`

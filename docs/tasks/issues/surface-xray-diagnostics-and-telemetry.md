@@ -57,4 +57,4 @@ If Xray metrics/API mode is not safe in-process, prefer wrapper `Ping`, `XrayVer
 
 - [[Epic - Xray provider mode]]
 - [[Run Xray as managed VPN relay runtime]]
-- [[ripdpi-android-xray-provider-plan-2026-04-24]]
+- ripdpi-android-xray-provider-plan-2026-04-24

@@ -30,7 +30,7 @@ Android 17 added a system-owned split-tunnel UI: VPN apps fire `ACTION_VPN_APP_E
 
 ## Research citation
 
-[[ripdpi-android-research-2026-04-25]] §Android platform — Android 17 Beta 3 (2026-03) added the `ACTION_VPN_APP_EXCLUSION_SETTINGS` intent. Apps fire it to delegate per-app exclusion to a persistent OS-managed screen; exclusions survive reconnects. The underlying `VpnService.Builder` allowlist/blocklist API is unchanged — this is a UX standardisation layer on top.
+ripdpi-android-research-2026-04-25 §Android platform — Android 17 Beta 3 (2026-03) added the `ACTION_VPN_APP_EXCLUSION_SETTINGS` intent. Apps fire it to delegate per-app exclusion to a persistent OS-managed screen; exclusions survive reconnects. The underlying `VpnService.Builder` allowlist/blocklist API is unchanged — this is a UX standardisation layer on top.
 
 ## Acceptance criteria
 
@@ -43,4 +43,4 @@ Android 17 added a system-owned split-tunnel UI: VPN apps fire `ACTION_VPN_APP_E
 
 - Project: [[ripdpi-android]]
 - Epic: [[Epic - Advanced routing rules and geoip enforcement]]
-- Research: [[ripdpi-android-research-2026-04-25]] §Android platform
+- Research: ripdpi-android-research-2026-04-25 §Android platform

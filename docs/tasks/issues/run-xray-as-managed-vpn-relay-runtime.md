@@ -59,4 +59,4 @@ Map Xray readiness and stop outcomes into the same service-level language used f
 - [[Epic - Xray provider mode]]
 - [[Package libXray for Android ABIs]]
 - [[Render validated Xray client configs]]
-- [[ripdpi-android-xray-provider-plan-2026-04-24]]
+- ripdpi-android-xray-provider-plan-2026-04-24

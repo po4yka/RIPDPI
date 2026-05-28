@@ -30,7 +30,7 @@ Measure DNS only for destinations the user is actually trying to reach. No prelo
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] §2 final operational note.
+ripdpi-android-direct-mode-plan-2026-04-20 §2 final operational note.
 
 ## Acceptance criteria
 
@@ -43,7 +43,7 @@ Measure DNS only for destinations the user is actually trying to reach. No prelo
 
 - [[Epic - Encrypted DNS and HTTPS SVCB classifier]]
 - Opt-in shared priors with coarse keys only (closed task)
-- [[ripdpi-android-direct-mode-plan-2026-04-20]]
+- ripdpi-android-direct-mode-plan-2026-04-20
 
 
 ## extended-outbound-protocol-support

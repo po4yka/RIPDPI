@@ -42,4 +42,4 @@ updated: 2026-05-14
 
 - [[Epic - Cloudflare publish hardening]]
 - [[Install Cloudflare binaries once per ABI and version]]
-- [[ripdpi-android-audit-2026-04-20]]
+- ripdpi-android-audit-2026-04-20

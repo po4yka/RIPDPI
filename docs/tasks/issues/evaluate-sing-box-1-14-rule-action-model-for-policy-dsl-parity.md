@@ -30,7 +30,7 @@ Summarize sing-box 1.14's rule-action model, then decide whether RIPDPI's direct
 
 ## Research citation
 
-[[ripdpi-android-research-2026-04-20]] §Upstream transport engines — sing-box 1.14.0-alpha.13 (2026-04-17) replaces legacy inbound/outbound-special-field plumbing with a rule-action model that supports pre-matching. Aligning (or explicitly diverging with rationale) makes it cheaper to exchange strategy expressions with the peer community.
+ripdpi-android-research-2026-04-20 §Upstream transport engines — sing-box 1.14.0-alpha.13 (2026-04-17) replaces legacy inbound/outbound-special-field plumbing with a rule-action model that supports pre-matching. Aligning (or explicitly diverging with rationale) makes it cheaper to exchange strategy expressions with the peer community.
 
 ## Acceptance criteria
 
@@ -43,4 +43,4 @@ Summarize sing-box 1.14's rule-action model, then decide whether RIPDPI's direct
 - [[Epic - Direct-mode transport policy and verdicts]]
 - [[Define TransportPolicy struct and per-host state]]
 - Cache transport policy per network and host tuple (closed task)
-- [[ripdpi-android-research-2026-04-20]]
+- ripdpi-android-research-2026-04-20

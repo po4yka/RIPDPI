@@ -55,22 +55,22 @@ The 2026-04-20 audit rated strategy/host catalog trust as the single weakest lin
 ## Child tasks
 
 **Refresh discipline**
-- [[Tighten strategy-pack refresh discipline]]
+- Tighten strategy-pack refresh discipline
 
 **Signing and anti-rollback**
-- [[Sign host-pack manifests with app-trusted keys]]
-- [[Add anti-rollback to strategy-pack updates]]
+- Sign host-pack manifests with app-trusted keys
+- Add anti-rollback to strategy-pack updates
 - Spike signed route-pack schema for direct-vs-relay policy (closed task)
 
 **Crash-safe storage**
-- [[Make cache snapshot writes atomic]]
+- Make cache snapshot writes atomic
 - Surface typed cache-degradation reasons (closed task)
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 
 ## Dependencies
 
-- Unblocks: [[Add control-plane rollback attempt test]] and [[Add cache-corruption regression test]] under [[Epic - Orchestration test posture]].
+- Unblocks: Add control-plane rollback attempt test and Add cache-corruption regression test under [[Epic - Orchestration test posture]].
 - Unblocks: [[Build CensorLab-style offline strategy-pack pipeline]] under [[Epic - Privacy-preserving strategy learner]] (generated packs must fit the hardened signed format).
 
 ## Risks / open questions
@@ -82,5 +82,5 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-audit-2026-04-20]] §1, §2, §3, Highest-ROI #1
+- ripdpi-android-audit-2026-04-20 §1, §2, §3, Highest-ROI #1
 - Child issues: 3

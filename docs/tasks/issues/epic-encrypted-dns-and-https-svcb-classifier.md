@@ -30,7 +30,7 @@ Make DNS a first-class bypass layer and a first-class classifier. Separate DNS p
 
 ## Why now
 
-middlebox blocks by DNS manipulation too, not only by SNI or IP. Without classifying DNS first, the diagnostic will cycle through transport tricks against a host it could have reached by simply switching resolvers. Also, HTTPS/SVCB records carry ECH config metadata that gates [[Epic - Owned-stack mode with Android 17 ECH]].
+middlebox blocks by DNS manipulation too, not only by SNI or IP. Without classifying DNS first, the diagnostic will cycle through transport tricks against a host it could have reached by simply switching resolvers. Also, HTTPS/SVCB records carry ECH config metadata that gates Epic - Owned-stack mode with Android 17 ECH.
 
 ## Key decisions
 
@@ -65,14 +65,14 @@ middlebox blocks by DNS manipulation too, not only by SNI or IP. Without classif
 ## Child tasks
 
 **Resolver pipeline**
-- [[Build DoH primary and secondary resolver pipeline]]
+- Build DoH primary and secondary resolver pipeline
 - Gate DoQ on UDP-clean classification (closed task)
 
 **HTTPS/SVCB**
-- [[Parse HTTPS SVCB records with ECH config metadata]]
+- Parse HTTPS SVCB records with ECH config metadata
 
 **Classification**
-- [[Classify DNS as clean poisoned divergent ech-capable]]
+- Classify DNS as clean poisoned divergent ech-capable
 - Select resolver mapping from DNS classification (closed task)
 
 **Privacy posture**
@@ -98,5 +98,5 @@ As of 2026-04-23, RIPDPI now ships the classifier itself on the live native DNS-
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]] §2, Basic diagnostic Phase 1 + arms A0–A2
+- ripdpi-android-direct-mode-plan-2026-04-20 §2, Basic diagnostic Phase 1 + arms A0–A2
 - Child issues: 3

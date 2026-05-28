@@ -76,7 +76,7 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 
 - Feeds: [[Epic - Direct-mode diagnostic state machine]] Phase 2 + arm A3.
 - Consumed by: Gate DoQ on UDP-clean classification (closed task) under [[Epic - Encrypted DNS and HTTPS SVCB classifier]] (DoQ gate reads `udp443_ok`).
-- Unblocks: [[Report OWNED_STACK_ONLY verdict from diagnostic]] under [[Epic - Owned-stack mode with Android 17 ECH]].
+- Unblocks: [[Report OWNED_STACK_ONLY verdict from diagnostic]] under Epic - Owned-stack mode with Android 17 ECH.
 
 ## Risks / open questions
 
@@ -87,5 +87,5 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]] §3, Basic diagnostic Phase 2 + arm A3
+- ripdpi-android-direct-mode-plan-2026-04-20 §3, Basic diagnostic Phase 2 + arm A3
 - Child issues: 8

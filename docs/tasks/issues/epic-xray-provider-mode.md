@@ -87,7 +87,7 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-xray-provider-plan-2026-04-24]]
-- [[vless-reality-stack-research-2026-04-22]]
+- ripdpi-android-xray-provider-plan-2026-04-24
+- vless-reality-stack-research-2026-04-22
 - Recurring upstream watch for xray-core REALITY ECH XHTTP changes (closed task)
 - Child issues: 8

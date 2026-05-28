@@ -11,7 +11,7 @@ blocked_by: []
 created: 2026-05-22
 updated: 2026-05-22
 source_wiki_pages:
-  - "[[tls-policing-home-isps]]"
+  - "tls-policing-home-isps"
 linked_task: null
 ---
 
@@ -64,6 +64,6 @@ If the RIPDPI client opens more than ~12 concurrent TLS sessions to a single exi
 
 ## References
 
-- [[tls-policing-home-isps]] — wiki concept page with full mechanism + workarounds
-- [[censorship-update-net4people-2026-05-15]] — source digest with operational quick-probe
+- tls-policing-home-isps — wiki concept page with full mechanism + workarounds
+- censorship-update-net4people-2026-05-15 — source digest with operational quick-probe
 - Linked deploy task: `add-non-443-fallback-port-to-xray-role`

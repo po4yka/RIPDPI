@@ -11,7 +11,7 @@ blocked_by: []
 created: 2026-05-22
 updated: 2026-05-22
 source_wiki_pages:
-  - "[[wireguard-rtk-south-amneziawg-bypass]]"
+  - "wireguard-rtk-south-amneziawg-bypass"
 linked_task: null
 ---
 
@@ -63,6 +63,6 @@ Community-tested working parameters at RTK South: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H
 
 ## References
 
-- [[wireguard-rtk-south-amneziawg-bypass]] — wiki concept page with full parameter set
+- wireguard-rtk-south-amneziawg-bypass — wiki concept page with full parameter set
 - Linked deploy task: `add-amneziawg-rtk-south-cohort`
 - Related (different mechanism): existing issue `add-wireguard-over-websocket-transport-amneziawg-disguise`

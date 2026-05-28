@@ -30,7 +30,7 @@ Generate strategy packs in an emulator pipeline, not only from field failures. G
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] §5 offline research track.
+ripdpi-android-direct-mode-plan-2026-04-20 §5 offline research track.
 
 ## Current status
 
@@ -45,13 +45,13 @@ Verified 2026-05-28 against the current offline analytics pipeline:
 
 - [ ] Pipeline is a standalone tool outside the app (runs in CI / on dev machines).
 - [ ] Reproducible seeds; same input produces the same candidate packs.
-- [x] Output conforms to the signed-strategy-pack format (see [[Add anti-rollback to strategy-pack updates]]).
+- [x] Output conforms to the signed-strategy-pack format (see Add anti-rollback to strategy-pack updates).
 - [ ] Calibrated against a small set of known field failures before any generated pack ships.
 - [ ] Documented sim-to-field gap and how to measure it per release.
 
 ## Links
 
 - [[Epic - Privacy-preserving strategy learner]]
-- [[Add anti-rollback to strategy-pack updates]]
-- [[Sign host-pack manifests with app-trusted keys]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]]
+- Add anti-rollback to strategy-pack updates
+- Sign host-pack manifests with app-trusted keys
+- ripdpi-android-direct-mode-plan-2026-04-20

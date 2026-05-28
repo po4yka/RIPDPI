@@ -53,16 +53,16 @@ Cache corruption, supervisor lifecycle edges, rollback attempts, and protect-soc
 ## Child tasks
 
 **Harness**
-- [[Add orchestration failure-injection harness]]
+- Add orchestration failure-injection harness
 
 **Unit coverage for untested classes**
-- [[Add unit tests for orchestration gaps]]
+- Add unit tests for orchestration gaps
 
 **Scenario tests** (each `blockedBy` the harness)
-- [[Add cache-corruption regression test]]
+- Add cache-corruption regression test
 - Add repeated startup-shutdown supervisor test (closed task)
-- [[Add control-plane rollback attempt test]]
-- [[Add protect-socket server stall test]]
+- Add control-plane rollback attempt test
+- Add protect-socket server stall test
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 
@@ -70,7 +70,7 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 
 - Depends on: [[Epic - Control-plane hardening]] (rollback / atomic writes must exist before their regression tests).
 - Depends on: [[Epic - Runtime lifecycle and supervisors]] (explicit exit causes must exist before the supervisor lifecycle test).
-- Depends on: [[Epic - Privacy and diagnostics]] (reworked protect socket must exist before the stall test's assertions make sense).
+- Depends on: Epic - Privacy and diagnostics (reworked protect socket must exist before the stall test's assertions make sense).
 - Shares test coverage with: [[Epic - Direct-mode diagnostic state machine]] (integration tests per result class, also `blockedBy` this harness).
 
 ## Risks / open questions
@@ -80,5 +80,5 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-audit-2026-04-20]] §"Test posture", Highest-ROI #4
+- ripdpi-android-audit-2026-04-20 §"Test posture", Highest-ROI #4
 - Child issues: 2

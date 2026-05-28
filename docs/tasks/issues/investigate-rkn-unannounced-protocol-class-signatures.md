@@ -11,7 +11,7 @@ blocked_by: []
 created: 2026-05-22
 updated: 2026-05-22
 source_wiki_pages:
-  - "[[rkn-protocol-class-blocking-shift-dec-2025]]"
+  - "rkn-protocol-class-blocking-shift-dec-2025"
 linked_task: null
 ---
 
@@ -39,7 +39,7 @@ Diagnostic investigation, not a feature build:
 
 1. Run dpi-checkers + DPI Detector + rkn-block-checker against the full transport catalogue (every protocol crate under `native/rust/crates/ripdpi-<transport>/`).
 2. Catalog which protocol fingerprints currently trigger blocks vs pass through, across multiple RU ISP vantages.
-3. Update `[[rkn-protocol-class-blocking-shift-dec-2025]]` wiki page with the empirical fingerprint catalog.
+3. Update `rkn-protocol-class-blocking-shift-dec-2025` wiki page with the empirical fingerprint catalog.
 4. Feed results into `ripdpi-runtime-policy` defaults — automatically de-prioritize transports with high block rate.
 
 ## Acceptance criteria
@@ -56,7 +56,7 @@ Diagnostic investigation, not a feature build:
 
 ## References
 
-- [[rkn-protocol-class-blocking-shift-dec-2025]] — wiki concept page
-- [[rkn-block-checker-methodology]] — diagnostic tool
+- rkn-protocol-class-blocking-shift-dec-2025 — wiki concept page
+- rkn-block-checker-methodology — diagnostic tool
 - Parent epic: `epic-direct-mode-transport-policy-and-verdicts`
 - Linked deploy task: `investigate-rkn-unannounced-protocol-class-signatures-deploy`

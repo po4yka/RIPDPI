@@ -81,9 +81,9 @@ This epic intentionally removes an entire class of client problems rather than m
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-split-strict-dns-architecture-2026-05-01]]
+- ripdpi-android-split-strict-dns-architecture-2026-05-01
 - [[Epic - Xray provider mode]]
-- [[Epic - Subscription and profile import]]
+- Epic - Subscription and profile import
 - [[Epic - Advanced routing rules and geoip enforcement]]
 - [[Epic - Runtime lifecycle and supervisors]]
 - https://developer.android.com/develop/connectivity/vpn

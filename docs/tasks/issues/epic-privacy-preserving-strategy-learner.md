@@ -69,7 +69,7 @@ stop_on_first_stable_success = true
 - [ ] Arm ranking exercises all four penalty terms; unit tests cover each in isolation.
 - [ ] Attempt budget hard-enforced; each cap has a unit test that shows it firing first.
 - [ ] Shared-priors uploader passes a static-analysis test that proves it cannot depend on URL- or SSID-carrying types.
-- [ ] Offline emulator produces packs that fit the signed-pack format from [[Add anti-rollback to strategy-pack updates]].
+- [ ] Offline emulator produces packs that fit the signed-pack format from Add anti-rollback to strategy-pack updates.
 
 ## Current status
 
@@ -102,7 +102,7 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Dependencies
 
 - Feeds: [[Epic - Direct-mode diagnostic state machine]] (Phase 3 arm ranking consumes this learner).
-- Depends on (for offline pipeline): [[Add anti-rollback to strategy-pack updates]] and [[Sign host-pack manifests with app-trusted keys]] under [[Epic - Control-plane hardening]].
+- Depends on (for offline pipeline): Add anti-rollback to strategy-pack updates and Sign host-pack manifests with app-trusted keys under [[Epic - Control-plane hardening]].
 
 ## Risks / open questions
 
@@ -112,5 +112,5 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]] §5
+- ripdpi-android-direct-mode-plan-2026-04-20 §5
 - Child issues: 7

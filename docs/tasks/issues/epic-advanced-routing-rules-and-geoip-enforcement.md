@@ -76,7 +76,7 @@ Without a rule engine, users cannot express "bypass Russian domestic banking whi
 ## Dependencies
 
 - Feeds: [[Epic - Settings backup and restore]] — rules are part of backup schema.
-- Depends on: [[Epic - Subscription and profile import]] — rule outbound actions can target specific profiles or groups.
+- Depends on: Epic - Subscription and profile import — rule outbound actions can target specific profiles or groups.
 
 ## Risks / open questions
 
@@ -88,6 +88,6 @@ Without a rule engine, users cannot express "bypass Russian domestic banking whi
 ## Links
 
 - [[ripdpi-android]]
-- [[Epic - Subscription and profile import]]
+- Epic - Subscription and profile import
 - [[Epic - Settings backup and restore]]
 - Child issues: 8

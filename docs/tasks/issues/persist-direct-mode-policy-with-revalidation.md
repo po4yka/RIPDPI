@@ -30,7 +30,7 @@ Phase 5 of the diagnostic. Policy is pinned with a TTL and invalidated on enviro
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] "Phase 5 — Persistence and revalidation".
+ripdpi-android-direct-mode-plan-2026-04-20 "Phase 5 — Persistence and revalidation".
 
 ## Progress
 
@@ -50,13 +50,13 @@ Still open: ASN-aware invalidation, HTTPS/SVCB/ECH-specific invalidation, and th
 - [x] Invalidate on access-type change (wifi ↔ cellular).
 - [x] Invalidate after 3 consecutive failures.
 - [ ] Invalidate when HTTPS/SVCB TTL expires or ECH capability changes.
-- [ ] Atomic write (shares path with [[Make cache snapshot writes atomic]]).
+- [ ] Atomic write (shares path with Make cache snapshot writes atomic).
 - [ ] Phase 6 rotation triggers only within the same policy entry — does not count against the TTL.
 
 ## Links
 
 - Implement direct-mode diagnostic orchestrator Phases 1-4 (closed task)
-- [[Rotate successful family through variant neighborhood]]
-- [[Make cache snapshot writes atomic]]
+- Rotate successful family through variant neighborhood
+- Make cache snapshot writes atomic
 - [[Epic - Direct-mode diagnostic state machine]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]]
+- ripdpi-android-direct-mode-plan-2026-04-20

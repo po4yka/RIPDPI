@@ -30,7 +30,7 @@ Integration tests that drive the full diagnostic end-to-end in a controlled envi
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] Phases 1–4.
+ripdpi-android-direct-mode-plan-2026-04-20 Phases 1–4.
 
 ## Acceptance criteria
 
@@ -43,6 +43,6 @@ Integration tests that drive the full diagnostic end-to-end in a controlled envi
 ## Links
 
 - Implement direct-mode diagnostic orchestrator Phases 1-4 (closed task)
-- [[Add orchestration failure-injection harness]]
+- Add orchestration failure-injection harness
 - [[Epic - Direct-mode diagnostic state machine]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]]
+- ripdpi-android-direct-mode-plan-2026-04-20

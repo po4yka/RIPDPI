@@ -66,7 +66,7 @@ Subscription import is only useful if imported protocols can execute. VMess rema
 
 ## Dependencies
 
-- Unblocks: subscription-driven deployment in [[Epic - reference implementation subscription and profile import]]; without these crates, VMess/Trojan/Hysteria-v1 nodes in imported subscriptions cannot actually connect.
+- Unblocks: subscription-driven deployment in Epic - reference implementation subscription and profile import; without these crates, VMess/Trojan/Hysteria-v1 nodes in imported subscriptions cannot actually connect.
 
 ## Risks / open questions
 
@@ -78,5 +78,5 @@ Subscription import is only useful if imported protocols can execute. VMess rema
 ## Links
 
 - [[ripdpi-android]]
-- [[Epic - Subscription and profile import]]
+- Epic - Subscription and profile import
 - Child issues: 6

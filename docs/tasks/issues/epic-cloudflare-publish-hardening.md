@@ -73,5 +73,5 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-audit-2026-04-20]] §7
+- ripdpi-android-audit-2026-04-20 §7
 - Child issues: 4

@@ -57,4 +57,4 @@ Use provider capability labels rather than protocol jargon wherever possible: VP
 
 - [[Epic - Xray provider mode]]
 - [[Render validated Xray client configs]]
-- [[ripdpi-android-xray-provider-plan-2026-04-24]]
+- ripdpi-android-xray-provider-plan-2026-04-24

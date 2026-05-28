@@ -81,7 +81,7 @@ sort by priority
 
 ## Structured views
 
-- [[views/all-tasks]] — full table (all issues, sortable)
-- [[views/by-epic]] — tasks grouped by parent epic
-- [[views/by-area]] — tasks grouped by area
-- [[views/by-priority]] — tasks grouped by priority
+- [views/all-tasks](views/all-tasks.base) — full table (all issues, sortable)
+- [views/by-epic](views/by-epic.base) — tasks grouped by parent epic
+- [views/by-area](views/by-area.base) — tasks grouped by area
+- [views/by-priority](views/by-priority.base) — tasks grouped by priority

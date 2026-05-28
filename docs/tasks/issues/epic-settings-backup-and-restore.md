@@ -66,7 +66,7 @@ Two deployments want this: (a) device migration without re-entering every subscr
 
 ## Dependencies
 
-- Depends on: [[Epic - Subscription and profile import]] — schema includes ProxyGroup/SubscriptionBean.
+- Depends on: Epic - Subscription and profile import — schema includes ProxyGroup/SubscriptionBean.
 - Depends on: [[Epic - Advanced routing rules and geoip enforcement]] — schema includes RuleEntity.
 
 ## Risks / open questions

@@ -30,7 +30,7 @@ Build CensorLab locally, replay a middlebox-like scenario against RIPDPI's direc
 
 ## Research citation
 
-[[ripdpi-android-research-2026-04-20]] §Academic papers — CensorLab (arxiv 2412.16349) is a testbed for replaying censor strategies against bypass tools. Having an offline replay that exercises our six arms without a real middlebox egress reduces regression risk on every release.
+ripdpi-android-research-2026-04-20 §Academic papers — CensorLab (arxiv 2412.16349) is a testbed for replaying censor strategies against bypass tools. Having an offline replay that exercises our six arms without a real middlebox egress reduces regression risk on every release.
 
 ## Acceptance criteria
 
@@ -42,9 +42,9 @@ Build CensorLab locally, replay a middlebox-like scenario against RIPDPI's direc
 ## Links
 
 - [[Epic - Orchestration test posture]]
-- [[Add orchestration failure-injection harness]]
+- Add orchestration failure-injection harness
 - [[Build CensorLab-style offline strategy-pack pipeline]]
-- [[ripdpi-android-research-2026-04-20]]
+- ripdpi-android-research-2026-04-20
 
 
 ## owned-stack-mode-with

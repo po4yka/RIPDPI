@@ -44,7 +44,7 @@ DiagnosticResult = TRANSPARENT_WORKS
 
 - **Phase 0 passive observation before active probing.** Extract what we can from the last failed flow (DNS outcome, fail phase, error-page shape) so we don't probe from zero every time.
 - **Six-phase flow** matching the plan: 0 passive obs → 1 DNS class → 2 transport class → 3 ranked arms → 4 execute with early stop + confirm → 5 persist with revalidation → 6 rotate within winner's neighborhood.
-- **Per-class arm list is fixed** (see [[ripdpi-android-direct-mode-plan-2026-04-20]] Phase 3), then reranked by the learner's local priors.
+- **Per-class arm list is fixed** (see ripdpi-android-direct-mode-plan-2026-04-20 Phase 3), then reranked by the learner's local priors.
 - **TTL-gated persistence.** 7-day default; invalidate on ASN change, access-type change, 3 consecutive failures, HTTPS/SVCB TTL expiry, or ECH capability change.
 - **Hard separation of product modes.** Transparent-mode arms (A3–A8) and owned-stack arms (A9–A10) execute through different code paths with different invariants.
 
@@ -85,7 +85,7 @@ Still open: wiring the pure orchestrator to the production probe executors, emit
 
 **Boundary and types**
 - Define transparent vs owned-stack mode boundary (closed task)
-- [[Define DiagnosticResult and classification taxonomy]]
+- Define DiagnosticResult and classification taxonomy
 
 **Phases**
 - [[Implement Phase 0 passive observation from last flow]]
@@ -110,9 +110,9 @@ Aggregates subsystem outputs from every direct-mode subsystem epic:
 
 - [[Epic - Encrypted DNS and HTTPS SVCB classifier]] — Phase 1
 - [[Epic - Direct-mode transport policy and verdicts]] — Phase 2
-- [[Epic - Semantic TLS first-flight family engine]] — arms A5–A8
+- Epic - Semantic TLS first-flight family engine — arms A5–A8
 - [[Epic - Privacy-preserving strategy learner]] — Phase 3 ranking
-- [[Epic - Owned-stack mode with Android 17 ECH]] — arms A9, A10
+- Epic - Owned-stack mode with Android 17 ECH — arms A9, A10
 - [[Epic - Orchestration test posture]] — failure-injection harness for integration tests
 
 ## Risks / open questions
@@ -123,5 +123,5 @@ Aggregates subsystem outputs from every direct-mode subsystem epic:
 ## Links
 
 - [[ripdpi-android]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]] "Basic diagnostic: full state machine"
+- ripdpi-android-direct-mode-plan-2026-04-20 "Basic diagnostic: full state machine"
 - Child issues: 7

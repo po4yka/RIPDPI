@@ -30,7 +30,7 @@ When the diagnostic exhausts its arms without a stable success, return `NO_DIREC
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] §3 rule 5 and "Phase 4" end state.
+ripdpi-android-direct-mode-plan-2026-04-20 §3 rule 5 and "Phase 4" end state.
 
 ## Acceptance criteria
 
@@ -47,7 +47,7 @@ The first honest-verdict slice landed on 2026-04-23: diagnostics now keep distin
 
 - [[Persist direct-mode policy with revalidation]]
 - [[Epic - Direct-mode transport policy and verdicts]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]]
+- ripdpi-android-direct-mode-plan-2026-04-20
 
 
 ## doing

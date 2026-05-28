@@ -11,7 +11,7 @@ blocked_by: []
 created: 2026-05-22
 updated: 2026-05-22
 source_wiki_pages:
-  - "[[android-so-bindtodevice-vpn-bypass]]"
+  - "android-so-bindtodevice-vpn-bypass"
 linked_task: null
 ---
 
@@ -31,7 +31,7 @@ linked_task: null
 
 On Linux kernel 5.7+ (predominantly Android 12+, API 31+), `SO_BINDTODEVICE` privilege was dropped — any unprivileged app can bind a socket directly to a network interface (e.g., `tun0`) and bypass all Android VPN split-tunneling routing rules. Standard tun2socks reads packets off the TUN interface but has no UID attribution, so any per-app split-tunnel enforcement done at the routing layer is invisible to it.
 
-The TeapodStream project (referenced in `[[teapodstream-android-client]]`) implements a countermeasure: gVisor/Go tun2socks with per-packet UID validation via `ConnectivityManager.getConnectionOwnerUid()`. RIPDPI's `epic-fail-closed-android-vpn-policy-engine` covers the strategic class of work; this task is a concrete child task closing this specific escape vector.
+The TeapodStream project (referenced in `teapodstream-android-client`) implements a countermeasure: gVisor/Go tun2socks with per-packet UID validation via `ConnectivityManager.getConnectionOwnerUid()`. RIPDPI's `epic-fail-closed-android-vpn-policy-engine` covers the strategic class of work; this task is a concrete child task closing this specific escape vector.
 
 > [!info] Dedup notes
 > `ripdpi-tun-driver` crate exists. Adjacent open issue `adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion.md` covers a DIFFERENT mechanism (Android 17 system UI for split-tunnel app exclusion, not kernel-level SO_BINDTODEVICE bypass). PR description must confirm UID validation is not already implemented in `ripdpi-tun-driver` or the JNI tun2socks bridge.
@@ -60,11 +60,11 @@ The TeapodStream project (referenced in `[[teapodstream-android-client]]`) imple
 - `getConnectionOwnerUid` adds latency per packet — UDP port-binding cache is the documented mitigation; tune cache size for typical workloads.
 - ICMP UID attribution is unreliable in kernel; default to block + opt-in pass.
 - Whether RIPDPI's existing tun2socks uses gVisor or a different userspace stack — implementation may need stack-specific adaptation.
-- Scope boundary (per wiki): closes the `SO_BINDTODEVICE` escape but does not hide VPN presence from the OS (`tun0` interface name still queryable via `NetworkCapabilities`). See `[[platform-vpn-detection-april-2026]]` for the broader detection surface.
+- Scope boundary (per wiki): closes the `SO_BINDTODEVICE` escape but does not hide VPN presence from the OS (`tun0` interface name still queryable via `NetworkCapabilities`). See `platform-vpn-detection-april-2026` for the broader detection surface.
 
 ## References
 
-- [[android-so-bindtodevice-vpn-bypass]] — wiki concept page with full mechanism + gVisor countermeasure architecture
-- [[teapodstream-android-client]] — reference implementation
+- android-so-bindtodevice-vpn-bypass — wiki concept page with full mechanism + gVisor countermeasure architecture
+- teapodstream-android-client — reference implementation
 - Parent epic: `epic-fail-closed-android-vpn-policy-engine`
 - Related (different mechanism): existing issue `adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion`

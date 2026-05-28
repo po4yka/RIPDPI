@@ -50,4 +50,4 @@ Keep private endpoints out of fixtures. Use local synthetic fixtures or operator
 - [[Epic - Xray provider mode]]
 - [[Bridge TUN traffic through Xray local inbound]]
 - [[Surface Xray diagnostics and telemetry]]
-- [[ripdpi-android-xray-provider-plan-2026-04-24]]
+- ripdpi-android-xray-provider-plan-2026-04-24

@@ -30,7 +30,7 @@ When transparent arms (A3–A8) all fail but an owned-stack arm (A9/A10) works, 
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] §4 and `classify_success(arm)` in Phase 4.
+ripdpi-android-direct-mode-plan-2026-04-20 §4 and `classify_success(arm)` in Phase 4.
 
 ## Current status
 
@@ -52,5 +52,5 @@ Verified 2026-05-28 against the current diagnostics and policy code:
 ## Links
 
 - Implement direct-mode diagnostic orchestrator Phases 1-4 (closed task)
-- [[Epic - Owned-stack mode with Android 17 ECH]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]]
+- Epic - Owned-stack mode with Android 17 ECH
+- ripdpi-android-direct-mode-plan-2026-04-20

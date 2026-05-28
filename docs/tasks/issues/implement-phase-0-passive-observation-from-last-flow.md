@@ -30,7 +30,7 @@ Before active probing, extract what we can from the last real failed flow: DNS o
 
 ## Plan reference
 
-[[ripdpi-android-direct-mode-plan-2026-04-20]] "Phase 0 — Passive observation first".
+ripdpi-android-direct-mode-plan-2026-04-20 "Phase 0 — Passive observation first".
 
 ## Progress
 
@@ -51,4 +51,4 @@ Still open: emitting a typed `PassiveObservation` payload directly from live run
 ## Links
 
 - [[Epic - Direct-mode diagnostic state machine]]
-- [[ripdpi-android-direct-mode-plan-2026-04-20]]
+- ripdpi-android-direct-mode-plan-2026-04-20
