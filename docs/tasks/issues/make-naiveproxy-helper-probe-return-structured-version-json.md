@@ -1,5 +1,5 @@
 ---
-title: Make NaiveProxy helper probe return structured version JSON
+title: Wire NaiveProxy helper probe into manager startup
 type: task
 status: backlog
 area: service
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-28
 ---
 
-- [ ] #task Make NaiveProxy helper probe return structured version JSON #repo/RIPDPI #area/service #status/backlog 🔼
+- [ ] #task Wire NaiveProxy helper probe into manager startup #repo/RIPDPI #area/service #status/backlog 🔼
 
 ## Goal contract
 
@@ -26,18 +26,19 @@ updated: 2026-05-15
 
 ## Summary
 
-Replace the implicit `RIPDPI-READY` / `RIPDPI-ERROR` text contract between Android and the NaiveProxy helper with a structured probe line that carries the helper's schema version, NaiveProxy version, and feature set, and refuse to start the helper on mismatch.
+The helper-side `--probe` line and Kotlin parser now exist. Finish the Android startup integration by invoking `--probe` before launch, rejecting unsupported schema versions, and documenting the enforced policy.
 
 ## Context
 
-`docs/native/relay-naiveproxy-runtime.md` notes "helper version probing before launch" but does not specify the wire contract. Today the service-side classification (DNS, TLS, HTTP CONNECT, auth) is built on parsing free-form lines. If `ripdpi-naiveproxy` adds or renames a flag or readiness signal, `NaiveProxyManager` may silently misclassify or hang.
+`native/rust/crates/ripdpi-naiveproxy/src/main.rs` emits `RIPDPI-PROBE { ... }` on `--probe`, and `core/service/src/main/kotlin/com/poyka/ripdpi/services/NaiveProxyProbeParser.kt` parses it. `NaiveProxyManager` still starts the helper without running that probe, so schema drift can still reach runtime launch.
 
 ## Acceptance criteria
 
 - [x] (2026-05-15) Helper emits a single `RIPDPI-PROBE { ... }` JSON line on `--probe` exit with fields `{ "schema_version": u32, "helper_version": semver, "features": [string, ...] }`. Hand-formatted JSON (no serde dep for the fast-path) in `ripdpi-naiveproxy/src/main.rs`. Two unit tests assert format and capability-tag stability.
+- [x] (2026-05-28) Kotlin parser exists in `NaiveProxyProbeParser.kt`, with unit tests covering marker, malformed JSON, missing required fields, and schema-range checks.
 - [ ] `NaiveProxyManager` invokes `--probe` before `start`, parses the JSON, and refuses to start when `schema_version` is outside the range it supports, surfacing a recognizable failure class.
 - [ ] Existing `RIPDPI-READY` / `RIPDPI-ERROR` paths remain unchanged for now; this task only adds the pre-launch probe.
-- [ ] Unit tests cover (a) probe round-trip, (b) refusal on schema mismatch, (c) backward compatibility when the helper does not support `--probe` (treat as schema 0, accept until the next release).
+- [ ] Unit tests cover manager preflight behavior: (a) probe round-trip, (b) refusal on schema mismatch, (c) backward compatibility when the helper does not support `--probe` if the current release still allows schema 0.
 - [ ] `docs/native/relay-naiveproxy-runtime.md` documents the probe line and the schema-version policy.
 
 ## Definition of done

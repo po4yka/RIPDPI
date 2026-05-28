@@ -40,7 +40,7 @@ The in-repo helper remains much smaller and easier to reason about than a Chromi
 
 The current implementation includes:
 
-- helper version probing before launch
+- helper-side `--probe` support plus a Kotlin parser for the `RIPDPI-PROBE` capability line
 - readiness handshake through explicit `RIPDPI-READY` signaling
 - structured failure signaling through `RIPDPI-ERROR`
 - Android-side classification for DNS, TLS, HTTP `CONNECT`, and auth failures
@@ -49,6 +49,8 @@ The current implementation includes:
 - bounded watchdog restarts for unexpected helper exits
 
 This means NaiveProxy is no longer a provisional transport. It is a supported runtime with explicit operational boundaries.
+
+The manager does not yet enforce the probe before every launch. That remaining startup guard is tracked by `docs/tasks/issues/make-naiveproxy-helper-probe-return-structured-version-json.md`.
 
 ## Boundaries
 

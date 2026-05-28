@@ -16,24 +16,25 @@ The completion target is documented in `README.md`. The architecture remains sub
 ## Standards used
 
 - SOCKS5 (RFC 1928, RFC 1929)
-- HTTPS / HTTP CONNECT (RFC 7231)
+- HTTPS / HTTP CONNECT (RFC 7231) plus HTTP/2 CONNECT over `h2` ALPN
 - TLS (rustls + webpki-roots)
+- NaiveProxy Variant1 payload padding, as documented by upstream klzgrad/naiveproxy
 
 ## Helper contract
 
-Helper emits two well-known stdout markers:
+Helper stdout markers:
 
 - `RIPDPI-READY` — listener is bound and handshake completed
 - `RIPDPI-ERROR <code>` — structured failure with classification text
+- `RIPDPI-PROBE <json>` — `--probe` capability report including `socks5-listener`, `http-front-listener`, `h2-connect-upstream`, `naive-padding`, `structured-error`, and `ready-signal`
 
-The Android side (`NaiveProxyManager`, `SubprocessSocksRelayManager`) classifies failures into DNS / TLS / HTTP CONNECT / auth categories.
-
-A planned structured `RIPDPI-PROBE` JSON contract is tracked in `docs/tasks/issues/make-naiveproxy-helper-probe-return-structured-version-json.md`.
+The Android side (`NaiveProxyManager`, `SubprocessSocksRelayManager`) classifies runtime failures into DNS / TLS / HTTP CONNECT / auth categories. Android has a `NaiveProxyProbeParser`, but `NaiveProxyManager` does not yet invoke `--probe` as a pre-launch gate.
 
 ## Known divergences from upstream
 
 - This helper is not a full naiveproxy port; it shells SOCKS5↔CONNECT. Browser-engine features are explicitly out of scope.
-- As of the Step 0 audit, this helper still uses HTTP/1.1 CONNECT over rustls and does not implement upstream NaiveProxy HTTP/2 CONNECT or payload padding. `README.md` records the gap audit and test plan for the staged implementation.
+- The helper uses the workspace Rust TLS/HTTP stack rather than Chromium networking, so Chromium-identical TLS/H2 fingerprinting is explicitly out of scope.
+- Upstream connections use HTTP/2 CONNECT with request/response padding negotiation; payload padding is active only when the upstream response opts in with NaiveProxy padding headers.
 
 ## Non-goals
 

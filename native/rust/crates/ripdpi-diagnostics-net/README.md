@@ -7,11 +7,7 @@
 A compatibility facade over the per-protocol probe crates. Its dependency set
 mirrors `ripdpi-diagnostics-protocols`.
 
-> **No current workspace consumer.** No other crate's `[dependencies]` or
-> `[dev-dependencies]` references this crate. It appears to be superseded by
-> `ripdpi-diagnostics-protocols` — verify its intended role before extending
-> it. See [`NATIVE_RUST.md`](../../../../docs/architecture/NATIVE_RUST.md)
-> § Open verification items.
+> **No current workspace consumer.** No other crate's `[dependencies]` or `[dev-dependencies]` references this crate. It appears to be superseded by `ripdpi-diagnostics-protocols`; treat it as a prune candidate unless a net-probe aggregation plan explicitly wires it.
 
 ## Main dependencies
 
@@ -20,8 +16,7 @@ mirrors `ripdpi-diagnostics-protocols`.
 
 ## Extension points
 
-None until the supersession question above is resolved — prefer
-`ripdpi-diagnostics-protocols`.
+None while it has no workspace consumer — prefer `ripdpi-diagnostics-protocols`.
 
 ## What must not be added here
 

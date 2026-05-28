@@ -276,8 +276,8 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-monitor-engine` (plus the `ripdpi-monitor-*` and `ripdpi-diagnostics-*` families)
 - `native/rust/crates/ripdpi-dns-resolver`
 - `native/rust/crates/ripdpi-proxy-config`
-- `native/rust/crates/ripdpi-config` -- CLI configuration parsing
-- `native/rust/crates/ripdpi-runtime`
+- `native/rust/crates/ripdpi-config` -- shared core runtime/CLI config model and parsing
+- `native/rust/crates/ripdpi-proxy-runtime`
 - `native/rust/crates/ripdpi-telemetry` -- telemetry data structures and contracts
 - `native/rust/crates/ripdpi-tunnel-config` -- tunnel configuration
 - `native/rust/crates/ripdpi-relay-core` -- shared relay backend orchestration and capability surface

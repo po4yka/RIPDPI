@@ -7,11 +7,7 @@
 Response parsers (HTTP / TLS / SSH) that extract structured fields from probe
 responses for downstream classification.
 
-> **No current workspace consumer.** No other crate references this crate in
-> `[dependencies]` / `[dev-dependencies]` — verify whether it is feature-gated,
-> test-only, or pending integration before extending it. See
-> [`NATIVE_RUST.md`](../../../../docs/architecture/NATIVE_RUST.md)
-> § Open verification items.
+> **No current workspace consumer.** No other crate references this crate in `[dependencies]` / `[dev-dependencies]`. Treat it as a prune candidate unless parser extraction is revived.
 
 ## Main dependencies
 
@@ -19,7 +15,7 @@ responses for downstream classification.
 
 ## Extension points
 
-A new response parser — once a consumer is confirmed.
+A new response parser — only after a consumer is confirmed.
 
 ## What must not be added here
 

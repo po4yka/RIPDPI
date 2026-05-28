@@ -1,5 +1,5 @@
 ---
-title: Add AnyTLS outbound client crate and profile editor
+title: Finish AnyTLS profile editor and compatibility gaps
 type: task
 status: backlog
 area: outbound
@@ -9,10 +9,10 @@ parent: epic-extended-outbound-protocol-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-28
 ---
 
-- [ ] #task Add AnyTLS outbound client crate and profile editor #repo/RIPDPI #area/outbound #status/backlog 🔼
+- [ ] #task Finish AnyTLS profile editor and compatibility gaps #repo/RIPDPI #area/outbound #status/backlog 🔼
 
 ## Goal contract
 
@@ -26,18 +26,22 @@ updated: 2026-05-14
 
 ## Summary
 
-Add a `ripdpi-anytls` Rust crate implementing the AnyTLS client and a `AnyTLSProfileScreen` editor. AnyTLS is the newer sing-anytls protocol designed to reduce TLS-in-TLS detection vs ShadowTLS.
+AnyTLS is now a first-class relay kind with a Rust crate, relay-core backend, URI/subscription import support, and runtime config fields. Keep this task for the remaining UI and compatibility polish that is not yet present in the codebase.
 
 ## Context
 
-Upstream reference: `anytls/sing-anytls`. The protocol coexists with ShadowTLS on RIPDPI's roadmap because subscription providers are split between the two. Reuse the existing ShadowTLS TLS session machinery where shape overlaps.
+Upstream reference: `anytls/anytls-go`. The current source has `native/rust/crates/ripdpi-anytls`, `RelayKindAnyTls`, `RelayBackendConfig::AnyTls`, `anytls://` parsing, Sing-box/Clash AnyTLS subscription mapping, relay-core TCP and UDP-over-TCP tests, and import-confirmation UI. The main configuration editor still has no dedicated AnyTLS field screen.
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-anytls` crate passes upstream reference handshake and session-framing test vectors.
-- [ ] Fallback-SNI and fallback-server behavior matches upstream spec.
+- [x] `ripdpi-anytls` crate exists with frame, padding, and TLS-session tests.
+- [x] Relay-core builds an AnyTLS backend, validates it as UDP-capable, and covers TCP plus UDP-over-TCP fixtures.
+- [x] `anytls://`, Clash `anytls`, and Sing-box `anytls` imports map to first-class profiles.
+- [x] Relay native config carries AnyTLS password and root-certificate fields.
+- [ ] Cross-interop against upstream `anytls-go` is verified and recorded.
+- [ ] Fallback-SNI and fallback-server behavior matches upstream spec, or unsupported behavior is rejected explicitly.
 - [ ] `AnyTLSProfileScreen` validates password length, server + port, and server-name (SNI).
-- [ ] Integrate with relay supervisor lifecycle; shutdown joins bounded handler work.
+- [ ] Main Mode Editor exposes AnyTLS fields instead of relying only on import/profile records.
 - [ ] Strategy-pack metadata advertises AnyTLS compat hints, especially around QUIC-heavy neighborhoods.
 - [ ] Password is redacted in all diagnostic surfaces.
 

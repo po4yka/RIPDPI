@@ -13,11 +13,13 @@ This crate is a thin SOCKS5 ↔ HTTPS-CONNECT helper. The wire formats involved 
 This crate implements:
 
 - SOCKS5 (RFC 1928, RFC 1929) inbound listener on a local Unix or TCP socket
-- HTTPS CONNECT (RFC 7231) upstream tunnel
+- HTTP/2 CONNECT over TLS for the upstream tunnel
+- NaiveProxy Variant1 payload-padding negotiation when the upstream opts in
 - `RIPDPI-READY` / `RIPDPI-ERROR` text contract with the Android service (see `docs/native/relay-naiveproxy-runtime.md`)
+- `RIPDPI-PROBE` capability reporting on `--probe`
 
-The naiveproxy *binary* itself is distributed by klzgrad/naiveproxy and runs as a managed subprocess. This crate is the in-process helper that front-ends it.
+The crate is RIPDPI's repo-owned helper. It is intentionally not a Chromium-derived native naiveproxy binary.
 
 ## Drift policy
 
-The helper schema version (planned: `RIPDPI-PROBE` JSON line in `docs/tasks/issues/make-naiveproxy-helper-probe-return-structured-version-json.md`) is the contract that needs explicit versioning. RFC drift is not a concern.
+The helper schema version is the `RIPDPI-PROBE` JSON line emitted by `--probe`. The remaining drift risk is Android launch enforcement: `NaiveProxyManager` has not yet made that probe mandatory before start. RFC drift is lower risk than helper/manager contract drift.

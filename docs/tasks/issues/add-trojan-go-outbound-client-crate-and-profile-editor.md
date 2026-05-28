@@ -57,4 +57,4 @@ Trojan-Go and Trojan share the password-hash handshake but differ in transport f
 ## Links
 
 - [[Epic - Extended outbound protocol support]]
-- [[Add Trojan outbound client crate and profile editor]]
+- Trojan support itself is already landed in current source; this task only covers the Trojan-Go extension protocol.

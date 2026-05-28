@@ -14,9 +14,7 @@ separate from `libripdpi.so`.
 
 `ripdpi-relay-core` (shared relay backend and capability surface) and
 `ripdpi-apps-script-core` (the Google Apps Script relay path), plus
-`android-support`. `ripdpi-relay-core` in turn pulls the transport crates
-(`ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-tuic`, `ripdpi-hysteria2`,
-`ripdpi-masque`, `ripdpi-shadowtls`, `ripdpi-relay-mux`).
+`android-support`. `ripdpi-relay-core` in turn pulls the relay transport stack through `ripdpi-relay-tls-transports` and related crates, including VLESS/xHTTP, TUIC, Hysteria2, MASQUE, ShadowTLS, Shadowsocks, Trojan, AnyTLS, Tor, and relay chaining.
 
 ## JNI handle / error / panic / lifecycle expectations
 

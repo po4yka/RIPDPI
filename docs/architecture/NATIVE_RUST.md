@@ -414,27 +414,14 @@ is a runtime artifact.
 
 ---
 
-## Open verification items
+## Verified follow-up items
 
-These are flagged inline above; collected here for triage. None block the build.
+These are current source-state notes for triage. None block the build.
 
-- **`ripdpi-relay-android` Kotlin counterpart** — exports
-  `Java_..._RipDpiRelayNativeBindings_*`, but a `RipDpiRelayNativeBindings.kt`
-  was not seen in the `core/engine/src/main/kotlin/com/poyka/ripdpi/core/`
-  top-level listing. Verify the class location and that `libripdpi-relay.so` is
-  loaded (cf. `RipDpiNativeLoader.kt`, which loads only `"ripdpi"`).
-- **Library crates with no workspace consumer** — `ripdpi-protocol-detect`,
-  `ripdpi-protocol-loopback`, `ripdpi-routing`, `ripdpi-runtime-dns-cache`,
-  `ripdpi-diagnostics-net`, `ripdpi-diagnostics-parsers`, `ripdpi-shadowsocks`,
-  `ripdpi-trojan` are not referenced by any other crate's `[dependencies]` or
-  `[dev-dependencies]`. They may be feature-gated, test-only, or pending
-  integration — verify each before assuming it is wired (or dead).
-- **`ripdpi-diagnostics-net`** mirrors `ripdpi-diagnostics-protocols`'
-  dependency set; confirm whether `-net` is superseded by `-protocols`.
-- **`ripdpi-config` naming** — `docs/native/README.md` calls it "CLI
-  configuration parsing", but 16 crates across runtime/desync/diagnostics
-  depend on it: it is the shared core config model. Per task constraints it is
-  **not** renamed here — clarify in docs.
+- **`ripdpi-relay-android` Kotlin counterpart exists** — `RipDpiRelayNativeBindings` is in `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`, and `RipDpiRelayNativeLoader` loads `"ripdpi-relay"`.
+- **Library crates with no runtime consumer** — `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-routing`, `ripdpi-runtime-dns-cache`, `ripdpi-diagnostics-net`, and `ripdpi-diagnostics-parsers` still have no workspace consumer beyond their own crate entry. They remain prune candidates unless a feature or test plan wires them.
+- **Relay transport crates are wired** — `ripdpi-shadowsocks` and `ripdpi-trojan` are consumed by `ripdpi-relay-tls-transports`, which is consumed by `ripdpi-relay-core`; they are not prune candidates.
+- **`ripdpi-diagnostics-net`** mirrors `ripdpi-diagnostics-protocols`' dependency set and is currently superseded in practice by `ripdpi-diagnostics-protocols`.
 
 ---
 

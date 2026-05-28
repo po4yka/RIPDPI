@@ -68,7 +68,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 45 | P3 | `report-owned-stack-only-verdict-from-diagnostic`<br>Report OWNED_STACK_ONLY verdict from diagnostic | task | `(no epic)` | diagnostics | 🔼 | TODO | |
 | 46 | P3 | `spike-censorlab-as-offline-censor-replay-harness`<br>Spike CensorLab as offline censor-replay harness | task | `epic-orchestration-test-posture` | testing | 🔼 | TODO | |
 | 47 | P3 | `surface-no-direct-solution-verdict-honestly`<br>Surface NO_DIRECT_SOLUTION verdict honestly | task | `epic-direct-mode-transport-policy-and-verdicts` | diagnostics | 🔼 | TODO | |
-| 48 | P3 | `add-anytls-outbound-client-crate-and-profile-editor`<br>Add AnyTLS outbound client crate and profile editor | task | `epic-extended-outbound-protocol-support` | outbound | 🔼 | TODO | |
+| 48 | P3 | `add-anytls-outbound-client-crate-and-profile-editor`<br>Finish AnyTLS profile editor and compatibility gaps | task | `epic-extended-outbound-protocol-support` | outbound | 🔼 | TODO | 2026-05-28 docs cleanup: source already has `ripdpi-anytls`, `RelayKindAnyTls`, `RelayBackendConfig::AnyTls`, `anytls://` import, and relay-core TCP/UDP tests; task narrowed to remaining editor/interop gaps. |
 | 49 | P3 | `add-boot-completed-receiver-with-dynamic-enable`<br>Add boot-completed receiver with dynamic enable | task | `epic-boot-autostart-and-session-persistence` | service | 🔼 | TODO | |
 | 50 | P3 | `add-configurable-asset-provider-picker-with-four-presets`<br>Add configurable asset provider picker with four presets | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
 | 51 | P3 | `add-custom-domain-bypass-list-screen`<br>Add custom domain bypass list screen | task | `epic-advanced-routing-rules-and-geoip-enforcement` | routing | 🔼 | TODO | |
@@ -112,7 +112,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 89 | P5 | `introduce-protocol-version-enum-and-version-probe-diagnostic`<br>Introduce ProtocolVersion enum and version-mismatch probe diagnostic | task | `epic-control-plane-hardening` | rust-native | 🔼 | TODO | |
 | 90 | P5 | `epic-control-plane-hardening`<br>Epic - Control-plane hardening | epic | `—` | epic | 🔺 | TODO | |
 | 91 | P6 | `epic-privacy-preserving-strategy-learner`<br>Epic - Privacy-preserving strategy learner | epic | `—` | epic | ⏫ | TODO | |
-| 92 | P6 | `make-naiveproxy-helper-probe-return-structured-version-json`<br>Make NaiveProxy helper probe return structured version JSON | task | `(no epic)` | service | 🔼 | TODO | |
+| 92 | P6 | `make-naiveproxy-helper-probe-return-structured-version-json`<br>Wire NaiveProxy helper probe into manager startup | task | `(no epic)` | service | 🔼 | TODO | 2026-05-28 docs cleanup: helper `--probe` and Kotlin parser exist, but `NaiveProxyManager` does not yet run probe as a launch gate. |
 | 93 | P6 | `add-cloudflare-workers-domain-fronting-bypass`<br>Add Cloudflare Workers domain-fronting bypass adapter | task | `(no epic)` | rust-native | 🔼 | TODO | |
 | 94 | P6 | `add-constant-rate-traffic-shaping-voip-camouflage`<br>Add constant-rate traffic shaping with VoIP camouflage profile | task | `(no epic)` | rust-native | 🔼 | TODO | |
 | 95 | P6 | `add-dns-over-https-tunnel-mode-for-arbitrary-payloads`<br>Add DNS-over-HTTPS tunnel mode for arbitrary payloads | task | `(no epic)` | rust-native | 🔼 | TODO | |

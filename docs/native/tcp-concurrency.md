@@ -31,7 +31,7 @@ That reduces the steady-state relay thread budget by one OS thread per active TC
 
 ## Measurement Path
 
-The verification path uses `native/rust/crates/ripdpi-runtime/tests/network_load.rs`:
+The verification path uses `native/rust/crates/ripdpi-proxy-runtime/tests/network_load.rs`:
 
 - `proxy_connection_resource_budget`
 
