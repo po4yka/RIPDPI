@@ -8,7 +8,9 @@ and gRPC framing.
 ## Stable identifiers / contracts
 
 Used when `relay_vless_transport = "xhttp"` and by `relay_kind =
-"cloudflare_tunnel"` profiles. Carries the Finalmask modes
+"cloudflare_tunnel"` profiles. Supports the `stream-up` and `stream-one`
+xHTTP protocol modes; `packet-up` and split-endpoint `stream-down` remain
+deferred in [`xhttp-mode-coverage-audit.md`](../../../../docs/design/xhttp-mode-coverage-audit.md). Carries the Finalmask modes
 (`header_custom` / `fragment` / `sudoku` / `noise`) applied directly on the
 outbound xHTTP transport; xHTTP path/host come from `relay_xhttp_path` /
 `relay_xhttp_host`.
@@ -25,7 +27,7 @@ No privileged operations — runs fully on non-rooted devices. See
 
 ## Extension checklist
 
-1. Add xHTTP framing or Finalmask modes behind the existing config types.
+1. Add missing xHTTP protocol modes or Finalmask modes behind the existing config types.
 2. Keep the transport interoperable with VLESS xHTTP and Cloudflare Tunnel
    server expectations.
 

@@ -1,8 +1,8 @@
 # xHTTP Mode Coverage Audit (audit H3)
 
-**Date:** 2026-05-16 **Status:** Research only — no Rust changes yet. Implementation deferred. **Scope:** xray-core `transport/internet/splithttp` (Go, HEAD via GitHub API) vs. `ripdpi-xhttp` (Rust, `native/rust/crates/ripdpi-xhttp`).
+**Date:** 2026-05-16 **Status:** Partially implemented — `stream-one` has landed; `packet-up` and split-endpoint `stream-down` remain deferred. **Updated:** 2026-05-28. **Scope:** xray-core `transport/internet/splithttp` (Go, HEAD via GitHub API) vs. `ripdpi-xhttp` (Rust, `native/rust/crates/ripdpi-xhttp`).
 
-The audit finding H3 flagged that our crate implements only one of xray-core's four xHTTP transport modes. This document records the per-mode wire shape from upstream, the gap relative to our crate, and the recommended implementation order. Cite xray-core line ranges relative to HEAD at the time of the audit (file names + function names are stable).
+The original audit finding H3 flagged one-mode xHTTP support in this crate. The crate now implements `stream-up` and `stream-one`; this document records the remaining gaps relative to upstream and the recommended implementation order. Cite xray-core line ranges relative to HEAD at the time of the audit (file names + function names are stable).
 
 ---
 
@@ -29,7 +29,7 @@ if mode == "" || mode == "auto" {
 | REALITY, no `downloadSettings` | `stream-one` |
 | REALITY + `downloadSettings` set | `stream-up` |
 
-Our crate **never reads** `Config.mode`; `XhttpMode` in `config.rs` is a TLS-vs-Reality enum, not a protocol-mode enum. `open_stream_from_mode` in `relay.rs:90-176` always executes the stream-up wire shape.
+Current crate state: `config.rs` defines `XhttpProtocolMode`, accepts `stream-up`, `stream-one`, `""`, and `auto`, and rejects `packet-up` / `stream-down` as unsupported. `relay.rs` routes `open_stream_from_mode` to either `open_stream_up` or `open_stream_one`.
 
 ---
 
@@ -49,7 +49,7 @@ Our crate **never reads** `Config.mode`; `XhttpMode` in `config.rs` is a TLS-vs-
 
 **Server compatibility:** server accepts the `seqStr == ""` POST branch. Server enforces mode allowlists: any non-`""/auto/stream-up` mode rejects with HTTP 400.
 
-**Status in our crate:** Implemented (only mode). Gaps within stream-up:
+**Status in our crate:** Implemented. Gaps within stream-up:
 - No split-endpoint (`downloadSettings`) support.
 - No configurable placement — path-only is hardcoded (`relay.rs:202-209`).
 - No `scStreamUpServerSecs` keepalive handling.
@@ -107,7 +107,7 @@ Stream-one sets `sessionId = ""` (`dialer.go`: `if mode != "stream-one" { sessio
 
 **Server compatibility:** server requires `sessionId == ""` to enter the stream-one path. Server rejects with HTTP 400 (`"stream-one mode is not allowed"`) when locked to packet-up.
 
-**Status in our crate:** Missing. Our crate always generates a session-id (`random_session_id()` in `relay.rs:218`) and always sends GET + POST.
+**Status in our crate:** Implemented. `XhttpProtocolMode::StreamOne` is parsed in `config.rs`, `relay.rs::open_stream_one` uses one bidirectional HTTP/2 request, and tests cover the no-session-id URL behavior plus mode parsing.
 
 ---
 
@@ -139,25 +139,24 @@ Our crate hardcodes path-only placement (`relay.rs:202-209`); `XhttpTlsConfig` a
 | --- | --- | --- | --- |
 | stream-up | Present (partial) | ~60 (split endpoint + placement) | `path`, `host` |
 | packet-up | Missing | 250–350 | none directly |
-| stream-one | Missing | ~40 | none — but H2 already supports full-duplex |
+| stream-one | Present | landed | no session segment; one bidirectional H2 request |
 | stream-down (split endpoint) | Missing | ~80 | none — needs `download_settings` |
 
 ---
 
 ## Recommendation
 
-**Implement `stream-one` first.**
+`stream-one` has landed. The remaining implementation order is:
 
-1. **Lowest cost (~40 LOC).** Two behavioral deltas from stream-up: skip the session-id, and pass the upload pipe as the POST body while reading the response body as the download stream — a single `send_request` instead of GET + POST. Hyper HTTP/2 supports full-duplex streams natively; the existing `ChannelBody` infrastructure is sufficient.
+1. **Split-endpoint `stream-down` next** if CDN split download settings become a real profile-import requirement; this is smaller than packet-up and mostly adds `download_settings` config plus separate download endpoint construction.
 
-2. **Upstream default for REALITY.** Our primary deployment is REALITY (`XhttpMode::Reality`). Per `dialer.go`, the upstream REALITY default is `stream-one` (falling back to `stream-up` only when `downloadSettings` is present). A client advertising stream-up against a server defaulting to stream-one is a hard conformance failure: the server enters the stream-one path (no session-id, no upload queue) while we send GET + POST with a session-id, which the server rejects with HTTP 400 (`"stream-one mode is not allowed"`) when locked, or corrupts the session table when not.
-
-3. **Unblocks the mode-dispatch skeleton.** Once a `XhttpMode` (in the protocol-mode sense, not the TLS/Reality sense) enum routes the connection path, packet-up and stream-down split-endpoint slot in without further refactor. Recommended implementation order: 1. `stream-one` 2. `packet-up` (largest delta — needs seq counter, interval timer, and receive-side reordering) 3. `stream-down` split endpoint (adds dual `PooledConnection` management and a `download_config` field)
+2. **`packet-up` last** because it requires per-chunk POST sequencing, placement support, buffering semantics, and more tests.
 
 ---
 
 ## Cross-references
 
 - Audit finding H3 (xHTTP modes incomplete) — this document.
+- `native/rust/crates/ripdpi-xhttp/src/config.rs` and `relay.rs` are now the source of truth for landed mode support.
 - Companion audit finding C3 (Vision flow unconditional) — closed by commit `a6f2cab2 feat(vless): per-profile flow selection (audit C3)`.
 - Upstream source files (xray-core HEAD): - `transport/internet/splithttp/dialer.go` - `transport/internet/splithttp/client.go` - `transport/internet/splithttp/hub.go` - `transport/internet/splithttp/upload_queue.go` - `transport/internet/splithttp/config.go` - `transport/internet/splithttp/config.proto`
