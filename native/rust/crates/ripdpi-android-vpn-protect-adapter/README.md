@@ -22,8 +22,9 @@ the `ProtectCallback` trait) into that crate's global protect-callback registry.
   must be **symmetric** with VPN start/stop or the Java object is pinned.
 - `JniProtectCallback::protect(fd)` runs on native worker threads — it calls
   `JavaVM::attach_current_thread` and invokes `VpnService.protect(int)`.
-- Exports go through `ffi_boundary`; the registration entry also handles
-  `Outcome::Panic` explicitly.
+- The `ripdpi-android` facade wraps the register/unregister exports in
+  `ffi_boundary`; the registration entry also handles `Outcome::Panic`
+  explicitly.
 - A failed `protect()` must fail the connection — never proceed unprotected
   (see [`.claude/rules/vpnservice-protect-invariant.md`](../../../../.claude/rules/vpnservice-protect-invariant.md)).
 

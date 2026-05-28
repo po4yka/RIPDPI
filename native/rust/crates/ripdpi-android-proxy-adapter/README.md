@@ -17,7 +17,8 @@ and PCAP-recording exports. The `ripdpi-android` facade forwards to it.
 `EmbeddedProxyControl` / telemetry-sink ports), `ripdpi-proxy-config` (config
 translation), `ripdpi-config`, `ripdpi-diagnostics-pcap`,
 `ripdpi-android-telemetry-adapter`, `ripdpi-android-bridge-support`,
-`android-support`.
+`ripdpi-failure-classifier`, `ripdpi-quality`, `ripdpi-runtime-decision-ports`,
+and `android-support`.
 
 ## JNI handle / error / panic / lifecycle expectations
 
@@ -25,8 +26,9 @@ translation), `ripdpi-config`, `ripdpi-diagnostics-pcap`,
   lifecycle ordering is `create → start → stop → destroy`.
 - `jniStart` runs the **blocking** proxy event loop — Kotlin invokes it on the
   IO dispatcher under the wrapper's mutex.
-- Every export goes through `android_support::ffi_boundary`; errors surface as
-  `JniProxyError` Java exceptions (`ripdpi-android-bridge-support`).
+- The `ripdpi-android` facade wraps these entry functions in
+  `android_support::ffi_boundary`; adapter-side errors surface as `JniProxyError`
+  Java exceptions (`ripdpi-android-bridge-support`).
 - Holds no `JNI_OnLoad`; lifecycle state lives in the adapter's session registry.
 
 ## Plane

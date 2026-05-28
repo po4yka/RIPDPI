@@ -6,7 +6,7 @@
 
 ## Dependencies
 
-- **Upstream:** `ripdpi-dns-resolver`, `ripdpi-runtime-platform`, `ripdpi-tls-profiles`, `android-support`.
+- **Upstream:** `ripdpi-dns-resolver`, `ripdpi-runtime-platform`, `ripdpi-tls-profiles`, and JNI/HTTP/TLS support crates.
 - **Downstream:** loaded through the Android native bridge, not as a standalone runtime.
 
 ## Boundaries

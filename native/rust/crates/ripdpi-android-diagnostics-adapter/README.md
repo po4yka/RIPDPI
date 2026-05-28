@@ -24,8 +24,8 @@ lifecycle behind `jniCreate` / `jniStartScan` / `jniCancelScan` /
 - Progress and report payloads are JSON strings (`jstring`, null on panic);
   they are versioned wire contracts (`DIAGNOSTICS_ENGINE_SCHEMA_VERSION`) and
   golden-locked — a payload-shape change is a contract change.
-- Every export goes through `android_support::ffi_boundary`; errors map via
-  `JniProxyError`.
+- The `ripdpi-android` facade wraps these entry functions in
+  `android_support::ffi_boundary`; adapter-side errors map via `JniProxyError`.
 
 ## Plane
 
