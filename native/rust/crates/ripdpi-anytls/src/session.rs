@@ -5,7 +5,7 @@ use std::sync::Arc;
 use boring::ssl::SslVersion;
 use boring::x509::X509;
 use sha2::{Digest, Sha256};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio_boring::SslStream;
@@ -171,6 +171,20 @@ impl AnyTlsClient {
         Ok(AnyTlsUdpOverTcp { stream })
     }
 
+    pub async fn open_tcp_over<S>(
+        config: AnyTlsClientConfig,
+        transport: S,
+        target: TargetAddr,
+        port: u16,
+    ) -> Result<AnyTlsStream, AnyTlsError>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let client = Self::new(config)?;
+        client.establish_session(transport).await?;
+        client.open_tcp(target, port).await
+    }
+
     async fn session(&self) -> Result<SessionHandle, AnyTlsError> {
         if let Some(session) = self.state.lock().await.session.clone() {
             return Ok(session);
@@ -178,7 +192,14 @@ impl AnyTlsClient {
 
         let tcp = TcpStream::connect((self.config.server_host.as_str(), self.config.server_port)).await?;
         tcp.set_nodelay(true)?;
-        let mut tls = connect_tls(&self.config, tcp).await?;
+        self.establish_session(tcp).await
+    }
+
+    async fn establish_session<S>(&self, transport: S) -> Result<SessionHandle, AnyTlsError>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let mut tls = connect_tls(&self.config, transport).await?;
         write_auth(&mut tls, &self.config.password, &self.state.lock().await.padding_scheme).await?;
 
         let (outbound_tx, outbound_rx) = mpsc::channel(128);
@@ -274,7 +295,10 @@ impl AnyTlsUdpOverTcp {
     }
 }
 
-async fn connect_tls(config: &AnyTlsClientConfig, tcp: TcpStream) -> Result<SslStream<TcpStream>, AnyTlsError> {
+async fn connect_tls<S>(config: &AnyTlsClientConfig, transport: S) -> Result<SslStream<S>, AnyTlsError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| AnyTlsError::TlsProfile(error.to_string()))?;
     builder
@@ -290,16 +314,19 @@ async fn connect_tls(config: &AnyTlsClientConfig, tcp: TcpStream) -> Result<SslS
 
     let connector = builder.build();
     let ssl = connector.configure().map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;
-    tokio_boring::connect(ssl, &config.server_name, tcp)
+    tokio_boring::connect(ssl, &config.server_name, transport)
         .await
         .map_err(|error| AnyTlsError::TlsHandshake(error.to_string()))
 }
 
-async fn write_auth(
-    stream: &mut SslStream<TcpStream>,
+async fn write_auth<S>(
+    stream: &mut SslStream<S>,
     password: &str,
     padding_scheme: &PaddingScheme,
-) -> Result<(), AnyTlsError> {
+) -> Result<(), AnyTlsError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let padding_len = padding_scheme.auth_padding0_len(0).map_err(|error| AnyTlsError::Padding(error.to_string()))?;
     let mut packet = Vec::with_capacity(34 + padding_len);
     packet.extend_from_slice(&Sha256::digest(password.as_bytes()));
@@ -311,13 +338,15 @@ async fn write_auth(
     Ok(())
 }
 
-async fn run_session(
-    tls: SslStream<TcpStream>,
+async fn run_session<S>(
+    tls: SslStream<S>,
     mut outbound_rx: mpsc::Receiver<Outbound>,
     outbound_tx: mpsc::Sender<Outbound>,
     streams: Arc<Mutex<HashMap<u32, StreamRoute>>>,
     client_state: Arc<Mutex<ClientState>>,
-) {
+) where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     let (mut reader, mut writer) = tokio::io::split(tls);
     let write_state = Arc::clone(&client_state);
     let writer_task = tokio::spawn(async move {

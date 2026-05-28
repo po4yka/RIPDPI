@@ -76,6 +76,7 @@ data class ResolvedChainRelayHopConfig(
     val shadowTlsInnerProfileId: String = "",
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
     val trojanRootCertificatePem: String? = null,
+    val anytlsRootCertificatePem: String? = null,
     val naivePath: String = "",
     val vlessUuid: String? = null,
     val hysteriaPassword: String? = null,

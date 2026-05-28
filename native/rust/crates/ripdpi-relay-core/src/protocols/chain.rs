@@ -24,6 +24,7 @@ pub(crate) enum ChainEntryConnector {
     VlessReality(ripdpi_vless::config::VlessRealityConfig),
     Masque(ripdpi_masque::config::MasqueConfig),
     Trojan(ripdpi_relay_tls_transports::TrojanClientConfig),
+    AnyTls(ripdpi_relay_tls_transports::AnyTlsClientConfig),
     Shadowsocks(ripdpi_relay_tls_transports::ShadowsocksSessionFactory),
 }
 
@@ -59,6 +60,16 @@ impl ChainEntryConnector {
                 let stream = ripdpi_relay_tls_transports::connect_trojan_tcp(config, target).await?;
                 Ok(Box::new(stream))
             }
+            Self::AnyTls(config) => {
+                if outbound_bind_ip.is_some() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "chain AnyTLS entry does not support outbound bind IP",
+                    ));
+                }
+                let stream = ripdpi_relay_tls_transports::connect_anytls_tcp(config, target).await?;
+                Ok(Box::new(stream))
+            }
             Self::Shadowsocks(factory) => {
                 let stream = ripdpi_relay_tls_transports::connect_shadowsocks_tcp(factory, target).await?;
                 Ok(Box::new(stream))
@@ -72,6 +83,7 @@ pub(crate) enum ChainExitConnector {
     VlessReality(ripdpi_vless::config::VlessRealityConfig),
     Masque(ripdpi_masque::config::MasqueConfig),
     Trojan(ripdpi_relay_tls_transports::TrojanClientConfig),
+    AnyTls(ripdpi_relay_tls_transports::AnyTlsClientConfig),
     Shadowsocks(ripdpi_relay_tls_transports::ShadowsocksSessionFactory),
 }
 
@@ -81,6 +93,7 @@ impl ChainExitConnector {
             Self::VlessReality(config) => Ok(format!("{}:{}", config.server, config.port)),
             Self::Masque(config) => masque_proxy_target(config),
             Self::Trojan(config) => Ok(ripdpi_relay_tls_transports::trojan_proxy_target(config)),
+            Self::AnyTls(config) => Ok(ripdpi_relay_tls_transports::anytls_proxy_target(config)),
             Self::Shadowsocks(factory) => Ok(ripdpi_relay_tls_transports::shadowsocks_proxy_target(factory)),
         }
     }
@@ -97,6 +110,10 @@ impl ChainExitConnector {
             }
             Self::Trojan(config) => {
                 let stream = ripdpi_relay_tls_transports::connect_trojan_tcp_over(config, transport, target).await?;
+                Ok(Box::new(stream))
+            }
+            Self::AnyTls(config) => {
+                let stream = ripdpi_relay_tls_transports::connect_anytls_tcp_over(config, transport, target).await?;
                 Ok(Box::new(stream))
             }
             Self::Shadowsocks(factory) => {

@@ -88,6 +88,8 @@ pub struct ResolvedChainRelayHopConfig {
     #[serde(default)]
     pub trojan_root_certificate_pem: Option<String>,
     #[serde(default)]
+    pub anytls_root_certificate_pem: Option<String>,
+    #[serde(default)]
     pub naive_path: String,
     #[serde(default)]
     pub vless_uuid: Option<String>,
@@ -161,6 +163,7 @@ impl Default for ResolvedChainRelayHopConfig {
             shadow_tls_inner_profile_id: String::new(),
             shadow_tls_inner: None,
             trojan_root_certificate_pem: None,
+            anytls_root_certificate_pem: None,
             naive_path: String::new(),
             vless_uuid: None,
             hysteria_password: None,

@@ -3,7 +3,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 pub use ripdpi_anytls::session::AnyTlsClientConfig;
 
@@ -71,6 +71,35 @@ impl AnyTlsUdpSession {
         let datagram = self.udp.recv_datagram().await.map_err(to_io_error)?;
         Ok((anytls_authority(datagram.target, datagram.port), datagram.payload))
     }
+}
+
+pub async fn connect_anytls_tcp(
+    config: &AnyTlsClientConfig,
+    target: &str,
+) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send> {
+    let client = ripdpi_anytls::session::AnyTlsClient::new(config.clone()).map_err(to_io_error)?;
+    let (addr, port) = target_to_anytls(target)?;
+    let stream = client.open_tcp(addr, port).await.map_err(to_io_error)?;
+    Ok(bridge_stream(stream))
+}
+
+pub async fn connect_anytls_tcp_over<S>(
+    config: &AnyTlsClientConfig,
+    transport: S,
+    target: &str,
+) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send>
+where
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
+    let (addr, port) = target_to_anytls(target)?;
+    let stream = ripdpi_anytls::session::AnyTlsClient::open_tcp_over(config.clone(), transport, addr, port)
+        .await
+        .map_err(to_io_error)?;
+    Ok(bridge_stream(stream))
+}
+
+pub fn anytls_proxy_target(config: &AnyTlsClientConfig) -> String {
+    format!("{}:{}", config.server_host, config.server_port)
 }
 
 fn bridge_stream(mut anytls: ripdpi_anytls::session::AnyTlsStream) -> tokio::io::DuplexStream {

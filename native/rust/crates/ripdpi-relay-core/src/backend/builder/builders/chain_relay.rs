@@ -60,6 +60,7 @@ fn chain_entry_connector(
         }
         "masque" => resolved_hop_masque_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::Masque),
         "trojan" => resolved_hop_trojan_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::Trojan),
+        "anytls" => resolved_hop_anytls_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::AnyTls),
         "shadowsocks" => resolved_hop_shadowsocks_factory(hop, ChainHopRole::Entry, outbound_bind_ip)
             .map(ChainEntryConnector::Shadowsocks),
         other => Err(io::Error::new(
@@ -83,6 +84,7 @@ fn chain_exit_connector(
         }
         "masque" => resolved_hop_masque_config(hop, ChainHopRole::Exit).map(ChainExitConnector::Masque),
         "trojan" => resolved_hop_trojan_config(hop, ChainHopRole::Exit).map(ChainExitConnector::Trojan),
+        "anytls" => resolved_hop_anytls_config(hop, ChainHopRole::Exit).map(ChainExitConnector::AnyTls),
         "shadowsocks" => {
             resolved_hop_shadowsocks_factory(hop, ChainHopRole::Exit, None).map(ChainExitConnector::Shadowsocks)
         }
@@ -166,6 +168,25 @@ fn resolved_hop_trojan_config(
         password: hop.trojan_password.clone().unwrap_or_default(),
         tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
         root_certificate_pem: hop.trojan_root_certificate_pem.clone(),
+    })
+}
+
+fn resolved_hop_anytls_config(
+    hop: &ResolvedChainRelayHopConfig,
+    role: ChainHopRole,
+) -> io::Result<ripdpi_relay_tls_transports::AnyTlsClientConfig> {
+    let label = role.label();
+    let server_port = u16::try_from(hop.server_port).map_err(|_| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: AnyTLS server port must fit u16"))
+    })?;
+    Ok(ripdpi_relay_tls_transports::AnyTlsClientConfig {
+        server_host: hop.server.clone(),
+        server_port,
+        server_name: hop.server_name.clone(),
+        password: hop.anytls_password.clone().unwrap_or_default(),
+        tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
+        root_certificate_pem: hop.anytls_root_certificate_pem.clone(),
+        client_name: "ripdpi-anytls/0.1.0".to_string(),
     })
 }
 
