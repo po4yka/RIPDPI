@@ -1,6 +1,10 @@
 [
   "activeSessions",
   "capturedAt",
+  "chainEntryLatencyMs",
+  "chainEntryState",
+  "chainExitLatencyMs",
+  "chainExitState",
   "connectionQuality.jitterMs",
   "connectionQuality.lossPct",
   "connectionQuality.rttP50Ms",
