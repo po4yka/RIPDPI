@@ -75,9 +75,15 @@ root + diagnostics — would read better, but `Mode` is referenced in ~140 files
 and `AppStatus` in ~45; collapsing them onto a new type is broad rewiring of
 every status consumer and a behavior risk to start/stop. It is therefore a
 **documented future refactor**, not adopted here — the model above is the
-contract to reason against today. The safe first step would be a *derived*,
-read-only projection over `ServiceStateStore.status` plus the inferred layers,
-added without touching the existing enums or their consumers.
+contract to reason against today.
+
+The safe first step now exists as `RuntimeModeProjection` plus
+`RuntimeModeProjectionStore` (`core/service/.../service/runtime/`). This is a
+derived, read-only view over `ServiceStateStore.status`, runtime telemetry,
+root-mode settings, and diagnostics scan activity. It does not replace `Mode`,
+`AppStatus`, `ServiceStatus`, or any start/stop path; deferred inputs such as
+per-supervisor lifecycle phase and root-helper socket availability remain
+unobserved until a low-risk read-only seam exists.
 
 ---
 
