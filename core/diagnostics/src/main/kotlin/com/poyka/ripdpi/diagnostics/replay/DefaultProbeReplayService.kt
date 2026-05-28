@@ -42,9 +42,6 @@ import kotlin.coroutines.resume
  * Strategy activation: callers must wrap the [run] call in their own
  * activate-finally-restore block per StrategyProbeService.kt:201-234.
  * This service does NOT mutate AppSettings.
- *
- * Design ref: docs/architecture/G008_SUBSYSTEMS_DESIGN.md P4
- * implementation-plan item 2.
  */
 class DefaultProbeReplayService
     @Inject

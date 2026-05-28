@@ -13,16 +13,13 @@ import javax.inject.Singleton
  *
  * The returned string is ALWAYS a string-resource key (e.g.
  * `vpn_replay_rec_rst_after_client_hello`) — localised resolution
- * happens at the UI layer in P4.5. The catalog never carries
+ * happens at the UI layer. The catalog never carries
  * user-visible strings, to avoid locale-rot in the data layer.
  *
  * The catalog is loaded lazily on first lookup and cached for the
  * lifetime of the singleton. Asset open is cheap on Android, but the
  * JSON parse is the expensive part — keeping it lazy + cached
  * eliminates the parse cost from the hot replay path.
- *
- * Design ref: docs/architecture/G008_SUBSYSTEMS_DESIGN.md P4
- * implementation-plan item 3.
  */
 @Singleton
 class ReplayRecommendationEngine internal constructor(

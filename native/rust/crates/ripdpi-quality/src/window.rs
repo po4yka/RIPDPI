@@ -1,7 +1,7 @@
 //! `QualityWindow` — bounded rolling-window aggregator for TCP-connect samples.
 //!
 //! Mirrors `ripdpi_telemetry::LatencyHistogram` in lock-mutator shape, with
-//! these additions per `docs/architecture/G008_SUBSYSTEMS_DESIGN.md` § P5:
+//! connection-quality additions:
 //!
 //! - TWO histograms (instant 60s, series 15min, both capped at 60_000 ms with
 //!   2-significant-digit precision; ≈2 KB each, ≈4 KB total per window).

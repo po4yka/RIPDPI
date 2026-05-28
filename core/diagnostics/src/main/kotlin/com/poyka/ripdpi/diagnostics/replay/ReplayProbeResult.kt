@@ -7,11 +7,8 @@ import kotlinx.collections.immutable.ImmutableList
  * [ReplayStepEvent]s from [ProbeReplayService.run] up to and including
  * the [ReplayStepEvent.Finished] event.
  *
- * Suitable for archive persistence (P4.6) and for unit-testing the
+ * Suitable for archive persistence and for unit-testing the
  * orchestrator's terminal contract.
- *
- * Design ref: docs/architecture/G008_SUBSYSTEMS_DESIGN.md P4
- * implementation-plan item 6 (archive integration).
  */
 data class ReplayProbeResult(
     val request: ReplayProbeRequest,

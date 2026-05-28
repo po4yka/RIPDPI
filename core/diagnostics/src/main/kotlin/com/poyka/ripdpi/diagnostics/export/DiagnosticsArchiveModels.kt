@@ -53,11 +53,9 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Stays at 4: replay-results.json is a purely-additive optional file
-    // (mirrors PCAP-files inclusion at G008 P3 — they did not bump
-    // schemaVersion either). Downstream readers ignore unknown files /
-    // unknown payload fields. Bump to 5 only when an existing contract
-    // changes shape.
+    // Stays at 4: replay-results.json is a purely-additive optional file.
+    // Downstream readers ignore unknown files / unknown payload fields. Bump
+    // to 5 only when an existing contract changes shape.
     const val schemaVersion = 4
     const val privacyMode = "split_output"
     const val scope = "hybrid"

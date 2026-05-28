@@ -297,9 +297,9 @@ These are design tokens, brand guidelines, and accessibility references — no d
 
 ---
 
-## G008 Subsystems Status (post-2026-05-25 session)
+## Telemetry / PCAP / Replay Status (post-2026-05-25 session)
 
-Three Rust+JNI+Kotlin subsystems backing the VPN-flow partials, ratified by `docs/architecture/G008_SUBSYSTEMS_DESIGN.md`. Implementation order P5 → P3 → P4. **34 commits landed; load-bearing pieces shipped; explicit deferrals documented per phase.**
+Three Rust+JNI+Kotlin subsystems backing the VPN-flow partials shipped in the P5 → P3 → P4 order. **34 commits landed; load-bearing pieces shipped; explicit deferrals documented per phase.**
 
 ### P5 — Connection-quality telemetry (TUN-mode end-to-end live)
 
@@ -307,7 +307,7 @@ Three Rust+JNI+Kotlin subsystems backing the VPN-flow partials, ratified by `doc
 
 ⏳ **Deferred:**
 - Observer install for proxy/relay/warp runtimes (snapshot field populates `null` until the producer-side TCP-connect timing is instrumented in `ripdpi-proxy-runtime` — separate-crate edit).
-- Loss-percentage tracking (P5 ships without loss; tracking is a separate week of retransmit-count instrumentation per the design).
+- Loss-percentage tracking (P5 ships without loss; tracking is a separate week of retransmit-count instrumentation).
 - Canvas-based plotting on `QualityGraphsScreen` — depends on chart-library decision (Vico / hand-rolled / Compose Canvas).
 - Goldens for new wire fields — additive `Option` fields are wire-tolerant; a dedicated bless commit could harden the field-manifest contract.
 
@@ -334,6 +334,6 @@ Three Rust+JNI+Kotlin subsystems backing the VPN-flow partials, ratified by `doc
 - `// SAFETY:` block on the only new `unsafe` site (`OwnedFd::from_raw_fd`)
 - 7-locale string parity enforced in every UI-touching commit (lint.xml `MissingTranslation severity="error"`)
 - `--locked` cargo discipline in every Rust commit
-- No `RIPDPI_BLESS_GOLDENS=1` in automation — the one contract-fixture rebless was explicitly authorised under the design's additive-field protocol
+- No `RIPDPI_BLESS_GOLDENS=1` in automation — the one contract-fixture rebless was explicitly authorised for an additive field
 - Architecture-delta hook respected: when adding `connectionQuality` to `MainStateResolvers`/`MainViewModel` would have widened their file-feature-spread baseline, the projection moved into a sibling `MainQualityResolver.kt` (1 feature family)
 - `#![forbid(unsafe_code)]` on both pure library crates (`ripdpi-quality`, `ripdpi-pcap`)

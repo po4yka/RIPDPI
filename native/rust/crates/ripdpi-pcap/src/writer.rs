@@ -5,8 +5,8 @@ use crate::constants::{LINKTYPE_RAW, MAGIC};
 /// Writes classic-libpcap records to any `Write` sink.
 ///
 /// Caller-owned `Write`. The writer does NOT auto-flush; callers must
-/// drive `flush()` on their schedule (per the design, 1 Hz or every 1
-/// MiB whichever first). Drop is a no-op for the inner sink (caller
+/// drive `flush()` on their schedule (1 Hz or every 1 MiB whichever
+/// first). Drop is a no-op for the inner sink (caller
 /// retains ownership semantics).
 pub struct PcapWriter<W: Write> {
     inner: W,
@@ -61,7 +61,7 @@ impl<W: Write> PcapWriter<W> {
     }
 
     /// Force the inner writer's buffer to disk. Caller drives the
-    /// schedule per the design (1 Hz or 1 MiB).
+    /// schedule (1 Hz or 1 MiB).
     pub fn flush(&mut self) -> io::Result<()> {
         self.inner.flush()
     }

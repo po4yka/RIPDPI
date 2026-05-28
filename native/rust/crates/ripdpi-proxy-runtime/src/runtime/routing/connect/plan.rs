@@ -67,9 +67,8 @@ fn connect_target_via_group_with_policy(
     let stream = match connect_result {
         Ok(stream) => stream,
         Err(err) => {
-            // P5.4 producer-side failure-path timing — symmetric with the
-            // success-path emission in `record_connect_telemetry` so the
-            // QualityWindow sees both arms and `loss_pct` becomes meaningful.
+            // Emit failure-path timing symmetrically with the success-path
+            // `record_connect_telemetry` path so QualityWindow sees both arms.
             let rtt_ms = started.elapsed().as_millis() as u64;
             let kind = err.source.kind();
             state.note_upstream_connect_failed(target, rtt_ms, kind);

@@ -1,9 +1,5 @@
 //! Per-session PCAP capture set: bounded MPSC queue + dedicated
 //! writer thread that drains records into a rotating libpcap file.
-//!
-//! Design ref: docs/architecture/G008_SUBSYSTEMS_DESIGN.md P3
-//! implementation-plan item 2.
-//!
 //! The local [`PcapCaptureRecord`] is intentionally named to avoid a
 //! collision with `ripdpi_pcap::PcapRecord` (the reader-side record
 //! type). The local type carries owned bytes, since it crosses the
@@ -46,7 +42,7 @@ pub struct PcapCaptureMetadata {
     pub ended_at_ms: u64,
     /// Number of records dropped because the queue was full at the
     /// moment of submission. Surfaced in the UI as a "lossy capture"
-    /// warning chip per the design.
+    /// warning chip.
     pub drops: u64,
 }
 
@@ -54,8 +50,7 @@ pub struct PcapCaptureMetadata {
 ///
 /// Created via [`PcapCaptureSet::start`]; stopped via
 /// [`PcapCaptureSet::stop`]. The writer thread is named
-/// `ripdpi-pcap-writer-<set_id>` per the design's thread-naming rule
-/// (.claude/rules/android-vpn-lifecycle.md).
+/// `ripdpi-pcap-writer-<set_id>` for log and trace readability.
 pub struct PcapCaptureSet {
     set_id: u64,
     dir: PathBuf,
@@ -73,8 +68,7 @@ struct WriterResult {
 impl PcapCaptureSet {
     /// Start a capture session. Spawns the writer thread immediately
     /// and returns. Records pushed via [`Self::submit`] are flushed at
-    /// most every 1 s OR every 1 MiB written, whichever first (per the
-    /// design's capture-loop decision).
+    /// most every 1 s OR every 1 MiB written, whichever first.
     ///
     /// `dir` must already exist and be writable. `max_file_bytes` and
     /// `max_files` together cap the on-disk footprint (default per

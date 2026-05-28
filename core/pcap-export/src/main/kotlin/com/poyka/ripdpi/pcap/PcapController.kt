@@ -25,8 +25,6 @@ import javax.inject.Singleton
  * ownership to Rust, then invokes `jniPcapRedactToFile`. The contract
  * is enforced HERE - the only call site for `jniPcapRedactToFile` - so
  * the fd-ownership rule in the Rust SAFETY block holds.
- *
- * Design ref: docs/architecture/G008_SUBSYSTEMS_DESIGN.md P3.5.
  */
 @Singleton
 class PcapController
@@ -38,8 +36,8 @@ class PcapController
 
         /**
          * Returns capture-set id on success, 0 on failure. Caller stores
-         * the id to call stop later (though the design's "single capture
-         * per session" rule means session handle alone is sufficient).
+         * the id to call stop later, though the single-capture-per-session
+         * rule means the session handle alone is sufficient.
          */
         suspend fun start(
             sessionHandle: Long,
@@ -94,7 +92,7 @@ class PcapController
             }
 
         companion object {
-            /** 16 MiB per file, 4-file retention per the design's P3 risk-mitigation. */
+            /** 16 MiB per file, 4-file retention for bounded local captures. */
             const val DEFAULT_MAX_FILE_BYTES: Long = 16L * 1024L * 1024L
             const val DEFAULT_MAX_FILES: Int = 4
 

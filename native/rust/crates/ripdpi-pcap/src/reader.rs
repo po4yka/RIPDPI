@@ -14,7 +14,7 @@ pub struct PcapRecord {
 ///
 /// Tolerant of truncated-tail records (returns the last good record
 /// then `None` at the next call) - this is the common case after a
-/// `SIGKILL` mid-write per the design's process-death contract.
+/// `SIGKILL` mid-write.
 pub struct PcapReader<R: Read> {
     inner: R,
     snaplen: u32,

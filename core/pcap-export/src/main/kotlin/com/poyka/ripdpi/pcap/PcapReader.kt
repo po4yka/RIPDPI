@@ -44,9 +44,8 @@ data class PcapReaderRecord(
 
 /**
  * Classic-libpcap reader that mirrors `ripdpi_pcap::PcapReader` on the
- * Rust side. Tolerant of truncated-tail records per the design's
- * SIGKILL-mid-write contract (returns null at the next read instead
- * of throwing).
+ * Rust side. Tolerant of truncated-tail records after a process-death
+ * mid-write (returns null at the next read instead of throwing).
  *
  * The constructor consumes the 24-byte global header and validates
  * magic + linktype. Any subsequent IO error during record reads

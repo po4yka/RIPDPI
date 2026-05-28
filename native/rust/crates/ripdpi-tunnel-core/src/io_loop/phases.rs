@@ -35,7 +35,7 @@ pub(in crate::io_loop) async fn drain_tun(tun: &AsyncDevice, state: &mut LoopSta
         // routing. No `.await`, no allocation when no observer is
         // installed -- cancel-safety of `drain_tun` is preserved.
         state.stats.on_inbound_packet(packet);
-        // P5#1: observe TCP retransmits for loss-percentage tracking.
+        // Observe TCP retransmits for loss-percentage tracking.
         // O(1) amortised; no logging on the hot path.
         state.retransmit_tracker.observe(packet);
         route_tun_packet(packet, state).await;

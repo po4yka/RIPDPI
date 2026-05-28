@@ -4,8 +4,7 @@
 //! failure) into two `hdrhistogram::Histogram<u64>` instances — a 60-second
 //! "instant" window for the DegradationStrip's current values and a 15-minute
 //! "series" window for the throughput / latency graphs. It is the producer
-//! side of the connection-quality contract defined in
-//! `docs/architecture/G008_SUBSYSTEMS_DESIGN.md` § P5.
+//! side of the connection-quality telemetry contract.
 //!
 //! The crate is `#![forbid(unsafe_code)]` and intentionally adapter-agnostic:
 //! the four runtimes (`ripdpi-tunnel-android`, `ripdpi-android-telemetry-adapter`,

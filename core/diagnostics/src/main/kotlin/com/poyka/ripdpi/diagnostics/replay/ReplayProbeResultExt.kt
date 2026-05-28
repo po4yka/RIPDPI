@@ -14,9 +14,6 @@ import kotlinx.coroutines.flow.toList
  * [ReplayVerdict.Cancelled], a null [ReplayProbeResult.terminalStep],
  * and an empty [ReplayProbeResult.recommendationKey] — consistent with
  * the recommendation engine's "no rule matches" fallback contract.
- *
- * Design ref: docs/architecture/G008_SUBSYSTEMS_DESIGN.md P4
- * implementation-plan item 6 (archive integration).
  */
 suspend fun ProbeReplayService.runToCompletion(request: ReplayProbeRequest): ReplayProbeResult {
     val events = run(request).toList()

@@ -109,11 +109,11 @@ The `record_quic_migration_status(status, reason)` call writes into the snapshot
 
 ### Stability and bump policy
 
-These strings are part of the telemetry export schema and should not change without bumping the relevant catalog or telemetry consumers. A planned typed `H3FallbackReason` enum (see `docs/tasks/issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md`) will replace the strings with a non-exhaustive Rust enum once downstream consumers are wired to dispatch on it.
+These strings are part of the telemetry export schema and should not change without bumping the relevant catalog or telemetry consumers. `ripdpi-masque::migration` defines `MigrationStatus` and `H3FallbackReason` as typed vocabulary helpers that render the stable wire strings. The runtime still accepts string status/reason pairs through `record_quic_migration_status` for backwards compatibility while callsites and downstream consumers migrate.
 
 ### Existing test coverage
 
 - `quic_migration_snapshot_records_http2_fallback_reason` exercises the `http2_fallback` + `http3_connect_failed_connect` pair.
 - `new_client_starts_with_not_attempted_quic_snapshot` asserts the initial state.
 
-The remaining work — one dedicated test per status/reason pair plus the typed enum migration — is tracked in the task above.
+The remaining work — one dedicated test per status/reason pair plus migrating callsites away from ad hoc string construction — is tracked in `docs/tasks/issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md`.

@@ -8,13 +8,11 @@ import kotlinx.coroutines.flow.Flow
  * fails. Cancel-safe per the underlying OkHttp Call.cancel() contract.
  *
  * Implementations:
- * - [DefaultProbeReplayService] - the OkHttp-backed production impl
- *   (lands in P4.2)
+ * - [DefaultProbeReplayService] - the OkHttp-backed production implementation.
  *
  * Mutates the live strategy via SettingsStrategyProbeActivator -
  * callers must show the "Replay disrupts live session" confirmation
- * dialog when the VPN is in a non-Halted state per the design's
- * P4 risk-mitigation. See StrategyProbeService.kt:201-234 for the
+ * dialog when the VPN is in a non-Halted state. See StrategyProbeService.kt:201-234 for the
  * activate/finally-restore precedent.
  */
 fun interface ProbeReplayService {

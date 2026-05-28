@@ -48,8 +48,7 @@ pub enum TransportKind {
 /// Emitted as an additive field on `NativeRuntimeSnapshot`. All fields are
 /// camelCase on the wire to match the existing telemetry conventions at
 /// `telemetry/types.rs:7`. None of the fields leak per-host information —
-/// the producer aggregates before the histogram boundary, see
-/// `docs/architecture/G008_SUBSYSTEMS_DESIGN.md` § P5 "Privacy".
+/// the producer aggregates before the histogram boundary.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionQualitySnapshot {

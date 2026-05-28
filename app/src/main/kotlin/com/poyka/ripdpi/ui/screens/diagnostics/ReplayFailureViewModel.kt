@@ -35,9 +35,6 @@ import javax.inject.Inject
  * [ReplayFailureScreen]; this view-model translates the orchestration
  * model ([ReplayStepEvent] / [ReplayStepKind] / [ReplayErrorKind]) into
  * them so the screen never sees the core/diagnostics types directly.
- *
- * Design ref: docs/architecture/G008_SUBSYSTEMS_DESIGN.md P4
- * implementation-plan item 4.
  */
 data class ReplayFailureUiState(
     val timestampLabel: String = "",

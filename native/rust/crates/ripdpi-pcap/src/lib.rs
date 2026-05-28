@@ -1,15 +1,13 @@
 #![forbid(unsafe_code)]
 
 //! Classic libpcap (LINKTYPE_RAW) writer + reader + endpoint-redaction
-//! for the RIPDPI PCAP-export subsystem (G008-P3).
+//! for the RIPDPI PCAP-export subsystem.
 //!
 //! Format: classic pcap with `0xa1b2c3d4` magic, version 2.4, LINKTYPE_RAW
 //! (101). The TUN device yields bare IPv4 / IPv6 packets - no Ethernet
 //! frame - so the raw linktype matches the wire shape exactly.
 //!
 //! Wireshark / tshark / tcpdump open the output without arguments.
-//!
-//! Design ref: docs/architecture/G008_SUBSYSTEMS_DESIGN.md P3.
 
 mod constants;
 mod reader;

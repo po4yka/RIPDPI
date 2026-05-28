@@ -92,9 +92,9 @@ fn redact_ipv6(bytes: &mut [u8]) {
         *b = 0;
     }
     // IPv6 has no header checksum. TCP/UDP checksums are MANDATORY in
-    // IPv6 (RFC 2460) and tools verify them, so zeroing them is a
-    // documented tradeoff per the design's "modern tooling tolerates"
-    // note. We still zero for consistency with IPv4 behavior.
+    // IPv6 (RFC 2460) and tools verify them, so zeroing them is an
+    // explicit redaction tradeoff. We still zero for consistency with
+    // IPv4 behavior.
     let next_header = bytes[6];
     let payload_start = 40;
     match next_header {

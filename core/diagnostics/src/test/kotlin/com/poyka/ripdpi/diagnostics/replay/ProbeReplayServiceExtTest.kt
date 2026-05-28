@@ -9,10 +9,7 @@ import org.junit.Test
 /**
  * Exercises [runToCompletion] against canned [ReplayStepEvent] flows,
  * asserting the terminal-aggregate contract that archive persistence
- * (P4.6) and downstream verdict consumers depend on.
- *
- * Design ref: docs/architecture/G008_SUBSYSTEMS_DESIGN.md P4
- * implementation-plan item 6 (archive integration).
+ * and downstream verdict consumers depend on.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProbeReplayServiceExtTest {

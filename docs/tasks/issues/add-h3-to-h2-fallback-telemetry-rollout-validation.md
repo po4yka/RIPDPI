@@ -34,8 +34,8 @@ The existing test `quic_migration_snapshot_records_http2_fallback_reason` covers
 
 ## Acceptance criteria
 
-- [x] (partial, 2026-05-15) An enum (or string vocabulary) enumerates fallback-trigger reasons. **DONE as string vocabulary** documented in `docs/native/relay-masque-status.md` § "QUIC Migration Telemetry Vocabulary". Typed enum migration tracked as remaining work.
-- [ ] Each reason has a dedicated unit test asserting the snapshot captures it. **DEFERRED:** the existing `quic_migration_snapshot_records_http2_fallback_reason` test covers one pair; per-reason coverage pairs with the typed-enum migration to keep the test set exhaustive.
+- [x] (partial, 2026-05-15; refreshed 2026-05-28) An enum (or string vocabulary) enumerates fallback-trigger reasons. `native/rust/crates/ripdpi-masque/src/migration.rs` defines `MigrationStatus` and `H3FallbackReason` helpers that render the documented stable strings; `record_quic_migration_status` still accepts strings for backwards compatibility while callsites migrate.
+- [ ] Each reason has a dedicated unit test asserting the snapshot captures it. **DEFERRED:** the existing `quic_migration_snapshot_records_http2_fallback_reason` test covers one pair; per-reason coverage plus callsite migration keeps the test set exhaustive.
 - [x] (2026-05-15) The telemetry export schema is documented in `docs/native/relay-masque-status.md`.
 
 ## Definition of done

@@ -1,8 +1,8 @@
 //! JNI-callable capture-set management for the PCAP bridge.
 //!
 //! Each tunnel session can have ONE active capture-set at a time
-//! (extensibility for multiple-per-session is intentionally deferred
-//! per the P3 design). The per-session registry is keyed by tunnel
+//! (extensibility for multiple-per-session is intentionally deferred).
+//! The per-session registry is keyed by tunnel
 //! handle (the same opaque `jlong` that `jniCreate` returns) so the
 //! stop / list / redact entries can locate the capture without
 //! re-plumbing it through Kotlin.
@@ -11,9 +11,6 @@
 //! i64, etc.) so they are unit-testable without spinning up a JVM.
 //! The thin JNI wrappers in `crate::entry` convert JNI-layer types
 //! (JString / jlong / jint) and dispatch into here.
-//!
-//! Design ref: docs/architecture/G008_SUBSYSTEMS_DESIGN.md P3
-//! implementation-plan item 4.
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -136,8 +133,7 @@ pub(crate) fn pcap_redact_entry(source_path: PathBuf, dest_fd: i32) -> u64 {
     // is dropped at function return. If Kotlin called `.fd()` instead
     // of `detachFd()`, both sides would close the fd, producing an
     // EBADF or a future-fd reuse race -- this is enforced by the
-    // single-call-site contract on the Kotlin `PcapController` class
-    // (see G008 P3.5).
+    // single-call-site contract on the Kotlin `PcapController` class.
     let dest_owned = unsafe { OwnedFd::from_raw_fd(dest_fd) };
     let dest_file = File::from(dest_owned);
     let dest = BufWriter::new(dest_file);

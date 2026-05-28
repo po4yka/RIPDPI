@@ -19,10 +19,8 @@ import kotlinx.collections.immutable.ImmutableList
 private const val BytesPerKilobyte = 1024L
 
 /**
- * P3.7 of G008. Lists previously-captured .pcap files for the user
- * to view (routes to PcapViewerScreen) or export (routes to
- * RipDpiExportConsentDialog). Capture-start happens elsewhere via
- * the Settings -> Developer toggle (P3.8).
+ * Lists previously-captured .pcap files for the user to view or export.
+ * Capture-start happens elsewhere via the Settings -> Developer toggle.
  *
  * Empty-state shows the toggle-enablement hint. Each row surfaces
  * file size + packet count + drops warning when capture was lossy.
