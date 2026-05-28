@@ -9,7 +9,10 @@ Relay-core ties the concrete transport crates together: it owns the
 `RelaySession` abstraction (including `open_datagram` for datagram-capable
 transports), runtime/config wiring, runtime validation, and the telemetry
 surface. It rejects unsupported relay/mode combinations early rather than
-dropping them silently.
+dropping them silently. NaiveProxy is registered with `builder = None` and
+`fallback_mode = "subprocess"` because Kotlin supervises the helper process
+outside relay-core. Snowflake, WebTunnel, and obfs4 are external pluggable
+transport binaries and are not relay-core descriptor rows.
 
 ## Stable identifiers / contracts
 
@@ -19,9 +22,11 @@ the Android relay bridge depends on. Relay selection is keyed by the
 
 ## Dependency direction
 
-**Upstream:** `ripdpi-relay-mux` + the transport crates (`ripdpi-hysteria2`,
-`ripdpi-masque`, `ripdpi-shadowtls`, `ripdpi-tuic`, `ripdpi-vless`,
-`ripdpi-xhttp`). **Downstream:** `ripdpi-relay-android` → `libripdpi-relay.so`.
+**Upstream:** `ripdpi-relay-mux`, `ripdpi-relay-tls-transports`, and transport
+crates including `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-shadowtls`,
+`ripdpi-tuic`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-trojan`,
+`ripdpi-anytls`, `ripdpi-shadowsocks`, and `ripdpi-tor`. **Downstream:**
+`ripdpi-relay-android` → `libripdpi-relay.so`.
 
 ## Non-root fallback
 
@@ -36,11 +41,14 @@ for the privileged path it does not use.
 3. Adding a new **relay kind** (a new `relay_kind` string) is a cross-cutting
    change — follow [`FEATURE_EXTENSION_GUIDE.md`](../../../../docs/architecture/FEATURE_EXTENSION_GUIDE.md) §2.
 
-## Planned Tor backend
+## Tor backend
 
-The Tor relay backend is gated by [`tor-relay-step0-feasibility.md`](../../../../docs/architecture/tor-relay-step0-feasibility.md). The accepted architecture is a new `ripdpi-tor` crate that wraps Arti (`arti-client`) and adapts `TorClient::connect((host, port)) -> DataStream` to relay-core's `connect_tcp(target) -> BoxedIo`.
+The Tor relay backend landed as `RelayBackendConfig::Tor`, `RelayKind::Tor`,
+`RelayBackend::Tor`, and the `ripdpi-tor` crate. It wraps Arti (`arti-client`)
+and adapts `TorClient::connect((host, port)) -> DataStream` to relay-core's
+`connect_tcp(target) -> BoxedIo`.
 
-Non-goals for this backend are UDP over Tor (`udp_capable=false`), running a Tor relay or onion service, replacing the fast proxy relays as the default, custom Tor path policy, and bundling PT implementations inside Arti. In censored profiles, Tor bootstrap must start through configured bridges plus external obfs4/WebTunnel PT binaries; direct directory bootstrap is not an acceptable fallback.
+Non-goals for this backend are UDP over Tor (`udp_capable=false`), running a Tor relay or onion service, replacing the fast proxy relays as the default, custom Tor path policy, and bundling PT implementations inside Arti. In censored profiles, Tor bootstrap must start through configured bridges plus external PT binaries; direct directory bootstrap is not an acceptable fallback for the bridge+PT profile path.
 
 ## Transport-descriptor seam
 

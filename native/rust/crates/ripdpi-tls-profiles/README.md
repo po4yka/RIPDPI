@@ -13,6 +13,7 @@ Per-backend opt-out is allowed only as an explicit policy input for compatibilit
 ## Non-Goals
 
 - VLESS Reality and ShadowTLS outbound are out of scope for this facade because they have their own SNI-cover schemes and need separate analysis.
+- VLESS Reality specifically does not use real ECH; the accepted policy is GREASE-only parity where profile evidence supports it. See [ADR 0001](../../../../docs/adr/0001-reality-ech.md).
 - Server-side ECH is out of scope.
 - Re-implementing HTTPS/SVCB RR parsing is out of scope; use `ripdpi-dns-resolver::https_service_binding`.
 - Re-implementing CDN ECH update/fallback logic is out of scope; use `ripdpi-diagnostics-dns::cdn_ech`.

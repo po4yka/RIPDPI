@@ -1,6 +1,6 @@
 # ripdpi-shadowsocks
 
-`ripdpi-shadowsocks` owns Shadowsocks protocol primitives for RIPDPI native relay integration. The crate is intentionally protocol-focused and remains an orphan library crate; relay-core integration should depend on it rather than moving cipher or framing logic into relay-core.
+`ripdpi-shadowsocks` owns Shadowsocks protocol primitives for RIPDPI native relay integration. The crate is protocol-focused; relay-core integration depends on it through `ripdpi-relay-tls-transports` rather than moving cipher or framing logic into relay-core.
 
 ## Intended Support
 
@@ -18,4 +18,4 @@
 
 ## Current Status
 
-The cipher layer has SIP004/SIP022 fixed-vector coverage for KDF and AEAD operations. TCP chunk framing covers SIP004 and SIP022 payload caps, nonce counters, and partial-frame behavior. UDP framing covers SIP004 round trips, SIP022 AES-GCM separate headers, SIP022 ChaCha20-Poly1305 XChaCha packet shape, server-to-client client-session IDs, and per-session replay filtering. Native relay-core wiring is implemented through `RelayBackend::Shadowsocks`, `RelayBackendConfig::Shadowsocks`, `ShadowsocksSessionFactory`, and the local-network fixture oracle. Android import/runtime wiring accepts supported SIP002 `ss://` methods, rejects legacy stream-cipher imports before runtime, bumps `RelayNativeConfigSchemaVersion` to v3, and projects method/password credentials into the native relay config.
+The cipher layer has SIP004/SIP022 fixed-vector coverage for KDF and AEAD operations. TCP chunk framing covers SIP004 and SIP022 payload caps, nonce counters, and partial-frame behavior. UDP framing covers SIP004 round trips, SIP022 AES-GCM separate headers, SIP022 ChaCha20-Poly1305 XChaCha packet shape, server-to-client client-session IDs, and per-session replay filtering. Native relay-core wiring is implemented through `RelayBackend::Shadowsocks`, `RelayBackendConfig::Shadowsocks`, `ShadowsocksSessionFactory`, and the local-network fixture oracle. Android import/runtime wiring accepts supported SIP002 `ss://` methods, rejects legacy stream-cipher imports before runtime, carries `RelayNativeConfigSchemaVersion = 6`, and projects method/password credentials into the native relay config.
