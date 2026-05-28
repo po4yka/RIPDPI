@@ -1,2 +1,0 @@
-No modules with compose-ai-tools plugin found.
-Apply the plugin: id("ee.schimke.composeai.preview")
