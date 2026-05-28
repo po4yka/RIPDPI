@@ -6,12 +6,14 @@ license.workspace = true
 
 [dependencies]
 arti-client = { workspace = true }
+rustls = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util"] }
+toml = { workspace = true }
 tor-rtcompat = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints]
 workspace = true
