@@ -38,7 +38,7 @@ transcript) · `BLOCKED` (verify failed twice or unmet dependency)
 | 15 | P1 | `add-credential-redaction-tests-for-vless-uuid-tuic-uuid-naive-auth`<br>Add credential redaction tests for VLESS UUID, TUIC UUID, NaiveProxy auth | task | `(no epic)` | testing | ⏫ | TODO | |
 | 16 | P1 | `add-fuzz-target-for-xhttp-finalmask-sudoku-decoder`<br>Add fuzz target for xHTTP FinalMask Sudoku decoder | task | `(no epic)` | testing | ⏫ | TODO | |
 | 17 | P1 | `add-fuzz-targets-for-vless-wire-and-mtproto-init`<br>Add fuzz targets for VLESS wire and MTProto init parsing | task | `(no epic)` | testing | ⏫ | TODO | |
-| 18 | P1 | `add-miri-test-pass-for-vless-reality-ffi-unsafe-blocks`<br>Add Miri test pass for VLESS Reality FFI unsafe blocks | task | `(no epic)` | testing | ⏫ | TODO | |
+| 18 | P1 | `add-miri-test-pass-for-vless-reality-ffi-unsafe-blocks`<br>Add Miri test pass for VLESS Reality FFI unsafe blocks | task | `(no epic)` | testing | ⏫ | DONE | `bash scripts/ci/run-rust-miri.sh` exited 0 on 2026-05-28 with 11 scoped-handle tests, 8 Reality-hook tests, and 3 privileged-ops `experimental_tier3` tests passed. |
 | 19 | P2 | `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry`<br>Gate fake-SNI cert-bypass behind allow_insecure_sni flag with telemetry | task | `epic-control-plane-hardening` | rust-native | ⏫ | TODO | |
 | 20 | P2 | `pin-boringssl-symbols-with-build-time-existence-check`<br>Pin BoringSSL Reality FFI symbols with a build-time existence check | task | `epic-control-plane-hardening` | rust-native | ⏫ | TODO | |
 | 21 | P2 | `add-utls-per-connection-tls-fingerprint-rotation`<br>Add uTLS per-connection TLS-fingerprint rotation for outbound TLS handshakes | task | `(no epic)` | rust-native | ⏫ | TODO | |
