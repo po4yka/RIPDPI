@@ -144,9 +144,10 @@ leaking into a core crate, or a non-L8 crate pulling `jni` / `android-support`
 machine-checked — verify them by review when touching `crate-type`, the
 platform-port crates, the L2 contract crates, or the support crates.
 
-Highest fan-in hubs (a change here ripples widest): `ripdpi-failure-classifier`
-(17 consumers), `ripdpi-config` (16), `ripdpi-diagnostics-contracts` (15),
-`ripdpi-packets` (14), `ripdpi-proxy-config` (14).
+Highest fan-in hubs (a change here ripples widest): `ripdpi-packets`
+(21 direct consumers), `ripdpi-failure-classifier` (18), `ripdpi-config` (18),
+`ripdpi-proxy-config` (16), `ripdpi-tls-profiles` (16), and
+`ripdpi-diagnostics-contracts` (15).
 
 ---
 
@@ -172,27 +173,27 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 
 | Crate | Responsibility | API surface | Key internal deps | Coupling / risk | Action |
 |-------|----------------|-------------|-------------------|-----------------|--------|
-| `ripdpi-packets` | Protocol classification + field extraction (TLS/HTTP/QUIC), mutation markers | Traits + registry + types | — (leaf) | Fan-in 14 | Keep — treat as core API |
-| `ripdpi-tls-profiles` | TLS fingerprint / ClientHello profile catalog | Profile constants + types | `ripdpi-packets` | Fan-in 10; pulls `boring` | Keep |
+| `ripdpi-packets` | Protocol classification + field extraction (TLS/HTTP/QUIC), mutation markers | Traits + registry + types | — (leaf) | Fan-in 21 | Keep — treat as core API |
+| `ripdpi-tls-profiles` | TLS fingerprint / ClientHello profile catalog | Profile constants + types | `ripdpi-packets` | Fan-in 16; pulls `boring` | Keep |
 | `ripdpi-socks5-core` | SOCKS5 / SOCKS4 protocol primitives | Codec types | — (leaf) | Shared by relay + tunnel + dns | Keep |
 | `ripdpi-ipfrag` | IP-level fragmentation (TCP + UDP/QUIC, v4/v6) | Functions + types | — (leaf) | Fan-in 6 | Keep |
 | `ripdpi-collections` | Generic data structures | Container types | — (leaf) | Low | Keep |
 | `ripdpi-geo` | Geo / IP database lookup (maxminddb) | Lookup API | — (leaf) | Used by `ripdpi-proxy-runtime` | Keep |
 | `ripdpi-protocol-detect` | Stream protocol detection | Detector types | `ripdpi-strategy-trait` | No runtime consumer; crate-local regression tests only | Keep only if the standalone detector test surface remains useful |
 | `ripdpi-protocol-loopback` | Loopback protocol test harness | Harness API | — (leaf) | Harness-only crate; no runtime consumer | Keep as the scaffold tracked by `protocol-loopback-harness-design.md` |
-| `ripdpi-dns-resolver` | Encrypted DNS client (DoH/DoT/DNSCrypt/DoQ) | Resolver API (async) | `ripdpi-socks5-core` | Fan-in 7; heavy ext deps (`quinn`, `boring`, `reqwest`) | Keep |
+| `ripdpi-dns-resolver` | Encrypted DNS client (DoH/DoT/DNSCrypt/DoQ) | Resolver API (async) | `ripdpi-socks5-core` | Fan-in 8; heavy ext deps (`quinn`, `boring`, `reqwest`) | Keep |
 | `ripdpi-pcap` | Classic pcap writer/reader + endpoint redaction | Pcap I/O API | — (leaf) | Used by tunnel Android capture/export paths | Keep |
 
 ### L2 — contracts / config
 
 | Crate | Responsibility | API surface | Key internal deps | Coupling / risk | Action |
 |-------|----------------|-------------|-------------------|-----------------|--------|
-| `ripdpi-config` | **Core** runtime/CLI config model + parsing | Config structs (serde) | `ripdpi-packets` | Fan-in 16; name implies "CLI-only" but it is the shared core config | Doc: clarify scope; do not rename (constraint) |
-| `ripdpi-proxy-config` | Proxy `RuntimeConfig` shape + strategy-config translation bridge | Config structs (serde) | `ripdpi-config`, `ripdpi-packets` | Fan-in 14 | Keep — treat as wire contract |
+| `ripdpi-config` | **Core** runtime/CLI config model + parsing | Config structs (serde) | `ripdpi-packets` | Fan-in 18; name implies "CLI-only" but it is the shared core config | Doc: clarify scope; do not rename (constraint) |
+| `ripdpi-proxy-config` | Proxy `RuntimeConfig` shape + strategy-config translation bridge | Config structs (serde) | `ripdpi-config`, `ripdpi-packets` | Fan-in 16 | Keep — treat as wire contract |
 | `ripdpi-tunnel-config` | TUN-to-SOCKS tunnel config model | Config structs | — (leaf) | Low | Keep |
 | `ripdpi-strategy-config` | Strategy-chain config model | Config structs | — (leaf) | Consumed by `ripdpi-android` directly | Keep |
 | `ripdpi-strategy-trait` | The strategy contract trait | Trait | — (leaf) | Fan-in 9 (all `ripdpi-strategy-*`) | Keep — hand-author, do not auto-generate |
-| `ripdpi-runtime-api` | Runtime API / port types | Traits + types | `ripdpi-failure-classifier`, `ripdpi-proxy-config` | Fan-in 8 | Keep |
+| `ripdpi-runtime-api` | Runtime API / port types | Traits + types | `ripdpi-failure-classifier`, `ripdpi-proxy-config` | Fan-in 9 | Keep |
 | `ripdpi-runtime-decision-ports` | Hexagonal decision-port traits | Traits | `ripdpi-config`, `ripdpi-desync`, `ripdpi-failure-classifier`, `ripdpi-proxy-config` | Port layer for L3/L4 | Keep |
 | `ripdpi-diagnostics-contracts` | Diagnostics wire contracts (`ScanRequest`/`ScanReport`) | Serde types | `ripdpi-proxy-config`, `ripdpi-telemetry` | Fan-in 15; Kotlin/Rust wire contract | Keep — golden-locked |
 | `ripdpi-telemetry` | Telemetry data structures + contracts | Serde types | — (leaf) | Wide fan-in via contracts | Keep — golden-locked |
@@ -203,8 +204,8 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 |-------|----------------|-------------|-------------------|-----------------|--------|
 | `ripdpi-desync` | DPI desync packet-strategy planning | Planner types | `ripdpi-config`, `ripdpi-ipfrag`, `ripdpi-packets`, `ripdpi-strategy-trait`, `ripdpi-tls-profiles` | Fan-in 10 | Keep |
 | `ripdpi-desync-runtime` | Desync execution runtime | Runtime types | `ripdpi-desync`, `ripdpi-session`, `ripdpi-proxy-config`, … | Mid fan-out | Keep |
-| `ripdpi-failure-classifier` | Connection-failure + block-signal classification | `classify_*` fns + types | `ripdpi-packets` | **Fan-in 17 (highest)** — shared by L6 + L4 | Keep — treat API as a contract |
-| `ripdpi-session` | Session state machine + policy store | State-machine API | `ripdpi-packets` | Fan-in 5 | Keep |
+| `ripdpi-failure-classifier` | Connection-failure + block-signal classification | `classify_*` fns + types | `ripdpi-packets` | Fan-in 18 — shared by L6 + L4 | Keep — treat API as a contract |
+| `ripdpi-session` | Session state machine + policy store | State-machine API | `ripdpi-packets` | Fan-in 4 | Keep |
 | `ripdpi-routing` | Routing rule engine | Rule API | — (leaf) | No runtime consumer | Prune candidate unless a routing feature wires it |
 | `ripdpi-shared-priors` | Offline-learner signed shared-priors bundles | Parser + verifier API | — (leaf) | Fail-secure parser (see architecture/README) | Keep |
 | `ripdpi-quality` | Rolling-window connection-quality telemetry | Quality-window API | — (leaf) | Consumed by tunnel/relay/warp Android adapters | Keep |
@@ -237,8 +238,8 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 
 | Crate | Responsibility | API surface | Key internal deps | Coupling / risk | Action |
 |-------|----------------|-------------|-------------------|-----------------|--------|
-| `ripdpi-runtime-platform` | Platform port — OS-primitive facade + non-root/root-helper adaptation | Facade modules + types | `ripdpi-capabilities`, `ripdpi-native-protect`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, … | Fan-in 8; platform hub | Keep — keep JNI-free |
-| `ripdpi-native-protect` | `VpnService.protect` socket-protection mechanism (port) | Protect-callback API | — (leaf) | Fan-in 6 | Keep — keep JNI-free |
+| `ripdpi-runtime-platform` | Platform port — OS-primitive facade + non-root/root-helper adaptation | Facade modules + types | `ripdpi-capabilities`, `ripdpi-native-protect`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, … | Fan-in 10; platform hub | Keep — keep JNI-free |
+| `ripdpi-native-protect` | `VpnService.protect` socket-protection mechanism (port) | Protect-callback API | — (leaf) | Fan-in 3 | Keep — keep JNI-free |
 | `ripdpi-tun-driver` | Raw TUN device socket handling | Driver API | — (leaf) | `tun-rs` | Keep |
 | `ripdpi-io-uring` | io_uring async I/O (Linux) | I/O API | — (leaf) | Linux-only path | Keep |
 | `ripdpi-capabilities` | Device capability model + detection | Capability types | — (leaf) | Feeds privileged-ops + platform | Keep |
@@ -252,7 +253,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 |-------|----------------|-------------|-------------------|-----------------|--------|
 | `ripdpi-diagnostics-candidates` | Strategy-probe candidate planning | Planner API | `ripdpi-diagnostics-contracts`, `ripdpi-runtime-platform`, … | Mid | Keep |
 | `ripdpi-diagnostics-classification` | Probe-result verdict classification | Classifier API | `ripdpi-diagnostics-candidates`, `ripdpi-failure-classifier`, … | Mid | Keep |
-| `ripdpi-diagnostics-dns` | DNS integrity / tampering probes | Probe API | `ripdpi-diagnostics-transport`, `ripdpi-dns-resolver`, … | Fan-in 6 | Keep |
+| `ripdpi-diagnostics-dns` | DNS integrity / tampering probes | Probe API | `ripdpi-diagnostics-transport`, `ripdpi-dns-resolver`, … | Fan-in 7 | Keep |
 | `ripdpi-diagnostics-fat-header` | TCP fat-header probes | Probe API | `ripdpi-diagnostics-{http,tls,transport}` | — | Keep |
 | `ripdpi-diagnostics-http` | HTTP reachability probes | Probe API | `ripdpi-diagnostics-{tls,transport}`, `ripdpi-failure-classifier` | Fan-in 6 | Keep |
 | `ripdpi-diagnostics-net` | Net-probe aggregation | Probe API | `ripdpi-diagnostics-{contracts,dns,fat-header,http,telegram,tls,transport}` | No runtime consumer; dep set mirrors `ripdpi-diagnostics-protocols` | Prune candidate unless a net-probe aggregator plan still needs it |

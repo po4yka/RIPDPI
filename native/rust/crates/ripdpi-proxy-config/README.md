@@ -30,7 +30,7 @@ runtime consumes. One config shape, not three loosely-matching serializers.
 ## Dependencies
 
 - **Upstream:** `ripdpi-config`, `ripdpi-packets`; `serde`, `serde_json`, `thiserror`.
-- **Downstream (≈14 consumers):** the runtime crates (`ripdpi-runtime-api`,
+- **Downstream (16 direct consumers):** the runtime crates (`ripdpi-runtime-api`,
   `-adaptive`, `-decision-ports`, `-services`, `ripdpi-proxy-runtime-adapter`,
   `ripdpi-proxy-runtime-desync-adapter`), the diagnostics crates, the monitor
   adapter, `ripdpi-ws-bootstrap`, and the Android proxy/telemetry adapters.

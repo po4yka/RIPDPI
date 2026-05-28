@@ -52,11 +52,11 @@ privileged root helper and a local path at call time: `vpn_protect`,
   `ripdpi-ipfrag`, `ripdpi-native-protect`, `ripdpi-privileged-ops`,
   `ripdpi-root-helper-protocol`, `ripdpi-io-uring`; plus `libc`, `nix`,
   `serde`, `serde_json`, `tracing`.
-- **Downstream (≈8 consumers):** `ripdpi-proxy-runtime-adapter`,
+- **Downstream (10 direct consumers):** `ripdpi-proxy-runtime-adapter`,
   `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-tunnel-android`,
   `ripdpi-tunnel-intercept`, `ripdpi-monitor-engine`,
-  `ripdpi-diagnostics-candidates`, `ripdpi-ws-bootstrap`, and the Android
-  platform adapter.
+  `ripdpi-diagnostics-candidates`, `ripdpi-ws-bootstrap`, the Android
+  platform/fetch adapters, and `ripdpi-tunnel-core`.
 
 ## Public API stability
 
