@@ -141,7 +141,7 @@ Each commit < 300 LOC.
 8. **`feat(ui): Settings → Developer toggle + 7-locale strings`**
    - Toggle wired to a new `AppSettings` proto field `pcap_capture_enabled: bool` (additive, default false — proto `CONFIG_CONTRACTS.md` compat is preserved).
    - 7-locale strings: `vpn_dev_pcap_toggle_label`, `vpn_dev_pcap_toggle_desc`, `vpn_dev_pcap_consent_title`, `vpn_dev_pcap_consent_warning`, `vpn_pcap_capture_list_title`, `vpn_pcap_capture_list_empty`, `vpn_pcap_capture_drop_warning_format`, plus the four already-present `vpn_pcap_viewer_*` and `vpn_export_consent_*` strings (already in `RipDpiExportConsentDialog.kt:56-67` reference list, audit they're 7-locale already).
-   - Files: `core/data/src/main/proto/app_settings.proto`, `app/src/main/res/values*/strings.xml` (7 locales), settings screen composable.
+   - Files: `core/data/model/src/main/proto/app_settings.proto`, `app/src/main/res/values*/strings.xml` (7 locales), settings screen composable.
 
 9. **`test(pcap): roundtrip + redaction + process-death fixtures`**
    - Roborazzi screenshots for the viewer (existing previews at `PcapViewerScreen.kt:358-384` are the seed) — only IF goldens already cover this surface, otherwise defer to a separate visual-PR.

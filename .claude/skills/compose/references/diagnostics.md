@@ -32,7 +32,7 @@ If the convention plugin is unavailable or fails, use the bundled Gradle init sc
 
 ```bash
 ./gradlew :app:assembleRelease \
-    --init-script .claude/skills/compose-audit/scripts/compose-reports.init.gradle \
+    --init-script .claude/skills/compose/scripts/compose-reports.init.gradle \
     --no-daemon --quiet
 ```
 

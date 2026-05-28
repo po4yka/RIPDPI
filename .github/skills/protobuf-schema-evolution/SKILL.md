@@ -18,7 +18,7 @@ silent data loss or deserialization failures at runtime.
 
 ## AppSettings Proto
 
-Schema: `core/data/src/main/proto/app_settings.proto`
+Schema: `core/data/model/src/main/proto/app_settings.proto`
 
 Reserved field numbers (never reuse): `15, 16, 17, 29, 30, 31, 32, 69, 71, 93, 94, 130`
 

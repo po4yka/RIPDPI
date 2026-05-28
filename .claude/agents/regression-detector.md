@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: haiku
 maxTurns: 30
 skills:
-  - rust-profiling
+  - rust-performance
   - rust-build-times
 ---
 

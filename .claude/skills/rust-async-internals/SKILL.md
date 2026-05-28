@@ -179,5 +179,5 @@ The following async-Rust pitfalls have their own catalog page so this skill stay
 ## Related skills
 
 - `.claude/skills/rust-debugging/` -- GDB/LLDB debugging of async Rust
-- `.claude/skills/rust-profiling/` -- cargo-flamegraph with async stack frames
+- `.claude/skills/rust-performance/` -- cargo-flamegraph with async stack frames
 - `.claude/skills/memory-model/` -- memory ordering in async contexts

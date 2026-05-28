@@ -7,7 +7,7 @@ maxTurns: 30
 skills:
   - cargo-workflows
   - rust-build-times
-  - rust-profiling
+  - rust-performance
 memory: project
 ---
 

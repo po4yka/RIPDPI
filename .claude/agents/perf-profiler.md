@@ -5,7 +5,7 @@ tools: Bash, Read, Grep, Glob
 model: sonnet
 maxTurns: 30
 skills:
-  - rust-profiling
+  - rust-performance
   - rust-build-times
   - flamegraphs
   - cargo-workflows

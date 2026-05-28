@@ -203,8 +203,7 @@ ripdpi-proxy-config / ripdpi-config  ──▶  RuntimeConfig  ──▶  ripdpi
 - The settings schema lives at
   `core/data/model/src/main/proto/app_settings.proto` (confirmed by
   [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) §1, the canonical config-contract
-  doc); [AGENTS.md](../../AGENTS.md) still cites the older
-  `core/data/src/main/proto/` path.
+  doc).
 
 ---
 
