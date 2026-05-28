@@ -84,19 +84,19 @@ Still open: wiring the pure orchestrator to the production probe executors, emit
 ## Child tasks
 
 **Boundary and types**
-- [[Define transparent vs owned-stack mode boundary]]
+- Define transparent vs owned-stack mode boundary (closed task)
 - [[Define DiagnosticResult and classification taxonomy]]
 
 **Phases**
 - [[Implement Phase 0 passive observation from last flow]]
-- [[Implement direct-mode diagnostic orchestrator Phases 1-4]]
+- Implement direct-mode diagnostic orchestrator Phases 1-4 (closed task)
 - [[Persist direct-mode policy with revalidation]]
 
 **Integration tests**
 - [[Add integration tests per diagnostic result class]]
 
 **Remediation and handoff**
-- [[Replace generic relay suggestion with transport-specific remediation ladder]]
+- Replace generic relay suggestion with transport-specific remediation ladder (closed task)
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 

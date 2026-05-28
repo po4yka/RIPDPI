@@ -51,6 +51,6 @@ Verified 2026-05-28 against the current diagnostics and policy code:
 
 ## Links
 
-- [[Implement direct-mode diagnostic orchestrator Phases 1-4]]
+- Implement direct-mode diagnostic orchestrator Phases 1-4 (closed task)
 - [[Epic - Owned-stack mode with Android 17 ECH]]
 - [[ripdpi-android-direct-mode-plan-2026-04-20]]

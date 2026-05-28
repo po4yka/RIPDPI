@@ -58,4 +58,4 @@ Official libXray recommends its build script and notes Android support through `
 
 - [[Epic - Xray provider mode]]
 - [[ripdpi-android-xray-provider-plan-2026-04-24]]
-- [[Recurring upstream watch for xray-core REALITY ECH XHTTP changes]]
+- Recurring upstream watch for xray-core REALITY ECH XHTTP changes (closed task)

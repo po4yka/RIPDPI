@@ -55,7 +55,7 @@ Still open: ASN-aware invalidation, HTTPS/SVCB/ECH-specific invalidation, and th
 
 ## Links
 
-- [[Implement direct-mode diagnostic orchestrator Phases 1-4]]
+- Implement direct-mode diagnostic orchestrator Phases 1-4 (closed task)
 - [[Rotate successful family through variant neighborhood]]
 - [[Make cache snapshot writes atomic]]
 - [[Epic - Direct-mode diagnostic state machine]]

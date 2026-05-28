@@ -61,4 +61,4 @@ Different regions have different "good" asset providers. Chocolate4U is tuned fo
 ## Links
 
 - [[Epic - Advanced routing rules and geoip enforcement]]
-- [[Add geoip.db and geosite.db runtime loader and lookup]]
+- Add geoip.db and geosite.db runtime loader and lookup (closed task)

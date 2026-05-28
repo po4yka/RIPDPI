@@ -57,4 +57,4 @@ Keep this as a user-visible network condition, not a secret routing exception.
 
 - [[Epic - Fail-closed Android VPN policy engine]]
 - [[Epic - Direct-mode diagnostic state machine]]
-- [[Replace generic relay suggestion with transport-specific remediation ladder]]
+- Replace generic relay suggestion with transport-specific remediation ladder (closed task)

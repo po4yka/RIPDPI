@@ -83,18 +83,18 @@ Verified 2026-05-28 against the current offline analytics pipeline:
 ## Child tasks
 
 **Types**
-- [[Define NetProfile HostProfile and ArmStats]]
+- Define NetProfile HostProfile and ArmStats (closed task)
 
 **Ranking**
-- [[Implement Bayesian posterior arm scoring]]
-- [[Add rarity and repeated-attempt penalties to arm ranking]]
-- [[Decay successful families slower than failed variants]]
+- Implement Bayesian posterior arm scoring (closed task)
+- Add rarity and repeated-attempt penalties to arm ranking (closed task)
+- Decay successful families slower than failed variants (closed task)
 
 **Budget enforcement**
-- [[Enforce diagnostic attempt budget]]
+- Enforce diagnostic attempt budget (closed task)
 
 **Shared priors and offline generation**
-- [[Opt-in shared priors with coarse keys only]]
+- Opt-in shared priors with coarse keys only (closed task)
 - [[Build CensorLab-style offline strategy-pack pipeline]]
 
 Child tasks roll up via the TaskNotes relationships view on this note.

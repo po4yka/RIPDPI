@@ -57,4 +57,4 @@ SAF is the only write path — no hardcoded file locations. Default target is th
 ## Links
 
 - [[Epic - Settings backup and restore]]
-- [[Add versioned backup JSON schema with redaction allowlist]]
+- Add versioned backup JSON schema with redaction allowlist (closed task)

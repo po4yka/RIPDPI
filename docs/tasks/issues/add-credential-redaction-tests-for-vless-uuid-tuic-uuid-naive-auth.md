@@ -30,7 +30,7 @@ Extend the no-secret-logging test surface to specifically cover VLESS UUIDs, TUI
 
 ## Context
 
-[[add-no-secret-logging-and-diagnostics-redaction-tests]] establishes the general policy. The protocol-specific fields are easy to miss: `VlessRealityConfig.uuid`, `Config` UUIDs in TUIC, the `Proxy-Authorization` basic-auth value in NaiveProxy, and the 64-byte MTProto seed. Each needs a targeted assertion.
+add-no-secret-logging-and-diagnostics-redaction-tests (closed task) establishes the general policy. The protocol-specific fields are easy to miss: `VlessRealityConfig.uuid`, `Config` UUIDs in TUIC, the `Proxy-Authorization` basic-auth value in NaiveProxy, and the 64-byte MTProto seed. Each needs a targeted assertion.
 
 ## Acceptance criteria
 
@@ -46,5 +46,5 @@ Extend the no-secret-logging test surface to specifically cover VLESS UUIDs, TUI
 
 ## Links
 
-- [[add-no-secret-logging-and-diagnostics-redaction-tests]]
+- add-no-secret-logging-and-diagnostics-redaction-tests (closed task)
 - [[gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry]]

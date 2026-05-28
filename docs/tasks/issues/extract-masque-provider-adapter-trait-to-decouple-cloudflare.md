@@ -53,4 +53,4 @@ Move Cloudflare-specific MASQUE behavior (mTLS identity, `sec-ch-geohash` header
 ## Links
 
 - [[relay-masque-status]]
-- [[audit-cloudflare-only-dependencies]]
+- audit-cloudflare-only-dependencies (closed task)

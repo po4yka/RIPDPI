@@ -34,7 +34,7 @@ dpi-detector probes both DoH formats because some resolver operators expose only
 
 ## Scope
 
-- **In scope:** new probe variant in `ripdpi-monitor-engine` / diagnostics crates that issues a DoH JSON GET (`?name=…&type=A`) and validates the JSON response. Surfaces as part of the resolver availability survey ([[Add public DNS resolver availability survey diagnostic]]) and the authority-scoped DNS classifier as an extra evidence source.
+- **In scope:** new probe variant in `ripdpi-monitor-engine` / diagnostics crates that issues a DoH JSON GET (`?name=…&type=A`) and validates the JSON response. Surfaces as part of the resolver availability survey (Add public DNS resolver availability survey diagnostic (closed task)) and the authority-scoped DNS classifier as an extra evidence source.
 - **Out of scope:** using DoH JSON in `ripdpi-dns-resolver` for actual resolution. The runtime path stays wire-only.
 
 ## Acceptance criteria
@@ -56,5 +56,5 @@ dpi-detector v3.2.2: `core/dns_scanner.py` `_probe_doh_json_single`, `_probe_doh
 ## Links
 
 - [[ripdpi-android]]
-- [[Add public DNS resolver availability survey diagnostic]]
+- Add public DNS resolver availability survey diagnostic (closed task)
 - [[Epic - Encrypted DNS and HTTPS SVCB classifier]]

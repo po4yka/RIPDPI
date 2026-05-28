@@ -66,14 +66,14 @@ middlebox blocks by DNS manipulation too, not only by SNI or IP. Without classif
 
 **Resolver pipeline**
 - [[Build DoH primary and secondary resolver pipeline]]
-- [[Gate DoQ on UDP-clean classification]]
+- Gate DoQ on UDP-clean classification (closed task)
 
 **HTTPS/SVCB**
 - [[Parse HTTPS SVCB records with ECH config metadata]]
 
 **Classification**
 - [[Classify DNS as clean poisoned divergent ech-capable]]
-- [[Select resolver mapping from DNS classification]]
+- Select resolver mapping from DNS classification (closed task)
 
 **Privacy posture**
 - [[Limit DNS measurement to user-requested destinations]]

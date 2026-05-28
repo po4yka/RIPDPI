@@ -42,5 +42,5 @@ Summarize sing-box 1.14's rule-action model, then decide whether RIPDPI's direct
 
 - [[Epic - Direct-mode transport policy and verdicts]]
 - [[Define TransportPolicy struct and per-host state]]
-- [[Cache transport policy per network and host tuple]]
+- Cache transport policy per network and host tuple (closed task)
 - [[ripdpi-android-research-2026-04-20]]

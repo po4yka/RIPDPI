@@ -45,7 +45,7 @@ Most users do not need the full rule editor; they just need to keep a handful of
 
 **Reference implementation notes:** — no direct analog. reference implementation exposes only the full rule editor (`RouteSettingsActivity`). A simple bypass-list is NOT in reference implementation — this is an RIPDPI-original simplification for the common case.
 
-**Adapt:** The domain-string classification prefixes (`domain:`, `domain_suffix:`, `domain_regex:`) from Reference implementation's `ConfigBuilder.kt` — see [[Add Rust rule matcher with domain ip port process matchers]] for that reference.
+**Adapt:** The domain-string classification prefixes (`domain:`, `domain_suffix:`, `domain_regex:`) from Reference implementation's `ConfigBuilder.kt` — see Add Rust rule matcher with domain ip port process matchers (closed task) for that reference.
 
 **Invent:** The single-rule compile strategy (all entries → one high-priority BYPASS rule), the "move into full rule editor" migration action.
 

@@ -56,7 +56,7 @@ Direct-mode now has enough product framing to be honest when it cannot solve a n
 ## Child tasks
 
 **Architecture**
-- [[Define Xray VPN provider architecture]]
+- Define Xray VPN provider architecture (closed task)
 - [[Package libXray for Android ABIs]]
 
 **Runtime path**
@@ -73,7 +73,7 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 
 ## Dependencies
 
-- Depends on: [[Recurring upstream watch for xray-core REALITY ECH XHTTP changes]] for version/deprecation tracking.
+- Depends on: Recurring upstream watch for xray-core REALITY ECH XHTTP changes (closed task) for version/deprecation tracking.
 - Coordinates with: [[Epic - Direct-mode diagnostic state machine]] because direct-mode negative verdicts should hand off to provider-mode suggestions without collapsing the two concepts.
 - Feeds: future release-pipeline work once Xray provider assets affect APK size, notices, and signed builds.
 
@@ -89,5 +89,5 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 - [[ripdpi-android]]
 - [[ripdpi-android-xray-provider-plan-2026-04-24]]
 - [[vless-reality-stack-research-2026-04-22]]
-- [[Recurring upstream watch for xray-core REALITY ECH XHTTP changes]]
+- Recurring upstream watch for xray-core REALITY ECH XHTTP changes (closed task)
 - Child issues: 8

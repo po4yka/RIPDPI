@@ -60,7 +60,7 @@ Cache corruption, supervisor lifecycle edges, rollback attempts, and protect-soc
 
 **Scenario tests** (each `blockedBy` the harness)
 - [[Add cache-corruption regression test]]
-- [[Add repeated startup-shutdown supervisor test]]
+- Add repeated startup-shutdown supervisor test (closed task)
 - [[Add control-plane rollback attempt test]]
 - [[Add protect-socket server stall test]]
 

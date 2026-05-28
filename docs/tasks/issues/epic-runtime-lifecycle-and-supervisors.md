@@ -68,7 +68,7 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 
 ## Dependencies
 
-- Unblocks: [[Add repeated startup-shutdown supervisor test]] under [[Epic - Orchestration test posture]] (needs scripted exit causes).
+- Unblocks: Add repeated startup-shutdown supervisor test (closed task) under [[Epic - Orchestration test posture]] (needs scripted exit causes).
 
 ## Risks / open questions
 

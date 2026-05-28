@@ -39,14 +39,14 @@ New cross-project resilience epic derived from the 2026-05-01 Cloudflare RU degr
 
 ## Child work
 
-- [[Audit Cloudflare-only dependencies]]
+- Audit Cloudflare-only dependencies (closed task)
 - [[Provision non-Cloudflare delivery host]]
-- [[Add multi-delivery subscription mirror support]]
-- [[Add Cloudflare large-payload healthcheck]]
-- [[Demote Cloudflare profiles from default auto selection]]
+- Add multi-delivery subscription mirror support (closed task)
+- Add Cloudflare large-payload healthcheck (closed task)
+- Demote Cloudflare profiles from default auto selection (closed task)
 - [[Add non-Cloudflare HTTPS XHTTP fallback frontend]]
-- [[Remove Cloudflare DNS from critical resolver chain]]
-- [[Add Cloudflare degradation classification runbook]]
+- Remove Cloudflare DNS from critical resolver chain (closed task)
+- Add Cloudflare degradation classification runbook (closed task)
 - [[Add Russian ISP payload monitoring probes]]
 
 ## Milestones

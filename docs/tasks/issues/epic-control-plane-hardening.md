@@ -60,11 +60,11 @@ The 2026-04-20 audit rated strategy/host catalog trust as the single weakest lin
 **Signing and anti-rollback**
 - [[Sign host-pack manifests with app-trusted keys]]
 - [[Add anti-rollback to strategy-pack updates]]
-- [[Spike signed route-pack schema for direct-vs-relay policy]]
+- Spike signed route-pack schema for direct-vs-relay policy (closed task)
 
 **Crash-safe storage**
 - [[Make cache snapshot writes atomic]]
-- [[Surface typed cache-degradation reasons]]
+- Surface typed cache-degradation reasons (closed task)
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 

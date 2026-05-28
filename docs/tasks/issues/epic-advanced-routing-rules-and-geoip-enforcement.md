@@ -60,11 +60,11 @@ Without a rule engine, users cannot express "bypass Russian domestic banking whi
 ## Child tasks
 
 **Data and schema**
-- [[Add RuleEntity Room table and repository]]
+- Add RuleEntity Room table and repository (closed task)
 
 **Runtime**
-- [[Add Rust rule matcher with domain ip port process matchers]]
-- [[Add geoip.db and geosite.db runtime loader and lookup]]
+- Add Rust rule matcher with domain ip port process matchers (closed task)
+- Add geoip.db and geosite.db runtime loader and lookup (closed task)
 
 **Asset pipeline**
 - [[Add configurable asset provider picker with four presets]]

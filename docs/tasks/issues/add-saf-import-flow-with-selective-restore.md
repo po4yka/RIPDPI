@@ -53,4 +53,4 @@ Restore is destructive; no silent overwrite. The preview step lists the counts (
 ## Links
 
 - [[Epic - Settings backup and restore]]
-- [[Add versioned backup JSON schema with redaction allowlist]]
+- Add versioned backup JSON schema with redaction allowlist (closed task)

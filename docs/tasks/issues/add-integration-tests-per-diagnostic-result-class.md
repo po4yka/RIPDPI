@@ -42,7 +42,7 @@ Integration tests that drive the full diagnostic end-to-end in a controlled envi
 
 ## Links
 
-- [[Implement direct-mode diagnostic orchestrator Phases 1-4]]
+- Implement direct-mode diagnostic orchestrator Phases 1-4 (closed task)
 - [[Add orchestration failure-injection harness]]
 - [[Epic - Direct-mode diagnostic state machine]]
 - [[ripdpi-android-direct-mode-plan-2026-04-20]]

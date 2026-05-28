@@ -58,7 +58,7 @@ Two deployments want this: (a) device migration without re-entering every subscr
 
 ## Child tasks
 
-- [[Add versioned backup JSON schema with redaction allowlist]]
+- Add versioned backup JSON schema with redaction allowlist (closed task)
 - [[Add SAF export action with FULL and SHARE variants]]
 - [[Add SAF import flow with selective restore]]
 - [[Add share-sheet intent for redacted SHARE backups]]

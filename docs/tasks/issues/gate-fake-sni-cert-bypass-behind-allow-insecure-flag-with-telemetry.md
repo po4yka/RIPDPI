@@ -56,4 +56,4 @@ This is intentional for the Telegram-WSS-impersonation path, but the current con
 ## Links
 
 - [[Epic - Control-plane hardening]]
-- [[add-no-secret-logging-and-diagnostics-redaction-tests]]
+- add-no-secret-logging-and-diagnostics-redaction-tests (closed task)

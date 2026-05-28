@@ -57,4 +57,4 @@ The editor is the power-user surface. It lives on a dedicated Routes screen in t
 ## Links
 
 - [[Epic - Advanced routing rules and geoip enforcement]]
-- [[Add RuleEntity Room table and repository]]
+- Add RuleEntity Room table and repository (closed task)

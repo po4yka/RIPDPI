@@ -60,14 +60,14 @@ Verified 2026-05-28 against the current transport-policy code: diagnostics keep 
 
 **Struct and cache**
 - [[Define TransportPolicy struct and per-host state]]
-- [[Cache transport policy per network and host tuple]]
+- Cache transport policy per network and host tuple (closed task)
 
 **QUIC control**
-- [[Implement QUIC soft-disable per tuple]]
-- [[Detect NO_TCP_FALLBACK app families]]
+- Implement QUIC soft-disable per tuple (closed task)
+- Detect NO_TCP_FALLBACK app families (closed task)
 
 **Verdict classification**
-- [[Classify IP_BLOCK_SUSPECT when all IPs fail]]
+- Classify IP_BLOCK_SUSPECT when all IPs fail (closed task)
 - [[Surface NO_DIRECT_SOLUTION verdict honestly]]
 
 Child tasks roll up via the TaskNotes relationships view on this note.
@@ -75,7 +75,7 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 ## Dependencies
 
 - Feeds: [[Epic - Direct-mode diagnostic state machine]] Phase 2 + arm A3.
-- Consumed by: [[Gate DoQ on UDP-clean classification]] under [[Epic - Encrypted DNS and HTTPS SVCB classifier]] (DoQ gate reads `udp443_ok`).
+- Consumed by: Gate DoQ on UDP-clean classification (closed task) under [[Epic - Encrypted DNS and HTTPS SVCB classifier]] (DoQ gate reads `udp443_ok`).
 - Unblocks: [[Report OWNED_STACK_ONLY verdict from diagnostic]] under [[Epic - Owned-stack mode with Android 17 ECH]].
 
 ## Risks / open questions

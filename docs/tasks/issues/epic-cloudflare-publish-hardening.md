@@ -54,7 +54,7 @@ The audit found four stacked problems in one subsystem: `CloudflarePublishManage
 ## Child tasks
 
 **Reentrancy**
-- [[Reject concurrent CloudflarePublishManager sessions]]
+- Reject concurrent CloudflarePublishManager sessions (closed task)
 
 **State isolation**
 - [[Per-session CloudflarePublishRuntime instances]]

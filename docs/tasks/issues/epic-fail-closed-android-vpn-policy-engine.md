@@ -39,26 +39,26 @@ New cross-cutting hardening epic derived from the client-problem analysis. It co
 
 ## Child work
 
-- [[Define policy bundle profile schema]]
-- [[Define split-strict DNS policy model]]
-- [[Add Android lockdown onboarding and kill-switch health checks]]
-- [[Enforce fail-closed VpnService lifecycle]]
-- [[Add DNS interceptor and split DNS leak tests]]
-- [[Implement scoped bootstrap DNS allowlist]]
-- [[Implement strict tunneled DNS resolver failover]]
-- [[Bind DNS answers to route decisions]]
-- [[Add explicit IPv6 policy modes and leak tests]]
-- [[Add priority-based outbound failover state machine]]
-- [[Add per-device subscription token UX and shared-link warnings]]
-- [[Encrypt VPN profiles with Android Keystore]]
-- [[Add no-secret logging and diagnostics redaction tests]]
-- [[Add NetworkCallback reconnect and underlying-network tracking]]
+- Define policy bundle profile schema (closed task)
+- Define split-strict DNS policy model (closed task)
+- Add Android lockdown onboarding and kill-switch health checks (closed task)
+- Enforce fail-closed VpnService lifecycle (closed task)
+- Add DNS interceptor and split DNS leak tests (closed task)
+- Implement scoped bootstrap DNS allowlist (closed task)
+- Implement strict tunneled DNS resolver failover (closed task)
+- Bind DNS answers to route decisions (closed task)
+- Add explicit IPv6 policy modes and leak tests (closed task)
+- Add priority-based outbound failover state machine (closed task)
+- Add per-device subscription token UX and shared-link warnings (closed task)
+- Encrypt VPN profiles with Android Keystore (closed task)
+- Add no-secret logging and diagnostics redaction tests (closed task)
+- Add NetworkCallback reconnect and underlying-network tracking (closed task)
 - [[Add captive-portal and whitelist-mode connection states]]
-- [[Add captive portal DNS assist via Network object]]
+- Add captive portal DNS assist via Network object (closed task)
 - [[Add Android Private DNS conflict warning]]
-- [[Harden DoH POST resolver client]]
-- [[Add authoritative DNS leak-test harness]]
-- [[Add Android VPN leak-test instrumentation matrix]]
+- Harden DoH POST resolver client (closed task)
+- Add authoritative DNS leak-test harness (closed task)
+- Add Android VPN leak-test instrumentation matrix (closed task)
 
 ## Milestones
 

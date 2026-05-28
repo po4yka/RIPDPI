@@ -50,5 +50,5 @@ BoringSSL ships X25519MLKEM768 (`SSL_GROUP_X25519_MLKEM768`); the `boring` crate
 ## Links
 
 - [[add-utls-per-connection-tls-fingerprint-rotation]]
-- [[add-ech-encrypted-client-hello-for-tls-outbounds]]
+- add-ech-encrypted-client-hello-for-tls-outbounds (closed task)
 - IETF draft-ietf-tls-hybrid-design

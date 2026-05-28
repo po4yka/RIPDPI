@@ -34,7 +34,7 @@ Salamander is XOR-style obfuscation keyed by a server-supplied key. Reference ve
 
 ## Acceptance criteria
 
-- [ ] At least eight obfuscation goldens under `contract-fixtures/hysteria2/<upstream-tag>/salamander/` covering the boundary cases from apernet/hysteria's own tests. **DEFERRED:** upstream byte vectors needed; cannot fabricate conformant fixtures without them. Tracked behind [[tag-protocol-contract-fixtures-by-upstream-version]].
+- [ ] At least eight obfuscation goldens under `contract-fixtures/hysteria2/<upstream-tag>/salamander/` covering the boundary cases from apernet/hysteria's own tests. **DEFERRED:** upstream byte vectors needed; cannot fabricate conformant fixtures without them. Tracked behind tag-protocol-contract-fixtures-by-upstream-version (closed task).
 - [x] (partial, 2026-05-15) `salamander::tests` parses each golden and asserts byte equality on encode and decode. **Regression-boundary fixture shipped** as `salamander_keystream_pinned_for_known_key_and_salt`: pins the blake2b256 keystream derivation for a known (key, salt) and asserts decode of a synthetic ciphertext round-trips to the plaintext. Catches accidental algorithm swaps; not an upstream- conformance check.
 - [ ] Goldens carry the upstream tag in the directory name. **DEFERRED:** see first criterion.
 

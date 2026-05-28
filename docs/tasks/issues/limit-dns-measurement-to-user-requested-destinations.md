@@ -42,7 +42,7 @@ Measure DNS only for destinations the user is actually trying to reach. No prelo
 ## Links
 
 - [[Epic - Encrypted DNS and HTTPS SVCB classifier]]
-- [[Opt-in shared priors with coarse keys only]]
+- Opt-in shared priors with coarse keys only (closed task)
 - [[ripdpi-android-direct-mode-plan-2026-04-20]]
 
 

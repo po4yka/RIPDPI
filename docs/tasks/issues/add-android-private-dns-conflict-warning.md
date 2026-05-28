@@ -55,4 +55,4 @@ Keep this educational and diagnostic. It should not block secure VPN startup by 
 ## Links
 
 - [[ripdpi-android-split-strict-dns-architecture-2026-05-01]]
-- [[Add DNS interceptor and split DNS leak tests]]
+- Add DNS interceptor and split DNS leak tests (closed task)

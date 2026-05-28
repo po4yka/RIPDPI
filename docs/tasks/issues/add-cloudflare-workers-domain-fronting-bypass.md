@@ -49,5 +49,5 @@ RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this
 
 ## Links
 
-- [[audit-cloudflare-only-dependencies]] (done)
+- audit-cloudflare-only-dependencies (closed task; done)
 - [[relay-masque-status]]
