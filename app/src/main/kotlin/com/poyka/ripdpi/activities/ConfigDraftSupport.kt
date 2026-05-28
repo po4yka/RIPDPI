@@ -24,6 +24,7 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayTrustDomainWarning
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.StrategyChainSet
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -191,6 +192,8 @@ data class ConfigUiState(
     val editingPreset: ConfigPreset? = null,
     val draft: ConfigDraft = AppSettingsSerializer.defaultValue.toConfigDraft(),
     val validationErrors: ImmutableMap<String, String> = persistentMapOf(),
+    val relayProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
+    val relayChainTrustWarning: RelayTrustDomainWarning? = null,
     val relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
     val relayPresetSuggestion: RelayPresetSuggestionUiState? = null,
     val supportsMasquePrivacyPass: Boolean = false,
@@ -234,6 +237,7 @@ internal const val ConfigFieldStrategyChain = "strategyChain"
 internal const val ConfigFieldRelayServerPort = "relayServerPort"
 internal const val ConfigFieldRelayLocalSocksPort = "relayLocalSocksPort"
 internal const val ConfigFieldRelayServer = "relayServer"
+internal const val ConfigFieldRelayChain = "relayChain"
 internal const val ConfigFieldRelayCredentials = "relayCredentials"
 internal const val ConfigFieldRelayNaivePath = "relayNaivePath"
 internal const val ConfigFieldRelayCloudflarePublishOrigin = "relayCloudflarePublishOrigin"

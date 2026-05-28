@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
 import com.poyka.ripdpi.config.relay.toUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -62,6 +63,7 @@ class ConfigViewModel
                 latestDirectModeOutcomeStore.outcome,
             ) { settings, session, serviceTelemetry, latestDirectModeOutcome ->
                 val relayPresets = relayPresetCatalog.all()
+                val relayProfileRecords = runCatching { relayArtifacts.listProfiles() }.getOrDefault(emptyList())
                 val networkSnapshot = runCatching { networkSnapshotProvider.capture() }.getOrNull()
                 val capabilityRecords = capabilityObserver.relayCapabilitiesForCurrentNetwork()
                 val currentDraft =
@@ -75,6 +77,11 @@ class ConfigViewModel
                         supportsMasquePrivacyPass = supportsMasquePrivacyPass,
                     )
                 val presets = buildConfigPresets(currentDraft)
+                val relayProfiles =
+                    buildRelayProfileOptions(
+                        records = relayProfileRecords,
+                        chainProfileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId },
+                    )
                 val editingPreset =
                     session.presetId?.let { presetId ->
                         presets.firstOrNull { it.id == presetId }?.copy(draft = draft)
@@ -90,7 +97,14 @@ class ConfigViewModel
                     presets = presets,
                     editingPreset = editingPreset,
                     draft = draft,
-                    validationErrors = validateConfigDraft(draft, supportsMasquePrivacyPass),
+                    validationErrors =
+                        validateConfigDraft(
+                            draft = draft,
+                            supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+                            relayProfiles = relayProfileRecords,
+                        ),
+                    relayProfiles = relayProfiles,
+                    relayChainTrustWarning = resolveRelayChainTrustWarning(draft, relayProfiles),
                     relayPresets =
                         relayPresets
                             .map { preset ->
@@ -227,12 +241,18 @@ class ConfigViewModel
 
         fun saveDraft() {
             val draft = editorSession.value.draft ?: uiState.value.draft
-            if (validateConfigDraft(draft, supportsMasquePrivacyPass).isNotEmpty()) {
-                _effects.tryEmit(ConfigEffect.ValidationFailed)
-                return
-            }
-
             viewModelScope.launch {
+                val relayProfileRecords = relayArtifacts.listProfiles()
+                if (
+                    validateConfigDraft(
+                        draft = draft,
+                        supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+                        relayProfiles = relayProfileRecords,
+                    ).isNotEmpty()
+                ) {
+                    _effects.emit(ConfigEffect.ValidationFailed)
+                    return@launch
+                }
                 val persistedDraft =
                     relayArtifacts.prepareForPersistence(draft)
                 appSettingsRepository.update {

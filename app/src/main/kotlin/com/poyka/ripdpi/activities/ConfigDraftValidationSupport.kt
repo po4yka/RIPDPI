@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindObfs4
+import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTrojan
@@ -18,6 +19,7 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
@@ -33,6 +35,7 @@ import kotlinx.collections.immutable.toImmutableMap
 internal fun validateConfigDraft(
     draft: ConfigDraft,
     supportsMasquePrivacyPass: Boolean = false,
+    relayProfiles: List<RelayProfileRecord> = emptyList(),
 ): ImmutableMap<String, String> =
     buildMap {
         if (!checkIp(draft.proxyIp)) {
@@ -214,6 +217,9 @@ internal fun validateConfigDraft(
                     if (isChainRelayIncomplete) {
                         put(ConfigFieldRelayCredentials, "required")
                     }
+                    validateChainRelayProfileSelection(draft, relayProfiles)?.let {
+                        put(ConfigFieldRelayChain, it)
+                    }
                 }
 
                 RelayKindMasque -> {
@@ -273,3 +279,46 @@ internal fun validateConfigDraft(
             }
         }
     }.toImmutableMap()
+
+private fun validateChainRelayProfileSelection(
+    draft: ConfigDraft,
+    relayProfiles: List<RelayProfileRecord>,
+): String? =
+    when {
+        draft.relayChainEntryProfileId.isBlank() || draft.relayChainExitProfileId.isBlank() -> {
+            "required"
+        }
+
+        draft.relayChainEntryProfileId == draft.relayChainExitProfileId -> {
+            "same_hop"
+        }
+
+        relayProfiles.isEmpty() -> {
+            "required"
+        }
+
+        else -> {
+            validateResolvedChainProfiles(
+                entryId = draft.relayChainEntryProfileId,
+                exitId = draft.relayChainExitProfileId,
+                relayProfiles = relayProfiles,
+            )
+        }
+    }
+
+private fun validateResolvedChainProfiles(
+    entryId: String,
+    exitId: String,
+    relayProfiles: List<RelayProfileRecord>,
+): String? {
+    val byId = relayProfiles.associateBy { it.id }
+    val entry = byId[entryId]
+    val exit = byId[exitId]
+    return when {
+        entry == null || exit == null -> "required"
+        !entry.isSupportedChainHop() || !exit.isSupportedChainHop() -> "unsupported"
+        else -> null
+    }
+}
+
+private fun RelayProfileRecord.isSupportedChainHop(): Boolean = kind != RelayKindOff && kind != RelayKindChainRelay

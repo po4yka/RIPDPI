@@ -75,8 +75,10 @@ internal fun RelayFieldsContent(
         RelayKindChainRelay -> {
             RelayChainFields(
                 draft = draft,
+                uiState = uiState,
                 onRelayChainEntryProfileIdChanged = actions.chain.onRelayChainEntryProfileIdChanged,
                 onRelayChainExitProfileIdChanged = actions.chain.onRelayChainExitProfileIdChanged,
+                onRelayChainHopsSwapped = actions.chain.onRelayChainHopsSwapped,
             )
         }
 

@@ -313,6 +313,8 @@ private class FakeRelayProfileStore : RelayProfileStore {
 
     override suspend fun load(profileId: String): RelayProfileRecord? = profiles[profileId]
 
+    override suspend fun list(): List<RelayProfileRecord> = profiles.values.toList()
+
     override suspend fun save(profile: RelayProfileRecord) {
         profiles[profile.id] = profile
     }

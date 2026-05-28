@@ -39,6 +39,7 @@ internal data class RelayHysteriaActions(
 internal data class RelayChainActions(
     val onRelayChainEntryProfileIdChanged: (String) -> Unit = {},
     val onRelayChainExitProfileIdChanged: (String) -> Unit = {},
+    val onRelayChainHopsSwapped: () -> Unit = {},
 )
 
 internal data class RelayMasqueActions(

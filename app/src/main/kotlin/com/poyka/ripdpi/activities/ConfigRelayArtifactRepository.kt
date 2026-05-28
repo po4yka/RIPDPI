@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayCredentialRepository
+import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import javax.inject.Inject
 
@@ -24,6 +25,8 @@ class ConfigRelayArtifactRepository
             val credentials = relayCredentialStore.load(profileId)
             return draft.withRelayArtifacts(profile, credentials)
         }
+
+        suspend fun listProfiles(): List<RelayProfileRecord> = relayProfileStore.list()
 
         suspend fun persist(draft: ConfigDraft) {
             val profileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId }

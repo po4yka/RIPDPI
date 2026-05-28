@@ -5,14 +5,20 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import com.poyka.ripdpi.activities.ConfigDraft
+import com.poyka.ripdpi.activities.ConfigFieldRelayChain
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaivePath
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.activities.RelayProfileUiState
+import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
+import com.poyka.ripdpi.data.RelayTrustDomainWarning
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import org.junit.Rule
 import org.junit.Test
@@ -142,5 +148,66 @@ class RelayFieldsTest {
         composeRule.onNodeWithText("MASQUE auth token").assertExists()
         composeRule.onNodeWithText("Client certificate chain (PEM)").assertDoesNotExist()
         composeRule.onNodeWithText("Client private key (PEM)").assertDoesNotExist()
+    }
+
+    @Test
+    fun chainRelayFieldsRenderProfileOptionsTrustWarningAndSwapControl() {
+        composeRule.setContent {
+            RipDpiTheme {
+                RelayKindFields(
+                    draft =
+                        ConfigDraft(
+                            relayKind = RelayKindChainRelay,
+                            relayChainEntryProfileId = "entry",
+                            relayChainExitProfileId = "exit",
+                        ),
+                    uiState =
+                        ConfigUiState(
+                            relayProfiles =
+                                persistentListOf(
+                                    RelayProfileUiState(
+                                        id = "entry",
+                                        kind = RelayKindVlessReality,
+                                        kindLabel = "VLESS + Reality",
+                                        jurisdiction = "RU",
+                                        operatorName = "Entry Transit",
+                                    ),
+                                    RelayProfileUiState(
+                                        id = "exit",
+                                        kind = RelayKindMasque,
+                                        kindLabel = "MASQUE",
+                                        jurisdiction = "ru",
+                                        operatorName = "Exit Transit",
+                                    ),
+                                ),
+                            relayChainTrustWarning = RelayTrustDomainWarning(sharedJurisdiction = "RU"),
+                        ),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Entry hop").assertExists()
+        composeRule.onNodeWithText("Exit hop").assertExists()
+        composeRule.onNodeWithText("entry · VLESS + Reality").assertExists()
+        composeRule.onNodeWithText("Exit Transit · ru").assertExists()
+        composeRule.onNodeWithText("Shared trust domain").assertExists()
+        composeRule.onNodeWithText("Swap entry/exit").assertExists()
+    }
+
+    @Test
+    fun chainRelayFieldsShowsValidationError() {
+        composeRule.setContent {
+            RipDpiTheme {
+                RelayKindFields(
+                    draft = ConfigDraft(relayKind = RelayKindChainRelay),
+                    uiState =
+                        ConfigUiState(
+                            validationErrors = persistentMapOf(ConfigFieldRelayChain to "required"),
+                        ),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Select both entry and exit profiles.").assertExists()
     }
 }

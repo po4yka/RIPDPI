@@ -147,6 +147,8 @@ fun migrateRelayProfileRecord(record: RelayProfileRecord): RelayProfileMigration
 interface RelayProfileStore {
     suspend fun load(profileId: String): RelayProfileRecord?
 
+    suspend fun list(): List<RelayProfileRecord>
+
     suspend fun save(profile: RelayProfileRecord)
 
     suspend fun clear(profileId: String)
@@ -185,6 +187,23 @@ class SharedPreferencesRelayProfileStore
             return migration.record
         }
 
+        override suspend fun list(): List<RelayProfileRecord> =
+            preferences.all.keys
+                .asSequence()
+                .filter { it.startsWith(ProfilePrefKeyPrefix) }
+                .mapNotNull { key ->
+                    preferences.getString(key, null)?.let { encoded ->
+                        json.decodeFromString(RelayProfileRecord.serializer(), encoded)
+                    }
+                }.map { stored ->
+                    val migration = migrateRelayProfileRecord(stored)
+                    if (migration.changed) {
+                        persist(migration.record)
+                    }
+                    migration.record
+                }.sortedBy { it.id }
+                .toList()
+
         override suspend fun save(profile: RelayProfileRecord) {
             persist(profile)
         }
@@ -202,10 +221,11 @@ class SharedPreferencesRelayProfileStore
                 ).apply()
         }
 
-        private fun prefKey(profileId: String): String = "relay-profile:$profileId"
+        private fun prefKey(profileId: String): String = "$ProfilePrefKeyPrefix$profileId"
 
         private companion object {
             const val ProfilePrefsName = "relay_profile_cache"
+            const val ProfilePrefKeyPrefix = "relay-profile:"
         }
     }
 

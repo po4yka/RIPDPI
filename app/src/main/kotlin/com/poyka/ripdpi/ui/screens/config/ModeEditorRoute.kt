@@ -58,6 +58,7 @@ import com.poyka.ripdpi.activities.ConfigPresetKind
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.activities.buildConfigPresets
+import com.poyka.ripdpi.activities.swappedRelayChainHops
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
@@ -269,6 +270,7 @@ fun ModeEditorRoute(
                 },
                 onRelayChainEntryProfileIdChanged = { viewModel.updateDraft { copy(relayChainEntryProfileId = it) } },
                 onRelayChainExitProfileIdChanged = { viewModel.updateDraft { copy(relayChainExitProfileId = it) } },
+                onRelayChainHopsSwapped = { viewModel.updateDraft { swappedRelayChainHops() } },
                 onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
                 onRelayMasqueAuthModeChanged = { viewModel.updateDraft { copy(relayMasqueAuthMode = it) } },
                 onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },

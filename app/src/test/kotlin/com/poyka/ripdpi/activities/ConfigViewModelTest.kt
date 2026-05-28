@@ -788,6 +788,8 @@ private class InMemoryRelayProfileStore : RelayProfileStore {
 
     override suspend fun load(profileId: String): RelayProfileRecord? = records[profileId]
 
+    override suspend fun list(): List<RelayProfileRecord> = records.values.toList()
+
     override suspend fun save(profile: RelayProfileRecord) {
         records[profile.id] = profile
     }
