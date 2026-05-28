@@ -190,16 +190,16 @@ Key decision points are logged for diagnostics debugging:
 The native Rust proxy calls `VpnService.protect(fd)` on upstream sockets so they bypass the TUN device, enabling `setsockopt(IP_TTL)` for fake-packet DPI evasion strategies.
 
 **Dual mechanism** (JNI preferred, Unix socket fallback):
-- **JNI callback** (`ripdpi-android/src/vpn_protect.rs`): `jniRegisterVpnProtect()` stores `JavaVM` + `VpnService` global ref; worker threads call `vm.attach_current_thread()` → `VpnService.protect(fd)` directly
+- **JNI callback** (`ripdpi-android-vpn-protect-adapter/src/lib.rs`): `jniRegisterVpnProtect()` stores `JavaVM` + `VpnService` global ref; worker threads call `vm.attach_current_thread()` → `VpnService.protect(fd)` directly
 - **Unix socket fallback** (`VpnProtectSocketServer.kt`): `LocalServerSocket` + `SCM_RIGHTS` fd passing; used when JNI callback is unavailable
-- **Selection logic** (`ripdpi-runtime/src/platform/mod.rs`): `has_protect_callback()` → JNI; else → Unix socket
+- **Selection logic** (`ripdpi-runtime-platform/src/vpn_protect.rs`): `has_protect_callback()` → JNI; else → Unix socket
 
 **Note**: Diagnostics RAW_PATH scans stop the VPN service before probing (`runRawPathScan()`), which unregisters both mechanisms. RAW_PATH probes connect directly (no TUN), so `setsockopt(IP_TTL)` works without protection.
 
 **Key files**:
-- `native/rust/.../ripdpi-android/src/vpn_protect.rs` -- JNI protect callback
-- `native/rust/.../platform/protect.rs` -- `ProtectCallback` trait + global registry
-- `native/rust/.../platform/mod.rs` -- fallback selection logic
+- `native/rust/crates/ripdpi-android-vpn-protect-adapter/src/lib.rs` -- JNI protect callback registration
+- `native/rust/crates/ripdpi-native-protect/src/lib.rs` -- `ProtectCallback` trait + global registry
+- `native/rust/crates/ripdpi-runtime-platform/src/vpn_protect.rs` -- fallback selection logic
 - `core/service/.../VpnProtectSocketServer.kt` -- Unix socket fallback
 - `core/engine/.../RipDpiProxy.kt` -- `jniRegisterVpnProtect()` / `jniUnregisterVpnProtect()`
 
@@ -210,13 +210,13 @@ The native Rust proxy calls `VpnService.protect(fd)` on upstream sockets so they
 - `RootHelperManager.kt` extracts `ripdpi-root-helper` from APK assets, starts via `su`, and polls the Unix socket for readiness
 - `root_helper_client.rs` connects per-operation, sends JSON command + fd via SCM_RIGHTS, receives response + optional replacement fd
 - `root_helper.rs` global `RwLock` registry (same pattern as `protect.rs`); registered from config at startup
-- `platform/mod.rs` dispatch: each privileged function checks `with_root_helper()` first, falls back to local linux calls
+- `ripdpi-runtime-platform` dispatch: each privileged function checks `with_root_helper()` first, falls back to local Linux calls
 - Replacement fds from TCP_REPAIR operations are swapped via `dup2()` in `swap_replacement_fd()`
 
 **Key files**:
 - `native/rust/crates/ripdpi-root-helper/` -- standalone binary crate (protocol, handlers, main)
-- `native/rust/.../platform/root_helper_client.rs` -- IPC client
-- `native/rust/.../platform/root_helper.rs` -- global registry
+- `native/rust/crates/ripdpi-runtime-platform/src/root_helper_client.rs` -- IPC client
+- `native/rust/crates/ripdpi-runtime-platform/src/root_helper.rs` -- global registry
 - `core/service/.../RootHelperManager.kt` -- Kotlin lifecycle (extract, start, stop)
 - `core/service/.../RootDetector.kt` -- `su -c id` root access test
 

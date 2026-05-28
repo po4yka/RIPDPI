@@ -6,8 +6,7 @@ side of RIPDPI; for the whole-app picture see
 [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 Derived directly from [`native/rust/Cargo.toml`](../../native/rust/Cargo.toml)
-and the `native/rust/crates/` tree. Where a fact could not be confirmed from
-source it is marked **TODO verify** with a path.
+and the `native/rust/crates/` tree.
 
 ---
 

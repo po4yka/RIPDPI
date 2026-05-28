@@ -56,10 +56,10 @@ unsafe { /* ... */ }
 
 Audit these first:
 
-- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs`
+- `native/rust/crates/ripdpi-privileged-ops/src/linux/`
 - JNI bridge code in `core/engine/src/main/kotlin/.../RipDpiProxy.kt`
 - JNI/platform wrappers around socket protection, telemetry handles, and lifecycle state
-- `native/rust/crates/ripdpi-runtime/src/platform/*`
+- `native/rust/crates/ripdpi-runtime-platform/src/`
 - `native/rust/crates/ripdpi-root-helper/*`
 
 Why these first:
@@ -74,15 +74,14 @@ Use this map instead of starting every audit from a raw `unsafe` grep.
 
 | Module | Invariant family | Current containment | Review status |
 | --- | --- | --- | --- |
-| `ripdpi-runtime/src/platform/linux.rs` | socket ABI, raw fd ownership, `sockaddr` casts, `mmap`, `ioctl` | `set_*sockopt`, `get_*sockopt`, `dup2_fd`, `close_fd` wrappers plus focused helper structs | active hotspot; largest remaining syscall surface |
-| `ripdpi-runtime/src/platform/mod.rs` | ancillary data traversal, unaligned fd reads, `recvmsg` setup | shared `extract_scm_rights_fd`, `recv_line_with_optional_fd`, Miri-covered unaligned-fd helper | wrapped |
-| `ripdpi-runtime/src/platform/root_helper_client.rs` | Unix-socket IPC with fd passing | now delegates receive-side unsafe to `platform::recv_line_with_optional_fd` | wrapped |
-| `ripdpi-root-helper/src/protocol.rs` | Unix-socket IPC with fd passing | now delegates receive-side unsafe to `platform::recv_line_with_optional_fd` | wrapped |
-| `ripdpi-root-helper/src/handlers.rs` | adopting SCM_RIGHTS-owned TCP/UDP fds | small `adopt_*` helpers keep `from_raw_fd` localized | wrapped |
-| `ripdpi-android/src/support.rs` and `vpn_protect.rs` | JNI env/object lifetimes, `Send`/`Sync` promises | narrow helpers plus explicit `SAFETY` notes | comment-sensitive |
-| `ripdpi-runtime/src/process.rs` | signal handlers, pid-file locking, daemonization | isolated libc calls with documented invariants | keep |
+| `ripdpi-privileged-ops/src/linux/` | socket ABI, raw fd ownership, `sockaddr` casts, raw socket and socket-option syscalls | `socket_options`, `fd`, raw-packet helpers, and TCP repair modules keep unsafe behind focused wrappers | active hotspot; largest remaining syscall surface |
+| `ripdpi-root-helper-protocol/src/scm_rights.rs` | ancillary data traversal, unaligned fd reads, `recvmsg` setup | shared `extract_scm_rights_fd`, `recv_line_with_optional_fd`, Miri-covered unaligned-fd helper | wrapped |
+| `ripdpi-runtime-platform/src/root_helper_client.rs` | Unix-socket IPC with fd passing | delegates receive-side unsafe to `ripdpi-root-helper-protocol` SCM_RIGHTS helpers | wrapped |
+| `ripdpi-root-helper/src/handlers/fd_adoption.rs` | adopting SCM_RIGHTS-owned TCP/UDP fds | small `adopt_*` helpers keep `from_raw_fd` localized | wrapped |
+| `ripdpi-android-vpn-protect-adapter/src/` and `ripdpi-android/src/support.rs` | JNI env/object lifetimes, `Send`/`Sync` promises | narrow helpers plus explicit `SAFETY` notes | comment-sensitive |
+| `ripdpi-runtime-platform/src/process.rs` | signal handlers, pid-file locking, daemonization | isolated libc calls with documented invariants | keep |
 
-`ripdpi-runtime/tests/support/wire.rs` is intentionally lower priority because it is test-only raw packet plumbing, not shipped runtime code.
+Test-only raw packet plumbing is intentionally lower priority than shipped runtime code.
 
 ## Safe-Wrapper Extraction Targets
 

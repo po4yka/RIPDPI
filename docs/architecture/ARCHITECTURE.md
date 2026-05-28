@@ -3,8 +3,7 @@
 The concise architecture map for RIPDPI. Read this first, then follow the
 [deeper docs](#8-deeper-docs) for any subsystem.
 
-This file is a navigational map, not a spec. Where it cannot be confirmed from
-current source it says so explicitly with **TODO verify** and a file path.
+This file is a navigational map, not a spec. Factual claims should be checked against the source paths linked from each subsystem section.
 
 ---
 
