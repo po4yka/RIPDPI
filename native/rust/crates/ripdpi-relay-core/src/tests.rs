@@ -516,6 +516,84 @@ async fn chain_relay_builds_anytls_entry_shadowsocks_exit_from_resolved_hops() {
 }
 
 #[tokio::test]
+async fn chain_relay_builds_shadowtls_entry_shadowsocks_exit_from_resolved_hops() {
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "shadowtls_v3".to_string(),
+        profile_id: "shadowtls-entry".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 443,
+        server_name: "entry.example".to_string(),
+        shadow_tls_password: Some("entry-secret".to_string()),
+        shadow_tls_inner: Some(ResolvedShadowTlsInnerRelayConfig {
+            kind: "vless_reality".to_string(),
+            profile_id: "entry-inner".to_string(),
+            server: "inner-entry.example".to_string(),
+            server_port: 443,
+            server_name: "inner-entry.example".to_string(),
+            reality_public_key: valid_reality_public_key(),
+            reality_short_id: String::new(),
+            vless_transport: "reality_tcp".to_string(),
+            vless_uuid: Some("33333333-3333-3333-3333-333333333333".to_string()),
+        }),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+    chain.exit = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "shadowsocks".to_string(),
+        profile_id: "shadowsocks-exit".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 8443,
+        shadowsocks_method: Some("aes-256-gcm".to_string()),
+        shadowsocks_password: Some("exit-secret".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+
+    let backend = build_backend(&config).await.expect("chain backend builds ShadowTLS entry and Shadowsocks exit");
+
+    assert_eq!(Some("chain_relay"), relay_backend_kind_id(&backend));
+}
+
+#[tokio::test]
+async fn chain_relay_builds_shadowsocks_entry_shadowtls_exit_from_resolved_hops() {
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "shadowsocks".to_string(),
+        profile_id: "shadowsocks-entry".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 443,
+        shadowsocks_method: Some("aes-256-gcm".to_string()),
+        shadowsocks_password: Some("entry-secret".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+    chain.exit = Some(Box::new(ResolvedChainRelayHopConfig {
+        kind: "shadowtls_v3".to_string(),
+        profile_id: "shadowtls-exit".to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: 8443,
+        server_name: "exit.example".to_string(),
+        shadow_tls_password: Some("exit-secret".to_string()),
+        shadow_tls_inner: Some(ResolvedShadowTlsInnerRelayConfig {
+            kind: "vless_reality".to_string(),
+            profile_id: "exit-inner".to_string(),
+            server: "inner-exit.example".to_string(),
+            server_port: 443,
+            server_name: "inner-exit.example".to_string(),
+            reality_public_key: valid_reality_public_key(),
+            reality_short_id: String::new(),
+            vless_transport: "reality_tcp".to_string(),
+            vless_uuid: Some("44444444-4444-4444-4444-444444444444".to_string()),
+        }),
+        ..ResolvedChainRelayHopConfig::default()
+    }));
+
+    let backend = build_backend(&config).await.expect("chain backend builds Shadowsocks entry and ShadowTLS exit");
+
+    assert_eq!(Some("chain_relay"), relay_backend_kind_id(&backend));
+}
+
+#[tokio::test]
 async fn chain_relay_routes_tcp_through_shadowsocks_entry_and_anytls_exit() {
     const PAYLOAD: &[u8] = b"chain shadowsocks entry anytls exit payload";
 

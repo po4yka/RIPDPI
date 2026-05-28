@@ -63,6 +63,7 @@ fn chain_entry_connector(
         "anytls" => resolved_hop_anytls_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::AnyTls),
         "shadowsocks" => resolved_hop_shadowsocks_factory(hop, ChainHopRole::Entry, outbound_bind_ip)
             .map(ChainEntryConnector::Shadowsocks),
+        "shadowtls_v3" => resolved_hop_shadowtls_factory(hop, ChainHopRole::Entry).map(ChainEntryConnector::ShadowTls),
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("chain entry: resolved hop kind {other} is not supported by chain relay"),
@@ -88,6 +89,7 @@ fn chain_exit_connector(
         "shadowsocks" => {
             resolved_hop_shadowsocks_factory(hop, ChainHopRole::Exit, None).map(ChainExitConnector::Shadowsocks)
         }
+        "shadowtls_v3" => resolved_hop_shadowtls_factory(hop, ChainHopRole::Exit).map(ChainExitConnector::ShadowTls),
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("chain exit: resolved hop kind {other} is not supported by chain relay"),
@@ -213,6 +215,35 @@ fn resolved_hop_shadowsocks_factory(
         outbound_bind_ip,
     )
     .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))
+}
+
+fn resolved_hop_shadowtls_factory(
+    hop: &ResolvedChainRelayHopConfig,
+    role: ChainHopRole,
+) -> io::Result<ripdpi_relay_tls_transports::ShadowTlsSessionFactory> {
+    let label = role.label();
+    let inner = hop.shadow_tls_inner.as_ref().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: ShadowTLS inner relay config is required"))
+    })?;
+    Ok(ripdpi_relay_tls_transports::ShadowTlsSessionFactory {
+        client_config: ripdpi_relay_tls_transports::ShadowTlsClientConfig {
+            password: hop.shadow_tls_password.clone().unwrap_or_default(),
+            server_name: hop.server_name.clone(),
+            inner_profile_id: hop.shadow_tls_inner_profile_id.clone(),
+        },
+        outer_server: hop.server.clone(),
+        outer_server_port: hop.server_port,
+        inner: ripdpi_relay_tls_transports::ShadowTlsInnerConfig {
+            kind: inner.kind.clone(),
+            server: inner.server.clone(),
+            server_port: inner.server_port,
+            server_name: inner.server_name.clone(),
+            reality_public_key: inner.reality_public_key.clone(),
+            reality_short_id: inner.reality_short_id.clone(),
+            vless_transport: inner.vless_transport.clone(),
+            vless_uuid: inner.vless_uuid.clone(),
+        },
+    })
 }
 
 fn legacy_hop_vless_reality_config(

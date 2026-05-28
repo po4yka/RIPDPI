@@ -3,7 +3,7 @@ use std::net::ToSocketAddrs;
 
 use rustls::pki_types::ServerName;
 use rustls::ClientConnection;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use crate::config::Config;
@@ -33,9 +33,15 @@ impl ShadowTlsClient {
         let address = (server, port).to_socket_addrs()?.next().ok_or_else(|| {
             io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
         })?;
-        let mut stream = TcpStream::connect(address).await?;
+        let stream = TcpStream::connect(address).await?;
         stream.set_nodelay(true)?;
+        self.connect_over(stream).await
+    }
 
+    pub async fn connect_over<S>(&self, mut stream: S) -> io::Result<ShadowTlsStream<S>>
+    where
+        S: AsyncRead + AsyncWrite + Unpin,
+    {
         let tls_config = build_rustls_config();
         let server_name = ServerName::try_from(self.config.server_name.clone()).map_err(|error| {
             io::Error::new(
@@ -73,11 +79,14 @@ impl ShadowTlsClient {
     }
 }
 
-async fn drive_handshake_to_application_data(
-    stream: &mut TcpStream,
+async fn drive_handshake_to_application_data<S>(
+    stream: &mut S,
     client_conn: &mut ClientConnection,
     handshake_hmac: &mut ShadowTlsHmac,
-) -> io::Result<()> {
+) -> io::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     loop {
         if client_conn.wants_write() {
             let mut frame = Vec::with_capacity(1024);

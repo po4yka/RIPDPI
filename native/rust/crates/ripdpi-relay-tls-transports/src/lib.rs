@@ -13,7 +13,10 @@ pub use shadowsocks::{
     connect_shadowsocks_tcp, connect_shadowsocks_tcp_over, shadowsocks_proxy_target, ShadowsocksSession,
     ShadowsocksSessionFactory, ShadowsocksUdpSession,
 };
-pub use shadowtls::{ShadowTlsClientConfig, ShadowTlsInnerConfig, ShadowTlsSessionFactory};
+pub use shadowtls::{
+    connect_shadowtls_tcp, connect_shadowtls_tcp_over, shadowtls_proxy_target, ShadowTlsClientConfig,
+    ShadowTlsInnerConfig, ShadowTlsSessionFactory,
+};
 pub use trojan::{
     connect_trojan_tcp, connect_trojan_tcp_over, trojan_proxy_target, TrojanClientConfig, TrojanSession,
     TrojanSessionFactory, TrojanUdpSession,
