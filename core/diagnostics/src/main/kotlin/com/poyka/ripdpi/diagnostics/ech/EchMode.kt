@@ -5,7 +5,7 @@ package com.poyka.ripdpi.diagnostics.ech
  * `<domainEncryption>` element.
  */
 enum class EchMode {
-    /** Hard-require ECH — use for owned-stack / Reality endpoints. */
+    /** Hard-require ECH for owned-stack or otherwise ECH-confirmed domains. */
     Enabled,
 
     /** Disable ECH negotiation for this domain. */

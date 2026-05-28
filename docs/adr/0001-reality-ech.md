@@ -1,6 +1,6 @@
 # ADR 0001: VLESS REALITY ECH Policy
 
-> Status: proposed. Decision date: 2026-05-28.
+> Status: accepted. Decision date: 2026-05-28.
 
 ## Context
 

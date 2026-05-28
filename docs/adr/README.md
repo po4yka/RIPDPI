@@ -4,7 +4,7 @@ This directory indexes protocol and architecture decisions that should be treate
 
 | Decision | Status | Date | Operational effect |
 | --- | --- | --- | --- |
-| [ADR 0001: VLESS REALITY ECH Policy](0001-reality-ech.md) | Proposed in record | 2026-05-28 | VLESS Reality does not use real ECH. Only GREASE-only ECH parity may be considered by TLS profile policy; the outbound ECH facade remains separate from the Reality transport. |
+| [ADR 0001: VLESS REALITY ECH Policy](0001-reality-ech.md) | Accepted | 2026-05-28 | VLESS Reality does not use real ECH. Only GREASE-only ECH parity may be considered by TLS profile policy; the outbound ECH facade remains separate from the Reality transport. |
 | [Snowflake Native Rust Port Decision](../architecture/snowflake-native-rust-decision.md) | Approved no-go | 2026-05-27 | Snowflake remains the external Go `ripdpi-snowflake` pluggable-transport binary. There is no native Rust `ripdpi-snowflake` crate under `native/rust/crates/`. |
 
 ## Cross-Link Rules
