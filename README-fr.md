@@ -36,11 +36,33 @@ Lorsqu'aucun relais n'est configuré, le trafic quitte l'appareil directement �
 
 Chaîne le trafic du proxy local ou du VPN via des protocoles de relais chiffrés vers un serveur que vous configurez :
 
-- **VLESS Reality et xHTTP** — implémentation Rust native, pas de runtime Go
-- **WARP, Cloudflare Tunnel, MASQUE**
-- **Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy**
-- **AmneziaWG** — WireGuard avec obfuscation du handshake pour les réseaux à forte censure
-- **WebTunnel, obfs4, Snowflake, chemin Google Apps Script**
+> [!NOTE]
+> Factual protocol matrix updated from the source code on 2026-05-28. Surrounding translated prose may lag `README.md` until human review.
+
+| Kind / protocol | Integration tier | Scope | Traffic |
+| --- | --- | --- | --- |
+| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP |
+| `vless_reality` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`) | Client relay | TCP |
+| `cloudflare_tunnel` | Native xHTTP relay path plus optional Cloudflare publish runtime | Client relay / local-origin publish | TCP |
+| `hysteria2` | Native relay-core backend (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
+| `tuic_v5` | Native relay-core backend (`ripdpi-tuic`) | Client relay | TCP + UDP |
+| `masque` | Native relay-core backend (`ripdpi-masque`) with HTTP/3 and HTTP/2 fallback | Client relay | TCP + UDP |
+| `shadowtls_v3` | Native relay-core backend (`ripdpi-shadowtls`) with a profile-backed inner relay | Client relay | TCP |
+| `trojan` | Native relay-core backend (`ripdpi-trojan`) | Client relay | TCP + UDP |
+| `anytls` | Native relay-core backend (`ripdpi-anytls`) | Client relay | TCP + UDP |
+| `shadowsocks` | Native relay-core backend (`ripdpi-shadowsocks`) | Client relay | TCP + UDP |
+| `tor` | Native Arti-backed relay-core backend (`ripdpi-tor`) with bridge/PT bootstrap | Opt-in client anonymity relay | TCP |
+| `naiveproxy` | External helper process (`ripdpi-naiveproxy`) supervised by Android service code | Client relay | TCP |
+| `google_apps_script` | In-repository Rust Apps Script relay runtime (`ripdpi-apps-script-core`) selected by `libripdpi-relay.so` | Client relay path | TCP |
+| `snowflake` | External Go pluggable-transport binary (`ripdpi-snowflake`) | Client PT relay | TCP |
+| `webtunnel` | External pluggable-transport binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
+| `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
+| `chain_relay` | Native relay-core composition over referenced relay profiles | Two-hop client relay | TCP |
+| `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
+
+Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
+
+WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` values in the relay-core registry.
 
 Le mode proxy local et le mode redirection VPN Android fonctionnent tous deux avec ou sans relais configuré.
 
@@ -63,7 +85,7 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 
 1. **Une réponse par cible et par réseau** — pas une politique globale unique. Les diagnostics classifient chaque autorité et stockent le verdict indexé sur un hash d'empreinte de réseau.
 2. **Mutez le chemin local lorsque le réseau est le problème.** Marqueurs sémantiques, placement adaptatif des découpages, chaînes de faux payloads, OOB/désordre, enregistrements TLS aléatoires, variation d'empreinte QUIC et DTLS — assemblés à partir de crates Rust internes au dépôt.
-3. **Repliez-vous sur un relais tunnelé lorsque le chemin direct est dégradé.** VLESS Reality/xHTTP en Rust natif, plus WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, AmneziaWG et Cloudflare Tunnel prennent en charge les cibles qui ne peuvent pas être récupérées sur l'appareil.
+3. **Repliez-vous sur un relais tunnelé lorsque le chemin direct est dégradé.** La matrice de relais ci-dessus distingue native relay-core backends, helper subprocesses, external pluggable transports et surfaces VPN/tunnel séparées.
 4. **Rapports honnêtes.** Les verdicts sont typés et affichés ; les résultats du classifieur d'échec sont mis en évidence plutôt que supprimés ; les paquets d'export de diagnostic masquent les secrets.
 
 ## Captures d'écran
@@ -87,7 +109,7 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 
 - **Mode proxy** : proxy SOCKS5 local sur le port localhost configuré.
 - **Mode VPN** : route le trafic de l'appareil Android via un pont local TUN-vers-SOCKS au moyen de `VpnService`.
-- **Import de profil** : scan et génération de QR code, ainsi qu'import par presse-papiers et feuille de partage d'URI de proxy (`vless://`, `hysteria2://`, `ss://`, `amneziawg://`, et plus).
+- **Import de profil** : scan et génération de QR code, ainsi qu'import par presse-papiers et feuille de partage. Proxy URI codec accepts `vless://`, `vmess://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, and `tuic://`; AmneziaWG uses the separate `amneziawg://` codec. Android intent filters also expose `hysteria://` and `ssh://` to the import trampoline, but those schemes are not parsed by the current proxy URI codec.
 - **Abonnements** : formats d'abonnement base64, Clash / Clash.Meta YAML, sing-box JSON et WireGuard-INI avec mise à jour automatique en arrière-plan, détection des profils en double, groupes selector/urltest et livraison multi-miroir.
 - **DNS chiffré** : prise en charge des résolveurs DoH, DoT, DNSCrypt et DoQ dans les chemins liés au VPN.
 - **Contrôles de stratégie** : familles TCP split/disorder/fake, fragmentation d'enregistrements TLS et faux profils, variation de handshake QUIC et DTLS, variation du champ de longueur UDP, en-têtes d'extension IPv6, `rawsend` Lua, filtres d'activation par étape, contrôle de l'ID IPv4 et injection OOB.

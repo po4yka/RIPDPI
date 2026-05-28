@@ -36,11 +36,33 @@ Wenn kein Relay konfiguriert ist, verlässt der Datenverkehr das Gerät direkt �
 
 Leitet lokalen Proxy- oder VPN-Datenverkehr verschlüsselt über Relay-Protokolle an einen von Ihnen konfigurierten Server weiter:
 
-- **VLESS Reality und xHTTP** – native Rust-Implementierung, keine Go-Laufzeitumgebung
-- **WARP, Cloudflare Tunnel, MASQUE**
-- **Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy**
-- **AmneziaWG** – WireGuard mit Handshake-Verschleierung für stark zensierte Netzwerke
-- **WebTunnel, obfs4, Snowflake, Google-Apps-Script-Pfad**
+> [!NOTE]
+> Factual protocol matrix updated from the source code on 2026-05-28. Surrounding translated prose may lag `README.md` until human review.
+
+| Kind / protocol | Integration tier | Scope | Traffic |
+| --- | --- | --- | --- |
+| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP |
+| `vless_reality` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`) | Client relay | TCP |
+| `cloudflare_tunnel` | Native xHTTP relay path plus optional Cloudflare publish runtime | Client relay / local-origin publish | TCP |
+| `hysteria2` | Native relay-core backend (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
+| `tuic_v5` | Native relay-core backend (`ripdpi-tuic`) | Client relay | TCP + UDP |
+| `masque` | Native relay-core backend (`ripdpi-masque`) with HTTP/3 and HTTP/2 fallback | Client relay | TCP + UDP |
+| `shadowtls_v3` | Native relay-core backend (`ripdpi-shadowtls`) with a profile-backed inner relay | Client relay | TCP |
+| `trojan` | Native relay-core backend (`ripdpi-trojan`) | Client relay | TCP + UDP |
+| `anytls` | Native relay-core backend (`ripdpi-anytls`) | Client relay | TCP + UDP |
+| `shadowsocks` | Native relay-core backend (`ripdpi-shadowsocks`) | Client relay | TCP + UDP |
+| `tor` | Native Arti-backed relay-core backend (`ripdpi-tor`) with bridge/PT bootstrap | Opt-in client anonymity relay | TCP |
+| `naiveproxy` | External helper process (`ripdpi-naiveproxy`) supervised by Android service code | Client relay | TCP |
+| `google_apps_script` | In-repository Rust Apps Script relay runtime (`ripdpi-apps-script-core`) selected by `libripdpi-relay.so` | Client relay path | TCP |
+| `snowflake` | External Go pluggable-transport binary (`ripdpi-snowflake`) | Client PT relay | TCP |
+| `webtunnel` | External pluggable-transport binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
+| `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
+| `chain_relay` | Native relay-core composition over referenced relay profiles | Two-hop client relay | TCP |
+| `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
+
+Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
+
+WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` values in the relay-core registry.
 
 Sowohl der lokale Proxy-Modus als auch der Android-VPN-Weiterleitungsmodus funktionieren mit oder ohne konfiguriertes Relay.
 
@@ -63,7 +85,7 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 
 1. **Antwort pro Ziel, pro Netzwerk** – keine einheitliche globale Richtlinie. Die Diagnose klassifiziert jede Autorität und speichert das Urteil mit einem Netzwerk-Fingerabdruck-Hash als Schlüssel.
 2. **Den lokalen Pfad mutieren, wenn das Netzwerk das Problem ist.** Semantische Marker, adaptive Split-Platzierung, Fake-Payload-Ketten, OOB/Unordnung, randomisierte TLS-Records, QUIC- und DTLS-Fingerabdruck-Variation – zusammengestellt aus Rust-Crates im Repository.
-3. **Auf ein getunneltes Relay zurückgreifen, wenn der direkte Pfad beeinträchtigt ist.** Natives Rust-VLESS-Reality/xHTTP sowie WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, AmneziaWG und Cloudflare Tunnel übernehmen Ziele, die auf dem Gerät nicht wiederhergestellt werden können.
+3. **Auf ein getunneltes Relay zurückgreifen, wenn der direkte Pfad beeinträchtigt ist.** Die Relay-Matrix oben unterscheidet native relay-core backends, helper subprocesses, external pluggable transports und separate VPN/tunnel profile surfaces.
 4. **Ehrliche Berichterstattung.** Urteile sind typisiert und werden angezeigt; Ergebnisse des Fehlerklassifizierers werden offengelegt, statt unterdrückt; exportierte Diagnose-Bundles entfernen Geheimnisse.
 
 ## Screenshots
@@ -87,7 +109,7 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 
 - **Proxy-Modus**: lokaler SOCKS5-Proxy auf dem konfigurierten Localhost-Port.
 - **VPN-Modus**: leitet den Android-Datenverkehr des Geräts über eine lokale TUN-zu-SOCKS-Brücke mittels `VpnService` weiter.
-- **Profilimport**: QR-Code-Scan und -Generierung sowie Import von Proxy-URIs über die Zwischenablage und das Teilen-Menü (`vless://`, `hysteria2://`, `ss://`, `amneziawg://` und weitere).
+- **Profilimport**: QR-Code-Scan und -Generierung sowie Import über die Zwischenablage und das Teilen-Menü. Proxy URI codec accepts `vless://`, `vmess://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, and `tuic://`; AmneziaWG uses the separate `amneziawg://` codec. Android intent filters also expose `hysteria://` and `ssh://` to the import trampoline, but those schemes are not parsed by the current proxy URI codec.
 - **Abonnements**: base64-, Clash / Clash.Meta-YAML-, sing-box-JSON- und WireGuard-INI-Abonnementformate mit automatischer Hintergrundaktualisierung, Erkennung doppelter Profile, Selector-/urltest-Gruppen und Multi-Mirror-Auslieferung.
 - **Verschlüsseltes DNS**: Unterstützung für DoH-, DoT-, DNSCrypt- und DoQ-Resolver in VPN-bezogenen Pfaden.
 - **Strategie-Steuerung**: TCP-Familien für Split/Unordnung/Fake, TLS-Record-Fragmentierung und Fake-Profile, QUIC- und DTLS-Handshake-Variation, Variation des UDP-Längenfelds, IPv6-Erweiterungsheader, Lua-`rawsend`, schrittweise Aktivierungsfilter, IPv4-ID-Steuerung und OOB-Einschleusung.

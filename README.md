@@ -36,11 +36,30 @@ When no relay is configured, traffic exits the device directly — on-device mut
 
 Chains local proxy or VPN traffic through encrypted relay protocols to a server you configure:
 
-- **VLESS Reality and xHTTP** — native Rust implementation, no Go runtime
-- **WARP, Cloudflare Tunnel, MASQUE**
-- **Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy**
-- **AmneziaWG** — WireGuard with handshake obfuscation for high-censorship networks
-- **WebTunnel, obfs4, Snowflake, Google Apps Script path**
+| Kind / protocol | Integration tier | Scope | Traffic |
+| --- | --- | --- | --- |
+| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP |
+| `vless_reality` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`) | Client relay | TCP |
+| `cloudflare_tunnel` | Native xHTTP relay path plus optional Cloudflare publish runtime | Client relay / local-origin publish | TCP |
+| `hysteria2` | Native relay-core backend (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
+| `tuic_v5` | Native relay-core backend (`ripdpi-tuic`) | Client relay | TCP + UDP |
+| `masque` | Native relay-core backend (`ripdpi-masque`) with HTTP/3 and HTTP/2 fallback | Client relay | TCP + UDP |
+| `shadowtls_v3` | Native relay-core backend (`ripdpi-shadowtls`) with a profile-backed inner relay | Client relay | TCP |
+| `trojan` | Native relay-core backend (`ripdpi-trojan`) | Client relay | TCP + UDP |
+| `anytls` | Native relay-core backend (`ripdpi-anytls`) | Client relay | TCP + UDP |
+| `shadowsocks` | Native relay-core backend (`ripdpi-shadowsocks`) | Client relay | TCP + UDP |
+| `tor` | Native Arti-backed relay-core backend (`ripdpi-tor`) with bridge/PT bootstrap | Opt-in client anonymity relay | TCP |
+| `naiveproxy` | External helper process (`ripdpi-naiveproxy`) supervised by Android service code | Client relay | TCP |
+| `google_apps_script` | In-repository Rust Apps Script relay runtime (`ripdpi-apps-script-core`) selected by `libripdpi-relay.so` | Client relay path | TCP |
+| `snowflake` | External Go pluggable-transport binary (`ripdpi-snowflake`) | Client PT relay | TCP |
+| `webtunnel` | External pluggable-transport binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
+| `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
+| `chain_relay` | Native relay-core composition over referenced relay profiles | Two-hop client relay | TCP |
+| `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
+
+Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
+
+WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` values in the relay-core registry.
 
 Both local proxy mode and Android VPN redirection mode work with or without a relay configured.
 
@@ -63,7 +82,7 @@ RIPDPI's design principle: classify each target and each network separately, app
 
 1. **Per-target, per-network answer** — not one global policy. Diagnostics classify each authority and store the verdict keyed to a network fingerprint hash.
 2. **Mutate the local path when the network is the problem.** Semantic markers, adaptive split placement, fake-payload chains, OOB/disorder, randomized TLS records, QUIC and DTLS fingerprint variation — assembled from in-repo Rust crates.
-3. **Fall back to a tunneled relay when the direct path is degraded.** Native-Rust VLESS Reality/xHTTP, plus WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, AmneziaWG, and Cloudflare Tunnel handle targets that cannot be recovered on-device.
+3. **Fall back to a tunneled relay when the direct path is degraded.** The relay matrix above distinguishes native relay-core backends, helper subprocesses, external pluggable transports, and separate VPN/tunnel profile surfaces so unsupported or opt-in paths are not hidden behind one feature label.
 4. **Honest reporting.** Verdicts are typed and displayed; failure classifier results are surfaced rather than suppressed; diagnostic export bundles redact secrets.
 
 ## Screenshots
@@ -87,7 +106,7 @@ RIPDPI's design principle: classify each target and each network separately, app
 
 - **Proxy mode**: local SOCKS5 proxy on the configured localhost port.
 - **VPN mode**: routes Android device traffic through a local TUN-to-SOCKS bridge via `VpnService`.
-- **Profile import**: QR-code scan and generation, plus clipboard and share-sheet import of proxy URIs (`vless://`, `hysteria2://`, `ss://`, `amneziawg://`, and more).
+- **Profile import**: QR-code scan and generation, plus clipboard and share-sheet import. The proxy URI codec accepts `vless://`, `vmess://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, and `tuic://`; AmneziaWG uses the separate `amneziawg://` codec. Android intent filters also expose `hysteria://` and `ssh://` to the import trampoline, but those schemes are not parsed by the current proxy URI codec.
 - **Subscriptions**: base64, Clash / Clash.Meta YAML, sing-box JSON, and WireGuard-INI subscription formats with background auto-update, duplicate-profile detection, selector/urltest groups, and multi-mirror delivery.
 - **Encrypted DNS**: DoH, DoT, DNSCrypt, and DoQ resolver support in VPN-related paths.
 - **Strategy controls**: TCP split/disorder/fake families, TLS record fragmentation and fake profiles, QUIC and DTLS handshake variation, UDP length-field variation, IPv6 extension headers, Lua `rawsend`, per-step activation filters, IPv4 ID control, and OOB injection.
