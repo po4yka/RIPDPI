@@ -14,16 +14,6 @@ updated: 2026-05-16
 
 - [ ] #task Add Cloudflare Workers domain-fronting bypass adapter #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-cloudflare-workers-domain-fronting-bypass`
-- **Verify:** `cargo test -p ripdpi-cloudflare-origin -p ripdpi-masque`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-cloudflare-origin/**`, `native/rust/crates/ripdpi-masque/**`, `docs/native/cloudflare-tunnel-operations.md`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Route tunnel traffic through Cloudflare Workers (serverless edge compute) so the on-wire TLS connection targets a generic `*.workers.dev` or operator-mapped custom domain. The Worker forwards the inner stream to the real upstream. DPI sees a vanilla TLS connection to a Cloudflare-fronted hostname; the real destination is hidden inside the Worker request.

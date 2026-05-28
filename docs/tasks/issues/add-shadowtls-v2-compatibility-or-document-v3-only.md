@@ -14,16 +14,6 @@ updated: 2026-05-15
 
 - [ ] #task Add ShadowTLS v2 compatibility or document v3-only policy #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-shadowtls-v2-compatibility-or-document-v3-only`
-- **Verify:** `cargo test -p ripdpi-shadowtls`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-shadowtls/**`, `docs/architecture/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 `ripdpi-shadowtls` ships v3 framing (HKDF/HMAC handshake). Some existing deployments still run v2. Decide whether to add a v2 client path or to document v3-only with a deprecation policy and a recognizable failure class.

@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Limit DNS measurement to user-requested destinations #repo/RIPDPI #area/dns #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `limit-dns-measurement-to-user-requested-destinations`
-- **Verify:** `just test-module core:service`
-- **Scope (only modify these + this file + the ledger):** `core/service/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Measure DNS only for destinations the user is actually trying to reach. No preloaded target lists, no broad scanning. Matches the C-Saw measurement-with-consent posture.

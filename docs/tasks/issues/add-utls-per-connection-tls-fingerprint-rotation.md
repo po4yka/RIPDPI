@@ -14,16 +14,6 @@ updated: 2026-05-16
 
 - [ ] #task Add uTLS per-connection TLS-fingerprint rotation for outbound TLS handshakes #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-utls-per-connection-tls-fingerprint-rotation`
-- **Verify:** `cargo test -p ripdpi-tls-profiles -p ripdpi-vless -p ripdpi-xhttp`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-tls-profiles/**`, `native/rust/crates/ripdpi-vless/**`, `native/rust/crates/ripdpi-xhttp/**`, `native/rust/crates/ripdpi-shadowtls/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Implement uTLS-style ClientHello fingerprint impersonation rotated on each outbound TLS connection. Current `ripdpi-tls-profiles` emits a single profile per session; DPI that fingerprints exact ClientHello bytes (extension order, GREASE values, cipher suite list) can correlate sessions even when domains and IPs vary.

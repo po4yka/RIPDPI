@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Add mixed SOCKS5 and HTTP CONNECT inbound listener #repo/RIPDPI #area/proxy #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-mixed-socks5-and-http-connect-inbound-listener`
-- **Verify:** `just test-module core:service`
-- **Scope (only modify these + this file + the ledger):** `core/service/**`, `native/rust/crates/ripdpi-socks5-core/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Extend the existing local-SOCKS5 inbound into a "mixed" inbound that also speaks HTTP CONNECT on the same port (protocol detected from the first bytes).

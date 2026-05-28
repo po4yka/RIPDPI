@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Add Hysteria v1 outbound client crate and profile editor #repo/RIPDPI #area/outbound #status/backlog 🔽
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-hysteria-v1-outbound-client-crate-and-profile-editor`
-- **Verify:** `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-hysteria2`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-hysteria2/**`, `core/data/runtime-state/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Add a `ripdpi-hysteria-v1` Rust crate (distinct from the existing `ripdpi-hysteria2`) for legacy Hysteria v1 subscriptions, plus a `HysteriaV1ProfileScreen` editor. Mark the crate with an explicit sunset decision date.

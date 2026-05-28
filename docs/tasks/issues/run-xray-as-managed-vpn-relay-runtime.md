@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Run Xray as managed VPN relay runtime #repo/RIPDPI #area/outbound #status/backlog ⏫
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `run-xray-as-managed-vpn-relay-runtime`
-- **Verify:** `just test-module core:service`
-- **Scope (only modify these + this file + the ledger):** `core/service/**`, `core/data/runtime-state/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Implement a supervised Xray runtime that starts, reports readiness, exposes health, and stops cleanly inside RIPDPI's Android service layer.

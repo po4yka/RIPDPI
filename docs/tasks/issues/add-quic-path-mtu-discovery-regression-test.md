@@ -14,16 +14,6 @@ updated: 2026-05-15
 
 - [ ] #task Add QUIC path-MTU discovery regression test #repo/RIPDPI #area/testing #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-quic-path-mtu-discovery-regression-test`
-- **Verify:** `cargo test -p ripdpi-hysteria2 -p ripdpi-tuic -p ripdpi-masque -- mtu`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-hysteria2/**`, `native/rust/crates/ripdpi-tuic/**`, `native/rust/crates/ripdpi-masque/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Path-MTU shifts (carrier handover, VPN nesting, jumbo-frame paths) break QUIC connections quietly. Add a regression test that simulates a mid-connection MTU drop and asserts the QUIC stack recovers.

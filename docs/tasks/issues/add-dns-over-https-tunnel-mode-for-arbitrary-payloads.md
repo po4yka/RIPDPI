@@ -14,16 +14,6 @@ updated: 2026-05-16
 
 - [ ] #task Add DNS-over-HTTPS tunnel mode for arbitrary payloads #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-dns-over-https-tunnel-mode-for-arbitrary-payloads`
-- **Verify:** `cargo test -p ripdpi-doh-tunnel`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-doh-tunnel/**` (new crate), `docs/native/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Encapsulate arbitrary tunnel payloads inside DNS-over-HTTPS queries and responses to a controlled DoH endpoint. Combined with domain-fronting via Cloudflare/Google DoH resolvers, the on-wire traffic is indistinguishable from ordinary browser DNS resolution.

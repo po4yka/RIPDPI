@@ -14,16 +14,6 @@ updated: 2026-05-16
 
 - [ ] #task Introduce ProtocolVersion enum and version-mismatch probe diagnostic #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `introduce-protocol-version-enum-and-version-probe-diagnostic`
-- **Verify:** `cargo test -p ripdpi-vless -p ripdpi-tuic -p ripdpi-ws-tunnel -p ripdpi-diagnostics-protocols`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-vless/**`, `native/rust/crates/ripdpi-tuic/**`, `native/rust/crates/ripdpi-ws-tunnel/**`, `native/rust/crates/ripdpi-diagnostics-protocols/**`, `native/rust/crates/ripdpi-failure-classifier/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Replace hard-coded protocol-version magic numbers with a typed `ProtocolVersion` enum and add a diagnostic probe that distinguishes "server speaks wrong wire version" from "blocked / wrong key / network failure" in user-facing diagnostics.

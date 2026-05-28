@@ -17,16 +17,6 @@ linked_task: null
 
 - [ ] #task Add tun2socks UID validation to close SO_BINDTODEVICE escape #repo/RIPDPI #area/vpn #status/backlog ⏫
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-tun2socks-uid-validation-against-so-bindtodevice-bypass`
-- **Verify:** `./gradlew :core:service:testDebugUnitTest :core:engine:testDebugUnitTest`
-- **Scope (only modify these + this file + the ledger):** `core/engine/**`, `core/service/**`, `native/rust/crates/ripdpi-tunnel-android/**`, `app/src/androidTest/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Motivation
 
 On Linux kernel 5.7+ (predominantly Android 12+, API 31+), `SO_BINDTODEVICE` privilege was dropped — any unprivileged app can bind a socket directly to a network interface (e.g., `tun0`) and bypass all Android VPN split-tunneling routing rules. Standard tun2socks reads packets off the TUN interface but has no UID attribution, so any per-app split-tunnel enforcement done at the routing layer is invisible to it.

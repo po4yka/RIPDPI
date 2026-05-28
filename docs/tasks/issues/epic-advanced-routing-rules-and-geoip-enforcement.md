@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Epic - Advanced routing rules and geoip enforcement #repo/RIPDPI #area/epic #status/backlog ⏫
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `epic-advanced-routing-rules-and-geoip-enforcement`
-- **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
-- **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Goal
 
 Finish the routing-rule story end to end. Today RIPDPI has the Protobuf schema for geosite and partial enforcement, plus per-app VPN exclusion, but no user-editable rule engine, no CIDR rules, no runtime geoip.db/geosite.db enforcement, and no configurable asset provider. reference implementation exposes all of these.

@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Add start-on-boot user toggle and permission guard #repo/RIPDPI #area/service #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-start-on-boot-user-toggle-and-permission-guard`
-- **Verify:** `just test-module core:service`
-- **Scope (only modify these + this file + the ledger):** `core/service/**`, `app/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Add a "Start on boot" toggle in Settings that controls boot-receiver enable state, with a one-time prompt to whitelist from battery-saver / doze / vendor background-kill policies.

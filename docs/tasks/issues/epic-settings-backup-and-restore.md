@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Epic - Settings backup and restore #repo/RIPDPI #area/epic #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `epic-settings-backup-and-restore`
-- **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
-- **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
-- **Blocked-by (must be DONE in the ledger first):** `epic-advanced-routing-rules-and-geoip-enforcement`
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Goal
 
 Let users export and restore their RIPDPI configuration (profiles, groups, routing rules, user settings) through a controlled, redacted JSON file. reference implementation has this; RIPDPI does not, and currently pins `allowBackup="false"` explicitly.

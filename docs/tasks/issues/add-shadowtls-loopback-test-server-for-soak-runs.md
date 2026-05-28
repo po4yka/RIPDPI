@@ -14,16 +14,6 @@ updated: 2026-05-15
 
 - [ ] #task Add ShadowTLS loopback test server for soak runs #repo/RIPDPI #area/testing #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-shadowtls-loopback-test-server-for-soak-runs`
-- **Verify:** `cargo test -p ripdpi-shadowtls --release -- soak`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-shadowtls/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 `ripdpi-shadowtls` only ships a client. Add a minimal loopback test-server (under `tests/` or behind a `test-server` feature) so soak tests, fuzz harnesses, and future server-side conformance work have a controlled counterpart.

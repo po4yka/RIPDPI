@@ -14,16 +14,6 @@ updated: 2026-05-16
 
 - [ ] #task Add WireGuard-over-WebSocket transport with AmneziaWG disguise #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-wireguard-over-websocket-transport-amneziawg-disguise`
-- **Verify:** `cargo test -p ripdpi-wireguard-ws -p ripdpi-ws-tunnel`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-wireguard-ws/**` (new crate), `native/rust/crates/ripdpi-ws-tunnel/**`, `docs/native/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Encapsulate WireGuard handshakes and data frames inside a WebSocket stream (WSS over 443). Combined with AmneziaWG's junk-packet prefix and randomized header values, this eliminates both the distinctive WG UDP fingerprint (handshake initiation MTU/checksum, message-type byte) and the well-known WG UDP port range.

@@ -17,16 +17,6 @@ linked_task: null
 
 - [ ] #task Investigate RKN unannounced protocol-class signatures #repo/RIPDPI #area/transport #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `investigate-rkn-unannounced-protocol-class-signatures`
-- **Verify:** `cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-runtime-policy -p ripdpi-diagnostics-runner`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-runtime-policy/**`, `native/rust/crates/ripdpi-diagnostics-runner/**`, `docs/tasks/issues/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Motivation
 
 RKN shifted in Dec 2025 to protocol-class fingerprint blocks (SOCKS5, VLESS, L2TP) without enumerating operators. Open question: which additional unannounced protocol-class signatures have landed, and do dpi-checkers / DPI Detector / rkn-block-checker tools detect them? This directly determines which protocols RIPDPI can still rely on as primary transports.

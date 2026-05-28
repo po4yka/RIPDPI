@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Add package-replaced restart gated on prior running state #repo/RIPDPI #area/service #status/backlog 🔽
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-package-replaced-restart-gated-on-prior-running-state`
-- **Verify:** `just test-module core:service`
-- **Scope (only modify these + this file + the ledger):** `core/service/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 When the app is updated (MY_PACKAGE_REPLACED), auto-restart the tunnel only if the session was running at the moment the update installed.

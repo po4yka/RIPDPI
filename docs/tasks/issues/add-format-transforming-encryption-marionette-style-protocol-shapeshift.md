@@ -14,16 +14,6 @@ updated: 2026-05-16
 
 - [ ] #task Add format-transforming encryption (Marionette-style) for protocol shape-shifting #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-format-transforming-encryption-marionette-style-protocol-shapeshift`
-- **Verify:** `cargo test -p ripdpi-fte`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-fte/**` (new crate), `docs/native/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Implement Format-Transforming Encryption (FTE) that reshapes ciphertext bytes to match a regular-expression-defined cover format (e.g. "looks like syslog UDP", "looks like HTTP/1.0 GET response"). Combined with a state-machine driver in the Marionette tradition, this defeats DPI classifiers that work by matching the wire bytes against a known set of legitimate-protocol regexes.

@@ -14,16 +14,6 @@ updated: 2026-05-28
 
 - [ ] #task Add network-security-config with opportunistic domainEncryption #repo/RIPDPI #area/diagnostics #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-network-security-config-with-opportunistic-domainencryption`
-- **Verify:** `just build`
-- **Scope (only modify these + this file + the ledger):** `app/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Add `res/xml/network_security_config.xml` with `<domainEncryption mode="opportunistic"/>` as the base config, and point `AndroidManifest.xml` at it. Opportunistic unlocks platform ECH when both the library and DNS say yes.

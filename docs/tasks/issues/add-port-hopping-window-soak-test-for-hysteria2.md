@@ -14,16 +14,6 @@ updated: 2026-05-15
 
 - [ ] #task Add port-hopping window soak test for Hysteria 2 #repo/RIPDPI #area/testing #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-port-hopping-window-soak-test-for-hysteria2`
-- **Verify:** `cargo test -p ripdpi-hysteria2 --release -- port_hopping`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-hysteria2/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 `ripdpi-hysteria2/src/port_hopping.rs` is 14 KB of stateful logic that rebinds the local UDP socket on a recurring schedule. Add a soak test that runs through many hop windows while injecting path-MTU shifts and brief loss spikes.

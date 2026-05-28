@@ -14,16 +14,6 @@ updated: 2026-05-15
 
 - [ ] #task Add TUIC v4 fallback or explicit version detection #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-tuic-v4-fallback-or-version-detection`
-- **Verify:** `cargo test -p ripdpi-tuic`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-tuic/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 `ripdpi-tuic` pins `TUIC_VERSION: u8 = 0x05` in `protocol.rs:11` and emits only v5 wire bytes. Decide whether to hard-require v5 (with a documented deprecation policy and a recognizable failure class for v4 servers) or to implement explicit version detection with v4 fallback.

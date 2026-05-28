@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Spike CensorLab as offline censor-replay harness #repo/RIPDPI #area/testing #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `spike-censorlab-as-offline-censor-replay-harness`
-- **Verify:** `just lint`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-desync/**`, `native/rust/crates/ripdpi-diagnostics-probes/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Build CensorLab locally, replay a middlebox-like scenario against RIPDPI's direct-mode arms, and decide whether to adopt, fork, or reject it as an offline censor-replay harness for the orchestration test posture.

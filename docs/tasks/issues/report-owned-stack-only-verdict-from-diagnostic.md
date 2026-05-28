@@ -14,16 +14,6 @@ updated: 2026-05-28
 
 - [ ] #task Report OWNED_STACK_ONLY verdict from diagnostic #repo/RIPDPI #area/diagnostics #status/todo 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `report-owned-stack-only-verdict-from-diagnostic`
-- **Verify:** `just test-module core:diagnostics`
-- **Scope (only modify these + this file + the ledger):** `core/diagnostics/**`, `core/data/runtime-state/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 When transparent arms (A3–A8) all fail but an owned-stack arm (A9/A10) works, the diagnostic returns `OWNED_STACK_ONLY`. Surface that as a real verdict, not a failure — "open this host inside the RIPDPI browser" is a legitimate outcome.

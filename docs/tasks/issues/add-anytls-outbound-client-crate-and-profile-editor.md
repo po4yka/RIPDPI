@@ -14,16 +14,6 @@ updated: 2026-05-28
 
 - [ ] #task Finish AnyTLS profile editor and compatibility gaps #repo/RIPDPI #area/outbound #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-anytls-outbound-client-crate-and-profile-editor`
-- **Verify:** `just test-rust`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-anytls/**`, `app/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 AnyTLS is now a first-class relay kind with a Rust crate, relay-core backend, URI/subscription import support, and runtime config fields. Keep this task for the remaining UI and compatibility polish that is not yet present in the codebase.

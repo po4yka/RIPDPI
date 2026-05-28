@@ -14,16 +14,6 @@ updated: 2026-05-28
 
 - [ ] #task Epic - Control-plane hardening #repo/RIPDPI #area/epic #status/todo 🔺
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `epic-control-plane-hardening`
-- **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
-- **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Goal
 
 Replace the current fragile catalog download path (same-origin checksums, no anti-rollback, non-atomic writes, setting-triggered refreshes) with a signed, rollback-resistant, atomic, TTL-gated control plane. Outcome: an old valid-signed payload can't downgrade the client, a mid-write crash can't corrupt the cache, and unrelated settings edits don't hit the network.

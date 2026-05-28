@@ -14,16 +14,6 @@ updated: 2026-05-15
 
 - [ ] #task Pin BoringSSL Reality FFI symbols with a build-time existence check #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `pin-boringssl-symbols-with-build-time-existence-check`
-- **Verify:** `cargo build -p ripdpi-vless --release && cargo test -p ripdpi-vless`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-vless/**`, `native/rust/Cargo.toml`, `docs/native/proxy-engine.md`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 The Reality TLS implementation in `ripdpi-vless` declares three BoringSSL symbols by hand because the `boring` crate does not re-export them. Pin the `boring` / `boring-sys` versions exactly and add a `build.rs` existence check so a vendored-BoringSSL bump cannot break Reality silently.

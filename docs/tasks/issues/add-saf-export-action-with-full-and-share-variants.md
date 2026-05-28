@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Add SAF export action with FULL and SHARE variants #repo/RIPDPI #area/data #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-saf-export-action-with-full-and-share-variants`
-- **Verify:** `just test-module app`
-- **Scope (only modify these + this file + the ledger):** `app/**`, `core/data/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Add Tools-screen export action that writes the backup JSON via `ActivityResultContracts.CreateDocument`, letting the user pick between FULL (credentials included) and SHARE (redacted) variants.

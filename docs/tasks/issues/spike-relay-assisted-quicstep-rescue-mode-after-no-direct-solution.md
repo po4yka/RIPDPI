@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Spike relay-assisted QUICstep rescue mode after NO_DIRECT_SOLUTION #repo/RIPDPI #area/diagnostics #status/backlog 🔽
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `spike-relay-assisted-quicstep-rescue-mode-after-no-direct-solution`
-- **Verify:** `just lint`
-- **Scope (only modify these + this file + the ledger):** `core/diagnostics/**`, `native/rust/crates/ripdpi-desync-runtime/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Evaluate whether RIPDPI should add a second-tier rescue mode that uses a relay-assisted QUICstep-style first-flight bootstrap only after direct-mode has already returned `NO_DIRECT_SOLUTION`.

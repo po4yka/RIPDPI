@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Add ProxyService foreground service as alternative to TUN VPN #repo/RIPDPI #area/proxy #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-proxyservice-foreground-service-as-alternative-to-tun-vpn`
-- **Verify:** `just test-module core:service`
-- **Scope (only modify these + this file + the ledger):** `core/service/**`, `app/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Introduce `RipDpiProxyService` as a foreground-service alternative to `RipDpiVpnService`: runs the mixed inbound and outbound dispatch, but opens no TUN and creates no `vpn_protect` socket server.

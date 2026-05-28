@@ -14,16 +14,6 @@ updated: 2026-04-25
 
 - [ ] #task Add upstream HTTP and SOCKS5 proxy override for diagnostic probes #repo/RIPDPI #area/rust-native #status/backlog 🔽
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-upstream-http-and-socks5-proxy-override-for-diagnostic-probes`
-- **Verify:** `cargo nextest run --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-monitor-engine/**`, `native/rust/crates/ripdpi-socks5-core/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Allow diagnostic probes (TLS reachability, TCP 16-20KB cutoff, DNS resolver availability, HTTP injection) to be routed through an arbitrary upstream HTTP or SOCKS5 proxy supplied by the user, so the operator can compare results across paths without leaving the app.

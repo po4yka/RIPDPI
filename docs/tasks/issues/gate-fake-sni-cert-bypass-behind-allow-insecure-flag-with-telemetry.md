@@ -14,16 +14,6 @@ updated: 2026-05-15
 
 - [ ] #task Gate fake-SNI cert-bypass behind allow_insecure_sni flag with telemetry #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry`
-- **Verify:** `cargo test -p ripdpi-ws-tunnel -p ripdpi-vless && ./gradlew :core:engine:testDebugUnitTest`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-ws-tunnel/**`, `native/rust/crates/ripdpi-tls-profiles/**`, `core/engine/**`, `docs/native/proxy-engine.md`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Make the WS-tunnel "fake SNI" mode require an explicit `allow_insecure_sni: true` config field and emit a runtime telemetry counter every time a connection is established with TLS verification disabled, so misconfiguration is visible at deploy time.

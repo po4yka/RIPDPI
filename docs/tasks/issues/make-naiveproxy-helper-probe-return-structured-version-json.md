@@ -14,16 +14,6 @@ updated: 2026-05-28
 
 - [ ] #task Wire NaiveProxy helper probe into manager startup #repo/RIPDPI #area/service #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `make-naiveproxy-helper-probe-return-structured-version-json`
-- **Verify:** `cargo test -p ripdpi-naiveproxy && ./gradlew :core:service:testDebugUnitTest`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-naiveproxy/**`, `core/service/src/main/kotlin/com/poyka/ripdpi/services/NaiveProxyManager.kt`, `core/service/src/main/kotlin/com/poyka/ripdpi/services/SubprocessSocksRelayManager.kt`, `docs/native/relay-naiveproxy-runtime.md`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 The helper-side `--probe` line and Kotlin parser now exist. Finish the Android startup integration by invoking `--probe` before launch, rejecting unsupported schema versions, and documenting the enforced policy.

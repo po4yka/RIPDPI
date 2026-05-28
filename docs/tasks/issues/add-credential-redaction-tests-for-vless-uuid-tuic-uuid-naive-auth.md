@@ -14,16 +14,6 @@ updated: 2026-05-15
 
 - [ ] #task Add credential redaction tests for VLESS UUID, TUIC UUID, NaiveProxy auth #repo/RIPDPI #area/testing #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-credential-redaction-tests-for-vless-uuid-tuic-uuid-naive-auth`
-- **Verify:** `cargo test -p ripdpi-vless -p ripdpi-tuic -p ripdpi-naiveproxy -p ripdpi-ws-tunnel`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-vless/**`, `native/rust/crates/ripdpi-tuic/**`, `native/rust/crates/ripdpi-naiveproxy/**`, `native/rust/crates/ripdpi-ws-tunnel/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Extend the no-secret-logging test surface to specifically cover VLESS UUIDs, TUIC UUIDs, NaiveProxy `Proxy-Authorization` headers, and the WS-tunnel MTProto seed bytes. Tracing macros must never emit these in plaintext.

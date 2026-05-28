@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Bridge TUN traffic through Xray local inbound #repo/RIPDPI #area/outbound #status/backlog ⏫
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `bridge-tun-traffic-through-xray-local-inbound`
-- **Verify:** `just test-module core:service`
-- **Scope (only modify these + this file + the ledger):** `core/service/**`, `native/rust/crates/ripdpi-tunnel-core/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Route Android VPN TUN traffic through Xray's local inbound for the first Xray tunneled outbound profile milestone.

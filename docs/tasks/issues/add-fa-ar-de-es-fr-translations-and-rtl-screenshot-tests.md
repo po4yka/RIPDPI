@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Add fa ar de es fr translations and RTL screenshot tests #repo/RIPDPI #area/ui #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-fa-ar-de-es-fr-translations-and-rtl-screenshot-tests`
-- **Verify:** `just test-screenshots`
-- **Scope (only modify these + this file + the ledger):** `app/**`, `app/src/main/res/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Land human-reviewed translations for Persian (fa), Arabic (ar), German (de), Spanish (es), and French (fr). Add RTL-variant Roborazzi screenshot tests for fa and ar to catch layout regressions.

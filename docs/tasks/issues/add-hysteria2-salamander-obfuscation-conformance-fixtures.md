@@ -14,16 +14,6 @@ updated: 2026-05-16
 
 - [ ] #task Add Hysteria 2 Salamander obfuscation conformance fixtures #repo/RIPDPI #area/testing #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-hysteria2-salamander-obfuscation-conformance-fixtures`
-- **Verify:** `cargo test -p ripdpi-hysteria2`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-hysteria2/**`, `contract-fixtures/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Salamander (`ripdpi-hysteria2/src/salamander.rs`) is the proprietary QUIC obfuscation layer that changes with upstream Hysteria 2 releases. Capture wire-level conformance fixtures so silent upstream divergence is caught by golden tests, not by user reports.

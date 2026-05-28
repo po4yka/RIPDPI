@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Epic - Boot autostart and session persistence #repo/RIPDPI #area/service #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `epic-boot-autostart-and-session-persistence`
-- **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
-- **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
-- **Blocked-by (must be DONE in the ledger first):** `epic-system-http-proxy-service-mode`
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Goal
 
 Resume the user's active RIPDPI session after device reboot without the user needing to open the app. Today the app has no boot receiver; every reboot forces a manual reconnect.

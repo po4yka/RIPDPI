@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Epic - Localization expansion #repo/RIPDPI #area/epic #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `epic-localization-expansion`
-- **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
-- **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Goal
 
 Reach realistic language coverage for the target user base. Today RIPDPI ships English and Russian only; reference implementation ships ~20 locales. Pick the subset that corresponds to the actual bypass-user geographies and get translations landed with a pipeline that sustains updates.

@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Add setHttpProxy integration for VpnService on Android 10+ #repo/RIPDPI #area/proxy #status/backlog 🔽
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-sethttpproxy-integration-for-vpnservice-on-android-10`
-- **Verify:** `just test-module core:service`
-- **Scope (only modify these + this file + the ledger):** `core/service/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Allow the VpnService builder on Android 10+ to also advertise an HTTP proxy to the system via `setHttpProxy(ProxyInfo.buildDirectProxy(...))`.

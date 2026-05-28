@@ -14,16 +14,6 @@ updated: 2026-05-28
 
 - [ ] #task Epic - Orchestration test posture #repo/RIPDPI #area/testing #status/todo ⏫
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `epic-orchestration-test-posture`
-- **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
-- **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
-- **Blocked-by (must be DONE in the ledger first):** `epic-control-plane-hardening`, `epic-direct-mode-diagnostic-state-machine`, `epic-runtime-lifecycle-and-supervisors`
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Goal
 
 Close the three untested-class gaps the audit surfaced, and build one shared deterministic failure-injection harness that every orchestration- level scenario test reuses. Parser/config fuzzing is already good — this epic is specifically about orchestration and lifecycle, where the bugs hide today.

@@ -14,16 +14,6 @@ updated: 2026-05-14
 
 - [ ] #task Epic - System HTTP proxy service mode #repo/RIPDPI #area/epic #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `epic-system-http-proxy-service-mode`
-- **Verify:** `all child rows in GOAL_LEDGER.md are DONE or BLOCKED`
-- **Scope (only modify these + this file + the ledger):** _epic — coordination only; child tasks carry the file scope_
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Goal
 
 Offer a no-VPN "system proxy" service mode for devices where the user wants a local SOCKS5/HTTP listener plus Android's system HTTP proxy handle, but does not want to hand RIPDPI the full TUN file descriptor. Matches Reference implementation's `MODE_PROXY` alternative to `MODE_VPN`.

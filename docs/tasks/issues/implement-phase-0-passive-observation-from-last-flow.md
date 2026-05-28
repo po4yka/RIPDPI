@@ -14,16 +14,6 @@ updated: 2026-04-23
 
 - [ ] #task Implement Phase 0 passive observation from last flow #repo/RIPDPI #area/diagnostics #status/todo 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `implement-phase-0-passive-observation-from-last-flow`
-- **Verify:** `just test-module core:diagnostics`
-- **Scope (only modify these + this file + the ledger):** `core/diagnostics/**`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Before active probing, extract what we can from the last real failed flow: DNS outcome, TCP SYN/SYN-ACK, did failure happen before or after ClientHello, did UDP/443 fail while TCP to same host worked, did the response look like a error-page.

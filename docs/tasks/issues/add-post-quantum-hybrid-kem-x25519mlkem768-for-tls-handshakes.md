@@ -14,16 +14,6 @@ updated: 2026-05-16
 
 - [ ] #task Add post-quantum hybrid KEM (X25519MLKEM768) for outbound TLS handshakes #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
-## Goal contract
-
-<!-- goal-contract:auto -->
-- **Ledger key:** `add-post-quantum-hybrid-kem-x25519mlkem768-for-tls-handshakes`
-- **Verify:** `cargo test -p ripdpi-tls-profiles -p ripdpi-xhttp -p ripdpi-masque`
-- **Scope (only modify these + this file + the ledger):** `native/rust/crates/ripdpi-tls-profiles/**`, `native/rust/crates/ripdpi-xhttp/**`, `native/rust/crates/ripdpi-masque/**`, `docs/native/**`, `docs/tasks/GOAL_LEDGER.md`
-- **Blocked-by (must be DONE in the ledger first):** _none_
-- **On completion:** run **Verify**; paste its full output + exit code into the transcript; set this file's canonical `- [ ] #task` line to `[x]` and `#status/done` on pass (or `#status/blocked` + a one-line reason on fail); update this task's row in `docs/tasks/GOAL_LEDGER.md` (Status = DONE/BLOCKED, Proof = the Verify command + exit code); then `cat docs/tasks/GOAL_LEDGER.md` so the ledger state is in the transcript.
-<!-- /goal-contract:auto -->
-
 ## Summary
 
 Negotiate the hybrid X25519MLKEM768 key exchange in TLS 1.3 ClientHello for outbound handshakes. Chrome 124+, Firefox 132+, and Cloudflare's edge already speak this; adding it makes RIPDPI's fingerprint match a modern browser's and provides forward secrecy against record-and-decrypt-later attacks by quantum adversaries.
