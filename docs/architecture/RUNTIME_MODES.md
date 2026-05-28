@@ -194,11 +194,12 @@ callback (stopping the service unregisters both protect mechanisms — see
 [AGENTS.md](../../AGENTS.md) § VPN Socket Protection). Partial results are
 recovered via a short grace-period poll after cancellation.
 
-**Home composite run.** The home analysis runs four stages sequentially
-(`automatic_audit` → `default_connectivity` → `dpi_full` → `dpi_strategy`); a
-failed audit stage skips the rest, and a VPN halt mid-stage marks it FAILED —
-see [AGENTS.md](../../AGENTS.md) § Home Composite Diagnostic Run. Automatic
-probing/audit is unavailable when command-line settings are enabled.
+**Home composite run.** The home analysis uses the 8-stage
+`HomeCompositeStageSpecs` sequence: audit first, middle raw-path stages
+concurrently, `path_comparison` after the middle group, and `dpi_strategy`
+last. A failed audit stage skips the rest, and a VPN halt mid-stage marks it
+FAILED — see [AGENTS.md](../../AGENTS.md) § Home Composite Diagnostic Run.
+Automatic probing/audit is unavailable when command-line settings are enabled.
 
 Diagnostics orchestration on the service side flows through
 `DefaultDiagnosticsRuntimeCoordinator` (`core/service/.../services/`).

@@ -119,16 +119,22 @@ Deep-dive architecture references live under `docs/architecture/`: start with [`
 
 ### Home Composite Diagnostic Run
 
-The home analysis runs 4 stages sequentially:
+The home analysis uses the 8-stage `HomeCompositeStageSpecs` list. It runs the audit first, runs the raw-path middle stages concurrently, runs the targeted path-comparison stage after those middle stages, and finishes with the DPI strategy probe.
 
 | Stage | Profile | Kind | Timeout |
 |-------|---------|------|---------|
 | automatic_audit | automatic-audit | STRATEGY_PROBE | 300s |
+| detection_signals | detection-signals | DETECTION_SIGNALS | 90s |
 | default_connectivity | default | CONNECTIVITY | 120s |
+| ru_throttling | ru-throttling | CONNECTIVITY | 240s |
+| ru_circumvention | ru-circumvention | CONNECTIVITY | 240s |
+| path_comparison | path-comparison | CONNECTIVITY | 180s |
 | dpi_full | ru-dpi-full | CONNECTIVITY | 240s |
 | dpi_strategy | ru-dpi-strategy | STRATEGY_PROBE | 300s |
 
 - If the audit stage fails/times out, remaining stages are skipped
+- `detection_signals`, `default_connectivity`, `ru_throttling`, `ru_circumvention`, and `dpi_full` run as the middle raw-path group
+- `path_comparison` runs after the middle raw-path group because it needs the completed stage summaries to select the direct-vs-VPN comparison target
 - If the VPN service halts during a stage, it is marked FAILED and remaining stages are skipped
 - The `dpi_strategy` stage runs `finalizeHomeAudit()` as a fallback when the audit was not actionable
 - Native scan deadline is set to `stageTimeout - 30s` to ensure the native engine finalizes partial results before the Kotlin timeout fires
