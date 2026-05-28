@@ -48,7 +48,7 @@ The same bridge also carries the runtime context used by the service layer:
 
 ## Relay Transport Expansion
 
-The native relay layer is no longer limited to the original VLESS, Hysteria2, and MASQUE surface.
+The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust `ripdpi-relay-core` transport registry. The native registry currently wires in-process backends for Hysteria2, TUIC v5, VLESS Reality TCP/xHTTP, Cloudflare Tunnel consume mode, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, and Tor; NaiveProxy is intentionally a subprocess fallback. Snowflake, WebTunnel, and obfs4 are external pluggable-transport binaries managed by Kotlin service code, not relay-core backends. Google Apps Script is an in-repository Rust Apps Script relay runtime selected by service orchestration, not a relay-core descriptor row. WARP and AmneziaWG are separate VPN/tunnel profile surfaces rather than `relay_kind` values.
 
 - `native/rust/crates/ripdpi-relay-core` is the shared relay backend and pooling layer used by Android service orchestration.
 - `native/rust/crates/ripdpi-relay-mux` provides reusable relay-session pooling and stream-lease logic for reusable transports.
@@ -56,8 +56,13 @@ The native relay layer is no longer limited to the original VLESS, Hysteria2, an
 - `native/rust/crates/ripdpi-cloudflare-origin` is the local xHTTP origin helper used by Cloudflare Tunnel publish mode.
 - `native/rust/crates/ripdpi-tuic` implements TUIC v5 TCP and UDP relay behavior.
 - `native/rust/crates/ripdpi-shadowtls` implements ShadowTLS v3 stream camouflage.
+- `native/rust/crates/ripdpi-trojan`, `native/rust/crates/ripdpi-anytls`, and `native/rust/crates/ripdpi-shadowsocks` implement native relay-core backends for their matching `relay_kind` values.
+- `native/rust/crates/ripdpi-tor` implements the opt-in Arti-backed Tor relay backend with bridge and pluggable-transport bootstrap support.
+- `native/rust/crates/ripdpi-masque` implements MASQUE TCP and UDP relay behavior with HTTP/3 and HTTP/2 fallback.
 - `native/rust/crates/ripdpi-naiveproxy` is a standalone helper binary used through the Android subprocess manager rather than JNI embedding.
+- `native/rust/crates/ripdpi-apps-script-core` provides the Rust Apps Script relay runtime used by the `google_apps_script` profile path.
 - `native/rust/crates/ripdpi-warp-core` and `native/rust/crates/ripdpi-warp-android` provide the native WARP runtime used by the Kotlin service and settings stack.
+- External PT binaries `ripdpi-snowflake`, `ripdpi-webtunnel`, and `ripdpi-obfs4` are launched by `PluggableTransportManager`; Snowflake intentionally remains the Go binary described in [the Snowflake no-go decision](../architecture/snowflake-native-rust-decision.md).
 
 Recent integration hardening in this layer:
 
@@ -66,8 +71,10 @@ Recent integration hardening in this layer:
 - `ripdpi-xhttp` now applies Finalmask directly on the outbound xHTTP transport for VLESS xHTTP and Cloudflare Tunnel profiles; `ripdpi-relay-core` rejects unsupported relay and mode combinations early rather than dropping them silently.
 - `ripdpi-xhttp` now supports the `noise` Finalmask mode in addition to `header_custom`, `fragment`, and `sudoku` for xHTTP-backed relays.
 - `ripdpi-masque` preserves configured endpoint paths for HTTP/3 and HTTP/2, reports HTTP/3 to HTTP/2 fallback in telemetry, and classifies Cloudflare direct auth failures by their actual cause.
+- `ripdpi-masque` includes provider-adapter fields for bearer/preshared-key auth, Privacy Pass provider retrieval, Cloudflare direct mTLS credentials, and Cloudflare geohash metadata.
 - `ripdpi-naiveproxy` emits structured readiness and failure events (`RIPDPI-READY`, `RIPDPI-ERROR`) so the Android service can classify DNS/TLS/HTTP CONNECT/auth failures and expose watchdog state.
 - The Android subprocess supervisor now probes helper versions, redacts configured secrets from surfaced error text, and performs reason-aware bounded restart attempts for NaiveProxy helper failures.
+- Tor relay profiles disable UDP at resolver time and require bridge lines for censored-network bootstrap.
 - Strategy-pack schema v3 and versioned TLS catalogs now act as the remote control plane for transport rollouts and TLS default changes, with bundled fallback catalogs kept in-app and refresh cadence enforced through `check_tls_catalog_refresh.py` plus the scheduled TLS catalog workflow.
 
 ## Runtime Topology

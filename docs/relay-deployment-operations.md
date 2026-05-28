@@ -4,7 +4,7 @@ This document defines the minimum deployment-plane contract for owner-operated R
 
 ## Scope
 
-- Applies to owner-operated VLESS Reality/xHTTP, Hysteria2, TUIC, ShadowTLS, NaiveProxy, MASQUE, AmneziaWG, WARP-derived, and Cloudflare Tunnel relay profiles when those profiles are promoted through the fleet release-gate process.
+- Applies to owner-operated VLESS Reality/xHTTP, Hysteria2, TUIC, ShadowTLS, Trojan, AnyTLS, Shadowsocks, NaiveProxy, MASQUE, Tor bridge/PT, Snowflake, WebTunnel, obfs4, Google Apps Script, AmneziaWG, WARP-derived, and Cloudflare Tunnel relay profiles when those profiles are promoted through the fleet release-gate process.
 - Does not apply to the direct on-device strategy path, user-imported private profiles that are never promoted by this repo, or third-party infrastructure not controlled by the operator.
 - Live endpoints, raw probe logs, private keys, client UUIDs, bearer tokens, provider account identifiers, tunnel credentials, and per-device credential material belong outside the repo under operator-controlled storage such as `ops/live-infra/`.
 
@@ -18,6 +18,10 @@ This document defines the minimum deployment-plane contract for owner-operated R
 | Deployment plane | Operator | `docs/relay-deployment-operations.md`, `quality/release-gates/fleet-release-cadence-policy.json`, `scripts/ci/check_fleet_release_gates.py` | IaC state, secret store, backup store, incident log, rebuild scripts |
 
 The release gate must prove the deployment plane before promotion. A green client runtime test is not sufficient evidence that the relay deployment is disposable, revocable, patched, or safe after IP burn.
+
+Snowflake remains the external Go `ripdpi-snowflake` pluggable transport; this document covers Snowflake deployment operations as an external PT path only. It is not a native Rust backend and should not be promoted or audited as one. See [the Snowflake native Rust no-go decision](architecture/snowflake-native-rust-decision.md).
+
+Tor profiles use the opt-in Arti-backed client backend and are expected to bootstrap through bridge lines and pluggable transports in censored networks. Treat Tor deployment evidence as a different threat model from ordinary relay latency/reachability evidence.
 
 ## Promotion Contract
 

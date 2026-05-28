@@ -18,8 +18,11 @@ Project Rules). Three capabilities work independently or combined:
    transformations (TCP split/disorder, fake injection, OOB, TLS record
    fragmentation, QUIC/DTLS variation, etc.) without routing to a relay.
 2. **VPN relay** — chains local proxy or VPN traffic through encrypted relay
-   protocols (VLESS Reality/xHTTP, WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS,
-   NaiveProxy, AmneziaWG, Cloudflare Tunnel) to a server the user controls.
+   protocols (VLESS Reality/xHTTP, Hysteria2, TUIC v5, MASQUE, ShadowTLS,
+   Trojan, AnyTLS, Shadowsocks, Tor, NaiveProxy, Google Apps Script, Cloudflare
+   Tunnel, and external PT paths such as Snowflake/WebTunnel/obfs4) to a server
+   or bridge path the user controls. WARP and AmneziaWG are separate VPN/tunnel
+   profile surfaces, not `relay_kind` values.
    Owner-operated relay promotion is governed by the deployment-plane controls in
    [`Relay Deployment Operations`](../relay-deployment-operations.md).
 3. **Diagnostics** — scans each connection target, produces a typed verdict,

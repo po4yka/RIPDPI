@@ -10,9 +10,16 @@ Common non-secret profile fields:
 
 - `id`
 - `kind`
+- `presetId`
+- `outboundBindIp`
+- `jurisdiction`
+- `operatorName`
 - `server`
 - `serverPort`
 - `serverName`
+- `securityLayer`
+- `realityPublicKey`
+- `realityShortId`
 - `vlessTransport`
 - `xhttpPath`
 - `xhttpHost`
@@ -25,6 +32,19 @@ Common non-secret profile fields:
 - `tuicCongestionControl`
 - `shadowTlsInnerProfileId`
 - `naivePath`
+- `appsScriptScriptIds`
+- `appsScriptGoogleIp`
+- `appsScriptFrontDomain`
+- `appsScriptSniHosts`
+- `appsScriptVerifySsl`
+- `appsScriptParallelRelay`
+- `appsScriptDirectHosts`
+- `ptBridgeLine`
+- `ptWebTunnelUrl`
+- `ptSnowflakeBrokerUrl`
+- `ptSnowflakeFrontDomain`
+- `localSocksHost`
+- `localSocksPort`
 - `udpEnabled`
 - `tcpFallbackEnabled`
 - `finalmask*`
@@ -36,7 +56,11 @@ Common secret fields:
 - `hysteriaSalamanderKey`
 - `tuicUuid`
 - `tuicPassword`
+- `anyTlsPassword`
 - `shadowTlsPassword`
+- `trojanPassword`
+- `shadowsocksMethod`
+- `shadowsocksPassword`
 - `naiveUsername`
 - `naivePassword`
 - `masqueAuthMode`
@@ -45,6 +69,7 @@ Common secret fields:
 - `masqueClientPrivateKeyPem`
 - `cloudflareTunnelToken`
 - `cloudflareTunnelCredentialsJson`
+- `appsScriptAuthKey`
 
 ## VLESS Reality Over xHTTP
 
@@ -210,6 +235,78 @@ Notes:
 - `masqueUrl` must be a valid `https://` URL.
 - Cloudflare-direct rollout is feature-gated through the strategy-pack catalog.
 
+## Trojan
+
+Profile:
+
+```json
+{
+  "id": "trojan-main",
+  "kind": "trojan",
+  "server": "trojan.example.com",
+  "serverPort": 443,
+  "serverName": "trojan.example.com",
+  "udpEnabled": true
+}
+```
+
+Credentials:
+
+```json
+{
+  "profileId": "trojan-main",
+  "trojanPassword": "<password>"
+}
+```
+
+## AnyTLS
+
+Profile:
+
+```json
+{
+  "id": "anytls-main",
+  "kind": "anytls",
+  "server": "anytls.example.com",
+  "serverPort": 443,
+  "serverName": "anytls.example.com",
+  "udpEnabled": true
+}
+```
+
+Credentials:
+
+```json
+{
+  "profileId": "anytls-main",
+  "anyTlsPassword": "<password>"
+}
+```
+
+## Shadowsocks
+
+Profile:
+
+```json
+{
+  "id": "ss-main",
+  "kind": "shadowsocks",
+  "server": "ss.example.com",
+  "serverPort": 8388,
+  "udpEnabled": true
+}
+```
+
+Credentials:
+
+```json
+{
+  "profileId": "ss-main",
+  "shadowsocksMethod": "2022-blake3-aes-128-gcm",
+  "shadowsocksPassword": "<password>"
+}
+```
+
 ## NaiveProxy
 
 Profile:
@@ -240,6 +337,63 @@ Notes:
 
 - NaiveProxy is a subprocess helper, not a JNI-embedded relay.
 - UDP is not supported on this relay kind.
+
+## Tor With Bridge Line
+
+Profile:
+
+```json
+{
+  "id": "tor-bridge",
+  "kind": "tor",
+  "ptBridgeLine": "obfs4 203.0.113.10:443 FINGERPRINT cert=... iat-mode=0",
+  "udpEnabled": false
+}
+```
+
+Notes:
+
+- Tor is an opt-in Arti-backed relay backend with a different anonymity and latency model from ordinary proxy relays.
+- The service resolver derives `torStateDir`, `torCacheDir`, `torBridgeLines`, and pluggable-transport entries for the native config from `ptBridgeLine` and app-private storage paths.
+- UDP is disabled for Tor profiles.
+
+## Pluggable Transports
+
+Snowflake, WebTunnel, and obfs4 are external PT binary paths managed by `PluggableTransportManager`, not native relay-core backends. Snowflake remains the Go `ripdpi-snowflake` binary by decision; see [the Snowflake native Rust no-go ADR](architecture/snowflake-native-rust-decision.md).
+
+Profile fields:
+
+- `kind`: `snowflake`, `webtunnel`, or `obfs4`
+- `ptBridgeLine` for bridge-line based PTs and Tor bootstrap
+- `ptWebTunnelUrl` for WebTunnel URL input
+- `ptSnowflakeBrokerUrl` and `ptSnowflakeFrontDomain` for Snowflake broker/front configuration
+
+## Google Apps Script
+
+Profile:
+
+```json
+{
+  "id": "apps-script-main",
+  "kind": "google_apps_script",
+  "appsScriptScriptIds": ["script-id-a", "script-id-b"],
+  "appsScriptGoogleIp": "142.250.185.142",
+  "appsScriptFrontDomain": "script.google.com",
+  "appsScriptSniHosts": ["script.google.com", "www.google.com"],
+  "appsScriptVerifySsl": true,
+  "appsScriptParallelRelay": true,
+  "appsScriptDirectHosts": ["youtube.com", "ytimg.com"]
+}
+```
+
+Credentials:
+
+```json
+{
+  "profileId": "apps-script-main",
+  "appsScriptAuthKey": "<auth-key>"
+}
+```
 
 ## Finalmask Fields
 

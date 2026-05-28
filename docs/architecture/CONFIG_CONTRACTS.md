@@ -201,7 +201,7 @@ values; never rename or repurpose an existing one.**
 
 | Identifier class | Values / source of truth | Consumers |
 |------------------|--------------------------|-----------|
-| **Relay kind** | `relay_kind` (proto field 171): `off`, `vless_reality`, `hysteria2`, `chain_relay`, `masque`, `cloudflare_tunnel`, `tuic_v5`, `shadowtls_v3`, `naiveproxy`, `google_apps_script` | Kotlin `*RelayKindResolver` + `RelayKindResolverRegistry`; Rust relay-core |
+| **Relay kind** | `relay_kind` (proto field 171): `off`, `vless`, `vless_reality`, `hysteria2`, `chain_relay`, `masque`, `anytls`, `cloudflare_tunnel`, `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `naiveproxy`, `tor`, `google_apps_script`, `snowflake`, `webtunnel`, `obfs4` | Kotlin `RelayKindDescriptors` + `*RelayKindResolver` registry; Rust `ripdpi-relay-core` descriptors for native-wired backends |
 | **TCP chain step kind** | `StrategyTcpStep.kind` string — `split`, `seqovl`, `disorder`, `multidisorder`, `fake`, `fakesplit`, `fakedisorder`, `hostfake`, `oob`, `disoob`, `tlsrec`, `tlsrandrec`, `ipfrag2` | Kotlin `TcpChainStepKind.wireName` (`StrategyChainProtobuf.kt`); Rust `parse_tcp_chain_step_kind` |
 | **UDP chain step kind** | `StrategyUdpStep.kind` string | `UdpChainStepKind.wireName`; Rust `parse_udp_chain_step_kind` |
 | **Fake/fingerprint profiles** | `tls_fake_profile`, `http_fake_profile`, `udp_fake_profile`, `quic_fake_profile`, `tls_fingerprint_profile` strings (value lists in `app_settings.proto` comments) | Rust `parse_*`; `ripdpi-tls-profiles` catalog |
@@ -277,9 +277,7 @@ is a `kind` string) — but an old Rust build will drop it (§5).
 
 ---
 
-## 8. Future improvement — a `schemaVersion` envelope (documented, not implemented)
-
-**Do not implement this now.** It is recorded here as a design direction.
+## 8. Native config schema versions
 
 **Current state.** Versioning is *partial*:
 
@@ -291,14 +289,20 @@ is a `kind` string) — but an old Rust build will drop it (§5).
   and policed by `DiagnosticsContractGovernanceTest`.
 - The **strategy-pack** config carries `LoadedStrategyConfig.version: u32`
   (`ripdpi-strategy-config`).
+- The **relay native runtime config** carries `schemaVersion` on
+  `ResolvedRipDpiRelayConfig`; Kotlin `RelayNativeConfigSchemaVersion` and Rust
+  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `6`. A legacy relay payload
+  with no `schemaVersion` defaults to the current value, while any explicit
+  unsupported value is rejected by `ripdpi-relay-core`.
 - The **proxy / tunnel native config JSON has no version field.**
   `NativeProxyConfig` is discriminated only by `kind` (`command_line` / `ui`);
   `RuntimeConfigEnvelope { config, runtime_context, log_context,
   native_log_level }` carries no version. Compatibility today rests entirely on
   `serde(default)` tolerance and the no-rename rule.
 
-**Suggested envelope.** Add a small integer `schemaVersion` to the proxy/tunnel
-config envelope, mirroring the diagnostics precedent:
+**Deferred proxy/tunnel improvement.** Add a small integer `schemaVersion` to
+the proxy/tunnel config envelope, mirroring the diagnostics and relay
+precedent:
 
 ```jsonc
 // illustrative shape only — NOT a change to apply

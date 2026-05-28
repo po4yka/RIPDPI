@@ -65,7 +65,9 @@ First-level composition of each artifact root (direct internal dependencies):
 - **`ripdpi-tunnel-android`** → `ripdpi-tunnel-core`, `ripdpi-tunnel-config`,
   `ripdpi-runtime-platform`, `ripdpi-telemetry`, `android-support`.
 - **`ripdpi-relay-android`** → `ripdpi-relay-core`, `ripdpi-apps-script-core`,
-  `android-support`.
+  `android-support`. `ripdpi-relay-core` then pulls the native in-process
+  relay backends from the L7 transport crates; NaiveProxy and pluggable
+  transports remain subprocess/helper paths.
 - **`ripdpi-warp-android`** → `ripdpi-warp-core`, `ripdpi-native-protect`,
   `ripdpi-tls-profiles`, `android-support`.
 - **`ripdpi-root-helper`** → `ripdpi-privileged-ops`, `ripdpi-ipfrag`,
@@ -75,7 +77,7 @@ First-level composition of each artifact root (direct internal dependencies):
 
 ## 2. Crate taxonomy
 
-Nine layers. A crate appears in exactly one layer. Counts sum to 100.
+Nine layers. A crate appears in exactly one layer. Counts below are an inventory aid; verify against `native/rust/Cargo.toml` and `native/rust/crates/*/Cargo.toml` before using them as a gate.
 
 | # | Layer | Count | Crates |
 |---|-------|-------|--------|
@@ -86,7 +88,7 @@ Nine layers. A crate appears in exactly one layer. Counts sum to 100.
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
 | L5 | **platform / privileged** | 8 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
 | L6 | **diagnostics / monitor** | 18 | 14 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
-| L7 | **relay transports** | 15 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-warp-core`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel` |
+| L7 | **relay transports** | 18 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel` |
 | L8 | **Android / JNI adapters** | 12 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android` |
 
 `ripdpi-diagnostics-contracts` is counted under L2 (it is a wire contract); the
@@ -269,18 +271,21 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 
 | Crate | Responsibility | API surface | Key internal deps | Coupling / risk | Action |
 |-------|----------------|-------------|-------------------|-----------------|--------|
-| `ripdpi-relay-core` | Shared relay backend + capability surface | Relay traits + orchestration | `ripdpi-relay-mux` + 6 transport crates | Aggregates all transports | Keep |
+| `ripdpi-relay-core` | Shared relay backend + capability surface | Relay traits + orchestration | `ripdpi-relay-mux` + native relay transport crates | Aggregates in-process relay-core backends; NaiveProxy is subprocess fallback | Keep |
 | `ripdpi-relay-mux` | Relay-session pooling + stream-lease mux | Pool API | — (leaf) | Fan-in via `relay-core`, `vless` | Keep |
 | `ripdpi-hysteria2` | Hysteria2 transport | Transport client | — (leaf) | `quinn` | Keep |
 | `ripdpi-masque` | MASQUE / HTTP-3 proxy transport | Transport client | `ripdpi-hysteria2`, `ripdpi-tls-profiles` | `quinn`, `boring` | Keep |
 | `ripdpi-tuic` | TUIC v5 transport | Transport client | — (leaf) | `quinn` | Keep |
-| `ripdpi-shadowtls` | ShadowTLS v3 camouflage | Transport client | — (leaf) | — | Keep |
-| `ripdpi-shadowsocks` | Shadowsocks transport | Transport client | — (leaf) | **No workspace consumer** — not in `relay-core` | Verify wiring vs README claim of SS support |
-| `ripdpi-trojan` | Trojan transport | Transport client | — (leaf) | **No workspace consumer** — not in `relay-core` | Verify wiring |
+| `ripdpi-shadowtls` | ShadowTLS v3 camouflage | Transport client | — (leaf) | Used by `relay-core` | Keep |
+| `ripdpi-shadowsocks` | Shadowsocks transport | Transport client | — (leaf) | Used by `relay-core`; TCP + UDP capable | Keep |
+| `ripdpi-trojan` | Trojan transport | Transport client | — (leaf) | Used by `relay-core`; TCP + UDP capable | Keep |
+| `ripdpi-anytls` | AnyTLS transport | Transport client | `ripdpi-relay-tls-transports` | Used by `relay-core`; TCP + UDP capable | Keep |
+| `ripdpi-tor` | Arti-backed Tor relay backend | Transport client | `ripdpi-relay-tls-transports` | Opt-in TCP-only anonymity backend with bridge/PT bootstrap | Keep |
 | `ripdpi-vless` | VLESS Reality / xHTTP transport | Transport client | `ripdpi-relay-mux`, `ripdpi-tls-profiles` | `boring`; used by `xhttp`, `cloudflare-origin` | Keep |
 | `ripdpi-xhttp` | xHTTP transport (VLESS xHTTP, CF Tunnel) | Transport client | `ripdpi-vless`, `ripdpi-tls-profiles` | — | Keep |
 | `ripdpi-cloudflare-origin` | Local xHTTP origin helper for CF Tunnel publish | `bin` | `ripdpi-vless` | Subprocess helper binary | Keep |
 | `ripdpi-naiveproxy` | NaiveProxy helper | `bin` (`src/main.rs`) | — (leaf) | Subprocess helper binary | Keep |
+| `ripdpi-relay-tls-transports` | Shared TLS relay helpers | Library | `ripdpi-tls-profiles` | Shared by TLS-shaped relay transports | Keep |
 | `ripdpi-warp-core` | WARP runtime + AmneziaWG codec | Runtime API | — (leaf) | `smoltcp`; root of `libripdpi-warp.so` | Keep |
 | `ripdpi-apps-script-core` | Google Apps Script relay path | Transport client | — (leaf) | Consumed by `ripdpi-relay-android` | Keep |
 | `ripdpi-ws-tunnel` | MTProto WebSocket tunnel for Telegram | Tunnel client | `ripdpi-tls-profiles` | `boring` | Keep |
@@ -331,7 +336,7 @@ Every crate **except the 12 L8 crates** must not depend on `jni`,
 > `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`,
 > `ripdpi-root-helper`, the 14 `ripdpi-diagnostics-*` crates (all except
 > `-contracts`, which is L2 and also JNI-free), the 4 `ripdpi-monitor-*`
-> crates, and the 15 L7 relay-transport crates.
+> crates, and the L7 relay-transport crates.
 
 Load-bearing cases: `ripdpi-runtime-platform` and `ripdpi-native-protect` are
 the *platform ports* — they must define the abstraction and stay JNI-free so
