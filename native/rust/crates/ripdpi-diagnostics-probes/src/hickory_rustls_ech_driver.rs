@@ -1,21 +1,3 @@
-// PARENT-INTEGRATION:
-//
-// 1. Add to ripdpi-diagnostics-probes/Cargo.toml [dependencies]:
-//      hickory-resolver = { workspace = true }
-//    (already pinned in workspace as version = "0.26" with features
-//     ["tls-ring", "https-ring", "tokio", "webpki-roots"])
-//
-//    tokio features used: "rt", "time" — already present in the crate's
-//    dep declaration.
-//
-// 2. Add to lib.rs:
-//      pub mod hickory_rustls_ech_driver;
-//      pub use hickory_rustls_ech_driver::HickoryRustlsEchHandshakeDriver;
-//
-// 3. rustls ECH is part of the public API as of rustls 0.23 — no Cargo feature
-//    flag required. This driver uses `rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES`
-//    which the workspace's `rustls` feature set (aws-lc-rs) already provides.
-
 //! Real DNS + TLS ECH handshake driver backed by `hickory-resolver`.
 //!
 //! Implements [`EchHandshakeDriver`] using:

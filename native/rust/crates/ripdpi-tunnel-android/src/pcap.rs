@@ -9,10 +9,10 @@
 //! type). The local type carries owned bytes, since it crosses the
 //! queue boundary into the writer thread.
 //!
-//! `set_id` / `dir` accessors and the `WriterStopResult.set_id` field
-//! are placeholders for the JNI bridge wiring in P3.4; the
-//! dead-code allowance is scoped to this module and will lapse once
-//! the bridge consumes them.
+//! Some metadata accessors are intentionally kept for the JNI/session
+//! registry and host-side tests even when a given build path does not
+//! consume them directly, so the dead-code allowance is scoped to this
+//! module.
 #![allow(dead_code)]
 
 use std::fs::{self, File};
