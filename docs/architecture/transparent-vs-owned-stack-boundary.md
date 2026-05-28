@@ -7,7 +7,7 @@ RIPDPI operates in two distinct product modes that must never be conflated:
 | Dimension | Transparent mode | Owned-stack mode |
 |-----------|-----------------|------------------|
 | Traffic source | Arbitrary third-party apps | Our own browser / SDK |
-| Network layer | TUN interface | Cronet + ECH |
+| Network layer | TUN interface | platform `HttpEngine` plus native owned-TLS fallback |
 | Socket protection | `VpnService.protect()` on every upstream socket | Not used |
 | ECH availability | Not available | Available |
 | DNS path | System or DoH resolver | ECH-capable resolver |
@@ -31,7 +31,7 @@ The `sealed` modifier guarantees that every `when` expression over `TransportMod
 ### Transparent mode
 
 - All upstream sockets must be protected via `VpnService.protect()`.
-- ECH / Cronet code must not be invoked.
+- Owned-stack HTTP client code must not be invoked.
 - Probe arms that run under transparent mode must not reference `OwnedStack`-specific types.
 
 ### Owned-stack mode
@@ -53,7 +53,7 @@ This rule is encoded in `TransportPolicyStub.resolveMode()` and is the single au
 
 Types consumed by **both** arms live in `com.poyka.ripdpi.diagnostics.shared` and must:
 
-- Carry **no** `Cronet` or `VpnService` imports.
+- Carry **no** platform HTTP (`HttpEngine`) or `VpnService` imports.
 - Not reference mode-specific probe infrastructure.
 
 | Type | Purpose |
@@ -66,7 +66,7 @@ Types consumed by **both** arms live in `com.poyka.ripdpi.diagnostics.shared` an
 
 1. **Sealed type + exhaustive when** — compiler rejects unhandled variants.
 2. **`internal` modifiers** — mode-specific internals are not visible outside their own package.
-3. **`TransportModeBoundaryTest`** — unit test suite that verifies: - Both variants exist and are distinct. - `when` exhaustiveness holds. - Owned-stack policy never resolves to `Transparent`. - Shared types reside in `*.diagnostics.shared`. - Shared source files contain no `Cronet` or `VpnService` references.
+3. **`TransportModeBoundaryTest`** — unit test suite that verifies: - Both variants exist and are distinct. - `when` exhaustiveness holds. - Owned-stack policy never resolves to `Transparent`. - Shared types reside in `*.diagnostics.shared`. - Shared source files contain no platform HTTP or `VpnService` imports.
 
 ## Relationship to the diagnostic state machine
 

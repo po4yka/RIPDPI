@@ -11,7 +11,7 @@ package com.poyka.ripdpi.diagnostics.shared
  * transparent path is used.  This is the canonical selection rule described
  * in docs/architecture/transparent-vs-owned-stack-boundary.md.
  *
- * Intentionally carries no Cronet or VpnService references.
+ * Intentionally carries no platform HTTP or VpnService references.
  */
 data class TransportPolicyStub(
     val requiresEch: Boolean,

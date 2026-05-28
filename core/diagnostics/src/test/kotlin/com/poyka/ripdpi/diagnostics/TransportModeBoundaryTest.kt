@@ -18,7 +18,7 @@ import org.junit.Test
  *  1. TransportMode is a sealed type with exactly Transparent and OwnedStack variants.
  *  2. When-exhaustiveness: no transparent-mode arm can be reached from owned-stack path.
  *  3. Shared neutral types (DnsClassification, TransportPolicyStub, ArmStats) live in
- *     com.poyka.ripdpi.diagnostics.shared and carry no Cronet or VpnService references.
+ *     com.poyka.ripdpi.diagnostics.shared and carry no platform HTTP or VpnService imports.
  */
 class TransportModeBoundaryTest {
     // ---- 1. Sealed-type coverage -----------------------------------------------
@@ -134,10 +134,10 @@ class TransportModeBoundaryTest {
         assertEquals(null, stats.successRate)
     }
 
-    // ---- 4. Shared-type source has no Cronet or VpnService imports -------------
+    // ---- 4. Shared-type source has no platform HTTP or VpnService imports -----
 
     @Test
-    fun `shared package source files contain no Cronet or VpnService references`() {
+    fun `shared package source files contain no platform HTTP or VpnService imports`() {
         // Locate the shared source directory relative to the repo root.
         val userDir = requireNotNull(System.getProperty("user.dir"))
         var current = java.io.File(userDir).absoluteFile
@@ -157,12 +157,10 @@ class TransportModeBoundaryTest {
                 .filter { it.extension == "kt" }
                 .flatMap { file ->
                     file.readLines().mapIndexedNotNull { lineIdx, line ->
-                        // Only flag actual import statements, not KDoc comments that
-                        // describe what is intentionally absent.
                         val trimmed = line.trimStart()
                         val low = trimmed.lowercase()
                         if (trimmed.startsWith("import ") &&
-                            (low.contains("cronet") || low.contains("vpnservice"))
+                            (low.contains("httpengine") || low.contains("vpnservice"))
                         ) {
                             "${file.name}:${lineIdx + 1}: $line"
                         } else {
@@ -172,7 +170,7 @@ class TransportModeBoundaryTest {
                 }.toList()
 
         assertTrue(
-            "shared/ must not import Cronet or VpnService:\n${violations.joinToString("\n")}",
+            "shared/ must not import platform HTTP or VpnService:\n${violations.joinToString("\n")}",
             violations.isEmpty(),
         )
     }

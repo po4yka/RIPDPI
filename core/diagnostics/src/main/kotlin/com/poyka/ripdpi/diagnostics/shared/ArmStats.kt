@@ -5,7 +5,7 @@ package com.poyka.ripdpi.diagnostics.shared
  * which transport mode (transparent or owned-stack) the arm belongs to.
  *
  * Consumed by both mode paths; lives here so neither mode arm needs to
- * depend on the other.  Intentionally carries no Cronet or VpnService
+ * depend on the other. Intentionally carries no platform HTTP or VpnService
  * references.
  */
 data class ArmStats(

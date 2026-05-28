@@ -9,7 +9,7 @@ package com.poyka.ripdpi.diagnostics.shared
  * neutral shared package so that neither mode arm needs to depend on
  * the other's module.
  *
- * Intentionally carries no Cronet or VpnService references.
+ * Intentionally carries no platform HTTP or VpnService references.
  */
 enum class DnsClassification {
     /** DNS resolution returns honest, unmodified records. */
