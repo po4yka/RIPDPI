@@ -38,7 +38,7 @@ prompt. You need both or the loop stalls on the first edit:
 
 ## 2. Phased goals (context will not hold 200+ tasks in one run)
 
-The ledger is split into **7 phases of ~18 rows**
+The ledger is split into **6 phases of ~18 rows**
 (`Phase` column). Phases respect topological order, so running them in
 sequence keeps every `Blocked-by` satisfied. Run one phase per `/goal`;
 the goal clears on success so you can chain them. Between phases run:
@@ -51,13 +51,12 @@ the goal clears on success so you can chain them. Between phases run:
 
 | Phase | Ledger rows | Count | First task | Last task |
 |-------|-------------|-------|------------|-----------|
-| P1 | 1–18 | 18 | `epic-remove-cloudflare-from-critical-path` | `add-miri-test-pass-for-vless-reality-ffi-unsafe-blocks` |
-| P2 | 19–36 | 18 | `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry` | `epic-encrypted-dns-and-https-svcb-classifier` |
-| P3 | 37–54 | 18 | `per-session-cloudflarepublishruntime-instances` | `add-service-mode-picker-to-settings-and-onboarding` |
-| P4 | 55–72 | 18 | `add-ssh-outbound-client-crate-and-profile-editor` | `wire-home-diagnostic-card-run-action` |
-| P5 | 73–90 | 18 | `epic-home-config-diagnostics-mode-first-ux` | `add-dns-over-https-tunnel-mode-for-arbitrary-payloads` |
-| P6 | 91–108 | 18 | `add-post-quantum-hybrid-kem-x25519mlkem768-for-tls-handshakes` | `epic-extended-outbound-protocol-support` |
-| P7 | 109–118 | 10 | `add-doh-json-api-resolver-path-alongside-rfc-8484-wire` | `epic-orchestration-test-posture` |
+| P1 | 1–18 | 18 | `epic-runtime-lifecycle-and-supervisors` | `enforce-per-exit-ip-concurrent-tls-cap` |
+| P2 | 19–36 | 18 | `operate-phase16-real-provider-sim-runner` | `add-custom-domain-bypass-list-screen` |
+| P3 | 37–54 | 18 | `add-fa-ar-de-es-fr-translations-and-rtl-screenshot-tests` | `epic-xray-provider-mode` |
+| P4 | 55–72 | 18 | `adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion` | `epic-control-plane-hardening` |
+| P5 | 73–90 | 18 | `epic-privacy-preserving-strategy-learner` | `epic-system-http-proxy-service-mode` |
+| P6 | 91–105 | 15 | `epic-boot-autostart-and-session-persistence` | `epic-orchestration-test-posture` |
 
 ## 3. The `/goal` command (one per phase)
 
