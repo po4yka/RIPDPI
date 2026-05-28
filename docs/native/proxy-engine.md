@@ -109,7 +109,7 @@ The wrapper also keeps the previous host-group arrangement used by the Android U
 - `HostsMode.Whitelist` inserts a host-filter-only group before the main action group.
 - `HostsMode.Blacklist` puts the host filter on the main action group.
 
-That behavior matches the old JNI C wrapper, even though the naming comes from the Android settings model.
+The naming comes from the Android settings model; the bridge preserves that host-group order as a compatibility contract.
 
 ## Current RIPDPI-native Strategy Surface
 

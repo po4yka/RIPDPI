@@ -124,13 +124,13 @@ Relevant sources:
 Compatibility details preserved by the Rust JNI shim:
 
 - `jniStart(handle, tunFd)` still returns `Unit` immediately.
-- The Rust bridge owns the worker thread internally, just like the old JNI C layer.
+- The Rust bridge owns the worker thread internally.
 - `jniGetStats(handle)` keeps the array order `[tx_pkt, tx_bytes, rx_pkt, rx_bytes]`, and Kotlin maps it into `TunnelStats`.
 - `jniGetTelemetry(handle)` returns a JSON snapshot that Kotlin maps into `NativeRuntimeSnapshot`.
 
 ## Runtime Dependencies
 
-The old Android C tunnel stack is gone. The Rust tunnel runtime now builds from in-repo crates and links to:
+The Rust tunnel runtime builds from in-repo crates and links to:
 
 - `libc.so`
 - `libdl.so`
