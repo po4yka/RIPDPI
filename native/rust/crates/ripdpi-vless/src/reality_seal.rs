@@ -366,11 +366,9 @@ mod tests {
     /// reviewed against `docs/design/reality-boringssl-patch.md`
     /// before re-blessing.
     ///
-    /// Inputs are also documented in
-    /// `docs/design/reality-boringssl-patch.md` so a Go reference
-    /// program (when added under `test-lab/reality-vector/`) can
-    /// reproduce them and confirm cross-implementation interop with
-    /// xray-core upstream.
+    /// Inputs are also mirrored by `test-lab/reality-vector/main.go`,
+    /// the Go reference program used to confirm cross-implementation
+    /// interop with xray-core upstream.
     #[test]
     fn seal_session_id_matches_frozen_vector() {
         let (priv_key, server_pub, client_random, short_id, raw, now) = frozen_vector_inputs();
