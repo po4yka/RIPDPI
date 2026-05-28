@@ -1,4 +1,4 @@
-//! Coarse-key payload types for the opt-in shared-priors uploader.
+//! Coarse-key payload types for opt-in shared-priors contributions.
 //!
 //! The type system is the privacy boundary: `CoarseKey` contains **only** the
 //! five approved keying fields. There is no runtime filtering — if a field is
@@ -54,7 +54,7 @@ pub struct CoarseKey {
     pub fail_phase: FailPhase,
 }
 
-/// A single coarse-keyed observation batch ready for upload.
+/// A single coarse-keyed observation batch for the contribution path.
 ///
 /// `win_count` and `loss_count` are aggregated over all attempts that
 /// share the same [`CoarseKey`] in the upload window.
@@ -89,8 +89,8 @@ impl std::error::Error for ValidationError {}
 ///
 /// The coarse-key schema is a compile-time invariant: `CoarseKey` can only
 /// hold the five approved fields, so no runtime field filtering is needed.
-/// `PayloadValidator` exists as an explicit, auditable gate in the upload
-/// path to document that validation was intentionally considered.
+/// `PayloadValidator` exists as an explicit, auditable gate in the
+/// contribution path to document that validation was intentionally considered.
 pub struct PayloadValidator;
 
 impl PayloadValidator {

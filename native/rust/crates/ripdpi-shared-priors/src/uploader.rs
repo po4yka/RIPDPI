@@ -1,9 +1,8 @@
-//! Opt-in shared-priors uploader.
+//! Opt-in shared-priors contribution gate.
 //!
-//! The uploader is a no-op unless the user has explicitly opted in.
-//! The real network upload path is a placeholder (`Ok(())`) — actual HTTP
-//! transport is deferred to a follow-up task to keep this change focused on
-//! the privacy-boundary scaffolding.
+//! This crate owns the coarse payload schema and opt-in guard only. It does not
+//! perform HTTP upload; Android-owned fetch/apply of signed priors bundles uses
+//! the manifest/parser APIs instead.
 
 use crate::coarse_payload::CoarsePayload;
 
@@ -24,7 +23,7 @@ impl std::fmt::Display for UploadError {
 
 impl std::error::Error for UploadError {}
 
-/// Uploader that enforces the opt-in gate before touching the network.
+/// Contribution gate that enforces opt-in before accepting a payload.
 ///
 /// Default opt-in state is **false** — contributions are never sent unless
 /// the user explicitly enables the feature.
@@ -39,17 +38,17 @@ impl OptInUploader {
         Self { opted_in }
     }
 
-    /// Submit a [`CoarsePayload`] to the shared-priors endpoint.
+    /// Accept a [`CoarsePayload`] for the shared-priors contribution path.
     ///
     /// Returns `Err(UploadError::NotOptedIn)` immediately if the opt-in flag
-    /// is `false`. The real network path is a placeholder that returns `Ok(())`
-    /// — live upload is deferred to a follow-up task.
+    /// is `false`. When opted in, this consumes the payload after the privacy
+    /// boundary has been enforced; no network transport is implemented here.
     pub fn submit(&self, payload: CoarsePayload) -> Result<(), UploadError> {
         if !self.opted_in {
             return Err(UploadError::NotOptedIn);
         }
-        // Placeholder: real HTTP upload is deferred.
-        // SAFETY: payload is consumed here to prevent accidental re-use.
+        // Payload is consumed here to prevent accidental re-use after the
+        // opt-in boundary has accepted it.
         let _ = payload;
         Ok(())
     }
@@ -82,7 +81,7 @@ mod tests {
         assert!(matches!(err, UploadError::NotOptedIn), "got {err:?}");
     }
 
-    /// When opted in, submit succeeds (placeholder path returns Ok).
+    /// When opted in, submit succeeds and consumes the coarse payload.
     #[test]
     fn opted_in_submit_succeeds() {
         let uploader = OptInUploader::new(true);
