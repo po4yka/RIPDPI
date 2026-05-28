@@ -405,12 +405,17 @@ Combination checks:
 | Mock relay | Required | Required | Required | Required | Required |
 | VLESS Reality | Required | Required | Recommended | Required | Required |
 | VLESS xHTTP | Required | Required | Recommended | Required | Required |
+| Chain relay | Required | Required | Recommended | Required | Required |
 | WARP | Where supported | Required | Recommended | Required | Required |
 | Cloudflare Tunnel | Required | Required | Recommended | Required | Required |
 | MASQUE | Where supported | Required | Recommended | Required | Required |
 | Hysteria2 | Where supported | Required | Recommended | Required | Required |
 | TUIC v5 | Where supported | Required | Recommended | Required | Required |
 | ShadowTLS v3 | Required | Required | Recommended | Required | Required |
+| Trojan | Required | Required | Recommended | Required | Required |
+| AnyTLS | Where supported | Required | Recommended | Required | Required |
+| Shadowsocks | Required | Required | Recommended | Required | Required |
+| Tor | Required | Required | Recommended | Required | Required |
 | NaiveProxy | Required | Required | Recommended | Required | Required |
 | WebTunnel | Required | Required | Recommended | Required | Required |
 | obfs4 | Required | Required | Recommended | Required | Required |
