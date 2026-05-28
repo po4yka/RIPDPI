@@ -434,7 +434,7 @@ validated recommendations drive remembered-policy persistence.
 ### Current extension path
 
 1. Add a field to `AppSettings`. **Pick the next free field number** — the
-   highest in use today is `285`; the `reserved` block at the top of the
+   highest in use today is `296`; the `reserved` block at the top of the
    message lists numbers and names that must **never** be reused.
 2. All cross-boundary fields must be defaulted/optional or `@Transient` with a
    default (proto3 scalar defaults are implicit; document the "unset" sentinel,
