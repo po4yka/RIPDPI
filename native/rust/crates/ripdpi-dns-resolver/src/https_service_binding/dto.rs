@@ -22,6 +22,8 @@ pub struct HttpsRr {
     pub ipv6_hints: Vec<Ipv6Addr>,
     pub ech_config: Option<EchConfig>,
     pub ech_capable: bool,
+    pub odoh_config: Option<Vec<u8>>,
+    pub odoh_capable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

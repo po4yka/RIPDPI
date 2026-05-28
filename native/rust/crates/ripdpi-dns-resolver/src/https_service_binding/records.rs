@@ -4,6 +4,7 @@ use hickory_proto::rr::{RData, Record};
 
 use super::dto::{HttpsRr, HttpsRrRecordType, HttpsSvcbParseError};
 use super::ech::parse_ech_config_list;
+use crate::odoh::ODOHCONFIG_SVCB_KEY;
 
 pub fn parse_https_service_bindings(packet: &[u8]) -> Result<Vec<HttpsRr>, HttpsSvcbParseError> {
     let message = Message::from_vec(packet).map_err(|error| HttpsSvcbParseError::Response(error.to_string()))?;
@@ -45,8 +46,9 @@ fn parse_service_binding_record(
     let mut ipv4_hints = Vec::new();
     let mut ipv6_hints = Vec::new();
     let mut ech_config = None;
+    let mut odoh_config = None;
 
-    for (_, param) in svc_params {
+    for (key, param) in svc_params {
         match param {
             SvcParamValue::Alpn(value) => alpn = value.0.clone(),
             SvcParamValue::NoDefaultAlpn => no_default_alpn = true,
@@ -54,6 +56,11 @@ fn parse_service_binding_record(
             SvcParamValue::Ipv4Hint(value) => ipv4_hints.extend(value.0.iter().map(|addr| addr.0)),
             SvcParamValue::Ipv6Hint(value) => ipv6_hints.extend(value.0.iter().map(|addr| addr.0)),
             SvcParamValue::EchConfigList(value) => ech_config = Some(parse_ech_config_list(&value.0)?),
+            SvcParamValue::Unknown(value)
+                if matches!(key, SvcParamKey::Key(ODOHCONFIG_SVCB_KEY) | SvcParamKey::Unknown(ODOHCONFIG_SVCB_KEY)) =>
+            {
+                odoh_config = Some(value.0.clone());
+            }
             _ => {}
         }
     }
@@ -71,5 +78,7 @@ fn parse_service_binding_record(
         ipv6_hints,
         ech_capable: ech_config.is_some(),
         ech_config,
+        odoh_capable: odoh_config.is_some(),
+        odoh_config,
     })
 }

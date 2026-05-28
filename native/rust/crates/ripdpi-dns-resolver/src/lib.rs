@@ -25,7 +25,8 @@ pub use https_service_binding::{
     HttpsRr, HttpsRrRecordType, HttpsSvcbParseError,
 };
 pub use odoh::{
-    OdohEncryptedQuery, OdohError, OdohPlainResponse, OdohQueryContext, OdohTargetConfig, ODOH_MESSAGE_MEDIA_TYPE,
+    OdohConfigLookupSecurity, OdohConfigSource, OdohConfigSourceKind, OdohEncryptedQuery, OdohError, OdohPlainResponse,
+    OdohQueryContext, OdohResolvedConfig, OdohTargetConfig, ODOH_MESSAGE_MEDIA_TYPE,
 };
 pub use pool::{ResolverPool, ResolverPoolBuilder};
 pub use resolver::EncryptedDnsResolver;
