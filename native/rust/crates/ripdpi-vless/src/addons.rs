@@ -132,9 +132,8 @@ mod tests {
     #[test]
     fn flow_default_is_vision_for_back_compat() {
         // Existing callers that construct VlessRealityConfig without an
-        // explicit flow continue to send VISION_ADDONS; the audit's
-        // "unconditional Vision" finding is resolved by making the choice
-        // configurable, not by changing the default.
+        // explicit flow continue to send VISION_ADDONS; the unconditional
+        // Vision default is preserved while the choice is now configurable.
         assert_eq!(VlessFlow::default(), VlessFlow::Vision);
     }
 

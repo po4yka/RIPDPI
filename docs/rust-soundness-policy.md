@@ -7,7 +7,7 @@
 > - `cargo doc --no-deps` with `-D warnings` (broken-intra-doc-links denied)
 > - `cargo +nightly miri test` for unsafe-heavy crates (see `scripts/ci/run-rust-miri.sh`)
 
-The audits in `docs/rust-audit/` (issues #1 and #2) showed that the most expensive bugs we have shipped were **safe APIs that smuggled unsafe contracts to their callers**. This policy exists so that "safe Rust" in this repo means what `unsafe` says it means in the language.
+The soundness audits recorded in this policy showed that the most expensive bugs we have shipped were **safe APIs that smuggled unsafe contracts to their callers**. This policy exists so that "safe Rust" in this repo means what `unsafe` says it means in the language.
 
 ## The rule
 

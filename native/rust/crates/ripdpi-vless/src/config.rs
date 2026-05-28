@@ -42,10 +42,8 @@ pub struct VlessRealityConfig {
     /// sing-mux` / `mux: yamux`; `None` for one-connection-per-flow.
     pub mux: Option<VlessMuxConfig>,
     /// Selected VLESS flow. Defaults to [`VlessFlow::Vision`] for
-    /// historical back-compatibility; the audit's "Vision is
-    /// unconditional" finding is addressed by exposing this as a
-    /// per-profile choice rather than hardcoding the addons block at
-    /// the call site.
+    /// historical back-compatibility; profiles can override it instead
+    /// of relying on an unconditional addons block at the call site.
     pub flow: VlessFlow,
 }
 
@@ -240,9 +238,8 @@ mod tests {
     fn from_strings_defaults_flow_to_vision_for_back_compat() {
         let cfg = sample_config();
         // Historical callers that don't supply a flow continue to get
-        // VISION_ADDONS on the wire — the audit's C3 finding is closed
-        // by making the *choice* configurable, not by silently changing
-        // every existing client's behavior.
+        // VISION_ADDONS on the wire. The behavior stays compatible while
+        // the flow choice remains configurable per profile.
         assert_eq!(cfg.flow, VlessFlow::Vision);
     }
 

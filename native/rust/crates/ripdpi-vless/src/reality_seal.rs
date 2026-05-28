@@ -366,7 +366,8 @@ mod tests {
     /// AES-256-GCM to some other AEAD). The expected bytes were
     /// captured from this same implementation; if a future commit
     /// changes the seal output, this test fails and the diff must be
-    /// reviewed against the audit doc before re-blessing.
+    /// reviewed against `docs/design/reality-boringssl-patch.md`
+    /// before re-blessing.
     ///
     /// Inputs are also documented in
     /// `docs/design/reality-boringssl-patch.md` so a Go reference
