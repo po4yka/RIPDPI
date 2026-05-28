@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "output": "app/src/main/assets/host-packs/catalog.json",
+  "output": "core/service/src/main/assets/host-packs/catalog.json",
   "packs": [
     {
       "id": "youtube",

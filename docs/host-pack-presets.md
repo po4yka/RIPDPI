@@ -18,7 +18,7 @@ The app stays offline at runtime. Bundled packs are generated explicitly through
 python3 scripts/sync_host_packs.py
 ```
 
-The sync script normalizes upstream domain lists into `app/src/main/assets/host-packs/catalog.json` and records the source URL, ref, and latest commit SHA for traceability.
+The sync script normalizes upstream domain lists into `core/service/src/main/assets/host-packs/catalog.json` and records the source URL, ref, and latest commit SHA for traceability.
 
 ## Runtime Refresh
 

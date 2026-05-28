@@ -25,7 +25,7 @@ Relevant feature flags in schema v3:
 
 Bundled fallback catalog:
 
-- asset path: `app/src/main/assets/strategy-packs/catalog.json`
+- asset path: `core/service/src/main/assets/strategy-packs/catalog.json`
 
 Downloaded snapshot cache:
 
