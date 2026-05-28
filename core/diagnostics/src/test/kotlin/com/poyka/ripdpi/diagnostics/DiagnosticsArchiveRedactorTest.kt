@@ -14,7 +14,7 @@ import org.junit.Test
  *
  * Each test constructs a model with non-default sensitive field values and asserts
  * that no verbatim original value reaches the encoded JSON output.
- * This guards the privacy boundary required by POY-14 / F-01..F-03.
+ * This guards the diagnostics archive privacy boundary.
  */
 class DiagnosticsArchiveRedactorTest {
     private val json =
