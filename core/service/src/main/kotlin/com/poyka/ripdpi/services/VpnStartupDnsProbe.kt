@@ -21,7 +21,9 @@ import javax.inject.Singleton
  * against a direct UDP query to Cloudflare (1.1.1.1) for a canary domain.
  *
  * If the answers differ, DNS tampering is likely and the canonical encrypted
- * DNS path (Cloudflare DoH) should be used instead.
+ * DNS path should be used instead. The canonical path is defined by
+ * `canonicalDefaultEncryptedDnsPathCandidate()`; today that is the first
+ * built-in resolver entry, not this probe's Cloudflare reference server.
  */
 @Singleton
 class VpnStartupDnsProbe
