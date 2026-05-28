@@ -5,7 +5,8 @@ name: Monitor-engine dependency guard
 #
 # Update procedure (intentional reintroduction):
 #   1. Confirm the dependency is truly needed and the architectural decision has
-#      been reviewed (see docs/tasks/GOAL_LEDGER.md row 187 for context).
+#      been reviewed against docs/architecture/DIAGNOSTICS_ARCHITECTURE.md and
+#      docs/architecture/NATIVE_RUST.md.
 #   2. Remove or relax the corresponding `if cargo tree …` guard block below.
 #   3. Open a PR with an explicit note in the description explaining why the
 #      formerly-dropped dependency is being reintroduced.
