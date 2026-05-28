@@ -3,6 +3,7 @@
 use std::fmt;
 use std::fs;
 use std::io;
+use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Once;
 use std::{collections::BTreeSet, result::Result as StdResult};
@@ -41,6 +42,22 @@ pub struct TorBridgePtConfig {
     pub transports: Vec<TorPluggableTransport>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TorStateDirectories {
+    state_dir: PathBuf,
+    cache_dir: PathBuf,
+}
+
+impl TorStateDirectories {
+    pub fn state_dir(&self) -> &Path {
+        &self.state_dir
+    }
+
+    pub fn cache_dir(&self) -> &Path {
+        &self.cache_dir
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum TorTargetError {
     #[error("invalid Tor target {host}:{port}: {source}")]
@@ -72,6 +89,22 @@ pub enum TorConfigError {
     MissingTransportBinary { transport: String },
     #[error("invalid PT transport protocol {protocol}: {message}")]
     InvalidTransportProtocol { protocol: String, message: String },
+    #[error("failed to create Arti {kind} directory {path}: {source}")]
+    CreateStateDirectory {
+        kind: &'static str,
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("Arti {kind} path is not a directory: {path}")]
+    StatePathNotDirectory { kind: &'static str, path: PathBuf },
+    #[error("failed to validate writable Arti {kind} directory {path}: {source}")]
+    ValidateStateDirectory {
+        kind: &'static str,
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
     #[error("failed to read Arti config {path}: {source}")]
     Read {
         path: PathBuf,
@@ -145,6 +178,39 @@ pub fn build_bridge_pt_config(config: TorBridgePtConfig) -> Result<ArtiTorClient
     }
 
     builder.build().map_err(|source| TorConfigError::BuildBridgePt { source })
+}
+
+pub fn prepare_arti_state_dirs(
+    state_dir: impl AsRef<Path>,
+    cache_dir: impl AsRef<Path>,
+) -> Result<TorStateDirectories, TorConfigError> {
+    let state_dir = prepare_arti_dir("state", state_dir.as_ref())?;
+    let cache_dir = prepare_arti_dir("cache", cache_dir.as_ref())?;
+    Ok(TorStateDirectories { state_dir, cache_dir })
+}
+
+fn prepare_arti_dir(kind: &'static str, path: &Path) -> Result<PathBuf, TorConfigError> {
+    fs::create_dir_all(path).map_err(|source| TorConfigError::CreateStateDirectory {
+        kind,
+        path: path.to_path_buf(),
+        source,
+    })?;
+    if !path.is_dir() {
+        return Err(TorConfigError::StatePathNotDirectory { kind, path: path.to_path_buf() });
+    }
+
+    let probe = path.join(".ripdpi-write-smoke");
+    fs::write(&probe, b"ok").map_err(|source| TorConfigError::ValidateStateDirectory {
+        kind,
+        path: path.to_path_buf(),
+        source,
+    })?;
+    fs::remove_file(&probe).map_err(|source| TorConfigError::ValidateStateDirectory {
+        kind,
+        path: path.to_path_buf(),
+        source,
+    })?;
+    Ok(path.to_path_buf())
 }
 
 fn required_bridge_transport<'a>(
@@ -235,6 +301,13 @@ impl TorRelayClient {
             .await
             .map_err(|error| io::Error::other(format!("Tor TCP connect to {target} failed: {error}")))?;
         Ok(Box::new(stream))
+    }
+
+    pub async fn resolve_hostname(&self, hostname: &str) -> io::Result<Vec<IpAddr>> {
+        self.inner
+            .resolve(hostname)
+            .await
+            .map_err(|error| io::Error::other(format!("Tor DNS resolve for {hostname} failed: {error}")))
     }
 }
 
