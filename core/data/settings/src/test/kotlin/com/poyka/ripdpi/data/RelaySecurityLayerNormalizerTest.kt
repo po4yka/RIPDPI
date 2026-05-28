@@ -36,7 +36,7 @@ class RelaySecurityLayerNormalizerTest {
 
     @Test
     fun `normalizeRelaySecurityLayer falls back to reality when unspecified`() {
-        // No kind hint, no value: preserve today's reality-only semantics.
+        // No kind hint, no value: preserve the legacy vless_reality default.
         assertEquals(RelaySecurityLayerReality, normalizeRelaySecurityLayer(""))
         assertEquals(RelaySecurityLayerReality, normalizeRelaySecurityLayer("bogus"))
     }

@@ -91,8 +91,8 @@ fun normalizeRelayVlessTransport(
  * hint disambiguates: the plain [RelayKindVless] kind implies [RelaySecurityLayerTls],
  * every other kind (notably [RelayKindVlessReality]) implies
  * [RelaySecurityLayerReality]. The fallback is [RelaySecurityLayerReality] so
- * that records and settings written before this field existed keep today's
- * Reality-only behaviour.
+ * that records and settings written before this field existed keep their
+ * legacy `vless_reality` default.
  */
 fun normalizeRelaySecurityLayer(
     value: String,
