@@ -1,10 +1,11 @@
 //! Public DNS resolver availability survey.
 //!
 //! Defines a static curated panel of well-known public DNS resolvers and a
-//! pure-logic survey runner whose probing path is fully injectable. Real
-//! network I/O (UDP/53 + DoH) is deferred to a follow-up crate — the runner
-//! accepts a `probe_fn` closure so unit tests exercise all verdict paths
-//! without touching the network.
+//! pure-logic survey runner whose probing path is fully injectable. The live
+//! DoH survey runner lives in `ripdpi-diagnostics-probes`; this module keeps
+//! the shared resolver metadata plus UDP/DoH verdict classification so unit
+//! tests and future UDP/53 integrations can exercise every path without
+//! touching the network.
 
 use std::net::IpAddr;
 
@@ -171,8 +172,10 @@ pub struct ResolverSurveyOptions {
 /// Runs an availability survey over the static [`RESOLVER_PANEL`].
 ///
 /// All network I/O is injected via a `probe_fn` closure so the runner can be
-/// exercised in unit tests without touching the network. Real UDP/53 + DoH
-/// probing is deferred to a follow-up integration layer.
+/// exercised in unit tests without touching the network. Current live DoH
+/// probing is implemented by `ripdpi-diagnostics-probes::doh_survey`; this
+/// runner remains the reusable pure classifier for callers that can provide
+/// UDP/53 and DoH observations.
 ///
 /// Bounded concurrency (≤8 in-flight) is noted as a future enhancement; the
 /// current implementation uses simple sequential iteration to keep this unit
