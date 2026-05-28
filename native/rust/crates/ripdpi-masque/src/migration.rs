@@ -11,11 +11,10 @@ pub(crate) struct QuicMigrationSnapshot {
     pub(crate) cooldown_until: Option<Instant>,
 }
 
-/// Typed migration status code. Mirrors the documented vocabulary at
-/// `docs/native/relay-masque-status.md` § "QUIC Migration Telemetry
-/// Vocabulary". Coexists with the string-based API in
-/// `record_quic_migration_status` for backwards compatibility while
-/// callsites migrate.
+/// Typed migration status code. Mirrors the documented vocabulary in
+/// `CONFORMANCE.md` § "QUIC Migration Telemetry Vocabulary". Coexists with the
+/// string-based API in `record_quic_migration_status` for backwards
+/// compatibility while callsites migrate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MigrationStatus {
     /// Initial state; no migration or fallback yet.
@@ -96,7 +95,7 @@ mod typed_status_tests {
 
     #[test]
     fn migration_status_as_str_matches_documented_vocabulary() {
-        // String values must match docs/native/relay-masque-status.md
+        // String values must match CONFORMANCE.md
         // § QUIC Migration Telemetry Vocabulary exactly.
         assert_eq!(MigrationStatus::NotAttempted.as_str(), "not_attempted");
         assert_eq!(MigrationStatus::Http2Fallback.as_str(), "http2_fallback");

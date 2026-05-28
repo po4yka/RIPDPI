@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-29
 ---
 
 - [ ] #task Extract MasqueProviderAdapter trait to decouple Cloudflare-specific paths #repo/RIPDPI #area/rust-native #status/backlog 🔼
@@ -20,7 +20,7 @@ Move Cloudflare-specific MASQUE behavior (mTLS identity, `sec-ch-geohash` header
 
 ## Context
 
-`docs/native/relay-masque-status.md` documents the Cloudflare-direct hardening fixes (mTLS classification, geohash header, Privacy Pass retry, H3→H2 fallback) as part of the core auth path. The `ripdpi-masque/Cargo.toml` directly depends on `reqwest` (HTTP client) and `serde_json`, both reasonable for Cloudflare, but they couple the crate to one vendor. Future providers will need different identity flows.
+`native/rust/crates/ripdpi-masque/CONFORMANCE.md` documents the Cloudflare-direct hardening fixes (mTLS classification, geohash header, Privacy Pass retry, H3→H2 fallback) as part of the core auth path. The `ripdpi-masque/Cargo.toml` directly depends on `reqwest` (HTTP client) and `serde_json`, both reasonable for Cloudflare, but they couple the crate to one vendor. Future providers will need different identity flows.
 
 ## Acceptance criteria
 
@@ -34,7 +34,7 @@ Move Cloudflare-specific MASQUE behavior (mTLS identity, `sec-ch-geohash` header
 ## Definition of done
 
 - No `cloudflare_mtls` or `sec-ch-geohash` literal lives outside the Cloudflare adapter module.
-- Trait is documented in `docs/native/relay-masque-status.md`.
+- Trait is documented in `native/rust/crates/ripdpi-masque/CONFORMANCE.md`.
 
 ## Risks / open questions
 
@@ -42,5 +42,5 @@ Move Cloudflare-specific MASQUE behavior (mTLS identity, `sec-ch-geohash` header
 
 ## Links
 
-- [[relay-masque-status]]
+- `native/rust/crates/ripdpi-masque/CONFORMANCE.md`
 - audit-cloudflare-only-dependencies (closed task)

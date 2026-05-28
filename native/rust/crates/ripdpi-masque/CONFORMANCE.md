@@ -17,6 +17,35 @@
 - Provider adapter tests: `provider_adapter.rs` covers generic/self-hosted provider IDs, static bearer and preshared auth header construction, Privacy Pass retry eligibility, TLS client certificate requirements, and ignoring the legacy Cloudflare geohash field. These tests still do not exercise relay traffic against a CONNECT-UDP proxy.
 - Missing conformance coverage: there are no byte-level golden vectors for QUIC varints, Capsule TLV encoding/decoding, HTTP/3 Datagram quarter-stream-ID overflow, DATAGRAM capsule fallback, response Capsule-Protocol validation, Proxy-Status/error mapping, h2 CONNECT-UDP fallback, bearer/mTLS generic provider behavior against a CONNECT-UDP proxy, or full client tunnel E2E against a conformant RFC 9298 proxy.
 
+## Implemented Transport Surface
+
+The crate currently ships HTTP/3 CONNECT for TCP, HTTP/3 CONNECT-UDP, HTTP/2 TCP fallback, bearer auth, preshared auth through `Proxy-Authorization: Preshared ...`, deployer-supplied Privacy Pass retry, generic/self-hosted provider adapter metadata, Cloudflare mTLS client identity, and optional `sec-ch-geohash` metadata. Owned MASQUE outbounds can carry ECH config: HTTP/3 applies rustls ECH and HTTP/2 fallback applies the same ECHConfigList through the BoringSSL fingerprinted TLS path.
+
+The current hardening surface is pinned by tests for endpoint path/query preservation, non-HTTPS URL rejection before native startup, Cloudflare mTLS auth classification, Privacy Pass challenge parsing, H3-to-H2 fallback telemetry, and ECH retry/error surfacing. Android service/editor behavior around provider readiness and stale profile rejection is owned by `core/service` tests.
+
+## QUIC Migration Telemetry Vocabulary
+
+`record_quic_migration_status(status, reason)` writes the snapshot returned by `quic_migration_snapshot()`. These strings are telemetry export fields and should not change without updating consumers and tests. `src/migration.rs` defines typed helpers for the stable vocabulary while preserving the older string-taking API.
+
+| `status` string | Meaning |
+| --- | --- |
+| `not_attempted` | Initial state; no migration or fallback yet. |
+| `http2_fallback` | Client fell back to HTTP/2 after the H3 attempt failed or timed out. |
+| `failed` | Migration or fallback ultimately failed; cooldown engaged. |
+| `reverted` | Migration attempted, then rolled back; cooldown engaged. |
+| `path_validated_*` | Post-handshake path validation succeeded for a specific event. |
+
+| `reason` prefix when `status == "http2_fallback"` | Trigger |
+| --- | --- |
+| `http3_connect_failed_<inner>` | H3 CONNECT attempt rejected with an inner-error tag from `classify_attempt_failure`. |
+| `http3_connect_timed_out` | H3 CONNECT attempt exceeded the per-attempt timeout. |
+| `http3_connect_failed` | Generic H3 CONNECT failure when no inner classification is available. |
+
+| `reason` when `status == "failed"` | Trigger |
+| --- | --- |
+| `http3_connect_failed` | Both H3 attempts failed without an H2 fallback path. |
+| `<udp-specific tags>` | UDP-session migration failures emitted from `udp.rs`; see callsites. |
+
 ## Audit Gaps
 
 - `provider_adapter.rs` now provides a generic/self-hosted adapter for user-configured RFC 9298 endpoints with bearer, preshared, Privacy Pass, or TLS client certificate auth modes. Relay traffic coverage still comes from the client tests, not a conformant CONNECT-UDP proxy fixture.

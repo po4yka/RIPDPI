@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-16
+updated: 2026-05-29
 ---
 
 - [ ] #task Add Cloudflare Workers domain-fronting bypass adapter #repo/RIPDPI #area/rust-native #status/backlog 🔼
@@ -40,4 +40,4 @@ RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this
 ## Links
 
 - audit-cloudflare-only-dependencies (closed task; done)
-- [[relay-masque-status]]
+- `native/rust/crates/ripdpi-masque/CONFORMANCE.md`

@@ -25,7 +25,7 @@ New developers should read these in order:
 - [TUN-to-SOCKS bridge](native/tunnel.md)
 - [Debug a runtime issue](native/debug-runtime-issue.md)
 - [Cloudflare Tunnel operations](native/cloudflare-tunnel-operations.md)
-- [MASQUE runtime](native/relay-masque-status.md)
+- [MASQUE conformance audit](../native/rust/crates/ripdpi-masque/CONFORMANCE.md)
 - [NaiveProxy runtime](native/relay-naiveproxy-runtime.md)
 - [Finalmask compatibility and example configs](native/finalmask-compatibility.md)
 
