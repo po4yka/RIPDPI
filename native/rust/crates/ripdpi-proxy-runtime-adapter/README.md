@@ -29,8 +29,9 @@ triggers, TCP rotation, UDP desync, and ws-bootstrap glue.
 
 - **Upstream:** `ripdpi-proxy-config`, `ripdpi-config`, `ripdpi-failure-classifier`,
   `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-api`,
-  `ripdpi-runtime-decision-ports`, `ripdpi-runtime-platform`,
-  `ripdpi-runtime-services`, `ripdpi-session`, `ripdpi-ws-bootstrap`; plus
+  `ripdpi-runtime-decision-engine`, `ripdpi-runtime-decision-ports`,
+  `ripdpi-runtime-platform`, `ripdpi-runtime-services`, `ripdpi-session`,
+  `ripdpi-socks5-core`, `ripdpi-ws-bootstrap`; plus
   `base64`, `daemonize`, `libc`, `metrics`, `nix`, `socket2`, `tracing`.
 - **Downstream:** `ripdpi-proxy-runtime` (the proxy runtime crate; the runtime
   core of `libripdpi.so`).

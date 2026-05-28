@@ -26,8 +26,9 @@ the stable seam across which the runtime is started, stopped, polled, and fed.
 
 ## Dependencies
 
-- **Upstream:** `ripdpi-failure-classifier`, `ripdpi-proxy-config`; `arc-swap`
-  (and `loom` for concurrency tests).
+- **Upstream:** `ripdpi-failure-classifier`, `ripdpi-proxy-config`,
+  `ripdpi-runtime-decision-ports`; `arc-swap` (and `loom` for concurrency
+  tests).
 - **Downstream (≈8 consumers):** `ripdpi-proxy-runtime`,
   `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`,
   `ripdpi-runtime-services`, `ripdpi-monitor-proxy-runtime`, the Android
