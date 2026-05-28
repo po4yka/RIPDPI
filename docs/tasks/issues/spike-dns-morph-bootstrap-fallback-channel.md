@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-05-22
+updated: 2026-05-28
 source_wiki_pages:
   - "dns-morph-bootstrap"
 linked_task: null
@@ -22,7 +22,7 @@ linked_task: null
 DNS-Morph (Ailabouni-Dunkelman-Bitan, CSCML 2021) splits the threat model: handshake uses DNS port-53 (a TSPU policy gap as of 2026-05-22), data plane uses any underlying transport. Provides a structurally new bootstrap surface that does not depend on TSPU not yet having signature-trained against TLS ClientHello or QUIC Initial. No mature Russia-targeting fork exists yet. Spike validates whether the bootstrap shim is buildable on Android and whether RU-ASN clients can complete the ~80 type-A query handshake under typical TSPU port-53 inspection.
 
 > [!warning] LOW dedup confidence
-> Adjacent existing surfaces: `ripdpi-dns-resolver` crate (resolver, not handshake bootstrap) and open issue `add-dns-over-https-tunnel-mode-for-arbitrary-payloads` (DoH data tunnel, distinct mechanism). Confirm distinctness in the PR description before merging.
+> Adjacent existing surface: `ripdpi-dns-resolver` crate (resolver, not handshake bootstrap). The old DoH arbitrary-payload tunnel task was dropped as obsolete task-board planning, so this spike should compare only against current resolver and bootstrap code before merging.
 
 ## Proposed change
 
@@ -42,7 +42,7 @@ Stand up DNS-Morph bootstrap as a fallback bootstrap channel in RIPDPI Android:
 - [ ] Bootstrap completes against a synthetic DNS-Morph bridge in `test-lab/dns/` scenario (~3–8 s end-to-end per paper).
 - [ ] Active-probing defense verified: probing the bridge with `dig @bridge www.example.com` returns normal DNS responses.
 - [ ] Integration test in `core/diagnostics-data/` covers bootstrap → primary-transport handoff.
-- [ ] LOW-confidence dedup explicitly resolved in PR description: confirmed NOT a duplicate of `ripdpi-dns-resolver` or `add-dns-over-https-tunnel-mode-for-arbitrary-payloads`.
+- [ ] LOW-confidence dedup explicitly resolved in PR description: confirmed NOT a duplicate of `ripdpi-dns-resolver` or any current bootstrap transport code.
 
 ## Risks / open questions
 
