@@ -186,9 +186,8 @@ pub struct DcEndpoint {
 /// Async runner that issues TCP connects to each configured DC endpoint and
 /// builds a [`MtprotoReachabilityProbe`] from the results.
 ///
-/// The runner is direct-TCP only. `ctx.relay_hint` is noted for future
-/// extension but does not currently alter the connect path (see the
-/// `// HINT:` comment inside [`MtprotoReachabilityRunner::probe`]).
+/// The runner is direct-TCP only. `ctx.relay_hint` is ignored and does not
+/// alter the connect path.
 pub struct MtprotoReachabilityRunner {
     /// Per-endpoint connect timeout.
     pub timeout: Duration,
@@ -230,15 +229,8 @@ impl MtprotoReachabilityRunner {
     /// wrapping a `tokio::net::TcpStream::connect`. Probes run concurrently
     /// via `futures::future::join_all`.
     ///
-    /// `ctx.relay_hint` is currently unused by the runner — the connects are
-    /// always direct TCP.
-    // HINT: if ctx.relay_hint.is_some(), a future extension could route
-    // connects through a SOCKS5 proxy identified by the hint. For now, note
-    // the hint and proceed with direct TCP.
-    pub async fn probe(&self, ctx: &ProbeContext) -> MtprotoReachabilityProbe {
-        // Log the relay hint for future extension.
-        let _ = ctx.relay_hint.as_deref();
-
+    /// `ctx.relay_hint` is unused by this runner; connects are always direct TCP.
+    pub async fn probe(&self, _ctx: &ProbeContext) -> MtprotoReachabilityProbe {
         let futs = self.endpoints.iter().map(|ep| probe_endpoint(ep, self.timeout));
         let results = futures::future::join_all(futs).await;
         MtprotoReachabilityProbe::new(results)

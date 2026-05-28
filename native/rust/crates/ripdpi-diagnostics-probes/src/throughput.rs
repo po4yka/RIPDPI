@@ -95,8 +95,7 @@ impl Probe for ThroughputProbe {
 /// The runner is direct-TCP only and reads — it does not send a
 /// request. Use it against a target you control that streams bytes
 /// on connect (e.g. the local-network fixture's throughput endpoint).
-/// `ctx.relay_hint` is noted for future extension but does not currently
-/// alter the connect path.
+/// `ctx.relay_hint` is ignored and does not alter the connect path.
 #[derive(Debug, Clone)]
 pub struct ThroughputRunner {
     /// Host to connect to.

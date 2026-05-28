@@ -18,7 +18,7 @@
 ///   *every* seed — i.e. the delta distribution is non-trivial across inputs.
 ///
 ///   Arms that ARE found to have zero variance across the neighbourhood are recorded
-///   in KNOWN_STABLE_ARMS together with a TODO noting the recommended remediation.
+///   in KNOWN_STABLE_ARMS together with the recommended remediation.
 ///   The test passes deterministically in both cases; instability is recorded as
 ///   data rather than a hard failure.
 use ripdpi_packets::{tls_marker_info, OracleRng, DEFAULT_FAKE_TLS};
@@ -192,8 +192,8 @@ fn dmap_ambiguity_probe_regression_no_stable_cross_probe_fingerprint() {
     // the finding for human review.
     //
     // If an arm appears in known_stable_arms, widen its weighted_family_delta
-    // neighbourhood (add more non-zero buckets) or retire the arm. See
-    // docs/dmap_ambiguity_analysis.md.
+    // neighbourhood (add more non-zero buckets) or retire the arm. See the
+    // crate-local docs/dmap_ambiguity_analysis.md.
     let mut known_stable_arms: Vec<(&str, &str)> = Vec::new();
 
     for &arm in ALL_ARMS {
@@ -254,7 +254,7 @@ fn dmap_ambiguity_probe_regression_no_stable_cross_probe_fingerprint() {
     // Follow-up: widen weighted_family_delta to include payload-content-dependent
     // noise, or diversify probe fixtures so SNI marker offsets differ.
     // Remove arms from this list once they pass the cross-probe variance check.
-    // See docs/dmap_ambiguity_analysis.md § Findings.
+    // See the crate-local docs/dmap_ambiguity_analysis.md § Findings.
     const KNOWN_STABLE_ARMS: &[&str] =
         &["seg_pre_sni", "seg_mid_sni", "seg_post_sni", "rec_pre_sni", "rec_mid_sni", "two_phase_send"];
 
@@ -267,7 +267,8 @@ fn dmap_ambiguity_probe_regression_no_stable_cross_probe_fingerprint() {
             "dMAP probe regression: arm '{arm}' newly has a 100%-stable ambiguity fingerprint \
              across all probe inputs (it was NOT in the known baseline).  \
              Widen weighted_family_delta for '{arm}' or retire the arm.  \
-             See docs/dmap_ambiguity_analysis.md for remediation options."
+             See native/rust/crates/ripdpi-desync/docs/dmap_ambiguity_analysis.md \
+             for remediation options."
         );
     }
 
