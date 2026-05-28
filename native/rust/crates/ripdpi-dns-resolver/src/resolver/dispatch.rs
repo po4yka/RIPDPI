@@ -46,6 +46,7 @@ impl EncryptedDnsResolver {
         self.inner.tls_roots.is_empty()
             && self.inner.tls_verifier.is_none()
             && !self.uses_direct_tcp_connector()
+            && !self.requires_direct_tcp_connector()
             && !(matches!(self.inner.endpoint.protocol, EncryptedDnsProtocol::Dot)
                 && self.inner.connect_hooks.has_dot_tls_connector_builder())
     }

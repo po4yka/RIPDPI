@@ -223,4 +223,9 @@ impl EncryptedDnsResolver {
         matches!(self.inner.transport, EncryptedDnsTransport::Direct)
             && self.inner.connect_hooks.has_direct_tcp_connector()
     }
+
+    fn requires_direct_tcp_connector(&self) -> bool {
+        matches!(self.inner.transport, EncryptedDnsTransport::Direct)
+            && self.inner.connect_hooks.requires_direct_tcp_connector()
+    }
 }

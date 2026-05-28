@@ -9,7 +9,7 @@ pub(super) async fn exchange_doh(
     resolver: &EncryptedDnsResolver,
     query_bytes: &[u8],
 ) -> Result<Vec<u8>, EncryptedDnsError> {
-    if resolver.uses_direct_tcp_connector() {
+    if resolver.uses_direct_tcp_connector() || resolver.requires_direct_tcp_connector() {
         return manual_exchange::exchange_doh_manually(resolver, query_bytes).await;
     }
 

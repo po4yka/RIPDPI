@@ -40,6 +40,7 @@ pub struct EncryptedDnsConnectHooks {
     pub direct_tcp_connector: Option<Arc<DirectTcpConnector>>,
     pub direct_udp_binder: Option<Arc<DirectUdpBinder>>,
     pub dot_tls_connector_builder: Option<Arc<DotTlsConnectorBuilder>>,
+    direct_tcp_connector_required: bool,
 }
 
 impl EncryptedDnsConnectHooks {
@@ -57,6 +58,11 @@ impl EncryptedDnsConnectHooks {
             let future = connector(target, timeout);
             Box::pin(async move { future.await.map(Into::into) })
         }));
+        self
+    }
+
+    pub fn require_direct_tcp_connector(mut self) -> Self {
+        self.direct_tcp_connector_required = true;
         self
     }
 
@@ -80,6 +86,10 @@ impl EncryptedDnsConnectHooks {
         self.direct_tcp_connector.is_some()
     }
 
+    pub(crate) fn requires_direct_tcp_connector(&self) -> bool {
+        self.direct_tcp_connector_required
+    }
+
     #[cfg(feature = "hickory-backend")]
     pub(crate) fn has_dot_tls_connector_builder(&self) -> bool {
         self.dot_tls_connector_builder.is_some()
@@ -91,6 +101,7 @@ impl fmt::Debug for EncryptedDnsConnectHooks {
         formatter
             .debug_struct("EncryptedDnsConnectHooks")
             .field("direct_tcp_connector", &self.direct_tcp_connector.is_some())
+            .field("direct_tcp_connector_required", &self.direct_tcp_connector_required)
             .field("direct_udp_binder", &self.direct_udp_binder.is_some())
             .field("dot_tls_connector_builder", &self.dot_tls_connector_builder.is_some())
             .finish()

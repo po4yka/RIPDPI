@@ -97,7 +97,8 @@ fn build_doh_client_for_endpoint(
     connect_hooks: &EncryptedDnsConnectHooks,
 ) -> Result<Option<reqwest::Client>, EncryptedDnsError> {
     if endpoint.protocol != EncryptedDnsProtocol::Doh
-        || matches!(transport, EncryptedDnsTransport::Direct) && connect_hooks.has_direct_tcp_connector()
+        || matches!(transport, EncryptedDnsTransport::Direct)
+            && (connect_hooks.has_direct_tcp_connector() || connect_hooks.requires_direct_tcp_connector())
     {
         return Ok(None);
     }

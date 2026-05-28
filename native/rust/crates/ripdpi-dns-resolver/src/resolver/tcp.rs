@@ -23,6 +23,9 @@ impl EncryptedDnsResolver {
         if let Some(connector) = &self.inner.connect_hooks.direct_tcp_connector {
             return hooks::connect_tokio_tcp_with_hook(&self.inner, connector.clone()).await;
         }
+        if self.inner.connect_hooks.requires_direct_tcp_connector() {
+            return Err(EncryptedDnsError::Request("direct TCP connector is required".to_string()));
+        }
         self.connect_direct_tcp_with(tokio_connect::connect).await
     }
 
@@ -31,6 +34,8 @@ impl EncryptedDnsResolver {
             EncryptedDnsTransport::Direct => {
                 if let Some(connector) = &self.inner.connect_hooks.direct_tcp_connector {
                     hooks::connect_boxed_tcp_with_hook(&self.inner, connector.clone()).await
+                } else if self.inner.connect_hooks.requires_direct_tcp_connector() {
+                    Err(EncryptedDnsError::Request("direct TCP connector is required".to_string()))
                 } else {
                     self.connect_direct_tcp().await.map(|stream| Box::new(stream) as BoxedDnsTcpStream)
                 }
@@ -164,14 +169,16 @@ mod tests {
                 EncryptedDnsTransport::Direct,
                 Duration::from_millis(500),
                 vec![certificate_der],
-                EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |target, _timeout| {
-                    let client_connects = client_connects.clone();
-                    async move {
-                        client_connects.fetch_add(1, Ordering::Relaxed);
-                        let stream = turmoil::net::TcpStream::connect(target).await?;
-                        Ok(Box::new(stream) as BoxedDnsTcpStream)
-                    }
-                }),
+                EncryptedDnsConnectHooks::new().require_direct_tcp_connector().with_direct_tcp_connector(
+                    move |target, _timeout| {
+                        let client_connects = client_connects.clone();
+                        async move {
+                            client_connects.fetch_add(1, Ordering::Relaxed);
+                            let stream = turmoil::net::TcpStream::connect(target).await?;
+                            Ok(Box::new(stream) as BoxedDnsTcpStream)
+                        }
+                    },
+                ),
             )
             .expect("resolver builds");
 
@@ -182,6 +189,66 @@ mod tests {
         });
 
         sim.run()
+    }
+
+    #[test]
+    fn turmoil_doh_required_connector_fails_closed_when_relay_down() -> turmoil::Result {
+        let certificate = rcgen::generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+        let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+        let relay_connects = Arc::new(AtomicUsize::new(0));
+        let mut sim = turmoil::Builder::new().build();
+
+        sim.host("doh", || async move {
+            let _listener = turmoil::net::TcpListener::bind((IpAddr::V4(Ipv4Addr::UNSPECIFIED), 443)).await?;
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            Ok(())
+        });
+
+        let client_connects = relay_connects.clone();
+        sim.client("client", async move {
+            let doh_ip = turmoil::lookup("doh");
+            let assert_connects = client_connects.clone();
+            let resolver = EncryptedDnsResolver::with_extra_tls_roots_and_connect_hooks(
+                turmoil_doh_endpoint(443, vec![doh_ip]),
+                EncryptedDnsTransport::Direct,
+                Duration::from_millis(100),
+                vec![certificate_der],
+                EncryptedDnsConnectHooks::new().require_direct_tcp_connector().with_direct_tcp_connector(
+                    move |_target, _timeout| {
+                        let client_connects = client_connects.clone();
+                        async move {
+                            client_connects.fetch_add(1, Ordering::Relaxed);
+                            Err::<BoxedDnsTcpStream, _>(std::io::Error::new(
+                                std::io::ErrorKind::NotConnected,
+                                "relay connector is down",
+                            ))
+                        }
+                    },
+                ),
+            )
+            .expect("resolver builds");
+
+            let err = resolver.exchange(b"relay-query").await.expect_err("down relay connector must fail closed");
+            assert!(err.to_string().contains("relay connector is down"), "unexpected error: {err}");
+            assert_eq!(assert_connects.load(Ordering::Relaxed), 1, "resolver must try only the relay connector");
+            Ok(())
+        });
+
+        sim.run()
+    }
+
+    #[tokio::test]
+    async fn required_direct_tcp_connector_without_hook_fails_before_direct_tcp() {
+        let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(
+            turmoil_doh_endpoint(443, vec![IpAddr::V4(Ipv4Addr::LOCALHOST)]),
+            EncryptedDnsTransport::Direct,
+            Duration::from_millis(50),
+            EncryptedDnsConnectHooks::new().require_direct_tcp_connector(),
+        )
+        .expect("resolver builds");
+
+        let err = resolver.exchange(b"relay-query").await.expect_err("missing relay connector must fail closed");
+        assert!(err.to_string().contains("direct TCP connector is required"), "unexpected error: {err}");
     }
 
     #[test]
