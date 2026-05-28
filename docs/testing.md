@@ -570,7 +570,7 @@ These have task issues under `docs/tasks/issues/` and are sized for routine road
 
 ### Phase-16 real-world confidence status
 
-The original infrastructure spike is closed and its task note was removed per task-board lifecycle rules. The L7 adversarial emulator and generator-driven packet-smoke follow-ups are closed in `docs/tasks/GOAL_LEDGER.md`: the synthetic-adversarial release lane and deterministic generated CLI packet-smoke samples are now repo-side release evidence. [`operate-phase16-real-provider-sim-runner.md`](tasks/issues/operate-phase16-real-provider-sim-runner.md) remains open for the operator-owned private SIM runner; the repo-side fail-closed runner contract exists, but real-provider confidence still requires a self-hosted runner with the `real-provider` and namespace labels to upload the required artifacts.
+The original infrastructure spike is closed and its task note was removed per task-board lifecycle rules. The L7 adversarial emulator and generator-driven packet-smoke follow-ups are complete: the synthetic-adversarial release lane and deterministic generated CLI packet-smoke samples are now repo-side release evidence. [`operate-phase16-real-provider-sim-runner.md`](tasks/issues/operate-phase16-real-provider-sim-runner.md) remains open for the operator-owned private SIM runner; the repo-side fail-closed runner contract exists, but real-provider confidence still requires a self-hosted runner with the `real-provider` and namespace labels to upload the required artifacts.
 
 **L7 adversarial emulator v1 landed.** Dry-run behavior is verifiable on any host:
 
