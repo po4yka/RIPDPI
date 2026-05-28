@@ -63,8 +63,9 @@
 
         <!--
             Import trampoline for inbound proxy share links and subscription deep links.
-            Single-profile proxy URI schemes (vless/vmess/trojan/ss/hysteria/hysteria2/
-            tuic/anytls/ssh) are claimed at the default filter priority. The
+            Inbound proxy-like URI schemes (vless/vmess/trojan/ss/hysteria/hysteria2/
+            tuic/anytls/ssh) are claimed at the default filter priority; the import
+            trampoline still validates each payload through the current parser. The
             singbox/ripdpi/sn import-remote-profile deep-link filter sits at a negative
             priority so sing-box-for-Android stays the user's default subscription
             handler when installed; RIPDPI is still offered in the chooser. https:// is

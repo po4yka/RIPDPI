@@ -75,8 +75,8 @@ class ScannerUriDispatcherTest {
     }
 
     @Test
-    fun `allowlist covers the documented proxy schemes`() {
-        // ripdpi:// is the app's own single-profile share scheme and must be accepted.
+    fun `allowlist covers the scanner-supported proxy schemes`() {
+        // The scanner prefilter is narrower than clipboard/share-sheet import.
         val schemes = ScannerUriDispatcher.allowedSchemes
         assertTrue(schemes.containsAll(listOf("vless", "vmess", "trojan", "ss", "hysteria2", "tuic")))
         // https is explicitly not a proxy-node scheme.

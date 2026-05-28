@@ -21,16 +21,16 @@ sealed interface ScannerScanResult {
 /**
  * Classifies QR-scanner decoded text. Shared by the live CameraX path and the image-file
  * fallback so both behave identically. A decoded payload is validated against the
- * proxy-URI allowlist and parsed via [ProxyUriShareDispatcher]; anything else becomes a
+ * scanner prefilter and parsed via [ProxyUriShareDispatcher]; anything else becomes a
  * [ScannerScanResult.Invalid] carrying only a redacted 16-char preview.
  */
 object ScannerUriDispatcher {
     private const val REDACTION_LIMIT = 16
 
     /**
-     * Proxy-node URI schemes a scanned QR may carry. `ripdpi` is the app's own
-     * single-profile share scheme; `https` is deliberately excluded — it is not a
-     * proxy-node scheme.
+     * Schemes the scanner prefilter allows before parser validation. This is not the
+     * full clipboard/share-sheet codec list; [ProxyUriShareDispatcher] still decides
+     * whether the payload is a supported single-profile URI.
      */
     val allowedSchemes: Set<String> =
         setOf("vless", "vmess", "trojan", "ss", "hysteria", "hysteria2", "hy2", "tuic", "ripdpi")

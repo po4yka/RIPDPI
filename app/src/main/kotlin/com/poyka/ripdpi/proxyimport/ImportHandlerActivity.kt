@@ -13,10 +13,11 @@ import kotlinx.serialization.json.Json
 /**
  * Trampoline activity for inbound proxy share links and subscription deep links.
  *
- * Registered in the manifest for the single-profile proxy URI schemes (`vless://`,
+ * Registered in the manifest for inbound proxy-like URI schemes (`vless://`,
  * `vmess://`, `trojan://`, `ss://`, `hysteria://`, `hysteria2://`, `tuic://`,
  * `anytls://`, `ssh://`) and for the `singbox`/`ripdpi`/`sn` `import-remote-profile`
- * subscription deep link.
+ * subscription deep link. Manifest registration is broader than parser support; unsupported
+ * schemes are rejected after dispatch rather than documented as imported.
  *
  * The activity is a thin classifier: it parses the inbound URI via the shared
  * [ProxyUriShareDispatcher] / [SingBoxDeepLinkParser], builds a forwarding [Intent] into
