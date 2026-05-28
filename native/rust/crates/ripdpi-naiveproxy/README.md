@@ -35,46 +35,17 @@ This crate intentionally does not aim for a TLS or HTTP/2 fingerprint identical 
 - The first CONNECT to a server must not use Fast Open because server padding support is unknown until the first response.
 - HTTP Basic auth is carried in `Proxy-Authorization: Basic <base64(username:password)>`.
 
-## TDD Test Plan
+## Test Coverage
 
-Slice 1, padding codec encode/decode plus golden byte vectors:
+The old slice plan has landed into focused Rust and Kotlin tests. Current coverage is:
 
-- `padding_frame_encodes_big_endian_length_and_zero_padding`: cite Variant1 frame format and `padding_size` zero bytes. Use a deterministic padding size and compare bytes against a hand-derived vector, not a blessed implementation output.
-- `padding_frame_splits_payload_larger_than_65535`: cite `original_data_size <= 65535`; input length `65536` must produce a `65535` frame followed by a second frame.
-- `padding_decoder_handles_fragmented_header_payload_and_padding`: cite framer read state from upstream C++ source; feed one byte at a time and assert emitted payload only after enough bytes arrive.
-- `padding_decoder_switches_to_plain_after_eight_frames`: cite `kFirstPaddings = 8`; after eight framed reads, the next bytes are returned as plain payload.
-- `padding_encoder_switches_to_plain_after_eight_frames`: cite `kFirstPaddings = 8`; after eight framed writes, encoded output must be unframed.
-- `padding_vectors_match_spec_golden`: use `golden-test-support` with vectors whose expected bytes are manually derived from the spec constants and fixed padding sizes; blessing is allowed only after the manual vector file is reviewed.
+- Padding codec: `padding_frame_encodes_big_endian_length_and_zero_padding`, `padding_frame_splits_payload_larger_than_u16_max`, `padding_decoder_handles_fragmented_header_payload_and_padding`, `padding_decoder_switches_to_plain_after_eight_frames`, `padding_encoder_switches_to_plain_after_eight_frames`, and `padding_vectors_match_spec_golden`.
+- HTTP/2 CONNECT framing and padding negotiation: `h2_connect_request_sends_naive_headers`, `h2_connect_rejects_request_padding_outside_spec_range`, `h2_connect_response_without_padding_disables_payload_padding`, `h2_connect_response_with_padding_reply_enables_variant1`, and `h2_connect_rejects_response_padding_outside_spec_range`.
+- End-to-end helper behavior against `local-network-fixture::NaiveH2PaddingFixture`: `socks5_tunnel_round_trip_reaches_target_via_https_proxy`, `socks5_client_round_trip_over_h2_naive_padding_fixture`, `http_front_connect_round_trip_over_h2_naive_padding_fixture`, and `helper_reconnects_after_upstream_h2_stream_failure`.
+- CLI/config contract: `config_parses_final_cli_contract`, `config_rejects_partial_auth`, Kotlin `NaiveProxyRuntimePolicyTest.manager command arguments match final native cli contract`, and the native `probe_line_*` tests in `main.rs`.
+- Android service-side parser and runtime policy: `NaiveProxyProbeParserTest` covers the `RIPDPI-PROBE` JSON parser and schema-range helper; `NaiveProxyRuntimePolicyTest` covers restart decisions for clean exits, terminal auth/config failures, DNS backoff, and retryable connect/runtime/helper failures.
 
-Slice 2, HTTP/2 CONNECT framing:
-
-- `h2_connect_request_sends_naive_headers`: cite CONNECT request HEADERS padding `[16, 32]`, `Proxy-Authorization`, `padding`, and `padding-type-request = 1`.
-- `h2_connect_response_without_padding_disables_payload_padding`: cite opt-in rule requiring `padding` on both request and response; response status 200 without `padding` must tunnel plain bytes.
-- `h2_connect_response_with_padding_reply_enables_variant1`: cite response `padding` and `padding-type-reply = 1`; payload streams must wrap first eight reads/writes with Variant1.
-- `first_connect_does_not_fastopen_payload`: cite Fast Open ban; fixture must observe no DATA payload before the 200 response headers.
-- `h2_connect_auth_failure_maps_to_auth_error`: cite HTTP Basic auth; 407 response must produce the existing auth failure class.
-
-Slice 3, full client tunnel vs fixture:
-
-- Add `local-network-fixture` HTTP/2 CONNECT+padding server with deterministic response padding and a target echo service.
-- `socks5_client_round_trip_over_h2_naive_padding`: cite SOCKS5 front listener and Variant1 payload padding; assert echo bytes and server-observed frame counts.
-- `http_front_connect_round_trip_over_h2_naive_padding`: cite HTTP front listener scope; assert local HTTP CONNECT succeeds and tunnels echo bytes.
-- `fixture_rejects_missing_padding_header_for_naive_mode`: cite padding opt-in and server-side missing-padding behavior; assert client reports a structured CONNECT/protocol failure rather than silently downgrading when the fixture requires Naive padding.
-- `plain_h2_proxy_interop_without_response_padding`: cite interoperability with regular HTTP/2 proxies; assert regular H2 proxy response without `padding` still works with plain payload.
-
-Slice 4, CLI/config:
-
-- `config_parses_final_cli_contract`: cite fixed Kotlin/native subprocess contract; parse `--listen`, `--server`, `--server-port`, `--server-name`, optional `--username`, `--password`, and `--path`.
-- `config_rejects_partial_auth`: cite HTTP Basic requires username and password together.
-- `NaiveProxyManagerTest.builds_helper_arguments_for_final_contract`: Kotlin test must change in the same commit as any native CLI contract change involving `naiveUsername`, `naivePassword`, or `naivePath`.
-- `probe_reports_h2_and_naive_padding_capabilities`: keep `RIPDPI-PROBE` aligned with implemented capability tags once the helper actually supports HTTP/2 and padding.
-
-Slice 5, lifecycle/reconnect:
-
-- `runtime_restarts_transient_dns_connect_runtime_failures`: cite existing `NaiveProxyRuntime` restart policy; DNS/connect/runtime failures remain restartable within budget.
-- `runtime_does_not_restart_auth_or_http_connect_rejections`: cite current terminal failure classes and auth/CONNECT semantics.
-- `helper_reconnects_after_upstream_h2_stream_failure`: fixture closes one HTTP/2 stream; next local client connection must establish a fresh tunnel without wedging the listener.
-- `helper_shutdown_closes_front_listener_and_upstream_tasks`: subprocess stop must leave no accepted-client task running and no hung `waitForExit`.
+The remaining service integration gap is intentional and tracked in `docs/tasks/issues/make-naiveproxy-helper-probe-return-structured-version-json.md`: `NaiveProxyManager` still launches with `--version` and does not yet run `--probe` as a mandatory schema gate before start.
 
 ## Verification Gates
 
