@@ -59,16 +59,7 @@ _All P1 coherence gaps were closed in the documentation audit pass — see
   shapes — but the actual fd transfer needs a process-pair integration
   harness, which does not exist. Tracked in
   [`ROOT_HELPER_CONTRACT.md`](ROOT_HELPER_CONTRACT.md).
-- **`docs/native/proxy-engine.md` and `docs/native/unsafe-audit.md` bodies use
-  historical crate names.** Both carry a "Historical crate names" banner
-  (added in `71463df25`) pointing at [`NATIVE_RUST.md`](NATIVE_RUST.md), but the
-  inline references to `ripdpi-runtime` / `ripdpi-monitor` in the body text
-  were intentionally **not** rewritten (constraint: prefer historical-note
-  labels over edits). A future low-risk pass can update the bodies.
-- **The `ripdpi-runtime`/`ripdpi-monitor` decomposition is not fully reflected
-  everywhere.** Deep topic docs under `docs/architecture/` and `docs/native/`
-  predate the split; only the high-traffic ones were banner-flagged. A
-  doc-only sweep can catch the rest.
+- **Historical runtime/monitor crate-name cleanup.** A 2026-05-28 docs sweep replaced the high-traffic `ripdpi-runtime` / `ripdpi-monitor` monolith references with the current `ripdpi-proxy-runtime`, `ripdpi-runtime-*`, `ripdpi-monitor-*`, and `ripdpi-diagnostics-*` crate families. Keep future native docs anchored to [`NATIVE_RUST.md`](NATIVE_RUST.md) instead of reintroducing historical banners.
 
 ### P3 — coordinated / multi-file improvements
 
@@ -161,9 +152,10 @@ Right-sized, accurate, low-risk — each is a single focused change:
 2. ~~**Resolve the `ARCHITECTURE.md` §3 verification marker** for the
    `:core:data:settings` ↔ `:core:data:model` split~~ — **done** in the doc
    audit pass; the split (schema vs. persistence) is now stated inline.
-3. **Rewrite the historical crate names** in the *bodies* of
-   `docs/native/proxy-engine.md` and `docs/native/unsafe-audit.md` (the
-   banners already point at the canonical map) (P2, doc-only).
+3. ~~**Rewrite the historical crate names** in the bodies of
+   `docs/native/proxy-engine.md` and `docs/native/unsafe-audit.md`~~ —
+   **done** in the 2026-05-28 docs cleanup; both docs now use the current
+   `ripdpi-proxy-runtime` / `ripdpi-root-helper-protocol` names.
 4. **Sweep the remaining deep docs** under `docs/architecture/` /
    `docs/native/` for pre-decomposition crate names and add historical-note
    labels or corrections (P2, doc-only).

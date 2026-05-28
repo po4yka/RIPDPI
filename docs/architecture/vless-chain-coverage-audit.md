@@ -22,7 +22,7 @@ where
 
 - Two-hop happy path: payload integrity in both directions, framing isolation between hops.
 - Two-hop failure path: error on the second hop produces a recognizable error from the outer caller (not just an opaque `io::Error`).
-- Resource cleanup if hop 2 fails after hop 1 succeeds (in particular, `SSL_SESSION_*` refcount discipline; see `audit-reality-ssl-session-drop-paths-for-leak-and-double-free`).
+- Resource cleanup if hop 2 fails after hop 1 succeeds, especially around the current H1 Reality ClientHello hook described in `docs/design/reality-boringssl-patch.md`.
 
 ## Recommendation
 

@@ -17,7 +17,7 @@ const val DefaultEntropyPaddingMax = 256
 const val DefaultShannonEntropyTargetPermil = 7920
 const val DefaultEvolutionEpsilon = 0.1
 
-// Evolver time-knob defaults mirror constants in ripdpi-runtime/src/strategy_evolver.rs
+// Evolver time-knob defaults mirror constants in ripdpi-runtime-strategy/src/strategy_evolver.rs
 const val DefaultEvolutionExperimentTtlMs: Long = 30_000L
 const val DefaultEvolutionDecayHalfLifeMs: Long = 3_600_000L
 const val DefaultEvolutionCooldownAfterFailures: Int = 3

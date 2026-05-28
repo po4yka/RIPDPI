@@ -27,9 +27,9 @@ impl RootHelperClient {
 /// ```
 /// Unknown keys are ignored. Missing keys produce `Unavailable { reason: NotProbed }`.
 ///
-/// This function lives in `ripdpi-runtime` because `RuntimeCapability` and
-/// `CapabilityOutcome` are runtime/diagnostics concepts rather than helper IPC
-/// wire types.
+/// This function lives in `ripdpi-runtime-platform` because `RuntimeCapability`
+/// and `CapabilityOutcome` are runtime/diagnostics concepts rather than helper
+/// IPC wire types.
 pub fn capability_outcome_from_probe_json(json: &str) -> Vec<(RuntimeCapability, CapabilityOutcome<bool>)> {
     let value: serde_json::Value = match serde_json::from_str(json) {
         Ok(v) => v,

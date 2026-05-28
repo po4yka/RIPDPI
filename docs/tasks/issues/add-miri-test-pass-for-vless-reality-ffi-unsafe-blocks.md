@@ -50,4 +50,4 @@ This is the most concentrated unsafe surface in the workspace; the 2026-05-16 H1
 - [[pin-boringssl-symbols-with-build-time-existence-check]]
 - [[rust-soundness-policy]]
 - `docs/design/reality-boringssl-patch.md` — H1 design + status
-- `docs/architecture/reality-ssl-session-drop-audit.md` — historical audit of the previous (now-deleted) SSL_SESSION FFI surface
+- `native/rust/crates/ripdpi-vless/src/scoped_handle.rs` — reusable RAII handle wrapper for future refcount-managed FFI surfaces

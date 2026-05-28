@@ -1,13 +1,5 @@
 # Proxy Engine
 
-> **Historical crate names.** Some crate names and `native/rust/crates/...`
-> paths below predate the workspace decomposition. The crates `ripdpi-runtime`
-> and `ripdpi-monitor` no longer exist: the proxy runtime is now
-> `ripdpi-proxy-runtime` (plus the `ripdpi-runtime-*` family) and the
-> active-scan engine is `ripdpi-monitor-engine` (plus the `ripdpi-diagnostics-*`
-> probe crates). The canonical crate map is
-> [`docs/architecture/NATIVE_RUST.md`](../architecture/NATIVE_RUST.md).
-
 ## Role in RIPDPI
 
 The local SOCKS5 proxy is implemented by the in-repo Rust native module.
@@ -31,7 +23,7 @@ Not every RIPDPI-managed request now goes through the local SOCKS5 proxy.
 
 `main()` -> `ripdpi_config::parse_cli(args)` -> `ProcessGuard::prepare()` -> `runtime::run_proxy(config)`
 
-The CLI binary (`ripdpi`) wraps the same `ripdpi-runtime` and `ripdpi-config` used by Android, with no JNI. Signal handling (SIGINT/SIGTERM/SIGHUP) uses the existing `ProcessGuard`. Telemetry is emitted via `tracing` to stderr.
+The CLI binary (`ripdpi`) wraps the same `ripdpi-proxy-runtime` and `ripdpi-config` used by Android, with no JNI. Signal handling (SIGINT/SIGTERM/SIGHUP) uses the existing `ProcessGuard`. Telemetry is emitted via `tracing` to stderr.
 
 ```bash
 cargo run -p ripdpi-cli -- -p 1080 -x 1      # info logging
@@ -874,7 +866,7 @@ The proxy stack is currently covered by:
 
 - Rust unit, property-based, state-machine, fault-injection, and telemetry-golden tests in `ripdpi-android`
 - Rust config and planner coverage for markers, fake payload profiles, fake TLS mutations, activation windows, adaptive split placement, adaptive fake TTL, adaptive tuning beyond TTL, host autolearn scoping, retry stealth, and fake-step approximations
-- repo-owned local-network E2E for the proxy runtime in `ripdpi-runtime`
+- repo-owned local-network E2E for the proxy runtime in `ripdpi-proxy-runtime`
 - Kotlin wrapper and service-layer tests in `core:engine` and `core:service`, including network-memory resolution and handover-triggered restart behavior
 - Android instrumentation integration and network E2E through the real `libripdpi.so`
 - host-side soak runs for restart loops, sustained traffic, and fault recovery

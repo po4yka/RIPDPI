@@ -34,14 +34,14 @@ dpi-detector probes both DoH formats because some resolver operators expose only
 
 ## Scope
 
-- **In scope:** new probe variant in `ripdpi-monitor` that issues a DoH JSON GET (`?name=…&type=A`) and validates the JSON response. Surfaces as part of the resolver availability survey ([[Add public DNS resolver availability survey diagnostic]]) and the authority-scoped DNS classifier as an extra evidence source.
+- **In scope:** new probe variant in `ripdpi-monitor-engine` / diagnostics crates that issues a DoH JSON GET (`?name=…&type=A`) and validates the JSON response. Surfaces as part of the resolver availability survey ([[Add public DNS resolver availability survey diagnostic]]) and the authority-scoped DNS classifier as an extra evidence source.
 - **Out of scope:** using DoH JSON in `ripdpi-dns-resolver` for actual resolution. The runtime path stays wire-only.
 
 ## Acceptance criteria
 
 - [ ] DoH JSON probe is a separate `ResolverProbe` variant with its own URL list, parser, and verdict.
 - [ ] Parser is permissive (handles Google's `Answer[].data` and Cloudflare's identical schema) but treats malformed JSON as a probe failure, not a panic.
-- [ ] No allocation in the hot path beyond what the JSON parser requires; reuse the `httpx`-equivalent client already in `ripdpi-monitor`.
+- [ ] No allocation in the hot path beyond what the JSON parser requires; reuse the HTTP client path already used by the monitor/diagnostics crates.
 - [ ] Probe verdict is reported per-endpoint independently of the wire probe to the same operator (so "Google wire blocked, Google JSON reachable" is a representable outcome).
 - [ ] No fallback from wire to JSON in the runtime resolver; runtime stays wire-only.
 

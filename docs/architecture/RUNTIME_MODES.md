@@ -4,11 +4,8 @@ The five runtime paths — **proxy**, **VPN/TUN**, **diagnostics**, **relay**, a
 the optional **root helper** — and how they start, interact, and tear down.
 This expands [`ARCHITECTURE.md`](ARCHITECTURE.md) §2.
 
-Evidence is cited by file path. Some referenced docs
-([`docs/native/proxy-engine.md`](../native/proxy-engine.md)) still use the
-historical crate names `ripdpi-runtime` / `ripdpi-monitor`; this document uses
-the current names (`ripdpi-proxy-runtime`, the `ripdpi-monitor-*` family) — see
-[`NATIVE_RUST.md`](NATIVE_RUST.md).
+Evidence is cited by file path. Native crate names follow the current taxonomy
+in [`NATIVE_RUST.md`](NATIVE_RUST.md).
 
 ---
 

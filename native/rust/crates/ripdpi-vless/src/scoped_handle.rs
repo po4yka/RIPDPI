@@ -8,11 +8,9 @@
 //! Background: prior to the 2026-05-16 H1 BoringSSL ClientHello hook
 //! commit, `ripdpi-vless::reality` manually managed an `SSL_SESSION`
 //! refcount across an unsafe block. The H1 patch removed that
-//! codepath entirely, but the RAII shape captured here is the
-//! general-purpose tool the audit at
-//! `docs/architecture/reality-ssl-session-drop-audit.md` recommended.
-//! Future FFI surfaces in this crate (and others) should consume
-//! `ScopedHandle` rather than hand-roll the discipline.
+//! codepath entirely, but this RAII shape remains the general-purpose
+//! tool for future refcount-managed FFI surfaces in this crate and
+//! others.
 
 /// Trait carrying the free function for a `ScopedHandle<T, F>`.
 /// Implementors are zero-sized marker types that select the

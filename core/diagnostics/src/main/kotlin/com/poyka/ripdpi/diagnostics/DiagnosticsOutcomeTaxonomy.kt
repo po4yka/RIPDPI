@@ -355,7 +355,7 @@ private fun DiagnosticsOutcomeBucket.eventLevel(): String =
  * Some "Failed" outcomes are expected censorship / policy findings rather
  * than infrastructure faults. Logging them at ERROR makes logcat look like the
  * app is crashing; they belong at WARN. Mirrors
- * `ripdpi-monitor/src/util.rs::event_level_override`.
+ * `ripdpi-diagnostics-contracts/src/util/outcome_policy.rs::event_level_override`.
  */
 private fun eventLevelOverride(
     probeType: String,

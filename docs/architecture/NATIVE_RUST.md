@@ -45,17 +45,7 @@ convention plugin
 | `ripdpi-cloudflare-origin` | `ripdpi-cloudflare-origin` | `bin` | Cloudflare-origin artifact task | APK assets — run as a subprocess helper |
 | `ripdpi` | `ripdpi-cli` | `bin` | `cargo build` (desktop) | **Not** in the APK — macOS/Linux dev binary |
 
-> **Correction to older docs.** [AGENTS.md](../../AGENTS.md) § Native Code and
-> [`docs/native/README.md`](../native/README.md) describe **two** `.so` files
-> (`libripdpi.so`, `libripdpi-tunnel.so`). The Gradle plugin's artifact specs
-> actually build **four** JNI `.so` libraries — the relay and WARP runtimes
-> ship as their own `libripdpi-relay.so` / `libripdpi-warp.so`, not linked into
-> `libripdpi.so`. This document reflects the plugin spec list.
->
-> The native README also refers to crates named `ripdpi-runtime` and
-> `ripdpi-monitor`. Those names no longer exist — the workspace was decomposed
-> into the `ripdpi-proxy-runtime` + `ripdpi-runtime-*` family and the
-> `ripdpi-monitor-*` family. Treat the native README's crate names as stale.
+> **Native artifact map.** The Gradle plugin's artifact specs build four JNI `.so` libraries: `libripdpi.so`, `libripdpi-tunnel.so`, `libripdpi-relay.so`, and `libripdpi-warp.so`. Relay and WARP ship as their own libraries, not as code linked into `libripdpi.so`.
 
 First-level composition of each artifact root (direct internal dependencies):
 
@@ -428,9 +418,7 @@ These are current source-state notes for triage. None block the build.
 ## Deeper docs
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — whole-app architecture entrypoint.
-- [`docs/native/README.md`](../native/README.md) — native module narrative and
-  per-crate notes (note the stale `ripdpi-runtime` / `ripdpi-monitor` / two-`.so`
-  references corrected in [§1](#1-production-artifacts)).
+- [`docs/native/README.md`](../native/README.md) — native module narrative and per-crate notes.
 - [`docs/native/proxy-engine.md`](../native/proxy-engine.md),
   [`docs/native/tunnel.md`](../native/tunnel.md) — runtime internals.
 - [`architecture/README.md`](README.md) — ownership-boundary notes, including

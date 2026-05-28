@@ -51,10 +51,10 @@ The SAFETY comment asserts these are "stable BoringSSL ABI" for the third symbol
 ## Acceptance criteria
 
 - [x] (2026-05-15) `boring` and `boring-sys` are pinned to exact versions in the workspace `Cargo.toml` (no `*` or caret range). `boring = "=5.1.0"`, `tokio-boring = "=5.0.0"`. `boring-sys` is a vendored path dep (`vendor/boring-sys`), already pinned by construction. A workspace-level comment cites the rationale.
-- [x] (2026-05-15, implicit) The six BoringSSL symbols are declared via `extern "C"` in `reality.rs` and called from `connect_reality_tls_inner`. The Rust linker requires extern fn references to resolve at link time, so any missing symbol fails the workspace build — effectively a build-time existence check without a dedicated `build.rs`. A trace-style audit lives at `docs/architecture/reality-ssl-session-drop-audit.md`.
+- [x] (2026-05-15, implicit) The original BoringSSL symbols were declared via `extern "C"` in `reality.rs` and called from `connect_reality_tls_inner`. The current H1 ClientHello hook uses the three patched symbols documented in `docs/design/reality-boringssl-patch.md`; the Rust linker requires extern fn references to resolve at link time, so any missing symbol fails the workspace build — effectively a build-time existence check without a dedicated `build.rs`.
 - [ ] A `build.rs` symbol-existence-check via `nm`/`llvm-nm` or a C stub. **DEFERRED:** redundant with the implicit link-time check above; revisit only if a future code path optionally references the symbols (e.g. behind a feature flag) and DCE could elide them.
 - [ ] CI fails when the existence check fails. **MET implicitly:** workspace `cargo check` fails if a symbol is missing.
-- [ ] `docs/native/proxy-engine.md` documents the contract. **DEFERRED:** captured in the workspace `Cargo.toml` comment and the audit doc; add a pointer in `proxy-engine.md` when the file is next touched.
+- [ ] `docs/native/proxy-engine.md` documents the contract. **DEFERRED:** captured in the workspace `Cargo.toml` comment and `docs/design/reality-boringssl-patch.md`; add a pointer in `proxy-engine.md` when the file is next touched.
 
 ## Definition of done
 

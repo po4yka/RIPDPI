@@ -22,7 +22,7 @@ flowchart LR
     E --> G["Encrypted resolver\nDoH / DoT / DNSCrypt / DoQ"]
     G --> H["Map real IP\nto synthetic 198.18.x.x"]
     H --> I["DNS response\nback to app"]
-    F --> J["ripdpi-runtime\n(desync pipeline)"]
+    F --> J["ripdpi-proxy-runtime\n(desync pipeline)"]
     J --> K["Upstream server"]
 ```
 

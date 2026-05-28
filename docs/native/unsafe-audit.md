@@ -1,11 +1,5 @@
 # Unsafe Audit Guide
 
-> **Historical crate names.** Some `native/rust/crates/...` paths below predate
-> the workspace decomposition — the crates `ripdpi-runtime` / `ripdpi-monitor`
-> no longer exist. Platform and privileged-syscall code now lives in
-> `ripdpi-runtime-platform` and `ripdpi-privileged-ops`; the canonical crate
-> map is [`docs/architecture/NATIVE_RUST.md`](../architecture/NATIVE_RUST.md).
-
 This guide is for reviewing and reducing `unsafe` in RIPDPI native code without weakening the invariants the runtime depends on.
 
 The initial unsafe-containment audit is complete. This document remains the ongoing checklist for follow-up native work.
@@ -122,7 +116,7 @@ Minimum bar before landing a change:
 
 Use Miri only on pure host-side helpers that do not cross JNI, raw syscalls, or Android-only FFI. The current supported lane is:
 
-- `ripdpi-runtime::platform::read_unaligned_raw_fd`
+- `ripdpi-root-helper-protocol::scm_rights::read_unaligned_raw_fd`
 
 Run it with:
 

@@ -22,7 +22,8 @@
 /// - `tcp_repair` - helper can set `TCP_REPAIR` socket option.
 ///
 /// Runtime-side conversion from this JSON shape to typed runtime capability
-/// outcomes lives in `ripdpi-runtime`, where those capability types are defined.
+/// outcomes lives in `ripdpi-runtime-platform`, where those capability types
+/// are adapted for the platform client.
 pub const CMD_PROBE_CAPABILITIES: &str = "probe_capabilities";
 
 /// Emit a fake TCP segment (TTL-limited / decoy) ahead of the real payload.

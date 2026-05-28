@@ -125,7 +125,7 @@ Targeted Miri smoke for pure unsafe helpers:
 bash scripts/ci/run-rust-miri.sh
 ```
 
-This currently validates the host-side ancillary-fd decoding helper in `ripdpi-runtime::platform` under strict provenance. Do not expand this lane to JNI or syscall-heavy paths unless they gain explicit `#[cfg(miri)]` stubs.
+This currently validates the host-side ancillary-fd decoding helper in `ripdpi-root-helper-protocol`, plus focused Reality-hook and tier-3 privileged-op helpers, under strict provenance. Do not expand this lane to JNI or syscall-heavy paths unless they gain explicit `#[cfg(miri)]` stubs.
 
 Packaged native size checks:
 

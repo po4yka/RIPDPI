@@ -3,7 +3,8 @@
 Wire-format byte vectors for VLESS-mux frames, exercised by the fixture-walker tests in:
 
 - `ripdpi-relay-mux::wire_mux::yamux::upstream_yamux_fixtures_round_trip`
-- `ripdpi-relay-mux::wire_mux::sing_mux::upstream_sing_mux_fixtures_round_trip` (planned)
+
+The checked-in walker currently covers yamux vectors. Sing-mux codec coverage lives in `ripdpi-relay-mux` unit tests; add a dedicated fixture walker when sing-mux wire vectors are checked in.
 
 ## Directory layout
 
@@ -12,7 +13,7 @@ contract-fixtures/vless/<upstream-tag>/mux/<framing>/<vector-name>.bin
 ```
 
 - `<upstream-tag>` matches the pin in `native/rust/crates/ripdpi-vless/SPEC_VERSION.md` (e.g. `v1.260206.0`).
-- `<framing>` is `yamux` or `sing_mux`.
+- `<framing>` is `yamux` for the current checked-in vectors. Use `sing_mux` when adding sing-mux fixtures and a matching fixture walker.
 - `<vector-name>` is descriptive, lowercase-kebab; no extension collisions because every file ends in `.bin`.
 
 ## Fixture-file format
@@ -27,7 +28,7 @@ Each `.bin` file contains a single frame's wire bytes:
 2. Save the wire bytes to `<upstream-tag>/mux/<framing>/<name>.bin`.
 3. Add a comment in this README naming the source if it's reproducible.
 
-The fixture-walker tests will pick the new files up automatically on the next test run. No code changes are required.
+The yamux fixture-walker tests pick new yamux files up automatically on the next test run. Sing-mux fixture files require adding the matching walker before they are enforced.
 
 ## Current vectors
 

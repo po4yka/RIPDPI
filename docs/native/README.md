@@ -5,12 +5,7 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 > **Canonical crate map:** [`docs/architecture/NATIVE_RUST.md`](../architecture/NATIVE_RUST.md)
 > is the current workspace taxonomy and dependency-direction reference;
 > [`docs/architecture/DIAGNOSTICS_ARCHITECTURE.md`](../architecture/DIAGNOSTICS_ARCHITECTURE.md)
-> covers the diagnostics / monitor crates. Some sections below predate the
-> runtime/monitor crate split — the crate names `ripdpi-runtime` and
-> `ripdpi-monitor` are **historical**. The workspace (`native/rust/Cargo.toml`)
-> now uses the `ripdpi-proxy-runtime` + `ripdpi-runtime-*` family and the
-> `ripdpi-monitor-*` family (active-scan engine: `ripdpi-monitor-engine`) plus
-> the `ripdpi-diagnostics-*` probe crates instead.
+> covers the diagnostics / monitor crates.
 
 ## Overview
 
@@ -21,8 +16,8 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 | `native/rust/crates/ripdpi-tunnel-android` | `libripdpi-tunnel.so` | VPN mode only | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `ripdpi_tunnel_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
 | `native/rust/crates/ripdpi-monitor-engine` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, DNS tampering detection (8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (HTTP/TLS/SSH with `FieldObserver` emission), TLS/HTTP reachability probes, TCP fat-header probes, allowlist-SNI retries, strategy-probe progress/report state |
 | `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor-engine` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt/DoQ exchange, metadata collection, and IP answer extraction |
-| `native/rust/crates/ripdpi-packets` | linked into ripdpi-runtime, ripdpi-monitor, ripdpi-desync | Protocol detection, packet mutation, classification | none directly | `ProtocolClassifier` trait + `ClassifierRegistry` for unified protocol detection, `ProtocolField` + `FieldObserver` for callback-based field extraction, TLS/HTTP/QUIC marker info for desync offset resolution |
-| `native/rust/crates/ripdpi-failure-classifier` | linked into ripdpi-runtime, ripdpi-monitor | Failure analysis, block signal detection | none directly | `classify_from_fields()` uses `FieldCache` for response analysis without re-parsing, failure-page CSV fingerprints, TLS alert classification |
+| `native/rust/crates/ripdpi-packets` | linked into proxy runtime, monitor engine, and desync crates | Protocol detection, packet mutation, classification | none directly | `ProtocolClassifier` trait + `ClassifierRegistry` for unified protocol detection, `ProtocolField` + `FieldObserver` for callback-based field extraction, TLS/HTTP/QUIC marker info for desync offset resolution |
+| `native/rust/crates/ripdpi-failure-classifier` | linked into proxy runtime and monitor/diagnostics crates | Failure analysis, block signal detection | none directly | `classify_from_fields()` uses `FieldCache` for response analysis without re-parsing, failure-page CSV fingerprints, TLS alert classification |
 | `native/rust/crates/ripdpi-root-helper` | `ripdpi-root-helper` binary | Rooted devices only (opt-in) | `core/service/.../RootHelperManager.kt` | Standalone privileged process spawned via `su`; Unix socket IPC with SCM_RIGHTS: `probe_capabilities`, `send_fake_rst`, `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ip_fragmented_tcp`, `send_ip_fragmented_udp`, `send_raw_ip_packet` |
 | `native/rust/crates/android-support` | linked into ripdpi-android, ripdpi-tunnel-android, ripdpi-tunnel-core, ripdpi-packets | Generic data structures, logging, JNI support | none directly | `BoundedHeap<T>` for bounded session eviction, `EnumMap<K,V>` for O(1) registry dispatch, `HandleRegistry<T>` for JNI handle management |
 
@@ -95,7 +90,7 @@ flowchart LR
   I --> D
   K --> M["Android 17 HttpEngine"]
   K --> N["native owned TLS fallback"]
-  O["ripdpi CLI (desktop)"] --> P["ripdpi-runtime"]
+  O["ripdpi CLI (desktop)"] --> P["ripdpi-proxy-runtime"]
   P --> Q["ripdpi-config"]
   R["Root helper (uid 0)"] -.->|Unix socket IPC| D
   R -.->|raw packet IPC| F
@@ -115,7 +110,7 @@ App-originated traffic that RIPDPI controls itself no longer always traverses th
 Diagnostics in the Android app are split across three native paths:
 
 - `ripdpi-monitor-engine` performs active scans and produces structured scan reports and scan-time passive events
-- `ripdpi-runtime` emits passive proxy runtime telemetry for the long-running local SOCKS5 proxy
+- `ripdpi-proxy-runtime` emits passive proxy runtime telemetry for the long-running local SOCKS5 proxy
 - `ripdpi-tunnel-android` exposes tunnel runtime telemetry for the long-running TUN-to-SOCKS bridge
 
 The service layer polls those native snapshots once per second while the service is running and stores only metadata:
@@ -314,7 +309,7 @@ flowchart TD
     end
 
     subgraph "Core runtime"
-        RT["ripdpi-runtime"]
+        RT["ripdpi-proxy-runtime"]
         DSN["ripdpi-desync"]
         CFG["ripdpi-proxy-config"]
         CCFG["ripdpi-config"]

@@ -49,7 +49,7 @@ This is opt-in and does not change the default diagnostic behavior.
 
 ## Design notes
 
-Reuse the existing local SOCKS5 client primitives in `ripdpi-runtime` where possible; if HTTP CONNECT is missing, add a minimal HTTP CONNECT adapter strictly for diagnostic use. Keep the proxy plumbing inside `ripdpi-monitor`; do not leak proxy state into the policy store or host autolearn paths — proxy-routed results have different validity.
+Reuse the existing local SOCKS5 client primitives in `ripdpi-socks5-core` / proxy-runtime adapters where possible; if HTTP CONNECT is missing, add a minimal HTTP CONNECT adapter strictly for diagnostic use. Keep the proxy plumbing inside `ripdpi-monitor-engine` / diagnostics code; do not leak proxy state into the policy store or host autolearn paths — proxy-routed results have different validity.
 
 ## Source reference
 

@@ -13,8 +13,8 @@ Targets:
 - `tunnel_config_yaml` - public tunnel YAML config parsing in `ripdpi-tunnel-config`
 - `session_request_parse` - SOCKS4/SOCKS5/HTTP CONNECT request parsing in `ripdpi-session`
 - `dns_response_answers` - DNS response answer extraction in `ripdpi-dns-resolver`
-- `monitor_dns_response` - DNS response parsing in `ripdpi-monitor`
-- `monitor_http_response` - HTTP response parsing in `ripdpi-monitor`
+- `monitor_dns_response` - DNS response parsing in `ripdpi-diagnostics-parsers`
+- `monitor_http_response` - HTTP response parsing in `ripdpi-diagnostics-parsers`
 - `config_offset_expr` - offset-expression parsing in `ripdpi-config`
 - `mtproto_init` - Telegram MTProto obfuscated2 init seed classifier in `ripdpi-ws-tunnel` (covers `classify_mtproto_seed`, `decrypt_init_packet`, `extract_dc_from_init`)
 - `finalmask_spec` - xHTTP FinalMask config parser in `ripdpi-xhttp` (covers `FinalmaskSpec::from_config`, including the Sudoku-seed path, header/trailer hex decoders, and rand-range parser)

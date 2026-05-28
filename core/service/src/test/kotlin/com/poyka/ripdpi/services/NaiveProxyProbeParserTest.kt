@@ -11,10 +11,8 @@ import org.junit.Test
  *
  * The native helper at `native/rust/crates/ripdpi-naiveproxy/src/main.rs`
  * emits a single `RIPDPI-PROBE { ... }` line on `--probe` exit carrying
- * `schema_version`, `helper_version`, and `features`. The Kotlin
- * service-side manager parses this line at every helper start so a
- * schema-version mismatch refuses launch with a typed failure rather
- * than waiting for the helper to crash on an unsupported flag.
+ * `schema_version`, `helper_version`, and `features`. These tests pin the parser
+ * and schema-range helper; manager-side preflight invocation is still tracked by the task below.
  *
  * Tracks the second half of
  * `docs/tasks/issues/make-naiveproxy-helper-probe-return-structured-version-json.md`.

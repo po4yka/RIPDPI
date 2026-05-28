@@ -14,7 +14,7 @@ It does not own:
 
 - tactic planning in `plan_tcp.rs` or `plan_udp.rs`;
 - fake-packet construction;
-- platform capability lowering in `ripdpi-runtime`;
+- platform capability lowering in `ripdpi-runtime-platform`;
 - parser internals in `ripdpi-packets`.
 
 `ripdpi-packets` provides additive layout helpers such as `parse_tls_client_hello_layout(...)`, `parse_tls_client_hello_handshake_layout(...)`, and `parse_quic_initial_layout(...)`. The IR converts those wire facts into a stable planner model.
