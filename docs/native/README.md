@@ -173,7 +173,7 @@ flowchart TD
 
 The in-repo Rust stack currently exposes:
 
-- 13 TCP chain step kinds: `split`, `seqovl`, `disorder`, `multidisorder`, `fake`, `fakesplit`, `fakedisorder`, `hostfake`, `oob`, `disoob`, `tlsrec`, `tlsrandrec`, `ipfrag2`
+- 15 TCP chain step kinds: `split`, `syndata`, `seqovl`, `disorder`, `multidisorder`, `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, `oob`, `disoob`, `tlsrec`, `tlsrandrec`, `ipfrag2`, `fakerst`
 - TUN-egress packet actions: low-TTL TCP fake copy, UDP length-field variation (`udplen`), IPv6 extension-header insertion (`ipv6Ext`), and Lua `rawsend`
 - root-helper-backed raw IPv4/IPv6 packet emission through `send_raw_ip_packet` when root mode is enabled
 - semantic marker offsets: `host`, `endhost`, `midsld`, `endsld`, `method`, `extlen`, `sniext`, `echext` (ECH extension, 0xFE0D), `payloadend`, `payloadmid`, `payloadrand`, `hostrand`

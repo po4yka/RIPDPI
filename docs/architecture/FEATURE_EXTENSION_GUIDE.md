@@ -61,7 +61,7 @@ these breaks something downstream:
 
 ### Current extension path
 
-- **A new TCP chain step kind** (`split`, `disorder`, `tlsrec`, … — 13 today)
+- **A new TCP chain step kind** (`split`, `syndata`, `seqovl`, `fakerst`, … — 15 today)
   is a **string** in `StrategyTcpStep.kind`. Adding one means handling that
   string in the Rust `ripdpi-config` model, the `ripdpi-desync` planner, and
   the `ripdpi-desync-runtime` executor, plus the Kotlin

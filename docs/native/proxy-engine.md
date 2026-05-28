@@ -218,8 +218,8 @@ TCP chain steps now support explicit TCP flag overrides on both fake packets and
 
 Validation rules:
 
-- Fake masks are allowed only on steps that emit synthetic TCP packets: `fake`, `fakesplit`, `fakedisorder`, `hostfake`, `seqovl`, and `fakerst`
-- Original masks are allowed only on steps that emit original payload bytes: `split`, `syndata`, `disorder`, `multidisorder`, `fake`, `fakesplit`, `fakedisorder`, `hostfake`, and `ipfrag2`
+- Fake masks are allowed only on steps that emit synthetic TCP packets: `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, `seqovl`, and `fakerst`
+- Original masks are allowed only on steps that emit original payload bytes: `split`, `syndata`, `disorder`, `multidisorder`, `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, and `ipfrag2`
 - `fakerst` is fake-only
 - `oob` and `disoob` reject all four mask fields in v1
 - Set and unset masks for the same target must not overlap
@@ -386,20 +386,22 @@ The runtime now supports:
 | Kind | Description | Key parameters | Platform |
 | --- | --- | --- | --- |
 | `split` | TCP segmentation at marker offset | offset | All |
+| `syndata` | SYN-data-style split family using the normal split writer path | offset | All |
 | `seqovl` | Sequence overlap -- fake prefix sent with seq shifted back via TCP_REPAIR, server discards overlap, DPI caches fake | offset, `overlap_size` (1-32, default 12), `fake_mode` (`profile` or `rand`) | Linux/Android |
 | `disorder` | Send segment with TTL trick (DPI sees, server ignores expired packet) | offset | All |
 | `multidisorder` | Split at 2+ markers, send resulting 3+ segments in reverse order via raw sockets | 2+ marker offsets, `inter_segment_delay_ms` (0-100, default 0) | Linux/Android |
 | `fake` | Fake packet (TTL/checksum-invalidated) before real payload | TTL, `md5sig` | All |
-| `fakesplit` | Fake packet + split at marker | TTL, `md5sig`, offset | All |
-| `fakedisorder` | Fake packet + disorder | TTL, `md5sig`, offset | All |
+| `fakedsplit` | Fake packet + split at marker | TTL, `md5sig`, offset | All |
+| `fakeddisorder` | Fake packet + disorder | TTL, `md5sig`, offset | All |
 | `hostfake` | Fake packet with spoofed hostname | `midhost_offset`, `fake_host_template` | All |
 | `oob` | Out-of-band urgent data byte injection | `oob_data` byte | All |
 | `disoob` | Disorder + OOB combination | `oob_data` byte | All |
 | `tlsrec` | TLS record splitting at extension boundary | offset (e.g. `extlen`, `sniext`, `echext`) | All |
 | `tlsrandrec` | Random TLS record fragmentation | `fragment_count`, `min_fragment_size`, `max_fragment_size` | All |
 | `ipfrag2` | IP-level packet fragmentation (DF cleared, MF set, 8-byte aligned offset) | offset | Linux/Android |
+| `fakerst` | Lab-diagnostics fake TCP RST emission before the original payload write | `fake_tcp_flags` | Lab diagnostics |
 
-Steps requiring raw sockets (`seqovl`, `multidisorder`, `ipfrag2`) probe TCP_REPAIR and raw socket capabilities at startup and gracefully degrade to `split` when unavailable.
+Rooted-production steps requiring raw sockets (`seqovl`, `multidisorder`, `ipfrag2`) probe TCP_REPAIR and raw socket capabilities at startup and gracefully degrade to `split` when unavailable.
 
 #### TCP desync pipeline
 
@@ -412,7 +414,7 @@ flowchart TD
     C -- seqovl --> E["TCP_REPAIR + shifted seq\n+ fake prefix via raw socket"]
     C -- disorder --> F["Send with TTL trick\nDPI sees, server ignores"]
     C -- multidisorder --> G["Split at N markers\nreverse-order via raw sockets\n+ optional inter-segment delay"]
-    C -- "fake / fakesplit\nfakedisorder" --> H["Build fake payload\nset TTL + md5sig\nsend fake, then real"]
+    C -- "fake / fakedsplit\nfakeddisorder" --> H["Build fake payload\nset TTL + md5sig\nsend fake, then real"]
     C -- "ipfrag2" --> I["IP-level fragmentation\nDF=0, MF=1, 8B aligned\nvia raw socket"]
     C -- "tlsrec / tlsrandrec" --> J["TLS record splitting\nat extension boundary"]
     C -- "oob / disoob" --> K["Urgent byte injection\n+ optional disorder"]
@@ -518,7 +520,7 @@ When `md5sig` is enabled, fake packets include a TCP MD5 Signature option (Kind=
 ```mermaid
 flowchart LR
     FP["Fake payload builder\n(profile / rand / rndsni)"] --> SP{"Send path?"}
-    SP -- "Socket path\n(fake/fakesplit/fakedisorder)" --> S1["SetTtl(fake_ttl)"]
+    SP -- "Socket path\n(fake/fakedsplit/fakeddisorder)" --> S1["SetTtl(fake_ttl)"]
     S1 --> S2{"md5sig?"}
     S2 -- Yes --> S3["SetMd5Sig(5)\nkernel applies Kind=19"]
     S2 -- No --> S4["Write(fake) via socket"]
