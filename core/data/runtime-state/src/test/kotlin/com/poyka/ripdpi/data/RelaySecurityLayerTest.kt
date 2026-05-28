@@ -47,8 +47,9 @@ class RelaySecurityLayerTest {
     @Test
     fun `relay profile record default security layer preserves reality semantics`() {
         // A record constructed without an explicit securityLayer must decode the
-        // same way a legacy on-disk record (which omits the field) would: today
-        // the only VLESS shape is Reality, so the safe default is reality.
+        // same way a legacy on-disk vless_reality record would: before plain
+        // TLS+xHTTP records carried their own security layer, omitted values
+        // meant Reality.
         val defaulted = RelayProfileRecord(id = "default", kind = RelayKindVlessReality)
         assertEquals(RelaySecurityLayerReality, defaulted.securityLayer)
     }
