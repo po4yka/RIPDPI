@@ -46,8 +46,8 @@ Most of the actual bypass-client user base outside Russia includes Persian-, Chi
 ## Child tasks
 
 - [[Select and set up translation pipeline for RIPDPI]]
-- [[Add zh-CN translation and initial human review]]
-- [[Add fa ar de es fr translations and RTL screenshot tests]]
+- [[add-zh-cn-translation-and-initial-human-review|Review landed zh-CN translation and initial human sign-off]]
+- [[add-fa-ar-de-es-fr-translations-and-rtl-screenshot-tests|Review landed fa de es fr translations and finish Arabic RTL coverage]]
 
 ## Dependencies
 

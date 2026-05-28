@@ -1,5 +1,5 @@
 ---
-title: Add fa ar de es fr translations and RTL screenshot tests
+title: Review landed fa de es fr translations and finish Arabic RTL coverage
 type: task
 status: backlog
 area: ui
@@ -9,26 +9,27 @@ parent: epic-localization-expansion
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-29
 ---
 
-- [ ] #task Add fa ar de es fr translations and RTL screenshot tests #repo/RIPDPI #area/ui #status/backlog 🔼
+- [ ] #task Review landed fa de es fr translations and finish Arabic RTL coverage #repo/RIPDPI #area/ui #status/backlog 🔼
 
 ## Summary
 
-Land human-reviewed translations for Persian (fa), Arabic (ar), German (de), Spanish (es), and French (fr). Add RTL-variant Roborazzi screenshot tests for fa and ar to catch layout regressions.
+Persian (fa), German (de), Spanish (es), and French (fr) string resource directories now exist and match the default string-key set. Finish the remaining work: document human review for landed locales, decide whether Arabic still belongs in scope, add `values-ar/` if it does, and bless RTL Roborazzi coverage.
 
 ## Context
 
-Persian and Arabic are RTL and represent the next-largest bypass user cohorts after Chinese. German / Spanish / French are coverage locales; their volume is lower but their review cost is lowest (native-speaker contributors are easier to recruit).
+Persian is already registered and Arabic is not. Arabic remains a candidate RTL locale for the bypass-user geography; German, Spanish, and French are registered coverage locales whose ongoing risk is reviewer provenance and freshness, not missing resource directories.
 
 ## Acceptance criteria
 
-- [ ] `values-fa/`, `values-ar/`, `values-de/`, `values-es/`, `values-fr/` each cover ≥95% of default strings.
-- [ ] Each locale has documented human reviewer sign-off.
-- [ ] Roborazzi RTL screenshot tests for fa and ar on Home, Config, Diagnostics, Settings, Onboarding.
+- [x] (2026-05-29) `values-fa/`, `values-de/`, `values-es/`, and `values-fr/` exist and have zero missing keys versus `values/`.
+- [ ] `values-ar/` exists and covers ≥95% of default strings if Arabic remains in scope.
+- [ ] Each landed locale has documented human reviewer sign-off.
+- [ ] Roborazzi RTL screenshot tests for fa, and for ar if Arabic lands, cover Home, Config, Diagnostics, Settings, Onboarding.
 - [ ] RTL padding / chevron / icon-flip regressions, if any, fixed in the same PR stack.
-- [ ] Persian and Arabic glyph coverage for the Geist font family is verified; fallback is wired where needed.
+- [ ] Persian glyph coverage for the Geist font family is verified; Arabic glyph coverage and fallback are verified if Arabic lands.
 - [ ] Weekly string-diff from the pipeline keeps these locales fresh without manual polling.
 
 ## Source references

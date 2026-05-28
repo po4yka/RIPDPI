@@ -1,5 +1,5 @@
 ---
-title: Add zh-CN translation and initial human review
+title: Review landed zh-CN translation and initial human sign-off
 type: task
 status: backlog
 area: ui
@@ -9,22 +9,22 @@ parent: epic-localization-expansion
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-29
 ---
 
-- [ ] #task Add zh-CN translation and initial human review #repo/RIPDPI #area/ui #status/backlog 🔼
+- [ ] #task Review landed zh-CN translation and initial human sign-off #repo/RIPDPI #area/ui #status/backlog 🔼
 
 ## Summary
 
-Land a human-reviewed `values-zh-rCN` translation covering ≥95% of `values/` strings. zh-CN is the first wave because the Chinese bypass community is the largest non-Russian user cohort.
+`values-zh-rCN` now exists and matches the default string-key set. Finish the remaining review work: document human sign-off, keep the translation fresh through the pipeline, and keep zh-CN screenshot coverage from regressing.
 
 ## Context
 
-MT pre-translation is acceptable as a starting point for the translator to work from, but shipping MT-only is not. Screenshot tests cover the main screens in zh-CN to catch layout breakage from longer strings.
+MT pre-translation is acceptable as a starting point for the translator to work from, but shipping MT-only is not. The remaining task is reviewer provenance and screenshot coverage, not creating the resource directory.
 
 ## Acceptance criteria
 
-- [ ] `app/src/main/res/values-zh-rCN/strings.xml` covers ≥95% of default strings; uncovered strings list is tracked in the pipeline.
+- [x] (2026-05-29) `app/src/main/res/values-zh-rCN/strings.xml` exists and has zero missing keys versus `values/`.
 - [ ] At least one human reviewer sign-off documented in the merge PR.
 - [ ] Roborazzi screenshot tests in zh-CN for: Home, Config, Diagnostics, Settings, Onboarding.
 - [ ] No hard-coded strings surface on the reviewed screens (manual audit + lint rule).
