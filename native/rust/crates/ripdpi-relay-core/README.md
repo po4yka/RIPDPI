@@ -36,6 +36,12 @@ for the privileged path it does not use.
 3. Adding a new **relay kind** (a new `relay_kind` string) is a cross-cutting
    change — follow [`FEATURE_EXTENSION_GUIDE.md`](../../../../docs/architecture/FEATURE_EXTENSION_GUIDE.md) §2.
 
+## Planned Tor backend
+
+The Tor relay backend is gated by [`tor-relay-step0-feasibility.md`](../../../../docs/architecture/tor-relay-step0-feasibility.md). The accepted architecture is a new `ripdpi-tor` crate that wraps Arti (`arti-client`) and adapts `TorClient::connect((host, port)) -> DataStream` to relay-core's `connect_tcp(target) -> BoxedIo`.
+
+Non-goals for this backend are UDP over Tor (`udp_capable=false`), running a Tor relay or onion service, replacing the fast proxy relays as the default, custom Tor path policy, and bundling PT implementations inside Arti. In censored profiles, Tor bootstrap must start through configured bridges plus external obfs4/WebTunnel PT binaries; direct directory bootstrap is not an acceptable fallback.
+
 ## Transport-descriptor seam
 
 `RelayTransportDescriptor` (`src/transport_descriptor.rs`, re-exported from the
