@@ -81,6 +81,43 @@ fn mapdns_resolver_transport_uses_local_socks5_when_relay_dns_is_active() {
 }
 
 #[test]
+fn build_encrypted_dns_resolver_uses_odoh_config_and_socks_transport() {
+    let mut mapdns = mapdns_config(16);
+    mapdns.resolver_id = Some("fixture-odoh".to_string());
+    mapdns.encrypted_dns_protocol = Some("odoh".to_string());
+    mapdns.encrypted_dns_bootstrap_ips = vec!["127.0.0.1".to_string()];
+    mapdns.encrypted_dns_odoh_proxy_url = Some("https://proxy.example.test/proxy".to_string());
+    mapdns.encrypted_dns_odoh_proxy_operator_id = Some("ProxyNet".to_string());
+    mapdns.encrypted_dns_odoh_target_host = Some("target.example.test".to_string());
+    mapdns.encrypted_dns_odoh_target_path = Some("/dns-query".to_string());
+    mapdns.encrypted_dns_odoh_target_operator_id = Some("TargetNet".to_string());
+    mapdns.encrypted_dns_odoh_config_source = Some("custom_bytes".to_string());
+    mapdns.encrypted_dns_odoh_configs_hex = Some(local_network_fixture::ODOH_TARGET_CONFIGS_HEX.to_string());
+    mapdns.encrypted_dns_odoh_configs_retrieved_at_secs = Some(1_700_000_000);
+    mapdns.encrypted_dns_odoh_configs_ttl_secs = Some(86_400);
+    mapdns.route_dns_through_socks5 = true;
+    let config = tunnel_config_with_mapdns(Some(mapdns));
+
+    let resolver = build_encrypted_dns_resolver(&config).expect("resolver build").expect("resolver");
+    let endpoint = resolver.endpoint();
+    let odoh = endpoint.odoh.as_ref().expect("odoh endpoint config");
+
+    assert_eq!(endpoint.protocol, EncryptedDnsProtocol::Odoh);
+    assert_eq!(endpoint.host, "proxy.example.test");
+    assert_eq!(endpoint.port, 443);
+    assert_eq!(endpoint.tls_server_name.as_deref(), Some("proxy.example.test"));
+    assert_eq!(odoh.proxy_url, "https://proxy.example.test/proxy");
+    assert_eq!(odoh.proxy_operator_id, "ProxyNet");
+    assert_eq!(odoh.target_host, "target.example.test");
+    assert_eq!(odoh.target_path, "/dns-query");
+    assert_eq!(odoh.target_operator_id, "TargetNet");
+    assert_eq!(
+        mapdns_resolver_transport(&config, config.mapdns.as_ref().expect("mapdns")),
+        EncryptedDnsTransport::Socks5 { host: "127.0.0.1".to_string(), port: 1080 }
+    );
+}
+
+#[test]
 fn build_encrypted_dns_resolver_rejects_invalid_tls_roots_pem() {
     let mut mapdns = mapdns_config(16);
     mapdns.encrypted_dns_protocol = Some("dot".to_string());

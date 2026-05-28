@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderGoogle
+import com.poyka.ripdpi.data.EncryptedDnsConfigInput
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -328,12 +329,15 @@ class VpnEncryptedDnsFailoverControllerTest {
             dnsMode = "encrypted",
             dnsProviderId = DnsProviderCloudflare,
             dnsIp = "1.1.1.1",
-            encryptedDnsProtocol = EncryptedDnsProtocolDoh,
-            encryptedDnsHost = "cloudflare-dns.com",
-            encryptedDnsPort = 443,
-            encryptedDnsTlsServerName = "cloudflare-dns.com",
-            encryptedDnsBootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
-            encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
+            encryptedDns =
+                EncryptedDnsConfigInput(
+                    protocol = EncryptedDnsProtocolDoh,
+                    host = "cloudflare-dns.com",
+                    port = 443,
+                    tlsServerName = "cloudflare-dns.com",
+                    bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                    dohUrl = "https://cloudflare-dns.com/dns-query",
+                ),
         )
 
     private fun dnsTelemetry(

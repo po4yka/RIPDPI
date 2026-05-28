@@ -51,6 +51,15 @@ data class DnsSettingsSection(
     val encryptedDnsDnscryptProviderName: String = "",
     val encryptedDnsDnscryptPublicKey: String = "",
     val encryptedDnsTlsRootsPem: String = "",
+    val encryptedDnsOdohProxyUrl: String = "",
+    val encryptedDnsOdohProxyOperatorId: String = "",
+    val encryptedDnsOdohTargetHost: String = "",
+    val encryptedDnsOdohTargetPath: String = "",
+    val encryptedDnsOdohTargetOperatorId: String = "",
+    val encryptedDnsOdohConfigSource: String = "",
+    val encryptedDnsOdohConfigsHex: String = "",
+    val encryptedDnsOdohConfigsRetrievedAtSecs: Long = 0L,
+    val encryptedDnsOdohConfigsTtlSecs: Long = 0L,
 )
 
 /** Diagnostics monitor and scan-session settings. */

@@ -34,7 +34,7 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCloudflare,
                 dnsIp = "",
-                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
+                encryptedDns = EncryptedDnsConfigInput(protocol = EncryptedDnsProtocolDoh),
             )
 
         assertTrue(active.isEncrypted)
@@ -50,10 +50,13 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                encryptedDnsProtocol = EncryptedDnsProtocolDot,
-                encryptedDnsHost = "dot.example.test",
-                encryptedDnsTlsServerName = "dot.example.test",
-                encryptedDnsBootstrapIps = listOf("9.9.9.9", " 149.112.112.112 ", "9.9.9.9"),
+                encryptedDns =
+                    EncryptedDnsConfigInput(
+                        protocol = EncryptedDnsProtocolDot,
+                        host = "dot.example.test",
+                        tlsServerName = "dot.example.test",
+                        bootstrapIps = listOf("9.9.9.9", " 149.112.112.112 ", "9.9.9.9"),
+                    ),
             )
 
         assertTrue(active.isDot)
@@ -71,12 +74,15 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                encryptedDnsProtocol = EncryptedDnsProtocolDnsCrypt,
-                encryptedDnsHost = "dnscrypt.example.test",
-                encryptedDnsPort = 5443,
-                encryptedDnsBootstrapIps = listOf("8.8.8.8", "8.8.4.4"),
-                encryptedDnsDnscryptProviderName = "2.dnscrypt-cert.example.test",
-                encryptedDnsDnscryptPublicKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                encryptedDns =
+                    EncryptedDnsConfigInput(
+                        protocol = EncryptedDnsProtocolDnsCrypt,
+                        host = "dnscrypt.example.test",
+                        port = 5443,
+                        bootstrapIps = listOf("8.8.8.8", "8.8.4.4"),
+                        dnscryptProviderName = "2.dnscrypt-cert.example.test",
+                        dnscryptPublicKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                    ),
             )
 
         assertTrue(active.isDnsCrypt)
@@ -87,6 +93,47 @@ class DnsResolverConfigTest {
             active.encryptedDnsDnscryptPublicKey,
         )
         assertEquals("Encrypted DNS · Custom resolver (DNSCrypt)", active.summary())
+    }
+
+    @Test
+    fun `custom odoh resolver preserves proxy target and config source`() {
+        val active =
+            activeDnsSettings(
+                dnsMode = DnsModeEncrypted,
+                dnsProviderId = DnsProviderCustom,
+                dnsIp = "",
+                encryptedDns =
+                    EncryptedDnsConfigInput(
+                        protocol = EncryptedDnsProtocolOdoh,
+                        bootstrapIps = listOf("203.0.113.10", " 203.0.113.10 "),
+                        odohProxyUrl = "https://proxy.example.test:9443/proxy",
+                        odohProxyOperatorId = "ProxyNet",
+                        odohTargetHost = "target.example.test",
+                        odohTargetPath = "/dns-query",
+                        odohTargetOperatorId = "TargetNet",
+                        odohConfigSource = EncryptedDnsOdohConfigSourceCustomBytes,
+                        odohConfigsHex = "00aa",
+                        odohConfigsRetrievedAtSecs = 1_700_000_000L,
+                        odohConfigsTtlSecs = 86_400L,
+                    ),
+            )
+
+        assertTrue(active.isOdoh)
+        assertEquals(EncryptedDnsProtocolOdoh, active.encryptedDnsProtocol)
+        assertEquals("proxy.example.test", active.encryptedDnsHost)
+        assertEquals(9443, active.encryptedDnsPort)
+        assertEquals("proxy.example.test", active.encryptedDnsTlsServerName)
+        assertEquals(listOf("203.0.113.10"), active.encryptedDnsBootstrapIps)
+        assertEquals("https://proxy.example.test:9443/proxy", active.encryptedDnsOdohProxyUrl)
+        assertEquals("ProxyNet", active.encryptedDnsOdohProxyOperatorId)
+        assertEquals("target.example.test", active.encryptedDnsOdohTargetHost)
+        assertEquals("/dns-query", active.encryptedDnsOdohTargetPath)
+        assertEquals("TargetNet", active.encryptedDnsOdohTargetOperatorId)
+        assertEquals(EncryptedDnsOdohConfigSourceCustomBytes, active.encryptedDnsOdohConfigSource)
+        assertEquals("00aa", active.encryptedDnsOdohConfigsHex)
+        assertEquals(1_700_000_000L, active.encryptedDnsOdohConfigsRetrievedAtSecs)
+        assertEquals(86_400L, active.encryptedDnsOdohConfigsTtlSecs)
+        assertEquals("Encrypted DNS · Custom resolver (ODoH)", active.summary())
     }
 
     @Test
@@ -111,9 +158,12 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
-                encryptedDnsDohUrl = "not a url at all ::::",
-                encryptedDnsBootstrapIps = listOf("1.2.3.4"),
+                encryptedDns =
+                    EncryptedDnsConfigInput(
+                        protocol = EncryptedDnsProtocolDoh,
+                        dohUrl = "not a url at all ::::",
+                        bootstrapIps = listOf("1.2.3.4"),
+                    ),
             )
 
         assertEquals("1.2.3.4", active.dnsIp)
@@ -127,9 +177,12 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
-                encryptedDnsHost = "doh.example.test",
-                encryptedDnsBootstrapIps = listOf("10.0.0.1"),
+                encryptedDns =
+                    EncryptedDnsConfigInput(
+                        protocol = EncryptedDnsProtocolDoh,
+                        host = "doh.example.test",
+                        bootstrapIps = listOf("10.0.0.1"),
+                    ),
             )
 
         assertEquals(443, active.encryptedDnsPort)
@@ -143,9 +196,12 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
-                encryptedDnsDohUrl = "https://dns.example.test:8443/dns-query",
-                encryptedDnsBootstrapIps = listOf("10.0.0.2"),
+                encryptedDns =
+                    EncryptedDnsConfigInput(
+                        protocol = EncryptedDnsProtocolDoh,
+                        dohUrl = "https://dns.example.test:8443/dns-query",
+                        bootstrapIps = listOf("10.0.0.2"),
+                    ),
             )
 
         assertEquals("dns.example.test", active.encryptedDnsHost)
@@ -159,9 +215,12 @@ class DnsResolverConfigTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                encryptedDnsProtocol = EncryptedDnsProtocolDoh,
-                encryptedDnsDohUrl = "http://dns.example.test/dns-query",
-                encryptedDnsBootstrapIps = listOf("10.0.0.3"),
+                encryptedDns =
+                    EncryptedDnsConfigInput(
+                        protocol = EncryptedDnsProtocolDoh,
+                        dohUrl = "http://dns.example.test/dns-query",
+                        bootstrapIps = listOf("10.0.0.3"),
+                    ),
             )
 
         assertEquals(80, active.encryptedDnsPort)

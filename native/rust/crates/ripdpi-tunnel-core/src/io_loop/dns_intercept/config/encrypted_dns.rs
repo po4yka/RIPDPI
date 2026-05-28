@@ -3,7 +3,10 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::time::Duration;
 
-use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport};
+use ripdpi_dns_resolver::{
+    EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport, OdohConfigSource,
+    OdohEndpointConfig,
+};
 use ripdpi_tunnel_config::{Config, MapDnsConfig};
 use rustls::pki_types::{pem::PemObject, CertificateDer};
 use rustls::RootCertStore;
@@ -43,6 +46,7 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
         .clone()
         .unwrap_or_else(|| doh_url.as_deref().and_then(parse_url_host).unwrap_or_default());
     let tls_roots = parse_encrypted_dns_tls_roots(mapdns.encrypted_dns_tls_roots_pem.as_deref())?;
+    let odoh = odoh_endpoint_config(protocol, mapdns)?;
     let resolver = EncryptedDnsResolver::with_extra_tls_roots_and_connect_hooks(
         EncryptedDnsEndpoint {
             protocol,
@@ -54,7 +58,7 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
             doh_url,
             dnscrypt_provider_name: mapdns.encrypted_dns_dnscrypt_provider_name.clone(),
             dnscrypt_public_key: mapdns.encrypted_dns_dnscrypt_public_key.clone(),
-            odoh: None,
+            odoh,
         },
         mapdns_resolver_transport(config, mapdns),
         Duration::from_millis(u64::from(mapdns.dns_query_timeout_ms)),
@@ -82,8 +86,62 @@ fn parse_encrypted_dns_protocol(value: &str) -> Option<EncryptedDnsProtocol> {
         "dnscrypt" => Some(EncryptedDnsProtocol::DnsCrypt),
         "doh" => Some(EncryptedDnsProtocol::Doh),
         "doq" => Some(EncryptedDnsProtocol::Doq),
+        "odoh" => Some(EncryptedDnsProtocol::Odoh),
         _ => None,
     }
+}
+
+fn odoh_endpoint_config(
+    protocol: EncryptedDnsProtocol,
+    mapdns: &MapDnsConfig,
+) -> io::Result<Option<OdohEndpointConfig>> {
+    if protocol != EncryptedDnsProtocol::Odoh {
+        return Ok(None);
+    }
+
+    let source_name = required_odoh_field(mapdns.encrypted_dns_odoh_config_source.as_deref(), "configSource")?;
+    let configs_wire =
+        hex::decode(required_odoh_field(mapdns.encrypted_dns_odoh_configs_hex.as_deref(), "configsHex")?)
+            .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid ODoH configsHex: {err}")))?;
+    let retrieved_at_secs =
+        required_odoh_u64(mapdns.encrypted_dns_odoh_configs_retrieved_at_secs, "configsRetrievedAtSecs")?;
+    let ttl_secs = required_odoh_u64(mapdns.encrypted_dns_odoh_configs_ttl_secs, "configsTtlSecs")?;
+    let config_source = match source_name.trim().to_ascii_lowercase().as_str() {
+        "custom" | "custom_bytes" => OdohConfigSource::CustomBytes { configs_wire, retrieved_at_secs, ttl_secs },
+        "bundled" => OdohConfigSource::Bundled { configs_wire, retrieved_at_secs, ttl_secs },
+        value => {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unsupported ODoH configSource '{value}'")))
+        }
+    };
+
+    Ok(Some(OdohEndpointConfig {
+        proxy_url: required_odoh_field(mapdns.encrypted_dns_odoh_proxy_url.as_deref(), "proxyUrl")?.to_string(),
+        proxy_operator_id: required_odoh_field(
+            mapdns.encrypted_dns_odoh_proxy_operator_id.as_deref(),
+            "proxyOperatorId",
+        )?
+        .to_string(),
+        target_host: required_odoh_field(mapdns.encrypted_dns_odoh_target_host.as_deref(), "targetHost")?.to_string(),
+        target_path: required_odoh_field(mapdns.encrypted_dns_odoh_target_path.as_deref(), "targetPath")?.to_string(),
+        target_operator_id: required_odoh_field(
+            mapdns.encrypted_dns_odoh_target_operator_id.as_deref(),
+            "targetOperatorId",
+        )?
+        .to_string(),
+        config_source,
+    }))
+}
+
+fn required_odoh_field<'a>(value: Option<&'a str>, field_name: &str) -> io::Result<&'a str> {
+    value.map(str::trim).filter(|entry| !entry.is_empty()).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("ODoH {field_name} is required for odoh protocol"))
+    })
+}
+
+fn required_odoh_u64(value: Option<u64>, field_name: &str) -> io::Result<u64> {
+    value.filter(|entry| *entry > 0).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("ODoH {field_name} must be greater than zero"))
+    })
 }
 
 fn parse_url_host(value: &str) -> Option<String> {

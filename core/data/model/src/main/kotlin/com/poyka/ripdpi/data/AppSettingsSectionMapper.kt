@@ -57,6 +57,15 @@ private fun AppSettings.dnsSection(): DnsSettingsSection =
         encryptedDnsDnscryptProviderName = encryptedDnsDnscryptProviderName,
         encryptedDnsDnscryptPublicKey = encryptedDnsDnscryptPublicKey,
         encryptedDnsTlsRootsPem = encryptedDnsTlsRootsPem,
+        encryptedDnsOdohProxyUrl = encryptedDnsOdohProxyUrl,
+        encryptedDnsOdohProxyOperatorId = encryptedDnsOdohProxyOperatorId,
+        encryptedDnsOdohTargetHost = encryptedDnsOdohTargetHost,
+        encryptedDnsOdohTargetPath = encryptedDnsOdohTargetPath,
+        encryptedDnsOdohTargetOperatorId = encryptedDnsOdohTargetOperatorId,
+        encryptedDnsOdohConfigSource = encryptedDnsOdohConfigSource,
+        encryptedDnsOdohConfigsHex = encryptedDnsOdohConfigsHex,
+        encryptedDnsOdohConfigsRetrievedAtSecs = encryptedDnsOdohConfigsRetrievedAtSecs,
+        encryptedDnsOdohConfigsTtlSecs = encryptedDnsOdohConfigsTtlSecs,
     )
 
 private fun AppSettings.diagnosticsSection(): DiagnosticsSettingsSection =

@@ -12,7 +12,7 @@ class EncryptedDnsPathSelectionTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCloudflare,
                 dnsIp = "",
-                encryptedDnsProtocol = EncryptedDnsProtocolDot,
+                encryptedDns = EncryptedDnsConfigInput(protocol = EncryptedDnsProtocolDot),
             )
 
         assertEquals(DnsProviderCloudflare, active.providerId)
@@ -60,12 +60,15 @@ class EncryptedDnsPathSelectionTest {
                 dnsMode = DnsModeEncrypted,
                 dnsProviderId = DnsProviderCustom,
                 dnsIp = "",
-                encryptedDnsProtocol = EncryptedDnsProtocolDnsCrypt,
-                encryptedDnsHost = "dnscrypt.example.test",
-                encryptedDnsPort = 5443,
-                encryptedDnsBootstrapIps = listOf("9.9.9.9"),
-                encryptedDnsDnscryptProviderName = "2.dnscrypt-cert.example.test",
-                encryptedDnsDnscryptPublicKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                encryptedDns =
+                    EncryptedDnsConfigInput(
+                        protocol = EncryptedDnsProtocolDnsCrypt,
+                        host = "dnscrypt.example.test",
+                        port = 5443,
+                        bootstrapIps = listOf("9.9.9.9"),
+                        dnscryptProviderName = "2.dnscrypt-cert.example.test",
+                        dnscryptPublicKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                    ),
             )
 
         val plan = buildEncryptedDnsCandidatePlan(activeDns = active)

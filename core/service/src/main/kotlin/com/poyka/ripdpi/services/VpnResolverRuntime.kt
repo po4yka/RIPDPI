@@ -77,6 +77,15 @@ internal fun dnsSignature(
         activeDns.encryptedDnsDohUrl,
         activeDns.encryptedDnsDnscryptProviderName,
         activeDns.encryptedDnsDnscryptPublicKey,
+        activeDns.encryptedDnsOdohProxyUrl,
+        activeDns.encryptedDnsOdohProxyOperatorId,
+        activeDns.encryptedDnsOdohTargetHost,
+        activeDns.encryptedDnsOdohTargetPath,
+        activeDns.encryptedDnsOdohTargetOperatorId,
+        activeDns.encryptedDnsOdohConfigSource,
+        activeDns.encryptedDnsOdohConfigsHex,
+        activeDns.encryptedDnsOdohConfigsRetrievedAtSecs.toString(),
+        activeDns.encryptedDnsOdohConfigsTtlSecs.toString(),
         overrideReason.orEmpty(),
     ).joinToString("|")
 

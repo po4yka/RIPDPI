@@ -4,6 +4,10 @@ import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.EncryptedDnsConfigInput
+import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceCustomBytes
+import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
+import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -111,6 +115,31 @@ class RipDpiVpnServiceConfigTest {
     }
 
     @Test
+    fun buildTun2SocksConfigPreservesOdohConfigAndRoutesProxyLegThroughRelay() {
+        val config =
+            RipDpiVpnService.buildTun2SocksConfig(
+                dnsPlan = vpnTunnelDnsPlan(odohDns(), forceTunnelDns = true),
+                overrideReason = null,
+                localProxyEndpoint = localProxyEndpoint.copy(port = 2080),
+                ipv6Enabled = false,
+            )
+
+        assertEquals(EncryptedDnsProtocolOdoh, config.encryptedDnsProtocol)
+        assertEquals("proxy.example.test", config.encryptedDnsHost)
+        assertEquals(443, config.encryptedDnsPort)
+        assertEquals("https://proxy.example.test/proxy", config.encryptedDnsOdohProxyUrl)
+        assertEquals("ProxyNet", config.encryptedDnsOdohProxyOperatorId)
+        assertEquals("target.example.test", config.encryptedDnsOdohTargetHost)
+        assertEquals("/dns-query", config.encryptedDnsOdohTargetPath)
+        assertEquals("TargetNet", config.encryptedDnsOdohTargetOperatorId)
+        assertEquals(EncryptedDnsOdohConfigSourceCustomBytes, config.encryptedDnsOdohConfigSource)
+        assertEquals("00aa", config.encryptedDnsOdohConfigsHex)
+        assertEquals(1_700_000_000L, config.encryptedDnsOdohConfigsRetrievedAtSecs)
+        assertEquals(86_400L, config.encryptedDnsOdohConfigsTtlSecs)
+        assertTrue(config.routeDnsThroughSocks5 == true)
+    }
+
+    @Test
     fun vpnTunnelRoutePlanKeepsIpv4DefaultsWhenIpv6IsDisabled() {
         val routePlan = RipDpiVpnService.vpnTunnelRoutePlan(ipv6Enabled = false)
 
@@ -166,5 +195,26 @@ class RipDpiVpnServiceConfigTest {
             encryptedDnsDohUrl = "https://cloudflare-dns.com/dns-query",
             encryptedDnsDnscryptProviderName = "",
             encryptedDnsDnscryptPublicKey = "",
+        )
+
+    private fun odohDns(): ActiveDnsSettings =
+        activeDnsSettings(
+            dnsMode = DnsModeEncrypted,
+            dnsProviderId = "custom",
+            dnsIp = "",
+            encryptedDns =
+                EncryptedDnsConfigInput(
+                    protocol = EncryptedDnsProtocolOdoh,
+                    bootstrapIps = listOf("203.0.113.10"),
+                    odohProxyUrl = "https://proxy.example.test/proxy",
+                    odohProxyOperatorId = "ProxyNet",
+                    odohTargetHost = "target.example.test",
+                    odohTargetPath = "/dns-query",
+                    odohTargetOperatorId = "TargetNet",
+                    odohConfigSource = EncryptedDnsOdohConfigSourceCustomBytes,
+                    odohConfigsHex = "00aa",
+                    odohConfigsRetrievedAtSecs = 1_700_000_000L,
+                    odohConfigsTtlSecs = 86_400L,
+                ),
         )
 }

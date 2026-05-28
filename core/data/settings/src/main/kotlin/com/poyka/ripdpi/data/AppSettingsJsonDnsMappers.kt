@@ -11,14 +11,26 @@ internal fun AppSettingsSnapshot.withDnsSnapshot(
             dnsMode = dns.dnsMode,
             dnsProviderId = dns.dnsProviderId,
             dnsIp = dns.dnsIp,
-            encryptedDnsProtocol = dns.encryptedDnsProtocol,
-            encryptedDnsHost = dns.encryptedDnsHost,
-            encryptedDnsPort = dns.encryptedDnsPort,
-            encryptedDnsTlsServerName = dns.encryptedDnsTlsServerName,
-            encryptedDnsBootstrapIps = dns.encryptedDnsBootstrapIps,
-            encryptedDnsDohUrl = dns.encryptedDnsDohUrl,
-            encryptedDnsDnscryptProviderName = dns.encryptedDnsDnscryptProviderName,
-            encryptedDnsDnscryptPublicKey = dns.encryptedDnsDnscryptPublicKey,
+            encryptedDns =
+                EncryptedDnsConfigInput(
+                    protocol = dns.encryptedDnsProtocol,
+                    host = dns.encryptedDnsHost,
+                    port = dns.encryptedDnsPort,
+                    tlsServerName = dns.encryptedDnsTlsServerName,
+                    bootstrapIps = dns.encryptedDnsBootstrapIps,
+                    dohUrl = dns.encryptedDnsDohUrl,
+                    dnscryptProviderName = dns.encryptedDnsDnscryptProviderName,
+                    dnscryptPublicKey = dns.encryptedDnsDnscryptPublicKey,
+                    odohProxyUrl = dns.encryptedDnsOdohProxyUrl,
+                    odohProxyOperatorId = dns.encryptedDnsOdohProxyOperatorId,
+                    odohTargetHost = dns.encryptedDnsOdohTargetHost,
+                    odohTargetPath = dns.encryptedDnsOdohTargetPath,
+                    odohTargetOperatorId = dns.encryptedDnsOdohTargetOperatorId,
+                    odohConfigSource = dns.encryptedDnsOdohConfigSource,
+                    odohConfigsHex = dns.encryptedDnsOdohConfigsHex,
+                    odohConfigsRetrievedAtSecs = dns.encryptedDnsOdohConfigsRetrievedAtSecs,
+                    odohConfigsTtlSecs = dns.encryptedDnsOdohConfigsTtlSecs,
+                ),
         )
     return copy(
         dns =
@@ -34,6 +46,15 @@ internal fun AppSettingsSnapshot.withDnsSnapshot(
                 encryptedDnsDohUrl = activeDns.encryptedDnsDohUrl,
                 encryptedDnsDnscryptProviderName = activeDns.encryptedDnsDnscryptProviderName,
                 encryptedDnsDnscryptPublicKey = activeDns.encryptedDnsDnscryptPublicKey,
+                encryptedDnsOdohProxyUrl = activeDns.encryptedDnsOdohProxyUrl,
+                encryptedDnsOdohProxyOperatorId = activeDns.encryptedDnsOdohProxyOperatorId,
+                encryptedDnsOdohTargetHost = activeDns.encryptedDnsOdohTargetHost,
+                encryptedDnsOdohTargetPath = activeDns.encryptedDnsOdohTargetPath,
+                encryptedDnsOdohTargetOperatorId = activeDns.encryptedDnsOdohTargetOperatorId,
+                encryptedDnsOdohConfigSource = activeDns.encryptedDnsOdohConfigSource,
+                encryptedDnsOdohConfigsHex = activeDns.encryptedDnsOdohConfigsHex,
+                encryptedDnsOdohConfigsRetrievedAtSecs = activeDns.encryptedDnsOdohConfigsRetrievedAtSecs,
+                encryptedDnsOdohConfigsTtlSecs = activeDns.encryptedDnsOdohConfigsTtlSecs,
                 ipv6Enabled = ipv6Enabled,
             ),
     )
@@ -44,14 +65,26 @@ internal fun AppSettingsSnapshot.toActiveDnsSettings(): ActiveDnsSettings =
         dnsMode = dns.dnsMode,
         dnsProviderId = dns.dnsProviderId,
         dnsIp = dns.dnsIp,
-        encryptedDnsProtocol = dns.encryptedDnsProtocol,
-        encryptedDnsHost = dns.encryptedDnsHost,
-        encryptedDnsPort = dns.encryptedDnsPort,
-        encryptedDnsTlsServerName = dns.encryptedDnsTlsServerName,
-        encryptedDnsBootstrapIps = dns.encryptedDnsBootstrapIps,
-        encryptedDnsDohUrl = dns.encryptedDnsDohUrl,
-        encryptedDnsDnscryptProviderName = dns.encryptedDnsDnscryptProviderName,
-        encryptedDnsDnscryptPublicKey = dns.encryptedDnsDnscryptPublicKey,
+        encryptedDns =
+            EncryptedDnsConfigInput(
+                protocol = dns.encryptedDnsProtocol,
+                host = dns.encryptedDnsHost,
+                port = dns.encryptedDnsPort,
+                tlsServerName = dns.encryptedDnsTlsServerName,
+                bootstrapIps = dns.encryptedDnsBootstrapIps,
+                dohUrl = dns.encryptedDnsDohUrl,
+                dnscryptProviderName = dns.encryptedDnsDnscryptProviderName,
+                dnscryptPublicKey = dns.encryptedDnsDnscryptPublicKey,
+                odohProxyUrl = dns.encryptedDnsOdohProxyUrl,
+                odohProxyOperatorId = dns.encryptedDnsOdohProxyOperatorId,
+                odohTargetHost = dns.encryptedDnsOdohTargetHost,
+                odohTargetPath = dns.encryptedDnsOdohTargetPath,
+                odohTargetOperatorId = dns.encryptedDnsOdohTargetOperatorId,
+                odohConfigSource = dns.encryptedDnsOdohConfigSource,
+                odohConfigsHex = dns.encryptedDnsOdohConfigsHex,
+                odohConfigsRetrievedAtSecs = dns.encryptedDnsOdohConfigsRetrievedAtSecs,
+                odohConfigsTtlSecs = dns.encryptedDnsOdohConfigsTtlSecs,
+            ),
     )
 
 internal fun AppSettings.Builder.applyDnsSnapshot(activeDns: ActiveDnsSettings): AppSettings.Builder =
@@ -67,3 +100,12 @@ internal fun AppSettings.Builder.applyDnsSnapshot(activeDns: ActiveDnsSettings):
         .setEncryptedDnsDohUrl(activeDns.encryptedDnsDohUrl)
         .setEncryptedDnsDnscryptProviderName(activeDns.encryptedDnsDnscryptProviderName)
         .setEncryptedDnsDnscryptPublicKey(activeDns.encryptedDnsDnscryptPublicKey)
+        .setEncryptedDnsOdohProxyUrl(activeDns.encryptedDnsOdohProxyUrl)
+        .setEncryptedDnsOdohProxyOperatorId(activeDns.encryptedDnsOdohProxyOperatorId)
+        .setEncryptedDnsOdohTargetHost(activeDns.encryptedDnsOdohTargetHost)
+        .setEncryptedDnsOdohTargetPath(activeDns.encryptedDnsOdohTargetPath)
+        .setEncryptedDnsOdohTargetOperatorId(activeDns.encryptedDnsOdohTargetOperatorId)
+        .setEncryptedDnsOdohConfigSource(activeDns.encryptedDnsOdohConfigSource)
+        .setEncryptedDnsOdohConfigsHex(activeDns.encryptedDnsOdohConfigsHex)
+        .setEncryptedDnsOdohConfigsRetrievedAtSecs(activeDns.encryptedDnsOdohConfigsRetrievedAtSecs)
+        .setEncryptedDnsOdohConfigsTtlSecs(activeDns.encryptedDnsOdohConfigsTtlSecs)

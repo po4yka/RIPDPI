@@ -200,14 +200,17 @@ fun VpnDnsPolicyJson.toActiveDnsSettings(): ActiveDnsSettings =
         dnsMode = mode,
         dnsProviderId = providerId,
         dnsIp = dnsIp,
-        encryptedDnsProtocol = encryptedDnsProtocol,
-        encryptedDnsHost = encryptedDnsHost,
-        encryptedDnsPort = encryptedDnsPort,
-        encryptedDnsTlsServerName = encryptedDnsTlsServerName,
-        encryptedDnsBootstrapIps = normalizeDnsBootstrapIps(encryptedDnsBootstrapIps),
-        encryptedDnsDohUrl = encryptedDnsDohUrl,
-        encryptedDnsDnscryptProviderName = encryptedDnsDnscryptProviderName,
-        encryptedDnsDnscryptPublicKey = encryptedDnsDnscryptPublicKey,
+        encryptedDns =
+            EncryptedDnsConfigInput(
+                protocol = encryptedDnsProtocol,
+                host = encryptedDnsHost,
+                port = encryptedDnsPort,
+                tlsServerName = encryptedDnsTlsServerName,
+                bootstrapIps = normalizeDnsBootstrapIps(encryptedDnsBootstrapIps),
+                dohUrl = encryptedDnsDohUrl,
+                dnscryptProviderName = encryptedDnsDnscryptProviderName,
+                dnscryptPublicKey = encryptedDnsDnscryptPublicKey,
+            ),
     )
 
 @Serializable

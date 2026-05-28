@@ -26,6 +26,7 @@ tracing = { workspace = true }
 anyhow = { workspace = true }
 tun-rs = { workspace = true }
 hickory-proto = { workspace = true }
+hex = { workspace = true }
 lru = { workspace = true }
 etherparse = { workspace = true }
 ripdpi-socks5-core = { workspace = true }

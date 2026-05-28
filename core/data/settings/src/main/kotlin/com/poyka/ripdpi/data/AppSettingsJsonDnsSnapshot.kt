@@ -16,6 +16,15 @@ internal data class AppSettingsDnsSnapshot(
     val encryptedDnsDohUrl: String = "",
     val encryptedDnsDnscryptProviderName: String = "",
     val encryptedDnsDnscryptPublicKey: String = "",
+    val encryptedDnsOdohProxyUrl: String = "",
+    val encryptedDnsOdohProxyOperatorId: String = "",
+    val encryptedDnsOdohTargetHost: String = "",
+    val encryptedDnsOdohTargetPath: String = "",
+    val encryptedDnsOdohTargetOperatorId: String = "",
+    val encryptedDnsOdohConfigSource: String = "",
+    val encryptedDnsOdohConfigsHex: String = "",
+    val encryptedDnsOdohConfigsRetrievedAtSecs: Long = 0L,
+    val encryptedDnsOdohConfigsTtlSecs: Long = 0L,
     val ipv6Enabled: Boolean = defaultSettings.ipv6Enable,
 )
 
@@ -31,6 +40,15 @@ internal fun JsonObjectBuilder.writeDnsSnapshot(snapshot: AppSettingsDnsSnapshot
     put("encryptedDnsDohUrl", snapshot.encryptedDnsDohUrl)
     put("encryptedDnsDnscryptProviderName", snapshot.encryptedDnsDnscryptProviderName)
     put("encryptedDnsDnscryptPublicKey", snapshot.encryptedDnsDnscryptPublicKey)
+    put("encryptedDnsOdohProxyUrl", snapshot.encryptedDnsOdohProxyUrl)
+    put("encryptedDnsOdohProxyOperatorId", snapshot.encryptedDnsOdohProxyOperatorId)
+    put("encryptedDnsOdohTargetHost", snapshot.encryptedDnsOdohTargetHost)
+    put("encryptedDnsOdohTargetPath", snapshot.encryptedDnsOdohTargetPath)
+    put("encryptedDnsOdohTargetOperatorId", snapshot.encryptedDnsOdohTargetOperatorId)
+    put("encryptedDnsOdohConfigSource", snapshot.encryptedDnsOdohConfigSource)
+    put("encryptedDnsOdohConfigsHex", snapshot.encryptedDnsOdohConfigsHex)
+    put("encryptedDnsOdohConfigsRetrievedAtSecs", snapshot.encryptedDnsOdohConfigsRetrievedAtSecs)
+    put("encryptedDnsOdohConfigsTtlSecs", snapshot.encryptedDnsOdohConfigsTtlSecs)
     put("ipv6Enabled", snapshot.ipv6Enabled)
 }
 
@@ -49,5 +67,19 @@ internal fun JsonObject.readDnsSnapshot(defaults: AppSettingsDnsSnapshot): AppSe
             stringValue("encryptedDnsDnscryptProviderName", defaults.encryptedDnsDnscryptProviderName),
         encryptedDnsDnscryptPublicKey =
             stringValue("encryptedDnsDnscryptPublicKey", defaults.encryptedDnsDnscryptPublicKey),
+        encryptedDnsOdohProxyUrl = stringValue("encryptedDnsOdohProxyUrl", defaults.encryptedDnsOdohProxyUrl),
+        encryptedDnsOdohProxyOperatorId =
+            stringValue("encryptedDnsOdohProxyOperatorId", defaults.encryptedDnsOdohProxyOperatorId),
+        encryptedDnsOdohTargetHost = stringValue("encryptedDnsOdohTargetHost", defaults.encryptedDnsOdohTargetHost),
+        encryptedDnsOdohTargetPath = stringValue("encryptedDnsOdohTargetPath", defaults.encryptedDnsOdohTargetPath),
+        encryptedDnsOdohTargetOperatorId =
+            stringValue("encryptedDnsOdohTargetOperatorId", defaults.encryptedDnsOdohTargetOperatorId),
+        encryptedDnsOdohConfigSource =
+            stringValue("encryptedDnsOdohConfigSource", defaults.encryptedDnsOdohConfigSource),
+        encryptedDnsOdohConfigsHex = stringValue("encryptedDnsOdohConfigsHex", defaults.encryptedDnsOdohConfigsHex),
+        encryptedDnsOdohConfigsRetrievedAtSecs =
+            longValue("encryptedDnsOdohConfigsRetrievedAtSecs", defaults.encryptedDnsOdohConfigsRetrievedAtSecs),
+        encryptedDnsOdohConfigsTtlSecs =
+            longValue("encryptedDnsOdohConfigsTtlSecs", defaults.encryptedDnsOdohConfigsTtlSecs),
         ipv6Enabled = booleanValue("ipv6Enabled", defaults.ipv6Enabled),
     )

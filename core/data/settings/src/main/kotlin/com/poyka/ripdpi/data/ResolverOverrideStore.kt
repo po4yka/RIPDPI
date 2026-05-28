@@ -20,14 +20,17 @@ data class TemporaryResolverOverride(
             dnsMode = DnsModeEncrypted,
             dnsProviderId = resolverId,
             dnsIp = bootstrapIps.firstOrNull().orEmpty(),
-            encryptedDnsProtocol = protocol,
-            encryptedDnsHost = host,
-            encryptedDnsPort = port,
-            encryptedDnsTlsServerName = tlsServerName,
-            encryptedDnsBootstrapIps = bootstrapIps,
-            encryptedDnsDohUrl = dohUrl,
-            encryptedDnsDnscryptProviderName = dnscryptProviderName,
-            encryptedDnsDnscryptPublicKey = dnscryptPublicKey,
+            encryptedDns =
+                EncryptedDnsConfigInput(
+                    protocol = protocol,
+                    host = host,
+                    port = port,
+                    tlsServerName = tlsServerName,
+                    bootstrapIps = bootstrapIps,
+                    dohUrl = dohUrl,
+                    dnscryptProviderName = dnscryptProviderName,
+                    dnscryptPublicKey = dnscryptPublicKey,
+                ),
         )
 
     fun matches(settings: ActiveDnsSettings): Boolean {

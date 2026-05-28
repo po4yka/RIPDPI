@@ -139,7 +139,7 @@ message AppSettings {
   string dns_mode = 91; // "plain_udp" | "encrypted"
   string dns_provider_id = 92; // "cloudflare" | "google" | "quad9" | "adguard" | "custom"
   ActivationFilter group_activation_filter = 95;
-  string encrypted_dns_protocol = 96; // "doh" | "dot" | "dnscrypt" | "doq"
+  string encrypted_dns_protocol = 96; // "doh" | "dot" | "dnscrypt" | "doq" | "odoh"
   string encrypted_dns_host = 97;
   int32 encrypted_dns_port = 98;
   string encrypted_dns_tls_server_name = 99;
@@ -148,6 +148,15 @@ message AppSettings {
   string encrypted_dns_dnscrypt_provider_name = 102;
   string encrypted_dns_dnscrypt_public_key = 103;
   string encrypted_dns_tls_roots_pem = 285;
+  string encrypted_dns_odoh_proxy_url = 288;
+  string encrypted_dns_odoh_proxy_operator_id = 289;
+  string encrypted_dns_odoh_target_host = 290;
+  string encrypted_dns_odoh_target_path = 291;
+  string encrypted_dns_odoh_target_operator_id = 292;
+  string encrypted_dns_odoh_config_source = 293; // "custom_bytes" | "bundled"
+  string encrypted_dns_odoh_configs_hex = 294;
+  int64 encrypted_dns_odoh_configs_retrieved_at_secs = 295;
+  int64 encrypted_dns_odoh_configs_ttl_secs = 296;
   bool http_method_eol = 104;
   bool http_unix_eol = 105;
   bool adaptive_fake_ttl_enabled = 106;

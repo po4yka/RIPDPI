@@ -14,6 +14,10 @@ const val EncryptedDnsProtocolDoh = "doh"
 const val EncryptedDnsProtocolDot = "dot"
 const val EncryptedDnsProtocolDnsCrypt = "dnscrypt"
 const val EncryptedDnsProtocolDoq = "doq"
+const val EncryptedDnsProtocolOdoh = "odoh"
+
+const val EncryptedDnsOdohConfigSourceCustomBytes = "custom_bytes"
+const val EncryptedDnsOdohConfigSourceBundled = "bundled"
 
 const val DnsProviderCloudflare = "cloudflare"
 const val DnsProviderGoogle = "google"
@@ -51,6 +55,15 @@ data class ActiveDnsSettings(
     val encryptedDnsDohUrl: String,
     val encryptedDnsDnscryptProviderName: String,
     val encryptedDnsDnscryptPublicKey: String,
+    val encryptedDnsOdohProxyUrl: String = "",
+    val encryptedDnsOdohProxyOperatorId: String = "",
+    val encryptedDnsOdohTargetHost: String = "",
+    val encryptedDnsOdohTargetPath: String = "",
+    val encryptedDnsOdohTargetOperatorId: String = "",
+    val encryptedDnsOdohConfigSource: String = "",
+    val encryptedDnsOdohConfigsHex: String = "",
+    val encryptedDnsOdohConfigsRetrievedAtSecs: Long = 0L,
+    val encryptedDnsOdohConfigsTtlSecs: Long = 0L,
 ) {
     val isEncrypted: Boolean
         get() = mode == DnsModeEncrypted
@@ -70,6 +83,9 @@ data class ActiveDnsSettings(
     val isDoq: Boolean
         get() = isEncrypted && encryptedDnsProtocol == EncryptedDnsProtocolDoq
 
+    val isOdoh: Boolean
+        get() = isEncrypted && encryptedDnsProtocol == EncryptedDnsProtocolOdoh
+
     val dohUrl: String
         get() = encryptedDnsDohUrl
 
@@ -86,6 +102,26 @@ data class ActiveDnsSettings(
             "Plain DNS · $dnsIp"
         }
 }
+
+data class EncryptedDnsConfigInput(
+    val protocol: String = "",
+    val host: String = "",
+    val port: Int = 0,
+    val tlsServerName: String = "",
+    val bootstrapIps: Iterable<String> = emptyList(),
+    val dohUrl: String = "",
+    val dnscryptProviderName: String = "",
+    val dnscryptPublicKey: String = "",
+    val odohProxyUrl: String = "",
+    val odohProxyOperatorId: String = "",
+    val odohTargetHost: String = "",
+    val odohTargetPath: String = "",
+    val odohTargetOperatorId: String = "",
+    val odohConfigSource: String = "",
+    val odohConfigsHex: String = "",
+    val odohConfigsRetrievedAtSecs: Long = 0L,
+    val odohConfigsTtlSecs: Long = 0L,
+)
 
 val BuiltInDnsProviders: List<DnsProviderDefinition> =
     listOf(
@@ -199,6 +235,7 @@ fun protocolDisplayName(protocol: String): String =
         EncryptedDnsProtocolDot -> "DoT"
         EncryptedDnsProtocolDnsCrypt -> "DNSCrypt"
         EncryptedDnsProtocolDoq -> "DoQ"
+        EncryptedDnsProtocolOdoh -> "ODoH"
         else -> "DoH"
     }
 
@@ -255,6 +292,7 @@ private fun normalizedEncryptedProtocol(encryptedDnsProtocol: String): String =
         encryptedDnsProtocol.equals(EncryptedDnsProtocolDot, ignoreCase = true) -> EncryptedDnsProtocolDot
         encryptedDnsProtocol.equals(EncryptedDnsProtocolDnsCrypt, ignoreCase = true) -> EncryptedDnsProtocolDnsCrypt
         encryptedDnsProtocol.equals(EncryptedDnsProtocolDoq, ignoreCase = true) -> EncryptedDnsProtocolDoq
+        encryptedDnsProtocol.equals(EncryptedDnsProtocolOdoh, ignoreCase = true) -> EncryptedDnsProtocolOdoh
         else -> EncryptedDnsProtocolDoh
     }
 
@@ -263,14 +301,7 @@ fun activeDnsSettings(
     dnsMode: String,
     dnsProviderId: String,
     dnsIp: String,
-    encryptedDnsProtocol: String = "",
-    encryptedDnsHost: String = "",
-    encryptedDnsPort: Int = 0,
-    encryptedDnsTlsServerName: String = "",
-    encryptedDnsBootstrapIps: Iterable<String> = emptyList(),
-    encryptedDnsDohUrl: String = "",
-    encryptedDnsDnscryptProviderName: String = "",
-    encryptedDnsDnscryptPublicKey: String = "",
+    encryptedDns: EncryptedDnsConfigInput = EncryptedDnsConfigInput(),
 ): ActiveDnsSettings {
     val normalizedMode = dnsMode.trim()
     val normalizedProviderId = dnsProviderId.trim()
@@ -282,7 +313,7 @@ fun activeDnsSettings(
         return plainDnsSettings(dnsIp)
     }
 
-    val normalizedProtocol = normalizedEncryptedProtocol(encryptedDnsProtocol.trim())
+    val normalizedProtocol = normalizedEncryptedProtocol(encryptedDns.protocol.trim())
 
     val builtIn = dnsProviderById(normalizedProviderId)
     if (builtIn != null && normalizedProtocol == builtIn.protocol) {
@@ -291,8 +322,8 @@ fun activeDnsSettings(
 
     val normalizedBootstrapIps =
         normalizeDnsBootstrapIps(
-            if (encryptedDnsBootstrapIps.any()) {
-                encryptedDnsBootstrapIps
+            if (encryptedDns.bootstrapIps.any()) {
+                encryptedDns.bootstrapIps
             } else {
                 builtIn?.bootstrapIps.orEmpty()
             },
@@ -300,17 +331,24 @@ fun activeDnsSettings(
     val effectiveDnsIp =
         normalizedBootstrapIps.firstOrNull()
             ?: dnsIp.ifBlank { canonicalDefaultPlainDnsIp() }
-    val effectiveDohUrl = encryptedDnsDohUrl.trim()
+    val effectiveDohUrl = encryptedDns.dohUrl.trim()
+    val effectiveOdohProxyUrl =
+        if (normalizedProtocol == EncryptedDnsProtocolOdoh) {
+            encryptedDns.odohProxyUrl.trim()
+        } else {
+            ""
+        }
     val derivedHost =
         when (normalizedProtocol) {
             EncryptedDnsProtocolDoh -> firstNonBlank(parseHostFromUrl(effectiveDohUrl), builtIn?.host)
+            EncryptedDnsProtocolOdoh -> firstNonBlank(parseHostFromUrl(effectiveOdohProxyUrl), builtIn?.host)
             else -> builtIn?.host.orEmpty()
         }
-    val effectiveHost = firstNonBlank(encryptedDnsHost, derivedHost)
+    val effectiveHost = firstNonBlank(encryptedDns.host, derivedHost)
     val effectivePort =
         when {
-            encryptedDnsPort > 0 -> {
-                encryptedDnsPort
+            encryptedDns.port > 0 -> {
+                encryptedDns.port
             }
 
             builtIn != null && normalizedProtocol == EncryptedDnsProtocolDoh -> {
@@ -329,18 +367,23 @@ fun activeDnsSettings(
                 DefaultDoTPort
             }
 
+            normalizedProtocol == EncryptedDnsProtocolOdoh -> {
+                parsePortFromUrl(effectiveOdohProxyUrl).takeIf { it > 0 } ?: DefaultHttpsPort
+            }
+
             else -> {
                 DefaultHttpsPort
             }
         }
     val effectiveTlsServerName =
         firstNonBlank(
-            encryptedDnsTlsServerName,
+            encryptedDns.tlsServerName,
             builtIn?.tlsServerName,
             when {
                 normalizedProtocol == EncryptedDnsProtocolDot ||
                     normalizedProtocol == EncryptedDnsProtocolDoh ||
-                    normalizedProtocol == EncryptedDnsProtocolDoq -> effectiveHost
+                    normalizedProtocol == EncryptedDnsProtocolDoq ||
+                    normalizedProtocol == EncryptedDnsProtocolOdoh -> effectiveHost
 
                 else -> ""
             },
@@ -358,16 +401,57 @@ fun activeDnsSettings(
         encryptedDnsDohUrl = if (normalizedProtocol == EncryptedDnsProtocolDoh) effectiveDohUrl else "",
         encryptedDnsDnscryptProviderName =
             if (normalizedProtocol == EncryptedDnsProtocolDnsCrypt) {
-                encryptedDnsDnscryptProviderName.trim()
+                encryptedDns.dnscryptProviderName.trim()
             } else {
                 ""
             },
         encryptedDnsDnscryptPublicKey =
             if (normalizedProtocol == EncryptedDnsProtocolDnsCrypt) {
-                encryptedDnsDnscryptPublicKey.trim()
+                encryptedDns.dnscryptPublicKey.trim()
             } else {
                 ""
             },
+        encryptedDnsOdohProxyUrl = if (normalizedProtocol == EncryptedDnsProtocolOdoh) effectiveOdohProxyUrl else "",
+        encryptedDnsOdohProxyOperatorId =
+            if (normalizedProtocol == EncryptedDnsProtocolOdoh) {
+                encryptedDns.odohProxyOperatorId.trim()
+            } else {
+                ""
+            },
+        encryptedDnsOdohTargetHost =
+            if (normalizedProtocol == EncryptedDnsProtocolOdoh) {
+                encryptedDns.odohTargetHost.trim()
+            } else {
+                ""
+            },
+        encryptedDnsOdohTargetPath =
+            if (normalizedProtocol == EncryptedDnsProtocolOdoh) {
+                encryptedDns.odohTargetPath.trim()
+            } else {
+                ""
+            },
+        encryptedDnsOdohTargetOperatorId =
+            if (normalizedProtocol == EncryptedDnsProtocolOdoh) {
+                encryptedDns.odohTargetOperatorId.trim()
+            } else {
+                ""
+            },
+        encryptedDnsOdohConfigSource =
+            if (normalizedProtocol == EncryptedDnsProtocolOdoh) {
+                encryptedDns.odohConfigSource.trim()
+            } else {
+                ""
+            },
+        encryptedDnsOdohConfigsHex =
+            if (normalizedProtocol == EncryptedDnsProtocolOdoh) {
+                encryptedDns.odohConfigsHex.trim()
+            } else {
+                ""
+            },
+        encryptedDnsOdohConfigsRetrievedAtSecs =
+            if (normalizedProtocol == EncryptedDnsProtocolOdoh) encryptedDns.odohConfigsRetrievedAtSecs else 0L,
+        encryptedDnsOdohConfigsTtlSecs =
+            if (normalizedProtocol == EncryptedDnsProtocolOdoh) encryptedDns.odohConfigsTtlSecs else 0L,
     )
 }
 
@@ -376,12 +460,24 @@ fun AppSettings.activeDnsSettings(): ActiveDnsSettings =
         dnsMode = dnsMode,
         dnsProviderId = dnsProviderId,
         dnsIp = dnsIp,
-        encryptedDnsProtocol = encryptedDnsProtocol,
-        encryptedDnsHost = encryptedDnsHost,
-        encryptedDnsPort = encryptedDnsPort,
-        encryptedDnsTlsServerName = encryptedDnsTlsServerName,
-        encryptedDnsBootstrapIps = encryptedDnsBootstrapIpsList,
-        encryptedDnsDohUrl = encryptedDnsDohUrl,
-        encryptedDnsDnscryptProviderName = encryptedDnsDnscryptProviderName,
-        encryptedDnsDnscryptPublicKey = encryptedDnsDnscryptPublicKey,
+        encryptedDns =
+            EncryptedDnsConfigInput(
+                protocol = encryptedDnsProtocol,
+                host = encryptedDnsHost,
+                port = encryptedDnsPort,
+                tlsServerName = encryptedDnsTlsServerName,
+                bootstrapIps = encryptedDnsBootstrapIpsList,
+                dohUrl = encryptedDnsDohUrl,
+                dnscryptProviderName = encryptedDnsDnscryptProviderName,
+                dnscryptPublicKey = encryptedDnsDnscryptPublicKey,
+                odohProxyUrl = encryptedDnsOdohProxyUrl,
+                odohProxyOperatorId = encryptedDnsOdohProxyOperatorId,
+                odohTargetHost = encryptedDnsOdohTargetHost,
+                odohTargetPath = encryptedDnsOdohTargetPath,
+                odohTargetOperatorId = encryptedDnsOdohTargetOperatorId,
+                odohConfigSource = encryptedDnsOdohConfigSource,
+                odohConfigsHex = encryptedDnsOdohConfigsHex,
+                odohConfigsRetrievedAtSecs = encryptedDnsOdohConfigsRetrievedAtSecs,
+                odohConfigsTtlSecs = encryptedDnsOdohConfigsTtlSecs,
+            ),
     )

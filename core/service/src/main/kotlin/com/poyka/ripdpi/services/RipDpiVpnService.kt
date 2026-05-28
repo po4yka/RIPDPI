@@ -233,46 +233,29 @@ class RipDpiVpnService :
                 mapdnsNetwork = if (mapDnsEnabled) MAPDNS_NETWORK else null,
                 mapdnsNetmask = if (mapDnsEnabled) MAPDNS_NETMASK else null,
                 mapdnsCacheSize = if (mapDnsEnabled) MAPDNS_CACHE_SIZE else null,
-                encryptedDnsResolverId = if (mapDnsEnabled) tunnelDns.providerId else null,
-                encryptedDnsProtocol = if (mapDnsEnabled) tunnelDns.encryptedDnsProtocol else null,
-                encryptedDnsHost = if (mapDnsEnabled) tunnelDns.encryptedDnsHost else null,
-                encryptedDnsPort = if (mapDnsEnabled) tunnelDns.encryptedDnsPort else null,
-                encryptedDnsTlsServerName =
-                    if (mapDnsEnabled) {
-                        tunnelDns.encryptedDnsTlsServerName
-                    } else {
-                        null
-                    },
-                encryptedDnsBootstrapIps =
-                    if (mapDnsEnabled) {
-                        tunnelDns.encryptedDnsBootstrapIps
-                    } else {
-                        emptyList()
-                    },
-                encryptedDnsDohUrl =
-                    if (mapDnsEnabled) {
-                        tunnelDns.encryptedDnsDohUrl
-                    } else {
-                        null
-                    },
+                encryptedDnsResolverId = mapDnsValue(mapDnsEnabled, tunnelDns.providerId),
+                encryptedDnsProtocol = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsProtocol),
+                encryptedDnsHost = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsHost),
+                encryptedDnsPort = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsPort),
+                encryptedDnsTlsServerName = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsTlsServerName),
+                encryptedDnsBootstrapIps = mapDnsList(mapDnsEnabled, tunnelDns.encryptedDnsBootstrapIps),
+                encryptedDnsDohUrl = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsDohUrl),
                 encryptedDnsDnscryptProviderName =
-                    if (mapDnsEnabled) {
-                        tunnelDns.encryptedDnsDnscryptProviderName
-                    } else {
-                        null
-                    },
-                encryptedDnsDnscryptPublicKey =
-                    if (mapDnsEnabled) {
-                        tunnelDns.encryptedDnsDnscryptPublicKey
-                    } else {
-                        null
-                    },
+                    mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsDnscryptProviderName),
+                encryptedDnsDnscryptPublicKey = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsDnscryptPublicKey),
+                encryptedDnsOdohProxyUrl = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohProxyUrl),
+                encryptedDnsOdohProxyOperatorId = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohProxyOperatorId),
+                encryptedDnsOdohTargetHost = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohTargetHost),
+                encryptedDnsOdohTargetPath = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohTargetPath),
+                encryptedDnsOdohTargetOperatorId =
+                    mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohTargetOperatorId),
+                encryptedDnsOdohConfigSource = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohConfigSource),
+                encryptedDnsOdohConfigsHex = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohConfigsHex),
+                encryptedDnsOdohConfigsRetrievedAtSecs =
+                    mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohConfigsRetrievedAtSecs),
+                encryptedDnsOdohConfigsTtlSecs = mapDnsValue(mapDnsEnabled, tunnelDns.encryptedDnsOdohConfigsTtlSecs),
                 encryptedDnsTlsRootsPem =
-                    if (mapDnsEnabled) {
-                        encryptedDnsTlsRootsPem?.takeIf { it.isNotBlank() }
-                    } else {
-                        null
-                    },
+                    mapDnsValue(mapDnsEnabled, encryptedDnsTlsRootsPem?.takeIf { it.isNotBlank() }),
                 dnsQueryTimeoutMs = if (mapDnsEnabled) DNS_QUERY_TIMEOUT_MS else null,
                 resolverFallbackActive = overrideReason != null,
                 resolverFallbackReason = overrideReason,
@@ -285,6 +268,16 @@ class RipDpiVpnService :
                 password = localProxyEndpoint.password,
             )
         }
+
+        private fun <T> mapDnsValue(
+            mapDnsEnabled: Boolean,
+            value: T,
+        ): T? = if (mapDnsEnabled) value else null
+
+        private fun mapDnsList(
+            mapDnsEnabled: Boolean,
+            values: List<String>,
+        ): List<String> = if (mapDnsEnabled) values else emptyList()
 
         internal fun vpnTunnelRoutePlan(ipv6Enabled: Boolean): VpnTunnelRoutePlan =
             VpnTunnelRoutePlan(

@@ -112,6 +112,15 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 encrypted_dns_doh_url: None,
                 encrypted_dns_dnscrypt_provider_name: None,
                 encrypted_dns_dnscrypt_public_key: None,
+                encrypted_dns_odoh_proxy_url: None,
+                encrypted_dns_odoh_proxy_operator_id: None,
+                encrypted_dns_odoh_target_host: None,
+                encrypted_dns_odoh_target_path: None,
+                encrypted_dns_odoh_target_operator_id: None,
+                encrypted_dns_odoh_config_source: None,
+                encrypted_dns_odoh_configs_hex: None,
+                encrypted_dns_odoh_configs_retrieved_at_secs: None,
+                encrypted_dns_odoh_configs_ttl_secs: None,
                 encrypted_dns_tls_roots_pem: None,
                 encrypted_dns_bootstrap_ips: Vec::new(),
                 dns_query_timeout_ms: None,
@@ -234,6 +243,15 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 encrypted_dns_doh_url: None,
                 encrypted_dns_dnscrypt_provider_name: None,
                 encrypted_dns_dnscrypt_public_key: None,
+                encrypted_dns_odoh_proxy_url: None,
+                encrypted_dns_odoh_proxy_operator_id: None,
+                encrypted_dns_odoh_target_host: None,
+                encrypted_dns_odoh_target_path: None,
+                encrypted_dns_odoh_target_operator_id: None,
+                encrypted_dns_odoh_config_source: None,
+                encrypted_dns_odoh_configs_hex: None,
+                encrypted_dns_odoh_configs_retrieved_at_secs: None,
+                encrypted_dns_odoh_configs_ttl_secs: None,
                 encrypted_dns_tls_roots_pem: None,
                 encrypted_dns_bootstrap_ips: Vec::new(),
                 dns_query_timeout_ms: None,
@@ -284,6 +302,36 @@ fn maps_relay_dns_route_flag_to_mapdns_config() {
     let config = config_from_payload(payload).expect("config");
 
     assert!(config.mapdns.expect("mapdns").route_dns_through_socks5);
+}
+
+#[test]
+fn maps_odoh_payload_fields_to_mapdns_config() {
+    let mut payload = sample_payload();
+    payload.mapdns_address = Some("198.18.0.53".to_string());
+    payload.encrypted_dns_protocol = Some("odoh".to_string());
+    payload.encrypted_dns_odoh_proxy_url = Some("https://proxy.example.test/proxy".to_string());
+    payload.encrypted_dns_odoh_proxy_operator_id = Some("ProxyNet".to_string());
+    payload.encrypted_dns_odoh_target_host = Some("target.example.test".to_string());
+    payload.encrypted_dns_odoh_target_path = Some("/dns-query".to_string());
+    payload.encrypted_dns_odoh_target_operator_id = Some("TargetNet".to_string());
+    payload.encrypted_dns_odoh_config_source = Some("custom_bytes".to_string());
+    payload.encrypted_dns_odoh_configs_hex = Some("00aa".to_string());
+    payload.encrypted_dns_odoh_configs_retrieved_at_secs = Some(1_700_000_000);
+    payload.encrypted_dns_odoh_configs_ttl_secs = Some(86_400);
+
+    let config = config_from_payload(payload).expect("config");
+    let mapdns = config.mapdns.expect("mapdns");
+
+    assert_eq!(mapdns.encrypted_dns_protocol.as_deref(), Some("odoh"));
+    assert_eq!(mapdns.encrypted_dns_odoh_proxy_url.as_deref(), Some("https://proxy.example.test/proxy"));
+    assert_eq!(mapdns.encrypted_dns_odoh_proxy_operator_id.as_deref(), Some("ProxyNet"));
+    assert_eq!(mapdns.encrypted_dns_odoh_target_host.as_deref(), Some("target.example.test"));
+    assert_eq!(mapdns.encrypted_dns_odoh_target_path.as_deref(), Some("/dns-query"));
+    assert_eq!(mapdns.encrypted_dns_odoh_target_operator_id.as_deref(), Some("TargetNet"));
+    assert_eq!(mapdns.encrypted_dns_odoh_config_source.as_deref(), Some("custom_bytes"));
+    assert_eq!(mapdns.encrypted_dns_odoh_configs_hex.as_deref(), Some("00aa"));
+    assert_eq!(mapdns.encrypted_dns_odoh_configs_retrieved_at_secs, Some(1_700_000_000));
+    assert_eq!(mapdns.encrypted_dns_odoh_configs_ttl_secs, Some(86_400));
 }
 
 #[test]
@@ -520,6 +568,15 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "encryptedDnsDohUrl": "https://cloudflare-dns.com/dns-query",
         "encryptedDnsDnscryptProviderName": "provider",
         "encryptedDnsDnscryptPublicKey": "key",
+        "encryptedDnsOdohProxyUrl": "https://proxy.example.test/proxy",
+        "encryptedDnsOdohProxyOperatorId": "ProxyNet",
+        "encryptedDnsOdohTargetHost": "target.example.test",
+        "encryptedDnsOdohTargetPath": "/dns-query",
+        "encryptedDnsOdohTargetOperatorId": "TargetNet",
+        "encryptedDnsOdohConfigSource": "custom_bytes",
+        "encryptedDnsOdohConfigsHex": "00aa",
+        "encryptedDnsOdohConfigsRetrievedAtSecs": 1700000000,
+        "encryptedDnsOdohConfigsTtlSecs": 86400,
         "encryptedDnsTlsRootsPem": "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----",
         "encryptedDnsBootstrapIps": ["1.0.0.1"],
         "dnsQueryTimeoutMs": 4000,

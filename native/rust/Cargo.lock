@@ -4673,6 +4673,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "etherparse",
+ "hex",
  "hickory-proto",
  "libc",
  "local-network-fixture",
