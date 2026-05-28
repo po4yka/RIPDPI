@@ -179,7 +179,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-collections` | Generic data structures | Container types | — (leaf) | Low | Keep |
 | `ripdpi-geo` | Geo / IP database lookup (maxminddb) | Lookup API | — (leaf) | Used by `ripdpi-proxy-runtime` | Keep |
 | `ripdpi-protocol-detect` | Stream protocol detection | Detector types | `ripdpi-strategy-trait` | No runtime consumer; crate-local regression tests only | Keep only if the standalone detector test surface remains useful |
-| `ripdpi-protocol-loopback` | Loopback protocol test harness | Harness API | — (leaf) | Harness-only crate; no runtime consumer | Keep as a test harness or prune if no test plan uses it |
+| `ripdpi-protocol-loopback` | Loopback protocol test harness | Harness API | — (leaf) | Harness-only crate; no runtime consumer | Keep as the scaffold tracked by `protocol-loopback-harness-design.md` |
 | `ripdpi-dns-resolver` | Encrypted DNS client (DoH/DoT/DNSCrypt/DoQ) | Resolver API (async) | `ripdpi-socks5-core` | Fan-in 7; heavy ext deps (`quinn`, `boring`, `reqwest`) | Keep |
 | `ripdpi-pcap` | Classic pcap writer/reader + endpoint redaction | Pcap I/O API | — (leaf) | Used by tunnel Android capture/export paths | Keep |
 

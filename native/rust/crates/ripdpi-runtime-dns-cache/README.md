@@ -2,7 +2,7 @@
 
 **Layer:** L4 -- runtime / application.
 
-`ripdpi-runtime-dns-cache` contains runtime DNS cache primitives used by native execution paths.
+`ripdpi-runtime-dns-cache` contains runtime DNS cache primitives for route-aware native DNS policy work. No current workspace crate depends on it, so treat it as a standalone test-backed component until a runtime DNS routing path adopts it.
 
 ## Boundaries
 
