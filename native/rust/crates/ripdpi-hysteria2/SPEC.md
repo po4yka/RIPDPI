@@ -25,7 +25,7 @@ Post-handshake socket rebind is implemented in `migration.rs`; Quinn performs RF
 
 ## Known divergences from upstream
 
-- Salamander wire fixtures are not yet checked into `contract-fixtures/`; see `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
+- `contract-fixtures/hysteria2/v2/salamander/` contains a fixture-walker harness and one synthetic `hello-zero-salt.bin` regression vector. Broader upstream-captured Salamander vectors are still tracked in `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
 - Hysteria v1 is intentionally unsupported.
 
 ## Non-goals

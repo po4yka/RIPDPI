@@ -167,9 +167,8 @@ mod tests {
         // bumps (e.g. swapping blake2b256 for blake2b512) before they
         // ship.
         //
-        // This is NOT an upstream-conformance check — apernet/hysteria
-        // is the source of truth and the matching vectors are tracked
-        // under
+        // This is NOT an upstream-conformance check. Broader upstream-captured
+        // vectors are tracked under
         // `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
         let codec = SalamanderCodec::new(b"top-secret".to_vec());
         let salt = [0u8; 8];
@@ -189,7 +188,7 @@ mod tests {
         assert_eq!(decoded, plaintext, "decode must invert XOR-with-keystream construction");
     }
 
-    /// Conformance-fixture harness for upstream Salamander vectors.
+    /// Fixture harness for pinned Salamander vectors.
     /// Walks every `.bin` file under the pinned upstream tag:
     /// `contract-fixtures/hysteria2/<tag>/salamander/<key-hex>/`
     /// where the parent directory name encodes the obfuscation key
@@ -198,7 +197,7 @@ mod tests {
     /// payload length is `file_len - 8`, and asserts decode never
     /// panics.
     ///
-    /// Tracks the upstream-conformance side of
+    /// Tracks the fixture-walker side of
     /// `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
     #[test]
     fn upstream_salamander_fixtures_decode_cleanly() {
