@@ -1,8 +1,7 @@
 name: Upstream Spec Watch
 
-# Diffs each protocol crate's SPEC_VERSION.md pin against the upstream
-# repository's default branch and opens a tracking issue when drift is
-# detected. Non-blocking: runs on a schedule and on-demand only.
+# Checks each protocol crate's SPEC_VERSION.md metadata, SPEC.md presence, and
+# pinned fixture tags, then uploads a non-blocking pin-inventory report.
 
 on:
   schedule:
@@ -42,7 +41,7 @@ jobs:
             echo
             echo "Pins are currently format-only. Reachability and release-note"
             echo "diffing will be added per-protocol; see"
-            echo "docs/tasks/issues/add-spec-version-pinning-and-upstream-watch-ci-for-vendored-protocols.md."
+            echo "docs/native/upstream-spec-watch-runbook.md."
             echo
             for crate in ripdpi-vless ripdpi-xhttp ripdpi-hysteria2 ripdpi-tuic ripdpi-shadowtls ripdpi-anytls ripdpi-naiveproxy ripdpi-ws-tunnel; do
               echo "### $crate"
