@@ -331,6 +331,7 @@ class MainActivityShellInstrumentedTest {
     }
 
     private fun sendConfiguredStartIntent(): Intent {
+        waitForMainShellReady()
         val originalIntent = Intent(composeRule.activity.intent)
         composeRule.runOnUiThread {
             composeRule.activity.startActivity(
@@ -341,6 +342,15 @@ class MainActivityShellInstrumentedTest {
             )
         }
         return originalIntent
+    }
+
+    private fun waitForMainShellReady() {
+        composeRule.waitUntil(timeoutMillis = 15_000) {
+            composeRule
+                .onAllNodes(hasTestTag(RipDpiTestTags.bottomNav(Route.Home)))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
     }
 
     private fun restoreScenarioIntent(originalIntent: Intent) {
