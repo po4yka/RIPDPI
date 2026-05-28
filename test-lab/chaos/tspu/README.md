@@ -55,7 +55,7 @@ python3 -m runner.cli dry-run \
 
 ### Live (Linux only, requires NET_ADMIN)
 
-Builds the container in `Dockerfile`, attaches nfqueue rules, and dispatches real traffic through the userspace classifier. **Not exercised in CI yet** — v1 lands the live surface stubbed; the implementation PR following this v1 will wire it into the `ripdpi-lab` self-hosted runner pool.
+Builds the container in `Dockerfile`, attaches nfqueue rules, and dispatches real traffic through the userspace classifier. The focused live smoke is wired to `.github/workflows/l7-adversarial-live.yml` and to `scripts/ci/act-local.sh l7-live`; Phase-16 real-provider carrier lanes remain separate operator-run release evidence.
 
 ## Verdict semantics
 

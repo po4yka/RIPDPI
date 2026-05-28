@@ -242,4 +242,4 @@ which appear in logcat with enter/exit events.
 - [rust-unsafe](../rust-unsafe/) -- unsafe code review and FFI patterns
 - [rust-async-internals](../rust-async-internals/) -- Future trait, poll model, waker debugging
 - [rust-sanitizers-miri](../rust-sanitizers-miri/) -- ASan, TSan, Miri for memory safety
-- [rust-profiling](../rust-profiling/) -- flamegraphs, cargo-bloat, Criterion benchmarks
+- [rust-performance](../rust-performance/) -- flamegraphs, cargo-bloat, Criterion benchmarks
