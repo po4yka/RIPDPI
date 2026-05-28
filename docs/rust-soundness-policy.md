@@ -1571,7 +1571,7 @@ The default fix is one of:
 
 `scripts/ci/check_async_safety.py` runs in CI. It walks every `async fn` body in production crates and flags any call to a known blocking primitive (`std::thread::sleep`, `std::fs::*`, `std::net::TcpStream::connect`, `std::net::UdpSocket::*`, `to_socket_addrs(`, `Command::output/status/spawn`). `#[cfg(test)]` modules are skipped wholesale (test fixtures routinely use `std::thread::sleep` for timing). New hits MUST appear in `ci/async-safety-allowlist.toml` with an `executor_strategy` field that names why the blocking is safe in context (dedicated current-thread runtime, single-shot bootstrap before runtime spawns, etc.). The placeholder value `review-needed: ...` is permitted only for entries grandfathered in the audit pass; new entries cannot use it.
 
-The two highest-leverage call sites (`ripdpi-android-platform- adapter/src/doq.rs` and `ripdpi-xhttp/src/connect.rs`) were refactored to `tokio::net::lookup_host` in the audit pass for issues 37-39. The remaining 8 allowlisted entries are vendored SOCKS5/Hysteria2/ShadowTLS paths with `review-needed` follow-ups.
+The two highest-leverage call sites (`ripdpi-android-platform-adapter/src/doq.rs` and `ripdpi-xhttp/src/connect.rs`) were refactored to `tokio::net::lookup_host` in the audit pass for issues 37-39. The remaining 8 allowlisted entries are vendored SOCKS5/Hysteria2/ShadowTLS paths with `review-needed` follow-ups.
 
 ## `Arc<Mutex<T>>` discipline
 

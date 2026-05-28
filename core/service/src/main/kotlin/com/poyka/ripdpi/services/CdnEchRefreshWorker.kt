@@ -23,12 +23,10 @@ private const val CdnEchRefreshIntervalHours = 24L
 // from its DoH primary (or the bundled fallback) and persists the
 // resulting cache to EncryptedSharedPreferences.
 //
-// Without this worker, CdnEchUpdater::refresh is never called in
-// production: the cache stays cold across boot and the in-process
-// fallback is exercised only on lazy demand. The persistence pairing
-// means the TTL window survives a process restart -- a 6 h-old
-// persisted entry against a 24 h TTL is still considered fresh after
-// the restart.
+// Without this worker, production only seeds and snapshots CdnEchUpdater; the
+// remote DoH primary is not refreshed. The persistence pairing means the TTL
+// window survives a process restart -- a 6 h-old persisted entry against a
+// 24 h TTL is still considered fresh after the restart.
 @HiltWorker
 class CdnEchRefreshWorker
     @AssistedInject
