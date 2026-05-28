@@ -285,7 +285,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-tor` | Arti-backed Tor relay backend | Transport client | `ripdpi-relay-tls-transports` | Opt-in TCP-only anonymity backend with bridge/PT bootstrap | Keep |
 | `ripdpi-vless` | VLESS Reality / xHTTP transport | Transport client | `ripdpi-relay-mux`, `ripdpi-tls-profiles` | `boring`; used by `xhttp`, `cloudflare-origin` | Keep |
 | `ripdpi-xhttp` | xHTTP transport (VLESS xHTTP, CF Tunnel) | Transport client | `ripdpi-vless`, `ripdpi-tls-profiles` | — | Keep |
-| `ripdpi-webtunnel` | WebTunnel PT client and managed-client binary | Transport client + `bin` | `ripdpi-tls-profiles` | External PT helper path; packaged by PT asset task | Keep |
+| `ripdpi-webtunnel` | WebTunnel PT client and managed-client binary | Transport client + `bin` | `ripdpi-tls-profiles` | In-repository PT helper binary packaged by PT asset task | Keep |
 | `ripdpi-cloudflare-origin` | Local xHTTP origin helper for CF Tunnel publish | `bin` | `ripdpi-vless` | Subprocess helper binary | Keep |
 | `ripdpi-naiveproxy` | NaiveProxy helper | `bin` (`src/main.rs`) | — (leaf) | Subprocess helper binary | Keep |
 | `ripdpi-relay-tls-transports` | Shared TLS relay helpers | Library | `ripdpi-tls-profiles` | Shared by TLS-shaped relay transports | Keep |

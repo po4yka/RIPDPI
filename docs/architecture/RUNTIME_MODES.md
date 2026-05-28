@@ -224,9 +224,10 @@ relay (`app_settings.proto`: `relay_enabled`, `relay_kind`, `relay_profile_id`).
   bridge `core/engine/.../core/RipDpiRelay.kt`); shared orchestration is
   `ripdpi-relay-core` for the native-wired backends. WARP runs in
   `libripdpi-warp.so` (`ripdpi-warp-android` / `RipDpiWarp.kt`). NaiveProxy,
-  Cloudflare-origin publish helper, Snowflake, WebTunnel, and obfs4 run as
-  **subprocess** or external pluggable-transport binaries supervised by service
-  code. Snowflake remains the external Go `ripdpi-snowflake` binary by decision.
+  Cloudflare-origin publish helper, and WebTunnel run as in-repository helper
+  subprocesses; Snowflake and obfs4 run as external pluggable-transport
+  binaries supervised by service code. Snowflake remains the external Go
+  `ripdpi-snowflake` binary by decision.
 - When no relay is configured, traffic exits the device directly and only the
   on-device packet strategies change the path.
 
