@@ -74,6 +74,38 @@ class AppSettingsJsonFeatureMapperTest {
     }
 
     @Test
+    fun `restoring fake-SNI cover without acknowledgement clears the insecure cover`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setWsTunnelMode("always")
+                .setWsTunnelFakeSni("yandex.ru")
+                .setWsTunnelAllowInsecureSni(false)
+                .build()
+
+        val decoded = appSettingsFromJson(settings.toJson())
+
+        assertEquals("", decoded.wsTunnelFakeSni)
+        assertEquals(false, decoded.wsTunnelAllowInsecureSni)
+    }
+
+    @Test
+    fun `restoring fake-SNI cover with acknowledgement preserves the cover`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setWsTunnelMode("always")
+                .setWsTunnelFakeSni("yandex.ru")
+                .setWsTunnelAllowInsecureSni(true)
+                .build()
+
+        val decoded = appSettingsFromJson(settings.toJson())
+
+        assertEquals("yandex.ru", decoded.wsTunnelFakeSni)
+        assertTrue(decoded.wsTunnelAllowInsecureSni)
+    }
+
+    @Test
     fun `host autolearn json exports knobs but excludes learned host store`() {
         val imported =
             appSettingsFromJson(

@@ -1,6 +1,29 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
+/**
+ * Refuse to restore a ws-tunnel fake-SNI cover that was not explicitly
+ * acknowledged. The cover disables TLS certificate verification, so a backup
+ * (or any untrusted snapshot) that carries `fakeSni` without
+ * `allowInsecureSni` is sanitised to an empty cover rather than silently
+ * persisting the insecure config. Reuses [WsProfileImportValidator] so the
+ * import-time and restore-time rules stay in lockstep.
+ */
+internal fun sanitizeRestoredWsTunnelFakeSni(
+    fakeSni: String,
+    allowInsecureSni: Boolean,
+): String {
+    if (fakeSni.isEmpty()) return fakeSni
+    val profile =
+        buildJsonObject {
+            put("fake_sni", fakeSni)
+            put("allow_insecure_sni", allowInsecureSni)
+        }
+    return if (WsProfileImportValidator.validate(profile).isEmpty()) fakeSni else ""
+}
 
 @Suppress("LongMethod")
 internal fun AppSettingsSnapshot.withQuicAdaptiveSnapshot(settings: AppSettings): AppSettingsSnapshot =
@@ -96,8 +119,9 @@ internal fun AppSettings.Builder.applyQuicAdaptiveSnapshot(snapshot: AppSettings
             normalizeAdaptiveFallbackCachePrefixV4(adaptive.adaptiveFallbackCachePrefixV4),
         ).setWsTunnelEnabled(adaptive.wsTunnelEnabled)
         .setWsTunnelMode(adaptive.wsTunnelMode)
-        .setWsTunnelFakeSni(adaptive.wsTunnelFakeSni)
-        .setWsTunnelAllowInsecureSni(adaptive.wsTunnelAllowInsecureSni)
+        .setWsTunnelFakeSni(
+            sanitizeRestoredWsTunnelFakeSni(adaptive.wsTunnelFakeSni, adaptive.wsTunnelAllowInsecureSni),
+        ).setWsTunnelAllowInsecureSni(adaptive.wsTunnelAllowInsecureSni)
 }
 
 private fun AppSettings.effectiveWsTunnelMode(): String =
