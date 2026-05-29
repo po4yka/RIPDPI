@@ -56,7 +56,13 @@ impl BusEndpoint {
             match self.rx.recv().await {
                 Ok((id, event)) if id != self.id => return event,
                 Ok(_) => continue,
-                Err(_) => continue,
+                Err(broadcast::error::RecvError::Lagged(n)) => {
+                    tracing::warn!(dropped = n, "warp virtual-iface bus receiver lagged; events lost");
+                    continue;
+                }
+                // Effectively unreachable: this endpoint holds its own `tx` sender, so the
+                // channel cannot close while the endpoint is alive. Handled defensively.
+                Err(broadcast::error::RecvError::Closed) => continue,
             }
         }
     }
