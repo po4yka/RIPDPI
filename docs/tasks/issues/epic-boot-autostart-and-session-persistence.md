@@ -1,7 +1,7 @@
 ---
 title: Epic - Boot autostart and session persistence
 type: epic
-status: backlog
+status: done
 area: service
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-29
 ---
 
-- [ ] #task Epic - Boot autostart and session persistence #repo/RIPDPI #area/service #status/backlog 🔼
+- [x] #task Epic - Boot autostart and session persistence #repo/RIPDPI #area/service #status/done 🔼
 
 ## Goal
 

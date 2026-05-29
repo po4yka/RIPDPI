@@ -1,7 +1,7 @@
 ---
 title: Add package-replaced restart gated on prior running state
 type: task
-status: backlog
+status: done
 area: service
 priority: low
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-boot-autostart-and-session-persistence
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-29
 ---
 
-- [ ] #task Add package-replaced restart gated on prior running state #repo/RIPDPI #area/service #status/backlog 🔽
+- [x] #task Add package-replaced restart gated on prior running state #repo/RIPDPI #area/service #status/done 🔽
 
 ## Summary
 
