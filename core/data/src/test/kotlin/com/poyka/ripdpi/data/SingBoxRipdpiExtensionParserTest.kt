@@ -31,7 +31,8 @@ class SingBoxRipdpiExtensionParserTest {
 
     @Test
     fun `ripdpi amneziawg produces awg subscription profile with correct params`() {
-        val json = """
+        val json =
+            """
             {
               "outbounds": [
                 { "type": "hysteria2", "tag": "hy2-node", "server": "hy2.example.com",
@@ -60,7 +61,7 @@ class SingBoxRipdpiExtensionParserTest {
                 ]
               }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
 
@@ -105,7 +106,8 @@ class SingBoxRipdpiExtensionParserTest {
 
     @Test
     fun `ripdpi amneziawg with optional i1 to i5 hex strings carries them onto params`() {
-        val json = """
+        val json =
+            """
             {
               "outbounds": [],
               "ripdpi": {
@@ -130,7 +132,7 @@ class SingBoxRipdpiExtensionParserTest {
                 ]
               }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
         assertEquals(1, result.amneziaWgProfiles.size)
@@ -145,7 +147,8 @@ class SingBoxRipdpiExtensionParserTest {
 
     @Test
     fun `ripdpi amneziawg missing public_key skips that entry`() {
-        val json = """
+        val json =
+            """
             {
               "outbounds": [],
               "ripdpi": {
@@ -161,7 +164,7 @@ class SingBoxRipdpiExtensionParserTest {
                 ]
               }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
         assertEquals(0, result.amneziaWgProfiles.size)
@@ -173,7 +176,8 @@ class SingBoxRipdpiExtensionParserTest {
 
     @Test
     fun `ripdpi hysteria_extras carries salamander password onto matching hysteria2 profile`() {
-        val json = """
+        val json =
+            """
             {
               "outbounds": [
                 { "type": "hysteria2", "tag": "hy2-main", "server": "hy2.example.com",
@@ -190,7 +194,7 @@ class SingBoxRipdpiExtensionParserTest {
                 }
               }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
         assertEquals(1, result.profiles.size)
@@ -208,7 +212,8 @@ class SingBoxRipdpiExtensionParserTest {
 
     @Test
     fun `ripdpi hysteria_extras with non-salamander obfs type leaves obfsPassword null`() {
-        val json = """
+        val json =
+            """
             {
               "outbounds": [
                 { "type": "hysteria2", "tag": "hy2-node", "server": "hy2.example.com",
@@ -223,7 +228,7 @@ class SingBoxRipdpiExtensionParserTest {
                 }
               }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
         val hy2 = result.profiles[0] as ProxyProfile.Hysteria2
@@ -233,7 +238,8 @@ class SingBoxRipdpiExtensionParserTest {
 
     @Test
     fun `ripdpi hysteria_extras unmatched tag leaves other profiles unchanged`() {
-        val json = """
+        val json =
+            """
             {
               "outbounds": [
                 { "type": "hysteria2", "tag": "hy2-node", "server": "hy2.example.com",
@@ -248,7 +254,7 @@ class SingBoxRipdpiExtensionParserTest {
                 }
               }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
         val hy2 = result.profiles[0] as ProxyProfile.Hysteria2
@@ -262,7 +268,8 @@ class SingBoxRipdpiExtensionParserTest {
 
     @Test
     fun `plain sing-box config with no ripdpi key produces empty awgProfiles`() {
-        val json = """
+        val json =
+            """
             {
               "outbounds": [
                 { "type": "hysteria2", "tag": "hy2-plain", "server": "hy2.example.com",
@@ -271,7 +278,7 @@ class SingBoxRipdpiExtensionParserTest {
                   "server_port": 443, "password": "trojan-secret" }
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
 
@@ -291,7 +298,8 @@ class SingBoxRipdpiExtensionParserTest {
 
     @Test
     fun `unknown ripdpi schema_version ignores the ripdpi block but still imports sing-box outbounds`() {
-        val json = """
+        val json =
+            """
             {
               "outbounds": [
                 { "type": "trojan", "tag": "trojan-node", "server": "trojan.example.com",
@@ -312,7 +320,7 @@ class SingBoxRipdpiExtensionParserTest {
                 }
               }
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
 
