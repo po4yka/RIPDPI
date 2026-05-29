@@ -30,7 +30,9 @@ fun detectRelayChainTrustWarning(
         sharedTrustDomainValue(entry.operatorName, exit.operatorName)
     val missingEntryTrustDomain = entry.hasIncompleteTrustDomain()
     val missingExitTrustDomain = exit.hasIncompleteTrustDomain()
-    if (sharedJurisdiction == null && sharedOperator == null && !missingEntryTrustDomain && !missingExitTrustDomain) {
+    val hasSharedTrustDomain = sharedJurisdiction != null || sharedOperator != null
+    val hasMissingTrustDomain = missingEntryTrustDomain || missingExitTrustDomain
+    if (!hasSharedTrustDomain && !hasMissingTrustDomain) {
         return null
     }
     return RelayTrustDomainWarning(

@@ -121,40 +121,7 @@ object ClashSubscriptionParser {
             }
 
             "vmess", "vless" -> {
-                val server = node.requireString("server", index)
-                val serverPort = node.requirePort("port", index)
-                val uuid = node.requireString("uuid", index)
-                // Detect REALITY: reality-opts.public-key is non-empty.
-                val realityPublicKey = node.nestedString("reality-opts", "public-key")
-                val isReality = !realityPublicKey.isNullOrBlank()
-                if (isReality) {
-                    val realityShortId = node.nestedString("reality-opts", "short-id").orEmpty()
-                    val serverName = node.string("servername") ?: node.string("sni") ?: server
-                    val flow = node.string("flow") ?: "xtls-rprx-vision"
-                    val fingerprint = node.string("client-fingerprint")
-                    ProxyProfile.VlessReality(
-                        id = newId(),
-                        displayName = name,
-                        groupId = groupId,
-                        server = server,
-                        serverPort = serverPort,
-                        uuid = uuid,
-                        realityPublicKey = realityPublicKey.orEmpty(),
-                        realityShortId = realityShortId,
-                        serverName = serverName,
-                        flow = flow,
-                        fingerprint = fingerprint,
-                    )
-                } else {
-                    ProxyProfile.Vless(
-                        id = newId(),
-                        displayName = name,
-                        groupId = groupId,
-                        server = server,
-                        serverPort = serverPort,
-                        uuid = uuid,
-                    )
-                }
+                mapVlessOrVmessNode(node, index, groupId, name)
             }
 
             "trojan" -> {
@@ -205,14 +172,50 @@ object ClashSubscriptionParser {
         }
     }
 
+    private fun mapVlessOrVmessNode(
+        node: YamlMap,
+        index: Int,
+        groupId: String,
+        name: String,
+    ): ProxyProfile {
+        val server = node.requireString("server", index)
+        val serverPort = node.requirePort("port", index)
+        val uuid = node.requireString("uuid", index)
+        // Detect REALITY: reality-opts.public-key is non-empty.
+        val realityPublicKey = node.nestedString("reality-opts", "public-key")
+        return if (!realityPublicKey.isNullOrBlank()) {
+            ProxyProfile.VlessReality(
+                id = newId(),
+                displayName = name,
+                groupId = groupId,
+                server = server,
+                serverPort = serverPort,
+                uuid = uuid,
+                realityPublicKey = realityPublicKey,
+                realityShortId = node.nestedString("reality-opts", "short-id").orEmpty(),
+                serverName = node.string("servername") ?: node.string("sni") ?: server,
+                flow = node.string("flow") ?: "xtls-rprx-vision",
+                fingerprint = node.string("client-fingerprint"),
+            )
+        } else {
+            ProxyProfile.Vless(
+                id = newId(),
+                displayName = name,
+                groupId = groupId,
+                server = server,
+                serverPort = serverPort,
+                uuid = uuid,
+            )
+        }
+    }
+
     private fun YamlMap.string(key: String): String? =
         runCatching { getScalar(key)?.content }.getOrNull()?.takeIf { it.isNotBlank() }
 
     private fun YamlMap.nestedString(
         mapKey: String,
         valueKey: String,
-    ): String? =
-        runCatching { (get<YamlMap>(mapKey))?.string(valueKey) }.getOrNull()
+    ): String? = runCatching { (get<YamlMap>(mapKey))?.string(valueKey) }.getOrNull()
 
     private fun YamlMap.requireString(
         key: String,

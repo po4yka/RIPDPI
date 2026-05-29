@@ -82,8 +82,11 @@ class SharedPreferencesBootSessionStateStore
         @param:DeviceProtectedBootPrefs private val preferences: SharedPreferences,
     ) : BootSessionStateStore {
         override fun lastSession(): BootSessionPointer? {
-            val rawMode = preferences.getString(KeyMode, null) ?: return null
-            val mode = runCatching { Mode.fromString(rawMode) }.getOrNull() ?: return null
+            val mode =
+                preferences
+                    .getString(KeyMode, null)
+                    ?.let { rawMode -> runCatching { Mode.fromString(rawMode) }.getOrNull() }
+                    ?: return null
             val profileId = preferences.getString(KeyProfileId, "").orEmpty()
             return BootSessionPointer(profileId = profileId, mode = mode)
         }
