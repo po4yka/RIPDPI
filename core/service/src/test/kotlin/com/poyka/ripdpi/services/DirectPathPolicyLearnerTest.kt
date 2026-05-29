@@ -195,6 +195,157 @@ class DirectPathPolicyLearnerTest {
         }
 
     @Test
+    fun `no tcp fallback memory skips soft disable for the same app on a different host`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val store = TestServerCapabilityStore()
+            val learner =
+                DirectPathPolicyLearner(
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    serverCapabilityStore = store,
+                )
+
+            // App P never falls back to TCP on host A — remember it per app family.
+            learner.consumeSignal(
+                "host-a.example:443",
+                "aaaa",
+                DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
+                100L,
+                packageName = "com.app.p",
+                appVersionCode = 1L,
+            )
+            // The same app hits a DIFFERENT host: the per-host record for B is
+            // empty, but the per-app memory must still suppress soft-disable.
+            learner.consumeSignal(
+                "host-b.example:443",
+                "bbbb",
+                DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
+                200L,
+                packageName = "com.app.p",
+                appVersionCode = 1L,
+            )
+
+            val records = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey())
+            assertNull(records.firstOrNull { it.authority == "host-b.example:443" })
+        }
+
+    @Test
+    fun `app version change reverts the no tcp fallback memory`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val store = TestServerCapabilityStore()
+            val learner =
+                DirectPathPolicyLearner(
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    serverCapabilityStore = store,
+                )
+
+            learner.consumeSignal(
+                "host-a.example:443",
+                "aaaa",
+                DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
+                100L,
+                packageName = "com.app.p",
+                appVersionCode = 1L,
+            )
+            // App P updated to v2 — the v1 mark no longer applies, so soft-disable
+            // is learned again on the next QUIC block.
+            learner.consumeSignal(
+                "host-b.example:443",
+                "bbbb",
+                DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
+                200L,
+                packageName = "com.app.p",
+                appVersionCode = 2L,
+            )
+
+            val record =
+                store
+                    .directPathCapabilitiesForFingerprint(fingerprint.scopeKey())
+                    .single { it.authority == "host-b.example:443" }
+            assertEquals(QuicMode.SOFT_DISABLE, record.effectiveTransportPolicyEnvelope().policy.quicMode)
+        }
+
+    @Test
+    fun `no tcp fallback memory does not skip soft disable for a different app`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val store = TestServerCapabilityStore()
+            val learner =
+                DirectPathPolicyLearner(
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    serverCapabilityStore = store,
+                )
+
+            learner.consumeSignal(
+                "host-a.example:443",
+                "aaaa",
+                DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
+                100L,
+                packageName = "com.app.p",
+                appVersionCode = 1L,
+            )
+            // A different app (Q) on host B is unaffected by app P's memory.
+            learner.consumeSignal(
+                "host-b.example:443",
+                "bbbb",
+                DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
+                200L,
+                packageName = "com.app.q",
+                appVersionCode = 1L,
+            )
+
+            val record =
+                store
+                    .directPathCapabilitiesForFingerprint(fingerprint.scopeKey())
+                    .single { it.authority == "host-b.example:443" }
+            assertEquals(QuicMode.SOFT_DISABLE, record.effectiveTransportPolicyEnvelope().policy.quicMode)
+        }
+
+    @Test
+    fun `unattributed no tcp fallback signal does not arm the per app memory`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val store = TestServerCapabilityStore()
+            val learner =
+                DirectPathPolicyLearner(
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    serverCapabilityStore = store,
+                )
+
+            // No package identity: conservative default — nothing is remembered.
+            learner.consumeSignal("host-a.example:443", "aaaa", DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED, 100L)
+            learner.consumeSignal("host-b.example:443", "bbbb", DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK, 200L)
+
+            val record =
+                store
+                    .directPathCapabilitiesForFingerprint(fingerprint.scopeKey())
+                    .single { it.authority == "host-b.example:443" }
+            assertEquals(QuicMode.SOFT_DISABLE, record.effectiveTransportPolicyEnvelope().policy.quicMode)
+        }
+
+    @Test
+    fun `soft disable is scoped to its host tuple and leaves other hosts unaffected`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val store = TestServerCapabilityStore()
+            val learner =
+                DirectPathPolicyLearner(
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    serverCapabilityStore = store,
+                )
+
+            learner.consumeSignal("host-a.example:443", "aaaa", DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK, 100L)
+            learner.consumeSignal("host-b.example:443", "bbbb", DirectPathLearningEvent.QUIC_SUCCESS, 200L)
+
+            val records = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey())
+            val hostA = records.single { it.authority == "host-a.example:443" }
+            val hostB = records.single { it.authority == "host-b.example:443" }
+            assertEquals(QuicMode.SOFT_DISABLE, hostA.effectiveTransportPolicyEnvelope().policy.quicMode)
+            assertEquals(QuicMode.ALLOW, hostB.effectiveTransportPolicyEnvelope().policy.quicMode)
+        }
+
+    @Test
     fun `unknown direct path learning event is ignored and persists nothing`() =
         runTest {
             val fingerprint = sampleFingerprint()
@@ -274,6 +425,8 @@ private suspend fun DirectPathPolicyLearner.consumeSignal(
     event: DirectPathLearningEvent,
     capturedAt: Long,
     strategyFamily: String? = null,
+    packageName: String? = null,
+    appVersionCode: Long? = null,
 ) {
     consume(
         NativeRuntimeSnapshot(
@@ -287,6 +440,8 @@ private suspend fun DirectPathPolicyLearner.consumeSignal(
                         event = event,
                         capturedAt = capturedAt,
                         strategyFamily = strategyFamily,
+                        packageName = packageName,
+                        appVersionCode = appVersionCode,
                     ),
                 ),
         ),

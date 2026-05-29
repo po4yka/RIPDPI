@@ -79,6 +79,22 @@ data class DirectPathLearningSignal(
     val event: DirectPathLearningEvent,
     val strategyFamily: String? = null,
     val capturedAt: Long = 0,
+    /**
+     * Package name of the app that owns the flow this signal describes, when the
+     * runtime could attribute it. Drives the per-app-family `NO_TCP_FALLBACK`
+     * memory ([NoTcpFallbackAppMemory]). Absent (`null`) on unattributed
+     * signals — the conservative default — in which case no per-app verdict is
+     * learned or applied. Per-flow UID→package attribution is a tracked
+     * follow-up; until it lands this stays `null` on production telemetry.
+     */
+    val packageName: String? = null,
+    /**
+     * Android `longVersionCode` of [packageName] at capture time. Pairs with the
+     * package name to version-scope the NO_TCP_FALLBACK memory so the verdict
+     * reverts automatically when the app is updated. Absent unless [packageName]
+     * is present.
+     */
+    val appVersionCode: Long? = null,
 )
 
 @Serializable

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.DnsMode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.NoTcpFallbackAppMemory
 import com.poyka.ripdpi.data.PreferredStack
 import com.poyka.ripdpi.data.QuicMode
 import com.poyka.ripdpi.data.ServerCapabilityObservation
@@ -42,6 +43,15 @@ internal class DirectPathPolicyLearner
         private val cachedEnvelopes = linkedMapOf<DirectPathTupleKey, TransportPolicyEnvelope>()
         private val lastAppliedSignatures = linkedMapOf<DirectPathTupleKey, String>()
         private val pendingNoDirectSolutions = linkedMapOf<DirectPathTupleKey, Long>()
+
+        /**
+         * Per-app-family NO_TCP_FALLBACK memory. Consulted before a soft-disable
+         * is learned and recorded when an attributed signal reports that an app
+         * never fell back to TCP. Unattributed signals (no package name) never
+         * touch it, so per-app suppression is conservative by default. The mark
+         * is version-scoped, so it reverts automatically when the app updates.
+         */
+        private val noTcpFallbackMemory = NoTcpFallbackAppMemory()
 
         override suspend fun consume(snapshot: NativeRuntimeSnapshot) {
             // Events this build cannot map to a policy are ignored entirely --
@@ -149,9 +159,13 @@ internal class DirectPathPolicyLearner
             current: TransportPolicyEnvelope?,
         ): TransportPolicyEnvelope? {
             val rule = DirectPathLearningEventRules.ruleFor(signal.event) ?: return null
+            recordNoTcpFallbackIfAttributed(signal)
             val suppressedByNoTcpFallback =
                 signal.event == DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK &&
-                    current?.reasonCode == DirectModeReasonCode.NO_TCP_FALLBACK
+                    (
+                        current?.reasonCode == DirectModeReasonCode.NO_TCP_FALLBACK ||
+                            shouldSkipSoftDisableForApp(signal)
+                    )
             return if (suppressedByNoTcpFallback) {
                 null
             } else {
@@ -168,6 +182,33 @@ internal class DirectPathPolicyLearner
                         },
                 )
             }
+        }
+
+        /**
+         * Record an attributed NO_TCP_FALLBACK observation so the same app is
+         * not soft-disabled again. Requires both a package name and a version
+         * code; an unattributed signal is left untouched (conservative default).
+         */
+        private fun recordNoTcpFallbackIfAttributed(signal: DirectPathLearningSignal) {
+            if (signal.event != DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED) return
+            val packageName = signal.packageName
+            val versionCode = signal.appVersionCode
+            if (packageName != null && versionCode != null) {
+                noTcpFallbackMemory.recordNoTcpFallback(packageName, versionCode)
+            }
+        }
+
+        /**
+         * True when this signal's owning app is remembered as NO_TCP_FALLBACK for
+         * its exact current version, meaning a soft-disable must NOT be learned.
+         * Unattributed signals always return `false`.
+         */
+        private fun shouldSkipSoftDisableForApp(signal: DirectPathLearningSignal): Boolean {
+            val packageName = signal.packageName
+            val versionCode = signal.appVersionCode
+            return packageName != null &&
+                versionCode != null &&
+                noTcpFallbackMemory.shouldSkipSoftDisable(packageName, versionCode)
         }
 
         private fun trimCaches() {
