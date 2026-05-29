@@ -15,9 +15,13 @@ Trojan outbound client library for RIPDPI relay-core integration.
 - For UDP ASSOCIATE, each datagram inside the TLS stream is framed as `ATYP DST.ADDR DST.PORT Length CRLF Payload`, where `Length` is two bytes in network byte order.
 - The independently verified SHA224 vector used by the request-codec tests is password `123456789` -> `9b3e61bf29f17c75572fae2e86e17809a4513d07c8a18152acf34521`; the protocol spec mandates `hex(SHA224(password))` but does not publish this vector.
 
+## Fingerprint Parity
+
+- The outbound TLS client is built from `ripdpi-tls-profiles` (`configure_builder(profile)`), so the ClientHello carries the selected browser fingerprint. This is load-bearing: Trojan's cover is that an auth-failing connection is forwarded to a real fallback site, so a non-browser ClientHello voids the cover.
+- `client_hello_carries_selected_browser_profile_fingerprint` (in `src/lib.rs`) captures the live ClientHello emitted by `TrojanClient::connect_tcp` and pins it against the `chrome_stable` spec: the `X25519MLKEM768:X25519:P-256:P-384` supported groups, the `h2`/`http/1.1` ALPN, and GREASE presence. It also asserts parity with the `build_connector("chrome_stable")` connector and includes a stock-BoringSSL negative control so the assertions provably discriminate a browser profile from the default.
+
 ## Non-Goals
 
-- Browser-identical TLS fingerprint parity is out of scope. A BoringSSL-backed Chrome-like ClientHello is acceptable; exact Chromium parity is not required.
 - Trojan-Go extensions are out of scope, including mux, WebSocket transport, and gRPC transport.
 
 ## Current State

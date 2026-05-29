@@ -677,3 +677,258 @@ mod tests {
         assert_eq!(addr, TrojanAddr::Ipv6(Ipv6Addr::LOCALHOST));
     }
 }
+
+// ---------------------------------------------------------------------------
+// ClientHello fingerprint-parity tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod client_hello_parity_tests {
+    //! Prove the Trojan outbound ClientHello carries the selected
+    //! `ripdpi-tls-profiles` browser fingerprint. Trojan's whole cover is that a
+    //! server forwards auth-failing connections to a real fallback site
+    //! (`https://trojan-gfw.github.io/trojan/protocol.html`), so the outbound
+    //! ClientHello must look like the configured browser or the connection
+    //! sticks out as not-a-browser and the cover is void.
+    //!
+    //! The oracle is the `chrome_stable` profile spec (`chrome::CHROME_LATEST`):
+    //! the `X25519MLKEM768:X25519:P-256:P-384` groups, the `h2`/`http/1.1` ALPN,
+    //! and `grease_enabled = true`. None of these are emitted by a stock
+    //! BoringSSL ClientHello — the negative control at the end of the test
+    //! proves the assertions discriminate a real browser profile from the
+    //! default and are therefore not tautological.
+
+    use super::{TrojanAddr, TrojanClient, TrojanClientConfig};
+    use std::io::Read;
+    use std::net::{Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
+    use std::thread;
+    use std::time::Duration;
+
+    const PROFILE: &str = "chrome_stable";
+    // chrome_stable supported groups, GREASE-stripped (CHROME_LATEST.curves =
+    // "X25519MLKEM768:X25519:P-256:P-384").
+    const X25519MLKEM768: u16 = 0x11ec;
+    const X25519: u16 = 0x001d;
+    const SECP256R1: u16 = 0x0017;
+    const SECP384R1: u16 = 0x0018;
+
+    #[derive(Debug)]
+    struct ParsedHello {
+        ciphers: Vec<u16>,
+        ext_types: Vec<u16>,
+        groups: Vec<u16>,
+        alpn: Vec<Vec<u8>>,
+    }
+
+    // A GREASE value has both bytes equal and the low nibble == 0x0a (RFC 8701).
+    fn is_grease(value: u16) -> bool {
+        let [hi, lo] = value.to_be_bytes();
+        hi == lo && (hi & 0x0f) == 0x0a
+    }
+
+    fn strip_grease(values: &[u16]) -> Vec<u16> {
+        values.iter().copied().filter(|value| !is_grease(*value)).collect()
+    }
+
+    fn sorted_no_grease(values: &[u16]) -> Vec<u16> {
+        let mut out = strip_grease(values);
+        out.sort_unstable();
+        out
+    }
+
+    fn be16(bytes: &[u8], index: usize) -> u16 {
+        u16::from_be_bytes([bytes[index], bytes[index + 1]])
+    }
+
+    /// Minimal, bounds-checked ClientHello parser that reads only the
+    /// JA3-relevant fields: cipher suites, extension types, offered supported
+    /// groups, and offered ALPN. Panics (test failure) on malformed input.
+    fn parse_client_hello(record: &[u8]) -> ParsedHello {
+        assert_eq!(record.first().copied(), Some(0x16), "expected a TLS handshake record");
+        let payload = &record[5..];
+        assert_eq!(payload.first().copied(), Some(0x01), "expected a ClientHello handshake message");
+        let hs_len = (usize::from(payload[1]) << 16) | (usize::from(payload[2]) << 8) | usize::from(payload[3]);
+        let body = &payload[4..4 + hs_len];
+
+        // legacy_version(2) + random(32)
+        let mut cursor = 34_usize;
+        let session_id_len = usize::from(body[cursor]);
+        cursor += 1 + session_id_len;
+
+        let cipher_bytes = usize::from(be16(body, cursor));
+        cursor += 2;
+        let cipher_end = cursor + cipher_bytes;
+        let mut ciphers = Vec::new();
+        while cursor + 1 < cipher_end {
+            ciphers.push(be16(body, cursor));
+            cursor += 2;
+        }
+        cursor = cipher_end;
+
+        let compression_len = usize::from(body[cursor]);
+        cursor += 1 + compression_len;
+
+        let ext_total = usize::from(be16(body, cursor));
+        cursor += 2;
+        let ext_end = cursor + ext_total;
+        let mut ext_types = Vec::new();
+        let mut groups = Vec::new();
+        let mut alpn = Vec::new();
+        while cursor + 4 <= ext_end {
+            let ext_type = be16(body, cursor);
+            let ext_len = usize::from(be16(body, cursor + 2));
+            let data = &body[cursor + 4..cursor + 4 + ext_len];
+            ext_types.push(ext_type);
+            match ext_type {
+                0x000a => groups = parse_u16_list(data), // supported_groups
+                0x0010 => alpn = parse_alpn(data),       // application_layer_protocol_negotiation
+                _ => {}
+            }
+            cursor += 4 + ext_len;
+        }
+
+        ParsedHello { ciphers, ext_types, groups, alpn }
+    }
+
+    fn parse_u16_list(data: &[u8]) -> Vec<u16> {
+        if data.len() < 2 {
+            return Vec::new();
+        }
+        let list_len = usize::from(be16(data, 0));
+        let end = 2 + list_len.min(data.len() - 2);
+        let mut out = Vec::new();
+        let mut index = 2;
+        while index + 1 < end {
+            out.push(be16(data, index));
+            index += 2;
+        }
+        out
+    }
+
+    fn parse_alpn(data: &[u8]) -> Vec<Vec<u8>> {
+        if data.len() < 2 {
+            return Vec::new();
+        }
+        let list_len = usize::from(be16(data, 0));
+        let end = 2 + list_len.min(data.len() - 2);
+        let mut out = Vec::new();
+        let mut index = 2;
+        while index < end {
+            let proto_len = usize::from(data[index]);
+            index += 1;
+            if index + proto_len > end {
+                break;
+            }
+            out.push(data[index..index + proto_len].to_vec());
+            index += proto_len;
+        }
+        out
+    }
+
+    /// Bind a loopback listener and capture the first TLS record an inbound
+    /// connection sends. The caller initiates the connection toward the returned
+    /// address; the handshake is expected to fail once the listener drops the
+    /// socket — only the ClientHello is needed.
+    fn spawn_capture() -> (SocketAddr, thread::JoinHandle<Vec<u8>>) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind capture listener");
+        let addr = listener.local_addr().expect("capture listener addr");
+        let handle = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().expect("accept capture connection");
+            socket.set_read_timeout(Some(Duration::from_secs(5))).expect("set capture read timeout");
+            let mut header = [0_u8; 5];
+            socket.read_exact(&mut header).expect("read TLS record header");
+            let payload_len = usize::from(u16::from_be_bytes([header[3], header[4]]));
+            let mut payload = vec![0_u8; payload_len];
+            socket.read_exact(&mut payload).expect("read TLS record payload");
+            let _ = socket.shutdown(Shutdown::Both);
+            [header.to_vec(), payload].concat()
+        });
+        (addr, handle)
+    }
+
+    fn capture_sync(connect: impl FnOnce(SocketAddr)) -> ParsedHello {
+        let (addr, handle) = spawn_capture();
+        connect(addr);
+        parse_client_hello(&handle.join().expect("capture thread join"))
+    }
+
+    async fn capture_trojan_client_hello() -> ParsedHello {
+        let (addr, handle) = spawn_capture();
+        let config = TrojanClientConfig {
+            server_host: Ipv4Addr::LOCALHOST.to_string(),
+            server_port: addr.port(),
+            server_name: "trojan-parity.test".to_owned(),
+            password: "parity-password".to_owned(),
+            tls_fingerprint_profile: PROFILE.to_owned(),
+            root_certificate_pem: None,
+        };
+        // connect_tcp opens the TCP socket, builds the BoringSSL connector from
+        // the profile, and writes the ClientHello before the handshake fails on
+        // the listener's shutdown. We discard the resulting error.
+        let _ = TrojanClient::connect_tcp(&config, &TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST), 443, &[]).await;
+        parse_client_hello(&handle.join().expect("capture thread join"))
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn client_hello_carries_selected_browser_profile_fingerprint() {
+        let trojan = capture_trojan_client_hello().await;
+        let profile = capture_sync(|addr| {
+            let connector = ripdpi_tls_profiles::build_connector(PROFILE, false).expect("build profile connector");
+            let stream = TcpStream::connect(addr).expect("connect profile capture");
+            let _ = connector.connect("trojan-parity.test", stream);
+        });
+        let stock = capture_sync(|addr| {
+            let connector = boring::ssl::SslConnector::builder(boring::ssl::SslMethod::tls())
+                .expect("stock connector builder")
+                .build();
+            let stream = TcpStream::connect(addr).expect("connect stock capture");
+            let _ = connector.connect("trojan-parity.test", stream);
+        });
+
+        // (1) Independent spec oracle: chrome_stable offers exactly these groups
+        // (CHROME_LATEST.curves). A stock BoringSSL ClientHello never offers
+        // X25519MLKEM768.
+        assert_eq!(
+            strip_grease(&trojan.groups),
+            vec![X25519MLKEM768, X25519, SECP256R1, SECP384R1],
+            "Trojan ClientHello must offer the chrome_stable supported groups"
+        );
+        // (2) chrome_stable offers h2 then http/1.1 (CHROME_LATEST.alpn).
+        assert_eq!(
+            trojan.alpn,
+            vec![b"h2".to_vec(), b"http/1.1".to_vec()],
+            "Trojan ClientHello must offer the chrome_stable ALPN list"
+        );
+        // (3) chrome_stable sets grease_enabled = true.
+        assert!(trojan.ciphers.iter().any(|cipher| is_grease(*cipher)), "expected a GREASE cipher suite");
+        assert!(trojan.ext_types.iter().any(|ext| is_grease(*ext)), "expected a GREASE extension");
+
+        // (4) Matches the SELECTED profile precisely. Cipher order is stable (not
+        // permuted) so it must equal the profile connector's; extensions are
+        // permuted (permute_extensions = true) so compare as a GREASE-folded set.
+        assert_eq!(
+            strip_grease(&trojan.ciphers),
+            strip_grease(&profile.ciphers),
+            "Trojan cipher suites must match the chrome_stable profile connector"
+        );
+        assert_eq!(
+            sorted_no_grease(&trojan.ext_types),
+            sorted_no_grease(&profile.ext_types),
+            "Trojan extension set must match the chrome_stable profile connector"
+        );
+        assert_eq!(
+            strip_grease(&trojan.groups),
+            strip_grease(&profile.groups),
+            "Trojan supported groups must match the chrome_stable profile connector"
+        );
+
+        // (5) Negative control: a stock BoringSSL ClientHello is a different
+        // fingerprint, proving the assertions above discriminate a browser
+        // profile from the default rather than passing vacuously.
+        assert_ne!(
+            sorted_no_grease(&stock.groups),
+            sorted_no_grease(&trojan.groups),
+            "stock BoringSSL groups must differ from the chrome_stable profile"
+        );
+    }
+}
