@@ -437,26 +437,46 @@ VLESS REALITY is the exception that import carries in full: a `vless://` link wi
 `ProxyProfile.VlessReality` with `pbk`/`sid`/`sni`/`flow`/`fp` and the xhttp transport
 fields, and activation maps those straight into the relay config.
 
-Hysteria2 import is intentionally narrower. The importers capture only:
+### AmneziaWG via RIPDPI extended bundle
+
+The RIPDPI server emitter can deliver an AmneziaWG device-VPN profile alongside the
+standard sing-box outbounds. When the top-level `ripdpi` object is present with
+`schema_version: 1`, `SingBoxSubscriptionParser` maps each `ripdpi.amneziawg[]` entry into
+an `AmneziaWgSubscriptionProfile` (returned in `SingBoxParseResult.Success.amneziaWgProfiles`).
+The fields `jc`/`jmin`/`jmax`/`s1`/`s2`/`h1`–`h4`/`i1`–`i5` are carried onto
+`AmneziaWgParameters`; `address`/`dns`/`mtu` onto the interface; and `peer.*` onto the peer.
+Because the private key is device-specific, the server sets `private_key_placeholder: true`
+and omits the key — the client represents the missing key as an empty string (the same
+convention as a blank `PrivateKey` in a WireGuard-INI import), so the AWG editor can
+detect it and prompt the user to supply the real key.
+
+### Hysteria2 import coverage
+
+Standard importers (`hysteria2://` URI, Clash.Meta, sing-box) capture only:
 
 - `server`, `serverPort`
 - `password`
 
-The following Hysteria2 parameters are **settings-only** and are not populated by any
-import path — set them in the relay editor after import:
+When the payload is a **RIPDPI extended bundle** (`ripdpi.schema_version: 1`), the
+`ripdpi.hysteria_extras` map can carry additional fields onto the matching
+`ProxyProfile.Hysteria2` by outbound tag:
 
-- **Salamander obfuscation** — the wire DTO field `hysteriaSalamanderKey` exists, but no
-  importer parses `obfs` / `obfs-password` from a `hysteria2://` URI or sing-box `obfs`
-  block. Configure it in the relay editor.
-- **`insecure`** — parsed by the native `ripdpi-hysteria2` URL layer but not exposed
-  through the Kotlin relay DTO; it cannot be set from an imported profile by design.
-- **Port-hopping** (`hopInterval` / `minHopInterval` / `maxHopInterval`) — likewise parsed
-  natively from the URL but not exposed through the relay DTO, so it is not import-carried.
+- **Salamander obfuscation** — `obfs.type == "salamander"` populates `obfsPassword` on
+  the profile. For all other import paths this remains `null` and must be configured in
+  the relay editor.
+- **`insecure`** — carried in the model (`ProxyProfile.Hysteria2.insecure`); wire-to-runtime
+  mapping is best-effort / follow-up if the relay DTO does not expose it.
+- **Port-hopping** (`port_hopping.ports` / `port_hopping.interval`) — likewise carried in
+  the model (`portHopPorts` / `portHopInterval`); wire-to-runtime mapping is best-effort /
+  follow-up.
+
+For non-RIPDPI import paths (share links, Clash.Meta, plain sing-box) these three
+parameters remain **settings-only** — set them in the relay editor after import.
 
 This boundary is deliberate: threading every transport knob through the import models would
 duplicate the relay-editor surface and the v6 wire schema. If a Hysteria2 server requires
-salamander, insecure, or port-hopping, distribute it as a relay-editor configuration rather
-than relying on a share link.
+salamander, insecure, or port-hopping without a RIPDPI bundle, distribute it as a
+relay-editor configuration rather than relying on a share link.
 
 ## Validation Reminders
 

@@ -1,20 +1,30 @@
 package com.poyka.ripdpi.data.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.longOrNull
 import java.util.UUID
 
 /** Outcome of a [SingBoxSubscriptionParser] run. */
 sealed interface SingBoxParseResult {
-    /** Parsing succeeded; [profiles] is the mapped outbound list (may be empty). */
+    /**
+     * Parsing succeeded.
+     *
+     * [profiles] is the mapped sing-box outbound list (may be empty).
+     * [amneziaWgProfiles] contains AmneziaWG device-VPN profiles produced from
+     * the `ripdpi.amneziawg` extension block; empty for a plain sing-box bundle.
+     */
     data class Success(
         val profiles: List<ProxyProfile>,
+        val amneziaWgProfiles: List<AmneziaWgSubscriptionProfile> = emptyList(),
     ) : SingBoxParseResult
 
     /** Parsing failed; [message] carries a human-readable, location-aware reason. */
@@ -50,24 +60,63 @@ object SingBoxSubscriptionParser {
     /**
      * Parses [payload] into a [SingBoxParseResult]. Every produced
      * [ProxyProfile] is stamped with [groupId]. Never throws.
+     *
+     * When the payload is a RIPDPI-extended bundle (a sing-box JSON config with
+     * an extra top-level `ripdpi` object), the `ripdpi` block is processed after
+     * the standard outbounds:
+     * - `ripdpi.amneziawg[]` entries are mapped to [AmneziaWgSubscriptionProfile]
+     *   records and returned in [SingBoxParseResult.Success.amneziaWgProfiles].
+     * - `ripdpi.hysteria_extras` entries are matched by tag to already-parsed
+     *   [ProxyProfile.Hysteria2] profiles and the salamander obfs password /
+     *   insecure / port-hopping fields are merged onto those profiles.
+     * - An unknown or missing `schema_version` causes the `ripdpi` block to be
+     *   ignored (forward-compatible); standard outbounds are still imported.
      */
     fun parse(
         payload: String,
         groupId: String,
     ): SingBoxParseResult {
+        val rootElement =
+            runCatching { json.parseToJsonElement(payload) }.getOrElse { error ->
+                return SingBoxParseResult.Error(
+                    "malformed sing-box JSON: ${error.message ?: "could not be parsed"}",
+                )
+            }
         val outbounds =
-            when (val extracted = extractOutbounds(payload)) {
+            when (val extracted = extractOutboundsFromElement(rootElement)) {
                 is OutboundExtraction.Failure -> return SingBoxParseResult.Error(extracted.message)
                 is OutboundExtraction.Outbounds -> extracted.entries
             }
-        val profiles =
+        var profiles =
             outbounds.mapNotNull { element ->
                 val obj = element as? JsonObject ?: return@mapNotNull null
                 val type = obj.string("type") ?: return@mapNotNull null
                 if (type.lowercase() in GROUP_OUTBOUND_TYPES) return@mapNotNull null
                 mapOutbound(type, obj, groupId)
             }
-        return SingBoxParseResult.Success(profiles)
+
+        // Process RIPDPI extension block when present and version == 1.
+        val ripdpiBlock = (rootElement as? JsonObject)?.get("ripdpi") as? JsonObject
+        val awgProfiles = mutableListOf<AmneziaWgSubscriptionProfile>()
+        if (ripdpiBlock != null) {
+            val schemaVersion = ripdpiBlock.int("schema_version")
+            if (schemaVersion == RIPDPI_SCHEMA_VERSION) {
+                // 1. AmneziaWG entries.
+                val awgArray = ripdpiBlock["amneziawg"] as? JsonArray
+                awgArray?.forEach { element ->
+                    val awgObj = element as? JsonObject ?: return@forEach
+                    mapRipdpiAwg(awgObj, groupId)?.let { awgProfiles += it }
+                }
+                // 2. Hysteria extras: patch already-parsed Hysteria2 profiles by tag.
+                val hyExtras = ripdpiBlock["hysteria_extras"] as? JsonObject
+                if (hyExtras != null) {
+                    profiles = applyHysteriaExtras(profiles, hyExtras)
+                }
+            }
+            // Unknown schema_version: silently ignore the ripdpi block.
+        }
+
+        return SingBoxParseResult.Success(profiles = profiles, amneziaWgProfiles = awgProfiles)
     }
 
     /** Extracted outbound entries, or a typed failure when the payload is not sing-box JSON. */
@@ -93,7 +142,15 @@ object SingBoxSubscriptionParser {
                     "malformed sing-box JSON: ${error.message ?: "could not be parsed"}",
                 )
             }
-        return when (element) {
+        return extractOutboundsFromElement(element)
+    }
+
+    /**
+     * Routes a pre-parsed [JsonElement] to the outbound extraction result,
+     * avoiding a second JSON parse when the element was already parsed.
+     */
+    private fun extractOutboundsFromElement(element: JsonElement): OutboundExtraction =
+        when (element) {
             is JsonObject -> {
                 val outbounds = element["outbounds"]
                 when {
@@ -121,7 +178,6 @@ object SingBoxSubscriptionParser {
                 OutboundExtraction.Failure("sing-box JSON root is not an object or array")
             }
         }
-    }
 
     private fun mapOutbound(
         type: String,
@@ -266,6 +322,129 @@ object SingBoxSubscriptionParser {
             config = json.encodeToString(JsonObject.serializer(), obj),
         )
 
+    // -------------------------------------------------------------------------
+    // RIPDPI extension block helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Maps one entry from `ripdpi.amneziawg[]` to an [AmneziaWgSubscriptionProfile].
+     *
+     * The `private_key_placeholder: true` flag means the server-emitted bundle
+     * carries no usable private key (it is a per-device secret). The private key
+     * field on the produced profile is set to an empty string — mirroring the
+     * [WireGuardIniSubscriptionParser] behaviour when a `.conf` has a blank
+     * `PrivateKey` — so the UI can detect it and prompt the user to supply the
+     * real key via the AWG editor.
+     *
+     * Returns `null` when the entry is too malformed to produce a profile (e.g.
+     * a missing public key or endpoint).
+     */
+    @Suppress("ReturnCount")
+    private fun mapRipdpiAwg(
+        obj: JsonObject,
+        groupId: String,
+    ): AmneziaWgSubscriptionProfile? {
+        val tag = obj.string("tag") ?: return null
+        val peerObj = obj["peer"] as? JsonObject ?: return null
+        val publicKey = peerObj.string("public_key") ?: return null
+        val endpoint = peerObj.string("endpoint") ?: return null
+
+        // Parse endpoint host:port.
+        val lastColon = endpoint.lastIndexOf(':')
+        if (lastColon <= 0 || lastColon == endpoint.length - 1) return null
+        val host = endpoint.substring(0, lastColon).removePrefix("[").removeSuffix("]")
+            .takeIf { it.isNotBlank() } ?: return null
+        val port = endpoint.substring(lastColon + 1).toIntOrNull()?.takeIf { it in 1..65_535 } ?: return null
+
+        // Address list (interface-level CIDR strings).
+        val addressList = (obj["address"] as? JsonArray)
+            ?.filterIsInstance<JsonPrimitive>()
+            ?.mapNotNull { it.contentOrNull?.takeIf { s -> s.isNotBlank() } }
+            ?: emptyList()
+
+        // DNS list.
+        val dnsList = (obj["dns"] as? JsonArray)
+            ?.filterIsInstance<JsonPrimitive>()
+            ?.mapNotNull { it.contentOrNull?.takeIf { s -> s.isNotBlank() } }
+            ?: emptyList()
+
+        val mtu = obj.int("mtu")
+
+        // AmneziaWG obfuscation parameters.
+        val awg = AmneziaWgParameters(
+            jc = obj.int("jc"),
+            jmin = obj.int("jmin"),
+            jmax = obj.int("jmax"),
+            s1 = obj.int("s1"),
+            s2 = obj.int("s2"),
+            h1 = obj.long("h1"),
+            h2 = obj.long("h2"),
+            h3 = obj.long("h3"),
+            h4 = obj.long("h4"),
+            i1 = obj.string("i1"),
+            i2 = obj.string("i2"),
+            i3 = obj.string("i3"),
+            i4 = obj.string("i4"),
+            i5 = obj.string("i5"),
+        )
+
+        // `private_key_placeholder: true` means no usable private key is present.
+        // Use an empty string as the placeholder so the AWG editor can detect it.
+        val privateKey = if (obj.bool("private_key_placeholder") == true) "" else obj.string("private_key").orEmpty()
+
+        return AmneziaWgSubscriptionProfile(
+            displayName = tag,
+            groupId = groupId,
+            server = host,
+            serverPort = port,
+            interfacePrivateKey = privateKey,
+            interfaceAddress = addressList,
+            dns = dnsList,
+            mtu = mtu,
+            peerPublicKey = publicKey,
+            peerPresharedKey = peerObj.string("preshared_key"),
+            allowedIps = (peerObj["allowed_ips"] as? JsonArray)
+                ?.filterIsInstance<JsonPrimitive>()
+                ?.mapNotNull { it.contentOrNull?.takeIf { s -> s.isNotBlank() } }
+                ?: emptyList(),
+            persistentKeepalive = peerObj.int("persistent_keepalive"),
+            awg = awg,
+        )
+    }
+
+    /**
+     * Patches already-parsed [ProxyProfile.Hysteria2] entries with extras from
+     * `ripdpi.hysteria_extras`. Matching is by [ProxyProfile.displayName] (which
+     * is set from the outbound's `tag` during parsing).
+     */
+    private fun applyHysteriaExtras(
+        profiles: List<ProxyProfile>,
+        hyExtras: JsonObject,
+    ): List<ProxyProfile> {
+        if (hyExtras.isEmpty()) return profiles
+        return profiles.map { profile ->
+            if (profile !is ProxyProfile.Hysteria2) return@map profile
+            val extras = hyExtras[profile.displayName] as? JsonObject ?: return@map profile
+            val obfsObj = extras["obfs"] as? JsonObject
+            val obfsType = obfsObj?.string("type")?.lowercase()
+            val obfsPassword = if (obfsType == "salamander") obfsObj?.string("password") else null
+            val insecure = extras.bool("insecure")
+            val portHopObj = extras["port_hopping"] as? JsonObject
+            val portHopPorts = portHopObj?.string("ports")
+            val portHopInterval = portHopObj?.string("interval")
+            profile.copy(
+                obfsPassword = obfsPassword ?: profile.obfsPassword,
+                insecure = insecure ?: profile.insecure,
+                portHopPorts = portHopPorts ?: profile.portHopPorts,
+                portHopInterval = portHopInterval ?: profile.portHopInterval,
+            )
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Shared private helpers
+    // -------------------------------------------------------------------------
+
     private fun newId(): String = UUID.randomUUID().toString()
 
     private fun JsonObject.string(key: String): String? =
@@ -279,5 +458,18 @@ object SingBoxSubscriptionParser {
     private fun JsonObject.int(key: String): Int? {
         val primitive = this[key] as? JsonPrimitive ?: return null
         return primitive.intOrNull ?: primitive.contentOrNull?.toIntOrNull()
+    }
+
+    private fun JsonObject.long(key: String): Long? {
+        val primitive = this[key] as? JsonPrimitive ?: return null
+        return primitive.longOrNull ?: primitive.contentOrNull?.toLongOrNull()
+    }
+
+    private fun JsonObject.bool(key: String): Boolean? =
+        (this[key] as? JsonPrimitive)?.booleanOrNull
+
+    private companion object {
+        /** The only `ripdpi.schema_version` value this parser understands. */
+        const val RIPDPI_SCHEMA_VERSION = 1
     }
 }

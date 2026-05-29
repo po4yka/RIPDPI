@@ -178,6 +178,32 @@ sealed interface ProxyProfile {
         val server: String,
         val serverPort: Int,
         val password: String,
+        /**
+         * Salamander obfuscation password. `null` means no obfuscation is
+         * configured. When delivered via the RIPDPI extended bundle
+         * (`ripdpi.hysteria_extras`) this is populated from the `obfs.password`
+         * field; otherwise it is settings-only and must be configured in the
+         * relay editor after import.
+         */
+        val obfsPassword: String? = null,
+        /**
+         * Whether to skip TLS certificate verification. Carried from the RIPDPI
+         * extended bundle when present; wire-to-runtime mapping is best-effort /
+         * follow-up if the relay DTO does not expose it.
+         */
+        val insecure: Boolean? = null,
+        /**
+         * Port-hopping range string (e.g. `"20000-40000"`). Carried from the
+         * RIPDPI extended bundle when present; wire-to-runtime mapping is
+         * best-effort / follow-up.
+         */
+        val portHopPorts: String? = null,
+        /**
+         * Port-hopping interval string (e.g. `"30s"`). Carried from the RIPDPI
+         * extended bundle when present; wire-to-runtime mapping is best-effort /
+         * follow-up.
+         */
+        val portHopInterval: String? = null,
     ) : ProxyProfile
 
     @Serializable
