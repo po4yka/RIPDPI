@@ -13,8 +13,11 @@ import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -87,7 +90,8 @@ class ProfileImportConfirmViewModel
         private suspend fun activateNativeRelayProfile(profile: ProxyProfile) {
             if (profile !is ProxyProfile.Trojan &&
                 profile !is ProxyProfile.Shadowsocks &&
-                profile !is ProxyProfile.AnyTls
+                profile !is ProxyProfile.AnyTls &&
+                profile !is ProxyProfile.VlessReality
             ) {
                 return
             }
@@ -97,8 +101,16 @@ class ProfileImportConfirmViewModel
                     is ProxyProfile.Trojan -> RelayKindTrojan
                     is ProxyProfile.Shadowsocks -> RelayKindShadowsocks
                     is ProxyProfile.AnyTls -> RelayKindAnyTls
+                    is ProxyProfile.VlessReality -> RelayKindVlessReality
+                    else -> return
                 }
             val endpoint = relayEndpoint(profile)
+            val vlessTransport =
+                if (profile is ProxyProfile.VlessReality && profile.xhttpPath != null) {
+                    RelayVlessTransportXhttp
+                } else {
+                    RelayVlessTransportRealityTcp
+                }
             relayProfileStore.save(
                 RelayProfileRecord(
                     id = profileId,
@@ -106,6 +118,11 @@ class ProfileImportConfirmViewModel
                     server = endpoint.server,
                     serverPort = endpoint.serverPort,
                     serverName = endpoint.serverName,
+                    realityPublicKey = if (profile is ProxyProfile.VlessReality) profile.realityPublicKey else "",
+                    realityShortId = if (profile is ProxyProfile.VlessReality) profile.realityShortId else "",
+                    vlessTransport = vlessTransport,
+                    xhttpPath = if (profile is ProxyProfile.VlessReality) profile.xhttpPath.orEmpty() else "",
+                    xhttpHost = if (profile is ProxyProfile.VlessReality) profile.xhttpHost.orEmpty() else "",
                     udpEnabled = true,
                 ),
             )
@@ -120,6 +137,13 @@ class ProfileImportConfirmViewModel
                 setRelayServerPort(endpoint.serverPort)
                 setRelayServerName(endpoint.serverName)
                 setRelayUdpEnabled(true)
+                if (profile is ProxyProfile.VlessReality) {
+                    setRelayRealityPublicKey(profile.realityPublicKey)
+                    setRelayRealityShortId(profile.realityShortId)
+                    setRelayVlessTransport(vlessTransport)
+                    setRelayXhttpPath(profile.xhttpPath.orEmpty())
+                    setRelayXhttpHost(profile.xhttpHost.orEmpty())
+                }
             }
         }
 
@@ -149,8 +173,16 @@ class ProfileImportConfirmViewModel
                     )
                 }
 
+                is ProxyProfile.VlessReality -> {
+                    RelayImportEndpoint(
+                        server = profile.server,
+                        serverPort = profile.serverPort,
+                        serverName = profile.serverName,
+                    )
+                }
+
                 else -> {
-                    // VlessReality, Vless, Hysteria2, TrojanGo, RawConfig — not relay-importable
+                    // Vless, Hysteria2, TrojanGo, RawConfig — not relay-importable
                     error("unsupported relay import profile ${profile::class.simpleName}")
                 }
             }
@@ -182,8 +214,15 @@ class ProfileImportConfirmViewModel
                     )
                 }
 
+                is ProxyProfile.VlessReality -> {
+                    RelayCredentialRecord(
+                        profileId = profileId,
+                        vlessUuid = profile.uuid,
+                    )
+                }
+
                 else -> {
-                    // VlessReality, Vless, Hysteria2, TrojanGo, RawConfig — not relay-importable
+                    // Vless, Hysteria2, TrojanGo, RawConfig — not relay-importable
                     error("unsupported relay import profile ${profile::class.simpleName}")
                 }
             }
