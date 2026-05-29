@@ -79,6 +79,29 @@ class VpnDnsBuilderTest {
     }
 
     @Test
+    fun `system private dns present does not override vpn dns interceptor`() {
+        // The VPN DNS builder takes no system Private DNS parameter: system Private
+        // DNS is never a policy source for VPN DNS routing. Regardless of what the
+        // system has configured (modeled here by varying the plain DNS IP that
+        // *could* leak), an encrypted profile must always resolve to the interceptor.
+        val systemPrivateDnsCandidates = listOf("1.1.1.1", "8.8.8.8", "dns.adguard.com", "")
+        systemPrivateDnsCandidates.forEach { plainOrSystemValue ->
+            val result =
+                vpnDnsAddressForProfile(
+                    dnsMode = DnsModeEncrypted,
+                    plainDnsIp = plainOrSystemValue,
+                )
+            assertEquals(
+                "Encrypted profile must use the interceptor regardless of system Private DNS state",
+                VpnInterceptorDnsAddress,
+                result,
+            )
+        }
+        // And the secure-profile predicate likewise ignores any system state.
+        assertTrue(isSecureVpnDnsProfile(DnsModeEncrypted))
+    }
+
+    @Test
     fun `encrypted profile never returns plain dns ip`() {
         val plainIp = "192.168.1.1"
         val result =

@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.WarpPayloadGenSuggestion
+import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
+import com.poyka.ripdpi.diagnostics.mapPrivateDnsModeToStatus
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.BiometricCapabilityChecker
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
@@ -27,6 +29,7 @@ internal data class SettingsUiStateAssemblySnapshot(
     val routingProtectionSnapshot: RoutingProtectionCatalogSnapshot,
     val warpSuggestion: WarpPayloadGenSuggestion?,
     val seqovlSupported: Boolean,
+    val systemPrivateDnsStatus: SystemPrivateDnsStatus = SystemPrivateDnsStatus.UNKNOWN,
 )
 
 private data class SettingsUiStateStaticAssemblySnapshot(
@@ -37,6 +40,7 @@ private data class SettingsUiStateStaticAssemblySnapshot(
     val routingProtectionSnapshot: RoutingProtectionCatalogSnapshot,
     val warpSuggestion: WarpPayloadGenSuggestion?,
     val seqovlSupported: Boolean,
+    val systemPrivateDnsStatus: SystemPrivateDnsStatus,
 ) {
     fun withTelemetry(serviceTelemetry: ServiceTelemetrySnapshot): SettingsUiStateAssemblySnapshot =
         SettingsUiStateAssemblySnapshot(
@@ -48,6 +52,7 @@ private data class SettingsUiStateStaticAssemblySnapshot(
             routingProtectionSnapshot = routingProtectionSnapshot,
             warpSuggestion = warpSuggestion,
             seqovlSupported = seqovlSupported,
+            systemPrivateDnsStatus = systemPrivateDnsStatus,
         )
 }
 
@@ -103,21 +108,27 @@ internal class SettingsUiStateAssembler
             settings: AppSettings,
             rememberedNetworkCount: Int,
             settingsUiDependencies: SettingsUiDependencies,
-        ): SettingsUiStateStaticAssemblySnapshot =
-            SettingsUiStateStaticAssemblySnapshot(
+        ): SettingsUiStateStaticAssemblySnapshot {
+            val networkSnapshot =
+                runCatching { settingsUiDependencies.networkSnapshotProvider.capture() }.getOrNull()
+            return SettingsUiStateStaticAssemblySnapshot(
                 settings = settings,
                 rememberedNetworkCount = rememberedNetworkCount,
                 hostAutolearnStorePresent = settingsUiDependencies.hostAutolearnStoreController.hasStore(),
                 biometricAvailability = biometricCapabilityChecker.canAuthenticate(),
                 routingProtectionSnapshot = settingsUiDependencies.routingProtectionCatalogService.snapshot(),
                 warpSuggestion =
-                    runCatching {
-                        settingsUiDependencies.warpPayloadGenCatalog.suggestFor(
-                            settingsUiDependencies.networkSnapshotProvider.capture(),
-                        )
-                    }.getOrNull(),
+                    networkSnapshot?.let {
+                        runCatching {
+                            settingsUiDependencies.warpPayloadGenCatalog.suggestFor(it)
+                        }.getOrNull()
+                    },
                 seqovlSupported = settingsUiDependencies.enginePlatformCapabilities.seqovlSupported(),
+                // Derived Kotlin-side from the captured snapshot's privateDnsMode;
+                // informational only and never a VPN DNS policy source.
+                systemPrivateDnsStatus = mapPrivateDnsModeToStatus(networkSnapshot?.privateDnsMode),
             )
+        }
 
         internal fun buildUiState(snapshot: SettingsUiStateAssemblySnapshot): SettingsUiState =
             snapshot.settings.toUiState(
@@ -140,6 +151,7 @@ internal class SettingsUiStateAssembler
                         ?.label
                         .orEmpty(),
                 seqovlSupported = snapshot.seqovlSupported,
+                systemPrivateDnsStatus = snapshot.systemPrivateDnsStatus,
             )
 
         private fun initialSnapshot(settingsUiDependencies: SettingsUiDependencies): SettingsUiStateAssemblySnapshot =

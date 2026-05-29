@@ -3,9 +3,13 @@ package com.poyka.ripdpi.settings.state
 import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.data.ActiveDnsSettings
+import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 import com.poyka.ripdpi.proto.AppSettings
 
-internal fun AppSettings.buildDnsUiState(activeDns: ActiveDnsSettings): DnsUiState =
+internal fun AppSettings.buildDnsUiState(
+    activeDns: ActiveDnsSettings,
+    systemPrivateDnsStatus: SystemPrivateDnsStatus = SystemPrivateDnsStatus.UNKNOWN,
+): DnsUiState =
     DnsUiState(
         dnsIp = activeDns.dnsIp,
         dnsMode = activeDns.mode,
@@ -19,6 +23,7 @@ internal fun AppSettings.buildDnsUiState(activeDns: ActiveDnsSettings): DnsUiSta
         encryptedDnsDnscryptProviderName = activeDns.encryptedDnsDnscryptProviderName,
         encryptedDnsDnscryptPublicKey = activeDns.encryptedDnsDnscryptPublicKey,
         dnsSummary = activeDns.summary(),
+        systemPrivateDnsStatus = systemPrivateDnsStatus.wireValue,
     )
 
 internal fun AppSettings.buildProxyUiState(): ProxyNetworkUiState =

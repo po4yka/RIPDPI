@@ -154,6 +154,12 @@ class AndroidNetworkMetadataProvider
         @param:ApplicationContext private val context: Context,
         private val publicIpInfoResolver: PublicIpInfoResolver,
     ) : NetworkMetadataProvider {
+        // System Private DNS status is read behind an injectable seam so the
+        // status-mapping logic is unit-tested without a device. The default
+        // implementation needs no dependencies, so it is constructed inline
+        // rather than wired through Hilt.
+        private val systemPrivateDnsStatusProvider: SystemPrivateDnsStatusProvider =
+            AndroidSystemPrivateDnsStatusProvider()
         private val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
@@ -178,6 +184,7 @@ class AndroidNetworkMetadataProvider
                 captivePortalDetected =
                     capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true,
                 networkValidated = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
+                systemPrivateDnsStatus = systemPrivateDnsStatusProvider.detect(linkProperties).wireValue,
                 wifiDetails = resolveWifiDetails(capabilities),
                 cellularDetails = resolveCellularDetails(capabilities),
                 capturedAt = System.currentTimeMillis(),

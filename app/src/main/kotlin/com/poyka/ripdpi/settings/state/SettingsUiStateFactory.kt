@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.effectiveAppRoutingEnabledPresetIds
+import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -26,6 +27,7 @@ internal fun AppSettings.toUiState(
     suggestedWarpAmneziaPresetId: String = "",
     suggestedWarpAmneziaPresetLabel: String = "",
     seqovlSupported: Boolean = false,
+    systemPrivateDnsStatus: SystemPrivateDnsStatus = SystemPrivateDnsStatus.UNKNOWN,
 ): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
     val activeDns = activeDnsSettings()
@@ -39,7 +41,7 @@ internal fun AppSettings.toUiState(
         themedAppIconEnabled =
             LauncherIconManager.normalizeIconStyle(appIconStyle) == LauncherIconManager.ThemedIconStyle,
         ripdpiMode = normalizedMode,
-        dns = buildDnsUiState(activeDns),
+        dns = buildDnsUiState(activeDns, systemPrivateDnsStatus),
         ipv6Enable = ipv6Enable,
         enableCmdSettings = enableCmdSettings,
         cmdArgs = cmdArgs,

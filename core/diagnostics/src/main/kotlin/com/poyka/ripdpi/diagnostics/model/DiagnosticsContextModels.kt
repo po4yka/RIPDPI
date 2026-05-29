@@ -44,6 +44,9 @@ data class NetworkSnapshotModel(
     val publicAsn: String?,
     val captivePortalDetected: Boolean,
     val networkValidated: Boolean,
+    // Tri-state system Private DNS status (Kotlin-side, informational only; never a
+    // VPN DNS policy source). Serialized as SystemPrivateDnsStatus.wireValue.
+    val systemPrivateDnsStatus: String = SystemPrivateDnsStatus.UNKNOWN.wireValue,
     val wifiDetails: WifiNetworkDetails? = null,
     val cellularDetails: CellularNetworkDetails? = null,
     val capturedAt: Long,

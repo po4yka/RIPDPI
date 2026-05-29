@@ -22,9 +22,12 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.protocolDisplayName
+import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.WarningBanner
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -70,7 +73,49 @@ internal fun DnsModeSection(
                 testTag = RipDpiTestTags.dnsMode(DnsModePlainUdp),
             )
         }
+        SystemPrivateDnsInfoSection()
+        SystemPrivateDnsWarningSection(status = uiState.dns.systemPrivateDnsStatus)
     }
+}
+
+/**
+ * Always-visible educational note explaining that RIPDPI resolves DNS through its
+ * own in-VPN interceptor, independent of Android's system "Private DNS" setting.
+ */
+@Composable
+private fun SystemPrivateDnsInfoSection() {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val spacing = RipDpiThemeTokens.spacing
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Text(
+            text = stringResource(R.string.dns_private_dns_info_title),
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        Text(
+            text = stringResource(R.string.dns_private_dns_info_body),
+            style = type.body,
+            color = colors.mutedForeground,
+        )
+    }
+}
+
+/**
+ * Conditional, non-blocking warning shown only when Android system Private DNS is
+ * active, to explain a possible resolver mismatch. Purely educational: it never
+ * gates VPN startup or DNS routing.
+ */
+@Composable
+private fun SystemPrivateDnsWarningSection(status: String) {
+    if (status != SystemPrivateDnsStatus.PRESENT.wireValue) {
+        return
+    }
+    WarningBanner(
+        title = stringResource(R.string.dns_private_dns_warning_title),
+        message = stringResource(R.string.dns_private_dns_warning_body),
+        tone = WarningBannerTone.Info,
+    )
 }
 
 @Composable

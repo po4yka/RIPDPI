@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.compose.runtime.Stable
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
+import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 
 private val DefaultDnsUiSeed = canonicalDefaultEncryptedDnsSettings()
 
@@ -19,4 +20,8 @@ data class DnsUiState(
     val encryptedDnsDnscryptProviderName: String = "",
     val encryptedDnsDnscryptPublicKey: String = "",
     val dnsSummary: String = DefaultDnsUiSeed.summary(),
+    // Informational-only: whether the Android system "Private DNS" feature is
+    // configured. Never a VPN DNS policy source; used to surface an educational
+    // note (and a conditional warning) in the DNS settings screen.
+    val systemPrivateDnsStatus: String = SystemPrivateDnsStatus.UNKNOWN.wireValue,
 )
