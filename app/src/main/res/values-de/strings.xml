@@ -2970,4 +2970,12 @@ Quelle: %2$s</string>
     <string name="backup_share_reminder_body">Diese Sicherung entfernt Passwörter und Schlüssel, enthält aber weiterhin deine Gruppen, Routen und Einstellungen. Teile sie nur mit vertrauenswürdigen Personen.</string>
     <string name="backup_share_reminder_confirm">Trotzdem teilen</string>
     <string name="backup_share_reminder_cancel">Abbrechen</string>
+    <string name="backup_reset_section">Zurücksetzen</string>
+    <string name="backup_reset_warning_title">Das kann nicht rückgängig gemacht werden</string>
+    <string name="backup_reset_warning_body">Beim Zurücksetzen werden alle Profile, Gruppen, Routing-Regeln, Einstellungen und Diagnosedaten gelöscht und die App auf die Ersteinrichtung neu gestartet. Exportiere zuerst eine Sicherung, wenn du diese Daten behalten möchtest.</string>
+    <string name="backup_reset_action">Alle Einstellungen zurücksetzen</string>
+    <string name="backup_reset_dialog_title">Alle Einstellungen zurücksetzen?</string>
+    <string name="backup_reset_dialog_body">Gib %1$s ein, um zu bestätigen. Dadurch werden alle Profile, Gruppen, Routen, Einstellungen und der Diagnoseverlauf gelöscht und die App neu gestartet.</string>
+    <string name="backup_reset_confirm_action">Zurücksetzen und neu starten</string>
+    <string name="backup_reset_cancel_action">Abbrechen</string>
 </resources>

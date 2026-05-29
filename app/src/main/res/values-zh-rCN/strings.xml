@@ -2971,4 +2971,12 @@ fake_burst 3</string>
     <string name="backup_share_reminder_body">此备份已移除密码和密钥，但仍会列出你的分组、路由和设置。请仅与你信任的人分享。</string>
     <string name="backup_share_reminder_confirm">仍要分享</string>
     <string name="backup_share_reminder_cancel">取消</string>
+    <string name="backup_reset_section">重置</string>
+    <string name="backup_reset_warning_title">此操作无法撤销</string>
+    <string name="backup_reset_warning_body">重置将删除所有配置文件、分组、路由规则、设置和诊断记录，然后重启应用并回到初始引导。如果想保留这些数据，请先导出备份。</string>
+    <string name="backup_reset_action">重置所有设置</string>
+    <string name="backup_reset_dialog_title">重置所有设置？</string>
+    <string name="backup_reset_dialog_body">输入 %1$s 以确认。此操作将清除所有配置文件、分组、路由、设置和诊断历史，然后重启应用。</string>
+    <string name="backup_reset_confirm_action">重置并重启</string>
+    <string name="backup_reset_cancel_action">取消</string>
 </resources>

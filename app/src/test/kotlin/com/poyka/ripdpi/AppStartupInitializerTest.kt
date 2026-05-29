@@ -1,6 +1,7 @@
 package com.poyka.ripdpi
 
 import android.app.Application
+import com.poyka.ripdpi.backup.ResetEventRecorder
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.CdnEchPersistedCache
@@ -82,7 +83,8 @@ class AppStartupInitializerTest {
             assertEquals(1, strategyPackService.initializeCalls)
             assertEquals(1, diagnosticsBootstrapper.calls)
             assertEquals(
-                "App startup report: compatibility_reset=succeeded, " +
+                "App startup report: reset_event_consume=succeeded, " +
+                    "compatibility_reset=succeeded, " +
                     "strategy_pack_initialization=succeeded, diagnostics_bootstrap=succeeded, " +
                     "dns_path_invalidator_registration=succeeded, " +
                     "shared_priors_refresh_worker_enqueue=succeeded, " +
@@ -381,6 +383,7 @@ class AppStartupInitializerTest {
             RecordingDnsPathPreferenceInvalidator(application),
         proxyGroupRepository: ProxyGroupRepository = EmptyProxyGroupRepository,
         bootSessionRecorder: RecordingBootSessionRecorder = RecordingBootSessionRecorder(),
+        resetEventRecorder: ResetEventRecorder = NoOpResetEventRecorder,
         scope: CoroutineScope,
     ): AppStartupInitializer =
         AppStartupInitializer(
@@ -393,6 +396,7 @@ class AppStartupInitializerTest {
             cdnEchSeedFromCache = CdnEchSeedFromCache(EmptyCdnEchPersistedCache),
             proxyGroupRepository = proxyGroupRepository,
             bootSessionRecorder = bootSessionRecorder,
+            resetEventRecorder = resetEventRecorder,
             appShortcutsPublisher =
                 AppShortcutsPublisher(
                     context = application,
@@ -403,6 +407,14 @@ class AppStartupInitializerTest {
                 ),
             applicationScope = scope,
         )
+}
+
+private object NoOpResetEventRecorder : ResetEventRecorder {
+    override fun recordResetInitiated() = Unit
+
+    override fun hasPendingResetEvent(): Boolean = false
+
+    override fun consumeResetEvent(): Boolean = false
 }
 
 private object NoOpSelectorSelectionStore : SelectorSelectionStore {

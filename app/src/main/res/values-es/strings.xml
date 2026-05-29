@@ -2970,4 +2970,12 @@ Origen: %2$s</string>
     <string name="backup_share_reminder_body">Esta copia elimina las contraseñas y las claves, pero aún incluye tus grupos, rutas y ajustes. Compártela solo con alguien de confianza.</string>
     <string name="backup_share_reminder_confirm">Compartir de todos modos</string>
     <string name="backup_share_reminder_cancel">Cancelar</string>
+    <string name="backup_reset_section">Restablecer</string>
+    <string name="backup_reset_warning_title">Esto no se puede deshacer</string>
+    <string name="backup_reset_warning_body">Restablecer elimina todos los perfiles, grupos, reglas de enrutamiento, ajustes y registros de diagnóstico, y luego reinicia la aplicación a la configuración inicial. Exporta una copia de seguridad primero si quieres conservar estos datos.</string>
+    <string name="backup_reset_action">Restablecer todos los ajustes</string>
+    <string name="backup_reset_dialog_title">¿Restablecer todos los ajustes?</string>
+    <string name="backup_reset_dialog_body">Escribe %1$s para confirmar. Esto borra todos los perfiles, grupos, rutas, ajustes y el historial de diagnóstico, y luego reinicia la aplicación.</string>
+    <string name="backup_reset_confirm_action">Restablecer y reiniciar</string>
+    <string name="backup_reset_cancel_action">Cancelar</string>
 </resources>

@@ -77,6 +77,7 @@ fun BackupRestoreRoute(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val restoreEffect by viewModel.restoreEffects.collectAsStateWithLifecycle()
+    val resetEffect by viewModel.resetEffects.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Export wiring (launcher + effect + variant sheet) lives in its own composable
@@ -104,6 +105,16 @@ fun BackupRestoreRoute(
         },
     )
 
+    BackupResetEffectHandler(
+        effect = resetEffect,
+        onConsume = viewModel::consumeResetEffect,
+        onRestart = {
+            // Restart so the freshly-wiped stores reinitialize and the app lands on
+            // onboarding (no profiles / groups / settings to resume into).
+            ProcessPhoenix.triggerRebirth(context.applicationContext)
+        },
+    )
+
     BackupRestoreScreen(
         state = uiState,
         snackbarHostState = snackbarHostState,
@@ -112,8 +123,20 @@ fun BackupRestoreRoute(
         onShareRedactedClick = onShareRedactedClick,
         // SAF picker restricted to JSON documents.
         onImportClick = { openDocumentLauncher.launch(arrayOf(BackupMimeType)) },
+        onResetClick = { viewModel.setResetDialogVisible(true) },
         modifier = modifier,
     )
+
+    if (uiState.resetDialogVisible) {
+        BackupResetConfirmationDialog(
+            input = uiState.resetConfirmationInput,
+            confirmEnabled = uiState.resetConfirmationMatches && !uiState.resetting,
+            resetting = uiState.resetting,
+            onInputChange = viewModel::onResetConfirmationInputChange,
+            onConfirm = viewModel::confirmReset,
+            onDismiss = { viewModel.setResetDialogVisible(false) },
+        )
+    }
 
     uiState.importPreview?.let { preview ->
         BackupImportPreviewSheet(
@@ -362,6 +385,87 @@ private fun BackupRestoreEffectHandler(
                 Unit
             }
         }
+    }
+}
+
+@Composable
+private fun BackupResetEffectHandler(
+    effect: com.poyka.ripdpi.backup.BackupResetEffect?,
+    onConsume: () -> Unit,
+    onRestart: () -> Unit,
+) {
+    androidx.compose.runtime.LaunchedEffect(effect) {
+        when (effect) {
+            com.poyka.ripdpi.backup.BackupResetEffect.Wiped -> {
+                onConsume()
+                onRestart()
+            }
+
+            null -> {
+                Unit
+            }
+        }
+    }
+}
+
+/**
+ * The destructive "type RESET to confirm" dialog. The surrounding copy is localized;
+ * the typed token itself ([com.poyka.ripdpi.backup.ResetConfirmationToken]) is fixed
+ * and shown verbatim in the prompt. The confirm action is only supplied once the
+ * input matches, so it stays disabled (absent) until then.
+ */
+@Composable
+private fun BackupResetConfirmationDialog(
+    input: String,
+    confirmEnabled: Boolean,
+    resetting: Boolean,
+    onInputChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    com.poyka.ripdpi.ui.components.feedback.RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.backup_reset_dialog_title),
+        dialogTestTag = RipDpiTestTags.BackupResetDialog,
+        visuals =
+            com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals(
+                message =
+                    stringResource(
+                        R.string.backup_reset_dialog_body,
+                        com.poyka.ripdpi.backup.ResetConfirmationToken,
+                    ),
+                tone = com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone.Destructive,
+            ),
+        confirmAction =
+            if (confirmEnabled) {
+                com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction(
+                    label = stringResource(R.string.backup_reset_confirm_action),
+                    onClick = onConfirm,
+                    testTag = RipDpiTestTags.BackupResetConfirm,
+                )
+            } else {
+                null
+            },
+        dismissAction =
+            com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction(
+                label = stringResource(R.string.backup_reset_cancel_action),
+                onClick = onDismiss,
+            ),
+    ) {
+        com.poyka.ripdpi.ui.components.inputs.RipDpiTextField(
+            value = input,
+            onValueChange = onInputChange,
+            decoration =
+                com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration(
+                    placeholder = com.poyka.ripdpi.backup.ResetConfirmationToken,
+                    testTag = RipDpiTestTags.BackupResetConfirmationField,
+                ),
+            behavior =
+                com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior(
+                    enabled = !resetting,
+                    singleLine = true,
+                ),
+        )
     }
 }
 
@@ -623,6 +727,42 @@ private fun BackupExportCard(
     }
 }
 
+/**
+ * Danger-zone card hosting the destructive "Reset all settings" action. The button
+ * only opens the typed-confirmation dialog; the wipe never runs from a single tap.
+ * Extracted so [BackupRestoreScreen] stays within the composable-length budget.
+ */
+@Composable
+private fun BackupResetCard(
+    state: BackupRestoreUiState,
+    onResetClick: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
+        SettingsCategoryHeader(title = stringResource(R.string.backup_reset_section))
+        RipDpiCard {
+            Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+                WarningBanner(
+                    title = stringResource(R.string.backup_reset_warning_title),
+                    message = stringResource(R.string.backup_reset_warning_body),
+                    tone = WarningBannerTone.Restricted,
+                )
+                RipDpiButton(
+                    text = stringResource(R.string.backup_reset_action),
+                    onClick = onResetClick,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.BackupResetButton),
+                    variant = RipDpiButtonVariant.Destructive,
+                    loading = state.resetting,
+                    enabled = !state.resetting,
+                    leadingIcon = RipDpiIcons.Warning,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 internal fun BackupRestoreScreen(
     state: BackupRestoreUiState,
@@ -631,6 +771,7 @@ internal fun BackupRestoreScreen(
     onExportClick: () -> Unit,
     onShareRedactedClick: () -> Unit,
     onImportClick: () -> Unit,
+    onResetClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -691,6 +832,9 @@ internal fun BackupRestoreScreen(
                         }
                     }
                 }
+            }
+            item(key = "backup_reset_action") {
+                BackupResetCard(state = state, onResetClick = onResetClick)
             }
         }
         Box(
@@ -846,6 +990,7 @@ private fun previewBackupRestoreScreen() {
             onExportClick = {},
             onShareRedactedClick = {},
             onImportClick = {},
+            onResetClick = {},
         )
     }
 }
@@ -861,6 +1006,7 @@ private fun previewBackupRestoreScreenBlocked() {
             onExportClick = {},
             onShareRedactedClick = {},
             onImportClick = {},
+            onResetClick = {},
         )
     }
 }

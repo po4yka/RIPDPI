@@ -3039,4 +3039,12 @@ Source: %2$s</string>
     <string name="backup_share_reminder_body">This backup removes passwords and keys, but still lists your groups, routes, and settings. Only share it with someone you trust.</string>
     <string name="backup_share_reminder_confirm">Share anyway</string>
     <string name="backup_share_reminder_cancel">Cancel</string>
+    <string name="backup_reset_section">Reset</string>
+    <string name="backup_reset_warning_title">This cannot be undone</string>
+    <string name="backup_reset_warning_body">Resetting removes every profile, group, routing rule, setting, and diagnostics record, then restarts the app to onboarding. Export a backup first if you want to keep this data.</string>
+    <string name="backup_reset_action">Reset all settings</string>
+    <string name="backup_reset_dialog_title">Reset all settings?</string>
+    <string name="backup_reset_dialog_body">Type %1$s to confirm. This wipes all profiles, groups, routes, settings, and diagnostics history, then restarts the app.</string>
+    <string name="backup_reset_confirm_action">Reset and restart</string>
+    <string name="backup_reset_cancel_action">Cancel</string>
 </resources>

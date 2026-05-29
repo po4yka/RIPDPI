@@ -2,6 +2,8 @@ package com.poyka.ripdpi
 
 import android.content.Context
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.backup.ResetEventName
+import com.poyka.ripdpi.backup.ResetEventRecorder
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroupRepository
@@ -36,6 +38,7 @@ class AppStartupInitializer
         private val proxyGroupRepository: ProxyGroupRepository,
         private val bootSessionRecorder: BootSessionRecorder,
         private val appShortcutsPublisher: AppShortcutsPublisher,
+        private val resetEventRecorder: ResetEventRecorder,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
@@ -53,6 +56,16 @@ class AppStartupInitializer
         }
 
         internal suspend fun initializeSubsystems(): AppStartupReport {
+            val resetEventConsume =
+                runSubsystem(AppStartupSubsystem.ResetEventConsume) {
+                    // The reset wipe recorded this BEFORE deleting everything; it
+                    // survived the wipe + ProcessPhoenix restart in a dedicated store.
+                    // Consume it exactly once and surface it so diagnostics can tell a
+                    // deliberate reset apart from a crash in this session's logs.
+                    if (resetEventRecorder.consumeResetEvent()) {
+                        Logger.i { "Diagnostics event: $ResetEventName (recovered across restart)" }
+                    }
+                }
             val compatibilityReset =
                 runSubsystem(AppStartupSubsystem.CompatibilityReset) {
                     appCompatibilityResetter.resetIfNeeded()
@@ -90,6 +103,7 @@ class AppStartupInitializer
                     bootSessionRecorder.register()
                 }
             return AppStartupReport(
+                resetEventConsume = resetEventConsume,
                 compatibilityReset = compatibilityReset,
                 strategyPackInitialization = strategyPackInitialization,
                 diagnosticsBootstrap = diagnosticsBootstrap,
@@ -130,6 +144,7 @@ class AppStartupInitializer
     }
 
 internal data class AppStartupReport(
+    val resetEventConsume: AppStartupSubsystemResult,
     val compatibilityReset: AppStartupSubsystemResult,
     val strategyPackInitialization: AppStartupSubsystemResult,
     val diagnosticsBootstrap: AppStartupSubsystemResult,
@@ -143,6 +158,7 @@ internal data class AppStartupReport(
     fun toLogMessage(): String =
         "App startup report: " +
             listOf(
+                resetEventConsume,
                 compatibilityReset,
                 strategyPackInitialization,
                 diagnosticsBootstrap,
@@ -175,6 +191,7 @@ internal data class AppStartupSubsystemResult(
 internal enum class AppStartupSubsystem(
     val logLabel: String,
 ) {
+    ResetEventConsume("reset_event_consume"),
     CompatibilityReset("compatibility_reset"),
     StrategyPackInitialization("strategy_pack_initialization"),
     DiagnosticsBootstrap("diagnostics_bootstrap"),

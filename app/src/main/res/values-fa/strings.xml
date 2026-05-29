@@ -2975,4 +2975,12 @@ fakeddisorder endhost</string>
     <string name="backup_share_reminder_body">این نسخه گذرواژه‌ها و کلیدها را حذف می‌کند، اما همچنان گروه‌ها، مسیرها و تنظیمات شما را فهرست می‌کند. آن را فقط با فردی که به او اعتماد دارید هم‌رسانی کنید.</string>
     <string name="backup_share_reminder_confirm">به هر حال هم‌رسانی شود</string>
     <string name="backup_share_reminder_cancel">لغو</string>
+    <string name="backup_reset_section">بازنشانی</string>
+    <string name="backup_reset_warning_title">این کار قابل بازگشت نیست</string>
+    <string name="backup_reset_warning_body">بازنشانی همهٔ پروفایل‌ها، گروه‌ها، قوانین مسیریابی، تنظیمات و سوابق عیب‌یابی را حذف می‌کند و سپس برنامه را به راه‌اندازی اولیه بازمی‌گرداند. اگر می‌خواهید این داده‌ها را نگه دارید، ابتدا یک نسخهٔ پشتیبان بگیرید.</string>
+    <string name="backup_reset_action">بازنشانی همهٔ تنظیمات</string>
+    <string name="backup_reset_dialog_title">همهٔ تنظیمات بازنشانی شود؟</string>
+    <string name="backup_reset_dialog_body">برای تأیید %1$s را تایپ کنید. این کار همهٔ پروفایل‌ها، گروه‌ها، مسیرها، تنظیمات و تاریخچهٔ عیب‌یابی را پاک می‌کند و سپس برنامه را دوباره راه‌اندازی می‌کند.</string>
+    <string name="backup_reset_confirm_action">بازنشانی و راه‌اندازی مجدد</string>
+    <string name="backup_reset_cancel_action">لغو</string>
 </resources>

@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-05-14
 ---
 
-- [ ] #task Add reset-all-settings action with confirmation and restart #repo/RIPDPI #area/data #status/backlog 🔽
+- [x] #task Add reset-all-settings action with confirmation and restart #repo/RIPDPI #area/data #status/done 🔽
 
 ## Summary
 
@@ -24,12 +24,12 @@ Complements export/import: gives a clean slate for testing. This is a destructiv
 
 ## Acceptance criteria
 
-- [ ] Action surfaces behind a "type RESET to confirm" dialog (localized).
-- [ ] On confirm, wipes: ProxyEntity/ProxyGroup/Subscription, RuleEntity, AppSettings proto, DiagnosticsDatabase tables that hold user history, cache directories.
-- [ ] Keeps: app install state, keystore entries needed for the next session bootstrap, permission grants.
-- [ ] Emits a one-shot telemetry event "user_initiated_reset" before wipe; the event is preserved across restart.
-- [ ] `ProcessPhoenix`-equivalent restart brings the app to onboarding.
-- [ ] Destructive action can be cancelled up to the confirm step without side effects.
+- [x] Action surfaces behind a "type RESET to confirm" dialog (localized).
+- [x] On confirm, wipes: ProxyEntity/ProxyGroup/Subscription, RuleEntity, AppSettings proto, DiagnosticsDatabase tables that hold user history, cache directories.
+- [x] Keeps: app install state, keystore entries needed for the next session bootstrap, permission grants.
+- [x] Emits a one-shot telemetry event "user_initiated_reset" before wipe; the event is preserved across restart.
+- [x] `ProcessPhoenix`-equivalent restart brings the app to onboarding.
+- [x] Destructive action can be cancelled up to the confirm step without side effects.
 
 ## Source references
 

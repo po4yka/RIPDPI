@@ -83,6 +83,24 @@ sealed interface BackupRestoreEffect {
 }
 
 /**
+ * One-shot effect surfaced after a confirmed "reset all settings" wipe completes.
+ */
+sealed interface BackupResetEffect {
+    /**
+     * The wipe committed. The screen restarts the process (ProcessPhoenix) so the
+     * app comes back up clean, at onboarding.
+     */
+    data object Wiped : BackupResetEffect
+}
+
+/**
+ * The stable, non-localized token the user must type to confirm a destructive reset.
+ * It is deliberately NOT translated: a fixed token is unambiguous across locales and
+ * keeps the typed-confirmation gate testable.
+ */
+const val ResetConfirmationToken: String = "RESET"
+
+/**
  * Live preview of a chosen backup file, shown BEFORE any write. Carries the parsed
  * JSON so the subsequent restore re-uses the exact bytes the user previewed.
  */
@@ -102,7 +120,20 @@ data class BackupRestoreUiState(
     val sharing: Boolean = false,
     /** Non-null while the import-preview sheet is visible. */
     val importPreview: BackupImportPreview? = null,
-)
+    /** True while the typed-confirmation reset dialog is visible. */
+    val resetDialogVisible: Boolean = false,
+    /** The text the user has typed into the reset-confirmation field so far. */
+    val resetConfirmationInput: String = "",
+    /** True while the wipe is in flight (dialog buttons disabled). */
+    val resetting: Boolean = false,
+) {
+    /**
+     * `true` once the user has typed the exact, case-sensitive confirmation token.
+     * The reset confirm action stays disabled until this flips to `true`.
+     */
+    val resetConfirmationMatches: Boolean
+        get() = resetConfirmationInput == ResetConfirmationToken
+}
 
 @HiltViewModel
 class BackupRestoreViewModel
@@ -112,6 +143,7 @@ class BackupRestoreViewModel
         private val restoreUseCase: BackupRestoreUseCase,
         private val exportPolicy: BackupExportPolicy,
         private val shareReminderPreferences: BackupShareReminderPreferences,
+        private val resetAllSettingsUseCase: ResetAllSettingsUseCase,
         @param:Named("appVersionName") private val appVersion: String,
     ) : ViewModel() {
         private val _uiState =
@@ -128,6 +160,9 @@ class BackupRestoreViewModel
 
         private val _shareEffects = MutableStateFlow<BackupShareEffect?>(null)
         val shareEffects: StateFlow<BackupShareEffect?> = _shareEffects.asStateFlow()
+
+        private val _resetEffects = MutableStateFlow<BackupResetEffect?>(null)
+        val resetEffects: StateFlow<BackupResetEffect?> = _resetEffects.asStateFlow()
 
         /** Re-evaluates the MDM suppression knob (called on screen resume). */
         fun refreshPolicy() {
@@ -362,5 +397,46 @@ class BackupRestoreViewModel
         /** Clears the last one-shot restore effect after the screen has consumed it. */
         fun consumeRestoreEffect() {
             _restoreEffects.value = null
+        }
+
+        // -- Reset all settings ---------------------------------------------------
+
+        /**
+         * Shows or hides the typed-confirmation reset dialog, always resetting the
+         * typed input. Hiding it has NO side effect on any store: cancellation up to
+         * the confirm step is completely free of consequences. Ignored mid-wipe.
+         */
+        fun setResetDialogVisible(visible: Boolean) {
+            if (_uiState.value.resetting) return
+            _uiState.update { it.copy(resetDialogVisible = visible, resetConfirmationInput = "") }
+        }
+
+        /** Updates the typed confirmation token as the user types. */
+        fun onResetConfirmationInputChange(input: String) {
+            _uiState.update { it.copy(resetConfirmationInput = input) }
+        }
+
+        /**
+         * Performs the wipe — but ONLY if the typed token matches exactly. Records
+         * the one-shot reset telemetry event first (inside the use case), then wipes
+         * every user store and emits [BackupResetEffect.Wiped] so the screen restarts
+         * the process. A mismatched token is a no-op.
+         */
+        fun confirmReset() {
+            val state = _uiState.value
+            if (state.resetting || !state.resetConfirmationMatches) return
+            _uiState.update { it.copy(resetting = true) }
+            viewModelScope.launch {
+                withContext(Dispatchers.Default) { resetAllSettingsUseCase.reset() }
+                _uiState.update {
+                    it.copy(resetting = false, resetDialogVisible = false, resetConfirmationInput = "")
+                }
+                _resetEffects.value = BackupResetEffect.Wiped
+            }
+        }
+
+        /** Clears the last one-shot reset effect after the screen has consumed it. */
+        fun consumeResetEffect() {
+            _resetEffects.value = null
         }
     }

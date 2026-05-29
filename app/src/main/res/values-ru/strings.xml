@@ -3089,4 +3089,12 @@ fakeddisorder endhost</string>
     <string name="backup_share_reminder_body">В этой копии удалены пароли и ключи, но остаются ваши группы, маршруты и настройки. Делитесь ею только с теми, кому доверяете.</string>
     <string name="backup_share_reminder_confirm">Всё равно поделиться</string>
     <string name="backup_share_reminder_cancel">Отмена</string>
+    <string name="backup_reset_section">Сброс</string>
+    <string name="backup_reset_warning_title">Это нельзя отменить</string>
+    <string name="backup_reset_warning_body">Сброс удалит все профили, группы, правила маршрутизации, настройки и записи диагностики, после чего перезапустит приложение к начальной настройке. Сначала экспортируйте резервную копию, если хотите сохранить эти данные.</string>
+    <string name="backup_reset_action">Сбросить все настройки</string>
+    <string name="backup_reset_dialog_title">Сбросить все настройки?</string>
+    <string name="backup_reset_dialog_body">Введите %1$s для подтверждения. Это удалит все профили, группы, маршруты, настройки и историю диагностики, после чего перезапустит приложение.</string>
+    <string name="backup_reset_confirm_action">Сбросить и перезапустить</string>
+    <string name="backup_reset_cancel_action">Отмена</string>
 </resources>

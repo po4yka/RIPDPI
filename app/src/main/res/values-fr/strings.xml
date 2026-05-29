@@ -2970,4 +2970,12 @@ Source : %2$s</string>
     <string name="backup_share_reminder_body">Cette sauvegarde supprime les mots de passe et les clés, mais répertorie toujours vos groupes, routes et réglages. Ne la partagez qu’avec une personne de confiance.</string>
     <string name="backup_share_reminder_confirm">Partager quand même</string>
     <string name="backup_share_reminder_cancel">Annuler</string>
+    <string name="backup_reset_section">Réinitialiser</string>
+    <string name="backup_reset_warning_title">Cette action est irréversible</string>
+    <string name="backup_reset_warning_body">La réinitialisation supprime tous les profils, groupes, règles de routage, paramètres et enregistrements de diagnostic, puis redémarre l\'application vers la configuration initiale. Exportez d\'abord une sauvegarde si vous souhaitez conserver ces données.</string>
+    <string name="backup_reset_action">Réinitialiser tous les paramètres</string>
+    <string name="backup_reset_dialog_title">Réinitialiser tous les paramètres ?</string>
+    <string name="backup_reset_dialog_body">Saisissez %1$s pour confirmer. Cela efface tous les profils, groupes, routes, paramètres et l\'historique de diagnostic, puis redémarre l\'application.</string>
+    <string name="backup_reset_confirm_action">Réinitialiser et redémarrer</string>
+    <string name="backup_reset_cancel_action">Annuler</string>
 </resources>
