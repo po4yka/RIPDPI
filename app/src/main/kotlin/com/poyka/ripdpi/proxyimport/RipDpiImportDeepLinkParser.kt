@@ -89,16 +89,23 @@ object RipDpiImportDeepLinkParser {
                 if (!rawSub.startsWith("https://")) return RipDpiImportDeepLinkResult.Error.NonHttps
                 RipDpiImportDeepLinkResult.Success(rawSub, RipDpiImportDeepLinkResult.Success.Kind.Subscription)
             }
+
             rawUrl != null -> {
                 if (!rawUrl.startsWith("https://")) return RipDpiImportDeepLinkResult.Error.NonHttps
                 RipDpiImportDeepLinkResult.Success(rawUrl, RipDpiImportDeepLinkResult.Success.Kind.OneShot)
             }
-            else -> RipDpiImportDeepLinkResult.Error.MissingTarget
+
+            else -> {
+                RipDpiImportDeepLinkResult.Error.MissingTarget
+            }
         }
     }
 
     private sealed interface QueryParseResult {
-        data class Params(val values: Map<String, String>) : QueryParseResult
+        data class Params(
+            val values: Map<String, String>,
+        ) : QueryParseResult
+
         data object Failure : QueryParseResult
     }
 

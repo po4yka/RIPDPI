@@ -73,9 +73,10 @@ class ClashSubscriptionParserTest {
         assertTrue(vmess is ProxyProfile.Vless)
         assertEquals("11111111-1111-1111-1111-111111111111", (vmess as ProxyProfile.Vless).uuid)
 
+        // reality-opts on the node routes it to the REALITY variant.
         val vless = result.profiles[2]
-        assertTrue(vless is ProxyProfile.Vless)
-        assertEquals("22222222-2222-2222-2222-222222222222", (vless as ProxyProfile.Vless).uuid)
+        assertTrue(vless is ProxyProfile.VlessReality)
+        assertEquals("22222222-2222-2222-2222-222222222222", (vless as ProxyProfile.VlessReality).uuid)
 
         val trojan = result.profiles[3]
         assertTrue(trojan is ProxyProfile.Trojan)

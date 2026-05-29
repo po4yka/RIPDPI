@@ -1,6 +1,6 @@
 [
   {
-    "type": "vless",
+    "type": "vless-reality",
     "name": "p0-reality-upcloud-prod",
     "server": "203.0.113.10",
     "port": "443"

@@ -138,6 +138,27 @@ object BackupAllowlist {
                 "server" to Classification.PUBLIC,
                 "serverPort" to Classification.PUBLIC,
                 "password" to Classification.REDACTED,
+                "obfsPassword" to Classification.REDACTED,
+                "insecure" to Classification.PUBLIC,
+                "portHopPorts" to Classification.PUBLIC,
+                "portHopInterval" to Classification.PUBLIC,
+            )
+
+    private val vlessRealityFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                "uuid" to Classification.REDACTED,
+                // REALITY material is shareable -- it appears verbatim in a
+                // `vless://...?security=reality` link. Only the uuid is a credential.
+                "realityPublicKey" to Classification.PUBLIC,
+                "realityShortId" to Classification.PUBLIC,
+                "serverName" to Classification.PUBLIC,
+                "flow" to Classification.PUBLIC,
+                "fingerprint" to Classification.PUBLIC,
+                "xhttpPath" to Classification.PUBLIC,
+                "xhttpHost" to Classification.PUBLIC,
             )
 
     private val anyTlsFields: Map<String, Classification> =
@@ -166,6 +187,7 @@ object BackupAllowlist {
     private val registry: Map<String, Map<String, Classification>> =
         mapOf(
             "vless" to vlessFields,
+            "vless-reality" to vlessRealityFields,
             "shadowsocks" to shadowsocksFields,
             "trojan" to trojanFields,
             "hysteria2" to hysteria2Fields,

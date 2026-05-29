@@ -34,6 +34,18 @@ class BackupAllowlistCoverageTest {
                     serverPort = 443,
                     uuid = "uuid-fixture",
                 ),
+            "vless-reality" to
+                ProxyProfile.VlessReality(
+                    id = "vr-1",
+                    displayName = "VLESS REALITY",
+                    groupId = "g-1",
+                    server = "reality.example.com",
+                    serverPort = 443,
+                    uuid = "uuid-fixture",
+                    realityPublicKey = "pk-fixture",
+                    realityShortId = "sid-fixture",
+                    serverName = "front.example.com",
+                ),
             "shadowsocks" to
                 ProxyProfile.Shadowsocks(
                     id = "ss-1",

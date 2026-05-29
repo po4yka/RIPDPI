@@ -288,12 +288,22 @@ object FleetCompatHarness {
     private fun ProxyProfile.toNodeTupleOrNull(): String? =
         when (this) {
             is ProxyProfile.Vless -> "vless|$server|$serverPort"
-            is ProxyProfile.VlessReality -> "vless-reality|$server|$serverPort"
+
+            // Round-trips against the sing-box bundle, whose wire type for a REALITY
+            // outbound is `vless` (reality lives in tls.reality, not a distinct type).
+            // The internal VlessReality split is asserted via toStableShape instead.
+            is ProxyProfile.VlessReality -> "vless|$server|$serverPort"
+
             is ProxyProfile.Shadowsocks -> "shadowsocks|$server|$serverPort"
+
             is ProxyProfile.Trojan -> "trojan|$server|$serverPort"
+
             is ProxyProfile.Hysteria2 -> "hysteria2|$server|$serverPort"
+
             is ProxyProfile.AnyTls -> "anytls|$server|$serverPort"
+
             is ProxyProfile.TrojanGo -> "trojan-go|$server|$serverPort"
+
             is ProxyProfile.RawConfig -> null
         }
 
