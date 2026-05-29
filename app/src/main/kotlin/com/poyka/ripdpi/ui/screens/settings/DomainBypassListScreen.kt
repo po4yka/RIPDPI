@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,10 +17,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -58,7 +58,7 @@ fun DomainBypassListRoute(
     viewModel: DomainBypassListViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val clipboardManager = remember(context) { context.getSystemService(ClipboardManager::class.java) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var text by rememberSaveable { mutableStateOf(uiState.initialText) }
@@ -94,7 +94,13 @@ fun DomainBypassListRoute(
             }
         },
         onPasteFromClipboard = {
-            val pasted = clipboard.getText()?.text
+            val pasted =
+                clipboardManager
+                    ?.primaryClip
+                    ?.takeIf { it.itemCount > 0 }
+                    ?.getItemAt(0)
+                    ?.coerceToText(context)
+                    ?.toString()
             if (pasted.isNullOrBlank()) {
                 Toast.makeText(context, R.string.domain_bypass_clipboard_empty, Toast.LENGTH_SHORT).show()
             } else {
@@ -102,7 +108,7 @@ fun DomainBypassListRoute(
             }
         },
         onCopyToClipboard = {
-            clipboard.setText(AnnotatedString(text))
+            clipboardManager?.setPrimaryClip(ClipData.newPlainText("RIPDPI domains", text))
             Toast.makeText(context, R.string.domain_bypass_copied, Toast.LENGTH_SHORT).show()
         },
         onMoveToRuleEditor = {
