@@ -392,4 +392,7 @@ message AppSettings {
   // full_tunnel_mode (206) takes precedence: when on, these are ignored entirely.
   string split_tunnel_mode = 302; // "off" | "include" | "exclude"
   repeated string split_tunnel_packages = 303; // user-selected packages for the active mode
+
+  // Start-on-boot: drives the BootReceiver enabled state. proto3 bool defaults to false.
+  bool start_on_boot = 304;
 }

@@ -1,20 +1,29 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DnsUiState
+import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
+import com.poyka.ripdpi.platform.StartOnBootController
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -44,8 +53,23 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val startOnBootController =
+        remember(context) { StartOnBootController(context.applicationContext) }
+    var batteryOptimizationIgnored by remember {
+        mutableStateOf(startOnBootController.isBatteryOptimizationIgnored())
+    }
+    LaunchedEffect(viewModel, startOnBootController) {
+        viewModel.effects.collect { effect ->
+            if (effect is SettingsEffect.RequestDisableBatteryOptimization) {
+                launchBatteryOptimizationExemption(context, startOnBootController)
+                batteryOptimizationIgnored = startOnBootController.isBatteryOptimizationIgnored()
+            }
+        }
+    }
     SettingsScreen(
         uiState = uiState.value,
+        batteryOptimizationIgnored = batteryOptimizationIgnored,
         actions =
             SettingsScreenActions(
                 onOpenDnsSettings = onOpenDnsSettings,
@@ -65,6 +89,7 @@ fun SettingsRoute(
                 onWebRtcProtectionChanged = remember(viewModel) { viewModel::setWebRtcProtectionEnabled },
                 onExcludeRussianAppsChanged = remember(viewModel) { viewModel::setExcludeRussianAppsEnabled },
                 onFullTunnelModeChanged = remember(viewModel) { viewModel::setFullTunnelMode },
+                onStartOnBootChanged = remember(viewModel) { viewModel::setStartOnBootEnabled },
                 onBiometricChanged = remember(viewModel) { viewModel::setBiometricEnabled },
                 onSaveBackupPin = remember(viewModel) { viewModel::setBackupPin },
                 onResetSettings = remember(viewModel) { viewModel::resetSettings },
@@ -82,6 +107,7 @@ internal fun SettingsScreen(
     actions: SettingsScreenActions,
     permissionSummary: PermissionSummaryUiState,
     modifier: Modifier = Modifier,
+    batteryOptimizationIgnored: Boolean = true,
 ) {
     val colors = RipDpiThemeTokens.colors
     val localState = rememberSettingsScreenLocalState(uiState)
@@ -96,7 +122,14 @@ internal fun SettingsScreen(
         title = stringResource(R.string.settings),
     ) {
         item { SettingsConnectivitySection(uiState = uiState, actions = actions) }
-        item { SettingsSecuritySection(uiState = uiState, localState = localState, actions = actions) }
+        item {
+            SettingsSecuritySection(
+                uiState = uiState,
+                localState = localState,
+                actions = actions,
+                batteryOptimizationIgnored = batteryOptimizationIgnored,
+            )
+        }
         item { SettingsAppearanceSection(uiState = uiState, actions = actions) }
         item { SettingsPermissionsSection(permissionSummary = permissionSummary, actions = actions) }
         item {
@@ -133,12 +166,28 @@ internal data class SettingsScreenActions(
     val onWebRtcProtectionChanged: (Boolean) -> Unit,
     val onExcludeRussianAppsChanged: (Boolean) -> Unit,
     val onFullTunnelModeChanged: (Boolean) -> Unit,
+    val onStartOnBootChanged: (Boolean) -> Unit,
     val onBiometricChanged: (Boolean) -> Unit,
     val onSaveBackupPin: (String) -> Unit,
     val onResetSettings: () -> Unit = {},
     val onCommunityApiUrlChanged: (String) -> Unit = {},
     val onClearCommunityCache: () -> Unit = {},
 )
+
+private fun launchBatteryOptimizationExemption(
+    context: Context,
+    controller: StartOnBootController,
+) {
+    val launched =
+        controller.batteryOptimizationIntents().any { intent ->
+            runCatching { context.startActivity(intent) }.isSuccess
+        }
+    if (!launched) {
+        Logger.withTag("StartOnBoot").w {
+            "no battery-optimization exemption activity resolved; relying on warning banner"
+        }
+    }
+}
 
 private fun previewActions(): SettingsScreenActions =
     SettingsScreenActions(
@@ -155,6 +204,7 @@ private fun previewActions(): SettingsScreenActions =
         onWebRtcProtectionChanged = {},
         onExcludeRussianAppsChanged = {},
         onFullTunnelModeChanged = {},
+        onStartOnBootChanged = {},
         onBiometricChanged = {},
         onSaveBackupPin = {},
     )

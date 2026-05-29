@@ -838,6 +838,9 @@ fakeddisorder endhost</string>
     <string name="settings_tethering_dns_warning_body">当热点共享处于活动状态时,Android 会运行一个绕过 VPN 的本地 DNS 服务器。应用可能利用此机制在隧道之外发送跟踪信标</string>
     <string name="settings_vpn_flag_warning_body">所有 Android 配置文件(包括工作资料和 Knox)中的应用都能检测到 VPN 正在使用中。要实现完全隔离,请为俄罗斯应用使用单独的设备</string>
     <string name="settings_webrtc_body">减少可能绕过本地隧道的对等发现泄漏。</string>
+    <string name="settings_start_on_boot_title">开机自启</string>
+    <string name="settings_start_on_boot_body">设备重启后自动重新连接上次使用的模式。</string>
+    <string name="settings_start_on_boot_battery_warning">电池优化仍处于开启状态。在你将 RIPDPI 从电池优化中排除之前，Android 可能会阻止它开机自启。</string>
     <string name="shortcut_diagnostics">运行诊断</string>
     <string name="sni_of_fake_packet">假数据包的 SNI</string>
     <plurals name="stage_passed_count">

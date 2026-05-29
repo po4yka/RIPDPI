@@ -225,6 +225,7 @@ private fun settingsPreviewActions(): SettingsScreenActions =
         onWebRtcProtectionChanged = {},
         onExcludeRussianAppsChanged = {},
         onFullTunnelModeChanged = {},
+        onStartOnBootChanged = {},
         onBiometricChanged = {},
         onSaveBackupPin = {},
     )

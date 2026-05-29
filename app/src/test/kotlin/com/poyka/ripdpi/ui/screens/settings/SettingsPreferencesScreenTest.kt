@@ -164,6 +164,7 @@ class SettingsPreferencesScreenTest {
             onWebRtcProtectionChanged = {},
             onExcludeRussianAppsChanged = {},
             onFullTunnelModeChanged = {},
+            onStartOnBootChanged = {},
             onBiometricChanged = {},
             onSaveBackupPin = {},
         )

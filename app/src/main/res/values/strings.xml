@@ -1800,6 +1800,9 @@ Source: %2$s</string>
     <string name="settings_security_section">Privacy &amp; security</string>
     <string name="settings_webrtc_title">WebRTC protection</string>
     <string name="settings_webrtc_body">Reduce peer-discovery leaks that can bypass the local tunnel.</string>
+    <string name="settings_start_on_boot_title">Start on boot</string>
+    <string name="settings_start_on_boot_body">Reconnect the last active mode automatically after the device restarts.</string>
+    <string name="settings_start_on_boot_battery_warning">Battery optimization is still active. Android may stop RIPDPI from starting on boot until you exempt it from battery optimization.</string>
     <string name="settings_exclude_russian_apps_title">Exclude Russian apps</string>
     <string name="settings_exclude_russian_apps_body">Banking, delivery, and government apps bypass the VPN to avoid detection issues</string>
     <string name="settings_full_tunnel_title">Full tunnel mode</string>

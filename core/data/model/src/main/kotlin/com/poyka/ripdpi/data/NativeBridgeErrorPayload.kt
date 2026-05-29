@@ -70,6 +70,7 @@ data class NativeBridgeErrorPayload(
          * Unknown future keys in the JSON do not cause failure — they
          * are silently ignored.
          */
+        @Suppress("ReturnCount") // guard clauses: each malformed-input case short-circuits before decode
         fun parse(source: String?): NativeBridgeErrorPayload? {
             if (source.isNullOrEmpty()) return null
             val sentinelIndex = source.indexOf(SENTINEL)

@@ -115,6 +115,7 @@ internal fun SettingsSecuritySection(
     uiState: SettingsUiState,
     localState: SettingsScreenLocalState,
     actions: SettingsScreenActions,
+    batteryOptimizationIgnored: Boolean = true,
 ) {
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
@@ -132,6 +133,17 @@ internal fun SettingsSecuritySection(
                 message = stringResource(R.string.settings_warning_backup_pin_body),
                 tone = WarningBannerTone.Restricted,
                 testTag = RipDpiTestTags.SettingsBackupPinWarning,
+            )
+        }
+        AnimatedVisibility(
+            visible = uiState.startOnBootEnabled && !batteryOptimizationIgnored,
+            enter = motion.sectionEnterTransition(),
+            exit = motion.sectionExitTransition(),
+        ) {
+            WarningBanner(
+                title = stringResource(R.string.settings_start_on_boot_title),
+                message = stringResource(R.string.settings_start_on_boot_battery_warning),
+                tone = WarningBannerTone.Warning,
             )
         }
         RipDpiCard {
@@ -174,6 +186,14 @@ private fun SecurityToggleRows(
         onCheckedChange = actions.onWebRtcProtectionChanged,
         showDivider = true,
         testTag = RipDpiTestTags.SettingsWebRtcProtection,
+    )
+    SettingsRow(
+        title = stringResource(R.string.settings_start_on_boot_title),
+        subtitle = stringResource(R.string.settings_start_on_boot_body),
+        checked = uiState.startOnBootEnabled,
+        onCheckedChange = actions.onStartOnBootChanged,
+        showDivider = true,
+        testTag = RipDpiTestTags.SettingsStartOnBoot,
     )
     FullTunnelExclusionsRows(uiState, actions)
     SettingsRow(

@@ -65,6 +65,7 @@ internal fun AppSettings.toUiState(
         excludeRussianAppsEnabled =
             effectiveAppRoutingEnabledPresetIds().contains(DefaultAppRoutingRussianPresetId),
         fullTunnelMode = fullTunnelMode,
+        startOnBootEnabled = startOnBoot,
         biometricEnabled = biometricEnabled,
         biometricAvailability = biometricAvailability,
         backupPinHash = backupPin,

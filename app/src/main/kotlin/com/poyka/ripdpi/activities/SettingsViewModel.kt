@@ -57,6 +57,7 @@ class SettingsViewModel
             SettingsCustomizationActions(
                 mutations = mutations,
                 launcherIconController = settingsActionDependencies.launcherIconController,
+                startOnBootController = settingsActionDependencies.startOnBootController,
                 currentUiState = { uiState.value },
                 pinVerifier = settingsActionDependencies.pinVerifier,
                 pinLockoutManager = settingsActionDependencies.pinLockoutManager,
@@ -159,6 +160,8 @@ class SettingsViewModel
         fun setExcludeRussianAppsEnabled(enabled: Boolean) = customizationActions.setExcludeRussianAppsEnabled(enabled)
 
         fun setFullTunnelMode(enabled: Boolean) = customizationActions.setFullTunnelMode(enabled)
+
+        fun setStartOnBootEnabled(enabled: Boolean) = customizationActions.setStartOnBootEnabled(enabled)
 
         fun setCommunityApiUrl(url: String) = customizationActions.setCommunityApiUrl(url)
 

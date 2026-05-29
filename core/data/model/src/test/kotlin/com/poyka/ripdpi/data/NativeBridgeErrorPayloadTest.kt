@@ -89,7 +89,9 @@ class NativeBridgeErrorPayloadTest {
                 appendLine("listener bind failed")
                 appendLine(NativeBridgeErrorPayload.SENTINEL)
                 append(
-                    """{"schemaVersion":1,"domain":"proxy","code":"start_listener_open_failed","message":"x","retryable":true}""",
+                    """{"schemaVersion":1,"domain":"proxy",""" +
+                        """"code":"start_listener_open_failed",""" +
+                        """"message":"x","retryable":true}""",
                 )
             }
         val payload = NativeBridgeErrorPayload.parse(source)

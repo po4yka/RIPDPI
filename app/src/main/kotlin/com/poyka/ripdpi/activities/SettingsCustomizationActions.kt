@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.DefaultAppRoutingRussianPresetId
 import com.poyka.ripdpi.platform.LauncherIconController
+import com.poyka.ripdpi.platform.StartOnBootController
 import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.security.PinVerifyResult
@@ -12,6 +13,7 @@ private const val BackupPinLength = 4
 internal class SettingsCustomizationActions(
     private val mutations: SettingsMutationRunner,
     private val launcherIconController: LauncherIconController,
+    private val startOnBootController: StartOnBootController,
     private val currentUiState: () -> SettingsUiState,
     private val pinVerifier: PinVerifier,
     private val pinLockoutManager: PinLockoutManager,
@@ -22,6 +24,21 @@ internal class SettingsCustomizationActions(
             value = enabled.toString(),
         ) {
             setWebrtcProtectionEnabled(enabled)
+        }
+    }
+
+    fun setStartOnBootEnabled(enabled: Boolean) {
+        mutations.updateSetting(
+            key = "startOnBoot",
+            value = enabled.toString(),
+        ) {
+            setStartOnBoot(enabled)
+        }
+        startOnBootController.setReceiverEnabled(enabled)
+        if (enabled && !startOnBootController.isBatteryOptimizationIgnored()) {
+            mutations.launch {
+                emit(SettingsEffect.RequestDisableBatteryOptimization)
+            }
         }
     }
 

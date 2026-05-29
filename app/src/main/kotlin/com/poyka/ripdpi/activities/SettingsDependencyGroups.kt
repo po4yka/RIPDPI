@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
 import com.poyka.ripdpi.platform.LauncherIconController
+import com.poyka.ripdpi.platform.StartOnBootController
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
@@ -40,6 +41,7 @@ class SettingsActionDependencies
         val hostPackCatalogUiStateStore: HostPackCatalogUiStateStore,
         val strategyPackStateStore: StrategyPackStateStore,
         val launcherIconController: LauncherIconController,
+        val startOnBootController: StartOnBootController,
         val stringResolver: StringResolver,
         val hostAutolearnStoreController: HostAutolearnStoreController,
         val telemetrySaltStore: TelemetryInstallSaltStore,

@@ -158,6 +158,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setAntiCorrelationEnabled(false)
             .setDhtMitigationMode(DhtMitigationModeOff)
             .setFullTunnelMode(false)
+            .setStartOnBoot(false)
             .build()
 
     override suspend fun readFrom(input: InputStream): AppSettings {

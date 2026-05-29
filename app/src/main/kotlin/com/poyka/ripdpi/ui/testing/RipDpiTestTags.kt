@@ -81,6 +81,7 @@ internal object RipDpiTestTags {
     const val SettingsDnsSettings = "settings-dns-settings"
     const val SettingsAdvancedSettings = "settings-advanced-settings"
     const val SettingsWebRtcProtection = "settings-webrtc-protection"
+    const val SettingsStartOnBoot = "settings-start-on-boot"
     const val SettingsBiometric = "settings-biometric"
     const val SettingsBiometricConfirmDialog = "settings-biometric-confirm-dialog"
     const val SettingsBiometricConfirmEnable = "settings-biometric-confirm-enable"

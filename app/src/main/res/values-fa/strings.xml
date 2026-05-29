@@ -1550,6 +1550,9 @@ fakeddisorder endhost</string>
     <string name="settings_theme_body">انتخاب کنید آیا برنامه از تم سیستم پیروی کند یا ثابت بماند.</string>
     <string name="settings_vpn_flag_warning_title">پرچم VPN قابل‌مشاهده است</string>
     <string name="settings_webrtc_body">نشت‌های کشف peer که می‌توانند تونل محلی را دور بزنند کاهش دهید.</string>
+    <string name="settings_start_on_boot_title">اجرا هنگام روشن شدن</string>
+    <string name="settings_start_on_boot_body">پس از راه‌اندازی مجدد دستگاه، آخرین حالت فعال را به‌طور خودکار دوباره وصل می‌کند.</string>
+    <string name="settings_start_on_boot_battery_warning">بهینه‌سازی باتری هنوز فعال است. تا زمانی که RIPDPI را از بهینه‌سازی باتری مستثنا نکنید، ممکن است اندروید اجازه ندهد هنگام روشن شدن اجرا شود.</string>
     <string name="shortcut_diagnostics_short">تشخیص</string>
     <string name="shortcut_quick_connect_short">اتصال</string>
     <string name="source_code_link">کد منبع</string>
