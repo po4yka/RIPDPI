@@ -91,6 +91,14 @@ internal fun SettingsConnectivitySection(
             testTag = RipDpiTestTags.SettingsRoutingRules,
         )
         SettingsRow(
+            title = stringResource(R.string.title_split_tunnel),
+            subtitle = stringResource(R.string.settings_split_tunnel_body),
+            value = stringResource(R.string.settings_manage_action),
+            onClick = actions.onOpenSplitTunnel,
+            showDivider = true,
+            testTag = RipDpiTestTags.SettingsSplitTunnel,
+        )
+        SettingsRow(
             title = stringResource(R.string.settings_language_title),
             subtitle = stringResource(R.string.settings_language_body),
             value = stringResource(R.string.settings_manage_action),

@@ -10,6 +10,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!--
+      Per-app VPN split tunneling is a Play-sanctioned use of QUERY_ALL_PACKAGES: the user must be
+      able to choose which installed apps are routed through (or bypass) the tunnel, which requires
+      enumerating the full installed-app list for the picker. No package data leaves the device.
+    -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
     <uses-feature android:name="android.software.leanback"
         android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen"

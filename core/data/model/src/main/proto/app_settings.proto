@@ -387,4 +387,9 @@ message AppSettings {
   string geo_asset_geoip_version_tag = 299; // Stored release tag of the on-disk geoip.db (empty = never downloaded)
   string geo_asset_geosite_version_tag = 300; // Stored release tag of the on-disk geosite.db (empty = never downloaded)
   int64 geo_asset_last_updated_epoch_millis = 301; // System.currentTimeMillis() of the last successful download or import; 0 = never
+
+  // Per-app split tunneling (friendly surface over VpnService app exclusion).
+  // full_tunnel_mode (206) takes precedence: when on, these are ignored entirely.
+  string split_tunnel_mode = 302; // "off" | "include" | "exclude"
+  repeated string split_tunnel_packages = 303; // user-selected packages for the active mode
 }

@@ -146,15 +146,28 @@ class RipDpiVpnService :
             builder.setMetered(false)
         }
 
-        if (vpnAppExclusionPolicy.shouldExcludeOwnPackage()) {
-            builder.addDisallowedApplication(applicationContext.packageName)
-        }
+        // Android forbids mixing addAllowedApplication and addDisallowedApplication on the same
+        // Builder, so the policy returns exactly one shape. The plan is derived from the settings
+        // store (NOT the routing_rules Room table), so it never reorders the user's routing rules.
+        when (val plan = vpnAppExclusionPolicy.appRoutingPlan(applicationContext.packageName)) {
+            is VpnAppRoutingPlan.Disallow -> {
+                plan.packages.forEach { pkg ->
+                    try {
+                        builder.addDisallowedApplication(pkg)
+                    } catch (_: PackageManager.NameNotFoundException) {
+                        // App not installed, skip silently
+                    }
+                }
+            }
 
-        for (pkg in vpnAppExclusionPolicy.russianAppsToExclude()) {
-            try {
-                builder.addDisallowedApplication(pkg)
-            } catch (_: PackageManager.NameNotFoundException) {
-                // App not installed, skip silently
+            is VpnAppRoutingPlan.AllowOnly -> {
+                plan.packages.forEach { pkg ->
+                    try {
+                        builder.addAllowedApplication(pkg)
+                    } catch (_: PackageManager.NameNotFoundException) {
+                        // App not installed, skip silently
+                    }
+                }
             }
         }
 

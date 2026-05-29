@@ -76,6 +76,7 @@ import com.poyka.ripdpi.ui.screens.settings.AssetProviderRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
+import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -565,6 +566,7 @@ private fun SettingsHomeRoute(
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
         onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
         onOpenRoutingRules = { navController.navigate(Route.Routes) },
+        onOpenSplitTunnel = { navController.navigate(Route.SplitTunnel) },
         onShareDebugBundle = actions.onShareDebugBundle,
         permissionSummary = mainUiState.permissionSummary,
         onRepairPermission = actions.onRepairPermission,
@@ -611,6 +613,9 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     }
     composable<Route.AssetProvider> {
         AssetProviderRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.SplitTunnel> {
+        SplitTunnelRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.Routes> {
         RoutesRoute(

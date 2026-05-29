@@ -21,6 +21,78 @@ interface VpnAppExclusionPolicy {
     fun shouldExcludeOwnPackage(): Boolean
 
     suspend fun russianAppsToExclude(): List<String>
+
+    /**
+     * Authoritative per-app routing plan for the `VpnService.Builder`. Android forbids mixing
+     * `addAllowedApplication` and `addDisallowedApplication`, so the plan is expressed as exactly
+     * one of [VpnAppRoutingPlan.AllowOnly] (allowlist) or [VpnAppRoutingPlan.Disallow] (blocklist).
+     * Split-tunnel selection is read from the settings store (NOT the `routing_rules` Room table),
+     * so it never reorders the user's routing rules.
+     */
+    suspend fun appRoutingPlan(ownPackage: String): VpnAppRoutingPlan
+}
+
+/** The two mutually-exclusive `VpnService.Builder` app-routing shapes Android permits. */
+sealed interface VpnAppRoutingPlan {
+    /** Blocklist/off mode: every listed package bypasses the tunnel; everything else is tunneled. */
+    data class Disallow(
+        val packages: Set<String>,
+    ) : VpnAppRoutingPlan
+
+    /** Allowlist mode: only the listed packages are tunneled; everything else bypasses. */
+    data class AllowOnly(
+        val packages: Set<String>,
+    ) : VpnAppRoutingPlan
+}
+
+/**
+ * Pure computation of the per-app routing plan, factored out so it can be unit-tested without the
+ * protobuf settings/`PackageManager` plumbing. Precedence:
+ *  - [fullTunnelMode] wins: tunnel everything except [ownPackage] (current behavior preserved).
+ *  - else honor [splitTunnelMode] + [splitTunnelPackages] (intersected with [installedPackages] to
+ *    drop stale entries):
+ *      - "include" with a NON-EMPTY selection -> [VpnAppRoutingPlan.AllowOnly]. [ownPackage] is
+ *        intentionally absent so its own traffic bypasses the tunnel (correct: avoids self-loop).
+ *      - "exclude" -> [VpnAppRoutingPlan.Disallow] of own package + preset exclusions + selection.
+ *      - "off" (or "include" with an EMPTY selection, to avoid tunneling nothing) ->
+ *        [VpnAppRoutingPlan.Disallow] of own package + preset exclusions (current behavior).
+ * The disallow set is a [Set] so a user-selected package that is also a preset exclusion collapses
+ * to one entry (no double-matching).
+ */
+internal fun computeAppRoutingPlan(
+    fullTunnelMode: Boolean,
+    splitTunnelMode: String,
+    splitTunnelPackages: Collection<String>,
+    presetExclusions: Collection<String>,
+    installedPackages: Set<String>,
+    ownPackage: String,
+): VpnAppRoutingPlan {
+    if (fullTunnelMode) return VpnAppRoutingPlan.Disallow(setOf(ownPackage))
+    val selection = splitTunnelPackages.filter { it in installedPackages }.toSet()
+    return when (splitTunnelMode) {
+        SplitTunnelMode.Include -> {
+            if (selection.isEmpty()) {
+                VpnAppRoutingPlan.Disallow(setOf(ownPackage) + presetExclusions)
+            } else {
+                VpnAppRoutingPlan.AllowOnly(selection)
+            }
+        }
+
+        SplitTunnelMode.Exclude -> {
+            VpnAppRoutingPlan.Disallow(setOf(ownPackage) + presetExclusions + selection)
+        }
+
+        else -> {
+            VpnAppRoutingPlan.Disallow(setOf(ownPackage) + presetExclusions)
+        }
+    }
+}
+
+/** Canonical `split_tunnel_mode` string values, shared by the policy and the split-tunnel UI. */
+object SplitTunnelMode {
+    const val Off = "off"
+    const val Include = "include"
+    const val Exclude = "exclude"
 }
 
 interface AppRoutingCatalogProvider {
@@ -82,9 +154,34 @@ class DefaultVpnAppExclusionPolicy
         override suspend fun russianAppsToExclude(): List<String> {
             val settings = appSettingsRepository.snapshot()
             if (settings.fullTunnelMode) return emptyList()
+            return presetExclusionsFor(settings, installedPackagesProvider.installedPackages())
+        }
+
+        override suspend fun appRoutingPlan(ownPackage: String): VpnAppRoutingPlan {
+            val settings = appSettingsRepository.snapshot()
+            val installedPackages = installedPackagesProvider.installedPackages()
+            val presetExclusions =
+                if (settings.fullTunnelMode) {
+                    emptyList()
+                } else {
+                    presetExclusionsFor(settings, installedPackages)
+                }
+            return computeAppRoutingPlan(
+                fullTunnelMode = settings.fullTunnelMode,
+                splitTunnelMode = settings.splitTunnelMode,
+                splitTunnelPackages = settings.splitTunnelPackagesList,
+                presetExclusions = presetExclusions,
+                installedPackages = installedPackages,
+                ownPackage = ownPackage,
+            )
+        }
+
+        private fun presetExclusionsFor(
+            settings: com.poyka.ripdpi.proto.AppSettings,
+            installedPackages: Set<String>,
+        ): List<String> {
             val presetIds = settings.effectiveAppRoutingEnabledPresetIds().toSet()
             if (presetIds.isEmpty()) return emptyList()
-            val installedPackages = installedPackagesProvider.installedPackages()
             return indexedCatalogFor(appRoutingCatalogProvider.load())
                 .excludedPackagesFor(
                     presetIds = presetIds,

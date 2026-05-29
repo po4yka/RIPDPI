@@ -39,6 +39,7 @@ fun SettingsRoute(
     modifier: Modifier = Modifier,
     onOpenDomainBypass: () -> Unit = {},
     onOpenRoutingRules: () -> Unit = {},
+    onOpenSplitTunnel: () -> Unit = {},
     onDismissBackgroundGuidance: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -55,6 +56,7 @@ fun SettingsRoute(
                 onOpenDetectionCheck = onOpenDetectionCheck,
                 onOpenDomainBypass = onOpenDomainBypass,
                 onOpenRoutingRules = onOpenRoutingRules,
+                onOpenSplitTunnel = onOpenSplitTunnel,
                 onShareDebugBundle = onShareDebugBundle,
                 onRepairPermission = onRepairPermission,
                 onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
@@ -122,6 +124,7 @@ internal data class SettingsScreenActions(
     val onOpenDetectionCheck: () -> Unit = {},
     val onOpenDomainBypass: () -> Unit = {},
     val onOpenRoutingRules: () -> Unit = {},
+    val onOpenSplitTunnel: () -> Unit = {},
     val onShareDebugBundle: () -> Unit,
     val onRepairPermission: (PermissionKind) -> Unit,
     val onOpenVpnPermissionDialog: () -> Unit,

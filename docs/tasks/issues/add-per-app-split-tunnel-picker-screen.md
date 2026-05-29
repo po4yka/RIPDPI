@@ -1,7 +1,7 @@
 ---
 title: Add per-app split tunnel picker screen
 type: task
-status: backlog
+status: done
 area: routing
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-29
 updated: 2026-05-29
 ---
 
-- [ ] #task Add per-app split tunnel picker screen #repo/RIPDPI #area/routing #status/backlog 🔼
+- [x] #task Add per-app split tunnel picker screen #repo/RIPDPI #area/routing #status/done 🔼
 
 ## Summary
 

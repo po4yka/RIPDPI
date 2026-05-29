@@ -102,6 +102,88 @@ class VpnAppExclusionPolicyTest {
 
             assertEquals(listOf("ru.yandex.browser"), policy.russianAppsToExclude())
         }
+
+    @Test
+    fun `full tunnel mode plan disallows only own package`() {
+        val plan =
+            computeAppRoutingPlan(
+                fullTunnelMode = true,
+                splitTunnelMode = SplitTunnelMode.Include,
+                splitTunnelPackages = listOf("com.example.one"),
+                presetExclusions = listOf("com.preset.one"),
+                installedPackages = setOf("com.example.one", "com.preset.one"),
+                ownPackage = OWN_PACKAGE,
+            )
+
+        assertEquals(VpnAppRoutingPlan.Disallow(setOf(OWN_PACKAGE)), plan)
+    }
+
+    @Test
+    fun `exclude mode plan deduplicates preset and selection overlap`() {
+        val plan =
+            computeAppRoutingPlan(
+                fullTunnelMode = false,
+                splitTunnelMode = SplitTunnelMode.Exclude,
+                splitTunnelPackages = listOf("com.preset.one", "com.user.two"),
+                presetExclusions = listOf("com.preset.one"),
+                installedPackages = setOf("com.preset.one", "com.user.two"),
+                ownPackage = OWN_PACKAGE,
+            )
+
+        assertEquals(
+            VpnAppRoutingPlan.Disallow(setOf(OWN_PACKAGE, "com.preset.one", "com.user.two")),
+            plan,
+        )
+    }
+
+    @Test
+    fun `include mode with selection allows only installed selection without own package`() {
+        val plan =
+            computeAppRoutingPlan(
+                fullTunnelMode = false,
+                splitTunnelMode = SplitTunnelMode.Include,
+                splitTunnelPackages = listOf("com.user.one", "com.stale.gone"),
+                presetExclusions = listOf("com.preset.one"),
+                installedPackages = setOf("com.user.one", "com.preset.one"),
+                ownPackage = OWN_PACKAGE,
+            )
+
+        assertEquals(VpnAppRoutingPlan.AllowOnly(setOf("com.user.one")), plan)
+    }
+
+    @Test
+    fun `include mode with empty selection falls back to disallow preset behavior`() {
+        val plan =
+            computeAppRoutingPlan(
+                fullTunnelMode = false,
+                splitTunnelMode = SplitTunnelMode.Include,
+                splitTunnelPackages = emptyList(),
+                presetExclusions = listOf("com.preset.one"),
+                installedPackages = setOf("com.preset.one"),
+                ownPackage = OWN_PACKAGE,
+            )
+
+        assertEquals(VpnAppRoutingPlan.Disallow(setOf(OWN_PACKAGE, "com.preset.one")), plan)
+    }
+
+    @Test
+    fun `off mode plan preserves preset exclusion behavior`() {
+        val plan =
+            computeAppRoutingPlan(
+                fullTunnelMode = false,
+                splitTunnelMode = SplitTunnelMode.Off,
+                splitTunnelPackages = listOf("com.ignored.one"),
+                presetExclusions = listOf("com.preset.one"),
+                installedPackages = setOf("com.preset.one", "com.ignored.one"),
+                ownPackage = OWN_PACKAGE,
+            )
+
+        assertEquals(VpnAppRoutingPlan.Disallow(setOf(OWN_PACKAGE, "com.preset.one")), plan)
+    }
+
+    private companion object {
+        const val OWN_PACKAGE = "com.poyka.ripdpi"
+    }
 }
 
 private class FakeAppRoutingCatalogProvider(

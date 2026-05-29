@@ -140,6 +140,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object SplitTunnel : Route() {
+        override val stableRoute = "split_tunnel"
+        override val titleRes = R.string.title_split_tunnel
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object Routes : Route() {
         override val stableRoute = "routes"
         override val titleRes = R.string.title_routes
@@ -387,6 +394,7 @@ sealed class Route {
                     StrategyConfig,
                     DomainBypassList,
                     AssetProvider,
+                    SplitTunnel,
                     Routes,
                     RuleEditor(),
                     Blockcheck,
