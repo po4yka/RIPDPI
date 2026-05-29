@@ -288,6 +288,7 @@ object FleetCompatHarness {
     private fun ProxyProfile.toNodeTupleOrNull(): String? =
         when (this) {
             is ProxyProfile.Vless -> "vless|$server|$serverPort"
+            is ProxyProfile.VlessReality -> "vless-reality|$server|$serverPort"
             is ProxyProfile.Shadowsocks -> "shadowsocks|$server|$serverPort"
             is ProxyProfile.Trojan -> "trojan|$server|$serverPort"
             is ProxyProfile.Hysteria2 -> "hysteria2|$server|$serverPort"
@@ -301,6 +302,15 @@ object FleetCompatHarness {
         when (this) {
             is ProxyProfile.Vless -> {
                 mapOf("type" to "vless", "name" to displayName, "server" to server, "port" to serverPort.toString())
+            }
+
+            is ProxyProfile.VlessReality -> {
+                mapOf(
+                    "type" to "vless-reality",
+                    "name" to displayName,
+                    "server" to server,
+                    "port" to serverPort.toString(),
+                )
             }
 
             is ProxyProfile.Shadowsocks -> {
