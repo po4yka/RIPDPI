@@ -101,6 +101,28 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDes
     ffi_boundary((), move || tunnel_destroy_entry(env, handle));
 }
 
+/// Register the Kotlin flow-attribution bridge and start the worker that pushes
+/// per-flow `noteFlow` notifications up to Kotlin. Returns a generation token
+/// (`0` on failure) that Kotlin threads back to `jniUnregisterFlowAttribution`.
+/// Register after `jniStart`, unregister before `jniStop`/`jniDestroy`.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniRegisterFlowAttribution(
+    env: EnvUnowned<'_>,
+    _thiz: JObject,
+    bridge: JObject,
+) -> jlong {
+    ffi_boundary(0, move || crate::flow_attribution::register_from_jni(env, bridge))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniUnregisterFlowAttribution(
+    _env: EnvUnowned<'_>,
+    _thiz: JObject,
+    token: jlong,
+) {
+    ffi_boundary((), move || crate::flow_attribution::unregister_flow_attribution(token));
+}
+
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStart(
     env: EnvUnowned<'_>,

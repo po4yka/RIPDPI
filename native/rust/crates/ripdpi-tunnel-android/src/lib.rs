@@ -6,6 +6,7 @@
 
 mod config;
 mod entry;
+mod flow_attribution;
 mod pcap;
 mod session;
 mod telemetry;
@@ -15,8 +16,10 @@ pub use entry::{
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDestroy,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetStats,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniGetTelemetry,
+    Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniRegisterFlowAttribution,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStart,
     Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniStop,
+    Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniUnregisterFlowAttribution,
     Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapListCaptures, Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapRedactToFile,
     Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStart, Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStop,
 };

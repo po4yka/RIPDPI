@@ -164,6 +164,7 @@ ripdpi-shared-priors = { path = "crates/ripdpi-shared-priors" }
 ripdpi-ws-bootstrap = { path = "crates/ripdpi-ws-bootstrap" }
 ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
 ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }
+ripdpi-flow-app-attribution = { path = "crates/ripdpi-flow-app-attribution" }
 ripdpi-android-bridge-support = { path = "crates/ripdpi-android-bridge-support" }
 ripdpi-android-telemetry-adapter = { path = "crates/ripdpi-android-telemetry-adapter" }
 ripdpi-android-proxy-adapter = { path = "crates/ripdpi-android-proxy-adapter" }

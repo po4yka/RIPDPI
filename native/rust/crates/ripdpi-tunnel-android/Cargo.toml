@@ -14,6 +14,7 @@ crate-type = ["cdylib"]
 android-support = { workspace = true }
 arc-swap = { workspace = true }
 crossbeam-queue = { workspace = true }
+ripdpi-flow-app-attribution = { workspace = true }
 ripdpi-pcap = { workspace = true }
 ripdpi-quality = { workspace = true }
 ripdpi-tunnel-config = { workspace = true }
