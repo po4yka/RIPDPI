@@ -8,9 +8,12 @@ import org.junit.Test
 
 class AssetProviderCatalogTest {
     @Test
-    fun `catalog exposes the four built-in presets plus custom`() {
+    fun `catalog exposes the five built-in presets plus custom`() {
         val ids = BuiltInAssetProviders.map { it.id }
-        assertEquals(listOf("sagernet", "soffchen", "chocolate4u", "l11r", CustomAssetProviderId), ids)
+        assertEquals(
+            listOf("sagernet", "soffchen", "chocolate4u", "l11r", "runetfreedom", CustomAssetProviderId),
+            ids,
+        )
     }
 
     @Test
