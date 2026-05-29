@@ -5268,6 +5268,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-flow-app-attribution"
+version = "0.1.0"
+dependencies = [
+ "lru",
+]
+
+[[package]]
 name = "ripdpi-geo"
 version = "0.1.0"
 dependencies = [

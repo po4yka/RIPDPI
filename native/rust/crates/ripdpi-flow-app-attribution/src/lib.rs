@@ -1,0 +1,406 @@
+//! Process-global per-flow app-attribution cache.
+//!
+//! Bridges the two halves of RIPDPI's data plane. The TUN core
+//! (`ripdpi-tunnel-core`) is the only place that knows the *originating* app's
+//! 5-tuple; the proxy-runtime policy layer (`ripdpi-runtime-policy`) is where
+//! direct-path learning verdicts (`NO_TCP_FALLBACK`, …) are decided — but it
+//! only sees a loopback socket, never the app. This crate is the shared,
+//! process-global side-channel both halves consult, keyed by the **destination
+//! IP** of the flow (the one value both sides can compute):
+//!
+//! * TUN core, at flow birth, calls [`note_flow`] with the originating 5-tuple.
+//!   On a cache miss the request is enqueued for asynchronous resolution and
+//!   `None` is returned immediately — **never** blocking the per-flow / per-packet
+//!   path (see `.claude/rules/vpnservice-protect-invariant.md`).
+//! * A background worker (the JNI adapter) drains [`pop_pending_request`],
+//!   resolves UID → package → version off the hot path, and calls
+//!   [`store_resolution`].
+//! * The policy layer calls [`lookup_flow`] (read-only, no enqueue) for each of
+//!   its candidate destination IPs to attribute a learning signal.
+//!
+//! Like `ripdpi-native-protect`, each `.so` links its own copy, so the cache is
+//! per-`.so`. State is bounded (LRU) and additionally evicted on flow close
+//! ([`evict_flow`]) and cleared on session teardown ([`end_attribution_session_if`]).
+//!
+//! ## Conservative by default
+//!
+//! A `Resolved(None)` entry is the deliberate "unattributed" verdict — shared
+//! UID, multiple packages behind one UID, or a failed lookup. The policy layer
+//! treats a missing or `None` attribution as "no per-app verdict", so the system
+//! degrades to authority/IP-scoped policy rather than guessing. Two apps to the
+//! same destination IP collide on the key; that too resolves conservatively.
+//!
+//! ## Generation guard
+//!
+//! The cache is process-global, so an asymmetric session begin/end could let a
+//! stale teardown from a superseded VPN session clear a newer session's state.
+//! [`begin_attribution_session`] stamps a monotonic [`AttributionGeneration`];
+//! [`end_attribution_session_if`] clears state only when the stored generation
+//! still matches, mirroring `ripdpi-native-protect`'s protect-callback guard.
+
+use std::collections::VecDeque;
+use std::net::{IpAddr, SocketAddr};
+use std::num::NonZeroUsize;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Condvar, Mutex};
+use std::time::Duration;
+
+use lru::LruCache;
+
+/// Max distinct destination IPs tracked before LRU eviction kicks in. A backstop
+/// for flows whose explicit [`evict_flow`] was missed; sized for many concurrent
+/// destinations without unbounded growth under churn.
+const CACHE_CAPACITY: usize = 4096;
+
+/// Max pending resolve requests buffered for the worker. If the worker stalls,
+/// the oldest requests are dropped (the corresponding flows stay unattributed —
+/// conservative) rather than growing without bound.
+const PENDING_CAPACITY: usize = 1024;
+
+/// Resolved owning-app identity for a flow's destination IP.
+///
+/// `package` is an `Arc<str>` so cache hits clone cheaply. `version_code` is the
+/// Android `longVersionCode`. This value is used **in memory only** for the
+/// per-app policy decision; it must never be persisted or exported (see
+/// `.claude/rules/network-fingerprint-privacy.md`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FlowAppContext {
+    package: std::sync::Arc<str>,
+    version_code: i64,
+}
+
+impl FlowAppContext {
+    #[must_use]
+    pub fn new(package: impl AsRef<str>, version_code: i64) -> Self {
+        Self { package: std::sync::Arc::from(package.as_ref()), version_code }
+    }
+
+    #[must_use]
+    pub fn package(&self) -> &str {
+        &self.package
+    }
+
+    #[must_use]
+    pub fn version_code(&self) -> i64 {
+        self.version_code
+    }
+}
+
+/// Cache entry state for a destination IP.
+#[derive(Debug, Clone)]
+enum Resolution {
+    /// A resolve request has been enqueued; no answer yet.
+    Pending,
+    /// Resolution finished. `None` is the conservative "unattributed" verdict.
+    Resolved(Option<FlowAppContext>),
+}
+
+/// A pending request the worker resolves off the hot path. Carries the full
+/// 5-tuple so the resolver can call `getConnectionOwnerUid(protocol, local, remote)`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FlowResolveRequest {
+    /// IP protocol number: 6 = TCP, 17 = UDP.
+    pub protocol: u8,
+    /// The originating app's local endpoint (TUN-side source).
+    pub local: SocketAddr,
+    /// The flow's destination endpoint.
+    pub remote: SocketAddr,
+}
+
+impl FlowResolveRequest {
+    /// The cache key for this request — the destination IP.
+    #[must_use]
+    pub fn key(&self) -> IpAddr {
+        self.remote.ip()
+    }
+}
+
+/// A resolver the background worker drives. Defined here so the JNI adapter can
+/// implement it; this crate never calls it on the hot path.
+pub trait AppUidResolver: Send + Sync {
+    /// Resolve the owning app for a flow, or `None` if unattributable
+    /// (shared/unknown UID, multiple packages, lookup failure).
+    fn resolve(&self, request: FlowResolveRequest) -> Option<FlowAppContext>;
+}
+
+/// Monotonic token identifying one [`begin_attribution_session`] call, so a
+/// stale teardown cannot clear a newer session's state. Token `0` is never
+/// issued, so it is a safe "no session" sentinel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AttributionGeneration(u64);
+
+impl AttributionGeneration {
+    /// Raw token, for round-tripping across the JNI boundary as a `jlong`.
+    #[must_use]
+    pub const fn token(self) -> u64 {
+        self.0
+    }
+
+    /// Reconstruct from a token previously handed out. An unknown token
+    /// (including `0`) never matches, so [`end_attribution_session_if`] is then a
+    /// safe no-op.
+    #[must_use]
+    pub const fn from_token(token: u64) -> Self {
+        Self(token)
+    }
+}
+
+struct State {
+    cache: LruCache<IpAddr, Resolution>,
+    pending: VecDeque<FlowResolveRequest>,
+    generation: u64,
+}
+
+impl State {
+    fn new() -> Self {
+        Self {
+            cache: LruCache::new(NonZeroUsize::new(CACHE_CAPACITY).expect("non-zero cache capacity")),
+            pending: VecDeque::new(),
+            generation: 0,
+        }
+    }
+
+    fn clear(&mut self) {
+        self.cache.clear();
+        self.pending.clear();
+    }
+}
+
+fn state() -> &'static Mutex<State> {
+    static STATE: std::sync::OnceLock<Mutex<State>> = std::sync::OnceLock::new();
+    STATE.get_or_init(|| Mutex::new(State::new()))
+}
+
+/// Signaled when a request is pushed, so a worker can block in
+/// [`pop_pending_request`] without busy-polling.
+fn pending_signal() -> &'static Condvar {
+    static SIGNAL: std::sync::OnceLock<Condvar> = std::sync::OnceLock::new();
+    SIGNAL.get_or_init(Condvar::new)
+}
+
+static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
+
+fn lock() -> std::sync::MutexGuard<'static, State> {
+    state().lock().expect("flow-app-attribution state poisoned")
+}
+
+/// Record a freshly seen flow and return its attribution if already known.
+///
+/// Non-blocking and hot-path safe: on a cache miss this marks the destination
+/// IP `Pending`, enqueues a [`FlowResolveRequest`] for the worker, and returns
+/// `None`. A later flow to the same destination picks up the resolved answer.
+pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> Option<FlowAppContext> {
+    let key = remote.ip();
+    let mut guard = lock();
+    match guard.cache.get(&key) {
+        Some(Resolution::Resolved(ctx)) => return ctx.clone(),
+        Some(Resolution::Pending) => return None,
+        None => {}
+    }
+    guard.cache.put(key, Resolution::Pending);
+    if guard.pending.len() >= PENDING_CAPACITY {
+        guard.pending.pop_front();
+    }
+    guard.pending.push_back(FlowResolveRequest { protocol, local, remote });
+    drop(guard);
+    pending_signal().notify_one();
+    None
+}
+
+/// Read-only attribution lookup for a destination IP (the policy-layer entry
+/// point). Never enqueues. Returns `None` on miss or on the conservative
+/// `Resolved(None)` verdict.
+pub fn lookup_flow(dest_ip: IpAddr) -> Option<FlowAppContext> {
+    let mut guard = lock();
+    match guard.cache.get(&dest_ip) {
+        Some(Resolution::Resolved(ctx)) => ctx.clone(),
+        Some(Resolution::Pending) | None => None,
+    }
+}
+
+/// First attribution found across `targets` — the policy layer holds a candidate
+/// IP set for an authority and the flow used one of them.
+pub fn lookup_flow_for_targets(targets: &[SocketAddr]) -> Option<FlowAppContext> {
+    let mut guard = lock();
+    for target in targets {
+        if let Some(Resolution::Resolved(Some(ctx))) = guard.cache.get(&target.ip()) {
+            return Some(ctx.clone());
+        }
+    }
+    None
+}
+
+/// Store a resolved attribution (or the conservative `None`) for a destination
+/// IP. Called by the worker after an off-hot-path resolve.
+pub fn store_resolution(dest_ip: IpAddr, context: Option<FlowAppContext>) {
+    lock().cache.put(dest_ip, Resolution::Resolved(context));
+}
+
+/// Drop the cache entry for a destination IP (called on flow close).
+pub fn evict_flow(dest_ip: IpAddr) {
+    lock().cache.pop(&dest_ip);
+}
+
+/// Clear all cached attributions and pending requests.
+pub fn clear() {
+    lock().clear();
+}
+
+/// Pop the next pending resolve request, blocking up to `timeout` for one to
+/// arrive. Returns `None` on timeout. Drained by the background worker.
+pub fn pop_pending_request(timeout: Duration) -> Option<FlowResolveRequest> {
+    let mut guard = lock();
+    if let Some(request) = guard.pending.pop_front() {
+        return Some(request);
+    }
+    let (mut guard, _timed_out) =
+        pending_signal().wait_timeout(guard, timeout).expect("flow-app-attribution state poisoned");
+    guard.pending.pop_front()
+}
+
+/// Number of buffered pending requests (diagnostics / tests).
+#[must_use]
+pub fn pending_len() -> usize {
+    lock().pending.len()
+}
+
+/// Begin an attribution session, clearing any prior state and returning a fresh
+/// [`AttributionGeneration`]. Pair with [`end_attribution_session_if`].
+pub fn begin_attribution_session() -> AttributionGeneration {
+    let generation = NEXT_GENERATION.fetch_add(1, Ordering::Relaxed);
+    let mut guard = lock();
+    guard.clear();
+    guard.generation = generation;
+    AttributionGeneration(generation)
+}
+
+/// End the attribution session and clear state **only if** the stored generation
+/// still matches `generation`. Returns `true` when cleared, `false` when a newer
+/// session has superseded this one (a safe no-op).
+pub fn end_attribution_session_if(generation: AttributionGeneration) -> bool {
+    let mut guard = lock();
+    if guard.generation == generation.0 {
+        guard.clear();
+        guard.generation = 0;
+        true
+    } else {
+        false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, SocketAddrV4};
+    use std::sync::Mutex as StdMutex;
+
+    // Serializes tests — the cache is process-global.
+    static TEST_GUARD: StdMutex<()> = StdMutex::new(());
+
+    fn sock(a: u8, b: u8, c: u8, d: u8, port: u16) -> SocketAddr {
+        SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(a, b, c, d), port))
+    }
+
+    #[test]
+    fn note_flow_miss_marks_pending_and_enqueues() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let remote = sock(93, 184, 216, 34, 443);
+        let local = sock(10, 0, 0, 2, 50000);
+
+        assert!(note_flow(6, local, remote).is_none());
+        assert_eq!(pending_len(), 1);
+
+        // A second flow to the same dest is already Pending — no duplicate enqueue.
+        assert!(note_flow(6, sock(10, 0, 0, 2, 50001), remote).is_none());
+        assert_eq!(pending_len(), 1);
+
+        let request = pop_pending_request(Duration::from_millis(10)).expect("a pending request");
+        assert_eq!(request.protocol, 6);
+        assert_eq!(request.remote, remote);
+        assert_eq!(request.key(), remote.ip());
+    }
+
+    #[test]
+    fn store_then_lookup_returns_context() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let remote = sock(1, 1, 1, 1, 443);
+        note_flow(6, sock(10, 0, 0, 2, 40000), remote);
+
+        store_resolution(remote.ip(), Some(FlowAppContext::new("com.example.app", 42)));
+
+        let ctx = lookup_flow(remote.ip()).expect("resolved context");
+        assert_eq!(ctx.package(), "com.example.app");
+        assert_eq!(ctx.version_code(), 42);
+        // A later flow to the same dest gets the cached answer with no new enqueue.
+        let before = pending_len();
+        assert_eq!(note_flow(6, sock(10, 0, 0, 2, 40001), remote).map(|c| c.version_code()), Some(42));
+        assert_eq!(pending_len(), before);
+    }
+
+    #[test]
+    fn resolved_none_is_conservative_unattributed() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let remote = sock(8, 8, 8, 8, 853);
+        store_resolution(remote.ip(), None);
+        assert!(lookup_flow(remote.ip()).is_none());
+        assert!(lookup_flow_for_targets(&[remote]).is_none());
+    }
+
+    #[test]
+    fn lookup_for_targets_finds_any_resolved_member() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let a = sock(203, 0, 113, 1, 443);
+        let b = sock(203, 0, 113, 2, 443);
+        store_resolution(b.ip(), Some(FlowAppContext::new("com.example.b", 7)));
+        let ctx = lookup_flow_for_targets(&[a, b]).expect("resolved member");
+        assert_eq!(ctx.package(), "com.example.b");
+    }
+
+    #[test]
+    fn evict_drops_the_entry() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let remote = sock(198, 51, 100, 7, 443);
+        store_resolution(remote.ip(), Some(FlowAppContext::new("com.example.c", 1)));
+        assert!(lookup_flow(remote.ip()).is_some());
+        evict_flow(remote.ip());
+        assert!(lookup_flow(remote.ip()).is_none());
+    }
+
+    #[test]
+    fn pop_pending_times_out_when_empty() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        assert!(pop_pending_request(Duration::from_millis(1)).is_none());
+    }
+
+    #[test]
+    fn session_generation_guard_blocks_stale_teardown() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let stale = begin_attribution_session();
+        let current = begin_attribution_session();
+
+        // A stale end from a superseded session does not clear current state.
+        store_resolution(IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)), Some(FlowAppContext::new("com.x", 1)));
+        assert!(!end_attribution_session_if(stale));
+        assert!(lookup_flow(IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))).is_some());
+
+        // The current generation clears it.
+        assert!(end_attribution_session_if(current));
+        assert!(lookup_flow(IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))).is_none());
+    }
+
+    #[test]
+    fn unknown_generation_token_is_a_safe_noop() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let current = begin_attribution_session();
+        assert!(!end_attribution_session_if(AttributionGeneration::from_token(0)));
+        assert!(end_attribution_session_if(current));
+    }
+}

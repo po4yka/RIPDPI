@@ -49,6 +49,7 @@ members = [
     "crates/ripdpi-ws-bootstrap",
     "crates/ripdpi-telemetry",
     "crates/ripdpi-native-protect",
+    "crates/ripdpi-flow-app-attribution",
     "crates/ripdpi-android-bridge-support",
     "crates/ripdpi-android-telemetry-adapter",
     "crates/ripdpi-android-proxy-adapter",
