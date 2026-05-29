@@ -130,6 +130,10 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         self.state.on_ws_tunnel_escalation(target.to_string(), dc, success);
     }
 
+    fn on_ws_tunnel_fake_sni_active(&self, target: std::net::SocketAddr, dc: u8) {
+        self.state.on_ws_tunnel_fake_sni_active(target.to_string(), dc);
+    }
+
     fn on_quic_migration_status(&self, target: std::net::SocketAddr, status: &'static str, reason: &'static str) {
         self.state.on_quic_migration_status(target.to_string(), status, reason);
     }

@@ -85,5 +85,6 @@
   "tunnelStats.txPackets",
   "udpCapable",
   "upstreamAddress",
-  "upstreamRttMs"
+  "upstreamRttMs",
+  "wsTunnelFakeSniActive"
 ]

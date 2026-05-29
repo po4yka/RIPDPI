@@ -57,5 +57,6 @@
   },
   "udpCapable": null,
   "upstreamAddress": "203.0.113.10:443",
-  "upstreamRttMs": 87
+  "upstreamRttMs": 87,
+  "wsTunnelFakeSniActive": 0
 }

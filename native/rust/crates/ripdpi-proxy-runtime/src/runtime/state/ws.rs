@@ -42,6 +42,17 @@ impl RuntimeState {
             telemetry.on_ws_tunnel_escalation(target, dc, success);
         }
     }
+    /// True when the configured ws-tunnel uses the fake-SNI cover with the
+    /// operator opt-in set, i.e. this connection's TLS cert verification is
+    /// disabled. Drives the `fake_sni_active` telemetry counter.
+    pub(in crate::runtime) fn ws_tunnel_fake_sni_active(&self) -> bool {
+        self.ws_tunnel_settings.allow_insecure_sni && self.ws_tunnel_settings.fake_sni.is_some()
+    }
+    pub(in crate::runtime) fn note_ws_tunnel_fake_sni_active(&self, target: SocketAddr, dc: u8) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_ws_tunnel_fake_sni_active(target, dc);
+        }
+    }
     pub(in crate::runtime) fn resolve_ws_tunnel_addr(&self, dc: RuntimeTelegramDc) -> io::Result<SocketAddr> {
         runtime_resolve_ws_tunnel_addr(
             dc,

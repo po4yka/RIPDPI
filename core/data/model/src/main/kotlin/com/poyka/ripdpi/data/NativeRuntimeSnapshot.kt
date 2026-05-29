@@ -166,6 +166,13 @@ data class NativeRuntimeSnapshot(
     val lastAutolearnGroup: Int? = null,
     val lastAutolearnAction: String? = null,
     val slotExhaustions: Long = 0,
+    /**
+     * Cumulative count of successful WS-tunnel handshakes established with the
+     * fake-SNI cover active (TLS certificate verification disabled). A non-zero
+     * value at deploy time signals that insecure-SNI connections are actually
+     * occurring. Defaults to 0 on payloads from older native cores.
+     */
+    val wsTunnelFakeSniActive: Long = 0,
     val tunnelStats: TunnelStats = TunnelStats(),
     val directPathLearningSignals: List<DirectPathLearningSignal> = emptyList(),
     val nativeEvents: List<NativeRuntimeEvent> = emptyList(),

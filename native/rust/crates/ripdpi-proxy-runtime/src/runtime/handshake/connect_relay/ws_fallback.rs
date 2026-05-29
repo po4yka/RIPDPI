@@ -61,6 +61,9 @@ fn handle_ws_fallback_result(target: SocketAddr, state: &RuntimeState, result: W
     match result {
         WsTunnelResult::ValidatedMtproto { dc } => {
             state.note_ws_tunnel_escalation(target, dc.number(), true);
+            if state.ws_tunnel_fake_sni_active() {
+                state.note_ws_tunnel_fake_sni_active(target, dc.number());
+            }
             true
         }
         WsTunnelResult::NotMtproto { .. } => {

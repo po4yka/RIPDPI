@@ -156,6 +156,25 @@ fn proxy_ws_tunnel_events_preserve_proxy_snapshot_contract() {
 }
 
 #[test]
+fn proxy_ws_tunnel_fake_sni_counter_increments_and_surfaces_in_snapshot() {
+    with_proxy_event_capture(|buffers| {
+        let state = Arc::new(ProxyTelemetryState::new(None));
+        let observer = ProxyTelemetryObserver { state: state.clone() };
+        let target = SocketAddr::from(([149, 154, 167, 51], 443));
+
+        assert_eq!(snapshot_with_captured_events(&state, &buffers).ws_tunnel_fake_sni_active, 0);
+
+        observer.on_ws_tunnel_fake_sni_active(target, 2);
+        observer.on_ws_tunnel_fake_sni_active(target, 2);
+
+        let snapshot = snapshot_with_captured_events(&state, &buffers);
+        assert_eq!(snapshot.ws_tunnel_fake_sni_active, 2);
+        assert_eq!(snapshot.last_target.as_deref(), Some("149.154.167.51:443"));
+        assert!(snapshot.native_events.iter().any(|event| event.message.contains("ws tunnel fake-sni handshake")));
+    });
+}
+
+#[test]
 fn failure_classification_telemetry_records_strategy_execution_context() {
     with_proxy_event_capture(|buffers| {
         let state = Arc::new(ProxyTelemetryState::new(None));
@@ -386,6 +405,7 @@ fn proxy_snapshot_field_manifest_matches_contract_fixture() {
         last_autolearn_group: Some(0),
         last_autolearn_action: Some("group_penalized".to_string()),
         slot_exhaustions: 1,
+        ws_tunnel_fake_sni_active: 2,
         profile_id: Some("relay-profile".to_string()),
         protocol_kind: Some("hysteria2".to_string()),
         tcp_capable: Some(true),

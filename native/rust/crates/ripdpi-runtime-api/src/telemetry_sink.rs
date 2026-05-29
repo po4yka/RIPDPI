@@ -105,6 +105,13 @@ pub trait RuntimeTelemetrySink: Send + Sync {
     /// Called when the runtime escalates from desync to WS tunnel (fallback mode).
     fn on_ws_tunnel_escalation(&self, _target: SocketAddr, _dc: u8, _success: bool) {}
 
+    /// Called when a WS-tunnel handshake succeeds with the fake-SNI cover
+    /// active (TLS certificate verification disabled). Fires only on the
+    /// fake-SNI path, so the cumulative counter is a deploy-time signal that
+    /// insecure-SNI connections are actually being established. Default body
+    /// is empty so adding this hook is non-breaking.
+    fn on_ws_tunnel_fake_sni_active(&self, _target: SocketAddr, _dc: u8) {}
+
     fn on_quic_migration_status(&self, _target: SocketAddr, _status: &'static str, _reason: &'static str) {}
 
     fn on_direct_path_learning_signal(

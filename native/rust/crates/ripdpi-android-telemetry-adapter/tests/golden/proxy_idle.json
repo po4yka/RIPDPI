@@ -47,5 +47,6 @@
   },
   "udpCapable": null,
   "upstreamAddress": null,
-  "upstreamRttMs": null
+  "upstreamRttMs": null,
+  "wsTunnelFakeSniActive": 0
 }

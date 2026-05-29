@@ -55,6 +55,7 @@ pub struct ProxyTelemetryState {
     pub(super) blocked_host_count: AtomicU64,
     pub(super) last_autolearn_group: AtomicI64,
     pub(super) slot_exhaustions: AtomicU64,
+    pub(super) ws_tunnel_fake_sni_active: AtomicU64,
     pub(super) strings: ArcSwap<TelemetryStrings>,
     pub(super) direct_path_learning_signals: Mutex<Vec<DirectPathLearningSignal>>,
     pub(super) tcp_connect_histogram: LatencyHistogram,
@@ -89,6 +90,7 @@ impl ProxyTelemetryState {
             blocked_host_count: AtomicU64::new(0),
             last_autolearn_group: AtomicI64::new(-1),
             slot_exhaustions: AtomicU64::new(0),
+            ws_tunnel_fake_sni_active: AtomicU64::new(0),
             direct_path_learning_signals: Mutex::new(Vec::new()),
             strings: ArcSwap::from_pointee(TelemetryStrings {
                 listener_address: None,

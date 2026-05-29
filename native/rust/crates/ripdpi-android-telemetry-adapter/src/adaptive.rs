@@ -50,6 +50,14 @@ impl ProxyTelemetryState {
         self.update_strings(|s| s.last_target = Some(target.clone()));
     }
 
+    pub fn on_ws_tunnel_fake_sni_active(&self, target: String, dc: u8) {
+        // Ordering: Relaxed -- display-only cumulative counter; readers tolerate stale reads.
+        self.ws_tunnel_fake_sni_active.fetch_add(1, Ordering::Relaxed);
+        let message = format!("ws tunnel fake-sni handshake target={target} dc={dc}");
+        self.emit_event("proxy", "warn", &message, None);
+        self.update_strings(|s| s.last_target = Some(target.clone()));
+    }
+
     pub fn on_quic_migration_status(&self, target: String, status: &'static str, reason: &'static str) {
         let message = format!("quic migration target={target} status={status} reason={reason}");
         self.emit_event("proxy", "info", &message, None);

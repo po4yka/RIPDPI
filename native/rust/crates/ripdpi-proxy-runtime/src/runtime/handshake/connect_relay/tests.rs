@@ -24,6 +24,7 @@ fn runtime_state(config: RuntimeConfig, telemetry: Option<StdArc<dyn RuntimeTele
 #[derive(Default)]
 struct TestTelemetry {
     ws_escalations: StdMutex<Vec<(SocketAddr, u8, bool)>>,
+    ws_fake_sni_active: StdMutex<Vec<(SocketAddr, u8)>>,
 }
 
 impl RuntimeTelemetrySink for TestTelemetry {
@@ -67,6 +68,64 @@ impl RuntimeTelemetrySink for TestTelemetry {
     fn on_ws_tunnel_escalation(&self, target: SocketAddr, dc: u8, success: bool) {
         self.ws_escalations.lock().expect("ws escalations lock").push((target, dc, success));
     }
+
+    fn on_ws_tunnel_fake_sni_active(&self, target: SocketAddr, dc: u8) {
+        self.ws_fake_sni_active.lock().expect("ws fake sni lock").push((target, dc));
+    }
+}
+
+fn fallback_validated_mtproto_with_fake_sni(fake_sni: Option<&str>, allow_insecure_sni: bool) -> StdArc<TestTelemetry> {
+    let (_peer, mut client) = connected_pair();
+    let mut config = RuntimeConfig::default();
+    config.adaptive.ws_tunnel_mode = WsTunnelMode::Fallback;
+    config.adaptive.ws_tunnel_fake_sni = fake_sni.map(ToOwned::to_owned);
+    config.adaptive.ws_tunnel_allow_insecure_sni = allow_insecure_sni;
+    let telemetry = StdArc::new(TestTelemetry::default());
+    let state = runtime_state(config, Some(telemetry.clone()));
+    let target = SocketAddr::from(([149, 154, 167, 91], 443));
+    let preserved_seed = vec![9_u8; 64];
+
+    let result = connect_and_relay_with(
+        &mut client,
+        target,
+        &state,
+        Some("telegram-dc2".to_string()),
+        SuccessReply::Socks5,
+        |_client, _reply, _upstream| Ok(()),
+        |_client, _state| unreachable!("fresh WS sniff should not be used"),
+        |_client, _replay_seed, _state| WsTunnelResult::ValidatedMtproto { dc: RuntimeTelegramDc::production(2) },
+        |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate),
+        move |_client, _target, _state, _dc_host, _reply| {
+            Err(ConnectRelayError::with_seed_request(
+                io::Error::other("desync exhausted"),
+                true,
+                Some(preserved_seed.clone()),
+            ))
+        },
+        |_client, _target, _state, _dc_host, _route, _payload| unreachable!("delayed relay should not run"),
+        |_client, _target, _state, _dc_host, _seed_request| unreachable!("after-WS plain fallback should not run"),
+    );
+    assert!(result.is_ok());
+    telemetry
+}
+
+#[test]
+fn fake_sni_counter_fires_only_when_cover_and_opt_in_are_both_set() {
+    // fake-SNI cover present and operator opt-in set -> counter fires once.
+    let telemetry = fallback_validated_mtproto_with_fake_sni(Some("yandex.ru"), true);
+    let target = SocketAddr::from(([149, 154, 167, 91], 443));
+    assert_eq!(telemetry.ws_fake_sni_active.lock().expect("fake sni lock").as_slice(), &[(target, 2)]);
+}
+
+#[test]
+fn fake_sni_counter_silent_without_opt_in_or_cover() {
+    // Cover set but no opt-in -> no fake-SNI handshake established, counter stays empty.
+    let telemetry = fallback_validated_mtproto_with_fake_sni(Some("yandex.ru"), false);
+    assert!(telemetry.ws_fake_sni_active.lock().expect("fake sni lock").is_empty());
+
+    // Opt-in set but no cover domain -> nothing insecure happened, counter stays empty.
+    let telemetry = fallback_validated_mtproto_with_fake_sni(None, true);
+    assert!(telemetry.ws_fake_sni_active.lock().expect("fake sni lock").is_empty());
 }
 
 #[test]

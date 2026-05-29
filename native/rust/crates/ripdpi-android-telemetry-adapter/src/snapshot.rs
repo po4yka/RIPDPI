@@ -119,6 +119,7 @@ impl ProxyTelemetryState {
             last_autolearn_action,
             // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             slot_exhaustions: self.slot_exhaustions.load(Ordering::Relaxed),
+            ws_tunnel_fake_sni_active: self.ws_tunnel_fake_sni_active.load(Ordering::Relaxed),
             profile_id: None,
             protocol_kind: None,
             tcp_capable: None,

@@ -118,6 +118,11 @@ pub struct NativeRuntimeSnapshot {
     pub(crate) last_autolearn_group: Option<i32>,
     pub(crate) last_autolearn_action: Option<String>,
     pub(crate) slot_exhaustions: u64,
+    /// Cumulative count of successful WS-tunnel handshakes established with the
+    /// fake-SNI cover active (TLS cert verification disabled). Defaults to 0 on
+    /// older payloads.
+    #[serde(default)]
+    pub(crate) ws_tunnel_fake_sni_active: u64,
     pub(crate) profile_id: Option<String>,
     pub(crate) protocol_kind: Option<String>,
     pub(crate) tcp_capable: Option<bool>,

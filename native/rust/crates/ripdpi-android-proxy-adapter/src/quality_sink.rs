@@ -302,6 +302,11 @@ impl RuntimeTelemetrySink for CompositeProxyTelemetrySink {
         self.quality.on_ws_tunnel_escalation(target, dc, success);
     }
 
+    fn on_ws_tunnel_fake_sni_active(&self, target: SocketAddr, dc: u8) {
+        self.primary.on_ws_tunnel_fake_sni_active(target, dc);
+        self.quality.on_ws_tunnel_fake_sni_active(target, dc);
+    }
+
     fn on_quic_migration_status(&self, target: SocketAddr, status: &'static str, reason: &'static str) {
         self.primary.on_quic_migration_status(target, status, reason);
         self.quality.on_quic_migration_status(target, status, reason);
