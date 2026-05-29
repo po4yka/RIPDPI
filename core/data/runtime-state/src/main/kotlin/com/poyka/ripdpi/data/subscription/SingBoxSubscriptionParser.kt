@@ -195,9 +195,10 @@ object SingBoxSubscriptionParser {
                     val realityObj = tlsObj?.get("reality") as? JsonObject
                     // Detect REALITY: tls.reality.enabled == true, OR tls.reality.public_key is non-empty.
                     val realityPublicKey = realityObj?.string("public_key")
-                    val realityEnabled = realityObj?.let { r ->
-                        (r["enabled"] as? JsonPrimitive)?.contentOrNull?.toBooleanStrictOrNull()
-                    }
+                    val realityEnabled =
+                        realityObj?.let { r ->
+                            (r["enabled"] as? JsonPrimitive)?.contentOrNull?.toBooleanStrictOrNull()
+                        }
                     val isReality = (realityEnabled == true) || !realityPublicKey.isNullOrBlank()
                     if (isReality) {
                         val realityShortId = realityObj?.string("short_id").orEmpty()
@@ -352,41 +353,48 @@ object SingBoxSubscriptionParser {
         // Parse endpoint host:port.
         val lastColon = endpoint.lastIndexOf(':')
         if (lastColon <= 0 || lastColon == endpoint.length - 1) return null
-        val host = endpoint.substring(0, lastColon).removePrefix("[").removeSuffix("]")
-            .takeIf { it.isNotBlank() } ?: return null
+        val host =
+            endpoint
+                .substring(0, lastColon)
+                .removePrefix("[")
+                .removeSuffix("]")
+                .takeIf { it.isNotBlank() } ?: return null
         val port = endpoint.substring(lastColon + 1).toIntOrNull()?.takeIf { it in 1..65_535 } ?: return null
 
         // Address list (interface-level CIDR strings).
-        val addressList = (obj["address"] as? JsonArray)
-            ?.filterIsInstance<JsonPrimitive>()
-            ?.mapNotNull { it.contentOrNull?.takeIf { s -> s.isNotBlank() } }
-            ?: emptyList()
+        val addressList =
+            (obj["address"] as? JsonArray)
+                ?.filterIsInstance<JsonPrimitive>()
+                ?.mapNotNull { it.contentOrNull?.takeIf { s -> s.isNotBlank() } }
+                ?: emptyList()
 
         // DNS list.
-        val dnsList = (obj["dns"] as? JsonArray)
-            ?.filterIsInstance<JsonPrimitive>()
-            ?.mapNotNull { it.contentOrNull?.takeIf { s -> s.isNotBlank() } }
-            ?: emptyList()
+        val dnsList =
+            (obj["dns"] as? JsonArray)
+                ?.filterIsInstance<JsonPrimitive>()
+                ?.mapNotNull { it.contentOrNull?.takeIf { s -> s.isNotBlank() } }
+                ?: emptyList()
 
         val mtu = obj.int("mtu")
 
         // AmneziaWG obfuscation parameters.
-        val awg = AmneziaWgParameters(
-            jc = obj.int("jc"),
-            jmin = obj.int("jmin"),
-            jmax = obj.int("jmax"),
-            s1 = obj.int("s1"),
-            s2 = obj.int("s2"),
-            h1 = obj.long("h1"),
-            h2 = obj.long("h2"),
-            h3 = obj.long("h3"),
-            h4 = obj.long("h4"),
-            i1 = obj.string("i1"),
-            i2 = obj.string("i2"),
-            i3 = obj.string("i3"),
-            i4 = obj.string("i4"),
-            i5 = obj.string("i5"),
-        )
+        val awg =
+            AmneziaWgParameters(
+                jc = obj.int("jc"),
+                jmin = obj.int("jmin"),
+                jmax = obj.int("jmax"),
+                s1 = obj.int("s1"),
+                s2 = obj.int("s2"),
+                h1 = obj.long("h1"),
+                h2 = obj.long("h2"),
+                h3 = obj.long("h3"),
+                h4 = obj.long("h4"),
+                i1 = obj.string("i1"),
+                i2 = obj.string("i2"),
+                i3 = obj.string("i3"),
+                i4 = obj.string("i4"),
+                i5 = obj.string("i5"),
+            )
 
         // `private_key_placeholder: true` means no usable private key is present.
         // Use an empty string as the placeholder so the AWG editor can detect it.
@@ -403,10 +411,11 @@ object SingBoxSubscriptionParser {
             mtu = mtu,
             peerPublicKey = publicKey,
             peerPresharedKey = peerObj.string("preshared_key"),
-            allowedIps = (peerObj["allowed_ips"] as? JsonArray)
-                ?.filterIsInstance<JsonPrimitive>()
-                ?.mapNotNull { it.contentOrNull?.takeIf { s -> s.isNotBlank() } }
-                ?: emptyList(),
+            allowedIps =
+                (peerObj["allowed_ips"] as? JsonArray)
+                    ?.filterIsInstance<JsonPrimitive>()
+                    ?.mapNotNull { it.contentOrNull?.takeIf { s -> s.isNotBlank() } }
+                    ?: emptyList(),
             persistentKeepalive = peerObj.int("persistent_keepalive"),
             awg = awg,
         )
@@ -465,11 +474,8 @@ object SingBoxSubscriptionParser {
         return primitive.longOrNull ?: primitive.contentOrNull?.toLongOrNull()
     }
 
-    private fun JsonObject.bool(key: String): Boolean? =
-        (this[key] as? JsonPrimitive)?.booleanOrNull
+    private fun JsonObject.bool(key: String): Boolean? = (this[key] as? JsonPrimitive)?.booleanOrNull
 
-    private companion object {
-        /** The only `ripdpi.schema_version` value this parser understands. */
-        const val RIPDPI_SCHEMA_VERSION = 1
-    }
+    /** The only `ripdpi.schema_version` value this parser understands. */
+    private const val RIPDPI_SCHEMA_VERSION = 1
 }
