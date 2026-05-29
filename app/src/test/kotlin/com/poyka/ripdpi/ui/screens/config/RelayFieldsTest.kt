@@ -14,6 +14,7 @@ import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
@@ -98,6 +99,30 @@ class RelayFieldsTest {
         }
 
         composeRule.onNodeWithText("Path must start with /.").assertExists()
+    }
+
+    @Test
+    fun torFieldsRenderBridgeLineAndAnonymityLatencyCaveat() {
+        composeRule.setContent {
+            RipDpiTheme {
+                RelayKindFields(
+                    draft = ConfigDraft(relayKind = RelayKindTor),
+                    uiState = ConfigUiState(),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Bridge line").assertExists()
+        composeRule
+            .onNodeWithText(
+                "Paste an obfs4 bridge line. Tor bootstraps only through this pluggable transport, never a direct connection.",
+            ).assertExists()
+        composeRule.onNodeWithText("Tor is slower and anonymized differently").assertExists()
+        composeRule
+            .onNodeWithText(
+                "Traffic is relayed through the volunteer Tor network, so expect higher latency than a direct relay. " +
+                    "Anonymity is provided by Tor, not by RIPDPI. Tor carries TCP and DNS only; UDP is not supported.",
+            ).assertExists()
     }
 
     @Test

@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
@@ -104,6 +105,10 @@ internal fun RelayFieldsContent(
 
         RelayKindObfs4 -> {
             Obfs4RelayFields(draft = draft, actions = actions.misc)
+        }
+
+        RelayKindTor -> {
+            TorRelayFields(draft = draft, actions = actions.misc)
         }
     }
 
