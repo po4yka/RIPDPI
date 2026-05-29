@@ -65,19 +65,21 @@ definition evidence above). Their individual task files were removed in the
 
 - [[Pin BoringSSL Reality FFI symbols with a build-time existence check]] — **done** (2026-05-29). Exact-version pins + link-time symbol existence check; contract documented in `proxy-engine.md`. vless 81/0 tests green.
 - [[Introduce ProtocolVersion enum and version-mismatch probe diagnostic]] — **done** (2026-05-29). Typed version enums across vless/tuic/mtproto, `version_probe` classifier, distinct `Tuic`/`ShadowTls` version-mismatch failure classes. 92+ tests green, clippy clean.
-- [[Gate fake-SNI cert-bypass behind allow_insecure_sni flag with telemetry]] — **partial**. The security objective is shipped and verified: `fake_sni` is refused with `PermissionDenied` unless `allow_insecure_sni == true`, covered by ws-tunnel unit tests. The remaining items — a `ws_tunnel.fake_sni_active` telemetry counter and service-layer import rejection — are a coupled cross-layer follow-up (new `WsTunnelSettings.allow_insecure_sni` config-schema field + `RuntimeTelemetrySink` method + diagnostics export); the counter cannot meaningfully fire until that plumbing lands (the adapter hardcodes `allow_insecure_sni = false`). Tracked in that task.
+- [[Gate fake-SNI cert-bypass behind allow_insecure_sni flag with telemetry]] — **done** (2026-05-29). `fake_sni` is refused with `PermissionDenied` unless `allow_insecure_sni == true`; the opt-in is plumbed end-to-end (proto → `RuntimeAdaptiveSettings`/`WsTunnelSettings`, replacing the hardcoded `false`) and surfaced as an advanced-settings UI toggle in all 7 locales. A `wsTunnelFakeSniActive` telemetry counter fires only on the fake-SNI path and is visible in the diagnostics export; the settings-restore path sanitises an unacknowledged cover via `WsProfileImportValidator`. (`XrayConfigValidator` stays a ready unit-tested gate pending the separate xray-import flow.)
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 
 ## Status note (2026-05-29)
 
 The epic ship-definition (the signed, rollback-resistant, atomic, TTL-gated
-catalog control plane) is **fully implemented and verified**. Two of the three
-later native-hardening child tasks are done; the third (fake-SNI gating) has
-its security objective shipped and verified, with an observability follow-up
-(telemetry counter + import-time rejection) deliberately split out as a
-config-contract + telemetry-trait change. No work on the catalog control plane
-or the protocol-version / BoringSSL hardening remains.
+catalog control plane) is **fully implemented and verified**, and all three
+later native-hardening child tasks (BoringSSL symbol pin, ProtocolVersion enum
++ version probe, fake-SNI gating) are **done and verified**. The fake-SNI
+opt-in is plumbed end-to-end with a UI toggle, a path-specific telemetry
+counter in the diagnostics export, and a restore-time sanitiser. The only
+remaining adjacent item is wiring `XrayConfigValidator` into an xray-config
+import flow, which does not exist yet and is tracked under the separate
+xray-import task — out of scope for this epic.
 
 ## Dependencies
 

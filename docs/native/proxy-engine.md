@@ -750,6 +750,40 @@ When validation fails (not MTProto, unmappable DC, short init), the already-cons
 
 Resolves Telegram WebSocket hostnames through the active encrypted DNS context when available; falls back to standard resolution otherwise. Shares the same DC host mapping as the transport crate.
 
+### Fake-SNI cover domain (`allow_insecure_sni` opt-in)
+
+The WS tunnel can present a cover domain in the TLS ClientHello SNI instead of
+`kws{dc}.web.telegram.org`, disguising the connection as traffic to a
+whitelisted service (e.g. `yandex.ru`). Because the presented certificate then
+will not match, **fake-SNI disables standard TLS certificate verification** for
+the tunnel.
+
+This is gated behind an explicit operator opt-in to prevent silent
+verification bypass:
+
+- `RuntimeAdaptiveSettings.ws_tunnel_fake_sni` holds the cover domain; a value
+  is only honoured when `RuntimeAdaptiveSettings.ws_tunnel_allow_insecure_sni`
+  is `true`. Otherwise `ripdpi-ws-tunnel` refuses the connection with a
+  `PermissionDenied` error before opening the socket.
+- Both fields flow Kotlin → native: proto `ws_tunnel_fake_sni` (134) /
+  `ws_tunnel_allow_insecure_sni` (305) → `ProxyUiWsTunnelConfig`
+  (`fakeSni` / `allowInsecureSni`) → `RuntimeAdaptiveSettings`. The opt-in is
+  exposed as an advanced-settings UI toggle with a TLS-bypass warning.
+- The settings-restore path sanitises an unacknowledged cover (a SAF backup
+  carrying `fakeSni` without `allowInsecureSni` is cleared on restore), reusing
+  `WsProfileImportValidator`.
+
+#### Telemetry: `wsTunnelFakeSniActive`
+
+`NativeRuntimeSnapshot.wsTunnelFakeSniActive` is a cumulative counter of
+successful WS-tunnel handshakes established with the fake-SNI cover active
+(TLS verification disabled). It increments only on the fake-SNI path
+(`RuntimeTelemetrySink::on_ws_tunnel_fake_sni_active`, fired from the
+ws-fallback success arm when the effective config has both a cover and the
+opt-in), so a non-zero value in the diagnostics export is a deploy-time signal
+that insecure-SNI connections are actually occurring. It is distinct from the
+ws-tunnel escalation event, which fires for all ws-tunnel handshakes.
+
 Relevant sources:
 
 - `native/rust/crates/ripdpi-ws-tunnel/src/dc.rs`
