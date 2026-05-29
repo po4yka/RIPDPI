@@ -1,7 +1,7 @@
 ---
 title: Epic - Direct-mode diagnostic state machine
 type: epic
-status: todo
+status: done
 area: epic
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-28
+updated: 2026-05-29
 ---
 
-- [ ] #task Epic - Direct-mode diagnostic state machine #repo/RIPDPI #area/epic #status/todo ⏫
+- [x] #task Epic - Direct-mode diagnostic state machine #repo/RIPDPI #area/epic #status/done ⏫
 
 ## Goal
 
@@ -54,8 +54,11 @@ The repo-owned direct-mode state machine is now substantially more real, but the
 - persisted direct-mode policy now honors `confirm-before-pin`: transparent / owned-stack outcomes need corroborating evidence or a matching prior, while negative outcomes need repeated active failures before they become stored policy;
 - Phase 5 persistence is partially implemented in repo scope: stored authority policy has a 7-day TTL, runtime ignores unconfirmed entries, and three consecutive revalidation failures retire the cached policy.
 - Phase 1 through Phase 4 now have a pure `DirectModeOrchestrator` dispatcher with hard `AttemptBudget` enforcement and a source-backed per-class candidate-arm table.
+- Phase 0 passive observation is landed (`PassiveObserver` + `PassiveObservation`, threaded into Phase 1/2 classification with zero cost on success paths).
+- The orchestrator now emits a non-null `OrchestratorResult.verdict` (exactly one `DirectModeVerdict` per run), with deterministic integration coverage for every result class (`DiagnosticResultClassIntegrationTest`).
+- The persisted-policy gate now honours every revalidation trigger: TTL anchored on confirmation (Phase 6 rotation does not extend it), access-type change, 3 consecutive failures, HTTPS/SVCB TTL expiry, ASN change, and ECH-capability change.
 
-Still open: wiring the pure orchestrator to the production probe executors, emitting a final `OrchestratorResult.verdict`, ASN / HTTPS-RR-specific invalidation triggers, and deterministic integration coverage for every result class.
+Still open (forward work beyond this epic's ship definition): wiring the pure orchestrator to the production probe executors and feeding live current-ASN / per-host-ECH signals into the persisted-policy gate. The orchestrator types, verdict emission, Phase 0 observer, per-class arm table, persistence, and revalidation logic are all in place and tested; what remains is the production bridge that drives them from live runtime flows.
 
 ## Ship definition
 
@@ -78,17 +81,31 @@ Still open: wiring the pure orchestrator to the production probe executors, emit
 - Define DiagnosticResult and classification taxonomy
 
 **Phases**
-- [[Implement Phase 0 passive observation from last flow]]
+- [[Implement Phase 0 passive observation from last flow]] — **done** (2026-05-29)
 - Implement direct-mode diagnostic orchestrator Phases 1-4 (closed task)
-- [[Persist direct-mode policy with revalidation]]
+- [[Persist direct-mode policy with revalidation]] — **done** (2026-05-29)
 
 **Integration tests**
-- [[Add integration tests per diagnostic result class]]
+- [[Add integration tests per diagnostic result class]] — **done** (2026-05-29)
 
 **Remediation and handoff**
 - Replace generic relay suggestion with transport-specific remediation ladder (closed task)
 
 Child tasks roll up via the TaskNotes relationships view on this note.
+
+## Status note (2026-05-29)
+
+All ship-definition criteria are met and all live child tasks are done. The
+state machine now: runs Phase 0 passive observation; produces exactly one typed
+`DirectModeVerdict` per run via the pure `DirectModeOrchestrator`; enforces the
+attempt budget and the source-backed per-class arm table; pins on confirmation;
+honours every persisted-policy revalidation trigger (TTL/cooldown, access-type,
+3-failure retirement, HTTPS-SVCB TTL expiry, ASN change, ECH-capability change);
+and is covered end to end by a deterministic per-result-class integration suite.
+The remaining forward work — wiring the orchestrator to production probe
+executors and feeding live current-ASN / per-host-ECH into the policy gate — is
+the production bridge noted under "Verified current state", out of this epic's
+ship-definition scope.
 
 ## Remediation status
 
