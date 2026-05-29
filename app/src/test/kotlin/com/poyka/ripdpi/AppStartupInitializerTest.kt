@@ -20,6 +20,8 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
+import com.poyka.ripdpi.services.FlowAppAttributionStore
+import com.poyka.ripdpi.services.FlowAttribution
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
@@ -530,6 +532,7 @@ private class RecordingDnsPathPreferenceInvalidator(
 ) : DnsPathPreferenceInvalidator(
         context = application,
         networkDnsPathPreferenceStore = NoOpNetworkDnsPathPreferenceStore,
+        flowAppAttributionStore = NoOpFlowAppAttributionStore,
         appScope = CoroutineScope(SupervisorJob()),
         trackedPackages = emptySet(),
     ) {
@@ -604,4 +607,23 @@ private object NoOpNetworkDnsPathPreferenceStore : NetworkDnsPathPreferenceStore
         path: EncryptedDnsPathCandidate,
         recordedAt: Long?,
     ): NetworkDnsPathPreferenceEntity = error("not used in startup tests")
+}
+
+private object NoOpFlowAppAttributionStore : FlowAppAttributionStore {
+    override fun noteFlow(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ) = Unit
+
+    override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? = null
+
+    override fun invalidateOnAppUpdate(
+        packageName: String,
+        newVersionCode: Long,
+    ) = Unit
+
+    override fun clear() = Unit
 }

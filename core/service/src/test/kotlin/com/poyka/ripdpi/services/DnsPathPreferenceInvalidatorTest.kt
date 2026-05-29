@@ -26,10 +26,12 @@ class DnsPathPreferenceInvalidatorTest {
     private fun buildInvalidator(
         store: NetworkDnsPathPreferenceStore,
         trackedPackages: Set<String> = testVpnPackages,
+        flowAppAttributionStore: FlowAppAttributionStore = RecordingFlowAppAttributionStore(),
     ): DnsPathPreferenceInvalidator =
         DnsPathPreferenceInvalidator(
             context = RuntimeEnvironment.getApplication(),
             networkDnsPathPreferenceStore = store,
+            flowAppAttributionStore = flowAppAttributionStore,
             appScope = testScope,
             trackedPackages = trackedPackages,
         )
@@ -139,4 +141,28 @@ private class RecordingDnsPathPreferenceStore : NetworkDnsPathPreferenceStore {
         path: EncryptedDnsPathCandidate,
         recordedAt: Long?,
     ): NetworkDnsPathPreferenceEntity = error("not expected in this test")
+}
+
+/** Records [invalidateOnAppUpdate] calls so the eager flow-attribution path can be asserted. */
+private class RecordingFlowAppAttributionStore : FlowAppAttributionStore {
+    val invalidations = mutableListOf<Pair<String, Long>>()
+
+    override fun noteFlow(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ) = Unit
+
+    override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? = null
+
+    override fun invalidateOnAppUpdate(
+        packageName: String,
+        newVersionCode: Long,
+    ) {
+        invalidations += packageName to newVersionCode
+    }
+
+    override fun clear() = Unit
 }

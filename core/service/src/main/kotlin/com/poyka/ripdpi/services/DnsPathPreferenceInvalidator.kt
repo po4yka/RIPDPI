@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import androidx.core.content.pm.PackageInfoCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
@@ -31,6 +32,12 @@ annotation class VpnFamilyPackages
  * (networkScopeKey). A VPN app update may change which DNS path the device uses, so
  * stale verdicts could direct the VPN to an incompatible resolver endpoint.
  * Clearing the preference store forces re-selection on the next VPN session.
+ *
+ * It also performs the eager half of per-app flow-attribution invalidation: on
+ * ANY app's package-replace/remove it drops that app's cached attribution from
+ * [FlowAppAttributionStore] (version-scoped), so a later flow re-resolves the new
+ * version instead of inheriting the old one. The lazy half (evict-on-flow-close +
+ * version-keyed lookup) already provides correctness; this just makes it eager.
  */
 @Singleton
 open class DnsPathPreferenceInvalidator
@@ -38,11 +45,15 @@ open class DnsPathPreferenceInvalidator
     constructor(
         @param:ApplicationContext private val context: Context,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
+        private val flowAppAttributionStore: FlowAppAttributionStore,
         @param:ApplicationScope private val appScope: CoroutineScope,
         @param:VpnFamilyPackages internal val trackedPackages: Set<String>,
     ) {
         private companion object {
             private val log = Logger.withTag("DnsPathInvalidator")
+
+            /** Version that matches no real `longVersionCode`, so a removed app's entries are all dropped. */
+            private const val REMOVED_APP_VERSION = -1L
         }
 
         /** Returns true if [packageName] belongs to a tracked VPN app family. */
@@ -55,6 +66,8 @@ open class DnsPathPreferenceInvalidator
                     intent: Intent,
                 ) {
                     val pkg = intent.data?.schemeSpecificPart ?: return
+                    // Flow attribution: applies to ANY app, not just the VPN family.
+                    invalidateFlowAttribution(pkg)
                     if (!isTracked(pkg)) return
                     log.i { "VPN app package updated/removed: $pkg — invalidating DNS path preference cache" }
                     appScope.launch {
@@ -63,6 +76,19 @@ open class DnsPathPreferenceInvalidator
                     }
                 }
             }
+
+        /**
+         * Drop [packageName]'s cached flow attribution. On replace, resolve the new
+         * version so only stale-version entries are dropped; on removal (lookup
+         * fails) use [REMOVED_APP_VERSION] so all of the package's entries go.
+         */
+        private fun invalidateFlowAttribution(packageName: String) {
+            val newVersion =
+                runCatching {
+                    PackageInfoCompat.getLongVersionCode(context.packageManager.getPackageInfo(packageName, 0))
+                }.getOrDefault(REMOVED_APP_VERSION)
+            flowAppAttributionStore.invalidateOnAppUpdate(packageName, newVersion)
+        }
 
         /** Register the broadcast receiver. Call once during application or service startup. */
         open fun register() {
