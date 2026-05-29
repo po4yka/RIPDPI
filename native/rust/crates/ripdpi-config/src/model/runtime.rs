@@ -91,6 +91,13 @@ pub struct RuntimeAdaptiveSettings {
     pub network_scope_key: Option<String>,
     pub ws_tunnel_mode: WsTunnelMode,
     pub ws_tunnel_fake_sni: Option<String>,
+    /// Explicit operator acknowledgement that the ws-tunnel fake-SNI cover
+    /// domain ([`Self::ws_tunnel_fake_sni`]) disables standard TLS
+    /// certificate verification. The ws-tunnel runtime refuses a `fake_sni`
+    /// value at connect time unless this is `true`. Defaults to `false` for
+    /// safe-by-default behaviour. See
+    /// `docs/tasks/issues/gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry.md`.
+    pub ws_tunnel_allow_insecure_sni: bool,
     pub strategy_evolution: bool,
     /// Exploration rate in thousandths (0-1000 maps to 0.0-1.0). Default: 100 (= 10%).
     pub evolution_epsilon_permil: u32,

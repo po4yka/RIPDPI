@@ -1292,6 +1292,22 @@ fn ws_tunnel_mode_unknown_string_maps_to_off() {
 }
 
 #[test]
+fn ws_tunnel_allow_insecure_sni_defaults_to_false() {
+    let config = runtime_config_from_ui(minimal_ui()).expect("runtime config");
+    assert!(!config.adaptive.ws_tunnel_allow_insecure_sni);
+}
+
+#[test]
+fn ws_tunnel_allow_insecure_sni_maps_from_ui() {
+    let mut ui = minimal_ui();
+    ui.ws_tunnel.fake_sni = Some("yandex.ru".to_string());
+    ui.ws_tunnel.allow_insecure_sni = true;
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    assert_eq!(config.adaptive.ws_tunnel_fake_sni.as_deref(), Some("yandex.ru"));
+    assert!(config.adaptive.ws_tunnel_allow_insecure_sni);
+}
+
+#[test]
 fn ws_tunnel_mode_none_enabled_true_maps_to_always() {
     let mut ui = minimal_ui();
     ui.ws_tunnel.mode = None;

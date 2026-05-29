@@ -114,6 +114,7 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
         "--ws-tunnel-fake-sni" => {
             state.config.adaptive.ws_tunnel_fake_sni = Some(next_value(args, idx, arg)?.to_string());
         }
+        "--ws-tunnel-allow-insecure-sni" => state.config.adaptive.ws_tunnel_allow_insecure_sni = true,
         "--strategy-evolution" => state.config.adaptive.strategy_evolution = true,
         "--evolution-epsilon" => {
             let value = next_value(args, idx, arg)?;

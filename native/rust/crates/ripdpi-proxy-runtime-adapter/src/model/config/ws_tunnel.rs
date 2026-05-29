@@ -20,6 +20,7 @@ pub struct WsTunnelSettings {
     pub protect_path: Option<String>,
     pub connect_timeout: Option<Duration>,
     pub fake_sni: Option<String>,
+    pub allow_insecure_sni: bool,
 }
 
 pub fn ws_tunnel_settings(config: &RuntimeConfig) -> WsTunnelSettings {
@@ -29,6 +30,7 @@ pub fn ws_tunnel_settings(config: &RuntimeConfig) -> WsTunnelSettings {
         protect_path: protect_path_owned(config),
         connect_timeout: connect_timeout(config),
         fake_sni: config.adaptive.ws_tunnel_fake_sni.clone(),
+        allow_insecure_sni: config.adaptive.ws_tunnel_allow_insecure_sni,
     }
 }
 
@@ -48,13 +50,9 @@ pub fn ws_tunnel_config_with(
         resolved_addr,
         connect_timeout: settings.connect_timeout,
         fake_sni: settings.fake_sni.clone(),
-        // Safe-by-default: fake-SNI cert-bypass is only honoured when the
-        // operator opts in. Plumbing this from RuntimeConfig (via a new
-        // WsTunnelSettings.allow_insecure_sni field) is tracked under
-        // docs/tasks/issues/gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry.md.
-        // Until then, fake_sni values in catalog profiles will be refused
-        // by ripdpi_ws_bootstrap with PermissionDenied rather than silently
-        // bypassing TLS verification.
-        allow_insecure_sni: false,
+        // Operator opt-in plumbed from RuntimeConfig.adaptive. When false (the
+        // default), ripdpi_ws_bootstrap refuses any fake_sni value with
+        // PermissionDenied rather than silently bypassing TLS verification.
+        allow_insecure_sni: settings.allow_insecure_sni,
     }
 }

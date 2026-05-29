@@ -403,6 +403,7 @@ fn runtime_config_adapter_views_round_trip() {
         network_scope_key: Some("wifi:test".to_string()),
         ws_tunnel_mode: WsTunnelMode::Fallback,
         ws_tunnel_fake_sni: None,
+        ws_tunnel_allow_insecure_sni: false,
         strategy_evolution: false,
         evolution_epsilon_permil: 100,
         evolution_experiment_ttl_ms: 30_000,

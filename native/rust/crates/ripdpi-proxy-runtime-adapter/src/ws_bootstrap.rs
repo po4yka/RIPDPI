@@ -73,6 +73,7 @@ mod tests {
             protect_path: None,
             connect_timeout: None,
             fake_sni: None,
+            allow_insecure_sni: false,
         };
         let fallback = WsTunnelSettings {
             always_enabled: false,
@@ -80,6 +81,7 @@ mod tests {
             protect_path: None,
             connect_timeout: None,
             fake_sni: None,
+            allow_insecure_sni: false,
         };
 
         assert_eq!(should_tunnel_first_with(target, &always).map(ripdpi_ws_bootstrap::TelegramDc::number), Some(2));

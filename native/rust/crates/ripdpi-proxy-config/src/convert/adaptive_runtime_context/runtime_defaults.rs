@@ -34,6 +34,7 @@ pub(crate) fn apply_runtime_section(
         }
     };
     config.adaptive.ws_tunnel_fake_sni = ws_tunnel.fake_sni.clone().filter(|value| !value.is_empty());
+    config.adaptive.ws_tunnel_allow_insecure_sni = ws_tunnel.allow_insecure_sni;
     config.adaptive.auto_level = if adaptive_fallback.enabled { AUTO_RECONN } else { 0 };
     if adaptive_fallback.enabled && adaptive_fallback.auto_sort {
         config.adaptive.auto_level |= AUTO_SORT;

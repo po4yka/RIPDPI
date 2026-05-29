@@ -67,4 +67,9 @@ pub struct ProxyUiWsTunnelConfig {
     pub mode: Option<String>,
     #[serde(default)]
     pub fake_sni: Option<String>,
+    /// Operator opt-in that [`Self::fake_sni`] may disable TLS certificate
+    /// verification. Wire key `allowInsecureSni`. Maps to
+    /// `RuntimeAdaptiveSettings::ws_tunnel_allow_insecure_sni`.
+    #[serde(default)]
+    pub allow_insecure_sni: bool,
 }
