@@ -38,6 +38,7 @@ internal class DirectPathPolicyLearner
     constructor(
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val serverCapabilityStore: ServerCapabilityStore,
+        private val flowAppAttributionStore: FlowAppAttributionStore,
     ) : DirectPathPolicyTelemetryConsumer {
         private var cachedFingerprintHash: String? = null
         private val cachedEnvelopes = linkedMapOf<DirectPathTupleKey, TransportPolicyEnvelope>()
@@ -47,9 +48,11 @@ internal class DirectPathPolicyLearner
         /**
          * Per-app-family NO_TCP_FALLBACK memory. Consulted before a soft-disable
          * is learned and recorded when an attributed signal reports that an app
-         * never fell back to TCP. Unattributed signals (no package name) never
-         * touch it, so per-app suppression is conservative by default. The mark
-         * is version-scoped, so it reverts automatically when the app updates.
+         * never fell back to TCP. The owning app is resolved by joining the
+         * signal's destination digest against [flowAppAttributionStore]; a flow
+         * with no resolved owner never touches the memory, so per-app suppression
+         * is conservative by default. The mark is version-scoped, so it reverts
+         * automatically when the app updates.
          */
         private val noTcpFallbackMemory = NoTcpFallbackAppMemory()
 
@@ -191,24 +194,18 @@ internal class DirectPathPolicyLearner
          */
         private fun recordNoTcpFallbackIfAttributed(signal: DirectPathLearningSignal) {
             if (signal.event != DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED) return
-            val packageName = signal.packageName
-            val versionCode = signal.appVersionCode
-            if (packageName != null && versionCode != null) {
-                noTcpFallbackMemory.recordNoTcpFallback(packageName, versionCode)
-            }
+            val attribution = flowAppAttributionStore.lookup(signal.ipSetDigest) ?: return
+            noTcpFallbackMemory.recordNoTcpFallback(attribution.packageName, attribution.versionCode)
         }
 
         /**
          * True when this signal's owning app is remembered as NO_TCP_FALLBACK for
          * its exact current version, meaning a soft-disable must NOT be learned.
-         * Unattributed signals always return `false`.
+         * A flow with no resolved owner (unattributed) always returns `false`.
          */
         private fun shouldSkipSoftDisableForApp(signal: DirectPathLearningSignal): Boolean {
-            val packageName = signal.packageName
-            val versionCode = signal.appVersionCode
-            return packageName != null &&
-                versionCode != null &&
-                noTcpFallbackMemory.shouldSkipSoftDisable(packageName, versionCode)
+            val attribution = flowAppAttributionStore.lookup(signal.ipSetDigest) ?: return false
+            return noTcpFallbackMemory.shouldSkipSoftDisable(attribution.packageName, attribution.versionCode)
         }
 
         private fun trimCaches() {

@@ -17,6 +17,44 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+/**
+ * In-memory [FlowAppAttributionStore] double. Tests seed it by the same
+ * `ipSetDigest` string the learning signal carries, modelling the Kotlin-side
+ * join the tun2socks producer populates in production.
+ */
+private class FakeFlowAppAttributionStore : FlowAppAttributionStore {
+    private val map = mutableMapOf<String, FlowAttribution.Attributed>()
+
+    fun seed(
+        ipSetDigest: String,
+        packageName: String,
+        versionCode: Long,
+    ) {
+        map[ipSetDigest] = FlowAttribution.Attributed(packageName, versionCode)
+    }
+
+    override fun noteFlow(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ) = Unit
+
+    override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? = map[ipSetDigest]
+
+    override fun invalidateOnAppUpdate(
+        packageName: String,
+        newVersionCode: Long,
+    ) {
+        map.entries.removeIf { (_, attribution) ->
+            attribution.packageName == packageName && attribution.versionCode != newVersionCode
+        }
+    }
+
+    override fun clear() = map.clear()
+}
+
 class DirectPathPolicyLearnerTest {
     @Test
     fun `quic blocked tcp ok persists soft disable and duplicate poll does not rewrite`() =
@@ -27,6 +65,7 @@ class DirectPathPolicyLearnerTest {
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = FakeFlowAppAttributionStore(),
                 )
             val firstSnapshot =
                 NativeRuntimeSnapshot(
@@ -70,6 +109,7 @@ class DirectPathPolicyLearnerTest {
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = FakeFlowAppAttributionStore(),
                 )
             val tupleAuthority = "example.org:443"
             val ipSetDigest = "deadbeef"
@@ -102,6 +142,7 @@ class DirectPathPolicyLearnerTest {
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = FakeFlowAppAttributionStore(),
                 )
             val authority = "example.org:443"
             val digest = "feedface"
@@ -157,6 +198,7 @@ class DirectPathPolicyLearnerTest {
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = FakeFlowAppAttributionStore(),
                 )
             val authority = "example.org:443"
             val digest = "feedface"
@@ -199,31 +241,22 @@ class DirectPathPolicyLearnerTest {
         runTest {
             val fingerprint = sampleFingerprint()
             val store = TestServerCapabilityStore()
+            val flowStore = FakeFlowAppAttributionStore()
+            // App P owns flows to both hosts (their learning signals carry these digests).
+            flowStore.seed("aaaa", "com.app.p", 1L)
+            flowStore.seed("bbbb", "com.app.p", 1L)
             val learner =
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = flowStore,
                 )
 
             // App P never falls back to TCP on host A — remember it per app family.
-            learner.consumeSignal(
-                "host-a.example:443",
-                "aaaa",
-                DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
-                100L,
-                packageName = "com.app.p",
-                appVersionCode = 1L,
-            )
-            // The same app hits a DIFFERENT host: the per-host record for B is
-            // empty, but the per-app memory must still suppress soft-disable.
-            learner.consumeSignal(
-                "host-b.example:443",
-                "bbbb",
-                DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
-                200L,
-                packageName = "com.app.p",
-                appVersionCode = 1L,
-            )
+            learner.consumeSignal("host-a.example:443", "aaaa", DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED, 100L)
+            // The same app hits a DIFFERENT host: the per-host record for B is empty,
+            // but the per-app memory must still suppress soft-disable.
+            learner.consumeSignal("host-b.example:443", "bbbb", DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK, 200L)
 
             val records = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey())
             assertNull(records.firstOrNull { it.authority == "host-b.example:443" })
@@ -234,30 +267,20 @@ class DirectPathPolicyLearnerTest {
         runTest {
             val fingerprint = sampleFingerprint()
             val store = TestServerCapabilityStore()
+            val flowStore = FakeFlowAppAttributionStore()
+            flowStore.seed("aaaa", "com.app.p", 1L)
+            // Host B is served by app P at a NEWER version.
+            flowStore.seed("bbbb", "com.app.p", 2L)
             val learner =
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = flowStore,
                 )
 
-            learner.consumeSignal(
-                "host-a.example:443",
-                "aaaa",
-                DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
-                100L,
-                packageName = "com.app.p",
-                appVersionCode = 1L,
-            )
-            // App P updated to v2 — the v1 mark no longer applies, so soft-disable
-            // is learned again on the next QUIC block.
-            learner.consumeSignal(
-                "host-b.example:443",
-                "bbbb",
-                DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
-                200L,
-                packageName = "com.app.p",
-                appVersionCode = 2L,
-            )
+            learner.consumeSignal("host-a.example:443", "aaaa", DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED, 100L)
+            // App P updated to v2 — the v1 mark no longer applies, so soft-disable is learned.
+            learner.consumeSignal("host-b.example:443", "bbbb", DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK, 200L)
 
             val record =
                 store
@@ -271,29 +294,19 @@ class DirectPathPolicyLearnerTest {
         runTest {
             val fingerprint = sampleFingerprint()
             val store = TestServerCapabilityStore()
+            val flowStore = FakeFlowAppAttributionStore()
+            flowStore.seed("aaaa", "com.app.p", 1L)
+            // Host B is owned by a DIFFERENT app.
+            flowStore.seed("bbbb", "com.app.q", 1L)
             val learner =
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = flowStore,
                 )
 
-            learner.consumeSignal(
-                "host-a.example:443",
-                "aaaa",
-                DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
-                100L,
-                packageName = "com.app.p",
-                appVersionCode = 1L,
-            )
-            // A different app (Q) on host B is unaffected by app P's memory.
-            learner.consumeSignal(
-                "host-b.example:443",
-                "bbbb",
-                DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
-                200L,
-                packageName = "com.app.q",
-                appVersionCode = 1L,
-            )
+            learner.consumeSignal("host-a.example:443", "aaaa", DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED, 100L)
+            learner.consumeSignal("host-b.example:443", "bbbb", DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK, 200L)
 
             val record =
                 store
@@ -303,17 +316,18 @@ class DirectPathPolicyLearnerTest {
         }
 
     @Test
-    fun `unattributed no tcp fallback signal does not arm the per app memory`() =
+    fun `unattributed flow does not arm the per app memory`() =
         runTest {
             val fingerprint = sampleFingerprint()
             val store = TestServerCapabilityStore()
+            // Empty store: no flow is attributed — conservative default.
             val learner =
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = FakeFlowAppAttributionStore(),
                 )
 
-            // No package identity: conservative default — nothing is remembered.
             learner.consumeSignal("host-a.example:443", "aaaa", DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED, 100L)
             learner.consumeSignal("host-b.example:443", "bbbb", DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK, 200L)
 
@@ -333,6 +347,7 @@ class DirectPathPolicyLearnerTest {
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = FakeFlowAppAttributionStore(),
                 )
 
             learner.consumeSignal("host-a.example:443", "aaaa", DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK, 100L)
@@ -354,6 +369,7 @@ class DirectPathPolicyLearnerTest {
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = FakeFlowAppAttributionStore(),
                 )
 
             learner.consume(
@@ -384,6 +400,7 @@ class DirectPathPolicyLearnerTest {
                 DirectPathPolicyLearner(
                     networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
                     serverCapabilityStore = store,
+                    flowAppAttributionStore = FakeFlowAppAttributionStore(),
                 )
 
             learner.consume(
@@ -425,8 +442,6 @@ private suspend fun DirectPathPolicyLearner.consumeSignal(
     event: DirectPathLearningEvent,
     capturedAt: Long,
     strategyFamily: String? = null,
-    packageName: String? = null,
-    appVersionCode: Long? = null,
 ) {
     consume(
         NativeRuntimeSnapshot(
@@ -440,8 +455,6 @@ private suspend fun DirectPathPolicyLearner.consumeSignal(
                         event = event,
                         capturedAt = capturedAt,
                         strategyFamily = strategyFamily,
-                        packageName = packageName,
-                        appVersionCode = appVersionCode,
                     ),
                 ),
         ),
