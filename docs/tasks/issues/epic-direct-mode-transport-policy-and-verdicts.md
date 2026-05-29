@@ -1,7 +1,7 @@
 ---
 title: Epic - Direct-mode transport policy and verdicts
 type: epic
-status: todo
+status: done
 area: epic
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-28
+updated: 2026-05-29
 ---
 
-- [ ] #task Epic - Direct-mode transport policy and verdicts #repo/RIPDPI #area/epic #status/todo ⏫
+- [x] #task Epic - Direct-mode transport policy and verdicts #repo/RIPDPI #area/epic #status/done ⏫
 
 ## Goal
 
@@ -37,14 +37,16 @@ Aggressive QUIC packet rewriting in transparent TUN mode is expensive and brittl
 ## Ship definition
 
 - [x] `TransportPolicy` type exists with all five fields (`quic_mode`, `preferred_stack`, `dns_mode`, `tcp_family`, `outcome`) and serializes stably across app updates.
-- [ ] `SOFT_DISABLE` is tuple-scoped — other hosts and other apps unaffected.
-- [ ] `NO_TCP_FALLBACK` heuristic is conservative by default; reverts on app package version change.
+- [x] `SOFT_DISABLE` is tuple-scoped — other hosts and other apps unaffected.
+- [x] `NO_TCP_FALLBACK` heuristic is conservative by default; reverts on app package version change.
 - [x] `IP_BLOCK_SUSPECT` classification re-verifies on the next flow before pinning, to avoid transient-blip false positives.
 - [x] `NO_DIRECT_SOLUTION` surface in UI with a structured reason, and with cooldown to prevent immediate re-runs.
 
 ## Implementation note
 
-Verified 2026-05-28 against the current transport-policy code: diagnostics keep distinct TLS, QUIC, and likely-IP-block `NO_DIRECT_SOLUTION` causes instead of collapsing them all into `IP_BLOCK_SUSPECT`, runtime `ALL_IPS_FAILED` learning requires a second flow before persisting the negative verdict, and the runtime enforcement path applies cached tuple-scoped QUIC suppression consistently. In particular, `NO_TCP_FALLBACK` no longer leaves the runtime in the contradictory state where UDP suppression is lifted but the adaptive UDP/QUIC hint layer still behaves as if QUIC is broken for the same authority. Remaining work is the true per-app-family `NO_TCP_FALLBACK` memory and invalidation on app package-version change.
+Verified 2026-05-28 against the current transport-policy code: diagnostics keep distinct TLS, QUIC, and likely-IP-block `NO_DIRECT_SOLUTION` causes instead of collapsing them all into `IP_BLOCK_SUSPECT`, runtime `ALL_IPS_FAILED` learning requires a second flow before persisting the negative verdict, and the runtime enforcement path applies cached tuple-scoped QUIC suppression consistently. In particular, `NO_TCP_FALLBACK` no longer leaves the runtime in the contradictory state where UDP suppression is lifted but the adaptive UDP/QUIC hint layer still behaves as if QUIC is broken for the same authority.
+
+Closed 2026-05-29: the true per-app-family `NO_TCP_FALLBACK` memory is now load-bearing in the live Kotlin policy path. `NoTcpFallbackAppMemory` (mirroring the native reference `AppFamilyMemory`) is consulted by `DirectPathPolicyLearner`: an attributed `NO_TCP_FALLBACK_DETECTED` remembers the owning app by `(packageName, versionCode)`, and a later `QUIC_BLOCKED_TCP_OK` for that same app is suppressed across hosts. Marks are version-scoped, so an app update reverts the memory automatically. The heuristic is conservative by default — signals with no package identity never arm or match the memory, so per-app suppression never fires on telemetry it cannot attribute. `SOFT_DISABLE` tuple-scoping and other-app/other-host isolation are proven by live-path tests in `DirectPathPolicyLearnerTest`. The remaining input — per-flow UID→package attribution that would populate `packageName` on production telemetry — is tracked as its own follow-up, deliberately kept out of this policy-engine epic because it is enforcement-plumbing adjacent to the out-of-scope packet layer.
 
 ## Child tasks
 
@@ -59,6 +61,9 @@ Verified 2026-05-28 against the current transport-policy code: diagnostics keep 
 **Verdict classification**
 - Classify IP_BLOCK_SUSPECT when all IPs fail (closed task)
 - [[Surface NO_DIRECT_SOLUTION verdict honestly]]
+
+**Follow-up (out of epic scope, tracked separately)**
+- [[Attribute direct-mode flows to the owning app package]] — supplies the per-flow package identity that lets the per-app `NO_TCP_FALLBACK` memory fire on production telemetry.
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 

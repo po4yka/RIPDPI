@@ -1,7 +1,7 @@
 ---
 title: Surface NO_DIRECT_SOLUTION verdict honestly
 type: task
-status: todo
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-direct-mode-transport-policy-and-verdicts
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-04-23
+updated: 2026-05-29
 ---
 
-- [ ] #task Surface NO_DIRECT_SOLUTION verdict honestly #repo/RIPDPI #area/diagnostics #status/todo 🔼
+- [x] #task Surface NO_DIRECT_SOLUTION verdict honestly #repo/RIPDPI #area/diagnostics #status/done 🔼
 
 ## Summary
 
@@ -27,11 +27,13 @@ ripdpi-android-direct-mode-plan-2026-04-20 §3 rule 5 and "Phase 4" end state.
 - [x] Diagnostic returns the verdict with a structured reason code (`IP_BLOCKED`, `TLS_BLOCKED_NO_ARMS_WORKED`, `DNS_BLOCKED_NO_ECH`, etc.).
 - [x] UI/diagnostics surface displays the verdict + reason; does not pretend to keep trying.
 - [x] A cooldown prevents immediately re-running the full diagnostic for the same host on the same network profile.
-- [ ] Persisted verdict is subject to the Phase 5 revalidation rules (ASN change, access-type change, etc.).
+- [x] Persisted verdict is subject to the Phase 5 revalidation rules (ASN change, access-type change, etc.).
 
 ## Implementation note
 
-The first honest-verdict slice landed on 2026-04-23: diagnostics now keep distinct TLS, QUIC, and likely-IP-block `NO_DIRECT_SOLUTION` causes, and summary text surfaces the verdict reason instead of pretending the scan should keep trying. Full Phase 5 persistence / revalidation behavior is still open.
+The first honest-verdict slice landed on 2026-04-23: diagnostics now keep distinct TLS, QUIC, and likely-IP-block `NO_DIRECT_SOLUTION` causes, and summary text surfaces the verdict reason instead of pretending the scan should keep trying.
+
+Phase 5 persistence / revalidation closed 2026-05-29 via [[Persist direct-mode policy with revalidation]]: a persisted `NO_DIRECT_SOLUTION` verdict only stays runtime-usable while its cooldown is active (`ServerCapabilityRecord.isFreshDirectPolicy`), is dropped on ASN or ECH change (`isInvalidatedByEnvironment`), ages out at the 7-day TTL anchored on confirmation, and is retired after the failure-count threshold. Access-type changes re-scope the network fingerprint key, so the verdict is not even looked up under a different transport. Covered by `ServerCapabilityDirectPolicyTest`.
 
 ## Links
 
