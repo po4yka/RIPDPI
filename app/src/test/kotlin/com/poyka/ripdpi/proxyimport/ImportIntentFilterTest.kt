@@ -72,6 +72,16 @@ class ImportIntentFilterTest {
     }
 
     @Test
+    fun `ripdpi import deep link with sub parameter resolves to the import handler`() {
+        assertTrue(resolvesToImportHandler("ripdpi://import?sub=https%3A%2F%2Fhost.example%2Fsub%2Ftok"))
+    }
+
+    @Test
+    fun `ripdpi import deep link with url parameter resolves to the import handler`() {
+        assertTrue(resolvesToImportHandler("ripdpi://import?url=https%3A%2F%2Fhost.example%2Fbundle.json"))
+    }
+
+    @Test
     fun `https is not claimed by the import handler`() {
         // Browser ordering for plain web links must stay untouched.
         val matches = packageManager.queryIntentActivities(viewIntent("https://example.com/page"), 0)

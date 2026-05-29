@@ -43,6 +43,29 @@ class ImportHandlerActivity : Activity() {
             toast(R.string.import_error_unsupported)
             return
         }
+        // `ripdpi://import?sub=…` / `ripdpi://import?url=…` takes priority over the
+        // legacy SingBox-style `ripdpi://import-remote-profile` handler.
+        when (val ripDpiResult = RipDpiImportDeepLinkParser.parse(data)) {
+            is RipDpiImportDeepLinkResult.Success -> {
+                handleRipDpiImportDeepLink(ripDpiResult)
+                return
+            }
+            RipDpiImportDeepLinkResult.Error.NonHttps -> {
+                toast(R.string.import_error_bad_encoding)
+                return
+            }
+            RipDpiImportDeepLinkResult.Error.BadEncoding -> {
+                toast(R.string.import_error_bad_encoding)
+                return
+            }
+            RipDpiImportDeepLinkResult.Error.MissingTarget -> {
+                toast(R.string.import_error_missing_url)
+                return
+            }
+            RipDpiImportDeepLinkResult.Error.Unsupported -> {
+                // Not a ripdpi://import link — fall through to the legacy handlers below.
+            }
+        }
         when (SingBoxDeepLinkParser.parse(data)) {
             is SingBoxDeepLinkResult.Success -> {
                 handleSubscriptionDeepLink(data)
@@ -54,6 +77,17 @@ class ImportHandlerActivity : Activity() {
                 handleProxyShareLink(data)
             }
         }
+    }
+
+    private fun handleRipDpiImportDeepLink(result: RipDpiImportDeepLinkResult.Success) {
+        val bootstrap = result.kind == RipDpiImportDeepLinkResult.Success.Kind.OneShot
+        forwardToMain(
+            Intent(this, MainActivity::class.java).apply {
+                putExtra(EXTRA_IMPORT_ROUTE, ImportLaunchRoute.SUBSCRIPTION_CONFIRM)
+                putExtra(EXTRA_SUBSCRIPTION_URL, result.targetUrl)
+                putExtra(EXTRA_SUBSCRIPTION_BOOTSTRAP, bootstrap)
+            },
+        )
     }
 
     private fun handleSubscriptionDeepLink(data: String) {

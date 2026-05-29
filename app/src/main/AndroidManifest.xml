@@ -100,6 +100,12 @@
                 <data android:scheme="ripdpi" android:host="import-remote-profile" />
                 <data android:scheme="sn" android:host="import-remote-profile" />
             </intent-filter>
+            <intent-filter android:priority="-100">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ripdpi" android:host="import" />
+            </intent-filter>
         </activity>
 
         <activity-alias
