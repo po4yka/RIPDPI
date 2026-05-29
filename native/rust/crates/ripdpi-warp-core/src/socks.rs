@@ -57,7 +57,13 @@ async fn handle_tcp_connect(
     write_reply(&mut client, 0x00, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
 
     let mut buffer = BytesMut::with_capacity(MAX_PACKET);
+    // Pending remote->client write, held outside the select! so the write is not
+    // entangled with the readable arm and cancel reasoning stays simple.
+    let mut pending_write: Option<Bytes> = None;
     loop {
+        if let Some(data) = pending_write.take() {
+            client.write_all(&data).await?;
+        }
         tokio::select! {
             readable_result = client.readable() => {
                 match readable_result {
@@ -77,7 +83,7 @@ async fn handle_tcp_connect(
                 Event::Shutdown => break,
                 Event::ClientConnectionDropped(event_port) if event_port == virtual_port => break,
                 Event::RemoteData(event_port, data) if event_port == virtual_port => {
-                    client.write_all(&data).await?;
+                    pending_write = Some(data);
                 }
                 _ => {}
             }
