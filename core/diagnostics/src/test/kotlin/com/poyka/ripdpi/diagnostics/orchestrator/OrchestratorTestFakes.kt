@@ -8,7 +8,12 @@ internal class StubDnsClassifier(
     private val cls: DnsClassification,
     private val onClassify: () -> Unit = {},
 ) : DnsClassifier {
-    override suspend fun classify(): DnsClassification {
+    /** The observation passed to the most recent [classify] call. */
+    var lastObservation: PassiveObservation? = null
+        private set
+
+    override suspend fun classify(observation: PassiveObservation): DnsClassification {
+        lastObservation = observation
         onClassify()
         return cls
     }
@@ -18,7 +23,12 @@ internal class StubTransportClassifier(
     private val cls: TransportClass,
     private val onClassify: () -> Unit = {},
 ) : TransportPolicyClassifier {
-    override suspend fun classify(): TransportClass {
+    /** The observation passed to the most recent [classify] call. */
+    var lastObservation: PassiveObservation? = null
+        private set
+
+    override suspend fun classify(observation: PassiveObservation): TransportClass {
+        lastObservation = observation
         onClassify()
         return cls
     }

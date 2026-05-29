@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.diagnostics.orchestrator
 
 /**
- * Runs the four-phase direct-mode diagnostic sequence for a single session.
+ * Runs the direct-mode diagnostic sequence for a single session.
  *
+ * Phase 0 – Passive observation of the last failed flow (delegates to
+ *           [passiveObserver]; no-op when [lastFailedFlow] is null).
  * Phase 1 – DNS classification (delegates to [dnsClassifier]).
  * Phase 2 – Transport classification (delegates to [transportClassifier]).
  * Phase 3 – Arm ranking (delegates to [armRanker]).
@@ -20,18 +22,23 @@ class DirectModeOrchestrator(
     private val ownedStackPinGuard: OwnedStackPinGuard,
     private val budget: AttemptBudget = AttemptBudget(),
     private val clock: () -> Long = System::currentTimeMillis,
+    private val passiveObserver: PassiveObserver = PassiveObserver(),
+    private val lastFailedFlow: LastFailedFlow? = null,
 ) {
     /**
-     * Executes Phases 1–4 and returns exactly one [OrchestratorResult].
+     * Executes Phases 0–4 and returns exactly one [OrchestratorResult].
      */
     suspend fun run(): OrchestratorResult {
         val startMs = clock()
 
-        // Phase 1: DNS classification
-        val dnsClass = dnsClassifier.classify()
+        // Phase 0: Passive observation (free on success paths — no flow to observe).
+        val observation = passiveObserver.observe(lastFailedFlow)
 
-        // Phase 2: Transport classification
-        val transportClass = transportClassifier.classify()
+        // Phase 1: DNS classification, seeded by the passive observation
+        val dnsClass = dnsClassifier.classify(observation)
+
+        // Phase 2: Transport classification, seeded by the passive observation
+        val transportClass = transportClassifier.classify(observation)
 
         // Combine Phase 1 + Phase 2 into a DiagnosticClass
         val diagnosticClass = combineToDiagnosticClass(dnsClass, transportClass)

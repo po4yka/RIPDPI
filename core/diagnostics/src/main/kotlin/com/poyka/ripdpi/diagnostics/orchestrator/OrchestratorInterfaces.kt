@@ -10,8 +10,14 @@ import com.poyka.ripdpi.diagnostics.shared.DnsClassification
  * detection logic itself.
  */
 interface DnsClassifier {
-    /** Returns the DNS classification for the current network context. */
-    suspend fun classify(): DnsClassification
+    /**
+     * Returns the DNS classification for the current network context.
+     *
+     * [observation] carries the Phase 0 passive signal from the last failed
+     * flow ([PassiveObservation.NONE] when there is none) so the classifier
+     * can seed itself instead of probing from zero.
+     */
+    suspend fun classify(observation: PassiveObservation): DnsClassification
 }
 
 /**
@@ -22,8 +28,14 @@ interface DnsClassifier {
  * QUIC detection logic itself.
  */
 interface TransportPolicyClassifier {
-    /** Returns the transport class observed on the current path. */
-    suspend fun classify(): TransportClass
+    /**
+     * Returns the transport class observed on the current path.
+     *
+     * [observation] carries the Phase 0 passive signal from the last failed
+     * flow ([PassiveObservation.NONE] when there is none) so the classifier
+     * can seed itself instead of probing from zero.
+     */
+    suspend fun classify(observation: PassiveObservation): TransportClass
 }
 
 /**
