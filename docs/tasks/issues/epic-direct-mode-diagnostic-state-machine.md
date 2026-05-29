@@ -68,7 +68,7 @@ Still open: wiring the pure orchestrator to the production probe executors, emit
 - `IP_BLOCK_SUSPECT`: A10, A9
 - `UNKNOWN`: A1, A3, A4, A5, A9
 - [x] Phase 4 success requires a confirmation request before pinning in the repo-owned persistence path.
-- [ ] Persisted verdict invalidates on every revalidation trigger.
+- [x] Persisted verdict invalidates on every revalidation trigger — TTL (7d, anchored on confirmation so Phase 6 rotation doesn't extend it), access-type change, 3 consecutive failures, HTTPS/SVCB TTL expiry, ASN change, and ECH-capability change (`isFreshDirectPolicy` / `isInvalidatedByEnvironment`, covered by `ServerCapabilityDirectPolicyTest`).
 - [x] Integration tests cover every result class on a deterministic harness (no sleep-based waits) — `DiagnosticResultClassIntegrationTest` (frozen clock + scripted executor); the orchestrator now emits a non-null `OrchestratorResult.verdict`.
 
 ## Child tasks

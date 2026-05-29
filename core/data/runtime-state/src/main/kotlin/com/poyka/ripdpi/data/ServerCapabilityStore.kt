@@ -41,6 +41,12 @@ data class ServerCapabilityObservation(
     val cooldownUntil: Long? = null,
     val policyConfirmedAt: Long? = null,
     val policyFailureCount: Int? = null,
+    /** Autonomous System Number the policy was confirmed under, for ASN-change invalidation. */
+    val observedAsn: Int? = null,
+    /** ECH capability observed when the policy was confirmed, for ECH-change invalidation. */
+    val echCapable: Boolean? = null,
+    /** Absolute epoch-ms at which the backing HTTPS/SVCB record expires (TTL boundary). */
+    val httpsRrExpiresAt: Long? = null,
 )
 
 @Serializable
@@ -60,8 +66,26 @@ data class ServerCapabilityRecord(
     val transportPolicyEnvelope: TransportPolicyEnvelope? = null,
     val policyConfirmedAt: Long? = null,
     val policyFailureCount: Int = 0,
+    /** Autonomous System Number the policy was confirmed under, for ASN-change invalidation. */
+    val observedAsn: Int? = null,
+    /** ECH capability observed when the policy was confirmed, for ECH-change invalidation. */
+    val echCapable: Boolean? = null,
+    /** Absolute epoch-ms at which the backing HTTPS/SVCB record expires (TTL boundary). */
+    val httpsRrExpiresAt: Long? = null,
     val source: String = "runtime",
     val updatedAt: Long = System.currentTimeMillis(),
+)
+
+/**
+ * The current network environment a cached direct-mode policy is revalidated
+ * against.  All fields are optional: a `null` field means "current value
+ * unknown", and an invalidation trigger only fires when BOTH the stored and the
+ * current value are known and differ.  An empty environment is therefore a
+ * safe no-op that never invalidates.
+ */
+data class DirectPolicyEnvironment(
+    val currentAsn: Int? = null,
+    val echCapable: Boolean? = null,
 )
 
 fun mergeCapabilityRecord(
@@ -73,8 +97,9 @@ fun mergeCapabilityRecord(
     observation: ServerCapabilityObservation,
     source: String,
     recordedAt: Long,
-): ServerCapabilityRecord =
-    mergeTransportPolicyEnvelope(existing, observation).let { policyEnvelope ->
+): ServerCapabilityRecord {
+    val environmentFields = resolveEnvironmentFields(existing, observation)
+    return mergeTransportPolicyEnvelope(existing, observation).let { policyEnvelope ->
         ServerCapabilityRecord(
             scope = scope.wireValue,
             fingerprintHash = fingerprintHash,
@@ -96,20 +121,50 @@ fun mergeCapabilityRecord(
             transportPolicyEnvelope = policyEnvelope,
             policyConfirmedAt = observation.policyConfirmedAt?.takeIf { it > 0L } ?: existing?.policyConfirmedAt,
             policyFailureCount = observation.policyFailureCount?.coerceAtLeast(0) ?: existing?.policyFailureCount ?: 0,
+            observedAsn = environmentFields.observedAsn,
+            echCapable = environmentFields.echCapable,
+            httpsRrExpiresAt = environmentFields.httpsRrExpiresAt,
             source = source.trim().ifBlank { existing?.source ?: "runtime" },
             updatedAt = recordedAt,
         )
     }
+}
+
+private data class DirectPolicyEnvironmentFields(
+    val observedAsn: Int?,
+    val echCapable: Boolean?,
+    val httpsRrExpiresAt: Long?,
+)
+
+private fun resolveEnvironmentFields(
+    existing: ServerCapabilityRecord?,
+    observation: ServerCapabilityObservation,
+): DirectPolicyEnvironmentFields =
+    DirectPolicyEnvironmentFields(
+        observedAsn = observation.observedAsn ?: existing?.observedAsn,
+        echCapable = observation.echCapable ?: existing?.echCapable,
+        httpsRrExpiresAt = observation.httpsRrExpiresAt?.takeIf { it > 0L } ?: existing?.httpsRrExpiresAt,
+    )
 
 fun ServerCapabilityRecord.hasConfirmedDirectPolicy(): Boolean = policyConfirmedAt?.let { it > 0L } == true
 
 fun ServerCapabilityRecord.hasExceededDirectPolicyFailureBudget(): Boolean =
     policyFailureCount >= DirectModePolicyRevalidationFailureThreshold
 
+/**
+ * Epoch-ms the TTL window is measured from.  Anchored on [policyConfirmedAt] so
+ * that a Phase 6 variant rotation (which rewrites the winning family and bumps
+ * [updatedAt] but preserves the original confirmation) does NOT extend the TTL —
+ * the policy still ages out 7 days after it was first confirmed.  Falls back to
+ * [updatedAt] for records that were never confirmed.
+ */
+private fun ServerCapabilityRecord.directPolicyTtlAnchor(): Long = policyConfirmedAt?.takeIf { it > 0L } ?: updatedAt
+
 fun ServerCapabilityRecord.isFreshDirectPolicy(nowMillis: Long): Boolean {
-    if (updatedAt <= 0L || nowMillis - updatedAt > DirectModePolicyTtlMs) {
-        return false
-    }
+    val anchor = directPolicyTtlAnchor()
+    val withinTtl = anchor > 0L && nowMillis - anchor <= DirectModePolicyTtlMs
+    val httpsRrLive = httpsRrExpiresAt == null || httpsRrExpiresAt <= 0L || nowMillis <= httpsRrExpiresAt
+    if (!withinTtl || !httpsRrLive) return false
     val envelope = effectiveTransportPolicyEnvelope()
     return when (envelope.policy.outcome) {
         DirectModeOutcome.NO_DIRECT_SOLUTION -> envelope.isCooldownActive(nowMillis)
@@ -120,8 +175,34 @@ fun ServerCapabilityRecord.isFreshDirectPolicy(nowMillis: Long): Boolean {
     }
 }
 
+/**
+ * True when an environmental change since the policy was confirmed invalidates
+ * it: the ASN changed, or the ECH capability flipped.  A trigger fires only
+ * when both the stored and the current value are known, so an unknown current
+ * signal never wrongly drops a valid policy.
+ */
+fun ServerCapabilityRecord.isInvalidatedByEnvironment(
+    environment: DirectPolicyEnvironment,
+    @Suppress("UNUSED_PARAMETER") nowMillis: Long,
+): Boolean {
+    val asnChanged =
+        observedAsn != null && environment.currentAsn != null && observedAsn != environment.currentAsn
+    val echChanged =
+        echCapable != null && environment.echCapable != null && echCapable != environment.echCapable
+    return asnChanged || echChanged
+}
+
 fun ServerCapabilityRecord.isRuntimeUsableDirectPolicy(nowMillis: Long): Boolean =
     hasConfirmedDirectPolicy() && !hasExceededDirectPolicyFailureBudget() && isFreshDirectPolicy(nowMillis)
+
+/**
+ * Environment-aware usability gate: the policy must be runtime-usable AND not
+ * invalidated by an ASN / ECH change in [environment].
+ */
+fun ServerCapabilityRecord.isRuntimeUsableDirectPolicy(
+    nowMillis: Long,
+    environment: DirectPolicyEnvironment,
+): Boolean = isRuntimeUsableDirectPolicy(nowMillis) && !isInvalidatedByEnvironment(environment, nowMillis)
 
 fun ServerCapabilityRecord.effectiveTransportPolicyEnvelope(): TransportPolicyEnvelope {
     val existingEnvelope = transportPolicyEnvelope
@@ -322,7 +403,14 @@ class SharedPreferencesServerCapabilityStore
                     source = source,
                     recordedAt = recordedAt,
                 )
-            preferences.edit().putString(key, json.encodeToString(ServerCapabilityRecord.serializer(), merged)).apply()
+            // commit() (not apply()) writes the backing XML atomically AND
+            // synchronously, so a confirmed direct-mode policy survives an LMK
+            // SIGKILL immediately after a state transition (see
+            // android-vpn-lifecycle: persist on every transition, no torn file).
+            preferences
+                .edit()
+                .putString(key, json.encodeToString(ServerCapabilityRecord.serializer(), merged))
+                .commit()
             return merged
         }
 

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.ActiveDnsSettings
+import com.poyka.ripdpi.data.DirectPolicyEnvironment
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.ServerCapabilityStore
@@ -44,10 +45,12 @@ internal class ConnectionPolicyRuntimeContextAssembler
                 emptyList()
             } else {
                 val now = System.currentTimeMillis()
+                val environment = currentDirectPolicyEnvironment()
                 serverCapabilityStore
                     .directPathCapabilitiesForFingerprint(networkScopeKey)
                     .filter { record ->
-                        record.transportPolicyEnvelope == null || record.isRuntimeUsableDirectPolicy(now)
+                        record.transportPolicyEnvelope == null ||
+                            record.isRuntimeUsableDirectPolicy(now, environment)
                     }.map { record ->
                         val transportPolicyEnvelope = record.effectiveTransportPolicyEnvelope()
                         RipDpiDirectPathCapability(
@@ -71,6 +74,17 @@ internal class ConnectionPolicyRuntimeContextAssembler
                         )
                     }
             }
+
+        /**
+         * Current network environment used to revalidate cached direct-mode
+         * policies (ASN / ECH change).  The HTTPS-RR / SVCB TTL trigger is
+         * self-contained in the stored record, so it is already live; ASN and
+         * per-host ECH have no reliable source on this connection hot path yet,
+         * so they stay unknown (a safe no-op that never wrongly drops a policy).
+         * TODO(npochaev): populate currentAsn / echCapable once a hot-path
+         * network-metadata source lands (epic: wire orchestrator to production).
+         */
+        private fun currentDirectPolicyEnvironment(): DirectPolicyEnvironment = DirectPolicyEnvironment()
 
         suspend fun preferredEdges(
             settings: AppSettings,
