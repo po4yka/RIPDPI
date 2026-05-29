@@ -984,6 +984,10 @@ fakeddisorder endhost</string>
     <string name="dns_active_route_saved">Сохранено и будет применено при следующей активации режима локального VPN.</string>
     <string name="dns_proxy_banner_title">Режим прокси активен</string>
     <string name="dns_proxy_banner_body">Переопределение DNS применяется только в режиме локального VPN при запущенном RIPDPI.</string>
+    <string name="dns_private_dns_info_title">RIPDPI обрабатывает DNS самостоятельно</string>
+    <string name="dns_private_dns_info_body">RIPDPI разрешает DNS через собственный перехватчик внутри VPN. Системная настройка «Частный DNS» в Android не влияет на то, как разрешаются имена, пока VPN активен.</string>
+    <string name="dns_private_dns_warning_title">Системный частный DNS включён</string>
+    <string name="dns_private_dns_warning_body">Для этой сети настроен частный DNS Android. RIPDPI всё равно использует собственный распознаватель, поэтому системная настройка может не совпадать с тем, что фактически делает VPN. Никаких действий не требуется.</string>
     <string name="dns_ipv6_helper">Разрешить локальному VPN-строителю включать IPv6 DNS-маршрутизацию, если выбранная сеть её поддерживает.</string>
     <string name="protocol_ipv6_title">IPv6</string>
     <string name="dns_resolver_cloudflare_title">Cloudflare</string>
@@ -3031,4 +3035,28 @@ fakeddisorder endhost</string>
     <string name="asset_provider_updated_days_ago">Обновлено %1$d дн. назад</string>
     <string name="asset_provider_updated_today">Обновлено сегодня</string>
     <string name="asset_provider_updated_never">Никогда не обновлялось</string>
+    <!-- Backup &amp; Restore -->
+    <string name="title_backup_restore">Резервная копия</string>
+    <string name="settings_backup_section">Резервная копия</string>
+    <string name="settings_backup_body">Экспорт профилей, групп, правил и настроек в файл</string>
+    <string name="backup_export_section">Экспорт</string>
+    <string name="backup_export_intro_title">Копия остаётся на устройстве</string>
+    <string name="backup_export_intro_body">Резервная копия сохраняется только в выбранный вами файл. Ничего не загружается.</string>
+    <string name="backup_export_body">Сохраните файл копии, чтобы перенести на другое устройство или хранить как архив.</string>
+    <string name="backup_export_action">Экспортировать копию</string>
+    <string name="backup_export_success">Копия сохранена (%1$s)</string>
+    <string name="backup_export_failed">Не удалось записать файл копии</string>
+    <string name="backup_export_share_action">Поделиться</string>
+    <string name="backup_export_policy_blocked_title">Экспорт отключён</string>
+    <string name="backup_export_policy_blocked_body">Администратор устройства отключил экспорт резервных копий.</string>
+    <string name="backup_export_biometric_title">Подтвердите полную копию</string>
+    <string name="backup_export_biometric_subtitle">Подтвердите личность для экспорта копии с учётными данными</string>
+    <string name="backup_export_biometric_cancel">Отмена</string>
+    <string name="backup_variant_picker_title">Выберите тип копии</string>
+    <string name="backup_variant_picker_body">Выберите, что включить в файл экспорта.</string>
+    <string name="backup_variant_share_action">Копия для обмена</string>
+    <string name="backup_variant_share_body">Удаляет пароли и ключи. Безопасно делиться.</string>
+    <string name="backup_variant_full_action">Полная копия с учётными данными</string>
+    <string name="backup_variant_full_warning_title">Содержит секреты</string>
+    <string name="backup_variant_full_warning_body">Полная копия включает пароли и ключи. Храните файл в тайне.</string>
 </resources>

@@ -388,6 +388,22 @@
         </provider>
 
         <!--
+            FileProvider for the "share backup" follow-up. Distinct authority from the
+            diagnostics and profile providers so the share grant is scoped to the
+            backup-share cache directory only. The primary export path writes via SAF
+            (CreateDocument); this provider only backs the optional in-app share intent.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.backup.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/backup_share_paths" />
+        </provider>
+
+        <!--
             WorkManager auto-initialization is disabled here so the Hilt-aware
             Configuration.Provider on RipDpiApp wires up the HiltWorkerFactory
             before any worker is instantiated. Without this override, the

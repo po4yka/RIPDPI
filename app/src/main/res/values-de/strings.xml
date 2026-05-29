@@ -1205,6 +1205,10 @@ fake_burst 3</string>
     <string name="dns_protocol_builtin_and_custom">Integriert + benutzerdefiniert</string>
     <string name="dns_protocol_doh_body">Bester Standard-Workflow. Integrierte Profile von Cloudflare, Google, Quad9 und AdGuard sind einsatzbereit.</string>
     <string name="dns_proxy_banner_body">Die DNS-Überschreibung wird nur angewendet, solange RIPDPI im lokalen VPN-Modus läuft.</string>
+    <string name="dns_private_dns_info_title">RIPDPI verarbeitet DNS selbst</string>
+    <string name="dns_private_dns_info_body">RIPDPI löst DNS über einen eigenen Interceptor innerhalb des VPN auf. Die System-Einstellung „Privates DNS“ von Android ändert nicht, wie Namen aufgelöst werden, solange das VPN aktiv ist.</string>
+    <string name="dns_private_dns_warning_title">System-DNS (Privates DNS) ist aktiv</string>
+    <string name="dns_private_dns_warning_body">Für dieses Netzwerk ist Androids privates DNS konfiguriert. RIPDPI verwendet weiterhin seinen eigenen Resolver, daher stimmt die System-Einstellung möglicherweise nicht mit dem überein, was das VPN tatsächlich tut. Es ist nichts zu tun.</string>
     <string name="dns_resolver_cloudflare_title">Cloudflare</string>
     <string name="dns_resolver_quad9_title">Quad9</string>
     <string name="fake_order_card_dsl_only">Diese Chain-Form lässt sich nicht über die Karte für die Reihenfolge des primären Fake-Schritts bearbeiten. Verwenden Sie das Chain-DSL, um altorder oder seqmode zu ändern.</string>
@@ -2912,4 +2916,28 @@ Quelle: %2$s</string>
     <string name="asset_provider_updated_days_ago">Vor %1$d Tagen aktualisiert</string>
     <string name="asset_provider_updated_today">Heute aktualisiert</string>
     <string name="asset_provider_updated_never">Nie aktualisiert</string>
+    <!-- Backup &amp; Restore -->
+    <string name="title_backup_restore">Sicherung &amp; Wiederherstellung</string>
+    <string name="settings_backup_section">Sicherung &amp; Wiederherstellung</string>
+    <string name="settings_backup_body">Profile, Gruppen, Regeln und Einstellungen in eine Datei exportieren</string>
+    <string name="backup_export_section">Exportieren</string>
+    <string name="backup_export_intro_title">Die Sicherung bleibt auf dem Gerät</string>
+    <string name="backup_export_intro_body">Die Sicherung wird nur in die von dir gewählte Datei geschrieben. Nichts wird hochgeladen.</string>
+    <string name="backup_export_body">Speichere eine Sicherungsdatei, um sie auf ein anderes Gerät zu übertragen oder als Archiv aufzubewahren.</string>
+    <string name="backup_export_action">Sicherung exportieren</string>
+    <string name="backup_export_success">Sicherung gespeichert (%1$s)</string>
+    <string name="backup_export_failed">Sicherungsdatei konnte nicht geschrieben werden</string>
+    <string name="backup_export_share_action">Teilen</string>
+    <string name="backup_export_policy_blocked_title">Export deaktiviert</string>
+    <string name="backup_export_policy_blocked_body">Dein Geräteadministrator hat den Sicherungsexport deaktiviert.</string>
+    <string name="backup_export_biometric_title">Vollständige Sicherung bestätigen</string>
+    <string name="backup_export_biometric_subtitle">Authentifiziere dich, um eine Sicherung mit Zugangsdaten zu exportieren</string>
+    <string name="backup_export_biometric_cancel">Abbrechen</string>
+    <string name="backup_variant_picker_title">Sicherungstyp wählen</string>
+    <string name="backup_variant_picker_body">Wähle, was in die Exportdatei aufgenommen wird.</string>
+    <string name="backup_variant_share_action">Teilbare Sicherung</string>
+    <string name="backup_variant_share_body">Entfernt Passwörter und Schlüssel. Sicher zum Teilen.</string>
+    <string name="backup_variant_full_action">Vollständige Sicherung mit Zugangsdaten</string>
+    <string name="backup_variant_full_warning_title">Enthält Geheimnisse</string>
+    <string name="backup_variant_full_warning_body">Eine vollständige Sicherung enthält Passwörter und Schlüssel. Halte diese Datei geheim.</string>
 </resources>

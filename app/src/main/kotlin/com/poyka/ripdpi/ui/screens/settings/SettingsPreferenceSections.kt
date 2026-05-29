@@ -111,6 +111,19 @@ internal fun SettingsConnectivitySection(
 }
 
 @Composable
+internal fun SettingsBackupSection(actions: SettingsScreenActions) {
+    SettingsSection(title = stringResource(R.string.settings_backup_section)) {
+        SettingsRow(
+            title = stringResource(R.string.title_backup_restore),
+            subtitle = stringResource(R.string.settings_backup_body),
+            value = stringResource(R.string.settings_manage_action),
+            onClick = actions.onOpenBackupRestore,
+            testTag = RipDpiTestTags.SettingsBackupRestore,
+        )
+    }
+}
+
+@Composable
 internal fun SettingsSecuritySection(
     uiState: SettingsUiState,
     localState: SettingsScreenLocalState,

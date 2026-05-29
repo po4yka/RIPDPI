@@ -1115,6 +1115,10 @@ fakeddisorder endhost</string>
     <string name="dns_protocol_dnscrypt_body">带提供商名称和公钥验证的 DNSCrypt。仅用于自定义解析器。</string>
     <string name="dns_protocol_dot_body">853 端口上的 DoT。适用于您控制主机名和 TLS 服务器名的场景。</string>
     <string name="dns_proxy_banner_body">DNS 覆盖仅在 RIPDPI 以本地 VPN 模式运行时应用。</string>
+    <string name="dns_private_dns_info_title">RIPDPI 自行处理 DNS</string>
+    <string name="dns_private_dns_info_body">RIPDPI 通过 VPN 内部自带的拦截器解析 DNS。在 VPN 处于活动状态时，Android 系统的“私人 DNS”设置不会改变名称的解析方式。</string>
+    <string name="dns_private_dns_warning_title">系统私人 DNS 已开启</string>
+    <string name="dns_private_dns_warning_body">此网络已配置 Android 私人 DNS。RIPDPI 仍使用自己的解析器，因此别处显示的系统设置可能与 VPN 实际的行为不一致。无需任何操作。</string>
     <string name="dns_resolver_cloudflare_body">设置占用极小的快速公共解析器。</string>
     <string name="dns_resolver_google_title">Google Public DNS</string>
     <string name="dns_selected_badge">已选择</string>
@@ -2913,4 +2917,28 @@ fake_burst 3</string>
     <string name="asset_provider_updated_days_ago">%1$d 天前更新</string>
     <string name="asset_provider_updated_today">今天已更新</string>
     <string name="asset_provider_updated_never">从未更新</string>
+    <!-- Backup &amp; Restore -->
+    <string name="title_backup_restore">备份与恢复</string>
+    <string name="settings_backup_section">备份与恢复</string>
+    <string name="settings_backup_body">将配置、分组、规则和设置导出到文件</string>
+    <string name="backup_export_section">导出</string>
+    <string name="backup_export_intro_title">备份仅保存在本机</string>
+    <string name="backup_export_intro_body">备份只写入你选择的文件，不会上传任何内容。</string>
+    <string name="backup_export_body">保存一个备份文件，可转移到其他设备或作为存档保留。</string>
+    <string name="backup_export_action">导出备份</string>
+    <string name="backup_export_success">备份已保存（%1$s）</string>
+    <string name="backup_export_failed">无法写入备份文件</string>
+    <string name="backup_export_share_action">分享</string>
+    <string name="backup_export_policy_blocked_title">导出已停用</string>
+    <string name="backup_export_policy_blocked_body">设备管理员已关闭备份导出。</string>
+    <string name="backup_export_biometric_title">确认完整备份</string>
+    <string name="backup_export_biometric_subtitle">请验证身份以导出包含凭据的备份</string>
+    <string name="backup_export_biometric_cancel">取消</string>
+    <string name="backup_variant_picker_title">选择备份类型</string>
+    <string name="backup_variant_picker_body">选择要包含在导出文件中的内容。</string>
+    <string name="backup_variant_share_action">可分享备份</string>
+    <string name="backup_variant_share_body">移除密码和密钥，可安全分享。</string>
+    <string name="backup_variant_full_action">含凭据的完整备份</string>
+    <string name="backup_variant_full_warning_title">包含敏感信息</string>
+    <string name="backup_variant_full_warning_body">完整备份包含密码和密钥，请妥善保管此文件。</string>
 </resources>

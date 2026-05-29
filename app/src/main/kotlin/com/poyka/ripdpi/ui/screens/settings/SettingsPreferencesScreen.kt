@@ -49,6 +49,7 @@ fun SettingsRoute(
     onOpenDomainBypass: () -> Unit = {},
     onOpenRoutingRules: () -> Unit = {},
     onOpenSplitTunnel: () -> Unit = {},
+    onOpenBackupRestore: () -> Unit = {},
     onDismissBackgroundGuidance: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -81,6 +82,7 @@ fun SettingsRoute(
                 onOpenDomainBypass = onOpenDomainBypass,
                 onOpenRoutingRules = onOpenRoutingRules,
                 onOpenSplitTunnel = onOpenSplitTunnel,
+                onOpenBackupRestore = onOpenBackupRestore,
                 onShareDebugBundle = onShareDebugBundle,
                 onRepairPermission = onRepairPermission,
                 onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
@@ -140,6 +142,7 @@ internal fun SettingsScreen(
                 onCommunityApiUrlDraftChanged = localState.onCommunityApiUrlDraftChanged,
             )
         }
+        item { SettingsBackupSection(actions = actions) }
         item {
             SettingsDangerSection(
                 onResetClick = { localState.onShowResetConfirmDialogChanged(true) },
@@ -158,6 +161,7 @@ internal data class SettingsScreenActions(
     val onOpenDomainBypass: () -> Unit = {},
     val onOpenRoutingRules: () -> Unit = {},
     val onOpenSplitTunnel: () -> Unit = {},
+    val onOpenBackupRestore: () -> Unit = {},
     val onShareDebugBundle: () -> Unit,
     val onRepairPermission: (PermissionKind) -> Unit,
     val onOpenVpnPermissionDialog: () -> Unit,
@@ -207,6 +211,7 @@ private fun previewActions(): SettingsScreenActions =
         onStartOnBootChanged = {},
         onBiometricChanged = {},
         onSaveBackupPin = {},
+        onOpenBackupRestore = {},
     )
 
 @Preview(showBackground = true)

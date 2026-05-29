@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-05-14
 ---
 
-- [ ] #task Add SAF export action with FULL and SHARE variants #repo/RIPDPI #area/data #status/backlog 🔼
+- [x] #task Add SAF export action with FULL and SHARE variants #repo/RIPDPI #area/data #status/done 🔼
 
 ## Summary
 
@@ -24,12 +24,12 @@ SAF is the only write path — no hardcoded file locations. Default target is th
 
 ## Acceptance criteria
 
-- [ ] Export entry point in Tools → Backup & Restore.
-- [ ] Variant picker makes the risk visually distinct; FULL is not the default.
-- [ ] Writer streams the JSON via SAF `OutputStream`; never materializes the full archive in memory.
-- [ ] On success, a snackbar confirms the destination and offers a "Share" follow-up for SHARE variant; for FULL, share is not offered inline.
-- [ ] Write failure surfaces a typed error; partial file is deleted if the user hit cancel mid-write.
-- [ ] Export never logs the payload; only the byte count and variant.
+- [x] Export entry point in Tools → Backup & Restore. (Settings → Backup & restore; there is no Tools screen.)
+- [x] Variant picker makes the risk visually distinct; FULL is not the default.
+- [x] Writer streams the JSON via SAF `OutputStream`; never materializes the full archive in memory.
+- [x] On success, a snackbar confirms the destination and offers a "Share" follow-up for SHARE variant; for FULL, share is not offered inline.
+- [x] Write failure surfaces a typed error; partial file is deleted if the user hit cancel mid-write.
+- [x] Export never logs the payload; only the byte count and variant.
 
 ## Source references
 

@@ -69,6 +69,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object BackupRestore : Route() {
+        override val stableRoute = "backup_restore"
+        override val titleRes = R.string.title_backup_restore
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class Diagnostics(
         @SerialName("auto_start_scan")
         val autoStartScan: Boolean = false,
@@ -388,6 +395,7 @@ sealed class Route {
                     History,
                     Logs,
                     Settings,
+                    BackupRestore,
                     ModeEditor,
                     DnsSettings,
                     AdvancedSettings,

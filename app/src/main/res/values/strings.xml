@@ -1296,6 +1296,10 @@ fakeddisorder endhost</string>
     <string name="dns_active_route_saved">Saved now and applied the next time local VPN mode is active.</string>
     <string name="dns_proxy_banner_title">Proxy mode is active</string>
     <string name="dns_proxy_banner_body">DNS override is only applied while RIPDPI is running in local VPN mode.</string>
+    <string name="dns_private_dns_info_title">RIPDPI handles DNS itself</string>
+    <string name="dns_private_dns_info_body">RIPDPI resolves DNS through its own in-VPN interceptor. Android\'s system Private DNS setting does not change how names are resolved while the VPN is active.</string>
+    <string name="dns_private_dns_warning_title">System Private DNS is on</string>
+    <string name="dns_private_dns_warning_body">Android Private DNS is configured for this network. RIPDPI still uses its own resolver, so the system setting shown elsewhere may not match what the VPN actually does. No action is needed.</string>
     <string name="dns_ipv6_helper">Allow the local VPN builder to include IPv6 DNS routing when the selected network supports it.</string>
     <string name="protocol_ipv6_title">IPv6</string>
     <string name="dns_resolver_cloudflare_title">Cloudflare</string>
@@ -2981,4 +2985,28 @@ Source: %2$s</string>
     <string name="asset_provider_updated_days_ago">Updated %1$d days ago</string>
     <string name="asset_provider_updated_today">Updated today</string>
     <string name="asset_provider_updated_never">Never updated</string>
+    <!-- Backup &amp; Restore -->
+    <string name="title_backup_restore">Backup &amp; restore</string>
+    <string name="settings_backup_section">Backup &amp; restore</string>
+    <string name="settings_backup_body">Export your profiles, groups, rules, and settings to a file</string>
+    <string name="backup_export_section">Export</string>
+    <string name="backup_export_intro_title">Backup stays on your device</string>
+    <string name="backup_export_intro_body">The backup is written only to the file you choose. Nothing is uploaded.</string>
+    <string name="backup_export_body">Save a backup file you can move to another device or keep as an archive.</string>
+    <string name="backup_export_action">Export backup</string>
+    <string name="backup_export_success">Backup saved (%1$s)</string>
+    <string name="backup_export_failed">Could not write the backup file</string>
+    <string name="backup_export_share_action">Share</string>
+    <string name="backup_export_policy_blocked_title">Export disabled</string>
+    <string name="backup_export_policy_blocked_body">Your device administrator has turned off backup export.</string>
+    <string name="backup_export_biometric_title">Confirm full backup</string>
+    <string name="backup_export_biometric_subtitle">Authenticate to export a backup that includes credentials</string>
+    <string name="backup_export_biometric_cancel">Cancel</string>
+    <string name="backup_variant_picker_title">Choose a backup type</string>
+    <string name="backup_variant_picker_body">Pick what to include in the exported file.</string>
+    <string name="backup_variant_share_action">Shareable backup</string>
+    <string name="backup_variant_share_body">Removes passwords and keys. Safe to share or post.</string>
+    <string name="backup_variant_full_action">Full backup with credentials</string>
+    <string name="backup_variant_full_warning_title">Contains secrets</string>
+    <string name="backup_variant_full_warning_body">A full backup includes passwords and keys. Keep this file private.</string>
 </resources>

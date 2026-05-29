@@ -1385,6 +1385,10 @@ fakeddisorder endhost</string>
     <string name="dns_protocol_doh_body">بهترین جریان کار پیش‌فرض. نمایه‌های داخلی Cloudflare، Google، Quad9 و AdGuard آماده استفاده‌اند.</string>
     <string name="dns_protocol_dot">DoT</string>
     <string name="dns_proxy_banner_body">بازنویسی DNS فقط هنگامی اعمال می‌شود که RIPDPI در حالت VPN محلی در حال اجراست.</string>
+    <string name="dns_private_dns_info_title">RIPDPI خودش DNS را مدیریت می‌کند</string>
+    <string name="dns_private_dns_info_body">RIPDPI نام‌ها را از طریق رهگیر اختصاصی خود درون VPN حل می‌کند. تنظیم «DNS خصوصی» سیستم اندروید تا زمانی که VPN فعال است، نحوهٔ حل نام‌ها را تغییر نمی‌دهد.</string>
+    <string name="dns_private_dns_warning_title">DNS خصوصی سیستم روشن است</string>
+    <string name="dns_private_dns_warning_body">برای این شبکه DNS خصوصی اندروید پیکربندی شده است. RIPDPI همچنان از حل‌کنندهٔ خود استفاده می‌کند، بنابراین ممکن است تنظیم سیستم با کاری که VPN واقعاً انجام می‌دهد مطابقت نداشته باشد. نیازی به اقدامی نیست.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_custom_active">استفاده از آدرس سفارشی</string>
     <string name="dns_resolver_quad9_body">resolver عمومی متمرکز بر امنیت با مسدودسازی تهدیدات.</string>
@@ -2917,4 +2921,28 @@ fakeddisorder endhost</string>
     <string name="asset_provider_updated_days_ago">%1$d روز پیش به‌روزرسانی شد</string>
     <string name="asset_provider_updated_today">امروز به‌روزرسانی شد</string>
     <string name="asset_provider_updated_never">هرگز به‌روزرسانی نشده</string>
+    <!-- Backup &amp; Restore -->
+    <string name="title_backup_restore">پشتیبان‌گیری و بازیابی</string>
+    <string name="settings_backup_section">پشتیبان‌گیری و بازیابی</string>
+    <string name="settings_backup_body">برون‌بری نمایه‌ها، گروه‌ها، قوانین و تنظیمات در یک فایل</string>
+    <string name="backup_export_section">برون‌بری</string>
+    <string name="backup_export_intro_title">پشتیبان روی دستگاه شما می‌ماند</string>
+    <string name="backup_export_intro_body">پشتیبان فقط در فایلی که انتخاب می‌کنید نوشته می‌شود. چیزی بارگذاری نمی‌شود.</string>
+    <string name="backup_export_body">یک فایل پشتیبان ذخیره کنید تا به دستگاه دیگری منتقل کنید یا به‌عنوان بایگانی نگه دارید.</string>
+    <string name="backup_export_action">برون‌بری پشتیبان</string>
+    <string name="backup_export_success">پشتیبان ذخیره شد (%1$s)</string>
+    <string name="backup_export_failed">نوشتن فایل پشتیبان ممکن نشد</string>
+    <string name="backup_export_share_action">هم‌رسانی</string>
+    <string name="backup_export_policy_blocked_title">برون‌بری غیرفعال است</string>
+    <string name="backup_export_policy_blocked_body">سرپرست دستگاه شما برون‌بری پشتیبان را غیرفعال کرده است.</string>
+    <string name="backup_export_biometric_title">تأیید پشتیبان کامل</string>
+    <string name="backup_export_biometric_subtitle">برای برون‌بری پشتیبانی که شامل اعتبارنامه‌هاست احراز هویت کنید</string>
+    <string name="backup_export_biometric_cancel">لغو</string>
+    <string name="backup_variant_picker_title">نوع پشتیبان را انتخاب کنید</string>
+    <string name="backup_variant_picker_body">انتخاب کنید چه چیزی در فایل برون‌برده گنجانده شود.</string>
+    <string name="backup_variant_share_action">پشتیبان قابل هم‌رسانی</string>
+    <string name="backup_variant_share_body">گذرواژه‌ها و کلیدها را حذف می‌کند. هم‌رسانی آن امن است.</string>
+    <string name="backup_variant_full_action">پشتیبان کامل همراه با اعتبارنامه‌ها</string>
+    <string name="backup_variant_full_warning_title">حاوی اطلاعات محرمانه</string>
+    <string name="backup_variant_full_warning_body">پشتیبان کامل شامل گذرواژه‌ها و کلیدهاست. این فایل را محرمانه نگه دارید.</string>
 </resources>

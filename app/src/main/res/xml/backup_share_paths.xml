@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider paths for the optional "share backup" follow-up. A backup copied
+    into this dedicated cache subdirectory is granted read access per share intent;
+    the host cleans the file up once the share completes. The primary export path
+    writes directly to a user-chosen SAF location and does not use this provider.
+-->
+<paths>
+    <cache-path
+        name="backup_share"
+        path="backup-share/" />
+</paths>

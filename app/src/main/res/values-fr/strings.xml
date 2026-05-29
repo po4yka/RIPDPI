@@ -1205,6 +1205,10 @@ fake_burst 3</string>
     <string name="dns_protocol_builtin_and_custom">Intégré + personnalisé</string>
     <string name="dns_protocol_doh_body">Meilleur flux par défaut. Les profils intégrés Cloudflare, Google, Quad9 et AdGuard sont prêts à l\'emploi.</string>
     <string name="dns_proxy_banner_body">Le remplacement DNS n\'est appliqué que lorsque RIPDPI fonctionne en mode VPN local.</string>
+    <string name="dns_private_dns_info_title">RIPDPI gère le DNS lui-même</string>
+    <string name="dns_private_dns_info_body">RIPDPI résout le DNS via son propre intercepteur à l\'intérieur du VPN. Le réglage DNS privé du système Android ne change pas la façon dont les noms sont résolus tant que le VPN est actif.</string>
+    <string name="dns_private_dns_warning_title">Le DNS privé du système est activé</string>
+    <string name="dns_private_dns_warning_body">Le DNS privé d\'Android est configuré pour ce réseau. RIPDPI utilise toujours son propre résolveur, le réglage système peut donc ne pas correspondre à ce que fait réellement le VPN. Aucune action n\'est requise.</string>
     <string name="dns_resolver_cloudflare_title">Cloudflare</string>
     <string name="dns_resolver_quad9_title">Quad9</string>
     <string name="fake_order_card_dsl_only">Cette forme de chaîne n\'est pas modifiable avec la carte d\'ordre des faux paquets d\'étape principale. Utilisez le DSL de chaîne pour modifier altorder ou seqmode.</string>
@@ -2912,4 +2916,28 @@ Source : %2$s</string>
     <string name="asset_provider_updated_days_ago">Mis à jour il y a %1$d jours</string>
     <string name="asset_provider_updated_today">Mis à jour aujourd\'hui</string>
     <string name="asset_provider_updated_never">Jamais mis à jour</string>
+    <!-- Backup &amp; Restore -->
+    <string name="title_backup_restore">Sauvegarde et restauration</string>
+    <string name="settings_backup_section">Sauvegarde et restauration</string>
+    <string name="settings_backup_body">Exportez vos profils, groupes, règles et réglages dans un fichier</string>
+    <string name="backup_export_section">Exporter</string>
+    <string name="backup_export_intro_title">La sauvegarde reste sur votre appareil</string>
+    <string name="backup_export_intro_body">La sauvegarde est écrite uniquement dans le fichier que vous choisissez. Rien n\'est envoyé.</string>
+    <string name="backup_export_body">Enregistrez un fichier de sauvegarde à transférer vers un autre appareil ou à conserver comme archive.</string>
+    <string name="backup_export_action">Exporter la sauvegarde</string>
+    <string name="backup_export_success">Sauvegarde enregistrée (%1$s)</string>
+    <string name="backup_export_failed">Impossible d\'écrire le fichier de sauvegarde</string>
+    <string name="backup_export_share_action">Partager</string>
+    <string name="backup_export_policy_blocked_title">Export désactivé</string>
+    <string name="backup_export_policy_blocked_body">Votre administrateur d\'appareil a désactivé l\'export des sauvegardes.</string>
+    <string name="backup_export_biometric_title">Confirmer la sauvegarde complète</string>
+    <string name="backup_export_biometric_subtitle">Authentifiez-vous pour exporter une sauvegarde contenant des identifiants</string>
+    <string name="backup_export_biometric_cancel">Annuler</string>
+    <string name="backup_variant_picker_title">Choisissez un type de sauvegarde</string>
+    <string name="backup_variant_picker_body">Choisissez ce qu\'il faut inclure dans le fichier exporté.</string>
+    <string name="backup_variant_share_action">Sauvegarde partageable</string>
+    <string name="backup_variant_share_body">Supprime les mots de passe et les clés. Sûre à partager.</string>
+    <string name="backup_variant_full_action">Sauvegarde complète avec identifiants</string>
+    <string name="backup_variant_full_warning_title">Contient des secrets</string>
+    <string name="backup_variant_full_warning_body">Une sauvegarde complète inclut les mots de passe et les clés. Gardez ce fichier privé.</string>
 </resources>
