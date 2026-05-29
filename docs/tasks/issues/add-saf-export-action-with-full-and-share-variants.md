@@ -1,7 +1,7 @@
 ---
 title: Add SAF export action with FULL and SHARE variants
 type: task
-status: backlog
+status: done
 area: data
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-settings-backup-and-restore
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-29
 ---
 
 - [x] #task Add SAF export action with FULL and SHARE variants #repo/RIPDPI #area/data #status/done 🔼

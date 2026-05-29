@@ -1,7 +1,7 @@
 ---
 title: Epic - Settings backup and restore
 type: epic
-status: backlog
+status: done
 area: epic
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-29
 ---
 
-- [ ] #task Epic - Settings backup and restore #repo/RIPDPI #area/epic #status/backlog 🔼
+- [x] #task Epic - Settings backup and restore #repo/RIPDPI #area/epic #status/done 🔼 ✅ 2026-05-29
 
 ## Goal
 
@@ -38,21 +38,21 @@ Two deployments want this: (a) device migration without re-entering every subscr
 
 ## Ship definition
 
-- [ ] Tools screen exposes an "Export" action that writes a versioned JSON via SAF.
-- [ ] FULL export round-trips: FULL export → full wipe → FULL import → identical profile/group/rule/setting state (verified by deep-equals).
-- [ ] SHARE export redacts all secret fields per an explicit allowlist, not a blocklist. Redaction is unit-tested against every protocol bean.
-- [ ] Import screen lets the user pick which subsets to restore (profiles / routing / settings); skipped subsets keep their current state.
-- [ ] Import on a schema version newer than the app surfaces a typed error; the current state is never partially overwritten.
-- [ ] Reset-all-settings action has a confirmation dialog and restarts the app via ProcessPhoenix-equivalent.
-- [ ] Share-sheet target for SHARE output lets users hand off the file.
+- [x] Tools screen exposes an "Export" action that writes a versioned JSON via SAF. (Surfaced in Settings → Backup & Restore; there is no Tools screen. `BackupExportUseCase` + `BackupSerializer.encodeToStream` write via `ActivityResultContracts.CreateDocument("application/json")`. Commit e8b4a1758.)
+- [x] FULL export round-trips: FULL export → full wipe → FULL import → identical profile/group/rule/setting state (verified by deep-equals). (`BackupRestoreUseCaseTest` covers FULL export→wipe→import equality; rules/groups swap atomically. Commits e8b4a1758 + ef5a72bb6.)
+- [x] SHARE export redacts all secret fields per an explicit allowlist, not a blocklist. Redaction is unit-tested against every protocol bean. (`BackupAllowlist` is denial-by-default; `BackupAllowlistCoverageTest` reflectively asserts every serialized field of every `ProxyProfile` subtype is classified. Commit da31e8465 + e8b4a1758.)
+- [x] Import screen lets the user pick which subsets to restore (profiles / routing / settings); skipped subsets keep their current state. (Selective restore checkboxes: profilesAndGroups / routes / settings in `BackupRestoreScreen`; unchecked categories preserved. Commit ef5a72bb6.)
+- [x] Import on a schema version newer than the app surfaces a typed error; the current state is never partially overwritten. (`UnsupportedBackupVersion` thrown on v>current; full decode/validate staging completes before any live write. Commit ef5a72bb6.)
+- [x] Reset-all-settings action has a confirmation dialog and restarts the app via ProcessPhoenix-equivalent. (Typed "RESET" confirmation dialog; `ProcessPhoenix.triggerRebirth`. Commit 8db4aa39e.)
+- [x] Share-sheet target for SHARE output lets users hand off the file. (Fresh SHARE backup written to cacheDir, handed to `ACTION_SEND` via `${applicationId}.backup.fileprovider`; FULL is never sharable. Commit 4cf7c835d.)
 
 ## Child tasks
 
-- Add versioned backup JSON schema with redaction allowlist (closed task)
-- [[Add SAF export action with FULL and SHARE variants]]
-- [[Add SAF import flow with selective restore]]
-- [[Add share-sheet intent for redacted SHARE backups]]
-- [[Add reset-all-settings action with confirmation and restart]]
+- [x] Add versioned backup JSON schema with redaction allowlist (commit da31e8465)
+- [x] [[Add SAF export action with FULL and SHARE variants]] (commit e8b4a1758)
+- [x] [[Add SAF import flow with selective restore]] (commit ef5a72bb6)
+- [x] [[Add share-sheet intent for redacted SHARE backups]] (commit 4cf7c835d)
+- [x] [[Add reset-all-settings action with confirmation and restart]] (commit 8db4aa39e)
 
 ## Dependencies
 
