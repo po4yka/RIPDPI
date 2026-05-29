@@ -380,4 +380,10 @@ message AppSettings {
   // P3.8: PCAP capture toggle (developer diagnostics)
   bool pcap_capture_enabled = 286;
   optional bool relay_dns_over_tunnel_enabled = 287; // Unset means true: relay-active DNS is fail-closed through the relay path.
+
+  // Geo asset (geoip.db / geosite.db) source picker
+  string geo_asset_provider_id = 297; // AssetProvider id; "sagernet" | "soffchen" | "chocolate4u" | "l11r" | "custom" (empty = default)
+  string geo_asset_custom_base_url = 298; // User-supplied GitHub-Releases-compatible base when provider_id == "custom"
+  string geo_asset_geoip_version_tag = 299; // Stored release tag of the on-disk geoip.db (empty = never downloaded)
+  string geo_asset_geosite_version_tag = 300; // Stored release tag of the on-disk geosite.db (empty = never downloaded)
 }

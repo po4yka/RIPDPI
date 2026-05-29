@@ -87,6 +87,26 @@ internal fun LazyListScope.strategyConfigSection(onOpenStrategyConfig: () -> Uni
     }
 }
 
+internal fun LazyListScope.assetProviderSection(onOpenAssetProvider: () -> Unit) {
+    item(key = "advanced_asset_provider") {
+        AdvancedSettingsSection(
+            title = stringResource(R.string.asset_provider_section_title),
+            testTag = RipDpiTestTags.advancedSection("asset_provider"),
+        ) {
+            RipDpiCard {
+                SettingsRow(
+                    title = stringResource(R.string.asset_provider_entry_title),
+                    subtitle = stringResource(R.string.asset_provider_entry_body),
+                    onClick = onOpenAssetProvider,
+                    leadingIcon = RipDpiIcons.Public,
+                    showChevron = true,
+                    testTag = RipDpiTestTags.SettingsAssetProvider,
+                )
+            }
+        }
+    }
+}
+
 internal fun LazyListScope.blockcheckSection(onOpenBlockcheck: () -> Unit) {
     item(key = "advanced_blockcheck") {
         AdvancedSettingsSection(

@@ -19,6 +19,7 @@ internal fun LazyListScope.advancedSettingsPrimarySections(
         onRotateSalt = actions.onRotateSalt,
     )
     strategyConfigSection(onOpenStrategyConfig = actions.onOpenStrategyConfig)
+    assetProviderSection(onOpenAssetProvider = actions.onOpenAssetProvider)
     blockcheckSection(onOpenBlockcheck = actions.onOpenBlockcheck)
     commandLineOverridesSection(
         uiState = uiState,

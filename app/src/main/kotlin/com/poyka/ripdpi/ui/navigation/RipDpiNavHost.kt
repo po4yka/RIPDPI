@@ -72,6 +72,7 @@ import com.poyka.ripdpi.ui.screens.routes.RoutesRoute
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorRoute
 import com.poyka.ripdpi.ui.screens.scanner.QrScannerRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
+import com.poyka.ripdpi.ui.screens.settings.AssetProviderRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
@@ -589,6 +590,7 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
             onBack = { navController.popBackStack() },
             onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
             onOpenBlockcheck = { navController.navigate(Route.Blockcheck) },
+            onOpenAssetProvider = { navController.navigate(Route.AssetProvider) },
             viewModel = settingsViewModel,
         )
     }
@@ -606,6 +608,9 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     }
     composable<Route.DomainBypassList> {
         DomainBypassListRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.AssetProvider> {
+        AssetProviderRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.Routes> {
         RoutesRoute(

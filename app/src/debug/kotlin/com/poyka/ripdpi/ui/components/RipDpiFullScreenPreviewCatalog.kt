@@ -200,6 +200,7 @@ private fun noopAdvancedSettingsActions(): AdvancedSettingsActions =
         onBack = {},
         onOpenStrategyConfig = {},
         onOpenBlockcheck = {},
+        onOpenAssetProvider = {},
         onToggleChanged = { _, _ -> },
         onTextConfirmed = { _, _ -> },
         onOptionSelected = { _, _ -> },

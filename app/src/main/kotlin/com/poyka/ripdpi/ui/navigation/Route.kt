@@ -133,6 +133,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object AssetProvider : Route() {
+        override val stableRoute = "asset_provider"
+        override val titleRes = R.string.title_asset_provider
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object Routes : Route() {
         override val stableRoute = "routes"
         override val titleRes = R.string.title_routes
@@ -379,6 +386,7 @@ sealed class Route {
                     AdvancedSettings,
                     StrategyConfig,
                     DomainBypassList,
+                    AssetProvider,
                     Routes,
                     RuleEditor(),
                     Blockcheck,

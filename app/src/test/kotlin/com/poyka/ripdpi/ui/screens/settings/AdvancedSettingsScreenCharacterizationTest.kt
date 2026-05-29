@@ -296,6 +296,7 @@ class AdvancedSettingsScreenCharacterizationTest {
                             onBack = {},
                             onOpenStrategyConfig = onOpenStrategyConfig,
                             onOpenBlockcheck = {},
+                            onOpenAssetProvider = {},
                             onToggleChanged = onToggleChanged,
                             onTextConfirmed = onTextConfirmed,
                             onOptionSelected = onOptionSelected,
