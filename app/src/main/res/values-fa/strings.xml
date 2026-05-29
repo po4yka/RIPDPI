@@ -2803,4 +2803,23 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_lockdown_ready">وقتی VPN مربوط به RIPDPI وصل نباشد، Android ترافیک را مسدود می‌کند.</string>
     <string name="settings_permissions_lockdown_title">مسدود کردن بدون VPN</string>
     <string name="settings_permissions_lockdown_unknown">Android هنوز وضعیت مسدودسازی بدون VPN را گزارش نکرده است. برای بررسی، تنظیمات VPN را باز کنید.</string>
+    <!-- Domain bypass list (routing) -->
+    <string name="title_domain_bypass_list">فهرست دامنه‌های مستقیم</string>
+    <string name="settings_domain_bypass_body">نگه داشتن دامنه‌های انتخابی خارج از پراکسی (مستقیم)</string>
+    <string name="domain_bypass_intro_title">دامنه‌های مستقیم</string>
+    <string name="domain_bypass_intro_body">دامنه‌های فهرست‌شده در اینجا بدون عبور از پراکسی مستقیم وصل می‌شوند. هر خط یک مورد. دامنه ساده (example.com)، پسوند (.example.com) و پیشوندهای domain:، domain_suffix: و domain_regex: پذیرفته می‌شوند.</string>
+    <string name="domain_bypass_editor_label">دامنه‌ها (هر خط یک مورد)</string>
+    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_clean_count">%1$d مورد معتبر</string>
+    <string name="domain_bypass_errors_title">%1$d خط نامعتبر</string>
+    <string name="domain_bypass_error_line">خط %1$d: %2$s</string>
+    <string name="domain_bypass_paste">چسباندن</string>
+    <string name="domain_bypass_copy">کپی</string>
+    <string name="domain_bypass_move_to_editor">انتقال به قوانین</string>
+    <string name="domain_bypass_moved_rule_name">فهرست دامنه‌های مستقیم</string>
+    <string name="domain_bypass_saved">%1$d دامنه ذخیره شد</string>
+    <string name="domain_bypass_cleared">فهرست عبور پاک شد</string>
+    <string name="domain_bypass_copied">در کلیپ‌بورد کپی شد</string>
+    <string name="domain_bypass_clipboard_empty">کلیپ‌بورد خالی است</string>
+    <string name="domain_bypass_moved">به ویرایشگر قوانین منتقل شد</string>
 </resources>

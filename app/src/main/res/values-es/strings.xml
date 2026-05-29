@@ -2798,4 +2798,23 @@ Origen: %2$s</string>
     <string name="settings_permissions_lockdown_ready">Android bloquea el tráfico cuando la VPN de RIPDPI no está conectada.</string>
     <string name="settings_permissions_lockdown_title">Bloquear sin VPN</string>
     <string name="settings_permissions_lockdown_unknown">Android aún no ha informado el estado de bloqueo sin VPN. Abre los ajustes de VPN para verificarlo.</string>
+    <!-- Domain bypass list (routing) -->
+    <string name="title_domain_bypass_list">Lista de dominios directos</string>
+    <string name="settings_domain_bypass_body">Mantener dominios elegidos fuera del proxy (directo)</string>
+    <string name="domain_bypass_intro_title">Dominios directos</string>
+    <string name="domain_bypass_intro_body">Los dominios aquí listados se conectan directamente sin pasar por el proxy. Uno por línea. Acepta dominios simples (example.com), sufijos (.example.com) y los prefijos domain:, domain_suffix: y domain_regex:.</string>
+    <string name="domain_bypass_editor_label">Dominios (uno por línea)</string>
+    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_clean_count">%1$d entradas válidas</string>
+    <string name="domain_bypass_errors_title">%1$d línea(s) no válida(s)</string>
+    <string name="domain_bypass_error_line">Línea %1$d: %2$s</string>
+    <string name="domain_bypass_paste">Pegar</string>
+    <string name="domain_bypass_copy">Copiar</string>
+    <string name="domain_bypass_move_to_editor">Mover a reglas</string>
+    <string name="domain_bypass_moved_rule_name">Lista de dominios directos</string>
+    <string name="domain_bypass_saved">Se guardaron %1$d dominio(s)</string>
+    <string name="domain_bypass_cleared">Lista de exclusión borrada</string>
+    <string name="domain_bypass_copied">Copiado al portapapeles</string>
+    <string name="domain_bypass_clipboard_empty">El portapapeles está vacío</string>
+    <string name="domain_bypass_moved">Movido al editor de reglas</string>
 </resources>

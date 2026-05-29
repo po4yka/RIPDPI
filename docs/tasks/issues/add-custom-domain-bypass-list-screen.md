@@ -1,7 +1,7 @@
 ---
 title: Add custom domain bypass list screen
 type: task
-status: backlog
+status: done
 area: routing
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-advanced-routing-rules-and-geoip-enforcement
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-29
 ---
 
-- [ ] #task Add custom domain bypass list screen #repo/RIPDPI #area/routing #status/backlog 🔼
+- [x] #task Add custom domain bypass list screen #repo/RIPDPI #area/routing #status/done 🔼
 
 ## Summary
 

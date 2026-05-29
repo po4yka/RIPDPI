@@ -126,6 +126,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object DomainBypassList : Route() {
+        override val stableRoute = "domain_bypass_list"
+        override val titleRes = R.string.title_domain_bypass_list
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object Blockcheck : Route() {
         override val stableRoute = "blockcheck"
         override val titleRes = R.string.title_blockcheck
@@ -350,6 +357,7 @@ sealed class Route {
                     DnsSettings,
                     AdvancedSettings,
                     StrategyConfig,
+                    DomainBypassList,
                     Blockcheck,
                     BiometricPrompt,
                     AppCustomization,

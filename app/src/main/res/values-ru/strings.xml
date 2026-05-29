@@ -2917,4 +2917,23 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_lockdown_ready">Android блокирует трафик, когда VPN RIPDPI не подключен.</string>
     <string name="settings_permissions_lockdown_title">Блокировать без VPN</string>
     <string name="settings_permissions_lockdown_unknown">Android еще не сообщил состояние блокировки без VPN. Откройте настройки VPN, чтобы проверить его.</string>
+    <!-- Domain bypass list (routing) -->
+    <string name="title_domain_bypass_list">Список доменов в обход</string>
+    <string name="settings_domain_bypass_body">Держать выбранные домены вне прокси (напрямую)</string>
+    <string name="domain_bypass_intro_title">Прямые домены</string>
+    <string name="domain_bypass_intro_body">Перечисленные домены идут напрямую, минуя прокси. По одному в строке. Допускаются обычные домены (example.com), суффиксы (.example.com) и префиксы domain:, domain_suffix: и domain_regex:.</string>
+    <string name="domain_bypass_editor_label">Домены (по одному в строке)</string>
+    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_clean_count">Допустимых записей: %1$d</string>
+    <string name="domain_bypass_errors_title">Недопустимых строк: %1$d</string>
+    <string name="domain_bypass_error_line">Строка %1$d: %2$s</string>
+    <string name="domain_bypass_paste">Вставить</string>
+    <string name="domain_bypass_copy">Копировать</string>
+    <string name="domain_bypass_move_to_editor">В правила</string>
+    <string name="domain_bypass_moved_rule_name">Список доменов в обход</string>
+    <string name="domain_bypass_saved">Сохранено доменов: %1$d</string>
+    <string name="domain_bypass_cleared">Список обхода очищен</string>
+    <string name="domain_bypass_copied">Скопировано в буфер обмена</string>
+    <string name="domain_bypass_clipboard_empty">Буфер обмена пуст</string>
+    <string name="domain_bypass_moved">Перемещено в редактор правил</string>
 </resources>

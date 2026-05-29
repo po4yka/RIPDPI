@@ -75,6 +75,14 @@ internal fun SettingsConnectivitySection(
             testTag = RipDpiTestTags.SettingsAdvancedSettings,
         )
         SettingsRow(
+            title = stringResource(R.string.title_domain_bypass_list),
+            subtitle = stringResource(R.string.settings_domain_bypass_body),
+            value = stringResource(R.string.settings_manage_action),
+            onClick = actions.onOpenDomainBypass,
+            showDivider = true,
+            testTag = RipDpiTestTags.SettingsDomainBypass,
+        )
+        SettingsRow(
             title = stringResource(R.string.settings_language_title),
             subtitle = stringResource(R.string.settings_language_body),
             value = stringResource(R.string.settings_manage_action),

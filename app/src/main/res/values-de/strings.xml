@@ -2798,4 +2798,23 @@ Quelle: %2$s</string>
     <string name="settings_permissions_lockdown_ready">Android blockiert Verkehr, wenn das RIPDPI-VPN nicht verbunden ist.</string>
     <string name="settings_permissions_lockdown_title">Ohne VPN blockieren</string>
     <string name="settings_permissions_lockdown_unknown">Android hat den Blockierungsstatus ohne VPN noch nicht gemeldet. Öffnen Sie die VPN-Einstellungen zur Prüfung.</string>
+    <!-- Domain bypass list (routing) -->
+    <string name="title_domain_bypass_list">Domain-Ausschlussliste</string>
+    <string name="settings_domain_bypass_body">Ausgewählte Domains am Proxy vorbei (direkt) leiten</string>
+    <string name="domain_bypass_intro_title">Direkte Domains</string>
+    <string name="domain_bypass_intro_body">Hier aufgeführte Domains verbinden sich direkt am Proxy vorbei. Eine pro Zeile. Akzeptiert einfache Domains (example.com), Suffixe (.example.com) sowie die Präfixe domain:, domain_suffix: und domain_regex:.</string>
+    <string name="domain_bypass_editor_label">Domains (eine pro Zeile)</string>
+    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_clean_count">%1$d gültige Einträge</string>
+    <string name="domain_bypass_errors_title">%1$d ungültige Zeile(n)</string>
+    <string name="domain_bypass_error_line">Zeile %1$d: %2$s</string>
+    <string name="domain_bypass_paste">Einfügen</string>
+    <string name="domain_bypass_copy">Kopieren</string>
+    <string name="domain_bypass_move_to_editor">Zu Regeln</string>
+    <string name="domain_bypass_moved_rule_name">Domain-Ausschlussliste</string>
+    <string name="domain_bypass_saved">%1$d Domain(s) gespeichert</string>
+    <string name="domain_bypass_cleared">Ausschlussliste geleert</string>
+    <string name="domain_bypass_copied">In Zwischenablage kopiert</string>
+    <string name="domain_bypass_clipboard_empty">Zwischenablage ist leer</string>
+    <string name="domain_bypass_moved">In den Regeleditor verschoben</string>
 </resources>

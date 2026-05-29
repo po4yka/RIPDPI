@@ -2798,4 +2798,23 @@ Source : %2$s</string>
     <string name="settings_permissions_lockdown_ready">Android bloque le trafic lorsque le VPN RIPDPI n\'est pas connecté.</string>
     <string name="settings_permissions_lockdown_title">Bloquer sans VPN</string>
     <string name="settings_permissions_lockdown_unknown">Android n\'a pas encore signalé l\'état de blocage sans VPN. Ouvrez les paramètres VPN pour le vérifier.</string>
+    <!-- Domain bypass list (routing) -->
+    <string name="title_domain_bypass_list">Liste de domaines directs</string>
+    <string name="settings_domain_bypass_body">Garder les domaines choisis hors du proxy (direct)</string>
+    <string name="domain_bypass_intro_title">Domaines directs</string>
+    <string name="domain_bypass_intro_body">Les domaines listés ici se connectent directement sans passer par le proxy. Un par ligne. Accepte les domaines simples (example.com), les suffixes (.example.com) et les préfixes domain:, domain_suffix: et domain_regex:.</string>
+    <string name="domain_bypass_editor_label">Domaines (un par ligne)</string>
+    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_clean_count">%1$d entrées valides</string>
+    <string name="domain_bypass_errors_title">%1$d ligne(s) non valide(s)</string>
+    <string name="domain_bypass_error_line">Ligne %1$d : %2$s</string>
+    <string name="domain_bypass_paste">Coller</string>
+    <string name="domain_bypass_copy">Copier</string>
+    <string name="domain_bypass_move_to_editor">Vers les règles</string>
+    <string name="domain_bypass_moved_rule_name">Liste de domaines directs</string>
+    <string name="domain_bypass_saved">%1$d domaine(s) enregistré(s)</string>
+    <string name="domain_bypass_cleared">Liste d\'exclusion effacée</string>
+    <string name="domain_bypass_copied">Copié dans le presse-papiers</string>
+    <string name="domain_bypass_clipboard_empty">Le presse-papiers est vide</string>
+    <string name="domain_bypass_moved">Déplacé vers l\'éditeur de règles</string>
 </resources>

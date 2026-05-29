@@ -2799,4 +2799,23 @@ fake_burst 3</string>
     <string name="settings_permissions_lockdown_ready">当 RIPDPI VPN 未连接时,Android 会阻止流量。</string>
     <string name="settings_permissions_lockdown_title">无 VPN 时阻止</string>
     <string name="settings_permissions_lockdown_unknown">Android 尚未报告无 VPN 阻止状态。打开 VPN 设置进行确认。</string>
+    <!-- Domain bypass list (routing) -->
+    <string name="title_domain_bypass_list">域名直连列表</string>
+    <string name="settings_domain_bypass_body">让所选域名绕过代理(直连)</string>
+    <string name="domain_bypass_intro_title">直连域名</string>
+    <string name="domain_bypass_intro_body">此处列出的域名将绕过代理直接连接。每行一个。支持普通域名(example.com)、后缀(.example.com)以及 domain:、domain_suffix: 和 domain_regex: 前缀。</string>
+    <string name="domain_bypass_editor_label">域名(每行一个)</string>
+    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_clean_count">%1$d 个有效条目</string>
+    <string name="domain_bypass_errors_title">%1$d 行无效</string>
+    <string name="domain_bypass_error_line">第 %1$d 行:%2$s</string>
+    <string name="domain_bypass_paste">粘贴</string>
+    <string name="domain_bypass_copy">复制</string>
+    <string name="domain_bypass_move_to_editor">移至规则</string>
+    <string name="domain_bypass_moved_rule_name">域名直连列表</string>
+    <string name="domain_bypass_saved">已保存 %1$d 个域名</string>
+    <string name="domain_bypass_cleared">已清空直连列表</string>
+    <string name="domain_bypass_copied">已复制到剪贴板</string>
+    <string name="domain_bypass_clipboard_empty">剪贴板为空</string>
+    <string name="domain_bypass_moved">已移至规则编辑器</string>
 </resources>

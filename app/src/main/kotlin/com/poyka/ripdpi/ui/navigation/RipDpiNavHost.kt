@@ -71,6 +71,7 @@ import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmRoute
 import com.poyka.ripdpi.ui.screens.scanner.QrScannerRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
+import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
@@ -559,6 +560,7 @@ private fun SettingsHomeRoute(
         onOpenAbout = { navController.navigate(Route.About) },
         onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
+        onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
         onShareDebugBundle = actions.onShareDebugBundle,
         permissionSummary = mainUiState.permissionSummary,
         onRepairPermission = actions.onRepairPermission,
@@ -598,6 +600,9 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     }
     composable<Route.Blockcheck> {
         BlockcheckRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.DomainBypassList> {
+        DomainBypassListRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.AppCustomization> {
         val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }

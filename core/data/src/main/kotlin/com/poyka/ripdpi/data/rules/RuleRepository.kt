@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.rules
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,6 +27,47 @@ class RuleRepository
 
         /** Returns only enabled rules. Emits on every mutation. */
         fun enabledRules(): Flow<List<RuleEntity>> = dao.enabledRules()
+
+        /**
+         * Returns the user-editable rules shown in the full rule editor — every rule except the
+         * managed domain-bypass rule (see [DomainBypassList]). Ordered by [RuleEntity.userOrder].
+         */
+        fun userRules(): Flow<List<RuleEntity>> = dao.rulesExcludingName(DomainBypassList.ManagedBypassRuleName)
+
+        /** Observes the single managed domain-bypass rule, or `null` when the bypass list is empty. */
+        fun domainBypassRule(): Flow<RuleEntity?> =
+            dao.rulesByName(DomainBypassList.ManagedBypassRuleName).map { it.firstOrNull() }
+
+        /**
+         * Upserts the managed domain-bypass rule from raw editor [rawText]. When [rawText] yields no
+         * clean entries, any existing managed rule is deleted (an empty list means "no rule"). User
+         * rules are never reordered. Returns the [DomainBypassList.CompileResult] so callers can
+         * surface per-line validation errors.
+         */
+        suspend fun saveDomainBypassList(rawText: String): DomainBypassList.CompileResult {
+            val result = DomainBypassList.compile(rawText)
+            val existing = dao.findByName(DomainBypassList.ManagedBypassRuleName)
+            val compiled = DomainBypassList.compileToRule(rawText, existingId = existing?.id ?: 0L)
+            when {
+                compiled == null && existing != null -> dao.delete(existing)
+                compiled == null -> Unit
+                existing == null -> dao.insert(compiled)
+                else -> dao.update(compiled)
+            }
+            return result
+        }
+
+        /**
+         * Promotes the managed domain-bypass rule into a normal, editable user rule by renaming it
+         * to [displayName] and appending it to the end of the user-rule order. Returns `false` when
+         * there is no bypass rule to move. Other user rules keep their order.
+         */
+        suspend fun moveDomainBypassListToEditor(displayName: String): Boolean {
+            val existing = dao.findByName(DomainBypassList.ManagedBypassRuleName) ?: return false
+            val maxOrder = dao.maxUserOrder(DomainBypassList.ManagedBypassRuleName) ?: -1
+            dao.update(existing.copy(name = displayName, userOrder = maxOrder + 1))
+            return true
+        }
 
         suspend fun insert(rule: RuleEntity): Long = dao.insert(rule)
 

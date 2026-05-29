@@ -2867,4 +2867,23 @@ Source: %2$s</string>
     <string name="settings_permissions_lockdown_ready">Android is blocking traffic when the RIPDPI VPN is not connected.</string>
     <string name="settings_permissions_lockdown_title">Block without VPN</string>
     <string name="settings_permissions_lockdown_unknown">Android has not reported the block-without-VPN state yet. Open VPN settings to verify it.</string>
+    <!-- Domain bypass list (routing) -->
+    <string name="title_domain_bypass_list">Domain bypass list</string>
+    <string name="settings_domain_bypass_body">Keep chosen domains off the proxy (direct)</string>
+    <string name="domain_bypass_intro_title">Direct domains</string>
+    <string name="domain_bypass_intro_body">Domains listed here stay off the proxy and connect directly. One per line. Accepts plain domains (example.com), suffixes (.example.com), and the domain:, domain_suffix: and domain_regex: prefixes.</string>
+    <string name="domain_bypass_editor_label">Domains (one per line)</string>
+    <string name="domain_bypass_placeholder">example.com\n.bank.example\ndomain_suffix:gov.example</string>
+    <string name="domain_bypass_clean_count">%1$d valid entries</string>
+    <string name="domain_bypass_errors_title">%1$d invalid line(s)</string>
+    <string name="domain_bypass_error_line">Line %1$d: %2$s</string>
+    <string name="domain_bypass_paste">Paste</string>
+    <string name="domain_bypass_copy">Copy</string>
+    <string name="domain_bypass_move_to_editor">Move to rules</string>
+    <string name="domain_bypass_moved_rule_name">Domain bypass list</string>
+    <string name="domain_bypass_saved">Saved %1$d domain(s)</string>
+    <string name="domain_bypass_cleared">Bypass list cleared</string>
+    <string name="domain_bypass_copied">Copied to clipboard</string>
+    <string name="domain_bypass_clipboard_empty">Clipboard is empty</string>
+    <string name="domain_bypass_moved">Moved to the rule editor</string>
 </resources>
