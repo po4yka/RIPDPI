@@ -53,6 +53,17 @@ interface BootSessionStateStore {
 
     /** Clears the recorded pointer — e.g. when the referenced profile no longer exists. */
     fun clear()
+
+    /**
+     * Whether a session was running at the moment the app process was last torn
+     * down for reasons OTHER than an explicit user stop (e.g. an app update).
+     * Gates the `MY_PACKAGE_REPLACED` auto-restart so a deliberately-stopped
+     * tunnel is not silently resumed after an update. Defaults to `false`.
+     */
+    fun wasRunningAtUpdate(): Boolean
+
+    /** Sets the [wasRunningAtUpdate] flag. */
+    fun setWasRunningAtUpdate(value: Boolean)
 }
 
 /**
@@ -96,9 +107,16 @@ class SharedPreferencesBootSessionStateStore
                 .apply()
         }
 
+        override fun wasRunningAtUpdate(): Boolean = preferences.getBoolean(KeyWasRunningAtUpdate, false)
+
+        override fun setWasRunningAtUpdate(value: Boolean) {
+            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).apply()
+        }
+
         private companion object {
             const val KeyProfileId = "boot-session-profile-id"
             const val KeyMode = "boot-session-mode"
+            const val KeyWasRunningAtUpdate = "boot-session-was-running-at-update"
         }
     }
 

@@ -155,5 +155,9 @@ class BootSessionRecorderTest {
         override fun clear() {
             pointer = null
         }
+
+        override fun wasRunningAtUpdate(): Boolean = false
+
+        override fun setWasRunningAtUpdate(value: Boolean) = Unit
     }
 }

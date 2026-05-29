@@ -567,6 +567,10 @@ private object NoOpBootSessionStateStore : BootSessionStateStore {
     ) = Unit
 
     override fun clear() = Unit
+
+    override fun wasRunningAtUpdate(): Boolean = false
+
+    override fun setWasRunningAtUpdate(value: Boolean) = Unit
 }
 
 private class RecordingBootSessionRecorder(
