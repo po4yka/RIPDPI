@@ -38,6 +38,26 @@ When you (the native-runtime maintainer) manually review the upstream's release 
 | Breaking wire change | Open a task under `docs/tasks/issues/` and add `blocked_by:` to any client work that depends on the broken combination. Do not auto-bump the pin. |
 | Field deprecation (xray-core flow deprecation, etc.) | Update the relevant validator or renderer task; the current Xray config validator is `core/data/catalog/src/main/kotlin/com/poyka/ripdpi/data/XrayConfigValidator.kt`. |
 
+### Xray-core pin coordination with the deploy stack
+
+The client's Xray surface — the vendored `:xray-protos` schemas and
+`core/data/catalog/src/main/kotlin/com/poyka/ripdpi/data/XrayConfigValidator.kt` — must
+stay compatible with the Xray-core version that the sibling `ripdpi-vpn-deploy` server
+stack pins. That pin is the server's authoritative `xray.version`; the deploy repo tracks
+the current value and breaking-change notes in its `docs/XRAY-RELEASE-LINE.md`.
+
+There is no automated cross-repo assertion (each repo's CI can only read its own tree), so
+this is a **manual gate** anchored here:
+
+| Deploy-side event | Client-side action |
+|---|---|
+| Deploy bumps `xray.version` within the same wire-compatible line | No action; note it at the next pin review. |
+| Deploy bumps across a wire-breaking boundary flagged in `XRAY-RELEASE-LINE.md` (e.g. a removed field such as `echForceQuery`, or a flow deprecation) | Open a `docs/tasks/issues/` task to update `XrayConfigValidator.kt` and re-vendor the affected `:xray-protos` `.proto` files; land it before the client claims support for the new server line. |
+
+When reviewing the pin-inventory report, check the deploy repo's `XRAY-RELEASE-LINE.md`
+delta against the last client review and apply the table above. The deploy repo owns a
+mirror check that its documented release-line version matches its in-repo pin.
+
 ## Running on-demand
 
 From the GitHub Actions UI, fire `Upstream Spec Watch` → `Run workflow` on `main`. The `upstream-spec-watch-report` artifact is retained for 30 days.
