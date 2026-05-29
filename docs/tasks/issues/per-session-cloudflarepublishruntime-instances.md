@@ -1,7 +1,7 @@
 ---
 title: Per-session CloudflarePublishRuntime instances
 type: task
-status: backlog
+status: done
 area: relay
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-cloudflare-publish-hardening
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-28
+updated: 2026-05-29
 ---
 
-- [ ] #task Per-session CloudflarePublishRuntime instances #repo/RIPDPI #area/relay #status/backlog 🔼
+- [x] #task Per-session CloudflarePublishRuntime instances #repo/RIPDPI #area/relay #status/done 🔼
 
 ## Summary
 
@@ -24,9 +24,9 @@ updated: 2026-05-28
 
 ## Acceptance criteria
 
-- [ ] Factory creates a fresh `CloudflarePublishRuntime` per session.
-- [ ] No mutable state survives between sessions unless explicitly persisted and audited (install cache is the one documented exception — see [[Install Cloudflare binaries once per ABI and version]]).
-- [ ] Old singleton path removed.
+- [x] Factory creates a fresh `CloudflarePublishRuntime` per session.
+- [x] No mutable state survives between sessions unless explicitly persisted and audited (install cache is the one documented exception — see [[Install Cloudflare binaries once per ABI and version]]). The `@Singleton CloudflarePublishManager` is the audited exception: it is the process-wide concurrency gate and resets its own session state on stop().
+- [x] Old singleton path removed.
 
 ## Links
 

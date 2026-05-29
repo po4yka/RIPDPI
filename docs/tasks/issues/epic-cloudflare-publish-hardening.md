@@ -1,7 +1,7 @@
 ---
 title: Epic - Cloudflare publish hardening
 type: epic
-status: backlog
+status: done
 area: relay
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-28
+updated: 2026-05-29
 ---
 
-- [ ] #task Epic - Cloudflare publish hardening #repo/RIPDPI #area/relay #status/backlog ⏫
+- [x] #task Epic - Cloudflare publish hardening #repo/RIPDPI #area/relay #status/done ⏫
 
 ## Goal
 
@@ -36,10 +36,10 @@ The audit found four stacked problems in one subsystem: `CloudflarePublishManage
 
 ## Ship definition
 
-- [ ] Concurrent `start()` on a running session returns a typed `AlreadyRunning` error, not undefined behavior.
-- [ ] `DefaultCloudflarePublishRuntimeFactory` no longer hands out a singleton — each session receives its own.
-- [ ] Binary install measured to happen at most once per ABI+version hash per install; cold-start latency drops measurably.
-- [ ] No credential files remain in `filesDir` after a clean stop; crashed-prior-run files are cleaned at startup.
+- [x] Concurrent `start()` on a running session returns a typed `AlreadyRunning` error, not undefined behavior.
+- [x] `DefaultCloudflarePublishRuntimeFactory` no longer hands out a singleton — each session receives its own.
+- [x] Binary install measured to happen at most once per ABI+version hash per install; cold-start latency drops measurably.
+- [x] No credential files remain in `filesDir` after a clean stop; crashed-prior-run files are cleaned at startup.
 
 ## Child tasks
 
