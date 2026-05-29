@@ -1,7 +1,7 @@
 ---
 title: Epic - Advanced routing rules and geoip enforcement
 type: epic
-status: backlog
+status: done
 area: epic
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-05-29
 ---
 
-- [ ] #task Epic - Advanced routing rules and geoip enforcement #repo/RIPDPI #area/epic #status/backlog ⏫
+- [x] #task Epic - Advanced routing rules and geoip enforcement #repo/RIPDPI #area/epic #status/done ⏫
 
 ## Goal
 
