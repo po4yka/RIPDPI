@@ -50,6 +50,8 @@ pub enum OutboundError {
     ConnectFailed(ReplyError),
     #[error("domain name too long ({0} bytes, max 255)")]
     DomainTooLong(usize),
+    #[error("SOCKS5 credential length {0} exceeds 255 bytes")]
+    CredentialTooLong(usize),
 }
 
 impl From<SocksError> for OutboundError {
@@ -126,6 +128,10 @@ where
 {
     let user = creds.username.as_bytes();
     let pass = creds.password.as_bytes();
+
+    if user.len() > 255 || pass.len() > 255 {
+        return Err(OutboundError::CredentialTooLong(user.len().max(pass.len())));
+    }
 
     let mut frame = Vec::with_capacity(3 + user.len() + pass.len());
     frame.push(0x01); // sub-negotiation version
@@ -483,5 +489,15 @@ mod tests {
         let long = "a".repeat(256);
         let result = build_connect_request(&OutboundTarget::Domain(long.clone(), 80));
         assert!(matches!(result, Err(OutboundError::DomainTooLong(256))), "got {result:?}");
+    }
+
+    #[tokio::test]
+    async fn credential_too_long_returns_error() {
+        let (mut client, server) = duplex(4096);
+        tokio::spawn(server_password_auth_succeed(server));
+        let long_username = "u".repeat(256);
+        let creds = Some(Credentials { username: long_username, password: "pass".into() });
+        let result = connect(&mut client, OutboundTarget::Ipv4(Ipv4Addr::LOCALHOST, 443), creds).await;
+        assert!(matches!(result, Err(OutboundError::CredentialTooLong(256))), "got {result:?}");
     }
 }
