@@ -2891,4 +2891,9 @@ fake_burst 3</string>
     <string name="asset_provider_imported_title">数据已导入</string>
     <string name="asset_provider_imported_body">重启服务以应用导入的数据库。</string>
     <string name="asset_provider_failed_title">更新失败</string>
+    <string name="asset_provider_runetfreedom_label">RuNet Freedom(俄罗斯)</string>
+    <string name="asset_provider_runetfreedom_desc">事实上的俄罗斯绕过规则集;对 v2ray/xray 的 geoip/geosite 标签比 antizapret 更新更及时。</string>
+    <string name="asset_provider_updated_days_ago">%1$d 天前更新</string>
+    <string name="asset_provider_updated_today">今天已更新</string>
+    <string name="asset_provider_updated_never">从未更新</string>
 </resources>

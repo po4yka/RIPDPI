@@ -386,4 +386,5 @@ message AppSettings {
   string geo_asset_custom_base_url = 298; // User-supplied GitHub-Releases-compatible base when provider_id == "custom"
   string geo_asset_geoip_version_tag = 299; // Stored release tag of the on-disk geoip.db (empty = never downloaded)
   string geo_asset_geosite_version_tag = 300; // Stored release tag of the on-disk geosite.db (empty = never downloaded)
+  int64 geo_asset_last_updated_epoch_millis = 301; // System.currentTimeMillis() of the last successful download or import; 0 = never
 }

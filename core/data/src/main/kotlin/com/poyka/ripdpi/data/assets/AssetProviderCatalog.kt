@@ -87,6 +87,26 @@ val BuiltInAssetProviders: List<AssetProvider> =
             geoipRepo = GeoAssetRepo("L11R/antizapret-sing-box-geo", GeoipDatabaseAssetFileName),
             geositeRepo = GeoAssetRepo("L11R/antizapret-sing-box-geo", GeositeDatabaseAssetFileName),
         ),
+        /*
+         * RuNet Freedom (russia-v2ray-rules-dat) — de-facto Russia bypass ruleset with frequent
+         * updates, more current than antizapret for v2ray/xray geoip/geosite tags.
+         *
+         * Format note: runetfreedom/russia-v2ray-rules-dat publishes both v2ray `.dat` and
+         * sing-box-compatible `.db` variants on the same release. We download the `.db` assets
+         * (geoip.db / geosite.db) which are compatible with the sing-box maxminddb/protobuf
+         * format that ripdpi-geo consumes. Releases that ship only the `.dat` variant are
+         * rejected by the existing fail-closed isPlausibleGeoAssetPayload gate — no per-release
+         * checksum pin exists upstream, so integrity is enforced entirely by that gate.
+         *
+         * Provider URL: https://github.com/runetfreedom/russia-v2ray-rules-dat
+         */
+        AssetProvider(
+            id = "runetfreedom",
+            labelResKey = "asset_provider_runetfreedom_label",
+            descriptionResKey = "asset_provider_runetfreedom_desc",
+            geoipRepo = GeoAssetRepo("runetfreedom/russia-v2ray-rules-dat", GeoipDatabaseAssetFileName),
+            geositeRepo = GeoAssetRepo("runetfreedom/russia-v2ray-rules-dat", GeositeDatabaseAssetFileName),
+        ),
         AssetProvider(
             id = CustomAssetProviderId,
             labelResKey = "asset_provider_custom_label",

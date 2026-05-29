@@ -3009,4 +3009,9 @@ fakeddisorder endhost</string>
     <string name="asset_provider_imported_title">Данные импортированы</string>
     <string name="asset_provider_imported_body">Перезапустите службу для применения импортированной базы.</string>
     <string name="asset_provider_failed_title">Не удалось обновить</string>
+    <string name="asset_provider_runetfreedom_label">RuNet Freedom (Россия)</string>
+    <string name="asset_provider_runetfreedom_desc">Де-факто набор правил обхода для РФ; актуальнее antizapret для тегов geoip/geosite v2ray/xray.</string>
+    <string name="asset_provider_updated_days_ago">Обновлено %1$d дн. назад</string>
+    <string name="asset_provider_updated_today">Обновлено сегодня</string>
+    <string name="asset_provider_updated_never">Никогда не обновлялось</string>
 </resources>

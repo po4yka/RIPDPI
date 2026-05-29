@@ -2895,4 +2895,9 @@ fakeddisorder endhost</string>
     <string name="asset_provider_imported_title">داده‌ها وارد شد</string>
     <string name="asset_provider_imported_body">برای اعمال پایگاه داده واردشده، سرویس را دوباره راه‌اندازی کنید.</string>
     <string name="asset_provider_failed_title">به‌روزرسانی ناموفق بود</string>
+    <string name="asset_provider_runetfreedom_label">RuNet Freedom (روسیه)</string>
+    <string name="asset_provider_runetfreedom_desc">مجموعه قوانین عبور پیش‌فرض برای روسیه؛ به‌روزتر از antizapret برای تگ‌های geoip/geosite در v2ray/xray.</string>
+    <string name="asset_provider_updated_days_ago">%1$d روز پیش به‌روزرسانی شد</string>
+    <string name="asset_provider_updated_today">امروز به‌روزرسانی شد</string>
+    <string name="asset_provider_updated_never">هرگز به‌روزرسانی نشده</string>
 </resources>

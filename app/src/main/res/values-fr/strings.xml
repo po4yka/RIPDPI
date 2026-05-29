@@ -2890,4 +2890,9 @@ Source : %2$s</string>
     <string name="asset_provider_imported_title">Données importées</string>
     <string name="asset_provider_imported_body">Redémarrez le service pour appliquer la base importée.</string>
     <string name="asset_provider_failed_title">Échec de la mise à jour</string>
+    <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russie)</string>
+    <string name="asset_provider_runetfreedom_desc">Jeu de règles de contournement de facto pour la RU ; plus à jour qu\'antizapret pour les tags geoip/geosite v2ray/xray.</string>
+    <string name="asset_provider_updated_days_ago">Mis à jour il y a %1$d jours</string>
+    <string name="asset_provider_updated_today">Mis à jour aujourd\'hui</string>
+    <string name="asset_provider_updated_never">Jamais mis à jour</string>
 </resources>

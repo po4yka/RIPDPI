@@ -2959,4 +2959,9 @@ Source: %2$s</string>
     <string name="asset_provider_imported_title">Asset imported</string>
     <string name="asset_provider_imported_body">Restart the service to apply the imported database.</string>
     <string name="asset_provider_failed_title">Update failed</string>
+    <string name="asset_provider_runetfreedom_label">RuNet Freedom (Russia)</string>
+    <string name="asset_provider_runetfreedom_desc">De-facto RU bypass ruleset; more current than antizapret for v2ray/xray geoip/geosite tags.</string>
+    <string name="asset_provider_updated_days_ago">Updated %1$d days ago</string>
+    <string name="asset_provider_updated_today">Updated today</string>
+    <string name="asset_provider_updated_never">Never updated</string>
 </resources>

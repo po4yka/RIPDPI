@@ -47,6 +47,7 @@ internal data class AssetProviderScreenState(
     val customBaseUrl: String,
     val geoipTag: String,
     val geositeTag: String,
+    val staleness: GeoAssetStaleness,
     val checking: Boolean,
     val resultBanner: AssetProviderBanner?,
 )
@@ -90,6 +91,7 @@ fun AssetProviderRoute(
                 customBaseUrl = uiState.customBaseUrl,
                 geoipTag = uiState.geoipTag,
                 geositeTag = uiState.geositeTag,
+                staleness = uiState.staleness,
                 checking = uiState.checking,
                 resultBanner = uiState.lastResult?.let { rememberOutcomeBanner(it) },
             ),
@@ -253,6 +255,7 @@ private fun AssetProviderPickerCard(
                 label = stringResource(R.string.asset_provider_geosite_version),
                 tag = state.geositeTag,
             )
+            UpdatedRow(staleness = state.staleness)
         }
     }
 }
@@ -277,6 +280,29 @@ private fun VersionRow(
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
     }
+}
+
+@Composable
+private fun UpdatedRow(staleness: GeoAssetStaleness) {
+    val text =
+        when (staleness) {
+            GeoAssetStaleness.Never -> {
+                stringResource(R.string.asset_provider_updated_never)
+            }
+
+            GeoAssetStaleness.Today -> {
+                stringResource(R.string.asset_provider_updated_today)
+            }
+
+            is GeoAssetStaleness.DaysAgo -> {
+                stringResource(R.string.asset_provider_updated_days_ago, staleness.days)
+            }
+        }
+    Text(
+        text = text,
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+    )
 }
 
 @Composable
@@ -335,6 +361,9 @@ private fun android.content.Context.resolveResString(
     return if (resId != 0) getString(resId) else fallback
 }
 
+/** Sample "days since last update" used only by the preview below. */
+private const val PreviewStalenessDays = 3L
+
 @Preview(showBackground = true)
 @Composable
 private fun previewAssetProviderScreen() {
@@ -346,6 +375,7 @@ private fun previewAssetProviderScreen() {
                     customBaseUrl = "https://github.com/me/repo/releases/latest/download",
                     geoipTag = "202405010000",
                     geositeTag = "",
+                    staleness = GeoAssetStaleness.DaysAgo(PreviewStalenessDays),
                     checking = false,
                     resultBanner =
                         AssetProviderBanner(
@@ -375,6 +405,7 @@ private fun previewAssetProviderScreenDark() {
                     customBaseUrl = "",
                     geoipTag = "v1.2.3",
                     geositeTag = "v1.2.3",
+                    staleness = GeoAssetStaleness.Never,
                     checking = true,
                     resultBanner = null,
                 ),

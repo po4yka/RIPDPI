@@ -88,7 +88,7 @@ class DefaultGeoAssetRepository
                         storedTag = settings.geoAssetGeositeVersionTag,
                     )
 
-                persistTags(geoipResult, geositeResult)
+                persistTagsAndTimestamp(geoipResult, geositeResult)
 
                 GeoAssetUpdateResult(
                     providerId = provider.id,
@@ -109,6 +109,9 @@ class DefaultGeoAssetRepository
                     throw GeoAssetIntegrityException("Imported geo asset failed the validity gate.")
                 }
                 atomicWrite(targetFile(kind), bytes)
+                settingsRepository.update {
+                    geoAssetLastUpdatedEpochMillis = System.currentTimeMillis()
+                }
             }
         }
 
@@ -155,7 +158,7 @@ class DefaultGeoAssetRepository
             atomicWrite(targetFile(kind), bytes)
         }
 
-        private suspend fun persistTags(
+        private suspend fun persistTagsAndTimestamp(
             geoip: SingleAssetOutcome,
             geosite: SingleAssetOutcome,
         ) {
@@ -165,6 +168,7 @@ class DefaultGeoAssetRepository
             settingsRepository.update {
                 geoip.newTag?.let { if (geoip.updated) geoAssetGeoipVersionTag = it }
                 geosite.newTag?.let { if (geosite.updated) geoAssetGeositeVersionTag = it }
+                geoAssetLastUpdatedEpochMillis = System.currentTimeMillis()
             }
         }
 

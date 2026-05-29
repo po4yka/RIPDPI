@@ -2890,4 +2890,9 @@ Origen: %2$s</string>
     <string name="asset_provider_imported_title">Datos importados</string>
     <string name="asset_provider_imported_body">Reinicia el servicio para aplicar la base de datos importada.</string>
     <string name="asset_provider_failed_title">Error al actualizar</string>
+    <string name="asset_provider_runetfreedom_label">RuNet Freedom (Rusia)</string>
+    <string name="asset_provider_runetfreedom_desc">Conjunto de reglas de evasión de facto para RU; más actual que antizapret para etiquetas geoip/geosite de v2ray/xray.</string>
+    <string name="asset_provider_updated_days_ago">Actualizado hace %1$d días</string>
+    <string name="asset_provider_updated_today">Actualizado hoy</string>
+    <string name="asset_provider_updated_never">Nunca actualizado</string>
 </resources>

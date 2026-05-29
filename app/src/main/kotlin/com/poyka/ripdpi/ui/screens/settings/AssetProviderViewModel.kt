@@ -13,11 +13,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+/** How stale the on-disk geo databases are, surfaced as a passive informational line. */
+sealed interface GeoAssetStaleness {
+    data object Never : GeoAssetStaleness
+
+    data object Today : GeoAssetStaleness
+
+    data class DaysAgo(
+        val days: Long,
+    ) : GeoAssetStaleness
+}
 
 /** Persisted + transient state of the geo asset provider picker. */
 data class AssetProviderUiState(
@@ -25,6 +35,7 @@ data class AssetProviderUiState(
     val customBaseUrl: String = "",
     val geoipTag: String = "",
     val geositeTag: String = "",
+    val staleness: GeoAssetStaleness = GeoAssetStaleness.Never,
     val checking: Boolean = false,
     val lastResult: AssetProviderCheckOutcome? = null,
 )
@@ -124,10 +135,19 @@ class AssetProviderViewModel
                         customBaseUrl = settings.geoAssetCustomBaseUrl,
                         geoipTag = settings.geoAssetGeoipVersionTag,
                         geositeTag = settings.geoAssetGeositeVersionTag,
+                        staleness = computeStaleness(settings.geoAssetLastUpdatedEpochMillis),
                         checking = t.checking,
                         lastResult = t.lastResult,
                     )
                 }
+
+        private fun computeStaleness(lastUpdatedEpochMillis: Long): GeoAssetStaleness {
+            if (lastUpdatedEpochMillis <= 0L) {
+                return GeoAssetStaleness.Never
+            }
+            val days = (System.currentTimeMillis() - lastUpdatedEpochMillis) / MILLIS_PER_DAY
+            return if (days <= 0L) GeoAssetStaleness.Today else GeoAssetStaleness.DaysAgo(days)
+        }
 
         private fun mapResult(result: GeoAssetUpdateResult): AssetProviderCheckOutcome =
             if (result.updatedAny) {
@@ -143,5 +163,6 @@ class AssetProviderViewModel
 
         private companion object {
             const val STOP_TIMEOUT_MILLIS = 5_000L
+            const val MILLIS_PER_DAY = 86_400_000L
         }
     }
