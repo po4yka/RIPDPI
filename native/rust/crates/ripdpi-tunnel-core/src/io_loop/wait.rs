@@ -75,10 +75,7 @@ fn drain_udp_events(state: &mut LoopState) {
 }
 
 async fn recv_dns_response(receiver: &mut Option<tokio::sync::mpsc::Receiver<DnsResponse>>) -> Option<DnsResponse> {
-    match receiver.as_mut() {
-        Some(receiver) => receiver.recv().await,
-        None => None,
-    }
+    receiver.as_mut()?.recv().await
 }
 
 fn handle_dns_wait_response(state: &mut LoopState, response: DnsResponse) {
