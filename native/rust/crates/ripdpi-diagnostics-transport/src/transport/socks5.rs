@@ -37,6 +37,10 @@ pub(super) fn connect_via_socks5_observed(
 pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
     proxy.set_nonblocking(true).map_err(|err| err.to_string())?;
     let target = socks5_target(target, port);
+    debug_assert!(
+        tokio::runtime::Handle::try_current().is_err(),
+        "negotiate_socks5 builds its own runtime and must not be called from within a tokio runtime context",
+    );
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_io()
         .enable_time()
