@@ -2,16 +2,22 @@ package com.poyka.ripdpi
 
 import android.app.Application
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.CdnEchPersistedCache
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PersistedEchEntry
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.boot.BootSessionPointer
+import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
@@ -69,6 +75,7 @@ class AppStartupInitializerTest {
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchSeed.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchWorkerEnqueue.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.subscriptionWorkerEnqueue.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.bootSessionRecorderRegistration.status)
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)
             assertEquals(1, diagnosticsBootstrapper.calls)
@@ -78,7 +85,8 @@ class AppStartupInitializerTest {
                     "dns_path_invalidator_registration=succeeded, " +
                     "shared_priors_refresh_worker_enqueue=succeeded, " +
                     "cdn_ech_seed_from_cache=succeeded, cdn_ech_refresh_worker_enqueue=succeeded, " +
-                    "subscription_auto_update_worker_enqueue=succeeded",
+                    "subscription_auto_update_worker_enqueue=succeeded, " +
+                    "boot_session_recorder_registration=succeeded",
                 report.toLogMessage(),
             )
         }
@@ -370,6 +378,7 @@ class AppStartupInitializerTest {
         dnsPathPreferenceInvalidator: RecordingDnsPathPreferenceInvalidator =
             RecordingDnsPathPreferenceInvalidator(application),
         proxyGroupRepository: ProxyGroupRepository = EmptyProxyGroupRepository,
+        bootSessionRecorder: RecordingBootSessionRecorder = RecordingBootSessionRecorder(),
         scope: CoroutineScope,
     ): AppStartupInitializer =
         AppStartupInitializer(
@@ -381,6 +390,7 @@ class AppStartupInitializerTest {
             dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
             cdnEchSeedFromCache = CdnEchSeedFromCache(EmptyCdnEchPersistedCache),
             proxyGroupRepository = proxyGroupRepository,
+            bootSessionRecorder = bootSessionRecorder,
             appShortcutsPublisher =
                 AppShortcutsPublisher(
                     context = application,
@@ -534,6 +544,47 @@ private class RecordingDnsPathPreferenceInvalidator(
 
     override fun unregister() {
         // No-op for tests; the real receiver was never registered.
+    }
+}
+
+private object NoOpAppSettingsRepository : AppSettingsRepository {
+    override val settings: kotlinx.coroutines.flow.Flow<AppSettings> =
+        kotlinx.coroutines.flow.flowOf(AppSettings.getDefaultInstance())
+
+    override suspend fun snapshot(): AppSettings = AppSettings.getDefaultInstance()
+
+    override suspend fun update(transform: AppSettings.Builder.() -> Unit) = Unit
+
+    override suspend fun replace(settings: AppSettings) = Unit
+}
+
+private object NoOpBootSessionStateStore : BootSessionStateStore {
+    override fun lastSession(): BootSessionPointer? = null
+
+    override fun recordSession(
+        profileId: String,
+        mode: Mode,
+    ) = Unit
+
+    override fun clear() = Unit
+}
+
+private class RecordingBootSessionRecorder(
+    private val failure: Throwable? = null,
+    private val onRegister: (() -> Unit)? = null,
+) : BootSessionRecorder(
+        serviceStateStore = FakeServiceStateStore(),
+        appSettingsRepository = NoOpAppSettingsRepository,
+        bootSessionStateStore = NoOpBootSessionStateStore,
+        appScope = CoroutineScope(SupervisorJob()),
+    ) {
+    var registerCalls: Int = 0
+        private set
+
+    override fun register() {
+        registerCalls += 1
+        onRegister?.invoke()
+        failure?.let { throw it }
     }
 }
 

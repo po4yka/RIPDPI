@@ -115,6 +115,10 @@ class DefaultGeoAssetRepository
             }
         }
 
+        // Guard-clause heavy by design: custom-provider, empty-base, no-repo, and
+        // up-to-date cases each short-circuit with their own outcome before the
+        // download path. Flattening would hurt readability more than the early returns.
+        @Suppress("ReturnCount")
         private suspend fun updateOne(
             provider: AssetProvider,
             kind: GeoAssetKind,

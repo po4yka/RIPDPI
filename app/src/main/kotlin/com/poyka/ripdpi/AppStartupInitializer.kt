@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
@@ -33,6 +34,7 @@ class AppStartupInitializer
         private val dnsPathPreferenceInvalidator: DnsPathPreferenceInvalidator,
         private val cdnEchSeedFromCache: CdnEchSeedFromCache,
         private val proxyGroupRepository: ProxyGroupRepository,
+        private val bootSessionRecorder: BootSessionRecorder,
         private val appShortcutsPublisher: AppShortcutsPublisher,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
@@ -83,6 +85,10 @@ class AppStartupInitializer
                 runSubsystem(AppStartupSubsystem.SubscriptionAutoUpdateWorkerEnqueue) {
                     SubscriptionAutoUpdateWorker.enqueuePeriodic(context, proxyGroupRepository.list())
                 }
+            val bootSessionRecorderRegistration =
+                runSubsystem(AppStartupSubsystem.BootSessionRecorderRegistration) {
+                    bootSessionRecorder.register()
+                }
             return AppStartupReport(
                 compatibilityReset = compatibilityReset,
                 strategyPackInitialization = strategyPackInitialization,
@@ -92,6 +98,7 @@ class AppStartupInitializer
                 cdnEchSeed = cdnEchSeed,
                 cdnEchWorkerEnqueue = cdnEchWorkerEnqueue,
                 subscriptionWorkerEnqueue = subscriptionWorkerEnqueue,
+                bootSessionRecorderRegistration = bootSessionRecorderRegistration,
             )
         }
 
@@ -131,6 +138,7 @@ internal data class AppStartupReport(
     val cdnEchSeed: AppStartupSubsystemResult,
     val cdnEchWorkerEnqueue: AppStartupSubsystemResult,
     val subscriptionWorkerEnqueue: AppStartupSubsystemResult,
+    val bootSessionRecorderRegistration: AppStartupSubsystemResult,
 ) {
     fun toLogMessage(): String =
         "App startup report: " +
@@ -143,6 +151,7 @@ internal data class AppStartupReport(
                 cdnEchSeed,
                 cdnEchWorkerEnqueue,
                 subscriptionWorkerEnqueue,
+                bootSessionRecorderRegistration,
             ).joinToString(separator = ", ") { result ->
                 buildString {
                     append(result.subsystem.logLabel)
@@ -174,6 +183,7 @@ internal enum class AppStartupSubsystem(
     CdnEchSeedFromCache("cdn_ech_seed_from_cache"),
     CdnEchRefreshWorkerEnqueue("cdn_ech_refresh_worker_enqueue"),
     SubscriptionAutoUpdateWorkerEnqueue("subscription_auto_update_worker_enqueue"),
+    BootSessionRecorderRegistration("boot_session_recorder_registration"),
 }
 
 internal enum class AppStartupSubsystemStatus {
