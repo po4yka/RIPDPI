@@ -1,15 +1,24 @@
 //! Known-answer tests for AEAD-2022 ciphers (`2022-blake3-*`).
 //!
-//! These vectors are self-consistent encrypt→decrypt round-trips that verify:
-//! 1. BLAKE3 KDF produces a deterministic session subkey from a fixed PSK + salt.
-//! 2. The derived subkey encrypts/decrypts correctly with the underlying AEAD.
-//!
-//! We do not replicate upstream shadowsocks-rust test vectors byte-for-byte
-//! because the BLAKE3 KDF context string and wire framing vary by
-//! implementation; instead we verify KDF + AEAD in one round-trip with
-//! known fixed inputs so any regression in either layer breaks the test.
+//! Coverage is two-layered:
+//! 1. Frozen KAT vectors (`*_matches_independent_blake3_and_aead_vector`) pin
+//!    the derived subkey hex and ciphertext so any regression in the KDF or AEAD
+//!    layer breaks the test.
+//! 2. Independent KDF oracle tests
+//!    (`aead2022_{tcp,udp}_subkey_matches_independent_blake3_derive_key`)
+//!    recompute the session subkey via the reference `blake3::derive_key`
+//!    primitive using the SIP022 context literal `"shadowsocks 2022 session
+//!    subkey"` and the spec-defined key-material order (`psk || salt` for TCP,
+//!    `psk || session_id` for UDP), then assert the crate's derivation matches.
+//!    This pins the two silent-failure modes SIP022 calls out -- a wrong KDF
+//!    context string and a wrong key-material ordering -- against an oracle that
+//!    does not route through the crate wrapper, so a self-consistent-but-wrong
+//!    KDF cannot pass.
 
 use ripdpi_shadowsocks::cipher::{Cipher, CipherError, CipherKey, PresharedKey};
+
+/// SIP022 BLAKE3 KDF context string (must match shadowsocks-rust verbatim).
+const SIP022_KDF_CONTEXT: &str = "shadowsocks 2022 session subkey";
 
 fn decode_hex(value: &str) -> Vec<u8> {
     hex::decode(value).expect("fixture hex must decode")
@@ -204,4 +213,60 @@ fn aead2022_different_salts_produce_different_keys() {
     let ct_b = key_b.encrypt(&nonce, plaintext).expect("encrypt b");
 
     assert_ne!(ct_a, ct_b, "different salts must produce different ciphertexts");
+}
+
+/// Independent SIP022 KDF oracle (TCP): the crate's `derive_aead2022` subkey
+/// must equal `blake3::derive_key("shadowsocks 2022 session subkey", psk||salt)`
+/// truncated to the cipher key length. A wrong context string or `salt||psk`
+/// ordering in the crate would diverge from this oracle even though it would
+/// still round-trip and match its own frozen golden.
+#[test]
+fn aead2022_tcp_subkey_matches_independent_blake3_derive_key() {
+    let cases: [(Cipher, &str, &[u8]); 3] = [
+        (Cipher::Aead2022Blake3Aes128Gcm, SIP022_AES128_PSK_B64, SIP022_AES128_SALT),
+        (Cipher::Aead2022Blake3Aes256Gcm, SIP022_AES256_PSK_B64, SIP022_AES256_SALT),
+        (Cipher::Aead2022Blake3Chacha20Poly1305, SIP022_AES256_PSK_B64, SIP022_CHACHA_SALT),
+    ];
+    for (cipher, psk_b64, salt) in cases {
+        let psk = PresharedKey::from_base64(cipher, psk_b64).expect("base64 psk");
+        let key = CipherKey::derive_aead2022(cipher, psk.as_bytes(), salt).expect("derive tcp subkey");
+
+        let mut ikm = psk.as_bytes().to_vec();
+        ikm.extend_from_slice(salt);
+        let oracle = blake3::derive_key(SIP022_KDF_CONTEXT, &ikm);
+
+        assert_eq!(
+            key.key.as_slice(),
+            &oracle[..cipher.key_len()],
+            "{cipher:?} TCP subkey must equal the independent BLAKE3 derive_key oracle"
+        );
+    }
+}
+
+/// Independent SIP022 KDF oracle (UDP): the crate's `derive_aead2022_udp` subkey
+/// must equal `blake3::derive_key("shadowsocks 2022 session subkey",
+/// psk||session_id)`. SIP022 UDP keys the session off the 8-byte session ID, not
+/// a random salt; this pins that distinction.
+#[test]
+fn aead2022_udp_subkey_matches_independent_blake3_derive_key() {
+    let session_id: [u8; 8] = [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88];
+    let cases: [(Cipher, &str); 3] = [
+        (Cipher::Aead2022Blake3Aes128Gcm, SIP022_AES128_PSK_B64),
+        (Cipher::Aead2022Blake3Aes256Gcm, SIP022_AES256_PSK_B64),
+        (Cipher::Aead2022Blake3Chacha20Poly1305, SIP022_AES256_PSK_B64),
+    ];
+    for (cipher, psk_b64) in cases {
+        let psk = PresharedKey::from_base64(cipher, psk_b64).expect("base64 psk");
+        let key = CipherKey::derive_aead2022_udp(cipher, psk.as_bytes(), &session_id).expect("derive udp subkey");
+
+        let mut ikm = psk.as_bytes().to_vec();
+        ikm.extend_from_slice(&session_id);
+        let oracle = blake3::derive_key(SIP022_KDF_CONTEXT, &ikm);
+
+        assert_eq!(
+            key.key.as_slice(),
+            &oracle[..cipher.key_len()],
+            "{cipher:?} UDP subkey must equal the independent BLAKE3 derive_key oracle"
+        );
+    }
 }
