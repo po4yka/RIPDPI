@@ -44,7 +44,8 @@ pub(crate) struct ChainHopTelemetryState {
 
 impl ChainHopTelemetryState {
     pub(crate) fn record(&self, role: ChainHopRole, state: &str, latency_ms: Option<u64>) {
-        let mut snapshot = self.inner.lock().expect("chain hop telemetry");
+        // Recover from a poisoned lock: a panicked holder must not permanently brick telemetry.
+        let mut snapshot = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         match role {
             ChainHopRole::Entry => {
                 snapshot.entry_state = Some(state.to_string());
@@ -58,7 +59,7 @@ impl ChainHopTelemetryState {
     }
 
     pub(crate) fn snapshot(&self) -> ChainHopTelemetrySnapshot {
-        self.inner.lock().expect("chain hop telemetry").clone()
+        self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
     }
 }
 
@@ -109,13 +110,14 @@ struct QuicMigrationTelemetrySnapshot {
 
 impl QuicMigrationTelemetryState {
     pub(crate) fn update(&self, status: Option<&str>, reason: Option<&str>) {
-        let mut snapshot = self.inner.lock().expect("quic migration telemetry");
+        // Recover from a poisoned lock: a panicked holder must not permanently brick telemetry.
+        let mut snapshot = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         snapshot.status = status.map(ToOwned::to_owned);
         snapshot.reason = reason.map(ToOwned::to_owned);
     }
 
     pub(crate) fn snapshot(&self) -> (Option<String>, Option<String>) {
-        let snapshot = self.inner.lock().expect("quic migration telemetry");
+        let snapshot = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         (snapshot.status.clone(), snapshot.reason.clone())
     }
 }
