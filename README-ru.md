@@ -75,7 +75,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 - `NO_DIRECT_SOLUTION` — мутации на устройстве не могут восстановить эту цель; требуется relay
 - `IP_BLOCK_SUSPECT` — обнаружена блокировка на уровне IP
 
-Вердикты сохраняются по network fingerprint и автоматически воспроизводятся при повторном подключении к той же сети. Экран диагностики добавляет TCP- и QUIC-strategy probing по 24 TCP- и 6 QUIC-кандидатам, детектирование вмешательства DNS, рекомендации DoH/DoT/DNSCrypt/DoQ-резолверов и экспортируемые архивы диагностики.
+Вердикты сохраняются по network fingerprint и автоматически воспроизводятся при повторном подключении к той же сети. Экран диагностики добавляет TCP- и QUIC-strategy probing из наборов `ripdpi-diagnostics-candidates` (quick/full-matrix), детектирование вмешательства DNS, рекомендации DoH/DoT/DNSCrypt/DoQ-резолверов и экспортируемые архивы диагностики.
 
 ## Зачем RIPDPI
 
@@ -151,7 +151,7 @@ cd RIPDPI
 ./gradlew assembleDebug
 ```
 
-Локальные сборки по умолчанию используют `arm64-v8a` (`ripdpi.localNativeAbisDefault`). Для эмулятора: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
+Локальные сборки по умолчанию используют `host` (`ripdpi.localNativeAbisDefault`) — ABI определяется по архитектуре хоста (например, `arm64-v8a` на Apple Silicon). Для эмулятора: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
 Вывод APK: `app/build/outputs/apk/debug/` и `app/build/outputs/apk/release/`.
 

@@ -19,7 +19,7 @@ Renders Google Play Store marketing assets for the RIPDPI Android app: six 1080x
 
 | Path | Role |
 |------|------|
-| `src/app/page.tsx` (~1,171 lines) | Single-file generator: 6 phone slides + 1 feature graphic + `SLIDES` registry |
+| `src/app/page.tsx` (~1,180 lines) | Single-file generator: 6 phone slides + 1 feature graphic + `SLIDES` registry |
 | `src/app/layout.tsx` | Geist Sans + Geist Mono font setup |
 | `src/app/globals.css` | Minimal global styles |
 | `capture.mjs` | Puppeteer headless batch driver |
@@ -56,7 +56,7 @@ Regenerate: install the debug build on a 1080x2400 device, navigate to each scre
 
 ## Slide Registry
 
-Defined in `page.tsx:890–897` (`SLIDES` array). The feature graphic is a separate component (`FeatureGraphicSlide`) addressed by `?slide=fg`.
+Defined in `page.tsx:855–862` (`SLIDES` array). The feature graphic is a separate component (`FeatureGraphicSlide`) addressed by `?slide=fg`.
 
 | Idx | `id` | Label | Headline |
 |-----|------|-------|----------|

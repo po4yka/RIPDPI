@@ -75,7 +75,7 @@ Escanea cada destino de conexión de forma independiente y produce un veredicto 
 - `NO_DIRECT_SOLUTION` — las mutaciones en el dispositivo no pueden recuperar este destino; se requiere relevo
 - `IP_BLOCK_SUSPECT` — bloqueo a nivel de IP detectado
 
-Los veredictos se almacenan por huella de red y se reproducen automáticamente cuando se ve la misma red de nuevo. La pantalla de diagnósticos añade sondeo de estrategias TCP y QUIC sobre 24 candidatos TCP + 6 QUIC, detección de manipulación de DNS, recomendaciones de resolutores DoH/DoT/DNSCrypt/DoQ y archivos de diagnóstico exportables.
+Los veredictos se almacenan por huella de red y se reproducen automáticamente cuando se ve la misma red de nuevo. La pantalla de diagnósticos añade sondeo de estrategias TCP y QUIC desde las suites `ripdpi-diagnostics-candidates` (quick/full-matrix), detección de manipulación de DNS, recomendaciones de resolutores DoH/DoT/DNSCrypt/DoQ y archivos de diagnóstico exportables.
 
 ## Por qué RIPDPI
 
@@ -151,7 +151,7 @@ cd RIPDPI
 ./gradlew assembleDebug
 ```
 
-Las compilaciones locales utilizan por defecto `arm64-v8a` (`ripdpi.localNativeAbisDefault`). Para emulador: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
+Las compilaciones locales utilizan por defecto `host` (`ripdpi.localNativeAbisDefault`): la ABI se deriva de la arquitectura del host (p. ej. `arm64-v8a` en Apple Silicon). Para emulador: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
 Salida del APK: `app/build/outputs/apk/debug/` y `app/build/outputs/apk/release/`.
 

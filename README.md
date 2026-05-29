@@ -150,7 +150,7 @@ cd RIPDPI
 ./gradlew assembleDebug
 ```
 
-Local builds default to `arm64-v8a` (`ripdpi.localNativeAbisDefault`). For emulator: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
+Local builds default to `host` (`ripdpi.localNativeAbisDefault`), which resolves to the host architecture (e.g. `arm64-v8a` on Apple Silicon). For emulator: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
 APK output: `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`.
 

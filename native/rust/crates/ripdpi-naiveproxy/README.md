@@ -1,4 +1,4 @@
-# `ripdpi-naiveproxy`
+# ripdpi-naiveproxy
 
 `ripdpi-naiveproxy` is a subprocess helper managed by `NaiveProxyManager.kt`. It remains a binary crate and must not be moved into `relay-core`, `RelayBackend` / `RelayKind`, `libripdpi-relay.so`, or the `RelayNativeConfig` schema.
 

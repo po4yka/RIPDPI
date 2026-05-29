@@ -776,12 +776,13 @@ Intro hero plus footer flow:
 
 Home:
 
-- keep banners above the dashboard content
-- make `HomeStatusCard` the first primary block and `HomeDiagnosticsCard` the second
-- keep the connection actuator inside `HomeStatusCard`; do not reintroduce a large circular VPN power button
-- keep the default order: banners, status, diagnostics, optional approach, history, then stats
-- keep approach, history, and stats as supporting content rather than competing hero panels
-- preserve the expanded-width split between primary operational panels and secondary overview content
+- keep warning, permission, and degradation banners above the dashboard content so recovery guidance precedes mode selection
+- build the dashboard from three `HomeModeCard` entries — local path optimization, remote tunneled outbound, and network diagnostic — as the primary contract; each card owns its own title, summary, status, primary action, and configuration affordance
+- keep the connection actuator inside the relevant mode card; do not reintroduce a large circular VPN power button
+- keep the default order: banners, degradation strip when present, the three mode cards, optional diagnostic PCAP toggle, then the Home diagnostic bottom-sheet host
+- keep diagnostic detail in Home bottom sheets or the Diagnostics screen rather than recreating an inline diagnostics card stack
+- do not reintroduce the legacy `HomeStatusCard`, `HomeDiagnosticsCard`, `HomeStatsGrid`, `HomeApproachCard`, or `HomeHistoryCard` layout; their old test tags are reserved for negative regression assertions
+- preserve the same mode-card order at expanded width rather than reviving the old two-column status/diagnostics split
 
 Diagnostics:
 

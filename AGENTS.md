@@ -239,7 +239,7 @@ JNI native libraries are built from repo-owned Android adapter crates in the nat
 - Kotlin lifecycle for `ripdpi-root-helper`: `core/service/src/main/kotlin/com/poyka/ripdpi/services/RootHelperManager.kt`
 - Supported ABIs: armeabi-v7a, arm64-v8a, x86, x86_64
 - Never edit `.so` files -- they are compiled from source
-- Local non-release builds default to `ripdpi.localNativeAbisDefault=arm64-v8a`.
+- Local non-release builds default to `ripdpi.localNativeAbisDefault=host`, which derives the ABI from the host architecture (e.g. `arm64-v8a` on Apple Silicon, `x86_64` on an Intel host).
 - Use `ripdpi.localNativeAbis=x86_64` for emulator-heavy local iteration. CI and release always build the full ABI set.
 
 ### Native Infrastructure

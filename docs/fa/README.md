@@ -77,7 +77,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 - `NO_DIRECT_SOLUTION` — تغییرات روی دستگاه نمی‌توانند این مقصد را احیا کنند؛ رله لازم است
 - `IP_BLOCK_SUSPECT` — مسدودسازی در سطح آدرس IP شناسایی شد
 
-نتایج به ازای اثر انگشت هر شبکه ذخیره می‌شوند و وقتی همان شبکه دوباره دیده شود، به‌صورت خودکار بازپخش می‌گردند. صفحهٔ تشخیص شامل کاوش راهبرد TCP و QUIC در میان ۲۴ نامزد TCP و ۶ نامزد QUIC، شناسایی دستکاری DNS، توصیه‌های تحلیل‌گر DoH/DoT/DNSCrypt/DoQ، و بایگانی‌های تشخیص قابل صادرات است.
+نتایج به ازای اثر انگشت هر شبکه ذخیره می‌شوند و وقتی همان شبکه دوباره دیده شود، به‌صورت خودکار بازپخش می‌گردند. صفحهٔ تشخیص شامل کاوش راهبرد TCP و QUIC از مجموعه‌های `ripdpi-diagnostics-candidates` (quick/full-matrix)، شناسایی دستکاری DNS، توصیه‌های تحلیل‌گر DoH/DoT/DNSCrypt/DoQ، و بایگانی‌های تشخیص قابل صادرات است.
 
 ## چرا RIPDPI
 
@@ -153,7 +153,7 @@ cd RIPDPI
 ./gradlew assembleDebug
 ```
 
-ساخت‌های محلی به‌صورت پیش‌فرض از `arm64-v8a` استفاده می‌کنند (`ripdpi.localNativeAbisDefault`). برای شبیه‌ساز: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
+ساخت‌های محلی به‌صورت پیش‌فرض از `host` استفاده می‌کنند (`ripdpi.localNativeAbisDefault`) — ABI از معماری میزبان استخراج می‌شود (مثلاً `arm64-v8a` روی Apple Silicon). برای شبیه‌ساز: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
 خروجی APK: `app/build/outputs/apk/debug/` و `app/build/outputs/apk/release/`.
 

@@ -7,7 +7,7 @@
 Response parsers for HTTP responses and DNS packets that extract structured
 fields from probe responses for downstream classification and fuzz coverage.
 
-> **No current workspace consumer.** No other crate references this crate in `[dependencies]` / `[dev-dependencies]`. Treat it as a prune candidate unless parser extraction is revived.
+> **No production workspace consumer.** No other crate references this crate in `[dependencies]` / `[dev-dependencies]`; the only consumer is `native/rust/fuzz` (the `monitor_dns_response` and `monitor_http_response` fuzz targets). Treat it as a prune candidate unless parser extraction is revived.
 
 ## Main dependencies
 

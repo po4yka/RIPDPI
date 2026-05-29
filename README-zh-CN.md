@@ -75,7 +75,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 - `NO_DIRECT_SOLUTION` — 设备端变换无法恢复此目标；需要中继
 - `IP_BLOCK_SUSPECT` — 检测到 IP 级阻塞
 
-判定结果按网络指纹存储，当再次见到同一网络时自动重放。诊断屏幕添加了跨 24 个 TCP + 6 个 QUIC 候选项的 TCP 和 QUIC 策略探测、DNS 篡改检测、DoH/DoT/DNSCrypt/DoQ 解析器建议，以及可导出的诊断存档。
+判定结果按网络指纹存储，当再次见到同一网络时自动重放。诊断屏幕添加了来自 `ripdpi-diagnostics-candidates` quick/full-matrix 套件的 TCP 和 QUIC 策略探测、DNS 篡改检测、DoH/DoT/DNSCrypt/DoQ 解析器建议，以及可导出的诊断存档。
 
 ## 为什么选择 RIPDPI
 
@@ -151,7 +151,7 @@ cd RIPDPI
 ./gradlew assembleDebug
 ```
 
-本地构建默认为 `arm64-v8a`（`ripdpi.localNativeAbisDefault`）。模拟器：`./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`。
+本地构建默认为 `host`（`ripdpi.localNativeAbisDefault`），ABI 由主机架构推导（例如 Apple Silicon 上为 `arm64-v8a`）。模拟器：`./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`。
 
 APK 输出：`app/build/outputs/apk/debug/` 和 `app/build/outputs/apk/release/`。
 

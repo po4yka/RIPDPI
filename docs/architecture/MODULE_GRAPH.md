@@ -23,6 +23,7 @@ graph LR
     :core:engine-api["engine-api"]
     :core:data["data"]
     :core:diagnostics-data["diagnostics-data"]
+    :core:pcap-export["pcap-export"]
     :core:detection["detection"]
     :core:diagnostics["diagnostics"]
   end
@@ -45,12 +46,14 @@ graph LR
   :core:service --> :core:diagnostics-data
   :core:engine-api --> :quality:detekt-rules
   :core:engine-api --> :core:data
+  :core:pcap-export --> :quality:detekt-rules
   :core:diagnostics-data --> :quality:detekt-rules
   :core:diagnostics-data --> :core:data
   :app --> :quality:detekt-rules
   :app --> :core:data
   :app --> :core:detection
   :app --> :core:diagnostics
+  :app --> :core:pcap-export
   :app --> :core:service
   :core:data --> :core:data:model
   :core:data --> :core:data:catalog
@@ -91,6 +94,7 @@ class :core:engine android-library
 class :core:engine-api android-library
 class :core:data android-library
 class :core:diagnostics-data android-library
+class :core:pcap-export android-library
 class :app android-application
 class :core:detection android-library
 class :core:diagnostics android-library

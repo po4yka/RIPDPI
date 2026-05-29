@@ -24,11 +24,18 @@ test-lab/chaos/tspu/
 │   ├── rst_after_sni_match.py
 │   └── quic_initial_drop.py
 ├── runner/
-│   ├── cli.py          # entry point: `python -m runner.cli ...`
-│   ├── classifier.py   # shared verdict logic
-│   ├── replay.py       # dry-run: reads JSON packet traces, no kernel I/O
-│   ├── pcap_writer.py  # stdlib-only pcap writer for evidence artifacts
-│   └── schema.py       # verdict JSON schema constants
+│   ├── cli.py             # entry point: `python -m runner.cli ...`
+│   ├── classifier.py      # shared verdict logic
+│   ├── replay.py          # dry-run: reads JSON packet traces, no kernel I/O
+│   ├── pcap_writer.py     # stdlib-only pcap writer for evidence artifacts
+│   ├── schema.py          # verdict JSON schema constants
+│   ├── packet_parser.py   # shared packet field extraction
+│   ├── chlo_builder.py    # synthetic TLS ClientHello builder for fixtures/dry-run
+│   ├── live.py            # live mode: NFQUEUE-driven kernel-path classification
+│   ├── nfqueue_adapter.py # NFQUEUE binding for live mode
+│   ├── ci_smoke_traffic.py# CI smoke traffic generator
+│   ├── entrypoint-live.sh # container entry point for live mode
+│   └── nft/               # nftables rulesets for live mode (see nft/README.md)
 ├── fixtures/
 │   └── desync_modes/   # synthetic packet traces per desync mode
 └── tests/              # pytest suite, stdlib-only, runs anywhere

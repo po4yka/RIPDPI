@@ -33,7 +33,7 @@ Downloaded snapshot cache:
 
 Manifest path pattern:
 
-- `https://raw.githubusercontent.com/poyka/ripdpi-strategy-packs/main/<channel>/manifest.json`
+- `https://raw.githubusercontent.com/po4yka/ripdpi-strategy-packs/main/<channel>/manifest.json`
 
 Default channel and refresh behavior:
 

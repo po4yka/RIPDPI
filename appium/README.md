@@ -54,7 +54,7 @@ appium/
   conftest.py          # Driver lifecycle + automation launch fixtures
   lib/                 # Capabilities, launch contract, helpers
   pages/               # Page objects (one per screen)
-  tests/               # Test files (test_01_ through test_38_)
+  tests/               # Test files (test_01_ through test_46_)
 ```
 
 ## How It Works
@@ -117,6 +117,14 @@ bash scripts/ci/run-appium-smoke.sh
 | 36 | `test_36_scan_section_idle.py` | Scan idle state, run buttons, profile picker |
 | 37 | `test_37_approach_mode_switching.py` | Profiles/Strategies approach mode chips |
 | 38 | `test_38_scan_run_and_results.py` | Scan execution, cancel, strategy report, resolver (timing-dependent) |
+| 39 | `test_39_strategy_audit_report.py` | Strategy audit report, winning path, and overview elements |
+| 40 | `test_40_diagnostics_detail_sheets.py` | Diagnostics detail sheets for sessions, events, probes, strategy candidates |
+| 41 | `test_41_diagnostics_search_filter.py` | Diagnostics search, filter, and tools section coverage |
+| 42 | `test_42_history_filters.py` | History filter chips and detail sheet coverage |
+| 43 | `test_43_probe_conflict_dialog.py` | Hidden probe conflict dialog on the Diagnostics screen |
+| 44 | `test_44_live_service_preset.py` | Basic screen loading with the live service preset |
+| 45 | `test_45_activation_windows.py` | Activation window dimension fields on Advanced Settings |
+| 46 | `test_46_background_guidance_banners.py` | Background guidance banners, backup PIN elements, error snackbar |
 
 ## Workflow Tests
 

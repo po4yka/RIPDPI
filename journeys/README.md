@@ -5,7 +5,7 @@ agent (the `android-test-runner` agent, Gemini, or any agent with the bundled
 `android-cli` skill) reads each journey, drives the app by vision and reasoning,
 and evaluates the assertions against what it sees on the device.
 
-These mirror the four `maestro/` smoke flows. Because the agent reasons about
+These mirror the first four `maestro/` smoke flows. Because the agent reasons about
 goals rather than matching resource IDs, journeys are more resilient to layout
 changes — but they require an AI agent to execute.
 

@@ -75,7 +75,7 @@ Scannt jedes Verbindungsziel unabhängig und liefert ein typisiertes Urteil:
 - `NO_DIRECT_SOLUTION` – Mutationen auf dem Gerät können dieses Ziel nicht wiederherstellen; ein Relay ist erforderlich
 - `IP_BLOCK_SUSPECT` – Blockierung auf IP-Ebene erkannt
 
-Urteile werden pro Netzwerk-Fingerabdruck gespeichert und automatisch wiedergegeben, sobald dasselbe Netzwerk erneut erkannt wird. Der Diagnosebildschirm ergänzt TCP- und QUIC-Strategie-Probing über 24 TCP- und 6 QUIC-Kandidaten, die Erkennung von DNS-Manipulationen, Empfehlungen für DoH-/DoT-/DNSCrypt-/DoQ-Resolver sowie exportierbare Diagnosearchive.
+Urteile werden pro Netzwerk-Fingerabdruck gespeichert und automatisch wiedergegeben, sobald dasselbe Netzwerk erneut erkannt wird. Der Diagnosebildschirm ergänzt TCP- und QUIC-Strategie-Probing aus den Suites `ripdpi-diagnostics-candidates` (quick/full-matrix), die Erkennung von DNS-Manipulationen, Empfehlungen für DoH-/DoT-/DNSCrypt-/DoQ-Resolver sowie exportierbare Diagnosearchive.
 
 ## Warum RIPDPI
 
@@ -151,7 +151,7 @@ cd RIPDPI
 ./gradlew assembleDebug
 ```
 
-Lokale Builds verwenden standardmäßig `arm64-v8a` (`ripdpi.localNativeAbisDefault`). Für den Emulator: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
+Lokale Builds verwenden standardmäßig `host` (`ripdpi.localNativeAbisDefault`) — die ABI wird aus der Host-Architektur abgeleitet (z. B. `arm64-v8a` auf Apple Silicon). Für den Emulator: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
 APK-Ausgabe: `app/build/outputs/apk/debug/` und `app/build/outputs/apk/release/`.
 
