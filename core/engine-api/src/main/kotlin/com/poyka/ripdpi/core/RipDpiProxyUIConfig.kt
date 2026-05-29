@@ -202,6 +202,13 @@ data class RipDpiHostAutolearnConfig(
 data class RipDpiWsTunnelConfig(
     val enabled: Boolean = false,
     val mode: String? = null,
+    /** Cover domain for the WS-tunnel TLS SNI. Empty/null disables fake-SNI. */
+    val fakeSni: String? = null,
+    /**
+     * Operator opt-in that [fakeSni] may disable TLS certificate verification.
+     * The native runtime refuses a fake-SNI cover unless this is true.
+     */
+    val allowInsecureSni: Boolean = false,
 )
 
 @Serializable

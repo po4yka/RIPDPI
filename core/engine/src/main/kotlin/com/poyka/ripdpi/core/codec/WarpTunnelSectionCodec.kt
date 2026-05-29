@@ -51,6 +51,8 @@ internal data class NativeWarpConfig(
 internal data class NativeWsTunnelConfig(
     val enabled: Boolean = false,
     val mode: String? = null,
+    val fakeSni: String? = null,
+    val allowInsecureSni: Boolean = false,
 )
 
 internal object WarpSectionCodec {
@@ -134,11 +136,15 @@ internal object WsTunnelSectionCodec {
         RipDpiWsTunnelConfig(
             enabled = value.enabled,
             mode = value.mode,
+            fakeSni = value.fakeSni,
+            allowInsecureSni = value.allowInsecureSni,
         )
 
     fun toNative(value: RipDpiWsTunnelConfig): NativeWsTunnelConfig =
         NativeWsTunnelConfig(
             enabled = value.enabled,
             mode = value.mode,
+            fakeSni = value.fakeSni,
+            allowInsecureSni = value.allowInsecureSni,
         )
 }

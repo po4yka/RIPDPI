@@ -214,6 +214,8 @@ private fun AppSettings.Builder.applyRuntimePreferences(preferences: RipDpiProxy
     setHostAutolearnMaxHosts(hostAutolearn.maxHosts)
     setWsTunnelEnabled(wsTunnel.enabled)
     setWsTunnelMode(wsTunnel.mode.orEmpty())
+    setWsTunnelFakeSni(wsTunnel.fakeSni.orEmpty())
+    setWsTunnelAllowInsecureSni(wsTunnel.allowInsecureSni)
 }
 
 private const val DefaultChainHopPort = 443

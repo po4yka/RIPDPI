@@ -42,6 +42,8 @@ internal data class AppSettingsQuicAdaptiveSnapshot(
     val adaptiveFallbackCachePrefixV4: Int = defaultSettings.adaptiveFallbackCachePrefixV4,
     val wsTunnelEnabled: Boolean = defaultSettings.wsTunnelEnabled,
     val wsTunnelMode: String = defaultSettings.wsTunnelMode,
+    val wsTunnelFakeSni: String = defaultSettings.wsTunnelFakeSni,
+    val wsTunnelAllowInsecureSni: Boolean = defaultSettings.wsTunnelAllowInsecureSni,
 )
 
 internal fun JsonObjectBuilder.writeQuicAdaptiveSnapshot(snapshot: AppSettingsQuicAdaptiveSnapshot) {
@@ -82,6 +84,8 @@ internal fun JsonObjectBuilder.writeQuicAdaptiveSnapshot(snapshot: AppSettingsQu
     put("adaptiveFallbackCachePrefixV4", snapshot.adaptiveFallbackCachePrefixV4)
     put("wsTunnelEnabled", snapshot.wsTunnelEnabled)
     put("wsTunnelMode", snapshot.wsTunnelMode)
+    put("wsTunnelFakeSni", snapshot.wsTunnelFakeSni)
+    put("wsTunnelAllowInsecureSni", snapshot.wsTunnelAllowInsecureSni)
 }
 
 internal fun JsonObject.readQuicAdaptiveSnapshot(
@@ -135,4 +139,6 @@ internal fun JsonObject.readQuicAdaptiveSnapshot(
             intValue("adaptiveFallbackCachePrefixV4", defaults.adaptiveFallbackCachePrefixV4),
         wsTunnelEnabled = booleanValue("wsTunnelEnabled", defaults.wsTunnelEnabled),
         wsTunnelMode = stringValue("wsTunnelMode", defaults.wsTunnelMode),
+        wsTunnelFakeSni = stringValue("wsTunnelFakeSni", defaults.wsTunnelFakeSni),
+        wsTunnelAllowInsecureSni = booleanValue("wsTunnelAllowInsecureSni", defaults.wsTunnelAllowInsecureSni),
     )

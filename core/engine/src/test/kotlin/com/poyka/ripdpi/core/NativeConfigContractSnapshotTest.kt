@@ -1091,10 +1091,14 @@ class NativeConfigContractSnapshotTest {
     private fun wsTunnelExpected(
         enabled: Boolean = false,
         mode: String? = null,
+        fakeSni: String? = null,
+        allowInsecureSni: Boolean = false,
     ): JsonObject =
         buildJsonObject {
             put("enabled", JsonPrimitive(enabled))
             put("mode", mode?.let(::JsonPrimitive) ?: JsonNull)
+            put("fakeSni", fakeSni?.let(::JsonPrimitive) ?: JsonNull)
+            put("allowInsecureSni", JsonPrimitive(allowInsecureSni))
         }
 
     private fun finalmaskExpected(

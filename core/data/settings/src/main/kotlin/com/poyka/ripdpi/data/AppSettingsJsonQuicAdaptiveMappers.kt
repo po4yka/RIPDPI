@@ -50,6 +50,8 @@ internal fun AppSettingsSnapshot.withQuicAdaptiveSnapshot(settings: AppSettings)
                     normalizeAdaptiveFallbackCachePrefixV4(settings.adaptiveFallbackCachePrefixV4),
                 wsTunnelEnabled = settings.wsTunnelEnabled,
                 wsTunnelMode = settings.effectiveWsTunnelMode(),
+                wsTunnelFakeSni = settings.wsTunnelFakeSni,
+                wsTunnelAllowInsecureSni = settings.wsTunnelAllowInsecureSni,
             ),
     )
 
@@ -94,6 +96,8 @@ internal fun AppSettings.Builder.applyQuicAdaptiveSnapshot(snapshot: AppSettings
             normalizeAdaptiveFallbackCachePrefixV4(adaptive.adaptiveFallbackCachePrefixV4),
         ).setWsTunnelEnabled(adaptive.wsTunnelEnabled)
         .setWsTunnelMode(adaptive.wsTunnelMode)
+        .setWsTunnelFakeSni(adaptive.wsTunnelFakeSni)
+        .setWsTunnelAllowInsecureSni(adaptive.wsTunnelAllowInsecureSni)
 }
 
 private fun AppSettings.effectiveWsTunnelMode(): String =

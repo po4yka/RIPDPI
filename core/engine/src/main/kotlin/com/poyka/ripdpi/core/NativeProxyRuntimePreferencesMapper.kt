@@ -58,5 +58,7 @@ internal fun buildWsTunnelConfig(settings: AppSettings): RipDpiWsTunnelConfig {
     return RipDpiWsTunnelConfig(
         enabled = mode != "off",
         mode = mode,
+        fakeSni = settings.wsTunnelFakeSni.ifEmpty { null },
+        allowInsecureSni = settings.wsTunnelAllowInsecureSni,
     )
 }

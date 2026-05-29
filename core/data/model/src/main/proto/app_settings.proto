@@ -206,6 +206,7 @@ message AppSettings {
 
   // MTProto Fake-TLS domain selection
   string ws_tunnel_fake_sni = 134;           // Cover domain for WS tunnel TLS SNI (empty = disabled)
+  bool ws_tunnel_allow_insecure_sni = 305;   // Operator opt-in: honour ws_tunnel_fake_sni even though it disables TLS cert verification
 
   // Root mode
   bool root_mode_enabled = 135;
