@@ -69,6 +69,7 @@ fun HomeScreen(
     onDismissAnalysisSheet: () -> Unit = {},
     onDismissVerificationSheet: () -> Unit = {},
     onTogglePcapRecording: () -> Unit = {},
+    onCaptivePortalSignIn: () -> Unit = {},
 ) {
     TrackRecomposition("HomeScreen")
     val colors = RipDpiThemeTokens.colors
@@ -210,6 +211,11 @@ fun HomeScreen(
                         ),
             )
         }
+
+        HomeNetworkConditionBanner(
+            condition = uiState.networkCondition,
+            onCaptivePortalSignIn = onCaptivePortalSignIn,
+        )
 
         HomeDegradationStrip(
             quality = uiState.connectionQuality,

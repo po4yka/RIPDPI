@@ -223,6 +223,8 @@ data class MainUiState(
     val modeCards: ImmutableList<HomeModeCardUiState> = DefaultHomeModeCards,
     val controlPlaneHealthSummary: ControlPlaneHealthSummaryUiModel? = null,
     val connectionQuality: ConnectionQualitySnapshot? = null,
+    val networkCondition: com.poyka.ripdpi.services.network.NetworkCondition =
+        com.poyka.ripdpi.services.network.NetworkCondition.Normal,
 ) {
     val localBypassCard: HomeModeCardUiState
         get() =
