@@ -424,6 +424,40 @@ Fragment example:
 }
 ```
 
+## Import Coverage vs Relay Settings
+
+Profile **import** (QR / clipboard / share-sheet URI, and the sing-box / Clash.Meta /
+base64 / WireGuard-INI subscription parsers) is an identity-and-topology channel, not a
+full transport-configuration channel. It captures the endpoint and credentials needed to
+recognize a server; the remaining transport knobs are owned by the relay editor (the
+`RelayProfileRecord` / `ResolvedRipDpiRelayConfig` wire surface), which is authoritative.
+
+VLESS REALITY is the exception that import carries in full: a `vless://` link with
+`security=reality` (or a sing-box outbound with `tls.reality`) round-trips into
+`ProxyProfile.VlessReality` with `pbk`/`sid`/`sni`/`flow`/`fp` and the xhttp transport
+fields, and activation maps those straight into the relay config.
+
+Hysteria2 import is intentionally narrower. The importers capture only:
+
+- `server`, `serverPort`
+- `password`
+
+The following Hysteria2 parameters are **settings-only** and are not populated by any
+import path — set them in the relay editor after import:
+
+- **Salamander obfuscation** — the wire DTO field `hysteriaSalamanderKey` exists, but no
+  importer parses `obfs` / `obfs-password` from a `hysteria2://` URI or sing-box `obfs`
+  block. Configure it in the relay editor.
+- **`insecure`** — parsed by the native `ripdpi-hysteria2` URL layer but not exposed
+  through the Kotlin relay DTO; it cannot be set from an imported profile by design.
+- **Port-hopping** (`hopInterval` / `minHopInterval` / `maxHopInterval`) — likewise parsed
+  natively from the URL but not exposed through the relay DTO, so it is not import-carried.
+
+This boundary is deliberate: threading every transport knob through the import models would
+duplicate the relay-editor surface and the v6 wire schema. If a Hysteria2 server requires
+salamander, insecure, or port-hopping, distribute it as a relay-editor configuration rather
+than relying on a share link.
+
 ## Validation Reminders
 
 - Keep secrets out of exported profile payloads.
