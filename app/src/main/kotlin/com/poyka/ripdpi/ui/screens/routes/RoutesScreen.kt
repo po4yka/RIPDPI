@@ -1,0 +1,300 @@
+package com.poyka.ripdpi.ui.screens.routes
+
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.rules.OutboundTag
+import com.poyka.ripdpi.data.rules.RuleEntity
+import com.poyka.ripdpi.data.rules.RuleNetwork
+import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.feedback.WarningBanner
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlin.math.roundToInt
+
+@Composable
+fun RoutesRoute(
+    onBack: () -> Unit,
+    onEditRule: (Long) -> Unit,
+    onAddRule: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: RoutesViewModel = hiltViewModel(),
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    RoutesScreen(
+        state = state,
+        onBack = onBack,
+        onAddRule = onAddRule,
+        onEditRule = onEditRule,
+        onToggleEnabled = viewModel::toggleEnabled,
+        onDelete = viewModel::delete,
+        onReorder = viewModel::reorder,
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun RoutesScreen(
+    state: RoutesUiState,
+    onBack: () -> Unit,
+    onAddRule: () -> Unit,
+    onEditRule: (Long) -> Unit,
+    onToggleEnabled: (RuleEntity) -> Unit,
+    onDelete: (RuleEntity) -> Unit,
+    onReorder: (List<Long>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Local working order so a hand-rolled drag can reorder optimistically before persisting.
+    var localRows by remember(state.rows) { mutableStateOf(state.rows) }
+
+    fun move(
+        from: Int,
+        to: Int,
+    ) {
+        if (to !in localRows.indices) return
+        val mutable = localRows.toMutableList()
+        val item = mutable.removeAt(from)
+        mutable.add(to, item)
+        localRows = mutable
+        onReorder(mutable.map { it.rule.id })
+    }
+
+    RipDpiSettingsScaffold(
+        modifier =
+            modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.Routes))
+                .fillMaxSize(),
+        title = stringResource(R.string.title_routes),
+        navigationIcon = RipDpiIcons.Back,
+        onNavigationClick = onBack,
+        actions = {
+            IconButton(
+                onClick = onAddRule,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RoutesAddRule),
+            ) {
+                Icon(
+                    imageVector = RipDpiIcons.Config,
+                    contentDescription = stringResource(R.string.routes_add_rule),
+                    tint = RipDpiThemeTokens.colors.foreground,
+                )
+            }
+        },
+    ) {
+        if (localRows.isEmpty()) {
+            item(key = "routes_empty") {
+                WarningBanner(
+                    title = stringResource(R.string.routes_empty_title),
+                    message = stringResource(R.string.routes_empty_body),
+                    tone = WarningBannerTone.Info,
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RoutesList),
+                )
+            }
+        } else {
+            itemsIndexed(localRows, key = { _, row -> row.rule.id }) { index, row ->
+                RuleListRow(
+                    row = row,
+                    index = index,
+                    count = localRows.size,
+                    onEdit = { onEditRule(row.rule.id) },
+                    onToggleEnabled = { onToggleEnabled(row.rule) },
+                    onDelete = { onDelete(row.rule) },
+                    onMoveUp = { move(index, index - 1) },
+                    onMoveDown = { move(index, index + 1) },
+                    onDragBy = { delta -> move(index, index + delta) },
+                    modifier =
+                        Modifier.ripDpiTestTag(
+                            if (index == 0) RipDpiTestTags.RoutesList else null,
+                        ),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RuleListRow(
+    row: RuleRow,
+    index: Int,
+    count: Int,
+    onEdit: () -> Unit,
+    onToggleEnabled: () -> Unit,
+    onDelete: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onDragBy: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    // Drag distance (in px) that commits a one-slot reorder. Derived from an existing layout token
+    // rather than a literal .dp so the RDS no-literal-token floor holds in the component layer.
+    val dragThreshold = RipDpiThemeTokens.components.inputs.multilineFieldMinHeight
+    val rowHeightPx = with(LocalDensity.current) { dragThreshold.toPx() }
+    var dragOffsetY by remember { mutableStateOf(0f) }
+    val newRuleName = stringResource(R.string.routes_add_rule)
+
+    RipDpiCard(
+        onClick = onEdit,
+        modifier =
+            modifier
+                .offset { IntOffset(0, dragOffsetY.roundToInt()) }
+                .pointerInput(index, count) {
+                    detectDragGesturesAfterLongPress(
+                        onDragEnd = { dragOffsetY = 0f },
+                        onDragCancel = { dragOffsetY = 0f },
+                    ) { change, dragAmount ->
+                        change.consume()
+                        dragOffsetY += dragAmount.y
+                        // Once the accumulated drag crosses a row height, commit a one-slot move.
+                        if (dragOffsetY > rowHeightPx) {
+                            onDragBy(1)
+                            dragOffsetY = 0f
+                        } else if (dragOffsetY < -rowHeightPx) {
+                            onDragBy(-1)
+                            dragOffsetY = 0f
+                        }
+                    }
+                },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = row.rule.name.ifBlank { newRuleName },
+                    style = type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Text(
+                    text = ruleSummaryLine(row),
+                    style = type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+            Switch(checked = row.rule.enabled, onCheckedChange = { onToggleEnabled() })
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            IconButton(onClick = onMoveUp, enabled = index > 0) {
+                Icon(
+                    imageVector = RipDpiIcons.KeyboardArrowUp,
+                    contentDescription = stringResource(R.string.routes_move_up),
+                    tint = colors.foreground,
+                )
+            }
+            IconButton(onClick = onMoveDown, enabled = index < count - 1) {
+                Icon(
+                    imageVector = RipDpiIcons.KeyboardArrowDown,
+                    contentDescription = stringResource(R.string.routes_move_down),
+                    tint = colors.foreground,
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = RipDpiIcons.Delete,
+                    contentDescription = stringResource(R.string.rule_editor_delete),
+                    tint = colors.destructive,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ruleSummaryLine(row: RuleRow): String {
+    val separator = stringResource(R.string.routes_rule_summary_separator)
+    val parts = ruleSummaryParts(row.rule) + "→ ${row.outboundLabel}"
+    return parts.joinToString(separator)
+}
+
+@Composable
+private fun previewRows() =
+    listOf(
+        RuleRow(
+            RuleEntity(
+                id = 1L,
+                name = "Streaming direct",
+                domains = "domain_suffix:netflix.com\ngeosite:netflix",
+                network = RuleNetwork.BOTH,
+                outboundTag = OutboundTag.Bypass,
+            ),
+            outboundLabel = "Bypass (direct)",
+        ),
+        RuleRow(
+            RuleEntity(
+                id = 2L,
+                name = "Ads block",
+                domains = "geosite:category-ads-all",
+                network = RuleNetwork.TCP,
+                outboundTag = OutboundTag.Block,
+            ),
+            outboundLabel = "Block",
+        ),
+    )
+
+@Preview(showBackground = true)
+@Composable
+private fun previewRoutesScreen() {
+    RipDpiTheme(themePreference = "light") {
+        RoutesScreen(
+            state = RoutesUiState(rows = previewRows()),
+            onBack = {},
+            onAddRule = {},
+            onEditRule = {},
+            onToggleEnabled = {},
+            onDelete = {},
+            onReorder = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun previewRoutesScreenDark() {
+    RipDpiTheme(themePreference = "dark") {
+        RoutesScreen(
+            state = RoutesUiState(rows = emptyList()),
+            onBack = {},
+            onAddRule = {},
+            onEditRule = {},
+            onToggleEnabled = {},
+            onDelete = {},
+            onReorder = {},
+        )
+    }
+}

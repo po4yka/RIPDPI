@@ -23,6 +23,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@Suppress("LongParameterList")
 @Composable
 fun SettingsRoute(
     onOpenDnsSettings: () -> Unit,
@@ -37,6 +38,7 @@ fun SettingsRoute(
     onOpenVpnPermissionDialog: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenDomainBypass: () -> Unit = {},
+    onOpenRoutingRules: () -> Unit = {},
     onDismissBackgroundGuidance: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -52,6 +54,7 @@ fun SettingsRoute(
                 onOpenDataTransparency = onOpenDataTransparency,
                 onOpenDetectionCheck = onOpenDetectionCheck,
                 onOpenDomainBypass = onOpenDomainBypass,
+                onOpenRoutingRules = onOpenRoutingRules,
                 onShareDebugBundle = onShareDebugBundle,
                 onRepairPermission = onRepairPermission,
                 onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
@@ -118,6 +121,7 @@ internal data class SettingsScreenActions(
     val onOpenDataTransparency: () -> Unit,
     val onOpenDetectionCheck: () -> Unit = {},
     val onOpenDomainBypass: () -> Unit = {},
+    val onOpenRoutingRules: () -> Unit = {},
     val onShareDebugBundle: () -> Unit,
     val onRepairPermission: (PermissionKind) -> Unit,
     val onOpenVpnPermissionDialog: () -> Unit,

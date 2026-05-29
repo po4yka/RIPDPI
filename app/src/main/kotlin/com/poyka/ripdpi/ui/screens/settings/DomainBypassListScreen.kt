@@ -264,7 +264,11 @@ private fun previewDomainBypassListScreen() {
                     text = "bank.ru\n.gov.ru\ndomain_regex:^(bad",
                     errors =
                         listOf(
-                            DomainBypassList.BypassListError(3, "domain_regex:^(bad", "Invalid regex: unclosed group"),
+                            DomainBypassList.BypassListError(
+                                lineNumber = 3,
+                                raw = "domain_regex:^(bad",
+                                message = "Invalid regex: unclosed group",
+                            ),
                         ),
                     cleanCount = 2,
                     hasRule = true,

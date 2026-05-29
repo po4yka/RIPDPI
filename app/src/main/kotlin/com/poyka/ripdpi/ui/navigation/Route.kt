@@ -133,6 +133,27 @@ sealed class Route {
     }
 
     @Serializable
+    data object Routes : Route() {
+        override val stableRoute = "routes"
+        override val titleRes = R.string.title_routes
+        override val icon: ImageVector = RipDpiIcons.Config
+    }
+
+    @Serializable
+    data class RuleEditor(
+        val ruleId: Long = 0L,
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "rule_editor"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.title_rule_editor
+
+        @kotlinx.serialization.Transient
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object Blockcheck : Route() {
         override val stableRoute = "blockcheck"
         override val titleRes = R.string.title_blockcheck
@@ -358,6 +379,8 @@ sealed class Route {
                     AdvancedSettings,
                     StrategyConfig,
                     DomainBypassList,
+                    Routes,
+                    RuleEditor(),
                     Blockcheck,
                     BiometricPrompt,
                     AppCustomization,

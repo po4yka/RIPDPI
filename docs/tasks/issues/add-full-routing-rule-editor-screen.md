@@ -1,7 +1,7 @@
 ---
 title: Add full routing rule editor screen
 type: task
-status: backlog
+status: done
 area: routing
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-advanced-routing-rules-and-geoip-enforcement
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-29
 ---
 
-- [ ] #task Add full routing rule editor screen #repo/RIPDPI #area/routing #status/backlog ⏫
+- [x] #task Add full routing rule editor screen #repo/RIPDPI #area/routing #status/done ⏫
 
 ## Summary
 

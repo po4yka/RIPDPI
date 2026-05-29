@@ -68,6 +68,8 @@ import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmRoute
+import com.poyka.ripdpi.ui.screens.routes.RoutesRoute
+import com.poyka.ripdpi.ui.screens.routes.RuleEditorRoute
 import com.poyka.ripdpi.ui.screens.scanner.QrScannerRoute
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
@@ -561,6 +563,7 @@ private fun SettingsHomeRoute(
         onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
         onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
+        onOpenRoutingRules = { navController.navigate(Route.Routes) },
         onShareDebugBundle = actions.onShareDebugBundle,
         permissionSummary = mainUiState.permissionSummary,
         onRepairPermission = actions.onRepairPermission,
@@ -603,6 +606,17 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     }
     composable<Route.DomainBypassList> {
         DomainBypassListRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.Routes> {
+        RoutesRoute(
+            onBack = { navController.popBackStack() },
+            onAddRule = { navController.navigate(Route.RuleEditor(0L)) },
+            onEditRule = { id -> navController.navigate(Route.RuleEditor(id)) },
+        )
+    }
+    composable<Route.RuleEditor> { entry ->
+        val ruleEditorRoute = entry.toRoute<Route.RuleEditor>()
+        RuleEditorRoute(ruleId = ruleEditorRoute.ruleId, onBack = { navController.popBackStack() })
     }
     composable<Route.AppCustomization> {
         val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
