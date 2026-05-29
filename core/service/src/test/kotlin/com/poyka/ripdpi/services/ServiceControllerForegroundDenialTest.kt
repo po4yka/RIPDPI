@@ -6,7 +6,10 @@ import android.net.VpnService
 import android.os.Build
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.boot.BootSessionPointer
+import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,6 +37,7 @@ class ServiceControllerForegroundDenialTest {
                 serviceStateStore = serviceStateStore,
                 serviceAutomationController = Optional.empty(),
                 foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
             )
 
         val result = controller.start(Mode.Proxy)
@@ -58,6 +62,7 @@ class ServiceControllerForegroundDenialTest {
                 serviceStateStore = serviceStateStore,
                 serviceAutomationController = Optional.empty(),
                 foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
             )
 
         val result = controller.start(Mode.Proxy)
@@ -78,6 +83,7 @@ class ServiceControllerForegroundDenialTest {
                 serviceStateStore = serviceStateStore,
                 serviceAutomationController = Optional.empty(),
                 foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
             )
 
         val result = controller.start(Mode.VPN)
@@ -102,6 +108,7 @@ class ServiceControllerForegroundDenialTest {
                 serviceStateStore = serviceStateStore,
                 serviceAutomationController = Optional.empty(),
                 foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
             )
 
         val result = controller.start(Mode.Proxy)
@@ -122,6 +129,7 @@ class ServiceControllerForegroundDenialTest {
                 serviceStateStore = serviceStateStore,
                 serviceAutomationController = Optional.empty(),
                 foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
             )
 
         val result = controller.start(Mode.VPN)
@@ -129,6 +137,48 @@ class ServiceControllerForegroundDenialTest {
         assertEquals(ServiceStartResult.Accepted(Mode.VPN), result)
         assertEquals(1, starter.startCount)
         assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+    }
+
+    @Test
+    fun explicitStopClearsWasRunningAtUpdateFlag() {
+        val store = InMemoryBootSessionStateStore().apply { setWasRunningAtUpdate(true) }
+        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = serviceStateStore,
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = RecordingForegroundServiceStarter(),
+                bootSessionStateStore = store,
+            )
+
+        controller.stop()
+
+        assertFalse(store.wasRunningAtUpdate())
+    }
+}
+
+private class InMemoryBootSessionStateStore : BootSessionStateStore {
+    private var pointer: BootSessionPointer? = null
+    private var wasRunningAtUpdate = false
+
+    override fun lastSession(): BootSessionPointer? = pointer
+
+    override fun recordSession(
+        profileId: String,
+        mode: Mode,
+    ) {
+        pointer = BootSessionPointer(profileId = profileId, mode = mode)
+    }
+
+    override fun clear() {
+        pointer = null
+    }
+
+    override fun wasRunningAtUpdate(): Boolean = wasRunningAtUpdate
+
+    override fun setWasRunningAtUpdate(value: Boolean) {
+        wasRunningAtUpdate = value
     }
 }
 

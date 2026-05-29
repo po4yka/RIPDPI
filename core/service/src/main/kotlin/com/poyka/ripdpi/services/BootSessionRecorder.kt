@@ -45,8 +45,13 @@ open class BootSessionRecorder
                     val profileId =
                         runCatching { appSettingsRepository.snapshot().diagnosticsActiveProfileId }
                             .getOrDefault("")
-                    runCatching { bootSessionStateStore.recordSession(profileId, mode) }
-                        .onFailure { error -> log.w(error) { "Failed to record boot-session pointer" } }
+                    runCatching {
+                        bootSessionStateStore.recordSession(profileId, mode)
+                        // A running session is, by definition, "running at update": if the
+                        // process is killed for an app update now, MY_PACKAGE_REPLACED should
+                        // resume it. An explicit stop later clears this via ServiceController.stop().
+                        bootSessionStateStore.setWasRunningAtUpdate(true)
+                    }.onFailure { error -> log.w(error) { "Failed to record boot-session pointer" } }
                 }
             }
         }

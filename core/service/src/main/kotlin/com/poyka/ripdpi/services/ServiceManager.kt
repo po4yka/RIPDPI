@@ -8,6 +8,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.data.stopAction
 import dagger.Binds
@@ -75,6 +76,7 @@ class DefaultServiceController
         private val serviceStateStore: ServiceStateStore,
         private val serviceAutomationController: Optional<ServiceAutomationController>,
         private val foregroundServiceStarter: ForegroundServiceStarter,
+        private val bootSessionStateStore: BootSessionStateStore,
     ) : ServiceController {
         @Suppress("ReturnCount")
         override fun start(mode: Mode): ServiceStartResult {
@@ -128,6 +130,12 @@ class DefaultServiceController
         }
 
         override fun stop() {
+            // Explicit (user / automation) stop through the controller: clear the
+            // "was running at update" flag so a later MY_PACKAGE_REPLACED does NOT
+            // resurrect a deliberately-stopped tunnel. A process kill (LMK / update)
+            // never reaches here, so the flag stays set in that case — exactly the
+            // signal the boot resume worker needs.
+            bootSessionStateStore.setWasRunningAtUpdate(false)
             val currentMode = serviceStateStore.status.value.second
             if (serviceAutomationController.map { it.interceptStop(currentMode) }.orElse(false)) {
                 return

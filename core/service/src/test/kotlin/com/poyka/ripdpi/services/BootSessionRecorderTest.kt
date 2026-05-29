@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -50,6 +51,27 @@ class BootSessionRecorderTest {
                 BootSessionPointer(profileId = "profile-7", mode = Mode.VPN),
                 store.lastSession(),
             )
+        }
+
+    @Test
+    fun `marks was-running-at-update when a session becomes running`() =
+        runTest {
+            val serviceState = FakeServiceStateStore()
+            val store = RecordingBootSessionStateStore()
+            val recorder =
+                BootSessionRecorder(
+                    serviceStateStore = serviceState,
+                    appSettingsRepository = FakeAppSettingsRepository(activeProfileId = "p"),
+                    bootSessionStateStore = store,
+                    appScope = backgroundScope,
+                )
+
+            recorder.register()
+            runCurrent()
+            serviceState.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+
+            assertTrue(store.wasRunningAtUpdate())
         }
 
     @Test
@@ -139,6 +161,7 @@ class BootSessionRecorderTest {
 
     private class RecordingBootSessionStateStore : BootSessionStateStore {
         private var pointer: BootSessionPointer? = null
+        private var wasRunningAtUpdate = false
         var recordCalls: Int = 0
             private set
 
@@ -156,8 +179,10 @@ class BootSessionRecorderTest {
             pointer = null
         }
 
-        override fun wasRunningAtUpdate(): Boolean = false
+        override fun wasRunningAtUpdate(): Boolean = wasRunningAtUpdate
 
-        override fun setWasRunningAtUpdate(value: Boolean) = Unit
+        override fun setWasRunningAtUpdate(value: Boolean) {
+            wasRunningAtUpdate = value
+        }
     }
 }
