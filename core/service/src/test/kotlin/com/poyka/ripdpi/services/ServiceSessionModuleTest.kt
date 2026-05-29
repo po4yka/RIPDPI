@@ -130,6 +130,7 @@ class ServiceSessionModuleTest {
                     dependencies = runtimeDependencies,
                     protectSocketServer = protectSocketServer,
                     rootHelperManager = RootHelperManager(),
+                    flowAttributionBridge = FlowAttributionBridge(NoOpFlowAppAttributionStore),
                 )
             val encryptedDnsFailoverController =
                 VpnServiceSessionModule.provideVpnEncryptedDnsFailoverController(
@@ -335,4 +336,24 @@ class ServiceSessionModuleTest {
             )
         }
     }
+}
+
+/** No-op [FlowAppAttributionStore] for constructing a [FlowAttributionBridge] in module wiring tests. */
+private object NoOpFlowAppAttributionStore : FlowAppAttributionStore {
+    override fun noteFlow(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+    ) = Unit
+
+    override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? = null
+
+    override fun invalidateOnAppUpdate(
+        packageName: String,
+        newVersionCode: Long,
+    ) = Unit
+
+    override fun clear() = Unit
 }

@@ -127,10 +127,11 @@ class DefaultFlowAppAttributionStore
             remotePort: Int,
         ) {
             val digest = flowAttributionDigest(remoteIp)
-            // First-sight only: the destination's owner does not change within a flow.
-            attributions.computeIfAbsent(digest) {
-                resolveAttribution(protocol, localIp, localPort, remoteIp, remotePort)
-            }
+            // Overwrite rather than putIfAbsent: the native queue already dedupes
+            // noteFlow calls per destination (one per dest until evict_flow on
+            // close), so a fresh call here means the destination was re-seen and
+            // must be re-resolved -- e.g. after a different app reuses the IP.
+            attributions[digest] = resolveAttribution(protocol, localIp, localPort, remoteIp, remotePort)
         }
 
         override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? =

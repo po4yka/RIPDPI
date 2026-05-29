@@ -374,6 +374,7 @@ class StubInstrumentedTun2SocksBridge : Tun2SocksBridge {
     override suspend fun start(
         config: Tun2SocksConfig,
         tunFd: Int,
+        flowAttributionBridge: Any?,
     ) = Unit
 
     override suspend fun stop() = Unit

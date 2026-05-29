@@ -234,13 +234,16 @@ class FakeTun2SocksBridge : Tun2SocksBridge {
     var statsValue: TunnelStats = TunnelStats()
     var statsFailure: Throwable? = null
     var telemetryValue: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel")
+    var startedFlowAttributionBridge: Any? = null
 
     override suspend fun start(
         config: Tun2SocksConfig,
         tunFd: Int,
+        flowAttributionBridge: Any?,
     ) {
         startedConfig = config
         startedTunFd = tunFd
+        startedFlowAttributionBridge = flowAttributionBridge
     }
 
     override suspend fun stop() {
@@ -358,6 +361,25 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
         lastDestroyedHandle = handle
         destroyedHandles += handle
         destroySignal?.complete(handle)
+    }
+
+    var lastFlowAttributionBridge: Any? = null
+        private set
+
+    var flowAttributionUnregisteredToken: Long? = null
+        private set
+
+    override fun registerFlowAttribution(bridge: Any): Long {
+        lastFlowAttributionBridge = bridge
+        return FLOW_ATTRIBUTION_TOKEN
+    }
+
+    override fun unregisterFlowAttribution(token: Long) {
+        flowAttributionUnregisteredToken = token
+    }
+
+    private companion object {
+        const val FLOW_ATTRIBUTION_TOKEN = 0xF10AL
     }
 }
 

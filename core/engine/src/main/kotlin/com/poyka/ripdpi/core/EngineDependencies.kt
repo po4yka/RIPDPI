@@ -89,6 +89,7 @@ interface Tun2SocksBridge {
     suspend fun start(
         config: Tun2SocksConfig,
         tunFd: Int,
+        flowAttributionBridge: Any? = null,
     )
 
     suspend fun stop()
@@ -108,8 +109,9 @@ class NativeTun2SocksBridge
         override suspend fun start(
             config: Tun2SocksConfig,
             tunFd: Int,
+            flowAttributionBridge: Any?,
         ) {
-            tunnel.start(config, tunFd)
+            tunnel.start(config, tunFd, flowAttributionBridge)
         }
 
         override suspend fun stop() {

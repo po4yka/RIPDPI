@@ -14,6 +14,12 @@ internal class VpnTunnelRuntime(
     private val vpnTunnelSessionProvider: VpnTunnelSessionProvider,
     private val protectPath: String? = null,
     private val rootHelperSocketPathProvider: () -> String? = { null },
+    /**
+     * Bridge the native tun2socks worker calls to report flow 5-tuples for per-app
+     * attribution. `null` disables attribution (the tunnel still runs); passed
+     * straight through to [Tun2SocksBridge.start].
+     */
+    private val flowAttributionBridge: Any? = null,
 ) {
     private var tun2SocksBridge: Tun2SocksBridge? = null
     private var tunSession: VpnTunnelSession? = null
@@ -60,7 +66,7 @@ internal class VpnTunnelRuntime(
         val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dnsPlan.builderDnsAddress, ipv6)
         try {
             val tunnelBridge = tun2SocksBridgeFactory.create()
-            tunnelBridge.start(config, tunnelSession.tunFd)
+            tunnelBridge.start(config, tunnelSession.tunFd, flowAttributionBridge)
             tun2SocksBridge = tunnelBridge
             tunSession = tunnelSession
             currentDnsSignature = dnsSignature(activeDns, overrideReason)

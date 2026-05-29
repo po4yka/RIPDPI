@@ -1032,6 +1032,8 @@ internal class TestTun2SocksBridge(
     val startedConfigs = mutableListOf<Tun2SocksConfig>()
     var startedTunFd: Int? = null
         private set
+    var startedFlowAttributionBridge: Any? = null
+        private set
     var stopCount: Int = 0
         private set
     var startFailure: Throwable? = null
@@ -1048,11 +1050,13 @@ internal class TestTun2SocksBridge(
     override suspend fun start(
         config: Tun2SocksConfig,
         tunFd: Int,
+        flowAttributionBridge: Any?,
     ) {
         events += "tunnel:start"
         startedConfig = config
         startedConfigs += config
         startedTunFd = tunFd
+        startedFlowAttributionBridge = flowAttributionBridge
         startFailure?.let { throw it }
     }
 

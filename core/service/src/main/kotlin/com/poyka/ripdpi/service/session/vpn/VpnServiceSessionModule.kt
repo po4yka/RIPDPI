@@ -8,6 +8,7 @@ import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
+import com.poyka.ripdpi.services.FlowAttributionBridge
 import com.poyka.ripdpi.services.InMemoryVpnProtectFailureMonitor
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
@@ -56,6 +57,7 @@ internal object VpnServiceSessionModule {
         dependencies: VpnServiceRuntimeRuntimeDependencies,
         protectSocketServer: VpnProtectSocketServer,
         rootHelperManager: RootHelperManager,
+        flowAttributionBridge: FlowAttributionBridge,
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
             vpnHost = host,
@@ -64,6 +66,7 @@ internal object VpnServiceSessionModule {
             vpnTunnelSessionProvider = dependencies.vpnTunnelSessionProvider,
             protectPath = protectSocketServer.socketPath,
             rootHelperSocketPathProvider = { rootHelperManager.socketPath },
+            flowAttributionBridge = flowAttributionBridge,
         )
 
     @Provides

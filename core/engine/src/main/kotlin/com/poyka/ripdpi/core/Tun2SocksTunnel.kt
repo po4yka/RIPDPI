@@ -83,6 +83,20 @@ interface Tun2SocksBindings {
 
     /** Retires the session for [handle]; throws `IllegalStateException` if the worker is still running. */
     fun destroy(handle: Long)
+
+    /**
+     * Register a per-flow app-attribution bridge and start the native worker that
+     * pushes `noteFlow` notifications up to it (see `ripdpi-tunnel-android`
+     * `flow_attribution`). [bridge] must expose
+     * `noteFlow(int protocol, String localIp, int localPort, String remoteIp, int remotePort)`.
+     * Returns a generation token (`0` on failure) threaded back to
+     * [unregisterFlowAttribution]. Process-global on the native side, so register
+     * once per tunnel session after [start] and release on [stop].
+     */
+    fun registerFlowAttribution(bridge: Any): Long
+
+    /** Release the flow-attribution bridge registered under [token]; a stale or `0` token is a safe no-op. */
+    fun unregisterFlowAttribution(token: Long)
 }
 
 class Tun2SocksNativeBindings
@@ -115,6 +129,12 @@ class Tun2SocksNativeBindings
             jniDestroy(handle)
         }
 
+        override fun registerFlowAttribution(bridge: Any): Long = jniRegisterFlowAttribution(bridge)
+
+        override fun unregisterFlowAttribution(token: Long) {
+            jniUnregisterFlowAttribution(token)
+        }
+
         private external fun jniCreate(configJson: String): Long
 
         private external fun jniStart(
@@ -129,6 +149,10 @@ class Tun2SocksNativeBindings
         private external fun jniGetTelemetry(handle: Long): String?
 
         private external fun jniDestroy(handle: Long)
+
+        private external fun jniRegisterFlowAttribution(bridge: Any): Long
+
+        private external fun jniUnregisterFlowAttribution(token: Long)
     }
 
 /**
@@ -160,10 +184,14 @@ class Tun2SocksTunnel(
     private val reservations = HandleReservation()
     private var handle = 0L
 
+    /** Generation token from [Tun2SocksBindings.registerFlowAttribution]; `0` when not registered. */
+    private var flowAttributionToken = 0L
+
     @Suppress("ThrowsCount", "TooGenericExceptionCaught")
     suspend fun start(
         config: Tun2SocksConfig,
         tunFd: Int,
+        flowAttributionBridge: Any? = null,
     ) {
         reservations.withExclusive {
             if (handle != 0L) {
@@ -186,6 +214,12 @@ class Tun2SocksTunnel(
                     nativeBindings.start(createdHandle, tunFd)
                 }
                 Logger.d { "Tunnel native start completed: tunFd=$tunFd" }
+                if (flowAttributionBridge != null) {
+                    flowAttributionToken =
+                        withContext(Dispatchers.IO) {
+                            nativeBindings.registerFlowAttribution(flowAttributionBridge)
+                        }
+                }
             } catch (e: CancellationException) {
                 withContext(NonCancellable) {
                     withContext(Dispatchers.IO) {
@@ -211,7 +245,14 @@ class Tun2SocksTunnel(
             }
 
             val currentHandle = handle
+            val attributionToken = flowAttributionToken
             try {
+                if (attributionToken != 0L) {
+                    withContext(Dispatchers.IO) {
+                        nativeBindings.unregisterFlowAttribution(attributionToken)
+                    }
+                    flowAttributionToken = 0L
+                }
                 withContext(Dispatchers.IO) {
                     nativeBindings.stop(currentHandle)
                 }
