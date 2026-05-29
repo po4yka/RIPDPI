@@ -1,7 +1,7 @@
 ---
 title: Epic - Control-plane hardening
 type: epic
-status: todo
+status: done
 area: epic
 priority: critical
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-28
+updated: 2026-05-29
 ---
 
-- [ ] #task Epic - Control-plane hardening #repo/RIPDPI #area/epic #status/todo 🔺
+- [x] #task Epic - Control-plane hardening #repo/RIPDPI #area/epic #status/done 🔺
 
 ## Goal
 
@@ -36,27 +36,48 @@ The 2026-04-20 audit rated strategy/host catalog trust as the single weakest lin
 
 ## Ship definition
 
-- [ ] Unsigned or invalid-signature host-pack payload is rejected with a typed error.
-- [ ] Older-sequence strategy-pack payload is rejected without the debug local override.
-- [ ] Process kill mid-write of either cache leaves the prior snapshot intact and readable.
-- [ ] Unrelated app-setting edits produce zero strategy-pack network I/O (measured in a unit test).
-- [ ] Cache parse failures surface as typed `CacheDegradation` reasons, not silent empty state.
+- [x] Unsigned or invalid-signature host-pack payload is rejected with a typed error — `HostPackVerifier` / `StrategyPackVerifier` (ECDSA SHA256 against `AppTrustedSigningKeyResolver`), invoked on every refresh in `HostPackCatalogRepository` / `StrategyPackRepository`; failures surface as `CacheDegradation.SignatureInvalid`.
+- [x] Older-sequence strategy-pack payload is rejected without the debug local override — `StrategyPackRepository.enforceAntiRollbackPolicy()` rejects sequence ≤ accepted via `StrategyPackRollbackRejectedException` unless `allowRollbackOverride = true`; covered by `AssetStrategyPackRepositoryRefreshPolicyTest`.
+- [x] Process kill mid-write of either cache leaves the prior snapshot intact and readable — `AtomicTextFileWriter` uses Android `AtomicFile` (`startWrite` → `finishWrite`, `failWrite` on error), used by both repositories.
+- [x] Unrelated app-setting edits produce zero strategy-pack network I/O (measured in a unit test) — refresh is gated on the `StrategyPackRefreshKey` tuple via `StrategyPackSettingsObserver`'s `distinctUntilChanged`, with TTL + backoff in `StrategyPackRefreshSchedule`.
+- [x] Cache parse failures surface as typed `CacheDegradation` reasons, not silent empty state — `CacheDegradation` sealed class (`Missing` / `SchemaMismatch` / `SignatureInvalid` / `Corrupt`) carried by the repositories' load results.
+
+Verified 2026-05-29: `:core:service:testDebugUnitTest` control-plane suites
+(`*StrategyPack*`, `*HostPack*`, `*AtomicTextFile*`) pass; `CacheDegradation`
+lives in `core/data/model`.
 
 ## Child tasks
 
-**Refresh discipline**
-- Tighten strategy-pack refresh discipline
+### Catalog control-plane (ship-definition) — done
 
-**Signing and anti-rollback**
-- Sign host-pack manifests with app-trusted keys
-- Add anti-rollback to strategy-pack updates
-- Spike signed route-pack schema for direct-vs-relay policy (closed task)
+These were the original children; all are now implemented (see the Ship
+definition evidence above). Their individual task files were removed in the
+2026-05 task-board cleanup once the work landed:
 
-**Crash-safe storage**
-- Make cache snapshot writes atomic
-- Surface typed cache-degradation reasons (closed task)
+- Tighten strategy-pack refresh discipline — done (`StrategyPackRefreshKey` + `distinctUntilChanged` + TTL/backoff).
+- Sign host-pack manifests with app-trusted keys — done (`HostPackVerifier`).
+- Add anti-rollback to strategy-pack updates — done (`enforceAntiRollbackPolicy`).
+- Make cache snapshot writes atomic — done (`AtomicTextFileWriter` / Android `AtomicFile`).
+- Surface typed cache-degradation reasons — done (`CacheDegradation` sealed class).
+- Spike signed route-pack schema for direct-vs-relay policy — closed.
+
+### Native-surface hardening — live child task files (parented here)
+
+- [[Pin BoringSSL Reality FFI symbols with a build-time existence check]] — **done** (2026-05-29). Exact-version pins + link-time symbol existence check; contract documented in `proxy-engine.md`. vless 81/0 tests green.
+- [[Introduce ProtocolVersion enum and version-mismatch probe diagnostic]] — **done** (2026-05-29). Typed version enums across vless/tuic/mtproto, `version_probe` classifier, distinct `Tuic`/`ShadowTls` version-mismatch failure classes. 92+ tests green, clippy clean.
+- [[Gate fake-SNI cert-bypass behind allow_insecure_sni flag with telemetry]] — **partial**. The security objective is shipped and verified: `fake_sni` is refused with `PermissionDenied` unless `allow_insecure_sni == true`, covered by ws-tunnel unit tests. The remaining items — a `ws_tunnel.fake_sni_active` telemetry counter and service-layer import rejection — are a coupled cross-layer follow-up (new `WsTunnelSettings.allow_insecure_sni` config-schema field + `RuntimeTelemetrySink` method + diagnostics export); the counter cannot meaningfully fire until that plumbing lands (the adapter hardcodes `allow_insecure_sni = false`). Tracked in that task.
 
 Child tasks roll up via the TaskNotes relationships view on this note.
+
+## Status note (2026-05-29)
+
+The epic ship-definition (the signed, rollback-resistant, atomic, TTL-gated
+catalog control plane) is **fully implemented and verified**. Two of the three
+later native-hardening child tasks are done; the third (fake-SNI gating) has
+its security objective shipped and verified, with an observability follow-up
+(telemetry counter + import-time rejection) deliberately split out as a
+config-contract + telemetry-trait change. No work on the catalog control plane
+or the protocol-version / BoringSSL hardening remains.
 
 ## Dependencies
 
