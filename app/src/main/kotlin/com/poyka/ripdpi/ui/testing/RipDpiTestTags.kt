@@ -116,6 +116,8 @@ internal object RipDpiTestTags {
     const val BackupImportToggleRoutes = "backup-import-toggle-routes"
     const val BackupImportToggleSettings = "backup-import-toggle-settings"
     const val BackupImportConfirm = "backup-import-confirm"
+    const val BackupShareButton = "backup-share-button"
+    const val BackupShareReminderDialog = "backup-share-reminder-dialog"
     const val AssetProviderDropdown = "asset-provider-dropdown"
     const val AssetProviderCheckUpdates = "asset-provider-check-updates"
     const val AssetProviderCustomUrl = "asset-provider-custom-url"

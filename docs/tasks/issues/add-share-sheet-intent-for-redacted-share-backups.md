@@ -12,7 +12,7 @@ created: 2026-04-24
 updated: 2026-05-14
 ---
 
-- [ ] #task Add share-sheet intent for redacted SHARE backups #repo/RIPDPI #area/data #status/backlog 🔽
+- [x] #task Add share-sheet intent for redacted SHARE backups #repo/RIPDPI #area/data #status/done 🔽 ✅ 2026-05-29
 
 ## Summary
 
@@ -24,11 +24,11 @@ For remote debugging, a user can send a redacted backup to a maintainer without 
 
 ## Acceptance criteria
 
-- [ ] Shortcut in Tools → Backup & Restore labeled "Share redacted backup".
-- [ ] Invocation generates a fresh SHARE backup, writes to cache dir, and launches `ACTION_SEND` with `FileProvider` URI.
-- [ ] MIME is `application/json`; subject is predictable; message body is empty to avoid accidental leaks from autofill.
-- [ ] File is deleted after the share completes or is cancelled (hook into the result callback).
-- [ ] First-run shows a one-time reminder that SHARE is redacted but not zero-knowledge.
+- [x] Shortcut in Tools → Backup & Restore labeled "Share redacted backup".
+- [x] Invocation generates a fresh SHARE backup, writes to cache dir, and launches `ACTION_SEND` with `FileProvider` URI.
+- [x] MIME is `application/json`; subject is predictable; message body is empty to avoid accidental leaks from autofill.
+- [x] File is deleted after the share completes or is cancelled (hook into the result callback).
+- [x] First-run shows a one-time reminder that SHARE is redacted but not zero-knowledge.
 
 ## Source references
 

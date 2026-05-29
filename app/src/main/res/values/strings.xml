@@ -3033,4 +3033,10 @@ Source: %2$s</string>
     <string name="backup_import_category_settings">Settings (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Unchecked categories keep their current values.</string>
     <string name="backup_import_confirm_action">Restore and restart</string>
+    <string name="backup_share_redacted_action">Share redacted backup</string>
+    <string name="backup_share_redacted_subject">RIPDPI redacted backup</string>
+    <string name="backup_share_reminder_title">Redacted, not zero-knowledge</string>
+    <string name="backup_share_reminder_body">This backup removes passwords and keys, but still lists your groups, routes, and settings. Only share it with someone you trust.</string>
+    <string name="backup_share_reminder_confirm">Share anyway</string>
+    <string name="backup_share_reminder_cancel">Cancel</string>
 </resources>

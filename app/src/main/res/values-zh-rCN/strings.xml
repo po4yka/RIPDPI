@@ -2965,4 +2965,10 @@ fake_burst 3</string>
     <string name="backup_import_category_settings">设置（%1$d）</string>
     <string name="backup_import_category_unchecked_hint">未勾选的类别将保留当前值。</string>
     <string name="backup_import_confirm_action">恢复并重启</string>
+    <string name="backup_share_redacted_action">分享脱敏备份</string>
+    <string name="backup_share_redacted_subject">RIPDPI 脱敏备份</string>
+    <string name="backup_share_reminder_title">已脱敏，但并非零知识</string>
+    <string name="backup_share_reminder_body">此备份已移除密码和密钥，但仍会列出你的分组、路由和设置。请仅与你信任的人分享。</string>
+    <string name="backup_share_reminder_confirm">仍要分享</string>
+    <string name="backup_share_reminder_cancel">取消</string>
 </resources>

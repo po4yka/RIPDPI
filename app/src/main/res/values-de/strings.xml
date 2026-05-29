@@ -2964,4 +2964,10 @@ Quelle: %2$s</string>
     <string name="backup_import_category_settings">Einstellungen (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Nicht markierte Kategorien behalten ihre aktuellen Werte.</string>
     <string name="backup_import_confirm_action">Wiederherstellen und neu starten</string>
+    <string name="backup_share_redacted_action">Bereinigte Sicherung teilen</string>
+    <string name="backup_share_redacted_subject">Bereinigte RIPDPI-Sicherung</string>
+    <string name="backup_share_reminder_title">Bereinigt, aber nicht geheim</string>
+    <string name="backup_share_reminder_body">Diese Sicherung entfernt Passwörter und Schlüssel, enthält aber weiterhin deine Gruppen, Routen und Einstellungen. Teile sie nur mit vertrauenswürdigen Personen.</string>
+    <string name="backup_share_reminder_confirm">Trotzdem teilen</string>
+    <string name="backup_share_reminder_cancel">Abbrechen</string>
 </resources>

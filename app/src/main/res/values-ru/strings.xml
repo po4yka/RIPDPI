@@ -3083,4 +3083,10 @@ fakeddisorder endhost</string>
     <string name="backup_import_category_settings">Настройки (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Невыбранные категории сохранят текущие значения.</string>
     <string name="backup_import_confirm_action">Восстановить и перезапустить</string>
+    <string name="backup_share_redacted_action">Поделиться очищенной копией</string>
+    <string name="backup_share_redacted_subject">Очищенная резервная копия RIPDPI</string>
+    <string name="backup_share_reminder_title">Очищено, но не полностью</string>
+    <string name="backup_share_reminder_body">В этой копии удалены пароли и ключи, но остаются ваши группы, маршруты и настройки. Делитесь ею только с теми, кому доверяете.</string>
+    <string name="backup_share_reminder_confirm">Всё равно поделиться</string>
+    <string name="backup_share_reminder_cancel">Отмена</string>
 </resources>

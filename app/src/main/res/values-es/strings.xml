@@ -2964,4 +2964,10 @@ Origen: %2$s</string>
     <string name="backup_import_category_settings">Ajustes (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Las categorías sin marcar conservan sus valores actuales.</string>
     <string name="backup_import_confirm_action">Restaurar y reiniciar</string>
+    <string name="backup_share_redacted_action">Compartir copia depurada</string>
+    <string name="backup_share_redacted_subject">Copia de seguridad depurada de RIPDPI</string>
+    <string name="backup_share_reminder_title">Depurada, no confidencial total</string>
+    <string name="backup_share_reminder_body">Esta copia elimina las contraseñas y las claves, pero aún incluye tus grupos, rutas y ajustes. Compártela solo con alguien de confianza.</string>
+    <string name="backup_share_reminder_confirm">Compartir de todos modos</string>
+    <string name="backup_share_reminder_cancel">Cancelar</string>
 </resources>

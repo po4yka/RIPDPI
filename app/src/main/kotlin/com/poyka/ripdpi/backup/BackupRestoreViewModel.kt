@@ -47,6 +47,19 @@ sealed interface BackupExportEffect {
 }
 
 /**
+ * One-shot effect surfaced after a "share redacted backup" attempt. The screen
+ * launches the share sheet on [Ready] and cleans up the temp cache file on every
+ * terminal outcome.
+ */
+sealed interface BackupShareEffect {
+    /** A fresh SHARE backup was written to the cache file and is ready to share. */
+    data object Ready : BackupShareEffect
+
+    /** Writing the temp SHARE backup failed; nothing is shared. */
+    data object Failed : BackupShareEffect
+}
+
+/**
  * One-shot effect surfaced after an import / restore attempt.
  */
 sealed interface BackupRestoreEffect {
@@ -85,6 +98,8 @@ data class BackupRestoreUiState(
     val exportDisabledByPolicy: Boolean = false,
     val importing: Boolean = false,
     val restoring: Boolean = false,
+    /** True while a fresh SHARE backup is being written to the cache for sharing. */
+    val sharing: Boolean = false,
     /** Non-null while the import-preview sheet is visible. */
     val importPreview: BackupImportPreview? = null,
 )
@@ -96,6 +111,7 @@ class BackupRestoreViewModel
         private val exportUseCase: BackupExportUseCase,
         private val restoreUseCase: BackupRestoreUseCase,
         private val exportPolicy: BackupExportPolicy,
+        private val shareReminderPreferences: BackupShareReminderPreferences,
         @param:Named("appVersionName") private val appVersion: String,
     ) : ViewModel() {
         private val _uiState =
@@ -109,6 +125,9 @@ class BackupRestoreViewModel
 
         private val _restoreEffects = MutableStateFlow<BackupRestoreEffect?>(null)
         val restoreEffects: StateFlow<BackupRestoreEffect?> = _restoreEffects.asStateFlow()
+
+        private val _shareEffects = MutableStateFlow<BackupShareEffect?>(null)
+        val shareEffects: StateFlow<BackupShareEffect?> = _shareEffects.asStateFlow()
 
         /** Re-evaluates the MDM suppression knob (called on screen resume). */
         fun refreshPolicy() {
@@ -167,6 +186,59 @@ class BackupRestoreViewModel
         /** Clears the last one-shot export effect after the screen has consumed it. */
         fun consumeEffect() {
             _effects.value = null
+        }
+
+        /**
+         * Writes a FRESH [BackupVariant.SHARE] backup into the stream produced by
+         * [openOutput] (a cache-dir file the screen then hands to the share sheet).
+         *
+         * SHARE is forced regardless of any export-variant choice: a redacted backup
+         * is the only thing safe to spray through ACTION_SEND. On success
+         * [BackupShareEffect.Ready] is emitted so the screen can launch the chooser;
+         * on a write failure [BackupShareEffect.Failed] is emitted and the screen
+         * deletes the (possibly partial) temp file. The stream is always closed here.
+         */
+        fun prepareShareBackup(openOutput: () -> OutputStream?) {
+            if (_uiState.value.sharing || _uiState.value.exportDisabledByPolicy) return
+            _uiState.update { it.copy(sharing = true) }
+            viewModelScope.launch {
+                val output = openOutput()
+                if (output == null) {
+                    _uiState.update { it.copy(sharing = false) }
+                    _shareEffects.value = BackupShareEffect.Failed
+                    return@launch
+                }
+                val result =
+                    output.use { stream ->
+                        exportUseCase.export(
+                            variant = BackupVariant.SHARE,
+                            output = stream,
+                            appVersion = appVersion,
+                        )
+                    }
+                _uiState.update { it.copy(sharing = false) }
+                _shareEffects.value =
+                    when (result) {
+                        is BackupExportResult.Success -> BackupShareEffect.Ready
+                        is BackupExportResult.WriteFailed -> BackupShareEffect.Failed
+                    }
+            }
+        }
+
+        /** Clears the last one-shot share effect after the screen has consumed it. */
+        fun consumeShareEffect() {
+            _shareEffects.value = null
+        }
+
+        /**
+         * Returns `true` when the one-time "SHARE is redacted but not zero-knowledge"
+         * reminder still needs to be shown before the first redacted-backup share.
+         */
+        fun shouldShowShareReminder(): Boolean = !shareReminderPreferences.wasReminderShown()
+
+        /** Records that the share-redaction reminder has been acknowledged. */
+        fun markShareReminderShown() {
+            shareReminderPreferences.markReminderShown()
         }
 
         /**

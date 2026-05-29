@@ -2969,4 +2969,10 @@ fakeddisorder endhost</string>
     <string name="backup_import_category_settings">تنظیمات (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">دسته‌های انتخاب‌نشده مقادیر فعلی خود را حفظ می‌کنند.</string>
     <string name="backup_import_confirm_action">بازیابی و راه‌اندازی مجدد</string>
+    <string name="backup_share_redacted_action">هم‌رسانی نسخهٔ پاک‌سازی‌شده</string>
+    <string name="backup_share_redacted_subject">نسخهٔ پشتیبان پاک‌سازی‌شدهٔ RIPDPI</string>
+    <string name="backup_share_reminder_title">پاک‌سازی‌شده، اما نه کاملاً محرمانه</string>
+    <string name="backup_share_reminder_body">این نسخه گذرواژه‌ها و کلیدها را حذف می‌کند، اما همچنان گروه‌ها، مسیرها و تنظیمات شما را فهرست می‌کند. آن را فقط با فردی که به او اعتماد دارید هم‌رسانی کنید.</string>
+    <string name="backup_share_reminder_confirm">به هر حال هم‌رسانی شود</string>
+    <string name="backup_share_reminder_cancel">لغو</string>
 </resources>

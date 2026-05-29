@@ -2964,4 +2964,10 @@ Source : %2$s</string>
     <string name="backup_import_category_settings">Paramètres (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Les catégories non cochées conservent leurs valeurs actuelles.</string>
     <string name="backup_import_confirm_action">Restaurer et redémarrer</string>
+    <string name="backup_share_redacted_action">Partager une sauvegarde expurgée</string>
+    <string name="backup_share_redacted_subject">Sauvegarde RIPDPI expurgée</string>
+    <string name="backup_share_reminder_title">Expurgée, mais pas confidentielle</string>
+    <string name="backup_share_reminder_body">Cette sauvegarde supprime les mots de passe et les clés, mais répertorie toujours vos groupes, routes et réglages. Ne la partagez qu’avec une personne de confiance.</string>
+    <string name="backup_share_reminder_confirm">Partager quand même</string>
+    <string name="backup_share_reminder_cancel">Annuler</string>
 </resources>

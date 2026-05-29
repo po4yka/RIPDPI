@@ -83,6 +83,10 @@ fun BackupRestoreRoute(
     // so this route stays small; it returns the click handler for the export button.
     val onExportClick = rememberBackupExportController(viewModel, snackbarHostState)
 
+    // Share wiring (one-time reminder + fresh cache-dir SHARE backup + ShareCompat
+    // intent + post-share cleanup) likewise lives in its own composable.
+    val onShareRedactedClick = rememberBackupShareController(viewModel, snackbarHostState)
+
     val openDocumentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
@@ -105,6 +109,7 @@ fun BackupRestoreRoute(
         snackbarHostState = snackbarHostState,
         onBack = onBack,
         onExportClick = onExportClick,
+        onShareRedactedClick = onShareRedactedClick,
         // SAF picker restricted to JSON documents.
         onImportClick = { openDocumentLauncher.launch(arrayOf(BackupMimeType)) },
         modifier = modifier,
@@ -207,6 +212,98 @@ private fun rememberBackupExportController(
     return { showVariantPicker = true }
 }
 
+/**
+ * Wires the "share redacted backup" flow and returns the click handler the screen
+ * attaches to its share button.
+ *
+ * On click it shows a one-time reminder (SHARE is redacted but NOT zero-knowledge);
+ * the first acknowledgement is persisted so subsequent shares skip straight to
+ * generation. Generation writes a FRESH [BackupVariant.SHARE] backup into a private
+ * cache subdirectory (`cacheDir/backup-share/`), then hands it to the share sheet via
+ * the `${applicationId}.backup.fileprovider` FileProvider using [ShareCompat]. The
+ * temp file is deleted when the share activity returns (completed or cancelled) and
+ * on any generation failure, so a redacted backup is never left in the cache.
+ */
+@Composable
+private fun rememberBackupShareController(
+    viewModel: BackupRestoreViewModel,
+    snackbarHostState: SnackbarHostState,
+): () -> Unit {
+    val context = LocalContext.current
+    val shareEffect by viewModel.shareEffects.collectAsStateWithLifecycle()
+
+    // The temp cache file backing the in-flight share; deleted on the activity result.
+    var pendingShareFile by remember { mutableStateOf<java.io.File?>(null) }
+    var showReminder by rememberSaveable { mutableStateOf(false) }
+
+    val shareLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            // Regardless of result (shared, cancelled, or dismissed) the redacted temp
+            // file has served its purpose — delete it.
+            deleteShareTempFile(pendingShareFile)
+            pendingShareFile = null
+        }
+
+    val generateAndShare: () -> Unit = {
+        val shareFile = newShareTempFile(context)
+        pendingShareFile = shareFile
+        viewModel.prepareShareBackup {
+            runCatching { java.io.FileOutputStream(shareFile) }.getOrNull()
+        }
+    }
+
+    val subject = stringResource(R.string.backup_share_redacted_subject)
+    val chooserTitle = stringResource(R.string.backup_share_redacted_action)
+
+    BackupShareEffectHandler(
+        effect = shareEffect,
+        snackbarHostState = snackbarHostState,
+        onConsume = viewModel::consumeShareEffect,
+        onReady = {
+            val file = pendingShareFile
+            if (file == null) {
+                return@BackupShareEffectHandler
+            }
+            val launched =
+                launchShareIntent(
+                    context = context,
+                    file = file,
+                    subject = subject,
+                    chooserTitle = chooserTitle,
+                    launcher = shareLauncher,
+                )
+            if (!launched) {
+                // No share target / launch failure: clean up the temp file now.
+                deleteShareTempFile(file)
+                pendingShareFile = null
+            }
+        },
+        onFailed = {
+            deleteShareTempFile(pendingShareFile)
+            pendingShareFile = null
+        },
+    )
+
+    if (showReminder) {
+        BackupShareReminderDialog(
+            onDismiss = { showReminder = false },
+            onAcknowledge = {
+                showReminder = false
+                viewModel.markShareReminderShown()
+                generateAndShare()
+            },
+        )
+    }
+
+    return {
+        if (viewModel.shouldShowShareReminder()) {
+            showReminder = true
+        } else {
+            generateAndShare()
+        }
+    }
+}
+
 @Composable
 private fun BackupRestoreEffectHandler(
     effect: BackupRestoreEffect?,
@@ -296,6 +393,127 @@ private fun shareBackup(
     runCatching { context.startActivity(chooser) }
 }
 
+/** Subdirectory of the app cache backing the redacted-share FileProvider grant. */
+private const val ShareCacheDirName = "backup-share"
+
+/** FileProvider authority for the redacted-share grant (mirrors the manifest entry). */
+private fun backupFileProviderAuthority(context: android.content.Context): String =
+    "${context.packageName}.backup.fileprovider"
+
+/**
+ * Creates a fresh, empty temp file under `cacheDir/backup-share/` for a redacted
+ * share. Stale files from a previous interrupted share are swept first so the cache
+ * never accumulates redacted backups.
+ */
+private fun newShareTempFile(context: android.content.Context): java.io.File {
+    val dir = java.io.File(context.cacheDir, ShareCacheDirName)
+    dir.mkdirs()
+    runCatching { dir.listFiles()?.forEach { it.delete() } }
+    return java.io.File(dir, defaultBackupFilename())
+}
+
+/** Deletes the redacted-share temp file once the share intent has returned. */
+private fun deleteShareTempFile(file: java.io.File?) {
+    if (file == null) return
+    runCatching { file.delete() }
+}
+
+/**
+ * Launches the share sheet for [file] via [ShareCompat] backed by the backup
+ * FileProvider. Uses `StartActivityForResult` so the caller can clean up the temp
+ * file on return. Returns `false` when no chooser could be launched (so the caller
+ * can delete the temp file immediately).
+ */
+private fun launchShareIntent(
+    context: android.content.Context,
+    file: java.io.File,
+    subject: String,
+    chooserTitle: String,
+    launcher: androidx.activity.result.ActivityResultLauncher<Intent>,
+): Boolean {
+    val uri =
+        runCatching {
+            androidx.core.content.FileProvider.getUriForFile(
+                context,
+                backupFileProviderAuthority(context),
+                file,
+            )
+        }.getOrNull() ?: return false
+    val sendIntent =
+        androidx.core.app.ShareCompat
+            .IntentBuilder(context)
+            .setType(BackupMimeType)
+            .setStream(uri)
+            .setSubject(subject)
+            // EMPTY body: a non-empty text body invites autofill / clipboard managers
+            // to surface the message, risking accidental leaks alongside the file.
+            .setText("")
+            .intent
+            .apply { addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+    val chooser = Intent.createChooser(sendIntent, chooserTitle)
+    return runCatching { launcher.launch(chooser) }.isSuccess
+}
+
+@Composable
+private fun BackupShareEffectHandler(
+    effect: com.poyka.ripdpi.backup.BackupShareEffect?,
+    snackbarHostState: SnackbarHostState,
+    onConsume: () -> Unit,
+    onReady: () -> Unit,
+    onFailed: () -> Unit,
+) {
+    val context = LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(effect) {
+        when (effect) {
+            com.poyka.ripdpi.backup.BackupShareEffect.Ready -> {
+                onReady()
+                onConsume()
+            }
+
+            com.poyka.ripdpi.backup.BackupShareEffect.Failed -> {
+                onFailed()
+                snackbarHostState.showRipDpiSnackbar(
+                    message = context.getString(R.string.backup_export_failed),
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+                onConsume()
+            }
+
+            null -> {
+                Unit
+            }
+        }
+    }
+}
+
+@Composable
+private fun BackupShareReminderDialog(
+    onDismiss: () -> Unit,
+    onAcknowledge: () -> Unit,
+) {
+    com.poyka.ripdpi.ui.components.feedback.RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.backup_share_reminder_title),
+        dialogTestTag = RipDpiTestTags.BackupShareReminderDialog,
+        visuals =
+            com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals(
+                message = stringResource(R.string.backup_share_reminder_body),
+                tone = com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone.Info,
+            ),
+        confirmAction =
+            com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction(
+                label = stringResource(R.string.backup_share_reminder_confirm),
+                onClick = onAcknowledge,
+            ),
+        dismissAction =
+            com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction(
+                label = stringResource(R.string.backup_share_reminder_cancel),
+                onClick = onDismiss,
+            ),
+    )
+}
+
 @Composable
 private fun BackupExportEffectHandler(
     effect: BackupExportEffect?,
@@ -355,12 +573,63 @@ private fun formatBytes(bytes: Long): String =
         else -> "$bytes B"
     }
 
+/**
+ * Export section card: the SAF "Export backup" action plus the in-app
+ * "Share redacted backup" shortcut. Extracted so [BackupRestoreScreen] stays
+ * within the composable-length budget.
+ */
+@Composable
+private fun BackupExportCard(
+    state: BackupRestoreUiState,
+    onExportClick: () -> Unit,
+    onShareRedactedClick: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
+        SettingsCategoryHeader(title = stringResource(R.string.backup_export_section))
+        RipDpiCard {
+            Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+                Text(
+                    text = stringResource(R.string.backup_export_body),
+                    style = RipDpiThemeTokens.type.body,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                )
+                RipDpiButton(
+                    text = stringResource(R.string.backup_export_action),
+                    onClick = onExportClick,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.BackupExportButton),
+                    loading = state.exporting,
+                    enabled = !state.exporting && !state.exportDisabledByPolicy,
+                    leadingIcon = RipDpiIcons.Share,
+                )
+                // Redacted share shortcut: generates a fresh SHARE backup
+                // into the cache and hands it straight to the share sheet.
+                RipDpiButton(
+                    text = stringResource(R.string.backup_share_redacted_action),
+                    onClick = onShareRedactedClick,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.BackupShareButton),
+                    variant = RipDpiButtonVariant.Outline,
+                    loading = state.sharing,
+                    enabled = !state.sharing && !state.exportDisabledByPolicy,
+                    leadingIcon = RipDpiIcons.Share,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 internal fun BackupRestoreScreen(
     state: BackupRestoreUiState,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onExportClick: () -> Unit,
+    onShareRedactedClick: () -> Unit,
     onImportClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -391,29 +660,11 @@ internal fun BackupRestoreScreen(
                 }
             }
             item(key = "backup_export_action") {
-                Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-                    SettingsCategoryHeader(title = stringResource(R.string.backup_export_section))
-                    RipDpiCard {
-                        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
-                            Text(
-                                text = stringResource(R.string.backup_export_body),
-                                style = RipDpiThemeTokens.type.body,
-                                color = RipDpiThemeTokens.colors.mutedForeground,
-                            )
-                            RipDpiButton(
-                                text = stringResource(R.string.backup_export_action),
-                                onClick = onExportClick,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .ripDpiTestTag(RipDpiTestTags.BackupExportButton),
-                                loading = state.exporting,
-                                enabled = !state.exporting && !state.exportDisabledByPolicy,
-                                leadingIcon = RipDpiIcons.Share,
-                            )
-                        }
-                    }
-                }
+                BackupExportCard(
+                    state = state,
+                    onExportClick = onExportClick,
+                    onShareRedactedClick = onShareRedactedClick,
+                )
             }
             item(key = "backup_import_action") {
                 Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
@@ -593,6 +844,7 @@ private fun previewBackupRestoreScreen() {
             snackbarHostState = remember { SnackbarHostState() },
             onBack = {},
             onExportClick = {},
+            onShareRedactedClick = {},
             onImportClick = {},
         )
     }
@@ -607,6 +859,7 @@ private fun previewBackupRestoreScreenBlocked() {
             snackbarHostState = remember { SnackbarHostState() },
             onBack = {},
             onExportClick = {},
+            onShareRedactedClick = {},
             onImportClick = {},
         )
     }
