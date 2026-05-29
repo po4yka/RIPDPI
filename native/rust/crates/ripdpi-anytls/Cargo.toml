@@ -10,7 +10,7 @@ md5 = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "net", "sync", "time"] }
+tokio = { workspace = true, features = ["io-util", "net", "rt", "sync", "time"] }
 tokio-boring = { workspace = true }
 
 [dev-dependencies]

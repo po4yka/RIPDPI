@@ -235,7 +235,11 @@ impl AnyTlsClient {
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
         let mut tls = connect_tls(&self.config, transport).await?;
-        write_auth(&mut tls, &self.config.password, &self.state.lock().await.padding_scheme).await?;
+        // Clone the padding scheme and drop the guard before awaiting: holding the
+        // state Mutex across the `write_auth` TLS write would serialize concurrent
+        // `open_tcp` callers behind handshake I/O.
+        let padding_scheme = self.state.lock().await.padding_scheme.clone();
+        write_auth(&mut tls, &self.config.password, &padding_scheme).await?;
 
         let (outbound_tx, outbound_rx) = mpsc::channel(128);
         let streams = Arc::new(Mutex::new(HashMap::new()));
