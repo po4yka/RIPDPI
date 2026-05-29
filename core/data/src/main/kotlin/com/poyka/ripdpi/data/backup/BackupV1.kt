@@ -2,7 +2,9 @@ package com.poyka.ripdpi.data.backup
 
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
+import com.poyka.ripdpi.data.rules.RuleNetwork
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -13,6 +15,13 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /** Current schema version for the backup/v1 format. */
 const val BackupSchemaVersion: Int = 1
+
+/**
+ * Oldest schema version this app knows how to migrate forward. Versions below this
+ * never shipped a real format, so they are rejected outright rather than migrated.
+ * v1 is currently both the oldest and the current version.
+ */
+const val OldestSupportedBackupVersion: Int = 1
 
 /**
  * Backup export variant.
@@ -319,9 +328,163 @@ object BackupImporter {
             raw["schemaVersion"]
                 ?: error("Backup JSON is missing 'schemaVersion'")
         val version = versionElement.jsonPrimitive.content.toInt()
-        if (version != BackupSchemaVersion) {
-            throw UnsupportedBackupVersion(found = version, supported = BackupSchemaVersion)
+        when {
+            // Strict newer-than-app gating: never partially overwrite live data.
+            version > BackupSchemaVersion -> {
+                throw UnsupportedBackupVersion(found = version, supported = BackupSchemaVersion)
+            }
+
+            // Below the oldest real format there is nothing to migrate from.
+            version < OldestSupportedBackupVersion -> {
+                throw UnsupportedBackupVersion(found = version, supported = BackupSchemaVersion)
+            }
+
+            // A genuine older-but-known version is migrated forward before decoding.
+            // v1 is currently both oldest and current, so this is the identity
+            // transform; add migrateVNToVN+1 steps here as new versions land.
+            version < BackupSchemaVersion -> {
+                Unit
+            }
+
+            else -> {
+                Unit
+            }
         }
         return backupJson.decodeFromJsonElement(raw)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Restore decoding (reverse of the exporter)
+// ---------------------------------------------------------------------------
+
+/**
+ * Outcome of decoding a single profile [JsonObject] from a backup document.
+ *
+ * SHARE backups strip every [Classification.REDACTED] field, so a profile whose
+ * protocol requires a credential (e.g. a `password`/`uuid`) can no longer be
+ * reconstructed into a complete [ProxyProfile]. Rather than silently dropping it,
+ * the decoder reports a typed [Failed] result carrying the human-readable
+ * [displayName] so the preview can list the profiles it cannot restore.
+ */
+sealed interface ProfileDecodeResult {
+    /** The profile decoded into a complete [ProxyProfile]. */
+    data class Decoded(
+        val profile: ProxyProfile,
+    ) : ProfileDecodeResult
+
+    /**
+     * The profile could not be decoded (typically a SHARE backup missing a
+     * redacted credential, or an unknown protocol discriminator).
+     */
+    data class Failed(
+        val displayName: String,
+        val reason: String,
+    ) : ProfileDecodeResult
+}
+
+/**
+ * Decodes the [BackupV1.profiles] JSON objects into [ProfileDecodeResult]s.
+ *
+ * Each object is decoded independently via [ProxyProfile.serializer]; a failure on
+ * one profile (e.g. a missing redacted field in a SHARE backup) never aborts the
+ * others — the caller decides whether any failure blocks the restore.
+ */
+object BackupRestoreDecoder {
+    fun decodeProfiles(document: BackupV1): List<ProfileDecodeResult> =
+        document.profiles.map { obj ->
+            val displayName =
+                obj["displayName"]?.jsonPrimitive?.content
+                    ?: obj["id"]?.jsonPrimitive?.content
+                    ?: "(unnamed)"
+            runCatching {
+                backupJson.decodeFromJsonElement(ProxyProfile.serializer(), obj)
+            }.fold(
+                onSuccess = { ProfileDecodeResult.Decoded(it) },
+                onFailure = { e ->
+                    ProfileDecodeResult.Failed(
+                        displayName = displayName,
+                        // Never include the payload itself, only the exception class/message.
+                        reason = e.message ?: e::class.simpleName.orEmpty(),
+                    )
+                },
+            )
+        }
+
+    /**
+     * Maps a [RuleExport] back into a [RuleEntity]. The inverse of
+     * [BackupExporter]'s `RuleEntity -> RuleExport` projection:
+     * - [RuleExport.network] is the [RuleNetwork] enum name; unknown values fall
+     *   back to [RuleNetwork.BOTH] rather than throwing.
+     * - [RuleExport.outboundTag] is the Kotlin `toString()` of [OutboundTag]
+     *   (e.g. `"Proxy"`, `"Profile(profileId=5)"`); parsed by [parseOutboundTag].
+     *
+     * The Room-autogenerated [RuleEntity.id] is intentionally left at its default
+     * (`0L`) so the rule is inserted as a fresh row on restore.
+     */
+    fun ruleExportToEntity(export: RuleExport): RuleEntity =
+        RuleEntity(
+            name = export.name,
+            userOrder = export.userOrder,
+            enabled = export.enabled,
+            domains = export.domains,
+            ipCidrs = export.ipCidrs,
+            ports = export.ports,
+            sourcePorts = export.sourcePorts,
+            network = parseRuleNetwork(export.network),
+            processName = export.processName,
+            packages = export.packages,
+            outboundTag = parseOutboundTag(export.outboundTag),
+        )
+
+    private fun parseRuleNetwork(value: String): RuleNetwork =
+        runCatching { RuleNetwork.valueOf(value) }.getOrDefault(RuleNetwork.BOTH)
+
+    /**
+     * Parses the Kotlin default `toString()` form of an [OutboundTag] back into the
+     * sealed type. The exporter records `r.outboundTag.toString()`, which yields:
+     * - `"Proxy"` / `"Bypass"` / `"Block"` for the data objects,
+     * - `"Profile(profileId=<n>)"` for [OutboundTag.Profile],
+     * - `"Group(groupId=<n>)"` for [OutboundTag.Group].
+     *
+     * Any unrecognized form degrades to [OutboundTag.Proxy] (the same fallback the
+     * CASCADE-deletion policy uses) rather than failing the whole restore.
+     */
+    fun parseOutboundTag(value: String): OutboundTag {
+        val trimmed = value.trim()
+        return when {
+            trimmed == "Proxy" -> {
+                OutboundTag.Proxy
+            }
+
+            trimmed == "Bypass" -> {
+                OutboundTag.Bypass
+            }
+
+            trimmed == "Block" -> {
+                OutboundTag.Block
+            }
+
+            trimmed.startsWith("Profile(") -> {
+                extractLongArg(trimmed)?.let { OutboundTag.Profile(it) } ?: OutboundTag.Proxy
+            }
+
+            trimmed.startsWith("Group(") -> {
+                extractLongArg(trimmed)?.let { OutboundTag.Group(it) } ?: OutboundTag.Proxy
+            }
+
+            else -> {
+                OutboundTag.Proxy
+            }
+        }
+    }
+
+    /** Extracts the numeric `=<n>` argument from a `Name(key=<n>)` toString form. */
+    private fun extractLongArg(value: String): Long? {
+        val eq = value.indexOf('=')
+        if (eq < 0) return null
+        val end = value.indexOf(')', eq)
+        if (end < 0) return null
+        return value.substring(eq + 1, end).trim().toLongOrNull()
     }
 }

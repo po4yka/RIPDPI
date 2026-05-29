@@ -310,6 +310,14 @@
     <string name="home_status_connected_body">ترافیک در حال حاضر از طریق حالت محلی انتخابی مسیریابی می‌شود.</string>
     <string name="home_status_error_title">اتصال نیاز به توجه دارد</string>
     <string name="home_status_error_body">پیام زیر را بررسی کنید و دوباره تلاش کنید.</string>
+    <string name="home_network_condition_captive_title">ورود لازم است</string>
+    <string name="home_network_condition_captive_body">این شبکه پیش از عبور ترافیک نیاز به ورود دارد. کمک پورتال اسیر روشن است و به‌طور خودکار خاموش می‌شود.</string>
+    <string name="home_network_condition_captive_action">باز کردن صفحه ورود</string>
+    <string name="home_network_condition_whitelist_title">ممکن است شبکه ترافیک را فیلتر کند</string>
+    <string name="home_network_condition_whitelist_body">سایت‌های خارجی ناموفق هستند در حالی که سایت‌های محلی کار می‌کنند. این شبکه ممکن است فقط مقصدهای تأییدشده را مجاز کند.</string>
+    <string name="home_network_condition_whitelist_relay_suggestion">نمایه relay فهرست سفید ذخیره‌شده خود را امتحان کنید.</string>
+    <string name="home_network_condition_no_connectivity_title">بدون اتصال</string>
+    <string name="home_network_condition_no_connectivity_body">این شبکه مسیر فعالی ندارد. اتصال خود را بررسی کنید و دوباره تلاش کنید.</string>
     <string name="home_permission_issue_with_retry">%1$s از دکمهٔ اتصال برای ادامهٔ جریان مجوز استفاده کنید.</string>
     <string name="home_permission_issue_with_settings">%1$s برای بازیابی دسترسی، تنظیمات را باز کنید یا از دکمهٔ زیر استفاده کنید.</string>
     <string name="home_connection_button_connecting">در حال اتصال…</string>
@@ -2945,4 +2953,20 @@ fakeddisorder endhost</string>
     <string name="backup_variant_full_action">پشتیبان کامل همراه با اعتبارنامه‌ها</string>
     <string name="backup_variant_full_warning_title">حاوی اطلاعات محرمانه</string>
     <string name="backup_variant_full_warning_body">پشتیبان کامل شامل گذرواژه‌ها و کلیدهاست. این فایل را محرمانه نگه دارید.</string>
+    <string name="backup_restore_section">بازیابی</string>
+    <string name="backup_restore_body">یک فایل پشتیبان وارد کنید و انتخاب کنید چه چیزی بازیابی شود. بازیابی داده‌های انتخاب‌شده را جایگزین می‌کند و برنامه را دوباره راه‌اندازی می‌کند.</string>
+    <string name="backup_restore_action">وارد کردن پشتیبان</string>
+    <string name="backup_restore_success">پشتیبان بازیابی شد</string>
+    <string name="backup_restore_unsupported_version">این پشتیبان (نسخه %1$d) جدیدتر از چیزی است که این برنامه پشتیبانی می‌کند (نسخه %2$d)</string>
+    <string name="backup_restore_malformed">این فایل یک پشتیبان معتبر نیست</string>
+    <string name="backup_restore_nothing_selected">حداقل یک دسته برای بازیابی انتخاب کنید</string>
+    <string name="backup_import_preview_title">بررسی پشتیبان</string>
+    <string name="backup_import_preview_schema">پشتیبان نسخه %1$d، ساخته‌شده توسط برنامه %2$s</string>
+    <string name="backup_import_shareable_title">پشتیبان قابل اشتراک‌گذاری</string>
+    <string name="backup_import_shareable_body">%1$d نمایه را نمی‌توان بازیابی کرد زیرا اطلاعات ورود حذف شده است. گروه‌ها، مسیرها و تنظیمات همچنان قابل بازیابی هستند.</string>
+    <string name="backup_import_category_profiles">نمایه‌ها و گروه‌ها (%1$d نمایه، %2$d گروه)</string>
+    <string name="backup_import_category_routes">قوانین مسیریابی (%1$d)</string>
+    <string name="backup_import_category_settings">تنظیمات (%1$d)</string>
+    <string name="backup_import_category_unchecked_hint">دسته‌های انتخاب‌نشده مقادیر فعلی خود را حفظ می‌کنند.</string>
+    <string name="backup_import_confirm_action">بازیابی و راه‌اندازی مجدد</string>
 </resources>

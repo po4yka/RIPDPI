@@ -4,13 +4,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.backup.BackupExportResult
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
+import com.poyka.ripdpi.data.backup.BackupPreview
+import com.poyka.ripdpi.data.backup.BackupPreviewResult
+import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.BackupVariant
+import com.poyka.ripdpi.data.backup.RestoreResult
+import com.poyka.ripdpi.data.backup.RestoreSelection
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.InputStream
 import java.io.OutputStream
 import javax.inject.Inject
 import javax.inject.Named
@@ -38,10 +46,47 @@ sealed interface BackupExportEffect {
     data object Cancelled : BackupExportEffect
 }
 
+/**
+ * One-shot effect surfaced after an import / restore attempt.
+ */
+sealed interface BackupRestoreEffect {
+    /**
+     * The restore committed. The screen restarts the process (ProcessPhoenix) so
+     * all DataStore / Room observers reinitialize against the restored state.
+     */
+    data object Restored : BackupRestoreEffect
+
+    /** The chosen file's schema version is newer than this app supports. */
+    data class UnsupportedVersion(
+        val found: Int,
+        val supported: Int,
+    ) : BackupRestoreEffect
+
+    /** The file was malformed, unreadable, or failed an integrity check. */
+    data object Malformed : BackupRestoreEffect
+
+    /** The user picked a file but selected no categories to restore. */
+    data object NothingSelected : BackupRestoreEffect
+}
+
+/**
+ * Live preview of a chosen backup file, shown BEFORE any write. Carries the parsed
+ * JSON so the subsequent restore re-uses the exact bytes the user previewed.
+ */
+data class BackupImportPreview(
+    val json: String,
+    val preview: BackupPreview,
+    val selection: RestoreSelection,
+)
+
 /** Immutable render state for the Backup & Restore screen. */
 data class BackupRestoreUiState(
     val exporting: Boolean = false,
     val exportDisabledByPolicy: Boolean = false,
+    val importing: Boolean = false,
+    val restoring: Boolean = false,
+    /** Non-null while the import-preview sheet is visible. */
+    val importPreview: BackupImportPreview? = null,
 )
 
 @HiltViewModel
@@ -49,6 +94,7 @@ class BackupRestoreViewModel
     @Inject
     constructor(
         private val exportUseCase: BackupExportUseCase,
+        private val restoreUseCase: BackupRestoreUseCase,
         private val exportPolicy: BackupExportPolicy,
         @param:Named("appVersionName") private val appVersion: String,
     ) : ViewModel() {
@@ -60,6 +106,9 @@ class BackupRestoreViewModel
 
         private val _effects = MutableStateFlow<BackupExportEffect?>(null)
         val effects: StateFlow<BackupExportEffect?> = _effects.asStateFlow()
+
+        private val _restoreEffects = MutableStateFlow<BackupRestoreEffect?>(null)
+        val restoreEffects: StateFlow<BackupRestoreEffect?> = _restoreEffects.asStateFlow()
 
         /** Re-evaluates the MDM suppression knob (called on screen resume). */
         fun refreshPolicy() {
@@ -115,8 +164,131 @@ class BackupRestoreViewModel
             }
         }
 
-        /** Clears the last one-shot effect after the screen has consumed it. */
+        /** Clears the last one-shot export effect after the screen has consumed it. */
         fun consumeEffect() {
             _effects.value = null
+        }
+
+        /**
+         * Reads the picked backup file via [openInput] and computes a preview WITHOUT
+         * touching any live store. On success the preview sheet is shown; a newer
+         * schema or malformed JSON surfaces a one-shot effect and no preview.
+         *
+         * [openInput] returns the SAF source stream (or `null` if cancelled). The
+         * stream is fully read and closed here.
+         */
+        fun openImport(openInput: () -> InputStream?) {
+            if (_uiState.value.importing || _uiState.value.restoring) return
+            _uiState.update { it.copy(importing = true) }
+            viewModelScope.launch {
+                val json =
+                    withContext(Dispatchers.IO) {
+                        runCatching { openInput()?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
+                    }
+                if (json == null) {
+                    // Cancelled picker or unreadable stream: no preview, no effect noise.
+                    _uiState.update { it.copy(importing = false) }
+                    return@launch
+                }
+                when (val result = withContext(Dispatchers.Default) { restoreUseCase.preview(json) }) {
+                    is BackupPreviewResult.Ready -> {
+                        _uiState.update {
+                            it.copy(
+                                importing = false,
+                                importPreview =
+                                    BackupImportPreview(
+                                        json = json,
+                                        preview = result.preview,
+                                        // Default: restore only the categories that
+                                        // actually carry content; never silently flip
+                                        // an empty category on.
+                                        selection =
+                                            RestoreSelection(
+                                                profilesAndGroups = result.preview.canRestoreProfilesAndGroups,
+                                                routes = result.preview.ruleCount > 0,
+                                                settings = result.preview.settingCount > 0,
+                                            ),
+                                    ),
+                            )
+                        }
+                    }
+
+                    is BackupPreviewResult.UnsupportedVersion -> {
+                        _uiState.update { it.copy(importing = false) }
+                        _restoreEffects.value =
+                            BackupRestoreEffect.UnsupportedVersion(result.found, result.supported)
+                    }
+
+                    is BackupPreviewResult.Malformed -> {
+                        _uiState.update { it.copy(importing = false) }
+                        _restoreEffects.value = BackupRestoreEffect.Malformed
+                    }
+                }
+            }
+        }
+
+        /** Toggles one restore category in the active preview. */
+        fun setProfilesAndGroupsSelected(selected: Boolean) = updateSelection { it.copy(profilesAndGroups = selected) }
+
+        fun setRoutesSelected(selected: Boolean) = updateSelection { it.copy(routes = selected) }
+
+        fun setSettingsSelected(selected: Boolean) = updateSelection { it.copy(settings = selected) }
+
+        private fun updateSelection(transform: (RestoreSelection) -> RestoreSelection) {
+            _uiState.update { state ->
+                val preview = state.importPreview ?: return@update state
+                state.copy(importPreview = preview.copy(selection = transform(preview.selection)))
+            }
+        }
+
+        /** Dismisses the import-preview sheet without restoring. */
+        fun cancelImport() {
+            _uiState.update { it.copy(importPreview = null) }
+        }
+
+        /**
+         * Applies the staged restore for the active preview's selection. On success
+         * the [BackupRestoreEffect.Restored] effect is emitted; the screen restarts
+         * the process. Malformed JSON or a newer schema aborts without touching live
+         * data (the use case re-validates from the same bytes).
+         */
+        fun confirmRestore() {
+            val preview = _uiState.value.importPreview ?: return
+            if (_uiState.value.restoring) return
+            if (!preview.selection.any) {
+                _restoreEffects.value = BackupRestoreEffect.NothingSelected
+                return
+            }
+            _uiState.update { it.copy(restoring = true) }
+            viewModelScope.launch {
+                val result =
+                    withContext(Dispatchers.Default) {
+                        restoreUseCase.restore(preview.json, preview.selection)
+                    }
+                _uiState.update { it.copy(restoring = false, importPreview = null) }
+                _restoreEffects.value =
+                    when (result) {
+                        is RestoreResult.Success -> {
+                            BackupRestoreEffect.Restored
+                        }
+
+                        is RestoreResult.UnsupportedVersion -> {
+                            BackupRestoreEffect.UnsupportedVersion(result.found, result.supported)
+                        }
+
+                        is RestoreResult.Aborted -> {
+                            BackupRestoreEffect.Malformed
+                        }
+
+                        RestoreResult.NothingSelected -> {
+                            BackupRestoreEffect.NothingSelected
+                        }
+                    }
+            }
+        }
+
+        /** Clears the last one-shot restore effect after the screen has consumed it. */
+        fun consumeRestoreEffect() {
+            _restoreEffects.value = null
         }
     }

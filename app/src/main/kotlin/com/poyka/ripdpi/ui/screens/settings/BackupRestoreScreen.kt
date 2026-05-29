@@ -27,8 +27,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jakewharton.processphoenix.ProcessPhoenix
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.backup.BackupExportEffect
+import com.poyka.ripdpi.backup.BackupImportPreview
+import com.poyka.ripdpi.backup.BackupRestoreEffect
 import com.poyka.ripdpi.backup.BackupRestoreUiState
 import com.poyka.ripdpi.backup.BackupRestoreViewModel
 import com.poyka.ripdpi.data.backup.BackupVariant
@@ -43,6 +46,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -72,8 +76,66 @@ fun BackupRestoreRoute(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val effect by viewModel.effects.collectAsStateWithLifecycle()
+    val restoreEffect by viewModel.restoreEffects.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Export wiring (launcher + effect + variant sheet) lives in its own composable
+    // so this route stays small; it returns the click handler for the export button.
+    val onExportClick = rememberBackupExportController(viewModel, snackbarHostState)
+
+    val openDocumentLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            viewModel.openImport { context.contentResolver.openInputStream(uri) }
+        }
+
+    BackupRestoreEffectHandler(
+        effect = restoreEffect,
+        snackbarHostState = snackbarHostState,
+        onConsume = viewModel::consumeRestoreEffect,
+        onRestart = {
+            // Restart the process so every DataStore / Room observer reinitializes
+            // against the freshly-restored state — the reference-implementation pattern.
+            ProcessPhoenix.triggerRebirth(context.applicationContext)
+        },
+    )
+
+    BackupRestoreScreen(
+        state = uiState,
+        snackbarHostState = snackbarHostState,
+        onBack = onBack,
+        onExportClick = onExportClick,
+        // SAF picker restricted to JSON documents.
+        onImportClick = { openDocumentLauncher.launch(arrayOf(BackupMimeType)) },
+        modifier = modifier,
+    )
+
+    uiState.importPreview?.let { preview ->
+        BackupImportPreviewSheet(
+            preview = preview,
+            restoring = uiState.restoring,
+            onDismiss = viewModel::cancelImport,
+            onProfilesAndGroupsToggle = viewModel::setProfilesAndGroupsSelected,
+            onRoutesToggle = viewModel::setRoutesSelected,
+            onSettingsToggle = viewModel::setSettingsSelected,
+            onConfirm = viewModel::confirmRestore,
+        )
+    }
+}
+
+/**
+ * Wires the backup-export flow (SAF document creation, biometric gate for FULL,
+ * success/failure snackbar, and the variant-picker sheet) and returns the click
+ * handler the screen attaches to its export button. Kept separate so
+ * [BackupRestoreRoute] stays focused on the restore/import path.
+ */
+@Composable
+private fun rememberBackupExportController(
+    viewModel: BackupRestoreViewModel,
+    snackbarHostState: SnackbarHostState,
+): () -> Unit {
+    val context = LocalContext.current
+    val effect by viewModel.effects.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
     val biometricAuthManager = remember { BiometricAuthManager() }
 
@@ -99,10 +161,8 @@ fun BackupRestoreRoute(
             viewModel.export(
                 variant = variant,
                 openOutput = { context.contentResolver.openOutputStream(uri, "wt") },
-                onWriteFailed = {
-                    // Delete the partial document so a half-written backup is never left behind.
-                    deletePartialDocument(context, uri)
-                },
+                // Delete the partial document so a half-written backup is never left behind.
+                onWriteFailed = { deletePartialDocument(context, uri) },
             )
             pendingVariant = null
         }
@@ -123,9 +183,7 @@ fun BackupRestoreRoute(
                         biometricSubtitle,
                         biometricCancel,
                     )
-                if (result is BiometricAuthResult.Success) {
-                    launchPicker(BackupVariant.FULL)
-                }
+                if (result is BiometricAuthResult.Success) launchPicker(BackupVariant.FULL)
             }
         } else {
             launchPicker(variant)
@@ -136,17 +194,7 @@ fun BackupRestoreRoute(
         effect = effect,
         snackbarHostState = snackbarHostState,
         onConsume = viewModel::consumeEffect,
-        onShare = {
-            lastWrittenUri?.let { uri -> shareBackup(context, uri) }
-        },
-    )
-
-    BackupRestoreScreen(
-        state = uiState,
-        snackbarHostState = snackbarHostState,
-        onBack = onBack,
-        onExportClick = { showVariantPicker = true },
-        modifier = modifier,
+        onShare = { lastWrittenUri?.let { uri -> shareBackup(context, uri) } },
     )
 
     if (showVariantPicker) {
@@ -154,6 +202,69 @@ fun BackupRestoreRoute(
             onDismiss = { showVariantPicker = false },
             onVariantChosen = onVariantChosen,
         )
+    }
+
+    return { showVariantPicker = true }
+}
+
+@Composable
+private fun BackupRestoreEffectHandler(
+    effect: BackupRestoreEffect?,
+    snackbarHostState: SnackbarHostState,
+    onConsume: () -> Unit,
+    onRestart: () -> Unit,
+) {
+    val context = LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(effect) {
+        when (val current = effect) {
+            BackupRestoreEffect.Restored -> {
+                // Surface the message, then restart. The snackbar is best-effort —
+                // the rebirth may pre-empt it, which is acceptable.
+                snackbarHostState.showRipDpiSnackbar(
+                    message = context.getString(R.string.backup_restore_success),
+                    tone = RipDpiSnackbarTone.Info,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+                onConsume()
+                onRestart()
+            }
+
+            is BackupRestoreEffect.UnsupportedVersion -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message =
+                        context.getString(
+                            R.string.backup_restore_unsupported_version,
+                            current.found,
+                            current.supported,
+                        ),
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+                onConsume()
+            }
+
+            BackupRestoreEffect.Malformed -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = context.getString(R.string.backup_restore_malformed),
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+                onConsume()
+            }
+
+            BackupRestoreEffect.NothingSelected -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = context.getString(R.string.backup_restore_nothing_selected),
+                    tone = RipDpiSnackbarTone.Warning,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
+                onConsume()
+            }
+
+            null -> {
+                Unit
+            }
+        }
     }
 }
 
@@ -250,6 +361,7 @@ internal fun BackupRestoreScreen(
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
     onExportClick: () -> Unit,
+    onImportClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -303,11 +415,121 @@ internal fun BackupRestoreScreen(
                     }
                 }
             }
+            item(key = "backup_import_action") {
+                Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
+                    SettingsCategoryHeader(title = stringResource(R.string.backup_restore_section))
+                    RipDpiCard {
+                        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+                            Text(
+                                text = stringResource(R.string.backup_restore_body),
+                                style = RipDpiThemeTokens.type.body,
+                                color = RipDpiThemeTokens.colors.mutedForeground,
+                            )
+                            RipDpiButton(
+                                text = stringResource(R.string.backup_restore_action),
+                                onClick = onImportClick,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .ripDpiTestTag(RipDpiTestTags.BackupImportButton),
+                                variant = RipDpiButtonVariant.Outline,
+                                loading = state.importing,
+                                enabled = !state.importing && !state.restoring,
+                                leadingIcon = RipDpiIcons.Logs,
+                            )
+                        }
+                    }
+                }
+            }
         }
         Box(
             modifier = Modifier.fillMaxWidth().align(Alignment.BottomCenter),
         ) {
             RipDpiSnackbarHost(hostState = snackbarHostState)
+        }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun BackupImportPreviewSheet(
+    preview: BackupImportPreview,
+    restoring: Boolean,
+    onDismiss: () -> Unit,
+    onProfilesAndGroupsToggle: (Boolean) -> Unit,
+    onRoutesToggle: (Boolean) -> Unit,
+    onSettingsToggle: (Boolean) -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val summary = preview.preview
+    val selection = preview.selection
+    RipDpiBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.backup_import_preview_title),
+        message =
+            stringResource(
+                R.string.backup_import_preview_schema,
+                summary.schemaVersion,
+                summary.appVersion,
+            ),
+        icon = RipDpiIcons.Logs,
+        testTag = RipDpiTestTags.BackupImportPreviewSheet,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
+            // SHARE backups cannot restore profiles: surface that honestly.
+            if (summary.hasUndecodableProfiles) {
+                WarningBanner(
+                    title = stringResource(R.string.backup_import_shareable_title),
+                    message =
+                        stringResource(
+                            R.string.backup_import_shareable_body,
+                            summary.undecodableProfiles.size,
+                        ),
+                    tone = WarningBannerTone.Restricted,
+                )
+            }
+            // Profiles + groups category.
+            RipDpiSwitch(
+                checked = selection.profilesAndGroups,
+                onCheckedChange = onProfilesAndGroupsToggle,
+                label =
+                    stringResource(
+                        R.string.backup_import_category_profiles,
+                        summary.restorableProfileCount,
+                        summary.groupCount,
+                    ),
+                helperText = stringResource(R.string.backup_import_category_unchecked_hint),
+                enabled = !restoring && summary.canRestoreProfilesAndGroups,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.BackupImportToggleProfiles),
+            )
+            // Routes category.
+            RipDpiSwitch(
+                checked = selection.routes,
+                onCheckedChange = onRoutesToggle,
+                label = stringResource(R.string.backup_import_category_routes, summary.ruleCount),
+                enabled = !restoring && summary.ruleCount > 0,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.BackupImportToggleRoutes),
+            )
+            // Settings category.
+            RipDpiSwitch(
+                checked = selection.settings,
+                onCheckedChange = onSettingsToggle,
+                label = stringResource(R.string.backup_import_category_settings, summary.settingCount),
+                enabled = !restoring && summary.settingCount > 0,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.BackupImportToggleSettings),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.backup_import_confirm_action),
+                onClick = onConfirm,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.BackupImportConfirm),
+                variant = RipDpiButtonVariant.Destructive,
+                loading = restoring,
+                enabled = !restoring && selection.any,
+                leadingIcon = RipDpiIcons.Logs,
+            )
         }
     }
 }
@@ -371,6 +593,7 @@ private fun previewBackupRestoreScreen() {
             snackbarHostState = remember { SnackbarHostState() },
             onBack = {},
             onExportClick = {},
+            onImportClick = {},
         )
     }
 }
@@ -384,6 +607,7 @@ private fun previewBackupRestoreScreenBlocked() {
             snackbarHostState = remember { SnackbarHostState() },
             onBack = {},
             onExportClick = {},
+            onImportClick = {},
         )
     }
 }

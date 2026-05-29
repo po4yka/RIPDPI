@@ -280,6 +280,14 @@
     <string name="home_status_connected_body">Трафик в данный момент направляется через выбранный локальный режим.</string>
     <string name="home_status_error_title">Подключение требует внимания</string>
     <string name="home_status_error_body">Ознакомьтесь с сообщением ниже и попробуйте снова.</string>
+    <string name="home_network_condition_captive_title">Требуется вход</string>
+    <string name="home_network_condition_captive_body">Эта сеть требует входа, прежде чем трафик сможет проходить. Помощь с captive-порталом включена и отключится автоматически.</string>
+    <string name="home_network_condition_captive_action">Открыть страницу входа</string>
+    <string name="home_network_condition_whitelist_title">Сеть может фильтровать трафик</string>
+    <string name="home_network_condition_whitelist_body">Зарубежные сайты не открываются, а локальные работают. Эта сеть может разрешать только одобренные адреса.</string>
+    <string name="home_network_condition_whitelist_relay_suggestion">Попробуйте сохранённый профиль relay для белого списка.</string>
+    <string name="home_network_condition_no_connectivity_title">Нет подключения</string>
+    <string name="home_network_condition_no_connectivity_body">В этой сети нет рабочего маршрута. Проверьте подключение и попробуйте снова.</string>
     <string name="home_permission_issue_with_retry">%1$s Используйте кнопку подключения для продолжения запроса разрешений.</string>
     <string name="home_permission_issue_with_settings">%1$s Откройте Настройки или воспользуйтесь кнопкой ниже для восстановления доступа.</string>
     <string name="home_connection_button_connecting">Подключение\u2026</string>
@@ -3059,4 +3067,20 @@ fakeddisorder endhost</string>
     <string name="backup_variant_full_action">Полная копия с учётными данными</string>
     <string name="backup_variant_full_warning_title">Содержит секреты</string>
     <string name="backup_variant_full_warning_body">Полная копия включает пароли и ключи. Храните файл в тайне.</string>
+    <string name="backup_restore_section">Восстановление</string>
+    <string name="backup_restore_body">Импортируйте файл резервной копии и выберите, что восстановить. Восстановление заменит выбранные данные и перезапустит приложение.</string>
+    <string name="backup_restore_action">Импортировать копию</string>
+    <string name="backup_restore_success">Резервная копия восстановлена</string>
+    <string name="backup_restore_unsupported_version">Эта копия (версия %1$d) новее, чем поддерживает приложение (версия %2$d)</string>
+    <string name="backup_restore_malformed">Этот файл не является корректной резервной копией</string>
+    <string name="backup_restore_nothing_selected">Выберите хотя бы одну категорию для восстановления</string>
+    <string name="backup_import_preview_title">Просмотр копии</string>
+    <string name="backup_import_preview_schema">Версия копии %1$d, создана приложением %2$s</string>
+    <string name="backup_import_shareable_title">Копия для обмена</string>
+    <string name="backup_import_shareable_body">Профили (%1$d) нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</string>
+    <string name="backup_import_category_profiles">Профили и группы (%1$d профилей, %2$d групп)</string>
+    <string name="backup_import_category_routes">Правила маршрутизации (%1$d)</string>
+    <string name="backup_import_category_settings">Настройки (%1$d)</string>
+    <string name="backup_import_category_unchecked_hint">Невыбранные категории сохранят текущие значения.</string>
+    <string name="backup_import_confirm_action">Восстановить и перезапустить</string>
 </resources>

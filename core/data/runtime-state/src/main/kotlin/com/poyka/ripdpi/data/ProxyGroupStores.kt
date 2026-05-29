@@ -293,6 +293,21 @@ interface ProxyGroupRepository {
     /** Returns all stored groups ordered by [ProxyGroup.order]. */
     suspend fun list(): List<ProxyGroup>
 
+    /**
+     * Replaces the entire group collection with [groups]. Used by the
+     * backup-restore swap so a restore never leaves a partially overwritten group
+     * set.
+     *
+     * The default implementation deletes the current groups and re-adds [groups]
+     * through the existing mutators; the SharedPreferences-backed repository
+     * overrides it with a single atomic persisted write. The default keeps existing
+     * test fakes source-compatible without forcing each to reimplement the swap.
+     */
+    suspend fun replaceAll(groups: List<ProxyGroup>) {
+        list().forEach { delete(it.id) }
+        groups.forEach { add(it) }
+    }
+
     /** Hot stream of the group collection; re-emits after every mutation. */
     fun groups(): Flow<List<ProxyGroup>>
 }
@@ -324,6 +339,10 @@ class SharedPreferencesProxyGroupRepository
         }
 
         override suspend fun list(): List<ProxyGroup> = readGroups()
+
+        override suspend fun replaceAll(groups: List<ProxyGroup>) {
+            writeGroups(groups)
+        }
 
         override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
 

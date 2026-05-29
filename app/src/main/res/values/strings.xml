@@ -310,6 +310,14 @@
     <string name="home_status_connected_body">Traffic is currently routed through the selected local mode.</string>
     <string name="home_status_error_title">Connection needs attention</string>
     <string name="home_status_error_body">Review the message below and try again.</string>
+    <string name="home_network_condition_captive_title">Sign-in required</string>
+    <string name="home_network_condition_captive_body">This network needs you to sign in before traffic can pass. Captive-portal assist is on and will turn off automatically.</string>
+    <string name="home_network_condition_captive_action">Open sign-in page</string>
+    <string name="home_network_condition_whitelist_title">Network may be filtering traffic</string>
+    <string name="home_network_condition_whitelist_body">Foreign sites are failing while local ones work. This network may only allow approved destinations.</string>
+    <string name="home_network_condition_whitelist_relay_suggestion">Try your saved whitelist relay profile.</string>
+    <string name="home_network_condition_no_connectivity_title">No connectivity</string>
+    <string name="home_network_condition_no_connectivity_body">This network has no working route. Check your connection and try again.</string>
     <string name="home_permission_issue_with_retry">%1$s Use the connection button to continue the permission flow.</string>
     <string name="home_permission_issue_with_settings">%1$s Open Settings or use the button below to repair access.</string>
     <string name="home_connection_button_connecting">Connecting\u2026</string>
@@ -3009,4 +3017,20 @@ Source: %2$s</string>
     <string name="backup_variant_full_action">Full backup with credentials</string>
     <string name="backup_variant_full_warning_title">Contains secrets</string>
     <string name="backup_variant_full_warning_body">A full backup includes passwords and keys. Keep this file private.</string>
+    <string name="backup_restore_section">Restore</string>
+    <string name="backup_restore_body">Import a backup file and choose what to restore. Restoring replaces the selected data and restarts the app.</string>
+    <string name="backup_restore_action">Import backup</string>
+    <string name="backup_restore_success">Backup restored</string>
+    <string name="backup_restore_unsupported_version">This backup (version %1$d) is newer than this app supports (version %2$d)</string>
+    <string name="backup_restore_malformed">This file is not a valid backup</string>
+    <string name="backup_restore_nothing_selected">Select at least one category to restore</string>
+    <string name="backup_import_preview_title">Review backup</string>
+    <string name="backup_import_preview_schema">Backup version %1$d, created by app %2$s</string>
+    <string name="backup_import_shareable_title">Shareable backup</string>
+    <string name="backup_import_shareable_body">%1$d profile(s) cannot be restored because credentials were removed. Groups, routes, and settings can still be restored.</string>
+    <string name="backup_import_category_profiles">Profiles and groups (%1$d profiles, %2$d groups)</string>
+    <string name="backup_import_category_routes">Routing rules (%1$d)</string>
+    <string name="backup_import_category_settings">Settings (%1$d)</string>
+    <string name="backup_import_category_unchecked_hint">Unchecked categories keep their current values.</string>
+    <string name="backup_import_confirm_action">Restore and restart</string>
 </resources>

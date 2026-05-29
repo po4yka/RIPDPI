@@ -1,7 +1,7 @@
 ---
 title: Add SAF import flow with selective restore
 type: task
-status: backlog
+status: done
 area: data
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-settings-backup-and-restore
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-29
 ---
 
-- [ ] #task Add SAF import flow with selective restore #repo/RIPDPI #area/data #status/backlog 🔼
+- [x] #task Add SAF import flow with selective restore #repo/RIPDPI #area/data #status/done 🔼
 
 ## Summary
 
@@ -24,13 +24,13 @@ Restore is destructive; no silent overwrite. The preview step lists the counts (
 
 ## Acceptance criteria
 
-- [ ] Import entry point in Tools → Backup & Restore.
-- [ ] File picker restricts to `application/json` MIME.
-- [ ] Preview screen shows per-category counts and the schema version.
-- [ ] Checkbox per category (profiles+groups / routes / settings) selects what to restore; current state for unchecked categories is preserved.
-- [ ] Restore writes to a staging area, validates integrity, then atomically swaps into the live data stores.
-- [ ] `ProcessPhoenix`-equivalent restart after successful restore so all in-flight DataStore / Room observers reinitialize.
-- [ ] Malformed JSON or failed integrity check aborts without touching live data.
+- [x] Import entry point in Tools → Backup & Restore. (Settings → Backup & Restore; there is no Tools screen.)
+- [x] File picker restricts to `application/json` MIME. (`OpenDocument()` with `arrayOf("application/json")`.)
+- [x] Preview screen shows per-category counts and the schema version. (`BackupImportPreviewSheet`.)
+- [x] Checkbox per category (profiles+groups / routes / settings) selects what to restore; current state for unchecked categories is preserved. (Per-category `RipDpiSwitch`; unchecked categories preserve live values, covered by `selective restore preserves unchecked categories`.)
+- [x] Restore writes to a staging area, validates integrity, then atomically swaps into the live data stores. (`BackupRestoreUseCase.stage` decodes/validates fully before any write; rules swap via `RuleDao.replaceAll` transaction, groups via `ProxyGroupRepository.replaceAll`.)
+- [x] `ProcessPhoenix`-equivalent restart after successful restore so all in-flight DataStore / Room observers reinitialize. (`ProcessPhoenix.triggerRebirth` 2.1.2.)
+- [x] Malformed JSON or failed integrity check aborts without touching live data. (Covered by `malformed JSON aborts without touching live data` and `newer-than-app schema is refused and never touches live data`.)
 
 ## Source references
 

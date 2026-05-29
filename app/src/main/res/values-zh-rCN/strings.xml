@@ -309,6 +309,14 @@
     <string name="home_status_connected_body">流量当前通过所选的本地模式路由。</string>
     <string name="home_status_error_title">连接需要关注</string>
     <string name="home_status_error_body">查看下方的消息并重试。</string>
+    <string name="home_network_condition_captive_title">需要登录</string>
+    <string name="home_network_condition_captive_body">此网络需要先登录才能放行流量。强制门户辅助已开启，并将自动关闭。</string>
+    <string name="home_network_condition_captive_action">打开登录页面</string>
+    <string name="home_network_condition_whitelist_title">网络可能正在过滤流量</string>
+    <string name="home_network_condition_whitelist_body">境外站点失败而本地站点正常。此网络可能仅允许已批准的目标。</string>
+    <string name="home_network_condition_whitelist_relay_suggestion">尝试你保存的白名单 relay 配置。</string>
+    <string name="home_network_condition_no_connectivity_title">无连接</string>
+    <string name="home_network_condition_no_connectivity_body">此网络没有可用路由。请检查你的连接并重试。</string>
     <string name="home_permission_issue_with_retry">%1$s 使用连接按钮继续权限流程。</string>
     <string name="home_permission_issue_with_settings">%1$s 打开设置或使用下方按钮以修复访问权限。</string>
     <string name="home_connection_button_connecting">连接中…</string>
@@ -2941,4 +2949,20 @@ fake_burst 3</string>
     <string name="backup_variant_full_action">含凭据的完整备份</string>
     <string name="backup_variant_full_warning_title">包含敏感信息</string>
     <string name="backup_variant_full_warning_body">完整备份包含密码和密钥，请妥善保管此文件。</string>
+    <string name="backup_restore_section">恢复</string>
+    <string name="backup_restore_body">导入备份文件并选择要恢复的内容。恢复会替换所选数据并重启应用。</string>
+    <string name="backup_restore_action">导入备份</string>
+    <string name="backup_restore_success">备份已恢复</string>
+    <string name="backup_restore_unsupported_version">此备份（版本 %1$d）比本应用支持的版本（版本 %2$d）更新</string>
+    <string name="backup_restore_malformed">此文件不是有效的备份</string>
+    <string name="backup_restore_nothing_selected">请至少选择一个要恢复的类别</string>
+    <string name="backup_import_preview_title">查看备份</string>
+    <string name="backup_import_preview_schema">备份版本 %1$d，由应用 %2$s 创建</string>
+    <string name="backup_import_shareable_title">可分享备份</string>
+    <string name="backup_import_shareable_body">由于已移除凭据，%1$d 个配置无法恢复。组、路由和设置仍可恢复。</string>
+    <string name="backup_import_category_profiles">配置和组（%1$d 个配置，%2$d 个组）</string>
+    <string name="backup_import_category_routes">路由规则（%1$d）</string>
+    <string name="backup_import_category_settings">设置（%1$d）</string>
+    <string name="backup_import_category_unchecked_hint">未勾选的类别将保留当前值。</string>
+    <string name="backup_import_confirm_action">恢复并重启</string>
 </resources>

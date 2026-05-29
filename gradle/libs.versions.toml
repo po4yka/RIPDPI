@@ -30,6 +30,7 @@ detekt-compose-rules = "0.5.9"
 ktlint-plugin = "14.2.0"
 kermit = "2.1.0"
 biometric = "1.1.0"
+process-phoenix = "2.1.2"
 splashscreen = "1.2.0"
 kotlinx-collections-immutable = "0.4.0"
 kotlinx-serialization = "1.11.0"
@@ -99,6 +100,7 @@ detekt-api = { module = "io.gitlab.arturbosch.detekt:detekt-api", version.ref = 
 detekt-test = { module = "io.gitlab.arturbosch.detekt:detekt-test", version.ref = "detekt" }
 detekt-compose-rules = { module = "io.nlopez.compose.rules:detekt", version.ref = "detekt-compose-rules" }
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
+process-phoenix = { module = "com.jakewharton:process-phoenix", version.ref = "process-phoenix" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }

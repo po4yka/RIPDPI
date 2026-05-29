@@ -298,6 +298,7 @@ dependencies {
     implementation(libs.androidx.datastore)
 
     implementation(libs.kermit)
+    implementation(libs.process.phoenix)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp)
