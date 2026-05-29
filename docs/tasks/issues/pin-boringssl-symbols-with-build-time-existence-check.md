@@ -1,7 +1,7 @@
 ---
 title: Pin BoringSSL Reality FFI symbols with a build-time existence check
 type: task
-status: backlog
+status: done
 area: rust-native
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-control-plane-hardening
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-29
 ---
 
-- [ ] #task Pin BoringSSL Reality FFI symbols with a build-time existence check #repo/RIPDPI #area/rust-native #status/backlog 🔼
+- [x] #task Pin BoringSSL Reality FFI symbols with a build-time existence check #repo/RIPDPI #area/rust-native #status/done 🔼
 
 ## Summary
 
@@ -44,7 +44,7 @@ The SAFETY comment asserts these are "stable BoringSSL ABI" for the third symbol
 - [x] (2026-05-15, implicit) The original BoringSSL symbols were declared via `extern "C"` in `reality.rs` and called from `connect_reality_tls_inner`. The current H1 ClientHello hook uses the three patched symbols documented in `docs/design/reality-boringssl-patch.md`; the Rust linker requires extern fn references to resolve at link time, so any missing symbol fails the workspace build — effectively a build-time existence check without a dedicated `build.rs`.
 - [ ] A `build.rs` symbol-existence-check via `nm`/`llvm-nm` or a C stub. **DEFERRED:** redundant with the implicit link-time check above; revisit only if a future code path optionally references the symbols (e.g. behind a feature flag) and DCE could elide them.
 - [ ] CI fails when the existence check fails. **MET implicitly:** workspace `cargo check` fails if a symbol is missing.
-- [ ] `docs/native/proxy-engine.md` documents the contract. **DEFERRED:** captured in the workspace `Cargo.toml` comment and `docs/design/reality-boringssl-patch.md`; add a pointer in `proxy-engine.md` when the file is next touched.
+- [x] (2026-05-29) `docs/native/proxy-engine.md` documents the contract — see the new "Reality TLS BoringSSL FFI Symbol Contract" section naming all three symbols, the link-time existence-check guarantee, and the exact-version pins.
 
 ## Definition of done
 

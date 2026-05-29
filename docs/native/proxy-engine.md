@@ -862,6 +862,33 @@ The drained event ring records:
 - route advances caused by reconnect triggers such as connect failure or first-response triggers
 - retry pacing decisions and candidate-order diversification events
 
+## Reality TLS BoringSSL FFI Symbol Contract
+
+The VLESS + REALITY path in `ripdpi-vless` drives the BoringSSL ClientHello
+hook through three FFI symbols that the `boring` crate does not re-export, so
+`native/rust/crates/ripdpi-vless/src/reality_hook.rs` declares them by hand:
+
+- `SSL_handshake_get_x25519_private_key` — **H1 vendor patch only** (not in
+  upstream BoringSSL).
+- `SSL_CTX_set_client_hello_cb` — **H1 vendor patch only** (not in upstream
+  BoringSSL).
+- `SSL_get_SSL_CTX` — stock BoringSSL, stable accessor.
+
+The contract that protects against a silent vendored-BoringSSL drift is a
+build-time existence check, satisfied without a dedicated `build.rs`: the Rust
+linker must resolve every `extern "C"` reference at link time, so a missing or
+renamed symbol fails the workspace build (`cargo check --locked`) rather than
+mislinking and producing runtime UB. To keep that guarantee load-bearing,
+`boring` / `tokio-boring` are pinned to exact versions in the workspace
+`native/rust/Cargo.toml` (`boring = "=5.1.0"`, `tokio-boring = "=5.0.0"`), and
+`boring-sys` is a vendored path dependency (`vendor/boring-sys`) pinned by
+construction. A `boring-sys` bump must either carry the H1 patch forward or the
+link will fail loudly.
+
+See `docs/design/reality-boringssl-patch.md` for the patch detail and
+`docs/tasks/issues/pin-boringssl-symbols-with-build-time-existence-check.md`
+for the full rationale.
+
 ## Current Test Coverage
 
 The proxy stack is currently covered by:
