@@ -741,6 +741,8 @@
     <string name="ws_tunnel_mode_off">خاموش</string>
     <string name="ws_tunnel_mode_always">همیشه (ابتدا امتحان کن)</string>
     <string name="ws_tunnel_mode_fallback">بازگشت (آخرین چاره)</string>
+    <string name="ws_tunnel_allow_insecure_sni_label">اجازه SNI ناامن (تأیید TLS را غیرفعال می‌کند)</string>
+    <string name="ws_tunnel_allow_insecure_sni_helper">پوشش SNI جعلی تونل WS را اعمال می‌کند، هرچند تأیید گواهی TLS برای تونل را غیرفعال می‌کند. فقط با پیکربندی اپراتور مورد اعتماد فعال کنید.</string>
     <string name="host_autolearn_cli_status_title">کنترل‌شده توسط خط فرمان</string>
     <string name="host_autolearn_cli_status_body">تنظیمات بصری یادگیری میزبان متوقف هستند در حالی که آرگومان‌های خام RIPDPI فعال‌اند. در تنظیمات خط فرمان از --host-autolearn، --host-autolearn-penalty-ttl، --host-autolearn-max-hosts، و --host-autolearn-file اختیاری استفاده کنید.</string>
     <string name="host_autolearn_cli_live_status_body">این نشست از طریق پرچم‌های خط فرمان میزبان‌ها را یاد می‌گیرد. آرگومان‌های خام RIPDPI را برای تغییر شروع بعدی ویرایش کنید.</string>

@@ -2448,6 +2448,8 @@ Quelle: %2$s</string>
     <string name="warp_scanner_parallelism_body">Maximale Anzahl gleichzeitig zulässiger Endpunkt-Probes.</string>
     <string name="warp_setup_state_body">Aktueller Anmeldungs-/Bereitstellungsstatus für das aktive WARP-Profil.</string>
     <string name="ws_tunnel_mode_fallback">Fallback (letzter Ausweg)</string>
+    <string name="ws_tunnel_allow_insecure_sni_label">Unsicheren SNI zulassen (deaktiviert TLS-Prüfung)</string>
+    <string name="ws_tunnel_allow_insecure_sni_helper">Verwendet die Fake-SNI-Tarnung des WS-Tunnels, obwohl dadurch die TLS-Zertifikatsprüfung für den Tunnel deaktiviert wird. Nur mit einer vertrauenswürdigen Betreiberkonfiguration aktivieren.</string>
     <string name="updates_section_title">Updates</string>
     <string name="update_channel_title">Distribution channel</string>
     <string name="update_channel_play">Google Play</string>

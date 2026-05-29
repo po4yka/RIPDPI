@@ -2448,6 +2448,8 @@ Source : %2$s</string>
     <string name="warp_scanner_parallelism_body">Nombre maximum de sondes de point de terminaison autorisées en même temps.</string>
     <string name="warp_setup_state_body">État actuel d\'inscription/provisionnement pour le profil WARP actif.</string>
     <string name="ws_tunnel_mode_fallback">Repli (dernier recours)</string>
+    <string name="ws_tunnel_allow_insecure_sni_label">Autoriser un SNI non sécurisé (désactive la vérification TLS)</string>
+    <string name="ws_tunnel_allow_insecure_sni_helper">Applique le SNI factice du tunnel WS même si cela désactive la vérification du certificat TLS du tunnel. À activer uniquement avec une configuration d\'opérateur de confiance.</string>
     <string name="updates_section_title">Updates</string>
     <string name="update_channel_title">Distribution channel</string>
     <string name="update_channel_play">Google Play</string>

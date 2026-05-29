@@ -2448,6 +2448,8 @@ Origen: %2$s</string>
     <string name="warp_scanner_parallelism_body">Número máximo de sondeos de endpoint permitidos al mismo tiempo.</string>
     <string name="warp_setup_state_body">Estado actual de inscripción/provisión para el perfil WARP activo.</string>
     <string name="ws_tunnel_mode_fallback">Respaldo (último recurso)</string>
+    <string name="ws_tunnel_allow_insecure_sni_label">Permitir SNI inseguro (desactiva la verificación TLS)</string>
+    <string name="ws_tunnel_allow_insecure_sni_helper">Aplica el SNI falso del túnel WS aunque desactive la verificación del certificado TLS del túnel. Actívalo solo con una configuración de operador de confianza.</string>
     <string name="updates_section_title">Updates</string>
     <string name="update_channel_title">Distribution channel</string>
     <string name="update_channel_play">Google Play</string>

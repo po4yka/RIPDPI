@@ -598,6 +598,7 @@ internal fun LazyListScope.wsTunnelSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
     onWsTunnelModeChanged: (String) -> Unit,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
 ) {
     item(key = "advanced_ws_tunnel") {
         AdvancedSettingsSection(
@@ -630,6 +631,16 @@ internal fun LazyListScope.wsTunnelSection(
                             selectedValue,
                         )
                     },
+                )
+                SettingsRow(
+                    title = stringResource(R.string.ws_tunnel_allow_insecure_sni_label),
+                    subtitle = stringResource(R.string.ws_tunnel_allow_insecure_sni_helper),
+                    checked = uiState.autolearn.wsTunnelAllowInsecureSni,
+                    onCheckedChange = {
+                        onToggleChanged(AdvancedToggleSetting.WsTunnelAllowInsecureSni, it)
+                    },
+                    enabled = visualEditorEnabled,
+                    testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.WsTunnelAllowInsecureSni),
                 )
             }
         }

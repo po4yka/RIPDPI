@@ -2435,6 +2435,8 @@ fake_burst 3</string>
     <string name="warp_scanner_rtt_body">丢弃测量延迟超出此预算(毫秒)的扫描候选项。</string>
     <string name="warp_setup_state_title">设置状态</string>
     <string name="ws_tunnel_mode_fallback">回退(最后手段)</string>
+    <string name="ws_tunnel_allow_insecure_sni_label">允许不安全的 SNI(禁用 TLS 验证)</string>
+    <string name="ws_tunnel_allow_insecure_sni_helper">即使会禁用隧道的 TLS 证书验证,仍使用 WS 隧道的伪造 SNI 伪装。仅在使用可信运营商配置时启用。</string>
     <string name="ws_tunnel_section_title">WebSocket 隧道</string>
 
     <!-- Language picker -->

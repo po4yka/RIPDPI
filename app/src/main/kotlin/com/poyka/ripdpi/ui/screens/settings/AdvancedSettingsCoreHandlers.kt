@@ -30,6 +30,12 @@ internal val coreToggleHandlers: Map<AdvancedToggleSetting, CoreToggleHandler> =
             { enabled -> updateBoolean("tcpFastOpen", enabled) { setTcpFastOpen(enabled) } },
         AdvancedToggleSetting.PcapCaptureEnabled to
             { enabled -> updateBoolean("pcapCaptureEnabled", enabled) { setPcapCaptureEnabled(enabled) } },
+        AdvancedToggleSetting.WsTunnelAllowInsecureSni to
+            { enabled ->
+                updateBoolean("wsTunnelAllowInsecureSni", enabled) {
+                    setWsTunnelAllowInsecureSni(enabled)
+                }
+            },
     )
 
 internal val coreTextHandlers: Map<AdvancedTextSetting, CoreTextHandler> =

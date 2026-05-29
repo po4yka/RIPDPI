@@ -34,6 +34,7 @@ internal enum class AdvancedToggleSetting {
     WarpScannerEnabled,
     WarpAmneziaEnabled,
     HostAutolearnEnabled,
+    WsTunnelAllowInsecureSni,
     NetworkStrategyMemoryEnabled,
     AdaptiveFallbackEnabled,
     AdaptiveFallbackTorst,

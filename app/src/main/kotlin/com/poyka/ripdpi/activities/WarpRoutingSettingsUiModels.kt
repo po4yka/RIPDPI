@@ -25,6 +25,7 @@ data class HostAutolearnUiState(
     val hostAutolearnMaxHosts: Int = DefaultHostAutolearnMaxHosts,
     val networkStrategyMemoryEnabled: Boolean = false,
     val wsTunnelMode: String = "off",
+    val wsTunnelAllowInsecureSni: Boolean = false,
     val rememberedNetworkCount: Int = 0,
     val hostAutolearnRuntimeEnabled: Boolean = false,
     val hostAutolearnStorePresent: Boolean = false,

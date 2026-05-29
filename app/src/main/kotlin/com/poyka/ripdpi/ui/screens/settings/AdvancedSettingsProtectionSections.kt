@@ -25,6 +25,7 @@ internal fun LazyListScope.advancedSettingsProtectionSections(
         uiState = uiState,
         visualEditorEnabled = contentState.visualEditorEnabled,
         onWsTunnelModeChanged = actions.onWsTunnelModeChanged,
+        onToggleChanged = actions.onToggleChanged,
     )
     adaptiveFallbackSection(
         uiState = uiState,
