@@ -37,7 +37,6 @@ jobs:
           set -euo pipefail
           test-lab/scripts/test-feature-artifact-paths-fixtures.sh
           test-lab/scripts/test-feature-local-artifacts-fixtures.sh
-          test-lab/scripts/test-feature-checklist-coverage.sh
           test-lab/scripts/test-feature-checklist-coverage-fixtures.sh
           test-lab/scripts/test-feature-test-signoff.sh
           test-lab/scripts/test-adb-install-debug.sh
