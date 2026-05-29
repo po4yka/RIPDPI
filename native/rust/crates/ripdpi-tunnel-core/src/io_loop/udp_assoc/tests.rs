@@ -41,10 +41,18 @@ async fn handle_udp_event_queues_matching_association_packet() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
-    let association =
-        create_udp_association(proxy_addr, Auth::NoAuth, src, 7, Duration::from_secs(1), cancel.child_token(), udp_tx)
-            .await
-            .expect("udp association");
+    let association = create_udp_association(
+        proxy_addr,
+        Auth::NoAuth,
+        src,
+        "203.0.113.20:443".parse().expect("valid test addr"),
+        7,
+        Duration::from_secs(1),
+        cancel.child_token(),
+        udp_tx,
+    )
+    .await
+    .expect("udp association");
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
@@ -68,10 +76,18 @@ async fn handle_udp_event_ignores_stale_association_id() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53001);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
-    let association =
-        create_udp_association(proxy_addr, Auth::NoAuth, src, 10, Duration::from_secs(1), cancel.child_token(), udp_tx)
-            .await
-            .expect("udp association");
+    let association = create_udp_association(
+        proxy_addr,
+        Auth::NoAuth,
+        src,
+        "203.0.113.20:443".parse().expect("valid test addr"),
+        10,
+        Duration::from_secs(1),
+        cancel.child_token(),
+        udp_tx,
+    )
+    .await
+    .expect("udp association");
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
@@ -91,10 +107,18 @@ async fn handle_udp_event_removes_closed_association() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53002);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
-    let association =
-        create_udp_association(proxy_addr, Auth::NoAuth, src, 20, Duration::from_secs(1), cancel.child_token(), udp_tx)
-            .await
-            .expect("udp association");
+    let association = create_udp_association(
+        proxy_addr,
+        Auth::NoAuth,
+        src,
+        "203.0.113.20:443".parse().expect("valid test addr"),
+        20,
+        Duration::from_secs(1),
+        cancel.child_token(),
+        udp_tx,
+    )
+    .await
+    .expect("udp association");
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
@@ -111,10 +135,18 @@ async fn handle_udp_event_ignores_stale_close() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53003);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
-    let association =
-        create_udp_association(proxy_addr, Auth::NoAuth, src, 30, Duration::from_secs(1), cancel.child_token(), udp_tx)
-            .await
-            .expect("udp association");
+    let association = create_udp_association(
+        proxy_addr,
+        Auth::NoAuth,
+        src,
+        "203.0.113.20:443".parse().expect("valid test addr"),
+        30,
+        Duration::from_secs(1),
+        cancel.child_token(),
+        udp_tx,
+    )
+    .await
+    .expect("udp association");
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
@@ -169,6 +201,7 @@ async fn shutdown_cancels_all_associations() {
         proxy_addr,
         Auth::NoAuth,
         src1,
+        "203.0.113.21:443".parse().expect("valid test addr"),
         1,
         Duration::from_secs(1),
         cancel.child_token(),
@@ -182,6 +215,7 @@ async fn shutdown_cancels_all_associations() {
         proxy_addr2,
         Auth::NoAuth,
         src2,
+        "203.0.113.22:443".parse().expect("valid test addr"),
         2,
         Duration::from_secs(1),
         cancel.child_token(),

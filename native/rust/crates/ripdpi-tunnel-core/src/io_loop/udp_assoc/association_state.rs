@@ -19,6 +19,9 @@ pub(in crate::io_loop) struct UdpAssociation {
     pub(super) cancel: CancellationToken,
     pub(super) last_activity: Arc<AtomicU64>,
     pub(super) worker: tokio::task::JoinHandle<()>,
+    /// Destination this association forwards to, kept so the per-app attribution
+    /// cache entry can be evicted when the association closes.
+    pub(super) dest: SocketAddr,
 }
 
 pub(super) fn touch_udp_activity(last_activity: &Arc<AtomicU64>) {
@@ -34,5 +37,8 @@ pub(super) fn udp_association_is_idle(last_activity: &Arc<AtomicU64>, idle_timeo
 pub(super) fn remove_association(associations: &mut HashMap<SocketAddr, UdpAssociation>, src: SocketAddr) {
     if let Some(association) = associations.remove(&src) {
         association.cancel.cancel();
+        // Drop the per-app attribution cache entry so a later flow to the same
+        // destination (possibly a different app) re-resolves its owner.
+        ripdpi_flow_app_attribution::evict_flow(association.dest.ip());
     }
 }

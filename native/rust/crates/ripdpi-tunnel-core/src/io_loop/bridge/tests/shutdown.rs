@@ -29,6 +29,7 @@ async fn u27_shutdown_cancels_all() {
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: None,
+        target_addr: "203.0.113.10:443".parse().expect("valid test addr"),
     };
     let mut sessions = ActiveSessions::new(8);
     sessions.insert(handle, entry);

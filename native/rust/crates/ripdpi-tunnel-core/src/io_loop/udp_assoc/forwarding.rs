@@ -16,6 +16,9 @@ use super::event_handling::UdpEvent;
 use super::eviction::{evict_if_over_capacity, UdpEvictionEntry};
 use super::worker::create_udp_association;
 
+/// IANA IP protocol number for UDP, for flow-attribution `note_flow`.
+const PROTO_UDP: u8 = 17;
+
 #[allow(clippy::too_many_arguments)]
 pub(in crate::io_loop) async fn forward_udp_payload(
     proxy_addr: SocketAddr,
@@ -32,10 +35,17 @@ pub(in crate::io_loop) async fn forward_udp_payload(
 ) {
     #[allow(clippy::map_entry)]
     if !associations.contains_key(&src) {
+        // New UDP association: record the originating app's flow for per-app
+        // attribution (once per association, not per datagram). `note_flow` only
+        // locks a mutex and pushes to a queue (deduped by destination) -- no JNI
+        // on this path; a background worker resolves off-path.
+        ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, resolved_dst);
         if eviction_heap.is_full() {
             evict_if_over_capacity(associations, eviction_heap);
         }
-        match alloc_association(next_id, proxy_addr, auth.clone(), src, idle_timeout, cancel, udp_tx).await {
+        match alloc_association(next_id, proxy_addr, auth.clone(), src, resolved_dst, idle_timeout, cancel, udp_tx)
+            .await
+        {
             Ok(association) => {
                 eviction_heap.push(UdpEvictionEntry {
                     addr: src,
@@ -62,7 +72,8 @@ pub(in crate::io_loop) async fn forward_udp_payload(
     }
 
     remove_association(associations, src);
-    let Ok(association) = alloc_association(next_id, proxy_addr, auth.clone(), src, idle_timeout, cancel, udp_tx).await
+    let Ok(association) =
+        alloc_association(next_id, proxy_addr, auth.clone(), src, resolved_dst, idle_timeout, cancel, udp_tx).await
     else {
         return;
     };
@@ -75,11 +86,13 @@ pub(in crate::io_loop) async fn forward_udp_payload(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn alloc_association(
     next_id: &mut u64,
     proxy_addr: SocketAddr,
     auth: Auth,
     src: SocketAddr,
+    dest: SocketAddr,
     idle_timeout: Duration,
     cancel: &CancellationToken,
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
@@ -87,5 +100,5 @@ async fn alloc_association(
     let id = *next_id;
     *next_id = next_id.wrapping_add(1);
 
-    create_udp_association(proxy_addr, auth, src, id, idle_timeout, cancel.child_token(), udp_tx.clone()).await
+    create_udp_association(proxy_addr, auth, src, dest, id, idle_timeout, cancel.child_token(), udp_tx.clone()).await
 }

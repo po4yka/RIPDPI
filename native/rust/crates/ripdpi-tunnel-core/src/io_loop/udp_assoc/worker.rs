@@ -17,6 +17,7 @@ pub(super) async fn create_udp_association(
     proxy_addr: SocketAddr,
     auth: Auth,
     src: SocketAddr,
+    dest: SocketAddr,
     association_id: u64,
     idle_timeout: Duration,
     cancel: CancellationToken,
@@ -34,7 +35,7 @@ pub(super) async fn create_udp_association(
         idle_timeout,
     );
 
-    Ok(UdpAssociation { id: association_id, session, cancel, last_activity, worker })
+    Ok(UdpAssociation { id: association_id, session, cancel, last_activity, worker, dest })
 }
 
 fn spawn_udp_worker(

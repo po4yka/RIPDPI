@@ -28,6 +28,9 @@ pub struct SessionEntry {
     /// The synthetic IPv4 address (host-byte-order u32) pinned in the DNS cache
     /// for the duration of this session, if any. Unpinned when the session ends.
     pub pinned_synthetic_ip: Option<u32>,
+    /// The intercepted destination of this session, kept so the per-app
+    /// attribution cache entry can be evicted when the session closes.
+    pub target_addr: std::net::SocketAddr,
 }
 
 /// Eviction priority entry for the bounded heap.
@@ -173,6 +176,7 @@ mod tests {
             pending_to_smoltcp: Vec::new(),
             upstream_closed: false,
             pinned_synthetic_ip: None,
+            target_addr: "203.0.113.10:443".parse().expect("valid test addr"),
         };
         (entry, child)
     }

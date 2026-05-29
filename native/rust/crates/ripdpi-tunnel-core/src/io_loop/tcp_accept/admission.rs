@@ -106,6 +106,7 @@ fn admit_session(
         pending_to_smoltcp: Vec::new(),
         upstream_closed: false,
         pinned_synthetic_ip: pending.synthetic_ip,
+        target_addr: pending.target_addr,
     };
     let evicted_handle = sessions.insert(pending.handle, entry);
     remove_evicted_session_socket(socket_set, evicted_handle);
