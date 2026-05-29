@@ -23,6 +23,7 @@ import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
@@ -272,9 +273,14 @@ interface CloudflarePublishRuntimeFactory {
 class DefaultCloudflarePublishRuntimeFactory
     @Inject
     constructor(
-        private val runtime: CloudflarePublishRuntime,
+        private val runtimeProvider: Provider<CloudflarePublishRuntime>,
     ) : CloudflarePublishRuntimeFactory {
-        override fun create(): RipDpiRelayRuntime = runtime
+        // Each session receives a fresh CloudflarePublishRuntime; its per-session mutable state
+        // (relayRuntime, activeConfig, stopping, relayStartSignal) never leaks into the next
+        // session. The shared @Singleton CloudflarePublishManager remains intentionally
+        // process-wide: it is the concurrency gate that rejects overlapping start() calls and
+        // resets its own session state (running, activeStateDir, sessionActive) on stop().
+        override fun create(): RipDpiRelayRuntime = runtimeProvider.get()
     }
 
 @Module
