@@ -670,28 +670,28 @@ class DiagnosticsHistoryStoresRoomTest {
             cursor.moveToFirst()
             cursor.getInt(0)
         }
+}
 
-    private fun tableExists(
-        database: DiagnosticsDatabase,
-        table: String,
-    ): Boolean {
-        val openHelper = database.openHelper
-        val supportDb = openHelper.writableDatabase
-        val cursor =
-            supportDb.query(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = '$table'",
-            )
-        return cursor.use { resultCursor ->
-            resultCursor.moveToFirst()
-            resultCursor.getInt(0) == 1
-        }
+private fun tableExists(
+    database: DiagnosticsDatabase,
+    table: String,
+): Boolean {
+    val openHelper = database.openHelper
+    val supportDb = openHelper.writableDatabase
+    val cursor =
+        supportDb.query(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = '$table'",
+        )
+    return cursor.use { resultCursor ->
+        resultCursor.moveToFirst()
+        resultCursor.getInt(0) == 1
     }
+}
 
-    private class MutableDiagnosticsHistoryClock(
-        private var now: Long,
-    ) : DiagnosticsHistoryClock {
-        override fun now(): Long = now
-    }
+private class MutableDiagnosticsHistoryClock(
+    private var now: Long,
+) : DiagnosticsHistoryClock {
+    override fun now(): Long = now
 }
 
 private fun profile(

@@ -547,7 +547,12 @@ fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
  * Flatten the section models back into the [ResolvedRipDpiRelayConfig] wire
  * DTO. Inverse of [toSections]: `config.toSections().toResolvedConfig()`
  * reproduces `config` exactly.
+ *
+ * `@Suppress("LongMethod")`: a flat 1:1 field copy from the concern-scoped
+ * sections back onto the wire DTO — every line is one field assignment, so the
+ * length is structural, not complexity.
  */
+@Suppress("LongMethod")
 fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
     ResolvedRipDpiRelayConfig(
         enabled = common.enabled,

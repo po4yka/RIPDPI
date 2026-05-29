@@ -114,9 +114,9 @@ object XrayConfigValidator {
         streamSettings: JsonObject,
         pathPrefix: String,
     ): List<ValidationError> {
-        val tls = streamSettings["tlsSettings"] as? JsonObject ?: return emptyList()
-        val allowInsecure = (tls["allowInsecure"] as? JsonPrimitive)?.booleanOrNull ?: return emptyList()
-        return if (allowInsecure) {
+        val tls = streamSettings["tlsSettings"] as? JsonObject
+        val allowInsecure = (tls?.get("allowInsecure") as? JsonPrimitive)?.booleanOrNull
+        return if (allowInsecure == true) {
             listOf(
                 ValidationError(
                     code = ErrorCode.ALLOW_INSECURE_DISABLED,
@@ -163,13 +163,12 @@ object XrayConfigValidator {
      */
     private fun isBrokenRealityXhttpTag(tag: String): Boolean {
         val parts = tag.removePrefix("v").split('.').mapNotNull { it.toLongOrNull() }
-        if (parts.size < 3) return false
-        val broken = listOf(26L, 1L, 18L)
-        for (i in broken.indices) {
-            val left = parts[i]
-            val right = broken[i]
-            if (left != right) return left > right
-        }
-        return true
+        if (parts.size < brokenRealityXhttpVersion.size) return false
+        val firstDifference =
+            brokenRealityXhttpVersion.indices.firstOrNull { parts[it] != brokenRealityXhttpVersion[it] }
+        return firstDifference == null || parts[firstDifference] > brokenRealityXhttpVersion[firstDifference]
     }
+
+    /** xray-core version (v26.1.18) at which the REALITY + XHTTP combination became wire-broken. */
+    private val brokenRealityXhttpVersion: List<Long> = "26.1.18".split('.').map(String::toLong)
 }
