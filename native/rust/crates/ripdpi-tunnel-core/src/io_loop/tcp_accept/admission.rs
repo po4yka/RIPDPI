@@ -9,7 +9,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::info;
 
 use crate::dns_cache::DnsCache;
-use crate::io_loop::packet::TcpFlowKey;
+use crate::io_loop::packet::{endpoint_to_socketaddr, TcpFlowKey};
 use crate::session::Auth;
 use crate::{ActiveSessions, SessionEntry, Stats};
 
@@ -22,6 +22,9 @@ use super::unresolved::{abort_unresolved_sessions, abort_unresolved_tcp_socket};
 mod pending;
 
 use pending::PendingTcpSession;
+
+/// IANA IP protocol number for TCP, for flow-attribution `note_flow`.
+const PROTO_TCP: u8 = 6;
 
 pub(crate) fn spawn_new_tcp_sessions(
     socket_set: &mut SocketSet<'static>,
@@ -58,7 +61,17 @@ fn collect_admissible_sessions(
 
         let synthetic_ip = pinned_synthetic_ip(dns_cache, tcp);
         match tcp_session_target_addr(stats, dns_cache, tcp) {
-            Some(target_addr) => new_sessions.push(PendingTcpSession { handle, target_addr, synthetic_ip }),
+            Some(target_addr) => {
+                // Record the originating app's flow for per-app attribution. This is
+                // the one site that sees both the app source (smoltcp remote
+                // endpoint) and the intercepted destination. `note_flow` only locks
+                // a mutex and pushes to a queue (deduped by destination) — never any
+                // JNI on this hot path; a background worker resolves off-path.
+                if let Some(app_src) = tcp.remote_endpoint().map(endpoint_to_socketaddr) {
+                    ripdpi_flow_app_attribution::note_flow(PROTO_TCP, app_src, target_addr);
+                }
+                new_sessions.push(PendingTcpSession { handle, target_addr, synthetic_ip });
+            }
             None => {
                 abort_unresolved_tcp_socket(handle, tcp);
                 unresolvable.push(handle);

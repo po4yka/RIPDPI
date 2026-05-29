@@ -6107,6 +6107,7 @@ dependencies = [
  "ringbuf",
  "ripdpi-collections",
  "ripdpi-dns-resolver",
+ "ripdpi-flow-app-attribution",
  "ripdpi-io-uring",
  "ripdpi-privileged-ops",
  "ripdpi-runtime-platform",

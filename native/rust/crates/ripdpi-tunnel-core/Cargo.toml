@@ -10,6 +10,7 @@ workspace = true
 [dependencies]
 ripdpi-tunnel-config = { workspace = true }
 ripdpi-tunnel-intercept = { workspace = true }
+ripdpi-flow-app-attribution = { workspace = true }
 ripdpi-tun-driver = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-collections = { workspace = true }
