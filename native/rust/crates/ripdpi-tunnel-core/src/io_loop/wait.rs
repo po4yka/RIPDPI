@@ -32,12 +32,15 @@ pub(in crate::io_loop) async fn wait_for_next_event(tun: &AsyncDevice, state: &m
 
     let mut dns_resp_rx = state.dns_resp_rx.take();
     let dns_enabled = dns_resp_rx.is_some();
+    // biased; checks the cancellation arm first on every poll so shutdown is prompt
+    // under sustained TUN/UDP/DNS readiness (Foreground-Service 5s teardown window).
     let event = tokio::select! {
+        biased;
+        _ = state.cancel.cancelled() => WaitEvent::Cancelled,
         _ = tun.readable() => WaitEvent::TunReadable,
         _ = tokio::time::sleep(smol_delay) => WaitEvent::PollTimer,
         udp_event = state.udp_rx.recv() => WaitEvent::Udp(udp_event),
         dns_result = recv_dns_response(&mut dns_resp_rx), if dns_enabled => WaitEvent::Dns(dns_result),
-        _ = state.cancel.cancelled() => WaitEvent::Cancelled,
     };
     state.dns_resp_rx = dns_resp_rx;
 

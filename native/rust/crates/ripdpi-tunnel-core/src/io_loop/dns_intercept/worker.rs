@@ -19,7 +19,10 @@ pub(in crate::io_loop) fn spawn_dns_worker(
     let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(super::super::DNS_QUEUE_CAPACITY);
     tokio::spawn(async move {
         loop {
+            // biased; keeps the cancellation arm in pole position so the worker stops
+            // promptly on shutdown instead of draining queued DNS requests first.
             tokio::select! {
+                biased;
                 _ = cancel.cancelled() => break,
                 request = req_rx.recv() => {
                     let Some(request) = request else {
