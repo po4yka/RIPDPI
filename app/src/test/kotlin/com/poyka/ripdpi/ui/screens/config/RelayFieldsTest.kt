@@ -115,7 +115,8 @@ class RelayFieldsTest {
         composeRule.onNodeWithText("Bridge line").assertExists()
         composeRule
             .onNodeWithText(
-                "Paste an obfs4 bridge line. Tor bootstraps only through this pluggable transport, never a direct connection.",
+                "Paste an obfs4 bridge line. Tor bootstraps only through this pluggable transport, " +
+                    "never a direct connection.",
             ).assertExists()
         composeRule.onNodeWithText("Tor is slower and anonymized differently").assertExists()
         composeRule

@@ -88,13 +88,7 @@ class ProfileImportConfirmViewModel
         private suspend fun nextOrder(): Int = repository.list().size
 
         private suspend fun activateNativeRelayProfile(profile: ProxyProfile) {
-            if (profile !is ProxyProfile.Trojan &&
-                profile !is ProxyProfile.Shadowsocks &&
-                profile !is ProxyProfile.AnyTls &&
-                profile !is ProxyProfile.VlessReality
-            ) {
-                return
-            }
+            // Unsupported profile kinds are filtered by the `else -> return` arm below.
             val profileId = DefaultRelayProfileId
             val relayKind =
                 when (profile) {

@@ -131,6 +131,7 @@ class Base64SubscriptionParserTest {
     private fun serverOf(profile: ProxyProfile): String =
         when (profile) {
             is ProxyProfile.Vless -> profile.server
+            is ProxyProfile.VlessReality -> profile.server
             is ProxyProfile.Shadowsocks -> profile.server
             is ProxyProfile.Trojan -> profile.server
             is ProxyProfile.Hysteria2 -> profile.server

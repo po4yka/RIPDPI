@@ -45,26 +45,8 @@ class ImportHandlerActivity : Activity() {
         }
         // `ripdpi://import?sub=…` / `ripdpi://import?url=…` takes priority over the
         // legacy SingBox-style `ripdpi://import-remote-profile` handler.
-        when (val ripDpiResult = RipDpiImportDeepLinkParser.parse(data)) {
-            is RipDpiImportDeepLinkResult.Success -> {
-                handleRipDpiImportDeepLink(ripDpiResult)
-                return
-            }
-            RipDpiImportDeepLinkResult.Error.NonHttps -> {
-                toast(R.string.import_error_bad_encoding)
-                return
-            }
-            RipDpiImportDeepLinkResult.Error.BadEncoding -> {
-                toast(R.string.import_error_bad_encoding)
-                return
-            }
-            RipDpiImportDeepLinkResult.Error.MissingTarget -> {
-                toast(R.string.import_error_missing_url)
-                return
-            }
-            RipDpiImportDeepLinkResult.Error.Unsupported -> {
-                // Not a ripdpi://import link — fall through to the legacy handlers below.
-            }
+        if (tryHandleRipDpiImport(data)) {
+            return
         }
         when (SingBoxDeepLinkParser.parse(data)) {
             is SingBoxDeepLinkResult.Success -> {
@@ -77,6 +59,23 @@ class ImportHandlerActivity : Activity() {
                 handleProxyShareLink(data)
             }
         }
+    }
+
+    /**
+     * Dispatches a `ripdpi://import` deep link. Returns true when the link was
+     * consumed -- forwarded to the confirm flow or reported as a definitive
+     * error -- and false when it is not a ripdpi import link, so the caller
+     * falls through to the legacy SingBox / proxy-share handlers.
+     */
+    private fun tryHandleRipDpiImport(data: String): Boolean {
+        when (val ripDpiResult = RipDpiImportDeepLinkParser.parse(data)) {
+            is RipDpiImportDeepLinkResult.Success -> handleRipDpiImportDeepLink(ripDpiResult)
+            RipDpiImportDeepLinkResult.Error.NonHttps -> toast(R.string.import_error_bad_encoding)
+            RipDpiImportDeepLinkResult.Error.BadEncoding -> toast(R.string.import_error_bad_encoding)
+            RipDpiImportDeepLinkResult.Error.MissingTarget -> toast(R.string.import_error_missing_url)
+            RipDpiImportDeepLinkResult.Error.Unsupported -> return false
+        }
+        return true
     }
 
     private fun handleRipDpiImportDeepLink(result: RipDpiImportDeepLinkResult.Success) {
