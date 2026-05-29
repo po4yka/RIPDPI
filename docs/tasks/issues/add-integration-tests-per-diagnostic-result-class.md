@@ -1,7 +1,7 @@
 ---
 title: Add integration tests per diagnostic result class
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-direct-mode-diagnostic-state-machine
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-16
+updated: 2026-05-29
 ---
 
-- [ ] #task Add integration tests per diagnostic result class #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Add integration tests per diagnostic result class #repo/RIPDPI #area/diagnostics #status/done 🔼
 
 ## Summary
 
@@ -22,13 +22,23 @@ Integration tests that drive the full diagnostic end-to-end in a controlled envi
 
 ripdpi-android-direct-mode-plan-2026-04-20 Phases 1–4.
 
+## Progress
+
+Verified 2026-05-29. A prerequisite landed alongside the tests: the
+`DirectModeOrchestrator` now emits a non-null `OrchestratorResult.verdict`
+(`deriveOrchestratorVerdict` maps the finished Phase 4 execution to exactly one
+`DirectModeVerdictResult` with a structured reason and transport class). The new
+`DiagnosticResultClassIntegrationTest` drives Phases 1–4 end to end per result
+class on a deterministic harness (frozen clock + `ScriptedArmExecutor`, no real
+network or sleeps).
+
 ## Acceptance criteria
 
-- [ ] `TRANSPARENT_WORKS` scenarios: one per class (DNS_BLOCK, SNI_TLS_SUSPECT, QUIC_BLOCK_SUSPECT resolved via A3–A8).
-- [ ] `OWNED_STACK_ONLY` scenarios: IP_BLOCK_SUSPECT resolved only by A9/A10; transparent arms confirmed failing.
-- [ ] `NO_DIRECT_SOLUTION` scenario: all arms fail within budget.
-- [ ] Attempt budget enforced in every scenario (no test exceeds the configured caps).
-- [ ] Tests are deterministic via the harness's fake clock and scripted network.
+- [x] `TRANSPARENT_WORKS` scenarios: one per class (DNS_BLOCK, SNI_TLS_SUSPECT, QUIC_BLOCK_SUSPECT resolved via A3–A8).
+- [x] `OWNED_STACK_ONLY` scenarios: IP_BLOCK_SUSPECT resolved only by A9/A10; transparent arms confirmed failing (SNI scenario runs A3–A8 to failure before A10 wins).
+- [x] `NO_DIRECT_SOLUTION` scenario: all arms fail within budget (plus an unconfirmed-owned-stack-pin gating scenario).
+- [x] Attempt budget enforced in every scenario (no test exceeds the configured caps).
+- [x] Tests are deterministic via the harness's fake clock and scripted network.
 
 ## Links
 

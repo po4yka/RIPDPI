@@ -69,7 +69,7 @@ Still open: wiring the pure orchestrator to the production probe executors, emit
 - `UNKNOWN`: A1, A3, A4, A5, A9
 - [x] Phase 4 success requires a confirmation request before pinning in the repo-owned persistence path.
 - [ ] Persisted verdict invalidates on every revalidation trigger.
-- [ ] Integration tests cover every result class on a deterministic harness (no sleep-based waits).
+- [x] Integration tests cover every result class on a deterministic harness (no sleep-based waits) — `DiagnosticResultClassIntegrationTest` (frozen clock + scripted executor); the orchestrator now emits a non-null `OrchestratorResult.verdict`.
 
 ## Child tasks
 

@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.diagnostics.orchestrator
 
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectModeVerdictResult
+import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.shared.DnsClassification
 
@@ -60,8 +63,10 @@ data class AttemptBudget(
 /**
  * The single result emitted by one orchestrator run.
  *
- * [verdict] is null only when the budget was exhausted before any arm
- * produced a conclusive outcome.
+ * [verdict] is always present — one orchestrator run produces exactly one
+ * [DirectModeVerdict] variant.  A run where no arm reached a stable success
+ * (including a budget-exhausted run) yields a `NO_DIRECT_SOLUTION` verdict with
+ * a structured reason code derived from the diagnostic class.
  *
  * [armsExecuted] is the ordered list of arms that were actually launched
  * (may be shorter than the ranked list when the budget cut the run short).
@@ -73,10 +78,67 @@ data class OrchestratorResult(
     val diagnosticClass: DiagnosticClass,
     val rankedArms: List<CandidateArm>,
     val armsExecuted: List<CandidateArm>,
-    val verdict: DirectModeVerdict?,
+    val verdict: DirectModeVerdict,
     val stableSuccessReached: Boolean,
     val ownedStackPinConfirmed: Boolean,
 )
+
+/**
+ * Maps a finished Phase 4 execution into the single [DirectModeVerdict] for the
+ * run.  A transparent stable success wins over an owned-stack-only success;
+ * when neither was reached the verdict is `NO_DIRECT_SOLUTION` with a reason
+ * code derived from [diagnosticClass].
+ *
+ * This is pure outcome-to-verdict mapping — the dispatcher contains no
+ * detection logic; the success flags are produced by the injected arm executor.
+ */
+internal fun deriveOrchestratorVerdict(
+    diagnosticClass: DiagnosticClass,
+    transparentSuccess: Boolean,
+    ownedStackSuccess: Boolean,
+): DirectModeVerdict {
+    val transportClass = diagnosticClass.toDirectTransportClass()
+    return when {
+        transparentSuccess -> {
+            DirectModeVerdict(
+                result = DirectModeVerdictResult.TRANSPARENT_WORKS,
+                transportClass = transportClass,
+            )
+        }
+
+        ownedStackSuccess -> {
+            DirectModeVerdict(
+                result = DirectModeVerdictResult.OWNED_STACK_ONLY,
+                reasonCode = DirectModeReasonCode.OWNED_STACK_REQUIRED,
+                transportClass = transportClass,
+            )
+        }
+
+        else -> {
+            DirectModeVerdict(
+                result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                reasonCode = diagnosticClass.noDirectSolutionReason(),
+                transportClass = transportClass,
+            )
+        }
+    }
+}
+
+private fun DiagnosticClass.toDirectTransportClass(): DirectTransportClass? =
+    when (this) {
+        DiagnosticClass.SniTlsSuspect -> DirectTransportClass.SNI_TLS_SUSPECT
+        DiagnosticClass.QuicBlockSuspect -> DirectTransportClass.QUIC_BLOCK_SUSPECT
+        DiagnosticClass.IpBlockSuspect -> DirectTransportClass.IP_BLOCK_SUSPECT
+        DiagnosticClass.DnsBlock, DiagnosticClass.Unknown -> null
+    }
+
+private fun DiagnosticClass.noDirectSolutionReason(): DirectModeReasonCode =
+    when (this) {
+        DiagnosticClass.IpBlockSuspect -> DirectModeReasonCode.IP_BLOCKED
+        DiagnosticClass.QuicBlockSuspect -> DirectModeReasonCode.QUIC_BLOCKED
+        DiagnosticClass.SniTlsSuspect -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
+        DiagnosticClass.DnsBlock, DiagnosticClass.Unknown -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
+    }
 
 /**
  * Constant per-class candidate-arm table.

@@ -65,7 +65,12 @@ class DirectModeOrchestrator(
             diagnosticClass = diagnosticClass,
             rankedArms = rankedArms,
             armsExecuted = state.executed,
-            verdict = null,
+            verdict =
+                deriveOrchestratorVerdict(
+                    diagnosticClass = diagnosticClass,
+                    transparentSuccess = state.transparentSuccess,
+                    ownedStackSuccess = state.ownedStackSuccess,
+                ),
             stableSuccessReached = state.stableSuccessReached,
             ownedStackPinConfirmed = state.ownedStackPinConfirmed,
         )
@@ -77,6 +82,15 @@ private class ExecutionState {
     var totalBytes = 0L
     var stableSuccessReached = false
     var ownedStackPinConfirmed = false
+
+    /** A stable success was reached by a transparent-mode arm (no owned-stack pin). */
+    var transparentSuccess = false
+        private set
+
+    /** A stable success was reached by an owned-stack arm with a confirmed pin. */
+    var ownedStackSuccess = false
+        private set
+
     private var earlyStopTriggered = false
 
     /**
@@ -107,6 +121,7 @@ private class ExecutionState {
         if (pinConfirmed) ownedStackPinConfirmed = true
         if (!pinBlocked && result.stableSuccess) {
             stableSuccessReached = true
+            if (result.requiresOwnedStackPin) ownedStackSuccess = true else transparentSuccess = true
             earlyStopTriggered = budget.stopOnFirstStableSuccess
         }
     }
