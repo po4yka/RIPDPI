@@ -10,11 +10,18 @@
 //! "invalidate on app update" requirement. Callers are expected to supply the
 //! version code obtained from the Android package manager.
 //!
-//! # Integration note
-//! This module exposes a pure in-memory store. It should be consulted before
-//! applying `QuicMode::SoftDisable` for a package: if
-//! [`AppFamilyMemory::should_skip_soft_disable`] returns `true` the caller
-//! should not set soft-disable for that package.
+//! # Ownership / integration note
+//! This module is a pure in-memory **reference** store. As of the Direct-mode
+//! transport-policy-and-verdicts epic the **live owner** of per-app
+//! NO_TCP_FALLBACK suppression is the Kotlin service layer
+//! (`DirectPathPolicyLearner` consulting `NoTcpFallbackAppMemory`), because that
+//! is where Android package identity, package-update broadcasts, and version
+//! lookup are available. This type does not itself enforce any live Android
+//! policy. It documents the intended contract and stays test-validated so a
+//! future native policy owner (gated on per-flow UID->package attribution) can
+//! adopt it: consult [`AppFamilyMemory::should_skip_soft_disable`] before
+//! applying `QuicMode::SoftDisable` for a package and skip soft-disable when it
+//! returns `true`.
 
 use std::collections::HashMap;
 

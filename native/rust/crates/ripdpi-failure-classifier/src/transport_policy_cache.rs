@@ -1,5 +1,12 @@
 //! Per-`(host, ip_set, app_family, network_profile)` transport-policy cache.
 //!
+//! Ownership: this is a **reference** cache. The live owner of direct-mode
+//! transport policy on Android is the Kotlin service layer
+//! (`ServerCapabilityStore` + `DirectPathPolicyLearner`); this type does not
+//! itself enforce any live Android policy and is wired into no decision path
+//! yet. It stays test-validated for a future native policy owner gated on
+//! per-flow UID->package attribution.
+//!
 //! Sibling to the TLS family cache.  Shares the same invalidation rules:
 //!
 //! * ASN change — [`TransportPolicyCache::invalidate_on_asn_change`]
