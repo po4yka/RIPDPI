@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-29
 ---
 
 - [ ] #task Epic - Advanced routing rules and geoip enforcement #repo/RIPDPI #area/epic #status/backlog ⏫
@@ -58,10 +58,12 @@ Without a rule engine, users cannot express "bypass Russian domestic banking whi
 
 **Asset pipeline**
 - [[Add configurable asset provider picker with four presets]]
+- [[Add runetfreedom russia-v2ray-rules geoip preset]]
 
 **UI**
 - [[Add custom domain bypass list screen]]
 - [[Add full routing rule editor screen]]
+- [[Add per-app split tunnel picker screen]]
 
 ## Dependencies
 
@@ -80,4 +82,4 @@ Without a rule engine, users cannot express "bypass Russian domestic banking whi
 - [[ripdpi-android]]
 - Epic - Subscription and profile import
 - [[Epic - Settings backup and restore]]
-- Child issues: 8
+- Child issues: 10
