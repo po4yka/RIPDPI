@@ -10,10 +10,12 @@ package com.poyka.ripdpi.jni
  *    jniDestroy on the session retires the capture-set automatically.
  *  - jniPcapStop returns a JSON array of PcapCaptureMetadata (one
  *    entry per file written). Empty array if the session has no
- *    active capture.
+ *    active capture. Returns null if the native call panics; callers
+ *    treat null as an empty result.
  *  - jniPcapListCaptures returns a JSON array of best-effort metadata
  *    (filesystem size only; packet count NOT computed - call
- *    PcapReader to count packets per file).
+ *    PcapReader to count packets per file). Returns null if the
+ *    native call panics; callers treat null as an empty result.
  *  - jniPcapRedactToFile takes a SAF-provided fd that has had
  *    ParcelFileDescriptor.detachFd() called - NOT .fd() (which peeks).
  *    The fd is closed by Rust on completion. Returns bytes-written.
@@ -35,9 +37,9 @@ internal object PcapBridge {
         maxFiles: Int,
     ): Long
 
-    external fun jniPcapStop(sessionHandle: Long): String
+    external fun jniPcapStop(sessionHandle: Long): String?
 
-    external fun jniPcapListCaptures(captureDir: String): String
+    external fun jniPcapListCaptures(captureDir: String): String?
 
     /**
      * source  - absolute filesystem path to the .pcap to redact

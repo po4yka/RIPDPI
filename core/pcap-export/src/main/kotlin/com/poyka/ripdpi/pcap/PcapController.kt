@@ -98,11 +98,13 @@ class PcapController
 
             private val JSON = Json { ignoreUnknownKeys = true }
 
-            private fun decodeMetadataList(json: String): List<PcapCaptureMetadata> =
-                try {
+            private fun decodeMetadataList(json: String?): List<PcapCaptureMetadata> {
+                if (json == null) return emptyList()
+                return try {
                     JSON.decodeFromString(json)
                 } catch (_: Throwable) {
                     emptyList()
                 }
+            }
         }
     }
