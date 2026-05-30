@@ -28,6 +28,7 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
         "-X" => state.config.network.ipv6 = false,
         "-U" | "--no-udp" => state.config.network.udp = false,
         "-G" | "--http-connect" => state.config.network.http_connect = true,
+        "--mixed" => state.config.network.mixed = true,
         "-E" | "--transparent" => state.config.network.transparent = true,
         "-D" | "--daemon" => state.config.process.daemonize = true,
         "-w" | "--pidfile" => {

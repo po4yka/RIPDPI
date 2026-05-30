@@ -27,6 +27,7 @@ pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::
     match state.proxy_protocol_mode() {
         RuntimeProxyProtocolMode::Transparent => handle_transparent(client, state),
         RuntimeProxyProtocolMode::HttpConnect => handle_http_connect(client, state),
+        RuntimeProxyProtocolMode::Mixed { shadowsocks_enabled } => handle_mixed(client, state, shadowsocks_enabled),
         RuntimeProxyProtocolMode::BytePrefixed { shadowsocks_enabled } => {
             let mut first = [0u8; 1];
             client.read_exact(&mut first)?;
@@ -39,6 +40,39 @@ pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::
                 _ => Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported proxy protocol")),
             }
         }
+    }
+}
+
+/// Mixed inbound: one listener that speaks SOCKS5, SOCKS4 *and* HTTP CONNECT.
+///
+/// The first request byte selects the protocol. HTTP CONNECT is parsed from
+/// the start of the stream by [`read_http_connect_request`], so its leading
+/// byte must stay in the socket buffer — we therefore *peek* (non-consuming)
+/// to classify, then only consume the byte for the SOCKS/shadowsocks paths,
+/// whose handlers expect the version byte already read.
+fn handle_mixed(mut client: TcpStream, state: &RuntimeState, shadowsocks_enabled: bool) -> io::Result<()> {
+    let mut first = [0u8; 1];
+    let peeked = client.peek(&mut first)?;
+    if peeked == 0 {
+        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "empty mixed handshake"));
+    }
+
+    // 'C' (0x43) is the first byte of "CONNECT ...". Shadowsocks is a raw
+    // byte-prefixed protocol and never combines with HTTP, so it short-circuits.
+    if !shadowsocks_enabled && first[0] == b'C' {
+        return handle_http_connect(client, state);
+    }
+
+    // Consume the classified byte and dispatch like the byte-prefixed path.
+    let mut consumed = [0u8; 1];
+    client.read_exact(&mut consumed)?;
+    if shadowsocks_enabled {
+        return handle_shadowsocks(client, state, consumed[0]);
+    }
+    match consumed[0] {
+        0x04 => handle_socks4(client, state, consumed[0]),
+        0x05 => handle_socks5(client, state, consumed[0]),
+        _ => Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported proxy protocol")),
     }
 }
 

@@ -36,6 +36,11 @@ pub struct RuntimeNetworkSettings {
     pub udp: bool,
     pub transparent: bool,
     pub http_connect: bool,
+    /// Mixed inbound: a single listener that speaks SOCKS5, SOCKS4 *and*
+    /// HTTP CONNECT, dispatched by peeking the first request byte
+    /// (`0x05` → SOCKS5, `0x04` → SOCKS4, `'C'` → HTTP CONNECT). Distinct
+    /// from `http_connect`, which is an exclusive HTTP-only listener.
+    pub mixed: bool,
     pub shadowsocks: bool,
     pub delay_conn: bool,
     pub tfo: bool,

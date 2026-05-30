@@ -70,6 +70,7 @@ impl Default for RuntimeNetworkSettings {
             buffer_size: 16_384,
             transparent: false,
             http_connect: false,
+            mixed: false,
             shadowsocks: false,
             delay_conn: false,
             tfo: false,

@@ -10,6 +10,10 @@ pub fn http_connect_enabled(config: &RuntimeConfig) -> bool {
     config.network.http_connect
 }
 
+pub fn mixed_enabled(config: &RuntimeConfig) -> bool {
+    config.network.mixed
+}
+
 pub fn shadowsocks_enabled(config: &RuntimeConfig) -> bool {
     config.network.shadowsocks
 }
@@ -18,12 +22,21 @@ pub fn shadowsocks_enabled(config: &RuntimeConfig) -> bool {
 pub enum ProxyProtocolMode {
     Transparent,
     HttpConnect,
-    BytePrefixed { shadowsocks_enabled: bool },
+    /// Single listener that accepts SOCKS5/SOCKS4 *and* HTTP CONNECT,
+    /// chosen per-connection from the peeked first byte.
+    Mixed {
+        shadowsocks_enabled: bool,
+    },
+    BytePrefixed {
+        shadowsocks_enabled: bool,
+    },
 }
 
 pub fn proxy_protocol_mode(config: &RuntimeConfig) -> ProxyProtocolMode {
     if transparent_proxy_enabled(config) {
         ProxyProtocolMode::Transparent
+    } else if mixed_enabled(config) {
+        ProxyProtocolMode::Mixed { shadowsocks_enabled: shadowsocks_enabled(config) }
     } else if http_connect_enabled(config) {
         ProxyProtocolMode::HttpConnect
     } else {
@@ -96,6 +109,11 @@ mod tests {
 
         config.network.http_connect = true;
         assert_eq!(proxy_protocol_mode(&config), ProxyProtocolMode::HttpConnect);
+
+        // Mixed takes precedence over the exclusive HTTP-only listener and
+        // carries the byte-prefixed shadowsocks flag through.
+        config.network.mixed = true;
+        assert_eq!(proxy_protocol_mode(&config), ProxyProtocolMode::Mixed { shadowsocks_enabled: true });
 
         config.network.transparent = true;
         assert_eq!(proxy_protocol_mode(&config), ProxyProtocolMode::Transparent);

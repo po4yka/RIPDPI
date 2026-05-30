@@ -5,6 +5,7 @@ impl RuntimeState {
         match self.handshake_settings.protocol_mode {
             ProxyProtocolMode::Transparent => RuntimeProxyProtocolMode::Transparent,
             ProxyProtocolMode::HttpConnect => RuntimeProxyProtocolMode::HttpConnect,
+            ProxyProtocolMode::Mixed { shadowsocks_enabled } => RuntimeProxyProtocolMode::Mixed { shadowsocks_enabled },
             ProxyProtocolMode::BytePrefixed { shadowsocks_enabled } => {
                 RuntimeProxyProtocolMode::BytePrefixed { shadowsocks_enabled }
             }

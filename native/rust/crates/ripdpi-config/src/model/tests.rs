@@ -364,6 +364,7 @@ fn runtime_config_adapter_views_round_trip() {
         udp: false,
         transparent: true,
         http_connect: true,
+        mixed: true,
         shadowsocks: true,
         delay_conn: true,
         tfo: true,
@@ -695,6 +696,7 @@ fn default_network_settings_listen_port() {
     assert!(net.resolve);
     assert!(net.udp);
     assert!(!net.transparent);
+    assert!(!net.mixed);
     assert_eq!(net.max_open, 512);
     assert_eq!(net.buffer_size, 16_384);
 }

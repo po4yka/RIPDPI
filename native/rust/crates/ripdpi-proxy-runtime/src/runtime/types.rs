@@ -26,6 +26,7 @@ pub(super) fn runtime_classify_first_outbound_payload(
 pub(super) enum RuntimeProxyProtocolMode {
     Transparent,
     HttpConnect,
+    Mixed { shadowsocks_enabled: bool },
     BytePrefixed { shadowsocks_enabled: bool },
 }
 
