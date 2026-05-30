@@ -481,6 +481,62 @@ class StrategyPackServiceTest {
         }
 
     @Test
+    fun `refreshNow success cancels an in-flight automatic refresh before reseeding`() =
+        runTest {
+            val refreshStarted = CompletableDeferred<Unit>()
+            val refreshCancelled = CompletableDeferred<Unit>()
+            val repository =
+                FakeStrategyPackRepository(
+                    // Bundled snapshot => startup automatic refresh fires immediately (delay 0)
+                    // and suspends inside refreshSnapshot, leaving a genuinely in-flight job.
+                    initialSnapshot = bundledSnapshot(),
+                    clock = clock(),
+                    refreshOutcomes =
+                        ArrayDeque(
+                            listOf(
+                                RefreshOutcome.SuspendUntilCancelled(
+                                    started = refreshStarted,
+                                    cancelled = refreshCancelled,
+                                ),
+                                RefreshOutcome.Success(downloadedSnapshot(fetchedAt = 0L)),
+                            ),
+                        ),
+                )
+            val stateStore = InMemoryStrategyPackStateStore()
+            val service =
+                newService(
+                    repository = repository,
+                    stateStore = stateStore,
+                )
+
+            service.initialize()
+            runCurrent()
+            // Startup automatic refresh is now suspended inside refreshSnapshot (channel #1).
+            refreshStarted.await()
+            assertEquals(listOf("stable"), repository.refreshChannels)
+
+            // refreshNow consumes the Success outcome (channel #2) and, on success, reseeds the
+            // automatic schedule -- which must orderly cancel the orphaned in-flight startup job
+            // rather than leak it or let it double-publish.
+            service.refreshNow()
+            runCurrent()
+            refreshCancelled.await()
+            runCurrent()
+
+            assertEquals(listOf("stable", "stable"), repository.refreshChannels)
+            assertNull(stateStore.state.value.lastRefreshError)
+            // refreshNow's downloaded snapshot is published, not the orphaned job's.
+            assertEquals(StrategyPackCatalogSourceDownloaded, stateStore.state.value.snapshot.source)
+
+            // The reseed fires exactly once at the TTL boundary: the cancelled job did not resume
+            // (no extra channel) and the reseed did not double-schedule (channel count is exactly 3).
+            advanceTimeBy(testRefreshSuccessTtlMs)
+            runCurrent()
+            runCurrent()
+            assertEquals(listOf("stable", "stable", "stable"), repository.refreshChannels)
+        }
+
+    @Test
     fun `refresh backoff policy schedules ttl retry and manual reseed without repository details`() {
         val policy =
             StrategyPackRefreshBackoffPolicy(
