@@ -7,6 +7,7 @@ This directory indexes protocol and architecture decisions that should be treate
 | [ADR 0001: VLESS REALITY ECH Policy](0001-reality-ech.md) | Accepted | 2026-05-28 | VLESS Reality does not use real ECH. Only GREASE-only ECH parity may be considered by TLS profile policy; the outbound ECH facade remains separate from the Reality transport. |
 | [Snowflake Native Rust Port Decision](../architecture/snowflake-native-rust-decision.md) | Approved no-go | 2026-05-27 | Snowflake remains the external Go `ripdpi-snowflake` pluggable-transport binary. There is no native Rust `ripdpi-snowflake` crate under `native/rust/crates/`. |
 | [ADR 0002: Tor (Arti) Relay Backend Feasibility](0002-tor-feasibility.md) | Approved go (opt-in, bridge+PT only) | 2026-05-29 | The `arti-client`-backed `RelayKind::Tor` backend stays wired. Arti adds ~1.2 MiB of `.text` (arm64) and is linked unconditionally; the size gate is GO. No direct-bootstrap default, no UDP over Tor, not a default relay. |
+| [ADR 0003: Native Runtime-Readiness Push](0003-native-readiness-push.md) | Accepted | 2026-05-30 | Readiness is delivered by a one-shot `onRuntimeReady()` JNI callback (clone of the VPN-protect generation-token pattern), not the 50 ms telemetry poll. The poll stays as a fallback; the callback is a strict lifecycle-class one-shot, never reused for higher-frequency events. JNI symbol export + `jni-symbols.baseline` approval and on-device latency are gated to CI/device. |
 
 ## Cross-Link Rules
 
