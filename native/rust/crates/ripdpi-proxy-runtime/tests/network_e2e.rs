@@ -139,6 +139,31 @@ fn http_connect_round_trip_reaches_fixture() {
 }
 
 #[test]
+fn mixed_mode_serves_both_socks5_and_http_connect_on_one_port() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    // A single `--mixed` listener must accept both a SOCKS5 greeting (0x05)
+    // and an HTTP CONNECT request ('C') on the same port, dispatched by the
+    // peeked first byte.
+    let proxy = start_proxy(ephemeral_proxy_config(&["--mixed", "--ip", "127.0.0.1"]), None);
+    let echo_port = fixture.manifest().tcp_echo_port;
+
+    assert_eq!(
+        socks_connect_ip_round_trip_with_retry(proxy.port, echo_port, b"socks5 over mixed"),
+        b"socks5 over mixed",
+    );
+    assert_eq!(
+        http_connect_round_trip_with_retry(proxy.port, echo_port, b"http connect over mixed"),
+        b"http connect over mixed",
+    );
+
+    let events = fixture.events().snapshot();
+    let echoes = events.iter().filter(|event| event.service == "tcp_echo" && event.detail == "echo").count();
+    assert!(echoes >= 2, "expected both SOCKS5 and HTTP CONNECT flows to reach the echo fixture, saw {echoes}");
+    drop(proxy);
+}
+
+#[test]
 fn domain_resolution_policy_is_enforced_end_to_end() {
     if !nested_proxy_e2e_enabled() {
         eprintln!("skipping domain_resolution_policy_is_enforced_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1");
