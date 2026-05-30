@@ -14,6 +14,7 @@ from .common import (
 )
 from .extract import run_extract
 from .publish import publish_outputs
+from .simulate import scenario_ids, simulate_corpus
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,6 +59,29 @@ def parse_args() -> argparse.Namespace:
         default=str(DEFAULT_BLESSED_WINNER_MAPPING_CATALOG),
         help="Reviewed winner mapping catalog path.",
     )
+
+    simulate_parser = subparsers.add_parser(
+        "simulate",
+        help="Synthesize a deterministic offline-records corpus from named censor scenarios.",
+    )
+    simulate_parser.add_argument(
+        "--scenarios",
+        default=",".join(scenario_ids()),
+        help="Comma-separated censor scenario ids (default: all built-in scenarios).",
+    )
+    simulate_parser.add_argument(
+        "--seed",
+        type=int,
+        default=1337,
+        help="Deterministic RNG seed for record variation.",
+    )
+    simulate_parser.add_argument(
+        "--count",
+        type=int,
+        default=4,
+        help="Records to synthesize per scenario.",
+    )
+    simulate_parser.add_argument("--output", required=True, help="Output JSON path for simulated records.")
 
     bless_parser = subparsers.add_parser("bless", help="Promote candidate artifacts into reviewed repo assets.")
     bless_parser.add_argument("--device-catalog", required=True, help="Candidate device catalog JSON.")
@@ -149,6 +173,13 @@ def main() -> int:
             blessed_device_catalog_path=blessed_device,
             blessed_winner_mapping_path=blessed_winner,
         )
+        return 0
+    if args.command == "simulate":
+        scenario_id_list = [scenario.strip() for scenario in args.scenarios.split(",") if scenario.strip()]
+        if not scenario_id_list:
+            raise ValueError("No censor scenarios were provided.")
+        simulated = simulate_corpus(scenario_id_list, seed=args.seed, count=args.count)
+        write_json(Path(args.output).resolve(), simulated)
         return 0
     if args.command == "bless":
         bless_candidate_artifacts(
