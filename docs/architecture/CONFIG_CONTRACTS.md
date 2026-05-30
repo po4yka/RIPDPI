@@ -125,6 +125,37 @@ consumed by Rust `serde` — the two serializers must agree on every key.
 - The config-translation JSON is covered by golden tests — treat a golden diff
   as a wire-contract change ([`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md)).
 
+### System HTTP proxy service mode — listener fields
+
+The "System HTTP proxy service mode" feature adds two `listen`-section keys and
+a set of `AppSettings` proto fields. All are additive (Kotlin default + Rust
+`#[serde(default)]`), so older builds ignore them safely.
+
+- **`listen.mixed`** (`bool`, default `false`) → `RuntimeConfig.network.mixed`.
+  Turns the single local listener into a *mixed* inbound that serves SOCKS5,
+  SOCKS4 **and** HTTP CONNECT, dispatched by peeking the first request byte
+  (`0x05`→SOCKS5, `0x04`→SOCKS4, `'C'`→HTTP CONNECT). Mode precedence in the
+  adapter is `transparent > mixed > http_connect > byte_prefixed`. When mixed is
+  on and the user has not set an explicit port, the Kotlin mapper
+  (`buildListenConfig`) defaults the port to **2080** (mirroring the reference
+  `mixedPort`), leaving the plain-SOCKS **1080** default and its goldens intact.
+- **`listen.authToken`** (`String?`, default `null`) → listener auth token. The
+  native `apply_listen_section` **rejects any non-loopback `listen.ip` without a
+  non-empty `authToken`** — this guard is load-bearing and must not be removed.
+- **Allow-LAN** binds the listener to `0.0.0.0`. The UI toggle auto-generates a
+  128-bit hex access token and sends it as `listen.authToken`; `buildListenConfig`
+  only emits `0.0.0.0` when a token is present and otherwise **degrades to
+  loopback**. The token is a credential: never logged and **never written to
+  settings backups** (full or share), so a restored allow-LAN session falls back
+  to loopback until re-enabled.
+
+`AppSettings` proto fields: `mixed_inbound_enabled = 403`, `proxy_allow_lan = 404`,
+`proxy_lan_auth_token = 405` (never exported), `append_http_proxy = 406`.
+`append_http_proxy` is VPN-mode-only: on Android Q+ the `VpnService.Builder`
+calls `setHttpProxy(ProxyInfo.buildDirectProxy("127.0.0.1", <effective port>,
+["localhost","127.0.0.1","::1"]))`. The advertised port is the *effective
+listener port* (`effectiveListenerPort`, identical to `buildListenConfig`).
+
 ---
 
 ## 3. Rust config deserialization / defaulting rules

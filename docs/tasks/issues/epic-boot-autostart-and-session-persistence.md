@@ -54,7 +54,7 @@ Censorship-bypass clients are expected to be always-on. A user who reboots overn
 
 ## Dependencies
 
-- Depends on: [[Epic - System HTTP proxy service mode]] — receiver must resume whichever service mode was active, not default.
+- Depends on: System HTTP proxy service mode (shipped) — receiver must resume whichever service mode was active, not default.
 
 ## Risks / open questions
 
