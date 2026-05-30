@@ -113,7 +113,7 @@ ERROR: $1
 libXray packaging requires a Go + gomobile toolchain, which is NOT installed.
 This sandbox/CI lane cannot build the artifact; install locally and re-run:
 
-  1. Install Go (matching upstream libXray go.mod, currently go1.24+):
+  1. Install Go (matching upstream libXray go.mod, currently go1.26.2+):
        https://go.dev/dl/
 
   2. Install the gomobile bind toolchain pinned to:
@@ -142,6 +142,23 @@ ndk_home="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}"
 if [[ -z "$ndk_home" || ! -d "$ndk_home" ]]; then
     fail_toolchain "ANDROID_NDK_HOME / ANDROID_NDK_ROOT is unset or not a directory."
 fi
+
+# The Android NDK ships host toolchains for x86_64 only (linux-x86_64 /
+# darwin-x86_64). `gomobile bind` invokes the host clang, so the BUILD HOST must
+# be x86_64 — on arm64 Linux gomobile panics "unsupported GOARCH: arm64". On
+# Apple Silicon, run this lane in an x86_64 container (amd64 emulation) or on an
+# x86_64 CI runner. See docs/native/libxray-packaging.md § Host architecture.
+host_arch="$(uname -m)"
+case "$host_arch" in
+    x86_64 | amd64) ;;
+    *)
+        echo "ERROR: unsupported build host arch '$host_arch'." >&2
+        echo "       gomobile Android builds require an x86_64 host: the NDK ships" >&2
+        echo "       no linux-aarch64 host toolchain. Use an x86_64 CI runner or an" >&2
+        echo "       amd64 container (qemu emulation) on Apple Silicon." >&2
+        exit 69
+        ;;
+esac
 
 echo "libXray packaging toolchain OK:"
 echo "  go        $(go version)"

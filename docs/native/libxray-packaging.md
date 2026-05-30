@@ -21,6 +21,16 @@ The build script reads these pins and fails if libXray's `go.mod` vendors a
 different xray-core than `xray-core` declares (stable channel). The verify
 script fails if a produced artifact's manifest drifts from any pin.
 
+> **Versioning note (verified upstream 2026-05-30).** libXray uses **CalVer**
+> git tags (`vYY.M.D`, e.g. `v26.3.27`) that track xray-core — there is no
+> semver `1.x` line. The `xray-core` pin is the **go.mod module version** that
+> libXray vendors, which differs from the git tag: libXray `v26.3.27` vendors
+> `github.com/xtls/xray-core v1.260327.0` (tag `v26.3.27` ↔ module
+> `v1.260327.0`). The build script's drift gate compares the pin to the go.mod
+> value, so `xray-core` is pinned as `1.260327.0`. These pins were validated in
+> the container lane below (libXray clone + xray-core drift gate pass on
+> Go 1.26.3 / NDK 29).
+
 ## Stable vs canary update policy
 
 **Stable** (default; what ships):
@@ -68,6 +78,40 @@ Output (gitignored) lands in `native/xray/artifacts/`:
 - `libxray-artifact.json` — manifest the verify gate diffs against the pins
 
 Override the output dir with `RIPDPI_XRAY_AAR_DIR=...`.
+
+## Host architecture (x86_64 only)
+
+`gomobile bind` invokes the NDK **host** clang, and the Android NDK ships host
+toolchains for x86_64 only (`linux-x86_64` / `darwin-x86_64`) — there is no
+`linux-aarch64` prebuilt. On an arm64 Linux host gomobile aborts with
+`panic: unsupported GOARCH: arm64`. The build script guards this and exits
+non-zero on a non-x86_64 host before reaching gomobile.
+
+Consequences:
+
+- **x86_64 Linux / Intel mac / amd64 CI:** runs natively.
+- **Apple Silicon (arm64):** run the container lane below under amd64 emulation
+  (`--platform linux/amd64`, requires a working `binfmt`/`qemu-user`), or use an
+  x86_64 CI runner. The verify script (pure shell) runs on any arch.
+
+## Container build lane
+
+`scripts/native/libxray-build.Dockerfile` is the reproducible toolchain image
+(Go 1.26 + Android SDK 36 + NDK 29 + pinned gomobile). It was used to verify the
+pins above end-to-end (toolchain + libXray `v26.3.27` clone + xray-core drift
+gate) on 2026-05-30.
+
+```sh
+# Build the toolchain image (x86_64; add --platform linux/amd64 on Apple Silicon)
+docker build --platform linux/amd64 \
+  -f scripts/native/libxray-build.Dockerfile -t ripdpi/libxray-build .
+
+# Build + verify the AAR (worktree mounted read-only; artifacts in the container)
+docker run --rm --platform linux/amd64 -v "$PWD":/work:ro \
+  -e RIPDPI_XRAY_AAR_DIR=/artifacts ripdpi/libxray-build \
+  -c 'cd /work && bash scripts/native/build-libxray.sh \
+      && bash scripts/native/verify-libxray-artifacts.sh'
+```
 
 ## Verify (runs anywhere — pure shell, no Go needed)
 

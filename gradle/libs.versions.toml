@@ -80,9 +80,13 @@ glance = "1.1.1"
 #     reach a `release`/`bundle`/`publish` Gradle task — the verify script rejects
 #     a canary manifest in release-like builds.
 # See docs/native/libxray-packaging.md for the full runbook.
-libxray = "1.4.4"
-xray-core = "26.4.7"
-gomobile = "0.0.0-20250606033058-deba2f99dca6"
+# Verified against upstream 2026-05-30 in the gomobile container lane
+# (scripts/native/libxray-build.Dockerfile): libXray uses CalVer tags mirroring
+# xray-core; `xray-core` is the go.mod module version libXray v26.3.27 vendors
+# (git tag v26.3.27 == module v1.260327.0). libXray v26.x requires Go >= 1.26.2.
+libxray = "v26.3.27"
+xray-core = "1.260327.0"
+gomobile = "0.0.0-20260529142300-ecb4cd65260a"
 libxray-canary = "main"
 xray-core-canary = "main"
 
