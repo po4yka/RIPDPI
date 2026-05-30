@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "note": "Calibration fixture for the offline strategy simulator. Each entry pins the strategy-arm winner family that the named censor scenario's block model is expected to yield, so a correctly built simulator scores high agreement before any generated pack ships. These are SYNTHETIC stand-ins authored from the simulator's own block models, NOT a curated archive of real field captures -- there is no real field-failure archive yet. They give the calibration harness a fixed, privacy-clean target until such an archive is curated; replace `expectedWinnerFamily` / `fieldNote` with archive-derived values as real captures land. No real network identifiers (SSID/BSSID/IMEI/IMSI/carrier/location/device IP) appear here, only synthetic scenario ids.",
+  "entries": [
+    {
+      "scenarioId": "sni_block",
+      "expectedWinnerFamily": "tlsrec_split + quic_sni_split",
+      "fieldNote": "SNI keyword reset on the TLS ClientHello; TLS record split plus QUIC SNI split survives."
+    },
+    {
+      "scenarioId": "quic_udp443_block",
+      "expectedWinnerFamily": "disorder_host + quic_disabled",
+      "fieldNote": "QUIC UDP/443 throttled and dropped; TCP disorder with QUIC disabled survives."
+    },
+    {
+      "scenarioId": "rst_on_keyword",
+      "expectedWinnerFamily": "disorder_host + quic_disabled",
+      "fieldNote": "TCP RST injection on keyword match with 403 redirects; TCP disorder with QUIC disabled survives."
+    },
+    {
+      "scenarioId": "dns_poison",
+      "expectedWinnerFamily": "tlsrec_split + quic_sni_split",
+      "fieldNote": "Resolver injection / NXDOMAIN mismatch; encrypted DoH plus TLS record split survives."
+    },
+    {
+      "scenarioId": "tls_split",
+      "expectedWinnerFamily": "tlsrec_split + quic_sni_split",
+      "fieldNote": "TLS record fragmentation / version split; TLS record split plus QUIC SNI split survives."
+    }
+  ]
+}

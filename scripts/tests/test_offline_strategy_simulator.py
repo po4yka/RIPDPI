@@ -6,6 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scripts.analytics.calibrate import (
+    DEFAULT_CALIBRATION_FIXTURE,
+    load_calibration_fixture,
+    run_calibration,
+)
 from scripts.analytics.cluster import run_cluster
 from scripts.analytics.common import load_json
 from scripts.analytics.publish import publish_outputs
@@ -142,6 +147,49 @@ class OfflineStrategySimulatorTest(unittest.TestCase):
         for label in target_labels:
             self.assertRegex(label, r"^sim-target-\d+\.example$")
             self.assertNotIn("ssid", label.lower())
+
+
+class OfflineCalibrationHarnessTest(unittest.TestCase):
+    def test_builtin_fixture_achieves_perfect_agreement(self) -> None:
+        fixture = load_calibration_fixture(DEFAULT_CALIBRATION_FIXTURE)
+
+        report = run_calibration(fixture, seed=1337, count=6)
+
+        self.assertEqual(report["agreementScore"], 1.0)
+        self.assertEqual(report["matched"], report["entryCount"])
+        self.assertGreater(report["entryCount"], 0)
+        for entry in report["perEntry"]:
+            self.assertTrue(entry["agree"])
+            self.assertEqual(entry["simulated"], entry["expected"])
+
+    def test_wrong_expected_family_lowers_score_and_reports_disagreement(self) -> None:
+        fixture = {
+            "schemaVersion": 1,
+            "entries": [
+                {
+                    "scenarioId": "sni_block",
+                    "expectedWinnerFamily": "tlsrec_split + quic_sni_split",
+                    "fieldNote": "correct expectation",
+                },
+                {
+                    "scenarioId": "quic_udp443_block",
+                    "expectedWinnerFamily": "deliberately_wrong_family",
+                    "fieldNote": "intentionally mismatched to prove the harness scores it false",
+                },
+            ],
+        }
+
+        report = run_calibration(fixture, seed=1337, count=6)
+
+        self.assertEqual(report["entryCount"], 2)
+        self.assertEqual(report["matched"], 1)
+        self.assertLess(report["agreementScore"], 1.0)
+        wrong = next(
+            entry for entry in report["perEntry"] if entry["scenarioId"] == "quic_udp443_block"
+        )
+        self.assertFalse(wrong["agree"])
+        self.assertEqual(wrong["expected"], "deliberately_wrong_family")
+        self.assertNotEqual(wrong["simulated"], wrong["expected"])
 
 
 if __name__ == "__main__":

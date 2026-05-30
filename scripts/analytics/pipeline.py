@@ -4,6 +4,12 @@ import argparse
 from pathlib import Path
 
 from .bless import bless_candidate_artifacts
+from .calibrate import (
+    CALIBRATION_THRESHOLD,
+    DEFAULT_CALIBRATION_FIXTURE,
+    load_calibration_fixture,
+    run_calibration,
+)
 from .cluster import run_cluster
 from .common import (
     DEFAULT_BLESSED_DEVICE_FINGERPRINT_CATALOG,
@@ -119,6 +125,33 @@ def parse_args() -> argparse.Namespace:
         "--blessed-winner-catalog",
         default=str(DEFAULT_BLESSED_WINNER_MAPPING_CATALOG),
         help="Reviewed winner mapping catalog path.",
+    )
+
+    calibrate_parser = subparsers.add_parser(
+        "calibrate",
+        help="Score sim-to-field agreement against a fixture of known field failures.",
+    )
+    calibrate_parser.add_argument(
+        "--fixture",
+        default=str(DEFAULT_CALIBRATION_FIXTURE),
+        help="Known-field-failures fixture JSON path.",
+    )
+    calibrate_parser.add_argument(
+        "--seed",
+        type=int,
+        default=1337,
+        help="Deterministic RNG seed for the simulator.",
+    )
+    calibrate_parser.add_argument(
+        "--count",
+        type=int,
+        default=6,
+        help="Records to synthesize per scenario before winner selection.",
+    )
+    calibrate_parser.add_argument(
+        "--output",
+        default=None,
+        help="Optional output JSON path for the calibration report.",
     )
 
     bless_parser = subparsers.add_parser("bless", help="Promote candidate artifacts into reviewed repo assets.")
@@ -241,6 +274,19 @@ def main() -> int:
             provenance="simulated",
         )
         return 0
+    if args.command == "calibrate":
+        fixture = load_calibration_fixture(Path(args.fixture).resolve())
+        report = run_calibration(fixture, seed=args.seed, count=args.count)
+        if args.output:
+            write_json(Path(args.output).resolve(), report)
+        passed = report["agreementScore"] >= CALIBRATION_THRESHOLD
+        print(
+            f"calibrate: agreementScore={report['agreementScore']} "
+            f"({report['matched']}/{report['entryCount']}) "
+            f"threshold={CALIBRATION_THRESHOLD} "
+            f"{'PASS' if passed else 'FAIL'}"
+        )
+        return 0 if passed else 1
     if args.command == "bless":
         bless_candidate_artifacts(
             device_catalog_candidate=Path(args.device_catalog).resolve(),
