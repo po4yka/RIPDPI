@@ -46,6 +46,13 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 tunnel_credentials_json: flat.cloudflare_tunnel_credentials_json,
             }),
             "chain_relay" => RelayBackendConfig::ChainRelay(ChainRelayConfig {
+                // The v7 flat wire still carries the two-hop entry/exit field
+                // set, so the ordered hop list is left empty here and derived on
+                // demand by `ChainRelayConfig::ordered_hops` (which folds the
+                // entry/exit fields into a 2-element list). A populated `hops`
+                // list is supplied directly by in-process callers composing
+                // 3- or 4-hop chains.
+                hops: Vec::new(),
                 entry: flat.chain_entry.map(Box::new),
                 entry_server: flat.chain_entry_server,
                 entry_port: flat.chain_entry_port,

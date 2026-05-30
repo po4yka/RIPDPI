@@ -499,6 +499,173 @@ async fn chain_relay_routes_tcp_through_shadowsocks_entry_and_exit() {
     assert_eq!(echoed, PAYLOAD);
 }
 
+fn shadowsocks_hop(profile_id: &str, port: u16, password: &str) -> ResolvedChainRelayHopConfig {
+    ResolvedChainRelayHopConfig {
+        kind: "shadowsocks".to_string(),
+        profile_id: profile_id.to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: i32::from(port),
+        shadowsocks_method: Some("aes-256-gcm".to_string()),
+        shadowsocks_password: Some(password.to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }
+}
+
+#[tokio::test]
+async fn chain_relay_routes_tcp_through_three_shadowsocks_hops() {
+    const PAYLOAD: &[u8] = b"chain three-hop shadowsocks payload";
+
+    let entry = ShadowsocksLoopback::start("aes-256-gcm", "entry-secret").await.expect("start entry hop");
+    let middle = ShadowsocksLoopback::start("aes-256-gcm", "middle-secret").await.expect("start middle hop");
+    let exit = ShadowsocksLoopback::start("aes-256-gcm", "exit-secret").await.expect("start exit hop");
+
+    let mut config = sample_config("chain_relay");
+    chain_config_mut(&mut config).hops = vec![
+        shadowsocks_hop("ss-entry", entry.port(), "entry-secret"),
+        shadowsocks_hop("ss-middle", middle.port(), "middle-secret"),
+        shadowsocks_hop("ss-exit", exit.port(), "exit-secret"),
+    ];
+
+    let backend = build_backend(&config).await.expect("three-hop chain backend builds");
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), exit.target_port()));
+    let mut stream = backend.connect_tcp(&target).await.expect("connect through three-hop chain");
+    stream.write_all(PAYLOAD).await.expect("write three-hop payload");
+    let mut echoed = vec![0_u8; PAYLOAD.len()];
+    stream.read_exact(&mut echoed).await.expect("read three-hop payload");
+
+    assert_eq!(echoed, PAYLOAD);
+}
+
+#[tokio::test]
+async fn chain_relay_routes_tcp_through_four_shadowsocks_hops() {
+    const PAYLOAD: &[u8] = b"chain four-hop shadowsocks payload";
+
+    let entry = ShadowsocksLoopback::start("aes-256-gcm", "entry-secret").await.expect("start entry hop");
+    let middle_a = ShadowsocksLoopback::start("aes-256-gcm", "middle-a-secret").await.expect("start middle hop a");
+    let middle_b = ShadowsocksLoopback::start("aes-256-gcm", "middle-b-secret").await.expect("start middle hop b");
+    let exit = ShadowsocksLoopback::start("aes-256-gcm", "exit-secret").await.expect("start exit hop");
+
+    let mut config = sample_config("chain_relay");
+    chain_config_mut(&mut config).hops = vec![
+        shadowsocks_hop("ss-entry", entry.port(), "entry-secret"),
+        shadowsocks_hop("ss-middle-a", middle_a.port(), "middle-a-secret"),
+        shadowsocks_hop("ss-middle-b", middle_b.port(), "middle-b-secret"),
+        shadowsocks_hop("ss-exit", exit.port(), "exit-secret"),
+    ];
+
+    let backend = build_backend(&config).await.expect("four-hop chain backend builds");
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), exit.target_port()));
+    let mut stream = backend.connect_tcp(&target).await.expect("connect through four-hop chain");
+    stream.write_all(PAYLOAD).await.expect("write four-hop payload");
+    let mut echoed = vec![0_u8; PAYLOAD.len()];
+    stream.read_exact(&mut echoed).await.expect("read four-hop payload");
+
+    assert_eq!(echoed, PAYLOAD);
+}
+
+#[tokio::test]
+async fn chain_relay_builds_three_heterogeneous_hops() {
+    // VLESS entry -> Trojan middle -> Shadowsocks exit: exercises the
+    // entry-connect + two chained connect_over folds across mixed kinds.
+    let mut config = sample_config("chain_relay");
+    chain_config_mut(&mut config).hops = vec![
+        ResolvedChainRelayHopConfig {
+            kind: "vless_reality".to_string(),
+            profile_id: "vless-entry".to_string(),
+            server: "127.0.0.1".to_string(),
+            server_port: 443,
+            server_name: "entry.example".to_string(),
+            reality_public_key: valid_reality_public_key(),
+            reality_short_id: String::new(),
+            vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
+            ..ResolvedChainRelayHopConfig::default()
+        },
+        ResolvedChainRelayHopConfig {
+            kind: "trojan".to_string(),
+            profile_id: "trojan-middle".to_string(),
+            server: "127.0.0.1".to_string(),
+            server_port: 8443,
+            server_name: "middle.example".to_string(),
+            trojan_password: Some("middle-secret".to_string()),
+            ..ResolvedChainRelayHopConfig::default()
+        },
+        shadowsocks_hop("ss-exit", 9443, "exit-secret"),
+    ];
+
+    let backend = build_backend(&config).await.expect("three heterogeneous hops build");
+    assert_eq!(Some("chain_relay"), relay_backend_kind_id(&backend));
+}
+
+#[tokio::test]
+async fn chain_relay_rejects_single_hop_chain() {
+    let mut config = sample_config("chain_relay");
+    chain_config_mut(&mut config).hops = vec![shadowsocks_hop("ss-only", 443, "secret")];
+
+    let result = build_backend(&config).await;
+    let error = result.err().expect("a one-hop chain must be rejected");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+}
+
+#[tokio::test]
+async fn chain_relay_rejects_five_hop_chain() {
+    let mut config = sample_config("chain_relay");
+    chain_config_mut(&mut config).hops =
+        (0..5).map(|index| shadowsocks_hop(&format!("ss-{index}"), 443 + index, "secret")).collect();
+
+    let result = build_backend(&config).await;
+    let error = result.err().expect("a five-hop chain must be rejected");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+}
+
+#[tokio::test]
+async fn chain_relay_rejects_quic_kind_as_non_entry_hop() {
+    // Hysteria2 can only be the entry hop; as a middle hop nothing can tunnel
+    // through it, so the build must reject it.
+    let mut config = sample_config("chain_relay");
+    chain_config_mut(&mut config).hops = vec![
+        shadowsocks_hop("ss-entry", 443, "entry-secret"),
+        ResolvedChainRelayHopConfig {
+            kind: "hysteria2".to_string(),
+            profile_id: "hysteria-middle".to_string(),
+            server: "127.0.0.1".to_string(),
+            server_port: 8443,
+            server_name: "middle.example".to_string(),
+            hysteria_password: Some("middle-secret".to_string()),
+            ..ResolvedChainRelayHopConfig::default()
+        },
+        shadowsocks_hop("ss-exit", 9443, "exit-secret"),
+    ];
+
+    let result = build_backend(&config).await;
+    let error = result.err().expect("QUIC middle hop must be rejected");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+}
+
+#[test]
+fn chain_relay_hop_count_bounds_match_kotlin_model() {
+    assert_eq!(2, crate::config::CHAIN_RELAY_MIN_HOPS);
+    assert_eq!(4, crate::config::CHAIN_RELAY_MAX_HOPS);
+    assert!(ChainRelayConfig::validate_hop_count(2).is_ok());
+    assert!(ChainRelayConfig::validate_hop_count(4).is_ok());
+    assert!(ChainRelayConfig::validate_hop_count(1).is_err());
+    assert!(ChainRelayConfig::validate_hop_count(5).is_err());
+}
+
+#[test]
+fn chain_relay_ordered_hops_folds_legacy_entry_exit_when_list_is_empty() {
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.entry_server = "entry.example".to_string();
+    chain.entry_server_name = "entry.example".to_string();
+    chain.exit_server = "exit.example".to_string();
+    chain.exit_server_name = "exit.example".to_string();
+
+    let ordered = chain.ordered_hops();
+    assert_eq!(2, ordered.len());
+    assert_eq!("entry.example", ordered[0].server);
+    assert_eq!("exit.example", ordered[1].server);
+}
+
 #[tokio::test]
 async fn chain_relay_builds_anytls_entry_shadowsocks_exit_from_resolved_hops() {
     let mut config = sample_config("chain_relay");

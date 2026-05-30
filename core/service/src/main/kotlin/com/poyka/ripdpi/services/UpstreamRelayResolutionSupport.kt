@@ -44,11 +44,25 @@ internal data class ResolvedChainRelayHop(
     val config: ResolvedChainRelayHopConfig,
 )
 
+/**
+ * The resolved hops of a composed chain, in order. [hops] is the N-hop source
+ * of truth (`hops.first()` is the entry, `hops.last()` is the exit); [entry] and
+ * [exit] are convenience accessors over it for the two-hop call sites. The
+ * [trustWarning] reports per-pair shared trust domains, missing trust domains,
+ * and the cumulative latency caveat (hop count) across every hop — see
+ * [detectRelayChainTrustWarning].
+ */
 internal data class ResolvedChainRelayConfig(
-    val entry: ResolvedChainRelayHop,
-    val exit: ResolvedChainRelayHop,
-    val trustWarning: RelayTrustDomainWarning? = detectRelayChainTrustWarning(entry.trustDomain, exit.trustDomain),
-)
+    val hops: List<ResolvedChainRelayHop>,
+    val trustWarning: RelayTrustDomainWarning? = detectRelayChainTrustWarning(hops.map { it.trustDomain }),
+) {
+    init {
+        require(hops.size >= 2) { "A chain relay must resolve at least two hops, got ${hops.size}" }
+    }
+
+    val entry: ResolvedChainRelayHop get() = hops.first()
+    val exit: ResolvedChainRelayHop get() = hops.last()
+}
 
 internal suspend fun resolveChainRelayConfigSupport(
     chainProfileId: String,
@@ -58,33 +72,34 @@ internal suspend fun resolveChainRelayConfigSupport(
     relayCredentialStore: RelayCredentialStore,
 ): ResolvedChainRelayConfig =
     ResolvedChainRelayConfig(
-        entry =
-            resolveChainRelayHopSupport(
-                hopName = "entry",
-                chainProfileId = chainProfileId,
-                profileId = config.chainEntryProfileId,
-                legacyServer = config.chainEntryServer,
-                legacyServerPort = config.chainEntryPort,
-                legacyServerName = config.chainEntryServerName,
-                legacyPublicKey = config.chainEntryPublicKey,
-                legacyShortId = config.chainEntryShortId,
-                legacyUuid = credentials?.chainEntryUuid,
-                relayProfileStore = relayProfileStore,
-                relayCredentialStore = relayCredentialStore,
-            ),
-        exit =
-            resolveChainRelayHopSupport(
-                hopName = "exit",
-                chainProfileId = chainProfileId,
-                profileId = config.chainExitProfileId,
-                legacyServer = config.chainExitServer,
-                legacyServerPort = config.chainExitPort,
-                legacyServerName = config.chainExitServerName,
-                legacyPublicKey = config.chainExitPublicKey,
-                legacyShortId = config.chainExitShortId,
-                legacyUuid = credentials?.chainExitUuid,
-                relayProfileStore = relayProfileStore,
-                relayCredentialStore = relayCredentialStore,
+        hops =
+            listOf(
+                resolveChainRelayHopSupport(
+                    hopName = "entry",
+                    chainProfileId = chainProfileId,
+                    profileId = config.chainEntryProfileId,
+                    legacyServer = config.chainEntryServer,
+                    legacyServerPort = config.chainEntryPort,
+                    legacyServerName = config.chainEntryServerName,
+                    legacyPublicKey = config.chainEntryPublicKey,
+                    legacyShortId = config.chainEntryShortId,
+                    legacyUuid = credentials?.chainEntryUuid,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
+                ),
+                resolveChainRelayHopSupport(
+                    hopName = "exit",
+                    chainProfileId = chainProfileId,
+                    profileId = config.chainExitProfileId,
+                    legacyServer = config.chainExitServer,
+                    legacyServerPort = config.chainExitPort,
+                    legacyServerName = config.chainExitServerName,
+                    legacyPublicKey = config.chainExitPublicKey,
+                    legacyShortId = config.chainExitShortId,
+                    legacyUuid = credentials?.chainExitUuid,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
+                ),
             ),
     )
 

@@ -1,5 +1,26 @@
+/// The minimum and maximum number of hops a composed chain may carry.
+///
+/// Mirrors the Kotlin `RelayChainHopBounds` (min 2, max 4). The native
+/// composition rejects a hop list outside this inclusive range so a malformed
+/// runtime config cannot fold into a zero- or one-hop "chain" (which would be a
+/// plain relay) nor an unbounded fan-out.
+pub const CHAIN_RELAY_MIN_HOPS: usize = 2;
+pub const CHAIN_RELAY_MAX_HOPS: usize = 4;
+
+/// Resolved chain-relay backend config.
+///
+/// The ordered [`hops`](Self::hops) list is the N-hop source of truth: when it
+/// is non-empty the composition folds across it in order (`hops[0]` is the
+/// entry that opens the single real outbound socket; every later hop tunnels
+/// through the prior hop's stream and opens no new OS socket). When `hops` is
+/// empty the legacy two-hop scalar/`entry`+`exit` fields are folded into a
+/// 2-element list by [`ordered_hops`](Self::ordered_hops), preserving the v6
+/// wire shape losslessly.
 #[derive(Debug, Clone, Default)]
 pub struct ChainRelayConfig {
+    /// Ordered N-hop list (min 2, max 4 once validated). Empty means "fold the
+    /// legacy entry/exit fields below into a 2-hop list".
+    pub hops: Vec<ResolvedChainRelayHopConfig>,
     pub entry: Option<Box<ResolvedChainRelayHopConfig>>,
     pub entry_server: String,
     pub entry_port: i32,
@@ -16,6 +37,82 @@ pub struct ChainRelayConfig {
     pub exit_short_id: String,
     pub exit_profile_id: String,
     pub exit_uuid: Option<String>,
+}
+
+impl ChainRelayConfig {
+    /// The effective ordered hop list the composition folds across.
+    ///
+    /// Returns [`hops`](Self::hops) verbatim when it is non-empty; otherwise
+    /// folds the legacy `entry`/`exit` resolved hops (or, failing those, the
+    /// flat legacy VLESS scalar fields) into an ordered 2-element list. The
+    /// returned list is *not* yet bounds-checked — callers run
+    /// [`validate_hop_count`](Self::validate_hop_count).
+    #[must_use]
+    pub fn ordered_hops(&self) -> Vec<ResolvedChainRelayHopConfig> {
+        if !self.hops.is_empty() {
+            return self.hops.clone();
+        }
+        vec![self.legacy_entry_hop(), self.legacy_exit_hop()]
+    }
+
+    /// Number of hops the composition would fold across, for diagnostics and
+    /// bounds checks.
+    #[must_use]
+    pub fn hop_count(&self) -> usize {
+        if self.hops.is_empty() {
+            CHAIN_RELAY_MIN_HOPS
+        } else {
+            self.hops.len()
+        }
+    }
+
+    /// Reject a hop list outside `[CHAIN_RELAY_MIN_HOPS, CHAIN_RELAY_MAX_HOPS]`.
+    pub fn validate_hop_count(count: usize) -> std::io::Result<()> {
+        if (CHAIN_RELAY_MIN_HOPS..=CHAIN_RELAY_MAX_HOPS).contains(&count) {
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "chain relay must compose {CHAIN_RELAY_MIN_HOPS}..={CHAIN_RELAY_MAX_HOPS} hops, got {count}"
+                ),
+            ))
+        }
+    }
+
+    fn legacy_entry_hop(&self) -> ResolvedChainRelayHopConfig {
+        if let Some(entry) = self.entry.as_deref() {
+            return entry.clone();
+        }
+        ResolvedChainRelayHopConfig {
+            kind: "vless_reality".to_string(),
+            profile_id: self.entry_profile_id.clone(),
+            server: self.entry_server.clone(),
+            server_port: self.entry_port,
+            server_name: self.entry_server_name.clone(),
+            reality_public_key: self.entry_public_key.clone(),
+            reality_short_id: self.entry_short_id.clone(),
+            vless_uuid: self.entry_uuid.clone(),
+            ..ResolvedChainRelayHopConfig::default()
+        }
+    }
+
+    fn legacy_exit_hop(&self) -> ResolvedChainRelayHopConfig {
+        if let Some(exit) = self.exit.as_deref() {
+            return exit.clone();
+        }
+        ResolvedChainRelayHopConfig {
+            kind: "vless_reality".to_string(),
+            profile_id: self.exit_profile_id.clone(),
+            server: self.exit_server.clone(),
+            server_port: self.exit_port,
+            server_name: self.exit_server_name.clone(),
+            reality_public_key: self.exit_public_key.clone(),
+            reality_short_id: self.exit_short_id.clone(),
+            vless_uuid: self.exit_uuid.clone(),
+            ..ResolvedChainRelayHopConfig::default()
+        }
+    }
 }
 
 fn default_chain_hop_server_port() -> i32 {

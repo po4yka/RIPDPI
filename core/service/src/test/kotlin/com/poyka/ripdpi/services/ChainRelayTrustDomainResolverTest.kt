@@ -9,8 +9,10 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayTrustDomain
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.detectRelayChainTrustWarning
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -304,6 +306,60 @@ class ChainRelayTrustDomainResolverTest {
                 )
             }
         }
+
+    @Test
+    fun `detect chain trust warning scans every hop pair across an N-hop chain`() {
+        val warning =
+            detectRelayChainTrustWarning(
+                listOf(
+                    RelayTrustDomain(jurisdiction = "US", operatorName = "Acme Entry"),
+                    RelayTrustDomain(jurisdiction = "NL", operatorName = "Transit Co"),
+                    RelayTrustDomain(jurisdiction = "us", operatorName = "Final Exit"),
+                ),
+            )
+
+        // hops[0] and hops[2] share the US jurisdiction even though they are not
+        // adjacent, so the per-pair scan must surface it.
+        assertNotNull(warning)
+        assertEquals("US", warning?.sharedJurisdiction)
+        assertEquals(null, warning?.sharedOperatorName)
+        // Cumulative latency caveat is the hop count: three sequential hops.
+        assertEquals(3, warning?.cumulativeLatencyHops)
+    }
+
+    @Test
+    fun `detect chain trust warning is silent for a clean four-hop chain`() {
+        val warning =
+            detectRelayChainTrustWarning(
+                listOf(
+                    RelayTrustDomain(jurisdiction = "US", operatorName = "Op A"),
+                    RelayTrustDomain(jurisdiction = "NL", operatorName = "Op B"),
+                    RelayTrustDomain(jurisdiction = "DE", operatorName = "Op C"),
+                    RelayTrustDomain(jurisdiction = "JP", operatorName = "Op D"),
+                ),
+            )
+
+        assertEquals(null, warning)
+    }
+
+    @Test
+    fun `detect chain trust warning flags a missing middle hop trust domain and carries hop count`() {
+        val warning =
+            detectRelayChainTrustWarning(
+                listOf(
+                    RelayTrustDomain(jurisdiction = "US", operatorName = "Op A"),
+                    RelayTrustDomain(jurisdiction = "", operatorName = ""),
+                    RelayTrustDomain(jurisdiction = "JP", operatorName = "Op C"),
+                ),
+            )
+
+        assertNotNull(warning)
+        // Entry (first) and exit (last) carry complete trust domains; only the
+        // middle hop is incomplete, which still raises a warning with the caveat.
+        assertEquals(false, warning?.missingEntryTrustDomain)
+        assertEquals(false, warning?.missingExitTrustDomain)
+        assertEquals(3, warning?.cumulativeLatencyHops)
+    }
 
     private suspend fun entryCredentialStore(): TestRelayCredentialStore =
         TestRelayCredentialStore().apply {

@@ -5,7 +5,7 @@ use crate::config::{RelayKind, ResolvedRelayRuntimeConfig};
 use crate::runtime_validation::{
     describe_runtime_health, describe_upstream, planned_backend_capabilities, planned_backend_fallback_mode,
 };
-use crate::telemetry::{now_ms, RelayTelemetry};
+use crate::telemetry::{now_ms, ChainHopTelemetrySnapshot, RelayTelemetry};
 
 pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
     let backend = runtime.state.backend();
@@ -35,14 +35,14 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
         last_handshake_error: runtime.state.last_handshake_error(),
         chain_entry_state: chain_hops
             .as_ref()
-            .and_then(|snapshot| snapshot.entry_state.clone())
+            .and_then(ChainHopTelemetrySnapshot::entry_state)
             .or_else(|| chain_state(&runtime.config, is_running)),
-        chain_entry_latency_ms: chain_hops.as_ref().and_then(|snapshot| snapshot.entry_latency_ms),
+        chain_entry_latency_ms: chain_hops.as_ref().and_then(ChainHopTelemetrySnapshot::entry_latency_ms),
         chain_exit_state: chain_hops
             .as_ref()
-            .and_then(|snapshot| snapshot.exit_state.clone())
+            .and_then(ChainHopTelemetrySnapshot::exit_state)
             .or_else(|| chain_state(&runtime.config, is_running)),
-        chain_exit_latency_ms: chain_hops.as_ref().and_then(|snapshot| snapshot.exit_latency_ms),
+        chain_exit_latency_ms: chain_hops.as_ref().and_then(ChainHopTelemetrySnapshot::exit_latency_ms),
         strategy_pack_id: None,
         strategy_pack_version: None,
         tls_profile_id: Some(runtime.config.common.tls_fingerprint_profile.clone()),

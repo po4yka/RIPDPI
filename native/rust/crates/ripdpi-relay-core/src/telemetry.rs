@@ -23,18 +23,53 @@ pub struct TcpConnectObservation {
     pub succeeded: bool,
 }
 
-#[derive(Debug, Clone, Copy)]
+/// The role a hop plays in an ordered N-hop chain.
+///
+/// `Hop(0)` is the entry (opens the single real outbound socket); the highest
+/// index is the exit. Indices in between are intermediate tunnelling hops. The
+/// legacy two-hop telemetry surface (`chain_entry_*` / `chain_exit_*`) is still
+/// projected from index `0` and the last index respectively — see
+/// [`ChainHopTelemetrySnapshot::entry_state`] and friends.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ChainHopRole {
-    Entry,
-    Exit,
+    Hop(usize),
 }
 
+/// Per-hop connect telemetry for an N-hop chain.
+///
+/// `hops[i]` carries the `(state, latency_ms)` of the hop at index `i`. The
+/// `entry_*` / `exit_*` accessors project the first and last recorded hop so
+/// the existing two-field wire telemetry stays populated without a schema bump.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ChainHopTelemetrySnapshot {
-    pub entry_state: Option<String>,
-    pub entry_latency_ms: Option<u64>,
-    pub exit_state: Option<String>,
-    pub exit_latency_ms: Option<u64>,
+    /// Dense per-hop `(state, latency_ms)` keyed by hop index; grown on demand.
+    hops: Vec<Option<(String, Option<u64>)>>,
+}
+
+impl ChainHopTelemetrySnapshot {
+    fn hop(&self, index: usize) -> Option<&(String, Option<u64>)> {
+        self.hops.get(index).and_then(Option::as_ref)
+    }
+
+    pub fn entry_state(&self) -> Option<String> {
+        self.hop(0).map(|(state, _)| state.clone())
+    }
+
+    pub fn entry_latency_ms(&self) -> Option<u64> {
+        self.hop(0).and_then(|(_, latency)| *latency)
+    }
+
+    fn exit_index(&self) -> Option<usize> {
+        self.hops.iter().rposition(Option::is_some)
+    }
+
+    pub fn exit_state(&self) -> Option<String> {
+        self.exit_index().and_then(|index| self.hop(index)).map(|(state, _)| state.clone())
+    }
+
+    pub fn exit_latency_ms(&self) -> Option<u64> {
+        self.exit_index().and_then(|index| self.hop(index)).and_then(|(_, latency)| *latency)
+    }
 }
 
 #[derive(Clone, Default)]
@@ -46,16 +81,11 @@ impl ChainHopTelemetryState {
     pub(crate) fn record(&self, role: ChainHopRole, state: &str, latency_ms: Option<u64>) {
         // Recover from a poisoned lock: a panicked holder must not permanently brick telemetry.
         let mut snapshot = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        match role {
-            ChainHopRole::Entry => {
-                snapshot.entry_state = Some(state.to_string());
-                snapshot.entry_latency_ms = latency_ms;
-            }
-            ChainHopRole::Exit => {
-                snapshot.exit_state = Some(state.to_string());
-                snapshot.exit_latency_ms = latency_ms;
-            }
+        let ChainHopRole::Hop(index) = role;
+        if snapshot.hops.len() <= index {
+            snapshot.hops.resize(index + 1, None);
         }
+        snapshot.hops[index] = Some((state.to_string(), latency_ms));
     }
 
     pub(crate) fn snapshot(&self) -> ChainHopTelemetrySnapshot {

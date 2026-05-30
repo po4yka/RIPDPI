@@ -5,29 +5,37 @@ use crate::backend::builder::builders::common::vless_reality_config;
 use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{ChainRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayRuntimeConfig};
-use crate::protocols::{ChainEntryConnector, ChainExitConnector, ChainRelaySessionFactory};
+use crate::protocols::{ChainHopConnector, ChainRelaySessionFactory};
 use crate::telemetry::{ChainHopTelemetryState, QuicMigrationTelemetryState};
 
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::ChainRelay(chain) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected chain relay config"));
     };
-    let entry = chain_entry_connector(
-        chain,
-        &config.common.tls_fingerprint_profile,
-        context.outbound_bind_ip,
-        context.quic_migration.clone(),
-    )?;
-    let exit = chain_exit_connector(chain, &config.common.tls_fingerprint_profile)?;
+
+    let ordered = chain.ordered_hops();
+    ChainRelayConfig::validate_hop_count(ordered.len())?;
+    let last_index = ordered.len() - 1;
+
+    // Fold the ordered hop list into one connector per hop. Only the entry hop
+    // (index 0) may carry the outbound bind IP — the relay data plane's
+    // protect-equivalent — and only it opens a real outbound socket; every later
+    // hop tunnels through the prior hop and is built without a bind IP so it can
+    // never silently open an unbound, TUN-routed socket. The exit hop (last
+    // index) additionally rejects QUIC-only kinds, which cannot terminate a
+    // chain because nothing can tunnel through them.
+    let hops = ordered
+        .iter()
+        .enumerate()
+        .map(|(index, hop)| {
+            let position = HopPosition::new(index, last_index);
+            chain_hop_connector(hop, position, context.outbound_bind_ip, context.quic_migration.clone())
+        })
+        .collect::<io::Result<Vec<_>>>()?;
 
     let telemetry = ChainHopTelemetryState::default();
     let backend = PooledRelayBackend::new(
-        ChainRelaySessionFactory {
-            entry,
-            exit,
-            outbound_bind_ip: context.outbound_bind_ip,
-            telemetry: telemetry.clone(),
-        },
+        ChainRelaySessionFactory { hops, outbound_bind_ip: context.outbound_bind_ip, telemetry: telemetry.clone() },
         context.pool_config,
         None,
     );
@@ -35,83 +43,88 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     Ok(RelayBackend::ChainRelay { backend, telemetry })
 }
 
+/// A hop's position within the ordered chain, used for role-specific validation
+/// and diagnostics labels.
 #[derive(Clone, Copy)]
-enum ChainHopRole {
-    Entry,
-    Exit,
+struct HopPosition {
+    index: usize,
+    last_index: usize,
 }
 
-impl ChainHopRole {
-    fn label(self) -> &'static str {
-        match self {
-            Self::Entry => "entry",
-            Self::Exit => "exit",
+impl HopPosition {
+    fn new(index: usize, last_index: usize) -> Self {
+        Self { index, last_index }
+    }
+
+    fn is_entry(self) -> bool {
+        self.index == 0
+    }
+
+    fn is_exit(self) -> bool {
+        self.index == self.last_index
+    }
+
+    /// Human-readable label for error messages: `entry`, `exit`, or `hop N`.
+    fn label(self) -> String {
+        if self.is_entry() {
+            "entry".to_string()
+        } else if self.is_exit() {
+            "exit".to_string()
+        } else {
+            format!("hop {}", self.index)
         }
     }
 }
 
-fn chain_entry_connector(
-    chain: &ChainRelayConfig,
-    default_tls_fingerprint_profile: &str,
+fn chain_hop_connector(
+    hop: &ResolvedChainRelayHopConfig,
+    position: HopPosition,
     outbound_bind_ip: Option<IpAddr>,
     quic_migration: QuicMigrationTelemetryState,
-) -> io::Result<ChainEntryConnector> {
-    let Some(hop) = chain.entry.as_deref() else {
-        return legacy_hop_vless_reality_config(chain, ChainHopRole::Entry, default_tls_fingerprint_profile)
-            .map(ChainEntryConnector::VlessReality);
-    };
+) -> io::Result<ChainHopConnector> {
+    let label = position.label();
+    // Only the entry hop creates a real outbound socket, so only it may carry an
+    // outbound bind IP. Hand `None` to every later hop's factory.
+    let hop_bind_ip = if position.is_entry() { outbound_bind_ip } else { None };
+
     match hop.kind.as_str() {
-        "vless_reality" => {
-            resolved_hop_vless_reality_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::VlessReality)
-        }
-        "masque" => resolved_hop_masque_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::Masque),
-        "trojan" => resolved_hop_trojan_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::Trojan),
-        "anytls" => resolved_hop_anytls_config(hop, ChainHopRole::Entry).map(ChainEntryConnector::AnyTls),
-        "shadowsocks" => resolved_hop_shadowsocks_factory(hop, ChainHopRole::Entry, outbound_bind_ip)
-            .map(ChainEntryConnector::Shadowsocks),
-        "shadowtls_v3" => resolved_hop_shadowtls_factory(hop, ChainHopRole::Entry).map(ChainEntryConnector::ShadowTls),
+        "vless_reality" => resolved_hop_vless_reality_config(hop, &label).map(ChainHopConnector::VlessReality),
+        "masque" => resolved_hop_masque_config(hop, &label).map(ChainHopConnector::Masque),
+        "trojan" => resolved_hop_trojan_config(hop, &label).map(ChainHopConnector::Trojan),
+        "anytls" => resolved_hop_anytls_config(hop, &label).map(ChainHopConnector::AnyTls),
+        "shadowsocks" => resolved_hop_shadowsocks_factory(hop, &label, hop_bind_ip).map(ChainHopConnector::Shadowsocks),
+        "shadowtls_v3" => resolved_hop_shadowtls_factory(hop, &label).map(ChainHopConnector::ShadowTls),
         "hysteria2" => {
-            resolved_hop_hysteria2_factory(hop, ChainHopRole::Entry, quic_migration).map(ChainEntryConnector::Hysteria2)
+            reject_quic_non_entry(position, &label, "Hysteria2")?;
+            resolved_hop_hysteria2_factory(hop, &label, quic_migration).map(ChainHopConnector::Hysteria2)
         }
-        "tuic_v5" => resolved_hop_tuic_factory(hop, ChainHopRole::Entry, quic_migration).map(ChainEntryConnector::Tuic),
+        "tuic_v5" => {
+            reject_quic_non_entry(position, &label, "TUIC")?;
+            resolved_hop_tuic_factory(hop, &label, quic_migration).map(ChainHopConnector::Tuic)
+        }
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            format!("chain entry: resolved hop kind {other} is not supported by chain relay"),
+            format!("chain {label}: resolved hop kind {other} is not supported by chain relay"),
         )),
     }
 }
 
-fn chain_exit_connector(
-    chain: &ChainRelayConfig,
-    default_tls_fingerprint_profile: &str,
-) -> io::Result<ChainExitConnector> {
-    let Some(hop) = chain.exit.as_deref() else {
-        return legacy_hop_vless_reality_config(chain, ChainHopRole::Exit, default_tls_fingerprint_profile)
-            .map(ChainExitConnector::VlessReality);
-    };
-    match hop.kind.as_str() {
-        "vless_reality" => {
-            resolved_hop_vless_reality_config(hop, ChainHopRole::Exit).map(ChainExitConnector::VlessReality)
-        }
-        "masque" => resolved_hop_masque_config(hop, ChainHopRole::Exit).map(ChainExitConnector::Masque),
-        "trojan" => resolved_hop_trojan_config(hop, ChainHopRole::Exit).map(ChainExitConnector::Trojan),
-        "anytls" => resolved_hop_anytls_config(hop, ChainHopRole::Exit).map(ChainExitConnector::AnyTls),
-        "shadowsocks" => {
-            resolved_hop_shadowsocks_factory(hop, ChainHopRole::Exit, None).map(ChainExitConnector::Shadowsocks)
-        }
-        "shadowtls_v3" => resolved_hop_shadowtls_factory(hop, ChainHopRole::Exit).map(ChainExitConnector::ShadowTls),
-        other => Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("chain exit: resolved hop kind {other} is not supported by chain relay"),
-        )),
+/// QUIC-only kinds can serve only as the entry hop: nothing can tunnel through
+/// a QUIC datagram session, so they cannot be an intermediate or exit hop.
+fn reject_quic_non_entry(position: HopPosition, label: &str, kind: &str) -> io::Result<()> {
+    if position.is_entry() {
+        return Ok(());
     }
+    Err(io::Error::new(
+        io::ErrorKind::InvalidInput,
+        format!("chain {label}: {kind} can only be the entry hop of a chain"),
+    ))
 }
 
 fn resolved_hop_vless_reality_config(
     hop: &ResolvedChainRelayHopConfig,
-    role: ChainHopRole,
+    label: &str,
 ) -> io::Result<ripdpi_vless::config::VlessRealityConfig> {
-    let label = role.label();
     if hop.kind != "vless_reality" {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -141,9 +154,8 @@ fn resolved_hop_vless_reality_config(
 
 fn resolved_hop_masque_config(
     hop: &ResolvedChainRelayHopConfig,
-    role: ChainHopRole,
+    label: &str,
 ) -> io::Result<ripdpi_masque::config::MasqueConfig> {
-    let label = role.label();
     if hop.masque_url.trim().is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: MASQUE URL is required")));
     }
@@ -167,9 +179,8 @@ fn resolved_hop_masque_config(
 
 fn resolved_hop_trojan_config(
     hop: &ResolvedChainRelayHopConfig,
-    role: ChainHopRole,
+    label: &str,
 ) -> io::Result<ripdpi_relay_tls_transports::TrojanClientConfig> {
-    let label = role.label();
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Trojan server port must fit u16"))
     })?;
@@ -185,9 +196,8 @@ fn resolved_hop_trojan_config(
 
 fn resolved_hop_anytls_config(
     hop: &ResolvedChainRelayHopConfig,
-    role: ChainHopRole,
+    label: &str,
 ) -> io::Result<ripdpi_relay_tls_transports::AnyTlsClientConfig> {
-    let label = role.label();
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: AnyTLS server port must fit u16"))
     })?;
@@ -204,10 +214,9 @@ fn resolved_hop_anytls_config(
 
 fn resolved_hop_shadowsocks_factory(
     hop: &ResolvedChainRelayHopConfig,
-    role: ChainHopRole,
+    label: &str,
     outbound_bind_ip: Option<IpAddr>,
 ) -> io::Result<ripdpi_relay_tls_transports::ShadowsocksSessionFactory> {
-    let label = role.label();
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Shadowsocks server port must fit u16"))
     })?;
@@ -229,9 +238,8 @@ fn resolved_hop_shadowsocks_factory(
 
 fn resolved_hop_shadowtls_factory(
     hop: &ResolvedChainRelayHopConfig,
-    role: ChainHopRole,
+    label: &str,
 ) -> io::Result<ripdpi_relay_tls_transports::ShadowTlsSessionFactory> {
-    let label = role.label();
     let inner = hop.shadow_tls_inner.as_ref().ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: ShadowTLS inner relay config is required"))
     })?;
@@ -258,10 +266,9 @@ fn resolved_hop_shadowtls_factory(
 
 fn resolved_hop_hysteria2_factory(
     hop: &ResolvedChainRelayHopConfig,
-    role: ChainHopRole,
+    label: &str,
     quic_migration: QuicMigrationTelemetryState,
 ) -> io::Result<crate::protocols::Hysteria2SessionFactory> {
-    let label = role.label();
     let password = hop.hysteria_password.as_ref().filter(|value| !value.trim().is_empty()).ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Hysteria2 password is required"))
     })?;
@@ -278,10 +285,9 @@ fn resolved_hop_hysteria2_factory(
 
 fn resolved_hop_tuic_factory(
     hop: &ResolvedChainRelayHopConfig,
-    role: ChainHopRole,
+    label: &str,
     quic_migration: QuicMigrationTelemetryState,
 ) -> io::Result<crate::protocols::TuicSessionFactory> {
-    let label = role.label();
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: TUIC server port must fit u16"))
     })?;
@@ -301,32 +307,4 @@ fn resolved_hop_tuic_factory(
         },
         migration: quic_migration,
     })
-}
-
-fn legacy_hop_vless_reality_config(
-    chain: &ChainRelayConfig,
-    role: ChainHopRole,
-    default_tls_fingerprint_profile: &str,
-) -> io::Result<ripdpi_vless::config::VlessRealityConfig> {
-    let label = role.label();
-    let (server, port, uuid, server_name, public_key, short_id) = match role {
-        ChainHopRole::Entry => (
-            &chain.entry_server,
-            chain.entry_port,
-            chain.entry_uuid.as_deref().unwrap_or_default(),
-            &chain.entry_server_name,
-            &chain.entry_public_key,
-            &chain.entry_short_id,
-        ),
-        ChainHopRole::Exit => (
-            &chain.exit_server,
-            chain.exit_port,
-            chain.exit_uuid.as_deref().unwrap_or_default(),
-            &chain.exit_server_name,
-            &chain.exit_public_key,
-            &chain.exit_short_id,
-        ),
-    };
-    vless_reality_config(server, port, uuid, server_name, public_key, short_id, default_tls_fingerprint_profile)
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))
 }
