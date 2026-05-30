@@ -256,6 +256,33 @@ a deliberate follow-up rather than a mechanical refactor:
   **symmetric** — see [§10](#10-vpnserviceprotect-callback-rules); the
   generation guard makes an *asymmetric* (stale) unregister a safe no-op rather
   than a clobber — see below.
+- **Runtime readiness callback** (ADR 0003) — registered by
+  `jniRegisterReadinessListener(handle: jlong, listener): jlong`, cleared by
+  `jniUnregisterReadinessListener(handle: jlong)`, on `RipDpiProxyNativeBindings`,
+  `RipDpiRelayNativeBindings`, and `RipDpiWarpNativeBindings`. `listener` is a
+  `RuntimeReadinessListener` whose `onRuntimeReady()V` the native runtime
+  invokes **exactly once**, from the runtime thread the moment the listener
+  binds (right after the `runtime_ready` telemetry event), so the Kotlin
+  wrappers no longer wait out a 50 ms telemetry-poll interval. This is a strict
+  **lifecycle-class** callback — one `attach_current_thread` + one `call_method`
+  per session — and is the explicitly-permitted exception to the
+  no-callback-per-event rule in
+  [§12](#12-data-plane-work-must-not-cross-jni-frequently); it MUST NOT be
+  reused for higher-frequency events. Unlike VPN-protect, the slot is
+  **per-handle** (stored on the session's runtime, not a process-global slot),
+  so it needs no generation token — the handle is the guard, and the `GlobalRef`
+  is released when the observer is replaced (unregister) or the session is
+  destroyed. The `onRuntimeReady` method is kept from R8 stripping by a
+  consumer ProGuard rule (`core/engine/consumer-rules.pro`). The 50 ms poll in
+  `RuntimeReadiness.awaitRuntimeReady` / `RipDpiWarp.awaitReady` stays as a
+  graceful-degradation fallback (the register returns `0` when unsupported —
+  e.g. the Apps Script relay backend, or an `.so` built before the exports
+  land). **Baseline note:** the two new proxy symbols
+  (`Java_..._RipDpiProxyNativeBindings_jniRegisterReadinessListener` /
+  `_jniUnregisterReadinessListener`) must be added to
+  `native/rust/crates/ripdpi-android/jni-symbols.baseline` by a human reviewer
+  before the ELF symbol-allowlist check passes (relay/warp have no per-cdylib
+  allowlist).
 - **Telemetry recorder** — installed process-wide once, in `libripdpi.so`
   `JNI_OnLoad` via `ripdpi_android_telemetry_adapter::install_recorder()`. Not
   per-session; no unregister.
