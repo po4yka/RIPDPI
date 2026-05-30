@@ -2,6 +2,12 @@ mod dns_cache;
 #[allow(dead_code)]
 pub(crate) mod session;
 
+// Expose the SOCKS5 UDP codec for integration tests in sibling crates.
+// #[doc(hidden)] prevents advertising a stable public API while still
+// making the symbols reachable via `ripdpi_tunnel_core::session::socks5`.
+#[doc(hidden)]
+pub use session::socks5::{decode_udp_frame, encode_udp_frame};
+
 pub mod classify;
 pub mod device;
 pub mod io_loop;

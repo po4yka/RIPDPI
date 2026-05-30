@@ -107,9 +107,19 @@ fn send_dns_servfail(
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 pub struct IoUringTunContext {
     pub driver: std::sync::Arc<ripdpi_io_uring::IoUringDriver>,
-    /// Owned TUN file descriptor kept alive for the duration of the io_uring context.
-    /// Closed automatically when `IoUringTunContext` is dropped.
-    pub tun_fd: std::os::fd::OwnedFd,
+    /// Owned TUN file descriptor for the io_uring batch-write path.
+    ///
+    /// INVARIANT: this must be a SEPARATE dup from the fd passed to
+    /// `run_tunnel` — never the same raw fd number.  Both `OwnedFd` values
+    /// call `libc::close` independently on drop; sharing a raw fd number
+    /// between them produces a double-close (EBADF or silent corruption if the
+    /// fd number is reused between the two drops).
+    ///
+    /// This field is `pub(crate)` until the io_uring path is fully wired into
+    /// `run_tunnel` and audited.  External callers must not construct
+    /// `IoUringTunContext` with the same fd number already adopted by
+    /// `AsyncDevice` inside `run_tunnel`.
+    pub(crate) tun_fd: std::os::fd::OwnedFd,
 }
 
 #[allow(clippy::too_many_arguments)]

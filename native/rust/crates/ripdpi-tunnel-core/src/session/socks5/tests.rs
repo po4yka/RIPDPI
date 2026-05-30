@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use proptest::prelude::*;
 use tokio_test::io::Builder;
 
 use super::*;
@@ -310,4 +311,131 @@ fn decode_frame_rejects_nonzero_frag() {
 
     let err = decode_udp_frame(&frame).unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+}
+
+// -------------------------------------------------------------------------
+// RFC 1928 layout assertions
+// -------------------------------------------------------------------------
+
+/// RSV(2) + FRAG(1) + ATYP(1) layout matches the RFC 1928 Section 7 header.
+/// ATYP=0x01 (IPv4), ATYP=0x04 (IPv6) — no domain (0x03) encoding.
+#[test]
+fn encode_frame_rfc1928_rsv2_frag1_atyp_layout_ipv4() {
+    use std::net::{Ipv4Addr, SocketAddrV4};
+    let dst = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(10, 0, 0, 1), 80));
+    let frame = encode_udp_frame(dst, b"");
+    // byte 0,1 = RSV; byte 2 = FRAG=0; byte 3 = ATYP
+    assert_eq!(frame[0], 0x00, "RSV[0] must be 0");
+    assert_eq!(frame[1], 0x00, "RSV[1] must be 0");
+    assert_eq!(frame[2], 0x00, "FRAG must be 0");
+    assert_eq!(frame[3], 0x01, "IPv4 ATYP must be 0x01");
+}
+
+#[test]
+fn encode_frame_rfc1928_rsv2_frag1_atyp_layout_ipv6() {
+    use std::net::{Ipv6Addr, SocketAddrV6};
+    let dst = SocketAddr::V6(SocketAddrV6::new(Ipv6Addr::LOCALHOST, 443, 0, 0));
+    let frame = encode_udp_frame(dst, b"");
+    assert_eq!(frame[0], 0x00, "RSV[0] must be 0");
+    assert_eq!(frame[1], 0x00, "RSV[1] must be 0");
+    assert_eq!(frame[2], 0x00, "FRAG must be 0");
+    assert_eq!(frame[3], 0x04, "IPv6 ATYP must be 0x04");
+}
+
+/// ATYP=0x03 (domain) is unsupported by encode_udp_frame (no domain variant on
+/// SocketAddr). Verify that a hand-crafted frame with ATYP=0x03 is rejected by
+/// the decoder with InvalidData.
+#[test]
+fn decode_frame_rejects_domain_atyp() {
+    // [RSV RSV FRAG ATYP=0x03 len=11 "example.com" port(2) data]
+    let domain = b"example.com";
+    let mut frame = vec![0x00u8, 0x00, 0x00, 0x03, domain.len() as u8];
+    frame.extend_from_slice(domain);
+    frame.extend_from_slice(&443u16.to_be_bytes());
+    frame.extend_from_slice(b"payload");
+    let err = decode_udp_frame(&frame).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+}
+
+/// Truncated frame (fewer than the minimum 10 bytes) must be rejected by the
+/// length-guard, not by RSV/FRAG validation. Frames start with valid
+/// RSV(0x00,0x00) + FRAG(0x00) bytes so the only rejection cause is length.
+#[test]
+fn decode_frame_truncated_short_rejected_without_panic() {
+    for len in 0..10usize {
+        // Fill with valid RSV+FRAG prefix (0x00,0x00,0x00) then zeros.
+        let mut frame = vec![0x00u8, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        frame.truncate(len);
+        let result = decode_udp_frame(&frame);
+        assert!(result.is_err(), "expected Err for {len}-byte frame");
+    }
+}
+
+/// Frame exactly at the IPv6 minimum boundary (21 bytes) should be rejected.
+#[test]
+fn decode_ipv6_frame_truncated_before_port_is_err() {
+    // 22 bytes minimum for IPv6 (RSV+FRAG+ATYP+16+2). Provide only 21.
+    let mut frame = vec![0x00u8, 0x00, 0x00, 0x04];
+    frame.extend_from_slice(&[0u8; 17]); // 4 + 17 = 21 bytes — one short
+    let result = decode_udp_frame(&frame);
+    assert!(result.is_err(), "IPv6 frame with 21 bytes must be rejected");
+}
+
+/// FRAG != 0 must be rejected (RFC 1928: fragmentation is not supported by the
+/// tunnel-core client; FRAG must always be 0x00).
+#[test]
+fn decode_frame_nonzero_frag_all_values_rejected() {
+    use std::net::{Ipv4Addr, SocketAddrV4};
+    let base = encode_udp_frame(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 80)), b"x");
+    for frag in 1u8..=255 {
+        let mut frame = base.clone();
+        frame[2] = frag;
+        let result = decode_udp_frame(&frame);
+        assert!(result.is_err(), "FRAG={frag} must be rejected");
+    }
+}
+
+// -------------------------------------------------------------------------
+// Proptest: round-trip for arbitrary SocketAddr + payload
+// -------------------------------------------------------------------------
+
+proptest! {
+    /// For any IPv4 SocketAddr and any payload (0..=4096 bytes),
+    /// decode(encode(dst, payload)) == (dst, payload).
+    #[test]
+    fn prop_encode_decode_round_trip_ipv4(
+        a in 0u8..=255,
+        b in 0u8..=255,
+        c in 0u8..=255,
+        d in 0u8..=255,
+        port in 0u16..=65535,
+        payload in proptest::collection::vec(any::<u8>(), 0..=4096),
+    ) {
+        use std::net::{Ipv4Addr, SocketAddrV4};
+        let dst = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(a, b, c, d), port));
+        let frame = encode_udp_frame(dst, &payload);
+        let (decoded_dst, decoded_payload) = decode_udp_frame(&frame).expect("decode must succeed");
+        prop_assert_eq!(decoded_dst, dst);
+        prop_assert_eq!(decoded_payload, payload.as_slice());
+    }
+
+    /// For any IPv6 SocketAddr and any payload (0..=4096 bytes),
+    /// decode(encode(dst, payload)) == (dst, payload).
+    #[test]
+    fn prop_encode_decode_round_trip_ipv6(
+        segments in proptest::array::uniform8(0u16..=65535),
+        port in 0u16..=65535,
+        payload in proptest::collection::vec(any::<u8>(), 0..=4096),
+    ) {
+        use std::net::{Ipv6Addr, SocketAddrV6};
+        let ip = Ipv6Addr::new(
+            segments[0], segments[1], segments[2], segments[3],
+            segments[4], segments[5], segments[6], segments[7],
+        );
+        let dst = SocketAddr::V6(SocketAddrV6::new(ip, port, 0, 0));
+        let frame = encode_udp_frame(dst, &payload);
+        let (decoded_dst, decoded_payload) = decode_udp_frame(&frame).expect("decode must succeed");
+        prop_assert_eq!(decoded_dst, dst);
+        prop_assert_eq!(decoded_payload, payload.as_slice());
+    }
 }

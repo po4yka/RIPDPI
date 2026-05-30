@@ -1,4 +1,4 @@
-use std::os::fd::{IntoRawFd, OwnedFd};
+use std::os::fd::OwnedFd;
 use std::sync::{Arc, Mutex};
 
 use ripdpi_tunnel_core::Stats;
@@ -30,13 +30,15 @@ fn run_worker(launch: WorkerLaunch) {
     let WorkerLaunch { runtime, config, owned_fd, cancel, stats, telemetry, last_error } = launch;
     let root_helper_registered = register_for_worker(&config);
     let worker_cancel = cancel.clone();
+    // cancel-safe: run_tunnel holds a CancellationToken and exits the io_loop
+    // cleanly when cancelled.  OwnedFd ownership transfers into run_tunnel's
+    // async frame; tun-rs AsyncDevice::Drop closes the fd exactly once on any
+    // exit path (normal return, cancellation, or panic unwind inside
+    // catch_unwind).  No fd is orphaned even if block_on panics before the
+    // future's first poll: OwnedFd remains live inside the pinned async future
+    // until run_tunnel's first statement (into_raw_fd) executes.
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        runtime.block_on(ripdpi_tunnel_core::run_tunnel(
-            config,
-            owned_fd.into_raw_fd(),
-            (*worker_cancel).clone(),
-            stats,
-        ))
+        runtime.block_on(ripdpi_tunnel_core::run_tunnel(config, owned_fd, (*worker_cancel).clone(), stats))
     }));
 
     record_worker_result(result, &telemetry, &last_error);

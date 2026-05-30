@@ -6,6 +6,7 @@
 
 use std::io;
 use std::net::IpAddr;
+use std::os::fd::{IntoRawFd, OwnedFd};
 use std::sync::Arc;
 
 use smoltcp::iface::{Config as IfaceConfig, Interface, SocketSet};
@@ -46,28 +47,63 @@ fn parse_tunnel_address(value: &str) -> Option<(IpAddress, u8)> {
     }
 }
 
-/// Start the tunnel with a parsed config and a raw TUN file descriptor.
+/// Start the tunnel with a parsed config and an owned TUN file descriptor.
 ///
 /// This async function runs until `cancel` is triggered or an IO error occurs.
 /// On success it returns `Ok(())`.
 ///
-/// # Safety preconditions (upheld by caller)
+/// # Ownership contract
 ///
-/// - `tun_fd` is a valid, open file descriptor.
-/// - Ownership of `tun_fd` transfers to this function; the caller MUST NOT
-///   close or read/write it after calling `run_tunnel`.
-/// - The function must be called from within a Tokio runtime context.
+/// `tun_fd` is an `OwnedFd` — the caller transfers exclusive ownership of the
+/// kernel file descriptor to this function.  After calling `run_tunnel` the
+/// caller MUST NOT close or access the fd in any way; the type system enforces
+/// this at compile time.
+///
+/// The fd is consumed by `into_raw_fd()` as the very first statement in the
+/// function body, immediately before `AsyncDevice::from_fd` wraps the raw
+/// integer in tun-rs's `Fd{borrow:false}` RAII owner.  There is no code
+/// between the RAII disarm and the tun-rs adoption, so no panic or early
+/// return can orphan the raw integer.
+///
+/// On every exit path — normal return, `?` error propagation, or panic unwind
+/// inside the caller's `catch_unwind` — `tun_async` (AsyncDevice) is dropped,
+/// which calls `libc::close` exactly once via tun-rs `Fd::Drop`.
+///
+/// If `AsyncDevice::from_fd` itself fails, tun-rs constructs `Fd{borrow:false}`
+/// before any fallible work, so `Fd::Drop` fires and closes the raw fd before
+/// the `Err` propagates.  No second close is possible.
+///
+/// # Cancel safety
+///
+/// cancel-safe: `cancel` is a `CancellationToken`; the io_loop_task select!
+/// arm observes cancellation and exits cleanly, dropping `tun_async` exactly
+/// once.  No state is left inconsistent on cancel.
 pub async fn run_tunnel(
     config: Arc<Config>,
-    tun_fd: i32,
+    tun_fd: OwnedFd,
     cancel: CancellationToken,
     stats: Arc<Stats>,
 ) -> io::Result<()> {
-    // SAFETY: `tun_fd` is a valid, open file descriptor and ownership transfers
-    // to `AsyncDevice`.  The caller (JNI layer) dup'd the fd so it is safe for
-    // tun-rs to take ownership and close it on drop.  `AsyncDevice::from_fd` sets
-    // non-blocking mode and registers the fd with the tokio reactor.
-    let tun_async = unsafe { AsyncDevice::from_fd(tun_fd) }
+    // Consume the OwnedFd RAII guard immediately.  From this point the raw fd
+    // is owned by the async frame; `AsyncDevice::from_fd` wraps it in the next
+    // statement with no intervening code that could panic or return early.
+    let raw = tun_fd.into_raw_fd();
+
+    // SAFETY: `raw` is a valid, open file descriptor transferred exclusively to
+    // this function via the `OwnedFd` parameter.  `into_raw_fd()` was called
+    // immediately above — there is no code between RAII disarm and this call.
+    //
+    // Close guarantee (per-path):
+    //   • from_fd succeeds: `tun_async` (AsyncDevice / tun-rs Fd{borrow:false})
+    //     owns `raw` and calls `libc::close` via Fd::Drop on any exit (normal
+    //     return, `?` unwind, panic unwind inside the caller's catch_unwind).
+    //   • from_fd fails: tun-rs constructs Fd{borrow:false, inner=raw} before
+    //     any fallible work; Fd::Drop fires before the Err propagates — `raw`
+    //     is closed and no second close is possible.
+    //
+    // The caller (JNI layer) dup'd the original Kotlin fd before calling here,
+    // so closing `raw` here does not affect Kotlin's ParcelFileDescriptor.
+    let tun_async = unsafe { AsyncDevice::from_fd(raw) }
         .map_err(|e| io::Error::other(format!("create async TUN device from fd: {e}")))?;
 
     // The fd comes from Android VpnService (IFF_NO_PI) or a socketpair in tests —

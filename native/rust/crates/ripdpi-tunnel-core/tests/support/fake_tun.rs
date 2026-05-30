@@ -4,25 +4,30 @@
 //! behaviour where each `read()` returns one complete IP packet.
 
 use std::io;
-use std::os::unix::io::{FromRawFd, RawFd};
+use std::os::fd::{FromRawFd, OwnedFd};
+use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixDatagram;
 use std::time::Duration;
 
 /// Create a `SOCK_DGRAM` unix socketpair suitable for simulating a TUN fd.
 ///
 /// Returns `(tunnel_fd, harness)` where:
-/// - `tunnel_fd` is a raw fd to pass to `run_tunnel()` (ownership transfers)
+/// - `tunnel_fd` is an `OwnedFd` to pass to `run_tunnel()` (ownership
+///   transfers into `run_tunnel`; the caller must not use or close it after
+///   the call)
 /// - `harness` wraps the other end for test packet injection/capture
-pub fn socketpair_tun() -> io::Result<(RawFd, FakeTunHarness)> {
+pub fn socketpair_tun() -> io::Result<(OwnedFd, FakeTunHarness)> {
     let mut fds = [0i32; 2];
     let ret = unsafe { libc::socketpair(libc::AF_UNIX, libc::SOCK_DGRAM, 0, fds.as_mut_ptr()) };
     if ret != 0 {
         return Err(io::Error::last_os_error());
     }
 
-    let tunnel_fd = fds[0];
+    // SAFETY: `socketpair` succeeded; fds[0] is a freshly created fd owned by
+    // this process.  `OwnedFd::from_raw_fd` takes exclusive ownership.
+    let tunnel_fd = unsafe { OwnedFd::from_raw_fd(fds[0]) };
     // Wrap the harness-side fd in UnixDatagram for ergonomic I/O.
-    let harness_sock = unsafe { UnixDatagram::from_raw_fd(fds[1]) };
+    let harness_sock = unsafe { UnixDatagram::from_raw_fd(fds[1] as RawFd) };
 
     Ok((tunnel_fd, FakeTunHarness { sock: harness_sock }))
 }

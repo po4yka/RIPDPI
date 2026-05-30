@@ -26,8 +26,13 @@ base64 = { workspace = true }
 ctr = "0.10"
 local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }
+proptest = { workspace = true }
+quinn = { workspace = true }
+rcgen = { workspace = true }
 ripdpi-packets = { workspace = true }
+ripdpi-tunnel-core = { workspace = true }
 ring = { workspace = true }
 rustls = { workspace = true }
 serde_json = { workspace = true }
 tempfile = "3.27"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "net"] }

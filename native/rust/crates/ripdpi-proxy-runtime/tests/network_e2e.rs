@@ -1269,6 +1269,362 @@ fn drop_sack_and_strip_timestamps_round_trip_succeeds() {
     drop(proxy);
 }
 
+// ── QUIC E2E: real QUIC handshake through production proxy + tun2socks bridge ──
+
+/// End-to-end proof that a real QUIC 1-RTT handshake completes and an
+/// application-level echo round-trips through the full SOCKS5 UDP ASSOCIATE
+/// stack:
+///
+/// ```text
+/// quinn client
+///   ↓  QUIC datagrams (SOCKS5 UDP framed)
+/// [Socks5UdpAdapter]   ← this test's tun2socks-bridge stand-in
+///   ↓  SOCKS5 UDP frames (encode_udp_frame / decode_udp_frame)
+/// ripdpi-proxy-runtime  (production, via start_proxy / socks_udp_associate)
+///   ↓  raw UDP
+/// quinn QUIC echo server (rcgen self-signed cert, ring crypto)
+/// ```
+///
+/// Assertions that constitute proof:
+/// 1. The quinn `Connection` is established (1-RTT handshake completed).
+/// 2. A bi-directional stream echo round-trips the payload bytes.
+///
+/// Not #[ignore]: this test is hermetic (all loopback), has no external deps,
+/// and targets < 5 s on any CI host.
+// ── tun2socks bridge adapter ──────────────────────────────────────────────
+//
+// Wraps a tokio UdpSocket already connected to the SOCKS5 relay address and
+// encodes every outbound QUIC datagram in a SOCKS5 UDP frame, then strips the
+// frame on the inbound path using the PRODUCTION codec from ripdpi-tunnel-core.
+// This is the stand-in for the real tun2socks UdpSession bridge. Using the
+// production codec (instead of an inline copy) means RSV validation, IPv6
+// minimum-length checks, and FRAG rejection are all exercised against the same
+// code path the client stack uses. Lives at module scope (not nested in the
+// test fn) to keep the test body within the architecture-health length budget.
+#[cfg(not(target_os = "android"))]
+mod socks5_udp_adapter {
+    use std::pin::Pin;
+    use std::sync::Arc;
+    use std::task::{Context, Poll};
+    use tokio::net::UdpSocket as TokioUdpSocket;
+
+    // NOT cancel-safe: poll_recv surfaces one datagram per poll; test-only adapter.
+    #[derive(Debug)]
+    pub(super) struct Socks5UdpAdapter {
+        /// UDP socket connected to the SOCKS5 relay (127.0.0.1:<relay_port>).
+        pub(super) socket: TokioUdpSocket,
+        /// The QUIC echo-server address we wrap in SOCKS5 frames.
+        pub(super) quic_server_addr: std::net::SocketAddr,
+    }
+
+    impl quinn::AsyncUdpSocket for Socks5UdpAdapter {
+        fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn quinn::UdpPoller>> {
+            #[derive(Debug)]
+            struct Poller(Arc<Socks5UdpAdapter>);
+            impl quinn::UdpPoller for Poller {
+                fn poll_writable(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+                    self.0.socket.poll_send_ready(cx)
+                }
+            }
+            Box::pin(Poller(self))
+        }
+
+        fn try_send(&self, transmit: &quinn::udp::Transmit<'_>) -> std::io::Result<()> {
+            // No GSO through SOCKS5: each segment must be wrapped individually.
+            // Assert the no-GSO assumption: either no segment_size hint, or it
+            // equals the full content length (single-segment transmit).
+            debug_assert!(
+                transmit.segment_size.is_none() || transmit.segment_size == Some(transmit.contents.len()),
+                "unexpected multi-segment GSO transmit through SOCKS5 adapter"
+            );
+            self.socket.try_io(tokio::io::Interest::WRITABLE, || {
+                // Segment size: if GSO is active the content may contain multiple
+                // segments; send each one individually (no GSO through SOCKS5).
+                let seg = transmit.segment_size.unwrap_or(transmit.contents.len());
+                for chunk in transmit.contents.chunks(seg) {
+                    // Use the production codec from ripdpi-tunnel-core — same path
+                    // as the real tun2socks client stack.
+                    let frame = ripdpi_tunnel_core::encode_udp_frame(self.quic_server_addr, chunk);
+                    let sent = self.socket.try_send(&frame)?;
+                    if sent != frame.len() {
+                        return Err(std::io::Error::new(std::io::ErrorKind::WriteZero, "short SOCKS5 UDP send"));
+                    }
+                }
+                Ok(())
+            })
+        }
+
+        fn poll_recv(
+            &self,
+            cx: &mut Context<'_>,
+            bufs: &mut [std::io::IoSliceMut<'_>],
+            meta: &mut [quinn::udp::RecvMeta],
+        ) -> Poll<std::io::Result<usize>> {
+            // Canonical AsyncUdpSocket pattern: register readiness once, attempt
+            // exactly one try_io, return Pending on WouldBlock (waker already
+            // registered by poll_recv_ready), propagate hard errors immediately.
+            // Use a heap-allocated scratch buffer large enough for any UDP datagram
+            // (QUIC initial packets up to ~1280 bytes + 22-byte SOCKS5 header).
+            let mut scratch = vec![0u8; 65535];
+            std::task::ready!(self.socket.poll_recv_ready(cx))?;
+            match self.socket.try_io(tokio::io::Interest::READABLE, || self.socket.try_recv(&mut scratch)) {
+                Ok(n) => {
+                    // Use production codec — gets RSV validation for free.
+                    match ripdpi_tunnel_core::decode_udp_frame(&scratch[..n]) {
+                        Ok((from_addr, payload)) => {
+                            let first = bufs.first_mut().ok_or_else(|| {
+                                std::io::Error::new(std::io::ErrorKind::InvalidInput, "no recv buffer")
+                            })?;
+                            debug_assert!(
+                                payload.len() <= first.len(),
+                                "received SOCKS5 payload ({} bytes) exceeds quinn recv buffer ({} bytes) — silent truncation avoided",
+                                payload.len(),
+                                first.len()
+                            );
+                            let copy_len = payload.len().min(first.len());
+                            first[..copy_len].copy_from_slice(&payload[..copy_len]);
+                            meta[0] = quinn::udp::RecvMeta {
+                                addr: from_addr,
+                                len: copy_len,
+                                stride: copy_len,
+                                ecn: None,
+                                dst_ip: None,
+                            };
+                            Poll::Ready(Ok(1))
+                        }
+                        // Malformed SOCKS5 frame: trace the error and return Pending
+                        // so quinn re-polls. The waker is already registered from
+                        // poll_recv_ready above.
+                        Err(e) => {
+                            eprintln!("Socks5UdpAdapter: decode error (dropping frame): {e}");
+                            Poll::Pending
+                        }
+                    }
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Poll::Pending,
+                Err(e) => Poll::Ready(Err(e)),
+            }
+        }
+
+        fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
+            self.socket.local_addr()
+        }
+
+        fn may_fragment(&self) -> bool {
+            false
+        }
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+use socks5_udp_adapter::Socks5UdpAdapter;
+
+#[cfg(not(target_os = "android"))]
+#[test]
+fn quic_handshake_and_echo_round_trip_through_socks5_udp_relay() {
+    use rcgen::generate_simple_self_signed;
+    use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
+    use std::net::Ipv4Addr;
+    use std::sync::Arc;
+    use tokio::net::UdpSocket as TokioUdpSocket;
+
+    // ── ALPN for the echo server ──────────────────────────────────────────────
+    const ALPN_ECHO: &[u8] = b"quic-echo-test";
+
+    // _guard MUST be the first binding so the mutex is held for the full test,
+    // including tokio runtime construction below.
+    let _guard = test_guard();
+
+    // ── tokio runtime ────────────────────────────────────────────────────────
+    // NOT cancel-safe: block_on drives the async body to completion; the proxy
+    // guard (a std::thread join on Drop) is dropped OUTSIDE block_on below.
+    let rt = tokio::runtime::Builder::new_multi_thread().enable_all().build().expect("build test tokio runtime");
+
+    // ── 1. Start production proxy ─────────────────────────────────────────────
+    // QuicInitialMode::Disabled suppresses QUIC host extraction for routing (the
+    // runtime-policy facts.rs path) but does NOT gate the UDP desync chain.
+    // The default RuntimeConfig has an empty udp_chain and
+    // quic_fake_profile=Disabled, so plan_udp emits only raw Write(payload)
+    // forwarding. QuicInitialMode::Disabled additionally suppresses QUIC host
+    // extraction for routing.
+    //
+    // TODO: a desync-on variant would configure a DesyncGroup with a
+    // QuicFakeProfile::RealisticInitial udp_chain step, which the genuine quinn
+    // QUIC v1 Initial would trigger.
+    let mut proxy_cfg = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
+    proxy_cfg.quic.initial_mode = QuicInitialMode::Disabled;
+    // proxy is captured before block_on; its Drop (which joins a std::thread)
+    // runs OUTSIDE the async context to avoid blocking the tokio executor.
+    let proxy = start_proxy(proxy_cfg, None);
+    let proxy_port = proxy.port;
+
+    rt.block_on(async move {
+        // NOT cancel-safe: this async block drives the entire E2E scenario to
+        // completion; individual awaits are cancel-safe within block_on context.
+
+        // ── 2. Build QUIC echo server ─────────────────────────────────────────
+        let cert = generate_simple_self_signed(vec!["localhost".to_string()]).expect("self-signed cert");
+        let cert_der = CertificateDer::from(cert.cert.der().to_vec());
+        let key_der = PrivatePkcs8KeyDer::from(cert.signing_key.serialize_der());
+
+        let mut server_tls =
+            rustls::ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("ring supports default TLS")
+                .with_no_client_auth()
+                .with_single_cert(vec![cert_der.clone()], key_der.into())
+                .expect("server TLS config");
+        server_tls.alpn_protocols = vec![ALPN_ECHO.to_vec()];
+
+        let mut server_quic_config = quinn::ServerConfig::with_crypto(Arc::new(
+            quinn::crypto::rustls::QuicServerConfig::try_from(server_tls).expect("QuicServerConfig"),
+        ));
+        // Short idle timeout so endpoint.wait_idle() at teardown drains promptly
+        // instead of blocking on quinn's multi-second default idle period.
+        let mut server_transport = quinn::TransportConfig::default();
+        server_transport.max_idle_timeout(Some(Duration::from_secs(3).try_into().expect("idle timeout")));
+        server_quic_config.transport = Arc::new(server_transport);
+        let server_endpoint = quinn::Endpoint::server(server_quic_config, (Ipv4Addr::LOCALHOST, 0u16).into())
+            .expect("bind QUIC echo server");
+        let quic_server_addr = server_endpoint.local_addr().expect("server addr");
+
+        // Server task: accept one connection, echo one bi-stream, close.
+        // NOT cancel-safe: drives the server-side connection to completion.
+        let server_task = tokio::spawn(async move {
+            let incoming = server_endpoint.accept().await.expect("server accept");
+            let conn = incoming.await.expect("server establish");
+            let (mut send, mut recv) = conn.accept_bi().await.expect("accept bi");
+            let mut buf = [0u8; 256];
+            let n = recv.read(&mut buf).await.expect("server recv").expect("some bytes");
+            send.write_all(&buf[..n]).await.expect("server echo");
+            send.finish().expect("server finish");
+            conn.closed().await;
+            // Drain the server endpoint so quinn releases all UDP state before drop.
+            server_endpoint.close(0u32.into(), b"done");
+            server_endpoint.wait_idle().await;
+        });
+
+        // ── 3. SOCKS5 UDP ASSOCIATE via production proxy ─────────────────────
+        // Use a blocking thread so we can call the std-based socks_udp_associate helper.
+        let (ctrl_stream, relay_addr) =
+            tokio::task::spawn_blocking(move || support::socks5::socks_udp_associate(proxy_port))
+                .await
+                .expect("socks_udp_associate");
+
+        // ── 4. Build the tun2socks bridge UDP socket ──────────────────────────
+        // Bind to a loopback port, then connect to the SOCKS5 relay address.
+        let raw_udp = TokioUdpSocket::bind((Ipv4Addr::LOCALHOST, 0u16)).await.expect("bind client UDP");
+        raw_udp.connect(relay_addr).await.expect("connect to SOCKS5 relay");
+
+        // ── 5. Build quinn client endpoint using the bridge adapter ───────────
+        let adapter = Arc::new(Socks5UdpAdapter { socket: raw_udp, quic_server_addr });
+
+        let mut client_tls =
+            rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("ring supports default TLS")
+                // SAFETY: test-only; server uses an rcgen self-signed cert with no chain.
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(AcceptAnyCert))
+                .with_no_client_auth();
+        client_tls.alpn_protocols = vec![ALPN_ECHO.to_vec()];
+
+        let mut client_quic_config = quinn::ClientConfig::new(Arc::new(
+            quinn::crypto::rustls::QuicClientConfig::try_from(client_tls).expect("QuicClientConfig"),
+        ));
+        // Negotiated idle timeout is the min of both peers; a short value keeps the
+        // client's wait_idle() at teardown bounded to a few seconds, not ~30s.
+        let mut client_transport = quinn::TransportConfig::default();
+        client_transport.max_idle_timeout(Some(Duration::from_secs(3).try_into().expect("idle timeout")));
+        client_quic_config.transport_config(Arc::new(client_transport));
+
+        let runtime = Arc::new(quinn::TokioRuntime);
+        let mut client_endpoint =
+            quinn::Endpoint::new_with_abstract_socket(quinn::EndpointConfig::default(), None, adapter, runtime)
+                .expect("build QUIC client endpoint");
+        client_endpoint.set_default_client_config(client_quic_config);
+
+        // ── 6. Connect (1-RTT handshake) ─────────────────────────────────────
+        // quinn 0.11: connect() returns Result<Connecting>; awaiting Connecting
+        // resolves to Result<Connection, ConnectionError>.
+        let connecting = client_endpoint.connect(quic_server_addr, "localhost").expect("start connect");
+        let connection = tokio::time::timeout(Duration::from_secs(10), connecting)
+            .await
+            .expect("handshake completed within timeout")
+            .expect("QUIC connection established — 1-RTT handshake succeeded");
+
+        // Proof 1: connection is established (would panic above on error).
+        // Proof 2: application-level echo round-trip.
+        let (mut send, mut recv) = connection.open_bi().await.expect("open bi-stream");
+        let payload = b"socks5-quic-e2e";
+        // quinn 0.11: SendStream::write_all and finish are quinn-native (no tokio trait needed)
+        send.write_all(payload).await.expect("client write");
+        send.finish().expect("client finish");
+
+        // quinn 0.11: RecvStream::read_to_end(size_limit) returns Result<Vec<u8>>
+        let echoed = recv.read_to_end(256).await.expect("client read echo");
+        assert_eq!(&echoed, payload, "echo payload must match");
+
+        connection.close(0u32.into(), b"done");
+
+        // Keep ctrl_stream alive until here so the SOCKS5 TCP control connection
+        // (which signals the relay to stay open) is not closed prematurely.
+        drop(ctrl_stream);
+
+        // Drain client endpoint before drop so quinn releases all UDP state.
+        client_endpoint.close(0u32.into(), b"done");
+        client_endpoint.wait_idle().await;
+
+        server_task.await.expect("server task");
+    });
+    // proxy.drop() joins a std::thread and must NOT run inside block_on (would
+    // block the tokio executor). Dropping here, after block_on returns, is safe.
+    drop(proxy);
+}
+
+// ── Certificate verifier that accepts any server cert (test-only) ──────────
+//
+// Used by the QUIC E2E test since the server uses a rcgen self-signed cert.
+#[cfg(not(target_os = "android"))]
+#[derive(Debug)]
+struct AcceptAnyCert;
+
+#[cfg(not(target_os = "android"))]
+impl rustls::client::danger::ServerCertVerifier for AcceptAnyCert {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &rustls::pki_types::CertificateDer<'_>,
+        _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+        _server_name: &rustls::pki_types::ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: rustls::pki_types::UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        Ok(rustls::client::danger::ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        _message: &[u8],
+        _cert: &rustls::pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        _message: &[u8],
+        _cert: &rustls::pki_types::CertificateDer<'_>,
+        _dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        rustls::crypto::ring::default_provider().signature_verification_algorithms.supported_schemes()
+    }
+}
+
 // ── QUIC disabled mode falls back correctly ──
 
 #[test]

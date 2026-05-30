@@ -100,6 +100,52 @@ Relevant sources:
 - `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`
 - `native/rust/crates/ripdpi-tunnel-android/src/lib.rs`
 
+## TUN file descriptor lifecycle
+
+The TUN fd travels through two independent ownership tiers that must never alias.
+
+**Tier 1 — Kotlin / original ParcelFileDescriptor (unchanged across all paths)**
+
+`VpnService.Builder.establish()` returns a `ParcelFileDescriptor` wrapped in `ParcelFileDescriptorVpnTunnelSession`. The property `tunFd` returns `descriptor.fd` — a `.fd()` peek, NOT `detachFd()`. Kotlin retains full ownership of the original fd. `VpnTunnelRuntime` closes it exactly once:
+
+- Error unwind (tunnelBridge.start() throws before `tunSession` is assigned): catch block calls `tunnelSession.close()`.
+- Normal stop, cancel, handover-restart: `VpnTunnelRuntime.stop()` finally block calls `session.close()` and immediately nulls `tunSession`. The null-guard prevents any second close.
+
+**Tier 2 — Rust / dup (one dup per session, independent fd number)**
+
+The native side never calls `detachFd()`. `adopt_tun_fd` in `session/lifecycle/fd.rs` issues an atomic dup with `O_CLOEXEC` via `fcntl(F_DUPFD_CLOEXEC(0))`, returning `OwnedFd`. The dup has a completely independent kernel fd number from the original.
+
+Required Kotlin API at the call site: `.fd()` peek (NOT `detachFd()`). If `detachFd()` were used instead, Kotlin would lose close responsibility for the original `ParcelFileDescriptor` and `VpnTunnelSession.close()` would become a no-op, silently leaking the fd on all error paths in `VpnTunnelRuntime.start()`.
+
+**Ownership chain for the dup:**
+
+```
+adopt_tun_fd() → OwnedFd (RAII live)
+  → WorkerLaunch.owned_fd: OwnedFd (RAII live through thread spawn)
+    → run_tunnel(tun_fd: OwnedFd)
+        let raw = tun_fd.into_raw_fd();   // RAII disarmed; raw lives in async frame
+        let tun_async = AsyncDevice::from_fd(raw)?;  // tun-rs Fd{borrow:false} takes ownership
+          → tun_async dropped at run_tunnel return → tun-rs Fd::Drop → libc::close(raw)
+```
+
+**Failure modes and close responsibility:**
+
+| Failure point | Who closes the dup |
+|---|---|
+| `fstat` validation fails in `adopt_tun_fd` | `OwnedFd` drop in `adopt_tun_fd` |
+| `ensure_tunnel_start_allowed` fails | explicit `drop(owned_fd)` at lifecycle.rs line 55 |
+| thread spawn fails in `launch_tunnel_worker` | `WorkerLaunch` drop at the Err arm in lifecycle.rs |
+| `AsyncDevice::from_fd` fails inside `run_tunnel` | tun-rs `Fd{borrow:false}` drop inside `DeviceImpl::from_fd` before Err propagates |
+| Route setup (`add_default_ipv4/ipv6_route`) fails | `tun_async` (AsyncDevice) drop at run_tunnel return |
+| `CancellationToken::cancel()` (normal stop or cancel path) | `tun_async` drop after io_loop_task returns `WaitOutcome::Cancelled` |
+| Panic inside `catch_unwind` in worker.rs | async future drop during panic unwind drops `tun_async` → Fd::Drop |
+
+**O_CLOEXEC requirement:** The dup is issued with `O_CLOEXEC` (via `F_DUPFD_CLOEXEC`). `root_helper::register_for_worker` in `worker.rs` may spawn a child process immediately after the dup is created and before `AsyncDevice::from_fd` registers the fd with the tokio reactor. Without `O_CLOEXEC`, the child inherits the TUN fd, which remains open in the child process after `run_tunnel` returns and the parent closes its copy.
+
+**IoUringTunContext note:** `io_loop.rs` defines `IoUringTunContext.tun_fd: OwnedFd` (pub(crate)) for a future batch-write path. This field must be a SEPARATE dup from the fd passed to `run_tunnel`. Never pass the same raw fd number to both; each `OwnedFd` calls `libc::close` independently on drop. This field is `pub(crate)` until the io_uring path is fully wired and audited.
+
+**Consistency with the proxy/pcap fd contract:** The pcap path in `session/pcap.rs` uses `ParcelFileDescriptor.detachFd()` (Kotlin surrenders ownership) + immediate `OwnedFd::from_raw_fd` wrap (Rust takes sole ownership, no dup). The TUN path uses `.fd()` peek (Kotlin retains ownership) + atomic dup-with-CLOEXEC (Rust owns an independent fd). Both patterns share the same invariant: from the moment native code receives a raw fd integer, it is wrapped in an RAII owner before any code path (including panic and early return) can exit without closing it.
+
 ## Methods Actually Used
 
 | Method | Defined in | Reached from | Current status | Purpose |
@@ -185,6 +231,6 @@ The tunnel stack is currently covered by:
 - Rust unit, property-based, state-machine, fault-injection, and telemetry-golden tests in `ripdpi-tunnel-android`
 - Android instrumentation integration tests for tunnel lifecycle, JNI error paths, and VPN-service restart flows
 - local-network Android E2E that exercises VPN mode against the shared fixture stack
-- Linux-only privileged real-TUN E2E in `ripdpi-tunnel-core --test linux_tun_e2e`; the TUN soak wrapper is present but currently skips because no `linux_tun_soak` target is registered
+- Linux-only privileged real-TUN E2E in `ripdpi-tunnel-core --test linux_tun_e2e` (requires `RIPDPI_RUN_TUN_E2E=1` and `CAP_NET_ADMIN`); a `linux_tun_soak` target is registered at `tests/linux_tun_e2e.rs` and includes a 10-cycle fd-leak test (`real_tun_no_fd_leak_after_stop`) and a 50-iteration start/stop/handover soak (`real_tun_soak_start_stop_handover`, additionally requires `RIPDPI_RUN_SOAK=1`)
 
 See [../testing.md](../testing.md) for commands, CI lanes, and soak profiles.

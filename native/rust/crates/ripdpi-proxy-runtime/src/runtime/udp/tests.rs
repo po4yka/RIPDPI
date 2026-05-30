@@ -4,6 +4,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::os::fd::AsRawFd;
 use std::time::{Duration, Instant};
 
+use proptest::prelude::*;
+
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{
     should_cache_udp_host, udp_flow_limit, QuicInitialMode, RuntimeConfig,
@@ -323,4 +325,168 @@ fn udp_upstream_poll_returns_only_ready_flow_keys() {
     };
 
     assert_eq!(ready, vec![(client, ready_target)]);
+}
+
+// -------------------------------------------------------------------------
+// RFC 1928 unit tests: proxy-server-side UDP packet codec
+// -------------------------------------------------------------------------
+
+/// FRAG != 0 must be rejected by parse_socks5_udp_packet (the proxy server
+/// receives this from the tun2socks client).
+#[test]
+fn proxy_udp_parse_rejects_nonzero_frag() {
+    let config = RuntimeConfig::default();
+    let state = test_runtime_state(config);
+    let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)), 443);
+    let mut packet = encode_socks5_udp_packet(target, b"tls-hello");
+    // byte 2 is FRAG — set it non-zero
+    packet[2] = 0x01;
+    assert!(parse_socks5_udp_packet(&packet, &state).is_none(), "FRAG!=0 must be rejected by proxy-side parser");
+}
+
+/// Truncated frames (< 10 bytes for IPv4 minimum) must be rejected.
+#[test]
+fn proxy_udp_parse_truncated_frame_rejected_without_panic() {
+    let config = RuntimeConfig::default();
+    let state = test_runtime_state(config);
+    for len in 0..10usize {
+        let short: Vec<u8> = (0..len as u8).collect();
+        assert!(parse_socks5_udp_packet(&short, &state).is_none(), "truncated frame ({len} bytes) must be None");
+    }
+}
+
+/// IPv6 frame that is too short (< 22 bytes) must be rejected.
+#[test]
+fn proxy_udp_parse_ipv6_truncated_frame_rejected() {
+    let mut config = RuntimeConfig::default();
+    config.network.ipv6 = true;
+    let state = test_runtime_state(config);
+    // ATYP=0x04 but only 21 bytes total (need 22 for IPv6 minimum)
+    let frame = [0x00u8, 0x00, 0x00, 0x04, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // 21 bytes
+    assert!(parse_socks5_udp_packet(&frame, &state).is_none(), "IPv6 truncated frame must be None");
+}
+
+/// encode_socks5_udp_packet produces correct RSV(0,0), FRAG(0), and ATYP bytes
+/// for IPv4 targets (RFC 1928 §7 header layout).
+#[test]
+fn proxy_udp_encode_rsv_frag_bytes_are_zero_ipv4() {
+    let config = RuntimeConfig::default();
+    let _state = test_runtime_state(config);
+    let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 1)), 443);
+    let packet = encode_socks5_udp_packet(target, b"payload");
+    assert_eq!(packet[0], 0x00, "RSV[0] must be 0 (IPv4)");
+    assert_eq!(packet[1], 0x00, "RSV[1] must be 0 (IPv4)");
+    assert_eq!(packet[2], 0x00, "FRAG must be 0 (IPv4)");
+    assert_eq!(packet[3], 0x01, "ATYP must be 0x01 for IPv4");
+}
+
+/// encode_socks5_udp_packet produces correct RSV(0,0), FRAG(0), and ATYP bytes
+/// for IPv6 targets — gated on config.network.ipv6 matching existing test patterns.
+#[test]
+fn proxy_udp_encode_rsv_frag_bytes_are_zero_ipv6() {
+    let mut config = RuntimeConfig::default();
+    config.network.ipv6 = true;
+    let _state = test_runtime_state(config);
+    let target = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)), 443);
+    let packet = encode_socks5_udp_packet(target, b"payload");
+    assert_eq!(packet[0], 0x00, "RSV[0] must be 0 (IPv6)");
+    assert_eq!(packet[1], 0x00, "RSV[1] must be 0 (IPv6)");
+    assert_eq!(packet[2], 0x00, "FRAG must be 0 (IPv6)");
+    assert_eq!(packet[3], 0x04, "ATYP must be 0x04 for IPv6");
+}
+
+/// FRAG field sweep: every value 1..=255 must be rejected by parse_socks5_udp_packet.
+#[test]
+fn proxy_udp_parse_rejects_all_nonzero_frag_values() {
+    let config = RuntimeConfig::default();
+    let state = test_runtime_state(config);
+    let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 80);
+    let base = encode_socks5_udp_packet(target, b"x");
+    for frag in 1u8..=255 {
+        let mut packet = base.clone();
+        packet[2] = frag;
+        assert!(
+            parse_socks5_udp_packet(&packet, &state).is_none(),
+            "FRAG={frag} must be rejected by proxy-side parser"
+        );
+    }
+}
+
+/// An IPv6 packet must be rejected when config.network.ipv6 = false.
+#[test]
+fn proxy_udp_parse_rejects_ipv6_when_disabled() {
+    let mut config = RuntimeConfig::default();
+    config.network.ipv6 = true;
+    let target = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)), 443);
+    let packet = encode_socks5_udp_packet(target, b"data");
+
+    // Must parse successfully when IPv6 is enabled.
+    let state_v6 = test_runtime_state(config.clone());
+    assert!(parse_socks5_udp_packet(&packet, &state_v6).is_some(), "IPv6 packet must parse when ipv6=true");
+
+    // Must be rejected when IPv6 is disabled.
+    config.network.ipv6 = false;
+    let state_no_v6 = test_runtime_state(config);
+    assert!(
+        parse_socks5_udp_packet(&packet, &state_no_v6).is_none(),
+        "IPv6 packet must be rejected when config.network.ipv6=false"
+    );
+}
+
+/// A 3-byte frame with FRAG=1 ([0,0,1]) must return None without panicking.
+#[test]
+fn proxy_udp_parse_three_byte_frag_nonzero_returns_none() {
+    let config = RuntimeConfig::default();
+    let state = test_runtime_state(config);
+    assert!(parse_socks5_udp_packet(&[0u8, 0, 1], &state).is_none());
+}
+
+// -------------------------------------------------------------------------
+// Proptest: round-trip for proxy-server UDP packet codec
+// -------------------------------------------------------------------------
+
+proptest! {
+    /// For any IPv4 SocketAddr and payload (0..=4096 bytes),
+    /// parse(encode(target, payload)) == (target, payload).
+    #[test]
+    fn prop_proxy_encode_parse_round_trip_ipv4(
+        a in 0u8..=255,
+        b in 0u8..=255,
+        c in 0u8..=255,
+        d in 0u8..=255,
+        port in 0u16..=65535,
+        payload in proptest::collection::vec(any::<u8>(), 0..=4096),
+    ) {
+        let config = RuntimeConfig::default();
+        let state = test_runtime_state(config);
+        let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(a, b, c, d)), port);
+        let packet = encode_socks5_udp_packet(target, &payload);
+        let (decoded_target, decoded_payload) =
+            parse_socks5_udp_packet(&packet, &state).expect("proxy decode must succeed for IPv4");
+        prop_assert_eq!(decoded_target, target);
+        prop_assert_eq!(decoded_payload, payload.as_slice());
+    }
+
+    /// For any IPv6 SocketAddr and payload (0..=4096 bytes),
+    /// parse(encode(target, payload)) == (target, payload).
+    #[test]
+    fn prop_proxy_encode_parse_round_trip_ipv6(
+        segments in proptest::array::uniform8(0u16..=65535),
+        port in 0u16..=65535,
+        payload in proptest::collection::vec(any::<u8>(), 0..=4096),
+    ) {
+        let mut config = RuntimeConfig::default();
+        config.network.ipv6 = true;
+        let state = test_runtime_state(config);
+        let ip = Ipv6Addr::new(
+            segments[0], segments[1], segments[2], segments[3],
+            segments[4], segments[5], segments[6], segments[7],
+        );
+        let target = SocketAddr::new(IpAddr::V6(ip), port);
+        let packet = encode_socks5_udp_packet(target, &payload);
+        let (decoded_target, decoded_payload) =
+            parse_socks5_udp_packet(&packet, &state).expect("proxy decode must succeed for IPv6");
+        prop_assert_eq!(decoded_target, target);
+        prop_assert_eq!(decoded_payload, payload.as_slice());
+    }
 }
