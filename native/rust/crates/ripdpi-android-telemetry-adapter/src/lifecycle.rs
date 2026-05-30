@@ -27,6 +27,10 @@ impl ProxyTelemetryState {
         self.adaptive_override_active.store(false, Ordering::Release);
         let message = format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}");
         self.emit_event("proxy", "info", &message, Some("runtime_ready"));
+        // Push readiness to any installed observer (native readiness event,
+        // ADR 0003) at the same point the `runtime_ready` telemetry fires, so
+        // the Kotlin wrapper need not poll. No-op when no observer is set.
+        self.notify_ready();
         self.update_strings(|s| {
             s.listener_address = Some(bind_addr.clone());
             s.adaptive_trigger_mask = None;

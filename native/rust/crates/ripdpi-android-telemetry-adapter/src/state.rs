@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use android_support::clear_proxy_events;
 use arc_swap::ArcSwap;
@@ -60,6 +60,7 @@ pub struct ProxyTelemetryState {
     pub(super) direct_path_learning_signals: Mutex<Vec<DirectPathLearningSignal>>,
     pub(super) tcp_connect_histogram: LatencyHistogram,
     pub(super) tls_handshake_histogram: LatencyHistogram,
+    readiness_observer: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 
 impl ProxyTelemetryState {
@@ -116,6 +117,7 @@ impl ProxyTelemetryState {
             }),
             tcp_connect_histogram: LatencyHistogram::new(),
             tls_handshake_histogram: LatencyHistogram::new(),
+            readiness_observer: Mutex::new(None),
         }
     }
 
@@ -129,5 +131,99 @@ impl ProxyTelemetryState {
             f(&mut next);
             next
         });
+    }
+
+    /// Install a readiness observer fired exactly once from
+    /// [`ProxyTelemetryState::mark_running`], at the same point the
+    /// `runtime_ready` event is emitted. Replaces any previously installed
+    /// observer. The adapter layer wires this to a native readiness push so
+    /// the Kotlin wrapper no longer polls telemetry (see ADR 0003).
+    ///
+    /// Cancel-safety: synchronous lock; no `.await` inside.
+    pub fn set_readiness_observer(&self, observer: Arc<dyn Fn() + Send + Sync>) {
+        if let Ok(mut guard) = self.readiness_observer.lock() {
+            *guard = Some(observer);
+        }
+    }
+
+    /// Fire the readiness observer, if installed. Clone the `Arc` inside the
+    /// lock, release the lock, then invoke — reentrancy-safe.
+    ///
+    /// Cancel-safety: synchronous; no `.await` inside.
+    pub(super) fn notify_ready(&self) {
+        let observer = match self.readiness_observer.lock() {
+            Ok(guard) => guard.as_ref().map(Arc::clone),
+            Err(_) => None,
+        };
+        if let Some(observer) = observer {
+            observer();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
+
+    use super::ProxyTelemetryState;
+
+    /// Smoke: readiness observer is invoked when `notify_ready` is called.
+    #[test]
+    fn readiness_observer_fires_on_notify() {
+        let state = ProxyTelemetryState::new(None);
+        let count = Arc::new(AtomicU64::new(0));
+        let count_clone = Arc::clone(&count);
+        state.set_readiness_observer(Arc::new(move || {
+            count_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+        state.notify_ready();
+        assert_eq!(count.load(Ordering::Relaxed), 1);
+    }
+
+    /// `mark_running` fires the readiness observer exactly once.
+    #[test]
+    fn mark_running_fires_readiness_observer_once() {
+        let state = ProxyTelemetryState::new(None);
+        let count = Arc::new(AtomicU64::new(0));
+        let count_clone = Arc::clone(&count);
+        state.set_readiness_observer(Arc::new(move || {
+            count_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+        state.mark_running("127.0.0.1:1080".to_string(), 64, 1);
+        assert_eq!(count.load(Ordering::Relaxed), 1);
+    }
+
+    /// No readiness observer installed: `mark_running`/`notify_ready` is a
+    /// no-op (no panic).
+    #[test]
+    fn no_readiness_observer_is_noop() {
+        let state = ProxyTelemetryState::new(None);
+        state.notify_ready();
+        // Must not panic without an observer installed.
+        state.mark_running("127.0.0.1:1080".to_string(), 64, 1);
+    }
+
+    /// `set_readiness_observer` replaces the previous observer.
+    #[test]
+    fn set_readiness_observer_replaces_previous() {
+        let state = ProxyTelemetryState::new(None);
+        let first_count = Arc::new(AtomicU64::new(0));
+        let second_count = Arc::new(AtomicU64::new(0));
+
+        let first_clone = Arc::clone(&first_count);
+        state.set_readiness_observer(Arc::new(move || {
+            first_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        let second_clone = Arc::clone(&second_count);
+        state.set_readiness_observer(Arc::new(move || {
+            second_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        state.notify_ready();
+
+        assert_eq!(first_count.load(Ordering::Relaxed), 0, "first readiness observer must not fire after replacement");
+        assert_eq!(second_count.load(Ordering::Relaxed), 1, "second readiness observer must fire");
     }
 }
