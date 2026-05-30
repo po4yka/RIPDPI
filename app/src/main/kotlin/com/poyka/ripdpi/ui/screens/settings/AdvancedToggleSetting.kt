@@ -7,6 +7,7 @@ internal enum class AdvancedToggleSetting {
     StrategyPackAllowRollbackOverride,
     NoDomain,
     TcpFastOpen,
+    MixedInbound,
     DropSack,
     FakeTlsRandomize,
     FakeTlsDupSessionId,

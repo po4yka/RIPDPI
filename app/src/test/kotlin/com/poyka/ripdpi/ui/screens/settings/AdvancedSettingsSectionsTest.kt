@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.AdaptiveFallbackUiState
 import com.poyka.ripdpi.activities.HostAutolearnUiState
@@ -124,6 +125,27 @@ class AdvancedSettingsSectionsTest {
     fun `proxy tcp fast open toggle reflects state`() {
         setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(tcpFastOpen = true)))
         composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TcpFastOpen)).assertIsOn()
+    }
+
+    @Test
+    fun `proxy mixed inbound toggle reflects state`() {
+        setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(mixedInboundEnabled = true)))
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.MixedInbound)).assertIsOn()
+    }
+
+    @Test
+    fun `proxy mixed inbound toggle fires callback`() {
+        val toggles = mutableListOf<Pair<AdvancedToggleSetting, Boolean>>()
+        setProxySection(
+            uiState = SettingsUiState(proxy = ProxyNetworkUiState(mixedInboundEnabled = false)),
+            onToggleChanged = { s, v -> toggles.add(s to v) },
+        )
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.MixedInbound))
+            .performScrollTo()
+            .performClick()
+        assertEquals(AdvancedToggleSetting.MixedInbound, toggles.single().first)
+        assertTrue(toggles.single().second)
     }
 
     @Test

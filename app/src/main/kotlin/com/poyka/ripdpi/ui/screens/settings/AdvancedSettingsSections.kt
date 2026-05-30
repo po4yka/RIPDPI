@@ -459,7 +459,16 @@ private fun ProxyToggleSettings(
         checked = uiState.proxy.tcpFastOpen,
         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.TcpFastOpen, it) },
         enabled = visualEditorEnabled,
+        showDivider = true,
         testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TcpFastOpen),
+    )
+    SettingsRow(
+        title = stringResource(R.string.settings_mixed_inbound_title),
+        subtitle = stringResource(R.string.settings_mixed_inbound_body),
+        checked = uiState.proxy.mixedInboundEnabled,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.MixedInbound, it) },
+        enabled = visualEditorEnabled,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.MixedInbound),
     )
 }
 

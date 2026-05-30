@@ -1365,6 +1365,8 @@ fakeddisorder endhost</string>
     <string name="strategy_pack_refresh_action">Загрузить актуальный каталог</string>
     <string name="strategy_pack_refresh_in_progress">Загрузка актуального каталога</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
+    <string name="settings_mixed_inbound_title">Смешанный входящий (SOCKS5 + HTTP)</string>
+    <string name="settings_mixed_inbound_body">Единый локальный listener принимает соединения SOCKS5 и HTTP CONNECT; порт по умолчанию — 2080.</string>
     <string name="ripdpi_fake_offset_setting">Маркер смещения фейка</string>
     <string name="ripdpi_drop_sack_setting">Сбросить SACK</string>
     <string name="desync_udp_category">UDP</string>

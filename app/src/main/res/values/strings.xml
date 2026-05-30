@@ -1774,6 +1774,8 @@ Source: %2$s</string>
     <string name="strategy_pack_refresh_action">Fetch latest catalog</string>
     <string name="strategy_pack_refresh_in_progress">Fetching latest catalog</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
+    <string name="settings_mixed_inbound_title">Mixed inbound (SOCKS5 + HTTP)</string>
+    <string name="settings_mixed_inbound_body">A single local listener accepts both SOCKS5 and HTTP CONNECT connections; defaults to port 2080.</string>
     <string name="ripdpi_fake_offset_setting">Fake offset marker</string>
     <string name="ripdpi_drop_sack_setting">Drop SACK</string>
     <string name="ripdpi_ip_id_mode_title">IPv4 ID mode</string>

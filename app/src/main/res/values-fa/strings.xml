@@ -1959,6 +1959,8 @@ fakeddisorder endhost</string>
     <string name="ripdpi_protocols_category">پروتکل‌ها</string>
     <string name="ripdpi_proxy">Proxy</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
+    <string name="settings_mixed_inbound_title">ورودی ترکیبی (SOCKS5 + HTTP)</string>
+    <string name="settings_mixed_inbound_body">یک listener محلی واحد اتصالات SOCKS5 و HTTP CONNECT را می‌پذیرد؛ پورت پیش‌فرض ۲۰۸۰ است.</string>
     <string name="routing_protection_anti_correlation_title">حالت ضد همبستگی</string>
     <string name="routing_protection_dht_bypass_title">دور زدن مستقیم</string>
     <string name="routing_protection_dht_title">کاهش تریگر DHT</string>

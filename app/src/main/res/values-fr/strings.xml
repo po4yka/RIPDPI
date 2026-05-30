@@ -898,6 +898,8 @@ fakeddisorder endhost</string>
     <string name="ripdpi_seqovl_summary_runtime_fallback">Se rabat sur split sur cet appareil</string>
     <string name="ripdpi_seqovl_summary_scope_none">Aucun protocole correspondant activé</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
+    <string name="settings_mixed_inbound_title">Entrée mixte (SOCKS5 + HTTP)</string>
+    <string name="settings_mixed_inbound_body">Un seul listener local accepte les connexions SOCKS5 et HTTP CONNECT ; port par défaut 2080.</string>
     <string name="ripdpi_tls_prelude_cli_body">Les contrôles visuels de fragmentation d\'enregistrement TLS sont en pause pendant que les arguments RIPDPI bruts sont activés. Utilisez les drapeaux de chaîne en ligne de commande pour le prochain démarrage.</string>
     <string name="ripdpi_tls_prelude_mode_body">Choisir si le trafic HTTPS ClientHello reste intact, se divise une fois à un marqueur ou se déploie en enregistrements de queue aléatoires.</string>
     <string name="ripdpi_tls_prelude_mode_single_body">Ajouter une étape tlsrec et diviser l\'enregistrement ClientHello une fois au marqueur sélectionné.</string>

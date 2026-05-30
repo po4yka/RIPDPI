@@ -28,6 +28,8 @@ internal val coreToggleHandlers: Map<AdvancedToggleSetting, CoreToggleHandler> =
             { enabled -> updateBoolean("noDomain", enabled) { setNoDomain(enabled) } },
         AdvancedToggleSetting.TcpFastOpen to
             { enabled -> updateBoolean("tcpFastOpen", enabled) { setTcpFastOpen(enabled) } },
+        AdvancedToggleSetting.MixedInbound to
+            { enabled -> updateBoolean("mixedInboundEnabled", enabled) { setMixedInboundEnabled(enabled) } },
         AdvancedToggleSetting.PcapCaptureEnabled to
             { enabled -> updateBoolean("pcapCaptureEnabled", enabled) { setPcapCaptureEnabled(enabled) } },
         AdvancedToggleSetting.WsTunnelAllowInsecureSni to

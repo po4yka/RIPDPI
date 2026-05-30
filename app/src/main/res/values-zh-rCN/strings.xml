@@ -1851,6 +1851,8 @@ fake_burst 3</string>
     <string name="ripdpi_seqovl_summary_scope_http_https">HTTP 请求和 TLS ClientHello</string>
     <string name="ripdpi_seqovl_unsupported_body">此设备未暴露 seqovl 所需的、由数据包拥有的上游 TCP 后端。新的 seqovl 控件保持禁用,已存储的 seqovl 步骤将降级为 split。</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
+    <string name="settings_mixed_inbound_title">混合入站 (SOCKS5 + HTTP)</string>
+    <string name="settings_mixed_inbound_body">单个本地 listener 同时接受 SOCKS5 和 HTTP CONNECT 连接，默认端口为 2080。</string>
     <string name="ripdpi_tls_prelude_badge_stacked">叠加 × %1$d</string>
     <string name="ripdpi_tls_prelude_https_disabled_title">HTTPS desync 已关闭</string>
     <string name="ripdpi_tls_prelude_mode_off_title">关闭</string>
