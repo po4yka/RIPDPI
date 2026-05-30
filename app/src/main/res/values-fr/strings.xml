@@ -2941,6 +2941,8 @@ Source : %2$s</string>
     <string name="backup_export_biometric_title">Confirmer la sauvegarde complète</string>
     <string name="backup_export_biometric_subtitle">Authentifiez-vous pour exporter une sauvegarde contenant des identifiants</string>
     <string name="backup_export_biometric_cancel">Annuler</string>
+    <string name="backup_export_biometric_failed">Échec de la vérification biométrique : la sauvegarde complète n\'a pas été exportée.</string>
+    <string name="backup_export_biometric_unavailable">Configurez une biométrie sur l\'appareil pour exporter une sauvegarde complète avec identifiants.</string>
     <string name="backup_variant_picker_title">Choisissez un type de sauvegarde</string>
     <string name="backup_variant_picker_body">Choisissez ce qu\'il faut inclure dans le fichier exporté.</string>
     <string name="backup_variant_share_action">Sauvegarde partageable</string>

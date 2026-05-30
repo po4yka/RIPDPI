@@ -2946,6 +2946,8 @@ fakeddisorder endhost</string>
     <string name="backup_export_biometric_title">تأیید پشتیبان کامل</string>
     <string name="backup_export_biometric_subtitle">برای برون‌بری پشتیبانی که شامل اعتبارنامه‌هاست احراز هویت کنید</string>
     <string name="backup_export_biometric_cancel">لغو</string>
+    <string name="backup_export_biometric_failed">تأیید زیستی ناموفق بود — پشتیبان کامل برون‌برده نشد.</string>
+    <string name="backup_export_biometric_unavailable">برای برون‌بری پشتیبان کامل همراه با اعتبارنامه‌ها، احراز هویت زیستی دستگاه را تنظیم کنید.</string>
     <string name="backup_variant_picker_title">نوع پشتیبان را انتخاب کنید</string>
     <string name="backup_variant_picker_body">انتخاب کنید چه چیزی در فایل برون‌برده گنجانده شود.</string>
     <string name="backup_variant_share_action">پشتیبان قابل هم‌رسانی</string>

@@ -146,8 +146,9 @@ class BackupRestoreUseCase
                 } catch (e: UnsupportedBackupVersion) {
                     return BackupPreviewResult.UnsupportedVersion(found = e.found, supported = e.supported)
                 } catch (e: Exception) {
-                    Log.w(LogTag, "Backup preview parse failed", e)
-                    return BackupPreviewResult.Malformed(reason = e.message ?: e::class.simpleName.orEmpty())
+                    // Log only the exception type — `e`/`e.message` can quote the JSON payload.
+                    Log.w(LogTag, "Backup preview parse failed: ${e::class.simpleName}")
+                    return BackupPreviewResult.Malformed(reason = e::class.simpleName.orEmpty())
                 }
 
             val decoded = BackupRestoreDecoder.decodeProfiles(document)
@@ -188,8 +189,9 @@ class BackupRestoreUseCase
                 } catch (e: UnsupportedBackupVersion) {
                     return RestoreResult.UnsupportedVersion(found = e.found, supported = e.supported)
                 } catch (e: Exception) {
-                    Log.w(LogTag, "Backup restore parse failed", e)
-                    return RestoreResult.Aborted(reason = e.message ?: e::class.simpleName.orEmpty())
+                    // Log only the exception type — `e`/`e.message` can quote the JSON payload.
+                    Log.w(LogTag, "Backup restore parse failed: ${e::class.simpleName}")
+                    return RestoreResult.Aborted(reason = e::class.simpleName.orEmpty())
                 }
 
             // -- Staging: decode and validate everything selected, NO writes yet. --
@@ -197,8 +199,9 @@ class BackupRestoreUseCase
                 try {
                     stage(document, selection)
                 } catch (e: Exception) {
-                    Log.w(LogTag, "Backup restore staging failed; live data untouched", e)
-                    return RestoreResult.Aborted(reason = e.message ?: e::class.simpleName.orEmpty())
+                    // Log only the exception type — `e`/`e.message` can quote the JSON payload.
+                    Log.w(LogTag, "Backup restore staging failed; live data untouched: ${e::class.simpleName}")
+                    return RestoreResult.Aborted(reason = e::class.simpleName.orEmpty())
                 }
 
             // -- Commit: each store swaps atomically; ordering is independent. --

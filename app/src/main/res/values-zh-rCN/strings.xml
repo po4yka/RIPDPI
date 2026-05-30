@@ -2942,6 +2942,8 @@ fake_burst 3</string>
     <string name="backup_export_biometric_title">确认完整备份</string>
     <string name="backup_export_biometric_subtitle">请验证身份以导出包含凭据的备份</string>
     <string name="backup_export_biometric_cancel">取消</string>
+    <string name="backup_export_biometric_failed">生物识别验证失败，未导出完整备份。</string>
+    <string name="backup_export_biometric_unavailable">请设置设备生物识别，以导出包含凭据的完整备份。</string>
     <string name="backup_variant_picker_title">选择备份类型</string>
     <string name="backup_variant_picker_body">选择要包含在导出文件中的内容。</string>
     <string name="backup_variant_share_action">可分享备份</string>

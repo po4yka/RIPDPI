@@ -2941,6 +2941,8 @@ Origen: %2$s</string>
     <string name="backup_export_biometric_title">Confirmar copia completa</string>
     <string name="backup_export_biometric_subtitle">Autentícate para exportar una copia que incluye credenciales</string>
     <string name="backup_export_biometric_cancel">Cancelar</string>
+    <string name="backup_export_biometric_failed">La verificación biométrica falló: no se exportó la copia completa.</string>
+    <string name="backup_export_biometric_unavailable">Configura la biometría del dispositivo para exportar una copia completa con credenciales.</string>
     <string name="backup_variant_picker_title">Elige un tipo de copia</string>
     <string name="backup_variant_picker_body">Elige qué incluir en el archivo exportado.</string>
     <string name="backup_variant_share_action">Copia para compartir</string>

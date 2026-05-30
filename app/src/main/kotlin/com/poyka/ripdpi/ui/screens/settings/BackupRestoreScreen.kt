@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -176,6 +177,8 @@ private fun rememberBackupExportController(
     val biometricTitle = stringResource(R.string.backup_export_biometric_title)
     val biometricSubtitle = stringResource(R.string.backup_export_biometric_subtitle)
     val biometricCancel = stringResource(R.string.backup_export_biometric_cancel)
+    val biometricFailedMessage = stringResource(R.string.backup_export_biometric_failed)
+    val biometricUnavailableMessage = stringResource(R.string.backup_export_biometric_unavailable)
 
     val createDocumentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BackupMimeType)) { uri ->
@@ -203,15 +206,33 @@ private fun rememberBackupExportController(
     val onVariantChosen: (BackupVariant) -> Unit = { variant ->
         showVariantPicker = false
         if (variant == BackupVariant.FULL) {
-            coroutineScope.launch {
-                val result =
-                    biometricAuthManager.authenticate(
-                        context as FragmentActivity,
-                        biometricTitle,
-                        biometricSubtitle,
-                        biometricCancel,
-                    )
-                if (result is BiometricAuthResult.Success) launchPicker(BackupVariant.FULL)
+            // FULL carries credentials, so it is gated by biometric auth. Every
+            // non-success outcome must give the user feedback rather than silently
+            // doing nothing (the previous behaviour, which left FULL export dead on
+            // devices with no enrolled biometric).
+            if (biometricAuthManager.canAuthenticate(context) != BiometricManager.BIOMETRIC_SUCCESS) {
+                coroutineScope.launch { snackbarHostState.showSnackbar(biometricUnavailableMessage) }
+            } else {
+                coroutineScope.launch {
+                    when (
+                        biometricAuthManager.authenticate(
+                            context as FragmentActivity,
+                            biometricTitle,
+                            biometricSubtitle,
+                            biometricCancel,
+                        )
+                    ) {
+                        is BiometricAuthResult.Success -> launchPicker(BackupVariant.FULL)
+
+                        // User backed out deliberately: no export, no noise.
+                        is BiometricAuthResult.Cancelled -> Unit
+
+                        // Error / Failed: tell the user the gate did not pass.
+                        is BiometricAuthResult.Error,
+                        is BiometricAuthResult.Failed,
+                        -> snackbarHostState.showSnackbar(biometricFailedMessage)
+                    }
+                }
             }
         } else {
             launchPicker(variant)

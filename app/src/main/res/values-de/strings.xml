@@ -2941,6 +2941,8 @@ Quelle: %2$s</string>
     <string name="backup_export_biometric_title">Vollständige Sicherung bestätigen</string>
     <string name="backup_export_biometric_subtitle">Authentifiziere dich, um eine Sicherung mit Zugangsdaten zu exportieren</string>
     <string name="backup_export_biometric_cancel">Abbrechen</string>
+    <string name="backup_export_biometric_failed">Biometrische Prüfung fehlgeschlagen – die vollständige Sicherung wurde nicht exportiert.</string>
+    <string name="backup_export_biometric_unavailable">Richte eine Geräte-Biometrie ein, um eine vollständige Sicherung mit Zugangsdaten zu exportieren.</string>
     <string name="backup_variant_picker_title">Sicherungstyp wählen</string>
     <string name="backup_variant_picker_body">Wähle, was in die Exportdatei aufgenommen wird.</string>
     <string name="backup_variant_share_action">Teilbare Sicherung</string>

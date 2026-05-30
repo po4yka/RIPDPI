@@ -3010,6 +3010,8 @@ Source: %2$s</string>
     <string name="backup_export_biometric_title">Confirm full backup</string>
     <string name="backup_export_biometric_subtitle">Authenticate to export a backup that includes credentials</string>
     <string name="backup_export_biometric_cancel">Cancel</string>
+    <string name="backup_export_biometric_failed">Biometric verification failed — the full backup was not exported.</string>
+    <string name="backup_export_biometric_unavailable">Set up a device biometric to export a full backup with credentials.</string>
     <string name="backup_variant_picker_title">Choose a backup type</string>
     <string name="backup_variant_picker_body">Pick what to include in the exported file.</string>
     <string name="backup_variant_share_action">Shareable backup</string>

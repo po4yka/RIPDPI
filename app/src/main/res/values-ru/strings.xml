@@ -3060,6 +3060,8 @@ fakeddisorder endhost</string>
     <string name="backup_export_biometric_title">Подтвердите полную копию</string>
     <string name="backup_export_biometric_subtitle">Подтвердите личность для экспорта копии с учётными данными</string>
     <string name="backup_export_biometric_cancel">Отмена</string>
+    <string name="backup_export_biometric_failed">Биометрическая проверка не пройдена — полная копия не экспортирована.</string>
+    <string name="backup_export_biometric_unavailable">Настройте биометрию устройства, чтобы экспортировать полную копию с учётными данными.</string>
     <string name="backup_variant_picker_title">Выберите тип копии</string>
     <string name="backup_variant_picker_body">Выберите, что включить в файл экспорта.</string>
     <string name="backup_variant_share_action">Копия для обмена</string>
