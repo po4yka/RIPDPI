@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 android-support.workspace = true
 jni.workspace = true
+log.workspace = true
 once_cell.workspace = true
 rustls.workspace = true
 serde_json.workspace = true

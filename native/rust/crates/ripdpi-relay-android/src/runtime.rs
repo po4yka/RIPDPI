@@ -23,6 +23,20 @@ impl SessionRuntime {
             Self::AppsScript(session) => session.stop(),
         }
     }
+
+    /// Install a one-shot readiness observer (ADR 0003). Returns `true` if the
+    /// backend supports a native readiness event. The Apps Script relay has no
+    /// such event, so it returns `false` and the Kotlin wrapper keeps polling
+    /// telemetry for that backend.
+    pub(crate) fn set_readiness_observer(&self, observer: Arc<dyn Fn() + Send + Sync>) -> bool {
+        match self {
+            Self::Standard(session) => {
+                session.set_readiness_observer(observer);
+                true
+            }
+            Self::AppsScript(_) => false,
+        }
+    }
 }
 
 pub(crate) fn create_session(config_json: &str) -> Option<SessionRuntime> {

@@ -6152,6 +6152,7 @@ version = "0.1.0"
 dependencies = [
  "android-support",
  "jni 0.22.4",
+ "log",
  "once_cell",
  "ripdpi-apps-script-core",
  "ripdpi-quality",

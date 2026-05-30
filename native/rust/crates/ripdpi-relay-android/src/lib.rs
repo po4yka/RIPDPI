@@ -25,6 +25,7 @@
 //! containment) and §7 (error mapping).
 
 mod lifecycle;
+mod readiness;
 mod registry;
 mod runtime;
 mod telemetry;
@@ -93,5 +94,30 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniD
 ) {
     ffi_boundary((), move || {
         lifecycle::relay_destroy_entry(env, handle);
+    });
+}
+
+// Native readiness push (ADR 0003): a one-shot onRuntimeReady() callback that
+// replaces the 50 ms Kotlin telemetry poll. Register after jniCreate and before
+// jniStart. Returns 0 for the Apps Script backend (no native readiness event),
+// so Kotlin keeps polling for it.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniRegisterReadinessListener(
+    env: EnvUnowned<'_>,
+    _thiz: JObject,
+    handle: jlong,
+    listener: JObject,
+) -> jlong {
+    ffi_boundary(0, move || readiness::register_from_jni(env, handle, listener))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniUnregisterReadinessListener(
+    _env: EnvUnowned<'_>,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    ffi_boundary((), move || {
+        readiness::unregister_entry(handle);
     });
 }
