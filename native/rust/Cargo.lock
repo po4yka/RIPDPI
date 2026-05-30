@@ -6235,6 +6235,7 @@ dependencies = [
  "local-network-fixture",
  "ripdpi-dns-resolver",
  "ripdpi-proxy-config",
+ "ripdpi-runtime-dns-cache",
  "ripdpi-runtime-platform",
  "ripdpi-tls-profiles",
  "ripdpi-ws-tunnel",

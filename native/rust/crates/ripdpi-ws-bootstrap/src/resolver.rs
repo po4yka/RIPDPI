@@ -7,7 +7,10 @@ use ripdpi_ws_tunnel::TelegramDc;
 
 use crate::catalog::{default_encrypted_dns_context, WS_TUNNEL_PORT};
 use crate::endpoint::encrypted_dns_endpoint;
-use crate::policy::{runtime_encrypted_dns_context_for_host, runtime_encrypted_dns_context_for_host_with_default};
+use crate::policy::{
+    record_successful_resolver, runtime_encrypted_dns_context_for_host,
+    runtime_encrypted_dns_context_for_host_with_default,
+};
 use crate::protect_hooks::build_direct_connect_hooks;
 use crate::query::{build_dns_query, current_query_id, DNS_RECORD_TYPE_A, DNS_RECORD_TYPE_AAAA};
 
@@ -96,10 +99,12 @@ pub(crate) fn resolve_host_via_encrypted_dns_with_default(
     .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))?;
 
     if let Some(ip) = resolve_first_ip(&resolver, host, DNS_RECORD_TYPE_A, |ip| ip.is_ipv4())? {
+        record_successful_resolver(host, &resolver_context, ip);
         return Ok(SocketAddr::new(ip, 0));
     }
     if ipv6_enabled {
         if let Some(ip) = resolve_first_ip(&resolver, host, DNS_RECORD_TYPE_AAAA, |ip| ip.is_ipv6())? {
+            record_successful_resolver(host, &resolver_context, ip);
             return Ok(SocketAddr::new(ip, 0));
         }
     }

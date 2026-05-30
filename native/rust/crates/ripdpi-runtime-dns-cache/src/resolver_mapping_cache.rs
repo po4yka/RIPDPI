@@ -50,9 +50,21 @@ pub struct ResolverMappingCache {
 }
 
 impl ResolverMappingCache {
+    /// Default entry lifetime. Mirrors the transport-policy "family" cache's
+    /// 7-day TTL (`ripdpi-failure-classifier` `TransportPolicyCache::DEFAULT_TTL_SECS`)
+    /// so a learned per-`(host, NetProfile)` resolver preference ages out on the
+    /// same schedule as the per-`(host, …, net_profile)` transport policy it
+    /// complements.
+    pub const DEFAULT_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
+
     pub fn new(capacity: usize) -> Self {
         let capacity = NonZeroUsize::new(capacity.max(1)).expect("capacity is non-zero");
         Self { entries: Mutex::new(LruCache::new(capacity)) }
+    }
+
+    /// Insert using [`Self::DEFAULT_TTL`] — the family-cache-aligned lifetime.
+    pub fn insert_default_ttl(&self, key: ResolverMappingKey, mapping: ResolvedMapping) {
+        self.insert(key, mapping, Self::DEFAULT_TTL);
     }
 
     pub fn insert(&self, key: ResolverMappingKey, mapping: ResolvedMapping, ttl: Duration) {

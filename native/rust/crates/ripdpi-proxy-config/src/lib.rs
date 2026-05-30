@@ -40,11 +40,16 @@
 
 pub mod presets;
 
+mod active_network_scope;
 mod convert;
 mod types;
 
 #[cfg(test)]
 mod tests;
+
+// Public API re-exports -- ambient active-network scope (the NetProfile half
+// of the `(host, NetProfile)` resolver-selection cache key).
+pub use active_network_scope::{active_network_scope, set_active_network_scope};
 
 // Public API re-exports -- types.
 // Only types referenced by downstream workspace crates are re-exported here;
