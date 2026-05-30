@@ -101,6 +101,7 @@ data class RelaySettingsSection(
     val relayTcpFallbackEnabled: Boolean = false,
     val relayChainEntryProfileId: String = "",
     val relayChainExitProfileId: String = "",
+    val relayChainMiddleProfileIds: List<String> = emptyList(),
     val relayTuicZeroRtt: Boolean = false,
     val relayTuicCongestionControl: String = "",
     val relayShadowtlsInnerProfileId: String = "",

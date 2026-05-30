@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.ChainIntermediateHopSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -7,6 +8,7 @@ import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -173,6 +175,81 @@ class ConfigChainRelayUiStateTest {
         assertEquals("24 ms", status.entry.latencyLabel)
         assertEquals("Connecting", status.exit.statusLabel)
         assertEquals("61 ms", status.exit.latencyLabel)
+    }
+
+    @Test
+    fun `chain relay hop status surfaces intermediate hop latency and cumulative aggregate`() {
+        val status =
+            buildRelayChainHopStatus(
+                NativeRuntimeSnapshot(
+                    source = "relay",
+                    chainEntryState = "connected",
+                    chainEntryLatencyMs = 10,
+                    chainExitState = "connected",
+                    chainExitLatencyMs = 40,
+                    chainIntermediateHops =
+                        listOf(
+                            ChainIntermediateHopSnapshot(hopIndex = 2, state = "connecting", latencyMs = 33),
+                            ChainIntermediateHopSnapshot(hopIndex = 1, state = "connected", latencyMs = 21),
+                        ),
+                ),
+            )
+
+        // Intermediate hops are surfaced in hop order (sorted by hopIndex), no longer blank.
+        assertEquals(2, status.intermediate.size)
+        assertEquals("Connected", status.intermediate[0].statusLabel)
+        assertEquals("21 ms", status.intermediate[0].latencyLabel)
+        assertEquals("Connecting", status.intermediate[1].statusLabel)
+        assertEquals("33 ms", status.intermediate[1].latencyLabel)
+        // hopStatusAt maps intermediate positions (1..hopCount-2) to the matching entry.
+        assertEquals("Connected", status.hopStatusAt(1, hopCount = 4).statusLabel)
+        assertEquals("Connecting", status.hopStatusAt(2, hopCount = 4).statusLabel)
+        // Cumulative-latency aggregate sums every hop with a recorded latency.
+        assertEquals(10L + 21L + 33L + 40L, status.cumulativeLatencyMs)
+    }
+
+    @Test
+    fun `three hop chain round-trips through draft proto persistence including the middle hop`() {
+        val draft =
+            ConfigDraft(
+                relayEnabled = true,
+                relayKind = RelayKindChainRelay,
+                relayChainEntryProfileId = "entry",
+                relayChainExitProfileId = "exit",
+            ).relayChainHopAdded()
+                .relayChainHopProfileIdChanged(1, "middle-1")
+
+        assertEquals(listOf("entry", "middle-1", "exit"), draft.relayChainHopProfileIds())
+
+        val restored =
+            com.poyka.ripdpi.proto.AppSettings
+                .newBuilder()
+                .applyConfigDraft(draft)
+                .build()
+                .toConfigDraft()
+
+        assertEquals("entry", restored.relayChainEntryProfileId)
+        assertEquals("exit", restored.relayChainExitProfileId)
+        assertEquals(listOf("middle-1"), restored.relayChainMiddleProfileIds)
+        assertEquals(listOf("entry", "middle-1", "exit"), restored.relayChainHopProfileIds())
+    }
+
+    @Test
+    fun `middle hops are dropped on persistence when the relay kind is not chain relay`() {
+        val draft =
+            ConfigDraft(
+                relayEnabled = true,
+                relayKind = RelayKindVlessReality,
+            ).copy(relayChainMiddleProfileIds = persistentListOf("orphan"))
+
+        val restored =
+            com.poyka.ripdpi.proto.AppSettings
+                .newBuilder()
+                .applyConfigDraft(draft)
+                .build()
+                .toConfigDraft()
+
+        assertTrue(restored.relayChainMiddleProfileIds.isEmpty())
     }
 
     @Test

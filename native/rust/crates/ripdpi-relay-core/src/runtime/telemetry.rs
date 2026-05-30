@@ -43,6 +43,10 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
             .and_then(ChainHopTelemetrySnapshot::exit_state)
             .or_else(|| chain_state(&runtime.config, is_running)),
         chain_exit_latency_ms: chain_hops.as_ref().and_then(ChainHopTelemetrySnapshot::exit_latency_ms),
+        chain_intermediate_hops: chain_hops
+            .as_ref()
+            .map(ChainHopTelemetrySnapshot::intermediate_hops)
+            .unwrap_or_default(),
         strategy_pack_id: None,
         strategy_pack_version: None,
         tls_profile_id: Some(runtime.config.common.tls_fingerprint_profile.clone()),

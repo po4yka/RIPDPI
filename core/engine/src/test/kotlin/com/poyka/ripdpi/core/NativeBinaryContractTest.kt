@@ -32,6 +32,12 @@ class NativeBinaryContractTest {
         setOf(
             "chainEntryLatencyMs",
             "chainExitLatencyMs",
+            // Emitted by the relay-core RelayTelemetry (chainIntermediateHops) but
+            // absent from the proxy/tunnel adapter snapshot fixtures, mirroring the
+            // chain latency fields above. Carries per-hop live telemetry for the
+            // intermediate hops of an N-hop chain. The field-path extractor suffixes
+            // list-typed fields with "[]".
+            "chainIntermediateHops[]",
             "ptRuntimeVersion",
         )
 

@@ -4,12 +4,15 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 
 data class RelayChainHopStatusUiState(
     val entry: RelayChainHopUiState = RelayChainHopUiState(),
+    val intermediate: List<RelayChainHopUiState> = emptyList(),
     val exit: RelayChainHopUiState = RelayChainHopUiState(),
 ) {
     /**
      * Per-hop telemetry for the multi-hop editor: hop 0 maps to the entry status, the last hop
-     * to the exit status, and intermediate hops carry no live telemetry yet (the native N-hop
-     * runtime composition that reports them lands in the next epic task), so they render blank.
+     * to the exit status, and each intermediate hop (positions 1..hopCount-2) maps to the matching
+     * [intermediate] entry. The native N-hop runtime reports intermediate-hop live latency through
+     * `NativeRuntimeSnapshot.chainIntermediateHops`; an intermediate hop with no recorded telemetry
+     * yet renders blank.
      */
     fun hopStatusAt(
         index: Int,
@@ -18,13 +21,27 @@ data class RelayChainHopStatusUiState(
         when (index) {
             0 -> entry
             hopCount - 1 -> exit
-            else -> RelayChainHopUiState()
+            else -> intermediate.getOrNull(index - 1) ?: RelayChainHopUiState()
         }
+
+    /**
+     * The aggregate cumulative latency across every hop with a recorded latency, in milliseconds,
+     * or `null` when no hop has reported a latency yet. Mirrors the cumulative-latency caveat the
+     * editor surfaces alongside the Tor/anonymity caveat: each added hop adds its connect latency
+     * to the end-to-end path.
+     */
+    val cumulativeLatencyMs: Long?
+        get() =
+            (listOf(entry) + intermediate + listOf(exit))
+                .mapNotNull { it.latencyMs }
+                .takeIf { it.isNotEmpty() }
+                ?.sum()
 }
 
 data class RelayChainHopUiState(
     val statusLabel: String? = null,
     val latencyLabel: String? = null,
+    val latencyMs: Long? = null,
 ) {
     val displayLabel: String?
         get() =
@@ -39,11 +56,23 @@ internal fun buildRelayChainHopStatus(snapshot: NativeRuntimeSnapshot): RelayCha
             RelayChainHopUiState(
                 statusLabel = snapshot.chainEntryState?.chainHopStatusLabel(),
                 latencyLabel = snapshot.chainEntryLatencyMs?.let { "$it ms" },
+                latencyMs = snapshot.chainEntryLatencyMs,
             ),
+        intermediate =
+            snapshot.chainIntermediateHops
+                .sortedBy { it.hopIndex }
+                .map { hop ->
+                    RelayChainHopUiState(
+                        statusLabel = hop.state.chainHopStatusLabel(),
+                        latencyLabel = hop.latencyMs?.let { "$it ms" },
+                        latencyMs = hop.latencyMs,
+                    )
+                },
         exit =
             RelayChainHopUiState(
                 statusLabel = snapshot.chainExitState?.chainHopStatusLabel(),
                 latencyLabel = snapshot.chainExitLatencyMs?.let { "$it ms" },
+                latencyMs = snapshot.chainExitLatencyMs,
             ),
     )
 

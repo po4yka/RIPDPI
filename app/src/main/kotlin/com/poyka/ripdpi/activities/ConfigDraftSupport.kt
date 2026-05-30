@@ -105,12 +105,11 @@ data class ConfigDraft(
     val relayChainExitShortId: String = "",
     val relayChainExitUuid: String = "",
     val relayChainExitProfileId: String = "",
-    // Ordered intermediate chain hops (positions strictly between entry and exit), held for
-    // the in-session multi-hop editor. Entry (`relayChainEntryProfileId`) is hop 0 and exit
-    // (`relayChainExitProfileId`) is the last hop; this list carries only the middle hops so
-    // the existing two-field persistence / validation / trust contract is unchanged. The
-    // native N-hop runtime composition that consumes the full ordered list lands in the next
-    // epic task; today only entry/exit are persisted onto the wire.
+    // Ordered intermediate chain hops (positions strictly between entry and exit). Entry
+    // (`relayChainEntryProfileId`) is hop 0 and exit (`relayChainExitProfileId`) is the last
+    // hop; this list carries only the middle hops. Persisted to the relay profile store via
+    // the `relay_chain_middle_profile_ids` proto field, resolved into the ordered N-hop chain,
+    // and carried over the JNI wire as `chainHops` for 3-/4-hop chains.
     val relayChainMiddleProfileIds: ImmutableList<String> = persistentListOf(),
     val relayMasqueUrl: String = "",
     val relayMasqueAuthMode: String = RelayMasqueAuthModeBearer,

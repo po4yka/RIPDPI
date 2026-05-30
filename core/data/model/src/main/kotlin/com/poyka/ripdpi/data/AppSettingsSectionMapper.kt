@@ -107,6 +107,7 @@ private fun AppSettings.relaySection(): RelaySettingsSection =
         relayTcpFallbackEnabled = relayTcpFallbackEnabled,
         relayChainEntryProfileId = relayChainEntryProfileId,
         relayChainExitProfileId = relayChainExitProfileId,
+        relayChainMiddleProfileIds = relayChainMiddleProfileIdsList.toList(),
         relayTuicZeroRtt = relayTuicZeroRtt,
         relayTuicCongestionControl = relayTuicCongestionControl,
         relayShadowtlsInnerProfileId = relayShadowtlsInnerProfileId,

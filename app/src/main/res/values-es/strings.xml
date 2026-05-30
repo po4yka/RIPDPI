@@ -2050,6 +2050,7 @@ Origen: %2$s</string>
     <string name="config_relay_chain_hop_max_reached">Una cadena puede tener como máximo %1$d saltos.</string>
     <string name="config_relay_chain_cumulative_caveat_title">Cada salto añade latencia</string>
     <string name="config_relay_chain_cumulative_caveat_body">El tráfico se transmite por los %1$d saltos en orden, por lo que cada salto añade latencia. Más saltos reparten la confianza entre operadores, pero no ofrecen el anonimato de Tor. Usa jurisdicciones y operadores distintos en cada salto para reducir la correlación.</string>
+    <string name="config_relay_chain_cumulative_latency_caveat">Latencia acumulada medida en todos los saltos: %1$d ms.</string>
     <string name="config_relay_hysteria_password">Contraseña de Hysteria</string>
     <string name="config_relay_naive_username">Usuario de NaiveProxy</string>
     <string name="config_relay_naive_username_helper">Se usa para la autenticación HTTP Basic del servidor upstream.</string>

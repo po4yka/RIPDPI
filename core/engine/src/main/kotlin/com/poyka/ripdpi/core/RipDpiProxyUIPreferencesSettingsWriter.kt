@@ -168,6 +168,10 @@ private fun AppSettings.Builder.applyRelayPreferences(preferences: RipDpiProxyUI
     setRelayChainExitPublicKey("")
     setRelayChainExitShortId("")
     setRelayChainExitProfileId(if (relay.kind == "chain_relay") relay.chainExitProfileId else "")
+    clearRelayChainMiddleProfileIds()
+    if (relay.kind == "chain_relay") {
+        addAllRelayChainMiddleProfileIds(relay.chainMiddleProfileIds)
+    }
     setRelayMasqueUrl(relay.masqueUrl)
     setRelayMasqueUseHttp2Fallback(relay.masqueUseHttp2Fallback)
     setRelayMasqueCloudflareGeohashEnabled(relay.masqueCloudflareGeohashEnabled)

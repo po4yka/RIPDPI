@@ -1524,6 +1524,7 @@ fake_burst 3</string>
     <string name="config_relay_chain_hop_max_reached">一条链最多可有 %1$d 跳。</string>
     <string name="config_relay_chain_cumulative_caveat_title">每一跳都会增加延迟</string>
     <string name="config_relay_chain_cumulative_caveat_body">流量会依次经过全部 %1$d 跳，因此每一跳都会增加延迟。跳数越多，信任越分散到多个运营商，但并不能提供 Tor 级别的匿名性。请为每一跳使用不同的司法管辖区和运营商，以降低关联风险。</string>
+    <string name="config_relay_chain_cumulative_latency_caveat">测得的所有跳累计延迟：%1$d 毫秒。</string>
     <string name="config_relay_enable">启用上游中继</string>
     <string name="config_relay_kind_chain">链式中继</string>
     <string name="config_relay_kind_vless">VLESS</string>

@@ -2076,6 +2076,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_chain_hop_max_reached">В цепочке может быть не более %1$d узлов.</string>
     <string name="config_relay_chain_cumulative_caveat_title">Каждый узел добавляет задержку</string>
     <string name="config_relay_chain_cumulative_caveat_body">Трафик проходит по очереди через все %1$d узлов, поэтому каждый узел добавляет задержку. Больше узлов шире распределяют доверие между операторами, но не обеспечивают анонимность уровня Tor. Используйте разные юрисдикции и операторов для каждого узла, чтобы снизить корреляцию.</string>
+    <string name="config_relay_chain_cumulative_latency_caveat">Измеренная суммарная задержка по всем узлам: %1$d мс.</string>
     <string name="config_relay_cloudflare_tunnel_note">Используйте здесь имя хоста Cloudflare Tunnel под вашим управлением. P0 ожидает, что это имя хоста ведёт к вашему собственному xHTTP/VLESS-источнику; RIPDPI не управляет токенами cloudflared или настройкой TryCloudflare.</string>
     <string name="config_relay_credentials_body">Этому профилю нужны защищённые учётные данные, прежде чем он сможет запуститься.</string>
     <string name="config_relay_credentials_title">Отсутствуют учётные данные реле</string>

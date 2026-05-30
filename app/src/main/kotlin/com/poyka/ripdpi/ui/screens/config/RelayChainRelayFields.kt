@@ -101,7 +101,10 @@ internal fun RelayChainFields(
             leadingIcon = RipDpiIcons.Config,
             modifier = Modifier.fillMaxWidth(),
         )
-        RelayChainCumulativeCaveat(hopCount = hops.size)
+        RelayChainCumulativeCaveat(
+            hopCount = hops.size,
+            cumulativeLatencyMs = uiState.relayChainHopStatus.cumulativeLatencyMs,
+        )
         RelayChainTrustWarning(uiState)
     }
 }
@@ -229,10 +232,19 @@ private fun RelayChainHopBoundsFeedback(hopCount: Int) {
 }
 
 @Composable
-private fun RelayChainCumulativeCaveat(hopCount: Int) {
+private fun RelayChainCumulativeCaveat(
+    hopCount: Int,
+    cumulativeLatencyMs: Long?,
+) {
+    val baseMessage = stringResource(R.string.config_relay_chain_cumulative_caveat_body, hopCount)
+    val message =
+        cumulativeLatencyMs
+            ?.let { stringResource(R.string.config_relay_chain_cumulative_latency_caveat, it) }
+            ?.let { "$baseMessage $it" }
+            ?: baseMessage
     WarningBanner(
         title = stringResource(R.string.config_relay_chain_cumulative_caveat_title),
-        message = stringResource(R.string.config_relay_chain_cumulative_caveat_body, hopCount),
+        message = message,
         tone = WarningBannerTone.Info,
     )
 }

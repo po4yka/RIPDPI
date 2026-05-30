@@ -34,6 +34,7 @@ internal fun buildRelayConfig(settings: AppSettings): RipDpiRelayConfig {
         chainExitPublicKey = relay.profile.chainExitPublicKey,
         chainExitShortId = relay.profile.chainExitShortId,
         chainExitProfileId = relay.profile.chainExitProfileId,
+        chainMiddleProfileIds = relay.profile.chainMiddleProfileIds,
         masqueUrl = relay.profile.masqueUrl,
         masqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = relay.profile.masqueCloudflareGeohashEnabled,

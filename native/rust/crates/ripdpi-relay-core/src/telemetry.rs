@@ -70,6 +70,36 @@ impl ChainHopTelemetrySnapshot {
     pub fn exit_latency_ms(&self) -> Option<u64> {
         self.exit_index().and_then(|index| self.hop(index)).and_then(|(_, latency)| *latency)
     }
+
+    /// The intermediate hops of the chain — every recorded hop strictly between
+    /// the entry (index 0) and the exit (the last recorded index). Empty for a
+    /// two-hop chain. Each entry is `(hop_index, state, latency_ms)` so the UI
+    /// can render per-hop live status keyed by the hop's ordered position.
+    pub fn intermediate_hops(&self) -> Vec<ChainIntermediateHopTelemetry> {
+        let Some(exit_index) = self.exit_index() else {
+            return Vec::new();
+        };
+        (1..exit_index)
+            .filter_map(|index| {
+                self.hop(index).map(|(state, latency)| ChainIntermediateHopTelemetry {
+                    hop_index: index,
+                    state: state.clone(),
+                    latency_ms: *latency,
+                })
+            })
+            .collect()
+    }
+}
+
+/// One intermediate hop's connect telemetry, projected for the wire. `hop_index`
+/// is the hop's ordered position in the chain (1..exit); entry (0) and exit are
+/// carried by the dedicated `chain_entry_*` / `chain_exit_*` fields instead.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChainIntermediateHopTelemetry {
+    pub hop_index: usize,
+    pub state: String,
+    pub latency_ms: Option<u64>,
 }
 
 #[derive(Clone, Default)]
@@ -115,6 +145,11 @@ pub struct RelayTelemetry {
     pub chain_entry_latency_ms: Option<u64>,
     pub chain_exit_state: Option<String>,
     pub chain_exit_latency_ms: Option<u64>,
+    /// Per-hop live telemetry for the intermediate hops of an N-hop (3..4) chain
+    /// (positions strictly between entry and exit). Empty for two-hop chains and
+    /// non-chain relays. Serializes as `chainIntermediateHops`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chain_intermediate_hops: Vec<ChainIntermediateHopTelemetry>,
     pub strategy_pack_id: Option<String>,
     pub strategy_pack_version: Option<String>,
     pub tls_profile_id: Option<String>,
@@ -161,4 +196,44 @@ pub(crate) fn sync_quic_migration_state(
 
 pub(crate) fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |duration| duration.as_millis() as u64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ChainHopRole, ChainHopTelemetryState};
+
+    #[test]
+    fn intermediate_hops_excludes_entry_and_exit_for_a_four_hop_chain() {
+        let state = ChainHopTelemetryState::default();
+        // A 4-hop chain: hop 0 entry, hops 1..=2 intermediate, hop 3 exit.
+        state.record(ChainHopRole::Hop(0), "connected", Some(10));
+        state.record(ChainHopRole::Hop(1), "connected", Some(21));
+        state.record(ChainHopRole::Hop(2), "connecting", Some(33));
+        state.record(ChainHopRole::Hop(3), "connected", Some(40));
+
+        let snapshot = state.snapshot();
+        let middle = snapshot.intermediate_hops();
+
+        assert_eq!(2, middle.len());
+        assert_eq!(1, middle[0].hop_index);
+        assert_eq!("connected", middle[0].state);
+        assert_eq!(Some(21), middle[0].latency_ms);
+        assert_eq!(2, middle[1].hop_index);
+        assert_eq!("connecting", middle[1].state);
+        assert_eq!(Some(33), middle[1].latency_ms);
+        // Entry/exit stay projected through their dedicated accessors.
+        assert_eq!(Some("connected".to_string()), snapshot.entry_state());
+        assert_eq!(Some(10), snapshot.entry_latency_ms());
+        assert_eq!(Some("connected".to_string()), snapshot.exit_state());
+        assert_eq!(Some(40), snapshot.exit_latency_ms());
+    }
+
+    #[test]
+    fn intermediate_hops_is_empty_for_a_two_hop_chain() {
+        let state = ChainHopTelemetryState::default();
+        state.record(ChainHopRole::Hop(0), "connected", Some(5));
+        state.record(ChainHopRole::Hop(1), "connected", Some(9));
+
+        assert!(state.snapshot().intermediate_hops().is_empty());
+    }
 }

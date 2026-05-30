@@ -19,6 +19,20 @@ data class LatencyDistributions(
     val tlsHandshake: LatencyPercentiles? = null,
 )
 
+/**
+ * Per-hop live telemetry for one intermediate hop of an N-hop (3..4) chain relay
+ * (a hop strictly between entry and exit). Mirrors the native relay-core
+ * `ChainIntermediateHopTelemetry`; [hopIndex] is the hop's ordered position in
+ * the chain (1..exit). Entry and exit are carried by the dedicated
+ * `chainEntry*` / `chainExit*` snapshot fields instead.
+ */
+@Serializable
+data class ChainIntermediateHopSnapshot(
+    val hopIndex: Int,
+    val state: String,
+    val latencyMs: Long? = null,
+)
+
 @Serializable
 data class NativeRuntimeEvent(
     val source: String,
@@ -116,6 +130,7 @@ data class NativeRuntimeSnapshot(
     val chainEntryLatencyMs: Long? = null,
     val chainExitState: String? = null,
     val chainExitLatencyMs: Long? = null,
+    val chainIntermediateHops: List<ChainIntermediateHopSnapshot> = emptyList(),
     val resolverId: String? = null,
     val resolverProtocol: String? = null,
     val resolverEndpoint: String? = null,

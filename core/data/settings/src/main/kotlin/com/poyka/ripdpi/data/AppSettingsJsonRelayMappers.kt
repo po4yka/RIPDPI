@@ -37,6 +37,7 @@ internal fun AppSettingsSnapshot.withRelaySnapshot(relaySection: RelaySettingsSe
                 relayChainExitPublicKey = relaySection.relayChainExitPublicKey,
                 relayChainExitShortId = relaySection.relayChainExitShortId,
                 relayChainExitProfileId = relaySection.relayChainExitProfileId,
+                relayChainMiddleProfileIds = normalizeRelayStringList(relaySection.relayChainMiddleProfileIds),
                 relayMasqueUrl = relaySection.relayMasqueUrl,
                 relayMasqueUseHttp2Fallback = relaySection.relayMasqueUseHttp2Fallback,
                 relayMasqueCloudflareGeohashEnabled = relaySection.relayMasqueCloudflareGeohashEnabled,
@@ -100,6 +101,8 @@ private fun AppSettings.Builder.applyRelaySnapshot(snapshot: AppSettingsRelaySna
         .setRelayChainExitPublicKey(snapshot.relayChainExitPublicKey)
         .setRelayChainExitShortId(snapshot.relayChainExitShortId)
         .setRelayChainExitProfileId(snapshot.relayChainExitProfileId)
+        .clearRelayChainMiddleProfileIds()
+        .addAllRelayChainMiddleProfileIds(normalizeRelayStringList(snapshot.relayChainMiddleProfileIds))
         .setRelayMasqueUrl(snapshot.relayMasqueUrl)
         .setRelayMasqueUseHttp2Fallback(snapshot.relayMasqueUseHttp2Fallback)
         .setRelayMasqueCloudflareGeohashEnabled(snapshot.relayMasqueCloudflareGeohashEnabled)

@@ -934,6 +934,7 @@ class NativeConfigContractSnapshotTest {
         chainExitPublicKey: String = "",
         chainExitShortId: String = "",
         chainExitProfileId: String = "",
+        chainMiddleProfileIds: List<String> = emptyList(),
         masqueUrl: String = "",
         masqueUseHttp2Fallback: Boolean = true,
         masqueCloudflareGeohashEnabled: Boolean = false,
@@ -982,6 +983,10 @@ class NativeConfigContractSnapshotTest {
             put("chainExitPublicKey", JsonPrimitive(chainExitPublicKey))
             put("chainExitShortId", JsonPrimitive(chainExitShortId))
             put("chainExitProfileId", JsonPrimitive(chainExitProfileId))
+            // Intentional behavioral change: the chain-relay wire DTO gained the
+            // ordered N-hop `chainMiddleProfileIds` list (epic-multi-hop-proxy-chains).
+            // Empty for the two-hop snapshots, so the expected contract carries [].
+            put("chainMiddleProfileIds", buildJsonArray { chainMiddleProfileIds.forEach { add(JsonPrimitive(it)) } })
             put("masqueUrl", JsonPrimitive(masqueUrl))
             put("masqueUseHttp2Fallback", JsonPrimitive(masqueUseHttp2Fallback))
             put("masqueCloudflareGeohashEnabled", JsonPrimitive(masqueCloudflareGeohashEnabled))

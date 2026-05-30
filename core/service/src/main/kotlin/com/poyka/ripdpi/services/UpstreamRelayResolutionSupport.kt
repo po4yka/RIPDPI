@@ -70,38 +70,68 @@ internal suspend fun resolveChainRelayConfigSupport(
     credentials: RelayCredentialRecord?,
     relayProfileStore: RelayProfileStore,
     relayCredentialStore: RelayCredentialStore,
-): ResolvedChainRelayConfig =
-    ResolvedChainRelayConfig(
+): ResolvedChainRelayConfig {
+    val entry =
+        resolveChainRelayHopSupport(
+            hopName = "entry",
+            chainProfileId = chainProfileId,
+            profileId = config.chainEntryProfileId,
+            legacyServer = config.chainEntryServer,
+            legacyServerPort = config.chainEntryPort,
+            legacyServerName = config.chainEntryServerName,
+            legacyPublicKey = config.chainEntryPublicKey,
+            legacyShortId = config.chainEntryShortId,
+            legacyUuid = credentials?.chainEntryUuid,
+            relayProfileStore = relayProfileStore,
+            relayCredentialStore = relayCredentialStore,
+        )
+    // Intermediate hops are always referenced-profile hops (no legacy inline
+    // fallback exists for them); each resolves through the entry-hop support
+    // contract — the entry role is the superset of the exit role for kind
+    // support, so a middle hop accepts every kind a chain may tunnel through.
+    val middle =
+        config.chainMiddleProfileIds
+            .filter(String::isNotBlank)
+            .map { middleProfileId ->
+                resolveChainRelayHopSupport(
+                    hopName = "intermediate",
+                    chainProfileId = chainProfileId,
+                    profileId = middleProfileId,
+                    legacyServer = "",
+                    legacyServerPort = DefaultChainHopPortSupport,
+                    legacyServerName = "",
+                    legacyPublicKey = "",
+                    legacyShortId = "",
+                    legacyUuid = null,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
+                )
+            }
+    val exit =
+        resolveChainRelayHopSupport(
+            hopName = "exit",
+            chainProfileId = chainProfileId,
+            profileId = config.chainExitProfileId,
+            legacyServer = config.chainExitServer,
+            legacyServerPort = config.chainExitPort,
+            legacyServerName = config.chainExitServerName,
+            legacyPublicKey = config.chainExitPublicKey,
+            legacyShortId = config.chainExitShortId,
+            legacyUuid = credentials?.chainExitUuid,
+            relayProfileStore = relayProfileStore,
+            relayCredentialStore = relayCredentialStore,
+        )
+    return ResolvedChainRelayConfig(
         hops =
-            listOf(
-                resolveChainRelayHopSupport(
-                    hopName = "entry",
-                    chainProfileId = chainProfileId,
-                    profileId = config.chainEntryProfileId,
-                    legacyServer = config.chainEntryServer,
-                    legacyServerPort = config.chainEntryPort,
-                    legacyServerName = config.chainEntryServerName,
-                    legacyPublicKey = config.chainEntryPublicKey,
-                    legacyShortId = config.chainEntryShortId,
-                    legacyUuid = credentials?.chainEntryUuid,
-                    relayProfileStore = relayProfileStore,
-                    relayCredentialStore = relayCredentialStore,
-                ),
-                resolveChainRelayHopSupport(
-                    hopName = "exit",
-                    chainProfileId = chainProfileId,
-                    profileId = config.chainExitProfileId,
-                    legacyServer = config.chainExitServer,
-                    legacyServerPort = config.chainExitPort,
-                    legacyServerName = config.chainExitServerName,
-                    legacyPublicKey = config.chainExitPublicKey,
-                    legacyShortId = config.chainExitShortId,
-                    legacyUuid = credentials?.chainExitUuid,
-                    relayProfileStore = relayProfileStore,
-                    relayCredentialStore = relayCredentialStore,
-                ),
-            ),
+            buildList {
+                add(entry)
+                addAll(middle)
+                add(exit)
+            },
     )
+}
+
+private const val DefaultChainHopPortSupport = 443
 
 internal suspend fun resolveShadowTlsInnerConfigSupport(
     outerProfileId: String,
@@ -261,8 +291,12 @@ private fun rejectUnsupportedChainRelayHopKind(
 ) {
     val isSupported =
         when (hopName) {
-            "entry" -> profile.isSupportedChainEntryHop()
+            // An intermediate hop tunnels traffic onward (like an entry hop) and
+            // is never the chain terminus, so it uses the entry-role kind support.
+            "entry", "intermediate" -> profile.isSupportedChainEntryHop()
+
             "exit" -> profile.isSupportedChainExitHop()
+
             else -> false
         }
     if (isSupported) {

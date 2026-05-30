@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.collections.immutable.toImmutableList
 
 internal fun ConfigDraft.withRelaySettings(relay: RelaySettingsModel): ConfigDraft =
     copy(
@@ -42,6 +43,7 @@ internal fun ConfigDraft.withRelaySettings(relay: RelaySettingsModel): ConfigDra
         relayChainExitPublicKey = relay.profile.chainExitPublicKey,
         relayChainExitShortId = relay.profile.chainExitShortId,
         relayChainExitProfileId = relay.profile.chainExitProfileId,
+        relayChainMiddleProfileIds = relay.profile.chainMiddleProfileIds.toImmutableList(),
         relayMasqueUrl = relay.profile.masqueUrl,
         relayMasqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
         relayMasqueCloudflareGeohashEnabled = relay.profile.masqueCloudflareGeohashEnabled,
@@ -128,6 +130,10 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConfigDraft): AppSettings
         setRelayChainExitPublicKey("")
         setRelayChainExitShortId("")
         setRelayChainExitProfileId(if (draft.relayKind == RelayKindChainRelay) draft.relayChainExitProfileId else "")
+        clearRelayChainMiddleProfileIds()
+        if (draft.relayKind == RelayKindChainRelay) {
+            addAllRelayChainMiddleProfileIds(draft.relayChainMiddleProfileIds)
+        }
         setRelayMasqueUrl(draft.relayMasqueUrl)
         setRelayMasqueUseHttp2Fallback(draft.relayMasqueUseHttp2Fallback)
         setRelayMasqueCloudflareGeohashEnabled(draft.relayMasqueCloudflareGeohashEnabled)

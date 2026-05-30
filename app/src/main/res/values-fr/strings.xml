@@ -2050,6 +2050,7 @@ Source : %2$s</string>
     <string name="config_relay_chain_hop_max_reached">Une chaîne peut comporter au plus %1$d sauts.</string>
     <string name="config_relay_chain_cumulative_caveat_title">Chaque saut ajoute de la latence</string>
     <string name="config_relay_chain_cumulative_caveat_body">Le trafic est relayé par les %1$d sauts dans l\'ordre, donc chaque saut ajoute de la latence. Plus de sauts répartissent la confiance entre les opérateurs mais n\'offrent pas l\'anonymat de Tor. Utilisez des juridictions et des opérateurs distincts par saut pour réduire la corrélation.</string>
+    <string name="config_relay_chain_cumulative_latency_caveat">Latence cumulée mesurée sur tous les sauts : %1$d ms.</string>
     <string name="config_relay_hysteria_password">Mot de passe Hysteria</string>
     <string name="config_relay_naive_username">Nom d\'utilisateur NaiveProxy</string>
     <string name="config_relay_naive_username_helper">Utilisé pour l\'authentification HTTP Basic auprès de l\'upstream.</string>

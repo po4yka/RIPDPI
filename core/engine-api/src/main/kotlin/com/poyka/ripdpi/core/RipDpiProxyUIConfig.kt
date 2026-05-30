@@ -252,6 +252,9 @@ data class RipDpiRelayConfig(
     val chainExitPublicKey: String = "",
     val chainExitShortId: String = "",
     val chainExitProfileId: String = "",
+    // Ordered intermediate chain-relay hop profile IDs (positions strictly
+    // between entry and exit) for N-hop (3..4) chains. Empty for two-hop chains.
+    val chainMiddleProfileIds: List<String> = emptyList(),
     val masqueUrl: String = "",
     val masqueUseHttp2Fallback: Boolean = true,
     val masqueCloudflareGeohashEnabled: Boolean = false,

@@ -12,6 +12,7 @@
     "chainEntryState": null,
     "chainExitLatencyMs": null,
     "chainExitState": null,
+    "chainIntermediateHops": [],
     "connectionQuality": null,
     "dhtTriggerObservations": null,
     "directPathLearningSignals": [],

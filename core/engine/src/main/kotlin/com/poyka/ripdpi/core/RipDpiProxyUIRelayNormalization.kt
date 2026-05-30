@@ -40,6 +40,7 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         chainExitPublicKey = config.chainExitPublicKey.trim(),
         chainExitShortId = config.chainExitShortId.trim(),
         chainExitProfileId = config.chainExitProfileId.trim(),
+        chainMiddleProfileIds = normalizeRelayStringList(config.chainMiddleProfileIds),
         masqueUrl = config.masqueUrl.trim(),
         tuicCongestionControl = normalizeRelayCongestionControl(config.tuicCongestionControl),
         shadowTlsInnerProfileId = config.shadowTlsInnerProfileId.trim(),

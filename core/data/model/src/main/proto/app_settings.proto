@@ -282,6 +282,10 @@ message AppSettings {
   bool relay_tcp_fallback_enabled = 194;
   string relay_chain_entry_profile_id = 227;
   string relay_chain_exit_profile_id = 228;
+  // Ordered intermediate chain-relay hop profile IDs (positions strictly
+  // between entry and exit) for N-hop (3..4) chains. Empty for plain two-hop
+  // chains and all pre-N-hop (v6) configs, which fold to entry/exit only.
+  repeated string relay_chain_middle_profile_ids = 306;
   bool relay_tuic_zero_rtt = 229;
   string relay_tuic_congestion_control = 230; // "bbr" | "cubic"
   string relay_shadowtls_inner_profile_id = 231;

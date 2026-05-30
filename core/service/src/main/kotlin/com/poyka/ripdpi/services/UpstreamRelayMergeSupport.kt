@@ -35,6 +35,10 @@ internal fun mergeRelayConfig(
         chainExitPublicKey = profile.chainExitPublicKey.ifBlank { config.chainExitPublicKey },
         chainExitShortId = profile.chainExitShortId.ifBlank { config.chainExitShortId },
         chainExitProfileId = profile.chainExitProfileId.ifBlank { config.chainExitProfileId },
+        chainMiddleProfileIds =
+            profile.chainMiddleProfileIds.takeIf {
+                it.isNotEmpty()
+            } ?: config.chainMiddleProfileIds,
         masqueUrl = profile.masqueUrl.ifBlank { config.masqueUrl },
         masqueUseHttp2Fallback = profile.masqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = profile.masqueCloudflareGeohashEnabled,

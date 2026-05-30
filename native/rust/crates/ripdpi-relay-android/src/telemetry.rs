@@ -148,6 +148,7 @@ mod tests {
             chain_entry_latency_ms: None,
             chain_exit_state: None,
             chain_exit_latency_ms: None,
+            chain_intermediate_hops: Vec::new(),
             strategy_pack_id: None,
             strategy_pack_version: None,
             tls_profile_id: Some("chrome_stable".to_string()),

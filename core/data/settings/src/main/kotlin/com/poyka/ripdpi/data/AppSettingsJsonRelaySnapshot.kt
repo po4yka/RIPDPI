@@ -32,6 +32,7 @@ internal data class AppSettingsRelaySnapshot(
     val relayChainExitPublicKey: String = defaultSettings.relayChainExitPublicKey,
     val relayChainExitShortId: String = defaultSettings.relayChainExitShortId,
     val relayChainExitProfileId: String = defaultSettings.relayChainExitProfileId,
+    val relayChainMiddleProfileIds: List<String> = defaultSettings.relayChainMiddleProfileIdsList,
     val relayMasqueUrl: String = defaultSettings.relayMasqueUrl,
     val relayMasqueUseHttp2Fallback: Boolean = defaultSettings.relayMasqueUseHttp2Fallback,
     val relayMasqueCloudflareGeohashEnabled: Boolean = defaultSettings.relayMasqueCloudflareGeohashEnabled,
@@ -90,6 +91,7 @@ internal fun JsonObjectBuilder.writeRelaySnapshot(snapshot: AppSettingsRelaySnap
     put("relayChainExitPublicKey", snapshot.relayChainExitPublicKey)
     put("relayChainExitShortId", snapshot.relayChainExitShortId)
     put("relayChainExitProfileId", snapshot.relayChainExitProfileId)
+    putStringList("relayChainMiddleProfileIds", snapshot.relayChainMiddleProfileIds)
     put("relayMasqueUrl", snapshot.relayMasqueUrl)
     put("relayMasqueUseHttp2Fallback", snapshot.relayMasqueUseHttp2Fallback)
     put("relayMasqueCloudflareGeohashEnabled", snapshot.relayMasqueCloudflareGeohashEnabled)
@@ -151,6 +153,8 @@ internal fun JsonObject.readRelaySnapshot(defaults: AppSettingsRelaySnapshot): A
         relayChainExitPublicKey = stringValue("relayChainExitPublicKey", defaults.relayChainExitPublicKey),
         relayChainExitShortId = stringValue("relayChainExitShortId", defaults.relayChainExitShortId),
         relayChainExitProfileId = stringValue("relayChainExitProfileId", defaults.relayChainExitProfileId),
+        relayChainMiddleProfileIds =
+            stringListValue("relayChainMiddleProfileIds", defaults.relayChainMiddleProfileIds),
         relayMasqueUrl = stringValue("relayMasqueUrl", defaults.relayMasqueUrl),
         relayMasqueUseHttp2Fallback =
             booleanValue("relayMasqueUseHttp2Fallback", defaults.relayMasqueUseHttp2Fallback),

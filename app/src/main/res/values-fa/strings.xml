@@ -612,6 +612,7 @@
     <string name="config_relay_chain_hop_max_reached">یک زنجیره می‌تواند حداکثر %1$d پرش داشته باشد.</string>
     <string name="config_relay_chain_cumulative_caveat_title">هر پرش تأخیر اضافه می‌کند</string>
     <string name="config_relay_chain_cumulative_caveat_body">ترافیک به‌ترتیب از همه %1$d پرش عبور می‌کند، بنابراین هر پرش تأخیر اضافه می‌کند. پرش‌های بیشتر اعتماد را میان اپراتورها تقسیم می‌کنند اما گمنامی در حد Tor فراهم نمی‌کنند. برای کاهش همبستگی، در هر پرش از حوزه قضایی و اپراتور متفاوت استفاده کنید.</string>
+    <string name="config_relay_chain_cumulative_latency_caveat">تأخیر تجمعی اندازه‌گیری‌شده در همه پرش‌ها: %1$d میلی‌ثانیه.</string>
     <string name="config_relay_masque_url">URL MASQUE</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_auth_preshared">پیش‌اشتراکی</string>

@@ -45,6 +45,10 @@ data class RelayProfileRecord(
     val chainExitPublicKey: String = "",
     val chainExitShortId: String = "",
     val chainExitProfileId: String = "",
+    // Ordered intermediate chain-relay hop profile IDs (positions strictly
+    // between entry and exit) for N-hop (3..4) chains. Empty for plain two-hop
+    // chains; the entry/exit profile IDs above are hop 0 / hop last.
+    val chainMiddleProfileIds: List<String> = emptyList(),
     val masqueUrl: String = "",
     val masqueUseHttp2Fallback: Boolean = true,
     val masqueCloudflareGeohashEnabled: Boolean = false,

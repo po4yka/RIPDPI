@@ -2050,6 +2050,7 @@ Quelle: %2$s</string>
     <string name="config_relay_chain_hop_max_reached">Eine Kette kann höchstens %1$d Hops haben.</string>
     <string name="config_relay_chain_cumulative_caveat_title">Jeder Hop erhöht die Latenz</string>
     <string name="config_relay_chain_cumulative_caveat_body">Der Verkehr wird der Reihe nach über alle %1$d Hops geleitet, daher erhöht jeder Hop die Latenz. Mehr Hops verteilen das Vertrauen auf mehr Betreiber, bieten aber keine Tor-Anonymität. Nutze pro Hop unterschiedliche Rechtsräume und Betreiber, um Korrelation zu verringern.</string>
+    <string name="config_relay_chain_cumulative_latency_caveat">Gemessene kumulierte Latenz über alle Hops: %1$d ms.</string>
     <string name="config_relay_hysteria_password">Hysteria-Passwort</string>
     <string name="config_relay_naive_username">NaiveProxy-Benutzername</string>
     <string name="config_relay_naive_username_helper">Wird für die HTTP-Basic-Authentifizierung beim Upstream verwendet.</string>
