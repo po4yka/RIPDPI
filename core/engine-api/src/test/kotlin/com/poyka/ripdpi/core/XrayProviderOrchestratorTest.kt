@@ -5,6 +5,8 @@ import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.VpnProviderState
 import com.poyka.ripdpi.data.xray.XrayProviderConfig
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,13 +34,24 @@ class XrayProviderOrchestratorTest {
         }
     }
 
+    /**
+     * Dispatcher the runtime's blocking native stop runs on. Defaults to a
+     * direct ([Dispatchers.Unconfined]) dispatcher so the fake bridge's stop
+     * runs inline on the test thread instead of racing the `runTest` virtual
+     * clock against a real [Dispatchers.IO] worker — the production default is
+     * IO, but under a virtual-time test that race makes `stopCount` flaky.
+     */
+    private val directStopDispatcher: CoroutineDispatcher = Dispatchers.Unconfined
+
     private fun orchestrator(
         bridge: FakeXrayNativeBridge,
         tunnel: FakeManagedTunnel,
         protect: XrayProtectController = XrayProtectController { true },
     ): XrayProviderOrchestrator =
         XrayProviderOrchestrator(
-            xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(bridge, cfg) },
+            xrayRuntimeFactory = { cfg ->
+                RipDpiXrayRuntime(bridge, cfg, nativeStopDispatcher = directStopDispatcher)
+            },
             tunnel = tunnel,
             protectController = protect,
             renderedConfigProvider = { renderedConfig },
@@ -105,7 +118,9 @@ class XrayProviderOrchestratorTest {
                 }
             val orch =
                 XrayProviderOrchestrator(
-                    xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(recordingBridge, cfg) },
+                    xrayRuntimeFactory = { cfg ->
+                        RipDpiXrayRuntime(recordingBridge, cfg, nativeStopDispatcher = directStopDispatcher)
+                    },
                     tunnel = tunnel,
                     protectController = RecordingProtect(events),
                     renderedConfigProvider = { renderedConfig },
@@ -186,7 +201,9 @@ class XrayProviderOrchestratorTest {
                 }
             val orch =
                 XrayProviderOrchestrator(
-                    xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(bridge, cfg) },
+                    xrayRuntimeFactory = { cfg ->
+                        RipDpiXrayRuntime(bridge, cfg, nativeStopDispatcher = directStopDispatcher)
+                    },
                     tunnel = tunnel,
                     protectController = XrayProtectController { true },
                     renderedConfigProvider = { renderedConfig },
