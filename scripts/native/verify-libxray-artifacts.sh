@@ -29,7 +29,12 @@ art_dir="${RIPDPI_XRAY_AAR_DIR:-$repo_root/native/xray/artifacts}"
 # budget is intentionally generous but bounded so an accidental geo-asset
 # bundle or debug-symbol leak fails CI. Override only with a documented bump in
 # docs/native/libxray-packaging.md. Value is in bytes.
-NATIVE_PAYLOAD_BUDGET_BYTES="${RIPDPI_XRAY_PAYLOAD_BUDGET_BYTES:-94371840}" # 90 MiB
+# Measured 2026-05-30 for libXray v26.3.27 / xray-core v1.260327.0, gomobile bind
+# with -ldflags="-s -w" (stripped): ~126 MiB total across the 4 ABIs (~32 MiB each:
+# armeabi-v7a 31.7, arm64-v8a 33.2, x86 32.0, x86_64 35.4). Budget = 160 MiB leaves
+# ~27% headroom for xray-core growth while still catching an unstripped build
+# (~178 MiB) or an accidental geo-asset bundle.
+NATIVE_PAYLOAD_BUDGET_BYTES="${RIPDPI_XRAY_PAYLOAD_BUDGET_BYTES:-167772160}" # 160 MiB
 
 release_mode=0
 while [[ $# -gt 0 ]]; do

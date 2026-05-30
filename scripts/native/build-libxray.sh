@@ -232,12 +232,27 @@ git clone --depth 1 --branch "$libxray_ref" \
 
     mkdir -p "$out_dir"
     aar_path="$out_dir/libxray.aar"
+
+    # Modern gomobile (post-2024) requires golang.org/x/mobile to be in the
+    # target module's dependency graph to compile the bind glue, otherwise:
+    # "gomobile bind requires golang.org/x/mobile in the current module".
+    # Pin it to the same revision as the gomobile binary for reproducibility.
+    go get "golang.org/x/mobile/bind@v${gomobile_ref}"
+
+    # Bind ONLY the root libXray package (the mobile API surface). `./...` is
+    # wrong: it pulls in `desktop_bin` / `download_geo`, which are `main`
+    # packages gomobile cannot bind ("binding main package ... is not supported").
     echo "Building gomobile AAR for targets: $targets_csv"
+    # -ldflags "-s -w" strips the DWARF debug info + symbol table from the
+    # per-ABI libgojni.so. Unstripped, each ABI is ~45-50 MiB (xray-core +
+    # BoringSSL); stripped roughly halves it. Release Android native libs are
+    # always stripped — keep symbols out of the shipped payload.
     gomobile bind \
         -target="$targets_csv" \
         -androidapi "$min_sdk" \
+        -ldflags="-s -w" \
         -o "$aar_path" \
-        ./...
+        github.com/xtls/libxray
 
     # Emit a manifest the verify script will diff against the pins.
     manifest="$out_dir/libxray-artifact.json"

@@ -127,11 +127,13 @@ budget, or a canary manifest in a release-like build.
 
 ### Native payload byte budget
 
-The summed per-ABI `.so` payload must stay under **90 MiB** (`94371840` bytes),
+The summed per-ABI `.so` payload must stay under **160 MiB** (`167772160` bytes),
 overridable for a documented bump via `RIPDPI_XRAY_PAYLOAD_BUDGET_BYTES`. The
-budget is generous (xray-core + libXray + BoringSSL across 4 ABIs is large) but
-bounded so an accidental geo-asset bundle or debug-symbol leak fails CI rather
-than bloating the APK silently. Geo assets (`geoip.dat` / `geosite.dat`) are
+build strips debug symbols (`gomobile bind -ldflags="-s -w"`); measured for
+libXray `v26.3.27` the stripped payload is **~126 MiB** across the 4 ABIs
+(~32 MiB each), so the budget leaves ~27% headroom for xray-core growth while
+still failing an unstripped build (~178 MiB) or an accidental geo-asset bundle.
+ABI splits ship one `.so` per device (~32 MiB), not all four. Geo assets (`geoip.dat` / `geosite.dat`) are
 **not** bundled into the AAR — they are delivered separately to keep the native
 payload bounded (see size note below).
 
