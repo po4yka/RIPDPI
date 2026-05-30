@@ -193,6 +193,88 @@ class VpnProtectSocketServerTest {
     }
 
     @Test
+    fun `handle client session keeps protecting remaining fds after one protect rejection`() {
+        val monitor = RecordingVpnProtectFailureMonitor()
+        val extractorCalls = AtomicInteger(0)
+        val extractedValues = intArrayOf(10, 20, 30)
+        val server =
+            createServer(
+                monitor = monitor,
+                // fd 20 is refused; the loop must keep going and still protect fd 30.
+                fdProtector = { fdInt -> fdInt != 20 },
+                fileDescriptorIntExtractor =
+                    ProtectSocketFileDescriptorIntExtractor {
+                        ProtectSocketFdExtractionResult.Extracted(
+                            extractedValues[extractorCalls.getAndIncrement()],
+                        )
+                    },
+            )
+        val session =
+            FakeProtectSocketClientSession(
+                ancillaryFileDescriptors =
+                    arrayOf(FileDescriptor(), FileDescriptor(), FileDescriptor()),
+            )
+
+        try {
+            server.handleClientSession(session)
+
+            // The per-fd loop did not short-circuit after the fd 20 rejection.
+            assertEquals(3, extractorCalls.get())
+            // allProtected is monotone-false: a later success (fd 30) does not flip it back.
+            assertArrayEquals(byteArrayOf(1), session.ackBytes())
+            // Only the rejected fd is reported; the two protected fds are silent.
+            assertEquals(1, monitor.reportedEvents.size)
+            assertEquals(20, monitor.reportedEvents.single().fd)
+            assertTrue(monitor.reportedEvents.single().reason is FailureReason.PermissionLost)
+            assertEquals(
+                "VpnService.protect() returned false",
+                monitor.reportedEvents.single().detail,
+            )
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `handle client session reports protect rejection with real fd and permission lost reason`() {
+        val monitor = RecordingVpnProtectFailureMonitor()
+        val server =
+            createServer(
+                monitor = monitor,
+                // protect() returns false (refused) rather than throwing or failing extraction.
+                fdProtector = { false },
+                fileDescriptorIntExtractor =
+                    ProtectSocketFileDescriptorIntExtractor {
+                        ProtectSocketFdExtractionResult.Extracted(42)
+                    },
+            )
+        val session =
+            FakeProtectSocketClientSession(
+                ancillaryFileDescriptors = arrayOf(FileDescriptor()),
+            )
+
+        try {
+            server.handleClientSession(session)
+
+            assertArrayEquals(byteArrayOf(1), session.ackBytes())
+            assertEquals(1, monitor.reportedEvents.size)
+            // The Rejected branch reports the REAL extracted fd, not -1 (the extraction-Failed path).
+            assertEquals(42, monitor.reportedEvents.single().fd)
+            // ...and PermissionLost("VPN"), not NativeError.
+            assertEquals(
+                FailureReason.PermissionLost("VPN"),
+                monitor.reportedEvents.single().reason,
+            )
+            assertEquals(
+                "VpnService.protect() returned false",
+                monitor.reportedEvents.single().detail,
+            )
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun `reflective fd extractor returns descriptor value for open file`() {
         val tempFile =
             kotlin.io.path
@@ -213,6 +295,7 @@ class VpnProtectSocketServerTest {
         monitor: VpnProtectFailureMonitor = RecordingVpnProtectFailureMonitor(),
         fileDescriptorIntExtractor: ProtectSocketFileDescriptorIntExtractor =
             ReflectiveProtectSocketFileDescriptorIntExtractor,
+        fdProtector: (Int) -> Boolean = { true },
         handlerConcurrency: Int = 1,
         maxPendingSessions: Int = 0,
         handlerJoinTimeoutMs: Long = 1_000L,
@@ -220,7 +303,7 @@ class VpnProtectSocketServerTest {
         VpnProtectSocketServer(
             socketPath = "/tmp/unused-protect.sock",
             protectFailureMonitor = monitor,
-            fdProtector = { true },
+            fdProtector = fdProtector,
             fileDescriptorIntExtractor = fileDescriptorIntExtractor,
             handlerConcurrency = handlerConcurrency,
             maxPendingSessions = maxPendingSessions,
