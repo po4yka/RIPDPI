@@ -83,6 +83,12 @@ message AppSettings {
   // (first-byte dispatch). When on and proxy_port is unset, the port defaults
   // to 2080 instead of 1080.
   bool mixed_inbound_enabled = 403;
+  // Allow-LAN: bind the local listener to all interfaces (0.0.0.0) instead of
+  // loopback so other devices on the network can use it. Non-loopback
+  // listeners are rejected by the native core unless an access token is set,
+  // so enabling this auto-generates proxy_lan_auth_token.
+  bool proxy_allow_lan = 404;
+  string proxy_lan_auth_token = 405;
 
   // Desync
   int32 default_ttl = 13;

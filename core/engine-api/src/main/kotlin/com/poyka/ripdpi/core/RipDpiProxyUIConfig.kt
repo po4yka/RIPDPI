@@ -55,6 +55,7 @@ data class RipDpiListenConfig(
     val customTtl: Boolean = false,
     val freezeDetectionEnabled: Boolean = false,
     val mixed: Boolean = false,
+    val authToken: String? = null,
 )
 
 data class RipDpiProtocolConfig(

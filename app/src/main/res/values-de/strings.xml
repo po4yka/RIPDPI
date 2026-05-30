@@ -900,6 +900,13 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="settings_mixed_inbound_title">Gemischter Eingang (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">Ein einzelner lokaler Listener akzeptiert SOCKS5- und HTTP-CONNECT-Verbindungen; Standardport ist 2080.</string>
+    <string name="settings_proxy_allow_lan_title">LAN-Zugriff erlauben</string>
+    <string name="settings_proxy_allow_lan_body">Ermöglicht anderen Geräten in Ihrem Netzwerk den Zugriff auf den lokalen Proxy.</string>
+    <string name="settings_proxy_allow_lan_warn_title">LAN-Zugriff erlauben?</string>
+    <string name="settings_proxy_allow_lan_warn_message">Der Proxy akzeptiert Verbindungen von anderen Geräten im lokalen Netzwerk. Halten Sie den Access Token geheim – jeder, der ihn besitzt, kann Datenverkehr über dieses Gerät leiten.</string>
+    <string name="settings_proxy_allow_lan_warn_confirm">Aktivieren</string>
+    <string name="settings_proxy_allow_lan_warn_dismiss">Abbrechen</string>
+    <string name="settings_proxy_lan_token_label">Access Token (zum Kopieren tippen)</string>
     <string name="ripdpi_tls_prelude_cli_body">Visuelle Steuerungen für TLS-Datensatzfragmentierung sind pausiert, solange rohe RIPDPI-Argumente aktiviert sind. Verwenden Sie Kommandozeilen-Kettenflags für den nächsten Start.</string>
     <string name="ripdpi_tls_prelude_mode_body">Wählen Sie, ob HTTPS-ClientHello-Datenverkehr unangetastet bleibt, einmal an einer Markierung geteilt wird oder in randomisierte Tail-Datensätze aufgefächert wird.</string>
     <string name="ripdpi_tls_prelude_mode_single_body">Fügt einen tlsrec-Schritt hinzu und teilt den ClientHello-Datensatz einmal an der ausgewählten Markierung.</string>

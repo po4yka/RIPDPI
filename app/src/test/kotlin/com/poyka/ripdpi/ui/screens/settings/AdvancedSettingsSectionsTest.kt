@@ -155,6 +155,80 @@ class AdvancedSettingsSectionsTest {
         composeRule.onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NoDomain)).assertIsNotEnabled()
     }
 
+    @Test
+    fun `proxy allow-LAN toggle renders and reflects state`() {
+        setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(allowLan = true)))
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan))
+            .performScrollTo()
+            .assertIsOn()
+    }
+
+    @Test
+    fun `proxy allow-LAN toggle off does not show dialog`() {
+        setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(allowLan = false)))
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan))
+            .performScrollTo()
+            .assertIsOff()
+    }
+
+    @Test
+    fun `turning on allow-LAN shows warning dialog`() {
+        setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(allowLan = false)))
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan))
+            .performScrollTo()
+            .performClick()
+
+        composeRule.onNodeWithText("Allow LAN access?").assertExists()
+    }
+
+    @Test
+    fun `confirming allow-LAN warning fires toggle callback with true`() {
+        val toggles = mutableListOf<Pair<AdvancedToggleSetting, Boolean>>()
+        setProxySection(
+            uiState = SettingsUiState(proxy = ProxyNetworkUiState(allowLan = false)),
+            onToggleChanged = { s, v -> toggles.add(s to v) },
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan))
+            .performScrollTo()
+            .performClick()
+        composeRule.onNodeWithText("Enable").performClick()
+
+        assertEquals(AdvancedToggleSetting.ProxyAllowLan, toggles.single().first)
+        assertTrue(toggles.single().second)
+    }
+
+    @Test
+    fun `proxy LAN token row visible when allow-LAN is on with token`() {
+        setProxySection(
+            uiState =
+                SettingsUiState(
+                    proxy = ProxyNetworkUiState(allowLan = true, lanAuthToken = "lan1234"),
+                ),
+        )
+
+        composeRule.onNodeWithText("lan1234").assertExists()
+    }
+
+    @Test
+    fun `proxy LAN token row hidden when allow-LAN is off`() {
+        setProxySection(
+            uiState =
+                SettingsUiState(
+                    proxy = ProxyNetworkUiState(allowLan = false, lanAuthToken = "lan1234"),
+                ),
+        )
+
+        composeRule.onNodeWithText("lan1234").assertDoesNotExist()
+    }
+
     // -- Protocols --
 
     @Test

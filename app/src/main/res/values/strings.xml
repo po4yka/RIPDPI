@@ -1776,6 +1776,13 @@ Source: %2$s</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="settings_mixed_inbound_title">Mixed inbound (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">A single local listener accepts both SOCKS5 and HTTP CONNECT connections; defaults to port 2080.</string>
+    <string name="settings_proxy_allow_lan_title">Allow LAN access</string>
+    <string name="settings_proxy_allow_lan_body">Exposes the local proxy to other devices on your network.</string>
+    <string name="settings_proxy_allow_lan_warn_title">Allow LAN access?</string>
+    <string name="settings_proxy_allow_lan_warn_message">The proxy will accept connections from other devices on your local network. Keep the access token private — anyone with it can route traffic through this device.</string>
+    <string name="settings_proxy_allow_lan_warn_confirm">Enable</string>
+    <string name="settings_proxy_allow_lan_warn_dismiss">Cancel</string>
+    <string name="settings_proxy_lan_token_label">Access token (tap to copy)</string>
     <string name="ripdpi_fake_offset_setting">Fake offset marker</string>
     <string name="ripdpi_drop_sack_setting">Drop SACK</string>
     <string name="ripdpi_ip_id_mode_title">IPv4 ID mode</string>

@@ -900,6 +900,13 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="settings_mixed_inbound_title">Entrada mixta (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">Un único listener local acepta conexiones SOCKS5 y HTTP CONNECT; el puerto predeterminado es 2080.</string>
+    <string name="settings_proxy_allow_lan_title">Permitir acceso desde la red local</string>
+    <string name="settings_proxy_allow_lan_body">Expone el proxy local a otros dispositivos de tu red.</string>
+    <string name="settings_proxy_allow_lan_warn_title">¿Permitir acceso desde la red local?</string>
+    <string name="settings_proxy_allow_lan_warn_message">El proxy aceptará conexiones de otros dispositivos en tu red local. Mantén el access token en privado: cualquiera que lo tenga podrá enrutar tráfico a través de este dispositivo.</string>
+    <string name="settings_proxy_allow_lan_warn_confirm">Activar</string>
+    <string name="settings_proxy_allow_lan_warn_dismiss">Cancelar</string>
+    <string name="settings_proxy_lan_token_label">Access token (toca para copiar)</string>
     <string name="ripdpi_tls_prelude_cli_body">Los controles visuales de fragmentación de registros TLS están pausados mientras los argumentos crudos de RIPDPI están habilitados. Usa las banderas de cadena de línea de comandos para el próximo inicio.</string>
     <string name="ripdpi_tls_prelude_mode_body">Elige si el tráfico ClientHello HTTPS permanece intacto, se divide una vez en un marcador o se despliega en registros de cola aleatorios.</string>
     <string name="ripdpi_tls_prelude_mode_single_body">Añade un paso tlsrec y divide el registro ClientHello una vez en el marcador seleccionado.</string>

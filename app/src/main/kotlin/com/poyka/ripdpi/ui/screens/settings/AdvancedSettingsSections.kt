@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,8 +14,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -446,6 +450,34 @@ private fun ProxyToggleSettings(
     visualEditorEnabled: Boolean,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
 ) {
+    var showAllowLanWarning by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    if (showAllowLanWarning) {
+        RipDpiDialog(
+            onDismissRequest = { showAllowLanWarning = false },
+            title = stringResource(R.string.settings_proxy_allow_lan_warn_title),
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.settings_proxy_allow_lan_warn_dismiss),
+                    onClick = { showAllowLanWarning = false },
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.settings_proxy_allow_lan_warn_confirm),
+                    onClick = {
+                        showAllowLanWarning = false
+                        onToggleChanged(AdvancedToggleSetting.ProxyAllowLan, true)
+                    },
+                ),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = stringResource(R.string.settings_proxy_allow_lan_warn_message),
+                    tone = RipDpiDialogTone.Info,
+                ),
+        )
+    }
+
     SettingsRow(
         title = stringResource(R.string.ripdpi_no_domain_setting),
         checked = uiState.proxy.noDomain,
@@ -468,8 +500,39 @@ private fun ProxyToggleSettings(
         checked = uiState.proxy.mixedInboundEnabled,
         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.MixedInbound, it) },
         enabled = visualEditorEnabled,
+        showDivider = true,
         testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.MixedInbound),
     )
+    SettingsRow(
+        title = stringResource(R.string.settings_proxy_allow_lan_title),
+        subtitle = stringResource(R.string.settings_proxy_allow_lan_body),
+        checked = uiState.proxy.allowLan,
+        onCheckedChange = { newValue ->
+            if (newValue && !uiState.proxy.allowLan) {
+                showAllowLanWarning = true
+            } else {
+                onToggleChanged(AdvancedToggleSetting.ProxyAllowLan, newValue)
+            }
+        },
+        enabled = visualEditorEnabled,
+        showDivider = uiState.proxy.allowLan && uiState.proxy.lanAuthToken.isNotEmpty(),
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan),
+    )
+    if (uiState.proxy.allowLan && uiState.proxy.lanAuthToken.isNotEmpty()) {
+        SettingsRow(
+            title = stringResource(R.string.settings_proxy_lan_token_label),
+            value = uiState.proxy.lanAuthToken,
+            monospaceValue = true,
+            onClick = {
+                val clipboard = context.getSystemService(ClipboardManager::class.java)
+                clipboard?.setPrimaryClip(
+                    ClipData.newPlainText("lan_auth_token", uiState.proxy.lanAuthToken),
+                )
+            },
+            enabled = visualEditorEnabled,
+            testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan) + "_token",
+        )
+    }
 }
 
 private fun numberKeyboardOptions(): KeyboardOptions =

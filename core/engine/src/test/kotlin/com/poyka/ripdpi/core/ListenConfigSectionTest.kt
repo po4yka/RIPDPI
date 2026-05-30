@@ -71,4 +71,34 @@ class ListenConfigSectionTest {
         assertEquals(false, listen.mixed)
         assertEquals(1080, listen.port)
     }
+
+    @Test
+    fun `allow-LAN with non-empty token binds 0_0_0_0 and sets authToken`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setProxyAllowLan(true)
+                .setProxyLanAuthToken("abc123")
+                .build()
+
+        val listen = buildListenConfig(settings.toSettingsSections().proxy)
+
+        assertEquals("0.0.0.0", listen.ip)
+        assertEquals("abc123", listen.authToken)
+    }
+
+    @Test
+    fun `allow-LAN with empty token degrades to loopback and null authToken`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setProxyAllowLan(true)
+                .setProxyLanAuthToken("")
+                .build()
+
+        val listen = buildListenConfig(settings.toSettingsSections().proxy)
+
+        assertEquals("127.0.0.1", listen.ip)
+        assertEquals(null, listen.authToken)
+    }
 }

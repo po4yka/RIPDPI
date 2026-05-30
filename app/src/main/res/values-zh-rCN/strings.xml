@@ -1853,6 +1853,13 @@ fake_burst 3</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="settings_mixed_inbound_title">混合入站 (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">单个本地 listener 同时接受 SOCKS5 和 HTTP CONNECT 连接，默认端口为 2080。</string>
+    <string name="settings_proxy_allow_lan_title">允许局域网访问</string>
+    <string name="settings_proxy_allow_lan_body">将本地代理开放给网络中的其他设备。</string>
+    <string name="settings_proxy_allow_lan_warn_title">允许局域网访问？</string>
+    <string name="settings_proxy_allow_lan_warn_message">代理将接受本地网络中其他设备的连接。请妥善保管 access token——任何持有它的人都可以通过此设备路由流量。</string>
+    <string name="settings_proxy_allow_lan_warn_confirm">启用</string>
+    <string name="settings_proxy_allow_lan_warn_dismiss">取消</string>
+    <string name="settings_proxy_lan_token_label">Access token（点击复制）</string>
     <string name="ripdpi_tls_prelude_badge_stacked">叠加 × %1$d</string>
     <string name="ripdpi_tls_prelude_https_disabled_title">HTTPS desync 已关闭</string>
     <string name="ripdpi_tls_prelude_mode_off_title">关闭</string>

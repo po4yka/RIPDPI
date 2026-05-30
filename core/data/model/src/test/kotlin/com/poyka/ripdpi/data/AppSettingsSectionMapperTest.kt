@@ -47,6 +47,8 @@ class AppSettingsSectionMapperTest {
                 customTtl = true,
                 freezeDetectionEnabled = true,
                 mixedInboundEnabled = true,
+                proxyAllowLan = true,
+                lanAuthToken = "lan-tok",
             ),
             sections.proxy,
         )
@@ -129,6 +131,8 @@ class AppSettingsSectionMapperTest {
             .setDefaultTtl(64)
             .setCustomTtl(true)
             .setFreezeDetectionEnabled(true)
+            .setProxyAllowLan(true)
+            .setProxyLanAuthToken("lan-tok")
             .setDnsMode("encrypted")
             .setEncryptedDnsPort(853)
             .addAllEncryptedDnsBootstrapIps(listOf("1.1.1.1", "1.0.0.1"))

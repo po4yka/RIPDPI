@@ -42,6 +42,8 @@ private fun AppSettings.proxySection(): ProxySettingsSection =
         customTtl = customTtl,
         freezeDetectionEnabled = freezeDetectionEnabled,
         mixedInboundEnabled = mixedInboundEnabled,
+        proxyAllowLan = proxyAllowLan,
+        lanAuthToken = proxyLanAuthToken,
     )
 
 private fun AppSettings.dnsSection(): DnsSettingsSection =

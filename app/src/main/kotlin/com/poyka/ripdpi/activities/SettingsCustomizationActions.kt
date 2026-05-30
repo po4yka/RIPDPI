@@ -7,8 +7,17 @@ import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.ui.state.SettingsUiState
+import java.security.SecureRandom
 
 private const val BackupPinLength = 4
+private const val LanAuthTokenBytes = 16
+
+/** Mint a 128-bit random LAN access token, hex-encoded (32 chars). */
+private fun generateLanAuthToken(): String {
+    val bytes = ByteArray(LanAuthTokenBytes)
+    SecureRandom().nextBytes(bytes)
+    return bytes.joinToString("") { "%02x".format(it) }
+}
 
 internal class SettingsCustomizationActions(
     private val mutations: SettingsMutationRunner,
@@ -76,6 +85,24 @@ internal class SettingsCustomizationActions(
             value = enabled.toString(),
         ) {
             setMixedInboundEnabled(enabled)
+        }
+    }
+
+    /**
+     * Toggle binding the local listener to all interfaces (LAN). The native
+     * core rejects a non-loopback listener without an access token, so the
+     * first time LAN access is enabled we mint a random token and persist it;
+     * the token is reused on subsequent toggles so paired devices keep working.
+     */
+    fun setProxyAllowLan(enabled: Boolean) {
+        mutations.updateSetting(
+            key = "proxyAllowLan",
+            value = enabled.toString(),
+        ) {
+            setProxyAllowLan(enabled)
+            if (enabled && proxyLanAuthToken.isEmpty()) {
+                setProxyLanAuthToken(generateLanAuthToken())
+            }
         }
     }
 

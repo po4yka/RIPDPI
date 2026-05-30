@@ -63,6 +63,8 @@ internal fun AppSettingsSnapshot.withProxyDesyncSnapshot(settings: AppSettings):
                     } else {
                         ActivationFilterModel()
                     },
+                proxyAllowLan = settings.proxyAllowLan,
+                proxyLanAuthToken = settings.proxyLanAuthToken,
             ),
     )
 
@@ -124,4 +126,6 @@ internal fun AppSettings.Builder.applyProxyDesyncSnapshot(snapshot: AppSettingsS
         .setHttpMethodSpace(proxy.httpMethodSpace)
         .setHttpHostPad(proxy.httpHostPad)
         .setDesyncAnyProtocol(proxy.desyncAnyProtocol)
+        .setProxyAllowLan(proxy.proxyAllowLan)
+        .setProxyLanAuthToken(proxy.proxyLanAuthToken)
 }

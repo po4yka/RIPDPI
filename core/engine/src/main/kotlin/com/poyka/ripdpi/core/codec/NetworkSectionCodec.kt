@@ -65,6 +65,7 @@ internal object NetworkSectionCodec {
             customTtl = value.customTtl,
             freezeDetectionEnabled = value.freezeDetectionEnabled,
             mixed = value.mixed,
+            authToken = value.authToken,
         )
 
     fun toNative(value: RipDpiListenConfig): NativeListenConfig =
@@ -78,6 +79,7 @@ internal object NetworkSectionCodec {
             customTtl = value.customTtl,
             freezeDetectionEnabled = value.freezeDetectionEnabled,
             mixed = value.mixed,
+            authToken = value.authToken,
         )
 
     fun toModel(value: NativeProtocolConfig): RipDpiProtocolConfig =

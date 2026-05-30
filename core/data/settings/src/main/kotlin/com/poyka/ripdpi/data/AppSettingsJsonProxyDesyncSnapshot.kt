@@ -56,6 +56,10 @@ internal data class AppSettingsProxyDesyncSnapshot(
     val httpHostPad: Boolean = defaultSettings.httpHostPad,
     val desyncAnyProtocol: Boolean = defaultSettings.desyncAnyProtocol,
     val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
+    val proxyAllowLan: Boolean = defaultSettings.proxyAllowLan,
+    // Credential: present in the snapshot for round-trip, but never written to backup
+    // (same pattern as backupPin in AppSettingsRootUiRuntimeSnapshot).
+    val proxyLanAuthToken: String = "",
 )
 
 internal fun JsonObjectBuilder.writeProxyDesyncSnapshot(snapshot: AppSettingsProxyDesyncSnapshot) {
@@ -110,6 +114,8 @@ internal fun JsonObjectBuilder.writeProxyDesyncSnapshot(snapshot: AppSettingsPro
     put("httpHostPad", snapshot.httpHostPad)
     put("desyncAnyProtocol", snapshot.desyncAnyProtocol)
     putSerializable("groupActivationFilter", snapshot.groupActivationFilter)
+    put("proxyAllowLan", snapshot.proxyAllowLan)
+    // proxyLanAuthToken is a credential and is intentionally not written to the backup.
 }
 
 internal fun JsonObject.readProxyDesyncSnapshot(
@@ -168,4 +174,6 @@ internal fun JsonObject.readProxyDesyncSnapshot(
         desyncAnyProtocol = booleanValue("desyncAnyProtocol", defaults.desyncAnyProtocol),
         groupActivationFilter =
             serializableValue("groupActivationFilter", defaults.groupActivationFilter),
+        proxyAllowLan = booleanValue("proxyAllowLan", defaults.proxyAllowLan),
+        proxyLanAuthToken = "",
     )

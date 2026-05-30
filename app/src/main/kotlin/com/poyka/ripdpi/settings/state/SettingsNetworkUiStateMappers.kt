@@ -35,4 +35,6 @@ internal fun AppSettings.buildProxyUiState(): ProxyNetworkUiState =
         noDomain = noDomain,
         tcpFastOpen = tcpFastOpen,
         mixedInboundEnabled = mixedInboundEnabled,
+        allowLan = proxyAllowLan,
+        lanAuthToken = proxyLanAuthToken,
     )

@@ -38,6 +38,10 @@ internal val coreToggleHandlers: Map<AdvancedToggleSetting, CoreToggleHandler> =
                     setWsTunnelAllowInsecureSni(enabled)
                 }
             },
+        AdvancedToggleSetting.ProxyAllowLan to
+            { enabled ->
+                updateBoolean("proxyAllowLan", enabled) { setProxyAllowLan(enabled) }
+            },
     )
 
 internal val coreTextHandlers: Map<AdvancedTextSetting, CoreTextHandler> =

@@ -163,6 +163,8 @@ class SettingsViewModel
 
         fun setMixedInboundEnabled(enabled: Boolean) = customizationActions.setMixedInboundEnabled(enabled)
 
+        fun setProxyAllowLan(enabled: Boolean) = customizationActions.setProxyAllowLan(enabled)
+
         fun setStartOnBootEnabled(enabled: Boolean) = customizationActions.setStartOnBootEnabled(enabled)
 
         fun setCommunityApiUrl(url: String) = customizationActions.setCommunityApiUrl(url)

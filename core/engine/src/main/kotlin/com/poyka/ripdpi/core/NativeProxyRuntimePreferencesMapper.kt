@@ -3,9 +3,14 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.ProxySettingsSection
 import com.poyka.ripdpi.proto.AppSettings
 
-internal fun buildListenConfig(proxy: ProxySettingsSection): RipDpiListenConfig =
-    RipDpiListenConfig(
-        ip = proxy.proxyIp.ifEmpty { "127.0.0.1" },
+internal fun buildListenConfig(proxy: ProxySettingsSection): RipDpiListenConfig {
+    // Allow-LAN binds all interfaces (0.0.0.0). The native core rejects a
+    // non-loopback listener without an auth token, so allow-LAN only takes
+    // effect when a token is present; otherwise it degrades to loopback.
+    val lanToken = proxy.lanAuthToken.ifEmpty { null }
+    val allowLan = proxy.proxyAllowLan && lanToken != null
+    return RipDpiListenConfig(
+        ip = if (allowLan) "0.0.0.0" else proxy.proxyIp.ifEmpty { "127.0.0.1" },
         // The mixed inbound mirrors the reference implementation's mixedPort
         // default (2080) so it does not collide with the plain SOCKS default
         // (1080); an explicit user-set port always wins.
@@ -17,7 +22,9 @@ internal fun buildListenConfig(proxy: ProxySettingsSection): RipDpiListenConfig 
         customTtl = proxy.customTtl,
         freezeDetectionEnabled = proxy.freezeDetectionEnabled,
         mixed = proxy.mixedInboundEnabled,
+        authToken = if (allowLan) lanToken else null,
     )
+}
 
 internal fun buildProtocolConfig(settings: AppSettings): RipDpiProtocolConfig =
     RipDpiProtocolConfig(
