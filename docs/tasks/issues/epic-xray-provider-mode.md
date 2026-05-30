@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-30
 ---
 
 - [ ] #task Epic - Xray provider mode #repo/RIPDPI #area/outbound #status/backlog ⏫
@@ -37,27 +37,35 @@ Direct-mode now has enough product framing to be honest when it cannot solve a n
 
 ## Ship definition
 
-- [ ] RIPDPI can start Android VPN mode with Xray selected as the active provider.
-- [ ] At least VLESS/REALITY and XHTTP profile shapes validate and render to Xray JSON without leaking secrets.
-- [ ] Xray sockets are protected from the VPN loop, including DNS and listener paths.
-- [ ] Home, Diagnostics, and Settings show typed Xray provider state.
-- [ ] Lifecycle, config, protect-fd, telemetry, and smoke tests cover the first internal build.
+- [ ] RIPDPI can start Android VPN mode with Xray selected as the active provider. — OPEN: requires the real libXray bridge (`RunXrayFromJSON`) which needs the gomobile-built AAR + NDK29 native link + a device; none are present in the build environment, so a real Xray-backed VPN start has never run.
+- [x] At least VLESS/REALITY and XHTTP profile shapes validate and render to Xray JSON without leaking secrets. — `XrayConfigRenderer` + `XrayConfigValidator` + `XrayProfileRedactor`, golden- and redaction-tested green offline.
+- [ ] Xray sockets are protected from the VPN loop, including DNS and listener paths. — the protect-first ordering, DNS-loop avoidance, and protect-fd contract are test-proven offline against the runtime/bridge contract (`XrayProtectFdContractTest`, `XrayDnsLoopRegressionTest`), but the real socket protection of a running Xray is UNVERIFIED (needs the gomobile bridge + device).
+- [ ] Home, Diagnostics, and Settings show typed Xray provider state. — the typed provider-state substrate (`XrayProviderSnapshot`, `XrayConnectionStage`, failure classes, redacted summaries) landed and is tested offline; the Home/Diagnostics/Settings Compose surfaces that render it live in `:app`/`:core:service` and are device/gomobile-verified, not run here.
+- [ ] Lifecycle, config, protect-fd, telemetry, and smoke tests cover the first internal build. — lifecycle, config, protect-fd, DNS-loop, and telemetry tests are green offline; the device/emulator egress smoke remains OPEN (blocked on gomobile/libXray + NDK29 + device + server).
+
+## Current status
+
+**2026-05-30** — The full Kotlin/Gradle software substrate for Xray provider mode has landed across seven commits and is offline-test-verified where the toolchain allows. What is in the tree and proven by green offline tests: the **config renderer + validation gate + secret-safe redactor** (`:core:data:catalog`), the **managed Xray runtime adapter** mapping libXray onto the `start/awaitReady/stop/pollTelemetry` contract with protect-first ordering and typed lifecycle/stop causes (`:core:engine-api`, verified against a fake native bridge), the **TUN-to-Xray-local-inbound bridge orchestration** with tunnel-owned DNS and dual-restart handover (`:core:engine-api`), the **profile-selection + fail-closed import UX** with capability labels and 7-locale strings (`:app` + `:core:data` parsers), the **typed diagnostics/telemetry substrate** (snapshot, connection stages, failure classes, redacted summaries, regression fixtures) (`:core:data:runtime-state`), and the **offline regression matrix** (config golden, service lifecycle, protect-fd contract, DNS-loop). The libXray/xray-core **version pins, stable-vs-canary policy, license/NOTICE capture, gomobile build script, and artifact-verification gate** are also committed (no native binary committed).
+
+Remaining blockers are all external toolchain/hardware, not missing code: (1) **gomobile libXray build** — Go + gomobile are absent, so no real per-ABI `.aar` exists and the real `RunXrayFromJSON`/`StopXray`/`Ping` bridge has never executed; (2) **NDK29 native link** — the environment ships NDK 28.2 only, so `:core:engine`/`:core:service`/`:app` native-linking builds and their device-verified surfaces (live telemetry population, Home rendering) could not run; (3) **device/emulator + live-server smoke** — the proof that real VPN traffic exits through the Xray outbound, and the `:app` UI test lane (also blocked by a pre-existing offline plugin-cache miss), require a device, a live Xray server, and the native artifacts above. The epic stays **not done**: its ship definition includes "RIPDPI can start Android VPN mode with Xray selected" and the device-traffic proof, neither of which is verifiable in this environment.
 
 ## Child tasks
 
+Status as of 2026-05-30 (`done` = every acceptance criterion test-verified; `backlog` = code landed and offline-verified but ≥1 criterion blocked on external toolchain/hardware):
+
 **Architecture**
 - Define Xray VPN provider architecture (closed task)
-- [[Package libXray for Android ABIs]]
+- [[Package libXray for Android ABIs]] — backlog (pins/policy/license/verify-script landed; real gomobile ABI build OPEN)
 
 **Runtime path**
-- [[Render validated Xray client configs]]
-- [[Run Xray as managed VPN relay runtime]]
-- [[Bridge TUN traffic through Xray local inbound]]
+- [[Render validated Xray client configs]] — **done** (renderer, validation gate, redactor, golden tests green offline)
+- [[Run Xray as managed VPN relay runtime]] — backlog (adapter + lifecycle contract verified vs fake bridge; real libXray run OPEN)
+- [[Bridge TUN traffic through Xray local inbound]] — backlog (orchestration verified offline; device egress smoke OPEN)
 
 **Product and proof**
-- [[Add Xray profile UX and import flow]]
-- [[Surface Xray diagnostics and telemetry]]
-- [[Add Xray provider regression matrix]]
+- [[Add Xray profile UX and import flow]] — backlog (parser/capability/mode-option verified offline; `:app` UI lane + onboarding OPEN)
+- [[Surface Xray diagnostics and telemetry]] — backlog (typed substrate + fixtures verified offline; live Home/`:core:service` population OPEN)
+- [[Add Xray provider regression matrix]] — backlog (config/lifecycle/protect-fd/DNS-loop suites green offline; device smoke OPEN)
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 

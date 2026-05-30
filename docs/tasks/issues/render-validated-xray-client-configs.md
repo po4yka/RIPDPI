@@ -1,7 +1,7 @@
 ---
 title: Render validated Xray client configs
 type: task
-status: backlog
+status: done
 area: outbound
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-30
 ---
 
-- [ ] #task Render validated Xray client configs #repo/RIPDPI #area/outbound #status/backlog ⏫
+- [x] #task Render validated Xray client configs #repo/RIPDPI #area/outbound #status/done ⏫
 
 ## Summary
 
@@ -29,11 +29,11 @@ Xray can run arbitrary JSON, but RIPDPI needs a safe product surface. The first 
 
 ## Acceptance criteria
 
-- [ ] Kotlin profile model covers the initial VLESS/REALITY and XHTTP fields needed for client startup.
-- [ ] Renderer emits local inbound and outbound config compatible with the chosen tunnel topology.
-- [ ] `libXray.TestXray` or equivalent validation is called before saving or starting imported profiles.
-- [ ] Diagnostics and logs redact UUIDs, private keys, passwords, server addresses, and live endpoints.
-- [ ] Golden tests cover valid profiles, invalid combinations, and redaction.
+- [x] Kotlin profile model covers the initial VLESS/REALITY and XHTTP fields needed for client startup. — `XrayProfile.kt` in `:core:data:catalog`.
+- [x] Renderer emits local inbound and outbound config compatible with the chosen tunnel topology. — `XrayConfigRenderer.kt` emits the `TunToLocalInbound` shape (`localInboundPort=10808`) that `XrayConfigValidator` consumes; catch-all routing rule carries an explicit `network` selector for xray-core v26+.
+- [x] `libXray.TestXray` or equivalent validation is called before saving or starting imported profiles. — structural validation via `XrayConfigValidator` runs before render returns and on the raw-import path; the native `libXray.TestXray` call is an injected seam (`XrayConfigTester`, no-op default), wired but UNVERIFIED IN CI (requires the gomobile libXray AAR).
+- [x] Diagnostics and logs redact UUIDs, private keys, passwords, server addresses, and live endpoints. — `XrayProfileRedactor.kt`.
+- [x] Golden tests cover valid profiles, invalid combinations, and redaction. — `XrayConfigRendererTest`, `XrayProfileRedactorTest`, `XrayRedactionRegressionTest` (green offline in `:core:data:catalog`).
 
 ## Design notes
 

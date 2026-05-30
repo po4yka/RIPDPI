@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-30
 ---
 
 - [ ] #task Run Xray as managed VPN relay runtime #repo/RIPDPI #area/outbound #status/backlog ⏫
@@ -29,11 +29,17 @@ Xray must behave like the existing managed proxy/relay runtimes: no ambiguous "r
 
 ## Acceptance criteria
 
-- [ ] Runtime registers libXray dialer/listener protection before starting Xray.
-- [ ] Startup waits for a concrete listener or verified Xray state before VPN tunnel handoff.
-- [ ] Stop path is bounded, idempotent, and reports typed clean/failed stop causes.
-- [ ] Xray version and basic provider state flow into service telemetry without exposing profile secrets.
-- [ ] Unit or service tests cover startup failure, invalid config, late stop, and crash/exit mapping.
+- [x] Runtime registers libXray dialer/listener protection before starting Xray. — `RipDpiXrayRuntime` registers the protect controller with the bridge BEFORE start; protect-first ordering is asserted by `RipDpiXrayRuntimeTest` and `XrayProtectFdContractTest`.
+- [x] Startup waits for a concrete listener or verified Xray state before VPN tunnel handoff. — readiness success/timeout covered in `RipDpiXrayRuntimeTest`.
+- [x] Stop path is bounded, idempotent, and reports typed clean/failed stop causes. — typed `StopCause` (Clean/AlreadyStopped/Failed), bounded via IO dispatcher; idempotent/late/hung-stop tests green.
+- [x] Xray version and basic provider state flow into service telemetry without exposing profile secrets. — `pollTelemetry()` emits a `NativeRuntimeSnapshot` with version+state and a secret-free assertion test.
+- [x] Unit or service tests cover startup failure, invalid config, late stop, and crash/exit mapping. — 14 tests in `RipDpiXrayRuntimeTest` (green offline in `:core:engine-api`).
+
+> All five criteria are verified against `FakeXrayNativeBridge`, which replays the full observable native contract. The criteria are met at the adapter/contract level. The real gomobile-backed `XrayNativeBridgeLibXrayImpl` (`RunXrayFromJSON` / `StopXray` / `XrayVersion`) has NOT executed here — the libXray AAR is absent from the offline toolchain — so end-to-end behavior against a real Xray process REMAINS OPEN (blocked on gomobile/libXray build, not on missing code). Status held at `backlog` until that path runs.
+
+## Progress
+
+**2026-05-30** — Managed runtime adapter landed (commit `feat(xray): managed Xray runtime adapter with typed lifecycle`): `RipDpiXrayRuntime` in `:core:engine-api` maps libXray onto the existing `start/awaitReady/stop/pollTelemetry` managed-runtime contract, with protect-first ordering, bounded idempotent stop, typed lifecycle/stop causes, and secret-free telemetry — all driven by `FakeXrayNativeBridge` and covered by 14 offline-green unit tests. The real `XrayNativeBridgeLibXrayImpl` is the single libXray seam and is UNVERIFIED IN CI (throws until compiled in the libXray-linking module; gomobile AAR absent). Remaining: run the adapter against a real libXray bridge on device — blocked on the gomobile build, NDK29 native link, and a live server.
 
 ## Design notes
 

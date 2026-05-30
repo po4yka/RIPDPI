@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-30
 ---
 
 - [ ] #task Add Xray provider regression matrix #repo/RIPDPI #area/outbound #status/backlog 🔼
@@ -24,12 +24,16 @@ The risky parts are lifecycle, config rendering, socket protection, DNS loops, p
 
 ## Acceptance criteria
 
-- [ ] Config golden tests cover VLESS/REALITY, XHTTP, invalid combinations, and redaction.
-- [ ] Service tests cover Xray startup failure, readiness timeout, stop, restart, and handover behavior.
-- [ ] Protect-fd tests prove Xray dialer/listener sockets use the Android VPN protection path.
-- [ ] DNS-loop regression proves provider bootstrap DNS does not re-enter TUN.
-- [ ] Device/emulator smoke test verifies active VPN traffic exits through the Xray outbound path.
-- [ ] CI or documented manual lanes identify which Xray tests need network, emulator, or private fixture dependencies.
+- [x] Config golden tests cover VLESS/REALITY, XHTTP, invalid combinations, and redaction. — `XrayConfigRendererTest`, `XrayProfileRedactorTest`, `XrayRedactionRegressionTest` (`:core:data:catalog`, green offline).
+- [x] Service tests cover Xray startup failure, readiness timeout, stop, restart, and handover behavior. — `XrayServiceLifecycleMatrixTest` (one named test per edge) + `RipDpiXrayRuntimeTest` (`:core:engine-api`, green offline).
+- [x] Protect-fd tests prove Xray dialer/listener sockets use the Android VPN protection path. — `XrayProtectFdContractTest`: a socket-simulating fake bridge asserts protect strictly precedes connect, a denied protect aborts the socket, and the loopback inbound is never offered to protect (green offline).
+- [x] DNS-loop regression proves provider bootstrap DNS does not re-enter TUN. — `XrayDnsLoopRegressionTest`: DNS ownership pinned to the tunnel, split `XrayDns` not constructible for the bridged topology, `SetTunFd` topology refused (green offline).
+- [ ] Device/emulator smoke test verifies active VPN traffic exits through the Xray outbound path. — documented in `docs/contributor/xray-tun-bridge-smoke.md` / `xray-regression-matrix.md` but UNVERIFIED IN CI. OPEN: requires gomobile/libXray + NDK29 native + device/emulator + live server.
+- [x] CI or documented manual lanes identify which Xray tests need network, emulator, or private fixture dependencies. — `docs/contributor/xray-regression-matrix.md` indexes the whole surface and splits CI-offline lanes from device/emulator, live-network, and private-fixture lanes, with a promotion checklist.
+
+## Progress
+
+**2026-05-30** — Offline regression matrix landed (commit `test(xray): add Xray provider regression matrix and document device/network lanes`): config golden + redaction tests, the service lifecycle matrix, the protect-fd contract test, and the DNS-loop regression are all green offline across `:core:data:catalog` and `:core:engine-api` (the latter de-flaked to pass 4 back-to-back `--rerun-tasks` runs). `docs/contributor/xray-regression-matrix.md` indexes every lane and isolates the CI-offline set from the device/network/private-fixture set. Remaining: the one device/emulator smoke that proves real egress through the Xray outbound — blocked on gomobile/libXray + NDK29 native + device + server.
 
 ## Notes
 
