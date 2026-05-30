@@ -6,6 +6,8 @@ pub mod circumvention_reachability;
 pub mod dns_integrity;
 #[path = "dns_tampering.rs"]
 pub mod dns_tampering;
+#[path = "doh_json_survey.rs"]
+pub mod doh_json_survey;
 #[path = "doh_survey.rs"]
 pub mod doh_survey;
 #[path = "domain_reachability.rs"]
@@ -38,6 +40,7 @@ pub mod tls_alert;
 pub use circumvention_reachability::CircumventionReachabilityProbe;
 pub use dns_integrity::DnsIntegrityProbe;
 pub use dns_tampering::DnsTamperingConfirmationProbe;
+pub use doh_json_survey::DohJsonSurveyProbe;
 pub use doh_survey::DohSurveyProbe;
 pub use domain_reachability::DomainReachabilityProbe;
 pub use ech_handshake::EchHandshakeProbe;

@@ -127,10 +127,11 @@ pub use probe_descriptor::{
     PROBE_DESCRIPTORS,
 };
 pub use probes::{
-    CircumventionReachabilityProbe, DnsIntegrityProbe, DnsTamperingConfirmationProbe, DohSurveyProbe,
-    DomainReachabilityProbe, EchHandshakeProbe, HickoryRustlsEchHandshakeDriver, HttpInjectionOfflineProbe,
-    HttpResponseBlockOfflineProbe, IpBlockSuspectProbe, MtprotoReachabilityProbe, NetworkEnvironmentProbe,
-    QuicProbeOfflineProbe, ServiceReachabilityProbe, TcpFatHeaderProbe, ThroughputProbe, TlsAlertOfflineProbe,
+    CircumventionReachabilityProbe, DnsIntegrityProbe, DnsTamperingConfirmationProbe, DohJsonSurveyProbe,
+    DohSurveyProbe, DomainReachabilityProbe, EchHandshakeProbe, HickoryRustlsEchHandshakeDriver,
+    HttpInjectionOfflineProbe, HttpResponseBlockOfflineProbe, IpBlockSuspectProbe, MtprotoReachabilityProbe,
+    NetworkEnvironmentProbe, QuicProbeOfflineProbe, ServiceReachabilityProbe, TcpFatHeaderProbe, ThroughputProbe,
+    TlsAlertOfflineProbe,
 };
 
 #[cfg(feature = "compat-facade")]
