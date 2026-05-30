@@ -31,6 +31,17 @@ fn ui_config_maps_geo_database_paths() {
     assert_eq!(config.process.geosite_db_path.as_deref(), Some("/data/user/0/app/files/geo/geosite.db"));
 }
 
+#[test]
+fn ui_listen_mixed_flag_enables_mixed_network_mode() {
+    let mut ui = minimal_ui();
+    ui.listen.mixed = true;
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    assert!(config.network.mixed, "listen.mixed must propagate to network.mixed");
+
+    let off = runtime_config_from_ui(minimal_ui()).expect("runtime config");
+    assert!(!off.network.mixed, "mixed must default off when listen.mixed is unset");
+}
+
 fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
     ProxyUiTcpChainStep {
         kind: kind.to_string(),

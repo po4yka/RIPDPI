@@ -356,6 +356,7 @@ fn listen_config(parts: ListenParts) -> ProxyUiListenConfig {
         default_ttl: parts.default_ttl,
         custom_ttl: parts.custom_ttl,
         freeze_detection_enabled: false,
+        mixed: false,
         auth_token: None,
     }
 }
@@ -789,6 +790,7 @@ proptest! {
             default_ttl: 64,
             custom_ttl: true,
             freeze_detection_enabled: false,
+            mixed: false,
             auth_token,
         };
         ui.fake_packets.drop_sack = drop_sack;

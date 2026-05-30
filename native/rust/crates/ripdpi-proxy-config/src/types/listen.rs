@@ -13,6 +13,11 @@ pub struct ProxyUiListenConfig {
     pub custom_ttl: bool,
     #[serde(default)]
     pub freeze_detection_enabled: bool,
+    /// Mixed inbound: one listener that serves SOCKS5, SOCKS4 *and* HTTP
+    /// CONNECT, dispatched by the peeked first byte. Forward-compatible
+    /// default keeps older configs (and the byte-prefixed SOCKS path) intact.
+    #[serde(default)]
+    pub mixed: bool,
     #[serde(default)]
     pub auth_token: Option<String>,
 }
@@ -28,6 +33,7 @@ impl Default for ProxyUiListenConfig {
             default_ttl: 0,
             custom_ttl: false,
             freeze_detection_enabled: false,
+            mixed: false,
             auth_token: None,
         }
     }

@@ -22,6 +22,7 @@ pub(crate) fn apply_listen_section(
     config.network.listen.listen_port =
         u16::try_from(listen.port).map_err(|_| ProxyConfigError::InvalidConfig("Invalid proxy port".to_string()))?;
     config.network.listen.auth_token = auth_token;
+    config.network.mixed = listen.mixed;
 
     if config.network.listen.listen_port == 0 {
         return Err(ProxyConfigError::InvalidConfig("Invalid proxy port".to_string()));
