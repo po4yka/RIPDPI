@@ -18,6 +18,7 @@ pub(super) struct RuntimeState {
     last_error: ArcSwapOption<String>,
     last_handshake_error: ArcSwapOption<String>,
     quality_observer: Mutex<Option<Arc<dyn Fn(TcpConnectObservation) + Send + Sync>>>,
+    readiness_observer: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 
 impl RuntimeState {
@@ -33,6 +34,7 @@ impl RuntimeState {
             last_error: ArcSwapOption::empty(),
             last_handshake_error: ArcSwapOption::empty(),
             quality_observer: Mutex::new(None),
+            readiness_observer: Mutex::new(None),
         }
     }
 
@@ -137,6 +139,33 @@ impl RuntimeState {
             observer(obs);
         }
     }
+
+    /// Install a readiness observer fired exactly once when the runtime has
+    /// bound its listener and is about to serve. Replaces any previously
+    /// installed observer. The adapter layer wires this to a native readiness
+    /// push (see ADR 0003); the relay core itself stays platform-agnostic.
+    ///
+    /// Cancel-safety: synchronous lock; no `.await` inside.
+    pub(super) fn set_readiness_observer(&self, observer: Arc<dyn Fn() + Send + Sync>) {
+        if let Ok(mut guard) = self.readiness_observer.lock() {
+            *guard = Some(observer);
+        }
+    }
+
+    /// Fire the readiness observer, if installed. Clone the `Arc` inside the
+    /// lock, release the lock, then invoke — reentrancy-safe, mirroring
+    /// `emit_connect_observation`.
+    ///
+    /// Cancel-safety: synchronous; no `.await` inside.
+    pub(super) fn notify_ready(&self) {
+        let observer = match self.readiness_observer.lock() {
+            Ok(guard) => guard.as_ref().map(Arc::clone),
+            Err(_) => None,
+        };
+        if let Some(observer) = observer {
+            observer();
+        }
+    }
 }
 
 fn load_optional_string(slot: &ArcSwapOption<String>) -> Option<String> {
@@ -221,6 +250,50 @@ mod tests {
 
         assert_eq!(first_count.load(Ordering::Relaxed), 0, "first observer must not fire after replacement");
         assert_eq!(second_count.load(Ordering::Relaxed), 1, "second observer must fire");
+    }
+
+    /// Smoke: readiness observer is invoked when `notify_ready` is called.
+    #[test]
+    fn readiness_observer_fires_on_notify() {
+        let state = RuntimeState::new();
+        let count = Arc::new(AtomicU64::new(0));
+        let count_clone = Arc::clone(&count);
+        state.set_readiness_observer(Arc::new(move || {
+            count_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+        state.notify_ready();
+        assert_eq!(count.load(Ordering::Relaxed), 1);
+    }
+
+    /// No readiness observer installed: `notify_ready` is a no-op (no panic).
+    #[test]
+    fn no_readiness_observer_notify_is_noop() {
+        let state = RuntimeState::new();
+        // Must not panic.
+        state.notify_ready();
+    }
+
+    /// `set_readiness_observer` replaces the previous observer.
+    #[test]
+    fn set_readiness_observer_replaces_previous() {
+        let state = RuntimeState::new();
+        let first_count = Arc::new(AtomicU64::new(0));
+        let second_count = Arc::new(AtomicU64::new(0));
+
+        let first_clone = Arc::clone(&first_count);
+        state.set_readiness_observer(Arc::new(move || {
+            first_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        let second_clone = Arc::clone(&second_count);
+        state.set_readiness_observer(Arc::new(move || {
+            second_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        state.notify_ready();
+
+        assert_eq!(first_count.load(Ordering::Relaxed), 0, "first readiness observer must not fire after replacement");
+        assert_eq!(second_count.load(Ordering::Relaxed), 1, "second readiness observer must fire");
     }
 
     /// Reentrancy: observer calls `set_quality_observer` on a separate state

@@ -28,6 +28,7 @@ pub struct WarpRuntime {
     listener_address: Mutex<Option<String>>,
     last_error: Mutex<Option<String>>,
     quality_observer: Mutex<Option<Arc<dyn Fn(TcpConnectObservation) + Send + Sync>>>,
+    readiness_observer: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 
 impl WarpRuntime {
@@ -46,6 +47,7 @@ impl WarpRuntime {
             listener_address: Mutex::new(None),
             last_error: Mutex::new(None),
             quality_observer: Mutex::new(None),
+            readiness_observer: Mutex::new(None),
         })
     }
 
@@ -79,6 +81,34 @@ impl WarpRuntime {
         };
         if let Some(observer) = observer {
             observer(obs);
+        }
+    }
+
+    /// Install a readiness observer fired exactly once when the listener is
+    /// bound and WARP is about to serve (immediately after the `runtime_ready`
+    /// event). The adapter layer wires this to a native readiness push so
+    /// Kotlin no longer polls telemetry (see ADR 0003); install it before
+    /// [`WarpRuntime::run`] starts.
+    ///
+    /// Cancel-safety: synchronous; no `.await` inside.
+    pub fn set_readiness_observer(&self, observer: Arc<dyn Fn() + Send + Sync>) {
+        if let Ok(mut guard) = self.readiness_observer.lock() {
+            *guard = Some(observer);
+        }
+    }
+
+    /// Fire the readiness observer, if installed. Clone the `Arc` inside the
+    /// lock, release the lock, then invoke — reentrancy-safe, mirroring
+    /// `emit_connect_observation`.
+    ///
+    /// Cancel-safety: synchronous; no `.await` inside.
+    fn notify_ready(&self) {
+        let observer = match self.readiness_observer.lock() {
+            Ok(guard) => guard.as_ref().map(Arc::clone),
+            Err(_) => None,
+        };
+        if let Some(observer) = observer {
+            observer();
         }
     }
 
@@ -166,6 +196,10 @@ impl WarpRuntime {
         *self.listener_address.lock().expect("listener address") = Some(bind_addr);
         self.running.store(true, Ordering::SeqCst);
         emit_runtime_ready(self.listener_address.lock().expect("listener address").as_deref().unwrap_or_default());
+        // Push readiness to any installed observer (native readiness event,
+        // ADR 0003) at the same point the `runtime_ready` telemetry fires, so
+        // the Kotlin wrapper need not poll. No-op when no observer is set.
+        self.notify_ready();
 
         while !self.stop_requested.load(Ordering::SeqCst) {
             match timeout(ACCEPT_POLL_INTERVAL, listener.accept()).await {
@@ -330,6 +364,50 @@ mod tests {
 
         assert_eq!(first_count.load(Ordering::Relaxed), 0, "first observer must not fire after replacement");
         assert_eq!(second_count.load(Ordering::Relaxed), 1, "second observer must fire");
+    }
+
+    /// Smoke: readiness observer is invoked when `notify_ready` is called.
+    #[test]
+    fn readiness_observer_fires_on_notify() {
+        let runtime = WarpRuntime::new(dummy_config());
+        let count = Arc::new(AtomicU64::new(0));
+        let count_clone = Arc::clone(&count);
+        runtime.set_readiness_observer(Arc::new(move || {
+            count_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+        runtime.notify_ready();
+        assert_eq!(count.load(Ordering::Relaxed), 1);
+    }
+
+    /// No readiness observer installed: `notify_ready` is a no-op (no panic).
+    #[test]
+    fn no_readiness_observer_notify_is_noop() {
+        let runtime = WarpRuntime::new(dummy_config());
+        // Must not panic.
+        runtime.notify_ready();
+    }
+
+    /// `set_readiness_observer` replaces the previous observer.
+    #[test]
+    fn set_readiness_observer_replaces_previous() {
+        let runtime = WarpRuntime::new(dummy_config());
+        let first_count = Arc::new(AtomicU64::new(0));
+        let second_count = Arc::new(AtomicU64::new(0));
+
+        let first_clone = Arc::clone(&first_count);
+        runtime.set_readiness_observer(Arc::new(move || {
+            first_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        let second_clone = Arc::clone(&second_count);
+        runtime.set_readiness_observer(Arc::new(move || {
+            second_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+
+        runtime.notify_ready();
+
+        assert_eq!(first_count.load(Ordering::Relaxed), 0, "first readiness observer must not fire after replacement");
+        assert_eq!(second_count.load(Ordering::Relaxed), 1, "second readiness observer must fire");
     }
 
     /// Multiple emit calls all reach the observer.

@@ -49,6 +49,18 @@ impl RelayRuntime {
         self.state.set_quality_observer(observer);
     }
 
+    /// Install a readiness observer fired exactly once when the listener is
+    /// bound and the relay is about to serve (immediately after the
+    /// `runtime_ready` event). The adapter layer wires this to a native
+    /// readiness push so Kotlin no longer polls telemetry (see ADR 0003);
+    /// install it before [`RelayRuntime::run`] starts. Delegates to
+    /// `RuntimeState::set_readiness_observer`.
+    ///
+    /// Cancel-safety: synchronous; no `.await` inside.
+    pub fn set_readiness_observer(&self, observer: Arc<dyn Fn() + Send + Sync>) {
+        self.state.set_readiness_observer(observer);
+    }
+
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
         let bootstrapped_config = bootstrap_relay_endpoints(&self.config).await?;
         let backend = Arc::new(build_backend(&bootstrapped_config).await?);
@@ -60,6 +72,10 @@ impl RelayRuntime {
         self.state.set_listener_address(bind_addr.clone())?;
         self.state.set_running(true);
         emit_runtime_ready(&bind_addr);
+        // Push readiness to any installed observer (native readiness event,
+        // ADR 0003) at the same point the `runtime_ready` telemetry fires, so
+        // the Kotlin wrapper need not poll. No-op when no observer is set.
+        self.state.notify_ready();
 
         run_accept_loop(Arc::clone(&self), backend, listener, ACCEPT_POLL_INTERVAL).await;
 
