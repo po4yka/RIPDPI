@@ -156,6 +156,47 @@ class ServiceControllerForegroundDenialTest {
 
         assertFalse(store.wasRunningAtUpdate())
     }
+
+    // T2 — stop routing: stop() reads the current mode from serviceStateStore and
+    // dispatches the stop Intent to the matching service class, never the wrong one.
+    @Test
+    fun stopWhileProxyActiveRoutesStopToProxyService() {
+        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.Proxy)
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = serviceStateStore,
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+            )
+
+        controller.stop()
+
+        assertEquals(1, starter.startCount)
+        assertEquals(RipDpiProxyService::class.java.name, starter.lastIntent?.component?.className)
+    }
+
+    @Test
+    fun stopWhileVpnActiveRoutesStopToVpnService() {
+        ShadowServiceControllerVpnPrepareService.prepareIntent = null
+        val serviceStateStore = TestServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN)
+        val starter = RecordingForegroundServiceStarter()
+        val controller =
+            DefaultServiceController(
+                context = RuntimeEnvironment.getApplication(),
+                serviceStateStore = serviceStateStore,
+                serviceAutomationController = Optional.empty(),
+                foregroundServiceStarter = starter,
+                bootSessionStateStore = InMemoryBootSessionStateStore(),
+            )
+
+        controller.stop()
+
+        assertEquals(1, starter.startCount)
+        assertEquals(RipDpiVpnService::class.java.name, starter.lastIntent?.component?.className)
+    }
 }
 
 private class InMemoryBootSessionStateStore : BootSessionStateStore {

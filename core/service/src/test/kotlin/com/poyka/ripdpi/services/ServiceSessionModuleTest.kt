@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ServiceSessionModuleTest {
@@ -78,6 +79,29 @@ class ServiceSessionModuleTest {
             assertEquals(Sender.Proxy, statusFactory.createdSenders.single())
             assertNotNull(coordinator)
         }
+
+    // T1 — proxy session graph must not wire VPN-only infrastructure.
+    // VpnProtectSocketServer and VpnTunnelRuntime are VPN-specific: the proxy module
+    // must not declare @Provides methods for them.  We verify this structurally so
+    // a future accidental addition is caught at test time without running a full DI
+    // graph that requires an Android service context.
+    @Test
+    fun proxySessionModuleDoesNotProvideVpnProtectSocketServer() {
+        val methodNames = ProxyServiceSessionModule::class.java.declaredMethods.map { it.name }
+        assertTrue(
+            "ProxyServiceSessionModule must not have a provideVpnProtectSocketServer method",
+            methodNames.none { it.contains("VpnProtect", ignoreCase = true) },
+        )
+    }
+
+    @Test
+    fun proxySessionModuleDoesNotProvideVpnTunnelRuntime() {
+        val methodNames = ProxyServiceSessionModule::class.java.declaredMethods.map { it.name }
+        assertTrue(
+            "ProxyServiceSessionModule must not have a provideVpnTunnelRuntime method",
+            methodNames.none { it.contains("VpnTunnel", ignoreCase = true) },
+        )
+    }
 
     @Test
     fun bootstrapProxySessionModuleUsesInjectedDispatcher() =
