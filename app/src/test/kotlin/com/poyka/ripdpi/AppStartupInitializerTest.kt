@@ -374,6 +374,79 @@ class AppStartupInitializerTest {
             assertEquals(1, proxyGroupRepository.listCalls)
         }
 
+    @Test
+    fun `non-exception error from a subsystem is recorded failed and does not abort remaining subsystems`() =
+        runTest {
+            val compatibilityResetter = RecordingAppCompatibilityResetter()
+            // An Error (not an Exception) must still be demoted to Failed, not propagated -- the
+            // isolation boundary catches Throwable, not just Exception. CancellationException is the
+            // sole Throwable that is intentionally rethrown, so this must NOT be one.
+            val strategyPackService =
+                RecordingStrategyPackService(
+                    initializeFailure = AssertionError("strategy-error"),
+                )
+            val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = compatibilityResetter,
+                    strategyPackService = strategyPackService,
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
+                    scope = backgroundScope,
+                )
+
+            // Returns normally: if the catch were narrowed to Exception, the Error would propagate
+            // out of initializeSubsystems() here and fail the test.
+            val report = initializer.initializeSubsystems()
+
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.compatibilityReset.status)
+            assertEquals(AppStartupSubsystemStatus.Failed, report.strategyPackInitialization.status)
+            assertEquals("strategy-error", report.strategyPackInitialization.errorMessage)
+            // The next subsystem still ran -- the Error did not abort the loop.
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.diagnosticsBootstrap.status)
+            assertEquals(1, diagnosticsBootstrapper.calls)
+        }
+
+    @Test
+    fun `two simultaneous subsystem failures are each recorded with distinct messages`() =
+        runTest {
+            val compatibilityResetter =
+                RecordingAppCompatibilityResetter(failure = IllegalStateException("compat-boom"))
+            val proxyGroupRepository =
+                RecordingProxyGroupRepository(listFailure = IllegalStateException("subscription-list-boom"))
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = compatibilityResetter,
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    proxyGroupRepository = proxyGroupRepository,
+                    scope = backgroundScope,
+                )
+
+            val report = initializer.initializeSubsystems()
+
+            assertEquals(AppStartupSubsystemStatus.Failed, report.compatibilityReset.status)
+            assertEquals("compat-boom", report.compatibilityReset.errorMessage)
+            assertEquals(AppStartupSubsystemStatus.Failed, report.subscriptionWorkerEnqueue.status)
+            assertEquals("subscription-list-boom", report.subscriptionWorkerEnqueue.errorMessage)
+
+            // Every subsystem between the two failures still ran.
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.strategyPackInitialization.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.diagnosticsBootstrap.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.dnsPathInvalidatorRegistration.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.sharedPriorsWorkerEnqueue.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchSeed.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchWorkerEnqueue.status)
+            // ...and the loop continued past the SECOND failure to the trailing subsystem.
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.bootSessionRecorderRegistration.status)
+
+            // Both distinct messages render in one log line; neither masks the other.
+            val log = report.toLogMessage()
+            assertTrue(log.contains("compatibility_reset=failed(error=compat-boom)"))
+            assertTrue(log.contains("subscription_auto_update_worker_enqueue=failed(error=subscription-list-boom)"))
+            assertEquals(1, compatibilityResetter.calls)
+            assertEquals(1, proxyGroupRepository.listCalls)
+        }
+
     private fun createInitializer(
         compatibilityResetter: AppCompatibilityResetter,
         strategyPackService: StrategyPackService,
