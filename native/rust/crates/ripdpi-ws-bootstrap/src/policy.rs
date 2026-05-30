@@ -104,6 +104,16 @@ pub(crate) fn record_successful_resolver_in(
     }
     let key = ResolverMappingKey::new(host, scope);
     cache.insert_default_ttl(key, ResolvedMapping { best_ip: resolved_ip, ip_family: resolved_ip.into(), source });
+    // Observability marker (per-resolution, not per-packet — infrequent). Lets a
+    // device/instrumented test confirm the learned-resolver path actually fired.
+    tracing::info!(
+        target: "ripdpi::resolver_selection",
+        event = "resolver_selection_recorded",
+        host = host,
+        network_scope = scope,
+        resolver_id = context.resolver_id.as_deref().unwrap_or_default(),
+        "recorded successful encrypted-DNS resolver for (host, NetProfile)"
+    );
 }
 
 fn cached_encrypted_dns_context(
@@ -113,7 +123,17 @@ fn cached_encrypted_dns_context(
 ) -> Option<ProxyEncryptedDnsContext> {
     let scope = network_scope.filter(|value| !value.trim().is_empty())?;
     let mapping = cache.lookup(&ResolverMappingKey::new(host, scope))?;
-    encrypted_dns_context_for_source(&mapping.source)
+    let context = encrypted_dns_context_for_source(&mapping.source)?;
+    // Observability marker (per-resolution, not per-packet — infrequent).
+    tracing::info!(
+        target: "ripdpi::resolver_selection",
+        event = "resolver_selection_cache_hit",
+        host = host,
+        network_scope = scope,
+        resolver_id = context.resolver_id.as_deref().unwrap_or_default(),
+        "applied learned encrypted-DNS resolver preference for (host, NetProfile)"
+    );
+    Some(context)
 }
 
 fn resolver_source_for_context(context: &ProxyEncryptedDnsContext) -> ResolverMappingSource {

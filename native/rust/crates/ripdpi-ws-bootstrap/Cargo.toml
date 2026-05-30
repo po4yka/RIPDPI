@@ -15,6 +15,7 @@ ripdpi-runtime-platform = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 ripdpi-ws-tunnel = { workspace = true }
 socket2 = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 local-network-fixture = { workspace = true }

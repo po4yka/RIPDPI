@@ -6240,6 +6240,7 @@ dependencies = [
  "ripdpi-tls-profiles",
  "ripdpi-ws-tunnel",
  "socket2",
+ "tracing",
 ]
 
 [[package]]
