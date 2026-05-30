@@ -7,9 +7,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -73,6 +73,21 @@ interface RipDpiWarpBindings {
 
     /** Retires the session for [handle]; an idempotent no-op when already removed. */
     fun destroy(handle: Long)
+
+    /**
+     * Register [listener] to be invoked once when the native runtime becomes
+     * ready (ADR 0003); returns a non-zero token when a native readiness push
+     * is active, or `0` when unsupported (the wrapper then falls back to
+     * telemetry polling). The default returns `0` so test fakes need no
+     * override.
+     */
+    fun registerReadinessListener(
+        handle: Long,
+        listener: RuntimeReadinessListener,
+    ): Long = 0L
+
+    /** Release the readiness listener registered for [handle]; a no-op by default. */
+    fun unregisterReadinessListener(handle: Long) {}
 }
 
 /**
@@ -159,6 +174,15 @@ class RipDpiWarpNativeBindings
             jniDestroy(handle)
         }
 
+        override fun registerReadinessListener(
+            handle: Long,
+            listener: RuntimeReadinessListener,
+        ): Long = jniRegisterReadinessListener(handle, listener)
+
+        override fun unregisterReadinessListener(handle: Long) {
+            jniUnregisterReadinessListener(handle)
+        }
+
         override fun executeProvisioning(requestJson: String): String? = jniExecuteProvisioning(requestJson)
 
         override fun probeEndpoint(requestJson: String): String? = jniProbeEndpoint(requestJson)
@@ -172,6 +196,13 @@ class RipDpiWarpNativeBindings
         private external fun jniPollTelemetry(handle: Long): String?
 
         private external fun jniDestroy(handle: Long)
+
+        private external fun jniRegisterReadinessListener(
+            handle: Long,
+            listener: Any,
+        ): Long
+
+        private external fun jniUnregisterReadinessListener(handle: Long)
 
         private external fun jniExecuteProvisioning(requestJson: String): String?
 
@@ -290,6 +321,14 @@ class RipDpiWarp(
                 }
             }
 
+        // Install the native readiness push (ADR 0003) before the blocking
+        // start() so the listener completes the startup signal the moment the
+        // tunnel binds, instead of waiting out a poll interval. Falls back to
+        // polling when the native push is unavailable (returns 0).
+        withContext(Dispatchers.IO) {
+            nativeBindings.registerReadinessListener(createdHandle) { startupSignal.complete(Unit) }
+        }
+
         yield()
 
         try {
@@ -312,6 +351,9 @@ class RipDpiWarp(
             throw error
         } finally {
             reservations.withExclusiveNonCancellable {
+                // Release the readiness listener (and its native GlobalRef)
+                // before the session is destroyed. No-op when no push was active.
+                runCatching { nativeBindings.unregisterReadinessListener(createdHandle) }
                 if (handle == createdHandle) {
                     try {
                         nativeBindings.destroy(createdHandle)
@@ -348,7 +390,9 @@ class RipDpiWarp(
                         startupSignal.await()
                         return@withTimeout
                     }
-                    delay(ReadyPollIntervalMs)
+                    // Wait out the poll interval, but wake immediately when a
+                    // native readiness push completes the signal (ADR 0003).
+                    withTimeoutOrNull(ReadyPollIntervalMs) { startupSignal.await() }
                 }
             }
         } catch (_: TimeoutCancellationException) {

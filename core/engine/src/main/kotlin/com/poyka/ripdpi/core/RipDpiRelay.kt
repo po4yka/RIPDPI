@@ -69,6 +69,21 @@ interface RipDpiRelayBindings {
 
     /** Retires the session for [handle]; an idempotent no-op when already removed. */
     fun destroy(handle: Long)
+
+    /**
+     * Register [listener] to be invoked once when the native runtime becomes
+     * ready (ADR 0003); returns a non-zero token when a native readiness push
+     * is active, or `0` when unsupported (e.g. the Apps Script backend, which
+     * has no native readiness event) — the wrapper then falls back to telemetry
+     * polling. The default returns `0` so test fakes need no override.
+     */
+    fun registerReadinessListener(
+        handle: Long,
+        listener: RuntimeReadinessListener,
+    ): Long = 0L
+
+    /** Release the readiness listener registered for [handle]; a no-op by default. */
+    fun unregisterReadinessListener(handle: Long) {}
 }
 
 object RipDpiRelayNativeLoader {
@@ -102,6 +117,15 @@ class RipDpiRelayNativeBindings
             jniDestroy(handle)
         }
 
+        override fun registerReadinessListener(
+            handle: Long,
+            listener: RuntimeReadinessListener,
+        ): Long = jniRegisterReadinessListener(handle, listener)
+
+        override fun unregisterReadinessListener(handle: Long) {
+            jniUnregisterReadinessListener(handle)
+        }
+
         private external fun jniCreate(configJson: String): Long
 
         private external fun jniStart(handle: Long): Int
@@ -111,6 +135,13 @@ class RipDpiRelayNativeBindings
         private external fun jniPollTelemetry(handle: Long): String?
 
         private external fun jniDestroy(handle: Long)
+
+        private external fun jniRegisterReadinessListener(
+            handle: Long,
+            listener: Any,
+        ): Long
+
+        private external fun jniUnregisterReadinessListener(handle: Long)
     }
 
 private val relayJson = Json { ignoreUnknownKeys = true }
@@ -171,6 +202,14 @@ class RipDpiRelay(
                 }
             }
 
+        // Install the native readiness push (ADR 0003) before the blocking
+        // start() so the listener completes the startup signal the moment the
+        // relay binds, instead of waiting out a poll interval. Falls back to
+        // polling when the native push is unavailable (returns 0).
+        withContext(Dispatchers.IO) {
+            nativeBindings.registerReadinessListener(createdHandle) { startupSignal.complete(Unit) }
+        }
+
         yield()
 
         try {
@@ -193,6 +232,9 @@ class RipDpiRelay(
             throw error
         } finally {
             reservations.withExclusiveNonCancellable {
+                // Release the readiness listener (and its native GlobalRef)
+                // before the session is destroyed. No-op when no push was active.
+                runCatching { nativeBindings.unregisterReadinessListener(createdHandle) }
                 if (handle == createdHandle) {
                     try {
                         nativeBindings.destroy(createdHandle)

@@ -3,8 +3,8 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Shared readiness-polling loop for the native runtime wrappers ([RipDpiProxy]
@@ -71,7 +71,10 @@ internal suspend fun awaitRuntimeReady(
 
                 pollCount++
                 onPoll(telemetry, pollCount)
-                delay(pollIntervalMillis)
+                // Wait out the poll interval, but wake immediately when a
+                // native readiness push completes the signal (ADR 0003). The
+                // poll remains the fallback when no push arrives.
+                withTimeoutOrNull(pollIntervalMillis) { startupSignal.await() }
             }
         }
     } catch (_: TimeoutCancellationException) {
@@ -91,3 +94,19 @@ internal suspend fun awaitRuntimeReady(
 }
 
 private fun NativeRuntimeSnapshot.hasRuntimeReadyEvent(): Boolean = nativeEvents.any { it.kind == "runtime_ready" }
+
+/**
+ * Listener the native runtime invokes — via the JNI callback `onRuntimeReady()`
+ * — the moment it becomes ready, so the wrappers no longer wait out a 50 ms
+ * telemetry-poll interval to observe readiness (ADR 0003). The 50 ms poll in
+ * [awaitRuntimeReady] remains as a graceful-degradation fallback for builds /
+ * backends without a native readiness push.
+ *
+ * The single method name and signature (`onRuntimeReady()V`) are the JNI
+ * contract resolved by `JniReadinessCallback` in the native adapters — do not
+ * rename or change the signature, and keep it from being stripped by R8 (see
+ * the consumer ProGuard rules).
+ */
+fun interface RuntimeReadinessListener {
+    fun onRuntimeReady()
+}
