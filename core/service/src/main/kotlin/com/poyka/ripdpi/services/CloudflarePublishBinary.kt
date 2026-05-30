@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import android.os.Build
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.InputStream
@@ -17,12 +18,21 @@ internal open class CloudflarePublishBinaryExtractor
     constructor(
         @param:ApplicationContext private val context: Context,
     ) {
-        open fun extract(binaryName: String): File {
+        open fun extract(
+            binaryName: String,
+            tunnelMode: String,
+        ): File {
+            // Gated: the cloudflare-runtime/<abi> assets (ripdpi-cloudflared +
+            // ripdpi-cloudflare-origin) are only materialized when publish mode is the active
+            // relay. Outside publish_local_origin this is a programming error (the publish
+            // supervisor is the sole caller and is only reached in publish mode) — fail loudly
+            // rather than create the runtime dir or copy assets, so extraction can never block
+            // subscription delivery.
+            check(tunnelMode == RelayCloudflareTunnelModePublishLocalOrigin) {
+                "Cloudflare publish binary extraction requested outside publish_local_origin mode (mode=$tunnelMode)"
+            }
             val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
             val assetDirectory = "bin/$abi"
-            // TODO(cloudflare-removal): cloudflare-runtime/ holds ripdpi-cloudflared +
-            // ripdpi-cloudflare-origin (primary, publish mode). Blocks subscription delivery
-            // when publish mode is the active relay. Gate on cloudflare_publish flag.
             val targetDir = File(context.filesDir, "cloudflare-runtime/$abi").apply { mkdirs() }
             val availableAssets =
                 context.assets

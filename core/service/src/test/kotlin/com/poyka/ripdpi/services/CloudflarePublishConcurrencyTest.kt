@@ -56,7 +56,10 @@ class CloudflarePublishConcurrencyTest {
             object : CloudflarePublishProcessSupervisor(
                 binaryExtractor =
                     object : CloudflarePublishBinaryExtractor(context = context) {
-                        override fun extract(binaryName: String): File = File("/dev/null")
+                        override fun extract(
+                            binaryName: String,
+                            tunnelMode: String,
+                        ): File = File("/dev/null")
                     },
                 versionProbe =
                     object : CloudflarePublishVersionProbe() {

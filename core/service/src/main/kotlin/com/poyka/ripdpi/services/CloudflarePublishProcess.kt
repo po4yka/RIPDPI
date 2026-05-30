@@ -49,7 +49,7 @@ internal open class CloudflarePublishProcessSupervisor
             readySignal: CompletableDeferred<String>,
             onError: (String, String) -> Unit,
         ): ManagedCloudflareProcess {
-            val binary = binaryExtractor.extract(CloudflareOriginBinaryName)
+            val binary = binaryExtractor.extract(CloudflareOriginBinaryName, config.cloudflareTunnelMode)
             val version = versionProbe.probe(binary, listOf("--version"))
             val redacted = listOfNotNull(config.vlessUuid)
             val process =
@@ -102,7 +102,7 @@ internal open class CloudflarePublishProcessSupervisor
             lastErrorSink: (String, String) -> Unit,
             onRegisteredTunnelConnection: () -> Unit,
         ): ManagedCloudflareProcess {
-            val binary = binaryExtractor.extract(CloudflaredBinaryName)
+            val binary = binaryExtractor.extract(CloudflaredBinaryName, config.cloudflareTunnelMode)
             val version = versionProbe.probe(binary, listOf("--version"))
             val launchPlan =
                 launchPlanBuilder.build(

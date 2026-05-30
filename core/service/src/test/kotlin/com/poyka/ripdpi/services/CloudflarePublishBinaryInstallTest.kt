@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.services
 
 import android.app.Application
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -87,6 +89,21 @@ class CloudflarePublishBinaryInstallTest {
 
         assertFalse(extractor.installIfChanged(target, source(bytes)))
         assertTrue("Executable bit should be restored on skip", target.canExecute())
+    }
+
+    @Test
+    fun `extract is gated to publish mode and is a no-op outside it`() {
+        val runtimeDir = File(context.filesDir, "cloudflare-runtime")
+        runtimeDir.deleteRecursively()
+
+        assertThrows(IllegalStateException::class.java) {
+            extractor().extract(CloudflaredBinaryName, RelayCloudflareTunnelModeConsumeExisting)
+        }
+
+        assertFalse(
+            "Extraction outside publish mode must not create the cloudflare-runtime dir",
+            runtimeDir.exists(),
+        )
     }
 
     private fun assertArrayEqualsContent(
