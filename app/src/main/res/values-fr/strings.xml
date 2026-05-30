@@ -2980,4 +2980,35 @@ Source : %2$s</string>
     <string name="backup_reset_dialog_body">Saisissez %1$s pour confirmer. Cela efface tous les profils, groupes, routes, paramètres et l\'historique de diagnostic, puis redémarre l\'application.</string>
     <string name="backup_reset_confirm_action">Réinitialiser et redémarrer</string>
     <string name="backup_reset_cancel_action">Annuler</string>
+    <!-- Xray provider selection + import (Task 5) -->
+    <string name="service_mode_native_direct_title">VPN direct</string>
+    <string name="service_mode_native_direct_desc">Protège cet appareil avec le VPN intégré, en connexion directe.</string>
+    <string name="service_mode_native_proxy_title">VPN relayé</string>
+    <string name="service_mode_native_proxy_desc">Protège cet appareil avec le VPN intégré, via votre relais.</string>
+    <string name="service_mode_xray_vpn_title">VPN avancé</string>
+    <string name="service_mode_xray_vpn_desc">Utilisez un profil avancé importé pour une meilleure résistance à la censure.</string>
+    <string name="xray_capability_vpn_privacy_title">Confidentialité VPN</string>
+    <string name="xray_capability_vpn_privacy_desc">Achemine tout le trafic de l\'appareil par le tunnel protégé.</string>
+    <string name="xray_capability_relay_title">Relais</string>
+    <string name="xray_capability_relay_desc">Envoie le trafic via un serveur distant plutôt que directement.</string>
+    <string name="xray_capability_anti_dpi_title">Anti-DPI</string>
+    <string name="xray_capability_anti_dpi_desc">Déguise la connexion pour échapper à l\'inspection de la censure.</string>
+    <string name="xray_capability_dns_protection_title">Protection DNS</string>
+    <string name="xray_capability_dns_protection_desc">Résout les noms via le tunnel, pas via le réseau local.</string>
+    <string name="xray_capability_realtime_media_title">Média en temps réel</string>
+    <string name="xray_capability_realtime_media_desc">Achemine appels, jeux et streaming par le tunnel.</string>
+    <string name="xray_import_title">VPN avancé</string>
+    <string name="xray_service_mode_section_title">Mode de connexion</string>
+    <string name="xray_service_mode_section_body">Choisissez comment cet appareil se connecte.</string>
+    <string name="xray_import_profile_section_title">Importer un profil</string>
+    <string name="xray_import_profile_section_body">Collez un lien de profil ou une configuration pour activer le VPN avancé.</string>
+    <string name="xray_import_input_label">Lien de profil ou configuration</string>
+    <string name="xray_import_input_placeholder">Collez ici</string>
+    <string name="xray_import_validate_action">Vérifier le profil</string>
+    <string name="xray_import_error_title">Profil refusé</string>
+    <string name="xray_import_empty_input_error">Collez d’abord un lien ou une configuration de profil.</string>
+    <string name="xray_import_capabilities_title">Ce que fait ce profil</string>
+    <string name="xray_import_capabilities_body">Cette connexion offre :</string>
+    <string name="xray_import_finish_action">Utiliser ce mode</string>
+    <string name="xray_import_done_action">Terminé</string>
 </resources>

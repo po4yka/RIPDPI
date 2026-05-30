@@ -2981,4 +2981,35 @@ fake_burst 3</string>
     <string name="backup_reset_dialog_body">输入 %1$s 以确认。此操作将清除所有配置文件、分组、路由、设置和诊断历史，然后重启应用。</string>
     <string name="backup_reset_confirm_action">重置并重启</string>
     <string name="backup_reset_cancel_action">取消</string>
+    <!-- Xray provider selection + import (Task 5) -->
+    <string name="service_mode_native_direct_title">直连 VPN</string>
+    <string name="service_mode_native_direct_desc">使用内置 VPN 直接连接来保护此设备。</string>
+    <string name="service_mode_native_proxy_title">中继 VPN</string>
+    <string name="service_mode_native_proxy_desc">使用内置 VPN 通过你的中继来保护此设备。</string>
+    <string name="service_mode_xray_vpn_title">高级 VPN</string>
+    <string name="service_mode_xray_vpn_desc">使用导入的高级配置以获得更强的抗审查能力。</string>
+    <string name="xray_capability_vpn_privacy_title">VPN 隐私</string>
+    <string name="xray_capability_vpn_privacy_desc">将设备的所有流量通过受保护的隧道传输。</string>
+    <string name="xray_capability_relay_title">中继</string>
+    <string name="xray_capability_relay_desc">通过远程服务器转发流量，而非直接连接。</string>
+    <string name="xray_capability_anti_dpi_title">抗 DPI</string>
+    <string name="xray_capability_anti_dpi_desc">伪装连接以绕过审查检测。</string>
+    <string name="xray_capability_dns_protection_title">DNS 保护</string>
+    <string name="xray_capability_dns_protection_desc">通过隧道解析域名，而非本地网络。</string>
+    <string name="xray_capability_realtime_media_title">实时媒体</string>
+    <string name="xray_capability_realtime_media_desc">通过隧道传输通话、游戏和流媒体。</string>
+    <string name="xray_import_title">高级 VPN</string>
+    <string name="xray_service_mode_section_title">连接模式</string>
+    <string name="xray_service_mode_section_body">选择此设备的连接方式。</string>
+    <string name="xray_import_profile_section_title">导入配置</string>
+    <string name="xray_import_profile_section_body">粘贴配置链接或配置内容以设置高级 VPN。</string>
+    <string name="xray_import_input_label">配置链接或配置内容</string>
+    <string name="xray_import_input_placeholder">在此粘贴</string>
+    <string name="xray_import_validate_action">检查配置</string>
+    <string name="xray_import_error_title">配置未被接受</string>
+    <string name="xray_import_empty_input_error">请先粘贴配置链接或配置内容。</string>
+    <string name="xray_import_capabilities_title">此配置的功能</string>
+    <string name="xray_import_capabilities_body">此连接提供：</string>
+    <string name="xray_import_finish_action">使用此模式</string>
+    <string name="xray_import_done_action">完成</string>
 </resources>

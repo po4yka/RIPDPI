@@ -3099,4 +3099,35 @@ fakeddisorder endhost</string>
     <string name="backup_reset_dialog_body">Введите %1$s для подтверждения. Это удалит все профили, группы, маршруты, настройки и историю диагностики, после чего перезапустит приложение.</string>
     <string name="backup_reset_confirm_action">Сбросить и перезапустить</string>
     <string name="backup_reset_cancel_action">Отмена</string>
+    <!-- Xray provider selection + import (Task 5) -->
+    <string name="service_mode_native_direct_title">Прямой VPN</string>
+    <string name="service_mode_native_direct_desc">Защитите устройство встроенным VPN с прямым подключением.</string>
+    <string name="service_mode_native_proxy_title">VPN через ретранслятор</string>
+    <string name="service_mode_native_proxy_desc">Защитите устройство встроенным VPN через ваш ретранслятор.</string>
+    <string name="service_mode_xray_vpn_title">Расширенный VPN</string>
+    <string name="service_mode_xray_vpn_desc">Используйте импортированный профиль для усиленного обхода цензуры.</string>
+    <string name="xray_capability_vpn_privacy_title">Приватность VPN</string>
+    <string name="xray_capability_vpn_privacy_desc">Пропускает весь трафик устройства через защищённый туннель.</string>
+    <string name="xray_capability_relay_title">Ретрансляция</string>
+    <string name="xray_capability_relay_desc">Отправляет трафик через удалённый сервер, а не напрямую.</string>
+    <string name="xray_capability_anti_dpi_title">Защита от DPI</string>
+    <string name="xray_capability_anti_dpi_desc">Маскирует подключение, чтобы обойти инспекцию цензуры.</string>
+    <string name="xray_capability_dns_protection_title">Защита DNS</string>
+    <string name="xray_capability_dns_protection_desc">Разрешает имена через туннель, а не через локальную сеть.</string>
+    <string name="xray_capability_realtime_media_title">Медиа в реальном времени</string>
+    <string name="xray_capability_realtime_media_desc">Передаёт звонки, игры и стриминг через туннель.</string>
+    <string name="xray_import_title">Расширенный VPN</string>
+    <string name="xray_service_mode_section_title">Режим подключения</string>
+    <string name="xray_service_mode_section_body">Выберите способ подключения устройства.</string>
+    <string name="xray_import_profile_section_title">Импорт профиля</string>
+    <string name="xray_import_profile_section_body">Вставьте ссылку на профиль или конфигурацию для расширенного VPN.</string>
+    <string name="xray_import_input_label">Ссылка на профиль или конфигурация</string>
+    <string name="xray_import_input_placeholder">Вставьте сюда</string>
+    <string name="xray_import_validate_action">Проверить профиль</string>
+    <string name="xray_import_error_title">Профиль не принят</string>
+    <string name="xray_import_empty_input_error">Сначала вставьте ссылку или конфигурацию профиля.</string>
+    <string name="xray_import_capabilities_title">Что делает этот профиль</string>
+    <string name="xray_import_capabilities_body">Это подключение обеспечивает:</string>
+    <string name="xray_import_finish_action">Использовать режим</string>
+    <string name="xray_import_done_action">Готово</string>
 </resources>

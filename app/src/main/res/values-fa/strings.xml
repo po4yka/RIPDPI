@@ -2985,4 +2985,35 @@ fakeddisorder endhost</string>
     <string name="backup_reset_dialog_body">برای تأیید %1$s را تایپ کنید. این کار همهٔ پروفایل‌ها، گروه‌ها، مسیرها، تنظیمات و تاریخچهٔ عیب‌یابی را پاک می‌کند و سپس برنامه را دوباره راه‌اندازی می‌کند.</string>
     <string name="backup_reset_confirm_action">بازنشانی و راه‌اندازی مجدد</string>
     <string name="backup_reset_cancel_action">لغو</string>
+    <!-- Xray provider selection + import (Task 5) -->
+    <string name="service_mode_native_direct_title">وی‌پی‌ان مستقیم</string>
+    <string name="service_mode_native_direct_desc">این دستگاه را با وی‌پی‌ان داخلی و اتصال مستقیم محافظت کنید.</string>
+    <string name="service_mode_native_proxy_title">وی‌پی‌ان رله‌ای</string>
+    <string name="service_mode_native_proxy_desc">این دستگاه را با وی‌پی‌ان داخلی از طریق رله خود محافظت کنید.</string>
+    <string name="service_mode_xray_vpn_title">وی‌پی‌ان پیشرفته</string>
+    <string name="service_mode_xray_vpn_desc">از یک نمایه پیشرفته واردشده برای مقاومت بیشتر در برابر سانسور استفاده کنید.</string>
+    <string name="xray_capability_vpn_privacy_title">حریم خصوصی وی‌پی‌ان</string>
+    <string name="xray_capability_vpn_privacy_desc">تمام ترافیک دستگاه را از تونل محافظت‌شده عبور می‌دهد.</string>
+    <string name="xray_capability_relay_title">رله</string>
+    <string name="xray_capability_relay_desc">ترافیک را به جای مستقیم از طریق سرور راه دور ارسال می‌کند.</string>
+    <string name="xray_capability_anti_dpi_title">ضد DPI</string>
+    <string name="xray_capability_anti_dpi_desc">اتصال را پنهان می‌کند تا از بازرسی سانسور عبور کند.</string>
+    <string name="xray_capability_dns_protection_title">محافظت DNS</string>
+    <string name="xray_capability_dns_protection_desc">نام‌ها را از طریق تونل تبدیل می‌کند، نه شبکه محلی.</string>
+    <string name="xray_capability_realtime_media_title">رسانه بلادرنگ</string>
+    <string name="xray_capability_realtime_media_desc">تماس‌ها، بازی‌ها و پخش را از طریق تونل منتقل می‌کند.</string>
+    <string name="xray_import_title">وی‌پی‌ان پیشرفته</string>
+    <string name="xray_service_mode_section_title">حالت اتصال</string>
+    <string name="xray_service_mode_section_body">نحوه اتصال این دستگاه را انتخاب کنید.</string>
+    <string name="xray_import_profile_section_title">وارد کردن نمایه</string>
+    <string name="xray_import_profile_section_body">برای راه‌اندازی وی‌پی‌ان پیشرفته، پیوند نمایه یا پیکربندی را بچسبانید.</string>
+    <string name="xray_import_input_label">پیوند نمایه یا پیکربندی</string>
+    <string name="xray_import_input_placeholder">اینجا بچسبانید</string>
+    <string name="xray_import_validate_action">بررسی نمایه</string>
+    <string name="xray_import_error_title">نمایه پذیرفته نشد</string>
+    <string name="xray_import_empty_input_error">ابتدا یک پیوند یا پیکربندی نمایه را بچسبانید.</string>
+    <string name="xray_import_capabilities_title">این نمایه چه می‌کند</string>
+    <string name="xray_import_capabilities_body">این اتصال فراهم می‌کند:</string>
+    <string name="xray_import_finish_action">استفاده از این حالت</string>
+    <string name="xray_import_done_action">انجام شد</string>
 </resources>

@@ -379,6 +379,13 @@ sealed class Route {
         override val icon: ImageVector? = null
     }
 
+    @Serializable
+    data object XrayImport : Route() {
+        override val stableRoute = "xray/import"
+        override val titleRes = R.string.xray_import_title
+        override val icon: ImageVector? = null
+    }
+
     companion object {
         val topLevel: List<Route>
             get() = listOf(Home, Config, Diagnostics(), Settings)
@@ -430,6 +437,7 @@ sealed class Route {
                     SubscriptionImportConfirm(),
                     QrScanner,
                     AmneziaWgProfile,
+                    XrayImport,
                 )
 
         fun fromStableRoute(route: String?): Route? = route?.let { key -> all.firstOrNull { it.stableRoute == key } }

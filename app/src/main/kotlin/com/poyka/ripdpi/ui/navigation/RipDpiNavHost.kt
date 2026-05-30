@@ -79,6 +79,7 @@ import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
+import com.poyka.ripdpi.ui.screens.xray.XrayProfileImportRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.serialization.Serializable
@@ -752,6 +753,12 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
     composable<Route.AmneziaWgProfile> {
         AmneziaWgProfileRoute(onBack = { navController.popBackStack() })
     }
+    composable<Route.XrayImport> {
+        XrayProfileImportRoute(
+            onBack = { navController.popBackStack() },
+            onFinished = { navController.popBackStack() },
+        )
+    }
 }
 
 /**
@@ -860,6 +867,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.ProfileVariants.stableRoute to { hasRoute<Route.ProfileVariants>() },
         Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
         Route.AmneziaWgProfile.stableRoute to { hasRoute<Route.AmneziaWgProfile>() },
+        Route.XrayImport.stableRoute to { hasRoute<Route.XrayImport>() },
     )
 
 internal fun shouldNavigateToHomeFromLaunchRequest(
