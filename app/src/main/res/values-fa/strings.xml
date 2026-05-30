@@ -1961,6 +1961,8 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="settings_mixed_inbound_title">ورودی ترکیبی (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">یک listener محلی واحد اتصالات SOCKS5 و HTTP CONNECT را می‌پذیرد؛ پورت پیش‌فرض ۲۰۸۰ است.</string>
+    <string name="settings_append_http_proxy_title">اعلام پروکسی HTTP به سیستم</string>
+    <string name="settings_append_http_proxy_body">در حالت VPN روی Android 10+، به سیستم می‌گوید ترافیک پروکسی HTTP را از طریق listener محلی مسیریابی کند. در حالت پروکسی تأثیری ندارد.</string>
     <string name="settings_proxy_allow_lan_title">اجازه دسترسی شبکه محلی</string>
     <string name="settings_proxy_allow_lan_body">پراکسی محلی را در دسترس سایر دستگاه‌های شبکه قرار می‌دهد.</string>
     <string name="settings_proxy_allow_lan_warn_title">دسترسی شبکه محلی مجاز شود؟</string>

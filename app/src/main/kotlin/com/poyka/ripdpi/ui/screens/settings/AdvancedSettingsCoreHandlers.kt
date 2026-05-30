@@ -42,6 +42,10 @@ internal val coreToggleHandlers: Map<AdvancedToggleSetting, CoreToggleHandler> =
             { enabled ->
                 updateBoolean("proxyAllowLan", enabled) { setProxyAllowLan(enabled) }
             },
+        AdvancedToggleSetting.AppendHttpProxy to
+            { enabled ->
+                updateBoolean("appendHttpProxy", enabled) { setAppendHttpProxy(enabled) }
+            },
     )
 
 internal val coreTextHandlers: Map<AdvancedTextSetting, CoreTextHandler> =

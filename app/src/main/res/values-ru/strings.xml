@@ -1367,6 +1367,8 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="settings_mixed_inbound_title">Смешанный входящий (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">Единый локальный listener принимает соединения SOCKS5 и HTTP CONNECT; порт по умолчанию — 2080.</string>
+    <string name="settings_append_http_proxy_title">Объявить HTTP-прокси системе</string>
+    <string name="settings_append_http_proxy_body">В режиме VPN на Android 10+ сообщает системе маршрутизировать трафик HTTP-прокси через локальный listener. В режиме прокси не действует.</string>
     <string name="settings_proxy_allow_lan_title">Разрешить доступ из локальной сети</string>
     <string name="settings_proxy_allow_lan_body">Открывает локальный прокси другим устройствам в вашей сети.</string>
     <string name="settings_proxy_allow_lan_warn_title">Разрешить доступ из локальной сети?</string>

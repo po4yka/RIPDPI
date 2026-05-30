@@ -65,6 +65,7 @@ internal fun AppSettingsSnapshot.withProxyDesyncSnapshot(settings: AppSettings):
                     },
                 proxyAllowLan = settings.proxyAllowLan,
                 proxyLanAuthToken = settings.proxyLanAuthToken,
+                appendHttpProxy = settings.appendHttpProxy,
             ),
     )
 
@@ -128,4 +129,5 @@ internal fun AppSettings.Builder.applyProxyDesyncSnapshot(snapshot: AppSettingsS
         .setDesyncAnyProtocol(proxy.desyncAnyProtocol)
         .setProxyAllowLan(proxy.proxyAllowLan)
         .setProxyLanAuthToken(proxy.proxyLanAuthToken)
+        .setAppendHttpProxy(proxy.appendHttpProxy)
 }

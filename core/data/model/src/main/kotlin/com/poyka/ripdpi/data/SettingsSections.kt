@@ -38,6 +38,7 @@ data class ProxySettingsSection(
     val mixedInboundEnabled: Boolean = false,
     val proxyAllowLan: Boolean = false,
     val lanAuthToken: String = "",
+    val appendHttpProxy: Boolean = false,
 )
 
 /** Plain and encrypted DNS resolution settings. */

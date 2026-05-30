@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.os.Build
 import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModeEncrypted
@@ -13,7 +14,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class RipDpiVpnServiceConfigTest {
     private companion object {
         const val TestLocalProxyAuth = "alpha-123"
@@ -196,6 +202,26 @@ class RipDpiVpnServiceConfigTest {
             encryptedDnsDnscryptProviderName = "",
             encryptedDnsDnscryptPublicKey = "",
         )
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.Q])
+    fun buildHttpProxyInfoSetsHostPortAndExclusionListOnQ() {
+        val proxy = RipDpiVpnService.buildHttpProxyInfo(2080)
+
+        assertEquals("127.0.0.1", proxy.host)
+        assertEquals(2080, proxy.port)
+        assertEquals(RipDpiVpnService.httpProxyExclusionList, proxy.exclusionList?.toList())
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.Q])
+    fun buildHttpProxyInfoRespectsDifferentPorts() {
+        val proxy1080 = RipDpiVpnService.buildHttpProxyInfo(1080)
+        val proxy8080 = RipDpiVpnService.buildHttpProxyInfo(8080)
+
+        assertEquals(1080, proxy1080.port)
+        assertEquals(8080, proxy8080.port)
+    }
 
     private fun odohDns(): ActiveDnsSettings =
         activeDnsSettings(

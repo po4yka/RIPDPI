@@ -1107,6 +1107,7 @@ internal class TestVpnTunnelSessionProvider(
         host: VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
+        httpProxyPort: Int?,
     ): VpnTunnelSession {
         lastDns = dns
         lastIpv6 = ipv6
@@ -1160,6 +1161,7 @@ internal class TestVpnServiceHost(
     override suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
+        httpProxyPort: Int?,
     ): VpnTunnelBuilder =
         object : VpnTunnelBuilder {
             override fun establish(): VpnTunnelSession? = builderSession

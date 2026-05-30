@@ -37,4 +37,5 @@ internal fun AppSettings.buildProxyUiState(): ProxyNetworkUiState =
         mixedInboundEnabled = mixedInboundEnabled,
         allowLan = proxyAllowLan,
         lanAuthToken = proxyLanAuthToken,
+        appendHttpProxy = appendHttpProxy,
     )

@@ -900,6 +900,8 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="settings_mixed_inbound_title">Entrada mixta (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">Un único listener local acepta conexiones SOCKS5 y HTTP CONNECT; el puerto predeterminado es 2080.</string>
+    <string name="settings_append_http_proxy_title">Anunciar proxy HTTP al sistema</string>
+    <string name="settings_append_http_proxy_body">En modo VPN en Android 10+, indica al sistema que enrute el tráfico proxy HTTP a través del listener local. No tiene efecto en modo proxy.</string>
     <string name="settings_proxy_allow_lan_title">Permitir acceso desde la red local</string>
     <string name="settings_proxy_allow_lan_body">Expone el proxy local a otros dispositivos de tu red.</string>
     <string name="settings_proxy_allow_lan_warn_title">¿Permitir acceso desde la red local?</string>

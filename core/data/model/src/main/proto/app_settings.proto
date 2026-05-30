@@ -89,6 +89,9 @@ message AppSettings {
   // so enabling this auto-generates proxy_lan_auth_token.
   bool proxy_allow_lan = 404;
   string proxy_lan_auth_token = 405;
+  // Advertise HTTP proxy to system via VpnService.Builder.setHttpProxy() on Android 10+.
+  // Only takes effect in VPN mode; has no impact in proxy mode.
+  bool append_http_proxy = 406;
 
   // Desync
   int32 default_ttl = 13;

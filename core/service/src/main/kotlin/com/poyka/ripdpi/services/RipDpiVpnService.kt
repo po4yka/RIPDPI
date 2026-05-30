@@ -109,9 +109,10 @@ class RipDpiVpnService :
     override suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
+        httpProxyPort: Int?,
     ): VpnTunnelBuilder =
         AndroidVpnTunnelBuilder(
-            builder = createBuilder(dns, ipv6),
+            builder = createBuilder(dns, ipv6, httpProxyPort),
         )
 
     @android.annotation.SuppressLint("MissingPermission")
@@ -123,6 +124,7 @@ class RipDpiVpnService :
     internal suspend fun createBuilder(
         dns: String,
         ipv6: Boolean,
+        httpProxyPort: Int? = null,
     ): Builder {
         Logger.v { "DNS configured" }
         val builder = Builder()
@@ -144,6 +146,9 @@ class RipDpiVpnService :
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setMetered(false)
+            if (httpProxyPort != null) {
+                builder.setHttpProxy(buildHttpProxyInfo(httpProxyPort))
+            }
         }
 
         // Android forbids mixing addAllowedApplication and addDisallowedApplication on the same
@@ -291,6 +296,18 @@ class RipDpiVpnService :
             mapDnsEnabled: Boolean,
             values: List<String>,
         ): List<String> = if (mapDnsEnabled) values else emptyList()
+
+        /** Loopback hosts/addresses excluded from the advertised HTTP proxy. */
+        internal val httpProxyExclusionList: List<String> = listOf("localhost", "127.0.0.1", "::1")
+
+        /**
+         * Builds the [android.net.ProxyInfo] to advertise via
+         * [android.net.VpnService.Builder.setHttpProxy] on Android Q+.
+         * Extracted for unit-testability (no [android.net.VpnService] context needed).
+         */
+        @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.Q)
+        internal fun buildHttpProxyInfo(port: Int): android.net.ProxyInfo =
+            android.net.ProxyInfo.buildDirectProxy("127.0.0.1", port, httpProxyExclusionList)
 
         internal fun vpnTunnelRoutePlan(ipv6Enabled: Boolean): VpnTunnelRoutePlan =
             VpnTunnelRoutePlan(

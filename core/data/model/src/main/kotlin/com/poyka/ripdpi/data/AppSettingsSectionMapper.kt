@@ -44,6 +44,7 @@ private fun AppSettings.proxySection(): ProxySettingsSection =
         mixedInboundEnabled = mixedInboundEnabled,
         proxyAllowLan = proxyAllowLan,
         lanAuthToken = proxyLanAuthToken,
+        appendHttpProxy = appendHttpProxy,
     )
 
 private fun AppSettings.dnsSection(): DnsSettingsSection =

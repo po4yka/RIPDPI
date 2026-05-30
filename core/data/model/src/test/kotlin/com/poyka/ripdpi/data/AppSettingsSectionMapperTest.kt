@@ -120,6 +120,18 @@ class AppSettingsSectionMapperTest {
         )
     }
 
+    @Test
+    fun `appendHttpProxy is mapped from proto to proxy section`() {
+        val sections =
+            AppSettings
+                .newBuilder()
+                .setAppendHttpProxy(true)
+                .build()
+                .toSettingsSections()
+
+        assertEquals(true, sections.proxy.appendHttpProxy)
+    }
+
     private fun populatedSettings(): AppSettings =
         AppSettings
             .newBuilder()

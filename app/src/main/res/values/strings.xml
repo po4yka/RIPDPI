@@ -1776,6 +1776,8 @@ Source: %2$s</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="settings_mixed_inbound_title">Mixed inbound (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">A single local listener accepts both SOCKS5 and HTTP CONNECT connections; defaults to port 2080.</string>
+    <string name="settings_append_http_proxy_title">Advertise HTTP proxy to system</string>
+    <string name="settings_append_http_proxy_body">In VPN mode on Android 10+, tells the system to route HTTP proxy traffic through the local listener. Has no effect in proxy mode.</string>
     <string name="settings_proxy_allow_lan_title">Allow LAN access</string>
     <string name="settings_proxy_allow_lan_body">Exposes the local proxy to other devices on your network.</string>
     <string name="settings_proxy_allow_lan_warn_title">Allow LAN access?</string>

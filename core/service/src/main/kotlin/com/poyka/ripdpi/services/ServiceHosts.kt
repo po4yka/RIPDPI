@@ -29,6 +29,7 @@ interface VpnTunnelBuilderHost {
     suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
+        httpProxyPort: Int? = null,
     ): VpnTunnelBuilder
 }
 

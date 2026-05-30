@@ -88,6 +88,15 @@ internal class SettingsCustomizationActions(
         }
     }
 
+    fun setAppendHttpProxy(enabled: Boolean) {
+        mutations.updateSetting(
+            key = "appendHttpProxy",
+            value = enabled.toString(),
+        ) {
+            setAppendHttpProxy(enabled)
+        }
+    }
+
     /**
      * Toggle binding the local listener to all interfaces (LAN). The native
      * core rejects a non-loopback listener without an access token, so the

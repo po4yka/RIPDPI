@@ -149,6 +149,39 @@ class AdvancedSettingsSectionsTest {
     }
 
     @Test
+    fun `proxy append http proxy toggle reflects state on`() {
+        setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(appendHttpProxy = true)))
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.AppendHttpProxy))
+            .performScrollTo()
+            .assertIsOn()
+    }
+
+    @Test
+    fun `proxy append http proxy toggle reflects state off`() {
+        setProxySection(uiState = SettingsUiState(proxy = ProxyNetworkUiState(appendHttpProxy = false)))
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.AppendHttpProxy))
+            .performScrollTo()
+            .assertIsOff()
+    }
+
+    @Test
+    fun `proxy append http proxy toggle fires callback`() {
+        val toggles = mutableListOf<Pair<AdvancedToggleSetting, Boolean>>()
+        setProxySection(
+            uiState = SettingsUiState(proxy = ProxyNetworkUiState(appendHttpProxy = false)),
+            onToggleChanged = { s, v -> toggles.add(s to v) },
+        )
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.advancedToggle(AdvancedToggleSetting.AppendHttpProxy))
+            .performScrollTo()
+            .performClick()
+        assertEquals(AdvancedToggleSetting.AppendHttpProxy, toggles.single().first)
+        assertTrue(toggles.single().second)
+    }
+
+    @Test
     fun `proxy controls disabled under command line mode`() {
         setProxySection(uiState = SettingsUiState(enableCmdSettings = true))
 

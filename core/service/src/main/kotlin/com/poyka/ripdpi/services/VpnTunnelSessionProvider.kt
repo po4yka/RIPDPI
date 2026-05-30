@@ -30,6 +30,7 @@ interface VpnTunnelSessionProvider {
         host: VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
+        httpProxyPort: Int? = null,
     ): VpnTunnelSession
 }
 
@@ -41,9 +42,10 @@ class DefaultVpnTunnelSessionProvider
             host: VpnTunnelBuilderHost,
             dns: String,
             ipv6: Boolean,
+            httpProxyPort: Int?,
         ): VpnTunnelSession {
             val descriptor =
-                host.createTunnelBuilder(dns, ipv6).establish()
+                host.createTunnelBuilder(dns, ipv6, httpProxyPort).establish()
                     ?: error("VPN connection failed")
             return descriptor
         }

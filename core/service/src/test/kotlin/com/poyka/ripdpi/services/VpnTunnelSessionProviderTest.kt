@@ -15,6 +15,7 @@ class VpnTunnelSessionProviderTest {
                     override suspend fun createTunnelBuilder(
                         dns: String,
                         ipv6: Boolean,
+                        httpProxyPort: Int?,
                     ): VpnTunnelBuilder =
                         object : VpnTunnelBuilder {
                             override fun establish(): VpnTunnelSession = expected
@@ -34,6 +35,7 @@ class VpnTunnelSessionProviderTest {
                     override suspend fun createTunnelBuilder(
                         dns: String,
                         ipv6: Boolean,
+                        httpProxyPort: Int?,
                     ): VpnTunnelBuilder =
                         object : VpnTunnelBuilder {
                             override fun establish(): VpnTunnelSession? = null

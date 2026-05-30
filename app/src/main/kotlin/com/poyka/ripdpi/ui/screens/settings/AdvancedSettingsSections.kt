@@ -504,6 +504,15 @@ private fun ProxyToggleSettings(
         testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.MixedInbound),
     )
     SettingsRow(
+        title = stringResource(R.string.settings_append_http_proxy_title),
+        subtitle = stringResource(R.string.settings_append_http_proxy_body),
+        checked = uiState.proxy.appendHttpProxy,
+        onCheckedChange = { onToggleChanged(AdvancedToggleSetting.AppendHttpProxy, it) },
+        enabled = visualEditorEnabled,
+        showDivider = true,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.AppendHttpProxy),
+    )
+    SettingsRow(
         title = stringResource(R.string.settings_proxy_allow_lan_title),
         subtitle = stringResource(R.string.settings_proxy_allow_lan_body),
         checked = uiState.proxy.allowLan,

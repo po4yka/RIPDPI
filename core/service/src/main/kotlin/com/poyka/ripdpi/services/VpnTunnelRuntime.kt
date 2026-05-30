@@ -5,7 +5,9 @@ import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.ProxySettingsSection
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
+import com.poyka.ripdpi.data.toSettingsSections
 
 internal class VpnTunnelRuntime(
     private val vpnHost: VpnCoordinatorHost,
@@ -63,7 +65,11 @@ internal class VpnTunnelRuntime(
                 rootHelperSocketPath = rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
             )
 
-        val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dnsPlan.builderDnsAddress, ipv6)
+        val proxy = settings.toSettingsSections().proxy
+        val httpProxyPort =
+            if (proxy.appendHttpProxy) effectiveListenerPort(proxy) else null
+        val tunnelSession =
+            vpnTunnelSessionProvider.establish(vpnHost, dnsPlan.builderDnsAddress, ipv6, httpProxyPort)
         try {
             val tunnelBridge = tun2SocksBridgeFactory.create()
             tunnelBridge.start(config, tunnelSession.tunFd, flowAttributionBridge)
@@ -116,3 +122,15 @@ internal class VpnTunnelRuntime(
         tunnelRecoveryRetryCount = 0L
     }
 }
+
+/**
+ * Returns the effective local listener port using the same resolution logic as
+ * `buildListenConfig` in core/engine — the single source of truth for which port the
+ * native core binds to. A positive [ProxySettingsSection.proxyPort] always wins; otherwise
+ * the port defaults based on whether the mixed inbound listener is enabled.
+ *
+ * This mirrors the logic in `NativeProxyRuntimePreferencesMapper.buildListenConfig` without
+ * importing that internal helper across module boundaries.
+ */
+internal fun effectiveListenerPort(proxy: ProxySettingsSection): Int =
+    proxy.proxyPort.takeIf { it > 0 } ?: if (proxy.mixedInboundEnabled) 2080 else 1080

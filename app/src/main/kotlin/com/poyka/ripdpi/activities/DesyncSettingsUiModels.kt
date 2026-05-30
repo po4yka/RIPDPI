@@ -68,6 +68,7 @@ data class ProxyNetworkUiState(
     val mixedInboundEnabled: Boolean = false,
     val allowLan: Boolean = false,
     val lanAuthToken: String = "",
+    val appendHttpProxy: Boolean = false,
 )
 
 @Stable
