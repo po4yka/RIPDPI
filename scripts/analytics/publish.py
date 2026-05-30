@@ -27,6 +27,7 @@ def publish_outputs(
     baseline_strategy_pack_catalog_path: Path = DEFAULT_BASELINE_STRATEGY_PACK_CATALOG,
     blessed_device_catalog_path: Path = DEFAULT_BLESSED_DEVICE_FINGERPRINT_CATALOG,
     blessed_winner_mapping_path: Path = DEFAULT_BLESSED_WINNER_MAPPING_CATALOG,
+    provenance: str = "field",
 ) -> dict[str, Path]:
     blessed_device_catalog = load_json_optional(blessed_device_catalog_path) or empty_device_catalog(review_status="reviewed")
     device_catalog = build_device_fingerprint_catalog(
@@ -45,6 +46,7 @@ def publish_outputs(
         winner_catalog=winner_catalog,
         corpus_name=corpus_name,
         baseline_catalog_path=baseline_strategy_pack_catalog_path,
+        provenance=provenance,
     )
     drift_report = build_drift_report(device_catalog, blessed_device_catalog)
     report_text = build_markdown_report(device_catalog, winner_catalog, strategy_pack_catalog, drift_report)

@@ -18,6 +18,7 @@ def build_candidate_strategy_pack_catalog(
     winner_catalog: dict[str, Any],
     corpus_name: str,
     baseline_catalog_path=DEFAULT_BASELINE_STRATEGY_PACK_CATALOG,
+    provenance: str = "field",
 ) -> dict[str, Any]:
     baseline_catalog = load_json(baseline_catalog_path)
     record_lookup = {
@@ -56,6 +57,7 @@ def build_candidate_strategy_pack_catalog(
             default_morph_policy_id=default_morph_policy_id,
             default_transport_module_ids=default_transport_module_ids,
             default_feature_flag_ids=default_feature_flag_ids,
+            provenance=provenance,
         )
         if generated["hostList"] is not None:
             generated_host_lists.append(generated["hostList"])
@@ -94,9 +96,11 @@ def build_generated_pack(
     default_morph_policy_id: str,
     default_transport_module_ids: list[str],
     default_feature_flag_ids: list[str],
+    provenance: str = "field",
 ) -> dict[str, Any]:
     fingerprint_hash = mapping["clusterFingerprintHash"]
-    pack_id = f"offline-{slugify(cluster['bucket'])}-{fingerprint_hash[:12]}"
+    id_prefix = "offline-sim-" if provenance == "simulated" else "offline-"
+    pack_id = f"{id_prefix}{slugify(cluster['bucket'])}-{fingerprint_hash[:12]}"
     strategy_id = f"winner-{fingerprint_hash[:12]}"
     signature = record["winnerSummary"].get("signature") or {}
     candidate_ids = build_candidate_ids(signature)
@@ -123,11 +127,12 @@ def build_generated_pack(
             f"Offline learner candidate for {bucket_label.lower()} conditions "
             f"derived from reviewed diagnostics archives."
         ),
-        "notes": (
-            f"Derived from corpus '{corpus_name}' with reproducibility "
-            f"{mapping['reproducibilityScore']} across {mapping['sourceArchiveCount']} archive(s)."
+        "notes": build_pack_notes(
+            mapping=mapping,
+            corpus_name=corpus_name,
+            provenance=provenance,
         ),
-        "triggerMetadata": build_trigger_metadata(cluster),
+        "triggerMetadata": build_trigger_metadata(cluster, provenance=provenance),
         "hostListRefs": [host_list["id"]] if host_list is not None else [],
         "tlsProfileSetId": tls_profile_set_id,
         "morphPolicyId": default_morph_policy_id,
@@ -195,11 +200,28 @@ def build_candidate_ids(signature: dict[str, Any]) -> list[str]:
     return candidate_ids
 
 
-def build_trigger_metadata(cluster: dict[str, Any]) -> list[str]:
+def build_pack_notes(
+    *,
+    mapping: dict[str, Any],
+    corpus_name: str,
+    provenance: str,
+) -> str:
+    notes = (
+        f"Derived from corpus '{corpus_name}' with reproducibility "
+        f"{mapping['reproducibilityScore']} across {mapping['sourceArchiveCount']} archive(s)."
+    )
+    if provenance == "simulated":
+        notes += " Provenance: simulated (synthetic censor-scenario corpus, not field-derived)."
+    return notes
+
+
+def build_trigger_metadata(cluster: dict[str, Any], provenance: str = "field") -> list[str]:
     metadata = [
         f"offline_cluster:{cluster['clusterFingerprintHash']}",
         f"offline_bucket:{cluster['bucket']}",
     ]
+    if provenance == "simulated":
+        metadata.append(f"offline_provenance:{provenance}")
     metadata.extend(
         f"offline_signature:{signature['id']}"
         for signature in cluster.get("minedSignatures", [])[:2]

@@ -77,6 +77,55 @@ class OfflineStrategySimulatorTest(unittest.TestCase):
             self.assertTrue(pack["rollout"]["staged"])
             self.assertEqual(0, pack["rollout"]["percentage"])
 
+    def test_simulate_run_emits_provenance_tagged_packs(self) -> None:
+        payload = simulate_corpus(scenario_ids(), seed=1337, count=4)
+        clustered = run_cluster(payload)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            outputs = publish_outputs(
+                extracted_payload=payload,
+                clustered_payload=clustered,
+                output_dir=temp_path,
+                corpus_name="simulated",
+                blessed_device_catalog_path=temp_path / "missing-device.json",
+                blessed_winner_mapping_path=temp_path / "missing-winner.json",
+                provenance="simulated",
+            )
+            strategy_pack_catalog = load_json(outputs["strategyPackCatalog"])
+
+        generated_packs = [
+            pack for pack in strategy_pack_catalog["packs"] if pack["id"].startswith("offline-")
+        ]
+        self.assertGreater(len(generated_packs), 0)
+        for pack in generated_packs:
+            self.assertTrue(pack["id"].startswith("offline-sim-"))
+            self.assertIn("offline_provenance:simulated", pack["triggerMetadata"])
+
+    def test_field_publish_path_is_unchanged_by_provenance_tagging(self) -> None:
+        payload = simulate_corpus(scenario_ids(), seed=1337, count=4)
+        clustered = run_cluster(payload)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            outputs = publish_outputs(
+                extracted_payload=payload,
+                clustered_payload=clustered,
+                output_dir=temp_path,
+                corpus_name="field",
+                blessed_device_catalog_path=temp_path / "missing-device.json",
+                blessed_winner_mapping_path=temp_path / "missing-winner.json",
+            )
+            strategy_pack_catalog = load_json(outputs["strategyPackCatalog"])
+
+        generated_packs = [
+            pack for pack in strategy_pack_catalog["packs"] if pack["id"].startswith("offline-")
+        ]
+        self.assertGreater(len(generated_packs), 0)
+        for pack in generated_packs:
+            self.assertFalse(pack["id"].startswith("offline-sim-"))
+            self.assertNotIn("offline_provenance:simulated", pack["triggerMetadata"])
+
     def test_simulated_payload_contains_no_real_network_identifiers(self) -> None:
         payload = simulate_corpus(scenario_ids(), seed=99, count=4)
         serialized = json.dumps(payload).lower()

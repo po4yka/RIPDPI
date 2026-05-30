@@ -83,6 +83,44 @@ def parse_args() -> argparse.Namespace:
     )
     simulate_parser.add_argument("--output", required=True, help="Output JSON path for simulated records.")
 
+    simulate_run_parser = subparsers.add_parser(
+        "simulate-run",
+        help="Synthesize a simulated corpus, then cluster and publish provenance-tagged candidates.",
+    )
+    simulate_run_parser.add_argument(
+        "--scenarios",
+        default=",".join(scenario_ids()),
+        help="Comma-separated censor scenario ids (default: all built-in scenarios).",
+    )
+    simulate_run_parser.add_argument(
+        "--seed",
+        type=int,
+        default=1337,
+        help="Deterministic RNG seed for record variation.",
+    )
+    simulate_run_parser.add_argument(
+        "--count",
+        type=int,
+        default=4,
+        help="Records to synthesize per scenario.",
+    )
+    simulate_run_parser.add_argument(
+        "--output-dir", required=True, help="Directory for simulated, cluster, and report outputs."
+    )
+    simulate_run_parser.add_argument(
+        "--corpus-name", default="simulated", help="Logical corpus label for the simulated run."
+    )
+    simulate_run_parser.add_argument(
+        "--blessed-device-catalog",
+        default=str(DEFAULT_BLESSED_DEVICE_FINGERPRINT_CATALOG),
+        help="Reviewed device fingerprint catalog used for drift comparison.",
+    )
+    simulate_run_parser.add_argument(
+        "--blessed-winner-catalog",
+        default=str(DEFAULT_BLESSED_WINNER_MAPPING_CATALOG),
+        help="Reviewed winner mapping catalog path.",
+    )
+
     bless_parser = subparsers.add_parser("bless", help="Promote candidate artifacts into reviewed repo assets.")
     bless_parser.add_argument("--device-catalog", required=True, help="Candidate device catalog JSON.")
     bless_parser.add_argument("--winner-catalog", required=True, help="Candidate winner mapping JSON.")
@@ -180,6 +218,28 @@ def main() -> int:
             raise ValueError("No censor scenarios were provided.")
         simulated = simulate_corpus(scenario_id_list, seed=args.seed, count=args.count)
         write_json(Path(args.output).resolve(), simulated)
+        return 0
+    if args.command == "simulate-run":
+        scenario_id_list = [scenario.strip() for scenario in args.scenarios.split(",") if scenario.strip()]
+        if not scenario_id_list:
+            raise ValueError("No censor scenarios were provided.")
+        output_dir = Path(args.output_dir).resolve()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        simulated = simulate_corpus(scenario_id_list, seed=args.seed, count=args.count)
+        simulated_path = output_dir / "offline-records.json"
+        write_json(simulated_path, simulated)
+        clustered = run_cluster(simulated)
+        clustered_path = output_dir / "clustered-records.json"
+        write_json(clustered_path, clustered)
+        publish_outputs(
+            extracted_payload=simulated,
+            clustered_payload=clustered,
+            output_dir=output_dir,
+            corpus_name=args.corpus_name,
+            blessed_device_catalog_path=Path(args.blessed_device_catalog).resolve(),
+            blessed_winner_mapping_path=Path(args.blessed_winner_catalog).resolve(),
+            provenance="simulated",
+        )
         return 0
     if args.command == "bless":
         bless_candidate_artifacts(
