@@ -6,13 +6,17 @@ import com.poyka.ripdpi.proto.AppSettings
 internal fun buildListenConfig(proxy: ProxySettingsSection): RipDpiListenConfig =
     RipDpiListenConfig(
         ip = proxy.proxyIp.ifEmpty { "127.0.0.1" },
-        port = proxy.proxyPort.takeIf { it > 0 } ?: 1080,
+        // The mixed inbound mirrors the reference implementation's mixedPort
+        // default (2080) so it does not collide with the plain SOCKS default
+        // (1080); an explicit user-set port always wins.
+        port = proxy.proxyPort.takeIf { it > 0 } ?: if (proxy.mixedInboundEnabled) 2080 else 1080,
         maxConnections = proxy.maxConnections.takeIf { it > 0 } ?: 512,
         bufferSize = proxy.bufferSize.takeIf { it > 0 } ?: 16384,
         tcpFastOpen = proxy.tcpFastOpen,
         defaultTtl = if (proxy.customTtl) proxy.defaultTtl else 0,
         customTtl = proxy.customTtl,
         freezeDetectionEnabled = proxy.freezeDetectionEnabled,
+        mixed = proxy.mixedInboundEnabled,
     )
 
 internal fun buildProtocolConfig(settings: AppSettings): RipDpiProtocolConfig =

@@ -161,6 +161,8 @@ class SettingsViewModel
 
         fun setFullTunnelMode(enabled: Boolean) = customizationActions.setFullTunnelMode(enabled)
 
+        fun setMixedInboundEnabled(enabled: Boolean) = customizationActions.setMixedInboundEnabled(enabled)
+
         fun setStartOnBootEnabled(enabled: Boolean) = customizationActions.setStartOnBootEnabled(enabled)
 
         fun setCommunityApiUrl(url: String) = customizationActions.setCommunityApiUrl(url)

@@ -35,6 +35,7 @@ data class ProxySettingsSection(
     val defaultTtl: Int = 0,
     val customTtl: Boolean = false,
     val freezeDetectionEnabled: Boolean = false,
+    val mixedInboundEnabled: Boolean = false,
 )
 
 /** Plain and encrypted DNS resolution settings. */

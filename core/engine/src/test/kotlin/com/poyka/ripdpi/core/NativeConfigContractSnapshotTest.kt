@@ -647,6 +647,7 @@ class NativeConfigContractSnapshotTest {
         defaultTtl: Int = 0,
         customTtl: Boolean = false,
         freezeDetectionEnabled: Boolean = false,
+        mixed: Boolean = false,
         authToken: String? = null,
     ): JsonObject =
         buildJsonObject {
@@ -658,6 +659,7 @@ class NativeConfigContractSnapshotTest {
             put("defaultTtl", JsonPrimitive(defaultTtl))
             put("customTtl", JsonPrimitive(customTtl))
             put("freezeDetectionEnabled", JsonPrimitive(freezeDetectionEnabled))
+            put("mixed", JsonPrimitive(mixed))
             put("authToken", authToken?.let(::JsonPrimitive) ?: JsonNull)
         }
 

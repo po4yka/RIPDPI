@@ -46,6 +46,7 @@ class AppSettingsSectionMapperTest {
                 defaultTtl = 64,
                 customTtl = true,
                 freezeDetectionEnabled = true,
+                mixedInboundEnabled = true,
             ),
             sections.proxy,
         )
@@ -124,6 +125,7 @@ class AppSettingsSectionMapperTest {
             .setIpv6Enable(true)
             .setProxyPort(1080)
             .setTcpFastOpen(true)
+            .setMixedInboundEnabled(true)
             .setDefaultTtl(64)
             .setCustomTtl(true)
             .setFreezeDetectionEnabled(true)

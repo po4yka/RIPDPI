@@ -34,4 +34,5 @@ internal fun AppSettings.buildProxyUiState(): ProxyNetworkUiState =
         bufferSize = bufferSize.takeIf { it > 0 } ?: 16_384,
         noDomain = noDomain,
         tcpFastOpen = tcpFastOpen,
+        mixedInboundEnabled = mixedInboundEnabled,
     )

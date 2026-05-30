@@ -65,6 +65,7 @@ data class ProxyNetworkUiState(
     val bufferSize: Int = 16_384,
     val noDomain: Boolean = false,
     val tcpFastOpen: Boolean = false,
+    val mixedInboundEnabled: Boolean = false,
 )
 
 @Stable

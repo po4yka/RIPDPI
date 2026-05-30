@@ -13,6 +13,7 @@ internal data class AppSettingsProxyDesyncSnapshot(
     val bufferSize: Int = defaultSettings.bufferSize,
     val noDomain: Boolean = defaultSettings.noDomain,
     val tcpFastOpen: Boolean = defaultSettings.tcpFastOpen,
+    val mixedInboundEnabled: Boolean = defaultSettings.mixedInboundEnabled,
     val defaultTtl: Int = defaultSettings.defaultTtl,
     val customTtl: Boolean = defaultSettings.customTtl,
     val fakeTtl: Int = defaultSettings.fakeTtl,
@@ -66,6 +67,7 @@ internal fun JsonObjectBuilder.writeProxyDesyncSnapshot(snapshot: AppSettingsPro
     put("bufferSize", snapshot.bufferSize)
     put("noDomain", snapshot.noDomain)
     put("tcpFastOpen", snapshot.tcpFastOpen)
+    put("mixedInboundEnabled", snapshot.mixedInboundEnabled)
     put("defaultTtl", snapshot.defaultTtl)
     put("customTtl", snapshot.customTtl)
     put("fakeTtl", snapshot.fakeTtl)
@@ -122,6 +124,7 @@ internal fun JsonObject.readProxyDesyncSnapshot(
         bufferSize = intValue("bufferSize", defaults.bufferSize),
         noDomain = booleanValue("noDomain", defaults.noDomain),
         tcpFastOpen = booleanValue("tcpFastOpen", defaults.tcpFastOpen),
+        mixedInboundEnabled = booleanValue("mixedInboundEnabled", defaults.mixedInboundEnabled),
         defaultTtl = intValue("defaultTtl", defaults.defaultTtl),
         customTtl = booleanValue("customTtl", defaults.customTtl),
         fakeTtl = intValue("fakeTtl", defaults.fakeTtl),

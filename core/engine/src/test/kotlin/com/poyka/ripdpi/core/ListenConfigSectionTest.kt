@@ -51,4 +51,24 @@ class ListenConfigSectionTest {
         assertEquals(false, listen.customTtl)
         assertEquals(0, listen.defaultTtl)
     }
+
+    @Test
+    fun `mixed inbound enabled with zero port defaults to 2080`() {
+        val settings = AppSettings.newBuilder().setMixedInboundEnabled(true).build()
+
+        val listen = buildListenConfig(settings.toSettingsSections().proxy)
+
+        assertEquals(true, listen.mixed)
+        assertEquals(2080, listen.port)
+    }
+
+    @Test
+    fun `mixed inbound disabled with zero port defaults to 1080`() {
+        val settings = AppSettings.newBuilder().build()
+
+        val listen = buildListenConfig(settings.toSettingsSections().proxy)
+
+        assertEquals(false, listen.mixed)
+        assertEquals(1080, listen.port)
+    }
 }

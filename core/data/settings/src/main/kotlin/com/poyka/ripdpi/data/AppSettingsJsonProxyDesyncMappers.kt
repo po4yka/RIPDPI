@@ -15,6 +15,7 @@ internal fun AppSettingsSnapshot.withProxyDesyncSnapshot(settings: AppSettings):
                 bufferSize = settings.bufferSize,
                 noDomain = settings.noDomain,
                 tcpFastOpen = settings.tcpFastOpen,
+                mixedInboundEnabled = settings.mixedInboundEnabled,
                 defaultTtl = settings.defaultTtl,
                 customTtl = settings.customTtl,
                 fakeTtl = settings.fakeTtl,
@@ -73,6 +74,7 @@ internal fun AppSettings.Builder.applyProxyDesyncSnapshot(snapshot: AppSettingsS
         .setBufferSize(proxy.bufferSize)
         .setNoDomain(proxy.noDomain)
         .setTcpFastOpen(proxy.tcpFastOpen)
+        .setMixedInboundEnabled(proxy.mixedInboundEnabled)
         .setDefaultTtl(proxy.defaultTtl)
         .setCustomTtl(proxy.customTtl)
         .setFakeTtl(proxy.fakeTtl)

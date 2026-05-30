@@ -54,6 +54,7 @@ data class RipDpiListenConfig(
     val defaultTtl: Int = 0,
     val customTtl: Boolean = false,
     val freezeDetectionEnabled: Boolean = false,
+    val mixed: Boolean = false,
 )
 
 data class RipDpiProtocolConfig(

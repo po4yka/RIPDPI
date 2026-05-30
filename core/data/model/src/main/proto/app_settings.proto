@@ -79,6 +79,10 @@ message AppSettings {
   int32 buffer_size = 10;
   bool no_domain = 11;
   bool tcp_fast_open = 12;
+  // Mixed inbound: one local listener serving SOCKS5 + SOCKS4 + HTTP CONNECT
+  // (first-byte dispatch). When on and proxy_port is unset, the port defaults
+  // to 2080 instead of 1080.
+  bool mixed_inbound_enabled = 403;
 
   // Desync
   int32 default_ttl = 13;

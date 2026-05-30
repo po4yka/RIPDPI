@@ -17,6 +17,7 @@ internal data class NativeListenConfig(
     val defaultTtl: Int = 0,
     val customTtl: Boolean = false,
     val freezeDetectionEnabled: Boolean = false,
+    val mixed: Boolean = false,
     val authToken: String? = null,
 )
 
@@ -63,6 +64,7 @@ internal object NetworkSectionCodec {
             defaultTtl = value.defaultTtl,
             customTtl = value.customTtl,
             freezeDetectionEnabled = value.freezeDetectionEnabled,
+            mixed = value.mixed,
         )
 
     fun toNative(value: RipDpiListenConfig): NativeListenConfig =
@@ -75,6 +77,7 @@ internal object NetworkSectionCodec {
             defaultTtl = value.defaultTtl,
             customTtl = value.customTtl,
             freezeDetectionEnabled = value.freezeDetectionEnabled,
+            mixed = value.mixed,
         )
 
     fun toModel(value: NativeProtocolConfig): RipDpiProtocolConfig =

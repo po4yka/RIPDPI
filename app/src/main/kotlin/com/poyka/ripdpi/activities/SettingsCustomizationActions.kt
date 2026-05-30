@@ -70,6 +70,15 @@ internal class SettingsCustomizationActions(
         }
     }
 
+    fun setMixedInboundEnabled(enabled: Boolean) {
+        mutations.updateSetting(
+            key = "mixedInboundEnabled",
+            value = enabled.toString(),
+        ) {
+            setMixedInboundEnabled(enabled)
+        }
+    }
+
     fun setCommunityApiUrl(url: String) {
         mutations.updateSetting(
             key = "communityApiUrl",
