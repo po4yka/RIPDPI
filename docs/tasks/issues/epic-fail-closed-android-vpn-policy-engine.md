@@ -43,9 +43,9 @@ New cross-cutting hardening epic derived from the client-problem analysis. It co
 - Encrypt VPN profiles with Android Keystore (closed task)
 - Add no-secret logging and diagnostics redaction tests (closed task)
 - Add NetworkCallback reconnect and underlying-network tracking (closed task)
-- [[Add captive-portal and whitelist-mode connection states]]
+- Add captive-portal and whitelist-mode connection states (closed task)
 - Add captive portal DNS assist via Network object (closed task)
-- [[Add Android Private DNS conflict warning]]
+- Add Android Private DNS conflict warning (closed task)
 - Harden DoH POST resolver client (closed task)
 - Add authoritative DNS leak-test harness (closed task)
 - Add Android VPN leak-test instrumentation matrix (closed task)
