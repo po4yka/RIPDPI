@@ -105,6 +105,13 @@ data class ConfigDraft(
     val relayChainExitShortId: String = "",
     val relayChainExitUuid: String = "",
     val relayChainExitProfileId: String = "",
+    // Ordered intermediate chain hops (positions strictly between entry and exit), held for
+    // the in-session multi-hop editor. Entry (`relayChainEntryProfileId`) is hop 0 and exit
+    // (`relayChainExitProfileId`) is the last hop; this list carries only the middle hops so
+    // the existing two-field persistence / validation / trust contract is unchanged. The
+    // native N-hop runtime composition that consumes the full ordered list lands in the next
+    // epic task; today only entry/exit are persisted onto the wire.
+    val relayChainMiddleProfileIds: ImmutableList<String> = persistentListOf(),
     val relayMasqueUrl: String = "",
     val relayMasqueAuthMode: String = RelayMasqueAuthModeBearer,
     val relayMasqueAuthToken: String = "",
@@ -246,6 +253,16 @@ internal const val ConfigFieldRelayFinalmask = "relayFinalmask"
 
 internal const val LegacyChainEntryProfileSuffix = "__ripdpi_chain_entry"
 internal const val LegacyChainExitProfileSuffix = "__ripdpi_chain_exit"
+
+/**
+ * App-side mirror of the engine-api chain-relay hop bounds
+ * (`com.poyka.ripdpi.core.RelayChainMinHops` / `RelayChainMaxHops`). The engine-api
+ * constants are not on the `:app` compile classpath (`:core:engine` is forbidden and
+ * `:core:engine-api` is not a direct dependency), so the UI editor mirrors them here.
+ * Keep these in sync with `core/engine-api/.../RelayNativeConfig.kt` §RelayChain*Hops.
+ */
+internal const val RelayChainMinHopsUi = 2
+internal const val RelayChainMaxHopsUi = 4
 
 internal fun AppSettings.toConfigDraft(): ConfigDraft =
     ConfigDraft(

@@ -5,7 +5,22 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 data class RelayChainHopStatusUiState(
     val entry: RelayChainHopUiState = RelayChainHopUiState(),
     val exit: RelayChainHopUiState = RelayChainHopUiState(),
-)
+) {
+    /**
+     * Per-hop telemetry for the multi-hop editor: hop 0 maps to the entry status, the last hop
+     * to the exit status, and intermediate hops carry no live telemetry yet (the native N-hop
+     * runtime composition that reports them lands in the next epic task), so they render blank.
+     */
+    fun hopStatusAt(
+        index: Int,
+        hopCount: Int,
+    ): RelayChainHopUiState =
+        when (index) {
+            0 -> entry
+            hopCount - 1 -> exit
+            else -> RelayChainHopUiState()
+        }
+}
 
 data class RelayChainHopUiState(
     val statusLabel: String? = null,

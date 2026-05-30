@@ -58,7 +58,10 @@ import com.poyka.ripdpi.activities.ConfigPresetKind
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.activities.buildConfigPresets
-import com.poyka.ripdpi.activities.swappedRelayChainHops
+import com.poyka.ripdpi.activities.relayChainHopAdded
+import com.poyka.ripdpi.activities.relayChainHopMoved
+import com.poyka.ripdpi.activities.relayChainHopProfileIdChanged
+import com.poyka.ripdpi.activities.relayChainHopRemoved
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
@@ -268,9 +271,12 @@ fun ModeEditorRoute(
                 onRelayHysteriaSalamanderKeyChanged = {
                     viewModel.updateDraft { copy(relayHysteriaSalamanderKey = it) }
                 },
-                onRelayChainEntryProfileIdChanged = { viewModel.updateDraft { copy(relayChainEntryProfileId = it) } },
-                onRelayChainExitProfileIdChanged = { viewModel.updateDraft { copy(relayChainExitProfileId = it) } },
-                onRelayChainHopsSwapped = { viewModel.updateDraft { swappedRelayChainHops() } },
+                onRelayChainHopProfileIdChanged = { index, profileId ->
+                    viewModel.updateDraft { relayChainHopProfileIdChanged(index, profileId) }
+                },
+                onRelayChainHopAdded = { viewModel.updateDraft { relayChainHopAdded() } },
+                onRelayChainHopRemoved = { index -> viewModel.updateDraft { relayChainHopRemoved(index) } },
+                onRelayChainHopMoved = { from, to -> viewModel.updateDraft { relayChainHopMoved(from, to) } },
                 onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
                 onRelayMasqueAuthModeChanged = { viewModel.updateDraft { copy(relayMasqueAuthMode = it) } },
                 onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },

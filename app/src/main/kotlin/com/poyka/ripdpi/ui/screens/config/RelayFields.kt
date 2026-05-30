@@ -77,9 +77,10 @@ internal fun RelayFieldsContent(
             RelayChainFields(
                 draft = draft,
                 uiState = uiState,
-                onRelayChainEntryProfileIdChanged = actions.chain.onRelayChainEntryProfileIdChanged,
-                onRelayChainExitProfileIdChanged = actions.chain.onRelayChainExitProfileIdChanged,
-                onRelayChainHopsSwapped = actions.chain.onRelayChainHopsSwapped,
+                onRelayChainHopProfileIdChanged = actions.chain.onRelayChainHopProfileIdChanged,
+                onRelayChainHopAdded = actions.chain.onRelayChainHopAdded,
+                onRelayChainHopRemoved = actions.chain.onRelayChainHopRemoved,
+                onRelayChainHopMoved = actions.chain.onRelayChainHopMoved,
             )
         }
 

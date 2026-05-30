@@ -304,9 +304,10 @@ private fun relayKindFieldActions(actions: ModeEditorActions): RelayKindFieldAct
             ),
         chain =
             RelayChainActions(
-                onRelayChainEntryProfileIdChanged = actions.onRelayChainEntryProfileIdChanged,
-                onRelayChainExitProfileIdChanged = actions.onRelayChainExitProfileIdChanged,
-                onRelayChainHopsSwapped = actions.onRelayChainHopsSwapped,
+                onRelayChainHopProfileIdChanged = actions.onRelayChainHopProfileIdChanged,
+                onRelayChainHopAdded = actions.onRelayChainHopAdded,
+                onRelayChainHopRemoved = actions.onRelayChainHopRemoved,
+                onRelayChainHopMoved = actions.onRelayChainHopMoved,
             ),
         masque =
             RelayMasqueActions(

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConfigChainRelayUiStateTest {
@@ -172,5 +173,88 @@ class ConfigChainRelayUiStateTest {
         assertEquals("24 ms", status.entry.latencyLabel)
         assertEquals("Connecting", status.exit.statusLabel)
         assertEquals("61 ms", status.exit.latencyLabel)
+    }
+
+    @Test
+    fun `chain hop list defaults to entry then exit`() {
+        val draft =
+            ConfigDraft(
+                relayKind = RelayKindChainRelay,
+                relayChainEntryProfileId = "entry",
+                relayChainExitProfileId = "exit",
+            )
+
+        assertEquals(listOf("entry", "exit"), draft.relayChainHopProfileIds())
+    }
+
+    @Test
+    fun `adding a hop inserts an empty middle hop before the exit and caps at the maximum`() {
+        var draft =
+            ConfigDraft(
+                relayKind = RelayKindChainRelay,
+                relayChainEntryProfileId = "entry",
+                relayChainExitProfileId = "exit",
+            )
+
+        draft = draft.relayChainHopAdded()
+        assertEquals(listOf("entry", "", "exit"), draft.relayChainHopProfileIds())
+
+        draft = draft.relayChainHopProfileIdChanged(1, "middle-1").relayChainHopAdded()
+        assertEquals(listOf("entry", "middle-1", "", "exit"), draft.relayChainHopProfileIds())
+
+        // Already at RelayChainMaxHopsUi (4) — further adds are a no-op.
+        draft = draft.relayChainHopAdded()
+        assertEquals(RelayChainMaxHopsUi, draft.relayChainHopProfileIds().size)
+    }
+
+    @Test
+    fun `removing a hop floors at the minimum and drops the targeted position`() {
+        var draft =
+            ConfigDraft(
+                relayKind = RelayKindChainRelay,
+                relayChainEntryProfileId = "entry",
+                relayChainExitProfileId = "exit",
+            ).relayChainHopAdded()
+                .relayChainHopProfileIdChanged(1, "middle-1")
+
+        draft = draft.relayChainHopRemoved(1)
+        assertEquals(listOf("entry", "exit"), draft.relayChainHopProfileIds())
+
+        // At RelayChainMinHopsUi (2) — further removes are a no-op.
+        draft = draft.relayChainHopRemoved(0)
+        assertEquals(RelayChainMinHopsUi, draft.relayChainHopProfileIds().size)
+        assertEquals(listOf("entry", "exit"), draft.relayChainHopProfileIds())
+    }
+
+    @Test
+    fun `moving a hop reorders the list and re-derives entry and exit`() {
+        val draft =
+            ConfigDraft(
+                relayKind = RelayKindChainRelay,
+                relayChainEntryProfileId = "entry",
+                relayChainExitProfileId = "exit",
+            ).relayChainHopAdded()
+                .relayChainHopProfileIdChanged(1, "middle-1")
+
+        val moved = draft.relayChainHopMoved(from = 0, to = 2)
+
+        assertEquals(listOf("middle-1", "exit", "entry"), moved.relayChainHopProfileIds())
+        assertEquals("middle-1", moved.relayChainEntryProfileId)
+        assertEquals("entry", moved.relayChainExitProfileId)
+    }
+
+    @Test
+    fun `out of range hop edits are no-ops`() {
+        val draft =
+            ConfigDraft(
+                relayKind = RelayKindChainRelay,
+                relayChainEntryProfileId = "entry",
+                relayChainExitProfileId = "exit",
+            )
+
+        assertEquals(draft, draft.relayChainHopProfileIdChanged(5, "x"))
+        assertEquals(draft, draft.relayChainHopMoved(from = 0, to = 9))
+        assertEquals(draft, draft.relayChainHopRemoved(9))
+        assertTrue(draft.relayChainHopProfileIds().size >= RelayChainMinHopsUi)
     }
 }

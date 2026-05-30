@@ -77,11 +77,88 @@ internal fun resolveRelayChainTrustWarning(
             }
         }
 
-internal fun ConfigDraft.swappedRelayChainHops(): ConfigDraft =
-    copy(
-        relayChainEntryProfileId = relayChainExitProfileId,
-        relayChainExitProfileId = relayChainEntryProfileId,
+/**
+ * Ordered hop list for the multi-hop chain editor. Hop 0 is the entry, the last hop is the
+ * exit, and the middle hops come from [ConfigDraft.relayChainMiddleProfileIds]. The list is
+ * always at least [RelayChainMinHopsUi] long (entry + exit) so the editor never under-runs the
+ * bound; empty selections render as empty strings the user must fill.
+ */
+internal fun ConfigDraft.relayChainHopProfileIds(): ImmutableList<String> =
+    buildList {
+        add(relayChainEntryProfileId)
+        addAll(relayChainMiddleProfileIds)
+        add(relayChainExitProfileId)
+    }.toImmutableList()
+
+/**
+ * Rewrites the chain hops from an ordered list, folding hop 0 back into the entry field, the
+ * last hop into the exit field, and everything between into [ConfigDraft.relayChainMiddleProfileIds].
+ * Out-of-range lists are clamped to [[RelayChainMinHopsUi], [RelayChainMaxHopsUi]] so the draft
+ * can never represent an invalid hop count; the editor enforces the bound at the call site too.
+ */
+internal fun ConfigDraft.withRelayChainHopProfileIds(hops: List<String>): ConfigDraft {
+    val clamped =
+        when {
+            hops.size < RelayChainMinHopsUi -> hops + List(RelayChainMinHopsUi - hops.size) { "" }
+            hops.size > RelayChainMaxHopsUi -> hops.take(RelayChainMaxHopsUi)
+            else -> hops
+        }
+    return copy(
+        relayChainEntryProfileId = clamped.first(),
+        relayChainExitProfileId = clamped.last(),
+        relayChainMiddleProfileIds = clamped.subList(1, clamped.size - 1).toImmutableList(),
     )
+}
+
+/** Appends one empty hop before the exit, capped at [RelayChainMaxHopsUi]. No-op when full. */
+internal fun ConfigDraft.relayChainHopAdded(): ConfigDraft {
+    val hops = relayChainHopProfileIds()
+    if (hops.size >= RelayChainMaxHopsUi) {
+        return this
+    }
+    val withInserted = hops.toMutableList().apply { add(size - 1, "") }
+    return withRelayChainHopProfileIds(withInserted)
+}
+
+/** Removes the hop at [index], floored at [RelayChainMinHopsUi]. No-op at the minimum. */
+internal fun ConfigDraft.relayChainHopRemoved(index: Int): ConfigDraft {
+    val hops = relayChainHopProfileIds()
+    if (hops.size <= RelayChainMinHopsUi || index !in hops.indices) {
+        return this
+    }
+    val withRemoved = hops.toMutableList().apply { removeAt(index) }
+    return withRelayChainHopProfileIds(withRemoved)
+}
+
+/** Sets the profile id at [index] in the ordered hop list. */
+internal fun ConfigDraft.relayChainHopProfileIdChanged(
+    index: Int,
+    profileId: String,
+): ConfigDraft {
+    val hops = relayChainHopProfileIds()
+    if (index !in hops.indices) {
+        return this
+    }
+    val updated = hops.toMutableList().apply { this[index] = profileId }
+    return withRelayChainHopProfileIds(updated)
+}
+
+/** Moves the hop at [from] to [to], clamping both into range. No-op when out of bounds. */
+internal fun ConfigDraft.relayChainHopMoved(
+    from: Int,
+    to: Int,
+): ConfigDraft {
+    val hops = relayChainHopProfileIds()
+    if (from !in hops.indices || to !in hops.indices || from == to) {
+        return this
+    }
+    val reordered =
+        hops.toMutableList().apply {
+            val moved = removeAt(from)
+            add(to, moved)
+        }
+    return withRelayChainHopProfileIds(reordered)
+}
 
 internal fun String.relayKindLabel(): String =
     when (this) {

@@ -179,7 +179,7 @@ class RelayFieldsTest {
     }
 
     @Test
-    fun chainRelayFieldsRenderProfileOptionsTrustWarningAndSwapControl() {
+    fun chainRelayFieldsRenderOrderedHopsTrustWarningAndAddControl() {
         composeRule.setContent {
             RipDpiTheme {
                 RelayKindFields(
@@ -219,14 +219,15 @@ class RelayFieldsTest {
             }
         }
 
-        composeRule.onNodeWithText("Entry hop").assertExists()
-        composeRule.onNodeWithText("Exit hop").assertExists()
+        composeRule.onNodeWithText("Hop 1 · Entry").assertExists()
+        composeRule.onNodeWithText("Hop 2 · Exit").assertExists()
         composeRule.onNodeWithText("entry · VLESS + Reality").assertExists()
         composeRule.onNodeWithText("Exit Transit · ru").assertExists()
         composeRule.onNodeWithText("Connected · 24 ms").assertExists()
         composeRule.onNodeWithText("Connecting · 61 ms").assertExists()
         composeRule.onNodeWithText("Shared trust domain").assertExists()
-        composeRule.onNodeWithText("Swap entry/exit").assertExists()
+        composeRule.onNodeWithText("Each hop adds latency").assertExists()
+        composeRule.onNodeWithText("Add hop").assertExists()
     }
 
     @Test
