@@ -138,7 +138,7 @@ RIPDPI does not record:
 
 Relay traffic privacy depends on the relay endpoint and profile you configure.
 
-Multi-hop relay chains are scoped to two TCP hops for the current UX and runtime contract: entry and exit. Chains longer than two hops are a follow-up because the stored profile model, native wire schema, telemetry, and editor are currently fixed to entry/exit fields. UDP through a chain is intentionally unsupported (`udpCapable=false`). A chain only improves anti-correlation when hops are in different trust domains; using the same operator or jurisdiction for both hops can create false confidence and must be treated as a warning condition in the UX.
+Multi-hop relay chains carry an ordered list of 2-4 TCP hops (entry, optional intermediates, exit). The stored profile model, native wire schema (`chainHops`), per-hop telemetry, and chain editor all carry the ordered hop list, with the legacy two-hop `chainEntry`/`chainExit` shape preserved as a backward-compatible mirror (hop[0]/hop[last]) so existing two-hop configs migrate cleanly. The 2-4 bound is enforced as a typed validation error, not a silent truncation. UDP through a chain is intentionally unsupported (`udpCapable=false`). A chain only improves anti-correlation when hops are in different trust domains; reusing the same operator or jurisdiction across hops can create false confidence and is surfaced as a warning condition in the UX.
 
 ## Build
 
