@@ -27,11 +27,12 @@
 //! See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
 //! containment) and §7 (error mapping).
 
-use jni::objects::JString;
+use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jstring};
 
 use ripdpi_android_proxy_adapter::{
-    proxy_create_entry, proxy_destroy_entry, proxy_poll_telemetry_entry, proxy_start_entry, proxy_stop_entry,
+    proxy_create_entry, proxy_destroy_entry, proxy_poll_telemetry_entry, proxy_register_readiness_listener_entry,
+    proxy_start_entry, proxy_stop_entry, proxy_unregister_readiness_listener_entry,
     proxy_update_network_snapshot_entry,
 };
 
@@ -75,5 +76,25 @@ export_jni!(
     (handle: jlong, snapshot_json: JString),
     (),
     proxy_update_network_snapshot_entry,
+    (),
+);
+// Native readiness push (ADR 0003): a one-shot onRuntimeReady() callback that
+// replaces the 50 ms Kotlin telemetry poll. Register after jniCreate and before
+// jniStart; the listener is released on jniUnregisterReadinessListener or when
+// the session is destroyed. NOTE: the two new symbols below must be added to
+// `jni-symbols.baseline` by a human reviewer (hook-blocked, human-gated per
+// JNI_CONTRACT) before the CI ELF symbol-allowlist check will pass.
+export_jni!(
+    Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniRegisterReadinessListener,
+    (handle: jlong, listener: JObject),
+    jlong,
+    proxy_register_readiness_listener_entry,
+    0,
+);
+export_jni!(
+    Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUnregisterReadinessListener,
+    (handle: jlong),
+    (),
+    proxy_unregister_readiness_listener_entry,
     (),
 );

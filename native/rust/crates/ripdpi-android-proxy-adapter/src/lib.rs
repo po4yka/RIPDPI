@@ -7,6 +7,7 @@ mod lifecycle_create;
 mod lifecycle_start;
 mod pcap;
 mod quality_sink;
+mod readiness;
 mod registry;
 mod telemetry;
 
@@ -20,3 +21,4 @@ pub use entry::{
     proxy_poll_telemetry_entry, proxy_start_entry, proxy_stop_entry, proxy_update_network_snapshot_entry,
 };
 pub use pcap::{pcap_is_recording_entry, pcap_start_entry, pcap_stop_entry};
+pub use readiness::{proxy_register_readiness_listener_entry, proxy_unregister_readiness_listener_entry};
