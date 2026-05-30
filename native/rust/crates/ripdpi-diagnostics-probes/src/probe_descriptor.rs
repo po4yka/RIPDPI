@@ -244,7 +244,7 @@ mod tests {
 
     #[test]
     fn strategy_runners_remain_out_of_scope() {
-        assert_eq!(PROBE_DESCRIPTORS.len(), 9, "descriptor table must cover only the 9 connectivity stages");
+        assert_eq!(PROBE_DESCRIPTORS.len(), 10, "descriptor table must cover only the 10 connectivity stages");
         for descriptor in PROBE_DESCRIPTORS {
             assert!(
                 !STRATEGY_RUNNERS.contains(&descriptor.runner),

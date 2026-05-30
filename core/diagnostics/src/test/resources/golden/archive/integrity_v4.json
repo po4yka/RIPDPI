@@ -11,9 +11,9 @@
             "sha256": "e629af87d823c74e574fef5c2f58239ee7e34f65c4709ba86150676a8ae24a07"
         },
         {
-            "byteCount": 21343,
+            "byteCount": 21435,
             "name": "report.json",
-            "sha256": "b5ce4be7764c95e54063407deba19824c8d6beaa4ab9df887d0a699448613b88"
+            "sha256": "ee6a6441652b0539b078edeabf403e14bc7b58478ca907ffec47030df492b4bc"
         },
         {
             "byteCount": 4787,
@@ -41,9 +41,9 @@
             "sha256": "3453b55427338c5dc949b22ecc8488255ac247cdb78ed7e80ed0fc630304bc92"
         },
         {
-            "byteCount": 1553,
+            "byteCount": 1647,
             "name": "network-snapshots.json",
-            "sha256": "4072e3c982b82c6a77728a0bedc624ae81b59cee98849d1ef12fa26f4bdd7187"
+            "sha256": "74d700181908a41f68bad11f690d064268bd12c547fa867a9d5b98cd5d925dd9"
         },
         {
             "byteCount": 3681,
