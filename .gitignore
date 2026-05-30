@@ -88,6 +88,12 @@ detekt-baseline.xml
 # .claude/rules/compose-preview.md and .claude/rules/golden-bless-discipline.md.
 **/build/compose-previews/
 
+# gomobile-built libXray Android artifacts (AAR + per-ABI .so + manifest).
+# Produced locally/CI by scripts/native/build-libxray.sh; never committed —
+# verified by scripts/native/verify-libxray-artifacts.sh. See
+# docs/native/libxray-packaging.md and gradle/libs.versions.toml pins.
+native/xray/artifacts/
+
 # Obsidian volatile state
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
