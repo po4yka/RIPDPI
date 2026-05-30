@@ -6,6 +6,11 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 > is the current workspace taxonomy and dependency-direction reference;
 > [`docs/architecture/DIAGNOSTICS_ARCHITECTURE.md`](../architecture/DIAGNOSTICS_ARCHITECTURE.md)
 > covers the diagnostics / monitor crates.
+>
+> **Declared-vs-implemented audit:** [`protocol-ground-truth-matrix.md`](protocol-ground-truth-matrix.md)
+> is a dated, read-only audit snapshot mapping each protocol path (SOCKS5 TCP/UDP,
+> QUIC, DNS, TLS desync, REALITY, WS fake-SNI) to its actual implementation status
+> with `file:line` evidence. Re-verify before relying on any row -- code is the source of truth.
 
 ## Overview
 
