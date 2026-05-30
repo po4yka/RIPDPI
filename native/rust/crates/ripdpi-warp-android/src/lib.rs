@@ -39,6 +39,7 @@
 mod endpoint_probe;
 mod lifecycle;
 mod provisioning;
+mod readiness;
 mod registry;
 mod telemetry;
 mod vpn_protect;
@@ -148,5 +149,30 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniUn
 ) {
     ffi_boundary((), move || {
         vpn_protect::unregister_entry(token);
+    });
+}
+
+// Native readiness push (ADR 0003): a one-shot onRuntimeReady() callback that
+// replaces the 50 ms Kotlin telemetry poll. Register after jniCreate and before
+// jniStart; the listener is released on jniUnregisterReadinessListener or when
+// the session is destroyed.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniRegisterReadinessListener(
+    env: EnvUnowned<'_>,
+    _thiz: JObject,
+    handle: jlong,
+    listener: JObject,
+) -> jlong {
+    ffi_boundary(0, move || readiness::register_from_jni(env, handle, listener))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniUnregisterReadinessListener(
+    _env: EnvUnowned<'_>,
+    _thiz: JObject,
+    handle: jlong,
+) {
+    ffi_boundary((), move || {
+        readiness::unregister_entry(handle);
     });
 }
