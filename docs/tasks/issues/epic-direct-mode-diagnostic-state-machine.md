@@ -115,7 +115,7 @@ As of 2026-05-28, Diagnostics and Home branch from typed direct-mode verdicts in
 
 Aggregates subsystem outputs from every direct-mode subsystem epic:
 
-- [[Epic - Encrypted DNS and HTTPS SVCB classifier]] — Phase 1
+- Epic - Encrypted DNS and HTTPS SVCB classifier (delivered) — Phase 1
 - [[Epic - Direct-mode transport policy and verdicts]] — Phase 2
 - Epic - Semantic TLS first-flight family engine — arms A5–A8
 - [[Epic - Privacy-preserving strategy learner]] — Phase 3 ranking

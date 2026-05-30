@@ -5,9 +5,8 @@ encrypted-DNS / HTTPS-SVCB classifier: **DNS measurement happens only for the
 destination the user is actually trying to reach.** There is no preloaded
 destination catalog, and no background DNS scanning sweep.
 
-This document is the recorded review that closes the
-"Limit DNS measurement to user-requested destinations" task of the
-[Encrypted DNS and HTTPS SVCB classifier] epic. Read it before adding any new
+This document is the recorded review for the encrypted-DNS / HTTPS-SVCB
+classifier's measurement-with-consent posture. Read it before adding any new
 DNS probe, resolver survey, or background task that issues DNS queries.
 
 ## The rule
@@ -77,5 +76,5 @@ refactor.
 
 - `.claude/rules/network-fingerprint-privacy.md` — scope-hash recipe and
   forbidden identifiers.
-- `docs/tasks/issues` — the Encrypted DNS and HTTPS SVCB classifier epic
-  (measurement-with-consent posture).
+- `native/rust/crates/ripdpi-diagnostics-probes/tests/dns_measurement_consent.rs`
+  — the regression guard for this rule.

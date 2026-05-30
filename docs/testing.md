@@ -565,7 +565,6 @@ Findings from earlier audits that were still open at the start of 2026-Q2 and ha
 These have task issues under `docs/tasks/issues/` and are sized for routine roadmap work, not new design.
 
 - TUN UID validation against `SO_BINDTODEVICE` bypass (`add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md`).
-- DNS measurement scope tightening (`limit-dns-measurement-to-user-requested-destinations.md`).
 
 ### Phase-16 real-world confidence status
 
