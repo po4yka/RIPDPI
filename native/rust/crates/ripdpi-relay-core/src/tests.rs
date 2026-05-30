@@ -666,6 +666,72 @@ fn chain_relay_ordered_hops_folds_legacy_entry_exit_when_list_is_empty() {
     assert_eq!("exit.example", ordered[1].server);
 }
 
+#[test]
+fn chain_relay_three_hop_list_round_trips_through_flat_wire() {
+    // Author a 3-hop chain via the ordered `hops` list and confirm it crosses
+    // the flat wire (serialize -> JSON -> deserialize) without being folded into
+    // the legacy two-hop entry/exit scalars. This exercises the additive v7
+    // `chainHops` wire field end-to-end inside relay-core.
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.hops = vec![
+        shadowsocks_hop("hop-entry", 4431, "entry-secret"),
+        shadowsocks_hop("hop-middle", 4432, "middle-secret"),
+        shadowsocks_hop("hop-exit", 4433, "exit-secret"),
+    ];
+
+    let serialized = serde_json::to_value(&config).expect("serialize three-hop chain");
+    let wire_hops = serialized["chainHops"].as_array().expect("chainHops array on wire");
+    assert_eq!(3, wire_hops.len(), "ordered hops are carried over the wire");
+    assert_eq!(serde_json::json!("hop-entry"), wire_hops[0]["profileId"]);
+    assert_eq!(serde_json::json!("hop-middle"), wire_hops[1]["profileId"]);
+    assert_eq!(serde_json::json!("hop-exit"), wire_hops[2]["profileId"]);
+
+    let round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(serialized.clone()).expect("deserialize three-hop chain");
+    let restored = match &round_trip.backend {
+        RelayBackendConfig::ChainRelay(chain) => chain,
+        other => panic!("expected chain relay config, got {other:?}"),
+    };
+    let ordered = restored.ordered_hops();
+    assert_eq!(3, ordered.len(), "3-hop list survives the wire and is not folded to 2");
+    assert_eq!("hop-entry", ordered[0].profile_id);
+    assert_eq!("hop-middle", ordered[1].profile_id);
+    assert_eq!("hop-exit", ordered[2].profile_id);
+    assert!(ChainRelayConfig::validate_hop_count(ordered.len()).is_ok());
+
+    // Re-serialization is lossless: the wire shape is stable across a full trip.
+    assert_eq!(serialized, serde_json::to_value(&round_trip).expect("reserialize three-hop chain"));
+}
+
+#[test]
+fn chain_relay_wire_rejects_out_of_range_hop_count() {
+    // A 5-hop list is expressible over the wire (deserialization is additive and
+    // does not bound-check) but the builder's `validate_hop_count` rejects it
+    // with a typed InvalidInput error rather than silently truncating.
+    let mut config = sample_config("chain_relay");
+    let chain = chain_config_mut(&mut config);
+    chain.hops = vec![
+        shadowsocks_hop("h0", 4431, "s0"),
+        shadowsocks_hop("h1", 4432, "s1"),
+        shadowsocks_hop("h2", 4433, "s2"),
+        shadowsocks_hop("h3", 4434, "s3"),
+        shadowsocks_hop("h4", 4435, "s4"),
+    ];
+
+    let serialized = serde_json::to_value(&config).expect("serialize five-hop chain");
+    let round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(serialized).expect("deserialize five-hop chain");
+    let restored = match &round_trip.backend {
+        RelayBackendConfig::ChainRelay(chain) => chain,
+        other => panic!("expected chain relay config, got {other:?}"),
+    };
+    assert_eq!(5, restored.ordered_hops().len());
+    let error =
+        ChainRelayConfig::validate_hop_count(restored.ordered_hops().len()).expect_err("5-hop chain must be rejected");
+    assert_eq!(io::ErrorKind::InvalidInput, error.kind());
+}
+
 #[tokio::test]
 async fn chain_relay_builds_anytls_entry_shadowsocks_exit_from_resolved_hops() {
     let mut config = sample_config("chain_relay");

@@ -121,6 +121,16 @@ struct FlatResolvedRelayRuntimeConfig {
     pub chain_exit_short_id: String,
     #[serde(default)]
     pub chain_exit_profile_id: String,
+    /// Ordered N-hop chain list (length 2..=4 once validated, when non-empty).
+    ///
+    /// Additive v7 wire field. A populated list is the authored source of
+    /// truth for a 3- or 4-hop chain; the legacy `chain_entry*` / `chain_exit*`
+    /// scalars above remain the derived hop[0] / hop[last] mirror for backward
+    /// compatibility. A v6 payload (or any plain 2-hop chain) omits this field,
+    /// leaving it empty so the conversion folds the entry/exit scalars into a
+    /// 2-element list via `ChainRelayConfig::ordered_hops`.
+    #[serde(default)]
+    pub chain_hops: Vec<ResolvedChainRelayHopConfig>,
     #[serde(default)]
     pub masque_url: String,
     #[serde(default)]

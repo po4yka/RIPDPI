@@ -46,13 +46,15 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 tunnel_credentials_json: flat.cloudflare_tunnel_credentials_json,
             }),
             "chain_relay" => RelayBackendConfig::ChainRelay(ChainRelayConfig {
-                // The v7 flat wire still carries the two-hop entry/exit field
-                // set, so the ordered hop list is left empty here and derived on
-                // demand by `ChainRelayConfig::ordered_hops` (which folds the
-                // entry/exit fields into a 2-element list). A populated `hops`
-                // list is supplied directly by in-process callers composing
-                // 3- or 4-hop chains.
-                hops: Vec::new(),
+                // A populated `chain_hops` list is the N-hop (3- or 4-hop)
+                // source of truth carried over the v7 wire; it flows straight
+                // into `ChainRelayConfig::ordered_hops`, which returns it
+                // verbatim. When empty — v6 payloads and any plain 2-hop chain —
+                // the legacy entry/exit scalars below are folded into a
+                // 2-element list on demand instead. The 2..=4 bound is enforced
+                // downstream by `ChainRelayConfig::validate_hop_count` at build
+                // time (see backend/builder/builders/chain_relay.rs).
+                hops: flat.chain_hops,
                 entry: flat.chain_entry.map(Box::new),
                 entry_server: flat.chain_entry_server,
                 entry_port: flat.chain_entry_port,
@@ -150,6 +152,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             chain_exit_short_id: String::new(),
             chain_exit_profile_id: String::new(),
             chain_exit: None,
+            chain_hops: Vec::new(),
             masque_url: String::new(),
             masque_use_http2_fallback: false,
             masque_cloudflare_geohash_enabled: false,
@@ -226,6 +229,11 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.cloudflare_tunnel_credentials_json = config.tunnel_credentials_json.clone();
             }
             RelayBackendConfig::ChainRelay(config) => {
+                // Emit the ordered N-hop list back to the wire so a re-serialized
+                // 3-/4-hop chain stays N-hop instead of being lossily folded
+                // into the legacy two-hop scalars. The entry/exit scalars below
+                // are still mirrored from hop[0]/hop[last] for v6 readers.
+                flat.chain_hops = config.hops.clone();
                 flat.chain_entry = config.entry.as_deref().cloned();
                 flat.chain_entry_server = config.entry_server.clone();
                 flat.chain_entry_port = config.entry_port;

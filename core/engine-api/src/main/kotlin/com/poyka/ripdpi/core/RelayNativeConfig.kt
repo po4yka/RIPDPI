@@ -143,6 +143,10 @@ data class ResolvedRipDpiRelayConfig(
     val chainExitPublicKey: String,
     val chainExitShortId: String,
     val chainExitProfileId: String = "",
+    // Additive v7 ordered N-hop chain list (2..=4); the chainEntry*/chainExit*
+    // scalars above are its derived hop[0]/hop[last] mirror. See CONFIG_CONTRACTS.md §8.
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val chainHops: List<ResolvedChainRelayHopConfig> = emptyList(),
     val masqueUrl: String,
     val masqueUseHttp2Fallback: Boolean,
     val masqueCloudflareGeohashEnabled: Boolean = false,
@@ -498,37 +502,47 @@ private fun ResolvedRipDpiRelayConfig.vlessSection(): RelayVlessSection =
         vlessUuid = vlessUuid,
     )
 
-// The flat wire DTO always carries exactly two chain hops (`chainEntry*` /
-// `chainExit*`); fold them into the ordered hop list. The migration from the
-// v6 fixed-pair shape to the v7 list is exactly this fold — lossless and
-// order-preserving (hop 0 = entry, hop 1 = exit).
-private fun ResolvedRipDpiRelayConfig.chainSection(): RelayChainSection =
-    RelayChainSection(
-        hops =
-            listOf(
-                ResolvedChainRelayHopRef(
-                    config = chainEntry,
-                    server = chainEntryServer,
-                    serverPort = chainEntryPort,
-                    serverName = chainEntryServerName,
-                    publicKey = chainEntryPublicKey,
-                    shortId = chainEntryShortId,
-                    profileId = chainEntryProfileId,
-                    uuid = chainEntryUuid,
-                ),
-                ResolvedChainRelayHopRef(
-                    config = chainExit,
-                    server = chainExitServer,
-                    serverPort = chainExitPort,
-                    serverName = chainExitServerName,
-                    publicKey = chainExitPublicKey,
-                    shortId = chainExitShortId,
-                    profileId = chainExitProfileId,
-                    uuid = chainExitUuid,
-                ),
-            ),
+// A hop reference derived from a wire [ResolvedChainRelayHopConfig]: the rich
+// resolved template is kept in [ResolvedChainRelayHopRef.config], and the scalar
+// mirror fields are projected from it so the entry/exit derived slots and the
+// in-process composition see a consistent view. Inverse of [toHopConfig].
+internal fun ResolvedChainRelayHopConfig.toHopRef(): ResolvedChainRelayHopRef =
+    ResolvedChainRelayHopRef(
+        config = this,
+        server = server,
+        serverPort = serverPort,
+        serverName = serverName,
+        publicKey = realityPublicKey,
+        shortId = realityShortId,
+        profileId = profileId,
+        uuid = vlessUuid,
     )
 
+// A wire [ResolvedChainRelayHopConfig] for an ordered hop. Prefer the rich
+// resolved template carried in [ResolvedChainRelayHopRef.config]; when it is
+// absent (a hop expressed only through the flat scalar mirror) synthesize a
+// VLESS-Reality hop from the scalars, matching the Rust `legacy_*_hop` fold so
+// the entry/exit-only wire path and the chainHops path agree. Inverse of
+// [toHopRef].
+internal fun ResolvedChainRelayHopRef.toHopConfig(): ResolvedChainRelayHopConfig =
+    config
+        ?: ResolvedChainRelayHopConfig(
+            kind = "vless_reality",
+            profileId = profileId,
+            server = server,
+            serverPort = serverPort,
+            serverName = serverName,
+            realityPublicKey = publicKey,
+            realityShortId = shortId,
+            vlessUuid = uuid,
+        )
+
+// Fold the flat wire DTO's chain fields into the ordered hop list. When the
+// additive [ResolvedRipDpiRelayConfig.chainHops] list is populated it is the
+// N-hop (3-/4-hop) source of truth and is used directly. Otherwise — v6 payloads
+// and plain 2-hop chains — the legacy two-hop `chainEntry*` / `chainExit*`
+// scalars are folded into a 2-element list (hop 0 = entry, hop 1 = exit), which
+// is also the lossless v6 -> v7 migration.
 private fun ResolvedRipDpiRelayConfig.masqueSection(): RelayMasqueSection =
     RelayMasqueSection(
         masqueUrl = masqueUrl,
@@ -622,6 +636,48 @@ private fun ResolvedRipDpiRelayConfig.appsScriptSection(): RelayAppsScriptSectio
     )
 
 /** Regroup this flat relay config into concern-scoped [RelayConfigSections]. */
+private fun ResolvedRipDpiRelayConfig.legacyTwoHopChainRefs(): List<ResolvedChainRelayHopRef> =
+    listOf(
+        ResolvedChainRelayHopRef(
+            config = chainEntry,
+            server = chainEntryServer,
+            serverPort = chainEntryPort,
+            serverName = chainEntryServerName,
+            publicKey = chainEntryPublicKey,
+            shortId = chainEntryShortId,
+            profileId = chainEntryProfileId,
+            uuid = chainEntryUuid,
+        ),
+        ResolvedChainRelayHopRef(
+            config = chainExit,
+            server = chainExitServer,
+            serverPort = chainExitPort,
+            serverName = chainExitServerName,
+            publicKey = chainExitPublicKey,
+            shortId = chainExitShortId,
+            profileId = chainExitProfileId,
+            uuid = chainExitUuid,
+        ),
+    )
+
+// Prefer the additive ordered [ResolvedRipDpiRelayConfig.chainHops] list (the
+// N-hop source of truth); fall back to the legacy two-hop entry/exit fold when
+// it is empty (v6 payloads and plain 2-hop chains). Brace-free single
+// expression: the empty-list fallback is a bound function reference, so this
+// helper file's brace structure is unchanged from the v6 two-hop shape.
+private fun ResolvedRipDpiRelayConfig.orderedChainHopRefs(): List<ResolvedChainRelayHopRef> =
+    chainHops.map(ResolvedChainRelayHopConfig::toHopRef).ifEmpty(this::legacyTwoHopChainRefs)
+
+private fun ResolvedRipDpiRelayConfig.chainSection(): RelayChainSection =
+    RelayChainSection(hops = orderedChainHopRefs())
+
+// The ordered hop list to carry over the wire. Emitted only for genuinely N-hop
+// chains (3 or 4 hops); a plain 2-hop chain stays fully expressed by the derived
+// entry/exit scalars, so its wire object is byte-identical to v6. Single
+// brace-free expression to keep this helper file's brace structure unchanged.
+internal fun RelayChainSection.wireChainHops(): List<ResolvedChainRelayHopConfig> =
+    if (hops.size > RelayChainMinHops) hops.map(ResolvedChainRelayHopRef::toHopConfig) else emptyList()
+
 fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
     RelayConfigSections(
         common = commonSection(),
@@ -689,6 +745,10 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         chainExitPublicKey = chain.exitHop.publicKey,
         chainExitShortId = chain.exitHop.shortId,
         chainExitProfileId = chain.exitHop.profileId,
+        // Carry the ordered list over the wire only for genuinely N-hop chains
+        // (3 or 4 hops). A plain 2-hop chain stays fully expressed by the
+        // entry/exit scalars above, keeping its wire shape byte-identical to v6.
+        chainHops = chain.wireChainHops(),
         masqueUrl = masque.masqueUrl,
         masqueUseHttp2Fallback = masque.masqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = masque.masqueCloudflareGeohashEnabled,

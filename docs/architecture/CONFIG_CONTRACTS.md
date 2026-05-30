@@ -296,20 +296,32 @@ is a `kind` string) — but an old Rust build will drop it (§5).
   `chainExit` pair to an ordered, bounded hop list — `RelayChainSection.hops` is
   a `List<ResolvedChainRelayHopRef>` with `RelayChainMinHops = 2` ..
   `RelayChainMaxHops = 4`; a count outside that range raises the typed
-  `RelayChainHopCountException` (no silent truncation). The **flat wire field
-  set is unchanged** from v6: the two hops still serialize as the
-  `chainEntry*` / `chainExit*` scalar pair, the section list is a
-  construction-/inspection-time aid only, and `chainSection()` /
-  `toResolvedConfig()` fold and unfold the list (hop 0 → entry, last hop → exit).
-  Because the wire shape is identical, **legacy v6 payloads migrate forward
-  losslessly**: Kotlin `RelayNativeConfigMinSchemaVersion = 6` and the Rust
-  `validate_schema_version` accept the inclusive range `6..=7`; a v6 payload
-  deserializes unchanged and is folded into the 2-element hop list. A legacy
-  relay payload with no `schemaVersion` defaults to the current value (`7`),
-  while any value outside `6..=7` is rejected by `ripdpi-relay-core`.
-  Intermediate hops (list lengths 3–4) are not yet expressible on the flat
-  wire — the N-hop runtime composition that extends the wire shape is the next
-  task; today the list is always length 2.
+  `RelayChainHopCountException` Kotlin-side and the typed `InvalidInput`
+  `io::Error` from `ChainRelayConfig::validate_hop_count` at native build time
+  (no silent truncation on either side). The flat wire DTO carries the ordered
+  list **additively** as `chainHops` — Kotlin
+  `ResolvedRipDpiRelayConfig.chainHops: List<ResolvedChainRelayHopConfig>`
+  (annotated `@EncodeDefault(NEVER)`) mirroring Rust
+  `FlatResolvedRelayRuntimeConfig::chain_hops: Vec<ResolvedChainRelayHopConfig>`
+  (`#[serde(default)]`). When `chainHops` is populated it is the N-hop source of
+  truth, so **3-/4-hop chains are expressible and consumed end-to-end across the
+  wire**: `chainSection()` folds the list directly and
+  `ChainRelayConfig::ordered_hops` returns it verbatim to the native builder. The
+  legacy `chainEntry*` / `chainExit*` scalar pair stays on the wire as the
+  **derived hop[0] / hop[last] mirror** for backward compatibility (the
+  `toResolvedConfig()` unfold projects it from the first/last hop; the Rust
+  serialize path mirrors it the same way).
+  Because the field is additive, **legacy v6 payloads migrate forward
+  losslessly**: a v6 payload (and any plain 2-hop chain) omits `chainHops`, so
+  the entry/exit scalars are folded into a 2-element list exactly as before —
+  the 2-hop wire object is byte-identical to v6. Kotlin
+  `RelayNativeConfigMinSchemaVersion = 6` and the Rust `validate_schema_version`
+  accept the inclusive range `6..=7`; a legacy relay payload with no
+  `schemaVersion` defaults to the current value (`7`), while any value outside
+  `6..=7` is rejected by `ripdpi-relay-core`. The wire round-trip is covered by
+  `RelayNativeConfigTest` (Kotlin `chainHops` 3-hop trip) and
+  `ripdpi-relay-core::tests` (`chain_relay_three_hop_list_round_trips_through_flat_wire`,
+  `chain_relay_wire_rejects_out_of_range_hop_count`).
 - The **proxy native config** carries `schemaVersion` on every
   `NativeProxyConfig` variant. Kotlin `NativeProxyConfigSchemaVersion` and Rust
   `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `1`; absent legacy payloads

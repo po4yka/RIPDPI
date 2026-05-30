@@ -2,7 +2,9 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.DefaultRelayAppsScriptVerifySsl
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -126,6 +128,107 @@ class RelayNativeConfigTest {
         // The in-range boundaries construct without raising.
         assertEquals(RelayChainMinHops, RelayChainSection(hops = List(RelayChainMinHops) { hop }).hops.size)
         assertEquals(RelayChainMaxHops, RelayChainSection(hops = List(RelayChainMaxHops) { hop }).hops.size)
+    }
+
+    @Test
+    fun `three-hop chain crosses the flat wire as an ordered chainHops list`() {
+        // Author a genuine 3-hop chain via the ordered list and confirm the
+        // middle hop is reachable end-to-end: it serializes to a `chainHops`
+        // array, deserializes back, folds into a 3-element section, and the wire
+        // shape is idempotent across a full fold/unfold/re-encode cycle.
+        val config = threeHopChainRelayConfig()
+
+        val encoded = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), config)
+        val wire = json.parseToJsonElement(encoded) as JsonObject
+        val wireHops = wire["chainHops"] as JsonArray
+        assertEquals("chainHops carries all 3 ordered hops", 3, wireHops.size)
+        assertEquals(
+            "chain-entry-profile-id",
+            (wireHops[0] as JsonObject).getValue("profileId").jsonPrimitive.content,
+        )
+        assertEquals(
+            "chain-middle-profile-id",
+            (wireHops[1] as JsonObject).getValue("profileId").jsonPrimitive.content,
+        )
+        assertEquals(
+            "chain-exit-profile-id",
+            (wireHops[2] as JsonObject).getValue("profileId").jsonPrimitive.content,
+        )
+        // The derived entry/exit scalars still mirror hop[0] / hop[last].
+        assertEquals("entry.example", wire.getValue("chainEntryServer").jsonPrimitive.content)
+        assertEquals("exit.example", wire.getValue("chainExitServer").jsonPrimitive.content)
+
+        val decoded = json.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), encoded)
+        val section = decoded.toSections().chain
+        assertEquals("the ordered list survives the wire", 3, section.hops.size)
+        assertEquals("chain-entry-profile-id", section.hops[0].profileId)
+        assertEquals("chain-middle-profile-id", section.hops[1].profileId)
+        assertEquals("chain-exit-profile-id", section.hops[2].profileId)
+        assertEquals("middle.example", section.hops[1].server)
+        assertEquals("shadowsocks", section.hops[1].config?.kind)
+
+        // The fold/unfold/re-encode cycle is idempotent: the N-hop wire object is
+        // stable, so no hop (including the middle one) is lost on the round trip.
+        val reEncoded =
+            json.encodeToString(
+                ResolvedRipDpiRelayConfig.serializer(),
+                decoded.toSections().toResolvedConfig(),
+            )
+        assertEquals("3-hop wire object is stable across fold/unfold/re-encode", encoded, reEncoded)
+    }
+
+    private fun threeHopChainRelayConfig(): ResolvedRipDpiRelayConfig {
+        val entryHop =
+            ResolvedChainRelayHopConfig(
+                kind = "vless_reality",
+                profileId = "chain-entry-profile-id",
+                server = "entry.example",
+                serverPort = 443,
+                serverName = "entry-sni.example",
+                realityPublicKey = "entry-public-key",
+                realityShortId = "entry-short-id",
+                vlessUuid = "chain-entry-uuid",
+            )
+        val middleHop =
+            ResolvedChainRelayHopConfig(
+                kind = "shadowsocks",
+                profileId = "chain-middle-profile-id",
+                server = "middle.example",
+                serverPort = 8388,
+                shadowsocksMethod = "aes-256-gcm",
+                shadowsocksPassword = placeholder(31),
+            )
+        val exitHop =
+            ResolvedChainRelayHopConfig(
+                kind = "masque",
+                profileId = "chain-exit-profile-id",
+                server = "exit.example",
+                masqueUrl = "https://masque.example/.well-known/masque/tcp/",
+                masqueUseHttp2Fallback = true,
+                masqueAuthMode = "bearer",
+                masqueAuthToken = placeholder(32),
+            )
+        // Seed the legacy scalar mirror to exactly what `toResolvedConfig` derives
+        // from hop[0] / hop[last], so the fold/unfold/re-encode cycle is a no-op.
+        return baseConfig("chain_relay").copy(
+            chainHops = listOf(entryHop, middleHop, exitHop),
+            chainEntry = entryHop,
+            chainEntryServer = entryHop.server,
+            chainEntryPort = entryHop.serverPort,
+            chainEntryServerName = entryHop.serverName,
+            chainEntryPublicKey = entryHop.realityPublicKey,
+            chainEntryShortId = entryHop.realityShortId,
+            chainEntryProfileId = entryHop.profileId,
+            chainEntryUuid = entryHop.vlessUuid,
+            chainExit = exitHop,
+            chainExitServer = exitHop.server,
+            chainExitPort = exitHop.serverPort,
+            chainExitServerName = exitHop.serverName,
+            chainExitPublicKey = exitHop.realityPublicKey,
+            chainExitShortId = exitHop.realityShortId,
+            chainExitProfileId = exitHop.profileId,
+            chainExitUuid = exitHop.vlessUuid,
+        )
     }
 
     @Test
