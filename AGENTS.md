@@ -37,6 +37,64 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 - Removing custom detekt rules, lint baselines, or other quality gates is out of scope unless explicitly requested.
 - **Keep all locales in sync** -- the app ships 7 locales (en, ru, es, de, fr, fa, zh-CN). Any new key added to `app/src/main/res/values/strings.xml` must land in all six other locale files in the same commit; same rule for `core/service/src/main/res/values/strings.xml`. `lint.xml` sets `MissingTranslation` to severity `error`, so a missing key fails CI. Verify with `comm -23 <(grep -oE 'name="[^"]+"' app/src/main/res/values/strings.xml | sort -u) <(grep -oE 'name="[^"]+"' app/src/main/res/values-XX/strings.xml | sort -u) | wc -l` returning `0` for each `XX` in `{ru,es,de,fr,fa,zh-rCN}`. `language_name_*` keys carry NATIVE display names (Español, Deutsch, etc.) and stay byte-identical across every locale file. Android resource keys forbid hyphens, so BCP-47 `zh-CN` maps to resource key `language_name_zh_cn`. New locales must be registered in `app/src/main/res/xml/locales_config.xml` and added to `app/src/test/kotlin/com/poyka/ripdpi/platform/LocalesConfigTest.kt`. Any change to a README selector block must keep `scripts/check-readme-selectors.sh` green (42 link + 7 bold-tag assertions across all 7 README files).
 
+## Git Worktree & Commit Workflow
+
+Every job or feature is performed in a dedicated git worktree, never directly on the `main` checkout — and **especially** any multi-step run driven by the dynamic `workflow` tool or a `/goal` plan. Worktrees hard-isolate file edits so parallel agents and sessions never collide, and keep `main`'s working tree clean. These three rules are normative for both Claude Code and Codex.
+
+1. **One worktree per job.** Begin work with `claude --worktree <slug>` (or the `EnterWorktree` tool mid-session). Claude Code creates `.claude/worktrees/<slug>/` on branch `worktree-<slug>`, branched from `origin/HEAD` (`main`). Workflow or subagent fan-out that edits files in parallel MUST isolate each writer: `isolation: worktree` in subagent frontmatter, or `isolation: 'worktree'` on a Workflow `agent()` call. `.claude/worktrees/` is gitignored — never commit worktree contents or treat them as source. Initialize the dev environment in a fresh worktree as needed (the native build, gradle, and `.env`-style files are not inherited unless listed in `.worktreeinclude`).
+
+2. **Each atomic unit of work is its own commit.** A commit is one logical, self-contained change that leaves the tree building/green and mixes no unrelated concerns (never "format + logic" or "two features" in one commit). Use Conventional Commits (`feat:` / `fix:` / `test:` / `docs:` / `refactor:` / `chore:`) per the global commit protocol, imperative subject under 72 chars. Commit as you go inside the worktree; do not batch a whole feature into a single commit, and do not leave a worktree with a large uncommitted pile.
+
+3. **Integration back to `main` requires explicit human confirmation — it is NEVER automatic.** When the work is complete, STOP and ask the user before doing ANY of: rebasing or merging the worktree branch onto `main`, deleting the work branch, removing the worktree, or pushing. Do not run `git rebase`/`git merge` onto `main`, `git branch -d`, `git worktree remove`, or `git push` without that explicit confirmation. Until the user confirms, the branch and worktree stay on disk untouched so the work can be reviewed or resumed. On approval, the canonical linear-history sequence (from the main checkout) is:
+
+   ```bash
+   git fetch origin
+   git rebase origin/main worktree-<slug>          # replay the atomic commits onto current main
+   git checkout main && git merge --ff-only worktree-<slug>
+   git worktree remove .claude/worktrees/<slug>     # remove the worktree directory
+   git branch -d worktree-<slug>                    # delete the (now-merged) work branch
+   git worktree prune                               # drop stale worktree metadata
+   ```
+
+   Resolve rebase conflicts inside the worktree branch before the fast-forward merge; never force a merge that is not fast-forward into `main`. Pushing `main` is a separate explicit step under the same confirmation.
+
+### Decompose by boundary; serialize high-risk shared files
+
+Split parallel work along crate / module boundaries (the workspace already gives you these), not across the same files from two directions. One set of files is touched by nearly every change and causes *semantic* conflicts that pass CI per-branch but break `main` once combined — assign these to a **single serialized lane**, never two parallel agents at once:
+
+- `native/rust/Cargo.lock` and `gradle/libs.versions.toml` — dependency graph.
+- `*.proto` + `EngineContract.kt` + Rust `wire.rs`, and any bump of `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` / `RelayNativeConfigSchemaVersion` (schema `6`) — the Kotlin/Rust wire contract.
+- the 7 `values*/strings.xml` locale sets — `MissingTranslation` parity gate.
+- `*baseline*` files and `config/static/architecture-health-baseline.json` — hook-enforced and the `architecture-delta` gate.
+- golden fixtures under `tests/golden/` / `src/test/resources/golden/` — see `.claude/rules/golden-bless-discipline.md`.
+- `RelayKindDescriptors` / relay-core `RelayKind` registries.
+
+Record ownership in the `docs/tasks/` board (the `repo-task-board` skill) before agents start, so overlapping work is visible before anyone writes a line.
+
+### Verify the combined tree, not the branch in isolation
+
+The dangerous failure mode for parallel agents is two branches that each pass CI alone and break `main` together (two schema bumps, two golden edits, divergent abstractions). Rebase repairs text, not architectural direction. So in rule 3's integration step, after `git rebase origin/main worktree-<slug>` and **before** the `--ff-only` merge, re-run the gates most prone to cross-branch collision on the rebased tree:
+
+```bash
+# from the worktree branch, already rebased onto latest origin/main
+python3 scripts/ci/check_architecture_health.py          # full-tree: architecture-delta must report 0 new indicators
+cd native/rust && cargo metadata --locked >/dev/null     # Cargo.lock still consistent after the rebase
+# plus the gates for the area you touched: locale parity (the comm loop in
+# build-performance.md), golden contracts, or the Kotlin/Rust wire schema.
+```
+
+When two or more agent branches are in flight, prefer landing them through a GitHub pull request / merge queue — which re-tests each candidate against the others' landed state — over a direct bypass push to `main`. Reserve direct-bypass pushes for solo, fully serialized work.
+
+### Parallel work uses a coordinator → specialists → verifier shape
+
+This extends the generator/critic pattern in `.claude/rules/llm-rust-prompts.md`. Keep authoring and integration in separate lanes: specialists implement inside their own worktrees; a dedicated **verifier** owns the rebase-onto-latest-`main` + recombine step and runs the collision-prone gates (golden contracts, `architecture-delta`, wire schema, locale parity) on the integrated tree before the merge. Never let the agent that wrote a branch self-approve its own integration.
+
+### Subagents vs. worktrees vs. agent teams
+
+- **Read-only fan-out** (search, audit, review, codebase Q&A) → plain subagents, **no worktree**. Isolation overhead is not worth it when nothing is written.
+- **One agent writing** → a single `--worktree` session.
+- **Multiple agents writing in parallel** → worktrees (`isolation: worktree`) plus a shared task list (agent teams) for file-ownership and dependency tracking. See [docs/contributor/build-performance.md](docs/contributor/build-performance.md) § Parallel agent builds for the ≤2-concurrent-Android-build ceiling, per-worktree `GRADLE_USER_HOME`, shared sccache, and single-lane device/emulator rule.
+
 ## Task Board
 
 This repository uses Obsidian Tasks-compatible Markdown task lines as the canonical task system. Use the `repo-task-board` skill for all task-related operations.
