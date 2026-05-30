@@ -386,6 +386,48 @@ sealed class Route {
         override val icon: ImageVector? = null
     }
 
+    @Serializable
+    data object VmessProfile : Route() {
+        override val stableRoute = "profile/vmess"
+        override val titleRes = R.string.vmess_editor_title
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data object TrojanGoProfile : Route() {
+        override val stableRoute = "profile/trojan-go"
+        override val titleRes = R.string.trojan_go_editor_title
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data object AnyTlsProfile : Route() {
+        override val stableRoute = "profile/anytls"
+        override val titleRes = R.string.anytls_editor_title
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data object MieruProfile : Route() {
+        override val stableRoute = "profile/mieru"
+        override val titleRes = R.string.mieru_editor_title
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data object HysteriaV1Profile : Route() {
+        override val stableRoute = "profile/hysteria-v1"
+        override val titleRes = R.string.hysteria_v1_editor_title
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data object SshProfile : Route() {
+        override val stableRoute = "profile/ssh"
+        override val titleRes = R.string.ssh_editor_title
+        override val icon: ImageVector? = null
+    }
+
     companion object {
         val topLevel: List<Route>
             get() = listOf(Home, Config, Diagnostics(), Settings)
@@ -438,6 +480,12 @@ sealed class Route {
                     QrScanner,
                     AmneziaWgProfile,
                     XrayImport,
+                    VmessProfile,
+                    TrojanGoProfile,
+                    AnyTlsProfile,
+                    MieruProfile,
+                    HysteriaV1Profile,
+                    SshProfile,
                 )
 
         fun fromStableRoute(route: String?): Route? = route?.let { key -> all.firstOrNull { it.stableRoute == key } }

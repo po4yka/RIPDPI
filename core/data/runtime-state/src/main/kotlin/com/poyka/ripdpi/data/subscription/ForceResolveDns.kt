@@ -86,6 +86,9 @@ object ForceResolveDns {
             is ProxyProfile.Hysteria2 -> profile.server
             is ProxyProfile.AnyTls -> profile.server
             is ProxyProfile.TrojanGo -> profile.server
+            is ProxyProfile.Mieru -> profile.server
+            is ProxyProfile.HysteriaV1 -> profile.server
+            is ProxyProfile.Vmess -> profile.server
             is ProxyProfile.RawConfig -> null
         }
 
@@ -106,6 +109,9 @@ object ForceResolveDns {
             is ProxyProfile.Hysteria2 -> profile.copy(server = resolvedAddress)
             is ProxyProfile.AnyTls -> profile.copy(server = resolvedAddress)
             is ProxyProfile.TrojanGo -> profile.copy(server = resolvedAddress)
+            is ProxyProfile.Mieru -> profile.copy(server = resolvedAddress)
+            is ProxyProfile.HysteriaV1 -> profile.copy(server = resolvedAddress)
+            is ProxyProfile.Vmess -> profile.copy(server = resolvedAddress)
             is ProxyProfile.RawConfig -> profile
         }
     }

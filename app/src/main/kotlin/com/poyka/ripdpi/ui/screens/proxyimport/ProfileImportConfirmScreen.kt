@@ -156,6 +156,28 @@ private fun profileSummary(profile: ProxyProfile): String =
             )
         }
 
+        is ProxyProfile.Mieru -> {
+            stringResource(
+                R.string.import_profile_summary_endpoint,
+                "Mieru",
+                profile.server,
+                profile.serverPort,
+            )
+        }
+
+        is ProxyProfile.HysteriaV1 -> {
+            stringResource(
+                R.string.import_profile_summary_endpoint,
+                "Hysteria v1",
+                profile.server,
+                profile.serverPort,
+            )
+        }
+
+        is ProxyProfile.Vmess -> {
+            stringResource(R.string.import_profile_summary_endpoint, "VMess", profile.server, profile.serverPort)
+        }
+
         is ProxyProfile.RawConfig -> {
             stringResource(R.string.import_profile_summary_raw)
         }

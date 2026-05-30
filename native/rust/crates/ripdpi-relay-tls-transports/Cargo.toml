@@ -11,7 +11,12 @@ ripdpi-shadowtls = { workspace = true }
 ripdpi-shadowsocks = { workspace = true }
 ripdpi-tor = { workspace = true }
 ripdpi-trojan = { workspace = true }
+ripdpi-trojan-go = { workspace = true }
+ripdpi-mieru = { workspace = true }
+ripdpi-hysteria-v1 = { workspace = true }
+ripdpi-ssh = { workspace = true }
 ripdpi-vless = { workspace = true }
+ripdpi-vmess = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net"] }
 tokio-boring = { workspace = true }

@@ -100,6 +100,7 @@ members = [
     "crates/ripdpi-strategy-udp",
     "crates/ripdpi-strategy-window",
     "crates/ripdpi-vless",
+    "crates/ripdpi-vmess",
     "crates/ripdpi-shadowsocks",
     "crates/ripdpi-shadowtls",
     "crates/ripdpi-masque",
@@ -110,6 +111,10 @@ members = [
     "crates/ripdpi-webtunnel",
     "crates/ripdpi-xhttp",
     "crates/ripdpi-trojan",
+    "crates/ripdpi-trojan-go",
+    "crates/ripdpi-mieru",
+    "crates/ripdpi-hysteria-v1",
+    "crates/ripdpi-ssh",
 ]
 
 [workspace.package]
@@ -204,6 +209,7 @@ ripdpi-strategy-trait = { path = "crates/ripdpi-strategy-trait" }
 ripdpi-strategy-udp = { path = "crates/ripdpi-strategy-udp" }
 ripdpi-strategy-window = { path = "crates/ripdpi-strategy-window" }
 ripdpi-vless = { path = "crates/ripdpi-vless" }
+ripdpi-vmess = { path = "crates/ripdpi-vmess" }
 ripdpi-shadowsocks = { path = "crates/ripdpi-shadowsocks" }
 ripdpi-shadowtls = { path = "crates/ripdpi-shadowtls" }
 ripdpi-masque = { path = "crates/ripdpi-masque" }
@@ -212,6 +218,11 @@ ripdpi-tls-profiles = { path = "crates/ripdpi-tls-profiles" }
 ripdpi-webtunnel = { path = "crates/ripdpi-webtunnel" }
 ripdpi-xhttp = { path = "crates/ripdpi-xhttp" }
 ripdpi-trojan = { path = "crates/ripdpi-trojan" }
+ripdpi-trojan-go = { path = "crates/ripdpi-trojan-go" }
+ripdpi-mieru = { path = "crates/ripdpi-mieru" }
+ripdpi-hysteria-v1 = { path = "crates/ripdpi-hysteria-v1" }
+ripdpi-ssh = { path = "crates/ripdpi-ssh" }
+russh = "=0.61.1"
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
 ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
 criterion = { version = "0.8", features = ["html_reports"] }

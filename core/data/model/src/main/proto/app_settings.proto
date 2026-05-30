@@ -257,7 +257,7 @@ message AppSettings {
   bool relay_enabled = 170;
   // relay_kind values mirror the RelayKindDescriptor table (Kotlin) and the
   // RELAY_TRANSPORT_DESCRIPTORS table (Rust); RelayKindDescriptorDriftTest pins the alignment.
-  string relay_kind = 171; // "off" | "vless" | "vless_reality" | "hysteria2" | "chain_relay" | "masque" | "anytls" | "cloudflare_tunnel" | "tuic_v5" | "shadowtls_v3" | "trojan" | "shadowsocks" | "naiveproxy" | "tor" | "google_apps_script" | "snowflake" | "webtunnel" | "obfs4"
+  string relay_kind = 171; // "off" | "vless" | "vless_reality" | "hysteria2" | "chain_relay" | "masque" | "anytls" | "cloudflare_tunnel" | "tuic_v5" | "shadowtls_v3" | "trojan" | "shadowsocks" | "naiveproxy" | "tor" | "google_apps_script" | "snowflake" | "webtunnel" | "obfs4" | "vmess" | "trojan_go" | "mieru" | "hysteria_v1" | "ssh"
   string relay_profile_id = 172;
   string relay_server = 173;
   int32 relay_server_port = 174;
@@ -313,6 +313,44 @@ message AppSettings {
   string relay_vless_transport = 258; // "reality_tcp" | "xhttp"
   string relay_xhttp_path = 259;
   string relay_xhttp_host = 260;
+  // VMess (legacy outbound) non-credential config; the UUID is a credential
+  // stored alongside the VLESS UUID / Hysteria2 password in the secure store.
+  string relay_vmess_security = 307; // "aes-128-gcm" | "chacha20-poly1305"
+  string relay_vmess_transport = 308; // "tcp" | "ws" | "h2" | "grpc"
+  string relay_vmess_ws_path = 309;
+  string relay_vmess_ws_host = 310;
+  string relay_vmess_grpc_service = 311;
+  string relay_vmess_h2_path = 312;
+  string relay_vmess_h2_host = 313;
+  // Trojan-Go (legacy outbound) non-credential config; the password is a
+  // credential stored alongside the Trojan / Shadowsocks password in the
+  // secure store. Endpoint comes from the common relay_server / relay_server_port.
+  string relay_trojan_go_sni = 314;
+  string relay_trojan_go_ws_path = 315;
+  string relay_trojan_go_ws_host = 316;
+  string relay_trojan_go_mux = 317; // "off" | "smux_v1"
+  string relay_trojan_go_inner_cipher = 318; // "" | "none" | "aes-256-gcm" | "chacha20-ietf-poly1305"
+  // Mieru outbound non-credential config; the username and password are
+  // credentials stored in the secure store. Endpoint comes from the common
+  // relay_server / relay_server_port.
+  string relay_mieru_protocol = 319; // "tcp" | "udp"
+  string relay_mieru_multiplexing = 320; // "off" | "low" | "middle" | "high"
+  int32 relay_mieru_mtu = 321; // 1280..1500, default 1400
+  // Hysteria v1 (legacy) outbound non-credential config; the auth payload and
+  // obfuscation string are credentials stored in the secure store. Endpoint
+  // comes from the common relay_server / relay_server_port.
+  string relay_hysteria_v1_auth_type = 322; // "string" | "base64"
+  string relay_hysteria_v1_protocol = 323; // "udp" | "wechat-video" | "faketcp"
+  int32 relay_hysteria_v1_up_mbps = 324; // > 0, default 10
+  int32 relay_hysteria_v1_down_mbps = 325; // > 0, default 50
+  string relay_hysteria_v1_sni = 326;
+  string relay_hysteria_v1_alpn = 327;
+  // SSH outbound non-credential config; the username/password, private key, and
+  // private-key passphrase are credentials stored in the secure store. Endpoint
+  // comes from the common relay_server / relay_server_port.
+  string relay_ssh_auth_type = 328; // "password" | "private_key"
+  string relay_ssh_host_key_fingerprint = 329; // pinned "SHA256:..." TOFU fingerprint, optional
+  bool relay_ssh_strict_host_key = 330; // reject on host-key mismatch when true
 
   // WARP active profile metadata (non-secret)
   string warp_profile_id = 195;

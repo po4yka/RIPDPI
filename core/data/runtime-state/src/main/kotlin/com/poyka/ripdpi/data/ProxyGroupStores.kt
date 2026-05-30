@@ -218,6 +218,41 @@ sealed interface ProxyProfile {
         val password: String,
     ) : ProxyProfile
 
+    /**
+     * VMess outbound. A legacy protocol (the AEAD-only handshake is kept for
+     * interop with existing subscriptions); [legacy] is always `true` and the
+     * editor surfaces it as such. Carries the endpoint, UUID, cipher, transport,
+     * and the optional WS / H2 / gRPC transport parameters. `alterId` is fixed at
+     * `0` — RIPDPI never speaks the deprecated MD5-AlterId handshake — so it is
+     * not modeled as a field.
+     */
+    @Serializable
+    @SerialName("vmess")
+    data class Vmess(
+        override val id: String,
+        override val displayName: String,
+        override val groupId: String,
+        val server: String,
+        val serverPort: Int,
+        val uuid: String,
+        val security: String = "aes-128-gcm",
+        val transport: String = "tcp",
+        val wsPath: String? = null,
+        val wsHost: String? = null,
+        val h2Path: String? = null,
+        val h2Host: String? = null,
+        val grpcService: String? = null,
+        val legacy: Boolean = true,
+    ) : ProxyProfile
+
+    /**
+     * Trojan-Go outbound. A legacy protocol kept for interop with existing
+     * subscriptions; [legacy] is always `true` and the editor surfaces it as
+     * such. Carries the endpoint, password, optional TLS SNI override, the
+     * optional WebSocket transport parameters, the SMUX multiplexing [mux]
+     * (`off` | `smux_v1`), and the optional Shadowsocks-AEAD [innerCipher]
+     * (`` | `none` | `aes-256-gcm` | `chacha20-ietf-poly1305`).
+     */
     @Serializable
     @SerialName("trojan-go")
     data class TrojanGo(
@@ -227,6 +262,60 @@ sealed interface ProxyProfile {
         val server: String,
         val serverPort: Int,
         val password: String,
+        val sni: String? = null,
+        val wsPath: String? = null,
+        val wsHost: String? = null,
+        val mux: String = "off",
+        val innerCipher: String = "none",
+        val legacy: Boolean = true,
+    ) : ProxyProfile
+
+    /**
+     * Mieru outbound. Unlike Trojan-Go, Mieru is actively developed, so it is
+     * **not** a legacy protocol. Carries the endpoint, the username/password
+     * credentials, the transport [protocol] (`tcp` | `udp`), the [multiplexing]
+     * level (`off` | `low` | `middle` | `high`), and the [mtu] (`1280..1500`).
+     */
+    @Serializable
+    @SerialName("mieru")
+    data class Mieru(
+        override val id: String,
+        override val displayName: String,
+        override val groupId: String,
+        val server: String,
+        val serverPort: Int,
+        val username: String,
+        val password: String,
+        val protocol: String = "tcp",
+        val multiplexing: String = "middle",
+        val mtu: Int = 1400,
+    ) : ProxyProfile
+
+    /**
+     * Hysteria v1 outbound. Hysteria v1 is a **legacy** protocol (superseded by
+     * the active Hysteria2 kind); [legacy] is `true` so the editor surfaces a
+     * migration hint. Carries the endpoint, the auth-payload/obfuscation
+     * credentials, the auth-type encoding ([authType] = `string` | `base64`),
+     * the transport [protocol] (`udp` | `wechat-video` | `faketcp`), the
+     * [upMbps]/[downMbps] bandwidth, and the optional [sni]/[alpn].
+     */
+    @Serializable
+    @SerialName("hysteria_v1")
+    data class HysteriaV1(
+        override val id: String,
+        override val displayName: String,
+        override val groupId: String,
+        val server: String,
+        val serverPort: Int,
+        val authType: String = "string",
+        val authPayload: String,
+        val obfuscation: String? = null,
+        val protocol: String = "udp",
+        val upMbps: Int = 10,
+        val downMbps: Int = 50,
+        val sni: String? = null,
+        val alpn: String? = null,
+        val legacy: Boolean = true,
     ) : ProxyProfile
 
     @Serializable

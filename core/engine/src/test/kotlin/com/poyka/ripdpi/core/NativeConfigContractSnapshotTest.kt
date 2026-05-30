@@ -942,6 +942,30 @@ class NativeConfigContractSnapshotTest {
         tuicCongestionControl: String = "bbr",
         shadowTlsInnerProfileId: String = "",
         naivePath: String = "",
+        vmessSecurity: String = "aes-128-gcm",
+        vmessTransport: String = "tcp",
+        vmessWsPath: String = "",
+        vmessWsHost: String = "",
+        vmessGrpcService: String = "",
+        vmessH2Path: String = "",
+        vmessH2Host: String = "",
+        trojanGoSni: String = "",
+        trojanGoWsPath: String = "",
+        trojanGoWsHost: String = "",
+        trojanGoMux: String = "off",
+        trojanGoInnerCipher: String = "none",
+        mieruProtocol: String = "tcp",
+        mieruMultiplexing: String = "middle",
+        mieruMtu: Int = 1400,
+        hysteriaV1AuthType: String = "string",
+        hysteriaV1Protocol: String = "udp",
+        hysteriaV1UpMbps: Int = 10,
+        hysteriaV1DownMbps: Int = 50,
+        hysteriaV1Sni: String = "",
+        hysteriaV1Alpn: String = "",
+        sshAuthType: String = "password",
+        sshHostKeyFingerprint: String = "",
+        sshStrictHostKey: Boolean = false,
         appsScriptScriptIds: List<String> = emptyList(),
         appsScriptGoogleIp: String = "",
         appsScriptFrontDomain: String = "",
@@ -994,6 +1018,30 @@ class NativeConfigContractSnapshotTest {
             put("tuicCongestionControl", JsonPrimitive(tuicCongestionControl))
             put("shadowTlsInnerProfileId", JsonPrimitive(shadowTlsInnerProfileId))
             put("naivePath", JsonPrimitive(naivePath))
+            put("vmessSecurity", JsonPrimitive(vmessSecurity))
+            put("vmessTransport", JsonPrimitive(vmessTransport))
+            put("vmessWsPath", JsonPrimitive(vmessWsPath))
+            put("vmessWsHost", JsonPrimitive(vmessWsHost))
+            put("vmessGrpcService", JsonPrimitive(vmessGrpcService))
+            put("vmessH2Path", JsonPrimitive(vmessH2Path))
+            put("vmessH2Host", JsonPrimitive(vmessH2Host))
+            put("trojanGoSni", JsonPrimitive(trojanGoSni))
+            put("trojanGoWsPath", JsonPrimitive(trojanGoWsPath))
+            put("trojanGoWsHost", JsonPrimitive(trojanGoWsHost))
+            put("trojanGoMux", JsonPrimitive(trojanGoMux))
+            put("trojanGoInnerCipher", JsonPrimitive(trojanGoInnerCipher))
+            put("mieruProtocol", JsonPrimitive(mieruProtocol))
+            put("mieruMultiplexing", JsonPrimitive(mieruMultiplexing))
+            put("mieruMtu", JsonPrimitive(mieruMtu))
+            put("hysteriaV1AuthType", JsonPrimitive(hysteriaV1AuthType))
+            put("hysteriaV1Protocol", JsonPrimitive(hysteriaV1Protocol))
+            put("hysteriaV1UpMbps", JsonPrimitive(hysteriaV1UpMbps))
+            put("hysteriaV1DownMbps", JsonPrimitive(hysteriaV1DownMbps))
+            put("hysteriaV1Sni", JsonPrimitive(hysteriaV1Sni))
+            put("hysteriaV1Alpn", JsonPrimitive(hysteriaV1Alpn))
+            put("sshAuthType", JsonPrimitive(sshAuthType))
+            put("sshHostKeyFingerprint", JsonPrimitive(sshHostKeyFingerprint))
+            put("sshStrictHostKey", JsonPrimitive(sshStrictHostKey))
             put("appsScriptScriptIds", JsonArray(appsScriptScriptIds.map(::JsonPrimitive)))
             put("appsScriptGoogleIp", JsonPrimitive(appsScriptGoogleIp))
             put("appsScriptFrontDomain", JsonPrimitive(appsScriptFrontDomain))

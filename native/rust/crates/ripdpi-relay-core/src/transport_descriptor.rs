@@ -129,6 +129,73 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
     },
     RelayTransportRegistration {
         descriptor: RelayTransportDescriptor {
+            kind_id: "vmess",
+            label: "VMess",
+            tcp: true,
+            udp: false,
+            reusable: false,
+            supports_outbound_bind_ip: false,
+        },
+        builder: Some(builders::build_vmess),
+        fallback_mode: None,
+    },
+    RelayTransportRegistration {
+        descriptor: RelayTransportDescriptor {
+            kind_id: "trojan_go",
+            label: "Trojan-Go",
+            tcp: true,
+            udp: false,
+            reusable: false,
+            supports_outbound_bind_ip: false,
+        },
+        builder: Some(builders::build_trojan_go),
+        fallback_mode: None,
+    },
+    RelayTransportRegistration {
+        descriptor: RelayTransportDescriptor {
+            kind_id: "mieru",
+            label: "Mieru",
+            tcp: true,
+            // UDP relay is gated off in the foundation: the custom UDP/TCP wire
+            // engine is stubbed, so the UDP relay capability lands with the real
+            // engine rather than advertising support the backend cannot honour.
+            udp: false,
+            reusable: false,
+            supports_outbound_bind_ip: false,
+        },
+        builder: Some(builders::build_mieru),
+        fallback_mode: None,
+    },
+    RelayTransportRegistration {
+        descriptor: RelayTransportDescriptor {
+            kind_id: "hysteria_v1",
+            label: "Hysteria v1",
+            tcp: true,
+            // UDP relay is gated off in the foundation: the custom QUIC-framing
+            // v1 wire engine is stubbed, so the UDP relay capability lands with
+            // the real engine rather than advertising support the backend
+            // cannot honour.
+            udp: false,
+            reusable: false,
+            supports_outbound_bind_ip: false,
+        },
+        builder: Some(builders::build_hysteria_v1),
+        fallback_mode: None,
+    },
+    RelayTransportRegistration {
+        descriptor: RelayTransportDescriptor {
+            kind_id: "ssh",
+            label: "SSH",
+            tcp: true,
+            udp: false,
+            reusable: false,
+            supports_outbound_bind_ip: false,
+        },
+        builder: Some(builders::build_ssh),
+        fallback_mode: None,
+    },
+    RelayTransportRegistration {
+        descriptor: RelayTransportDescriptor {
             kind_id: "cloudflare_tunnel",
             label: "Cloudflare Tunnel",
             tcp: true,

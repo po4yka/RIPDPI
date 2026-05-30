@@ -137,6 +137,9 @@ class Base64SubscriptionParserTest {
             is ProxyProfile.Hysteria2 -> profile.server
             is ProxyProfile.AnyTls -> profile.server
             is ProxyProfile.TrojanGo -> profile.server
+            is ProxyProfile.Mieru -> profile.server
+            is ProxyProfile.HysteriaV1 -> profile.server
+            is ProxyProfile.Vmess -> profile.server
             is ProxyProfile.RawConfig -> profile.config
         }
 }

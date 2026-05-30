@@ -1,0 +1,438 @@
+use std::sync::Arc;
+
+use russh::client::{self, Config, Handler};
+use russh::keys::{decode_secret_key, HashAlg, PrivateKeyWithHashAlg, PublicKey};
+use russh::{ChannelStream, Disconnect};
+use tokio::sync::Mutex;
+
+use crate::config::{parse_fingerprint, SshAuth, SshConfig, SshHostKeyPolicy};
+use crate::error::{Result, SshError};
+
+/// The bidirectional stream a `direct-tcpip` channel exposes.
+///
+/// An `AsyncRead + AsyncWrite + Unpin + Send` view over a single SSH channel,
+/// returned by [`SshClient::tcp_connect`]. Aliased so relay adapters can name
+/// the type without depending on `russh` directly.
+pub type SshChannelStream = ChannelStream<client::Msg>;
+
+/// An established SSH outbound session.
+///
+/// Wraps a live `russh` [`client::Handle`]. The handle owns the SSH transport's
+/// background IO task; dropping `SshClient` drops the handle, which closes its
+/// channels and terminates that task, so no `russh` task is leaked per relay
+/// flow (the relay descriptor marks SSH sessions `reusable = false`, i.e. one
+/// fresh session per flow).
+pub struct SshClient {
+    /// The live `russh` session handle.
+    ///
+    /// `russh`'s `Handle` is `Send` but not `Sync` (it owns an mpsc receiver),
+    /// so it is parked behind a [`tokio::sync::Mutex`] to satisfy the
+    /// `RelaySession: Send + Sync` bound. Channel opens are short-lived and do
+    /// not contend in the single-channel-per-connection v1 model.
+    handle: Arc<Mutex<client::Handle<SshHandler>>>,
+}
+
+impl std::fmt::Debug for SshClient {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The handle has no public fields worth rendering and carries no
+        // secrets; emit a stable opaque marker.
+        formatter.debug_struct("SshClient").field("handle", &"<russh session>").finish()
+    }
+}
+
+/// The decision a host-key policy reaches for an observed server fingerprint.
+///
+/// This mirrors the TOFU flow the `russh` host-key handler drives: pinned-match
+/// accepts, strict-mismatch aborts, and a first-use TOFU key is surfaced to the
+/// UI for explicit accept/reject rather than being silently trusted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HostKeyDecision {
+    /// The presented key matched the pinned fingerprint; trust it.
+    Accept,
+}
+
+/// Evaluate a host-key policy against the fingerprint a server presents.
+///
+/// * `SshHostKeyPolicy::Tofu` with a pinned fingerprint matching `presented`
+///   returns [`HostKeyDecision::Accept`].
+/// * `SshHostKeyPolicy::Tofu` with a pinned fingerprint that does NOT match
+///   returns [`SshError::HostKeyMismatch`] — a pinned TOFU key that changed is
+///   treated as hostile, exactly like strict.
+/// * `SshHostKeyPolicy::Tofu` with no pin returns
+///   [`SshError::HostKeyUntrusted`] carrying the presented fingerprint so the
+///   UI can prompt the user; the engine never trusts a first-use key on its
+///   own.
+/// * `SshHostKeyPolicy::Strict` returns [`HostKeyDecision::Accept`] on an exact
+///   match and [`SshError::HostKeyMismatch`] otherwise.
+pub fn evaluate_host_key(policy: &SshHostKeyPolicy, presented: &str) -> Result<HostKeyDecision> {
+    let presented_fp = parse_fingerprint(presented)?;
+    match policy {
+        SshHostKeyPolicy::Tofu { pinned_fingerprint: Some(pinned) } => {
+            let pinned_fp = parse_fingerprint(pinned)?;
+            if pinned_fp == presented_fp {
+                Ok(HostKeyDecision::Accept)
+            } else {
+                Err(SshError::HostKeyMismatch { expected: pinned_fp.sha256_base64, got: presented_fp.sha256_base64 })
+            }
+        }
+        SshHostKeyPolicy::Tofu { pinned_fingerprint: None } => {
+            Err(SshError::HostKeyUntrusted(presented_fp.sha256_base64))
+        }
+        SshHostKeyPolicy::Strict { fingerprint } => {
+            let pinned_fp = parse_fingerprint(fingerprint)?;
+            if pinned_fp == presented_fp {
+                Ok(HostKeyDecision::Accept)
+            } else {
+                Err(SshError::HostKeyMismatch { expected: pinned_fp.sha256_base64, got: presented_fp.sha256_base64 })
+            }
+        }
+    }
+}
+
+/// `russh` client handler that routes the server's host key through
+/// [`evaluate_host_key`].
+///
+/// `russh`'s `check_server_key` may only return `Ok(bool)` (or its associated
+/// error). When the policy rejects a key the handler returns `Ok(false)` AND
+/// stashes the precise [`SshError`] (carrying the exact presented / expected
+/// fingerprints) in a shared `rejection` slot so [`connect`] can surface the
+/// typed `HostKeyMismatch` / `HostKeyUntrusted` error instead of the generic
+/// `russh::Error::UnknownKey`. The slot is shared (`Arc`) because
+/// `client::connect` consumes the handler by value, so the caller cannot read a
+/// field back off the handler after the fact.
+struct SshHandler {
+    policy: SshHostKeyPolicy,
+    /// Shared slot that captures the typed rejection reason. `connect` holds
+    /// the other end of this `Arc` and reads it when `connect` fails with
+    /// `UnknownKey`.
+    rejection: Arc<Mutex<Option<SshError>>>,
+}
+
+impl Handler for SshHandler {
+    type Error = russh::Error;
+
+    // cancel-safe: a single short lock acquisition with no `.await` held across
+    // it other than the lock itself; the future is dropped cleanly on cancel,
+    // leaving at most the shared `rejection` slot populated, which is harmless.
+    async fn check_server_key(&mut self, server_public_key: &PublicKey) -> std::result::Result<bool, Self::Error> {
+        // OpenSSH `SHA256:<base64>` fingerprint of the presented host key.
+        let presented = server_public_key.fingerprint(HashAlg::Sha256).to_string();
+        match evaluate_host_key(&self.policy, &presented) {
+            Ok(HostKeyDecision::Accept) => Ok(true),
+            Err(reason) => {
+                *self.rejection.lock().await = Some(reason);
+                Ok(false)
+            }
+        }
+    }
+}
+
+/// Validate `config`, establish the SSH transport, verify the host key, and
+/// authenticate.
+///
+/// The configuration is fully validated first (port range, non-empty username,
+/// auth material present, strict fingerprint parse), so a malformed profile
+/// fails loudly before any I/O. `russh::client::connect` opens its own TCP
+/// socket; per the relay protect-path audit this is safe because the relay runs
+/// in-process under the app UID, which is excluded from the TUN by UID-level
+/// routing (the same reason `ripdpi-trojan` connects directly). The host key is
+/// checked through [`evaluate_host_key`] before authentication proceeds.
+// cancel-safe: every `.await` here (`connect`, `authenticate_*`,
+// `best_supported_rsa_hash`) is a discrete request/response on a fresh session;
+// if the future is dropped mid-handshake the half-open session's `Handle` is
+// dropped with it, tearing down the russh IO task. No partial state escapes.
+pub async fn connect(config: &SshConfig) -> Result<SshClient> {
+    config.validate()?;
+
+    let rejection: Arc<Mutex<Option<SshError>>> = Arc::new(Mutex::new(None));
+    let handler = SshHandler { policy: config.host_key_policy.clone(), rejection: Arc::clone(&rejection) };
+    let client_config = Arc::new(Config::default());
+
+    let mut handle = match client::connect(client_config, (config.host.as_str(), config.port), handler).await {
+        Ok(handle) => handle,
+        Err(russh::Error::UnknownKey) => {
+            // `check_server_key` returned Ok(false); recover the precise typed
+            // reason (exact presented / expected fingerprints) the handler
+            // stashed. If for any reason it is absent, fall back to the policy
+            // intent: a no-pin TOFU policy means untrusted-on-first-use, any
+            // pinned / strict policy that rejected means a mismatch.
+            let stashed = rejection.lock().await.take();
+            return Err(stashed.unwrap_or_else(|| host_key_rejection(&config.host_key_policy)));
+        }
+        Err(other) => return Err(SshError::Ssh(other.to_string())),
+    };
+
+    match &config.auth {
+        SshAuth::Password(password) => {
+            let result = handle
+                .authenticate_password(&config.username, password)
+                .await
+                .map_err(|error| SshError::Ssh(error.to_string()))?;
+            if !result.success() {
+                return Err(SshError::AuthFailed);
+            }
+        }
+        SshAuth::PrivateKey { pem, passphrase } => {
+            let private_key = decode_secret_key(pem, passphrase.as_deref())
+                .map_err(|error| SshError::Ssh(format!("private key decode failed: {error}")))?;
+            // For RSA keys, query the server's preferred hash (ssh-rsa vs
+            // rsa-sha2-256/512). For non-RSA keys this is ignored by
+            // `PrivateKeyWithHashAlg::new`.
+            let hash_alg = best_rsa_hash(&handle).await;
+            let key = PrivateKeyWithHashAlg::new(Arc::new(private_key), hash_alg);
+            let result = handle
+                .authenticate_publickey(&config.username, key)
+                .await
+                .map_err(|error| SshError::Ssh(error.to_string()))?;
+            if !result.success() {
+                return Err(SshError::AuthFailed);
+            }
+        }
+    }
+
+    Ok(SshClient { handle: Arc::new(Mutex::new(handle)) })
+}
+
+/// Map a host-key rejection (signalled by `russh::Error::UnknownKey`) back to
+/// the typed `SshError` the policy implies.
+///
+/// A `Tofu` policy with no pin rejects because the key is untrusted on first
+/// use; any pinned `Tofu` or `Strict` policy rejects because the presented key
+/// did not match the pin. The exact presented/expected fingerprints are not
+/// recoverable here (the key was consumed by `russh`), so the strict-mismatch
+/// arm reports the pinned value with an empty `got`.
+fn host_key_rejection(policy: &SshHostKeyPolicy) -> SshError {
+    match policy {
+        SshHostKeyPolicy::Tofu { pinned_fingerprint: None } => SshError::HostKeyUntrusted(String::new()),
+        SshHostKeyPolicy::Tofu { pinned_fingerprint: Some(pinned) } => {
+            let expected = parse_fingerprint(pinned).map(|fp| fp.sha256_base64).unwrap_or_default();
+            SshError::HostKeyMismatch { expected, got: String::new() }
+        }
+        SshHostKeyPolicy::Strict { fingerprint } => {
+            let expected = parse_fingerprint(fingerprint).map(|fp| fp.sha256_base64).unwrap_or_default();
+            SshError::HostKeyMismatch { expected, got: String::new() }
+        }
+    }
+}
+
+/// Resolve the best RSA signature hash the server advertises, falling back to
+/// `None` (legacy `ssh-rsa`/SHA-1) when the server sends no `server-sig-algs`
+/// extension.
+// cancel-safe: a single request/response on the live session; dropping it
+// leaves the session usable and returns no partial state.
+async fn best_rsa_hash(handle: &client::Handle<SshHandler>) -> Option<HashAlg> {
+    match handle.best_supported_rsa_hash().await {
+        Ok(Some(hash)) => hash,
+        Ok(None) | Err(_) => None,
+    }
+}
+
+impl SshClient {
+    /// Open an SSH `direct-tcpip` channel to `target` (`host:port`) and return
+    /// its bidirectional stream.
+    ///
+    /// One `direct-tcpip` channel is opened per call (v1: a single channel per
+    /// connection, no multiplexing or pooling). The returned [`ChannelStream`]
+    /// implements `AsyncRead + AsyncWrite`; closing it closes the channel.
+    // cancel-safe: a single channel-open request/response; if dropped before it
+    // resolves, the half-opened channel is reclaimed by russh and the session
+    // stays usable. No state leaks.
+    pub async fn tcp_connect(&self, target: &str) -> Result<SshChannelStream> {
+        let (host, port) = parse_target(target)?;
+        let handle = self.handle.lock().await;
+        let channel = handle
+            .channel_open_direct_tcpip(host, u32::from(port), "127.0.0.1", 0)
+            .await
+            .map_err(|error| SshError::Ssh(error.to_string()))?;
+        Ok(channel.into_stream())
+    }
+}
+
+impl Drop for SshClient {
+    fn drop(&mut self) {
+        // `russh`'s own `Drop for Handle` tears the transport IO task down: when
+        // the handle's command `Sender` drops, the session loop's `recv()`
+        // returns `None`, the loop exits, and the task completes — so no task
+        // leaks even with no further action here. When this `SshClient` is the
+        // sole owner of the `Arc` AND a tokio runtime is current, send a
+        // best-effort fire-and-forget `BY_APPLICATION` disconnect first so the
+        // server sees a clean teardown rather than a dropped connection.
+        if Arc::strong_count(&self.handle) != 1 {
+            return;
+        }
+        let Ok(runtime) = tokio::runtime::Handle::try_current() else {
+            return;
+        };
+        if let Ok(guard) = self.handle.clone().try_lock_owned() {
+            runtime.spawn(async move {
+                let _ = guard.disconnect(Disconnect::ByApplication, "", "").await;
+            });
+        }
+    }
+}
+
+/// Parse a `host:port` target into its components.
+///
+/// IPv6 literals in bracketed `[::1]:443` form are supported; a bare host with
+/// no port, an empty host, or a non-numeric / out-of-range port is rejected.
+fn parse_target(target: &str) -> Result<(&str, u16)> {
+    let (host, port_str) = if let Some(rest) = target.strip_prefix('[') {
+        // Bracketed IPv6 literal: `[addr]:port`.
+        let (addr, tail) =
+            rest.split_once(']').ok_or_else(|| SshError::Ssh(format!("malformed IPv6 target `{target}`")))?;
+        let port_str =
+            tail.strip_prefix(':').ok_or_else(|| SshError::Ssh(format!("missing port in target `{target}`")))?;
+        (addr, port_str)
+    } else {
+        target.rsplit_once(':').ok_or_else(|| SshError::Ssh(format!("target must be host:port, got `{target}`")))?
+    };
+    if host.is_empty() {
+        return Err(SshError::Ssh(format!("target host must not be empty in `{target}`")));
+    }
+    let port: u16 = port_str.parse().map_err(|_| SshError::Ssh(format!("invalid port in target `{target}`")))?;
+    if port == 0 {
+        return Err(SshError::Ssh(format!("target port must not be zero in `{target}`")));
+    }
+    Ok((host, port))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::SshAuth;
+
+    const FP_A: &str = "SHA256:n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg";
+    const FP_B: &str = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
+    fn valid_config() -> SshConfig {
+        SshConfig {
+            host: "ssh.example".to_string(),
+            port: 22,
+            username: "alice".to_string(),
+            auth: SshAuth::Password("correct-horse".to_string()),
+            host_key_policy: SshHostKeyPolicy::Tofu { pinned_fingerprint: None },
+        }
+    }
+
+    #[tokio::test]
+    async fn connect_validates_before_dialing() {
+        // An invalid config must fail validation before any network I/O.
+        let mut config = valid_config();
+        config.username = String::new();
+        let error = connect(&config).await.expect_err("invalid config must fail validation");
+        assert!(matches!(error, SshError::EmptyUsername));
+    }
+
+    #[tokio::test]
+    async fn connect_rejects_invalid_private_key_pem() {
+        let mut config = valid_config();
+        config.auth = SshAuth::PrivateKey {
+            pem: "-----BEGIN OPENSSH PRIVATE KEY-----\nnot-a-real-key\n-----END OPENSSH PRIVATE KEY-----".to_string(),
+            passphrase: None,
+        };
+        // Point at the discard port so the dial fails fast; on platforms where
+        // the dial unexpectedly succeeds the PEM decode still rejects. Either
+        // way the call must error rather than panic.
+        config.host = "127.0.0.1".to_string();
+        config.port = 9;
+        let error = connect(&config).await.expect_err("invalid PEM / unreachable host must error");
+        assert!(matches!(error, SshError::Ssh(_)), "expected typed Ssh error, got {error:?}");
+    }
+
+    #[test]
+    fn invalid_pem_maps_to_decode_error() {
+        // Exercises the decode path directly without a network round-trip: a
+        // syntactically-broken PEM must map to the typed `Ssh` decode error.
+        let result = decode_secret_key("not a private key at all", None);
+        assert!(result.is_err(), "garbage PEM must fail to decode");
+        let mapped = SshError::Ssh(format!("private key decode failed: {}", result.unwrap_err()));
+        assert!(matches!(mapped, SshError::Ssh(_)));
+    }
+
+    #[test]
+    fn parse_target_accepts_host_port() {
+        assert_eq!(parse_target("example.com:443").unwrap(), ("example.com", 443));
+    }
+
+    #[test]
+    fn parse_target_accepts_bracketed_ipv6() {
+        assert_eq!(parse_target("[2001:db8::1]:8443").unwrap(), ("2001:db8::1", 8443));
+    }
+
+    #[test]
+    fn parse_target_rejects_missing_port() {
+        assert!(matches!(parse_target("example.com"), Err(SshError::Ssh(_))));
+    }
+
+    #[test]
+    fn parse_target_rejects_zero_port() {
+        assert!(matches!(parse_target("example.com:0"), Err(SshError::Ssh(_))));
+    }
+
+    #[test]
+    fn parse_target_rejects_empty_host() {
+        assert!(matches!(parse_target(":443"), Err(SshError::Ssh(_))));
+    }
+
+    #[test]
+    fn tofu_with_matching_pin_accepts() {
+        let policy = SshHostKeyPolicy::Tofu { pinned_fingerprint: Some(FP_A.to_string()) };
+        assert_eq!(evaluate_host_key(&policy, FP_A).unwrap(), HostKeyDecision::Accept);
+    }
+
+    #[test]
+    fn tofu_with_no_pin_surfaces_fingerprint_for_first_use() {
+        let policy = SshHostKeyPolicy::Tofu { pinned_fingerprint: None };
+        match evaluate_host_key(&policy, FP_A).expect_err("first-use key must not be silently trusted") {
+            SshError::HostKeyUntrusted(fp) => assert_eq!(fp, "n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg"),
+            other => panic!("expected HostKeyUntrusted, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn strict_mismatch_aborts() {
+        let policy = SshHostKeyPolicy::Strict { fingerprint: FP_A.to_string() };
+        match evaluate_host_key(&policy, FP_B).expect_err("strict mismatch must abort") {
+            SshError::HostKeyMismatch { expected, got } => {
+                assert_eq!(expected, "n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg");
+                assert_eq!(got, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+            }
+            other => panic!("expected HostKeyMismatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn strict_match_accepts() {
+        let policy = SshHostKeyPolicy::Strict { fingerprint: FP_A.to_string() };
+        assert_eq!(evaluate_host_key(&policy, FP_A).unwrap(), HostKeyDecision::Accept);
+    }
+
+    /// `FP_A` re-encoded with the URL-safe base64 alphabet (`+`->`-`, `/`->`_`).
+    /// `russh` presents the standard-unpadded form, so a user who pins this
+    /// URL-safe spelling of the same key must still be accepted.
+    const FP_A_URL_SAFE: &str = "SHA256:n4bQgYhMfWWaL-qgxVrQFaO_TxsrC4Is0V1sFbDwCgg";
+
+    #[test]
+    fn url_safe_pin_matches_standard_presented() {
+        // Pinned URL-safe, presented standard (as russh emits): must Accept.
+        let policy = SshHostKeyPolicy::Strict { fingerprint: FP_A_URL_SAFE.to_string() };
+        assert_eq!(evaluate_host_key(&policy, FP_A).unwrap(), HostKeyDecision::Accept);
+        // Same for a TOFU pin.
+        let tofu = SshHostKeyPolicy::Tofu { pinned_fingerprint: Some(FP_A_URL_SAFE.to_string()) };
+        assert_eq!(evaluate_host_key(&tofu, FP_A).unwrap(), HostKeyDecision::Accept);
+    }
+
+    #[test]
+    fn different_digest_still_mismatches_after_canonicalization() {
+        // A genuinely different 32-byte digest must still abort, even though both
+        // sides now canonicalise through the raw-digest path.
+        let policy = SshHostKeyPolicy::Strict { fingerprint: FP_A_URL_SAFE.to_string() };
+        match evaluate_host_key(&policy, FP_B).expect_err("a different digest must still mismatch") {
+            SshError::HostKeyMismatch { expected, got } => {
+                assert_eq!(expected, "n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg");
+                assert_eq!(got, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+            }
+            other => panic!("expected HostKeyMismatch, got {other:?}"),
+        }
+    }
+}

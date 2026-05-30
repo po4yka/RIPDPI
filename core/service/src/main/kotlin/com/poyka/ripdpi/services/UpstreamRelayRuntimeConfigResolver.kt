@@ -9,14 +9,19 @@ import com.poyka.ripdpi.core.RelayCloudflareSection
 import com.poyka.ripdpi.core.RelayCommonSection
 import com.poyka.ripdpi.core.RelayConfigSections
 import com.poyka.ripdpi.core.RelayHysteria2Section
+import com.poyka.ripdpi.core.RelayHysteriaV1Section
 import com.poyka.ripdpi.core.RelayMasqueSection
+import com.poyka.ripdpi.core.RelayMieruSection
 import com.poyka.ripdpi.core.RelayPluggableTransportSection
 import com.poyka.ripdpi.core.RelayShadowTlsSection
 import com.poyka.ripdpi.core.RelayShadowsocksSection
+import com.poyka.ripdpi.core.RelaySshSection
 import com.poyka.ripdpi.core.RelayTorSection
+import com.poyka.ripdpi.core.RelayTrojanGoSection
 import com.poyka.ripdpi.core.RelayTrojanSection
 import com.poyka.ripdpi.core.RelayTuicSection
 import com.poyka.ripdpi.core.RelayVlessSection
+import com.poyka.ripdpi.core.RelayVmessSection
 import com.poyka.ripdpi.core.ResolvedChainRelayHopRef
 import com.poyka.ripdpi.core.ResolvedRelayFinalmaskConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
@@ -215,6 +220,11 @@ private class ResolvedRelayConfigBuilder(
             trojan = trojanSection(),
             shadowsocks = shadowsocksSection(),
             hysteria2 = hysteria2Section(),
+            vmess = vmessSection(),
+            trojanGo = trojanGoSection(),
+            mieru = mieruSection(),
+            hysteriaV1 = hysteriaV1Section(),
+            ssh = sshSection(),
             anyTls = anyTlsSection(),
             pluggableTransport = pluggableTransportSection(),
             tor = torSection(),
@@ -345,6 +355,89 @@ private class ResolvedRelayConfigBuilder(
         RelayHysteria2Section(
             hysteriaPassword = credentials?.hysteriaPassword,
             hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
+        )
+
+    // VMess reuses the common server/serverPort as its endpoint (the native
+    // builder reads the relay endpoint there); the UUID is a secure-store
+    // credential, mirroring how the VLESS UUID is sourced.
+    private fun vmessSection(): RelayVmessSection =
+        RelayVmessSection(
+            vmessServer = effectiveConfig.server,
+            vmessPort = effectiveConfig.serverPort,
+            vmessUuid = credentials?.vmessUuid,
+            vmessSecurity = effectiveConfig.vmessSecurity,
+            vmessTransport = effectiveConfig.vmessTransport,
+            vmessWsPath = effectiveConfig.vmessWsPath.ifBlank { null },
+            vmessWsHost = effectiveConfig.vmessWsHost.ifBlank { null },
+            vmessGrpcService = effectiveConfig.vmessGrpcService.ifBlank { null },
+            vmessH2Path = effectiveConfig.vmessH2Path.ifBlank { null },
+            vmessH2Host = effectiveConfig.vmessH2Host.ifBlank { null },
+        )
+
+    // Trojan-Go reuses the common server/serverPort as its endpoint (the native
+    // builder reads the relay endpoint there); the password is a secure-store
+    // credential, mirroring how the Trojan password is sourced.
+    private fun trojanGoSection(): RelayTrojanGoSection =
+        RelayTrojanGoSection(
+            trojanGoServer = effectiveConfig.server,
+            trojanGoPort = effectiveConfig.serverPort,
+            trojanGoPassword = credentials?.trojanGoPassword,
+            trojanGoSni = effectiveConfig.trojanGoSni.ifBlank { null },
+            trojanGoWsPath = effectiveConfig.trojanGoWsPath.ifBlank { null },
+            trojanGoWsHost = effectiveConfig.trojanGoWsHost.ifBlank { null },
+            trojanGoMux = effectiveConfig.trojanGoMux,
+            trojanGoInnerCipher = effectiveConfig.trojanGoInnerCipher,
+        )
+
+    // Mieru reuses the common server/serverPort as its endpoint (the native
+    // builder reads the relay endpoint there); the username and password are
+    // secure-store credentials, mirroring how the NaiveProxy credentials are
+    // sourced.
+    private fun mieruSection(): RelayMieruSection =
+        RelayMieruSection(
+            mieruServer = effectiveConfig.server,
+            mieruPort = effectiveConfig.serverPort,
+            mieruUsername = credentials?.mieruUsername,
+            mieruPassword = credentials?.mieruPassword,
+            mieruProtocol = effectiveConfig.mieruProtocol,
+            mieruMultiplexing = effectiveConfig.mieruMultiplexing,
+            mieruMtu = effectiveConfig.mieruMtu,
+        )
+
+    // Hysteria v1 (legacy) reuses the common server/serverPort as its endpoint
+    // (the native builder reads the relay endpoint there); the auth payload and
+    // obfuscation string are secure-store credentials, mirroring how the Mieru
+    // credentials are sourced.
+    private fun hysteriaV1Section(): RelayHysteriaV1Section =
+        RelayHysteriaV1Section(
+            hysteriaV1Server = effectiveConfig.server,
+            hysteriaV1Port = effectiveConfig.serverPort,
+            hysteriaV1AuthType = effectiveConfig.hysteriaV1AuthType,
+            hysteriaV1AuthPayload = credentials?.hysteriaV1AuthPayload,
+            hysteriaV1Obfuscation = credentials?.hysteriaV1Obfuscation,
+            hysteriaV1Protocol = effectiveConfig.hysteriaV1Protocol,
+            hysteriaV1UpMbps = effectiveConfig.hysteriaV1UpMbps,
+            hysteriaV1DownMbps = effectiveConfig.hysteriaV1DownMbps,
+            hysteriaV1Sni = effectiveConfig.hysteriaV1Sni.ifEmpty { null },
+            hysteriaV1Alpn = effectiveConfig.hysteriaV1Alpn.ifEmpty { null },
+        )
+
+    // SSH reuses the common server/serverPort as its endpoint (the native
+    // builder reads the relay endpoint there); the username, password, private
+    // key, and private-key passphrase are secure-store credentials, mirroring
+    // how the Mieru credentials are sourced. The pinned host-key fingerprint and
+    // the strict-host-key toggle are non-credential config.
+    private fun sshSection(): RelaySshSection =
+        RelaySshSection(
+            sshHost = effectiveConfig.server,
+            sshPort = effectiveConfig.serverPort,
+            sshUsername = credentials?.sshUsername,
+            sshAuthType = effectiveConfig.sshAuthType,
+            sshPassword = credentials?.sshPassword,
+            sshPrivateKey = credentials?.sshPrivateKey,
+            sshPrivateKeyPassphrase = credentials?.sshPrivateKeyPassphrase,
+            sshHostKeyFingerprint = effectiveConfig.sshHostKeyFingerprint.ifEmpty { null },
+            sshStrictHostKey = effectiveConfig.sshStrictHostKey,
         )
 
     private fun anyTlsSection(): RelayAnyTlsSection =

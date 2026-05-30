@@ -122,6 +122,9 @@ object Base64SubscriptionParser {
             is ProxyProfile.Hysteria2 -> profile.copy(groupId = groupId)
             is ProxyProfile.AnyTls -> profile.copy(groupId = groupId)
             is ProxyProfile.TrojanGo -> profile.copy(groupId = groupId)
+            is ProxyProfile.Mieru -> profile.copy(groupId = groupId)
+            is ProxyProfile.HysteriaV1 -> profile.copy(groupId = groupId)
+            is ProxyProfile.Vmess -> profile.copy(groupId = groupId)
             is ProxyProfile.RawConfig -> profile.copy(groupId = groupId)
         }
 }

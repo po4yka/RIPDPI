@@ -304,6 +304,12 @@ object FleetCompatHarness {
 
             is ProxyProfile.TrojanGo -> "trojan-go|$server|$serverPort"
 
+            is ProxyProfile.Mieru -> "mieru|$server|$serverPort"
+
+            is ProxyProfile.HysteriaV1 -> "hysteria_v1|$server|$serverPort"
+
+            is ProxyProfile.Vmess -> "vmess|$server|$serverPort"
+
             is ProxyProfile.RawConfig -> null
         }
 
@@ -346,6 +352,23 @@ object FleetCompatHarness {
 
             is ProxyProfile.TrojanGo -> {
                 mapOf("type" to "trojan-go", "name" to displayName, "server" to server, "port" to serverPort.toString())
+            }
+
+            is ProxyProfile.Mieru -> {
+                mapOf("type" to "mieru", "name" to displayName, "server" to server, "port" to serverPort.toString())
+            }
+
+            is ProxyProfile.HysteriaV1 -> {
+                mapOf(
+                    "type" to "hysteria_v1",
+                    "name" to displayName,
+                    "server" to server,
+                    "port" to serverPort.toString(),
+                )
+            }
+
+            is ProxyProfile.Vmess -> {
+                mapOf("type" to "vmess", "name" to displayName, "server" to server, "port" to serverPort.toString())
             }
 
             is ProxyProfile.RawConfig -> {

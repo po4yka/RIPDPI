@@ -14,10 +14,11 @@ use crate::backend::{build_backend, RelayBackend};
 use crate::bootstrap::{bootstrap_relay_endpoints_with, RelayEndpointBootstrapResolver};
 use crate::config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
-    MasqueRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind, ResolvedChainRelayHopConfig,
-    ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig,
-    ShadowsocksRelayConfig, TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig, TuicRelayConfig,
-    VlessRealityRelayConfig,
+    HysteriaV1RelayConfig, MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind,
+    ResolvedChainRelayHopConfig, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
+    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, ShadowsocksRelayConfig, SshRelayConfig,
+    TorPluggableTransportConfig, TorRelayConfig, TrojanGoRelayConfig, TrojanRelayConfig, TuicRelayConfig,
+    VlessRealityRelayConfig, VmessRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
@@ -74,6 +75,53 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             xhttp_path: String::new(),
             xhttp_host: String::new(),
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+        }),
+        "vmess" => RelayBackendConfig::Vmess(VmessRelayConfig {
+            server: "relay.example".to_string(),
+            port: 443,
+            uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            security: "aes-128-gcm".to_string(),
+            transport: "tcp".to_string(),
+            ..VmessRelayConfig::default()
+        }),
+        "trojan_go" => RelayBackendConfig::TrojanGo(TrojanGoRelayConfig {
+            server: "relay.example".to_string(),
+            port: 443,
+            password: Some("secret".to_string()),
+            mux: "off".to_string(),
+            ..TrojanGoRelayConfig::default()
+        }),
+        "mieru" => RelayBackendConfig::Mieru(MieruRelayConfig {
+            server: "relay.example".to_string(),
+            port: 443,
+            username: Some("alice".to_string()),
+            password: Some("secret".to_string()),
+            protocol: "tcp".to_string(),
+            multiplexing: "middle".to_string(),
+            mtu: 1400,
+        }),
+        "hysteria_v1" => RelayBackendConfig::HysteriaV1(HysteriaV1RelayConfig {
+            server: "relay.example".to_string(),
+            port: 443,
+            auth_type: "string".to_string(),
+            auth_payload: Some("secret".to_string()),
+            obfuscation: Some("obfs".to_string()),
+            protocol: "udp".to_string(),
+            up_mbps: 10,
+            down_mbps: 50,
+            sni: Some("relay.example".to_string()),
+            alpn: Some("h3".to_string()),
+        }),
+        "ssh" => RelayBackendConfig::Ssh(SshRelayConfig {
+            host: "relay.example".to_string(),
+            port: 22,
+            username: Some("alice".to_string()),
+            auth_type: "password".to_string(),
+            password: Some("secret".to_string()),
+            private_key: None,
+            private_key_passphrase: None,
+            host_key_fingerprint: None,
+            strict_host_key: false,
         }),
         "cloudflare_tunnel" => RelayBackendConfig::CloudflareTunnel(CloudflareTunnelRelayConfig {
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
@@ -296,6 +344,11 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
         "hysteria2",
         "tuic_v5",
         "vless_reality",
+        "vmess",
+        "trojan_go",
+        "mieru",
+        "hysteria_v1",
+        "ssh",
         "cloudflare_tunnel",
         "chain_relay",
         "masque",
@@ -1464,10 +1517,15 @@ fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeCon
 #[test]
 fn relay_planned_capabilities_are_pinned_for_every_kind() {
     // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
-    let pinned: [(&str, bool, bool, bool, bool); 12] = [
+    let pinned: [(&str, bool, bool, bool, bool); 17] = [
         ("hysteria2", true, true, true, false),
         ("tuic_v5", true, true, true, true),
         ("vless_reality", true, false, false, true),
+        ("vmess", true, false, false, false),
+        ("trojan_go", true, false, false, false),
+        ("mieru", true, false, false, false),
+        ("hysteria_v1", true, false, false, false),
+        ("ssh", true, false, false, false),
         ("cloudflare_tunnel", true, false, true, true),
         ("chain_relay", true, false, false, true),
         ("masque", true, true, true, false),
@@ -1537,6 +1595,11 @@ fn relay_dispatch_class(kind: RelayKind<'_>) -> RelayDispatchClass {
         RelayKind::Hysteria2
         | RelayKind::TuicV5
         | RelayKind::VlessReality { .. }
+        | RelayKind::Vmess
+        | RelayKind::TrojanGo
+        | RelayKind::Mieru
+        | RelayKind::HysteriaV1
+        | RelayKind::Ssh
         | RelayKind::CloudflareTunnel
         | RelayKind::ChainRelay
         | RelayKind::Masque
@@ -1560,6 +1623,11 @@ fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
         RelayBackend::Hysteria2(_) => Some("hysteria2"),
         RelayBackend::Tuic(_) => Some("tuic_v5"),
         RelayBackend::VlessReality(_) | RelayBackend::Xhttp(_) => Some("vless_reality"),
+        RelayBackend::Vmess(_) => Some("vmess"),
+        RelayBackend::TrojanGo(_) => Some("trojan_go"),
+        RelayBackend::Mieru(_) => Some("mieru"),
+        RelayBackend::HysteriaV1(_) => Some("hysteria_v1"),
+        RelayBackend::Ssh(_) => Some("ssh"),
         RelayBackend::ChainRelay { .. } => Some("chain_relay"),
         RelayBackend::Masque(_) => Some("masque"),
         RelayBackend::ShadowTls(_) => Some("shadowtls_v3"),
@@ -1598,6 +1666,11 @@ fn relay_transport_registry_is_consistent() {
         sample_config("tuic_v5"),
         sample_config("vless_reality"),
         vless_xhttp,
+        sample_config("vmess"),
+        sample_config("trojan_go"),
+        sample_config("mieru"),
+        sample_config("hysteria_v1"),
+        sample_config("ssh"),
         sample_config("cloudflare_tunnel"),
         sample_config("chain_relay"),
         sample_config("masque"),
@@ -1689,6 +1762,11 @@ fn relay_transport_registry_is_consistent() {
         "hysteria2",
         "tuic_v5",
         "vless_reality",
+        "vmess",
+        "trojan_go",
+        "mieru",
+        "hysteria_v1",
+        "ssh",
         "chain_relay",
         "masque",
         "shadowtls_v3",
@@ -1740,10 +1818,14 @@ async fn relay_transport_registry_dispatches_vless_sub_modes() {
 #[test]
 fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
     // kind_id, fallback_mode, pool max_active_leases, pool idle_timeout (secs)
-    let pinned: [(&str, Option<&str>, usize, u64); 12] = [
+    let pinned: [(&str, Option<&str>, usize, u64); 16] = [
         ("hysteria2", None, 64, 45),
         ("tuic_v5", None, 64, 45),
         ("vless_reality", None, 16, 5), // reality_tcp sub-mode
+        ("trojan_go", None, 16, 5),
+        ("mieru", None, 16, 5),
+        ("hysteria_v1", None, 16, 5),
+        ("ssh", None, 16, 5),
         ("cloudflare_tunnel", None, 48, 20),
         ("chain_relay", None, 16, 5),
         ("masque", None, 64, 45),

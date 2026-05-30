@@ -8,9 +8,10 @@ use ripdpi_relay_mux::{RelayCapabilities, RelayPoolHealth};
 
 use crate::backend::udp::RelayUdpSession;
 use crate::protocols::{
-    AnyTlsSessionFactory, ChainRelaySessionFactory, Hysteria2SessionFactory, MasqueSessionFactory,
-    ShadowTlsSessionFactory, ShadowsocksSessionFactory, TorRelayBackend, TrojanSessionFactory, TuicSessionFactory,
-    VlessRealitySessionFactory, XhttpSessionFactory,
+    AnyTlsSessionFactory, ChainRelaySessionFactory, Hysteria2SessionFactory, HysteriaV1SessionFactory,
+    MasqueSessionFactory, MieruSessionFactory, ShadowTlsSessionFactory, ShadowsocksSessionFactory, SshSessionFactory,
+    TorRelayBackend, TrojanGoSessionFactory, TrojanSessionFactory, TuicSessionFactory, VlessRealitySessionFactory,
+    VmessSessionFactory, XhttpSessionFactory,
 };
 use crate::socks::RelayTargetAddr;
 use crate::telemetry::{ChainHopTelemetrySnapshot, ChainHopTelemetryState};
@@ -24,6 +25,11 @@ macro_rules! dispatch_pooled_backend {
             RelayBackend::Hysteria2($backend) => $expr,
             RelayBackend::Tuic($backend) => $expr,
             RelayBackend::VlessReality($backend) => $expr,
+            RelayBackend::Vmess($backend) => $expr,
+            RelayBackend::TrojanGo($backend) => $expr,
+            RelayBackend::Mieru($backend) => $expr,
+            RelayBackend::HysteriaV1($backend) => $expr,
+            RelayBackend::Ssh($backend) => $expr,
             RelayBackend::Xhttp($backend) => $expr,
             RelayBackend::ChainRelay { backend: $backend, .. } => $expr,
             RelayBackend::Masque($backend) => $expr,
@@ -50,6 +56,11 @@ pub(crate) enum RelayBackend {
     Hysteria2(PooledRelayBackend<Hysteria2SessionFactory>),
     Tuic(PooledRelayBackend<TuicSessionFactory>),
     VlessReality(PooledRelayBackend<VlessRealitySessionFactory>),
+    Vmess(PooledRelayBackend<VmessSessionFactory>),
+    TrojanGo(PooledRelayBackend<TrojanGoSessionFactory>),
+    Mieru(PooledRelayBackend<MieruSessionFactory>),
+    HysteriaV1(PooledRelayBackend<HysteriaV1SessionFactory>),
+    Ssh(PooledRelayBackend<SshSessionFactory>),
     Xhttp(PooledRelayBackend<XhttpSessionFactory>),
     ChainRelay { backend: PooledRelayBackend<ChainRelaySessionFactory>, telemetry: ChainHopTelemetryState },
     Masque(PooledRelayBackend<MasqueSessionFactory>),
@@ -84,6 +95,11 @@ impl RelayBackend {
             Self::Tuic(backend) => backend.quic_migration_snapshot(),
             Self::Masque(backend) => backend.quic_migration_snapshot(),
             Self::VlessReality(_)
+            | Self::Vmess(_)
+            | Self::TrojanGo(_)
+            | Self::Mieru(_)
+            | Self::HysteriaV1(_)
+            | Self::Ssh(_)
             | Self::Xhttp(_)
             | Self::ChainRelay { .. }
             | Self::ShadowTls(_)
@@ -121,7 +137,16 @@ impl RelayBackend {
             Self::Trojan(backend) => backend.open_udp_session(RelayUdpSession::Trojan).await,
             Self::AnyTls(backend) => backend.open_udp_session(RelayUdpSession::AnyTls).await,
             Self::Shadowsocks(backend) => backend.open_udp_session(RelayUdpSession::Shadowsocks).await,
-            Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay { .. } | Self::ShadowTls(_) | Self::Tor(_) => {
+            Self::VlessReality(_)
+            | Self::Vmess(_)
+            | Self::TrojanGo(_)
+            | Self::Mieru(_)
+            | Self::HysteriaV1(_)
+            | Self::Ssh(_)
+            | Self::Xhttp(_)
+            | Self::ChainRelay { .. }
+            | Self::ShadowTls(_)
+            | Self::Tor(_) => {
                 Err(io::Error::new(io::ErrorKind::Unsupported, "relay backend does not support UDP ASSOCIATE"))
             }
             Self::Unsupported { kind, .. } => Err(Self::unsupported_error(kind)),

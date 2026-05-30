@@ -156,6 +156,50 @@ data class ResolvedRipDpiRelayConfig(
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
     val trojanRootCertificatePem: String? = null,
     val naivePath: String = "",
+    val vmessServer: String = "",
+    val vmessPort: Int = 0,
+    val vmessUuid: String? = null,
+    val vmessSecurity: String = com.poyka.ripdpi.data.RelayVmessSecurityAes128Gcm,
+    val vmessTransport: String = com.poyka.ripdpi.data.RelayVmessTransportTcp,
+    val vmessWsPath: String? = null,
+    val vmessWsHost: String? = null,
+    val vmessGrpcService: String? = null,
+    val vmessH2Path: String? = null,
+    val vmessH2Host: String? = null,
+    val trojanGoServer: String = "",
+    val trojanGoPort: Int = 0,
+    val trojanGoPassword: String? = null,
+    val trojanGoSni: String? = null,
+    val trojanGoWsPath: String? = null,
+    val trojanGoWsHost: String? = null,
+    val trojanGoMux: String = com.poyka.ripdpi.data.RelayTrojanGoMuxOff,
+    val trojanGoInnerCipher: String = com.poyka.ripdpi.data.RelayTrojanGoInnerCipherNone,
+    val mieruServer: String = "",
+    val mieruPort: Int = 0,
+    val mieruUsername: String? = null,
+    val mieruPassword: String? = null,
+    val mieruProtocol: String = com.poyka.ripdpi.data.RelayMieruProtocolTcp,
+    val mieruMultiplexing: String = com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle,
+    val mieruMtu: Int = com.poyka.ripdpi.data.RelayMieruMtuDefault,
+    val hysteriaV1Server: String = "",
+    val hysteriaV1Port: Int = 0,
+    val hysteriaV1AuthType: String = com.poyka.ripdpi.data.RelayHysteriaV1AuthTypeString,
+    val hysteriaV1AuthPayload: String? = null,
+    val hysteriaV1Obfuscation: String? = null,
+    val hysteriaV1Protocol: String = com.poyka.ripdpi.data.RelayHysteriaV1ProtocolUdp,
+    val hysteriaV1UpMbps: Int = com.poyka.ripdpi.data.RelayHysteriaV1UpMbpsDefault,
+    val hysteriaV1DownMbps: Int = com.poyka.ripdpi.data.RelayHysteriaV1DownMbpsDefault,
+    val hysteriaV1Sni: String? = null,
+    val hysteriaV1Alpn: String? = null,
+    val sshHost: String = "",
+    val sshPort: Int = 0,
+    val sshUsername: String? = null,
+    val sshAuthType: String = com.poyka.ripdpi.data.RelaySshAuthTypePassword,
+    val sshPassword: String? = null,
+    val sshPrivateKey: String? = null,
+    val sshPrivateKeyPassphrase: String? = null,
+    val sshHostKeyFingerprint: String? = null,
+    val sshStrictHostKey: Boolean = false,
     val ptBridgeLine: String = "",
     val ptWebTunnelUrl: String = "",
     val ptSnowflakeBrokerUrl: String = "",
@@ -271,186 +315,9 @@ data class ResolvedChainRelayHopRef(
     val uuid: String?,
 )
 
-// === Section models ======================================================
-//
-// Each model groups one concern's slice of the flat [ResolvedRipDpiRelayConfig]
-// field set. Field names mirror the wire DTO 1:1 so [toSections] /
-// [RelayConfigSections.toResolvedConfig] are a flat, auditable mapping with no
-// renaming. They are a construction- and inspection-time structuring aid; only
-// [ResolvedRipDpiRelayConfig] is serialized onto the JNI wire.
-
-/** Listener, transport-agnostic identity, and shared QUIC / TLS knobs. */
-data class RelayCommonSection(
-    val enabled: Boolean,
-    val kind: String,
-    val profileId: String,
-    val outboundBindIp: String,
-    val server: String,
-    val serverPort: Int,
-    val serverName: String,
-    val localSocksHost: String,
-    val localSocksPort: Int,
-    val udpEnabled: Boolean,
-    val tcpFallbackEnabled: Boolean,
-    val quicBindLowPort: Boolean,
-    val quicMigrateAfterHandshake: Boolean,
-    val tlsFingerprintProfile: String,
-)
-
-/** VLESS Reality identity and transport (`reality_tcp` / `xhttp`). */
-data class RelayVlessSection(
-    val realityPublicKey: String,
-    val realityShortId: String,
-    val vlessTransport: String,
-    val xhttpPath: String,
-    val xhttpHost: String,
-    val vlessUuid: String?,
-)
-
-/**
- * Chain-relay hops as an ordered, bounded list ([RelayChainMinHops] ..
- * [RelayChainMaxHops]). Hop 0 is the entry, the last hop is the exit; today the
- * list is always length 2, matching the flat wire DTO's `chainEntry*` /
- * `chainExit*` field pair, but the model is the seam through which N-hop runtime
- * composition lands in the next task.
- *
- * The constructor enforces the bound and raises [RelayChainHopCountException] on
- * an out-of-range count — there is no silent truncation. The `off`/non-chain
- * placeholder section (a config that is not a chain relay) is the one exemption:
- * an empty hop list is allowed so a default [ResolvedRipDpiRelayConfig] can still
- * be regrouped into sections; only chain-relay configs ever carry a non-empty
- * list, and those always satisfy the bound.
- */
-data class RelayChainSection(
-    val hops: List<ResolvedChainRelayHopRef>,
-) {
-    init {
-        if (hops.isNotEmpty() && (hops.size < RelayChainMinHops || hops.size > RelayChainMaxHops)) {
-            throw RelayChainHopCountException(hops.size)
-        }
-    }
-
-    /** The entry (first) hop, or `null` when the section carries no hops. */
-    val entry: ResolvedChainRelayHopRef?
-        get() = hops.firstOrNull()
-
-    /** The exit (last) hop, or `null` when the section carries no hops. */
-    val exit: ResolvedChainRelayHopRef?
-        get() = hops.lastOrNull()
-
-    /** The entry hop, or the empty placeholder when no hops are present. */
-    val entryHop: ResolvedChainRelayHopRef
-        get() = entry ?: EmptyChainHopRef
-
-    /** The exit hop, or the empty placeholder when no hops are present. */
-    val exitHop: ResolvedChainRelayHopRef
-        get() = exit ?: EmptyChainHopRef
-}
-
-/** Empty (no-chain) placeholder hop for non-chain-relay configs. */
-private val EmptyChainHopRef =
-    ResolvedChainRelayHopRef(
-        config = null,
-        server = "",
-        serverPort = 0,
-        serverName = "",
-        publicKey = "",
-        shortId = "",
-        profileId = "",
-        uuid = null,
-    )
-
-/** MASQUE endpoint, auth, and Privacy Pass fields. */
-data class RelayMasqueSection(
-    val masqueUrl: String,
-    val masqueUseHttp2Fallback: Boolean,
-    val masqueCloudflareGeohashEnabled: Boolean,
-    val masqueAuthMode: String?,
-    val masqueAuthToken: String?,
-    val masqueClientCertificateChainPem: String?,
-    val masqueClientPrivateKeyPem: String?,
-    val masqueCloudflareGeohashHeader: String?,
-    val masquePrivacyPassProviderUrl: String?,
-    val masquePrivacyPassProviderAuthToken: String?,
-)
-
-/** TUIC v5 transport tuning and credentials. */
-data class RelayTuicSection(
-    val tuicZeroRtt: Boolean,
-    val tuicCongestionControl: String,
-    val tuicUuid: String?,
-    val tuicPassword: String?,
-)
-
-/** ShadowTLS v3 inner-profile reference, resolved inner config, and credential. */
-data class RelayShadowTlsSection(
-    val shadowTlsInnerProfileId: String,
-    val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig?,
-    val shadowTlsPassword: String?,
-)
-
-/** Trojan TLS root pin and credential. */
-data class RelayTrojanSection(
-    val trojanPassword: String?,
-    val trojanRootCertificatePem: String?,
-)
-
-/** Shadowsocks method and credential. */
-data class RelayShadowsocksSection(
-    val shadowsocksMethod: String?,
-    val shadowsocksPassword: String?,
-)
-
-/** Hysteria2 credentials. */
-data class RelayHysteria2Section(
-    val hysteriaPassword: String?,
-    val hysteriaSalamanderKey: String?,
-)
-
-/** AnyTLS credential. */
-data class RelayAnyTlsSection(
-    val anyTlsPassword: String?,
-)
-
-/** Subprocess relay fields: NaiveProxy plus obfs4 / WebTunnel / Snowflake. */
-data class RelayPluggableTransportSection(
-    val naivePath: String,
-    val naiveUsername: String?,
-    val naivePassword: String?,
-    val ptBridgeLine: String,
-    val ptWebTunnelUrl: String,
-    val ptSnowflakeBrokerUrl: String,
-    val ptSnowflakeFrontDomain: String,
-)
-
-/** Arti Tor state/cache directories and managed pluggable transport config. */
-data class RelayTorSection(
-    val torStateDir: String,
-    val torCacheDir: String,
-    val torBridgeLines: List<String>,
-    val torTransports: List<ResolvedTorPluggableTransportConfig>,
-)
-
-/** Cloudflare Tunnel mode, publish origin, and credential references. */
-data class RelayCloudflareSection(
-    val cloudflareTunnelMode: String,
-    val cloudflarePublishLocalOriginUrl: String,
-    val cloudflareCredentialsRef: String,
-    val cloudflareTunnelToken: String?,
-    val cloudflareTunnelCredentialsJson: String?,
-)
-
-/** Google Apps Script relay routing fields. */
-data class RelayAppsScriptSection(
-    val appsScriptScriptIds: List<String>,
-    val appsScriptGoogleIp: String,
-    val appsScriptFrontDomain: String,
-    val appsScriptSniHosts: List<String>,
-    val appsScriptVerifySsl: Boolean,
-    val appsScriptParallelRelay: Boolean,
-    val appsScriptDirectHosts: List<String>,
-    val appsScriptAuthKey: String?,
-)
+// Section models — the per-protocol `Relay*Section` data classes — live in
+// `RelaySectionsDto.kt` (same package). The conversion functions below regroup
+// the flat [ResolvedRipDpiRelayConfig] wire DTO into those sections and back.
 
 /**
  * The complete [ResolvedRipDpiRelayConfig] field set regrouped into section
@@ -466,6 +333,11 @@ data class RelayConfigSections(
     val trojan: RelayTrojanSection,
     val shadowsocks: RelayShadowsocksSection,
     val hysteria2: RelayHysteria2Section,
+    val vmess: RelayVmessSection,
+    val trojanGo: RelayTrojanGoSection,
+    val mieru: RelayMieruSection,
+    val hysteriaV1: RelayHysteriaV1Section,
+    val ssh: RelaySshSection,
     val anyTls: RelayAnyTlsSection,
     val pluggableTransport: RelayPluggableTransportSection,
     val tor: RelayTorSection,
@@ -590,6 +462,70 @@ private fun ResolvedRipDpiRelayConfig.hysteria2Section(): RelayHysteria2Section 
         hysteriaSalamanderKey = hysteriaSalamanderKey,
     )
 
+private fun ResolvedRipDpiRelayConfig.vmessSection(): RelayVmessSection =
+    RelayVmessSection(
+        vmessServer = vmessServer,
+        vmessPort = vmessPort,
+        vmessUuid = vmessUuid,
+        vmessSecurity = vmessSecurity,
+        vmessTransport = vmessTransport,
+        vmessWsPath = vmessWsPath,
+        vmessWsHost = vmessWsHost,
+        vmessGrpcService = vmessGrpcService,
+        vmessH2Path = vmessH2Path,
+        vmessH2Host = vmessH2Host,
+    )
+
+private fun ResolvedRipDpiRelayConfig.trojanGoSection(): RelayTrojanGoSection =
+    RelayTrojanGoSection(
+        trojanGoServer = trojanGoServer,
+        trojanGoPort = trojanGoPort,
+        trojanGoPassword = trojanGoPassword,
+        trojanGoSni = trojanGoSni,
+        trojanGoWsPath = trojanGoWsPath,
+        trojanGoWsHost = trojanGoWsHost,
+        trojanGoMux = trojanGoMux,
+        trojanGoInnerCipher = trojanGoInnerCipher,
+    )
+
+private fun ResolvedRipDpiRelayConfig.mieruSection(): RelayMieruSection =
+    RelayMieruSection(
+        mieruServer = mieruServer,
+        mieruPort = mieruPort,
+        mieruUsername = mieruUsername,
+        mieruPassword = mieruPassword,
+        mieruProtocol = mieruProtocol,
+        mieruMultiplexing = mieruMultiplexing,
+        mieruMtu = mieruMtu,
+    )
+
+private fun ResolvedRipDpiRelayConfig.hysteriaV1Section(): RelayHysteriaV1Section =
+    RelayHysteriaV1Section(
+        hysteriaV1Server = hysteriaV1Server,
+        hysteriaV1Port = hysteriaV1Port,
+        hysteriaV1AuthType = hysteriaV1AuthType,
+        hysteriaV1AuthPayload = hysteriaV1AuthPayload,
+        hysteriaV1Obfuscation = hysteriaV1Obfuscation,
+        hysteriaV1Protocol = hysteriaV1Protocol,
+        hysteriaV1UpMbps = hysteriaV1UpMbps,
+        hysteriaV1DownMbps = hysteriaV1DownMbps,
+        hysteriaV1Sni = hysteriaV1Sni,
+        hysteriaV1Alpn = hysteriaV1Alpn,
+    )
+
+private fun ResolvedRipDpiRelayConfig.sshSection(): RelaySshSection =
+    RelaySshSection(
+        sshHost = sshHost,
+        sshPort = sshPort,
+        sshUsername = sshUsername,
+        sshAuthType = sshAuthType,
+        sshPassword = sshPassword,
+        sshPrivateKey = sshPrivateKey,
+        sshPrivateKeyPassphrase = sshPrivateKeyPassphrase,
+        sshHostKeyFingerprint = sshHostKeyFingerprint,
+        sshStrictHostKey = sshStrictHostKey,
+    )
+
 private fun ResolvedRipDpiRelayConfig.anyTlsSection(): RelayAnyTlsSection =
     RelayAnyTlsSection(
         anyTlsPassword = anyTlsPassword,
@@ -689,6 +625,11 @@ fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
         trojan = trojanSection(),
         shadowsocks = shadowsocksSection(),
         hysteria2 = hysteria2Section(),
+        vmess = vmessSection(),
+        trojanGo = trojanGoSection(),
+        mieru = mieruSection(),
+        hysteriaV1 = hysteriaV1Section(),
+        ssh = sshSection(),
         anyTls = anyTlsSection(),
         pluggableTransport = pluggableTransportSection(),
         tor = torSection(),
@@ -758,6 +699,50 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         shadowTlsInner = shadowTls.shadowTlsInner,
         trojanRootCertificatePem = trojan.trojanRootCertificatePem,
         naivePath = pluggableTransport.naivePath,
+        vmessServer = vmess.vmessServer,
+        vmessPort = vmess.vmessPort,
+        vmessUuid = vmess.vmessUuid,
+        vmessSecurity = vmess.vmessSecurity,
+        vmessTransport = vmess.vmessTransport,
+        vmessWsPath = vmess.vmessWsPath,
+        vmessWsHost = vmess.vmessWsHost,
+        vmessGrpcService = vmess.vmessGrpcService,
+        vmessH2Path = vmess.vmessH2Path,
+        vmessH2Host = vmess.vmessH2Host,
+        trojanGoServer = trojanGo.trojanGoServer,
+        trojanGoPort = trojanGo.trojanGoPort,
+        trojanGoPassword = trojanGo.trojanGoPassword,
+        trojanGoSni = trojanGo.trojanGoSni,
+        trojanGoWsPath = trojanGo.trojanGoWsPath,
+        trojanGoWsHost = trojanGo.trojanGoWsHost,
+        trojanGoMux = trojanGo.trojanGoMux,
+        trojanGoInnerCipher = trojanGo.trojanGoInnerCipher,
+        mieruServer = mieru.mieruServer,
+        mieruPort = mieru.mieruPort,
+        mieruUsername = mieru.mieruUsername,
+        mieruPassword = mieru.mieruPassword,
+        mieruProtocol = mieru.mieruProtocol,
+        mieruMultiplexing = mieru.mieruMultiplexing,
+        mieruMtu = mieru.mieruMtu,
+        hysteriaV1Server = hysteriaV1.hysteriaV1Server,
+        hysteriaV1Port = hysteriaV1.hysteriaV1Port,
+        hysteriaV1AuthType = hysteriaV1.hysteriaV1AuthType,
+        hysteriaV1AuthPayload = hysteriaV1.hysteriaV1AuthPayload,
+        hysteriaV1Obfuscation = hysteriaV1.hysteriaV1Obfuscation,
+        hysteriaV1Protocol = hysteriaV1.hysteriaV1Protocol,
+        hysteriaV1UpMbps = hysteriaV1.hysteriaV1UpMbps,
+        hysteriaV1DownMbps = hysteriaV1.hysteriaV1DownMbps,
+        hysteriaV1Sni = hysteriaV1.hysteriaV1Sni,
+        hysteriaV1Alpn = hysteriaV1.hysteriaV1Alpn,
+        sshHost = ssh.sshHost,
+        sshPort = ssh.sshPort,
+        sshUsername = ssh.sshUsername,
+        sshAuthType = ssh.sshAuthType,
+        sshPassword = ssh.sshPassword,
+        sshPrivateKey = ssh.sshPrivateKey,
+        sshPrivateKeyPassphrase = ssh.sshPrivateKeyPassphrase,
+        sshHostKeyFingerprint = ssh.sshHostKeyFingerprint,
+        sshStrictHostKey = ssh.sshStrictHostKey,
         ptBridgeLine = pluggableTransport.ptBridgeLine,
         ptWebTunnelUrl = pluggableTransport.ptWebTunnelUrl,
         ptSnowflakeBrokerUrl = pluggableTransport.ptSnowflakeBrokerUrl,

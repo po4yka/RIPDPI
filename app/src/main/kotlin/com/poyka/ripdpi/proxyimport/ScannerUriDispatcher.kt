@@ -33,7 +33,7 @@ object ScannerUriDispatcher {
      * whether the payload is a supported single-profile URI.
      */
     val allowedSchemes: Set<String> =
-        setOf("vless", "vmess", "trojan", "ss", "hysteria", "hysteria2", "hy2", "tuic", "ripdpi")
+        setOf("vless", "vmess", "trojan", "trojan-go", "mieru", "ss", "hysteria", "hysteria2", "hy2", "tuic", "ripdpi")
 
     /**
      * Parses [payload] into a [ScannerScanResult]. Never throws; an unparseable or

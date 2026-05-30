@@ -214,4 +214,92 @@ struct FlatResolvedRelayRuntimeConfig {
     pub cloudflare_tunnel_credentials_json: Option<String>,
     #[serde(default)]
     pub finalmask: ResolvedRelayFinalmaskConfig,
+    #[serde(default)]
+    pub vmess_server: String,
+    #[serde(default)]
+    pub vmess_port: i32,
+    #[serde(default)]
+    pub vmess_uuid: Option<String>,
+    #[serde(default)]
+    pub vmess_security: String,
+    #[serde(default)]
+    pub vmess_transport: String,
+    #[serde(default)]
+    pub vmess_ws_path: Option<String>,
+    #[serde(default)]
+    pub vmess_ws_host: Option<String>,
+    #[serde(default)]
+    pub vmess_grpc_service: Option<String>,
+    #[serde(default)]
+    pub vmess_h2_path: Option<String>,
+    #[serde(default)]
+    pub vmess_h2_host: Option<String>,
+    #[serde(default)]
+    pub trojan_go_server: String,
+    #[serde(default)]
+    pub trojan_go_port: i32,
+    #[serde(default)]
+    pub trojan_go_password: Option<String>,
+    #[serde(default)]
+    pub trojan_go_sni: Option<String>,
+    #[serde(default)]
+    pub trojan_go_ws_path: Option<String>,
+    #[serde(default)]
+    pub trojan_go_ws_host: Option<String>,
+    #[serde(default)]
+    pub trojan_go_mux: String,
+    #[serde(default)]
+    pub trojan_go_inner_cipher: String,
+    #[serde(default)]
+    pub mieru_server: String,
+    #[serde(default)]
+    pub mieru_port: i32,
+    #[serde(default)]
+    pub mieru_username: Option<String>,
+    #[serde(default)]
+    pub mieru_password: Option<String>,
+    #[serde(default)]
+    pub mieru_protocol: String,
+    #[serde(default)]
+    pub mieru_multiplexing: String,
+    #[serde(default)]
+    pub mieru_mtu: i32,
+    #[serde(default)]
+    pub hysteria_v1_server: String,
+    #[serde(default)]
+    pub hysteria_v1_port: i32,
+    #[serde(default)]
+    pub hysteria_v1_auth_type: String,
+    #[serde(default)]
+    pub hysteria_v1_auth_payload: Option<String>,
+    #[serde(default)]
+    pub hysteria_v1_obfuscation: Option<String>,
+    #[serde(default)]
+    pub hysteria_v1_protocol: String,
+    #[serde(default)]
+    pub hysteria_v1_up_mbps: i32,
+    #[serde(default)]
+    pub hysteria_v1_down_mbps: i32,
+    #[serde(default)]
+    pub hysteria_v1_sni: Option<String>,
+    #[serde(default)]
+    pub hysteria_v1_alpn: Option<String>,
+    #[serde(default)]
+    pub ssh_host: String,
+    #[serde(default)]
+    pub ssh_port: i32,
+    #[serde(default)]
+    pub ssh_username: Option<String>,
+    #[serde(default)]
+    pub ssh_auth_type: String,
+    #[serde(default)]
+    pub ssh_password: Option<String>,
+    #[serde(default)]
+    pub ssh_private_key: Option<String>,
+    #[serde(default)]
+    pub ssh_private_key_passphrase: Option<String>,
+    #[serde(default)]
+    pub ssh_host_key_fingerprint: Option<String>,
+    #[serde(default)]
+    pub ssh_strict_host_key: bool,
 }

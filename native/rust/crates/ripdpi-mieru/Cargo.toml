@@ -1,0 +1,12 @@
+[package]
+name = "ripdpi-mieru"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "rt", "sync"] }
+
+[lints]
+workspace = true

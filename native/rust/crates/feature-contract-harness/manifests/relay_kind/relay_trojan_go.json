@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "family": "relay_kind",
+  "name": "relay_trojan_go",
+  "wireId": "trojan_go",
+  "summary": "The 'trojan_go' relay kind — a legacy Trojan-Go outbound with optional SMUX v1 and Shadowsocks-AEAD inner cipher; INLINE_SETTINGS_BACKED, in-process Rust backend, TCP only.",
+  "layers": [
+    {
+      "id": "proto",
+      "path": "core/data/model/src/main/proto/app_settings.proto",
+      "marker": "| \"trojan_go\"",
+      "fixHint": "Append \"trojan_go\" to the trailing comment of `string relay_kind = 171;` so the Kotlin drift test sees the kind."
+    },
+    {
+      "id": "kotlin_relay_constant",
+      "path": "core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/RelaySettings.kt",
+      "marker": "const val RelayKindTrojanGo = \"trojan_go\"",
+      "fixHint": "Define the RelayKindTrojanGo constant alongside the other RelayKind* constants. The constant must equal the wire string."
+    },
+    {
+      "id": "kotlin_descriptor",
+      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/RelayKindDescriptor.kt",
+      "marker": "kindId = RelayKindTrojanGo",
+      "fixHint": "Add a RelayKindDescriptor row to RelayKindDescriptors with kindId = RelayKindTrojanGo and the capability tuple tcp=true, udp=false, reusable=false, supportsOutboundBindIp=false."
+    },
+    {
+      "id": "rust_transport_descriptor",
+      "path": "native/rust/crates/ripdpi-relay-core/src/transport_descriptor.rs",
+      "marker": "kind_id: \"trojan_go\"",
+      "fixHint": "Mirror the Kotlin descriptor row in RELAY_TRANSPORT_REGISTRATIONS with matching capability fields (tcp=true, udp=false, reusable=false, supports_outbound_bind_ip=false) and a build_trojan_go backend builder."
+    }
+  ],
+  "checklist": [
+    "core/data/model/src/main/proto/app_settings.proto — add \"trojan_go\" to the trailing comment of `string relay_kind = 171;` plus the relay_trojan_go_* config fields.",
+    "core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/RelaySettings.kt — define RelayKindTrojanGo and the Trojan-Go mux/inner-cipher normalizers.",
+    "core/service/src/main/kotlin/com/poyka/ripdpi/services/RelayKindDescriptor.kt — add the RelayKindDescriptor row (INLINE_SETTINGS_BACKED, finalmask NONE).",
+    "core/engine-api/src/main/kotlin/com/poyka/ripdpi/core/RelayNativeConfig.kt — add the trojanGo* wire DTO fields.",
+    "native/rust/crates/ripdpi-relay-core/src/transport_descriptor.rs — RelayTransportRegistration row whose capability bits match the Kotlin descriptor exactly.",
+    "Existing tests: RelayKindDescriptorDriftTest, relay_transport_descriptors_cover_every_kind_exactly_once."
+  ]
+}

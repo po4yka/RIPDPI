@@ -7,8 +7,11 @@ ignore = [
     # daemonize -- unmaintained but no replacement available; used only in the
     # root-helper binary which is opt-in behind root_mode_enabled.
     "RUSTSEC-2025-0069",
-    # rsa 0.9.10 via Arti's ssh-key-fork-arti path has no safe upgrade yet; RIPDPI uses Arti as a Tor client backend and does not expose RSA private-key service operations.
-    { id = "RUSTSEC-2023-0071", reason = "Arti 0.42.0 transitively depends on rsa through ssh-key-fork-arti; no safe upgrade exists, and RIPDPI only uses Arti as a client backend." },
+    # rsa (Marvin timing sidechannel) enters the tree on two paths, neither of which is practically exploitable for RIPDPI:
+    #   1. rsa 0.9.10 via Arti 0.42.0 -> ssh-key-fork-arti; RIPDPI uses Arti only as a Tor client backend and does not expose RSA private-key service operations.
+    #   2. rsa 0.10.0-rc.18 via russh 0.61.1 (ripdpi-ssh SSH outbound engine); SSH publickey auth signs the session identifier (a transcript hash the client did not choose), not attacker-chosen plaintext, so the Marvin timing sidechannel is not practically exploitable here.
+    # No safe upgrade exists on either path.
+    { id = "RUSTSEC-2023-0071", reason = "rsa enters via Arti 0.42.0 -> ssh-key-fork-arti (rsa 0.9.10) and via russh 0.61.1 (rsa 0.10.0-rc.18). RIPDPI uses Arti only as a Tor client backend; the russh SSH publickey auth path signs the session identifier (not attacker-chosen plaintext), so the Marvin timing sidechannel is not practically exploitable. No safe upgrade exists on either path." },
 ]
 
 [licenses]

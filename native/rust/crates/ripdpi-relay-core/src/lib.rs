@@ -17,10 +17,11 @@ mod transport_descriptor;
 
 pub use config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
-    MasqueRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig,
-    ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig,
-    TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig, TuicRelayConfig, UnsupportedRelayConfig,
-    VlessRealityRelayConfig, CHAIN_RELAY_MAX_HOPS, CHAIN_RELAY_MIN_HOPS,
+    HysteriaV1RelayConfig, MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig,
+    ResolvedChainRelayHopConfig, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
+    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, SshRelayConfig, TorPluggableTransportConfig,
+    TorRelayConfig, TrojanGoRelayConfig, TrojanRelayConfig, TuicRelayConfig, UnsupportedRelayConfig,
+    VlessRealityRelayConfig, VmessRelayConfig, CHAIN_RELAY_MAX_HOPS, CHAIN_RELAY_MIN_HOPS,
 };
 pub use runtime::RelayRuntime;
 pub use telemetry::{RelayTelemetry, TcpConnectObservation};

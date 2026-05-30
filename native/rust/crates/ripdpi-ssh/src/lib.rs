@@ -1,0 +1,61 @@
+#![forbid(unsafe_code)]
+
+//! SSH outbound engine for RIPDPI.
+//!
+//! SSH ([RFC 4254](https://www.rfc-editor.org/rfc/rfc4254) `direct-tcpip`
+//! channels) can tunnel arbitrary TCP through an SSH server, which makes it a
+//! useful censorship-evasion relay: the outer transport is an ordinary SSH
+//! session that most DPI permits. This crate provides the configuration,
+//! validation, secret redaction, host-key TOFU policy evaluation, and a real
+//! [`russh`]-backed client engine.
+//!
+//! ## Outbound socket safety
+//!
+//! A real SSH engine opens a **non-loopback outbound TCP socket** to the SSH
+//! server. `.claude/rules/vpnservice-protect-invariant.md` requires every such
+//! socket to bypass the VPN's own TUN device, or the kernel routes the SSH
+//! transport back into the tunnel — an infinite packet loop.
+//!
+//! The relay protect-path audit established that relay outbound is protected by
+//! **UID-level routing exclusion**: the app's own package is always excluded
+//! from the TUN, the relay runs in-process, and so every socket the relay opens
+//! carries the app UID and bypasses the TUN without a per-socket
+//! `VpnService.protect()` call. This is the same reason the sibling
+//! `ripdpi-trojan` backend opens a raw `TcpStream::connect` directly. Because
+//! `russh::client::connect()` opens its own socket under the same app UID, it is
+//! equally safe; no protected connector or `protect_socket` helper is required.
+//!
+//! ## Engine shape
+//!
+//! [`connect`] validates the config, dials via `russh::client::connect`, drives
+//! host-key verification through [`evaluate_host_key`] (TOFU pin-match / strict
+//! pin / first-use surfacing), authenticates by password or private key, and
+//! returns an [`SshClient`]. [`SshClient::tcp_connect`] opens a single
+//! `direct-tcpip` channel per call (v1: one channel per connection, no
+//! multiplexing or pooling) and surfaces it as an `AsyncRead + AsyncWrite`
+//! stream. The `russh` `Handle` owns the transport's IO task; dropping
+//! `SshClient` drops the handle and terminates that task, so no task leaks per
+//! relay flow (the descriptor marks SSH sessions `reusable = false`).
+//!
+//! ## Prerelease crypto in the auth path
+//!
+//! `russh` 0.61.1 pulls **prerelease crypto** into the SSH authentication path:
+//! `rsa 0.10.0-rc`, `ed25519-dalek 3.0-pre`, `ssh-key 0.7-rc`, `p521 0.14-rc`,
+//! and `ml-kem`. These `-rc` / `-pre` releases have not gone through a stable
+//! release's audit/freeze cycle. RIPDPI ships them because no `russh` release
+//! without prerelease transitive crypto exists yet; the `rsa` exposure
+//! specifically is documented as not-practically-exploitable in
+//! `native/rust/deny.toml` (RUSTSEC-2023-0071), because SSH publickey auth signs
+//! the session identifier rather than attacker-chosen plaintext.
+//!
+//! TODO(author): revisit and bump to stable-deps once `russh` ships a release
+//! without `-rc` / `-pre` transitive crypto (rsa, ed25519-dalek, ssh-key, p521,
+//! ml-kem). Tracking: epic-extended-outbound-protocol-support.
+
+mod client;
+mod config;
+mod error;
+
+pub use client::*;
+pub use config::*;
+pub use error::*;
