@@ -219,6 +219,7 @@ class RecordingTun2SocksBridge(
     override suspend fun start(
         config: Tun2SocksConfig,
         tunFd: Int,
+        flowAttributionBridge: Any?,
     ) {
         events += "tunnel:start"
         startedConfig = config
