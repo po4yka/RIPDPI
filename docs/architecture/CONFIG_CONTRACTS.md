@@ -291,9 +291,25 @@ is a `kind` string) — but an old Rust build will drop it (§5).
   (`ripdpi-strategy-config`).
 - The **relay native runtime config** carries `schemaVersion` on
   `ResolvedRipDpiRelayConfig`; Kotlin `RelayNativeConfigSchemaVersion` and Rust
-  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `6`. A legacy relay payload
-  with no `schemaVersion` defaults to the current value, while any explicit
-  unsupported value is rejected by `ripdpi-relay-core`.
+  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `7`. **Version 7**
+  generalizes the chain-relay section model from the fixed `chainEntry` /
+  `chainExit` pair to an ordered, bounded hop list — `RelayChainSection.hops` is
+  a `List<ResolvedChainRelayHopRef>` with `RelayChainMinHops = 2` ..
+  `RelayChainMaxHops = 4`; a count outside that range raises the typed
+  `RelayChainHopCountException` (no silent truncation). The **flat wire field
+  set is unchanged** from v6: the two hops still serialize as the
+  `chainEntry*` / `chainExit*` scalar pair, the section list is a
+  construction-/inspection-time aid only, and `chainSection()` /
+  `toResolvedConfig()` fold and unfold the list (hop 0 → entry, last hop → exit).
+  Because the wire shape is identical, **legacy v6 payloads migrate forward
+  losslessly**: Kotlin `RelayNativeConfigMinSchemaVersion = 6` and the Rust
+  `validate_schema_version` accept the inclusive range `6..=7`; a v6 payload
+  deserializes unchanged and is folded into the 2-element hop list. A legacy
+  relay payload with no `schemaVersion` defaults to the current value (`7`),
+  while any value outside `6..=7` is rejected by `ripdpi-relay-core`.
+  Intermediate hops (list lengths 3–4) are not yet expressible on the flat
+  wire — the N-hop runtime composition that extends the wire shape is the next
+  task; today the list is always length 2.
 - The **proxy native config** carries `schemaVersion` on every
   `NativeProxyConfig` variant. Kotlin `NativeProxyConfigSchemaVersion` and Rust
   `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `1`; absent legacy payloads

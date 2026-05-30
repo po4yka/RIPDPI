@@ -17,6 +17,7 @@ import com.poyka.ripdpi.core.RelayTorSection
 import com.poyka.ripdpi.core.RelayTrojanSection
 import com.poyka.ripdpi.core.RelayTuicSection
 import com.poyka.ripdpi.core.RelayVlessSection
+import com.poyka.ripdpi.core.ResolvedChainRelayHopRef
 import com.poyka.ripdpi.core.ResolvedRelayFinalmaskConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.ResolvedShadowTlsInnerRelayConfig
@@ -251,25 +252,34 @@ private class ResolvedRelayConfigBuilder(
         )
 
     // Chain hop fields fall back to the legacy inline settings when no
-    // referenced-profile resolution (`chainRelay`) is present.
+    // referenced-profile resolution (`chainRelay`) is present. The two hops are
+    // assembled as the ordered [RelayChainSection] hop list (entry, exit); the
+    // wire-DTO flatten in [toResolvedConfig] re-derives the flat scalar pair.
     private fun chainSection(): RelayChainSection =
         RelayChainSection(
-            chainEntry = chainRelay?.entry?.config,
-            chainEntryServer = chainRelay?.entry?.server ?: effectiveConfig.chainEntryServer,
-            chainEntryPort = chainRelay?.entry?.serverPort ?: effectiveConfig.chainEntryPort,
-            chainEntryServerName = chainRelay?.entry?.serverName ?: effectiveConfig.chainEntryServerName,
-            chainEntryPublicKey = chainRelay?.entry?.publicKey ?: effectiveConfig.chainEntryPublicKey,
-            chainEntryShortId = chainRelay?.entry?.shortId ?: effectiveConfig.chainEntryShortId,
-            chainEntryProfileId = chainRelay?.entry?.profileId ?: effectiveConfig.chainEntryProfileId,
-            chainEntryUuid = chainRelay?.entry?.uuid ?: credentials?.chainEntryUuid,
-            chainExit = chainRelay?.exit?.config,
-            chainExitServer = chainRelay?.exit?.server ?: effectiveConfig.chainExitServer,
-            chainExitPort = chainRelay?.exit?.serverPort ?: effectiveConfig.chainExitPort,
-            chainExitServerName = chainRelay?.exit?.serverName ?: effectiveConfig.chainExitServerName,
-            chainExitPublicKey = chainRelay?.exit?.publicKey ?: effectiveConfig.chainExitPublicKey,
-            chainExitShortId = chainRelay?.exit?.shortId ?: effectiveConfig.chainExitShortId,
-            chainExitProfileId = chainRelay?.exit?.profileId ?: effectiveConfig.chainExitProfileId,
-            chainExitUuid = chainRelay?.exit?.uuid ?: credentials?.chainExitUuid,
+            hops =
+                listOf(
+                    ResolvedChainRelayHopRef(
+                        config = chainRelay?.entry?.config,
+                        server = chainRelay?.entry?.server ?: effectiveConfig.chainEntryServer,
+                        serverPort = chainRelay?.entry?.serverPort ?: effectiveConfig.chainEntryPort,
+                        serverName = chainRelay?.entry?.serverName ?: effectiveConfig.chainEntryServerName,
+                        publicKey = chainRelay?.entry?.publicKey ?: effectiveConfig.chainEntryPublicKey,
+                        shortId = chainRelay?.entry?.shortId ?: effectiveConfig.chainEntryShortId,
+                        profileId = chainRelay?.entry?.profileId ?: effectiveConfig.chainEntryProfileId,
+                        uuid = chainRelay?.entry?.uuid ?: credentials?.chainEntryUuid,
+                    ),
+                    ResolvedChainRelayHopRef(
+                        config = chainRelay?.exit?.config,
+                        server = chainRelay?.exit?.server ?: effectiveConfig.chainExitServer,
+                        serverPort = chainRelay?.exit?.serverPort ?: effectiveConfig.chainExitPort,
+                        serverName = chainRelay?.exit?.serverName ?: effectiveConfig.chainExitServerName,
+                        publicKey = chainRelay?.exit?.publicKey ?: effectiveConfig.chainExitPublicKey,
+                        shortId = chainRelay?.exit?.shortId ?: effectiveConfig.chainExitShortId,
+                        profileId = chainRelay?.exit?.profileId ?: effectiveConfig.chainExitProfileId,
+                        uuid = chainRelay?.exit?.uuid ?: credentials?.chainExitUuid,
+                    ),
+                ),
         )
 
     private fun masqueSection(): RelayMasqueSection =

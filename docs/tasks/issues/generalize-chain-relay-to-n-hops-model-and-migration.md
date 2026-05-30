@@ -1,7 +1,7 @@
 ---
 title: Generalize chain relay to N hops model and migration
 type: task
-status: backlog
+status: done
 area: relay
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-29
 updated: 2026-05-29
 ---
 
-- [ ] #task Generalize chain relay to N hops model and migration #repo/RIPDPI #area/relay #status/backlog 🔼
+- [x] #task Generalize chain relay to N hops model and migration #repo/RIPDPI #area/relay #status/done 🔼
 
 ## Summary
 

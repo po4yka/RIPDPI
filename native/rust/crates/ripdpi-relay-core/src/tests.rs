@@ -1580,16 +1580,31 @@ fn legacy_payload_without_schema_version_defaults_to_current_version() {
     assert_eq!("hysteria2", config.kind_id());
     // The flat form re-serializes with the defaulted `schemaVersion`.
     let reserialized = serde_json::to_value(&config).expect("reserialize relay config");
-    assert_eq!(reserialized["schemaVersion"], serde_json::json!(6), "absent schemaVersion defaults to 6");
+    assert_eq!(reserialized["schemaVersion"], serde_json::json!(7), "absent schemaVersion defaults to 7");
 }
 
 #[test]
 fn payload_with_explicit_schema_version_six_deserializes() {
+    // v6 is the legacy two-hop chain shape; the v6->v7 chain-relay
+    // generalization left the flat wire field set unchanged, so a v6 payload
+    // still deserializes and is folded into the 2-element hop list on the
+    // Kotlin side.
     let mut object = relay_config_json_object();
     object.insert("schemaVersion".to_string(), serde_json::json!(6));
 
     let config: ResolvedRelayRuntimeConfig = serde_json::from_value(serde_json::Value::Object(object))
-        .expect("payload with schemaVersion 6 should deserialize");
+        .expect("legacy payload with schemaVersion 6 should still deserialize");
+
+    assert_eq!("hysteria2", config.kind_id());
+}
+
+#[test]
+fn payload_with_explicit_schema_version_seven_deserializes() {
+    let mut object = relay_config_json_object();
+    object.insert("schemaVersion".to_string(), serde_json::json!(7));
+
+    let config: ResolvedRelayRuntimeConfig = serde_json::from_value(serde_json::Value::Object(object))
+        .expect("payload with schemaVersion 7 should deserialize");
 
     assert_eq!("hysteria2", config.kind_id());
 }
@@ -1597,13 +1612,13 @@ fn payload_with_explicit_schema_version_six_deserializes() {
 #[test]
 fn payload_with_unsupported_schema_version_is_rejected() {
     let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(7));
+    object.insert("schemaVersion".to_string(), serde_json::json!(8));
 
     let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(serde_json::Value::Object(object))
-        .expect_err("payload with schemaVersion 7 should be rejected");
+        .expect_err("payload with schemaVersion 8 should be rejected");
 
     assert!(
-        err.to_string().contains("unsupported native config schemaVersion 7"),
+        err.to_string().contains("unsupported native config schemaVersion 8"),
         "error should name the found version, got: {err}"
     );
 }

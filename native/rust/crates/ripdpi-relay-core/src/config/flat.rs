@@ -1,8 +1,21 @@
-/// The single relay native-config wire schema version this build understands.
+/// The current relay native-config wire schema version this build emits and
+/// treats as the default.
 ///
-/// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant. A payload
-/// carrying any other version is rejected by [`validate_schema_version`].
-const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 6;
+/// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant. Version 7
+/// generalizes the chain-relay section model to an ordered, bounded hop list;
+/// the flat wire field set is unchanged from v6, so legacy v6 payloads migrate
+/// forward losslessly and are still accepted — see
+/// [`MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION`].
+const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 7;
+
+/// The oldest relay native-config wire schema version this build still accepts.
+///
+/// Mirrors the Kotlin `RelayNativeConfigMinSchemaVersion` constant. A v6
+/// payload carries the same flat two-hop field set as v7, so it deserializes
+/// without conversion and is folded into the 2-element hop list on the Kotlin
+/// side. Any version below this floor or above
+/// [`SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION`] is rejected.
+const MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 6;
 
 /// `serde(default)` provider for the additive `schemaVersion` envelope field.
 ///
@@ -13,8 +26,15 @@ fn default_native_config_schema_version() -> u32 {
 }
 
 /// Rejects a `schemaVersion` envelope value this build does not support.
+///
+/// Accepts the inclusive range
+/// `[MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION, SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION]`
+/// — the v6→v7 chain-relay generalization left the flat wire shape unchanged,
+/// so both versions deserialize identically.
 fn validate_schema_version(found: u32) -> Result<(), RelayConfigError> {
-    if found == SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION {
+    if (MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION..=SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION)
+        .contains(&found)
+    {
         Ok(())
     } else {
         Err(RelayConfigError::UnsupportedSchemaVersion { found })
@@ -36,8 +56,8 @@ impl std::fmt::Display for RelayConfigError {
         match self {
             RelayConfigError::UnsupportedSchemaVersion { found } => write!(
                 formatter,
-                "unsupported native config schemaVersion {found}; \
-                 this build supports {SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION}"
+                "unsupported native config schemaVersion {found}; this build supports \
+                 {MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION}..={SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION}"
             ),
         }
     }

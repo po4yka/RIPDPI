@@ -210,8 +210,62 @@ data class ResolvedRipDpiRelayConfig(
  * `schemaVersion` is a legacy payload; the Rust side defaults it to this same
  * value. Bumped only on a genuinely breaking shape change. See
  * `docs/architecture/CONFIG_CONTRACTS.md` §8.
+ *
+ * Version 7 generalizes the chain-relay section model from a fixed
+ * entry/exit pair to an ordered, bounded hop list ([RelayChainSection]).
+ * The flat wire field set is unchanged (the two hops still serialize as the
+ * `chainEntry*` / `chainExit*` scalars), so the Rust deserializer accepts both
+ * v6 (legacy two-hop) and v7 payloads — see
+ * [com.poyka.ripdpi.core.RelayChainSection].
  */
-const val RelayNativeConfigSchemaVersion: Int = 6
+const val RelayNativeConfigSchemaVersion: Int = 7
+
+/**
+ * The lowest relay native-config wire schema version this build still accepts.
+ * Legacy v6 payloads carry the same flat two-hop field set as v7 and migrate
+ * forward losslessly into the [RelayChainSection] 2-element list, so they are
+ * accepted without conversion on the wire. Mirrors the Rust
+ * `MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` constant.
+ */
+const val RelayNativeConfigMinSchemaVersion: Int = 6
+
+/** Minimum number of hops a chain-relay section may carry. */
+const val RelayChainMinHops: Int = 2
+
+/** Maximum number of hops a chain-relay section may carry. */
+const val RelayChainMaxHops: Int = 4
+
+/**
+ * Typed validation failure raised when a chain-relay hop list falls outside the
+ * `[RelayChainMinHops, RelayChainMaxHops]` bound. Carries the offending count so
+ * the caller can surface a precise diagnostic — there is no silent truncation.
+ */
+class RelayChainHopCountException(
+    val hopCount: Int,
+    val minHops: Int = RelayChainMinHops,
+    val maxHops: Int = RelayChainMaxHops,
+) : IllegalArgumentException(
+        "chain relay hop count $hopCount is out of range [$minHops, $maxHops]",
+    )
+
+/**
+ * One ordered hop in a [RelayChainSection] hop list. Mirrors the flat
+ * `chainEntry*` / `chainExit*` wire-DTO scalar group for a single position:
+ * [config] is the optional resolved hop template, the remaining fields are the
+ * inline / referenced-profile hop reference. Hop 0 is the entry, the last hop is
+ * the exit; intermediate hops are reserved for N-hop runtime composition (the
+ * next task) and today the list is always length 2.
+ */
+data class ResolvedChainRelayHopRef(
+    val config: ResolvedChainRelayHopConfig?,
+    val server: String,
+    val serverPort: Int,
+    val serverName: String,
+    val publicKey: String,
+    val shortId: String,
+    val profileId: String,
+    val uuid: String?,
+)
 
 // === Section models ======================================================
 //
@@ -249,25 +303,58 @@ data class RelayVlessSection(
     val vlessUuid: String?,
 )
 
-/** Chain-relay entry and exit hop fields. */
+/**
+ * Chain-relay hops as an ordered, bounded list ([RelayChainMinHops] ..
+ * [RelayChainMaxHops]). Hop 0 is the entry, the last hop is the exit; today the
+ * list is always length 2, matching the flat wire DTO's `chainEntry*` /
+ * `chainExit*` field pair, but the model is the seam through which N-hop runtime
+ * composition lands in the next task.
+ *
+ * The constructor enforces the bound and raises [RelayChainHopCountException] on
+ * an out-of-range count — there is no silent truncation. The `off`/non-chain
+ * placeholder section (a config that is not a chain relay) is the one exemption:
+ * an empty hop list is allowed so a default [ResolvedRipDpiRelayConfig] can still
+ * be regrouped into sections; only chain-relay configs ever carry a non-empty
+ * list, and those always satisfy the bound.
+ */
 data class RelayChainSection(
-    val chainEntry: ResolvedChainRelayHopConfig?,
-    val chainEntryServer: String,
-    val chainEntryPort: Int,
-    val chainEntryServerName: String,
-    val chainEntryPublicKey: String,
-    val chainEntryShortId: String,
-    val chainEntryProfileId: String,
-    val chainEntryUuid: String?,
-    val chainExit: ResolvedChainRelayHopConfig?,
-    val chainExitServer: String,
-    val chainExitPort: Int,
-    val chainExitServerName: String,
-    val chainExitPublicKey: String,
-    val chainExitShortId: String,
-    val chainExitProfileId: String,
-    val chainExitUuid: String?,
-)
+    val hops: List<ResolvedChainRelayHopRef>,
+) {
+    init {
+        if (hops.isNotEmpty() && (hops.size < RelayChainMinHops || hops.size > RelayChainMaxHops)) {
+            throw RelayChainHopCountException(hops.size)
+        }
+    }
+
+    /** The entry (first) hop, or `null` when the section carries no hops. */
+    val entry: ResolvedChainRelayHopRef?
+        get() = hops.firstOrNull()
+
+    /** The exit (last) hop, or `null` when the section carries no hops. */
+    val exit: ResolvedChainRelayHopRef?
+        get() = hops.lastOrNull()
+
+    /** The entry hop, or the empty placeholder when no hops are present. */
+    val entryHop: ResolvedChainRelayHopRef
+        get() = entry ?: EmptyChainHopRef
+
+    /** The exit hop, or the empty placeholder when no hops are present. */
+    val exitHop: ResolvedChainRelayHopRef
+        get() = exit ?: EmptyChainHopRef
+}
+
+/** Empty (no-chain) placeholder hop for non-chain-relay configs. */
+private val EmptyChainHopRef =
+    ResolvedChainRelayHopRef(
+        config = null,
+        server = "",
+        serverPort = 0,
+        serverName = "",
+        publicKey = "",
+        shortId = "",
+        profileId = "",
+        uuid = null,
+    )
 
 /** MASQUE endpoint, auth, and Privacy Pass fields. */
 data class RelayMasqueSection(
@@ -411,24 +498,35 @@ private fun ResolvedRipDpiRelayConfig.vlessSection(): RelayVlessSection =
         vlessUuid = vlessUuid,
     )
 
+// The flat wire DTO always carries exactly two chain hops (`chainEntry*` /
+// `chainExit*`); fold them into the ordered hop list. The migration from the
+// v6 fixed-pair shape to the v7 list is exactly this fold — lossless and
+// order-preserving (hop 0 = entry, hop 1 = exit).
 private fun ResolvedRipDpiRelayConfig.chainSection(): RelayChainSection =
     RelayChainSection(
-        chainEntry = chainEntry,
-        chainEntryServer = chainEntryServer,
-        chainEntryPort = chainEntryPort,
-        chainEntryServerName = chainEntryServerName,
-        chainEntryPublicKey = chainEntryPublicKey,
-        chainEntryShortId = chainEntryShortId,
-        chainEntryProfileId = chainEntryProfileId,
-        chainEntryUuid = chainEntryUuid,
-        chainExit = chainExit,
-        chainExitServer = chainExitServer,
-        chainExitPort = chainExitPort,
-        chainExitServerName = chainExitServerName,
-        chainExitPublicKey = chainExitPublicKey,
-        chainExitShortId = chainExitShortId,
-        chainExitProfileId = chainExitProfileId,
-        chainExitUuid = chainExitUuid,
+        hops =
+            listOf(
+                ResolvedChainRelayHopRef(
+                    config = chainEntry,
+                    server = chainEntryServer,
+                    serverPort = chainEntryPort,
+                    serverName = chainEntryServerName,
+                    publicKey = chainEntryPublicKey,
+                    shortId = chainEntryShortId,
+                    profileId = chainEntryProfileId,
+                    uuid = chainEntryUuid,
+                ),
+                ResolvedChainRelayHopRef(
+                    config = chainExit,
+                    server = chainExitServer,
+                    serverPort = chainExitPort,
+                    serverName = chainExitServerName,
+                    publicKey = chainExitPublicKey,
+                    shortId = chainExitShortId,
+                    profileId = chainExitProfileId,
+                    uuid = chainExitUuid,
+                ),
+            ),
     )
 
 private fun ResolvedRipDpiRelayConfig.masqueSection(): RelayMasqueSection =
@@ -548,6 +646,13 @@ fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
  * DTO. Inverse of [toSections]: `config.toSections().toResolvedConfig()`
  * reproduces `config` exactly.
  *
+ * The ordered chain-relay hop list is unfolded back into the flat two-hop wire
+ * slots via `chain.entryHop` / `chain.exitHop`: hop 0 -> `chainEntry*`, last hop
+ * -> `chainExit*` (inverse of the fold in `chainSection()`). Intermediate hops
+ * (list lengths 3..4) are not yet expressible on the flat wire — N-hop runtime
+ * composition lands in the next task, which owns the wire-shape extension; today
+ * the list is always length 2.
+ *
  * `@Suppress("LongMethod")`: a flat 1:1 field copy from the concern-scoped
  * sections back onto the wire DTO — every line is one field assignment, so the
  * length is structural, not complexity.
@@ -570,20 +675,20 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         cloudflareTunnelMode = cloudflare.cloudflareTunnelMode,
         cloudflarePublishLocalOriginUrl = cloudflare.cloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef = cloudflare.cloudflareCredentialsRef,
-        chainEntry = chain.chainEntry,
-        chainEntryServer = chain.chainEntryServer,
-        chainEntryPort = chain.chainEntryPort,
-        chainEntryServerName = chain.chainEntryServerName,
-        chainEntryPublicKey = chain.chainEntryPublicKey,
-        chainEntryShortId = chain.chainEntryShortId,
-        chainEntryProfileId = chain.chainEntryProfileId,
-        chainExit = chain.chainExit,
-        chainExitServer = chain.chainExitServer,
-        chainExitPort = chain.chainExitPort,
-        chainExitServerName = chain.chainExitServerName,
-        chainExitPublicKey = chain.chainExitPublicKey,
-        chainExitShortId = chain.chainExitShortId,
-        chainExitProfileId = chain.chainExitProfileId,
+        chainEntry = chain.entryHop.config,
+        chainEntryServer = chain.entryHop.server,
+        chainEntryPort = chain.entryHop.serverPort,
+        chainEntryServerName = chain.entryHop.serverName,
+        chainEntryPublicKey = chain.entryHop.publicKey,
+        chainEntryShortId = chain.entryHop.shortId,
+        chainEntryProfileId = chain.entryHop.profileId,
+        chainExit = chain.exitHop.config,
+        chainExitServer = chain.exitHop.server,
+        chainExitPort = chain.exitHop.serverPort,
+        chainExitServerName = chain.exitHop.serverName,
+        chainExitPublicKey = chain.exitHop.publicKey,
+        chainExitShortId = chain.exitHop.shortId,
+        chainExitProfileId = chain.exitHop.profileId,
         masqueUrl = masque.masqueUrl,
         masqueUseHttp2Fallback = masque.masqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = masque.masqueCloudflareGeohashEnabled,
@@ -608,8 +713,8 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         quicBindLowPort = common.quicBindLowPort,
         quicMigrateAfterHandshake = common.quicMigrateAfterHandshake,
         vlessUuid = vless.vlessUuid,
-        chainEntryUuid = chain.chainEntryUuid,
-        chainExitUuid = chain.chainExitUuid,
+        chainEntryUuid = chain.entryHop.uuid,
+        chainExitUuid = chain.exitHop.uuid,
         hysteriaPassword = hysteria2.hysteriaPassword,
         hysteriaSalamanderKey = hysteria2.hysteriaSalamanderKey,
         anyTlsPassword = anyTls.anyTlsPassword,
