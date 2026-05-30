@@ -35,6 +35,7 @@
 
 use crate::probes::circumvention_reachability::CIRCUMVENTION_REACHABILITY_PROBE_ID;
 use crate::probes::dns_integrity::DNS_INTEGRITY_PROBE_ID;
+use crate::probes::doh_json_survey::DOH_JSON_SURVEY_PROBE_ID;
 use crate::probes::domain_reachability::DOMAIN_REACHABILITY_PROBE_ID;
 use crate::probes::mtproto_reachability::MTPROTO_REACHABILITY_PROBE_ID;
 use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
@@ -129,6 +130,11 @@ pub const SCHEDULED_PROBE_INVENTORY: &[ScheduledProbeStage] = &[
         runner: "ThroughputRunner",
         backing: ProbeTraitBacking::Backed(THROUGHPUT_PROBE_ID),
     },
+    ScheduledProbeStage {
+        probe_type: "doh_json_survey",
+        runner: "DohJsonSurveyRunner",
+        backing: ProbeTraitBacking::Backed(DOH_JSON_SURVEY_PROBE_ID),
+    },
 ];
 
 /// The `probe_type`s of every scheduled stage without a backing
@@ -184,7 +190,7 @@ mod tests {
 
     #[test]
     fn inventory_has_exactly_nine_rows() {
-        assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 9);
+        assert_eq!(SCHEDULED_PROBE_INVENTORY.len(), 10);
     }
 
     #[test]

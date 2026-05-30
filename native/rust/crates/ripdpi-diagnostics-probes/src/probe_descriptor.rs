@@ -24,6 +24,7 @@ use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 
 use crate::probes::circumvention_reachability::CIRCUMVENTION_REACHABILITY_PROBE_ID;
 use crate::probes::dns_integrity::DNS_INTEGRITY_PROBE_ID;
+use crate::probes::doh_json_survey::DOH_JSON_SURVEY_PROBE_ID;
 use crate::probes::domain_reachability::DOMAIN_REACHABILITY_PROBE_ID;
 use crate::probes::mtproto_reachability::MTPROTO_REACHABILITY_PROBE_ID;
 use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
@@ -151,6 +152,14 @@ pub const PROBE_DESCRIPTORS: &[ProbeDescriptor] = &[
         runner: "ThroughputRunner",
         path_requirement: ProbePathRequirement::Either,
         label: "Throughput window",
+    },
+    ProbeDescriptor {
+        id: DOH_JSON_SURVEY_PROBE_ID,
+        family: ProbeTaskFamily::DohJsonSurvey,
+        scheduled_probe_type: "doh_json_survey",
+        runner: "DohJsonSurveyRunner",
+        path_requirement: ProbePathRequirement::Either,
+        label: "DoH-JSON resolver survey",
     },
 ];
 

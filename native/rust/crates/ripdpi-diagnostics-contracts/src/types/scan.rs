@@ -38,6 +38,9 @@ pub enum ProbeTaskFamily {
     Circumvention,
     Telegram,
     Throughput,
+    /// DoH-JSON resolver survey — the vendor JSON DoH APIs, probed
+    /// independently of the wire DoH path. Serializes as `DOH_JSON_SURVEY`.
+    DohJsonSurvey,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

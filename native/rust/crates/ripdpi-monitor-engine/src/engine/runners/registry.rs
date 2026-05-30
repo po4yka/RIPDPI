@@ -45,8 +45,8 @@ use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 use crate::engine::runtime::{ExecutionStageId, ExecutionStageRunner};
 
 use super::connectivity::{
-    CircumventionRunner, DnsRunner, EnvironmentRunner, QuicRunner, ServiceRunner, TcpRunner, TelegramRunner,
-    ThroughputRunner, WebRunner,
+    CircumventionRunner, DnsRunner, DohJsonSurveyRunner, EnvironmentRunner, QuicRunner, ServiceRunner, TcpRunner,
+    TelegramRunner, ThroughputRunner, WebRunner,
 };
 
 /// Factory function for a connectivity stage runner.
@@ -173,6 +173,15 @@ pub(in crate::engine) const PROBE_STAGE_REGISTRATIONS: &[ProbeStageRegistration]
         label: "Throughput window",
         make_runner: || Box::new(ThroughputRunner),
     },
+    ProbeStageRegistration {
+        probe_type: "doh_json_survey",
+        probe_id: "doh_json_survey",
+        stage_id: ExecutionStageId::DohJsonSurvey,
+        task_family_selector: Some(ProbeTaskFamily::DohJsonSurvey),
+        runner_name: "DohJsonSurveyRunner",
+        label: "DoH-JSON resolver survey",
+        make_runner: || Box::new(DohJsonSurveyRunner),
+    },
 ];
 
 /// Resolve a registration by `ProbeTaskFamily` — the lookup
@@ -255,15 +264,16 @@ mod tests {
         ("circumvention_reachability", "CircumventionRunner", "circumvention_reachability_probe"),
         ("telegram", "TelegramRunner", "mtproto_reachability_probe"),
         ("throughput_window", "ThroughputRunner", "throughput_probe"),
+        ("doh_json_survey", "DohJsonSurveyRunner", "doh_json_survey"),
     ];
 
-    /// The registry has exactly 9 connectivity stages — the 4 strategy
+    /// The registry has exactly 10 connectivity stages — the 4 strategy
     /// runners are intentionally excluded.
     #[test]
     fn strategy_runners_remain_out_of_scope() {
         const STRATEGY_RUNNER_NAMES: &[&str] =
             &["StrategyDnsBaselineRunner", "StrategyTcpRunner", "StrategyQuicRunner", "StrategyRecommendationRunner"];
-        assert_eq!(PROBE_STAGE_REGISTRATIONS.len(), 9, "registry must cover only the 9 connectivity stages");
+        assert_eq!(PROBE_STAGE_REGISTRATIONS.len(), 10, "registry must cover only the 10 connectivity stages");
         for registration in PROBE_STAGE_REGISTRATIONS {
             assert!(
                 !STRATEGY_RUNNER_NAMES.contains(&registration.runner_name),

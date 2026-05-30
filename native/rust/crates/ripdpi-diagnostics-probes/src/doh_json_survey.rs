@@ -143,7 +143,7 @@ impl Probe for DohJsonSurveyProbe {
     }
 
     fn family(&self) -> ProbeTaskFamily {
-        ProbeTaskFamily::Dns
+        ProbeTaskFamily::DohJsonSurvey
     }
 
     fn run(&self, _ctx: &ProbeContext) -> ProbeOutcome {
@@ -384,7 +384,7 @@ mod tests {
         let outcome = DohJsonSurveyProbe::new(vec![ok_result("google", "1.2.3.4")]).run(&ProbeContext::empty());
         assert_eq!(outcome.probe_id, DOH_JSON_SURVEY_PROBE_ID);
         assert_ne!(outcome.probe_id, crate::probes::doh_survey::DOH_SURVEY_PROBE_ID);
-        assert_eq!(outcome.family, ProbeTaskFamily::Dns);
+        assert_eq!(outcome.family, ProbeTaskFamily::DohJsonSurvey);
     }
 
     #[test]

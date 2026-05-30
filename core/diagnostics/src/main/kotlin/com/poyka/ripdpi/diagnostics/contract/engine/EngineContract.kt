@@ -26,7 +26,9 @@ import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
 import kotlinx.serialization.Serializable
 
-const val DiagnosticsEngineSchemaVersion = 1
+// v2: added the DOH_JSON_SURVEY probe family / engine stage. Must stay in sync
+// with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
+const val DiagnosticsEngineSchemaVersion = 2
 
 @Serializable
 enum class EngineProbeTaskFamily {
@@ -38,6 +40,7 @@ enum class EngineProbeTaskFamily {
     CIRCUMVENTION,
     TELEGRAM,
     THROUGHPUT,
+    DOH_JSON_SURVEY,
 }
 
 @Serializable

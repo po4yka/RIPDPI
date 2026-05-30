@@ -27,6 +27,7 @@ macro_rules! impl_connectivity_runner {
 
 mod circumvention;
 mod dns;
+mod doh_json;
 mod environment;
 mod quic;
 mod service;
@@ -39,6 +40,7 @@ mod web;
 
 pub(super) use circumvention::CircumventionRunner;
 pub(super) use dns::DnsRunner;
+pub(super) use doh_json::DohJsonSurveyRunner;
 pub(super) use environment::EnvironmentRunner;
 pub(super) use quic::QuicRunner;
 pub(super) use service::ServiceRunner;
@@ -65,6 +67,7 @@ mod tests {
         ("service", super::service::PHASE, super::service::ARTIFACT_SOURCE),
         ("telegram", super::telegram::PHASE_TEST, "telegram"),
         ("environment", "environment", "network_environment"),
+        ("doh_json", "doh_json", "doh_json_survey"),
     ];
 
     /// Expected byte-identical pairs frozen at spec time (acceptance criteria from
@@ -79,6 +82,7 @@ mod tests {
         ("service", "service", "service_reachability"),
         ("telegram", "telegram", "telegram"),
         ("environment", "environment", "network_environment"),
+        ("doh_json", "doh_json", "doh_json_survey"),
     ];
 
     /// Asserts that every runner's `phase()` value is byte-identical to the frozen

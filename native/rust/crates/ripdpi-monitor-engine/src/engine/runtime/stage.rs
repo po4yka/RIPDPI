@@ -18,6 +18,7 @@ pub(in crate::engine) enum ExecutionStageId {
     Circumvention,
     Telegram,
     Throughput,
+    DohJsonSurvey,
     StrategyDnsBaseline,
     StrategyTcpCandidates,
     StrategyQuicCandidates,
