@@ -1,7 +1,7 @@
 ---
 title: Epic - Privacy-preserving strategy learner
 type: epic
-status: todo
+status: done
 area: epic
 priority: high
 owner: unassigned
@@ -9,10 +9,10 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-28
+updated: 2026-05-30
 ---
 
-- [ ] #task Epic - Privacy-preserving strategy learner #repo/RIPDPI #area/epic #status/todo ⏫
+- [x] #task Epic - Privacy-preserving strategy learner #repo/RIPDPI #area/epic #status/done ⏫
 
 ## Goal
 
@@ -55,20 +55,29 @@ stop_on_first_stable_success = true
 
 ## Ship definition
 
-- [ ] Three types defined, serde-stable, with zero user-identifying fields.
-- [ ] Arm ranking exercises all four penalty terms; unit tests cover each in isolation.
-- [ ] Attempt budget hard-enforced; each cap has a unit test that shows it firing first.
-- [ ] Shared-priors uploader passes a static-analysis test that proves it cannot depend on URL- or SSID-carrying types.
-- [ ] Offline emulator produces packs that fit the signed-pack format from Add anti-rollback to strategy-pack updates.
+- [x] Three types defined, serde-stable, with zero user-identifying fields.
+- [x] Arm ranking exercises all four penalty terms; unit tests cover each in isolation.
+- [x] Attempt budget hard-enforced; each cap has a unit test that shows it firing first.
+- [x] Shared-priors uploader passes a static-analysis test that proves it cannot depend on URL- or SSID-carrying types.
+- [x] Offline emulator produces packs that fit the signed-pack format from Add anti-rollback to strategy-pack updates.
 
 ## Current status
 
-Verified 2026-05-28 against the current offline analytics pipeline:
+Updated 2026-05-30. With the offline strategy-pack pipeline closed, every listed child task
+is now implemented and all five ship-definition items are satisfied by landed, tested code:
 
-- the existing offline analytics pipeline no longer stops at device-fingerprint clusters and winner mappings; it now also emits a review-gated `strategy-pack-catalog.candidate.json`
-- generated packs reuse the live strategy-pack schema and baseline catalog metadata, and append staged `offline-*` packs derived from stable winner mappings
-- the slice is still intentionally offline-only: generated packs are not consumed by runtime ranking automatically and still require analyst review plus the normal signing/promotion flow
-- the runtime learner pieces remain open: Bayesian scoring, rarity/retry penalties, attempt-budget enforcement, and shared-priors serialization rules
+- the runtime learner pieces are in place: `NetProfile` / `HostProfile` / `ArmStats` types,
+  Beta posterior scoring exercising all four penalty terms, attempt-budget enforcement with a
+  per-cap test, asymmetric decay, and the static-key-enforced shared-priors serializer
+- the offline emulator landed: the offline analytics pipeline emits a review-gated
+  `strategy-pack-catalog.candidate.json` and a deterministic CensorLab-style simulator
+  (`simulate` / `simulate-run`) plus sim-to-field calibration (`calibrate`)
+- the slice is still intentionally offline-only: generated `offline-sim-` packs are not
+  consumed by runtime ranking automatically and still require analyst review plus the normal
+  signing/promotion flow
+- remaining hardening is operational, not a ship blocker: replacing the synthetic
+  calibration stand-ins with real field-failure archives, and the coarse-key entropy audit on
+  real-world data before enabling shared-prior uploads by default
 
 ## Child tasks
 
@@ -85,7 +94,7 @@ Verified 2026-05-28 against the current offline analytics pipeline:
 
 **Shared priors and offline generation**
 - Opt-in shared priors with coarse keys only (closed task)
-- [[Build CensorLab-style offline strategy-pack pipeline]]
+- Build CensorLab-style offline strategy-pack pipeline (closed task)
 
 Child tasks roll up via the TaskNotes relationships view on this note.
 
