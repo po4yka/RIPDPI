@@ -230,6 +230,14 @@ fn should_fallback_ipfrag_udp_error_kind(kind: io::ErrorKind) -> bool {
 }
 
 fn execute_udp_ttl_action(ctx: UdpActionExecContext<'_>, ttl: u8) -> io::Result<()> {
+    // A low/fake TTL is a desync trick aimed at the path to the *final target*.
+    // Through a SOCKS5 UDP relay the socket is connected to the trusted relay
+    // endpoint, so a low TTL would expire the datagram at/before the relay
+    // (dropping it) while achieving no DPI desync. Skip it on the relay path --
+    // mirrors execute_udp_fragmented_write_action's relay fallback.
+    if ctx.socks_udp_frame {
+        return Ok(());
+    }
     let socket = socket2::SockRef::from(ctx.upstream);
     match ctx.target {
         SocketAddr::V4(_) => socket.set_ttl_v4(ttl as u32),
@@ -322,5 +330,30 @@ mod tests {
         execute_udp_ttl_action(ctx, 17).expect("set IPv6 hop limit");
 
         assert_eq!(SockRef::from(&socket).unicast_hops_v6().expect("read IPv6 hop limit"), 17);
+    }
+
+    #[test]
+    fn udp_ttl_action_skipped_when_routing_through_socks5_relay() {
+        let socket = UdpSocket::bind("127.0.0.1:0").expect("bind IPv4 UDP socket");
+        // Establish a known baseline, then attempt a low (would-be desync) TTL on
+        // the SOCKS5-relay path: it must be left untouched, otherwise the datagram
+        // would expire at/before the trusted relay instead of reaching it.
+        SockRef::from(&socket).set_ttl_v4(55).expect("set baseline TTL");
+        let ctx = UdpActionExecContext {
+            upstream: &socket,
+            target: "127.0.0.1:443".parse().expect("IPv4 target"),
+            default_ttl: 64,
+            protect_path: None,
+            ip_id_mode: None,
+            socks_udp_frame: true,
+        };
+
+        execute_udp_ttl_action(ctx, 1).expect("ttl action is a no-op on the relay path");
+
+        assert_eq!(
+            SockRef::from(&socket).ttl_v4().expect("read IPv4 TTL"),
+            55,
+            "TTL must be unchanged when routing through a SOCKS5 UDP relay",
+        );
     }
 }
