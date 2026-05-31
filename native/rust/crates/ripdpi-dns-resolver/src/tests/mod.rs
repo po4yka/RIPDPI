@@ -3,8 +3,7 @@ mod pipeline;
 
 use super::*;
 
-use crypto_box::aead::Aead;
-use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
+use crypto_box::{PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use hickory_proto::op::{Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, AAAA, CNAME, TXT};
 use hickory_proto::rr::{Name, RData, Record, RecordType};
@@ -28,6 +27,18 @@ struct DnsCryptTestServer {
     provider_name: String,
     certificate: DnsCryptCachedCertificate,
     resolver_secret: CryptoSecretKey,
+    es_version: u16,
+}
+
+impl DnsCryptTestServer {
+    /// Build the resolver-side cipher for this fixture's suite, keyed by the
+    /// client's public key and the resolver's secret. Mirrors the client's
+    /// `DnsCryptCipher::new(es_version, resolver_pk, client_sk)` so the same
+    /// shared secret is derived on both ends.
+    fn server_cipher(&self, client_public: &CryptoPublicKey) -> DnsCryptCipher {
+        DnsCryptCipher::new(self.es_version, client_public, &self.resolver_secret)
+            .expect("fixture es_version is supported")
+    }
 }
 
 fn build_query(name: &str) -> Vec<u8> {
@@ -618,6 +629,40 @@ fn dnscrypt_exchange_supports_direct_transport() {
 }
 
 #[test]
+fn interop_xsalsa20_es_version_0x0001() {
+    // A resolver advertising es_version 0x0001 must route the client to the
+    // XSalsa20Poly1305 suite and round-trip a query through the fixture, which
+    // also serves XSalsa20 on its side via the shared `DnsCryptCipher`.
+    let query = build_query("fixture.test");
+    let answer_ip = Ipv4Addr::new(198, 18, 0, 15);
+    let server = DnsCryptTestServer::with_es_version("resolver.test", DNSCRYPT_ES_VERSION_XSALSA);
+    assert_eq!(server.certificate.es_version, DNSCRYPT_ES_VERSION_XSALSA);
+    let (port, handle) = start_dnscrypt_server(server.clone(), build_response(&query, answer_ip));
+
+    let resolver = EncryptedDnsResolver::new(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::DnsCrypt,
+            resolver_id: Some("fixture".to_string()),
+            host: "resolver.test".to_string(),
+            port,
+            tls_server_name: None,
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: Some(server.provider_name.clone()),
+            dnscrypt_public_key: Some(server.provider_public_key_hex.clone()),
+            odoh: None,
+        },
+        EncryptedDnsTransport::Direct,
+    )
+    .expect("resolver builds");
+
+    let response = resolver.exchange_blocking(&query).expect("DNSCrypt (XSalsa20) response");
+    let answers = extract_ip_answers(&response).expect("answers parse");
+    assert_eq!(answers, vec![answer_ip.to_string()]);
+    handle.join().expect("server thread completes");
+}
+
+#[test]
 fn direct_dnscrypt_connect_hooks_are_used() {
     let query = build_query("fixture.test");
     let answer_ip = Ipv4Addr::new(198, 18, 0, 46);
@@ -840,6 +885,10 @@ fn error_kind_maps_common_failures() {
 
 impl DnsCryptTestServer {
     fn new(provider_suffix: &str) -> Self {
+        Self::with_es_version(provider_suffix, DNSCRYPT_ES_VERSION_XCHACHA)
+    }
+
+    fn with_es_version(provider_suffix: &str, es_version: u16) -> Self {
         let provider_key_pair = Ed25519KeyPair::from_seed_unchecked(&[7u8; 32]).expect("ed25519 key pair from seed");
         let provider_public_bytes: [u8; 32] =
             provider_key_pair.public_key().as_ref().try_into().expect("ed25519 public key is 32 bytes");
@@ -860,7 +909,7 @@ impl DnsCryptTestServer {
 
         let mut cert_bytes = Vec::with_capacity(DNSCRYPT_CERT_SIZE);
         cert_bytes.extend_from_slice(&DNSCRYPT_CERT_MAGIC);
-        cert_bytes.extend_from_slice(&DNSCRYPT_ES_VERSION.to_be_bytes());
+        cert_bytes.extend_from_slice(&es_version.to_be_bytes());
         cert_bytes.extend_from_slice(&0u16.to_be_bytes());
         cert_bytes.extend_from_slice(signature.as_ref());
         cert_bytes.extend_from_slice(&inner);
@@ -876,6 +925,7 @@ impl DnsCryptTestServer {
             provider_name: format!("2.dnscrypt-cert.{provider_suffix}"),
             certificate,
             resolver_secret,
+            es_version,
         }
     }
 
@@ -890,7 +940,7 @@ impl DnsCryptTestServer {
         let signature = signing.sign(&inner);
         let mut cert_bytes = Vec::with_capacity(DNSCRYPT_CERT_SIZE);
         cert_bytes.extend_from_slice(&DNSCRYPT_CERT_MAGIC);
-        cert_bytes.extend_from_slice(&DNSCRYPT_ES_VERSION.to_be_bytes());
+        cert_bytes.extend_from_slice(&self.es_version.to_be_bytes());
         cert_bytes.extend_from_slice(&0u16.to_be_bytes());
         cert_bytes.extend_from_slice(signature.as_ref());
         cert_bytes.extend_from_slice(&inner);
@@ -920,8 +970,8 @@ fn start_dnscrypt_server(server: DnsCryptTestServer, response_packet: Vec<u8>) -
             client_public.copy_from_slice(&packet[8..40]);
             let mut nonce = [0u8; DNSCRYPT_NONCE_SIZE];
             nonce[..DNSCRYPT_QUERY_NONCE_HALF].copy_from_slice(&packet[40..52]);
-            let crypto_box = ChaChaBox::new(&CryptoPublicKey::from(client_public), &server.resolver_secret);
-            serve_dnscrypt_query(&packet, &server, &response_packet, &crypto_box, &nonce, &mut stream);
+            let cipher = server.server_cipher(&CryptoPublicKey::from(client_public));
+            serve_dnscrypt_query(&packet, &server, &response_packet, &cipher, &nonce, &mut stream);
         }
     });
     (port, handle)
@@ -949,8 +999,8 @@ fn start_reusable_dnscrypt_server(
             client_public.copy_from_slice(&packet[8..40]);
             let mut nonce = [0u8; DNSCRYPT_NONCE_SIZE];
             nonce[..DNSCRYPT_QUERY_NONCE_HALF].copy_from_slice(&packet[40..52]);
-            let crypto_box = ChaChaBox::new(&CryptoPublicKey::from(client_public), &server.resolver_secret);
-            serve_dnscrypt_query(&packet, &server, &response_packet, &crypto_box, &nonce, &mut query_stream);
+            let cipher = server.server_cipher(&CryptoPublicKey::from(client_public));
+            serve_dnscrypt_query(&packet, &server, &response_packet, &cipher, &nonce, &mut query_stream);
         }
     });
     (port, handle)
@@ -960,11 +1010,11 @@ fn serve_dnscrypt_query(
     packet: &[u8],
     _server: &DnsCryptTestServer,
     response_packet: &[u8],
-    crypto_box: &ChaChaBox,
+    cipher: &DnsCryptCipher,
     nonce: &[u8; DNSCRYPT_NONCE_SIZE],
     stream: &mut TcpStream,
 ) {
-    let decrypted = crypto_box.decrypt((&nonce[..]).into(), &packet[52..]).expect("dnscrypt request decrypt");
+    let decrypted = cipher.decrypt(nonce, &packet[52..]).expect("dnscrypt request decrypt");
     let query = dnscrypt_unpad(&decrypted).expect("dnscrypt request unpad");
     let expected = build_query("fixture.test");
     // Compare queries ignoring the 2-byte transaction ID (now randomized).
@@ -972,9 +1022,8 @@ fn serve_dnscrypt_query(
 
     let mut response_nonce = *nonce;
     response_nonce[DNSCRYPT_QUERY_NONCE_HALF..].fill(0x11);
-    let ciphertext = crypto_box
-        .encrypt((&response_nonce).into(), dnscrypt_pad(response_packet).as_slice())
-        .expect("dnscrypt response encrypt");
+    let ciphertext =
+        cipher.encrypt(&response_nonce, dnscrypt_pad(response_packet).as_slice()).expect("dnscrypt response encrypt");
     let mut wrapped = Vec::with_capacity(8 + DNSCRYPT_NONCE_SIZE + ciphertext.len());
     wrapped.extend_from_slice(&DNSCRYPT_RESPONSE_MAGIC);
     wrapped.extend_from_slice(&response_nonce);

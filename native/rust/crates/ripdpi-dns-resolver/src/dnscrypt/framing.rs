@@ -1,13 +1,11 @@
-use crypto_box::aead::Aead;
-use crypto_box::ChaChaBox;
-
 use crate::types::EncryptedDnsError;
 
+use super::cipher::DnsCryptCipher;
 use super::padding::dnscrypt_unpad;
 use super::{DNSCRYPT_NONCE_SIZE, DNSCRYPT_QUERY_NONCE_HALF, DNSCRYPT_RESPONSE_MAGIC};
 
 pub(crate) fn decrypt_dnscrypt_response(
-    crypto_box: &ChaChaBox,
+    cipher: &DnsCryptCipher,
     response: &[u8],
     expected_nonce_prefix: &[u8],
 ) -> Result<Vec<u8>, EncryptedDnsError> {
@@ -22,8 +20,8 @@ pub(crate) fn decrypt_dnscrypt_response(
     if nonce[..DNSCRYPT_QUERY_NONCE_HALF] != *expected_nonce_prefix {
         return Err(EncryptedDnsError::DnsCryptDecrypt("nonce prefix mismatch".to_string()));
     }
-    let plaintext = crypto_box
-        .decrypt((&nonce).into(), &response[8 + DNSCRYPT_NONCE_SIZE..])
+    let plaintext = cipher
+        .decrypt(&nonce, &response[8 + DNSCRYPT_NONCE_SIZE..])
         .map_err(|err| EncryptedDnsError::DnsCryptDecrypt(err.to_string()))?;
     dnscrypt_unpad(&plaintext)
 }

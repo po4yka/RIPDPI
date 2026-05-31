@@ -2,7 +2,7 @@ use ring::signature::{self, UnparsedPublicKey};
 
 use crate::types::{DnsCryptCachedCertificate, EncryptedDnsError};
 
-use super::{DNSCRYPT_CERT_MAGIC, DNSCRYPT_CERT_SIZE, DNSCRYPT_ES_VERSION};
+use super::{DNSCRYPT_CERT_MAGIC, DNSCRYPT_CERT_SIZE, DNSCRYPT_ES_VERSION_XCHACHA, DNSCRYPT_ES_VERSION_XSALSA};
 
 pub(crate) fn parse_dnscrypt_certificate(
     bytes: &[u8],
@@ -16,7 +16,7 @@ pub(crate) fn parse_dnscrypt_certificate(
         return Err(EncryptedDnsError::DnsCryptCertificate("unexpected cert magic".to_string()));
     }
     let es_version = u16::from_be_bytes([bytes[4], bytes[5]]);
-    if es_version != DNSCRYPT_ES_VERSION {
+    if es_version != DNSCRYPT_ES_VERSION_XSALSA && es_version != DNSCRYPT_ES_VERSION_XCHACHA {
         return Err(EncryptedDnsError::DnsCryptCertificate(format!("unsupported es_version {es_version}")));
     }
 
@@ -34,5 +34,5 @@ pub(crate) fn parse_dnscrypt_certificate(
     let valid_from = u32::from_be_bytes([bytes[116], bytes[117], bytes[118], bytes[119]]);
     let valid_until = u32::from_be_bytes([bytes[120], bytes[121], bytes[122], bytes[123]]);
 
-    Ok(DnsCryptCachedCertificate { resolver_public_key, client_magic, valid_from, valid_until })
+    Ok(DnsCryptCachedCertificate { resolver_public_key, client_magic, valid_from, valid_until, es_version })
 }

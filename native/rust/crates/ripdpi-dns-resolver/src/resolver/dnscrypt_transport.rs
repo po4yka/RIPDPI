@@ -1,5 +1,4 @@
-use crypto_box::aead::Aead;
-use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
+use crypto_box::{PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use hickory_proto::op::Message;
 use hickory_proto::rr::{RData, RecordType};
 use ring::rand::{SecureRandom, SystemRandom};
@@ -46,14 +45,14 @@ impl EncryptedDnsResolver {
         let client_secret = CryptoSecretKey::from(client_secret);
         let client_public = client_secret.public_key();
         let resolver_public = CryptoPublicKey::from(certificate.resolver_public_key);
-        let crypto_box = ChaChaBox::new(&resolver_public, &client_secret);
+        let cipher = DnsCryptCipher::new(certificate.es_version, &resolver_public, &client_secret)?;
 
         let mut full_nonce = [0u8; DNSCRYPT_NONCE_SIZE];
         rng.fill(&mut full_nonce[..DNSCRYPT_QUERY_NONCE_HALF])
             .map_err(|_| EncryptedDnsError::Request("failed to generate random nonce".to_string()))?;
         let padded_query = dnscrypt_pad(query_bytes);
-        let ciphertext = crypto_box
-            .encrypt((&full_nonce).into(), padded_query.as_slice())
+        let ciphertext = cipher
+            .encrypt(&full_nonce, padded_query.as_slice())
             .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
 
         let mut wrapped_query =
@@ -74,7 +73,7 @@ impl EncryptedDnsResolver {
                 return Err(EncryptedDnsError::Request("DNSCrypt exchange timed out".to_string()));
             }
         };
-        decrypt_dnscrypt_response(&crypto_box, &response, &full_nonce[..DNSCRYPT_QUERY_NONCE_HALF])
+        decrypt_dnscrypt_response(&cipher, &response, &full_nonce[..DNSCRYPT_QUERY_NONCE_HALF])
     }
 
     async fn take_dnscrypt_session(&self) -> Result<(TokioTcpStream, bool), EncryptedDnsError> {

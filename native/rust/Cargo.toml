@@ -241,7 +241,10 @@ aes = "0.9"
 arc-swap = "1"
 android_logger = "0.15"
 anyhow = "1"
-crypto_box = { version = "0.9", features = ["chacha20"] }
+# salsa20 (XSalsa20Poly1305, DNSCrypt es_version 0x0001) is in crypto_box's default
+# features, but pin it explicitly so a future default-features purge cannot silently
+# drop DNSCrypt's classic-NaCl-box cipher path. See ripdpi-dns-resolver dnscrypt::cipher.
+crypto_box = { version = "0.9", features = ["chacha20", "salsa20"] }
 etherparse = "0.20"
 pico-args = "0.5"
 pollster = "0.4"

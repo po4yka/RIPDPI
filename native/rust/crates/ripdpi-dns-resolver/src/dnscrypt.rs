@@ -1,15 +1,20 @@
 mod certificate;
+mod cipher;
 mod framing;
 mod identity;
 mod padding;
 
 pub(crate) use certificate::parse_dnscrypt_certificate;
+pub(crate) use cipher::DnsCryptCipher;
 pub(crate) use framing::decrypt_dnscrypt_response;
 pub(crate) use identity::{dnscrypt_provider_name, dnscrypt_verifying_key};
 pub(crate) use padding::{dnscrypt_pad, dnscrypt_unpad};
 
 pub(crate) const DNSCRYPT_CERT_MAGIC: [u8; 4] = *b"DNSC";
-pub(crate) const DNSCRYPT_ES_VERSION: u16 = 2;
+/// `es_version` for the classic NaCl box (XSalsa20Poly1305), RFC 8937 / DNSCrypt v2.
+pub(crate) const DNSCRYPT_ES_VERSION_XSALSA: u16 = 1;
+/// `es_version` for XChaCha20Poly1305, the default DNSCrypt v2 suite.
+pub(crate) const DNSCRYPT_ES_VERSION_XCHACHA: u16 = 2;
 pub(crate) const DNSCRYPT_RESPONSE_MAGIC: [u8; 8] = [0x72, 0x36, 0x66, 0x6e, 0x76, 0x57, 0x6a, 0x38];
 pub(crate) const DNSCRYPT_NONCE_SIZE: usize = 24;
 pub(crate) const DNSCRYPT_QUERY_NONCE_HALF: usize = DNSCRYPT_NONCE_SIZE / 2;
@@ -25,7 +30,10 @@ mod tests {
     use ring::signature::{Ed25519KeyPair, KeyPair};
 
     /// Build a valid Ed25519-signed DNSCrypt certificate for testing.
-    fn test_keypair_and_cert() -> ([u8; 32], Vec<u8>) {
+    ///
+    /// The ed25519 signature covers `bytes[72..]` only, so the es_version field at
+    /// `bytes[4..6]` can be overwritten without invalidating the signature.
+    fn test_keypair_and_cert_with_es_version(es_version: u16) -> ([u8; 32], Vec<u8>) {
         let key_pair = Ed25519KeyPair::from_seed_unchecked(&[7u8; 32]).expect("ed25519 keypair");
         let public_bytes: [u8; 32] = key_pair.public_key().as_ref().try_into().unwrap();
 
@@ -45,13 +53,17 @@ mod tests {
 
         let mut cert = Vec::with_capacity(DNSCRYPT_CERT_SIZE);
         cert.extend_from_slice(&DNSCRYPT_CERT_MAGIC);
-        cert.extend_from_slice(&DNSCRYPT_ES_VERSION.to_be_bytes());
+        cert.extend_from_slice(&es_version.to_be_bytes());
         cert.extend_from_slice(&0u16.to_be_bytes());
         cert.extend_from_slice(signature.as_ref());
         cert.extend_from_slice(&inner);
         assert_eq!(cert.len(), DNSCRYPT_CERT_SIZE);
 
         (public_bytes, cert)
+    }
+
+    fn test_keypair_and_cert() -> ([u8; 32], Vec<u8>) {
+        test_keypair_and_cert_with_es_version(DNSCRYPT_ES_VERSION_XCHACHA)
     }
 
     fn make_endpoint(public_key: Option<&str>) -> EncryptedDnsEndpoint {
@@ -121,9 +133,30 @@ mod tests {
     #[test]
     fn parse_certificate_rejects_unsupported_es_version() {
         let (pk, mut cert) = test_keypair_and_cert();
-        cert[4..6].copy_from_slice(&1u16.to_be_bytes());
+        cert[4..6].copy_from_slice(&3u16.to_be_bytes());
         let err = parse_dnscrypt_certificate(&cert, &pk, "test.provider").unwrap_err();
         assert!(matches!(err, EncryptedDnsError::DnsCryptCertificate(_)));
+    }
+
+    #[test]
+    fn parse_certificate_accepts_xsalsa_es_version() {
+        let (pk, cert) = test_keypair_and_cert_with_es_version(DNSCRYPT_ES_VERSION_XSALSA);
+        let parsed = parse_dnscrypt_certificate(&cert, &pk, "test.provider").expect("valid xsalsa cert");
+        assert_eq!(parsed.es_version, DNSCRYPT_ES_VERSION_XSALSA);
+
+        // The stored es_version must route to the XSalsa cipher variant.
+        use crypto_box::{PublicKey, SecretKey};
+        let sk = SecretKey::from([1u8; 32]);
+        let resolver_pk = PublicKey::from(parsed.resolver_public_key);
+        let cipher = DnsCryptCipher::new(parsed.es_version, &resolver_pk, &sk).expect("xsalsa cipher");
+        assert!(matches!(cipher, DnsCryptCipher::XSalsa(_)));
+    }
+
+    #[test]
+    fn parse_certificate_accepts_xchacha_es_version() {
+        let (pk, cert) = test_keypair_and_cert_with_es_version(DNSCRYPT_ES_VERSION_XCHACHA);
+        let parsed = parse_dnscrypt_certificate(&cert, &pk, "test.provider").expect("valid xchacha cert");
+        assert_eq!(parsed.es_version, DNSCRYPT_ES_VERSION_XCHACHA);
     }
 
     // -- dnscrypt_verifying_key tests --
@@ -205,9 +238,9 @@ mod tests {
         use crypto_box::{PublicKey, SecretKey};
         let sk = SecretKey::from([1u8; 32]);
         let pk = PublicKey::from([2u8; 32]);
-        let cbox = ChaChaBox::new(&pk, &sk);
+        let cipher = DnsCryptCipher::XChaCha(ChaChaBox::new(&pk, &sk));
         let short = vec![0u8; 8 + DNSCRYPT_NONCE_SIZE]; // exactly at boundary, not >
-        let err = decrypt_dnscrypt_response(&cbox, &short, &[0u8; 12]).unwrap_err();
+        let err = decrypt_dnscrypt_response(&cipher, &short, &[0u8; 12]).unwrap_err();
         assert!(matches!(err, EncryptedDnsError::DnsCryptDecrypt(_)));
     }
 
@@ -216,10 +249,10 @@ mod tests {
         use crypto_box::{PublicKey, SecretKey};
         let sk = SecretKey::from([1u8; 32]);
         let pk = PublicKey::from([2u8; 32]);
-        let cbox = ChaChaBox::new(&pk, &sk);
+        let cipher = DnsCryptCipher::XChaCha(ChaChaBox::new(&pk, &sk));
         let mut response = vec![0u8; 100];
         response[..8].copy_from_slice(b"BADMAGIC");
-        let err = decrypt_dnscrypt_response(&cbox, &response, &[0u8; 12]).unwrap_err();
+        let err = decrypt_dnscrypt_response(&cipher, &response, &[0u8; 12]).unwrap_err();
         assert!(matches!(err, EncryptedDnsError::DnsCryptDecrypt(_)));
     }
 
@@ -228,12 +261,12 @@ mod tests {
         use crypto_box::{PublicKey, SecretKey};
         let sk = SecretKey::from([1u8; 32]);
         let pk = PublicKey::from([2u8; 32]);
-        let cbox = ChaChaBox::new(&pk, &sk);
+        let cipher = DnsCryptCipher::XChaCha(ChaChaBox::new(&pk, &sk));
         let mut response = vec![0u8; 100];
         response[..8].copy_from_slice(&DNSCRYPT_RESPONSE_MAGIC);
         response[8..20].copy_from_slice(&[0xAA; 12]);
         let expected_prefix = [0xBB; 12];
-        let err = decrypt_dnscrypt_response(&cbox, &response, &expected_prefix).unwrap_err();
+        let err = decrypt_dnscrypt_response(&cipher, &response, &expected_prefix).unwrap_err();
         assert!(matches!(err, EncryptedDnsError::DnsCryptDecrypt(_)));
     }
 }

@@ -40,9 +40,9 @@ pub use types::{
 // Internal re-exports for test access
 #[allow(unused_imports)]
 pub(crate) use dnscrypt::{
-    dnscrypt_pad, dnscrypt_unpad, parse_dnscrypt_certificate, DNSCRYPT_CERT_MAGIC, DNSCRYPT_CERT_SIZE,
-    DNSCRYPT_ES_VERSION, DNSCRYPT_NONCE_SIZE, DNSCRYPT_PADDING_BLOCK_SIZE, DNSCRYPT_QUERY_NONCE_HALF,
-    DNSCRYPT_RESPONSE_MAGIC,
+    dnscrypt_pad, dnscrypt_unpad, parse_dnscrypt_certificate, DnsCryptCipher, DNSCRYPT_CERT_MAGIC, DNSCRYPT_CERT_SIZE,
+    DNSCRYPT_ES_VERSION_XCHACHA, DNSCRYPT_ES_VERSION_XSALSA, DNSCRYPT_NONCE_SIZE, DNSCRYPT_PADDING_BLOCK_SIZE,
+    DNSCRYPT_QUERY_NONCE_HALF, DNSCRYPT_RESPONSE_MAGIC,
 };
 #[cfg(test)]
 #[allow(unused_imports)]
