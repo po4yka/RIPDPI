@@ -37,9 +37,12 @@ ripdpi-io-uring = { workspace = true, optional = true }
 io-uring = ["dep:ripdpi-io-uring"]
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["test-util"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "test-util", "time"] }
 tokio-test = "0.4"
 proptest = { workspace = true }
+quinn = { workspace = true }
+rcgen = { workspace = true }
+ring = { workspace = true }
 turmoil = "0.7"
 local-network-fixture = { workspace = true }
 libc = { workspace = true }

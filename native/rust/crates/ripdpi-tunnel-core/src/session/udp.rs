@@ -468,6 +468,364 @@ mod tests {
         );
     }
 
+    // ── QUIC E2E: real QUIC handshake + echo through the tunnel's SOCKS5 UDP relay ──
+
+    /// `quinn::AsyncUdpSocket` adapter that drives a quinn client through the
+    /// tunnel's SOCKS5 UDP relay codec.
+    ///
+    /// Every outbound QUIC datagram is SOCKS5-UDP-framed (`encode_udp_frame`)
+    /// before sending; every inbound SOCKS5 frame is decoded (`decode_udp_frame`)
+    /// so quinn receives raw QUIC bytes. Uses the production codec so RSV
+    /// validation, IPv6 checks, and FRAG rejection are all exercised.
+    #[cfg(not(target_os = "android"))]
+    mod quic_adapter {
+        use std::pin::Pin;
+        use std::sync::Arc;
+        use std::task::{Context, Poll};
+        use tokio::net::UdpSocket as TokioUdpSocket;
+
+        use super::{decode_udp_frame, encode_udp_frame};
+
+        #[derive(Debug)]
+        pub(super) struct Socks5QuicAdapter {
+            pub(super) socket: TokioUdpSocket,
+            pub(super) quic_server_addr: std::net::SocketAddr,
+        }
+
+        impl quinn::AsyncUdpSocket for Socks5QuicAdapter {
+            fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn quinn::UdpPoller>> {
+                #[derive(Debug)]
+                struct Poller(Arc<Socks5QuicAdapter>);
+                impl quinn::UdpPoller for Poller {
+                    fn poll_writable(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+                        self.0.socket.poll_send_ready(cx)
+                    }
+                }
+                Box::pin(Poller(self))
+            }
+
+            fn try_send(&self, transmit: &quinn::udp::Transmit<'_>) -> std::io::Result<()> {
+                // No GSO through SOCKS5 framing: send each segment individually.
+                self.socket.try_io(tokio::io::Interest::WRITABLE, || {
+                    let seg = transmit.segment_size.unwrap_or(transmit.contents.len());
+                    for chunk in transmit.contents.chunks(seg) {
+                        let frame = encode_udp_frame(self.quic_server_addr, chunk);
+                        let sent = self.socket.try_send(&frame)?;
+                        if sent != frame.len() {
+                            return Err(std::io::Error::new(std::io::ErrorKind::WriteZero, "short SOCKS5 UDP send"));
+                        }
+                    }
+                    Ok(())
+                })
+            }
+
+            fn poll_recv(
+                &self,
+                cx: &mut Context<'_>,
+                bufs: &mut [std::io::IoSliceMut<'_>],
+                meta: &mut [quinn::udp::RecvMeta],
+            ) -> Poll<std::io::Result<usize>> {
+                let mut scratch = vec![0u8; 65535];
+                std::task::ready!(self.socket.poll_recv_ready(cx))?;
+                match self.socket.try_io(tokio::io::Interest::READABLE, || self.socket.try_recv(&mut scratch)) {
+                    Ok(n) => match decode_udp_frame(&scratch[..n]) {
+                        Ok((from_addr, payload)) => {
+                            let first = bufs.first_mut().ok_or_else(|| {
+                                std::io::Error::new(std::io::ErrorKind::InvalidInput, "no recv buffer")
+                            })?;
+                            let copy_len = payload.len().min(first.len());
+                            first[..copy_len].copy_from_slice(&payload[..copy_len]);
+                            meta[0] = quinn::udp::RecvMeta {
+                                addr: from_addr,
+                                len: copy_len,
+                                stride: copy_len,
+                                ecn: None,
+                                dst_ip: None,
+                            };
+                            Poll::Ready(Ok(1))
+                        }
+                        Err(_) => Poll::Pending,
+                    },
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Poll::Pending,
+                    Err(e) => Poll::Ready(Err(e)),
+                }
+            }
+
+            fn local_addr(&self) -> std::io::Result<std::net::SocketAddr> {
+                self.socket.local_addr()
+            }
+
+            fn may_fragment(&self) -> bool {
+                false
+            }
+        }
+    }
+
+    /// Test-only TLS verifier: accepts any server certificate.
+    ///
+    /// The quinn echo server presents an rcgen self-signed cert with no chain;
+    /// this verifier bypasses chain validation so the test stays hermetic.
+    #[cfg(not(target_os = "android"))]
+    #[derive(Debug)]
+    struct AcceptAnyCert;
+
+    #[cfg(not(target_os = "android"))]
+    impl rustls::client::danger::ServerCertVerifier for AcceptAnyCert {
+        fn verify_server_cert(
+            &self,
+            _end_entity: &rustls::pki_types::CertificateDer<'_>,
+            _intermediates: &[rustls::pki_types::CertificateDer<'_>],
+            _server_name: &rustls::pki_types::ServerName<'_>,
+            _ocsp_response: &[u8],
+            _now: rustls::pki_types::UnixTime,
+        ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+            Ok(rustls::client::danger::ServerCertVerified::assertion())
+        }
+        fn verify_tls12_signature(
+            &self,
+            _message: &[u8],
+            _cert: &rustls::pki_types::CertificateDer<'_>,
+            _dss: &rustls::DigitallySignedStruct,
+        ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+            Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+        }
+        fn verify_tls13_signature(
+            &self,
+            _message: &[u8],
+            _cert: &rustls::pki_types::CertificateDer<'_>,
+            _dss: &rustls::DigitallySignedStruct,
+        ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+            Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
+        }
+        fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+            rustls::crypto::ring::default_provider().signature_verification_algorithms.supported_schemes()
+        }
+    }
+
+    /// Bind a quinn QUIC echo server on a loopback port (rcgen self-signed cert,
+    /// ring crypto). Returns `(addr, join_handle)`.
+    ///
+    /// The server task accepts one connection, echoes one bi-directional stream,
+    /// then closes; the caller awaits the handle after the client finishes.
+    // cancel-safe: not applicable — test helper, not an async path.
+    #[cfg(not(target_os = "android"))]
+    async fn spawn_quinn_echo_server(alpn: &[u8]) -> (SocketAddr, tokio::task::JoinHandle<()>) {
+        use rcgen::generate_simple_self_signed;
+        use rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
+
+        let cert = generate_simple_self_signed(vec!["localhost".to_string()]).expect("rcgen self-signed cert");
+        let cert_der = CertificateDer::from(cert.cert.der().to_vec());
+        let key_der = PrivatePkcs8KeyDer::from(cert.signing_key.serialize_der());
+
+        let mut server_tls =
+            rustls::ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+                .with_safe_default_protocol_versions()
+                .expect("ring supports default TLS versions")
+                .with_no_client_auth()
+                .with_single_cert(vec![cert_der], key_der.into())
+                .expect("server TLS config");
+        server_tls.alpn_protocols = vec![alpn.to_vec()];
+
+        let mut server_cfg = quinn::ServerConfig::with_crypto(Arc::new(
+            quinn::crypto::rustls::QuicServerConfig::try_from(server_tls).expect("QuicServerConfig"),
+        ));
+        let mut transport = quinn::TransportConfig::default();
+        // Short idle timeout so wait_idle() drains quickly at teardown.
+        transport.max_idle_timeout(Some(Duration::from_secs(3).try_into().expect("idle timeout")));
+        server_cfg.transport = Arc::new(transport);
+
+        let endpoint =
+            quinn::Endpoint::server(server_cfg, "127.0.0.1:0".parse().unwrap()).expect("bind QUIC echo server");
+        let addr = endpoint.local_addr().expect("server local_addr");
+
+        let task = tokio::spawn(async move {
+            let conn = endpoint.accept().await.expect("server accept").await.expect("server establish");
+            let (mut send, mut recv) = conn.accept_bi().await.expect("accept bi-stream");
+            let mut buf = [0u8; 256];
+            let n = recv.read(&mut buf).await.expect("server read").expect("some bytes");
+            send.write_all(&buf[..n]).await.expect("server echo write");
+            send.finish().expect("server finish stream");
+            conn.closed().await;
+            endpoint.close(0u32.into(), b"done");
+            endpoint.wait_idle().await;
+        });
+        (addr, task)
+    }
+
+    /// Spawn a transparent SOCKS5 forwarding relay + minimal stub proxy.
+    ///
+    /// The relay forwards between the Socks5QuicAdapter and the quinn server:
+    /// - client→server: decode SOCKS5 frame → send raw QUIC bytes to server.
+    /// - server→client: wrap raw QUIC as SOCKS5 frame (source = `server_addr`).
+    ///
+    /// Returns `(proxy_addr, relay_addr, c2s_handle, s2c_handle)`.
+    /// Abort both handles at teardown.
+    // cancel-safe: not applicable — test helper.
+    #[cfg(not(target_os = "android"))]
+    async fn spawn_socks5_forwarding_relay(
+        server_addr: SocketAddr,
+    ) -> (SocketAddr, SocketAddr, tokio::task::JoinHandle<()>, tokio::task::JoinHandle<()>) {
+        let relay_udp = Arc::new(UdpSocket::bind("127.0.0.1:0").await.expect("bind relay UDP"));
+        let relay_addr = relay_udp.local_addr().expect("relay local_addr");
+
+        let fwd_udp = Arc::new(UdpSocket::bind("127.0.0.1:0").await.expect("bind fwd UDP"));
+        fwd_udp.connect(server_addr).await.expect("connect fwd to quinn server");
+
+        // Two independent tasks prevent either direction from starving the other
+        // during the multi-packet QUIC handshake.
+        let client_addr_cell = Arc::new(tokio::sync::Mutex::new(Option::<SocketAddr>::None));
+
+        let (fwd_c2s, relay_c2s, cell_c2s) =
+            (Arc::clone(&fwd_udp), Arc::clone(&relay_udp), Arc::clone(&client_addr_cell));
+        let c2s = tokio::spawn(async move {
+            let mut buf = vec![0u8; 65535];
+            loop {
+                let Ok((n, peer)) = relay_c2s.recv_from(&mut buf).await else { break };
+                *cell_c2s.lock().await = Some(peer);
+                if let Ok((_dst, payload)) = decode_udp_frame(&buf[..n]) {
+                    let _ = fwd_c2s.send(payload).await;
+                }
+            }
+        });
+
+        let (fwd_s2c, relay_s2c, cell_s2c) =
+            (Arc::clone(&fwd_udp), Arc::clone(&relay_udp), Arc::clone(&client_addr_cell));
+        let s2c = tokio::spawn(async move {
+            let mut buf = vec![0u8; 65535];
+            loop {
+                let Ok(n) = fwd_s2c.recv(&mut buf).await else { break };
+                if let Some(peer) = *cell_s2c.lock().await {
+                    // Source = server_addr so quinn's RecvMeta.addr matches the peer.
+                    let frame = encode_udp_frame(server_addr, &buf[..n]);
+                    let _ = relay_s2c.send_to(&frame, peer).await;
+                }
+            }
+        });
+
+        // Stub proxy: NoAuth handshake + ASSOCIATE reply advertising relay_addr.
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind stub proxy");
+        let proxy_addr = listener.local_addr().expect("proxy local_addr");
+        let relay_port = relay_addr.port();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("proxy accept");
+            let mut buf = [0u8; 64];
+            let _ = stream.read(&mut buf).await;
+            stream.write_all(&[0x05, 0x00]).await.expect("proxy greeting");
+            let _ = stream.read(&mut buf).await;
+            let p = relay_port.to_be_bytes();
+            stream.write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, p[0], p[1]]).await.expect("proxy ASSOCIATE reply");
+            tokio::time::sleep(Duration::from_secs(10)).await;
+        });
+
+        (proxy_addr, relay_addr, c2s, s2c)
+    }
+
+    /// Build a `quinn::ClientConfig` with `AcceptAnyCert` and a 3 s idle timeout.
+    // cancel-safe: not applicable — synchronous.
+    #[cfg(not(target_os = "android"))]
+    fn build_insecure_quinn_client_config(alpn: &[u8]) -> quinn::ClientConfig {
+        let mut tls = rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring supports default TLS versions")
+            // SAFETY: test-only — server uses an rcgen self-signed cert with no chain.
+            .dangerous()
+            .with_custom_certificate_verifier(Arc::new(AcceptAnyCert))
+            .with_no_client_auth();
+        tls.alpn_protocols = vec![alpn.to_vec()];
+
+        let mut cfg = quinn::ClientConfig::new(Arc::new(
+            quinn::crypto::rustls::QuicClientConfig::try_from(tls).expect("QuicClientConfig"),
+        ));
+        let mut transport = quinn::TransportConfig::default();
+        transport.max_idle_timeout(Some(Duration::from_secs(3).try_into().expect("idle timeout")));
+        cfg.transport_config(Arc::new(transport));
+        cfg
+    }
+
+    /// Bind a quinn client `Endpoint` using a `Socks5QuicAdapter` socket
+    /// already connected to `relay_addr`.
+    // cancel-safe: not applicable — async only for the UdpSocket bind.
+    #[cfg(not(target_os = "android"))]
+    async fn build_quinn_client_endpoint(
+        relay_addr: SocketAddr,
+        server_addr: SocketAddr,
+        cfg: quinn::ClientConfig,
+    ) -> quinn::Endpoint {
+        use quic_adapter::Socks5QuicAdapter;
+        let raw_udp = tokio::net::UdpSocket::bind("127.0.0.1:0").await.expect("bind quinn client UDP");
+        raw_udp.connect(relay_addr).await.expect("connect quinn client UDP to relay");
+        let adapter = Arc::new(Socks5QuicAdapter { socket: raw_udp, quic_server_addr: server_addr });
+        let mut ep = quinn::Endpoint::new_with_abstract_socket(
+            quinn::EndpointConfig::default(),
+            None,
+            adapter,
+            Arc::new(quinn::TokioRuntime),
+        )
+        .expect("build QUIC client endpoint");
+        ep.set_default_client_config(cfg);
+        ep
+    }
+
+    /// End-to-end proof: QUIC 1-RTT handshake + app-data echo through the
+    /// tunnel's SOCKS5 UDP ASSOCIATE relay (`UdpSession`).
+    ///
+    /// ```text
+    /// quinn client (Socks5QuicAdapter)
+    ///   ↓  QUIC in SOCKS5 UDP frames
+    /// forwarding relay  (decode → raw QUIC → server; reply → encode → client)
+    /// quinn echo server (rcgen self-signed cert, ring crypto)
+    /// ```
+    ///
+    /// Hermetic (all loopback), no external deps, < 10 s CI.
+    // cancel-safe: not applicable — #[tokio::test] drives to completion.
+    #[cfg(not(target_os = "android"))]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn quic_handshake_and_echo_round_trip_through_udp_session_relay() {
+        const ALPN: &[u8] = b"tunnel-quic-e2e";
+
+        let (server_addr, server_task) = spawn_quinn_echo_server(ALPN).await;
+        let (proxy_addr, relay_addr, c2s, s2c) = spawn_socks5_forwarding_relay(server_addr).await;
+
+        // UdpSession proves the tunnel's ASSOCIATE path reaches the relay.
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth, None)
+            .await
+            .expect("UdpSession connects")
+            .with_recv_timeout(Duration::from_secs(10));
+
+        // Quinn client wired through Socks5QuicAdapter on the same relay.
+        let cfg = build_insecure_quinn_client_config(ALPN);
+        let endpoint = build_quinn_client_endpoint(relay_addr, server_addr, cfg).await;
+
+        // 1-RTT handshake.
+        // quinn 0.11: connect() → Result<Connecting>; awaiting → Result<Connection>.
+        let conn = tokio::time::timeout(
+            Duration::from_secs(10),
+            endpoint.connect(server_addr, "localhost").expect("start QUIC connect"),
+        )
+        .await
+        .expect("QUIC handshake completed within 10 s")
+        .expect("QUIC 1-RTT handshake succeeded");
+
+        // Application-level echo round-trip.
+        let (mut send, mut recv) = conn.open_bi().await.expect("open bi-stream");
+        const PAYLOAD: &[u8] = b"tunnel-quic-e2e";
+        send.write_all(PAYLOAD).await.expect("client write");
+        send.finish().expect("client finish stream");
+        let echoed = recv.read_to_end(256).await.expect("client read echo");
+        assert_eq!(&echoed, PAYLOAD, "echoed payload must match sent payload");
+
+        // UdpSession send_to exercises the production encode path on the same relay.
+        session.send_to(server_addr, b"probe").await.expect("session send_to ok");
+
+        conn.close(0u32.into(), b"done");
+        endpoint.close(0u32.into(), b"done");
+        endpoint.wait_idle().await;
+        server_task.await.expect("server task completed without panic");
+        c2s.abort();
+        s2c.abort();
+        drop(session);
+    }
+
     #[test]
     fn turmoil_udp_association_recovers_after_partition_repair() -> turmoil::Result {
         let mut sim = turmoil::Builder::new()
