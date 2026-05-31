@@ -142,3 +142,43 @@ fn encrypted_dns_connect_hooks_install_protected_connectors() {
     assert!(hooks.direct_tcp_connector.is_some());
     assert!(hooks.direct_udp_binder.is_some());
 }
+
+#[tokio::test]
+async fn android_tun_context_requires_protect() {
+    use std::net::{Ipv4Addr, TcpListener};
+    use std::time::Duration;
+
+    use ripdpi_dns_resolver::DirectTcpConnection;
+
+    // Serialize against other tests that mutate the process-global protect slot
+    // (see crate::PROTECT_CALLBACK_TEST_LOCK) so the no-callback precondition is stable
+    // under the multi-threaded `cargo test` runner.
+    let _protect_lock = crate::PROTECT_CALLBACK_TEST_LOCK.lock().await;
+
+    // No protect callback is registered and no protect path is supplied: the
+    // dns_intercept hooks run under an active TUN, so a non-loopback socket must
+    // fail closed rather than dial unprotected (vpnservice-protect-invariant.md).
+    assert!(!ripdpi_runtime_platform::protect::has_protect_callback(), "precondition: no protect callback registered",);
+
+    let hooks = encrypted_dns_connect_hooks(None);
+    let tcp = hooks.direct_tcp_connector.as_ref().expect("tcp connector installed");
+    let udp = hooks.direct_udp_binder.as_ref().expect("udp binder installed");
+
+    // Non-loopback TCP target (TEST-NET-1, never actually dialed) fails closed.
+    let non_loopback = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1)), 853);
+    let Err(err) = tcp(non_loopback, Duration::from_millis(50)).await else {
+        panic!("non-loopback connect must fail closed without protect");
+    };
+    assert_eq!(err.kind(), std::io::ErrorKind::NotConnected);
+
+    // The UDP binder cannot prove a loopback destination, so it always fails closed.
+    let bind_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+    let err = udp(bind_addr).expect_err("udp bind must fail closed without protect");
+    assert_eq!(err.kind(), std::io::ErrorKind::NotConnected);
+
+    // A loopback TCP target is exempt and connects without any protect mechanism.
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind loopback listener");
+    let loopback = listener.local_addr().expect("loopback addr");
+    let connection = tcp(loopback, Duration::from_secs(1)).await.expect("loopback connect is exempt from protect");
+    assert!(matches!(connection, DirectTcpConnection::Std(_)));
+}

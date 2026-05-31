@@ -26,6 +26,16 @@ pub use {
     tunnel_api::run_tunnel,
 };
 
+/// Serializes the tests that mutate the process-global `VpnService.protect()`
+/// callback slot (`ripdpi_runtime_platform::protect`). That slot is shared across
+/// the whole test binary, so under the canonical multi-threaded `cargo test`
+/// runner those tests would race; nextest's process-per-test makes the lock a
+/// harmless no-op. `tokio::sync::Mutex` (not `std`) so the guard may be held
+/// across `.await` in `#[tokio::test]` callers. Lock it at the top of any test
+/// that registers a protect callback or asserts on `has_protect_callback()`.
+#[cfg(test)]
+pub(crate) static PROTECT_CALLBACK_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;

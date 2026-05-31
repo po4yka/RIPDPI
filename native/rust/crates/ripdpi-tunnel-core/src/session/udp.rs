@@ -439,6 +439,11 @@ mod tests {
             }
         }
 
+        // Serialize against other tests that touch the process-global protect slot
+        // (see crate::PROTECT_CALLBACK_TEST_LOCK). Declared before the Guard so the
+        // callback is unregistered before the lock is released.
+        let _protect_lock = crate::PROTECT_CALLBACK_TEST_LOCK.lock().await;
+
         let recorder = Arc::new(Recorder { fds: StdMutex::new(Vec::new()) });
         let generation = register_protect_callback_versioned(Arc::clone(&recorder) as Arc<dyn ProtectCallback>);
         let _guard = Guard(generation);

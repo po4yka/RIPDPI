@@ -16,6 +16,8 @@ pub(crate) fn build_direct_connect_hooks(protect_path: Option<&str>) -> Encrypte
     let udp_protect_path = tcp_protect_path.clone();
 
     hooks
+        .require_direct_tcp_connector()
+        .require_direct_udp_binder()
         .with_direct_tcp_connector(move |target, timeout| {
             let tcp_protect_path = tcp_protect_path.clone();
             async move { connect_protected_tcp_socket(target, &tcp_protect_path, timeout) }
