@@ -18,7 +18,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{OffsetBase, OffsetExpr};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{runtime_config_from_ui, ProxyUiConfig};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
 use std::io::{Read, Write};
-use std::net::{Ipv4Addr, SocketAddr, TcpStream};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
@@ -27,8 +27,9 @@ use support::proxy::{ephemeral_proxy_config, start_proxy};
 use support::socks5::{
     attempt_socks_connect_ip_round_trip, recv_exact, socks_connect, socks_connect_domain,
     socks_connect_domain_round_trip_via_upstream_with_retry, socks_connect_domain_round_trip_with_retry,
-    socks_connect_ip_reply, socks_connect_ip_round_trip_with_retry, socks_udp_associate, udp_proxy_client,
-    udp_proxy_roundtrip, udp_proxy_roundtrip_domain, udp_proxy_roundtrip_with_socket, wait_for_accepted_connections,
+    socks_connect_ip_reply, socks_connect_ip_round_trip_with_retry, socks_connect_ipv6_reply, socks_udp_associate,
+    udp_proxy_client, udp_proxy_roundtrip, udp_proxy_roundtrip_domain, udp_proxy_roundtrip_with_socket,
+    wait_for_accepted_connections,
 };
 use support::tls::{http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry, FragmentingProfile};
 use support::START_TIMEOUT;
@@ -448,6 +449,52 @@ fn socks5_connect_reply_contains_bound_address() {
     drop(proxy);
 }
 
+// ── Characterization: SOCKS5 connect-refused maps to REP 0x05 ──
+
+#[test]
+fn socks5_connect_refused_replies_with_connection_refused_code() {
+    let _guard = test_guard();
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), None);
+
+    // Bind then immediately drop a listener to obtain a port nothing listens on,
+    // so the upstream connect is refused.
+    let closed = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind transient listener");
+    let closed_port = closed.local_addr().expect("transient addr").port();
+    drop(closed);
+
+    let (_stream, reply) = socks_connect_ip_reply(proxy.port, closed_port);
+    assert_eq!(reply[0], 0x05, "VER");
+    assert_eq!(reply[1], 0x05, "REP must be connection-refused (0x05) for a closed port");
+    drop(proxy);
+}
+
+// ── IPv6 [::1] CONNECT round-trip (skipped without IPv6 loopback) ──
+
+#[test]
+fn socks5_ipv6_loopback_connect_round_trips() {
+    let _guard = test_guard();
+
+    // Skip gracefully when the host has no usable IPv6 loopback.
+    if TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).is_err() {
+        eprintln!("skipping socks5_ipv6_loopback_connect_round_trips because [::1] loopback is unavailable");
+        return;
+    }
+
+    let fixture = FixtureStack::start(ipv6_fixture_config()).expect("start ipv6 fixture");
+    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), None);
+
+    let (mut stream, reply) =
+        socks_connect_ipv6_reply(proxy.port, Ipv6Addr::LOCALHOST, fixture.manifest().tcp_echo_port);
+    assert_eq!(reply[0], 0x05, "VER");
+    assert_eq!(reply[1], 0x00, "REP success over IPv6 loopback");
+
+    stream.write_all(b"ipv6 round trip").expect("write ipv6 payload");
+    assert_eq!(recv_exact(&mut stream, 15), b"ipv6 round trip");
+
+    assert!(fixture.events().snapshot().iter().any(|event| event.service == "tcp_echo" && event.detail == "echo"));
+    drop(proxy);
+}
+
 // ── Characterization: HTTP CONNECT reply format ──
 
 #[test]
@@ -503,6 +550,10 @@ fn dynamic_fixture_config() -> FixtureConfig {
         control_port: 0,
         ..FixtureConfig::default()
     }
+}
+
+fn ipv6_fixture_config() -> FixtureConfig {
+    FixtureConfig { bind_host: "::1".to_string(), ..dynamic_fixture_config() }
 }
 
 fn ui_proxy_config() -> RuntimeConfig {

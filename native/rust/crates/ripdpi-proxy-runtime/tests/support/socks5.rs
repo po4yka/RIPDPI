@@ -1,5 +1,5 @@
 use std::io::{Read, Write};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream, UdpSocket};
 use std::thread;
 use std::time::Duration;
 
@@ -26,6 +26,16 @@ pub fn socks_connect_ip_reply(proxy_port: u16, dst_port: u16) -> (TcpStream, Vec
     request.extend(Ipv4Addr::LOCALHOST.octets());
     request.extend(dst_port.to_be_bytes());
     stream.write_all(&request).expect("write socks connect");
+    let reply = recv_socks5_reply(&mut stream);
+    (stream, reply)
+}
+
+pub fn socks_connect_ipv6_reply(proxy_port: u16, target: Ipv6Addr, dst_port: u16) -> (TcpStream, Vec<u8>) {
+    let mut stream = socks_auth(proxy_port);
+    let mut request = vec![0x05, 0x01, 0x00, 0x04];
+    request.extend(target.octets());
+    request.extend(dst_port.to_be_bytes());
+    stream.write_all(&request).expect("write socks ipv6 connect");
     let reply = recv_socks5_reply(&mut stream);
     (stream, reply)
 }
