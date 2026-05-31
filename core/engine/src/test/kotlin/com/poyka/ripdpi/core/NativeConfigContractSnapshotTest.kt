@@ -668,12 +668,14 @@ class NativeConfigContractSnapshotTest {
         desyncHttp: Boolean = true,
         desyncHttps: Boolean = true,
         desyncUdp: Boolean = false,
+        udpAssociateEnabled: Boolean = true,
     ): JsonObject =
         buildJsonObject {
             put("resolveDomains", JsonPrimitive(resolveDomains))
             put("desyncHttp", JsonPrimitive(desyncHttp))
             put("desyncHttps", JsonPrimitive(desyncHttps))
             put("desyncUdp", JsonPrimitive(desyncUdp))
+            put("udpAssociateEnabled", JsonPrimitive(udpAssociateEnabled))
         }
 
     private fun chainsExpected(

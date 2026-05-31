@@ -436,6 +436,7 @@ message AppSettings {
   // P3.8: PCAP capture toggle (developer diagnostics)
   bool pcap_capture_enabled = 286;
   optional bool relay_dns_over_tunnel_enabled = 287; // Unset means true: relay-active DNS is fail-closed through the relay path.
+  optional bool udp_associate_enabled = 407; // Unset means true: SOCKS5 UDP ASSOCIATE stays always-on unless explicitly disabled.
 
   // Geo asset (geoip.db / geosite.db) source picker
   string geo_asset_provider_id = 297; // AssetProvider id; "sagernet" | "soffchen" | "chocolate4u" | "l11r" | "custom" (empty = default)

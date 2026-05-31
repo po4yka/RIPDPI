@@ -32,6 +32,8 @@ internal fun buildProtocolConfig(settings: AppSettings): RipDpiProtocolConfig =
         desyncHttp = settings.desyncHttp,
         desyncHttps = settings.desyncHttps,
         desyncUdp = settings.desyncUdp,
+        // Unset (proto field absent) means enabled, preserving the historical always-on UDP ASSOCIATE.
+        udpAssociateEnabled = !settings.hasUdpAssociateEnabled() || settings.udpAssociateEnabled,
     )
 
 internal fun buildHostsConfig(settings: AppSettings): RipDpiHostsConfig =

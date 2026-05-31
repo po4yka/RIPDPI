@@ -63,6 +63,8 @@ data class RipDpiProtocolConfig(
     val desyncHttp: Boolean = true,
     val desyncHttps: Boolean = true,
     val desyncUdp: Boolean = false,
+    /** Master switch for SOCKS5 UDP ASSOCIATE; default-on preserves the historical always-on behaviour. */
+    val udpAssociateEnabled: Boolean = true,
 )
 
 data class RipDpiChainConfig(

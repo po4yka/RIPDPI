@@ -38,6 +38,7 @@ private fun AppSettings.Builder.applyListenAndProtocolPreferences(preferences: R
     setDesyncHttp(protocols.desyncHttp)
     setDesyncHttps(protocols.desyncHttps)
     setDesyncUdp(protocols.desyncUdp)
+    setUdpAssociateEnabled(protocols.udpAssociateEnabled)
 }
 
 private fun AppSettings.Builder.applyDesyncPreferences(preferences: RipDpiProxyUIPreferences) {

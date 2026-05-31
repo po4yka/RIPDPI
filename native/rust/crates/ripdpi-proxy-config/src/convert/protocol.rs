@@ -23,6 +23,9 @@ pub(crate) fn apply_protocol_section(
     quic: &ProxyUiQuicConfig,
 ) -> Result<(), ProxyConfigError> {
     config.network.resolve = protocols.resolve_domains;
+    // Unset (`None`) preserves the historical always-on default; `Some(false)`
+    // disables SOCKS5 UDP ASSOCIATE end-to-end.
+    config.network.udp = protocols.udp_associate_enabled.unwrap_or(true);
     config.quic.initial_mode = parse_quic_initial_mode(&quic.initial_mode)?;
     config.quic.support_v1 = quic.support_v1;
     config.quic.support_v2 = quic.support_v2;

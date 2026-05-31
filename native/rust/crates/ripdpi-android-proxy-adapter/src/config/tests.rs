@@ -367,6 +367,7 @@ fn protocol_config(parts: ProtocolParts) -> ProxyUiProtocolConfig {
         desync_http: parts.desync_http,
         desync_https: parts.desync_https,
         desync_udp: parts.desync_udp,
+        udp_associate_enabled: None,
     }
 }
 

@@ -27,6 +27,8 @@ internal data class NativeProtocolConfig(
     val desyncHttp: Boolean = true,
     val desyncHttps: Boolean = true,
     val desyncUdp: Boolean = false,
+    // Nullable mirrors the Rust `Option<bool>`; null (key absent) means UDP ASSOCIATE stays enabled.
+    val udpAssociateEnabled: Boolean? = null,
 )
 
 @Serializable
@@ -88,6 +90,7 @@ internal object NetworkSectionCodec {
             desyncHttp = value.desyncHttp,
             desyncHttps = value.desyncHttps,
             desyncUdp = value.desyncUdp,
+            udpAssociateEnabled = value.udpAssociateEnabled ?: true,
         )
 
     fun toNative(value: RipDpiProtocolConfig): NativeProtocolConfig =
@@ -96,6 +99,7 @@ internal object NetworkSectionCodec {
             desyncHttp = value.desyncHttp,
             desyncHttps = value.desyncHttps,
             desyncUdp = value.desyncUdp,
+            udpAssociateEnabled = value.udpAssociateEnabled,
         )
 
     fun toModel(value: NativeQuicConfig): RipDpiQuicConfig =

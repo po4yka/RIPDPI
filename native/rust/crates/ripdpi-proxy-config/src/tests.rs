@@ -1370,6 +1370,36 @@ fn ui_udp_only_strategy_keeps_delay_connect_disabled() {
 }
 
 #[test]
+fn udp_associate_unset_keeps_network_udp_enabled() {
+    let ui = minimal_ui();
+    assert_eq!(ui.protocols.udp_associate_enabled, None, "fixture must leave the switch unset");
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    assert!(config.network.udp, "unset udpAssociateEnabled must preserve the always-on default");
+}
+
+#[test]
+fn udp_associate_disabled_clears_network_udp() {
+    let mut ui = minimal_ui();
+    ui.protocols.udp_associate_enabled = Some(false);
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    assert!(!config.network.udp, "udpAssociateEnabled=false must disable SOCKS5 UDP ASSOCIATE");
+}
+
+#[test]
+fn udp_associate_enabled_sets_network_udp() {
+    let mut ui = minimal_ui();
+    ui.protocols.udp_associate_enabled = Some(true);
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    assert!(config.network.udp, "udpAssociateEnabled=true must enable SOCKS5 UDP ASSOCIATE");
+}
+
+#[test]
 fn actionable_ui_strategy_synthesizes_detect_connect_plain_fallback_group() {
     let config = runtime_config_from_ui(minimal_ui()).expect("runtime config");
 
