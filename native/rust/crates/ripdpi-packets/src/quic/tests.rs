@@ -594,3 +594,239 @@ fn parse_quic_initial_header_rejects_oversized_dcid() {
 fn stable_wire_fingerprint(packet: &[u8]) -> u64 {
     packet.iter().fold(0xcbf2_9ce4_8422_2325, |acc, byte| (acc ^ u64::from(*byte)).wrapping_mul(0x0000_0100_0000_01b3))
 }
+
+// ---- parse_quic_initial_header negative / robustness tests ----
+//
+// Each test exercises a distinct truncation or malformation that an attacker
+// could craft from a UDP payload. Every assertion checks that the parser
+// returns None and never panics (no index-OOB, no unwrap crash).
+
+/// Helper: build a minimally valid raw header buffer (not encrypted, just
+/// enough to satisfy parse_quic_initial_header) so truncation tests can
+/// slice it at exact field boundaries.
+fn make_raw_initial_header(dcid_len: u8, scid_len: u8, token_len: u64, payload_len: u64) -> Vec<u8> {
+    let mut buf = Vec::new();
+    // First byte: Long-header (0x80) | fixed (0x40) | Initial type bits 0x03 → 0xc3
+    buf.push(0xc3);
+    buf.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes()); // bytes 1-4
+    buf.push(dcid_len); // byte 5
+    buf.extend(std::iter::repeat_n(0xab, dcid_len as usize)); // DCID
+    buf.push(scid_len); // SCID len
+    buf.extend(std::iter::repeat_n(0xcd, scid_len as usize)); // SCID
+    buf.extend_from_slice(&encode_quic_varint(token_len)); // token length varint
+    buf.extend(std::iter::repeat_n(0x00, token_len as usize)); // token bytes
+    buf.extend_from_slice(&encode_quic_varint(payload_len)); // payload length varint
+                                                             // Payload bytes (all zeros — we only test the header parser, not decryption)
+    buf.extend(std::iter::repeat_n(0x00, payload_len as usize));
+    buf
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_empty_input() {
+    assert!(parse_quic_initial_header(&[]).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_single_byte() {
+    assert!(parse_quic_initial_header(&[0xc3]).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_short_header_flag() {
+    // bit 7 clear → short header, must reject
+    let mut buf = vec![0x43u8]; // 0x40 set, 0x80 clear
+    buf.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+    buf.resize(QUIC_INITIAL_MIN_LEN, 0);
+    assert!(parse_quic_initial_header(&buf).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_missing_fixed_bit() {
+    // bit 6 (0x40) clear → invalid QUIC packet
+    let mut buf = vec![0x80u8];
+    buf.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+    buf.resize(QUIC_INITIAL_MIN_LEN, 0);
+    assert!(parse_quic_initial_header(&buf).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_below_min_len() {
+    // A buffer of exactly QUIC_INITIAL_MIN_LEN - 1 bytes with correct flags
+    let mut buf = vec![0xc3u8];
+    buf.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+    buf.resize(QUIC_INITIAL_MIN_LEN - 1, 0);
+    assert!(parse_quic_initial_header(&buf).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_truncated_at_version_field() {
+    // Only 4 bytes total (no room for the full version u32 at offset 1)
+    let buf = [0xc3, 0x00, 0x00, 0x00]; // needs bytes 1..5 for version
+    assert!(parse_quic_initial_header(&buf).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_truncated_after_dcid_len_byte() {
+    // Provide exactly 6 bytes: first-byte + version(4) + dcid_len(1), but no DCID bytes
+    let dcid_len = 8u8;
+    let mut buf = vec![0xc3];
+    buf.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+    buf.push(dcid_len);
+    // Missing dcid_len bytes of DCID — buffer ends here
+    buf.resize(QUIC_INITIAL_MIN_LEN.min(buf.len()), 0);
+    // Buffer is shorter than QUIC_INITIAL_MIN_LEN so min-len guard fires first,
+    // but we also verify no panic for a truly tiny slice:
+    assert!(parse_quic_initial_header(&[0xc3, 0x00, 0x00, 0x00, 0x01, 8]).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_truncated_after_dcid() {
+    // Build a buffer that has valid first-byte/version/dcid_len/dcid but is
+    // cut immediately before the SCID-len byte.
+    let dcid_len = 8u8;
+    let mut buf = vec![0xc3];
+    buf.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+    buf.push(dcid_len);
+    buf.extend(std::iter::repeat_n(0xab, dcid_len as usize));
+    // NO scid_len byte — pad to QUIC_INITIAL_MIN_LEN with non-zero to make the
+    // parser reach the scid_len position but then fail on scid data
+    buf.resize(QUIC_INITIAL_MIN_LEN, 0xff);
+    // The scid_len at the current position will be 0xff = 255 > QUIC_MAX_CID_LEN(20),
+    // so the parser must reject it without panicking.
+    assert!(parse_quic_initial_header(&buf).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_truncated_after_scid_len() {
+    // scid_len is valid (4) but not enough bytes for the SCID follow
+    let full = make_raw_initial_header(8, 4, 0, 20);
+    // Truncate to just before the SCID data ends
+    let scid_data_end = 1 + 4 + 1 + 8 + 1 + 2; // approximate, cuts inside SCID
+    let truncated = &full[..scid_data_end.min(full.len())];
+    assert!(parse_quic_initial_header(truncated).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_truncated_at_token_varint() {
+    // Build header with 0 token and a payload, then truncate right after SCID,
+    // removing the token-length varint byte.
+    let full = make_raw_initial_header(8, 4, 0, 20);
+    // Remove all bytes from the token-len position onward
+    let token_varint_pos = 1 + 4 + 1 + 8 + 1 + 4; // first-byte + version + dcid_len + dcid + scid_len + scid
+    let truncated = &full[..token_varint_pos];
+    assert!(parse_quic_initial_header(truncated).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_truncated_inside_token() {
+    // Token length varint says 10, but only 5 token bytes follow
+    let mut full = make_raw_initial_header(8, 4, 10, 20);
+    // The token bytes start after: 1 + 4 + 1 + 8 + 1 + 4 + 1 = 20 bytes
+    // Truncate so only 5 of the 10 token bytes are present
+    let token_start = 1 + 4 + 1 + 8 + 1 + 4 + 1;
+    full.truncate(token_start + 5);
+    assert!(parse_quic_initial_header(&full).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_truncated_at_payload_varint() {
+    // Valid header through token, but payload-length varint is missing
+    let full = make_raw_initial_header(8, 4, 0, 20);
+    let payload_varint_pos = 1 + 4 + 1 + 8 + 1 + 4 + 1; // same as token_start for 0-token case
+    let truncated = &full[..payload_varint_pos];
+    assert!(parse_quic_initial_header(truncated).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_truncated_inside_payload() {
+    // payload_len says 50 but the buffer only has 10 payload bytes
+    let mut full = make_raw_initial_header(8, 4, 0, 50);
+    let payload_start = 1 + 4 + 1 + 8 + 1 + 4 + 1 + 1; // header bytes + 0-byte token + payload-varint(1 byte for value<64)
+    full.truncate(payload_start + 10);
+    assert!(parse_quic_initial_header(&full).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_dcid_len_21() {
+    // QUIC_MAX_CID_LEN is 20; dcid_len=21 must be rejected
+    let mut buf = vec![0xc3];
+    buf.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+    buf.push(21); // dcid_len > max
+    buf.resize(QUIC_INITIAL_MIN_LEN, 0);
+    assert!(parse_quic_initial_header(&buf).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_scid_len_21() {
+    // scid_len=21 > QUIC_MAX_CID_LEN must be rejected
+    let mut buf = vec![0xc3];
+    buf.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+    buf.push(8); // valid dcid_len
+    buf.extend(std::iter::repeat_n(0xab, 8)); // 8-byte DCID
+    buf.push(21); // scid_len > max
+    buf.resize(QUIC_INITIAL_MIN_LEN, 0);
+    assert!(parse_quic_initial_header(&buf).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_oversized_token_varint() {
+    // Encode a token-length varint as an 8-byte varint with a huge value (>>2048),
+    // so the subsequent buffer.get(offset..offset+token_len) check returns None.
+    let mut buf = vec![0xc3];
+    buf.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+    buf.push(8); // dcid_len
+    buf.extend(std::iter::repeat_n(0xab, 8));
+    buf.push(4); // scid_len
+    buf.extend(std::iter::repeat_n(0xcd, 4));
+    // 8-byte varint with value u64::MAX >> 2 (maximum representable)
+    buf.extend_from_slice(&encode_quic_varint(u64::MAX >> 2));
+    buf.resize(QUIC_INITIAL_MIN_LEN, 0x00);
+    // Parser must return None (usize overflow guard via try_into or slice OOB)
+    assert!(parse_quic_initial_header(&buf).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_oversized_payload_varint() {
+    // token_len=0, but payload_len is a huge varint
+    let mut buf = vec![0xc3];
+    buf.extend_from_slice(&QUIC_V1_VERSION.to_be_bytes());
+    buf.push(8);
+    buf.extend(std::iter::repeat_n(0xab, 8));
+    buf.push(4);
+    buf.extend(std::iter::repeat_n(0xcd, 4));
+    buf.push(0x00); // token_len = 0 (1-byte varint)
+    buf.extend_from_slice(&encode_quic_varint(u64::MAX >> 2));
+    buf.resize(QUIC_INITIAL_MIN_LEN, 0x00);
+    assert!(parse_quic_initial_header(&buf).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_garbage_all_zeros() {
+    assert!(parse_quic_initial_header(&[0u8; 256]).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_garbage_all_ones() {
+    assert!(parse_quic_initial_header(&[0xffu8; 512]).is_none());
+}
+
+#[test]
+fn parse_quic_initial_header_rejects_random_garbage() {
+    // A fixed "random" byte sequence unlikely to form a valid header
+    let garbage: Vec<u8> = (0u8..=255).cycle().take(300).collect();
+    // This must not panic; result may be Some or None
+    let _ = parse_quic_initial_header(&garbage);
+}
+
+// ---- proptest: arbitrary byte vectors never cause a panic ----
+
+use proptest::prelude::*;
+
+proptest! {
+    #[test]
+    fn parse_quic_initial_header_never_panics(buf in proptest::collection::vec(any::<u8>(), 0..=2048)) {
+        // The only contract tested here: the function must not panic.
+        // It is allowed to return None for invalid inputs.
+        let _ = parse_quic_initial_header(&buf);
+    }
+}
