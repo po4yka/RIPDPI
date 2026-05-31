@@ -720,7 +720,8 @@ mod tests {
         (proxy_addr, relay_addr, c2s, s2c)
     }
 
-    /// Build a `quinn::ClientConfig` with `AcceptAnyCert` and a 3 s idle timeout.
+    /// Build a `quinn::ClientConfig` with `AcceptAnyCert`, a generous idle
+    /// timeout, and keep-alive (robust under heavy parallel test load).
     // cancel-safe: not applicable — synchronous.
     #[cfg(not(target_os = "android"))]
     fn build_insecure_quinn_client_config(alpn: &[u8]) -> quinn::ClientConfig {
@@ -737,7 +738,13 @@ mod tests {
             quinn::crypto::rustls::QuicClientConfig::try_from(tls).expect("QuicClientConfig"),
         ));
         let mut transport = quinn::TransportConfig::default();
-        transport.max_idle_timeout(Some(Duration::from_secs(3).try_into().expect("idle timeout")));
+        // Generous idle timeout + keep-alive: nextest runs this test alongside
+        // ~1000 others, and packets relayed through the two forwarding tasks can
+        // be delayed under that load. A tight 3 s idle timeout flaked with
+        // ConnectionLost(TimedOut); 30 s plus 1 s keep-alive PINGs keep the
+        // connection alive across scheduler jitter without slowing the happy path.
+        transport.max_idle_timeout(Some(Duration::from_secs(30).try_into().expect("idle timeout")));
+        transport.keep_alive_interval(Some(Duration::from_secs(1)));
         cfg.transport_config(Arc::new(transport));
         cfg
     }
