@@ -95,6 +95,13 @@ pub(super) fn build_doq_endpoint(
         let socket = binder(bind_addr)?;
         return quinn::Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime));
     }
+    if connect_hooks.requires_direct_udp_binder() {
+        return Err(io::Error::new(io::ErrorKind::NotConnected, "direct UDP binder is required"));
+    }
+    // allow: hook-gated fallback — binds an unprotected UDP socket only when no
+    // protected binder is supplied AND none is required (non-VPN / no active TUN
+    // context). On Android the integrator supplies a protect()-backed binder and
+    // sets require_direct_udp_binder(); see vpnservice-protect-invariant.md.
     quinn::Endpoint::client(bind_addr)
 }
 
@@ -108,4 +115,51 @@ fn doq_bind_addr(endpoint: &EncryptedDnsEndpoint) -> io::Result<SocketAddr> {
         std::net::IpAddr::V6(_) => std::net::IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED),
     };
     Ok(SocketAddr::new(bind_ip, 0))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::{IpAddr, Ipv4Addr, UdpSocket};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    use super::build_doq_endpoint;
+    use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsProtocol};
+
+    fn doq_endpoint() -> EncryptedDnsEndpoint {
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doq,
+            resolver_id: None,
+            host: "fixture.test".to_string(),
+            port: 853,
+            tls_server_name: None,
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1))],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+            odoh: None,
+        }
+    }
+
+    #[test]
+    fn build_doq_endpoint_fails_closed_without_binder_when_required() {
+        let hooks = EncryptedDnsConnectHooks::new().require_direct_udp_binder();
+        let err = build_doq_endpoint(&doq_endpoint(), &hooks)
+            .expect_err("a required UDP binder with none supplied must fail closed, not bind unprotected");
+        assert_eq!(err.kind(), std::io::ErrorKind::NotConnected);
+        assert!(err.to_string().contains("direct UDP binder is required"), "unexpected error: {err}");
+    }
+
+    #[tokio::test]
+    async fn build_doq_endpoint_uses_provided_binder_when_required() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let observed = calls.clone();
+        let hooks =
+            EncryptedDnsConnectHooks::new().require_direct_udp_binder().with_direct_udp_binder(move |bind_addr| {
+                observed.fetch_add(1, Ordering::Relaxed);
+                UdpSocket::bind(bind_addr)
+            });
+        build_doq_endpoint(&doq_endpoint(), &hooks).expect("the protected binder path must build the endpoint");
+        assert_eq!(calls.load(Ordering::Relaxed), 1, "the protected binder must be invoked exactly once");
+    }
 }

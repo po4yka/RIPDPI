@@ -41,6 +41,7 @@ pub struct EncryptedDnsConnectHooks {
     pub direct_udp_binder: Option<Arc<DirectUdpBinder>>,
     pub dot_tls_connector_builder: Option<Arc<DotTlsConnectorBuilder>>,
     direct_tcp_connector_required: bool,
+    direct_udp_binder_required: bool,
 }
 
 impl EncryptedDnsConnectHooks {
@@ -74,6 +75,15 @@ impl EncryptedDnsConnectHooks {
         self
     }
 
+    /// Mandate a protected UDP binder for DoQ. When set without a binder,
+    /// endpoint construction fails closed instead of binding an unprotected
+    /// socket. Symmetric with [`Self::require_direct_tcp_connector`]; honors the
+    /// `VpnService.protect()` invariant by construction rather than convention.
+    pub fn require_direct_udp_binder(mut self) -> Self {
+        self.direct_udp_binder_required = true;
+        self
+    }
+
     pub fn with_dot_tls_connector_builder<F>(mut self, builder: F) -> Self
     where
         F: Fn() -> Result<SslConnectorBuilder, String> + Send + Sync + 'static,
@@ -90,6 +100,10 @@ impl EncryptedDnsConnectHooks {
         self.direct_tcp_connector_required
     }
 
+    pub(crate) fn requires_direct_udp_binder(&self) -> bool {
+        self.direct_udp_binder_required
+    }
+
     #[cfg(feature = "hickory-backend")]
     pub(crate) fn has_dot_tls_connector_builder(&self) -> bool {
         self.dot_tls_connector_builder.is_some()
@@ -103,6 +117,7 @@ impl fmt::Debug for EncryptedDnsConnectHooks {
             .field("direct_tcp_connector", &self.direct_tcp_connector.is_some())
             .field("direct_tcp_connector_required", &self.direct_tcp_connector_required)
             .field("direct_udp_binder", &self.direct_udp_binder.is_some())
+            .field("direct_udp_binder_required", &self.direct_udp_binder_required)
             .field("dot_tls_connector_builder", &self.dot_tls_connector_builder.is_some())
             .finish()
     }
