@@ -184,6 +184,26 @@ pub fn udp_proxy_roundtrip_with_socket(
     }
 }
 
+pub fn udp_proxy_roundtrip_domain(relay: SocketAddr, domain: &str, dst_port: u16, payload: &[u8]) -> Vec<u8> {
+    let socket = udp_proxy_client();
+    let name = domain.as_bytes();
+    let mut packet = vec![0x00, 0x00, 0x00, 0x03, name.len() as u8];
+    packet.extend_from_slice(name);
+    packet.extend(dst_port.to_be_bytes());
+    packet.extend(payload);
+    socket.send_to(&packet, relay).expect("send udp domain packet");
+    let mut buf = [0u8; 4096];
+    loop {
+        let (read, _) = socket.recv_from(&mut buf).expect("receive udp packet");
+        assert!(read >= 10, "udp response too short");
+        assert_eq!(&buf[..4], b"\x00\x00\x00\x01");
+        let body = &buf[10..read];
+        if body == payload {
+            return body.to_vec();
+        }
+    }
+}
+
 pub fn recv_exact(stream: &mut TcpStream, size: usize) -> Vec<u8> {
     let mut buf = vec![0u8; size];
     stream.read_exact(&mut buf).expect("read exact");

@@ -28,7 +28,7 @@ use support::socks5::{
     attempt_socks_connect_ip_round_trip, recv_exact, socks_connect, socks_connect_domain,
     socks_connect_domain_round_trip_via_upstream_with_retry, socks_connect_domain_round_trip_with_retry,
     socks_connect_ip_reply, socks_connect_ip_round_trip_with_retry, socks_udp_associate, udp_proxy_client,
-    udp_proxy_roundtrip, udp_proxy_roundtrip_with_socket, wait_for_accepted_connections,
+    udp_proxy_roundtrip, udp_proxy_roundtrip_domain, udp_proxy_roundtrip_with_socket, wait_for_accepted_connections,
 };
 use support::tls::{http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry, FragmentingProfile};
 use support::START_TIMEOUT;
@@ -115,6 +115,13 @@ fn socks5_udp_round_trip_reaches_fixture() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     socks5_udp_round_trip(&fixture);
+}
+
+#[test]
+fn socks5_udp_domain_round_trip_reaches_fixture() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    socks5_udp_domain_round_trip(&fixture);
 }
 
 #[test]
@@ -704,6 +711,20 @@ fn socks5_udp_round_trip(fixture: &FixtureStack) {
     let (_control, relay) = socks_udp_associate(proxy.port);
     let body = udp_proxy_roundtrip(relay, fixture.manifest().udp_echo_port, b"fixture udp");
     assert_eq!(body, b"fixture udp");
+    assert!(fixture.events().snapshot().iter().any(|event| event.service == "udp_echo" && event.protocol == "udp"));
+    drop(proxy);
+}
+
+fn socks5_udp_domain_round_trip(fixture: &FixtureStack) {
+    // Domain resolution is enabled by default (no `--no-domain`), so the proxy
+    // resolves the ATYP=0x03 target "localhost" before relaying. `-X` pins the
+    // resolver to IPv4 (127.0.0.1) so it reaches the IPv4-only fixture udp echo;
+    // without it, the default config resolves "localhost" to [::1] (IPv6 is the
+    // default when the host can bind a loopback v6 socket).
+    let proxy = start_proxy(ephemeral_proxy_config(&["-X", "--ip", "127.0.0.1"]), None);
+    let (_control, relay) = socks_udp_associate(proxy.port);
+    let body = udp_proxy_roundtrip_domain(relay, "localhost", fixture.manifest().udp_echo_port, b"domain udp");
+    assert_eq!(body, b"domain udp");
     assert!(fixture.events().snapshot().iter().any(|event| event.service == "udp_echo" && event.protocol == "udp"));
     drop(proxy);
 }
