@@ -600,3 +600,66 @@ fn plan_udp_uses_selected_udp_profile_when_no_raw_fake_is_set() {
     assert_eq!(fake_packet.len(), 38);
     assert_eq!(&fake_packet[12..19], b"\x06update");
 }
+
+// Fake data that lands inside the GFW popcount detection window (3.4-4.6):
+// 0x0F bytes have popcount 4.0/byte, triggering generate_entropy_padding.
+const HIGH_POPCOUNT_FAKE: &[u8] = &[0x0F_u8; 32];
+
+fn fake_burst_step() -> UdpChainStep {
+    UdpChainStep {
+        kind: UdpChainStepKind::FakeBurst,
+        count: 1,
+        split_bytes: 0,
+        activation_filter: None,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_frag_next_override: None,
+    }
+}
+
+#[test]
+fn entropy_padding_disabled_leaves_fake_payload_unchanged() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.entropy_mode = EntropyMode::Disabled;
+    group.actions.fake_data = Some(HIGH_POPCOUNT_FAKE.to_vec());
+    group.actions.udp_chain = vec![fake_burst_step()];
+
+    let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
+
+    // append_ttl_wrapped_packets emits SetTtl first, so the fake Write is at index 1.
+    let DesyncAction::Write(fake_packet) = &actions[1] else {
+        panic!("expected fake write at actions[1], got: {:?}", &actions[1]);
+    };
+    assert_eq!(fake_packet.as_slice(), HIGH_POPCOUNT_FAKE);
+}
+
+#[test]
+fn entropy_padding_popcount_mode_prepends_padding_to_high_popcount_fake() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.entropy_mode = EntropyMode::Popcount;
+    // Target 3.4 (permil 3400): HIGH_POPCOUNT_FAKE has popcount 4.0/byte, inside
+    // the GFW detection window, so padding will be prepended.
+    group.actions.entropy_padding_target_permil = Some(3400);
+    group.actions.entropy_padding_max = 256;
+    group.actions.fake_data = Some(HIGH_POPCOUNT_FAKE.to_vec());
+    group.actions.udp_chain = vec![fake_burst_step()];
+
+    let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
+
+    // append_ttl_wrapped_packets emits SetTtl first, so the fake Write is at index 1.
+    let DesyncAction::Write(fake_packet) = &actions[1] else {
+        panic!("expected fake write at actions[1], got: {:?}", &actions[1]);
+    };
+    // Packet must be longer than the original fake data (padding was prepended).
+    assert!(fake_packet.len() > HIGH_POPCOUNT_FAKE.len(), "expected padding to grow the fake packet");
+    // Combined popcount of the padded packet must be at or below the target.
+    assert!(
+        popcount_per_byte(fake_packet) <= 3.4_f32,
+        "combined popcount {:.3} exceeds target 3.4",
+        popcount_per_byte(fake_packet)
+    );
+    // The original fake data must still appear as the tail of the packet.
+    assert_eq!(&fake_packet[fake_packet.len() - HIGH_POPCOUNT_FAKE.len()..], HIGH_POPCOUNT_FAKE);
+}
