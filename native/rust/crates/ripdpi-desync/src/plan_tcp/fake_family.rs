@@ -14,23 +14,35 @@ pub(super) struct HostfakePlan<'a> {
     pub(super) fake_ttl: u8,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn push_fake_chunk_actions(
     actions: &mut Vec<DesyncAction>,
     step_start: i64,
     step_end: i64,
     group: &DesyncGroup,
     tampered: &[u8],
+    fake_reference: &[u8],
     seed: u32,
     default_ttl: u8,
     fake_ttl: u8,
 ) -> Result<(), DesyncError> {
-    let fake = build_fake_packet(group, tampered, seed)?;
+    // The fake decoy is built from the unpadded ClientHello reference so its
+    // protocol detection and sizing stay faithful even when entropy padding
+    // has been prepended to `tampered`. The genuine server-bound chunk is
+    // always sourced from `tampered`, preserving the entropy-evasion contract.
+    // When no padding is present `fake_reference` is byte-identical to
+    // `tampered`, so this is a no-op relative to the previous behavior.
+    let fake = build_fake_packet(group, fake_reference, seed)?;
+    // `span` is the genuine chunk length in `tampered` coordinates; the fake
+    // region is clamped to the fake buffer length so the slice never panics
+    // and stays coherent when the fake is shorter than the padded chunk.
     let span = (step_end - step_start) as usize;
-    let fake_end = fake.fake_offset.saturating_add(span).min(fake.bytes.len());
+    let fake_offset = fake.fake_offset.min(fake.bytes.len());
+    let fake_end = fake_offset.saturating_add(span).min(fake.bytes.len());
     push_fake_actions(
         actions,
         &tampered[step_start as usize..step_end as usize],
-        fake.bytes[fake.fake_offset..fake_end].to_vec(),
+        fake.bytes[fake_offset..fake_end].to_vec(),
         group,
         default_ttl,
         fake_ttl,

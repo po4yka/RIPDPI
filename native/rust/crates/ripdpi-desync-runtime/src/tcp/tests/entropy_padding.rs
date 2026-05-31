@@ -133,5 +133,129 @@ fn entropy_padding_respects_max_pad_config() {
 }
 
 // ---------------------------------------------------------------
+// GAP-3 regression guard: entropy padding must not corrupt the
+// fake-TLS decoy built for a TCP fake step.
+// ---------------------------------------------------------------
+
+/// A genuine TLS ClientHello whose average popcount lands inside the GFW
+/// detection window (3.4-4.6 bits/byte), so `EntropyMode::Popcount` actually
+/// generates padding. It is `DEFAULT_FAKE_TLS` (a real captured Wikipedia
+/// ClientHello, SNI `www.wikipedia.org`) extended with high-popcount filler
+/// that completes the record's declared length; the tolerant TLS parser still
+/// recognizes it as a ClientHello and still recovers the early SNI.
+fn high_popcount_client_hello() -> Vec<u8> {
+    let mut hello = ripdpi_packets::DEFAULT_FAKE_TLS.to_vec();
+    // Each 0xFF byte contributes popcount 8; 150 of them lift the average of
+    // the otherwise low-popcount (~2.5) capture into the detection window.
+    hello.extend(std::iter::repeat_n(0xFFu8, 150));
+    hello
+}
+
+/// Build a group with a captured-ClientHello fake source and a single `Fake`
+/// step whose split offset is past the payload end, so the whole fake decoy is
+/// emitted. `entropy_mode` is the only varying knob.
+fn fake_step_group(entropy_mode: EntropyMode) -> DesyncGroup {
+    let mut group = test_group();
+    group.actions.fake_tls_source = ripdpi_config::FakePacketSource::CapturedClientHello;
+    group.actions.entropy_mode = entropy_mode;
+    group.actions.entropy_padding_target_permil = Some(3400);
+    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(1 << 20))];
+    group
+}
+
+/// Extract the injected fake-TLS decoy bytes from a planned action list. The
+/// fake decoy is the `Write` that immediately follows the fake-TTL `SetTtl`
+/// (the genuine chunks are written under the default TTL).
+fn extract_fake_decoy(plan: &DesyncPlan, fake_ttl: u8, default_ttl: u8) -> Vec<u8> {
+    let mut iter = plan.actions.iter();
+    while let Some(action) = iter.next() {
+        if matches!(action, DesyncAction::SetTtl(ttl) if *ttl == fake_ttl && *ttl != default_ttl) {
+            if let Some(DesyncAction::Write(bytes)) = iter.next() {
+                return bytes.clone();
+            }
+        }
+    }
+    panic!("no fake decoy Write found in plan actions: {:?}", plan.actions);
+}
+
+fn plan_with_padding(group: &DesyncGroup, payload: &[u8], default_ttl: u8) -> DesyncPlan {
+    let context = activation_context_from_progress(
+        OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() },
+        ActivationTransport::Tcp,
+        Some(payload),
+        None,
+        None,
+        None,
+        AdaptivePlannerHints::default(),
+    );
+    // Mirror the runtime's entropy-padding decision in `send_prepared_with_group`:
+    // padding only reaches the planner when the group carries fake steps, which
+    // this group does.
+    let effective_payload = apply_entropy_padding(group, payload, None);
+    let strategy = TcpDesyncStrategy::new(group, 7, default_ttl, context);
+    strategy.plan_with_fake_reference(&effective_payload, payload).expect("tcp plan")
+}
+
+#[test]
+fn popcount_with_tcp_fake_preserves_fake_fidelity() {
+    use ripdpi_packets::{is_tls_client_hello, parse_tls};
+
+    const DEFAULT_TTL: u8 = 64;
+    const FAKE_TTL: u8 = 8; // group.actions.ttl is None -> build_fake default 8
+
+    let payload = high_popcount_client_hello();
+
+    // Sanity: the fixture is a genuine ClientHello and its popcount truly sits
+    // in the detection window, so Popcount mode WILL pad it. If this drifts the
+    // regression guard below becomes meaningless, so assert it loudly.
+    assert!(is_tls_client_hello(&payload), "fixture must be a ClientHello");
+    assert_eq!(parse_tls(&payload), Some(&b"www.wikipedia.org"[..]), "fixture SNI");
+    let pc = entropy::popcount_per_byte(&payload);
+    assert!((3.4..4.6).contains(&pc), "fixture popcount {pc} must be in detection window");
+    let padded = apply_entropy_padding(&fake_step_group(EntropyMode::Popcount), &payload, None);
+    assert!(matches!(padded, Cow::Owned(_)), "Popcount must actually pad this fixture");
+    assert!(padded.len() > payload.len());
+
+    // Control: with entropy disabled, the fake decoy is the unpadded captured
+    // ClientHello at its natural size.
+    let disabled_plan = plan_with_padding(&fake_step_group(EntropyMode::Disabled), &payload, DEFAULT_TTL);
+    let disabled_fake = extract_fake_decoy(&disabled_plan, FAKE_TTL, DEFAULT_TTL);
+
+    // With Popcount padding active on a group that also has a TCP fake step.
+    let popcount_plan = plan_with_padding(&fake_step_group(EntropyMode::Popcount), &payload, DEFAULT_TTL);
+    let popcount_fake = extract_fake_decoy(&popcount_plan, FAKE_TTL, DEFAULT_TTL);
+
+    // (a) the fake decoy is still a valid TLS ClientHello,
+    assert!(is_tls_client_hello(&popcount_fake), "fake decoy must stay a ClientHello under Popcount padding");
+    // (b) it parses to a host -> the captured-ClientHello path was taken, not
+    //     the generic profile fallback (which would have fired had detection
+    //     run against the 'A'-prefixed padded buffer),
+    assert!(parse_tls(&popcount_fake).is_some(), "fake decoy must expose an SNI host");
+    // (c) and its size equals the entropy-disabled fake size -> sizing used the
+    //     unpadded ClientHello length, not the inflated padded length.
+    assert_eq!(popcount_fake.len(), disabled_fake.len(), "fake decoy length must be independent of entropy padding",);
+    // The captured-ClientHello decoy is the unpadded payload itself.
+    assert_eq!(popcount_fake, disabled_fake, "fake decoy must be byte-identical regardless of entropy mode");
+    assert_eq!(popcount_fake.as_slice(), payload.as_slice(), "captured-CH decoy equals the unpadded payload");
+}
+
+#[test]
+fn disabled_entropy_with_tcp_fake_decoy_is_unchanged_capture() {
+    use ripdpi_packets::{is_tls_client_hello, parse_tls};
+
+    const DEFAULT_TTL: u8 = 64;
+    const FAKE_TTL: u8 = 8;
+
+    let payload = high_popcount_client_hello();
+    let plan = plan_with_padding(&fake_step_group(EntropyMode::Disabled), &payload, DEFAULT_TTL);
+    let fake = extract_fake_decoy(&plan, FAKE_TTL, DEFAULT_TTL);
+
+    assert!(is_tls_client_hello(&fake));
+    assert_eq!(parse_tls(&fake), Some(&b"www.wikipedia.org"[..]));
+    // No padding -> the captured ClientHello is forwarded verbatim as the decoy.
+    assert_eq!(fake.as_slice(), payload.as_slice());
+}
+
+// ---------------------------------------------------------------
 // Pure helper function tests
 // ---------------------------------------------------------------

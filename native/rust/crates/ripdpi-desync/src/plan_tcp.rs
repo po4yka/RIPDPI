@@ -39,6 +39,14 @@ impl<'a> TcpDesyncStrategy<'a> {
     pub fn plan(&self, input: &[u8]) -> Result<DesyncPlan, DesyncError> {
         plan_tcp(self.group, input, self.seed, self.default_ttl, self.context)
     }
+
+    /// Plan against `input` (the server-bound buffer, possibly entropy-padded)
+    /// while building any injected fake decoy from `fake_reference` (the
+    /// unpadded payload). When `fake_reference` equals `input` this is
+    /// byte-for-byte identical to [`TcpDesyncStrategy::plan`].
+    pub fn plan_with_fake_reference(&self, input: &[u8], fake_reference: &[u8]) -> Result<DesyncPlan, DesyncError> {
+        plan_tcp_with_fake_reference(self.group, input, fake_reference, self.seed, self.default_ttl, self.context)
+    }
 }
 
 impl DesyncStrategy for TcpDesyncStrategy<'_> {
@@ -122,6 +130,21 @@ pub fn plan_tcp(
     default_ttl: u8,
     context: ActivationContext,
 ) -> Result<DesyncPlan, DesyncError> {
+    plan_tcp_with_fake_reference(group, input, input, seed, default_ttl, context)
+}
+
+/// Internal planner that decouples the server-bound buffer (`input`, possibly
+/// entropy-padded) from the buffer used to build injected fake decoys
+/// (`fake_reference`, the unpadded payload). Passing `fake_reference == input`
+/// reproduces the legacy behavior exactly.
+fn plan_tcp_with_fake_reference(
+    group: &DesyncGroup,
+    input: &[u8],
+    fake_reference: &[u8],
+    seed: u32,
+    default_ttl: u8,
+    context: ActivationContext,
+) -> Result<DesyncPlan, DesyncError> {
     if !activation_filter_matches(group.activation_filter(), context) {
         return Ok(DesyncPlan {
             tampered: input.to_vec(),
@@ -133,6 +156,15 @@ pub fn plan_tcp(
     let chain = group.effective_tcp_chain();
     let (prelude_steps, send_steps) = split_tcp_chain(&chain)?;
     let tampered = apply_tls_prelude_steps(group, &prelude_steps, input, seed, context)?;
+    // The fake decoy must be detected/sized from the unpadded ClientHello with
+    // the same prelude record-fragmentation applied. When `fake_reference`
+    // equals `input` (the no-padding common case) the fake is sourced from the
+    // already-computed `tampered.bytes`, so the emitted plan is byte-identical
+    // to before. Only when padding is present do we run the prelude a second
+    // time over the unpadded reference; that buffer is materialized lazily on
+    // the first fake step so non-fake chains pay nothing.
+    let fake_is_padded = !(std::ptr::eq(fake_reference, input) || fake_reference == input);
+    let mut fake_tampered: Option<Vec<u8>> = None;
     let mut info = tampered.proto;
     let mut rng = OracleRng::seeded(seed);
     let mut steps = Vec::new();
@@ -196,7 +228,26 @@ pub fn plan_tcp(
                 push_disoob_actions(&mut actions, chunk, group.actions.oob_data.unwrap_or(b'a'), default_ttl, fake_ttl);
             }
             TcpChainStepKind::Fake => {
-                push_fake_chunk_actions(&mut actions, lp, pos, group, &tampered.bytes, seed, default_ttl, fake_ttl)?;
+                let fake_reference_bytes = if fake_is_padded {
+                    if fake_tampered.is_none() {
+                        fake_tampered =
+                            Some(apply_tls_prelude_steps(group, &prelude_steps, fake_reference, seed, context)?.bytes);
+                    }
+                    fake_tampered.as_deref().unwrap_or(&tampered.bytes)
+                } else {
+                    &tampered.bytes
+                };
+                push_fake_chunk_actions(
+                    &mut actions,
+                    lp,
+                    pos,
+                    group,
+                    &tampered.bytes,
+                    fake_reference_bytes,
+                    seed,
+                    default_ttl,
+                    fake_ttl,
+                )?;
             }
             TcpChainStepKind::FakeSplit => {
                 // Keep the semantic fake step even when the split lands on the

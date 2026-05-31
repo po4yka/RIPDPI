@@ -38,7 +38,10 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
         if should_desync_tcp(group, context) {
             let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
             let strategy = TcpDesyncStrategy::new(group, seed, config.network.default_ttl, context);
-            match strategy.plan(&effective_payload) {
+            // Build any injected fake decoy from the unpadded `payload` so its
+            // captured-ClientHello fidelity and sizing survive entropy padding,
+            // while the genuine server-bound writes still use `effective_payload`.
+            match strategy.plan_with_fake_reference(&effective_payload, payload) {
                 Ok(plan) if requires_special_tcp_execution(group, &plan, platform_ops.supports_fake_retransmit()) => {
                     let bytes_committed = execute_tcp_plan(
                         writer,
