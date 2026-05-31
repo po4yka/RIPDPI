@@ -3,10 +3,12 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::net::{TcpStream, UdpSocket};
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use tokio::net::{TcpSocket, TcpStream, UdpSocket};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
+use super::protect::protect_socket_if_available;
 use super::socks5::{associate, decode_udp_frame, encode_udp_frame, handshake, Auth};
 
 /// Default timeout waiting for a UDP response from the relay.
@@ -25,14 +27,40 @@ pub struct UdpSession {
 }
 
 impl UdpSession {
-    pub async fn connect(proxy_addr: SocketAddr, auth: Auth) -> io::Result<Self> {
-        let mut ctrl = TcpStream::connect(proxy_addr).await?;
+    /// Establish a SOCKS5 UDP ASSOCIATE session to `proxy_addr`.
+    ///
+    /// Both the TCP control connection and the UDP relay socket are protected
+    /// via [`protect_socket_if_available`] *before* they issue `connect`/`bind`,
+    /// honoring the `VpnService.protect()` invariant: the tunnel→proxy hop is
+    /// loopback by default (a no-op for protect), but a non-loopback proxy
+    /// address is a supported configuration whose sockets would otherwise loop
+    /// back into the TUN the VPN owns. `protect_path` selects the CLI UDS
+    /// fallback when no JNI protect callback is registered (`None` on the
+    /// Android callback path and in tests). See
+    /// `.claude/rules/vpnservice-protect-invariant.md`.
+    pub async fn connect(proxy_addr: SocketAddr, auth: Auth, protect_path: Option<&str>) -> io::Result<Self> {
+        // Control connection: create the socket, protect it, *then* connect.
+        let ctrl_socket = match proxy_addr {
+            SocketAddr::V4(_) => TcpSocket::new_v4()?,
+            SocketAddr::V6(_) => TcpSocket::new_v6()?,
+        };
+        protect_socket_if_available(&ctrl_socket, protect_path)?;
+        let mut ctrl = ctrl_socket.connect(proxy_addr).await?;
         handshake(&mut ctrl, &auth).await?;
         let relay_addr = associate(&mut ctrl).await?;
 
-        let bind_addr: SocketAddr =
-            if relay_addr.is_ipv4() { "0.0.0.0:0".parse().unwrap() } else { "[::]:0".parse().unwrap() };
-        let udp = UdpSocket::bind(bind_addr).await?;
+        // Relay socket: create + protect + bind + connect, in that order, so the
+        // fd is protected before any traffic can leave it.
+        let (domain, bind_addr): (Domain, SocketAddr) = if relay_addr.is_ipv4() {
+            (Domain::IPV4, "0.0.0.0:0".parse().unwrap())
+        } else {
+            (Domain::IPV6, "[::]:0".parse().unwrap())
+        };
+        let relay_socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
+        protect_socket_if_available(&relay_socket, protect_path)?;
+        relay_socket.bind(&SockAddr::from(bind_addr))?;
+        relay_socket.set_nonblocking(true)?;
+        let udp = UdpSocket::from_std(relay_socket.into())?;
         udp.connect(relay_addr).await?;
 
         Ok(Self { _ctrl: Arc::new(Mutex::new(ctrl)), udp: Arc::new(udp), recv_timeout: DEFAULT_RECV_TIMEOUT })
@@ -262,8 +290,10 @@ mod tests {
     async fn relay_once_round_trip() {
         let (proxy_addr, echo_addr, _accepted_tcp_connections) = spawn_stub_proxy(1, false).await;
 
-        let session =
-            UdpSession::connect(proxy_addr, Auth::NoAuth).await.unwrap().with_recv_timeout(Duration::from_secs(3));
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth, None)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_secs(3));
 
         let cancel = CancellationToken::new();
         let result = session.relay_once(echo_addr, b"ping", cancel).await.unwrap();
@@ -278,8 +308,10 @@ mod tests {
     async fn relay_once_cancel_returns_none() {
         let (proxy_addr, echo_addr, _accepted_tcp_connections) = spawn_stub_proxy(1, false).await;
 
-        let session =
-            UdpSession::connect(proxy_addr, Auth::NoAuth).await.unwrap().with_recv_timeout(Duration::from_secs(5));
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth, None)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_secs(5));
 
         let cancel = CancellationToken::new();
         cancel.cancel(); // cancel immediately
@@ -318,8 +350,10 @@ mod tests {
         });
 
         let dst: SocketAddr = "127.0.0.1:9999".parse().unwrap();
-        let session =
-            UdpSession::connect(proxy_addr, Auth::NoAuth).await.unwrap().with_recv_timeout(Duration::from_millis(100));
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth, None)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_millis(100));
 
         let result = session.relay_once(dst, b"ping", CancellationToken::new()).await.unwrap();
         assert!(result.is_none(), "timed-out relay must return None");
@@ -329,7 +363,7 @@ mod tests {
     #[tokio::test]
     async fn relay_once_bad_proxy_returns_err() {
         let bad_proxy: SocketAddr = "127.0.0.1:1".parse().unwrap();
-        let result = UdpSession::connect(bad_proxy, Auth::NoAuth).await;
+        let result = UdpSession::connect(bad_proxy, Auth::NoAuth, None).await;
         assert!(result.is_err(), "unreachable proxy must yield Err");
     }
 
@@ -337,8 +371,10 @@ mod tests {
     async fn send_to_and_recv_from_reuse_single_association() {
         let (proxy_addr, echo_addr, accepted_tcp_connections) = spawn_stub_proxy(2, false).await;
 
-        let session =
-            UdpSession::connect(proxy_addr, Auth::NoAuth).await.unwrap().with_recv_timeout(Duration::from_secs(3));
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth, None)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_secs(3));
 
         session.send_to(echo_addr, b"first").await.unwrap();
         let first = session.recv_from(CancellationToken::new()).await.unwrap().unwrap();
@@ -355,8 +391,10 @@ mod tests {
     async fn recv_from_supports_multiple_replies_on_same_association() {
         let (proxy_addr, echo_addr, accepted_tcp_connections) = spawn_stub_proxy(1, true).await;
 
-        let session =
-            UdpSession::connect(proxy_addr, Auth::NoAuth).await.unwrap().with_recv_timeout(Duration::from_secs(3));
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth, None)
+            .await
+            .unwrap()
+            .with_recv_timeout(Duration::from_secs(3));
 
         session.send_to(echo_addr, b"ping").await.unwrap();
 
@@ -366,6 +404,68 @@ mod tests {
         assert_eq!(first.0, b"ping");
         assert_eq!(second.0, b"push");
         assert_eq!(accepted_tcp_connections.load(Ordering::Relaxed), 1);
+    }
+
+    /// G1 regression: both the control TCP socket and the relay UDP socket must
+    /// pass through the `VpnService.protect()` callback before they issue
+    /// connect/bind, so a non-loopback proxy address cannot loop traffic back
+    /// into the TUN the VPN owns. See
+    /// `.claude/rules/vpnservice-protect-invariant.md`.
+    #[tokio::test]
+    async fn udp_session_protects_ctrl_and_relay_sockets() {
+        use ripdpi_runtime_platform::protect::{
+            register_protect_callback_versioned, unregister_protect_callback_if, ProtectCallback, ProtectGeneration,
+        };
+        use std::os::fd::RawFd;
+        use std::sync::Mutex as StdMutex;
+
+        struct Recorder {
+            fds: StdMutex<Vec<RawFd>>,
+        }
+        impl ProtectCallback for Recorder {
+            fn protect(&self, fd: RawFd) -> io::Result<()> {
+                self.fds.lock().expect("recorder lock").push(fd);
+                Ok(())
+            }
+        }
+
+        // RAII release so a panicking assertion still clears the process-global
+        // protect slot; the generation guard makes it a no-op if anything else
+        // superseded the registration.
+        struct Guard(ProtectGeneration);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                unregister_protect_callback_if(self.0);
+            }
+        }
+
+        let recorder = Arc::new(Recorder { fds: StdMutex::new(Vec::new()) });
+        let generation = register_protect_callback_versioned(Arc::clone(&recorder) as Arc<dyn ProtectCallback>);
+        let _guard = Guard(generation);
+
+        let (proxy_addr, echo_addr, _accepted) = spawn_stub_proxy(1, false).await;
+        let session = UdpSession::connect(proxy_addr, Auth::NoAuth, None)
+            .await
+            .expect("session connects")
+            .with_recv_timeout(Duration::from_secs(3));
+
+        // A successful round-trip proves both sockets were created and usable.
+        let (payload, _from) = session
+            .relay_once(echo_addr, b"ping", CancellationToken::new())
+            .await
+            .expect("relay ok")
+            .expect("echo response");
+        assert_eq!(payload, b"ping");
+
+        // The recorder captured at least the control TCP fd and the relay UDP
+        // fd, both protected before they were used. (Other concurrent tests in
+        // this binary may add more fds to the shared slot; the floor is what
+        // this session protected.)
+        let protected = recorder.fds.lock().expect("recorder lock").len();
+        assert!(
+            protected >= 2,
+            "expected the ctrl + relay sockets to be protected before use, got {protected} protect call(s)"
+        );
     }
 
     #[test]

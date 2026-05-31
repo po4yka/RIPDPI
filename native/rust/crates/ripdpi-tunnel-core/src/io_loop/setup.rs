@@ -70,6 +70,7 @@ pub(in crate::io_loop) fn setup_io_loop(
             RawTunPacketInjector::new(config.misc.protect_path.clone()),
         )),
         udp_idle_timeout: Duration::from_millis(u64::from(config.misc.udp_read_write_timeout)),
+        protect_path: config.misc.protect_path.clone(),
     };
 
     let (udp_tx, udp_rx) = mpsc::channel(256);

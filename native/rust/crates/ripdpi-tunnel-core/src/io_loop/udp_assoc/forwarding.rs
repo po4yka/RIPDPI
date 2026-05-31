@@ -30,6 +30,7 @@ pub(in crate::io_loop) async fn forward_udp_payload(
     eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
     next_id: &mut u64,
     idle_timeout: Duration,
+    protect_path: Option<&str>,
     cancel: &CancellationToken,
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
 ) {
@@ -43,8 +44,18 @@ pub(in crate::io_loop) async fn forward_udp_payload(
         if eviction_heap.is_full() {
             evict_if_over_capacity(associations, eviction_heap);
         }
-        match alloc_association(next_id, proxy_addr, auth.clone(), src, resolved_dst, idle_timeout, cancel, udp_tx)
-            .await
+        match alloc_association(
+            next_id,
+            proxy_addr,
+            auth.clone(),
+            src,
+            resolved_dst,
+            idle_timeout,
+            protect_path,
+            cancel,
+            udp_tx,
+        )
+        .await
         {
             Ok(association) => {
                 eviction_heap.push(UdpEvictionEntry {
@@ -72,8 +83,18 @@ pub(in crate::io_loop) async fn forward_udp_payload(
     }
 
     remove_association(associations, src);
-    let Ok(association) =
-        alloc_association(next_id, proxy_addr, auth.clone(), src, resolved_dst, idle_timeout, cancel, udp_tx).await
+    let Ok(association) = alloc_association(
+        next_id,
+        proxy_addr,
+        auth.clone(),
+        src,
+        resolved_dst,
+        idle_timeout,
+        protect_path,
+        cancel,
+        udp_tx,
+    )
+    .await
     else {
         return;
     };
@@ -94,11 +115,23 @@ async fn alloc_association(
     src: SocketAddr,
     dest: SocketAddr,
     idle_timeout: Duration,
+    protect_path: Option<&str>,
     cancel: &CancellationToken,
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
 ) -> io::Result<UdpAssociation> {
     let id = *next_id;
     *next_id = next_id.wrapping_add(1);
 
-    create_udp_association(proxy_addr, auth, src, dest, id, idle_timeout, cancel.child_token(), udp_tx.clone()).await
+    create_udp_association(
+        proxy_addr,
+        auth,
+        src,
+        dest,
+        id,
+        idle_timeout,
+        protect_path,
+        cancel.child_token(),
+        udp_tx.clone(),
+    )
+    .await
 }

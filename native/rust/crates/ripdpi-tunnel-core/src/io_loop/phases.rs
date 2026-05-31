@@ -196,6 +196,7 @@ mod tests {
                 tun_ingress_interceptor: TunIngressInterceptor::new(None, RawSynAckPacketInjector::new(None)),
                 tun_egress_interceptor,
                 udp_idle_timeout: Duration::from_secs(1),
+                protect_path: None,
             },
             pending_listens: HashMap::new(),
             loop_iteration: 0,

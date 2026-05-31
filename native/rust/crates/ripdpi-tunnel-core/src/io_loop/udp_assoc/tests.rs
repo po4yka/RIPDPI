@@ -48,6 +48,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
         "203.0.113.20:443".parse().expect("valid test addr"),
         7,
         Duration::from_secs(1),
+        None,
         cancel.child_token(),
         udp_tx,
     )
@@ -83,6 +84,7 @@ async fn handle_udp_event_ignores_stale_association_id() {
         "203.0.113.20:443".parse().expect("valid test addr"),
         10,
         Duration::from_secs(1),
+        None,
         cancel.child_token(),
         udp_tx,
     )
@@ -114,6 +116,7 @@ async fn handle_udp_event_removes_closed_association() {
         "203.0.113.20:443".parse().expect("valid test addr"),
         20,
         Duration::from_secs(1),
+        None,
         cancel.child_token(),
         udp_tx,
     )
@@ -142,6 +145,7 @@ async fn handle_udp_event_ignores_stale_close() {
         "203.0.113.20:443".parse().expect("valid test addr"),
         30,
         Duration::from_secs(1),
+        None,
         cancel.child_token(),
         udp_tx,
     )
@@ -204,6 +208,7 @@ async fn shutdown_cancels_all_associations() {
         "203.0.113.21:443".parse().expect("valid test addr"),
         1,
         Duration::from_secs(1),
+        None,
         cancel.child_token(),
         udp_tx.clone(),
     )
@@ -218,6 +223,7 @@ async fn shutdown_cancels_all_associations() {
         "203.0.113.22:443".parse().expect("valid test addr"),
         2,
         Duration::from_secs(1),
+        None,
         cancel.child_token(),
         udp_tx,
     )
