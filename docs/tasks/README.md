@@ -1,72 +1,72 @@
 # Task Board — RIPDPI
 
-This folder is the Obsidian vault for RIPDPI task management.
+Plain-Markdown task tracker. No external app or plugin required — every file is readable
+and editable as ordinary Markdown.
 
 ## Structure
 
 | File / Folder | Purpose |
 | --- | --- |
-| `active.md` | Live Obsidian Tasks query — doing + review |
-| `backlog.md` | Live Obsidian Tasks query — backlog |
-| `blocked.md` | Live Obsidian Tasks query — blocked |
-| `epics.md` | Live Obsidian Tasks query — all epics |
-| `dashboard.md` | Full query hub — all statuses |
-| `board.md` | Kanban board — visual swim-lane view |
-| `issues/<slug>.md` | One file per task/epic — source of truth |
-| `templates/new-task.md` | Templater template for new tasks |
-| `templates/new-epic.md` | Templater template for new epics |
-| `views/*.base` | Obsidian Bases structured views |
+| `issues/<slug>.md` | **Source of truth** — one file per task/epic (YAML frontmatter + spec body) |
+| `board.md` | Generated, read-only index of open issues grouped by status |
+| `README.md` | This file — schema, conventions, and lifecycle |
 
-## Canonical task line
+## Per-issue file
 
-Each `issues/<slug>.md` file contains exactly one `- [ ]` line:
-
-```md
-- [ ] #task <title> #repo/RIPDPI #area/<area> #status/<status> <priority>
-```
-
-Epic notes use the same format with the `#area/epic` tag:
-
-```md
-- [ ] #task Epic — <title> #repo/RIPDPI #area/epic #status/<status> <priority>
-```
-
-## Allowed statuses
-
-`#status/backlog` · `#status/todo` · `#status/doing` · `#status/review` · `#status/blocked` · `#status/done` · `#status/dropped`
-
-## Priority markers
-
-`🔺` critical · `⏫` high · `🔼` medium · `🔽` low
-
-## Canonical area enum
-
-`engine` · `rust-native` · `diagnostics` · `transport` · `outbound` · `dns` · `routing` · `vpn` · `proxy` · `relay` · `android` · `ui` · `data` · `service` · `testing` · `ci` · `epic`
-
-## YAML frontmatter schema
+Each task or epic is a single `issues/<slug>.md` file. The `<slug>` is the kebab-case
+title. All state lives in the YAML frontmatter; the body holds the spec
+(`## Goal`, `## Why now`, `## Scope`, `## Ship definition`, `## Work log`, …).
 
 ```yaml
 ---
 title: Imperative task title
 type: task            # task | epic
 status: doing         # backlog | todo | doing | review | blocked | done | dropped
-area: diagnostics     # canonical area enum above
+area: diagnostics     # canonical area enum (below)
 priority: high        # critical | high | medium | low
 owner: Role name
 parent: epic-slug     # slug of parent epic, or null
-blocks: []            # list of task slugs this task blocks
-blocked_by: []        # list of task slugs blocking this task
+blocks: []            # task slugs this task blocks
+blocked_by: []        # task slugs blocking this task
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
 ```
 
+Epic files use `type: epic` and `area: epic`, and add `## Goal / ## Why now /
+## Key decisions / ## Scope / ## Ship definition`. Child tasks point back via
+`parent: <epic-slug>`.
+
+## Enums
+
+- **Status:** `backlog` · `todo` · `doing` · `review` · `blocked` · `done` · `dropped`
+- **Priority:** `critical` · `high` · `medium` · `low`
+- **Area:** `engine` · `rust-native` · `diagnostics` · `transport` · `outbound` · `dns` ·
+  `routing` · `vpn` · `proxy` · `relay` · `android` · `ui` · `data` · `service` ·
+  `testing` · `ci` · `epic`
+
 ## Lifecycle
 
-1. **New task** — run Templater: "Create new note from template" → `new-task.md` (or `new-epic.md`). Fill prompts. File lands in `issues/` with a kebab-case filename matching the title.
-2. **Status transition** — update `status:` in frontmatter AND change the `#status/*` tag in the canonical `- [ ]` line. Always update `updated:`.
-3. **Done** — delete `issues/<slug>.md`. Git history is the audit trail: `git log -- docs/tasks/issues/<slug>.md`.
+1. **New task** — copy an existing `issues/*.md`, rename to the new kebab-case slug, fill
+   the frontmatter and spec body. `status: backlog` (or `todo`).
+2. **Status transition** — update `status:` in the frontmatter and bump `updated:`.
+3. **Done / dropped** — delete `issues/<slug>.md`. Git history is the audit trail:
+   `git log -- docs/tasks/issues/<slug>.md`.
 
-## Open in Obsidian
+## Regenerate `board.md`
 
-Open the **repo root** (`/path/to/RIPDPI`) as your Obsidian vault. The root `.obsidian/` contains the Tasks plugin config with global filter `#task`.
+`board.md` is derived from issue frontmatter. After changing statuses, regenerate it
+(any equivalent script is fine):
+
+```bash
+cd docs/tasks/issues
+for f in *.md; do
+  awk -F': ' '
+    /^status:/{s=$2} /^priority:/{p=$2} /^area:/{a=$2} /^title:/{sub(/^title: /,"");t=$0}
+    END{printf "%s\t%s\t%s\t%s\t%s\n", s, p, a, t, FILENAME}
+  ' "$f"
+done | sort
+```
+
+Group the rows by status, sort by priority within each group, and write the result into
+`docs/tasks/board.md` (the source-of-truth remains the per-issue files).

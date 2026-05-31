@@ -12,8 +12,6 @@ created: 2026-05-16
 updated: 2026-05-16
 ---
 
-- [ ] #task Add constant-rate traffic shaping with VoIP camouflage profile #repo/RIPDPI #area/rust-native #status/backlog 🔼
-
 ## Summary
 
 Add an outbound traffic-shaping layer that emits packets at a fixed rate and size (e.g. 200-byte UDP every 20 ms — Opus-over-RTP shape) regardless of payload arrival rate. This defeats both inter-packet-arrival-time (IPAT) and packet-size-distribution fingerprinting that DPI uses to distinguish "bulk file transfer masquerading as VoIP" from real VoIP.

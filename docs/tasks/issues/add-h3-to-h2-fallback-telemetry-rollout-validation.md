@@ -1,7 +1,7 @@
 ---
 title: Validate H3-to-H2 MASQUE fallback telemetry sufficiency
 type: task
-status: backlog
+status: doing
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-29
+updated: 2026-05-31
 ---
-
-- [ ] #task Validate H3-to-H2 MASQUE fallback telemetry sufficiency #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
 ## Summary
 

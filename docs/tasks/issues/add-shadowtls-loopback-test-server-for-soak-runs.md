@@ -1,7 +1,7 @@
 ---
 title: Add ShadowTLS loopback test server for soak runs
 type: task
-status: backlog
+status: todo
 area: testing
 priority: low
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-31
 ---
-
-- [ ] #task Add ShadowTLS loopback test server for soak runs #repo/RIPDPI #area/testing #status/backlog 🔼
 
 ## Summary
 

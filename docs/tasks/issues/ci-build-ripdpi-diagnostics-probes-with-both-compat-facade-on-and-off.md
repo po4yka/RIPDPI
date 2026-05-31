@@ -1,7 +1,7 @@
 ---
 title: CI: build ripdpi-diagnostics-probes with both compat-facade on and off
 type: task
-status: backlog
+status: todo
 area: ci
 priority: medium
 owner: Senior Build Gradle CI Engineer
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-28
+updated: 2026-05-31
 ---
-
-- [ ] #task CI: build ripdpi-diagnostics-probes with both compat-facade on and off #repo/RIPDPI #area/ci #status/backlog 🔼
 
 ## Work log
 

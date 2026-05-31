@@ -1,7 +1,7 @@
 ---
 title: Add Hysteria 2 Salamander obfuscation conformance fixtures
 type: task
-status: backlog
+status: doing
 area: testing
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-16
+updated: 2026-05-31
 ---
-
-- [ ] #task Add Hysteria 2 Salamander obfuscation conformance fixtures #repo/RIPDPI #area/testing #status/backlog 🔼
 
 ## Summary
 

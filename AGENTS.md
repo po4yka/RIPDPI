@@ -97,23 +97,13 @@ This extends the generator/critic pattern in `.claude/rules/llm-rust-prompts.md`
 
 ## Task Board
 
-This repository uses Obsidian Tasks-compatible Markdown task lines as the canonical task system. Use the `repo-task-board` skill for all task-related operations.
+This repository tracks work as plain-Markdown files under `docs/tasks/`. Use the `repo-task-board` skill for all task-related operations.
 
 Canonical files:
 
-- `docs/tasks/issues/<slug>.md` — **source of truth** — one note per task/epic (YAML frontmatter + canonical `- [ ]` line + spec)
-- `docs/tasks/active.md` — Obsidian Tasks query view (`#status/doing`, `#status/review`)
-- `docs/tasks/backlog.md` — Obsidian Tasks query view (`#status/backlog`)
-- `docs/tasks/blocked.md` — Obsidian Tasks query view (`#status/blocked`)
-- `docs/tasks/epics.md` — Obsidian Tasks query view (`#area/epic`)
-- `docs/tasks/dashboard.md` — Obsidian Tasks query hub + Bases view links
-- `docs/tasks/board.md` — Kanban board (visual layer; source of truth is `issues/`)
-
-Canonical task syntax (lives inside `docs/tasks/issues/<slug>.md`):
-
-```md
-- [ ] #task <imperative title> #repo/RIPDPI #area/<area> #status/<status> <priority>
-```
+- `docs/tasks/issues/<slug>.md` — **source of truth** — one file per task/epic (YAML frontmatter + spec body)
+- `docs/tasks/board.md` — generated, read-only index of open issues grouped by status
+- `docs/tasks/README.md` — schema, enums, and lifecycle
 
 Per-task note YAML frontmatter:
 
@@ -135,9 +125,9 @@ updated: YYYY-MM-DD
 ---
 ```
 
-Lifecycle: create via Templater template → transitions update `status:` + `#status/*` tag → delete file on close (git history is the audit trail). Do NOT add task lines to `active.md`, `backlog.md`, `blocked.md`, or `epics.md` — those are query-only views.
+Lifecycle: create a new `issues/<slug>.md` → transitions update `status:` + `updated:` → delete the file on close (git history is the audit trail). Regenerate `docs/tasks/board.md` from the issue frontmatter after status changes.
 
-Invoke the `repo-task-board` skill when the user mentions: roadmap, TODO, backlog, Kanban, task board, sprint, blocked work, or agent-ready work.
+Invoke the `repo-task-board` skill when the user mentions: roadmap, TODO, backlog, task board, sprint, blocked work, or agent-ready work.
 
 ## Architecture
 

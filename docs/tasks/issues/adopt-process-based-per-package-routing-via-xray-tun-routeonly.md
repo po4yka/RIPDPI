@@ -12,8 +12,6 @@ created: 2026-04-25
 updated: 2026-04-25
 ---
 
-- [ ] #task Adopt process-based per-package routing via Xray TUN routeOnly #repo/RIPDPI #area/routing #status/backlog 🔼
-
 ## Summary
 
 reference Android implementation 2.1.0 (2026-04-17) shipped per-package routing via Xray TUN with `routeOnly` enabled. Adopt the same pattern so RIPDPI users can route VPN-detection-positive Russian apps (Sber, RuStore, Wildberries, T-Bank, etc.) directly while everything else goes through VLESS — addressing the platform-VPN-detection regime active since 2026-04-15.

@@ -12,8 +12,6 @@ created: 2026-04-20
 updated: 2026-05-14
 ---
 
-- [ ] #task Spike CensorLab as offline censor-replay harness #repo/RIPDPI #area/testing #status/backlog 🔼
-
 ## Summary
 
 Build CensorLab locally, replay a middlebox-like scenario against RIPDPI's direct-mode arms, and decide whether to adopt, fork, or reject it as an offline censor-replay harness for the orchestration test posture.

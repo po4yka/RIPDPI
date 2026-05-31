@@ -12,8 +12,6 @@ created: 2026-04-20
 updated: 2026-05-14
 ---
 
-- [ ] #task Evaluate sing-box 1.14 rule-action model for policy DSL parity #repo/RIPDPI #area/diagnostics #status/backlog 🔽
-
 ## Summary
 
 Summarize sing-box 1.14's rule-action model, then decide whether RIPDPI's direct-mode transport-policy DSL should align vocabulary with it or deliberately diverge.

@@ -1,7 +1,7 @@
 ---
 title: Extract MasqueProviderAdapter trait to decouple Cloudflare-specific paths
 type: task
-status: backlog
+status: review
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-29
+updated: 2026-05-31
 ---
-
-- [ ] #task Extract MasqueProviderAdapter trait to decouple Cloudflare-specific paths #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
 ## Summary
 

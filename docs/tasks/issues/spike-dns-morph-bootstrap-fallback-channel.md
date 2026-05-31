@@ -15,8 +15,6 @@ source_wiki_pages:
 linked_task: null
 ---
 
-- [ ] #task Spike: DNS-Morph bootstrap as fallback bootstrap channel #repo/RIPDPI #area/transport #status/backlog 🔼
-
 ## Motivation
 
 DNS-Morph (Ailabouni-Dunkelman-Bitan, CSCML 2021) splits the threat model: handshake uses DNS port-53 (a TSPU policy gap as of 2026-05-22), data plane uses any underlying transport. Provides a structurally new bootstrap surface that does not depend on TSPU not yet having signature-trained against TLS ClientHello or QUIC Initial. No mature Russia-targeting fork exists yet. Spike validates whether the bootstrap shim is buildable on Android and whether RU-ASN clients can complete the ~80 type-A query handshake under typical TSPU port-53 inspection.

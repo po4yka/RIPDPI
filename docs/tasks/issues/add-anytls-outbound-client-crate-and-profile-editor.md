@@ -1,7 +1,7 @@
 ---
 title: Finish AnyTLS profile editor and compatibility gaps
 type: task
-status: backlog
+status: doing
 area: outbound
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: epic-extended-outbound-protocol-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-28
+updated: 2026-05-31
 ---
-
-- [ ] #task Finish AnyTLS profile editor and compatibility gaps #repo/RIPDPI #area/outbound #status/backlog 🔼
 
 ## Summary
 

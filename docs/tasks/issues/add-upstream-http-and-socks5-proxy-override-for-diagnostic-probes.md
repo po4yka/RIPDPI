@@ -12,8 +12,6 @@ created: 2026-04-25
 updated: 2026-04-25
 ---
 
-- [ ] #task Add upstream HTTP and SOCKS5 proxy override for diagnostic probes #repo/RIPDPI #area/rust-native #status/backlog 🔽
-
 ## Summary
 
 Allow diagnostic probes (TLS reachability, TCP 16-20KB cutoff, DNS resolver availability, HTTP injection) to be routed through an arbitrary upstream HTTP or SOCKS5 proxy supplied by the user, so the operator can compare results across paths without leaving the app.

@@ -15,8 +15,6 @@ source_wiki_pages:
 linked_task: null
 ---
 
-- [ ] #task Add tun2socks UID validation to close SO_BINDTODEVICE escape #repo/RIPDPI #area/vpn #status/backlog ⏫
-
 ## Motivation
 
 On Linux kernel 5.7+ (predominantly Android 12+, API 31+), `SO_BINDTODEVICE` privilege was dropped — any unprivileged app can bind a socket directly to a network interface (e.g., `tun0`) and bypass all Android VPN split-tunneling routing rules. Standard tun2socks reads packets off the TUN interface but has no UID attribution, so any per-app split-tunnel enforcement done at the routing layer is invisible to it.

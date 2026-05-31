@@ -12,8 +12,6 @@ created: 2026-05-01
 updated: 2026-05-01
 ---
 
-- [ ] #task Spike FakeIP mode compatibility on Android #repo/RIPDPI #area/vpn #status/backlog 🔽
-
 ## Summary
 
 Evaluate FakeIP mode as an advanced Android profile option, while keeping Real IP plus domain mapping cache as the production default.

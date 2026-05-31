@@ -12,8 +12,6 @@ created: 2026-05-16
 updated: 2026-05-16
 ---
 
-- [ ] #task Add WireGuard-over-WebSocket transport with AmneziaWG disguise #repo/RIPDPI #area/rust-native #status/backlog 🔼
-
 ## Summary
 
 Encapsulate WireGuard handshakes and data frames inside a WebSocket stream (WSS over 443). Combined with AmneziaWG's junk-packet prefix and randomized header values, this eliminates both the distinctive WG UDP fingerprint (handshake initiation MTU/checksum, message-type byte) and the well-known WG UDP port range.

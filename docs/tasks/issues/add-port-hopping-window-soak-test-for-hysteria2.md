@@ -1,7 +1,7 @@
 ---
 title: Add port-hopping window soak test for Hysteria 2
 type: task
-status: backlog
+status: doing
 area: testing
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-31
 ---
-
-- [ ] #task Add port-hopping window soak test for Hysteria 2 #repo/RIPDPI #area/testing #status/backlog 🔼
 
 ## Summary
 

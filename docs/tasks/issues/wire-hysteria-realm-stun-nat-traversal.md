@@ -15,8 +15,6 @@ source_wiki_pages:
 linked_task: null
 ---
 
-- [ ] #task Wire Hysteria Realm STUN-discovered NAT traversal #repo/RIPDPI #area/transport #status/backlog 🔼
-
 ## Motivation
 
 sing-box v1.14.0-alpha.22 (2026-05-11) introduced a Hysteria Realm service that enables direct peer-to-peer Hysteria2 QUIC tunnels between two clients behind separate NATs — without a fixed listening server on a foreign datacenter ASN. TSPU policies targeting foreign-DC ASNs (the 15–20 KB freeze, session-volume caps) inherently apply to conventional Hysteria2 deployments; Realm provides structural bypass since the data peer can live on any RU residential or mobile ASN behind NAT.

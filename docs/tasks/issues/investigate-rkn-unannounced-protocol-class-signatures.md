@@ -15,8 +15,6 @@ source_wiki_pages:
 linked_task: null
 ---
 
-- [ ] #task Investigate RKN unannounced protocol-class signatures #repo/RIPDPI #area/transport #status/backlog 🔼
-
 ## Motivation
 
 RKN shifted in Dec 2025 to protocol-class fingerprint blocks (SOCKS5, VLESS, L2TP) without enumerating operators. Open question: which additional unannounced protocol-class signatures have landed, and do dpi-checkers / DPI Detector / rkn-block-checker tools detect them? This directly determines which protocols RIPDPI can still rely on as primary transports.

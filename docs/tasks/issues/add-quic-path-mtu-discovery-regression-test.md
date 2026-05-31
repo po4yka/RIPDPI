@@ -1,7 +1,7 @@
 ---
 title: Add QUIC path-MTU discovery regression test
 type: task
-status: backlog
+status: todo
 area: testing
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-31
 ---
-
-- [ ] #task Add QUIC path-MTU discovery regression test #repo/RIPDPI #area/testing #status/backlog 🔼
 
 ## Summary
 

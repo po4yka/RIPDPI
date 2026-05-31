@@ -12,8 +12,6 @@ created: 2026-05-25
 updated: 2026-05-25
 ---
 
-- [ ] #task Operate Phase-16 real-provider SIM runner #repo/RIPDPI #area/testing #status/review 🔼
-
 ## Summary
 
 Provision the private self-hosted carrier hardware and hook scripts required by the `runnerRequired=real-provider` Phase-16 rows.

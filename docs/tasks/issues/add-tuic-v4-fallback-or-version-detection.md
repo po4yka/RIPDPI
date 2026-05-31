@@ -1,7 +1,7 @@
 ---
 title: Add TUIC v4 fallback or explicit version detection
 type: task
-status: backlog
+status: doing
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-31
 ---
-
-- [ ] #task Add TUIC v4 fallback or explicit version detection #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
 ## Summary
 

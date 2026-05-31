@@ -1,7 +1,7 @@
 ---
 title: Build CensorLab-style offline strategy-pack pipeline
 type: task
-status: done
+status: todo
 area: service
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: epic-privacy-preserving-strategy-learner
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-30
+updated: 2026-05-31
 ---
-
-- [x] #task Build CensorLab-style offline strategy-pack pipeline #repo/RIPDPI #area/service #status/done 🔼
 
 ## Summary
 

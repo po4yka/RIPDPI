@@ -1,7 +1,7 @@
 ---
 title: Add network-security-config with opportunistic domainEncryption
 type: task
-status: backlog
+status: review
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-28
+updated: 2026-05-31
 ---
-
-- [ ] #task Add network-security-config with opportunistic domainEncryption #repo/RIPDPI #area/diagnostics #status/backlog 🔼
 
 ## Summary
 

@@ -1,7 +1,7 @@
 ---
 title: Add cross-stack chain tests (VLESS over xHTTP over Reality)
 type: task
-status: backlog
+status: doing
 area: testing
 priority: low
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-31
 ---
-
-- [ ] #task Add cross-stack chain tests (VLESS over xHTTP over Reality) #repo/RIPDPI #area/testing #status/backlog 🔼
 
 ## Summary
 

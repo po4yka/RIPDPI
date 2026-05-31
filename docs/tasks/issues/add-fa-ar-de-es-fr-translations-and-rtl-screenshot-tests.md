@@ -1,7 +1,7 @@
 ---
 title: Review landed fa de es fr translations and finish Arabic RTL coverage
 type: task
-status: backlog
+status: review
 area: ui
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: epic-localization-expansion
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-29
+updated: 2026-05-31
 ---
-
-- [ ] #task Review landed fa de es fr translations and finish Arabic RTL coverage #repo/RIPDPI #area/ui #status/backlog 🔼
 
 ## Summary
 

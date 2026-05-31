@@ -1,7 +1,7 @@
 ---
 title: Add uTLS per-connection TLS-fingerprint rotation for outbound TLS handshakes
 type: task
-status: backlog
+status: doing
 area: rust-native
 priority: high
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-16
+updated: 2026-05-31
 ---
-
-- [ ] #task Add uTLS per-connection TLS-fingerprint rotation for outbound TLS handshakes #repo/RIPDPI #area/rust-native #status/backlog 🔼
 
 ## Summary
 

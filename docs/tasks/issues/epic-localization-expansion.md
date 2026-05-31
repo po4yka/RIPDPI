@@ -1,7 +1,7 @@
 ---
 title: Epic - Localization expansion
 type: epic
-status: backlog
+status: doing
 area: epic
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-29
+updated: 2026-05-31
 ---
-
-- [ ] #task Epic - Localization expansion #repo/RIPDPI #area/epic #status/backlog 🔼
 
 ## Goal
 

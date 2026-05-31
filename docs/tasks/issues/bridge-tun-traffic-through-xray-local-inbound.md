@@ -1,7 +1,7 @@
 ---
 title: Bridge TUN traffic through Xray local inbound
 type: task
-status: backlog
+status: blocked
 area: outbound
 priority: high
 owner: unassigned
@@ -9,10 +9,8 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-30
+updated: 2026-05-31
 ---
-
-- [ ] #task Bridge TUN traffic through Xray local inbound #repo/RIPDPI #area/outbound #status/backlog ⏫
 
 ## Summary
 

@@ -1,7 +1,7 @@
 ---
 title: Epic - Orchestration test posture
 type: epic
-status: todo
+status: doing
 area: testing
 priority: high
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-28
+updated: 2026-05-31
 ---
-
-- [ ] #task Epic - Orchestration test posture #repo/RIPDPI #area/testing #status/todo ⏫
 
 ## Goal
 

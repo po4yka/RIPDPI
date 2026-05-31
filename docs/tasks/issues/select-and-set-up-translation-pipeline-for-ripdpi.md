@@ -1,7 +1,7 @@
 ---
 title: Select and set up translation pipeline for RIPDPI
 type: task
-status: backlog
+status: review
 area: ui
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: epic-localization-expansion
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-14
+updated: 2026-05-31
 ---
-
-- [ ] #task Select and set up translation pipeline for RIPDPI #repo/RIPDPI #area/ui #status/backlog 🔼
 
 ## Summary
 

@@ -1,7 +1,7 @@
 ---
 title: Report OWNED_STACK_ONLY verdict from diagnostic
 type: task
-status: todo
+status: doing
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-28
+updated: 2026-05-31
 ---
-
-- [ ] #task Report OWNED_STACK_ONLY verdict from diagnostic #repo/RIPDPI #area/diagnostics #status/todo 🔼
 
 ## Summary
 

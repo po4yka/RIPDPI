@@ -12,8 +12,6 @@ created: 2026-05-29
 updated: 2026-05-29
 ---
 
-- [ ] #task Spike - native core crash isolation tradeoffs #repo/RIPDPI #area/service #status/backlog 🔽
-
 ## Summary
 
 Investigate whether RIPDPI's in-process JNI Rust core should adopt the crash/panic isolation that simpler clients (xivpn) get by running their proxy core in a **separate OS process**, and record the decision as an ADR. This is a decision spike, not an implementation commitment.

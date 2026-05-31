@@ -15,8 +15,6 @@ source_wiki_pages:
 linked_task: null
 ---
 
-- [ ] #task Enforce per-exit-IP concurrent-TLS-connection cap #repo/RIPDPI #area/transport #status/backlog ⏫
-
 ## Motivation
 
 50+ RU home-ISP ASNs (MTS/MGTS, JustLan, LanInterCom, RTK Izhevsk, etc.) apply a TLS-handshake-level block when ~12 simultaneous TLS connections to a single foreign IP:port are opened on port 443. The block silently drops new ClientHellos for ~60–120 seconds. Block specifically targets VLESS+Reality+Vision; non-vision VLESS and non-TLS transports are unaffected.

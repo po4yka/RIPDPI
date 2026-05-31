@@ -93,10 +93,3 @@ detekt-baseline.xml
 # verified by scripts/native/verify-libxray-artifacts.sh. See
 # docs/native/libxray-packaging.md and gradle/libs.versions.toml pins.
 native/xray/artifacts/
-
-# Obsidian volatile state
-.obsidian/workspace.json
-.obsidian/workspace-mobile.json
-.obsidian/app.json
-.obsidian/appearance.json
-.obsidian/core-plugins.json

@@ -12,8 +12,6 @@ created: 2026-04-25
 updated: 2026-04-25
 ---
 
-- [ ] #task Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS #repo/RIPDPI #area/routing #status/backlog 🔼
-
 ## Summary
 
 Android 17 added a system-owned split-tunnel UI: VPN apps fire `ACTION_VPN_APP_EXCLUSION_SETTINGS` and the OS persists user exclusions across reconnects. Wire this from RIPDPI settings so the per-app exclusion state lives in the OS instead of in-app, reducing the risk of exclusion loss on reconnect.

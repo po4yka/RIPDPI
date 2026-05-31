@@ -1,7 +1,7 @@
 ---
 title: Epic - Fail-closed Android VPN policy engine
 type: epic
-status: backlog
+status: review
 area: vpn
 priority: critical
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-05-31
 ---
-
-- [ ] #task Epic - Fail-closed Android VPN policy engine #repo/RIPDPI #area/vpn #status/backlog 🔺
 
 ## Goal
 

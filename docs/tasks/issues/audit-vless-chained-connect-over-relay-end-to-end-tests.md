@@ -1,7 +1,7 @@
 ---
 title: Audit VLESS chained connect_over relay end-to-end test coverage
 type: task
-status: backlog
+status: todo
 area: testing
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-31
 ---
-
-- [ ] #task Audit VLESS chained connect_over relay end-to-end test coverage #repo/RIPDPI #area/testing #status/backlog 🔼
 
 ## Summary
 

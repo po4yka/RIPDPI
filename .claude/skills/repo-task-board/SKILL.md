@@ -1,45 +1,24 @@
 ---
 name: repo-task-board
-description: Use when creating, updating, triaging, or completing repository tasks stored as Obsidian Tasks Markdown lines with #task, #status/*, #repo/RIPDPI, and #area/* tags. Use for ROADMAP.md, docs/tasks/*.md, Kanban board maintenance, backlog grooming, and agent-ready implementation planning.
+description: Use when creating, updating, triaging, or completing repository tasks stored as plain-Markdown files under docs/tasks/issues/. Use for ROADMAP.md, docs/tasks/*.md, backlog grooming, status triage, and agent-ready implementation planning.
 ---
 
 # Repository Task Board — RIPDPI
 
-This repository uses Obsidian Tasks-compatible Markdown checkboxes as the canonical task system.
-
-## Canonical task line
-
-```md
-- [ ] #task <imperative task title> #repo/RIPDPI #area/<area> #status/<status> <priority>
-```
-
-## Allowed statuses
-
-- `#status/backlog`
-- `#status/todo`
-- `#status/doing`
-- `#status/review`
-- `#status/blocked`
-- `#status/done`
-- `#status/dropped`
-
-## Priority markers
-
-- `🔺` critical  ·  `⏫` high  ·  `🔼` medium  ·  `🔽` low
+This repository tracks work as **plain-Markdown files** under `docs/tasks/`. No external
+app or plugin is required. The source of truth is one file per task/epic; a generated
+index (`docs/tasks/board.md`) gives a grouped overview.
 
 ## Canonical files
 
-- `docs/tasks/issues/<slug>.md` — **source of truth** — one note per task/epic (YAML frontmatter + canonical `- [ ]` line + spec)
-- `docs/tasks/active.md` — query view for `#status/doing` and `#status/review`
-- `docs/tasks/backlog.md` — query view for `#status/backlog`
-- `docs/tasks/blocked.md` — query view for `#status/blocked`
-- `docs/tasks/epics.md` — query view for `#area/epic`
-- `docs/tasks/dashboard.md` — Obsidian Tasks query hub + Bases view links
-- `docs/tasks/board.md` — Kanban board (visual layer; source of truth is `issues/`)
+- `docs/tasks/issues/<slug>.md` — **source of truth** — one file per task/epic (YAML frontmatter + spec body)
+- `docs/tasks/board.md` — generated, read-only index of open issues grouped by status
+- `docs/tasks/README.md` — schema, enums, lifecycle, and the `docs/tasks/board.md` regeneration recipe
 
-## Per-task notes
+## Per-task file
 
-Each task or epic lives in `docs/tasks/issues/<slug>.md`. This is the source of truth.
+Each task or epic lives in `docs/tasks/issues/<slug>.md`. `<slug>` is the kebab-case
+title. All state lives in the YAML frontmatter; the body holds the spec.
 
 ```yaml
 ---
@@ -52,42 +31,46 @@ area: diagnostics     # engine | rust-native | diagnostics | transport | outboun
 priority: high        # critical | high | medium | low
 owner: Role name
 parent: epic-slug     # slug of parent epic, or null
-blocks: []            # list of task slugs this task blocks
-blocked_by: []        # list of task slugs blocking this task
+blocks: []            # task slugs this task blocks
+blocked_by: []        # task slugs blocking this task
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
 ```
 
-Epic notes (`type: epic`) use `#area/epic` on the canonical line and include `## Goal / ## Why now / ## Key decisions / ## Scope / ## Ship definition` sections. Child tasks reference their parent via `parent: <epic-slug>`.
+Epic files (`type: epic`, `area: epic`) include `## Goal / ## Why now / ## Key decisions /
+## Scope / ## Ship definition` sections. Child tasks reference their parent via
+`parent: <epic-slug>`.
 
-Lifecycle: create via Templater → update `status:` + `#status/*` tag on transition → delete file on close (git history is the audit trail). Do NOT add task lines to `docs/tasks/active.md`, `docs/tasks/backlog.md`, `docs/tasks/blocked.md`, or `docs/tasks/epics.md` — those are query-only views.
+## Enums
+
+- **Status:** `backlog` · `todo` · `doing` · `review` · `blocked` · `done` · `dropped`
+- **Priority:** `critical` · `high` · `medium` · `low`
 
 ## Rules
 
-1. Preserve valid Obsidian Tasks syntax.
-2. Never create duplicate task lines for the same work.
-3. Prefer editing the existing `issues/<slug>.md` note over creating a new one.
-4. Keep task titles imperative and implementation-oriented.
-5. Exactly one `#status/*` tag per task; remove the previous one when transitioning.
-6. Add `#blocked` alongside `#status/blocked`; add a blocking reason in the body.
-7. When completing: change `[ ]` to `[x]`, set `#status/done`, add `✅ YYYY-MM-DD`, then delete the file.
-8. RIPDPI ROADMAP.md is forward-looking only — do not add completed work to it.
+1. The frontmatter is the only state — keep `status:`, `priority:`, `area:`, `parent:` accurate.
+2. Never create duplicate files for the same work; edit the existing `issues/<slug>.md`.
+3. Keep task titles imperative and implementation-oriented.
+4. Bump `updated:` on every status transition.
+5. For blocked work, set `status: blocked`, list the blocker slug in `blocked_by:`, and explain in the body.
+6. On completion or drop, set `status: done`/`dropped`, then **delete the file** (git history is the audit trail).
+7. RIPDPI `ROADMAP.md` is forward-looking only — do not add completed work to it.
+8. Do not hand-edit `docs/tasks/board.md`; regenerate it (see `docs/tasks/README.md` § Regenerate).
 9. Do not change unrelated prose, code, or other sections.
 
 ## Task creation workflow
 
 1. Search `docs/tasks/issues/` for similar tasks (the slug should be self-explanatory).
 2. If a similar task exists, update it instead of duplicating.
-3. Use Templater: "Create new note from template" → **new-task.md** (or **new-epic.md**). File lands in `issues/` automatically.
-4. Fill prompts: title, area, priority, owner, parent epic slug (or blank).
-5. The Templater template writes the canonical `- [ ]` line into the note; do not add it to the bucket files.
+3. Otherwise copy an existing `issues/*.md`, rename to the new kebab-case slug, and fill the frontmatter + spec body. Set `status: backlog` (or `todo`).
+4. Regenerate `docs/tasks/board.md`.
 
 ## Implementation workflow
 
-1. Find candidate: `#task #repo/RIPDPI #status/todo` or `#status/backlog`, no `#blocked`.
-2. Update `status: doing` in frontmatter and `#status/doing` in the canonical line. Update `updated:`.
+1. Find a candidate: an issue with `status: todo` or `status: backlog` and no unresolved `blocked_by:`.
+2. Set `status: doing` and bump `updated:`.
 3. Implement, run tests per RIPDPI CLAUDE.md verification rules.
-4. Update `status: review` and `#status/review`.
-5. Add a `## Work log` section to the note: changed files, test run, remaining risk.
-6. Mark `#status/done` only when all acceptance checks pass, then delete the file.
+4. Set `status: review` and add a `## Work log` section: changed files, test run, remaining risk.
+5. Set `status: done` only when all acceptance checks pass, then delete the file.
+6. Regenerate `docs/tasks/board.md` after status changes.

@@ -12,8 +12,6 @@ created: 2026-04-22
 updated: 2026-05-14
 ---
 
-- [ ] #task Spike relay-assisted QUICstep rescue mode after NO_DIRECT_SOLUTION #repo/RIPDPI #area/diagnostics #status/backlog 🔽
-
 ## Summary
 
 Evaluate whether RIPDPI should add a second-tier rescue mode that uses a relay-assisted QUICstep-style first-flight bootstrap only after direct-mode has already returned `NO_DIRECT_SOLUTION`.

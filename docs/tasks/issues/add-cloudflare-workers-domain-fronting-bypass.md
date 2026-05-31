@@ -12,8 +12,6 @@ created: 2026-05-16
 updated: 2026-05-29
 ---
 
-- [ ] #task Add Cloudflare Workers domain-fronting bypass adapter #repo/RIPDPI #area/rust-native #status/backlog 🔼
-
 ## Summary
 
 Route tunnel traffic through Cloudflare Workers (serverless edge compute) so the on-wire TLS connection targets a generic `*.workers.dev` or operator-mapped custom domain. The Worker forwards the inner stream to the real upstream. DPI sees a vanilla TLS connection to a Cloudflare-fronted hostname; the real destination is hidden inside the Worker request.

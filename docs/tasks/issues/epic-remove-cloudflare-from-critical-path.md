@@ -1,7 +1,7 @@
 ---
 title: Epic - Remove Cloudflare from critical path
 type: epic
-status: backlog
+status: doing
 area: relay
 priority: critical
 status_note: code/automation landed across client + deploy; non-Cloudflare hosts await operator provisioning
@@ -10,10 +10,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-30
+updated: 2026-05-31
 ---
-
-- [ ] #task Epic - Remove Cloudflare from critical path #repo/RIPDPI #area/relay #status/in-progress 🔺
 
 ## Goal
 

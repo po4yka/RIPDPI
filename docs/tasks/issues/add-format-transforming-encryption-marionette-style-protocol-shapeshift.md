@@ -12,8 +12,6 @@ created: 2026-05-16
 updated: 2026-05-16
 ---
 
-- [ ] #task Add format-transforming encryption (Marionette-style) for protocol shape-shifting #repo/RIPDPI #area/rust-native #status/backlog 🔼
-
 ## Summary
 
 Implement Format-Transforming Encryption (FTE) that reshapes ciphertext bytes to match a regular-expression-defined cover format (e.g. "looks like syslog UDP", "looks like HTTP/1.0 GET response"). Combined with a state-machine driver in the Marionette tradition, this defeats DPI classifiers that work by matching the wire bytes against a known set of legitimate-protocol regexes.

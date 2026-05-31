@@ -1,7 +1,7 @@
 ---
 title: Add fuzz target for xHTTP FinalMask Sudoku decoder
 type: task
-status: backlog
+status: doing
 area: testing
 priority: high
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-15
+updated: 2026-05-31
 ---
-
-- [ ] #task Add fuzz target for xHTTP FinalMask Sudoku decoder #repo/RIPDPI #area/testing #status/backlog 🔼
 
 ## Summary
 

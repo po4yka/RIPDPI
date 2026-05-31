@@ -1,7 +1,7 @@
 ---
 title: Epic - Privacy-preserving strategy learner
 type: epic
-status: done
+status: doing
 area: epic
 priority: high
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-30
+updated: 2026-05-31
 ---
-
-- [x] #task Epic - Privacy-preserving strategy learner #repo/RIPDPI #area/epic #status/done ⏫
 
 ## Goal
 

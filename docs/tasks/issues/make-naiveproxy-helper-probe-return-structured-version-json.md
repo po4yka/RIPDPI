@@ -1,7 +1,7 @@
 ---
 title: Wire NaiveProxy helper probe into manager startup
 type: task
-status: backlog
+status: doing
 area: service
 priority: medium
 owner: unassigned
@@ -9,10 +9,8 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-28
+updated: 2026-05-31
 ---
-
-- [ ] #task Wire NaiveProxy helper probe into manager startup #repo/RIPDPI #area/service #status/backlog 🔼
 
 ## Summary
 
