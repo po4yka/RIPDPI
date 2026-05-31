@@ -240,3 +240,31 @@ async fn shutdown_cancels_all_associations() {
     assert!(cancel1.is_cancelled(), "association 1 cancel token should be cancelled");
     assert!(cancel2.is_cancelled(), "association 2 cancel token should be cancelled");
 }
+
+#[test]
+fn record_quic_sni_records_server_name_from_quic_initial() {
+    use crate::Stats;
+    use ripdpi_packets::{build_realistic_quic_initial, QUIC_V1_VERSION};
+
+    let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some("example.test")).expect("build quic initial");
+    let stats = Stats::new();
+
+    super::forwarding::record_quic_sni_if_present(&stats, &payload);
+
+    let snapshot = stats.dns_snapshot();
+    assert_eq!(snapshot.last_host.as_deref(), Some("example.test"), "QUIC SNI should be recorded");
+}
+
+#[test]
+fn record_quic_sni_leaves_stats_unchanged_for_non_quic_datagram() {
+    use crate::Stats;
+
+    // A plain non-QUIC datagram: first byte has bit 7 clear.
+    let payload = [0x00u8, 1, 2, 3, 4, 5, 6, 7];
+    let stats = Stats::new();
+
+    super::forwarding::record_quic_sni_if_present(&stats, &payload);
+
+    let snapshot = stats.dns_snapshot();
+    assert!(snapshot.last_host.is_none(), "non-QUIC datagram should not set last_host");
+}

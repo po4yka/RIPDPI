@@ -6690,6 +6690,7 @@ dependencies = [
  "ripdpi-dns-resolver",
  "ripdpi-flow-app-attribution",
  "ripdpi-io-uring",
+ "ripdpi-packets",
  "ripdpi-privileged-ops",
  "ripdpi-runtime-platform",
  "ripdpi-socks5-core",

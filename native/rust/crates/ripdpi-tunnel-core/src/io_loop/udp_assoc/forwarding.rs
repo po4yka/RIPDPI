@@ -10,6 +10,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
 use crate::session::Auth;
+use crate::Stats;
 
 use super::association_state::{remove_association, touch_udp_activity, UdpAssociation};
 use super::event_handling::UdpEvent;
@@ -18,6 +19,24 @@ use super::worker::create_udp_association;
 
 /// IANA IP protocol number for UDP, for flow-attribution `note_flow`.
 const PROTO_UDP: u8 = 17;
+
+/// Extracts the QUIC Initial SNI from `payload` (if it carries a QUIC long-header
+/// packet) and records it into `stats`. Called once per new UDP association.
+/// Non-QUIC datagrams return immediately without any allocation.
+pub(in crate::io_loop) fn record_quic_sni_if_present(stats: &Stats, payload: &[u8]) {
+    // QUIC long-header: first byte has bit 7 set (0x80).
+    if payload.first().is_none_or(|&b| b & 0x80 == 0) {
+        return;
+    }
+    if let Some(info) = ripdpi_packets::parse_quic_initial(payload) {
+        let host = info.host();
+        if !host.is_empty() {
+            if let Ok(sni) = std::str::from_utf8(host) {
+                stats.record_last_host(Some(sni));
+            }
+        }
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub(in crate::io_loop) async fn forward_udp_payload(
@@ -33,6 +52,7 @@ pub(in crate::io_loop) async fn forward_udp_payload(
     protect_path: Option<&str>,
     cancel: &CancellationToken,
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
+    stats: &Arc<Stats>,
 ) {
     #[allow(clippy::map_entry)]
     if !associations.contains_key(&src) {
@@ -41,6 +61,7 @@ pub(in crate::io_loop) async fn forward_udp_payload(
         // locks a mutex and pushes to a queue (deduped by destination) -- no JNI
         // on this path; a background worker resolves off-path.
         ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, resolved_dst);
+        record_quic_sni_if_present(stats, payload);
         if eviction_heap.is_full() {
             evict_if_over_capacity(associations, eviction_heap);
         }
