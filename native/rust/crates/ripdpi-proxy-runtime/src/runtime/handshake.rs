@@ -212,7 +212,7 @@ fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u
 fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let local_ip = client.local_addr()?.ip();
     let protect_path = state.handshake_protect_path();
-    let relay = super::udp::build_udp_relay_sockets(local_ip, protect_path.as_deref())?;
+    let relay = super::udp::build_udp_relay_sockets(local_ip)?;
     let reply_addr = relay.client.local_addr()?;
     client.write_all(RuntimeState::encode_socks5_reply(0, reply_addr).as_bytes())?;
 

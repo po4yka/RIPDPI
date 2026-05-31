@@ -162,7 +162,7 @@ fn udp_associate_domain_targets_resolve_through_encrypted_dns_runtime_context() 
 
 #[test]
 fn build_udp_relay_sockets_keep_client_loopback() {
-    let sockets = build_udp_relay_sockets(IpAddr::V4(Ipv4Addr::LOCALHOST), None).expect("udp relay sockets");
+    let sockets = build_udp_relay_sockets(IpAddr::V4(Ipv4Addr::LOCALHOST)).expect("udp relay sockets");
     assert_eq!(sockets.client.local_addr().expect("client relay addr").ip(), IpAddr::V4(Ipv4Addr::LOCALHOST));
 }
 

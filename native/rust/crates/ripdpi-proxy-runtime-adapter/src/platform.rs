@@ -258,6 +258,64 @@ pub mod udp {
         socket.set_write_timeout(Some(Duration::from_secs(5)))?;
         Ok(socket)
     }
+
+    #[cfg(test)]
+    mod protect_tests {
+        use super::*;
+        use std::os::fd::AsRawFd;
+        use std::sync::{Arc, Mutex};
+
+        use ripdpi_runtime_platform::protect::{
+            register_protect_callback_versioned, unregister_protect_callback_if, ProtectCallback, ProtectGeneration,
+        };
+
+        struct Recorder {
+            fds: Mutex<Vec<i32>>,
+        }
+        impl ProtectCallback for Recorder {
+            fn protect(&self, fd: std::os::fd::RawFd) -> io::Result<()> {
+                self.fds.lock().expect("recorder lock").push(fd);
+                Ok(())
+            }
+        }
+
+        // RAII so a panicking assertion still releases the process-global slot.
+        struct Guard(ProtectGeneration);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                unregister_protect_callback_if(self.0);
+            }
+        }
+
+        /// G3 regression: the upstream UDP socket is protected (callback path)
+        /// when a `protect_path` is configured, and is NOT protected when it is
+        /// absent (proxy-only, no VPN). Asserts on the specific socket fd so it
+        /// is robust to other concurrent tests sharing the process-global slot.
+        #[test]
+        fn upstream_udp_socket_is_protected_when_protect_path_present() {
+            let recorder = Arc::new(Recorder { fds: Mutex::new(Vec::new()) });
+            let generation = register_protect_callback_versioned(Arc::clone(&recorder) as Arc<dyn ProtectCallback>);
+            let _guard = Guard(generation);
+
+            // Non-loopback target; UDP `connect` only sets the default peer (no
+            // network traffic), so this runs offline.
+            let target: SocketAddr = "203.0.113.1:443".parse().expect("valid target");
+
+            let protected = build_udp_upstream_socket(target, Some("/unused/when/callback/present.sock"), false)
+                .expect("build protected upstream socket");
+            assert!(
+                recorder.fds.lock().expect("recorder lock").contains(&protected.as_raw_fd()),
+                "upstream socket fd must be protected before use when protect_path is Some"
+            );
+
+            let unprotected =
+                build_udp_upstream_socket(target, None, false).expect("build unprotected upstream socket");
+            assert!(
+                !recorder.fds.lock().expect("recorder lock").contains(&unprotected.as_raw_fd()),
+                "upstream socket must NOT be protected when protect_path is None (proxy-only mode)"
+            );
+        }
+    }
 }
 
 pub mod handshake {
