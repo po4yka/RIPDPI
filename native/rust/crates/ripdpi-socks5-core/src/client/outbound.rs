@@ -11,8 +11,10 @@
 /// 5. **Reply** — read `[VER, REP, RSV, ATYP, BND.ADDR, BND.PORT]`; return
 ///    stream on `REP == 0x00`.
 ///
-/// UDP ASSOCIATE is intentionally out of scope (v1).
-use std::net::{Ipv4Addr, Ipv6Addr};
+/// UDP ASSOCIATE is supported via [`associate`] — single-hop only (one upstream
+/// SOCKS5 server). Multi-hop UDP over TCP-tunneled SOCKS hops is not expressible
+/// and is intentionally unsupported by design.
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
@@ -48,6 +50,10 @@ pub enum OutboundError {
     BadVersion(u8),
     #[error("CONNECT failed: {0}")]
     ConnectFailed(ReplyError),
+    #[error("UDP ASSOCIATE failed: {0}")]
+    AssociateFailed(ReplyError),
+    #[error("server returned unsupported BND address type 0x{0:02x} in reply")]
+    UnsupportedBndAddrType(u8),
     #[error("domain name too long ({0} bytes, max 255)")]
     DomainTooLong(usize),
     #[error("SOCKS5 credential length {0} exceeds 255 bytes")]
@@ -78,6 +84,23 @@ pub async fn connect<S>(
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    // ── 1–3. Greeting + method selection + sub-negotiation ────────────────────
+    greet_and_authenticate(stream, credentials.as_ref()).await?;
+
+    // ── 4. CONNECT request ────────────────────────────────────────────────────
+    let request = build_connect_request(&target)?;
+    stream.write_all(&request).await?;
+
+    // ── 5. Reply ──────────────────────────────────────────────────────────────
+    read_connect_reply(stream).await
+}
+
+/// Perform the SOCKS5 greeting + authentication over `stream`, identical to the
+/// first half of [`connect`]. Shared by [`connect`] and [`associate`].
+async fn greet_and_authenticate<S>(stream: &mut S, credentials: Option<&Credentials>) -> Result<(), OutboundError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     // ── 1. Greeting ──────────────────────────────────────────────────────────
     let methods: &[u8] = if credentials.is_some() {
         &[consts::SOCKS5_AUTH_METHOD_PASSWORD, consts::SOCKS5_AUTH_METHOD_NONE]
@@ -101,25 +124,88 @@ where
 
     // ── 3. Sub-negotiation ────────────────────────────────────────────────────
     match chosen {
-        consts::SOCKS5_AUTH_METHOD_NONE => {
-            // no sub-negotiation needed
-        }
+        consts::SOCKS5_AUTH_METHOD_NONE => Ok(()),
         consts::SOCKS5_AUTH_METHOD_PASSWORD => {
-            let creds = credentials.as_ref().ok_or(OutboundError::AuthRequired)?;
-            negotiate_password(stream, creds).await?;
+            let creds = credentials.ok_or(OutboundError::AuthRequired)?;
+            negotiate_password(stream, creds).await
         }
-        consts::SOCKS5_AUTH_METHOD_NOT_ACCEPTABLE => {
-            return Err(OutboundError::UnacceptableMethod(consts::SOCKS5_AUTH_METHOD_NOT_ACCEPTABLE));
-        }
-        other => return Err(OutboundError::UnacceptableMethod(other)),
+        other => Err(OutboundError::UnacceptableMethod(other)),
     }
+}
 
-    // ── 4. CONNECT request ────────────────────────────────────────────────────
-    let request = build_connect_request(&target)?;
+/// Send a SOCKS5 UDP ASSOCIATE request and return the upstream relay endpoint
+/// (`BND.ADDR:BND.PORT`) the caller must forward datagrams to.
+///
+/// The greeting and authentication are identical to [`connect`]; only the
+/// request command differs (`CMD = 0x03`). Per RFC 1928 the client MAY send
+/// `0.0.0.0:0` as `DST.ADDR/DST.PORT` when its own UDP source endpoint is not
+/// yet known — that is what this function sends.
+///
+/// **Single-hop only by design.** A UDP ASSOCIATE relay endpoint cannot be
+/// tunneled over a further TCP-tunneled SOCKS hop, so this is valid for exactly
+/// one upstream SOCKS5 server; multi-hop UDP is not supported.
+///
+/// The returned `SocketAddr` is the relay the caller binds a (protected) UDP
+/// socket to; the TCP `stream` MUST be kept alive for the lifetime of the
+/// association.
+pub async fn associate<S>(stream: &mut S, credentials: Option<Credentials>) -> Result<SocketAddr, OutboundError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    greet_and_authenticate(stream, credentials.as_ref()).await?;
+
+    // ── UDP ASSOCIATE request: VER CMD RSV ATYP=IPv4 0.0.0.0 :0 ───────────────
+    let request = [
+        consts::SOCKS5_VERSION,
+        consts::SOCKS5_CMD_UDP_ASSOCIATE,
+        0x00,
+        consts::SOCKS5_ADDR_TYPE_IPV4,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ];
     stream.write_all(&request).await?;
 
-    // ── 5. Reply ──────────────────────────────────────────────────────────────
-    read_connect_reply(stream).await
+    read_associate_reply(stream).await
+}
+
+/// Read the UDP ASSOCIATE reply and return the relay `BND.ADDR:BND.PORT`.
+async fn read_associate_reply<S>(stream: &mut S) -> Result<SocketAddr, OutboundError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let mut header = [0u8; 4];
+    stream.read_exact(&mut header).await?;
+    let [ver, rep, _rsv, atyp] = header;
+
+    if ver != consts::SOCKS5_VERSION {
+        return Err(OutboundError::BadVersion(ver));
+    }
+    if rep != consts::SOCKS5_REPLY_SUCCEEDED {
+        return Err(OutboundError::AssociateFailed(ReplyError::from_u8(rep)));
+    }
+
+    match atyp {
+        consts::SOCKS5_ADDR_TYPE_IPV4 => {
+            let mut buf = [0u8; 4 + 2];
+            stream.read_exact(&mut buf).await?;
+            let ip = Ipv4Addr::new(buf[0], buf[1], buf[2], buf[3]);
+            let port = u16::from_be_bytes([buf[4], buf[5]]);
+            Ok(SocketAddr::new(IpAddr::V4(ip), port))
+        }
+        consts::SOCKS5_ADDR_TYPE_IPV6 => {
+            let mut buf = [0u8; 16 + 2];
+            stream.read_exact(&mut buf).await?;
+            let mut raw = [0u8; 16];
+            raw.copy_from_slice(&buf[..16]);
+            let port = u16::from_be_bytes([buf[16], buf[17]]);
+            Ok(SocketAddr::new(IpAddr::V6(Ipv6Addr::from(raw)), port))
+        }
+        other => Err(OutboundError::UnsupportedBndAddrType(other)),
+    }
 }
 
 async fn negotiate_password<S>(stream: &mut S, creds: &Credentials) -> Result<(), OutboundError>
@@ -489,6 +575,146 @@ mod tests {
         let long = "a".repeat(256);
         let result = build_connect_request(&OutboundTarget::Domain(long.clone(), 80));
         assert!(matches!(result, Err(OutboundError::DomainTooLong(256))), "got {result:?}");
+    }
+
+    // ── UDP ASSOCIATE ─────────────────────────────────────────────────────────
+
+    /// Simulate a SOCKS5 server that accepts `no-auth` and replies to a UDP
+    /// ASSOCIATE with the given relay `BND.ADDR:BND.PORT` (IPv4).
+    async fn server_associate_no_auth(mut srv: impl AsyncRead + AsyncWrite + Unpin, relay: [u8; 4], port: u16) {
+        let mut buf = [0u8; 3];
+        srv.read_exact(&mut buf).await.unwrap();
+        srv.write_all(&[consts::SOCKS5_VERSION, consts::SOCKS5_AUTH_METHOD_NONE]).await.unwrap();
+
+        // ASSOCIATE request is fixed 10 bytes (CMD=3, ATYP=IPv4, 0.0.0.0:0).
+        let mut hdr = [0u8; 4];
+        srv.read_exact(&mut hdr).await.unwrap();
+        assert_eq!(hdr[1], consts::SOCKS5_CMD_UDP_ASSOCIATE);
+        drain_request_addr(hdr[3], &mut srv).await;
+
+        let pb = port.to_be_bytes();
+        srv.write_all(&[
+            consts::SOCKS5_VERSION,
+            consts::SOCKS5_REPLY_SUCCEEDED,
+            0x00,
+            consts::SOCKS5_ADDR_TYPE_IPV4,
+            relay[0],
+            relay[1],
+            relay[2],
+            relay[3],
+            pb[0],
+            pb[1],
+        ])
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn associate_no_auth_returns_relay_endpoint() {
+        let (mut client, server) = duplex(4096);
+        tokio::spawn(server_associate_no_auth(server, [127, 0, 0, 1], 5300));
+        let relay = associate(&mut client, None).await.expect("associate ok");
+        assert_eq!(relay, SocketAddr::from(([127, 0, 0, 1], 5300)));
+    }
+
+    #[tokio::test]
+    async fn associate_parses_ipv6_relay_endpoint() {
+        let (mut client, server) = duplex(4096);
+        tokio::spawn(async move {
+            let mut srv = server;
+            let mut buf = [0u8; 3];
+            srv.read_exact(&mut buf).await.unwrap();
+            srv.write_all(&[consts::SOCKS5_VERSION, consts::SOCKS5_AUTH_METHOD_NONE]).await.unwrap();
+            let mut hdr = [0u8; 4];
+            srv.read_exact(&mut hdr).await.unwrap();
+            drain_request_addr(hdr[3], &mut srv).await;
+            let mut reply =
+                vec![consts::SOCKS5_VERSION, consts::SOCKS5_REPLY_SUCCEEDED, 0x00, consts::SOCKS5_ADDR_TYPE_IPV6];
+            reply.extend_from_slice(&Ipv6Addr::LOCALHOST.octets());
+            reply.extend_from_slice(&5301u16.to_be_bytes());
+            srv.write_all(&reply).await.unwrap();
+        });
+        let relay = associate(&mut client, None).await.expect("associate ok");
+        assert_eq!(relay, SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 5301));
+    }
+
+    #[tokio::test]
+    async fn associate_password_auth_returns_relay_endpoint() {
+        let (mut client, server) = duplex(4096);
+        tokio::spawn(async move {
+            let mut srv = server;
+            let mut g = [0u8; 2];
+            srv.read_exact(&mut g).await.unwrap();
+            let nmethods = g[1] as usize;
+            let mut mbuf = vec![0u8; nmethods];
+            srv.read_exact(&mut mbuf).await.unwrap();
+            srv.write_all(&[consts::SOCKS5_VERSION, consts::SOCKS5_AUTH_METHOD_PASSWORD]).await.unwrap();
+            // RFC 1929 sub-negotiation
+            let mut sub = [0u8; 2];
+            srv.read_exact(&mut sub).await.unwrap();
+            let ulen = sub[1] as usize;
+            let mut ubuf = vec![0u8; ulen];
+            srv.read_exact(&mut ubuf).await.unwrap();
+            let mut plen = [0u8; 1];
+            srv.read_exact(&mut plen).await.unwrap();
+            let mut pbuf = vec![0u8; plen[0] as usize];
+            srv.read_exact(&mut pbuf).await.unwrap();
+            srv.write_all(&[0x01, consts::SOCKS5_REPLY_SUCCEEDED]).await.unwrap();
+            // ASSOCIATE
+            let mut hdr = [0u8; 4];
+            srv.read_exact(&mut hdr).await.unwrap();
+            drain_request_addr(hdr[3], &mut srv).await;
+            srv.write_all(&[
+                consts::SOCKS5_VERSION,
+                consts::SOCKS5_REPLY_SUCCEEDED,
+                0x00,
+                consts::SOCKS5_ADDR_TYPE_IPV4,
+                10,
+                0,
+                0,
+                7,
+                0x14,
+                0xb0,
+            ])
+            .await
+            .unwrap();
+        });
+        let creds = Some(Credentials { username: "user".into(), password: "pass".into() });
+        let relay = associate(&mut client, creds).await.expect("associate ok");
+        assert_eq!(relay, SocketAddr::from(([10, 0, 0, 7], 5296)));
+    }
+
+    #[tokio::test]
+    async fn associate_command_not_supported_maps_to_error() {
+        let (mut client, server) = duplex(4096);
+        tokio::spawn(async move {
+            let mut srv = server;
+            let mut buf = [0u8; 3];
+            srv.read_exact(&mut buf).await.unwrap();
+            srv.write_all(&[consts::SOCKS5_VERSION, consts::SOCKS5_AUTH_METHOD_NONE]).await.unwrap();
+            let mut hdr = [0u8; 4];
+            srv.read_exact(&mut hdr).await.unwrap();
+            drain_request_addr(hdr[3], &mut srv).await;
+            srv.write_all(&[
+                consts::SOCKS5_VERSION,
+                consts::SOCKS5_REPLY_COMMAND_NOT_SUPPORTED,
+                0x00,
+                consts::SOCKS5_ADDR_TYPE_IPV4,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ])
+            .await
+            .unwrap();
+        });
+        let result = associate(&mut client, None).await;
+        assert!(
+            matches!(result, Err(OutboundError::AssociateFailed(ReplyError::CommandNotSupported))),
+            "got {result:?}"
+        );
     }
 
     #[tokio::test]
