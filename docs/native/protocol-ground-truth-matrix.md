@@ -1,14 +1,19 @@
 # Protocol ground-truth matrix — declared vs implemented
 
-**Audit snapshot: 2026-05-30.** Read-only multi-agent audit tracing each protocol path Kotlin service layer → JNI bridge → Rust crates and back. Every row carries `file:line` evidence. `implemented` is one of **full** / **partial** / **absent**. A `gap` is recorded where the docs claim a capability the code does not fully implement, or where the code's behavior contradicts the documented behavior.
+**Audit snapshot: 2026-05-31** (re-audit of the 2026-05-30 baseline against `main` @ `2c00ec9b1`). Read-only multi-agent audit tracing each protocol path Kotlin service layer → JNI bridge → Rust crates and back. Every row carries `file:line` evidence. `implemented` is one of **full** / **partial** / **absent**. A `gap` is recorded where the docs claim a capability the code does not fully implement, or where the code's behavior contradicts the documented behavior.
 
 This is a point-in-time snapshot derived from source at audit time, not a living contract — the code is the source of truth (see AGENTS.md § Project Rules). Re-run the audit before relying on any row; line numbers drift. The UDP/QUIC paths are listed first because they hold the largest declared-vs-implemented divergence.
+
+> **Auditor note (2026-05-31):** the repo root was found as a *bare* checkout with a **stale stray working tree** decoupled from `main` by ~17k lines (the post-2026-05-30 features below were committed but absent on disk). The tree was reset to `main` (`2c00ec9b1`) before this pass. If a re-run shows the new sections 7–12 as "absent", first verify the working tree actually matches `HEAD` (`git diff --stat HEAD`) — you may be reading a stale checkout.
 
 ## Highest-leverage findings
 
 - **SOCKS5 UDP ASSOCIATE exists and is on by default — the docs say it does not exist.** Implemented in two independent paths; the Kotlin layer has no field to disable it.
+- **Mixed inbound (SOCKS4 + SOCKS5 + HTTP CONNECT on one port) is implemented and undocumented.** First-byte peek dispatches; SOCKS4 inbound is wholly undeclared (§7).
+- **Five of six extended-outbound relays ship config/validation/UI but a STUBBED wire engine** that fails session creation with `Unimplemented` (VMess, Trojan-Go, Mieru, Hysteria-v1, SSH). Only **AnyTLS** carries traffic. SSH is stubbed *specifically* to avoid opening an unprotected socket — it honors the `VpnService.protect()` invariant (§10).
+- **The Xray provider (VLESS/REALITY/XHTTP) is a Go/gomobile path, not Rust**; its `.so` is not committed and its REALITY ECH behavior is opaque to the Kotlin/Rust layers (§11).
 - **VLESS REALITY emits no ECH extension at all** (neither real ECH nor GREASE). The cover-domain-conditioned ECH-GREASE policy lives only in ADR 0001 as future intent.
-- **DoQ is silently blocked over SOCKS5 transport**, which is the transport the proxy runtime uses internally.
+- **DoQ is silently blocked over SOCKS5 transport**, which is the transport the proxy runtime uses internally; the new DoH-JSON survey is **diagnostics-only** and never a runtime resolver path (§4).
 - **Entropy padding is configured end-to-end but never applied** in the fake-packet builder.
 - **`md5sig` and `tlsminor` are enableable only via the native CLI**, not from the Android JSON config path.
 
@@ -19,11 +24,11 @@ This is a point-in-time snapshot derived from source at audit time, not a living
 | Step | Declared | Impl | Evidence | Gap |
 |---|---|---|---|---|
 | CMD 0x03 exists at all | Docs: no UDP ASSOCIATE path exists | **full** | `ripdpi-socks5-core/src/lib.rs:95,116-117,133-138`; `server/protocol.rs:421-427` | Declared absence is false. Fully implemented. |
-| proxy-runtime ASSOCIATE handler (Android path) | (undocumented) | **full** | `ripdpi-proxy-runtime/src/runtime/handshake.rs:110-118,178-210`; `runtime/udp.rs:41-81` | The path the Android proxy actually uses — entirely undocumented. |
+| proxy-runtime ASSOCIATE handler (Android path) | (undocumented) | **full** | `ripdpi-proxy-runtime/src/runtime/handshake.rs:152` (dispatch from `handle_socks5`), `:212` (`fn handle_socks5_udp_associate`); `runtime/udp.rs:41-81` | The path the Android proxy actually uses — entirely undocumented. Line refs drifted from the 2026-05-30 baseline. |
 | UDP relay header parse (RSV/FRAG/ATYP) | (undocumented) | **full** | `ripdpi-socks5-core/src/lib.rs:340-375`; `server/udp.rs:96-129` | Undocumented; FRAG≠0 datagrams silently discarded. |
 | `network.udp` default | (undocumented) | **full (=true)** | `ripdpi-config/src/model/defaults.rs:68`; CLI `-U/--no-udp` at `parse/cli/options/runtime.rs:29` | On by default — any SOCKS5 client sending 0x03 is accepted. |
 | Kotlin can disable UDP ASSOCIATE | docs: n/a | **absent** | `NativeProxyConfig.kt:33-66`; `NetworkSectionCodec.kt:23-29` (no udp field) | App cannot opt out via UI-kind JSON; always inherits Rust default `true`. Control-plane gap. |
-| End-to-end Kotlin→JNI→Rust reachable | docs: path doesn't exist | **full** | `RipDpiProxy.kt:177` → `ffi/proxy_bridge/core.rs:39` → `proxy_handshake.rs:34-83` → `handshake.rs:110-118` → `udp.rs:41-81` | Direct contradiction: docs say the path doesn't exist; it is wired and reachable. |
+| End-to-end Kotlin→JNI→Rust reachable | docs: path doesn't exist | **full** | `RipDpiProxy.kt:177` → `ffi/proxy_bridge/core.rs:39` → `proxy_handshake.rs:34-83` → `handshake.rs:152,212` → `udp.rs:41-81` | Direct contradiction: docs say the path doesn't exist; it is wired and reachable. |
 | Upstream SOCKS5 chaining (ext_socks) forwards ASSOCIATE | (undocumented) | **absent** | `ripdpi-socks5-core/src/client/outbound.rs:14` ("out of scope (v1)") | ASSOCIATE not forwarded upstream; relay goes direct, bypassing the chain. |
 | VPN-mode UDP/QUIC via TUN→SOCKS bridge | `tunnel.md:16-27` | full | `tunnel.md`; `RUNTIME_MODES.md:158-159` | none — accurate for VPN mode (separate from the direct-client ASSOCIATE feature). |
 
@@ -68,7 +73,9 @@ This is a point-in-time snapshot derived from source at audit time, not a living
 | MapDNS listener 198.18.0.53 | tunnel.md | full | `VpnDnsBuilder.kt:12`; `dns_intercept/config.rs:16-50` | minor doc method-name nit only. |
 | ODoH (RFC 9230) | declared | partial | `odoh.rs:1-220` full; `ripdpi-ws-bootstrap/src/endpoint.rs:45` hardcodes `odoh: None` | Works on tunnel path; absent on ws-bootstrap path. |
 | Proxy-runtime DNS telemetry (resolver id/protocol/latency/fallback) | `README.md:127` | **absent** | proxy `snapshot.rs:38-142` lacks these fields; only in `ripdpi-tunnel-android` | README mislabels owning subsystem — proxy telemetry has none of these. |
-| Per-network-scope cache isolation | declared | partial | isolation only via session restart (`VpnTunnelRefreshCoordinator`); no explicit keying | Implicit via lifecycle, not explicit partitioning. |
+| Per-network-scope cache isolation | declared | partial | isolation only via session restart (`VpnTunnelRefreshCoordinator`); no explicit keying | Implicit via lifecycle, not explicit partitioning. See the resolver-mapping-cache row below for the newer explicit keying on the *resolver-selection* path. |
+| Resolver-selection mapping cache (network-scope keyed) | (undocumented) | **full (wired live)** | `ripdpi-runtime-dns-cache/src/resolver_mapping_cache.rs` (`ResolverMappingKey`, 7-day `DEFAULT_TTL`); wired at `ripdpi-ws-bootstrap/src/policy.rs:7,20` (`static RESOLVER_SELECTION_CACHE`), consulted on the hot path `:34` (`select_encrypted_dns_context`) | New since baseline. Explicit `(host, network_scope)` keying for *which resolver* to prefer; populated after a successful encrypted-DNS resolution. Distinct from the per-host policy cache above. Undocumented. |
+| DoH-JSON survey probe (Google /resolve, Cloudflare, AdGuard, Alibaba) | (undocumented) | **full (diagnostics-only)** | `ripdpi-diagnostics-probes/src/doh_json_survey.rs:19-24` ("Diagnostics-only — never a runtime resolver path"; runtime resolver stays wire-only, no wire→JSON fallback) | New since baseline. JSON DoH is a survey/evidence path only; the runtime resolver deliberately never falls back to JSON. No declared-vs-impl conflict, but the surface is undocumented. |
 
 ## 5 — TLS 1.2/1.3 desync + fake-TLS
 
@@ -118,8 +125,66 @@ This is a point-in-time snapshot derived from source at audit time, not a living
 
 ---
 
+> **Sections 7–12 are new since the 2026-05-30 baseline** (committed after the prior snapshot; see the auditor note at the top). Verified against `main` @ `2c00ec9b1` on 2026-05-31.
+
+## 7 — Inbound protocol modes (transparent / HTTP CONNECT / mixed / byte-prefixed)
+
+| Step | Declared | Impl | Evidence | Gap |
+|---|---|---|---|---|
+| Mixed inbound: SOCKS4 + SOCKS5 + HTTP CONNECT on one port | (undocumented) | **full** | `ripdpi-proxy-runtime/src/runtime/types.rs:29` (`Mixed { shadowsocks_enabled }`); `runtime/handshake.rs:53` (`fn handle_mixed`), first-byte peek `:62-63` (`b'C'`→HTTP CONNECT), `:73` (`0x04`→SOCKS4), `:74` (`0x05`→SOCKS5) | Single-listener multi-protocol dispatch is undocumented. |
+| SOCKS4 / SOCKS4a inbound CONNECT | (undocumented) | **full** | `ripdpi-proxy-runtime/src/runtime/handshake.rs:103` (`fn handle_socks4`); `ripdpi-socks5-core/src/socks4/` | SOCKS4 inbound entirely undeclared in docs. |
+| Byte-prefixed mode (SOCKS4/5, no HTTP CONNECT) + optional Shadowsocks | implied (shadowsocks surface) | **full** | `types.rs:30` (`BytePrefixed { shadowsocks_enabled }`); `handshake.rs:38-39` (`0x04`/`0x05` only) | Separate from Mixed; HTTP CONNECT is *not* in the byte-prefixed arm. |
+| Mode selection from config | (undocumented) | **full** | `ripdpi-proxy-runtime-adapter/src/model/config/proxy_handshake.rs` (`proxy_protocol_mode`, listener-level modes take precedence over byte-prefixed); `ripdpi-proxy-runtime/src/runtime/state/handshake.rs` (`ProxyProtocolMode::Mixed` → `RuntimeProxyProtocolMode::Mixed`) | Precedence order undocumented. |
+
+## 8 — Allow-LAN binding + auto access token
+
+| Step | Declared | Impl | Evidence | Gap |
+|---|---|---|---|---|
+| Listener binds `0.0.0.0` when allow-LAN enabled, else loopback | (undocumented in `docs/native/`; noted in `CONFIG_CONTRACTS.md`) | **full** | proto `app_settings.proto:404` (`proxy_allow_lan`); mapper `core/engine/.../NativeProxyRuntimePreferencesMapper.kt` (`ip = if (allowLan) "0.0.0.0" else proxy.proxyIp.ifEmpty { "127.0.0.1" }`) | End-to-end wired Kotlin→config. |
+| Auto-generated access token, set only when allow-LAN on | (undocumented in `docs/native/`) | **full** | proto `app_settings.proto:405` (`proxy_lan_auth_token`); mapper sets `authToken = if (allowLan) lanToken else null`; enforced in `ripdpi-proxy-runtime/src/runtime/handshake/protocol_io/readers.rs` (SOCKS5 userpass + HTTP CONNECT auth) | Token is coupled to allow-LAN by the Kotlin mapper; a dedicated Rust-side "non-loopback ⇒ require token" guard was not located in this pass — verify before relying on it. |
+
+## 9 — System HTTP proxy advertisement (Android Q+)
+
+| Step | Declared | Impl | Evidence | Gap |
+|---|---|---|---|---|
+| `VpnService.Builder.setHttpProxy(ProxyInfo)` advertises the local listener on Android 10+ | `CONFIG_CONTRACTS.md` (listener contract); not in `docs/native/proxy-engine.md` | **full** | `core/service/.../RipDpiVpnService.kt` (`builder.setHttpProxy(buildHttpProxyInfo(httpProxyPort))` gated on `SDK_INT >= Q`; `buildHttpProxyInfo` = `ProxyInfo.buildDirectProxy("127.0.0.1", port, httpProxyExclusionList)`) | Opt-in; loopback excluded from proxying. Effective port follows the proxy listener. |
+
+## 10 — Extended outbound relay protocols (VMess / Trojan-Go / Mieru / Hysteria-v1 / SSH / AnyTLS)
+
+Commit `b189c9c8e`: for every protocol the config parse/validate, typed legacy/error rejection, secret redaction, `RelayKind`/`RelayBackend`/transport-descriptor registration (drift-matched Kotlin↔Rust), wire DTO + section codec, URI codec + round-trip tests, Compose editor, and all-7-locale strings are **real**. The novel crypto wire-engines are **stubbed** behind typed `Unimplemented` errors with `TODO(outbound-<proto>)`.
+
+| Step | Declared | Impl | Evidence | Gap |
+|---|---|---|---|---|
+| `RelayKind` registration for all six | (undocumented) | **full** | `ripdpi-relay-core/src/config/kind.rs:6-10,17` (`Vmess`/`TrojanGo`/`Mieru`/`HysteriaV1`/`Ssh`/`AnyTls`) | Config/enum surface complete. |
+| VMess wire engine | (undocumented) | **absent (stub)** | `ripdpi-relay-core/src/backend/builder/builders/vmess.rs:11-13` (validates config, session-create fails `Unimplemented`) | AEAD handshake not wired. |
+| Trojan-Go wire engine | (undocumented) | **absent (stub)** | `builders/trojan_go.rs:13` | SMUX/WS engine not wired; sunset-flagged. |
+| Mieru wire engine | (undocumented) | **absent (stub)** | `builders/mieru.rs:14` | Session/replay engine not wired. |
+| Hysteria-v1 wire engine | (undocumented) | **absent (stub)** | `builders/hysteria_v1.rs:14` | QUIC-v1 engine not wired; legacy, sunset-flagged. |
+| SSH wire engine | (undocumented) | **absent (stub — protect-invariant)** | `builders/ssh.rs:12-16` ("`russh` … stubbed because the relay layer exposes no protected outbound connector … fails … `Unimplemented` rather than opening an unprotected socket"); `ripdpi-ssh/Cargo.toml:9` has a real `russh` dep | The `russh` engine is cryptographically real but unreachable from relay until a `VpnService.protect()`-honoring connector exists. A faithful application of `vpnservice-protect-invariant.md`. |
+| AnyTLS wire engine | (undocumented) | **full** | `builders/anytls.rs:8-28` (builds live `AnyTlsSessionFactory`/`AnyTlsClientConfig`; no `Unimplemented`) | Carries traffic — the only one of the six that does. |
+| Upstream SOCKS5 chaining forwards ASSOCIATE | docs: n/a | **absent** | `ripdpi-socks5-core/src/client/outbound.rs:14` ("out of scope (v1)") | Unchanged by the extended-outbound work — ASSOCIATE still not forwarded upstream. |
+
+## 11 — Xray provider (libXray — VLESS / REALITY / XHTTP)
+
+| Step | Declared | Impl | Evidence | Gap |
+|---|---|---|---|---|
+| Provider is Go (gomobile AAR), not Rust | `docs/native/libxray-packaging.md` | **full** | `scripts/native/build-libxray.sh`, `scripts/native/libxray-build.Dockerfile` (gomobile `bind`, per-ABI `.so` in an `.aar`); verify gate `scripts/native/verify-libxray-artifacts.sh` | Separate runtime from the native Rust path; `.so` is **not committed** (built on demand, version-pinned). |
+| Kotlin VLESS/REALITY/XHTTP config render + validate | (provider docs) | **full** | `core/data/catalog/src/main/kotlin/com/poyka/ripdpi/data/xray/` (`XrayProfile.kt`, `XrayConfigRenderer.kt`, validator, tester, redactor) | Config layer complete and deterministic. |
+| Xray REALITY ECH emission | not declared | **unverifiable from this tree** | Kotlin renderer emits no `echConfig`; the actual handshake is inside the Go `xray-core` AAR | Unlike `ripdpi-vless` (which provably emits no ECH, §5b), the Xray path's ECH behavior is opaque to Kotlin/Rust — cannot be asserted either way here. |
+
+## 12 — N-hop relay chains (2..=4 hops)
+
+| Step | Declared | Impl | Evidence | Gap |
+|---|---|---|---|---|
+| Ordered chain of 2–4 hops over the flat wire (schema v7) | `CONFIG_CONTRACTS.md` | **full (wire)** | `core/engine-api/.../RelayNativeConfig.kt:269` (`RelayNativeConfigSchemaVersion = 7`), `:281`/`:284` (`RelayChainMinHops=2`/`RelayChainMaxHops=4`); validation `RelaySectionsDto.kt:57` | Schema version is now **7**, not the 6 quoted in CLAUDE.md/AGENTS.md prose — update that prose. |
+| Per-hop bind/protect; entry-only outbound bind | `CONFIG_CONTRACTS.md` | **full** | `ripdpi-relay-core` chain backend/builder (entry hop carries the outbound bind IP; later hops tunnel `connect_over` the prior stream) | none verified-contradictory. |
+| QUIC-only kinds rejected at non-entry positions | `CONFIG_CONTRACTS.md` | partial | builder rejects QUIC-only kinds off the entry hop; an explicit standalone validation rule was not separately confirmed in this pass | Re-verify the rejection rule's exact site before relying on it. |
+
+---
+
 ## Method & scope
 
-- Two read-only multi-agent workflows: a 6-path sweep, then a 3-area follow-up (`ripdpi-vless` REALITY, `ripdpi-ws-tunnel` fake-SNI, `ripdpi-diagnostics-tls`). Each path/area ran a docs-extractor and a code-extractor in parallel, then an adversarial reconciler that re-read cited `file:line` before accepting a status.
-- "Declared" sources: `docs/native/proxy-engine.md`, `docs/native/tunnel.md`, `docs/native/README.md`, `README.md`, `docs/architecture/*.md`, `docs/adr/0001-reality-ech.md`.
+- **2026-05-30 baseline:** two read-only multi-agent workflows — a 6-path sweep, then a 3-area follow-up (`ripdpi-vless` REALITY, `ripdpi-ws-tunnel` fake-SNI, `ripdpi-diagnostics-tls`). Each path/area ran a docs-extractor and a code-extractor in parallel, then an adversarial reconciler that re-read cited `file:line` before accepting a status.
+- **2026-05-31 re-audit (this revision):** re-verified §§1–6 line refs against `main` @ `2c00ec9b1` (only §1 ASSOCIATE-handler refs drifted) and added §§7–12 plus two §4 rows for the post-baseline features (mixed/byte-prefixed inbound, allow-LAN + token, system HTTP proxy, extended outbound relays, Xray provider, N-hop chains, DoH-JSON survey, resolver-mapping cache). **Caveat:** the on-disk tree was initially a stale stray checkout (~17k lines behind `HEAD`); several first-pass agents read it and wrongly reported §§7–12 features as "absent". The tree was reset to `main` and every §§7–12 / §4-new row was re-verified by direct read. The Xray REALITY ECH row remains *unverifiable* (Go AAR, opaque to this tree).
+- "Declared" sources: `docs/native/proxy-engine.md`, `docs/native/tunnel.md`, `docs/native/README.md`, `docs/native/libxray-packaging.md`, `README.md`, `docs/architecture/*.md` (incl. `CONFIG_CONTRACTS.md`), `docs/adr/0001-reality-ech.md`.
 - This document is condensed to substantive rows (every gap plus the load-bearing confirmations). It is not exhaustive and not a regression gate — treat it as an audit lead-sheet, re-verify before acting.
