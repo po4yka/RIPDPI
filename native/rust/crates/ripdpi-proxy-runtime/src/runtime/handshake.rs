@@ -253,9 +253,8 @@ fn handle_socks4_connect_error(client: &mut TcpStream, err: ConnectRelayError) -
 fn handle_socks5_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
     if !err.success_reply_sent() {
         let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
-        client.write_all(
-            RuntimeState::encode_socks5_reply(RuntimeState::socks5_general_failure_code(), fail).as_bytes(),
-        )?;
+        let code = RuntimeState::socks5_reply_code_for_kind(err.kind());
+        client.write_all(RuntimeState::encode_socks5_reply(code, fail).as_bytes())?;
     }
     Err(err.into_io_error())
 }

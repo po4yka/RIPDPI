@@ -56,7 +56,8 @@ use super::session::{
     read_upstream_socks_reply, runtime_classify_udp_payload, runtime_parse_socks5_udp_packet,
     runtime_session_projection, validate_http_proxy_auth, FirstOutboundPayloadPolicy, OutboundPayloadInfo,
     PayloadHostExtractor, ProxyReply, RuntimeSessionProjection, SocketType, UdpPacketParser, UdpPayloadClassifier,
-    UdpPayloadInfo, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_GEN, S_VER5,
+    UdpPayloadInfo, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_CONN, S_ER_GEN,
+    S_ER_HOST, S_ER_NET, S_ER_TTL, S_VER5,
 };
 use super::types::{
     runtime_classify_first_outbound_payload, runtime_client_request, runtime_outbound_progress, runtime_session_error,
@@ -316,6 +317,9 @@ mod state_coverage_tests {
         assert!(RuntimeState::upstream_socks_auth_accepted([S_VER5, S_AUTH_NONE]));
         assert!(!RuntimeState::upstream_socks_auth_accepted([S_VER5, S_AUTH_BAD]));
         assert!(RuntimeState::upstream_socks_connect_succeeded(&[S_VER5, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0, 80]));
+        // Reply VER must be SOCKS5 even when REP signals success.
+        assert!(!RuntimeState::upstream_socks_connect_succeeded(&[0x04, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0, 80]));
+        assert!(RuntimeState::upstream_socks_connect_succeeded(&[S_VER5, 0]));
         assert_eq!(RuntimeState::socks5_auth_selection(None, &[S_AUTH_NONE]), ([S_VER5, S_AUTH_NONE], true));
         assert!(RuntimeState::socks5_auth_selection(Some("token"), &[S_AUTH_USERPASS]).1);
         assert!(RuntimeState::is_socks5_version(S_VER5));
@@ -371,6 +375,19 @@ mod state_coverage_tests {
         assert!(RuntimeState::udp_flow_at_capacity(false, state.udp_flow_limit(), state.udp_flow_limit()));
         let udp_policy = state.udp_flow_group_policy(0).expect("udp policy");
         assert!(!RuntimeState::should_rebind_udp_flow_source_port(udp_policy.source_rebind, false, 0, b""));
+    }
+
+    #[test]
+    fn socks5_reply_code_for_kind_maps_each_connect_failure() {
+        use std::io::ErrorKind;
+
+        assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::ConnectionRefused), S_ER_CONN);
+        assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::HostUnreachable), S_ER_HOST);
+        assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::NetworkUnreachable), S_ER_NET);
+        assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::TimedOut), S_ER_TTL);
+        // Unclassified kinds fall back to general failure.
+        assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::PermissionDenied), S_ER_GEN);
+        assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::Other), S_ER_GEN);
     }
 
     #[test]

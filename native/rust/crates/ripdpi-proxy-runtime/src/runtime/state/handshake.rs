@@ -39,7 +39,18 @@ impl RuntimeState {
         reply == [S_VER5, S_AUTH_NONE]
     }
     pub(in crate::runtime) fn upstream_socks_connect_succeeded(reply: &[u8]) -> bool {
-        reply.get(1).copied().unwrap_or(S_ER_GEN) == 0
+        reply.first().copied() == Some(S_VER5) && reply.get(1).copied().unwrap_or(S_ER_GEN) == 0
+    }
+    /// Maps a connect failure [`io::ErrorKind`] to the RFC 1928 §6 SOCKS5 reply
+    /// (`REP`) code, defaulting to general failure for unclassified kinds.
+    pub(in crate::runtime) fn socks5_reply_code_for_kind(kind: io::ErrorKind) -> u8 {
+        match kind {
+            io::ErrorKind::ConnectionRefused => S_ER_CONN,
+            io::ErrorKind::HostUnreachable => S_ER_HOST,
+            io::ErrorKind::NetworkUnreachable => S_ER_NET,
+            io::ErrorKind::TimedOut => S_ER_TTL,
+            _ => S_ER_GEN,
+        }
     }
     pub(in crate::runtime) fn socks5_auth_selection(auth_token: Option<&str>, methods: &[u8]) -> ([u8; 2], bool) {
         let method = if auth_token.is_some() {

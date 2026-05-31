@@ -9,7 +9,7 @@ pub(super) use ripdpi_proxy_runtime_adapter::model::session::{
     parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
     read_upstream_socks_reply, FirstOutboundPayloadPolicy, OutboundPayloadInfo, PayloadHostExtractor, ProxyReply,
     SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE,
-    S_AUTH_USERPASS, S_ER_CMD, S_ER_GEN, S_VER5,
+    S_AUTH_USERPASS, S_ER_CMD, S_ER_CONN, S_ER_GEN, S_ER_HOST, S_ER_NET, S_ER_TTL, S_VER5,
 };
 
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
