@@ -1,0 +1,36 @@
+name: i18n translation-export gate
+
+# Fails the build if a translatable source string is added or removed without
+# regenerating the canonical manifest (config/i18n/translatable-keys.txt) via
+# scripts/ci/export-strings-for-translation.sh.
+
+on:
+  pull_request:
+    paths:
+      - "app/src/main/res/values/strings.xml"
+      - "core/service/src/main/res/values/strings.xml"
+      - "config/i18n/translatable-keys.txt"
+      - "scripts/ci/export-strings-for-translation.sh"
+      - "scripts/ci/check-translation-export.sh"
+      - ".github/workflows/i18n-export.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/src/main/res/values/strings.xml"
+      - "core/service/src/main/res/values/strings.xml"
+      - "config/i18n/translatable-keys.txt"
+      - "scripts/ci/export-strings-for-translation.sh"
+      - "scripts/ci/check-translation-export.sh"
+      - ".github/workflows/i18n-export.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  translation-export-gate:
+    name: Assert translatable-key manifest is in sync with source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check translation export manifest
+        run: scripts/ci/check-translation-export.sh

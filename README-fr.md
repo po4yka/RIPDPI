@@ -176,3 +176,7 @@ Détails : [docs/testing.md](docs/testing.md)
 - [Exemples de profils de relais](docs/relay-profile-examples.md)
 - [Notes d'architecture](docs/architecture/README.md)
 - [Feuille de route](ROADMAP.md)
+
+## Traduire RIPDPI
+
+Les traductions sont fournies par la communauté via des pull requests GitHub. Consultez [docs/localization.md](docs/localization.md) pour savoir comment ajouter ou améliorer une langue. Chaque chaîne est relue par un humain avant d'être fusionnée ; la traduction automatique n'est qu'un point de départ, jamais le texte final.

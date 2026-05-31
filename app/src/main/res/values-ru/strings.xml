@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="ripdpi_docs">https://github.com/hufrea/ripdpi/blob/v0.13/README.md</string>
-    <string name="app_name">RIPDPI</string>
     <string name="navigation_back">Назад</string>
     <string name="action_dismiss">Скрыть</string>
     <string name="vpn_connect">Подключить</string>
@@ -136,8 +134,6 @@
     <string name="diagnostics_remediation_no_hint_step_review_evidence">Проверьте последнюю диагностическую сессию и capability-данные для этого адреса.</string>
     <string name="diagnostics_remediation_no_hint_step_retry">Повторите запуск после ещё одного прогона на той же сети.</string>
     <string name="diagnostics_remediation_open_mode_editor_action">Открыть Mode Editor</string>
-    <string name="diagnostics_profile_badge_dns_http_https_tcp">DNS + HTTP + HTTPS + TCP</string>
-    <string name="diagnostics_profile_badge_http_https_quic">HTTP + HTTPS + QUIC</string>
     <string name="diagnostics_profile_badge_all_builtin">Все встроенные методы</string>
     <string name="diagnostics_profile_badge_raw_only">Только прямой путь</string>
     <string name="diagnostics_profile_badge_raw_and_in_path">Прямой + по маршруту</string>
@@ -166,10 +162,7 @@
     <string name="diagnostics_region_suite_title">Региональный набор</string>
     <string name="diagnostics_region_suite_message">Локальные проверки, настроенные для региональных сетевых паттернов. Результаты — свидетельства, а не обвинения.</string>
     <string name="diagnostics_live_results_title">Результаты в реальном времени</string>
-    <string name="diagnostics_phase_dns">DNS</string>
     <string name="diagnostics_phase_reach">Доступ</string>
-    <string name="diagnostics_phase_quic">QUIC</string>
-    <string name="diagnostics_phase_tcp">TCP</string>
     <string name="diagnostics_phase_svc">Сервис</string>
     <string name="diagnostics_phase_adaptation">Адаптация</string>
     <string name="diagnostics_phase_tg">TG</string>
@@ -682,8 +675,6 @@
     <string name="adaptive_split_preset_selected">Выбрано</string>
     <string name="adaptive_split_preset_recommended">Рекомендуется</string>
     <string name="adaptive_split_preset_dsl_only">Только DSL</string>
-    <string name="adaptive_split_badge_http">HTTP</string>
-    <string name="adaptive_split_badge_https">HTTPS</string>
     <string name="quic_initial_section_title">QUIC Initial</string>
     <string name="quic_initial_section_body">Управляйте тем, расшифровывает ли RIPDPI пакеты QUIC Initial для извлечения SNI при UDP-маршрутизации по хостам, фильтрах, записях кэша и телеметрии.</string>
     <string name="quic_initial_mode_title">Обработка QUIC</string>
@@ -761,9 +752,6 @@
     <string name="fake_payload_library_custom_body">Хотя бы один протокол использует нестандартный встроенный профиль fake-нагрузки.</string>
     <string name="fake_payload_library_default_title">Готовы стандартные значения совместимости</string>
     <string name="fake_payload_library_default_body">RIPDPI использует стандартные fake-нагрузки совместимости для HTTP, TLS и UDP.</string>
-    <string name="fake_payload_library_summary_label_http">HTTP</string>
-    <string name="fake_payload_library_summary_label_tls">TLS</string>
-    <string name="fake_payload_library_summary_label_udp">UDP</string>
     <string name="fake_payload_library_summary_label_scope">Область применения</string>
     <string name="fake_payload_library_scope_cli">Настройки командной строки выбирают эффективный источник нагрузки.</string>
     <string name="fake_payload_library_scope_protocols_disabled">Все переключатели протоколов сейчас отключены.</string>
@@ -924,8 +912,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_approx_badge_available">Доступно</string>
     <string name="ripdpi_fake_approx_badge_configured">Настроено</string>
     <string name="ripdpi_fake_approx_badge_linux_android">Только Linux/Android</string>
-    <string name="ripdpi_fake_approx_badge_http">HTTP</string>
-    <string name="ripdpi_fake_approx_badge_https">HTTPS</string>
     <string name="ripdpi_fake_approx_badge_fakedsplit">fakedsplit</string>
     <string name="ripdpi_fake_approx_badge_fakeddisorder">fakeddisorder</string>
     <string name="title_onboarding">Первоначальная настройка</string>
@@ -942,8 +928,6 @@ fakeddisorder endhost</string>
     <string name="dns_mode_encrypted_body">Перехватывать DNS внутри VPN и разрешать через DoH, DoT или DNSCrypt.</string>
     <string name="dns_mode_plain_body">Отправлять DNS-запросы напрямую на IP-адрес резолвера без зашифрованного перехвата или дополнительной настройки.</string>
     <string name="dns_protocol_section">Зашифрованный протокол</string>
-    <string name="dns_protocol_doh">DoH</string>
-    <string name="dns_protocol_dot">DoT</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
     <string name="dns_protocol_helper">Выберите, какой зашифрованный DNS-транспорт RIPDPI должен использовать для перехвата DNS в VPN и диагностики.</string>
     <string name="dns_protocol_doh_body">Лучший вариант по умолчанию. Встроенные профили Cloudflare, Google, Quad9 и AdGuard готовы к использованию.</string>
@@ -1091,7 +1075,6 @@ fakeddisorder endhost</string>
     <string name="proxy_address">%1$s:%2$s</string>
     <string name="theme_settings">Тема</string>
     <string name="mode_setting">Режим</string>
-    <string name="dbs_ip_setting">DNS</string>
     <string name="bye_dpi_proxy_ip_setting">Адрес прослушивания</string>
     <string name="ripdpi_proxy_port_setting">Порт</string>
     <string name="ripdpi_max_connections_setting">Максимальное количество подключений</string>
@@ -1188,7 +1171,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_tls_default_title">Профиль Fake TLS по умолчанию</string>
     <string name="ripdpi_fake_tls_default_body">RIPDPI будет использовать фейковый ClientHello по умолчанию с профилем ниже при каждом выпуске фейковых HTTPS пакетов текущей цепочкой TCP.</string>
     <string name="ripdpi_fake_tls_summary_label_base">База</string>
-    <string name="ripdpi_fake_tls_summary_label_sni">SNI</string>
     <string name="ripdpi_fake_tls_summary_label_mutations">Мутации</string>
     <string name="ripdpi_fake_tls_summary_label_size">Размер конверта</string>
     <string name="ripdpi_fake_tls_summary_label_scope">Применяется при</string>
@@ -1378,9 +1360,6 @@ fakeddisorder endhost</string>
     <string name="settings_proxy_lan_token_label">Access token (нажмите для копирования)</string>
     <string name="ripdpi_fake_offset_setting">Маркер смещения фейка</string>
     <string name="ripdpi_drop_sack_setting">Сбросить SACK</string>
-    <string name="desync_udp_category">UDP</string>
-    <string name="desync_http_category">HTTP</string>
-    <string name="desync_https_category">HTTPS</string>
     <string name="ripdpi_protocols_category">Протоколы</string>
     <string name="ripdpi_protocols_hint">Снимите все флажки, чтобы десинхронизировать весь трафик</string>
     <string name="advanced_settings_visual_controls_disabled">Визуальные элементы управления недоступны при активных переопределениях командной строки.</string>
@@ -1501,7 +1480,6 @@ fakeddisorder endhost</string>
     <string name="biometric_auth_error_title">Ошибка аутентификации</string>
     <string name="notice_pin_key_lost_title">Резервный PIN сброшен</string>
     <string name="notice_pin_key_lost_message">Резервный PIN-код был сброшен, так как ключ безопасности устройства больше недоступен. Установите новый резервный PIN.</string>
-    <string name="ripdpi_source">https://github.com/hufrea/ripdpi</string>
     <string name="about_description">Интерфейс локальной конфигурации на Compose для сохранённого движка RIPDPI, сервиса и стека DataStore.</string>
     <string name="about_build_section">Сборка</string>
     <string name="about_version_code">Код версии</string>
@@ -1592,9 +1570,7 @@ fakeddisorder endhost</string>
 
     <!-- Diagnostics context field labels -->
     <string name="diagnostics_field_capabilities">Возможности</string>
-    <string name="diagnostics_field_dns">DNS</string>
     <string name="diagnostics_field_private_dns">Приватный DNS</string>
-    <string name="diagnostics_field_mtu">MTU</string>
     <string name="diagnostics_field_local">Локальный</string>
     <string name="diagnostics_field_public_ip">Публичный IP</string>
     <string name="diagnostics_field_asn">ASN</string>
@@ -1818,7 +1794,6 @@ fakeddisorder endhost</string>
     <string name="dns_placeholder_resolver_example">resolver.example</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_placeholder_public_key">0123abcd\u2026</string>
-    <string name="dns_placeholder_doh_url">https://resolver.example/dns-query</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
     <string name="dns_placeholder_port">443</string>
     <string name="connection_timed_out">Время соединения истекло. Попробуйте ещё раз.</string>
@@ -2104,9 +2079,6 @@ fakeddisorder endhost</string>
     <string name="config_relay_import">Импорт</string>
     <string name="config_relay_kind_chain">Цепное реле</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
-    <string name="config_relay_kind_hysteria2">Hysteria2</string>
-    <string name="config_relay_kind_masque">MASQUE</string>
-    <string name="config_relay_kind_vless">VLESS</string>
     <string name="config_relay_local_port_helper">Основной прокси RIPDPI подключается к этому слушателю loopback.</string>
     <string name="config_relay_local_port">Локальный SOCKS-порт реле</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
@@ -2142,8 +2114,6 @@ fakeddisorder endhost</string>
     <string name="config_relay_server">Сервер реле</string>
     <string name="config_relay_title">Протокол исходящего реле</string>
     <string name="config_relay_udp">Включить UDP-реле</string>
-    <string name="config_relay_vless_transport_reality_tcp">Reality TCP</string>
-    <string name="config_relay_vless_transport_xhttp">xHTTP</string>
     <string name="config_relay_vless_transport">Транспорт VLESS</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>
     <string name="config_relay_xhttp_host">Переопределение хоста xHTTP</string>
@@ -2257,7 +2227,6 @@ fakeddisorder endhost</string>
     <string name="home_connection_actuator_state_open">Защищённая линия открыта</string>
 
     <!-- gap-fill: home_connection_stage_* -->
-    <string name="home_connection_stage_dns">DNS</string>
     <string name="home_connection_stage_handshake">Рукопожатие</string>
     <string name="home_connection_stage_network">Сеть</string>
     <string name="home_connection_stage_route">Маршрут</string>
@@ -2285,7 +2254,6 @@ fakeddisorder endhost</string>
     <string name="home_diagnostics_network_asn">ASN / ISP</string>
     <string name="home_diagnostics_network_captive_portal">Captive-портал</string>
     <string name="home_diagnostics_network_ipv6">IPv6</string>
-    <string name="home_diagnostics_network_mtu">MTU</string>
     <string name="home_diagnostics_network_operator">Оператор / сеть</string>
     <string name="home_diagnostics_network_public_ip">Публичный IP</string>
     <string name="home_diagnostics_network_section">В этой сети</string>
@@ -2352,7 +2320,6 @@ fakeddisorder endhost</string>
 
     <!-- gap-fill: qs_tile_* -->
     <string name="qs_tile_label_connected">RIPDPI: Подключено</string>
-    <string name="qs_tile_label_disconnected">RIPDPI</string>
     <string name="qs_tile_subtitle_tap_connect">Нажмите для подключения</string>
     <string name="qs_tile_subtitle_tap_disconnect">Нажмите для отключения</string>
 
@@ -2700,8 +2667,6 @@ fakeddisorder endhost</string>
     <string name="awg_field_server_port">Порт сервера</string>
     <string name="awg_field_private_key">Приватный ключ</string>
     <string name="awg_field_address">Адрес</string>
-    <string name="awg_field_dns">DNS</string>
-    <string name="awg_field_mtu">MTU</string>
     <string name="awg_field_peer_public_key">Публичный ключ пира</string>
     <string name="awg_field_peer_endpoint">Конечная точка пира</string>
     <string name="awg_field_allowed_ips">Разрешённые IP</string>
@@ -2859,7 +2824,6 @@ fakeddisorder endhost</string>
     <string name="widget_telemetry_bytes_up">Отправлено</string>
     <string name="widget_telemetry_bytes_down">Получено</string>
     <string name="widget_telemetry_restarts">Перезапуски</string>
-    <string name="widget_mode_vpn">VPN</string>
     <string name="widget_mode_proxy">Прокси</string>
     <string name="widget_mode_picker_title">Выбрать режим</string>
 
@@ -3019,7 +2983,6 @@ fakeddisorder endhost</string>
     <string name="strategy_import_source_qr_title">Сканировать QR</string>
     <string name="strategy_import_source_qr_sub">Из другой установки RIPDPI или приглашения ретранслятора</string>
     <string name="strategy_import_source_url_title">По URL</string>
-    <string name="strategy_import_source_url_sub">https://po4yka.github.io/RIPDPI/share?v=1#…</string>
     <string name="strategy_import_source_clipboard_title">Вставить из буфера</string>
     <string name="strategy_import_source_clipboard_sub">Автоопределение URL, JSON или аргументов стратегии</string>
     <string name="strategy_import_recent_title">Последние импорты</string>
@@ -3113,8 +3076,6 @@ fakeddisorder endhost</string>
     <string name="rule_editor_source_ports_label">Исходные порты</string>
     <string name="rule_editor_ports_helper">По одному в строке, например 443 или 8000-8999</string>
     <string name="rule_editor_network_label">Сеть</string>
-    <string name="rule_editor_network_tcp">TCP</string>
-    <string name="rule_editor_network_udp">UDP</string>
     <string name="rule_editor_network_both">TCP и UDP</string>
     <string name="rule_editor_process_label">Имя процесса</string>
     <string name="rule_editor_apps_label">Приложения</string>
@@ -3163,7 +3124,6 @@ fakeddisorder endhost</string>
     <string name="asset_provider_custom_label">Свой URL</string>
     <string name="asset_provider_custom_desc">Загрузка из вашего базового URL, совместимого с GitHub Releases.</string>
     <string name="asset_provider_custom_url_label">Свой базовый URL</string>
-    <string name="asset_provider_custom_url_placeholder">https://github.com/owner/repo/releases/latest/download</string>
     <string name="asset_provider_custom_url_helper">geoip.db и geosite.db добавляются к этому URL.</string>
     <string name="asset_provider_geoip_version">Версия geoip.db</string>
     <string name="asset_provider_geosite_version">Версия geosite.db</string>

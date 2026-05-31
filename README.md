@@ -190,3 +190,7 @@ Details: [docs/testing.md](docs/testing.md)
 - [External UI automation](docs/automation/README.md)
 - [Architecture notes](docs/architecture/README.md)
 - [Roadmap](ROADMAP.md)
+
+## Translate RIPDPI
+
+Translations are community-contributed through GitHub pull requests. See [docs/localization.md](docs/localization.md) for how to add or improve a locale. Every string is reviewed by a human before it merges; machine translation is only a starting point, never the final copy.

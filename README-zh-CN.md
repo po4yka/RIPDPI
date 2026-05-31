@@ -176,3 +176,7 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 - [中继配置文件示例](docs/relay-profile-examples.md)
 - [架构说明](docs/architecture/README.md)
 - [路线图](ROADMAP.md)
+
+## 翻译 RIPDPI
+
+翻译由社区通过 GitHub 拉取请求（pull request）贡献。如需新增或改进某个语言，请参阅 [docs/localization.md](docs/localization.md)。每条字符串在合并前都会经过人工审核；机器翻译只是起点，绝不是最终文案。

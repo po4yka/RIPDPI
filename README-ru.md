@@ -176,3 +176,7 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 - [Примеры relay-профилей](docs/relay-profile-examples.md)
 - [Архитектурные заметки](docs/architecture/README.md)
 - [Roadmap](ROADMAP.md)
+
+## Перевод RIPDPI
+
+Переводы создаются сообществом через pull request'ы на GitHub. О том, как добавить или улучшить локаль, читайте в [docs/localization.md](docs/localization.md). Каждая строка проходит проверку человеком перед слиянием; машинный перевод — лишь отправная точка, а не итоговый текст.

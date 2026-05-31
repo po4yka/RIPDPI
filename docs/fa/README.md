@@ -179,4 +179,8 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 - [یادداشت‌های معماری](../../docs/architecture/README.md)
 - [نقشهٔ راه](../../ROADMAP.md)
 
+## ترجمهٔ RIPDPI
+
+ترجمه‌ها از سوی جامعه و از طریق pull request در گیت‌هاب ارائه می‌شوند. برای افزودن یا بهبود یک زبان، [docs/localization.md](../../docs/localization.md) را ببینید. هر رشته پیش از ادغام توسط یک انسان بازبینی می‌شود؛ ترجمهٔ ماشینی تنها یک نقطهٔ شروع است، نه متن نهایی.
+
 </div>

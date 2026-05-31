@@ -1,7 +1,5 @@
 <resources>
-    <string name="vpn_channel_name">VPN</string>
     <string name="proxy_channel_name">代理</string>
-    <string name="notification_title">RIPDPI</string>
     <string name="vpn_notification_content">VPN 正在运行</string>
     <string name="proxy_notification_content">代理正在运行</string>
     <string name="notification_stop">停止</string>

@@ -1,6 +1,4 @@
 <resources>
-    <string name="ripdpi_docs">https://github.com/hufrea/ripdpi/blob/v0.13/README.md</string>
-    <string name="app_name">RIPDPI</string>
     <string name="navigation_back">返回</string>
     <string name="action_dismiss">关闭</string>
     <string name="vpn_connect">连接</string>
@@ -146,8 +144,6 @@
     <string name="diagnostics_remediation_no_hint_step_review_evidence">查看此机构的最新诊断会话和能力证据。</string>
     <string name="diagnostics_remediation_no_hint_step_retry">在同一网络上收集另一次运行后重试。</string>
     <string name="diagnostics_remediation_open_mode_editor_action">打开模式编辑器</string>
-    <string name="diagnostics_profile_badge_dns_http_https_tcp">DNS + HTTP + HTTPS + TCP</string>
-    <string name="diagnostics_profile_badge_http_https_quic">HTTP + HTTPS + QUIC</string>
     <string name="diagnostics_profile_badge_all_builtin">所有内置方法</string>
     <string name="diagnostics_profile_badge_raw_only">仅原始路径</string>
     <string name="diagnostics_profile_badge_raw_and_in_path">原始 + 路径内</string>
@@ -179,10 +175,7 @@
     <string name="diagnostics_scan_policy_notice">某些目标因本地法律安全策略而被排除。</string>
     <string name="diagnostics_profile_explicit_consent_required">在此区域需要明确同意。</string>
     <string name="diagnostics_live_results_title">实时结果</string>
-    <string name="diagnostics_phase_dns">DNS</string>
     <string name="diagnostics_phase_reach">可达</string>
-    <string name="diagnostics_phase_quic">QUIC</string>
-    <string name="diagnostics_phase_tcp">TCP</string>
     <string name="diagnostics_phase_svc">服务</string>
     <string name="diagnostics_phase_adaptation">适配</string>
     <string name="diagnostics_phase_tg">TG</string>
@@ -331,7 +324,6 @@
     <string name="home_connection_actuator_action_deactivate">释放安全线路</string>
     <string name="home_connection_actuator_action_wait">安全线路正在接合</string>
     <string name="home_connection_stage_network">网络</string>
-    <string name="home_connection_stage_dns">DNS</string>
     <string name="home_connection_stage_handshake">握手</string>
     <string name="home_connection_stage_tunnel">隧道</string>
     <string name="home_connection_stage_route">路由</string>
@@ -464,7 +456,6 @@
     <string name="config_relay_chain_exit_short_id">出口跳板 short ID</string>
     <string name="config_relay_credentials_body">此配置在启动前需要安全凭据材料。</string>
     <string name="config_relay_hysteria_salamander">Salamander 密钥</string>
-    <string name="config_relay_kind_hysteria2">Hysteria2</string>
     <string name="config_relay_local_port">本地中继 SOCKS 端口</string>
     <string name="config_relay_masque_auth_privacy_pass">Privacy Pass</string>
     <string name="config_relay_masque_client_private_key">客户端私钥(PEM)</string>
@@ -538,7 +529,6 @@
     <string name="diagnostics_field_capabilities">能力</string>
     <string name="diagnostics_field_chain">链</string>
     <string name="diagnostics_field_data_saver">流量节省</string>
-    <string name="diagnostics_field_dns">DNS</string>
     <string name="diagnostics_field_last_action">最近操作</string>
     <string name="diagnostics_field_last_group">最近组</string>
     <string name="diagnostics_field_last_native_error">最近原生错误</string>
@@ -595,7 +585,6 @@
     <string name="dns_mode_section">模式</string>
     <string name="dns_placeholder_port">443</string>
     <string name="dns_protocol_custom_only">仅自定义</string>
-    <string name="dns_protocol_doh">DoH</string>
     <string name="dns_protocol_section">加密协议</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_google_body">广泛可达的公共解析器,默认设置熟悉易用。</string>
@@ -799,7 +788,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_seqovl_summary_label_scope">流量范围</string>
     <string name="ripdpi_seqovl_summary_runtime_fallback">在本设备上回退到 split</string>
     <string name="ripdpi_seqovl_summary_scope_https">仅 TLS ClientHello</string>
-    <string name="ripdpi_source">https://github.com/hufrea/ripdpi</string>
     <string name="ripdpi_tls_prelude_badge_random">尾部 × %1$d</string>
     <string name="ripdpi_tls_prelude_cli_title">由命令行控制</string>
     <string name="ripdpi_tls_prelude_mode_body">选择 HTTPS ClientHello 流量保持不变、在标记处单次分割,还是扇出为随机化的尾部记录。</string>
@@ -941,7 +929,6 @@ fakeddisorder endhost</string>
     <string name="adaptive_fallback_scope_cli">命令行设置决定活动的回退行为。</string>
     <string name="adaptive_fallback_summary_label_cache">缓存</string>
     <string name="adaptive_fallback_tls_err_title">TLS 错误</string>
-    <string name="adaptive_split_badge_http">HTTP</string>
     <string name="adaptive_split_cli_title">由命令行控制</string>
     <string name="adaptive_split_focus_custom">来自原始链 DSL 的高级自适应标记,包括可视化编辑器未公开的预设。</string>
     <string name="adaptive_split_focus_sniext">TLS ClientHello 布局,其中 SNI 扩展边界比主机名文本本身更重要。</string>
@@ -990,7 +977,6 @@ fakeddisorder endhost</string>
     <string name="config_relay_chain_exit_sni">出口跳服务器名</string>
     <string name="config_relay_credentials_title">缺少中继凭据</string>
     <string name="config_relay_import">导入</string>
-    <string name="config_relay_kind_masque">MASQUE</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">粘贴 PEM 证书链或导入证书文件。</string>
     <string name="config_relay_masque_cloudflare_geohash_enabled">启用 Cloudflare 出口提示</string>
@@ -1025,8 +1011,6 @@ fakeddisorder endhost</string>
     <string name="data_transparency_local_database">所有数据均保留在您设备本地数据库中</string>
     <string name="data_transparency_no_browsing">No browsing history, URL content, packet payloads, credentials, or TLS secrets in normal diagnostics</string>
     <string name="data_transparency_performance_metrics">性能指标:RTT 测量、重试次数、流量统计</string>
-    <string name="dbs_ip_setting">DNS</string>
-    <string name="desync_https_category">HTTPS</string>
     <string name="detection_auto_tune_apply">应用所有修复</string>
     <string name="detection_check_category_dns_leak">DNS 泄漏</string>
     <string name="detection_check_category_ip_comparison">IP 比对</string>
@@ -1143,7 +1127,6 @@ fakeddisorder endhost</string>
     <string name="fake_payload_library_restart_title">重启以应用伪造载荷预设</string>
     <string name="fake_payload_library_scope_protocols_disabled">所有协议开关当前均已关闭。</string>
     <string name="fake_payload_library_section_body">选择在未提供原始自定义伪造数据时,RIPDPI 应使用的内置 HTTP、TLS 和通用 UDP 载荷形态。QUIC Initial 预设保留在下方的 QUIC 区段中。</string>
-    <string name="fake_payload_library_summary_label_tls">TLS</string>
     <string name="fake_payload_profile_status_ready">已保存以备后用</string>
     <string name="fake_payload_profile_summary_label_when_used">适用条件</string>
     <string name="home_diagnostics_bufferbloat_section">缓冲膨胀</string>
@@ -1249,7 +1232,6 @@ fakeddisorder endhost</string>
     <string name="permissions_notifications_denied">RIPDPI 启动本地 VPN 或代理之前需要通知权限。</string>
     <string name="permissions_vpn_continue">继续</string>
     <string name="permissions_vpn_title">本地 VPN 权限</string>
-    <string name="qs_tile_label_disconnected">RIPDPI</string>
     <string name="quic_fake_host_builtin_body">现实预设将继续使用 RIPDPI 内置的伪造主机,直到您保存自定义覆盖。</string>
     <string name="quic_fake_host_effective_label">生效的伪造主机</string>
     <string name="quic_fake_preset_compat_title">兼容性数据块</string>
@@ -1286,7 +1268,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_tls_scope_restart">RIPDPI 重新连接或重启后,用于 HTTPS 伪造包。</string>
     <string name="ripdpi_fake_tls_sni_mode_body">固定模式保留已配置的伪造 SNI。随机化模式在每个伪造 HTTPS 包上生成等长主机名。</string>
     <string name="ripdpi_fake_tls_summary_label_base">基础</string>
-    <string name="ripdpi_fake_tls_summary_label_sni">SNI</string>
     <string name="ripdpi_fake_tls_summary_mutation_randomize">随机化 Random、Session ID 和 KeyShare</string>
     <string name="ripdpi_fake_tls_summary_sni_fixed">固定主机名:%1$s</string>
     <string name="ripdpi_fake_ttl_setting">伪造包的 TTL</string>
@@ -1456,7 +1437,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="adaptive_fallback_scope_idle">已保存供下一个 UI 管理的会话使用。当前没有活动的 desync 链使用自适应回退。</string>
     <string name="adaptive_fallback_summary_label_runtime_override">运行时覆盖</string>
     <string name="adaptive_fallback_torst_title">TCP 重置 / TORST</string>
-    <string name="adaptive_split_badge_https">HTTPS</string>
     <string name="adaptive_split_dsl_only_summary">对于 auto(method)、auto(midsld) 和 auto(extlen),或当 hostfake 占据首个发送步骤时,请使用链 DSL。</string>
     <string name="adaptive_split_focus_endhost">将主机名或 SNI 的尾部推入下一次写入。</string>
     <string name="adaptive_split_hostfake_body">当前第一个 TCP 发送步骤是 hostfake,它保留自己显式的标记。要调整该边界,请使用链 DSL。</string>
@@ -1527,7 +1507,6 @@ fake_burst 3</string>
     <string name="config_relay_chain_cumulative_latency_caveat">测得的所有跳累计延迟：%1$d 毫秒。</string>
     <string name="config_relay_enable">启用上游中继</string>
     <string name="config_relay_kind_chain">链式中继</string>
-    <string name="config_relay_kind_vless">VLESS</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>
     <string name="config_relay_masque_client_certificate_chain">客户端证书链 (PEM)</string>
     <string name="config_relay_masque_cloudflare_geohash_helper">Android 可能会请求粗略位置，因为这个可选的 Cloudflare 出口提示会读取大致国家和地区。它不会用于跟踪，原始位置或网络标识符也不会被保存。</string>
@@ -1536,7 +1515,6 @@ fake_burst 3</string>
     <string name="config_relay_masque_url">MASQUE URL</string>
     <string name="config_relay_reality_public_key">Reality 公钥</string>
     <string name="config_relay_server_port">中继端口</string>
-    <string name="config_relay_vless_transport_reality_tcp">Reality TCP</string>
     <string name="config_relay_xhttp_host">xHTTP host 覆盖</string>
     <string name="config_summary_section">当前值</string>
     <string name="config_validation_banner_title">部分值仍需处理</string>
@@ -1605,7 +1583,6 @@ fake_burst 3</string>
     <string name="diagnostics_field_last_block_provider">最近的封锁提供方</string>
     <string name="diagnostics_field_last_learned_group">最近学习的组</string>
     <string name="diagnostics_field_local">本地</string>
-    <string name="diagnostics_field_mtu">MTU</string>
     <string name="diagnostics_field_notification_permission">通知权限</string>
     <string name="diagnostics_field_permissions">权限</string>
     <string name="diagnostics_field_proxy">代理</string>
@@ -1658,7 +1635,6 @@ fake_burst 3</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_placeholder_resolver_example">resolver.example</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
-    <string name="dns_protocol_dot">DoT</string>
     <string name="dns_proxy_banner_title">代理模式已激活</string>
     <string name="dns_resolver_cloudflare_title">Cloudflare</string>
     <string name="dns_resolver_quad9_body">注重安全的公共解析器,带威胁拦截。</string>
@@ -1676,7 +1652,6 @@ fake_burst 3</string>
     <string name="fake_payload_library_scope_active">当不存在原始 fake 数据覆盖时,用于 fake TCP 和通用 UDP 载荷生成。</string>
     <string name="fake_payload_library_scope_tcp_and_udp_live">完整 fake TCP 数据包和通用 UDP fake_burst 数据包已在当前策略中生效。</string>
     <string name="fake_payload_library_section_title">Fake 载荷库</string>
-    <string name="fake_payload_library_summary_label_udp">UDP</string>
     <string name="fake_payload_profile_status_separate">独立路径已激活</string>
     <string name="home_diagnostics_actionable_section">下一步操作</string>
     <string name="home_diagnostics_bufferbloat_summary">等级 %1$s · 空闲 %2$s · 负载 %3$s</string>
@@ -1796,7 +1771,6 @@ fake_burst 3</string>
     <string name="ripdpi_buffer_size_setting">缓冲区大小</string>
     <string name="ripdpi_domain_mixed_case_setting">域名大小写混合</string>
     <string name="ripdpi_fake_approx_badge_available">可用</string>
-    <string name="ripdpi_fake_approx_badge_http">HTTP</string>
     <string name="ripdpi_fake_approx_cli_title">由命令行控制</string>
     <string name="ripdpi_fake_approx_protocols_off_title">HTTP 与 HTTPS 已关闭</string>
     <string name="ripdpi_fake_approx_restart_title">重启以应用 fake 近似</string>
@@ -2058,7 +2032,6 @@ fake_burst 3</string>
     <string name="config_relay_presets_title">中继预设</string>
     <string name="config_relay_reality_short_id">Reality short ID</string>
     <string name="config_relay_server">中继服务器</string>
-    <string name="config_relay_vless_transport_xhttp">xHTTP</string>
     <string name="config_relay_xhttp_path">xHTTP 路径</string>
     <string name="config_tls_record_marker_helper">接受偏移,如 0、host、sniext、extlen 或 host+1。</string>
     <string name="config_validation_fix">保存前请检查高亮的字段。</string>
@@ -2084,8 +2057,6 @@ fake_burst 3</string>
     <string name="data_transparency_network_identity">网络身份:网络特征的哈希指纹(WiFi SSID、运营商信息)</string>
     <string name="data_transparency_no_personal_data">No accounts or credentials; PCAP is only created by the advanced packet capture control and may contain raw packet payload bytes</string>
     <string name="data_transparency_what_we_collect_section">我们收集的内容</string>
-    <string name="desync_http_category">HTTP</string>
-    <string name="desync_udp_category">UDP</string>
     <string name="detection_check_category_bypass">绕过</string>
     <string name="detection_check_category_icmp_spoofing">ICMP 欺骗</string>
     <string name="detection_check_category_rtt_triangulation">RTT 三角测量</string>
@@ -2178,7 +2149,6 @@ fake_burst 3</string>
     <string name="dns_custom_switch_hint">保存此表单以使用自定义端点替换当前的内置配置。</string>
     <string name="dns_mode_doh">加密 DNS</string>
     <string name="dns_mode_plain">明文 DNS</string>
-    <string name="dns_placeholder_doh_url">https://resolver.example/dns-query</string>
     <string name="dns_protocol_builtin_and_custom">内置 + 自定义</string>
     <string name="dns_protocol_doh_body">最佳默认工作流。已内置 Cloudflare、Google、Quad9 和 AdGuard 配置,可直接使用。</string>
     <string name="dns_protocol_helper">选择 RIPDPI 应当用于 VPN DNS 拦截和诊断的加密 DNS 传输方式。</string>
@@ -2198,7 +2168,6 @@ fake_burst 3</string>
     <string name="fake_payload_library_reset_action">重置预设</string>
     <string name="fake_payload_library_scope_cli">命令行设置选择有效的载荷源。</string>
     <string name="fake_payload_library_scope_tcp_live">完整伪 TCP 包已在当前策略中生效。</string>
-    <string name="fake_payload_library_summary_label_http">HTTP</string>
     <string name="fake_payload_profile_status_live">当前生效</string>
     <string name="fake_payload_profile_summary_label_current">当前配置</string>
     <string name="home_diagnostics_analysis_sheet_title">分析结果</string>
@@ -2207,7 +2176,6 @@ fake_burst 3</string>
     <string name="home_diagnostics_dns_resolver_doh_preferred">加密 DNS 可用;优先使用 DoH。</string>
     <string name="home_diagnostics_dns_resolver_transparent_proxy">可能检测到透明 DNS 代理。</string>
     <string name="home_diagnostics_effectiveness_section">该网络上的策略有效性</string>
-    <string name="home_diagnostics_network_mtu">MTU</string>
     <string name="home_diagnostics_network_transparent_proxy">透明代理</string>
     <string name="home_diagnostics_pcap_helper">Root required. Captures raw packet bytes for this run and may include the PCAP in later diagnostics exports.</string>
     <string name="home_diagnostics_recommendation_label">建议</string>
@@ -2320,7 +2288,6 @@ fake_burst 3</string>
     <string name="ripdpi_default_ttl_setting">默认 TTL</string>
     <string name="ripdpi_drop_sack_setting">丢弃 SACK</string>
     <string name="ripdpi_fake_approx_badge_configured">已配置</string>
-    <string name="ripdpi_fake_approx_badge_https">HTTPS</string>
     <string name="ripdpi_fake_approx_example_http">fakedsplit host+1</string>
     <string name="ripdpi_fake_approx_ready_body">已保存的策略链已经包含 fakedsplit 或 fakeddisorder 步骤,下次启动 RIPDPI 时将复用当前的伪载荷、伪 TLS 和伪 TTL 配置。</string>
     <string name="ripdpi_fake_approx_scope_note">这些是 Linux/Android 优先的近似实现,并非原始线路对等实现。它们复用 RIPDPI 的伪载荷和伪传输,而非序列重叠或重复的原始发送。</string>
@@ -2582,8 +2549,6 @@ fake_burst 3</string>
     <string name="awg_field_server_port">服务器端口</string>
     <string name="awg_field_private_key">私钥</string>
     <string name="awg_field_address">地址</string>
-    <string name="awg_field_dns">DNS</string>
-    <string name="awg_field_mtu">MTU</string>
     <string name="awg_field_peer_public_key">对端公钥</string>
     <string name="awg_field_peer_endpoint">对端端点</string>
     <string name="awg_field_allowed_ips">允许的 IP</string>
@@ -2741,7 +2706,6 @@ fake_burst 3</string>
     <string name="widget_telemetry_bytes_up">上传</string>
     <string name="widget_telemetry_bytes_down">下载</string>
     <string name="widget_telemetry_restarts">重启次数</string>
-    <string name="widget_mode_vpn">VPN</string>
     <string name="widget_mode_proxy">代理</string>
     <string name="widget_mode_picker_title">选择模式</string>
 
@@ -2901,7 +2865,6 @@ fake_burst 3</string>
     <string name="strategy_import_source_qr_title">扫描二维码</string>
     <string name="strategy_import_source_qr_sub">来自其他 RIPDPI 安装或中继邀请</string>
     <string name="strategy_import_source_url_title">从 URL</string>
-    <string name="strategy_import_source_url_sub">https://po4yka.github.io/RIPDPI/share?v=1#…</string>
     <string name="strategy_import_source_clipboard_title">从剪贴板粘贴</string>
     <string name="strategy_import_source_clipboard_sub">自动检测 URL、JSON 或策略参数</string>
     <string name="strategy_import_recent_title">最近导入</string>
@@ -2995,8 +2958,6 @@ fake_burst 3</string>
     <string name="rule_editor_source_ports_label">源端口</string>
     <string name="rule_editor_ports_helper">每行一个，例如 443 或 8000-8999</string>
     <string name="rule_editor_network_label">网络</string>
-    <string name="rule_editor_network_tcp">TCP</string>
-    <string name="rule_editor_network_udp">UDP</string>
     <string name="rule_editor_network_both">TCP 和 UDP</string>
     <string name="rule_editor_process_label">进程名称</string>
     <string name="rule_editor_apps_label">应用</string>
@@ -3045,7 +3006,6 @@ fake_burst 3</string>
     <string name="asset_provider_custom_label">自定义网址</string>
     <string name="asset_provider_custom_desc">从你自己的、兼容 GitHub Releases 的基础网址下载。</string>
     <string name="asset_provider_custom_url_label">自定义基础网址</string>
-    <string name="asset_provider_custom_url_placeholder">https://github.com/owner/repo/releases/latest/download</string>
     <string name="asset_provider_custom_url_helper">geoip.db 和 geosite.db 会附加到该网址。</string>
     <string name="asset_provider_geoip_version">geoip.db 版本</string>
     <string name="asset_provider_geosite_version">geosite.db 版本</string>

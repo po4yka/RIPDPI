@@ -72,7 +72,6 @@
     <string name="config_relay_chain_exit_public_key">Clé publique du saut de sortie</string>
     <string name="config_relay_cloudflare_tunnel_note">Utilisez ici le nom d\'hôte de votre Cloudflare Tunnel géré par l\'utilisateur. P0 s\'attend à ce que ce nom d\'hôte serve de façade à votre propre origine xHTTP/VLESS ; RIPDPI ne gère pas les jetons cloudflared ni la configuration TryCloudflare.</string>
     <string name="config_relay_hysteria_salamander">Clé Salamander</string>
-    <string name="config_relay_kind_masque">MASQUE</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>
     <string name="config_relay_masque_client_private_key">Clé privée client (PEM)</string>
     <string name="config_relay_masque_import_certificate_chain">Importer un certificat</string>
@@ -100,8 +99,6 @@
     <string name="data_transparency_export_privacy_section">Confidentialité d\'exportation</string>
     <string name="data_transparency_network_identity">Identité réseau : empreinte hachée des caractéristiques du réseau (SSID Wi-Fi, informations de l\'opérateur)</string>
     <string name="data_transparency_optional_ip">Facultatif : adresse IP publique (uniquement lors des analyses de diagnostic manuelles)</string>
-    <string name="dbs_ip_setting">DNS</string>
-    <string name="desync_https_category">HTTPS</string>
     <string name="detection_check_category_bypass">Contournement</string>
     <string name="detection_check_category_indirect">Indices indirects</string>
     <string name="detection_check_category_tls">Empreinte TLS</string>
@@ -246,7 +243,6 @@
     <string name="fake_payload_library_protocols_disabled_title">Les protocoles sont désactivés</string>
     <string name="fake_payload_library_scope_cli">Les paramètres de ligne de commande choisissent la source effective de charge utile.</string>
     <string name="fake_payload_library_scope_udp_live">Les paquets UDP fake_burst génériques sont actifs dans la stratégie en cours.</string>
-    <string name="fake_payload_library_summary_label_tls">TLS</string>
     <string name="fake_payload_profile_status_separate">Chemin séparé actif</string>
     <string name="history_connection_remembered_policy_exact_match">Correspondance exacte du réseau</string>
     <string name="history_connection_remembered_policy_reason">Motif de la correspondance</string>
@@ -255,7 +251,6 @@
     <string name="history_title">Historique</string>
     <string name="home_connection_actuator_action_deactivate">Libérer la ligne sécurisée</string>
     <string name="home_connection_actuator_state_engaging">Ligne sécurisée en cours d\'engagement</string>
-    <string name="home_connection_stage_dns">DNS</string>
     <string name="home_control_plane_health_action">Ouvrir les paramètres avancés</string>
     <string name="home_control_plane_host_pack_invalid_snapshot">La dernière actualisation a construit un instantané sélectionné non valide.</string>
     <string name="home_control_plane_strategy_pack_incompatible">Le dernier catalogue est incompatible avec cette version.</string>
@@ -363,7 +358,6 @@
     <string name="quic_initial_support_v2_body">Autoriser l\'extraction du nom d\'hôte depuis les paquets QUIC Initial version 2.</string>
     <string name="ripdpi_desync_method_setting">Méthode de desync</string>
     <string name="ripdpi_fake_approx_available_title">Approximations factices disponibles</string>
-    <string name="ripdpi_fake_approx_badge_http">HTTP</string>
     <string name="ripdpi_fake_approx_example_http">fakedsplit host+1</string>
     <string name="ripdpi_fake_approx_ready_title">Approximations factices prêtes</string>
     <string name="ripdpi_fake_approx_summary_label_marker">Limite principale</string>
@@ -378,7 +372,6 @@
     <string name="ripdpi_fake_tls_scope_cli">Défini par le profil RIPDPI brut de ligne de commande actuel.</string>
     <string name="ripdpi_fake_tls_section_title">Faux TLS</string>
     <string name="ripdpi_fake_tls_summary_base_original">ClientHello d\'origine comme base</string>
-    <string name="ripdpi_fake_tls_summary_label_sni">SNI</string>
     <string name="ripdpi_fake_tls_summary_size_exact">Exactement %1$d octets</string>
     <string name="ripdpi_fake_tls_waiting_body">Ajoutez une étape TCP factice lorsque vous voulez que RIPDPI façonne de faux paquets HTTPS ClientHello avec le profil ci-dessous.</string>
     <string name="ripdpi_hostfake_available_body">Ajoutez une étape hostfake lorsque vous voulez des faux segments uniquement autour de la plage Host HTTP ou SNI TLS au lieu de simuler toute la charge utile.</string>
@@ -557,7 +550,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_relay_chain_exit_server">Serveur du saut de sortie</string>
     <string name="config_relay_credentials_body">Ce profil a besoin de credentials sécurisés avant de pouvoir démarrer.</string>
     <string name="config_relay_import">Importer</string>
-    <string name="config_relay_kind_vless">VLESS</string>
     <string name="config_relay_masque_auth_preshared">Prépartagé</string>
     <string name="config_relay_masque_client_private_key_helper">Collez la clé privée PEM ou importez un fichier de clé.</string>
     <string name="config_relay_masque_import_pkcs12">Importer un bundle PKCS#12</string>
@@ -713,7 +705,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="dns_mode_encrypted_body">Intercepter le DNS dans le VPN et le résoudre via DoH, DoT ou DNSCrypt.</string>
     <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
     <string name="dns_placeholder_resolver_example">resolver.example</string>
-    <string name="dns_protocol_doh">DoH</string>
     <string name="dns_protocol_section">Protocole chiffré</string>
     <string name="dns_resolver_cloudflare_body">Résolveur public rapide avec une empreinte de configuration minimale.</string>
     <string name="dns_resolver_quad9_body">Résolveur public axé sur la sécurité avec blocage des menaces.</string>
@@ -728,7 +719,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="fake_payload_library_reset_action">Réinitialiser les préréglages</string>
     <string name="fake_payload_library_scope_hostfake_only">Le façonnage de trafic actuel utilise des chunks hostfake, donc les préréglages complets de payload fake sont enregistrés pour plus tard.</string>
     <string name="fake_payload_library_section_body">Choisissez les formes de payload HTTP, TLS et UDP générique intégrées que RIPDPI doit utiliser lorsqu\'aucun blob fake personnalisé brut n\'est fourni. Les préréglages QUIC Initial restent dans la section QUIC ci-dessous.</string>
-    <string name="fake_payload_library_summary_label_udp">UDP</string>
     <string name="fake_payload_profile_summary_label_current">Profil actuel</string>
     <string name="history_connection_remembered_policy_fingerprint">Empreinte correspondante</string>
     <string name="history_connection_remembered_policy_section">Politique mémorisée</string>
@@ -838,7 +828,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="permissions_battery_title">Optimisation de la batterie</string>
     <string name="permissions_vpn_continue">Continuer</string>
     <string name="protocol_ipv6_title">IPv6</string>
-    <string name="qs_tile_label_disconnected">RIPDPI</string>
     <string name="quic_fake_host_builtin_title">Hôte fake intégré</string>
     <string name="quic_fake_host_title">Substitution d\'hôte fake QUIC</string>
     <string name="quic_fake_preset_realistic_body">Construire un QUIC Initial IETF valide, refléter v1 ou v2 quand c\'est possible, et éventuellement remplacer l\'hôte intégré.</string>
@@ -851,9 +840,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="quic_fake_profile_title">Préréglage de payload fake QUIC</string>
     <string name="quic_initial_section_body">Contrôler si RIPDPI déchiffre les paquets QUIC Initial pour récupérer le SNI pour le routage d\'hôte UDP, les filtres, les enregistrements de cache et la télémétrie.</string>
     <string name="quic_initial_support_v2_title">Prendre en charge QUIC v2</string>
-    <string name="ripdpi_docs">https://github.com/hufrea/ripdpi/blob/v0.13/README.md</string>
     <string name="ripdpi_fake_approx_badge_available">Disponible</string>
-    <string name="ripdpi_fake_approx_badge_https">HTTPS</string>
     <string name="ripdpi_fake_approx_example_tls">tlsrec extlen
 fakeddisorder endhost</string>
     <string name="ripdpi_fake_approx_restart_body">La session RIPDPI en cours a démarré avant cette modification de chaîne, donc fakedsplit et fakeddisorder ne s\'appliqueront pas tant que RIPDPI ne se reconnectera pas ou ne redémarrera pas.</string>
@@ -1019,7 +1006,6 @@ fakeddisorder endhost</string>
     <string name="adaptive_fallback_restart_title">Redémarrer pour appliquer le repli adaptatif</string>
     <string name="adaptive_fallback_section_body">Le repli adaptatif conserve la politique réseau enregistrée comme point de départ, puis déplace les destinations individuelles vers des groupes ultérieurs lorsque les signaux d\'échec configurés indiquent une interférence DPI.</string>
     <string name="adaptive_fallback_summary_label_triggers">Déclencheurs</string>
-    <string name="adaptive_split_badge_http">HTTP</string>
     <string name="adaptive_split_dsl_only_summary">Utilisez le DSL de chaîne pour auto(method), auto(midsld) et auto(extlen), ou lorsque hostfake détient la première étape d\'envoi.</string>
     <string name="adaptive_split_focus_host">Découpage juste au niveau des premiers octets de Host ou SNI.</string>
     <string name="adaptive_split_hostfake_title">Limite détenue par la chaîne</string>
@@ -1094,7 +1080,6 @@ fake_burst 3</string>
     <string name="data_transparency_no_browsing">No browsing history, URL content, packet payloads, credentials, or TLS secrets in normal diagnostics</string>
     <string name="data_transparency_retention_period">Durée de conservation configurable (1–365 jours)</string>
     <string name="desync_http">Desync HTTP</string>
-    <string name="desync_udp_category">UDP</string>
     <string name="detection_check_category_dns_leak">Fuite DNS</string>
     <string name="detection_check_category_location">Signaux de localisation</string>
     <string name="detection_check_copy">Copier</string>
@@ -1139,7 +1124,6 @@ fake_burst 3</string>
     <string name="diagnostics_field_host_learning">Apprentissage des hôtes</string>
     <string name="diagnostics_field_last_group">Dernier groupe</string>
     <string name="diagnostics_field_learned_hosts">Hôtes appris</string>
-    <string name="diagnostics_field_mtu">MTU</string>
     <string name="diagnostics_field_operator_code">Code opérateur</string>
     <string name="diagnostics_field_private_dns">DNS privé</string>
     <string name="diagnostics_field_restrictions">Restrictions</string>
@@ -1168,8 +1152,6 @@ fake_burst 3</string>
     <string name="diagnostics_metric_winning_strategy">Stratégie gagnante</string>
     <string name="diagnostics_open_history_body">Utilisez l\'écran Historique dédié pour les sessions de connexion enregistrées, les scans précédents et le flux d\'événements durable.</string>
     <string name="diagnostics_overview_run_scan_action">Lancer le scan</string>
-    <string name="diagnostics_phase_dns">DNS</string>
-    <string name="diagnostics_phase_tcp">TCP</string>
     <string name="diagnostics_probe_manual_apply_body">La sonde automatique ne modifie pas vos paramètres RIPDPI. Examinez la stratégie recommandée ci-dessous, puis copiez manuellement les parties souhaitées dans votre profil habituel.</string>
     <string name="diagnostics_probe_progress_title">Test des stratégies</string>
     <string name="diagnostics_probe_short_circuit_recommendation_title">Recommandation de résolveur</string>
@@ -1512,7 +1494,6 @@ Source : %2$s</string>
     <string name="adaptive_fallback_runtime_override_remembered">%1$s pendant que le routage par réseau mémorisé est actif.</string>
     <string name="adaptive_fallback_section_title">Repli adaptatif</string>
     <string name="adaptive_fallback_tls_err_title">Erreur TLS</string>
-    <string name="adaptive_split_badge_https">HTTPS</string>
     <string name="adaptive_split_editor_note">Les préréglages visuels ne réécrivent que la première étape d\'envoi TCP non TLS. Les étapes de prélude TLS et les étapes d\'envoi secondaires restent dans le DSL de chaîne brut.</string>
     <string name="adaptive_split_focus_manual">Décalages explicites connus comme host+1, endhost ou sniext+4.</string>
     <string name="adaptive_split_manual_body">L\'étape principale de découpage TCP continue d\'utiliser le marqueur explicite enregistré ci-dessous.</string>
@@ -1525,7 +1506,6 @@ Source : %2$s</string>
     <string name="adaptive_split_scope_hostfake">L\'étape d\'envoi TCP actuelle est hostfake, donc le placement adaptatif reste dans le DSL de chaîne brut.</string>
     <string name="adaptive_split_summary_label_focus">Idéal pour</string>
     <string name="adaptive_split_target_chain_step">Réécrit la première étape d\'envoi TCP non TLS dans la chaîne enregistrée.</string>
-    <string name="app_name">RIPDPI</string>
     <string name="biometric_prompt_action">Déverrouiller</string>
     <string name="biometric_prompt_pin_error">Le code PIN de secours ne correspond pas.</string>
     <string name="biometric_prompt_pin_placeholder">0000</string>
@@ -1559,7 +1539,6 @@ Source : %2$s</string>
     <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass est indisponible car cette version n\'a pas d\'URL de fournisseur configurée.</string>
     <string name="config_relay_profile_id_helper">Utilisé pour lier les identifiants sécurisés au profil de relais enregistré.</string>
     <string name="config_relay_server_name">Nom du serveur TLS</string>
-    <string name="config_relay_vless_transport_reality_tcp">Reality TCP</string>
     <string name="config_save">Enregistrer</string>
     <string name="config_validation_banner_body">L\'éditeur valide en temps réel. Corrigez les champs marqués, puis enregistrez à nouveau.</string>
     <string name="config_vpn_credentials_title">Identifiants du relais</string>
@@ -1580,7 +1559,6 @@ Source : %2$s</string>
     <string name="data_transparency_local_database">Toutes les données restent sur votre appareil dans une base de données locale</string>
     <string name="data_transparency_no_external_servers">Aucune donnée n\'est envoyée automatiquement à des serveurs externes</string>
     <string name="data_transparency_what_we_collect_section">Ce que nous collectons</string>
-    <string name="desync_http_category">HTTP</string>
     <string name="detection_auto_tune_apply">Appliquer tous les correctifs</string>
     <string name="detection_check_category_geoip">GeoIP</string>
     <string name="detection_check_category_rtt_triangulation">Triangulation RTT</string>
@@ -1655,14 +1633,12 @@ Source : %2$s</string>
     <string name="diagnostics_network_details_section">Détails du réseau</string>
     <string name="diagnostics_open_history_title">L\'historique persistant a été déplacé hors de Diagnostic</string>
     <string name="diagnostics_overview_section">Aperçu</string>
-    <string name="diagnostics_phase_quic">QUIC</string>
     <string name="diagnostics_phase_tg">TG</string>
     <string name="diagnostics_probe_manual_apply_title">Comment utiliser ce résultat</string>
     <string name="diagnostics_probe_ready_title">Recommandation prête</string>
     <string name="diagnostics_probe_short_circuit_title">Recommandation de résolveur prête</string>
     <string name="diagnostics_probe_unavailable_title">Sondage automatique indisponible</string>
     <string name="diagnostics_profile_audit_running_body">RIPDPI exécute la matrice complète de stratégies intégrées sur le chemin brut uniquement. La session VPN ou proxy actuelle est mise en pause et restaurée autour de l\'audit.</string>
-    <string name="diagnostics_profile_badge_dns_http_https_tcp">DNS + HTTP + HTTPS + TCP</string>
     <string name="diagnostics_profile_badge_raw_only">Chemin brut uniquement</string>
     <string name="diagnostics_profile_badge_ru_rate">RU RATE</string>
     <string name="diagnostics_profile_connectivity_running_body">Diagnostic valide actuellement le chemin sélectionné. Les derniers résultats de la sonde et le résumé de session seront mis à jour à la fin de l\'exécution.</string>
@@ -1706,9 +1682,7 @@ Source : %2$s</string>
     <string name="dns_custom_port_label">Port</string>
     <string name="dns_custom_tls_server_name_label">Nom du serveur TLS</string>
     <string name="dns_mode_plain">DNS en clair</string>
-    <string name="dns_placeholder_doh_url">https://resolver.example/dns-query</string>
     <string name="dns_protocol_custom_only">Personnalisé uniquement</string>
-    <string name="dns_protocol_dot">DoT</string>
     <string name="dns_proxy_banner_title">Le mode proxy est actif</string>
     <string name="dns_resolver_custom_active">Utilisation d\'une adresse personnalisée</string>
     <string name="dns_resolvers_section">Résolveurs</string>
@@ -1722,7 +1696,6 @@ Source : %2$s</string>
     <string name="fake_payload_library_inactive">Ces préréglages sont prêts à être enregistrés maintenant et s\'appliqueront lorsque la stratégie actuelle émettra des faux paquets plus tard.</string>
     <string name="fake_payload_library_restart_title">Redémarrer pour appliquer les préréglages de charges utiles factices</string>
     <string name="fake_payload_library_scope_tcp_and_udp_live">Les faux paquets TCP complets et les paquets fake_burst UDP génériques sont actifs dans la stratégie actuelle.</string>
-    <string name="fake_payload_library_summary_label_http">HTTP</string>
     <string name="fake_payload_profile_status_off">Le protocole est désactivé</string>
     <string name="fake_payload_profile_summary_label_when_used">Quand cela s\'applique</string>
     <string name="history_connection_remembered_policy_previous_failures">Échecs précédents</string>
@@ -2070,7 +2043,6 @@ Source : %2$s</string>
     <string name="config_relay_naive_path">Chemin HTTP (facultatif)</string>
     <string name="config_relay_naive_path_helper">Laisser vide pour le point de terminaison CONNECT par défaut, ou utiliser un chemin absolu comme /proxy.</string>
     <string name="config_relay_naive_path_error_absolute">Le chemin doit commencer par /.</string>
-    <string name="config_relay_kind_hysteria2">Hysteria2</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">Collez la chaîne PEM ou importez un fichier de certificat.</string>
     <string name="config_relay_masque_http2">Autoriser le repli TCP HTTP/2</string>
@@ -2078,7 +2050,6 @@ Source : %2$s</string>
     <string name="config_relay_masque_token">Jeton d\'authentification MASQUE</string>
     <string name="config_relay_reality_public_key">Clé publique Reality</string>
     <string name="config_relay_server_port">Port du relais</string>
-    <string name="config_relay_vless_transport_xhttp">xHTTP</string>
     <string name="config_split_marker_helper">Les marqueurs manuels acceptent des décalages comme 1, host, method+2, midsld-1 ou host+1. Utilisez le sélecteur de préréglage adaptatif ou la DSL de chaîne brute pour auto(…).</string>
     <string name="config_validation_banner_title">Certaines valeurs nécessitent encore votre attention</string>
     <string name="config_vpn_protocol_summary">Transport sélectionné dans le profil de relais actuel</string>
@@ -2141,7 +2112,6 @@ Source : %2$s</string>
     <string name="diagnostics_field_battery_optimization">Optimisation de la batterie</string>
     <string name="diagnostics_field_carrier">Opérateur</string>
     <string name="diagnostics_field_data_network">Réseau de données</string>
-    <string name="diagnostics_field_dns">DNS</string>
     <string name="diagnostics_field_last_autolearn_action">Dernière action d\'auto-apprentissage</string>
     <string name="diagnostics_field_last_learned_group">Dernier groupe appris</string>
     <string name="diagnostics_field_locale">Langue</string>
@@ -2181,7 +2151,6 @@ Source : %2$s</string>
     <string name="diagnostics_probe_signature_title">Stratégie recommandée</string>
     <string name="diagnostics_profile_audit_badge">Audit</string>
     <string name="diagnostics_profile_audit_short_circuit_body">Une altération DNS a été détectée avant que la matrice d\'audit ne s\'exécute. RIPDPI a arrêté les essais de repli plus tôt et a renvoyé un résultat orienté résolveur à faible confiance.</string>
-    <string name="diagnostics_profile_badge_http_https_quic">HTTP + HTTPS + QUIC</string>
     <string name="diagnostics_profile_badge_region_net">Russia Net</string>
     <string name="diagnostics_profile_badge_ru_web">RU WEB</string>
     <string name="diagnostics_profile_connectivity_title">Vérifications de connectivité</string>
@@ -2261,7 +2230,6 @@ Source : %2$s</string>
     <string name="home_diagnostics_detection_section_label">Signaux de détection</string>
     <string name="home_diagnostics_dns_resolver_poisoning">Empoisonnement DNS possible détecté.</string>
     <string name="home_diagnostics_effectiveness_section">Efficacité de la stratégie sur ce réseau</string>
-    <string name="home_diagnostics_network_mtu">MTU</string>
     <string name="home_diagnostics_network_transport">Transport</string>
     <string name="home_diagnostics_pcap_toggle">Capturer les paquets (avancé)</string>
     <string name="home_diagnostics_regression_failed_label">Nouvellement en échec</string>
@@ -2405,7 +2373,6 @@ Source : %2$s</string>
     <string name="ripdpi_seqovl_summary_label_overlap">Octets de chevauchement</string>
     <string name="ripdpi_seqovl_summary_profile_configured">1 étape seqovl</string>
     <string name="ripdpi_seqovl_summary_scope_http_https">Requêtes HTTP et TLS ClientHello</string>
-    <string name="ripdpi_source">https://github.com/hufrea/ripdpi</string>
     <string name="ripdpi_tls_prelude_badge_single">1 découpage</string>
     <string name="ripdpi_tls_prelude_https_disabled_title">Le desync HTTPS est désactivé</string>
     <string name="ripdpi_tls_prelude_mode_random_body">Ajoutez une étape tlsrandrec. RIPDPI conserve un préfixe optionnel, puis émet des enregistrements de queue aléatoires après le marqueur.</string>
@@ -2581,8 +2548,6 @@ Source : %2$s</string>
     <string name="awg_field_server_port">Port du serveur</string>
     <string name="awg_field_private_key">Clé privée</string>
     <string name="awg_field_address">Adresse</string>
-    <string name="awg_field_dns">DNS</string>
-    <string name="awg_field_mtu">MTU</string>
     <string name="awg_field_peer_public_key">Clé publique du pair</string>
     <string name="awg_field_peer_endpoint">Point de terminaison du pair</string>
     <string name="awg_field_allowed_ips">IP autorisées</string>
@@ -2740,7 +2705,6 @@ Source : %2$s</string>
     <string name="widget_telemetry_bytes_up">Envoi</string>
     <string name="widget_telemetry_bytes_down">Réception</string>
     <string name="widget_telemetry_restarts">Redémarrages</string>
-    <string name="widget_mode_vpn">VPN</string>
     <string name="widget_mode_proxy">Proxy</string>
     <string name="widget_mode_picker_title">Choisir le mode</string>
 
@@ -2900,7 +2864,6 @@ Source : %2$s</string>
     <string name="strategy_import_source_qr_title">Scanner QR</string>
     <string name="strategy_import_source_qr_sub">Depuis une autre installation RIPDPI ou une invitation de relais</string>
     <string name="strategy_import_source_url_title">Depuis une URL</string>
-    <string name="strategy_import_source_url_sub">https://po4yka.github.io/RIPDPI/share?v=1#…</string>
     <string name="strategy_import_source_clipboard_title">Coller depuis le presse-papiers</string>
     <string name="strategy_import_source_clipboard_sub">Détecte automatiquement URL, JSON ou arguments de stratégie</string>
     <string name="strategy_import_recent_title">Importations récentes</string>
@@ -2994,8 +2957,6 @@ Source : %2$s</string>
     <string name="rule_editor_source_ports_label">Ports source</string>
     <string name="rule_editor_ports_helper">Un par ligne, p. ex. 443 ou 8000-8999</string>
     <string name="rule_editor_network_label">Réseau</string>
-    <string name="rule_editor_network_tcp">TCP</string>
-    <string name="rule_editor_network_udp">UDP</string>
     <string name="rule_editor_network_both">TCP et UDP</string>
     <string name="rule_editor_process_label">Nom du processus</string>
     <string name="rule_editor_apps_label">Applications</string>
@@ -3044,7 +3005,6 @@ Source : %2$s</string>
     <string name="asset_provider_custom_label">URL personnalisée</string>
     <string name="asset_provider_custom_desc">Télécharger depuis votre propre URL de base compatible GitHub Releases.</string>
     <string name="asset_provider_custom_url_label">URL de base personnalisée</string>
-    <string name="asset_provider_custom_url_placeholder">https://github.com/owner/repo/releases/latest/download</string>
     <string name="asset_provider_custom_url_helper">geoip.db et geosite.db sont ajoutés à cette URL.</string>
     <string name="asset_provider_geoip_version">Version de geoip.db</string>
     <string name="asset_provider_geosite_version">Version de geosite.db</string>

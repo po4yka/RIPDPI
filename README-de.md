@@ -176,3 +176,7 @@ Details: [docs/testing.md](docs/testing.md)
 - [Beispiele für Relay-Profile](docs/relay-profile-examples.md)
 - [Architektur-Notizen](docs/architecture/README.md)
 - [Roadmap](ROADMAP.md)
+
+## RIPDPI übersetzen
+
+Übersetzungen werden von der Community über GitHub-Pull-Requests beigetragen. Wie du eine Sprache hinzufügst oder verbesserst, beschreibt [docs/localization.md](docs/localization.md). Jede Zeichenkette wird vor dem Merge von einem Menschen geprüft; maschinelle Übersetzung ist nur ein Ausgangspunkt, niemals der endgültige Text.

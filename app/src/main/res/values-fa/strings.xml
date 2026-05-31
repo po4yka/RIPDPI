@@ -1,6 +1,4 @@
 <resources>
-    <string name="ripdpi_docs">https://github.com/hufrea/ripdpi/blob/v0.13/README.md</string>
-    <string name="app_name">RIPDPI</string>
     <string name="navigation_back">بازگشت</string>
     <string name="action_dismiss">بستن</string>
     <string name="vpn_connect">اتصال</string>
@@ -146,8 +144,6 @@
     <string name="diagnostics_remediation_no_hint_step_review_evidence">آخرین نشست تشخیصی و شواهد قابلیت برای این مرجع را بررسی کنید.</string>
     <string name="diagnostics_remediation_no_hint_step_retry">پس از جمع‌آوری اجرای دیگری در همان شبکه، دوباره امتحان کنید.</string>
     <string name="diagnostics_remediation_open_mode_editor_action">باز کردن ویرایشگر حالت</string>
-    <string name="diagnostics_profile_badge_dns_http_https_tcp">DNS + HTTP + HTTPS + TCP</string>
-    <string name="diagnostics_profile_badge_http_https_quic">HTTP + HTTPS + QUIC</string>
     <string name="diagnostics_profile_badge_all_builtin">همهٔ روش‌های داخلی</string>
     <string name="diagnostics_profile_badge_raw_only">فقط مسیر خام</string>
     <string name="diagnostics_profile_badge_raw_and_in_path">خام + درون‌مسیر</string>
@@ -179,10 +175,7 @@
     <string name="diagnostics_scan_policy_notice">برخی اهداف به‌دلیل سیاست محلی ایمنی-قانونی حذف شدند.</string>
     <string name="diagnostics_profile_explicit_consent_required">رضایت صریح در این منطقه لازم است.</string>
     <string name="diagnostics_live_results_title">نتایج زنده</string>
-    <string name="diagnostics_phase_dns">DNS</string>
     <string name="diagnostics_phase_reach">دسترسی</string>
-    <string name="diagnostics_phase_quic">QUIC</string>
-    <string name="diagnostics_phase_tcp">TCP</string>
     <string name="diagnostics_phase_svc">سرویس</string>
     <string name="diagnostics_phase_adaptation">تطبیق</string>
     <string name="diagnostics_phase_tg">TG</string>
@@ -332,7 +325,6 @@
     <string name="home_connection_actuator_action_deactivate">رها کردن خط امن</string>
     <string name="home_connection_actuator_action_wait">خط امن در حال درگیر شدن است</string>
     <string name="home_connection_stage_network">شبکه</string>
-    <string name="home_connection_stage_dns">DNS</string>
     <string name="home_connection_stage_handshake">دست‌دهی</string>
     <string name="home_connection_stage_tunnel">تونل</string>
     <string name="home_connection_stage_route">مسیر</string>
@@ -448,7 +440,6 @@
     <string name="home_diagnostics_network_public_ip">IP عمومی</string>
     <string name="home_diagnostics_network_captive_portal">پورتال اسیر</string>
     <string name="home_diagnostics_network_ipv6">IPv6</string>
-    <string name="home_diagnostics_network_mtu">MTU</string>
     <string name="home_diagnostics_network_transparent_proxy">پراکسی شفاف</string>
     <string name="home_diagnostics_effectiveness_section">اثربخشی راهبرد در این شبکه</string>
     <string name="home_diagnostics_effectiveness_row_value">%1$d موفق / %2$d ناموفق</string>
@@ -556,11 +547,8 @@
     <string name="config_relay_enable">فعال‌سازی رلهٔ بالادست</string>
     <string name="config_relay_profile_id">شناسهٔ پروفایل</string>
     <string name="config_relay_profile_id_helper">برای اتصال اعتبارنامه‌های امن به پروفایل رلهٔ ذخیره‌شده استفاده می‌شود.</string>
-    <string name="config_relay_kind_vless">VLESS</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
-    <string name="config_relay_kind_hysteria2">Hysteria2</string>
     <string name="config_relay_kind_chain">رلهٔ زنجیره‌ای</string>
-    <string name="config_relay_kind_masque">MASQUE</string>
     <string name="config_relay_credentials_title">اعتبارنامهٔ رله ناقص است</string>
     <string name="config_relay_credentials_body">این پروفایل قبل از شروع به مواد اعتبارنامه‌ای امن نیاز دارد.</string>
     <string name="config_relay_server">سرور رله</string>
@@ -569,8 +557,6 @@
     <string name="config_relay_reality_public_key">کلید عمومی Reality</string>
     <string name="config_relay_reality_short_id">شناسهٔ کوتاه Reality</string>
     <string name="config_relay_vless_transport">حمل‌و‌نقل VLESS</string>
-    <string name="config_relay_vless_transport_reality_tcp">Reality TCP</string>
-    <string name="config_relay_vless_transport_xhttp">xHTTP</string>
     <string name="config_relay_cloudflare_tunnel_note">از نام میزبان Cloudflare Tunnel مدیریت‌شده توسط کاربر خود اینجا استفاده کنید. P0 انتظار دارد که آن نام میزبان جلوی منشأ xHTTP/VLESS خود شما باشد؛ RIPDPI توکن‌های cloudflared یا راه‌اندازی TryCloudflare را مدیریت نمی‌کند.</string>
     <string name="config_relay_presets_title">پیش‌تنظیم‌های رله</string>
     <string name="config_relay_xhttp_path">مسیر xHTTP</string>
@@ -916,8 +902,6 @@
     <string name="adaptive_split_preset_selected">انتخاب‌شده</string>
     <string name="adaptive_split_preset_recommended">توصیه‌شده</string>
     <string name="adaptive_split_preset_dsl_only">فقط DSL</string>
-    <string name="adaptive_split_badge_http">HTTP</string>
-    <string name="adaptive_split_badge_https">HTTPS</string>
     <string name="quic_initial_section_title">QUIC Initial</string>
     <string name="quic_initial_section_body">کنترل کنید آیا RIPDPI بسته‌های QUIC Initial را رمزگشایی می‌کند تا SNI را برای مسیریابی میزبان UDP، فیلترها، رکوردهای کش و سنجش بازیابی کند.</string>
     <string name="quic_initial_mode_title">مدیریت QUIC</string>
@@ -995,9 +979,6 @@
     <string name="fake_payload_library_custom_body">حداقل یک پروتکل از یک پروفایل بار fake داخلی غیرپیش‌فرض استفاده می‌کند.</string>
     <string name="fake_payload_library_default_title">پیش‌فرض‌های سازگاری آماده هستند</string>
     <string name="fake_payload_library_default_body">RIPDPI از پیش‌فرض‌های بار fake سازگاری برای HTTP، TLS و UDP استفاده می‌کند.</string>
-    <string name="fake_payload_library_summary_label_http">HTTP</string>
-    <string name="fake_payload_library_summary_label_tls">TLS</string>
-    <string name="fake_payload_library_summary_label_udp">UDP</string>
     <string name="fake_payload_library_summary_label_scope">دامنه</string>
     <string name="fake_payload_library_scope_cli">تنظیمات خط فرمان منبع بار مؤثر را انتخاب می‌کنند.</string>
     <string name="fake_payload_library_scope_protocols_disabled">همهٔ گزینه‌های پروتکل در حال حاضر خاموش هستند.</string>
@@ -1190,8 +1171,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_approx_badge_available">در دسترس</string>
     <string name="ripdpi_fake_approx_badge_configured">پیکربندی‌شده</string>
     <string name="ripdpi_fake_approx_badge_linux_android">فقط لینوکس/اندروید</string>
-    <string name="ripdpi_fake_approx_badge_http">HTTP</string>
-    <string name="ripdpi_fake_approx_badge_https">HTTPS</string>
     <string name="ripdpi_fake_approx_badge_fakedsplit">fakedsplit</string>
     <string name="ripdpi_fake_approx_badge_fakeddisorder">fakeddisorder</string>
     <string name="title_onboarding">آشناسازی</string>
@@ -1280,7 +1259,6 @@ fakeddisorder endhost</string>
     <string name="data_transparency_optional_ip">اختیاری: آدرس IP عمومی (فقط هنگام پویش‌های تشخیصی دستی)</string>
     <string name="data_transparency_what_we_collect_section">آنچه جمع‌آوری می‌کنیم</string>
     <string name="debug_bundle_failed">آماده‌سازی بسته پشتیبانی ناموفق بود</string>
-    <string name="desync_https_category">HTTPS</string>
     <string name="desync_udp">Desync UDP</string>
     <string name="detection_check_category_bypass">دور زدن</string>
     <string name="detection_check_category_geoip">GeoIP</string>
@@ -1407,7 +1385,6 @@ fakeddisorder endhost</string>
     <string name="dns_placeholder_public_key">0123abcd…</string>
     <string name="dns_protocol_custom_only">فقط سفارشی</string>
     <string name="dns_protocol_doh_body">بهترین جریان کار پیش‌فرض. نمایه‌های داخلی Cloudflare، Google، Quad9 و AdGuard آماده استفاده‌اند.</string>
-    <string name="dns_protocol_dot">DoT</string>
     <string name="dns_proxy_banner_body">بازنویسی DNS فقط هنگامی اعمال می‌شود که RIPDPI در حالت VPN محلی در حال اجراست.</string>
     <string name="dns_private_dns_info_title">RIPDPI خودش DNS را مدیریت می‌کند</string>
     <string name="dns_private_dns_info_body">RIPDPI نام‌ها را از طریق رهگیر اختصاصی خود درون VPN حل می‌کند. تنظیم «DNS خصوصی» سیستم اندروید تا زمانی که VPN فعال است، نحوهٔ حل نام‌ها را تغییر نمی‌دهد.</string>
@@ -1499,7 +1476,6 @@ fakeddisorder endhost</string>
     <string name="permissions_vpn_body">Android درخواست ایجاد یک VPN محلی خواهد کرد. این کار ترافیک را از طریق برنامه روی دستگاه شما هدایت می‌کند — چیزی به بیرون ارسال نمی‌شود.</string>
     <string name="permissions_vpn_error_title">هنوز مجوز مورد نیاز است</string>
     <string name="protocol_ipv6_title">IPv6</string>
-    <string name="qs_tile_label_disconnected">RIPDPI</string>
     <string name="ripdpi_buffer_size_setting">اندازه بافر</string>
     <string name="ripdpi_desync">Desync</string>
     <string name="ripdpi_fake_offset_setting">نشانگر offset جعلی</string>
@@ -1541,7 +1517,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_ip_id_mode_body">مقادیر identification IPv4 برای مسیرهای fake خام و fragment را کنترل می‌کند. Seqgroup همچنین ارسال‌های مختلط fake/original TCP را به مسیر جایگزین خام ترفیع می‌دهد تا IDها دقیق باقی بمانند.</string>
     <string name="ripdpi_no_domain_setting">بدون دامنه</string>
     <string name="ripdpi_proxy_port_setting">پورت</string>
-    <string name="ripdpi_source">https://github.com/hufrea/ripdpi</string>
     <string name="routing_protection_anti_correlation_body">برای فشار فهرست سفید موبایل در نظر گرفته شده. مقصدهای داخلی را مستقیم نگه می‌دارد در حالی که مسیرهای CDN-محور را از طریق VPN یا relay هدایت می‌کند.</string>
     <string name="routing_protection_dht_body">کنترل می‌کند که هنگام فعال بودن مسیریابی تقسیم‌شده، CIDRهای trigger شناخته‌شده چگونه مدیریت شوند.</string>
     <string name="routing_protection_dht_off_title">خاموش</string>
@@ -1703,7 +1678,6 @@ fakeddisorder endhost</string>
     <string name="data_transparency_no_external_servers">هیچ داده‌ای به‌طور خودکار به سرورهای خارجی ارسال نمی‌شود</string>
     <string name="data_transparency_performance_metrics">معیارهای عملکرد: اندازه‌گیری RTT، تعداد تلاش‌های مجدد، آمار ترافیک</string>
     <string name="data_transparency_what_we_do_not_collect_section">آنچه ما جمع‌آوری نمی‌کنیم</string>
-    <string name="desync_http_category">HTTP</string>
     <string name="desync_https">Desync HTTPS</string>
     <string name="detection_auto_tune_apply">اعمال همه اصلاحات</string>
     <string name="detection_check_category_direct">نشانه‌های مستقیم</string>
@@ -1754,13 +1728,11 @@ fakeddisorder endhost</string>
     <string name="diagnostics_field_carrier">اپراتور</string>
     <string name="diagnostics_field_configured_mode">حالت پیکربندی‌شده</string>
     <string name="diagnostics_field_data_state">وضعیت داده</string>
-    <string name="diagnostics_field_dns">DNS</string>
     <string name="diagnostics_field_host_learning">یادگیری میزبان</string>
     <string name="diagnostics_field_last_block_provider">آخرین ارائه‌دهنده مسدودسازی</string>
     <string name="diagnostics_field_last_host">آخرین میزبان</string>
     <string name="diagnostics_field_last_native_error">آخرین خطای بومی</string>
     <string name="diagnostics_field_locale">منطقه</string>
-    <string name="diagnostics_field_mtu">MTU</string>
     <string name="diagnostics_field_network_operator">اپراتور شبکه</string>
     <string name="diagnostics_field_penalized_hosts">میزبان‌های جریمه‌شده</string>
     <string name="diagnostics_field_power_save">صرفه‌جویی در مصرف انرژی</string>
@@ -1827,10 +1799,8 @@ fakeddisorder endhost</string>
     <string name="dns_ipv6_helper">به سازنده VPN محلی اجازه دهید زمانی که شبکه انتخاب‌شده از آن پشتیبانی می‌کند، مسیریابی DNS IPv6 را شامل شود.</string>
     <string name="dns_mode_helper">DNS رمزگذاری‌شده DNS را داخل VPN رهگیری می‌کند و آن را از طریق پروتکل رمزگذاری‌شده انتخاب‌شده حل می‌کند. DNS ساده آدرس IP زیر را مستقیماً استفاده می‌کند.</string>
     <string name="dns_mode_section">حالت</string>
-    <string name="dns_placeholder_doh_url">https://resolver.example/dns-query</string>
     <string name="dns_placeholder_resolver_example">resolver.example</string>
     <string name="dns_protocol_dnscrypt_body">DNSCrypt با اعتبارسنجی provider-name و کلید عمومی. این را فقط برای resolverهای سفارشی استفاده کنید.</string>
-    <string name="dns_protocol_doh">DoH</string>
     <string name="dns_protocol_helper">انتخاب کنید RIPDPI از کدام ترابری DNS رمزگذاری‌شده برای رهگیری DNS در VPN و تشخیص استفاده کند.</string>
     <string name="dns_proxy_banner_title">حالت Proxy فعال است</string>
     <string name="dns_resolver_cloudflare_body">resolver عمومی سریع با ردپای راه‌اندازی حداقلی.</string>
@@ -2121,9 +2091,7 @@ fakeddisorder endhost</string>
     <string name="data_transparency_no_analytics">بدون SDKهای تحلیلی، گزارش خرابی یا تبلیغاتی</string>
     <string name="data_transparency_no_personal_data">No accounts or credentials; PCAP is only created by the advanced packet capture control and may contain raw packet payload bytes</string>
     <string name="data_transparency_retention_period">دوره نگه‌داری قابل پیکربندی (1–365 روز)</string>
-    <string name="dbs_ip_setting">DNS</string>
     <string name="desync_http">Desync HTTP</string>
-    <string name="desync_udp_category">UDP</string>
     <string name="detection_auto_tune_title">اصلاحات توصیه‌شده</string>
     <string name="detection_check_category_dns_leak">نشت DNS</string>
     <string name="detection_check_category_indirect">نشانه‌های غیرمستقیم</string>
@@ -2354,7 +2322,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_tls_size_title">تنظیم اندازه</string>
     <string name="ripdpi_fake_tls_summary_base_default">ClientHello جعلی پیش‌فرض</string>
     <string name="ripdpi_fake_tls_summary_label_mutations">جهش‌ها</string>
-    <string name="ripdpi_fake_tls_summary_label_sni">SNI</string>
     <string name="ripdpi_fake_tls_summary_mutation_pad_encap">استتار padding</string>
     <string name="ripdpi_fake_tls_summary_size_input">مطابقت با اندازه ClientHello ورودی</string>
     <string name="ripdpi_fake_tls_summary_sni_randomized">نام میزبان تصادفی با همان طول SNI جعلی پیکربندی‌شده</string>
@@ -2586,8 +2553,6 @@ fakeddisorder endhost</string>
     <string name="awg_field_server_port">درگاه کارساز</string>
     <string name="awg_field_private_key">کلید خصوصی</string>
     <string name="awg_field_address">نشانی</string>
-    <string name="awg_field_dns">DNS</string>
-    <string name="awg_field_mtu">MTU</string>
     <string name="awg_field_peer_public_key">کلید عمومی همتا</string>
     <string name="awg_field_peer_endpoint">نقطهٔ پایانی همتا</string>
     <string name="awg_field_allowed_ips">IPهای مجاز</string>
@@ -2745,7 +2710,6 @@ fakeddisorder endhost</string>
     <string name="widget_telemetry_bytes_up">آپلود</string>
     <string name="widget_telemetry_bytes_down">دانلود</string>
     <string name="widget_telemetry_restarts">راه‌اندازی مجدد</string>
-    <string name="widget_mode_vpn">VPN</string>
     <string name="widget_mode_proxy">پروکسی</string>
     <string name="widget_mode_picker_title">انتخاب حالت</string>
 
@@ -2905,7 +2869,6 @@ fakeddisorder endhost</string>
     <string name="strategy_import_source_qr_title">اسکن QR</string>
     <string name="strategy_import_source_qr_sub">از نصب دیگر RIPDPI یا دعوت‌نامه رله</string>
     <string name="strategy_import_source_url_title">از URL</string>
-    <string name="strategy_import_source_url_sub">https://po4yka.github.io/RIPDPI/share?v=1#…</string>
     <string name="strategy_import_source_clipboard_title">چسباندن از کلیپ‌بورد</string>
     <string name="strategy_import_source_clipboard_sub">تشخیص خودکار URL، JSON یا آرگومان‌های استراتژی</string>
     <string name="strategy_import_recent_title">واردسازی‌های اخیر</string>
@@ -2999,8 +2962,6 @@ fakeddisorder endhost</string>
     <string name="rule_editor_source_ports_label">پورت‌های مبدأ</string>
     <string name="rule_editor_ports_helper">هر کدام در یک خط، مثلاً 443 یا 8000-8999</string>
     <string name="rule_editor_network_label">شبکه</string>
-    <string name="rule_editor_network_tcp">TCP</string>
-    <string name="rule_editor_network_udp">UDP</string>
     <string name="rule_editor_network_both">TCP و UDP</string>
     <string name="rule_editor_process_label">نام فرایند</string>
     <string name="rule_editor_apps_label">برنامه‌ها</string>
@@ -3049,7 +3010,6 @@ fakeddisorder endhost</string>
     <string name="asset_provider_custom_label">نشانی دلخواه</string>
     <string name="asset_provider_custom_desc">دانلود از نشانی پایه سازگار با GitHub Releases خودتان.</string>
     <string name="asset_provider_custom_url_label">نشانی پایه دلخواه</string>
-    <string name="asset_provider_custom_url_placeholder">https://github.com/owner/repo/releases/latest/download</string>
     <string name="asset_provider_custom_url_helper">geoip.db و geosite.db به این نشانی افزوده می‌شوند.</string>
     <string name="asset_provider_geoip_version">نسخه geoip.db</string>
     <string name="asset_provider_geosite_version">نسخه geosite.db</string>
