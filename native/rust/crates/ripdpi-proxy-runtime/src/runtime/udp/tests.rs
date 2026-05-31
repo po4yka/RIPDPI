@@ -245,6 +245,7 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
             target_candidates: vec![preferred_edge, original_target],
             target_index: 0,
             cache_host: true,
+            upstream_socks: None,
         },
     );
 
@@ -270,6 +271,122 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
     assert_eq!(decoded_target, original_target);
     assert_ne!(decoded_target, preferred_edge);
     assert_eq!(payload, b"edge-response");
+}
+
+#[test]
+fn udp_flow_round_trips_through_upstream_socks5_relay() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    // Stub upstream SOCKS5 server: no-auth, accept UDP ASSOCIATE, and advertise
+    // a relay endpoint that the test owns and echoes RFC 1928 datagrams from.
+    let relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind stub relay");
+    relay.set_read_timeout(Some(Duration::from_secs(1))).expect("relay timeout");
+    let relay_addr = relay.local_addr().expect("relay addr");
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind stub socks server");
+    let upstream_socks = listener.local_addr().expect("socks addr");
+    let relay_port = relay_addr.port();
+    let control_server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept control client");
+        let mut greeting = [0u8; 3];
+        stream.read_exact(&mut greeting).expect("read auth request");
+        stream.write_all(&[0x05, 0x00]).expect("write auth response");
+        let mut request = [0u8; 10];
+        stream.read_exact(&mut request).expect("read associate request");
+        let mut reply = vec![0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1];
+        reply.extend_from_slice(&relay_port.to_be_bytes());
+        stream.write_all(&reply).expect("write associate reply");
+        let mut sink = [0u8; 1];
+        let _ = stream.read(&mut sink);
+    });
+
+    // Stub relay echo: strip the RFC 1928 header, prepend it back, echo to sender.
+    let relay_echo = std::thread::spawn(move || {
+        let mut buf = [0u8; 1500];
+        let (_n, peer) = relay.recv_from(&mut buf).expect("relay recv framed datagram");
+        // Header is RSV(3) + ATYP=IPv4(1) + addr(4) + port(2) = 10 bytes.
+        assert_eq!(buf[..4], [0, 0, 0, 0x01]);
+        let mut echo = buf[..10].to_vec();
+        echo.extend_from_slice(b"relayed");
+        relay.send_to(&echo, peer).expect("relay echo");
+    });
+
+    let session =
+        super::upstream_socks::open_upstream_udp_associate(upstream_socks, None, Some(Duration::from_secs(2)))
+            .expect("udp associate");
+    assert_eq!(session.relay_endpoint, relay_addr);
+    let upstream = sockets::build_udp_upstream_socket(session.relay_endpoint, None, false).expect("relay socket");
+
+    let state = test_runtime_state(RuntimeConfig::default());
+    let client_receiver = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client receiver");
+    client_receiver.set_read_timeout(Some(Duration::from_secs(1))).expect("client receiver timeout");
+    let client_relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client relay");
+    let client_addr = client_receiver.local_addr().expect("client addr");
+    let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)), 443);
+
+    let mut flow_state = HashMap::new();
+    flow_state.insert(
+        (client_addr, target),
+        UdpFlowActivationState {
+            session: UdpFlowSession::new(),
+            last_used: Instant::now(),
+            route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 0 },
+            socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
+            packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },
+            source_rebind_policy: RuntimeUdpSourceRebindPolicy::after_handshake(false),
+            host: None,
+            payload: Vec::new(),
+            awaiting_response: false,
+            upstream,
+            quic_migrated: false,
+            logical_target: target,
+            current_target: target,
+            target_candidates: vec![target],
+            target_index: 0,
+            cache_host: false,
+            upstream_socks: Some(session),
+        },
+    );
+
+    // Frame and send the first datagram exactly as the desync write path does
+    // for an upstream-SOCKS5 flow (RFC 1928 header addressing the real target),
+    // then verify the relay echo is stripped back to the bare payload on recv.
+    {
+        let entry = flow_state.get(&(client_addr, target)).expect("flow entry");
+        assert!(entry.socks_framed(), "ext_socks flow must be RFC 1928-framed");
+        let mut framed = vec![0, 0, 0, 0x01];
+        let SocketAddr::V4(v4) = target else { panic!("ipv4 target") };
+        framed.extend_from_slice(&v4.ip().octets());
+        framed.extend_from_slice(&v4.port().to_be_bytes());
+        framed.extend_from_slice(b"hello-quic");
+        entry.upstream.send(&framed).expect("send framed payload");
+    }
+
+    let mut upstream_buffer = [0u8; 1500];
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        let made_progress =
+            pump_udp_upstream_responses(&state, &client_relay, &mut upstream_buffer, &mut flow_state, None)
+                .expect("pump upstream response");
+        if made_progress || Instant::now() >= deadline {
+            assert!(made_progress, "relay response must be pumped back to the client");
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+
+    let mut client_buffer = [0u8; 1500];
+    let (n, _) = client_receiver.recv_from(&mut client_buffer).expect("client response");
+    let (decoded_target, payload) =
+        parse_socks5_udp_packet(&client_buffer[..n], &state).expect("parse client response");
+    assert_eq!(decoded_target, target);
+    assert_eq!(payload, b"relayed");
+
+    relay_echo.join().expect("join relay echo");
+    // Drop the flow (and with it the ASSOCIATE control TCP) so the stub server's
+    // blocking read returns; otherwise joining it would deadlock.
+    drop(flow_state);
+    control_server.join().expect("join control server");
 }
 
 #[test]

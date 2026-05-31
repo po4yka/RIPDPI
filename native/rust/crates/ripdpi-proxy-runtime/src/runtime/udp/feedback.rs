@@ -131,6 +131,7 @@ mod tests {
             target_candidates: vec![current_target],
             target_index: 0,
             cache_host: true,
+            upstream_socks: None,
         }
     }
 

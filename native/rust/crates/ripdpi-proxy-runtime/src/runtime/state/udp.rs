@@ -30,6 +30,8 @@ impl RuntimeState {
             socket: RuntimeUdpSocketSettings { bind_low_port: group.socket.bind_low_port },
             packet: runtime_udp_packet_settings(group.packet),
             source_rebind: RuntimeUdpSourceRebindPolicy { after_handshake: group.source_rebind.after_handshake },
+            upstream_socks_addr: group.upstream_socks_addr,
+            connect_timeout: group.connect_timeout,
         })
     }
     pub(in crate::runtime) fn should_rebind_udp_flow_source_port(

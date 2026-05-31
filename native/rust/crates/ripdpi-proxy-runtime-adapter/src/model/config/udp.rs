@@ -1,6 +1,10 @@
 use std::io;
+use std::net::SocketAddr;
+use std::time::Duration;
 
 use ripdpi_config::{IpIdMode, RuntimeConfig};
+
+use super::shared::connect_timeout;
 
 pub fn udp_source_rebind_policy(config: &RuntimeConfig, group_index: usize) -> UdpSourceRebindPolicy {
     UdpSourceRebindPolicy {
@@ -59,11 +63,24 @@ pub fn udp_group_packet_settings(config: &RuntimeConfig, group_index: usize) -> 
     UdpGroupPacketSettings { default_ttl: udp_default_ttl(config), ip_id_mode: udp_ip_id_mode(config, group_index) }
 }
 
+/// The single upstream SOCKS5 server a UDP flow on this group must traverse via
+/// UDP ASSOCIATE, mirroring the TCP CONNECT projection
+/// (`tcp_connect::TcpRouteConnectProfile::upstream_socks_addr`). `None` means
+/// the flow egresses directly to its target.
+pub fn udp_upstream_socks_addr(config: &RuntimeConfig, group_index: usize) -> Option<SocketAddr> {
+    config.groups.get(group_index).and_then(|group| group.policy.ext_socks.map(|upstream| upstream.addr))
+}
+
 #[derive(Clone, Copy)]
 pub struct UdpGroupSettings {
     pub socket: UdpGroupSocketSettings,
     pub packet: UdpGroupPacketSettings,
     pub source_rebind: UdpSourceRebindPolicy,
+    pub upstream_socks_addr: Option<SocketAddr>,
+    /// Control-TCP connect timeout for the upstream SOCKS5 UDP ASSOCIATE
+    /// handshake, sourced from the same `connect_timeout` projection the TCP
+    /// CONNECT path uses. Unused when `upstream_socks_addr` is `None`.
+    pub connect_timeout: Option<Duration>,
 }
 
 #[derive(Clone)]
@@ -81,6 +98,8 @@ pub fn udp_group_settings_table(config: &RuntimeConfig) -> UdpGroupSettingsTable
                 socket: udp_group_socket_settings(config, group_index),
                 packet: udp_group_packet_settings(config, group_index),
                 source_rebind: udp_source_rebind_policy(config, group_index),
+                upstream_socks_addr: udp_upstream_socks_addr(config, group_index),
+                connect_timeout: connect_timeout(config),
             })
             .collect(),
     }

@@ -44,6 +44,7 @@ impl RuntimeState {
         target: SocketAddr,
         packet_settings: RuntimeUdpPacketSettings,
         protect_path: Option<&str>,
+        socks_udp_frame: bool,
         actions: &[UdpDesyncAction],
     ) -> io::Result<()> {
         execute_udp_actions(
@@ -53,6 +54,7 @@ impl RuntimeState {
                 default_ttl: packet_settings.default_ttl,
                 protect_path,
                 ip_id_mode: packet_settings.ip_id_mode,
+                socks_udp_frame,
             },
             actions,
         )

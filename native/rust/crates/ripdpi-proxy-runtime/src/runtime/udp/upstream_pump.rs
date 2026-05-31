@@ -32,10 +32,22 @@ pub(super) fn pump_udp_upstream_responses(
                 made_progress = true;
                 let now = Instant::now();
                 entry.last_used = now;
-                entry.session.observe_upstream_response(&upstream_buffer[..n]);
+                // Upstream-SOCKS5 relays wrap each reply in an RFC 1928 UDP
+                // header; strip it so downstream logic sees the bare payload,
+                // exactly as the direct path already does. A relay reply we
+                // cannot parse is dropped rather than forwarded as garbage.
+                let response = if entry.socks_framed() {
+                    let Some(payload) = strip_socks5_udp_header(&upstream_buffer[..n]) else {
+                        continue;
+                    };
+                    payload
+                } else {
+                    &upstream_buffer[..n]
+                };
+                entry.session.observe_upstream_response(response);
                 note_udp_first_response_success(state, entry)?;
-                maybe_rebind_udp_source_port(state, entry, &upstream_buffer[..n], protect_path)?;
-                let packet = encode_socks5_udp_packet(entry.logical_target, &upstream_buffer[..n]);
+                maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
+                let packet = encode_socks5_udp_packet(entry.logical_target, response);
                 client_relay.send_to(&packet, client_addr)?;
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
@@ -44,6 +56,25 @@ pub(super) fn pump_udp_upstream_responses(
         }
     }
     Ok(made_progress)
+}
+
+/// Strip the RFC 1928 UDP reply header (`RSV=0 FRAG=0 ATYP DST.ADDR DST.PORT`)
+/// from a SOCKS5 relay datagram, returning the bare payload. Returns `None` for
+/// non-zero `FRAG` (fragmentation unsupported) or a malformed/truncated header.
+fn strip_socks5_udp_header(packet: &[u8]) -> Option<&[u8]> {
+    if packet.len() < 4 || packet[0] != 0 || packet[1] != 0 || packet[2] != 0 {
+        return None;
+    }
+    let payload_offset = match packet[3] {
+        0x01 => 10,
+        0x04 => 22,
+        0x03 => {
+            let len = *packet.get(4)? as usize;
+            5 + len + 2
+        }
+        _ => return None,
+    };
+    packet.get(payload_offset..)
 }
 
 #[cfg(unix)]
@@ -108,6 +139,7 @@ pub(super) fn send_udp_flow_payload(
         entry.current_target,
         entry.packet_settings,
         protect_path,
+        entry.socks_framed(),
         &actions,
     )
 }

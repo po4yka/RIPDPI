@@ -26,6 +26,34 @@ pub struct UdpActionExecContext<'a> {
     pub default_ttl: u8,
     pub protect_path: Option<&'a str>,
     pub ip_id_mode: Option<ripdpi_config::IpIdMode>,
+    /// When `true`, the upstream socket is connected to a SOCKS5 UDP relay
+    /// endpoint (not the final target directly). Every datagram written to it
+    /// must therefore be wrapped in an RFC 1928 UDP request header addressing
+    /// [`UdpActionExecContext::target`]; raw IP-fragmented egress is bypassed
+    /// because the relay reassembles and re-emits to the target itself.
+    pub socks_udp_frame: bool,
+}
+
+/// Prepend the RFC 1928 UDP request header (`RSV=0, FRAG=0, ATYP, DST.ADDR,
+/// DST.PORT`) addressing `target` to `payload`, producing the datagram body a
+/// SOCKS5 UDP relay expects.
+fn frame_socks5_udp_datagram(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
+    let mut packet = Vec::with_capacity(payload.len() + 22);
+    packet.extend_from_slice(&[0, 0, 0]);
+    match target {
+        SocketAddr::V4(addr) => {
+            packet.push(0x01);
+            packet.extend_from_slice(&addr.ip().octets());
+            packet.extend_from_slice(&addr.port().to_be_bytes());
+        }
+        SocketAddr::V6(addr) => {
+            packet.push(0x04);
+            packet.extend_from_slice(&addr.ip().octets());
+            packet.extend_from_slice(&addr.port().to_be_bytes());
+        }
+    }
+    packet.extend_from_slice(payload);
+    packet
 }
 
 pub struct UdpDesyncPlanContext<'a> {
@@ -156,7 +184,11 @@ fn execute_udp_action(ctx: UdpActionExecContext<'_>, action: &UdpDesyncAction) -
 }
 
 fn execute_udp_write_action(ctx: UdpActionExecContext<'_>, bytes: &[u8]) -> io::Result<()> {
-    ctx.upstream.send(bytes)?;
+    if ctx.socks_udp_frame {
+        ctx.upstream.send(&frame_socks5_udp_datagram(ctx.target, bytes))?;
+    } else {
+        ctx.upstream.send(bytes)?;
+    }
     Ok(())
 }
 
@@ -167,6 +199,12 @@ fn execute_udp_fragmented_write_action(
     disorder: bool,
     ipv6_ext: crate::ip_fragmentation::Ipv6ExtHeaders,
 ) -> io::Result<()> {
+    // Raw IP fragmentation targets the final destination directly; through a
+    // SOCKS5 UDP relay that path is meaningless, so fall back to a single
+    // RFC 1928-framed datagram that the relay forwards to the target.
+    if ctx.socks_udp_frame {
+        return execute_udp_write_action(ctx, bytes);
+    }
     match platform::raw_packet::send_ip_fragmented_udp(
         ctx.upstream,
         ctx.target,
@@ -221,11 +259,50 @@ mod tests {
             default_ttl: 64,
             protect_path: None,
             ip_id_mode: None,
+            socks_udp_frame: false,
         };
 
         execute_udp_ttl_action(ctx, 17).expect("set IPv4 TTL");
 
         assert_eq!(SockRef::from(&socket).ttl_v4().expect("read IPv4 TTL"), 17);
+    }
+
+    #[test]
+    fn socks5_udp_frame_prepends_rfc1928_ipv4_header() {
+        let target: SocketAddr = "203.0.113.7:443".parse().expect("IPv4 target");
+        let framed = frame_socks5_udp_datagram(target, b"ping");
+        assert_eq!(framed, vec![0, 0, 0, 0x01, 203, 0, 113, 7, 0x01, 0xbb, b'p', b'i', b'n', b'g']);
+    }
+
+    #[test]
+    fn socks5_udp_frame_prepends_rfc1928_ipv6_header() {
+        let target: SocketAddr = "[2001:db8::1]:443".parse().expect("IPv6 target");
+        let framed = frame_socks5_udp_datagram(target, b"x");
+        assert_eq!(framed[..4], [0, 0, 0, 0x04]);
+        assert_eq!(framed[20..22], [0x01, 0xbb]);
+        assert_eq!(framed[22], b'x');
+    }
+
+    #[test]
+    fn write_action_through_socks_frame_wraps_payload() {
+        let relay = UdpSocket::bind("127.0.0.1:0").expect("bind relay");
+        let relay_addr = relay.local_addr().expect("relay addr");
+        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
+        sender.connect(relay_addr).expect("connect sender");
+        let ctx = UdpActionExecContext {
+            upstream: &sender,
+            target: "203.0.113.7:443".parse().expect("IPv4 target"),
+            default_ttl: 64,
+            protect_path: None,
+            ip_id_mode: None,
+            socks_udp_frame: true,
+        };
+
+        execute_udp_write_action(ctx, b"ping").expect("framed write");
+
+        let mut buf = [0u8; 64];
+        let n = relay.recv(&mut buf).expect("recv framed datagram");
+        assert_eq!(&buf[..n], &[0, 0, 0, 0x01, 203, 0, 113, 7, 0x01, 0xbb, b'p', b'i', b'n', b'g']);
     }
 
     #[test]
@@ -239,6 +316,7 @@ mod tests {
             default_ttl: 64,
             protect_path: None,
             ip_id_mode: None,
+            socks_udp_frame: false,
         };
 
         execute_udp_ttl_action(ctx, 17).expect("set IPv6 hop limit");

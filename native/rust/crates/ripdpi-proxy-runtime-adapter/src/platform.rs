@@ -269,6 +269,12 @@ pub mod udp {
             register_protect_callback_versioned, unregister_protect_callback_if, ProtectCallback, ProtectGeneration,
         };
 
+        // The protect callback lives in a single process-global slot, so two
+        // tests that each register their own recorder must not run concurrently
+        // — otherwise one test's recorder captures the other's fds. Serialize
+        // every protect-callback test in this module on a shared lock.
+        static PROTECT_TEST_LOCK: Mutex<()> = Mutex::new(());
+
         struct Recorder {
             fds: Mutex<Vec<i32>>,
         }
@@ -293,6 +299,7 @@ pub mod udp {
         /// is robust to other concurrent tests sharing the process-global slot.
         #[test]
         fn upstream_udp_socket_is_protected_when_protect_path_present() {
+            let _serial = PROTECT_TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             let recorder = Arc::new(Recorder { fds: Mutex::new(Vec::new()) });
             let generation = register_protect_callback_versioned(Arc::clone(&recorder) as Arc<dyn ProtectCallback>);
             let _guard = Guard(generation);
@@ -314,6 +321,76 @@ pub mod udp {
                 !recorder.fds.lock().expect("recorder lock").contains(&unprotected.as_raw_fd()),
                 "upstream socket must NOT be protected when protect_path is None (proxy-only mode)"
             );
+        }
+
+        /// G6: the SOCKS5 UDP ASSOCIATE datapath builds two egress sockets — the
+        /// control TCP to the upstream SOCKS5 server and the relay UDP socket
+        /// pointed at the ASSOCIATE `BND.ADDR:BND.PORT`. Both go through the
+        /// shared protected constructors (`connect::connect_tcp_stream` and
+        /// `build_udp_upstream_socket`) that `runtime::udp::upstream_socks` calls.
+        /// This asserts BOTH fds are protected before use when a protect_path is
+        /// present, exercising the real constructors against a loopback stub
+        /// SOCKS5 server that completes the ASSOCIATE handshake.
+        #[test]
+        fn upstream_socks_associate_protects_control_tcp_and_relay_udp_sockets() {
+            use std::io::{Read, Write};
+            use std::net::{TcpListener, TcpStream};
+            use std::thread;
+
+            let _serial = PROTECT_TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let recorder = Arc::new(Recorder { fds: Mutex::new(Vec::new()) });
+            let generation = register_protect_callback_versioned(Arc::clone(&recorder) as Arc<dyn ProtectCallback>);
+            let _guard = Guard(generation);
+
+            // Stub upstream SOCKS5 server: accept, answer no-auth, parse the UDP
+            // ASSOCIATE request, and reply with a relay BND.ADDR:BND.PORT.
+            let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind stub socks server");
+            let upstream = listener.local_addr().expect("listener addr");
+            let server = thread::spawn(move || {
+                let (mut stream, _) = listener.accept().expect("accept control client");
+                let mut greeting = [0u8; 3];
+                stream.read_exact(&mut greeting).expect("read auth request");
+                stream.write_all(&[0x05, 0x00]).expect("write auth response");
+                let mut request = [0u8; 10];
+                stream.read_exact(&mut request).expect("read associate request");
+                assert_eq!(request[1], 0x03, "CMD must be UDP ASSOCIATE");
+                stream.write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0x14, 0xb4]).expect("write associate reply");
+                let mut sink = [0u8; 1];
+                let _ = stream.read(&mut sink);
+            });
+
+            // Control TCP via the SAME protected connector the ASSOCIATE path uses.
+            let mut control = super::super::connect::connect_tcp_stream(
+                upstream,
+                IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                Some("/unused/when/callback/present.sock"),
+                false,
+                Some(Duration::from_secs(2)),
+                None,
+            )
+            .expect("connect control tcp");
+            let control_fd = TcpStream::as_raw_fd(&control);
+
+            // Drive the handshake so the stub yields a relay endpoint.
+            control.write_all(&[0x05, 0x01, 0x00]).expect("send greeting");
+            let mut auth = [0u8; 2];
+            control.read_exact(&mut auth).expect("read auth response");
+            control.write_all(&[0x05, 0x03, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).expect("send associate");
+            let mut reply = [0u8; 10];
+            control.read_exact(&mut reply).expect("read associate reply");
+            let relay_endpoint = SocketAddr::from(([127, 0, 0, 1], 5300));
+
+            // Relay UDP socket via the SAME protected constructor, pointed at the
+            // relay endpoint (NOT the final target).
+            let relay = build_udp_upstream_socket(relay_endpoint, Some("/unused/when/callback/present.sock"), false)
+                .expect("build protected relay socket");
+            let relay_fd = relay.as_raw_fd();
+
+            let protected = recorder.fds.lock().expect("recorder lock");
+            assert!(protected.contains(&control_fd), "control TCP fd must be protected before the ASSOCIATE handshake");
+            assert!(protected.contains(&relay_fd), "relay UDP fd must be protected before use");
+            drop(control);
+            server.join().expect("join stub socks server");
         }
     }
 }

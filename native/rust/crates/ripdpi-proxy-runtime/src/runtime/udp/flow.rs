@@ -6,6 +6,7 @@ use std::time::Instant;
 use super::feedback::note_udp_flow_timeout_failure;
 use super::flow_selection::try_advance_udp_preferred_target;
 use super::session::UdpFlowSession;
+use super::upstream_socks::UpstreamUdpSocks;
 use super::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy};
 use crate::runtime::state::{RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
 use crate::runtime::types::RuntimeConnectionRoute;
@@ -27,6 +28,18 @@ pub(super) struct UdpFlowActivationState {
     pub(super) target_candidates: Vec<SocketAddr>,
     pub(super) target_index: usize,
     pub(super) cache_host: bool,
+    /// Live upstream SOCKS5 UDP ASSOCIATE session, present iff this flow's route
+    /// group configures `ext_socks`. Owning it keeps the control TCP open for
+    /// the flow lifetime (RFC 1928 ties the relay binding to that connection).
+    pub(super) upstream_socks: Option<UpstreamUdpSocks>,
+}
+
+impl UdpFlowActivationState {
+    /// `true` when datagrams to `upstream` must be RFC 1928-framed for a SOCKS5
+    /// UDP relay rather than sent raw to the target.
+    pub(super) fn socks_framed(&self) -> bool {
+        self.upstream_socks.is_some()
+    }
 }
 
 pub(super) fn udp_flow_at_capacity<T>(

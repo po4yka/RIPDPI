@@ -8,7 +8,8 @@ use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};
 use super::session::UdpFlowSession;
 use super::sockets::build_udp_upstream_socket;
 use super::upstream_pump::send_udp_flow_payload;
-use super::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy};
+use super::upstream_socks::{open_upstream_udp_associate, UpstreamUdpSocks};
+use super::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy};
 use crate::runtime::routing::{preferred_targets_for_transport, select_route_for_transport};
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
@@ -21,6 +22,7 @@ pub(super) struct UdpFlowSelection {
     pub(super) packet_settings: RuntimeUdpPacketSettings,
     pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
     pub(super) upstream: UdpSocket,
+    pub(super) upstream_socks: Option<UpstreamUdpSocks>,
 }
 
 pub(super) struct UdpFlowSelectionWithCandidates {
@@ -31,7 +33,30 @@ pub(super) struct UdpFlowSelectionWithCandidates {
     pub(super) packet_settings: RuntimeUdpPacketSettings,
     pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
     pub(super) upstream: UdpSocket,
+    pub(super) upstream_socks: Option<UpstreamUdpSocks>,
     pub(super) target_candidates: Vec<SocketAddr>,
+}
+
+/// Build the protected upstream UDP socket for a flow, plus (when the group
+/// configures `ext_socks`) the live SOCKS5 UDP ASSOCIATE session.
+///
+/// Direct path: the upstream socket connects straight to `target`.
+/// Upstream-SOCKS path: a protected control TCP runs the ASSOCIATE handshake to
+/// learn the relay `BND.ADDR:BND.PORT`, then the protected upstream UDP socket
+/// connects to that relay endpoint (NOT `target`). Both sockets are protected by
+/// their respective platform constructors before any connect/bind.
+fn build_udp_flow_upstream(
+    target: SocketAddr,
+    protect_path: Option<&str>,
+    group_policy: &UdpFlowGroupPolicy,
+) -> io::Result<(UdpSocket, Option<UpstreamUdpSocks>)> {
+    let Some(upstream_socks_addr) = group_policy.upstream_socks_addr else {
+        let socket = build_udp_upstream_socket(target, protect_path, group_policy.socket.bind_low_port)?;
+        return Ok((socket, None));
+    };
+    let session = open_upstream_udp_associate(upstream_socks_addr, protect_path, group_policy.connect_timeout)?;
+    let socket = build_udp_upstream_socket(session.relay_endpoint, protect_path, group_policy.socket.bind_low_port)?;
+    Ok((socket, Some(session)))
 }
 
 pub(super) fn ensure_udp_flow_selected(
@@ -89,7 +114,7 @@ pub(super) fn select_udp_flow_target(
         let socket_settings = group_policy.socket;
         let packet_settings = group_policy.packet;
         let source_rebind_policy = group_policy.source_rebind;
-        let Ok(upstream) = build_udp_upstream_socket(target, protect_path, socket_settings.bind_low_port) else {
+        let Ok((upstream, upstream_socks)) = build_udp_flow_upstream(target, protect_path, &group_policy) else {
             continue;
         };
         return Ok(Some(UdpFlowSelection {
@@ -100,6 +125,7 @@ pub(super) fn select_udp_flow_target(
             packet_settings,
             source_rebind_policy,
             upstream,
+            upstream_socks,
         }));
     }
     Ok(None)
@@ -127,6 +153,7 @@ pub(super) fn reselect_udp_flow_target(
         packet_settings: selection.packet_settings,
         source_rebind_policy: selection.source_rebind_policy,
         upstream: selection.upstream,
+        upstream_socks: selection.upstream_socks,
         target_candidates,
     }))
 }
@@ -165,6 +192,7 @@ pub(super) fn try_advance_udp_preferred_target(
         entry.packet_settings = selection.packet_settings;
         entry.source_rebind_policy = selection.source_rebind_policy;
         entry.upstream = selection.upstream;
+        entry.upstream_socks = selection.upstream_socks;
         entry.current_target = selection.target;
         entry.target_index = selection.target_index;
         entry.quic_migrated = false;
@@ -218,6 +246,7 @@ fn build_initial_udp_flow_entry(
         target_candidates,
         target_index: selection.target_index,
         cache_host: packet.cache_host,
+        upstream_socks: selection.upstream_socks,
     };
     store_udp_route_hint(state, &entry)?;
     Ok(Some(entry))
@@ -255,6 +284,7 @@ fn update_udp_flow_selection(
         entry.packet_settings = selection.packet_settings;
         entry.source_rebind_policy = selection.source_rebind_policy;
         entry.upstream = selection.upstream;
+        entry.upstream_socks = selection.upstream_socks;
         entry.current_target = selection.target;
         entry.target_candidates = selection.target_candidates;
         entry.target_index = selection.target_index;

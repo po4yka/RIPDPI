@@ -7,6 +7,7 @@ mod session;
 mod settings;
 mod sockets;
 mod upstream_pump;
+mod upstream_socks;
 
 #[cfg(all(test, not(feature = "loom")))]
 mod tests;
