@@ -76,6 +76,7 @@ private fun AppSettings.Builder.applyFakePacketPreferences(preferences: RipDpiPr
     setFakeOffsetMarker(fakePackets.fakeOffsetMarker)
     setOobData(fakePackets.oobChar.toString())
     setDropSack(fakePackets.dropSack)
+    setFakeMd5Sig(fakePackets.md5sig)
     setWindowClamp(fakePackets.windowClamp ?: 0)
     setWsizeWindow(fakePackets.wsizeWindow ?: 0)
     setWsizeScale(fakePackets.wsizeScale ?: 0)

@@ -42,6 +42,7 @@ internal fun AppSettingsSnapshot.withProxyDesyncSnapshot(settings: AppSettings):
                 tlsFakeProfile = settings.effectiveTlsFakeProfile(),
                 oobData = settings.oobData,
                 dropSack = settings.dropSack,
+                fakeMd5Sig = settings.fakeMd5Sig,
                 desyncHttp = settings.desyncHttp,
                 desyncHttps = settings.desyncHttps,
                 desyncUdp = settings.desyncUdp,
@@ -112,6 +113,7 @@ internal fun AppSettings.Builder.applyProxyDesyncSnapshot(snapshot: AppSettingsS
         .setTlsFakeProfile(normalizeTlsFakeProfile(proxy.tlsFakeProfile))
         .setOobData(proxy.oobData)
         .setDropSack(proxy.dropSack)
+        .setFakeMd5Sig(proxy.fakeMd5Sig)
         .setDesyncHttp(proxy.desyncHttp)
         .setDesyncHttps(proxy.desyncHttps)
         .setDesyncUdp(proxy.desyncUdp)

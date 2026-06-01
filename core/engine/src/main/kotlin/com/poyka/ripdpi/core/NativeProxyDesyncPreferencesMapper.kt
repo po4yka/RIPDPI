@@ -62,6 +62,8 @@ internal fun buildFakePacketConfig(settings: AppSettings): RipDpiFakePacketConfi
         fakeOffsetMarker = settings.effectiveFakeOffsetMarker(),
         oobChar = settings.oobData.firstOrNull() ?: 'a',
         dropSack = settings.dropSack,
+        // Root-gated: never request TCP_MD5SIG unless root mode is enabled.
+        md5sig = settings.fakeMd5Sig && settings.rootModeEnabled,
         windowClamp = settings.windowClamp.takeIf { it > 0 },
         wsizeWindow = settings.wsizeWindow.takeIf { it > 0 },
         wsizeScale = settings.wsizeScale.takeIf { it >= -1 },

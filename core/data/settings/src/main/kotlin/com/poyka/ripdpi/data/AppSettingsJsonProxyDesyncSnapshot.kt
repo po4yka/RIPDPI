@@ -40,6 +40,7 @@ internal data class AppSettingsProxyDesyncSnapshot(
     val tlsFakeProfile: String = defaultSettings.tlsFakeProfile,
     val oobData: String = defaultSettings.oobData,
     val dropSack: Boolean = defaultSettings.dropSack,
+    val fakeMd5Sig: Boolean = defaultSettings.fakeMd5Sig,
     val desyncHttp: Boolean = defaultSettings.desyncHttp,
     val desyncHttps: Boolean = defaultSettings.desyncHttps,
     val desyncUdp: Boolean = defaultSettings.desyncUdp,
@@ -99,6 +100,7 @@ internal fun JsonObjectBuilder.writeProxyDesyncSnapshot(snapshot: AppSettingsPro
     put("tlsFakeProfile", snapshot.tlsFakeProfile)
     put("oobData", snapshot.oobData)
     put("dropSack", snapshot.dropSack)
+    put("fakeMd5Sig", snapshot.fakeMd5Sig)
     put("desyncHttp", snapshot.desyncHttp)
     put("desyncHttps", snapshot.desyncHttps)
     put("desyncUdp", snapshot.desyncUdp)
@@ -159,6 +161,7 @@ internal fun JsonObject.readProxyDesyncSnapshot(
         tlsFakeProfile = stringValue("tlsFakeProfile", defaults.tlsFakeProfile),
         oobData = stringValue("oobData", defaults.oobData),
         dropSack = booleanValue("dropSack", defaults.dropSack),
+        fakeMd5Sig = booleanValue("fakeMd5Sig", defaults.fakeMd5Sig),
         desyncHttp = booleanValue("desyncHttp", defaults.desyncHttp),
         desyncHttps = booleanValue("desyncHttps", defaults.desyncHttps),
         desyncUdp = booleanValue("desyncUdp", defaults.desyncUdp),

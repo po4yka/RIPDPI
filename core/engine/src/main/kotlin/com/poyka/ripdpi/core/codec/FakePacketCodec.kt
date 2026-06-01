@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.codec
 
 import com.poyka.ripdpi.core.RipDpiFakePacketConfig
 import com.poyka.ripdpi.core.RipDpiParserEvasionConfig
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -29,6 +30,8 @@ internal data class NativeFakePacketConfig(
     val fakeOffsetMarker: String = "0",
     val oobChar: Int = 'a'.code,
     val dropSack: Boolean = false,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val md5sig: Boolean = false,
     val windowClamp: Int? = null,
     val wsizeWindow: Int? = null,
     val wsizeScale: Int? = null,
@@ -82,6 +85,7 @@ internal object PacketCodec {
             fakeOffsetMarker = value.fakeOffsetMarker,
             oobChar = value.oobChar.toChar(),
             dropSack = value.dropSack,
+            md5sig = value.md5sig,
             windowClamp = value.windowClamp,
             wsizeWindow = value.wsizeWindow,
             wsizeScale = value.wsizeScale,
@@ -121,6 +125,7 @@ internal object PacketCodec {
             fakeOffsetMarker = value.fakeOffsetMarker,
             oobChar = value.oobChar.code,
             dropSack = value.dropSack,
+            md5sig = value.md5sig,
             windowClamp = value.windowClamp,
             wsizeWindow = value.wsizeWindow,
             wsizeScale = value.wsizeScale,

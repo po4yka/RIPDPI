@@ -101,6 +101,9 @@ message AppSettings {
   int32 fake_offset = 20;
   string oob_data = 21;
   bool drop_sack = 22;
+  // Root-gated: request TCP_MD5SIG on outbound desync sockets. The native
+  // proxy-config conversion forces this false unless root mode is enabled.
+  bool fake_md5sig = 331;
 
   // Protocol
   bool desync_http = 23;

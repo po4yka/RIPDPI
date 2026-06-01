@@ -114,6 +114,7 @@ data class RipDpiFakePacketConfig(
     val fakeOffsetMarker: String = DefaultFakeOffsetMarker,
     val oobChar: Char = 'a',
     val dropSack: Boolean = false,
+    val md5sig: Boolean = false,
     val windowClamp: Int? = null,
     val wsizeWindow: Int? = null,
     val wsizeScale: Int? = null,
