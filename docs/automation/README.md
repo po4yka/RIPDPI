@@ -60,6 +60,8 @@ cd appium
 pytest tests/ -v
 ```
 
+In CI (and to reproduce it locally) run `bash scripts/ci/run-appium-smoke.sh`, which prepares the environment before invoking pytest — mirroring the `run-maestro-smoke.sh` wrapper above.
+
 ## Debug Network Probe
 
 Debug builds also expose a machine-readable network probe receiver for lab and device smoke checks. Prefer the wrapper scripts because they choose the current host profile, DNS port, package name, and output path:
