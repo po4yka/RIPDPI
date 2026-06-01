@@ -9,8 +9,8 @@ import org.robolectric.RuntimeEnvironment
 @RunWith(RobolectricTestRunner::class)
 class LocalesConfigTest {
     @Test
-    fun `parse returns the seven BCP-47 tags registered in locales_config xml`() {
+    fun `parse returns the eight BCP-47 tags registered in locales_config xml`() {
         val tags = LocalesConfig.parse(RuntimeEnvironment.getApplication())
-        assertEquals(listOf("en", "ru", "es", "de", "fr", "fa", "zh-CN"), tags)
+        assertEquals(listOf("en", "ru", "es", "de", "fr", "fa", "ar", "zh-CN"), tags)
     }
 }
