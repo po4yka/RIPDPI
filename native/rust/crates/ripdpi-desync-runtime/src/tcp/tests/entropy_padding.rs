@@ -256,6 +256,86 @@ fn disabled_entropy_with_tcp_fake_decoy_is_unchanged_capture() {
     assert_eq!(fake.as_slice(), payload.as_slice());
 }
 
+/// Build a group with a single `HostFake` step targeting a plaintext host, plus
+/// a fake TTL (9) distinct from the default TTL the test plans with. `entropy_mode`
+/// is the only varying knob.
+fn hostfake_step_group(entropy_mode: EntropyMode) -> DesyncGroup {
+    use ripdpi_config::{OffsetBase, OffsetExpr};
+    let mut group = test_group();
+    group.actions.entropy_mode = entropy_mode;
+    group.actions.entropy_padding_target_permil = Some(3400);
+    group.actions.ttl = Some(9);
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
+            .with_midhost_offset(Some(OffsetExpr::marker(OffsetBase::MidSld, 0)))
+            .with_fake_host_template(Some("googlevideo.com".to_string()))];
+    group
+}
+
+/// True if the plan injects a fake decoy: a `Write` immediately preceded by a
+/// fake-TTL `SetTtl`. Non-panicking counterpart to `extract_fake_decoy`.
+fn has_fake_decoy(plan: &DesyncPlan, fake_ttl: u8, default_ttl: u8) -> bool {
+    let mut iter = plan.actions.iter();
+    while let Some(action) = iter.next() {
+        if matches!(action, DesyncAction::SetTtl(ttl) if *ttl == fake_ttl && *ttl != default_ttl)
+            && matches!(iter.next(), Some(DesyncAction::Write(_)))
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Concatenate the bytes of every `DesyncAction::Write` in the plan, in order.
+/// For a fake-free plan this is exactly the server-bound stream.
+fn concat_writes(plan: &DesyncPlan) -> Vec<u8> {
+    let mut out = Vec::new();
+    for action in &plan.actions {
+        if let DesyncAction::Write(bytes) = action {
+            out.extend_from_slice(bytes);
+        }
+    }
+    out
+}
+
+/// Pins the non-corrupting graceful degradation of `HostFake` under entropy
+/// padding. HostFake needs a plaintext host anchored at offset 0 (HTTP method /
+/// TLS record). Entropy padding *prepends* low-entropy bytes, pushing that
+/// anchor off offset 0, so host resolution fails and HostFake degrades to a
+/// plain split: no fake decoy, and the genuine server-bound stream is delivered
+/// verbatim and in order. (This is why HostFake + entropy padding is a no-op
+/// combination in practice -- the fake is never emitted once padding is on -- so
+/// there is no padding-derived "size leak" to fix; the contract worth guarding
+/// is precisely this non-corrupting degradation.)
+#[test]
+fn popcount_hostfake_degrades_to_fakeless_split_non_corrupting() {
+    const DEFAULT_TTL: u8 = 32;
+    const FAKE_TTL: u8 = 9; // group.actions.ttl, distinct from DEFAULT_TTL
+    let payload = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
+
+    // Popcount must actually pad this payload (avg popcount 3.46/byte is in the
+    // GFW detection window), else the scenario is vacuous.
+    let padded = apply_entropy_padding(&hostfake_step_group(EntropyMode::Popcount), payload, None);
+    assert!(matches!(padded, Cow::Owned(_)), "Popcount must pad the HostFake payload");
+    assert!(padded.len() > payload.len());
+
+    // Contrast: with entropy disabled HostFake fires and injects a fake-host decoy.
+    let disabled_plan = plan_with_padding(&hostfake_step_group(EntropyMode::Disabled), payload, DEFAULT_TTL);
+    assert!(has_fake_decoy(&disabled_plan, FAKE_TTL, DEFAULT_TTL), "HostFake must fire on the unpadded HTTP host");
+
+    // Under Popcount padding the step degrades: no fake decoy is emitted...
+    let popcount_plan = plan_with_padding(&hostfake_step_group(EntropyMode::Popcount), payload, DEFAULT_TTL);
+    assert!(
+        !has_fake_decoy(&popcount_plan, FAKE_TTL, DEFAULT_TTL),
+        "HostFake must not emit a fake decoy once entropy padding is prepended",
+    );
+
+    // ...and the degradation is NON-CORRUPTING: the planner's server-bound stream
+    // equals the padded payload and every byte is written verbatim, in order.
+    assert_eq!(popcount_plan.tampered.as_slice(), &padded[..], "server-bound stream must equal the padded payload");
+    assert_eq!(concat_writes(&popcount_plan), &padded[..], "all padded bytes must be written verbatim, in order");
+}
+
 // ---------------------------------------------------------------
 // Pure helper function tests
 // ---------------------------------------------------------------
