@@ -5804,14 +5804,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-hysteria-v1"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.18",
- "tokio",
-]
-
-[[package]]
 name = "ripdpi-hysteria2"
 version = "0.1.0"
 dependencies = [
@@ -6578,14 +6570,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-trojan-go"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.18",
- "tokio",
-]
-
-[[package]]
 name = "ripdpi-tuic"
 version = "0.1.0"
 dependencies = [
@@ -6728,14 +6712,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "x25519-dalek",
-]
-
-[[package]]
-name = "ripdpi-vmess"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.18",
- "tokio",
 ]
 
 [[package]]
