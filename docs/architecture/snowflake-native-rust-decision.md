@@ -40,7 +40,7 @@ The Go `ripdpi-snowflake` binary remains the Snowflake integration. It continues
 - dummy target: `192.0.2.1:1`
 - SOCKS per-connection args: `url=<broker>;front=<front>;utls-imitate=hellochrome_auto;covertdtls-config=mimic`
 
-`native/pluggable-transports/sources.json` continues to source `ripdpi-snowflake` from the Go PT source. There is no Rust slice plan, no `ripdpi-snowflake` crate, no Gradle manifest migration, and no Snowbox E2E obligation for a Rust replacement.
+`native/pluggable-transports/sources.json` continues to build `ripdpi-snowflake` from the Lyrebird Go PT source (`id: lyrebird`, `lyrebird.git`, `packagePath: ./cmd/lyrebird`; that one binary bundles both Snowflake and obfs4, so it also produces `ripdpi-obfs4`). The repo at line 19 above is the behavioral *spec* reference, not the build source. There is no Rust slice plan, no `ripdpi-snowflake` crate, no Gradle manifest migration, and no Snowbox E2E obligation for a Rust replacement.
 
 ## Revisit Trigger
 

@@ -107,7 +107,9 @@ techniques work without a **protect callback**. Selected by
 transport to a server or bridge path the user configures. Current relay-kind
 paths include VLESS Reality/xHTTP, Hysteria2, TUIC v5, MASQUE, ShadowTLS,
 Trojan, AnyTLS, Shadowsocks, Tor, NaiveProxy, Google Apps Script, Cloudflare
-Tunnel, in-repository WebTunnel, and external Snowflake/obfs4 PT paths. Shared
+Tunnel, in-repository WebTunnel, and external Snowflake/obfs4 PT paths;
+`mieru` and `ssh` are registered relay kinds with stubbed wire engines
+(config/validation only — they do not yet carry traffic). Shared
 orchestration for native-wired relay backends is `ripdpi-relay-core`; the JNI
 entrypoint is `libripdpi-relay.so` (crate `ripdpi-relay-android`). WARP and
 AmneziaWG are separate VPN/tunnel profile surfaces. Both proxy and VPN modes

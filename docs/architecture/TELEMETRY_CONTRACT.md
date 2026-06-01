@@ -55,7 +55,7 @@ ripdpi-telemetry recorder (counters/gauges/histograms) ─┤
 ### 1. Runtime snapshot — `NativeRuntimeSnapshot`
 
 The pull-model surface. Kotlin polls each runtime (~1 Hz) and receives a JSON
-string that decodes into `NativeRuntimeSnapshot` — ~75 fields of session
+string that decodes into `NativeRuntimeSnapshot` — a large set of session
 state: counts, addresses, resolver state, autolearn state, `tunnelStats`,
 `latencyDistributions`, a `directPathLearningSignals` list, and a drained
 `nativeEvents` list. Built by `ProxyTelemetryState::snapshot()` in

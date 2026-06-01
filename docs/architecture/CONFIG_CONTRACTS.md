@@ -232,7 +232,7 @@ values; never rename or repurpose an existing one.**
 
 | Identifier class | Values / source of truth | Consumers |
 |------------------|--------------------------|-----------|
-| **Relay kind** | `relay_kind` (proto field 171): `off`, `vless`, `vless_reality`, `hysteria2`, `chain_relay`, `masque`, `anytls`, `cloudflare_tunnel`, `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `naiveproxy`, `tor`, `google_apps_script`, `snowflake`, `webtunnel`, `obfs4` | Kotlin `RelayKindDescriptors` + `*RelayKindResolver` registry; Rust `ripdpi-relay-core` descriptors for native-wired backends |
+| **Relay kind** | `relay_kind` (proto field 171): `off`, `vless`, `vless_reality`, `hysteria2`, `chain_relay`, `masque`, `anytls`, `cloudflare_tunnel`, `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `naiveproxy`, `tor`, `mieru`, `ssh`, `google_apps_script`, `snowflake`, `webtunnel`, `obfs4` | Kotlin `RelayKindDescriptors` + `*RelayKindResolver` registry; Rust `ripdpi-relay-core` descriptors for native-wired backends. `mieru`/`ssh` are registered config/validation kinds whose wire engines are still stubbed (`builders/{mieru,ssh}.rs` fail session creation with `Unimplemented`) — they parse and validate but do not yet carry traffic |
 | **TCP chain step kind** | `StrategyTcpStep.kind` string — `split`, `syndata`, `seqovl`, `disorder`, `multidisorder`, `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, `oob`, `disoob`, `tlsrec`, `tlsrandrec`, `ipfrag2`, `fakerst` | Kotlin `TcpChainStepKind.wireName` (`StrategyChainProtobuf.kt`); Rust `parse_tcp_chain_step_kind` |
 | **UDP chain step kind** | `StrategyUdpStep.kind` string | `UdpChainStepKind.wireName`; Rust `parse_udp_chain_step_kind` |
 | **Fake/fingerprint profiles** | `tls_fake_profile`, `http_fake_profile`, `udp_fake_profile`, `quic_fake_profile`, `tls_fingerprint_profile` strings (value lists in `app_settings.proto` comments) | Rust `parse_*`; `ripdpi-tls-profiles` catalog |
@@ -313,7 +313,7 @@ is a `kind` string) — but an old Rust build will drop it (§5).
 **Current state.** Versioning is explicit for native-facing JSON contracts:
 
 - The **diagnostics** wire contract is explicitly versioned —
-  `DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 1`
+  `DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 2`
   (`ripdpi-diagnostics-contracts/src/wire.rs`), serialized as `schemaVersion`
   with a `default_schema_version()` serde default, mirrored Kotlin-side by
   `DiagnosticsEngineSchemaVersion` and `BundledDiagnosticsCatalogSchemaVersion`,

@@ -20,7 +20,10 @@ Project Rules). Three capabilities work independently or combined:
    protocols (VLESS Reality/xHTTP, Hysteria2, TUIC v5, MASQUE, ShadowTLS,
    Trojan, AnyTLS, Shadowsocks, Tor, NaiveProxy, Google Apps Script, Cloudflare
    Tunnel, in-repository WebTunnel, and external Snowflake/obfs4 PT paths) to a server
-   or bridge path the user controls. WARP and AmneziaWG are separate VPN/tunnel
+   or bridge path the user controls. `mieru` and `ssh` are additional registered
+   `relay_kind` values whose wire engines are still stubbed (config/validation
+   only; they fail session creation with `Unimplemented` rather than carrying
+   traffic). WARP and AmneziaWG are separate VPN/tunnel
    profile surfaces, not `relay_kind` values.
    Owner-operated relay promotion is governed by the deployment-plane controls in
    [`Relay Deployment Operations`](../relay-deployment-operations.md).

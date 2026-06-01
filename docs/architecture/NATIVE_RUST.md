@@ -12,7 +12,7 @@ and the `native/rust/crates/` tree.
 
 ## Workspace facts
 
-- **108 crates**, all under `native/rust/crates/`. Every directory is a declared
+- **111 crates**, all under `native/rust/crates/`. Every directory is a declared
   `[workspace] members` entry — **no orphan directories, no missing members.**
 - `edition = "2021"`, `version = "0.1.0"`, `license = "MIT"` (workspace-inherited).
 - Build profiles: `release` (thin LTO, `panic = "abort"`, stripped),
@@ -78,13 +78,13 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 | # | Layer | Count | Crates |
 |---|-------|-------|--------|
 | L0 | **support / test / dev** | 6 | `feature-contract-harness`, `golden-test-support`, `local-network-fixture`, `native-soak-support`, `ripdpi-bench`, `ripdpi-cli` |
-| L1 | **protocol / core** | 10 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-pcap` |
+| L1 | **protocol / core** | 11 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-pcap`, `ripdpi-flow-app-attribution` |
 | L2 | **contracts / config** | 9 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry` |
 | L3 | **domain logic** | 18 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-routing`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
 | L5 | **platform / privileged** | 8 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
 | L6 | **diagnostics / monitor** | 18 | 14 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
-| L7 | **relay transports** | 19 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel` |
+| L7 | **relay transports** | 21 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel`, `ripdpi-mieru`, `ripdpi-ssh` |
 | L8 | **Android / JNI adapters** | 12 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android` |
 
 `ripdpi-diagnostics-contracts` is counted under L2 (it is a wire contract); the
@@ -316,14 +316,14 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 ## 5. Crates that must stay Android/JNI-free
 
 Every crate **except the 12 L8 crates** must not depend on `jni`,
-`android-support`, `android_logger`, or any `ndk-*` crate. That is **96 crates**
+`android-support`, `android_logger`, or any `ndk-*` crate. That is **99 crates**
 — all of L0–L7:
 
 > `feature-contract-harness`, `golden-test-support`, `local-network-fixture`,
 > `native-soak-support`, `ripdpi-bench`, `ripdpi-cli`, `ripdpi-packets`, `ripdpi-tls-profiles`,
 > `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`,
 > `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`,
-> `ripdpi-pcap`,
+> `ripdpi-pcap`, `ripdpi-flow-app-attribution`,
 > `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`,
 > `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`,
 > `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`,
