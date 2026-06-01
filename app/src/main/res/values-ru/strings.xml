@@ -1361,6 +1361,9 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_offset_setting">Маркер смещения фейка</string>
     <string name="ripdpi_drop_sack_setting">Сбросить SACK</string>
     <string name="ripdpi_md5sig_setting">TCP MD5-подпись</string>
+    <string name="ripdpi_tlsminor_setting">Подмена версии TLS-записи</string>
+    <string name="ripdpi_tlsminor_value_title">Младшая версия TLS-записи</string>
+    <string name="ripdpi_tlsminor_value_body">Перезаписывает байт младшей версии (0–255) в заголовке TLS-записи подлинного первого пакета.</string>
     <string name="ripdpi_protocols_category">Протоколы</string>
     <string name="ripdpi_protocols_hint">Снимите все флажки, чтобы десинхронизировать весь трафик</string>
     <string name="advanced_settings_visual_controls_disabled">Визуальные элементы управления недоступны при активных переопределениях командной строки.</string>

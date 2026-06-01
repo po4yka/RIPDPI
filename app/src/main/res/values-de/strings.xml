@@ -1824,6 +1824,9 @@ Quelle: %2$s</string>
     <string name="ripdpi_default_ttl_setting">Standard-TTL</string>
     <string name="ripdpi_drop_sack_setting">SACK verwerfen</string>
     <string name="ripdpi_md5sig_setting">TCP-MD5-Signatur</string>
+    <string name="ripdpi_tlsminor_setting">TLS-Record-Version überschreiben</string>
+    <string name="ripdpi_tlsminor_value_title">TLS-Record-Minor-Version</string>
+    <string name="ripdpi_tlsminor_value_body">Überschreibt das Minor-Versions-Byte (0–255) im TLS-Record-Header des echten ersten Pakets.</string>
     <string name="ripdpi_fake_approx_badge_fakeddisorder">fakeddisorder</string>
     <string name="ripdpi_fake_approx_cli_body">Die visuelle Fake-Approximations-Anleitung bleibt hier sichtbar, aber die aktive Chain stammt aus Raw-RIPDPI-Argumenten, solange Befehlszeileneinstellungen aktiviert sind.</string>
     <string name="ripdpi_fake_approx_protocols_off_title">HTTP und HTTPS sind aus</string>

@@ -1824,6 +1824,9 @@ Origen: %2$s</string>
     <string name="ripdpi_default_ttl_setting">TTL predeterminado</string>
     <string name="ripdpi_drop_sack_setting">Descartar SACK</string>
     <string name="ripdpi_md5sig_setting">Firma TCP MD5</string>
+    <string name="ripdpi_tlsminor_setting">Anulación de versión de registro TLS</string>
+    <string name="ripdpi_tlsminor_value_title">Versión menor del registro TLS</string>
+    <string name="ripdpi_tlsminor_value_body">Sobrescribe el byte de versión menor (0–255) en la cabecera del registro TLS del paquete inicial genuino.</string>
     <string name="ripdpi_fake_approx_badge_fakeddisorder">fakeddisorder</string>
     <string name="ripdpi_fake_approx_cli_body">La guía visual de aproximación falsa permanece visible aquí, pero la cadena activa proviene de los argumentos RIPDPI sin procesar mientras los ajustes de línea de comandos estén habilitados.</string>
     <string name="ripdpi_fake_approx_protocols_off_title">HTTP y HTTPS están desactivados</string>

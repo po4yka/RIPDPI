@@ -40,6 +40,10 @@ import kotlinx.collections.immutable.ImmutableList
 private const val ttlMax = 255
 private const val ttlMin = 1
 
+// TLS record-layer minor-version byte (third byte of the record header).
+private const val tlsMinorMax = 255
+private const val tlsMinorMin = 0
+
 internal data class DesyncSectionVisibility(
     val showHostFakeSection: Boolean,
     val showSeqOverlapSection: Boolean,
@@ -556,6 +560,31 @@ private fun DesyncPacketTailControls(model: DesyncSectionModel) {
             enabled = model.visualEditorEnabled,
             showDivider = true,
             testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.Md5Sig),
+        )
+    }
+    SettingsRow(
+        title = stringResource(R.string.ripdpi_tlsminor_setting),
+        checked = model.uiState.fake.tlsMinorEnabled,
+        onCheckedChange = { model.actions.onToggleChanged(AdvancedToggleSetting.TlsMinor, it) },
+        enabled = model.visualEditorEnabled,
+        showDivider = true,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.TlsMinor),
+    )
+    if (model.uiState.fake.tlsMinorEnabled) {
+        AdvancedTextSetting(
+            title = stringResource(R.string.ripdpi_tlsminor_value_title),
+            description = stringResource(R.string.ripdpi_tlsminor_value_body),
+            value =
+                model.uiState.fake.tlsMinorValue
+                    .toString(),
+            enabled = model.visualEditorEnabled,
+            validator = { validateIntRange(it, tlsMinorMin, tlsMinorMax) },
+            invalidMessage = stringResource(R.string.config_error_out_of_range),
+            disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+            setting = AdvancedTextSetting.TlsMinorValue,
+            onConfirm = model.actions.onTextConfirmed,
+            showDivider = true,
         )
     }
     AdvancedDropdownSetting(

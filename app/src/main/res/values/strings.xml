@@ -1788,6 +1788,9 @@ Source: %2$s</string>
     <string name="ripdpi_fake_offset_setting">Fake offset marker</string>
     <string name="ripdpi_drop_sack_setting">Drop SACK</string>
     <string name="ripdpi_md5sig_setting">TCP MD5 Signature</string>
+    <string name="ripdpi_tlsminor_setting">TLS Record Version Override</string>
+    <string name="ripdpi_tlsminor_value_title">TLS Record Minor Version</string>
+    <string name="ripdpi_tlsminor_value_body">Overwrite the minor-version byte (0–255) in the TLS record header of the genuine first-flight packet.</string>
     <string name="ripdpi_ip_id_mode_title">IPv4 ID mode</string>
     <string name="ripdpi_ip_id_mode_body">Controls IPv4 identification values for raw fake and fragment paths. Seqgroup also promotes mixed fake/original TCP sends onto the raw replacement path so IDs stay exact.</string>
     <string name="desync_udp_category" translatable="false">UDP</string>

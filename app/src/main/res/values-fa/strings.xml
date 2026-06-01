@@ -2311,6 +2311,9 @@ fakeddisorder endhost</string>
     <string name="ripdpi_desync_method_setting">روش desync</string>
     <string name="ripdpi_drop_sack_setting">حذف SACK</string>
     <string name="ripdpi_md5sig_setting">امضای TCP MD5</string>
+    <string name="ripdpi_tlsminor_setting">بازنویسی نسخهٔ رکورد TLS</string>
+    <string name="ripdpi_tlsminor_value_title">نسخهٔ فرعی رکورد TLS</string>
+    <string name="ripdpi_tlsminor_value_body">بایت نسخهٔ فرعی (0–255) را در سربرگ رکورد TLS بستهٔ نخست واقعی بازنویسی می‌کند.</string>
     <string name="ripdpi_fake_tls_base_title">پایه ClientHello</string>
     <string name="ripdpi_fake_tls_custom_body">RIPDPI هرگاه زنجیره TCP فعلی بسته‌های HTTPS جعلی منتشر کند، از پروفایل ClientHello جعلی تنظیم‌شده زیر استفاده خواهد کرد.</string>
     <string name="ripdpi_fake_tls_default_title">پروفایل پیش‌فرض TLS جعلی</string>

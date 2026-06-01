@@ -14,6 +14,8 @@ internal val desyncToggleHandlers: Map<AdvancedToggleSetting, DesyncToggleHandle
             { enabled -> updateBoolean("dropSack", enabled) { setDropSack(enabled) } },
         AdvancedToggleSetting.Md5Sig to
             { enabled -> updateBoolean("fakeMd5Sig", enabled) { setFakeMd5Sig(enabled) } },
+        AdvancedToggleSetting.TlsMinor to
+            { enabled -> updateBoolean("tlsMinorEnabled", enabled) { setTlsMinorEnabled(enabled) } },
         AdvancedToggleSetting.FakeTlsRandomize to
             { enabled -> updateBoolean("fakeTlsRandomize", enabled) { setFakeTlsRandomize(enabled) } },
         AdvancedToggleSetting.FakeTlsDupSessionId to
@@ -73,6 +75,13 @@ internal val desyncTextHandlers: Map<AdvancedTextSetting, DesyncTextHandler> =
             },
         AdvancedTextSetting.FakeTlsSize to
             { value, _ -> updateIntValue("fakeTlsSize", value) { fakeTlsSize -> { setFakeTlsSize(fakeTlsSize) } } },
+        AdvancedTextSetting.TlsMinorValue to
+            {
+                value,
+                _,
+                ->
+                updateIntValue("tlsMinorValue", value) { tlsMinorValue -> { setTlsMinorValue(tlsMinorValue) } }
+            },
         AdvancedTextSetting.OobData to { value, _ -> updateOobData(value) },
         AdvancedTextSetting.TlsrecMarker to
             { value, uiState ->

@@ -93,6 +93,8 @@ data class FakeTransportUiState(
     val oobData: String = "a",
     val dropSack: Boolean = false,
     val md5sig: Boolean = false,
+    val tlsMinorEnabled: Boolean = false,
+    val tlsMinorValue: Int = 0,
     val ipIdMode: String = IpIdModeDefault,
 ) {
     val adaptiveFakeTtlMode: String

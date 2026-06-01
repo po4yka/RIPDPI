@@ -2288,6 +2288,9 @@ fake_burst 3</string>
     <string name="ripdpi_default_ttl_setting">默认 TTL</string>
     <string name="ripdpi_drop_sack_setting">丢弃 SACK</string>
     <string name="ripdpi_md5sig_setting">TCP MD5 签名</string>
+    <string name="ripdpi_tlsminor_setting">TLS 记录版本覆盖</string>
+    <string name="ripdpi_tlsminor_value_title">TLS 记录次版本号</string>
+    <string name="ripdpi_tlsminor_value_body">覆盖真实首个数据包 TLS 记录头中的次版本号字节（0–255）。</string>
     <string name="ripdpi_fake_approx_badge_configured">已配置</string>
     <string name="ripdpi_fake_approx_example_http">fakedsplit host+1</string>
     <string name="ripdpi_fake_approx_ready_body">已保存的策略链已经包含 fakedsplit 或 fakeddisorder 步骤,下次启动 RIPDPI 时将复用当前的伪载荷、伪 TLS 和伪 TTL 配置。</string>

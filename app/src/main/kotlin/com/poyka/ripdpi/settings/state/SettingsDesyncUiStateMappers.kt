@@ -136,6 +136,8 @@ internal fun AppSettings.buildFakeUiState(): FakeTransportUiState =
         oobData = oobData.ifEmpty { "a" },
         dropSack = dropSack,
         md5sig = fakeMd5Sig,
+        tlsMinorEnabled = tlsMinorEnabled,
+        tlsMinorValue = tlsMinorValue,
         ipIdMode = effectiveIpIdMode(),
     )
 

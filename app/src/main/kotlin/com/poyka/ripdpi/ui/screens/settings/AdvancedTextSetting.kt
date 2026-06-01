@@ -21,6 +21,7 @@ internal enum class AdvancedTextSetting {
     AdaptiveFakeTtlMin,
     AdaptiveFakeTtlMax,
     AdaptiveFakeTtlFallback,
+    TlsMinorValue,
     FakeSni,
     FakeOffsetMarker,
     FakeTlsSize,
