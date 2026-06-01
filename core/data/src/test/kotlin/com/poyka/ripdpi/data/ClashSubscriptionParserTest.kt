@@ -21,7 +21,7 @@ class ClashSubscriptionParserTest {
     }
 
     @Test
-    fun `parses ss vmess vless trojan hysteria2 nodes`() {
+    fun `parses ss vless trojan hysteria2 nodes and round-trips removed vmess as raw`() {
         val yaml =
             """
             proxies:
@@ -69,9 +69,9 @@ class ClashSubscriptionParserTest {
         assertEquals("aes-256-gcm", ss.method)
         assertEquals("ss-secret", ss.password)
 
+        // vmess was removed: the node has no first-class subtype and round-trips as raw config.
         val vmess = result.profiles[1]
-        assertTrue(vmess is ProxyProfile.Vless)
-        assertEquals("11111111-1111-1111-1111-111111111111", (vmess as ProxyProfile.Vless).uuid)
+        assertTrue(vmess is ProxyProfile.RawConfig)
 
         // reality-opts on the node routes it to the REALITY variant.
         val vless = result.profiles[2]

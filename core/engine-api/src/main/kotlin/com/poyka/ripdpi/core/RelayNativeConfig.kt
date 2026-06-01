@@ -156,24 +156,6 @@ data class ResolvedRipDpiRelayConfig(
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
     val trojanRootCertificatePem: String? = null,
     val naivePath: String = "",
-    val vmessServer: String = "",
-    val vmessPort: Int = 0,
-    val vmessUuid: String? = null,
-    val vmessSecurity: String = com.poyka.ripdpi.data.RelayVmessSecurityAes128Gcm,
-    val vmessTransport: String = com.poyka.ripdpi.data.RelayVmessTransportTcp,
-    val vmessWsPath: String? = null,
-    val vmessWsHost: String? = null,
-    val vmessGrpcService: String? = null,
-    val vmessH2Path: String? = null,
-    val vmessH2Host: String? = null,
-    val trojanGoServer: String = "",
-    val trojanGoPort: Int = 0,
-    val trojanGoPassword: String? = null,
-    val trojanGoSni: String? = null,
-    val trojanGoWsPath: String? = null,
-    val trojanGoWsHost: String? = null,
-    val trojanGoMux: String = com.poyka.ripdpi.data.RelayTrojanGoMuxOff,
-    val trojanGoInnerCipher: String = com.poyka.ripdpi.data.RelayTrojanGoInnerCipherNone,
     val mieruServer: String = "",
     val mieruPort: Int = 0,
     val mieruUsername: String? = null,
@@ -181,16 +163,6 @@ data class ResolvedRipDpiRelayConfig(
     val mieruProtocol: String = com.poyka.ripdpi.data.RelayMieruProtocolTcp,
     val mieruMultiplexing: String = com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle,
     val mieruMtu: Int = com.poyka.ripdpi.data.RelayMieruMtuDefault,
-    val hysteriaV1Server: String = "",
-    val hysteriaV1Port: Int = 0,
-    val hysteriaV1AuthType: String = com.poyka.ripdpi.data.RelayHysteriaV1AuthTypeString,
-    val hysteriaV1AuthPayload: String? = null,
-    val hysteriaV1Obfuscation: String? = null,
-    val hysteriaV1Protocol: String = com.poyka.ripdpi.data.RelayHysteriaV1ProtocolUdp,
-    val hysteriaV1UpMbps: Int = com.poyka.ripdpi.data.RelayHysteriaV1UpMbpsDefault,
-    val hysteriaV1DownMbps: Int = com.poyka.ripdpi.data.RelayHysteriaV1DownMbpsDefault,
-    val hysteriaV1Sni: String? = null,
-    val hysteriaV1Alpn: String? = null,
     val sshHost: String = "",
     val sshPort: Int = 0,
     val sshUsername: String? = null,
@@ -265,8 +237,13 @@ data class ResolvedRipDpiRelayConfig(
  * `chainEntry*` / `chainExit*` scalars), so the Rust deserializer accepts both
  * v6 (legacy two-hop) and v7 payloads — see
  * [com.poyka.ripdpi.core.RelayChainSection].
+ *
+ * Version 8 removes the legacy VMess, Trojan-Go, and Hysteria-v1 relay kinds
+ * and their wire fields. A persisted payload that names a removed kind is
+ * rejected by the Rust `Unsupported` catch-all. Mirrors the Rust envelope
+ * schema ceiling.
  */
-const val RelayNativeConfigSchemaVersion: Int = 7
+const val RelayNativeConfigSchemaVersion: Int = 8
 
 /**
  * The lowest relay native-config wire schema version this build still accepts.
@@ -333,10 +310,7 @@ data class RelayConfigSections(
     val trojan: RelayTrojanSection,
     val shadowsocks: RelayShadowsocksSection,
     val hysteria2: RelayHysteria2Section,
-    val vmess: RelayVmessSection,
-    val trojanGo: RelayTrojanGoSection,
     val mieru: RelayMieruSection,
-    val hysteriaV1: RelayHysteriaV1Section,
     val ssh: RelaySshSection,
     val anyTls: RelayAnyTlsSection,
     val pluggableTransport: RelayPluggableTransportSection,
@@ -462,32 +436,6 @@ private fun ResolvedRipDpiRelayConfig.hysteria2Section(): RelayHysteria2Section 
         hysteriaSalamanderKey = hysteriaSalamanderKey,
     )
 
-private fun ResolvedRipDpiRelayConfig.vmessSection(): RelayVmessSection =
-    RelayVmessSection(
-        vmessServer = vmessServer,
-        vmessPort = vmessPort,
-        vmessUuid = vmessUuid,
-        vmessSecurity = vmessSecurity,
-        vmessTransport = vmessTransport,
-        vmessWsPath = vmessWsPath,
-        vmessWsHost = vmessWsHost,
-        vmessGrpcService = vmessGrpcService,
-        vmessH2Path = vmessH2Path,
-        vmessH2Host = vmessH2Host,
-    )
-
-private fun ResolvedRipDpiRelayConfig.trojanGoSection(): RelayTrojanGoSection =
-    RelayTrojanGoSection(
-        trojanGoServer = trojanGoServer,
-        trojanGoPort = trojanGoPort,
-        trojanGoPassword = trojanGoPassword,
-        trojanGoSni = trojanGoSni,
-        trojanGoWsPath = trojanGoWsPath,
-        trojanGoWsHost = trojanGoWsHost,
-        trojanGoMux = trojanGoMux,
-        trojanGoInnerCipher = trojanGoInnerCipher,
-    )
-
 private fun ResolvedRipDpiRelayConfig.mieruSection(): RelayMieruSection =
     RelayMieruSection(
         mieruServer = mieruServer,
@@ -497,20 +445,6 @@ private fun ResolvedRipDpiRelayConfig.mieruSection(): RelayMieruSection =
         mieruProtocol = mieruProtocol,
         mieruMultiplexing = mieruMultiplexing,
         mieruMtu = mieruMtu,
-    )
-
-private fun ResolvedRipDpiRelayConfig.hysteriaV1Section(): RelayHysteriaV1Section =
-    RelayHysteriaV1Section(
-        hysteriaV1Server = hysteriaV1Server,
-        hysteriaV1Port = hysteriaV1Port,
-        hysteriaV1AuthType = hysteriaV1AuthType,
-        hysteriaV1AuthPayload = hysteriaV1AuthPayload,
-        hysteriaV1Obfuscation = hysteriaV1Obfuscation,
-        hysteriaV1Protocol = hysteriaV1Protocol,
-        hysteriaV1UpMbps = hysteriaV1UpMbps,
-        hysteriaV1DownMbps = hysteriaV1DownMbps,
-        hysteriaV1Sni = hysteriaV1Sni,
-        hysteriaV1Alpn = hysteriaV1Alpn,
     )
 
 private fun ResolvedRipDpiRelayConfig.sshSection(): RelaySshSection =
@@ -625,10 +559,7 @@ fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
         trojan = trojanSection(),
         shadowsocks = shadowsocksSection(),
         hysteria2 = hysteria2Section(),
-        vmess = vmessSection(),
-        trojanGo = trojanGoSection(),
         mieru = mieruSection(),
-        hysteriaV1 = hysteriaV1Section(),
         ssh = sshSection(),
         anyTls = anyTlsSection(),
         pluggableTransport = pluggableTransportSection(),
@@ -699,24 +630,6 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         shadowTlsInner = shadowTls.shadowTlsInner,
         trojanRootCertificatePem = trojan.trojanRootCertificatePem,
         naivePath = pluggableTransport.naivePath,
-        vmessServer = vmess.vmessServer,
-        vmessPort = vmess.vmessPort,
-        vmessUuid = vmess.vmessUuid,
-        vmessSecurity = vmess.vmessSecurity,
-        vmessTransport = vmess.vmessTransport,
-        vmessWsPath = vmess.vmessWsPath,
-        vmessWsHost = vmess.vmessWsHost,
-        vmessGrpcService = vmess.vmessGrpcService,
-        vmessH2Path = vmess.vmessH2Path,
-        vmessH2Host = vmess.vmessH2Host,
-        trojanGoServer = trojanGo.trojanGoServer,
-        trojanGoPort = trojanGo.trojanGoPort,
-        trojanGoPassword = trojanGo.trojanGoPassword,
-        trojanGoSni = trojanGo.trojanGoSni,
-        trojanGoWsPath = trojanGo.trojanGoWsPath,
-        trojanGoWsHost = trojanGo.trojanGoWsHost,
-        trojanGoMux = trojanGo.trojanGoMux,
-        trojanGoInnerCipher = trojanGo.trojanGoInnerCipher,
         mieruServer = mieru.mieruServer,
         mieruPort = mieru.mieruPort,
         mieruUsername = mieru.mieruUsername,
@@ -724,16 +637,6 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         mieruProtocol = mieru.mieruProtocol,
         mieruMultiplexing = mieru.mieruMultiplexing,
         mieruMtu = mieru.mieruMtu,
-        hysteriaV1Server = hysteriaV1.hysteriaV1Server,
-        hysteriaV1Port = hysteriaV1.hysteriaV1Port,
-        hysteriaV1AuthType = hysteriaV1.hysteriaV1AuthType,
-        hysteriaV1AuthPayload = hysteriaV1.hysteriaV1AuthPayload,
-        hysteriaV1Obfuscation = hysteriaV1.hysteriaV1Obfuscation,
-        hysteriaV1Protocol = hysteriaV1.hysteriaV1Protocol,
-        hysteriaV1UpMbps = hysteriaV1.hysteriaV1UpMbps,
-        hysteriaV1DownMbps = hysteriaV1.hysteriaV1DownMbps,
-        hysteriaV1Sni = hysteriaV1.hysteriaV1Sni,
-        hysteriaV1Alpn = hysteriaV1.hysteriaV1Alpn,
         sshHost = ssh.sshHost,
         sshPort = ssh.sshPort,
         sshUsername = ssh.sshUsername,

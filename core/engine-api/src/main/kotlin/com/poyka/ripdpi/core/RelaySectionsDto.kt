@@ -136,32 +136,6 @@ data class RelayHysteria2Section(
     val hysteriaSalamanderKey: String?,
 )
 
-/** VMess (legacy outbound) endpoint, cipher, transport, and UUID credential. */
-data class RelayVmessSection(
-    val vmessServer: String,
-    val vmessPort: Int,
-    val vmessUuid: String?,
-    val vmessSecurity: String,
-    val vmessTransport: String,
-    val vmessWsPath: String?,
-    val vmessWsHost: String?,
-    val vmessGrpcService: String?,
-    val vmessH2Path: String?,
-    val vmessH2Host: String?,
-)
-
-/** Trojan-Go (legacy outbound) endpoint, password credential, SNI/WS overrides, mux, and inner cipher. */
-data class RelayTrojanGoSection(
-    val trojanGoServer: String,
-    val trojanGoPort: Int,
-    val trojanGoPassword: String?,
-    val trojanGoSni: String?,
-    val trojanGoWsPath: String?,
-    val trojanGoWsHost: String?,
-    val trojanGoMux: String,
-    val trojanGoInnerCipher: String,
-)
-
 /** Mieru outbound endpoint, username/password credentials, transport protocol, multiplexing, and MTU. */
 data class RelayMieruSection(
     val mieruServer: String,
@@ -171,24 +145,6 @@ data class RelayMieruSection(
     val mieruProtocol: String,
     val mieruMultiplexing: String,
     val mieruMtu: Int,
-)
-
-/**
- * Hysteria v1 (legacy) outbound endpoint, auth-payload/obfuscation credentials,
- * auth-type encoding, transport protocol, up/down bandwidth, and optional
- * SNI/ALPN.
- */
-data class RelayHysteriaV1Section(
-    val hysteriaV1Server: String,
-    val hysteriaV1Port: Int,
-    val hysteriaV1AuthType: String,
-    val hysteriaV1AuthPayload: String?,
-    val hysteriaV1Obfuscation: String?,
-    val hysteriaV1Protocol: String,
-    val hysteriaV1UpMbps: Int,
-    val hysteriaV1DownMbps: Int,
-    val hysteriaV1Sni: String?,
-    val hysteriaV1Alpn: String?,
 )
 
 /**

@@ -20,19 +20,6 @@ const val RelayKindGoogleAppsScript = "google_apps_script"
 const val RelayKindSnowflake = "snowflake"
 const val RelayKindWebTunnel = "webtunnel"
 const val RelayKindObfs4 = "obfs4"
-const val RelayKindVmess = "vmess"
-const val RelayVmessSecurityAes128Gcm = "aes-128-gcm"
-const val RelayVmessSecurityChacha20Poly1305 = "chacha20-poly1305"
-const val RelayVmessTransportTcp = "tcp"
-const val RelayVmessTransportWs = "ws"
-const val RelayVmessTransportH2 = "h2"
-const val RelayVmessTransportGrpc = "grpc"
-const val RelayKindTrojanGo = "trojan_go"
-const val RelayTrojanGoMuxOff = "off"
-const val RelayTrojanGoMuxSmuxV1 = "smux_v1"
-const val RelayTrojanGoInnerCipherNone = "none"
-const val RelayTrojanGoInnerCipherAes256Gcm = "aes-256-gcm"
-const val RelayTrojanGoInnerCipherChacha20IetfPoly1305 = "chacha20-ietf-poly1305"
 const val RelayKindMieru = "mieru"
 const val RelayMieruProtocolTcp = "tcp"
 const val RelayMieruProtocolUdp = "udp"
@@ -46,14 +33,6 @@ const val RelayMieruMtuDefault = 1400
 const val RelayKindSsh = "ssh"
 const val RelaySshAuthTypePassword: String = "password"
 const val RelaySshAuthTypePrivateKey = "private_key"
-const val RelayKindHysteriaV1 = "hysteria_v1"
-const val RelayHysteriaV1AuthTypeString = "string"
-const val RelayHysteriaV1AuthTypeBase64 = "base64"
-const val RelayHysteriaV1ProtocolUdp = "udp"
-const val RelayHysteriaV1ProtocolWechatVideo = "wechat-video"
-const val RelayHysteriaV1ProtocolFaketcp = "faketcp"
-const val RelayHysteriaV1UpMbpsDefault = 10
-const val RelayHysteriaV1DownMbpsDefault = 50
 const val RelayVlessTransportRealityTcp = "reality_tcp"
 const val RelayVlessTransportXhttp = "xhttp"
 const val RelaySecurityLayerTls = "tls"
@@ -97,61 +76,9 @@ fun normalizeRelayKind(value: String): String =
         RelayKindSnowflake -> RelayKindSnowflake
         RelayKindWebTunnel -> RelayKindWebTunnel
         RelayKindObfs4 -> RelayKindObfs4
-        RelayKindVmess -> RelayKindVmess
-        RelayKindTrojanGo -> RelayKindTrojanGo
         RelayKindMieru -> RelayKindMieru
         RelayKindSsh -> RelayKindSsh
-        RelayKindHysteriaV1 -> RelayKindHysteriaV1
         else -> RelayKindOff
-    }
-
-/**
- * Normalizes the VMess cipher. VMess in RIPDPI is a legacy outbound; only the
- * two AEAD ciphers the native `ripdpi-vmess` backend accepts are valid. Any
- * other value (including the deprecated `auto` / `none` / `aes-128-cfb`) falls
- * back to [RelayVmessSecurityAes128Gcm].
- */
-fun normalizeRelayVmessSecurity(value: String?): String =
-    when (value?.trim()?.lowercase()) {
-        RelayVmessSecurityChacha20Poly1305 -> RelayVmessSecurityChacha20Poly1305
-        else -> RelayVmessSecurityAes128Gcm
-    }
-
-/**
- * Normalizes the VMess transport. The native backend accepts `tcp`, `ws`, `h2`,
- * and `grpc`; anything else falls back to [RelayVmessTransportTcp].
- */
-fun normalizeRelayVmessTransport(value: String?): String =
-    when (value?.trim()?.lowercase()) {
-        RelayVmessTransportWs -> RelayVmessTransportWs
-        RelayVmessTransportH2 -> RelayVmessTransportH2
-        RelayVmessTransportGrpc -> RelayVmessTransportGrpc
-        else -> RelayVmessTransportTcp
-    }
-
-/**
- * Normalizes the Trojan-Go multiplexing mode. The native `ripdpi-trojan-go`
- * backend accepts only `off` and `smux_v1`; anything else (including a blank
- * value) falls back to [RelayTrojanGoMuxOff] so the emitted wire token is the
- * canonical `off`, never an empty string.
- */
-fun normalizeRelayTrojanGoMux(value: String?): String =
-    when (value?.trim()?.lowercase()) {
-        RelayTrojanGoMuxSmuxV1 -> RelayTrojanGoMuxSmuxV1
-        else -> RelayTrojanGoMuxOff
-    }
-
-/**
- * Normalizes the optional Trojan-Go inner cipher. A blank value (or `none`)
- * means the plain Trojan-Go inner protocol and is emitted as `none`; the two
- * Shadowsocks-AEAD ciphers (`aes-256-gcm`, `chacha20-ietf-poly1305`) pass
- * through. Any other token falls back to [RelayTrojanGoInnerCipherNone].
- */
-fun normalizeRelayTrojanGoInnerCipher(value: String?): String =
-    when (value?.trim()?.lowercase()) {
-        RelayTrojanGoInnerCipherAes256Gcm -> RelayTrojanGoInnerCipherAes256Gcm
-        RelayTrojanGoInnerCipherChacha20IetfPoly1305 -> RelayTrojanGoInnerCipherChacha20IetfPoly1305
-        else -> RelayTrojanGoInnerCipherNone
     }
 
 /**
@@ -198,41 +125,6 @@ fun normalizeRelaySshAuthType(value: String?): String =
         RelaySshAuthTypePrivateKey -> RelaySshAuthTypePrivateKey
         else -> RelaySshAuthTypePassword
     }
-
-/**
- * Normalizes the Hysteria v1 auth-type encoding. The native `ripdpi-hysteria-v1`
- * backend accepts only `string` and `base64`; anything else (including a blank
- * value) falls back to [RelayHysteriaV1AuthTypeString], the canonical default,
- * never an empty string.
- */
-fun normalizeRelayHysteriaV1AuthType(value: String?): String =
-    when (value?.trim()?.lowercase()) {
-        RelayHysteriaV1AuthTypeBase64 -> RelayHysteriaV1AuthTypeBase64
-        else -> RelayHysteriaV1AuthTypeString
-    }
-
-/**
- * Normalizes the Hysteria v1 transport protocol. The native `ripdpi-hysteria-v1`
- * backend accepts `udp`, `wechat-video`, and `faketcp`; anything else (including
- * a blank value) falls back to [RelayHysteriaV1ProtocolUdp], the Hysteria v1
- * default.
- */
-fun normalizeRelayHysteriaV1Protocol(value: String?): String =
-    when (value?.trim()?.lowercase()) {
-        RelayHysteriaV1ProtocolWechatVideo -> RelayHysteriaV1ProtocolWechatVideo
-        RelayHysteriaV1ProtocolFaketcp -> RelayHysteriaV1ProtocolFaketcp
-        else -> RelayHysteriaV1ProtocolUdp
-    }
-
-/**
- * Normalizes a Hysteria v1 bandwidth knob (`up_mbps` / `down_mbps`). The native
- * backend requires both to be strictly positive; a non-positive value falls back
- * to [fallback], which is the per-direction default.
- */
-fun normalizeRelayHysteriaV1Mbps(
-    value: Int,
-    fallback: Int,
-): Int = if (value > 0) value else fallback
 
 fun normalizeRelayStringList(values: Iterable<String>): List<String> =
     values
@@ -372,30 +264,12 @@ data class RelayProfileModel(
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val shadowTlsInnerProfileId: String = "",
     val naivePath: String = "",
-    val vmessSecurity: String = RelayVmessSecurityAes128Gcm,
-    val vmessTransport: String = RelayVmessTransportTcp,
-    val vmessWsPath: String = "",
-    val vmessWsHost: String = "",
-    val vmessGrpcService: String = "",
-    val vmessH2Path: String = "",
-    val vmessH2Host: String = "",
-    val trojanGoSni: String = "",
-    val trojanGoWsPath: String = "",
-    val trojanGoWsHost: String = "",
-    val trojanGoMux: String = RelayTrojanGoMuxOff,
-    val trojanGoInnerCipher: String = RelayTrojanGoInnerCipherNone,
     val mieruProtocol: String = RelayMieruProtocolTcp,
     val mieruMultiplexing: String = RelayMieruMultiplexingMiddle,
     val mieruMtu: Int = RelayMieruMtuDefault,
     val sshAuthType: String = RelaySshAuthTypePassword,
     val sshHostKeyFingerprint: String = "",
     val sshStrictHostKey: Boolean = false,
-    val hysteriaV1AuthType: String = RelayHysteriaV1AuthTypeString,
-    val hysteriaV1Protocol: String = RelayHysteriaV1ProtocolUdp,
-    val hysteriaV1UpMbps: Int = RelayHysteriaV1UpMbpsDefault,
-    val hysteriaV1DownMbps: Int = RelayHysteriaV1DownMbpsDefault,
-    val hysteriaV1Sni: String = "",
-    val hysteriaV1Alpn: String = "",
     val appsScriptScriptIds: List<String> = emptyList(),
     val appsScriptGoogleIp: String = "",
     val appsScriptFrontDomain: String = "",
@@ -465,34 +339,12 @@ fun AppSettings.toRelaySettingsModel(): RelaySettingsModel {
                 tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
                 shadowTlsInnerProfileId = relayShadowtlsInnerProfileId,
                 naivePath = relayNaivePath,
-                vmessSecurity = normalizeRelayVmessSecurity(relayVmessSecurity),
-                vmessTransport = normalizeRelayVmessTransport(relayVmessTransport),
-                vmessWsPath = relayVmessWsPath,
-                vmessWsHost = relayVmessWsHost,
-                vmessGrpcService = relayVmessGrpcService,
-                vmessH2Path = relayVmessH2Path,
-                vmessH2Host = relayVmessH2Host,
-                trojanGoSni = relayTrojanGoSni,
-                trojanGoWsPath = relayTrojanGoWsPath,
-                trojanGoWsHost = relayTrojanGoWsHost,
-                trojanGoMux = normalizeRelayTrojanGoMux(relayTrojanGoMux),
-                trojanGoInnerCipher = normalizeRelayTrojanGoInnerCipher(relayTrojanGoInnerCipher),
                 mieruProtocol = normalizeRelayMieruProtocol(relayMieruProtocol),
                 mieruMultiplexing = normalizeRelayMieruMultiplexing(relayMieruMultiplexing),
                 mieruMtu = normalizeRelayMieruMtu(relayMieruMtu),
                 sshAuthType = normalizeRelaySshAuthType(relaySshAuthType),
                 sshHostKeyFingerprint = relaySshHostKeyFingerprint.trim(),
                 sshStrictHostKey = relaySshStrictHostKey,
-                hysteriaV1AuthType = normalizeRelayHysteriaV1AuthType(relayHysteriaV1AuthType),
-                hysteriaV1Protocol = normalizeRelayHysteriaV1Protocol(relayHysteriaV1Protocol),
-                hysteriaV1UpMbps = normalizeRelayHysteriaV1Mbps(relayHysteriaV1UpMbps, RelayHysteriaV1UpMbpsDefault),
-                hysteriaV1DownMbps =
-                    normalizeRelayHysteriaV1Mbps(
-                        relayHysteriaV1DownMbps,
-                        RelayHysteriaV1DownMbpsDefault,
-                    ),
-                hysteriaV1Sni = relayHysteriaV1Sni.trim(),
-                hysteriaV1Alpn = relayHysteriaV1Alpn.trim(),
                 appsScriptScriptIds = normalizeRelayStringList(relayAppsScriptScriptIdsList),
                 appsScriptGoogleIp = relayAppsScriptGoogleIp.trim(),
                 appsScriptFrontDomain = relayAppsScriptFrontDomain.trim(),

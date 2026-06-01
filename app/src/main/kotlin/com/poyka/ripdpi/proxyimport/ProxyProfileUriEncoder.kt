@@ -40,10 +40,6 @@ object ProxyProfileUriEncoder {
                 encodeVlessReality(profile)
             }
 
-            is ProxyProfile.Vmess -> {
-                encodeVmess(profile)
-            }
-
             is ProxyProfile.Trojan -> {
                 userInfoUri("trojan", profile.password, profile.server, profile.serverPort, profile.displayName)
             }
@@ -56,16 +52,8 @@ object ProxyProfileUriEncoder {
                 userInfoUri("anytls", profile.password, profile.server, profile.serverPort, profile.displayName)
             }
 
-            is ProxyProfile.TrojanGo -> {
-                encodeTrojanGo(profile)
-            }
-
             is ProxyProfile.Mieru -> {
                 encodeMieru(profile)
-            }
-
-            is ProxyProfile.HysteriaV1 -> {
-                encodeHysteriaV1(profile)
             }
 
             is ProxyProfile.Shadowsocks -> {
@@ -106,60 +94,6 @@ object ProxyProfileUriEncoder {
             "?$params#${encodeFragment(profile.displayName)}"
     }
 
-    private fun encodeVmess(profile: ProxyProfile.Vmess): String {
-        // Emit the standard URI form (round-trips through ProxyUriCodec's
-        // standard-URI branch): vmess://<uuid>@<host>:<port>?security=…&type=…
-        //   [&path=…&host=…|&serviceName=…]#<name>
-        val params =
-            buildList {
-                add("security=${encodeQueryValue(profile.security)}")
-                add("type=${encodeQueryValue(profile.transport)}")
-                when (profile.transport) {
-                    "ws" -> {
-                        profile.wsPath?.let { add("path=${encodeQueryValue(it)}") }
-                        profile.wsHost?.let { add("host=${encodeQueryValue(it)}") }
-                    }
-
-                    "h2" -> {
-                        profile.h2Path?.let { add("path=${encodeQueryValue(it)}") }
-                        profile.h2Host?.let { add("host=${encodeQueryValue(it)}") }
-                    }
-
-                    "grpc" -> {
-                        profile.grpcService?.let { add("serviceName=${encodeQueryValue(it)}") }
-                    }
-                }
-            }.joinToString("&")
-        return "vmess://${profile.uuid}@${profile.server}:${profile.serverPort}" +
-            "?$params#${encodeFragment(profile.displayName)}"
-    }
-
-    private fun encodeTrojanGo(profile: ProxyProfile.TrojanGo): String {
-        // Emit the standard Trojan-Go URI form (round-trips through
-        // ProxyUriCodec.parseTrojanGo): trojan-go://<password>@<host>:<port>
-        //   ?sni=…&type=ws&path=…&host=…&mux=smux_v1&encryption=ss;<cipher>;<pass>#<name>
-        // Only WS carries path/host; the no-mux default and plain inner protocol
-        // are omitted so they round-trip back to the canonical "off" / "none".
-        val params =
-            buildList {
-                profile.sni?.takeIf { it.isNotBlank() }?.let { add("sni=${encodeQueryValue(it)}") }
-                if (profile.wsPath != null || profile.wsHost != null) {
-                    add("type=ws")
-                    profile.wsPath?.let { add("path=${encodeQueryValue(it)}") }
-                    profile.wsHost?.let { add("host=${encodeQueryValue(it)}") }
-                }
-                if (profile.mux == "smux_v1") {
-                    add("mux=smux_v1")
-                }
-                if (profile.innerCipher == "aes-256-gcm" || profile.innerCipher == "chacha20-ietf-poly1305") {
-                    add("encryption=${encodeQueryValue("ss;${profile.innerCipher};${profile.password}")}")
-                }
-            }.joinToString("&")
-        val query = if (params.isEmpty()) "" else "?$params"
-        return "trojan-go://${profile.password}@${profile.server}:${profile.serverPort}" +
-            "$query#${encodeFragment(profile.displayName)}"
-    }
-
     private fun encodeMieru(profile: ProxyProfile.Mieru): String {
         // Emit the invented Mieru URI form (round-trips through
         // ProxyUriCodec.parseMieru): mieru://<user>:<pass>@<host>:<port>
@@ -175,30 +109,6 @@ object ProxyProfileUriEncoder {
             }.joinToString("&")
         return "mieru://${encodeQueryValue(profile.username)}:${encodeQueryValue(profile.password)}" +
             "@${profile.server}:${profile.serverPort}?$params#${encodeFragment(profile.displayName)}"
-    }
-
-    private fun encodeHysteriaV1(profile: ProxyProfile.HysteriaV1): String {
-        // Emit the legacy Hysteria v1 URI form (round-trips through
-        // ProxyUriCodec.parseHysteriaV1):
-        //   hysteria://<host>:<port>?auth=...&protocol=udp&obfs=...
-        //     &upmbps=10&downmbps=50&authtype=string&peer=<sni>&alpn=...#<name>
-        // The auth payload and obfuscation are percent-encoded (base64 auth
-        // payloads contain '+', '/', and '='). The auth-type encoding has no
-        // canonical Hysteria v1 URI slot, so it is emitted as `authtype` to keep
-        // the share link lossless. `peer` carries the SNI; `obfs`, `peer`, and
-        // `alpn` are emitted only when set.
-        val params =
-            buildList {
-                add("auth=${encodeQueryValue(profile.authPayload)}")
-                add("authtype=${encodeQueryValue(profile.authType)}")
-                add("protocol=${encodeQueryValue(profile.protocol)}")
-                profile.obfuscation?.takeIf { it.isNotBlank() }?.let { add("obfs=${encodeQueryValue(it)}") }
-                add("upmbps=${profile.upMbps}")
-                add("downmbps=${profile.downMbps}")
-                profile.sni?.takeIf { it.isNotBlank() }?.let { add("peer=${encodeQueryValue(it)}") }
-                profile.alpn?.takeIf { it.isNotBlank() }?.let { add("alpn=${encodeQueryValue(it)}") }
-            }.joinToString("&")
-        return "hysteria://${profile.server}:${profile.serverPort}?$params#${encodeFragment(profile.displayName)}"
     }
 
     private fun encodeQueryValue(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")

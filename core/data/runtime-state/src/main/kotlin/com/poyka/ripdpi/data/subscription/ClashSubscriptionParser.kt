@@ -30,9 +30,9 @@ data class ClashSubscriptionResult(
  *
  * Detection mirrors NekoBox's `RawUpdater.parseRaw()`: a payload is treated as
  * Clash YAML when it carries a top-level `proxies:` key. Each entry is
- * dispatched on its `type:` field; `ss`, `vmess`, `vless`, `trojan`,
+ * dispatched on its `type:` field; `ss`, `vless`, `trojan`,
  * `hysteria2`, `anytls` map to first-class [ProxyProfile] subtypes, every other type
- * (`socks5`, `http`, `hysteria`, `tuic`, …) round-trips as
+ * (`socks5`, `http`, `vmess`, `hysteria`, `tuic`, …) round-trips as
  * [ProxyProfile.RawConfig]. Unknown keys on a node are ignored. Routing
  * sections (`rules:`, `proxy-groups:`) are not consulted.
  */
@@ -120,8 +120,8 @@ object ClashSubscriptionParser {
                 )
             }
 
-            "vmess", "vless" -> {
-                mapVlessOrVmessNode(node, index, groupId, name)
+            "vless" -> {
+                mapVlessNode(node, index, groupId, name)
             }
 
             "trojan" -> {
@@ -160,8 +160,8 @@ object ClashSubscriptionParser {
             }
 
             else -> {
-                // socks5, http, hysteria (v1), tuic, … — no first-class subtype,
-                // so round-trip the node as an opaque raw config.
+                // socks5, http, vmess, trojan-go, hysteria (v1), tuic, … — no
+                // first-class subtype, so round-trip the node as an opaque raw config.
                 ProxyProfile.RawConfig(
                     id = newId(),
                     displayName = name,
@@ -172,7 +172,7 @@ object ClashSubscriptionParser {
         }
     }
 
-    private fun mapVlessOrVmessNode(
+    private fun mapVlessNode(
         node: YamlMap,
         index: Int,
         groupId: String,

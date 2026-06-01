@@ -185,7 +185,7 @@ private fun mapOutbound(
     val port = obj.int("server_port")
     val name = tag ?: server ?: type
     return when (type.lowercase()) {
-        "vless", "vmess" -> mapVlessOrVmess(obj, groupId, server, port, name)
+        "vless" -> mapVless(obj, groupId, server, port, name)
 
         "shadowsocks" -> mapShadowsocks(obj, groupId, server, port, name)
 
@@ -195,14 +195,14 @@ private fun mapOutbound(
 
         "anytls" -> mapAnyTls(obj, groupId, server, port, name)
 
-        // hysteria (v1), tuic, wireguard, shadowtls, ssh, … — no first-class
-        // subtype; round-trip the raw JSON fragment so the engine can still
-        // consume it via the custom-config path.
+        // vmess, trojan-go, hysteria (v1), tuic, wireguard, shadowtls, ssh, … —
+        // no first-class subtype; round-trip the raw JSON fragment so the engine
+        // can still consume it via the custom-config path.
         else -> rawConfig(name, groupId, obj)
     }
 }
 
-private fun mapVlessOrVmess(
+private fun mapVless(
     obj: JsonObject,
     groupId: String,
     server: String?,

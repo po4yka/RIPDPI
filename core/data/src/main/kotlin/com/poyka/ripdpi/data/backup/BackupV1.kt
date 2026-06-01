@@ -180,21 +180,6 @@ object BackupAllowlist {
                 "password" to Classification.REDACTED,
             )
 
-    private val trojanGoFields: Map<String, Classification> =
-        commonFields +
-            mapOf(
-                "server" to Classification.PUBLIC,
-                "serverPort" to Classification.PUBLIC,
-                "password" to Classification.REDACTED,
-                // Non-credential transport overrides; shareable in a trojan-go:// link.
-                "sni" to Classification.PUBLIC,
-                "wsPath" to Classification.PUBLIC,
-                "wsHost" to Classification.PUBLIC,
-                "mux" to Classification.PUBLIC,
-                "innerCipher" to Classification.PUBLIC,
-                "legacy" to Classification.PUBLIC,
-            )
-
     private val mieruFields: Map<String, Classification> =
         commonFields +
             mapOf(
@@ -207,25 +192,6 @@ object BackupAllowlist {
                 "protocol" to Classification.PUBLIC,
                 "multiplexing" to Classification.PUBLIC,
                 "mtu" to Classification.PUBLIC,
-            )
-
-    private val hysteriaV1Fields: Map<String, Classification> =
-        commonFields +
-            mapOf(
-                "server" to Classification.PUBLIC,
-                "serverPort" to Classification.PUBLIC,
-                // The Hysteria v1 auth payload and the obfuscation string are
-                // credentials and must be redacted from a backup export; the
-                // remaining transport knobs are shareable in a hysteria:// link.
-                "authType" to Classification.PUBLIC,
-                "authPayload" to Classification.REDACTED,
-                "obfuscation" to Classification.REDACTED,
-                "protocol" to Classification.PUBLIC,
-                "upMbps" to Classification.PUBLIC,
-                "downMbps" to Classification.PUBLIC,
-                "sni" to Classification.PUBLIC,
-                "alpn" to Classification.PUBLIC,
-                "legacy" to Classification.PUBLIC,
             )
 
     private val rawConfigFields: Map<String, Classification> =
@@ -242,9 +208,7 @@ object BackupAllowlist {
             "trojan" to trojanFields,
             "hysteria2" to hysteria2Fields,
             "anytls" to anyTlsFields,
-            "trojan-go" to trojanGoFields,
             "mieru" to mieruFields,
-            "hysteria_v1" to hysteriaV1Fields,
             "raw-config" to rawConfigFields,
         )
 

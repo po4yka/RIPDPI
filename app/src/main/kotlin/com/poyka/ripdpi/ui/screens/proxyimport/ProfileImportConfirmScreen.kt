@@ -147,15 +147,6 @@ private fun profileSummary(profile: ProxyProfile): String =
             )
         }
 
-        is ProxyProfile.TrojanGo -> {
-            stringResource(
-                R.string.import_profile_summary_endpoint,
-                "Trojan-Go",
-                profile.server,
-                profile.serverPort,
-            )
-        }
-
         is ProxyProfile.Mieru -> {
             stringResource(
                 R.string.import_profile_summary_endpoint,
@@ -163,19 +154,6 @@ private fun profileSummary(profile: ProxyProfile): String =
                 profile.server,
                 profile.serverPort,
             )
-        }
-
-        is ProxyProfile.HysteriaV1 -> {
-            stringResource(
-                R.string.import_profile_summary_endpoint,
-                "Hysteria v1",
-                profile.server,
-                profile.serverPort,
-            )
-        }
-
-        is ProxyProfile.Vmess -> {
-            stringResource(R.string.import_profile_summary_endpoint, "VMess", profile.server, profile.serverPort)
         }
 
         is ProxyProfile.RawConfig -> {

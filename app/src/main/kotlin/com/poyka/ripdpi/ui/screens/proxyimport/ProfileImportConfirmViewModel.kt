@@ -176,7 +176,7 @@ class ProfileImportConfirmViewModel
                 }
 
                 else -> {
-                    // Vless, Hysteria2, TrojanGo, RawConfig — not relay-importable
+                    // Vless, Hysteria2, Mieru, RawConfig — not relay-importable
                     error("unsupported relay import profile ${profile::class.simpleName}")
                 }
             }
@@ -216,7 +216,7 @@ class ProfileImportConfirmViewModel
                 }
 
                 else -> {
-                    // Vless, Hysteria2, TrojanGo, RawConfig — not relay-importable
+                    // Vless, Hysteria2, Mieru, RawConfig — not relay-importable
                     error("unsupported relay import profile ${profile::class.simpleName}")
                 }
             }

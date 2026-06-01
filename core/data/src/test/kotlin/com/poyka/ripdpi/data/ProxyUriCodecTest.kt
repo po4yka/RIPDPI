@@ -32,61 +32,31 @@ class ProxyUriCodecTest {
     }
 
     @Test
-    fun `parses vmess base64 json uri into a vmess profile`() {
-        // vmess://<base64 of {v,ps,add,port,id,...}>
+    fun `removed legacy schemes vmess and trojan-go are rejected`() {
+        // VMess and Trojan-Go were removed; their schemes now hit the else -> null
+        // arm and are rejected so callers skip the line.
+        val vmessStandard =
+            ProxyUriCodec.parse(
+                "vmess://22222222-2222-4222-8222-222222222222@std.example.com:443?security=aes-128-gcm&type=tcp#Std",
+            )
         val payload =
             """{"v":"2","ps":"vmess-node","add":"vmess.example.com","port":"8443",""" +
                 """"id":"11111111-1111-1111-1111-111111111111","net":"ws"}"""
-        val encoded =
-            java.util.Base64
-                .getEncoder()
-                .encodeToString(payload.toByteArray())
-        val uri = "vmess://$encoded"
+        val vmessBase64 =
+            ProxyUriCodec.parse(
+                "vmess://" +
+                    java.util.Base64
+                        .getEncoder()
+                        .encodeToString(payload.toByteArray()),
+            )
+        val trojanGo =
+            ProxyUriCodec.parse(
+                "trojan-go://s3cr3t@tg.example.com:443?sni=edge.example.com&type=ws#TG",
+            )
 
-        val profile = ProxyUriCodec.parse(uri)
-
-        assertTrue(profile is ProxyProfile.Vmess)
-        profile as ProxyProfile.Vmess
-        assertEquals("vmess.example.com", profile.server)
-        assertEquals(8443, profile.serverPort)
-        assertEquals("11111111-1111-1111-1111-111111111111", profile.uuid)
-        assertEquals("vmess-node", profile.displayName)
-        assertEquals("ws", profile.transport)
-    }
-
-    @Test
-    fun `parses standard vmess uri into a vmess profile`() {
-        val uri =
-            "vmess://22222222-2222-4222-8222-222222222222@std.example.com:443?security=aes-128-gcm&type=tcp#Std"
-
-        val profile = ProxyUriCodec.parse(uri)
-
-        assertTrue(profile is ProxyProfile.Vmess)
-        profile as ProxyProfile.Vmess
-        assertEquals("std.example.com", profile.server)
-        assertEquals(443, profile.serverPort)
-        assertEquals("22222222-2222-4222-8222-222222222222", profile.uuid)
-        assertEquals("tcp", profile.transport)
-    }
-
-    @Test
-    fun `parses standard trojan-go uri into a trojan-go profile`() {
-        val uri =
-            "trojan-go://s3cr3t@tg.example.com:443?sni=edge.example.com&type=ws&path=/tg&host=cdn.example.com" +
-                "&mux=smux_v1&encryption=ss;aes-256-gcm;s3cr3t#TG"
-
-        val profile = ProxyUriCodec.parse(uri)
-
-        assertTrue(profile is ProxyProfile.TrojanGo)
-        profile as ProxyProfile.TrojanGo
-        assertEquals("tg.example.com", profile.server)
-        assertEquals(443, profile.serverPort)
-        assertEquals("s3cr3t", profile.password)
-        assertEquals("edge.example.com", profile.sni)
-        assertEquals("/tg", profile.wsPath)
-        assertEquals("cdn.example.com", profile.wsHost)
-        assertEquals("smux_v1", profile.mux)
-        assertEquals("aes-256-gcm", profile.innerCipher)
+        assertNull("vmess:// must be rejected", vmessStandard)
+        assertNull("base64 vmess:// must be rejected", vmessBase64)
+        assertNull("trojan-go:// must be rejected", trojanGo)
     }
 
     @Test
@@ -108,52 +78,15 @@ class ProxyUriCodecTest {
     }
 
     @Test
-    fun `parses bare hysteria uri into a hysteria v1 profile`() {
-        // The bare `hysteria://` scheme is the legacy Hysteria v1 form; `auth` and
-        // `obfs` are percent-encoded in the query. `authtype` is honoured when
-        // present; `peer` carries the SNI.
-        val uri =
-            "hysteria://h1.example.com:2096?auth=hy1-auth-fixture&authtype=base64&protocol=faketcp" +
-                "&obfs=hy1-obfs-fixture&upmbps=20&downmbps=100&peer=sni.example.com&alpn=h3#HysteriaV1"
-
-        val profile = ProxyUriCodec.parse(uri)
-
-        assertTrue("expected HysteriaV1, got ${profile?.javaClass?.simpleName}", profile is ProxyProfile.HysteriaV1)
-        profile as ProxyProfile.HysteriaV1
-        assertEquals("h1.example.com", profile.server)
-        assertEquals(2096, profile.serverPort)
-        assertEquals("base64", profile.authType)
-        assertEquals("hy1-auth-fixture", profile.authPayload)
-        assertEquals("hy1-obfs-fixture", profile.obfuscation)
-        assertEquals("faketcp", profile.protocol)
-        assertEquals(20, profile.upMbps)
-        assertEquals(100, profile.downMbps)
-        assertEquals("sni.example.com", profile.sni)
-        assertEquals("h3", profile.alpn)
-    }
-
-    @Test
-    fun `bare hysteria scheme defaults auth type to string when authtype is absent`() {
-        val uri = "hysteria://h1.example.com:2096?auth=hy1-auth-fixture#HysteriaV1"
-
-        val profile = ProxyUriCodec.parse(uri)
-
-        assertTrue(profile is ProxyProfile.HysteriaV1)
-        profile as ProxyProfile.HysteriaV1
-        assertEquals("string", profile.authType)
-        assertEquals("udp", profile.protocol)
-        assertEquals(10, profile.upMbps)
-        assertEquals(50, profile.downMbps)
-        assertNull(profile.obfuscation)
-        assertNull(profile.sni)
-        assertNull(profile.alpn)
-    }
-
-    @Test
-    fun `hysteria2 and hy2 schemes still parse to Hysteria2 not HysteriaV1`() {
+    fun `bare hysteria v1 scheme is rejected while hysteria2 and hy2 still parse`() {
+        // Hysteria v1 (the bare `hysteria://` scheme) was removed and now hits the
+        // else -> null arm; the active Hysteria2 (`hysteria2://` / `hy2://`) is kept.
+        val hysteriaV1 =
+            ProxyUriCodec.parse("hysteria://h1.example.com:2096?auth=hy1-auth-fixture&protocol=faketcp#HysteriaV1")
         val hysteria2 = ProxyUriCodec.parse("hysteria2://hy2-pass@hy2.example.com:8443?insecure=1#hy2")
         val hy2 = ProxyUriCodec.parse("hy2://hy2-pass@hy2alias.example.com:9000#hy2-alias")
 
+        assertNull("bare hysteria:// (v1) must be rejected", hysteriaV1)
         assertTrue("hysteria2:// must route to Hysteria2", hysteria2 is ProxyProfile.Hysteria2)
         assertTrue("hy2:// must route to Hysteria2", hy2 is ProxyProfile.Hysteria2)
     }

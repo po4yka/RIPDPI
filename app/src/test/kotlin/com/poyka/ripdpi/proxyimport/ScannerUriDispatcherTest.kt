@@ -78,7 +78,11 @@ class ScannerUriDispatcherTest {
     fun `allowlist covers the scanner-supported proxy schemes`() {
         // The scanner prefilter is narrower than clipboard/share-sheet import.
         val schemes = ScannerUriDispatcher.allowedSchemes
-        assertTrue(schemes.containsAll(listOf("vless", "vmess", "trojan", "ss", "hysteria2", "tuic")))
+        assertTrue(schemes.containsAll(listOf("vless", "trojan", "ss", "hysteria2", "tuic")))
+        // Removed legacy schemes are no longer prefiltered.
+        assertFalse(schemes.contains("vmess"))
+        assertFalse(schemes.contains("trojan-go"))
+        assertFalse(schemes.contains("hysteria"))
         // https is explicitly not a proxy-node scheme.
         assertFalse(schemes.contains("https"))
     }

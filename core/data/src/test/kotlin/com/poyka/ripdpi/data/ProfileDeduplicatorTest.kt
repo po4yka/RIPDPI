@@ -123,17 +123,18 @@ class ProfileDeduplicatorTest {
                 serverPort = 443,
                 password = "pw",
             )
-        val trojanGo =
-            ProxyProfile.TrojanGo(
-                id = "tg",
+        val anyTls =
+            ProxyProfile.AnyTls(
+                id = "at",
                 displayName = "Node",
                 groupId = "sub-1",
                 server = "edge.example.com",
                 serverPort = 443,
+                serverName = "edge.example.com",
                 password = "pw",
             )
 
-        val result = ProfileDeduplicator.deduplicate(listOf(trojan, trojanGo))
+        val result = ProfileDeduplicator.deduplicate(listOf(trojan, anyTls))
 
         assertEquals(2, result.size)
     }

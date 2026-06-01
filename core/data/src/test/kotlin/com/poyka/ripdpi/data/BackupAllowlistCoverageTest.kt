@@ -84,15 +84,6 @@ class BackupAllowlistCoverageTest {
                     serverName = "front.example.com",
                     password = "pw",
                 ),
-            "trojan-go" to
-                ProxyProfile.TrojanGo(
-                    id = "tgo-1",
-                    displayName = "TrojanGo",
-                    groupId = "g-1",
-                    server = "trojan-go.example.com",
-                    serverPort = 443,
-                    password = "pw",
-                ),
             "mieru" to
                 ProxyProfile.Mieru(
                     id = "mieru-1",
@@ -102,18 +93,6 @@ class BackupAllowlistCoverageTest {
                     serverPort = 2096,
                     username = "user",
                     password = "pw",
-                ),
-            "hysteria_v1" to
-                ProxyProfile.HysteriaV1(
-                    id = "hysteria-v1-1",
-                    displayName = "Hysteria v1",
-                    groupId = "g-1",
-                    server = "hysteria-v1.example.com",
-                    serverPort = 2096,
-                    authPayload = "hy1-auth-fixture",
-                    obfuscation = "hy1-obfs-fixture",
-                    sni = "sni.example.com",
-                    alpn = "h3",
                 ),
             "raw-config" to
                 ProxyProfile.RawConfig(

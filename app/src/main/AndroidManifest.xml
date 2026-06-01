@@ -72,7 +72,7 @@
 
         <!--
             Import trampoline for inbound proxy share links and subscription deep links.
-            Inbound proxy-like URI schemes (vless/vmess/trojan/ss/hysteria/hysteria2/
+            Inbound proxy-like URI schemes (vless/trojan/ss/hysteria2/
             tuic/anytls/ssh) are claimed at the default filter priority; the import
             trampoline still validates each payload through the current parser. The
             singbox/ripdpi/sn import-remote-profile deep-link filter sits at a negative
@@ -92,10 +92,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="vless" />
-                <data android:scheme="vmess" />
                 <data android:scheme="trojan" />
                 <data android:scheme="ss" />
-                <data android:scheme="hysteria" />
                 <data android:scheme="hysteria2" />
                 <data android:scheme="tuic" />
                 <data android:scheme="anytls" />

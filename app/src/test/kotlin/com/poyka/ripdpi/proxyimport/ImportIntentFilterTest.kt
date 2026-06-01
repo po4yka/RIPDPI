@@ -44,10 +44,8 @@ class ImportIntentFilterTest {
         val schemes =
             listOf(
                 "vless://uuid@example.com:443",
-                "vmess://eyJhZGQiOiJleGFtcGxlLmNvbSJ9",
                 "trojan://pass@example.com:443",
                 "ss://YWVzOnB3@example.com:8388",
-                "hysteria://pass@example.com:443",
                 "hysteria2://pass@example.com:443",
                 "tuic://uuid:pass@example.com:443",
                 "anytls://pass@example.com:443",
@@ -55,6 +53,18 @@ class ImportIntentFilterTest {
             )
         schemes.forEach { uri ->
             assertTrue("Expected $uri to resolve to ImportHandlerActivity", resolvesToImportHandler(uri))
+        }
+    }
+
+    @Test
+    fun `removed legacy schemes are no longer claimed by the import handler`() {
+        // VMess and Hysteria-v1 were removed; their schemes must not resolve so the
+        // OS no longer offers RIPDPI for those links.
+        listOf(
+            "vmess://eyJhZGQiOiJleGFtcGxlLmNvbSJ9",
+            "hysteria://pass@example.com:443",
+        ).forEach { uri ->
+            assertTrue("Expected $uri NOT to resolve to ImportHandlerActivity", !resolvesToImportHandler(uri))
         }
     }
 

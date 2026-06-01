@@ -133,24 +133,6 @@ class ProxyGroupTest {
     }
 
     @Test
-    fun `trojan-go proxy profile round-trips`() {
-        val profile: ProxyProfile =
-            ProxyProfile.TrojanGo(
-                id = "p-trojan-go",
-                displayName = "Trojan-Go node",
-                groupId = "sub-1",
-                server = "trojango.example.com",
-                serverPort = 443,
-                password = "trojan-go-fixture",
-            )
-
-        val encoded = json.encodeToString(ProxyProfile.serializer(), profile)
-        val decoded = json.decodeFromString(ProxyProfile.serializer(), encoded)
-
-        assertEquals(profile, decoded)
-    }
-
-    @Test
     fun `raw config proxy profile round-trips`() {
         val profile: ProxyProfile =
             ProxyProfile.RawConfig(

@@ -64,7 +64,6 @@ import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
-import com.poyka.ripdpi.ui.screens.hysteriav1.HysteriaV1ProfileRoute
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.mieru.MieruProfileRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
@@ -83,8 +82,6 @@ import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import com.poyka.ripdpi.ui.screens.ssh.SshProfileRoute
-import com.poyka.ripdpi.ui.screens.trojango.TrojanGoProfileRoute
-import com.poyka.ripdpi.ui.screens.vmess.VmessProfileRoute
 import com.poyka.ripdpi.ui.screens.xray.XrayProfileImportRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -765,20 +762,11 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
             onFinished = { navController.popBackStack() },
         )
     }
-    composable<Route.VmessProfile> {
-        VmessProfileRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.TrojanGoProfile> {
-        TrojanGoProfileRoute(onBack = { navController.popBackStack() })
-    }
     composable<Route.AnyTlsProfile> {
         AnyTlsProfileRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.MieruProfile> {
         MieruProfileRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.HysteriaV1Profile> {
-        HysteriaV1ProfileRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.SshProfile> {
         SshProfileRoute(onBack = { navController.popBackStack() })
@@ -892,11 +880,8 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
         Route.AmneziaWgProfile.stableRoute to { hasRoute<Route.AmneziaWgProfile>() },
         Route.XrayImport.stableRoute to { hasRoute<Route.XrayImport>() },
-        Route.VmessProfile.stableRoute to { hasRoute<Route.VmessProfile>() },
-        Route.TrojanGoProfile.stableRoute to { hasRoute<Route.TrojanGoProfile>() },
         Route.AnyTlsProfile.stableRoute to { hasRoute<Route.AnyTlsProfile>() },
         Route.MieruProfile.stableRoute to { hasRoute<Route.MieruProfile>() },
-        Route.HysteriaV1Profile.stableRoute to { hasRoute<Route.HysteriaV1Profile>() },
         Route.SshProfile.stableRoute to { hasRoute<Route.SshProfile>() },
     )
 
