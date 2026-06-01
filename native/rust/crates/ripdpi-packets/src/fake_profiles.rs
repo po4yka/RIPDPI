@@ -80,6 +80,9 @@ pub fn udp_fake_profile_bytes(profile: UdpFakeProfile) -> &'static [u8] {
 }
 
 #[cfg(test)]
+mod ja3_drift_guard;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

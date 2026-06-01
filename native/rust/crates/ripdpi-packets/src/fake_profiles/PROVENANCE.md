@@ -13,6 +13,30 @@ Binary blobs used by `TlsFakeProfile`, `HttpFakeProfile`, and `UdpFakeProfile` t
 | `tls_clienthello_sberbank_ru.bin` | `SberbankChrome` | `online.sberbank.ru` | Chrome ~110-124 | Yes | No | No | 1.3, 1.2 | 16 (incl. GREASE) | 517 | Unknown |
 | `tls_clienthello_rutracker_org_kyber.bin` | `RutrackerKyber` | `rutracker.org` | Chrome >= 124 | Yes | Yes (ML-KEM-768) | Yes | 1.3, 1.2 | 16 (incl. GREASE) | 1787 | Unknown |
 
+### JA3 pre-hash strings
+
+The canonical JA3 pre-hash string (`version,ciphers,extensions,groups,ec_point_formats`,
+decimal IDs, GREASE filtered out) computed by the **production** JA3 parser
+(`ripdpi-diagnostics-tls/src/ja3/`) for each profile. These are pinned by the
+drift guard in `ja3_drift_guard.rs`; this table and that test MUST agree. We pin
+the string, not the MD5 hash, so any drift is human-diffable. (`CompatDefault` /
+`DEFAULT_FAKE_TLS` is a truncated synthetic blob and does not parse as a
+ClientHello, so it has no JA3 string.)
+
+| Enum variant | JA3 pre-hash string |
+|--------------|---------------------|
+| `IanaFirefox` | `771,4866-4867-4865-49196-49200-159-52393-52392-52394-49195-49199-158-49188-49192-107-49187-49191-103-49162-49172-57-49161-49171-51-157-156-61-60-53-47-255,0-11-10-13172-16-22-23-49-13-43-45-51-21,29-23-30-25-24,0-1-2` |
+| `GoogleChrome` / `GoogleChromeHrr` | `771,4865-4867-4866-49195-49199-52393-52392-49196-49200-49162-49161-49171-49172-156-157-47-53,0-23-65281-10-11-35-16-5-34-18-51-43-13-45-28-27-65037,29-23-24-25-256-257,0` |
+| `VkChrome` | `771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,13-17513-43-0-23-5-10-16-45-27-65281-35-11-51-18-21,29-23-24,0` |
+| `SberbankChrome` | `771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,16-0-51-35-27-17513-11-18-5-10-43-45-65281-23-13-21,29-23-24,0` |
+| `RutrackerKyber` | `771,4865-4866-4867-49195-49199-49196-49200-52393-52392-49171-49172-156-157-47-53,11-35-45-13-65037-10-5-0-65281-51-23-43-18-17513-27-16,25497-29-23-24,0` |
+| `BigsizeIana` | identical to `IanaFirefox` (payload after byte 9 is byte-identical) |
+
+`GoogleChrome` and `GoogleChromeHrr` map to the same blob, so their JA3 strings
+are byte-identical; the drift guard asserts this explicitly. The `RutrackerKyber`
+supported-groups field leads with `25497` (ML-KEM-768, `0x6399`), consistent with
+the post-quantum attribution above.
+
 ### Identification methodology
 
 Browser attribution is based on the following TLS fingerprint signals:
