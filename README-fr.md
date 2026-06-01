@@ -37,7 +37,7 @@ Lorsqu'aucun relais n'est configuré, le trafic quitte l'appareil directement �
 Chaîne le trafic du proxy local ou du VPN via des protocoles de relais chiffrés vers un serveur que vous configurez :
 
 > [!NOTE]
-> Factual protocol matrix updated from the source code on 2026-05-28. Surrounding translated prose may lag `README.md` until human review.
+> Matrice protocolaire factuelle mise à jour à partir du code source le 2026-05-28. La prose traduite environnante peut être en retard sur `README.md` jusqu'à la révision humaine.
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -109,7 +109,7 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 
 - **Mode proxy** : proxy SOCKS5 local sur le port localhost configuré.
 - **Mode VPN** : route le trafic de l'appareil Android via un pont local TUN-vers-SOCKS au moyen de `VpnService`.
-- **Import de profil** : scan et génération de QR code, ainsi qu'import par presse-papiers et feuille de partage. Clipboard/share-sheet parsing uses the proxy URI codec, which accepts `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, and `tuic://`; QR scanning currently succeeds for `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, and `tuic://`. AmneziaWG uses the separate `amneziawg://` codec. Android intent filters also expose `ssh://` to the import trampoline, but that scheme is not parsed by the current proxy URI codec.
+- **Import de profil** : scan et génération de QR code, ainsi qu'import par presse-papiers et feuille de partage. L'analyse du presse-papiers et de la feuille de partage utilise le codec URI proxy, qui accepte `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://` et `tuic://` ; le scan QR réussit actuellement pour `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` et `tuic://`. AmneziaWG utilise le codec distinct `amneziawg://`. Les filtres d'intention Android exposent également `ssh://` au trampoline d'import, mais ce schéma n'est pas analysé par le codec URI proxy actuel.
 - **Abonnements** : formats d'abonnement base64, Clash / Clash.Meta YAML, sing-box JSON et WireGuard-INI avec mise à jour automatique en arrière-plan, détection des profils en double, groupes selector/urltest et livraison multi-miroir.
 - **DNS chiffré** : prise en charge des résolveurs DoH, DoT, DNSCrypt et DoQ dans les chemins liés au VPN.
 - **Contrôles de stratégie** : familles TCP split/disorder/fake, fragmentation d'enregistrements TLS et faux profils, variation de handshake QUIC et DTLS, variation du champ de longueur UDP, en-têtes d'extension IPv6, `rawsend` Lua, filtres d'activation par étape, contrôle de l'ID IPv4 et injection OOB.
@@ -117,7 +117,7 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
 - **Sondage adaptatif** : sondage automatique des stratégies pour les réseaux vus pour la première fois ; revérification `quick_v1` en arrière-plan lors d'un handover réseau.
 - **Redémarrage conscient du handover** : réévaluation en direct de la politique lors des transitions entre Wi-Fi, cellulaire et roaming.
 - **Navigateur RIPDPI** : navigateur détenu par l'application pour les cibles HTTPS qui nécessitent la pile TLS détenue ; chemin `SecureHttpClient` partagé pour les requêtes émises par l'application.
-- **Télémétrie et journaux d'exécution** : cycle de vie du proxy, décisions de routage, événements de bascule DNS, progression des diagnostics et événements du runtime natif — disponibles en historique dans l'application et en export d'assistance.
+- **Télémétrie et journaux d'exécution** : cycle de vie du proxy, décisions de route, événements de bascule DNS, progression des diagnostics et événements du moteur natif — disponibles en historique intégré à l'application et en export d'assistance.
 - **Helper root optionnel** : sur les appareils rootés, débloque les opérations sur sockets bruts (FakeRst, MultiDisorder, fragmentation IP, SeqOverlap complet, émission de paquets IPv4/IPv6 bruts) via un processus auxiliaire privilégié.
 
 ## Modes d'exécution
@@ -132,11 +132,11 @@ Utilise `VpnService` Android pour rediriger le trafic de l'appareil via le moteu
 
 ## Confidentialité
 
-RIPDPI enregistre des métadonnées opérationnelles à des fins de diagnostic et de dépannage : instantanés du réseau, état des résolveurs, décisions de routage, résultats d'analyse, état du service et événements du runtime natif.
+RIPDPI enregistre des métadonnées opérationnelles à des fins de diagnostic et de dépannage : instantanés du réseau, état des résolveurs, décisions de route, résultats d'analyse, état du service et événements du moteur natif.
 
 RIPDPI n'enregistre pas :
-- Les captures de paquets complètes
-- Les payloads de trafic
+- Les captures complètes de paquets
+- Les charges utiles du trafic
 - Les secrets TLS
 
 La confidentialité du trafic de relais dépend du point de terminaison et du profil de relais que vous configurez.

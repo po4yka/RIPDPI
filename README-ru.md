@@ -37,7 +37,7 @@ RIPDPI — это набор инструментов Android для диагн�
 Цепляет трафик локального прокси или VPN через зашифрованные relay-протоколы к серверу, который вы настраиваете:
 
 > [!NOTE]
-> Factual protocol matrix updated from the source code on 2026-05-28. Surrounding translated prose may lag `README.md` until human review.
+> Матрица протоколов обновлена по исходному коду 2026-05-28. Окружающий переведённый текст может отставать от `README.md` до момента проверки человеком.
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -109,7 +109,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 
 - **Режим прокси**: локальный SOCKS5-прокси на настроенном localhost-порте.
 - **Режим VPN**: маршрутизирует трафик Android-устройства через локальный TUN-to-SOCKS bridge с использованием `VpnService`.
-- **Импорт профилей**: сканирование и генерация QR-кода, а также импорт через буфер обмена и share-sheet. Clipboard/share-sheet parsing uses the proxy URI codec, which accepts `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, and `tuic://`; QR scanning currently succeeds for `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, and `tuic://`. AmneziaWG uses the separate `amneziawg://` codec. Android intent filters also expose `ssh://` to the import trampoline, but that scheme is not parsed by the current proxy URI codec.
+- **Импорт профилей**: сканирование и генерация QR-кода, а также импорт через буфер обмена и share-sheet. Разбор буфера обмена и share-sheet выполняется через кодек proxy URI, который принимает `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://` и `tuic://`; сканирование QR-кода в настоящее время работает для `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` и `tuic://`. AmneziaWG использует отдельный кодек `amneziawg://`. Фильтры интентов Android также передают `ssh://` в trampoline импорта, однако эта схема не разбирается текущим кодеком proxy URI.
 - **Подписки**: форматы подписок base64, Clash / Clash.Meta YAML, sing-box JSON и WireGuard-INI с фоновым автообновлением, обнаружением дублирующихся профилей, группами selector/urltest и доставкой через несколько зеркал.
 - **Зашифрованный DNS**: поддержка DoH, DoT, DNSCrypt и DoQ-резолверов в путях, связанных с VPN.
 - **Управление стратегиями**: семейства TCP split/disorder/fake, фрагментация TLS-записей и fake-профили, вариация QUIC- и DTLS-handshake, вариация UDP length-field, IPv6 extension headers, Lua `rawsend`, per-step activation filters, контроль IPv4 ID и OOB-инъекция.
@@ -117,7 +117,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 - **Адаптивное probing**: автоматическое probing стратегий для впервые увиденных сетей; фоновая `quick_v1` перепроверка при network handover.
 - **Перезапуск с учётом handover**: live-переоценка политики при переходах между Wi-Fi, сотовой связью и роумингом.
 - **RIPDPI Browser**: собственный браузер приложения для HTTPS-целей, которые требуют собственный TLS-стек; общий путь `SecureHttpClient` для запросов, инициированных приложением.
-- **Runtime-телеметрия и логи**: жизненный цикл прокси, route decisions, события DNS failover, прогресс диагностики и события native runtime — доступны как in-app history и support export.
+- **Runtime-телеметрия и логи**: жизненный цикл прокси, решения о маршрутизации, события отказа DNS, прогресс диагностики и события нативного runtime — доступны как история в приложении и экспорт для поддержки.
 - **Опциональный root-помощник**: на rooted-устройствах разблокирует операции с raw-сокетами (FakeRst, MultiDisorder, фрагментация IP, полный SeqOverlap, эмиссия raw IPv4/IPv6 пакетов) через привилегированный helper-процесс.
 
 ## Режимы выполнения
@@ -132,10 +132,10 @@ SOCKS5-прокси на настроенном localhost-порте. Для п�
 
 ## Приватность
 
-RIPDPI записывает операционные метаданные для диагностики и устранения неполадок: снимки сети, статус резолвера, route decisions, результаты сканирования, состояние сервиса и события native runtime.
+RIPDPI записывает операционные метаданные для диагностики и устранения неполадок: снимки сети, статус резолвера, решения о маршрутизации, результаты сканирования, состояние сервиса и события нативного runtime.
 
 RIPDPI не записывает:
-- Полные packet captures
+- Полные перехваты пакетов
 - Полезную нагрузку трафика
 - TLS-секреты
 

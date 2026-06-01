@@ -37,7 +37,7 @@ RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它�
 通过加密中继协议将本地代理或 VPN 流量链接到您配置的服务器：
 
 > [!NOTE]
-> Factual protocol matrix updated from the source code on 2026-05-28. Surrounding translated prose may lag `README.md` until human review.
+> 协议矩阵已根据 2026-05-28 的源代码进行了事实核对更新。周围的译文可能滞后于 `README.md`，待人工审核后同步。
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -85,7 +85,7 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 
 1. **每目标、每网络的答案** — 而非一个全局策略。诊断对每个权威进行分类并存储与网络指纹哈希关联的判定结果。
 2. **当网络是问题时，改变本地路径。** 语义标记、自适应分裂位置、伪造负载链、OOB/乱序、随机化 TLS 记录、QUIC 和 DTLS 指纹变种——由仓库内 Rust crate 组装。
-3. **当直接路径退化时，退回到隧道中继。** 上方 relay matrix 区分 native relay-core backends、helper subprocesses、external pluggable transports 和 separate VPN/tunnel profile surfaces。
+3. **当直接路径退化时，退回到隧道中继。** 上方的中继矩阵区分了原生 relay-core 后端、辅助子进程、外部可插拔传输层，以及独立的 VPN/隧道配置文件层。
 4. **诚实的报告。** 判定结果是类型化的并显示出来；故障分类器的结果是显示而非抑制；诊断导出包会编辑机密信息。
 
 ## 截图
@@ -109,7 +109,7 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 
 - **代理模式**：在配置的本地主机端口上运行本地 SOCKS5 代理。
 - **VPN 模式**：通过 `VpnService` 经由本地 TUN-到-SOCKS 桥接路由 Android 设备流量。
-- **配置文件导入**：QR 码扫描与生成，以及通过剪贴板和分享表单导入。Clipboard/share-sheet parsing uses the proxy URI codec, which accepts `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, and `tuic://`; QR scanning currently succeeds for `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, and `tuic://`. AmneziaWG uses the separate `amneziawg://` codec. Android intent filters also expose `ssh://` to the import trampoline, but that scheme is not parsed by the current proxy URI codec.
+- **配置文件导入**：QR 码扫描与生成，以及通过剪贴板和分享表单导入。剪贴板/分享表单解析使用代理 URI 编解码器，支持 `vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://`、`anytls://` 和 `tuic://`；QR 码扫描目前支持 `vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://` 和 `tuic://`。AmneziaWG 使用独立的 `amneziawg://` 编解码器。Android intent 过滤器还会将 `ssh://` 暴露给导入中转层，但当前代理 URI 编解码器不解析该协议。
 - **订阅**：支持 base64、Clash / Clash.Meta YAML、sing-box JSON 和 WireGuard-INI 订阅格式，具备后台自动更新、重复配置文件检测、selector/urltest 分组以及多镜像分发。
 - **加密 DNS**：在 VPN 相关路径中支持 DoH、DoT、DNSCrypt 和 DoQ 解析器。
 - **策略控制**：TCP split/disorder/fake 系列、TLS 记录分片和伪造配置文件、QUIC 和 DTLS 握手变种、UDP 长度字段变种、IPv6 扩展头、Lua `rawsend`、每步骤激活过滤器、IPv4 ID 控制以及 OOB 注入。

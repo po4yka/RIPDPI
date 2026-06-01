@@ -37,7 +37,7 @@ Cuando no hay relevo configurado, el tráfico sale del dispositivo directamente:
 Encadena el tráfico del proxy local o de la VPN a través de protocolos de relevo cifrados hacia un servidor que tú configuras:
 
 > [!NOTE]
-> Factual protocol matrix updated from the source code on 2026-05-28. Surrounding translated prose may lag `README.md` until human review.
+> Matriz de protocolos actualizada a partir del código fuente el 2026-05-28. La prosa traducida circundante puede no estar al día con `README.md` hasta la próxima revisión humana.
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -85,7 +85,7 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 
 1. **Respuesta por destino y por red** — no una política global única. Los diagnósticos clasifican cada autoridad y almacenan el veredicto indexado por un hash de huella de red.
 2. **Mutar la ruta local cuando la red es el problema.** Marcadores semánticos, colocación adaptativa de splits, cadenas con payload falso, OOB/desordenamiento, registros TLS aleatorizados, variación de huellas QUIC y DTLS — ensamblados a partir de crates Rust del propio repositorio.
-3. **Recurrir a un relevo tunelizado cuando la ruta directa está degradada.** La matriz de relevo anterior distingue native relay-core backends, helper subprocesses, external pluggable transports y superficies VPN/tunnel separadas.
+3. **Recurrir a un relevo tunelizado cuando la ruta directa está degradada.** La matriz de relevo anterior distingue entre backends nativos del núcleo de relevo, subprocesos auxiliares, transportes conectables externos y superficies VPN/túnel separadas.
 4. **Reporte honesto.** Los veredictos son tipados y se muestran; los resultados del clasificador de fallos se exponen en lugar de suprimirse; los paquetes de exportación de diagnósticos redactan los secretos.
 
 ## Capturas de pantalla
@@ -109,7 +109,7 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 
 - **Modo proxy**: proxy SOCKS5 local en el puerto localhost configurado.
 - **Modo VPN**: enruta el tráfico del dispositivo Android a través de un puente local TUN-a-SOCKS mediante `VpnService`.
-- **Importación de perfiles**: escaneo y generación de QR, más importación desde portapapeles y hoja de compartir. Clipboard/share-sheet parsing uses the proxy URI codec, which accepts `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, and `tuic://`; QR scanning currently succeeds for `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, and `tuic://`. AmneziaWG uses the separate `amneziawg://` codec. Android intent filters also expose `ssh://` to the import trampoline, but that scheme is not parsed by the current proxy URI codec.
+- **Importación de perfiles**: escaneo y generación de QR, más importación desde portapapeles y hoja de compartir. El análisis del portapapeles y la hoja de compartir usa el códec de URI de proxy, que acepta `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://` y `tuic://`; el escaneo de QR funciona actualmente para `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` y `tuic://`. AmneziaWG utiliza el códec separado `amneziawg://`. Los filtros de intent de Android también exponen `ssh://` al trampolín de importación, pero ese esquema no es analizado por el códec de URI de proxy actual.
 - **Suscripciones**: formatos de suscripción base64, Clash / Clash.Meta YAML, sing-box JSON y WireGuard-INI con actualización automática en segundo plano, detección de perfiles duplicados, grupos selector/urltest y entrega multi-mirror.
 - **DNS cifrado**: soporte de resolutores DoH, DoT, DNSCrypt y DoQ en las rutas relacionadas con VPN.
 - **Controles de estrategia**: familias TCP split/disorder/fake, fragmentación de registros TLS y perfiles falsos, variación de handshake QUIC y DTLS, variación del campo de longitud UDP, cabeceras de extensión IPv6, `rawsend` Lua, filtros de activación por paso, control de IPv4 ID e inyección OOB.
@@ -117,7 +117,7 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 - **Sondeo adaptativo**: sondeo automático de estrategias para redes vistas por primera vez; recomprobación `quick_v1` en segundo plano al cambiar de red.
 - **Reinicio consciente del handover**: reevaluación en vivo de la política en transiciones entre Wi-Fi, red móvil y roaming.
 - **RIPDPI Browser**: navegador propio de la aplicación para destinos HTTPS que requieren la pila TLS propia; ruta compartida `SecureHttpClient` para las solicitudes originadas por la aplicación.
-- **Telemetría y logs en tiempo de ejecución**: ciclo de vida del proxy, decisiones de ruta, eventos de failover de DNS, progreso de diagnósticos y eventos del runtime nativo — disponibles como historial en la aplicación y exportación de soporte.
+- **Telemetría y logs en tiempo de ejecución**: ciclo de vida del proxy, decisiones de enrutamiento, eventos de failover de DNS, progreso de diagnósticos y eventos del entorno de ejecución nativo — disponibles como historial en la aplicación y paquete de exportación de soporte.
 - **Asistente root opcional**: en dispositivos con root, habilita operaciones de socket raw (FakeRst, MultiDisorder, fragmentación IP, SeqOverlap completo, emisión de paquetes raw IPv4/IPv6) mediante un proceso ayudante privilegiado.
 
 ## Modos de ejecución

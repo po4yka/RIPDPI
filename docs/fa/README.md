@@ -39,7 +39,7 @@ RIPDPI یک جعبه‌ابزار اندرویدی برای تشخیص و بهی
 ترافیک پراکسی یا VPN محلی را از طریق پروتکل‌های رمزنگاری‌شده به سروری که شما پیکربندی می‌کنید زنجیر می‌کند:
 
 > [!NOTE]
-> Factual protocol matrix updated from the source code on 2026-05-28. Surrounding translated prose may lag `README.md` until human review.
+> ماتریس پروتکل‌های واقعی از کد منبع در تاریخ ۲۰۲۶-۰۵-۲۸ به‌روزرسانی شده است. متن ترجمه‌شدهٔ پیرامون ممکن است تا بازبینی انسانی از `README.md` عقب باشد.
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -87,7 +87,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 
 ۱. **پاسخ به ازای هر مقصد و هر شبکه** — نه یک سیاست سراسری. تشخیص هر مرجع را دسته‌بندی می‌کند و نتیجه را با کلید هش اثر انگشت شبکه ذخیره می‌کند.
 ۲. **وقتی شبکه مشکل دارد، مسیر محلی را تغییر بده.** نشانگرهای معنایی، قرارگیری تقسیم تطبیقی، زنجیره‌های بار ساختگی، OOB/disorder، رکوردهای TLS تصادفی‌شده، تنوع اثر انگشت QUIC و DTLS — همگی از کرت‌های Rust درون مخزن مونتاژ می‌شوند.
-۳. **اگر مسیر مستقیم تنزل یافت، به رلهٔ تونل‌شده برگرد.** Relay matrix بالا native relay-core backends، helper subprocesses، external pluggable transports و separate VPN/tunnel profile surfaces را جدا می‌کند.
+۳. **اگر مسیر مستقیم تنزل یافت، به رلهٔ تونل‌شده برگرد.** ماتریس رله در بالا پشتیبان‌های بومی relay-core، فرایندهای کمکی، ترانسپورت‌های قابل اتصال خارجی و سطوح پروفایل VPN/تونل جداگانه را از هم متمایز می‌کند.
 ۴. **گزارش‌دهی صادقانه.** نتایج نوع‌دار و قابل‌نمایش‌اند؛ نتایج طبقه‌بند شکست سرکوب نمی‌شوند، بلکه به‌وضوح نشان داده می‌شوند؛ بسته‌های صادرات تشخیصی اطلاعات حساس را ویرایش می‌کنند.
 
 ## تصاویر صفحه
@@ -111,7 +111,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 
 - **حالت پراکسی**: پراکسی SOCKS5 محلی روی پورت localhost پیکربندی‌شده.
 - **حالت VPN**: ترافیک دستگاه اندرویدی را از طریق یک پل TUN-به-SOCKS محلی با استفاده از `VpnService` مسیریابی می‌کند.
-- **وارد کردن پروفایل**: اسکن و تولید QR، به‌علاوهٔ وارد کردن از کلیپ‌بورد و اشتراک‌گذاری. Clipboard/share-sheet parsing uses the proxy URI codec, which accepts `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, and `tuic://`; QR scanning currently succeeds for `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, and `tuic://`. AmneziaWG uses the separate `amneziawg://` codec. Android intent filters also expose `ssh://` to the import trampoline, but that scheme is not parsed by the current proxy URI codec.
+- **وارد کردن پروفایل**: اسکن و تولید QR، به‌علاوهٔ وارد کردن از کلیپ‌بورد و اشتراک‌گذاری. تجزیهٔ کلیپ‌بورد/اشتراک‌گذاری از کدک URI پراکسی استفاده می‌کند که `vless://`، `ss://`، `trojan://`، `hysteria2://`، `hy2://`، `anytls://` و `tuic://` را می‌پذیرد؛ اسکن QR در حال حاضر برای `vless://`، `ss://`، `trojan://`، `hysteria2://`، `hy2://` و `tuic://` موفق است. AmneziaWG از کدک جداگانهٔ `amneziawg://` استفاده می‌کند. فیلترهای intent اندروید همچنین `ssh://` را به trampoline وارد کردن نمایان می‌کنند، اما این طرح توسط کدک URI پراکسی فعلی تجزیه نمی‌شود.
 - **اشتراک‌ها**: فرمت‌های اشتراک base64، Clash / Clash.Meta YAML، sing-box JSON و WireGuard-INI با به‌روزرسانی خودکار پس‌زمینه، شناسایی پروفایل‌های تکراری، گروه‌های selector/urltest و تحویل چند‌آینه‌ای.
 - **DNS رمزنگاری‌شده**: پشتیبانی از تحلیل‌گرهای DoH، DoT، DNSCrypt و DoQ در مسیرهای مرتبط با VPN.
 - **کنترل‌های راهبرد**: خانوادهٔ split/disorder/fake برای TCP، قطعه‌بندی رکورد TLS و پروفایل‌های ساختگی، تنوع دست‌دهی QUIC و DTLS، تنوع فیلد طول UDP، هدرهای افزونهٔ IPv6، `rawsend` در Lua، فیلترهای فعال‌سازی به ازای هر مرحله، کنترل شناسهٔ IPv4 و تزریق OOB.

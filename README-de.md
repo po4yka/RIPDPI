@@ -37,7 +37,7 @@ Wenn kein Relay konfiguriert ist, verlässt der Datenverkehr das Gerät direkt �
 Leitet lokalen Proxy- oder VPN-Datenverkehr verschlüsselt über Relay-Protokolle an einen von Ihnen konfigurierten Server weiter:
 
 > [!NOTE]
-> Factual protocol matrix updated from the source code on 2026-05-28. Surrounding translated prose may lag `README.md` until human review.
+> Sachliche Protokollmatrix aus dem Quellcode aktualisiert am 2026-05-28. Umgebende übersetzte Prosa kann hinter `README.md` zurückbleiben, bis eine menschliche Überprüfung erfolgt.
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -60,9 +60,9 @@ Leitet lokalen Proxy- oder VPN-Datenverkehr verschlüsselt über Relay-Protokoll
 | `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
 | `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
 
-Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
+Snowflake verbleibt absichtlich als externe Go-Binärdatei; siehe die [Entscheidung gegen Snowflake in nativem Rust](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality verwendet kein echtes ECH; siehe [ADR 0001](docs/adr/0001-reality-ech.md) für die ausschließliche GREASE-Richtlinie.
 
-WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` values in the relay-core registry.
+WARP und AmneziaWG sind separate VPN/Tunnel-Profiloberflächen und keine `relay_kind`-Werte in der Relay-Core-Registry.
 
 Sowohl der lokale Proxy-Modus als auch der Android-VPN-Weiterleitungsmodus funktionieren mit oder ohne konfiguriertes Relay.
 
@@ -109,7 +109,7 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 
 - **Proxy-Modus**: lokaler SOCKS5-Proxy auf dem konfigurierten Localhost-Port.
 - **VPN-Modus**: leitet den Android-Datenverkehr des Geräts über eine lokale TUN-zu-SOCKS-Brücke mittels `VpnService` weiter.
-- **Profilimport**: QR-Code-Scan und -Generierung sowie Import über die Zwischenablage und das Teilen-Menü. Clipboard/share-sheet parsing uses the proxy URI codec, which accepts `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, and `tuic://`; QR scanning currently succeeds for `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, and `tuic://`. AmneziaWG uses the separate `amneziawg://` codec. Android intent filters also expose `ssh://` to the import trampoline, but that scheme is not parsed by the current proxy URI codec.
+- **Profilimport**: QR-Code-Scan und -Generierung sowie Import über die Zwischenablage und das Teilen-Menü. Das Parsen von Zwischenablage- und Teilen-Menü-Inhalten erfolgt über den Proxy-URI-Codec, der `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://` und `tuic://` akzeptiert; der QR-Scan gelingt derzeit für `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` und `tuic://`. AmneziaWG verwendet den separaten `amneziawg://`-Codec. Android-Intent-Filter legen außerdem `ssh://` am Import-Trampolin offen, dieses Schema wird jedoch vom aktuellen Proxy-URI-Codec nicht geparst.
 - **Abonnements**: base64-, Clash / Clash.Meta-YAML-, sing-box-JSON- und WireGuard-INI-Abonnementformate mit automatischer Hintergrundaktualisierung, Erkennung doppelter Profile, Selector-/urltest-Gruppen und Multi-Mirror-Auslieferung.
 - **Verschlüsseltes DNS**: Unterstützung für DoH-, DoT-, DNSCrypt- und DoQ-Resolver in VPN-bezogenen Pfaden.
 - **Strategie-Steuerung**: TCP-Familien für Split/Unordnung/Fake, TLS-Record-Fragmentierung und Fake-Profile, QUIC- und DTLS-Handshake-Variation, Variation des UDP-Längenfelds, IPv6-Erweiterungsheader, Lua-`rawsend`, schrittweise Aktivierungsfilter, IPv4-ID-Steuerung und OOB-Einschleusung.
