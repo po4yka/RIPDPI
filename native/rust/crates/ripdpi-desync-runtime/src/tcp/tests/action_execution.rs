@@ -383,11 +383,17 @@ fn actions_await_writable_errors_on_unsupported() {
 
 #[test]
 #[cfg(not(target_os = "linux"))]
-fn actions_set_md5sig_errors_on_unsupported() {
+fn actions_set_md5sig_degrades_gracefully_when_unsupported() {
+    // TCP_MD5SIG is a best-effort, privileged fake-packet enhancement. When it
+    // is unavailable (non-Linux platform here; EPERM/EACCES on a non-rooted
+    // Android device), the action must be SKIPPED so the rest of the desync
+    // sequence still runs -- per the non-root baseline -- rather than aborting
+    // the connection. Before the graceful-degradation fix this returned a
+    // StrategyExecution error and dropped the real payload.
     let (mut client, _server) = connected_pair();
     let unavailable = default_ttl_unavailable();
-    let actions = vec![DesyncAction::SetMd5Sig { key_len: 16 }];
-    let err = execute_tcp_actions(
+    let actions = vec![DesyncAction::SetMd5Sig { key_len: 16 }, DesyncAction::Write(b"hello".to_vec())];
+    let committed = execute_tcp_actions(
         &mut client,
         &actions,
         64,
@@ -399,8 +405,8 @@ fn actions_set_md5sig_errors_on_unsupported() {
         None,
         None,
     )
-    .unwrap_err();
-    assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
+    .expect("md5sig must degrade gracefully when unsupported, not abort the sequence");
+    assert_eq!(committed, 5, "the real payload must still be written after the unsupported md5sig is skipped");
 }
 
 #[test]

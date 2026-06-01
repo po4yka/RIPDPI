@@ -6,9 +6,10 @@ use crate::platform;
 use crate::strategy_family::{
     log_ipfrag2_flow_fallback, should_fallback_ipfrag2_tcp_error_kind, should_fallback_seqovl_error_kind,
 };
+use crate::tcp_lowering::should_ignore_android_ttl_error;
 use crate::transport_io::{
-    send_ip_fragmented_tcp_action_named, set_md5sig_action_named, set_md5sig_transport_action,
-    write_strategy_payload_named, write_transport_payload,
+    log_android_desync_fallback, send_ip_fragmented_tcp_action_named, set_md5sig_action_named,
+    set_md5sig_transport_action, write_strategy_payload_named, write_transport_payload,
 };
 use crate::types::OutboundSendError;
 
@@ -21,7 +22,7 @@ impl PrivilegedActionExecutor {
         context: &ActionContext,
         accounting: &FallbackAccounting,
     ) -> Result<(), OutboundSendError> {
-        if let Some(strategy_family) = context.strategy_family {
+        let result = if let Some(strategy_family) = context.strategy_family {
             set_md5sig_action_named(
                 writer,
                 key_len,
@@ -29,11 +30,33 @@ impl PrivilegedActionExecutor {
                 strategy_family,
                 accounting.fallback(),
                 accounting.bytes_committed(),
-            )?;
+            )
         } else {
-            set_md5sig_transport_action(writer, key_len)?;
+            set_md5sig_transport_action(writer, key_len)
+        };
+
+        match result {
+            Ok(()) => Ok(()),
+            // TCP_MD5SIG is a privileged, best-effort fake-packet enhancement:
+            // it needs CAP_NET_ADMIN / root. On a non-rooted device the
+            // setsockopt fails with EPERM/EACCES; a kernel without the option
+            // reports ENOPROTOOPT/EOPNOTSUPP; a non-Linux platform reports
+            // `Unsupported`. Per the non-root baseline, degrade gracefully in
+            // all of these cases: skip the md5sig corruption on this fake packet
+            // and let the rest of the desync sequence run, rather than aborting
+            // the whole connection. A genuinely unexpected error (e.g. EBADF)
+            // still propagates so real bugs are not masked. The paired disable
+            // (`key_len == 0`) cleanup routes through here too, so it is equally
+            // tolerant. Mirrors the TTL / ipfrag2 / seqovl fallbacks.
+            Err(err)
+                if should_ignore_android_ttl_error(err.source_error())
+                    || err.source_error().kind() == std::io::ErrorKind::Unsupported =>
+            {
+                log_android_desync_fallback("set_md5sig", accounting.fallback().unwrap_or("none"), &err);
+                Ok(())
+            }
+            Err(err) => Err(err),
         }
-        Ok(())
     }
 
     pub(super) fn write_ip_fragmented_tcp(
