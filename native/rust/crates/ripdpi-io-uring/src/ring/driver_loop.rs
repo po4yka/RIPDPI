@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use io_uring::IoUring;
 use io_uring::opcode;
 use io_uring::squeue::{Entry, Flags};
 use io_uring::types::Fd;
-use io_uring::IoUring;
 
 use crate::ring::completion::{CompletionRegistry, CompletionResult};
 use crate::ring::submission::Submission;

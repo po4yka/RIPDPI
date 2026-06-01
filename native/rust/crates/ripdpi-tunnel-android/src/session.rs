@@ -30,7 +30,7 @@ pub(crate) use lifecycle::{
     validate_tun_fd,
 };
 #[cfg(test)]
-pub(crate) use registry::{lookup_tunnel_session, remove_tunnel_session, TunnelSession, TunnelSessionState, SESSIONS};
+pub(crate) use registry::{SESSIONS, TunnelSession, TunnelSessionState, lookup_tunnel_session, remove_tunnel_session};
 #[cfg(test)]
 pub(crate) use runtime::shared_tunnel_runtime;
 #[cfg(test)]

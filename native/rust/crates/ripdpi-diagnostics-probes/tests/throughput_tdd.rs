@@ -8,7 +8,7 @@
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 use ripdpi_diagnostics_probes::probes::throughput::{
-    ThroughputBaseline, ThroughputMeasurement, ThroughputProbe, THROUGHPUT_PROBE_ID,
+    THROUGHPUT_PROBE_ID, ThroughputBaseline, ThroughputMeasurement, ThroughputProbe,
 };
 use ripdpi_diagnostics_probes::{Probe, ProbeContext, ProbeVerdict};
 

@@ -4,13 +4,13 @@ use std::thread;
 
 use ripdpi_proxy_runtime::prepare_embedded;
 use ripdpi_proxy_runtime::{create_listener, run_proxy_with_embedded_control};
-use ripdpi_proxy_runtime_adapter::model::config::{parse_cli, ParseResult, StartupEnv};
+use ripdpi_proxy_runtime_adapter::model::config::{ParseResult, StartupEnv, parse_cli};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
-    clear_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink,
+    EmbeddedProxyControl, RuntimeTelemetrySink, clear_runtime_telemetry,
 };
 
-use super::telemetry::{ProxyHarnessTelemetry, StartupLatch};
 use super::START_TIMEOUT;
+use super::telemetry::{ProxyHarnessTelemetry, StartupLatch};
 
 pub struct RunningProxy {
     pub port: u16,

@@ -2,9 +2,9 @@ use std::io;
 use std::sync::Arc;
 
 use bytes::Bytes;
+use rustls::RootCertStore;
 use rustls::client::{EchConfig, EchMode};
 use rustls::pki_types::EchConfigListBytes;
-use rustls::RootCertStore;
 
 use super::socket::{build_client_udp_socket, maybe_rebind_quic_endpoint};
 use crate::config::MasqueConfig;

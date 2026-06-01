@@ -1,4 +1,4 @@
-use ripdpi_anytls::padding::{PaddingAction, PaddingPlan, PaddingScheme, PaddingStep, DEFAULT_PADDING_SCHEME};
+use ripdpi_anytls::padding::{DEFAULT_PADDING_SCHEME, PaddingAction, PaddingPlan, PaddingScheme, PaddingStep};
 
 const DEFAULT_PADDING_MD5: &str = "75cff2ad89aadf5e257059ee571ebe11";
 

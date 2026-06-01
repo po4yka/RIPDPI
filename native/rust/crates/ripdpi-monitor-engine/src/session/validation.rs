@@ -1,6 +1,6 @@
-use ripdpi_monitor_adapter::proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
+use ripdpi_monitor_adapter::proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
-use crate::types::{EngineScanRequestWire, ScanKind, ScanPathMode, DIAGNOSTICS_ENGINE_SCHEMA_VERSION};
+use crate::types::{DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineScanRequestWire, ScanKind, ScanPathMode};
 
 pub(crate) fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> {
     if request.schema_version != DIAGNOSTICS_ENGINE_SCHEMA_VERSION {

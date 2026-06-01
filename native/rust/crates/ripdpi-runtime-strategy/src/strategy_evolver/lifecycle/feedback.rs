@@ -1,8 +1,8 @@
 use ripdpi_failure_classifier::FailureClass;
 
 use super::experiment::discard_pending_experiment;
-use crate::strategy_evolver::types::{ComboStats, CooldownTransition, FITNESS_LATENCY_CAP_MS};
 use crate::strategy_evolver::StrategyEvolver;
+use crate::strategy_evolver::types::{ComboStats, CooldownTransition, FITNESS_LATENCY_CAP_MS};
 
 impl StrategyEvolver {
     /// Record successful connection with observed latency.

@@ -1,13 +1,13 @@
 use std::io::{self, Read};
 use std::net::TcpStream;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::super::super::desync::{DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
 use super::super::session::RelaySharedSession;
-use super::cleanup::shutdown_direction;
 use super::RELAY_IDLE_TIMEOUT;
+use super::cleanup::shutdown_direction;
 
 /// Outbound copy using the standard desync pipeline.
 /// Identical to the non-uring version.

@@ -1,7 +1,7 @@
 use ripdpi_config::{FakeOrder, TcpChainStep};
 use ripdpi_desync::build_fake_region_bytes;
 
-use crate::emissions::{ordered_segments_from_emissions, FakeEmission, FakeEmissionRole};
+use crate::emissions::{FakeEmission, FakeEmissionRole, ordered_segments_from_emissions};
 use crate::tcp_lowering::should_ignore_android_ttl_error;
 use crate::transport_io::{
     await_writable_action_named, log_android_desync_fallback, send_fake_tcp_action_named,

@@ -8,9 +8,9 @@ use local_network_fixture::FixtureStack;
 use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, StreamOwned};
 
+use super::SOCKET_TIMEOUT;
 use super::socks5::socks_connect_domain;
 use super::telemetry::NoCertificateVerification;
-use super::SOCKET_TIMEOUT;
 
 // ── FragmentingProfile / FragmentingStream ──
 

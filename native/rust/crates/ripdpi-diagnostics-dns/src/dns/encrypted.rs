@@ -1,12 +1,12 @@
 use ripdpi_dns_resolver::{
-    extract_ip_answers, parse_ech_config_list, parse_https_service_bindings, EncryptedDnsConnectHooks,
-    EncryptedDnsEndpoint, EncryptedDnsResolver, EncryptedDnsTransport, HttpsRr,
+    EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsResolver, EncryptedDnsTransport, HttpsRr,
+    extract_ip_answers, parse_ech_config_list, parse_https_service_bindings,
 };
 
 use crate::transport::TransportConfig;
 use crate::util::now_ms;
 
-use super::wire::{build_dns_query_with_type, DNS_RECORD_TYPE_A, DNS_RECORD_TYPE_HTTPS, DNS_RECORD_TYPE_SVCB};
+use super::wire::{DNS_RECORD_TYPE_A, DNS_RECORD_TYPE_HTTPS, DNS_RECORD_TYPE_SVCB, build_dns_query_with_type};
 
 #[derive(Clone, Debug)]
 pub enum EchResolutionOutcome {

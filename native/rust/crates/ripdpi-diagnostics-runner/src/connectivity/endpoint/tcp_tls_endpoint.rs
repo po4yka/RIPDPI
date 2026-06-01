@@ -3,9 +3,9 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::adapters::tls::{
-    try_tls_handshake, try_tls_handshake_with_key_log, TlsClientProfile, TlsKeyLogCallback,
+    TlsClientProfile, TlsKeyLogCallback, try_tls_handshake, try_tls_handshake_with_key_log,
 };
-use crate::connectivity::adapters::transport::{connect_transport_observed, TransportConfig};
+use crate::connectivity::adapters::transport::{TransportConfig, connect_transport_observed};
 
 use super::target_parse::connect_target_from_parts;
 use super::types::EndpointProbeObservation;

@@ -1,6 +1,6 @@
 use ripdpi_config::{FakeOrder, FakeSeqMode, TcpChainStep};
 
-use crate::emissions::{build_ordered_fake_split_emissions, FakeEmission, FakeEmissionRole};
+use crate::emissions::{FakeEmission, FakeEmissionRole, build_ordered_fake_split_emissions};
 use crate::platform;
 
 pub(super) fn needs_custom_ordering(configured_step: &TcpChainStep, midhost: Option<usize>) -> bool {

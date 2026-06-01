@@ -1,18 +1,14 @@
 use android_support::throw_illegal_argument_env;
+use jni::Env;
 use jni::objects::JLongArray;
 use jni::sys::{jlong, jlongArray};
-use jni::Env;
 use ripdpi_tunnel_core::DnsStatsSnapshot;
 
-use super::registry::{lookup_tunnel_session, TunnelSessionState};
+use super::registry::{TunnelSessionState, lookup_tunnel_session};
 
 /// Saturate a `u64` to `i64::MAX` so JNI `jlong` values never wrap negative.
 fn saturate_u64_to_i64(v: u64) -> i64 {
-    if v > i64::MAX as u64 {
-        i64::MAX
-    } else {
-        v as i64
-    }
+    if v > i64::MAX as u64 { i64::MAX } else { v as i64 }
 }
 
 pub(crate) fn stats_session(env: &mut Env<'_>, handle: jlong) -> jlongArray {
@@ -38,11 +34,7 @@ pub(crate) fn stats_session(env: &mut Env<'_>, handle: jlong) -> jlongArray {
                 saturate_u64_to_i64(snapshot.2),
                 saturate_u64_to_i64(snapshot.3),
             ];
-            if arr.set_region(env, 0, &values).is_ok() {
-                arr.into_raw()
-            } else {
-                std::ptr::null_mut()
-            }
+            if arr.set_region(env, 0, &values).is_ok() { arr.into_raw() } else { std::ptr::null_mut() }
         }
         Err(_) => std::ptr::null_mut(),
     }

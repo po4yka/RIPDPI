@@ -24,8 +24,8 @@
 //! session (single active session — the common case — is unaffected: the
 //! generation increments and always matches on release).
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::root_helper_client::RootHelperClient;
 

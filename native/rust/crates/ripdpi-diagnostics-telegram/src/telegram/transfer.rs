@@ -5,13 +5,13 @@ use std::time::Duration;
 
 use crate::http::{extract_host_from_url, extract_path_from_url, read_http_headers};
 use crate::tls::{
-    open_probe_stream, open_probe_stream_with_key_log, NoCertificateVerification, TlsClientProfile, TlsKeyLogCallback,
+    NoCertificateVerification, TlsClientProfile, TlsKeyLogCallback, open_probe_stream, open_probe_stream_with_key_log,
 };
 use crate::transport::{TargetAddress, TransportConfig};
 use crate::types::TelegramTarget;
 use crate::util::{
-    find_headers_end, MAX_HTTP_BYTES, TELEGRAM_CHUNK_SIZE, TELEGRAM_DOWNLOAD_EXPECTED_BYTES,
-    TELEGRAM_SPEED_SAMPLE_INTERVAL,
+    MAX_HTTP_BYTES, TELEGRAM_CHUNK_SIZE, TELEGRAM_DOWNLOAD_EXPECTED_BYTES, TELEGRAM_SPEED_SAMPLE_INTERVAL,
+    find_headers_end,
 };
 
 pub(crate) struct TelegramTransferResult {

@@ -133,11 +133,13 @@ fn not_applicable_candidate_execution_keeps_ech_notes_and_rationale() {
     assert_eq!(execution.summary.rationale, "No baseline HTTPS target exposed ECH capability");
     assert_eq!(execution.summary.total_targets, 4);
     assert_eq!(execution.summary.total_weight, 12);
-    assert!(execution
-        .summary
-        .notes
-        .iter()
-        .any(|note| note.contains("Runs only when the baseline proves an ECH-capable HTTPS path")));
+    assert!(
+        execution
+            .summary
+            .notes
+            .iter()
+            .any(|note| note.contains("Runs only when the baseline proves an ECH-capable HTTPS path"))
+    );
     assert!(execution.summary.notes.iter().any(|note| note == "No baseline HTTPS target exposed ECH capability"));
 }
 

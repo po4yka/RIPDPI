@@ -10,7 +10,7 @@ mod support;
 use local_network_fixture::{FixtureConfig, FixtureStack};
 #[cfg(target_os = "linux")]
 use ripdpi_packets::IS_TCP;
-use ripdpi_packets::{parse_quic_initial, IS_UDP};
+use ripdpi_packets::{IS_UDP, parse_quic_initial};
 #[cfg(target_os = "linux")]
 use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
 use ripdpi_proxy_runtime_adapter::model::config::{UdpChainStep, UdpChainStepKind};

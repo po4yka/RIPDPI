@@ -4,10 +4,10 @@ use smoltcp::time::Instant;
 use tracing::info;
 use tun_rs::AsyncDevice;
 
-use super::dns_intercept::{handle_dns_result, DnsResponse};
-use super::state::LoopState;
-use super::udp_assoc::{handle_udp_event, UdpEvent};
 use super::DEFAULT_POLL_DELAY_MS;
+use super::dns_intercept::{DnsResponse, handle_dns_result};
+use super::state::LoopState;
+use super::udp_assoc::{UdpEvent, handle_udp_event};
 
 pub(in crate::io_loop) enum WaitOutcome {
     Continue,

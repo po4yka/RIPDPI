@@ -5,7 +5,7 @@
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 use ripdpi_diagnostics_probes::probes::service_reachability::{
-    LayerStatus, ServiceLayer, ServiceLayerOutcome, ServiceReachabilityProbe, SERVICE_REACHABILITY_PROBE_ID,
+    LayerStatus, SERVICE_REACHABILITY_PROBE_ID, ServiceLayer, ServiceLayerOutcome, ServiceReachabilityProbe,
 };
 use ripdpi_diagnostics_probes::{Probe, ProbeContext, ProbeVerdict};
 

@@ -1,9 +1,9 @@
 use bytes::Bytes;
 use odoh_rs::{
-    compose, decrypt_query, encrypt_response, parse, ObliviousDoHKeyPair, ObliviousDoHMessage,
-    ObliviousDoHMessagePlaintext,
+    ObliviousDoHKeyPair, ObliviousDoHMessage, ObliviousDoHMessagePlaintext, compose, decrypt_query, encrypt_response,
+    parse,
 };
-use ripdpi_dns_resolver::{OdohTargetConfig, ODOH_MESSAGE_MEDIA_TYPE};
+use ripdpi_dns_resolver::{ODOH_MESSAGE_MEDIA_TYPE, OdohTargetConfig};
 
 const KEM_ID: u16 = 32;
 const KDF_ID: u16 = 1;
@@ -13,8 +13,7 @@ const KEY_ID: &str = "9265d14d640ff991b31892f36326ab601ea84d61964fc7a9c7f981a531
 const ODOHCONFIGS: &str =
     "002c000100280020000100010020c6a793bedbd601c25970b1cc46bea80fdb1a8ec51540d79e4f9f17b8baa9da33";
 const QUERY: &str = "9db1072b0ab473d1e4b74b09637d5f8f253ad4047426ab4dfcc58350bb67b60c";
-const RESPONSE: &str =
-    "9db1072b0ab473d1e4b74b09637d5f8f253ad4047426ab4dfcc58350bb67b60c9db1072b0ab473d1e4b74b09637d5f8f253ad4047426ab4dfcc58350bb67b60c";
+const RESPONSE: &str = "9db1072b0ab473d1e4b74b09637d5f8f253ad4047426ab4dfcc58350bb67b60c9db1072b0ab473d1e4b74b09637d5f8f253ad4047426ab4dfcc58350bb67b60c";
 const OBLIVIOUS_QUERY: &str = "0100209265d14d640ff991b31892f36326ab601ea84d61964fc7a9c7f981a5313e58b90054655d2fa2b2271e40b5a78745e41e6d6c5c181fd1fcffcc30fc451d5ec7fdcc5a6ae0da1cba2bd379da93d02d0e42a3849ec6ba53a54c7c8216f0d3cc2cef30ac54f824f5d8b57657d8c7b95e2c0276580b3851d9";
 const OBLIVIOUS_RESPONSE: &str = "0200100f474d14998a841b15f84388a8af1881005413556bcd8d86194fb47a51982b715b7f253f4f3ea14d89a5dd9d2b67e6c13b0b7eb7ae740c09d915ef77461956ba8acac5c5f1d8965ca0888b1c0aa2a0084b4c2c375b74e1c3d4e51ad3fe8080b7941fd5719df5";
 

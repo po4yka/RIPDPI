@@ -1,6 +1,6 @@
 mod common;
 
-use ripdpi_strategy_ipv6::{apply_ipv6_ext_header, ipv6_tcp_checksum, Ipv6ExtType};
+use ripdpi_strategy_ipv6::{Ipv6ExtType, apply_ipv6_ext_header, ipv6_tcp_checksum};
 
 #[test]
 fn destopts_injection_keeps_tcp_checksum_valid() {

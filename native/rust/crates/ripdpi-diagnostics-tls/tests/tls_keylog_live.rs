@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_diagnostics_tls::tls::{tls_key_log_callback_for_path, try_tls_handshake_with_key_log, TlsClientProfile};
-use ripdpi_diagnostics_transport::transport::{direct_transport, TargetAddress};
+use ripdpi_diagnostics_tls::tls::{TlsClientProfile, tls_key_log_callback_for_path, try_tls_handshake_with_key_log};
+use ripdpi_diagnostics_transport::transport::{TargetAddress, direct_transport};
 
 #[test]
 fn tls_keylog_file_receives_live_handshake_secrets_when_network_tests_enabled() {

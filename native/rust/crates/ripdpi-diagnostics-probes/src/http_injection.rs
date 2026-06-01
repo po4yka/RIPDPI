@@ -11,7 +11,7 @@
 //! "active path" inputs are captured upstream and replayed offline.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
-use ripdpi_diagnostics_http::http_injection_probe::{classify_http_response, InjectionVerdict};
+use ripdpi_diagnostics_http::http_injection_probe::{InjectionVerdict, classify_http_response};
 
 use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
 

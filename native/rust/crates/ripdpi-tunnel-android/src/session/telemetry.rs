@@ -1,6 +1,6 @@
 use android_support::{throw_illegal_argument_env, throw_runtime_exception_env};
-use jni::sys::jlong;
 use jni::Env;
+use jni::sys::jlong;
 
 use crate::config::mapdns_resolver_protocol;
 

@@ -1,6 +1,6 @@
 use std::io;
 
-use crate::auth::{build_static_auth_header, AuthHeader, PrivacyPassProviderRequest, PrivacyPassProviderResponse};
+use crate::auth::{AuthHeader, PrivacyPassProviderRequest, PrivacyPassProviderResponse, build_static_auth_header};
 use crate::client::MasqueClientInner;
 use crate::config::MasqueAuthMode;
 

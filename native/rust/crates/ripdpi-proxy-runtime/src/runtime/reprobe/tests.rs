@@ -1,5 +1,5 @@
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{
-    network_snapshot_identity, NetworkReprobeTracker, NetworkSnapshot,
+    NetworkReprobeTracker, NetworkSnapshot, network_snapshot_identity,
 };
 
 use super::tls_probe::build_minimal_client_hello;

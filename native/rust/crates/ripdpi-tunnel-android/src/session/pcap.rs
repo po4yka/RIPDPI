@@ -24,7 +24,7 @@ use once_cell::sync::Lazy;
 use ripdpi_pcap::rewrite_endpoints;
 use ripdpi_tunnel_core::PacketObserver;
 
-use crate::pcap::{list_captures, PcapCaptureSet};
+use crate::pcap::{PcapCaptureSet, list_captures};
 
 static REGISTRY: Lazy<Mutex<HashMap<i64, Arc<PcapCaptureSet>>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 static NEXT_SET_ID: AtomicU64 = AtomicU64::new(1);

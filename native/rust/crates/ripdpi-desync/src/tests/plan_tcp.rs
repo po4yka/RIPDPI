@@ -132,21 +132,23 @@ fn plan_tcp_tlsrec_supports_adaptive_marker_resolution() {
 fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
     let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("tls markers");
     let mut auto_group = DesyncGroup::new(0);
-    auto_group.actions.tcp_chain =
-        vec![TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))
+    auto_group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))
             .with_tls_randrec_payload(TcpTlsRandRecPayload {
                 fragment_count: 4,
                 min_fragment_size: 16,
                 max_fragment_size: 32,
-            })];
+            }),
+    ];
     let mut explicit_group = DesyncGroup::new(0);
-    explicit_group.actions.tcp_chain =
-        vec![TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::marker(OffsetBase::SniExt, 0))
+    explicit_group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::marker(OffsetBase::SniExt, 0))
             .with_tls_randrec_payload(TcpTlsRandRecPayload {
                 fragment_count: 4,
                 min_fragment_size: 16,
                 max_fragment_size: 32,
-            })];
+            }),
+    ];
 
     let auto_plan = plan_tcp(
         &auto_group,
@@ -804,8 +806,10 @@ fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
 fn plan_tcp_step_activation_filter_matches_negotiated_tcp_timestamp_state() {
     let payload = b"hello world";
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(4))
-        .with_activation_filter(Some(ActivationFilter { tcp_has_timestamp: Some(true), ..Default::default() }))];
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::Split, split_expr(4))
+            .with_activation_filter(Some(ActivationFilter { tcp_has_timestamp: Some(true), ..Default::default() })),
+    ];
     let mut context = tcp_context(payload);
 
     context.tcp_state.has_timestamp = Some(true);
@@ -821,8 +825,10 @@ fn plan_tcp_step_activation_filter_matches_negotiated_tcp_timestamp_state() {
 fn plan_tcp_step_activation_filter_matches_ech_payload_state() {
     let payload = rust_packet_seeds::tls_client_hello_ech();
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(8))
-        .with_activation_filter(Some(ActivationFilter { tcp_has_ech: Some(true), ..Default::default() }))];
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::Split, split_expr(8))
+            .with_activation_filter(Some(ActivationFilter { tcp_has_ech: Some(true), ..Default::default() })),
+    ];
     let mut context = tcp_context(&payload);
 
     context.tcp_state.has_ech = Some(true);
@@ -904,10 +910,11 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
     let markers = http_marker_info(payload).expect("http markers");
     let mut group = DesyncGroup::new(0);
     group.actions.ttl = Some(9);
-    group.actions.tcp_chain =
-        vec![TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
             .with_midhost_offset(Some(OffsetExpr::marker(OffsetBase::MidSld, 0)))
-            .with_fake_host_template(Some("googlevideo.com".to_string()))];
+            .with_fake_host_template(Some("googlevideo.com".to_string())),
+    ];
 
     let plan = plan_tcp(&group, payload, 23, 32, tcp_context(payload)).expect("plan hostfake");
 
@@ -1041,8 +1048,10 @@ fn unresolved_markers_fail_planning_safely() {
 fn plan_tcp_emits_delay_action_when_inter_segment_delay_set() {
     let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))
-        .with_inter_segment_delay_ms(50)];
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))
+            .with_inter_segment_delay_ms(50),
+    ];
 
     let plan = plan_tcp(&group, payload, 7, 0, tcp_context(payload)).expect("plan with delay");
     assert!(plan.actions.iter().any(|a| matches!(a, DesyncAction::Delay(50))), "expected Delay(50) action in plan");
@@ -1065,8 +1074,10 @@ fn plan_tcp_no_delay_when_inter_segment_delay_zero() {
 fn plan_tcp_delay_capped_at_500ms() {
     let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))
-        .with_inter_segment_delay_ms(1000)];
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))
+            .with_inter_segment_delay_ms(1000),
+    ];
 
     let plan = plan_tcp(&group, payload, 7, 0, tcp_context(payload)).expect("plan capped delay");
     assert!(

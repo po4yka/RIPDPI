@@ -1,7 +1,7 @@
 use ripdpi_config::OffsetBase;
 use ripdpi_runtime_strategy::strategy_evolver::{
-    probe_combo_for_strategy_id, LearningContext, LearningTargetBucket, LearningTransportKind, ProbeResult,
-    StrategyEvolver, PROBE_OBSERVATION_WEIGHT,
+    LearningContext, LearningTargetBucket, LearningTransportKind, PROBE_OBSERVATION_WEIGHT, ProbeResult,
+    StrategyEvolver, probe_combo_for_strategy_id,
 };
 
 #[test]

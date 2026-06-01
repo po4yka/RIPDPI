@@ -19,8 +19,8 @@
 //! produce the session subkey.
 
 use aes_gcm::{
-    aead::{Aead, KeyInit, Payload},
     Aes128Gcm, Aes256Gcm,
+    aead::{Aead, KeyInit, Payload},
 };
 use chacha20poly1305::ChaCha20Poly1305;
 use hkdf::Hkdf;

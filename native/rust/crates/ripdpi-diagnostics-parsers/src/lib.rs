@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-pub use ripdpi_failure_classifier::{load_blockpage_fingerprints as load_fingerprints, BlockpageFingerprint};
+pub use ripdpi_failure_classifier::{BlockpageFingerprint, load_blockpage_fingerprints as load_fingerprints};
 
 #[derive(Clone, Debug)]
 pub struct HttpResponse {
@@ -106,11 +106,7 @@ pub fn parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>
         }
         offset += data_len;
     }
-    if answers.is_empty() {
-        Err("dns_empty".to_string())
-    } else {
-        Ok(answers)
-    }
+    if answers.is_empty() { Err("dns_empty".to_string()) } else { Ok(answers) }
 }
 
 fn skip_dns_name(packet: &[u8], mut offset: usize) -> Result<usize, String> {

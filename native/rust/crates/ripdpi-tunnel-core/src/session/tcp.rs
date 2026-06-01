@@ -163,7 +163,7 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr};
     use std::sync::OnceLock;
     use std::time::Duration;
-    use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
     use tokio::time::{sleep, timeout};
     use tracing_subscriber::EnvFilter;
 

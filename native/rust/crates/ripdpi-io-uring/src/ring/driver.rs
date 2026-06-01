@@ -8,7 +8,7 @@ use io_uring::IoUring;
 use crate::bufpool::RegisteredBufferPool;
 use crate::ring::completion::{CompletionFuture, CompletionRegistry};
 use crate::ring::driver_loop::driver_loop;
-use crate::ring::submission::{next_token, Submission};
+use crate::ring::submission::{Submission, next_token};
 
 /// Ring size (submission queue entries). Power of two.
 const RING_SIZE: u32 = 256;

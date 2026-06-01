@@ -12,7 +12,7 @@ use crate::CandidateRuntimeLauncher;
 use super::runtime::{ExecutionCoordinator, ExecutionStageRunner};
 pub(super) use parity::connectivity_runner_parity_snapshot;
 pub use registry::probe_descriptors_as_json;
-pub(in crate::engine) use registry::{registration_for_family, PROBE_STAGE_REGISTRATIONS};
+pub(in crate::engine) use registry::{PROBE_STAGE_REGISTRATIONS, registration_for_family};
 pub(in crate::engine) use strategy::prepare_strategy_probe_report;
 
 pub(super) fn execution_coordinator(

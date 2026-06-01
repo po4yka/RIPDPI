@@ -1,5 +1,5 @@
 use super::offset_plan::resolve_send_step_offset;
-use crate::types::{activation_filter_matches, ActivationContext, DesyncError, PlannedStep, ProtoInfo};
+use crate::types::{ActivationContext, DesyncError, PlannedStep, ProtoInfo, activation_filter_matches};
 use ripdpi_config::{TcpChainStep, TcpChainStepKind};
 use ripdpi_packets::OracleRng;
 

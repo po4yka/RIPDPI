@@ -3,11 +3,11 @@ use std::sync::Arc;
 use android_support::{EventRingBuffers, EventRingLayer, RingConfig};
 use golden_test_support::{assert_text_golden, canonicalize_json_with};
 use ripdpi_tunnel_core::DnsStatsSnapshot;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tracing_subscriber::prelude::*;
 
 use super::state::TunnelTelemetryState;
-use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapshot, SNAPSHOT_SCHEMA_VERSION};
+use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION, TunnelStatsSnapshot};
 
 fn assert_tunnel_snapshot_golden(name: &str, snapshot: &NativeRuntimeSnapshot) {
     let actual = canonicalize_json_with(

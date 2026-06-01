@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use odoh_rs::{
-    compose, decrypt_response, encrypt_query, parse, ObliviousDoHConfigContents, ObliviousDoHConfigs,
-    ObliviousDoHMessage, ObliviousDoHMessagePlaintext, OdohSecret,
+    ObliviousDoHConfigContents, ObliviousDoHConfigs, ObliviousDoHMessage, ObliviousDoHMessagePlaintext, OdohSecret,
+    compose, decrypt_response, encrypt_query, parse,
 };
 use rand_09::SeedableRng;
 use thiserror::Error;

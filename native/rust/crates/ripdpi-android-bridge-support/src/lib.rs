@@ -38,8 +38,8 @@ use jni::{Env, EnvUnowned};
 pub mod native_bridge_error;
 
 pub use native_bridge_error::{
-    decorate_message, NativeBridgeError, NativeBridgeErrorDomain, SCHEMA_VERSION as NATIVE_BRIDGE_ERROR_SCHEMA_VERSION,
-    SENTINEL as NATIVE_BRIDGE_ERROR_SENTINEL,
+    NativeBridgeError, NativeBridgeErrorDomain, SCHEMA_VERSION as NATIVE_BRIDGE_ERROR_SCHEMA_VERSION,
+    SENTINEL as NATIVE_BRIDGE_ERROR_SENTINEL, decorate_message,
 };
 
 /// Native error categories raised by the proxy/geo JNI adapters, each mapped to

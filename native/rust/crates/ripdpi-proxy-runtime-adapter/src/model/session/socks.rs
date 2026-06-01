@@ -3,8 +3,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use ripdpi_socks5_core::validate_udp_rsv_frag;
 
-use super::super::config::{ipv6_enabled, name_resolution_enabled, RuntimeConfig, ShadowsocksTargetPolicy};
-use super::{SocketType, S_ATP_I4, S_ATP_I6, S_ATP_ID, S_CMD_CONN, S_VER5};
+use super::super::config::{RuntimeConfig, ShadowsocksTargetPolicy, ipv6_enabled, name_resolution_enabled};
+use super::{S_ATP_I4, S_ATP_I6, S_ATP_ID, S_CMD_CONN, S_VER5, SocketType};
 
 #[derive(Clone)]
 pub struct UdpPacketParser {

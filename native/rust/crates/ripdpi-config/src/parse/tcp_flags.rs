@@ -132,25 +132,24 @@ mod tests {
 
     #[test]
     fn validate_tcp_flag_masks_rejects_invalid_placements_and_overlap() {
-        assert!(validate_tcp_flag_masks(
-            TcpChainStepKind::Split,
-            Some(TCP_FLAG_SYN),
-            None,
-            None,
-            None,
-            "tcpChainSteps"
-        )
-        .is_err());
-        assert!(validate_tcp_flag_masks(TcpChainStepKind::Oob, None, None, Some(TCP_FLAG_ACK), None, "tcpChainSteps")
-            .is_err());
-        assert!(validate_tcp_flag_masks(
-            TcpChainStepKind::Fake,
-            Some(TCP_FLAG_SYN),
-            Some(TCP_FLAG_SYN),
-            None,
-            None,
-            "tcpChainSteps"
-        )
-        .is_err());
+        assert!(
+            validate_tcp_flag_masks(TcpChainStepKind::Split, Some(TCP_FLAG_SYN), None, None, None, "tcpChainSteps")
+                .is_err()
+        );
+        assert!(
+            validate_tcp_flag_masks(TcpChainStepKind::Oob, None, None, Some(TCP_FLAG_ACK), None, "tcpChainSteps")
+                .is_err()
+        );
+        assert!(
+            validate_tcp_flag_masks(
+                TcpChainStepKind::Fake,
+                Some(TCP_FLAG_SYN),
+                Some(TCP_FLAG_SYN),
+                None,
+                None,
+                "tcpChainSteps"
+            )
+            .is_err()
+        );
     }
 }

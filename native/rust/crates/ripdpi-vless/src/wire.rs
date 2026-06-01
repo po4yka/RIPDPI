@@ -236,11 +236,7 @@ fn parse_target(target: &str) -> (String, u16) {
 }
 
 fn format_target(host: &str, port: u16) -> String {
-    if host.contains(':') && !host.starts_with('[') {
-        format!("[{host}]:{port}")
-    } else {
-        format!("{host}:{port}")
-    }
+    if host.contains(':') && !host.starts_with('[') { format!("[{host}]:{port}") } else { format!("{host}:{port}") }
 }
 
 #[cfg(test)]
@@ -283,7 +279,7 @@ mod tests {
         // version(1) + uuid(16) + addonslen(1) + addons(0 bytes) + cmd(1) + port(2)
         let base = 1 + 16 + 1 + 1 + 2;
         assert_eq!(buf[base], 0x03); // IPv6
-                                     // ::1 = 15 zeros + 0x01
+        // ::1 = 15 zeros + 0x01
         assert_eq!(buf[base + 16], 0x01);
     }
 

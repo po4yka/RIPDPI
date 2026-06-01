@@ -1,14 +1,14 @@
 //! Strategy-facing shared-priors helpers.
 
 pub use ripdpi_shared_priors::{
+    AppliedPriors, ApplyError, ManifestError, SHARED_PRIORS_PUB_KEY, SharedPriorsError, SharedPriorsManifest,
     apply_global_shared_priors, apply_global_shared_priors_with_embedded_key, apply_priors,
     apply_priors_with_embedded_key, global_shared_priors_len, is_production_key_set, latest_shared_priors,
-    AppliedPriors, ApplyError, ManifestError, SharedPriorsError, SharedPriorsManifest, SHARED_PRIORS_PUB_KEY,
 };
 
 use crate::strategy_evolver::types::{
-    entropy_mode_disc, offset_base_disc, oob_placement_disc, quic_fake_disc, timing_jitter_disc, tls_randrec_disc,
-    udp_burst_disc, StrategyCombo,
+    StrategyCombo, entropy_mode_disc, offset_base_disc, oob_placement_disc, quic_fake_disc, timing_jitter_disc,
+    tls_randrec_disc, udp_burst_disc,
 };
 
 /// Stable canonical hash of a [`StrategyCombo`] used as the key in shared

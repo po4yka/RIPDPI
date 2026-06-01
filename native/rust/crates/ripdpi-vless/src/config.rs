@@ -325,8 +325,8 @@ mod tests {
         use std::fmt;
         use std::sync::{Arc, Mutex};
         use tracing::{Event, Subscriber};
-        use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
         use tracing_subscriber::Registry;
+        use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
 
         /// Capture every event's field-set into a shared Vec of strings.
         struct CaptureLayer(Arc<Mutex<Vec<String>>>);

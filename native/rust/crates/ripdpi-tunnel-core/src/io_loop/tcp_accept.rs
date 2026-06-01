@@ -64,8 +64,8 @@ mod tests {
 
     use crate::{ActiveSessions, Stats, TunDevice};
 
-    use super::super::packet::{build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, endpoint_to_socketaddr};
     use super::super::TCP_SOCKET_BUF;
+    use super::super::packet::{build_ipv4_tcp_syn_packet, build_ipv6_tcp_syn_packet, endpoint_to_socketaddr};
     use super::{
         ensure_pending_listen_for_syn, socketaddr_to_listen_endpoint, spawn_new_tcp_sessions, tcp_session_target_addr,
     };

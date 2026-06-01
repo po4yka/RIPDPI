@@ -9,8 +9,8 @@ pub use runtime::{
     CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime, UnavailableCandidateRuntimeLauncher,
 };
 pub(super) use scoring::{
-    eliminated_candidate_summary, not_applicable_candidate_execution, skipped_candidate_summary,
-    winning_candidate_index_with, CandidateExecution,
+    CandidateExecution, eliminated_candidate_summary, not_applicable_candidate_execution, skipped_candidate_summary,
+    winning_candidate_index_with,
 };
 
 #[cfg(test)]

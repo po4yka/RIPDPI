@@ -1,9 +1,9 @@
 use std::net::{SocketAddr, TcpStream};
 
 use super::super::super::state::RuntimeState;
-use super::reply::{write_success_reply, SuccessReply};
-use super::routes::{connect_delayed_route, connect_immediate_route, connect_ws_seed_route, UpstreamRoute};
 use super::ConnectRelayError;
+use super::reply::{SuccessReply, write_success_reply};
+use super::routes::{UpstreamRoute, connect_delayed_route, connect_immediate_route, connect_ws_seed_route};
 use crate::runtime::types::RuntimeConnectionRoute;
 
 pub(super) fn immediate_connect_relay(

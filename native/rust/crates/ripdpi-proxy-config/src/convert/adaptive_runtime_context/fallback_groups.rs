@@ -1,4 +1,4 @@
-use ripdpi_config::{DesyncGroup, RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR, DETECT_TORST};
+use ripdpi_config::{DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR, DETECT_TORST, DesyncGroup, RuntimeConfig};
 
 use crate::types::ProxyUiAdaptiveFallbackConfig;
 

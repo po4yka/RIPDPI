@@ -1,4 +1,4 @@
-use ripdpi_strategy_config::{load_config_file, parse_toml_str, OnFail, ProtocolName, StepType};
+use ripdpi_strategy_config::{OnFail, ProtocolName, StepType, load_config_file, parse_toml_str};
 
 #[test]
 fn parses_canonical_toml_schema() {

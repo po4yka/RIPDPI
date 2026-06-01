@@ -1,4 +1,4 @@
-use etherparse::{ip_number, IpFragOffset, IpNumber, Ipv6FlowLabel, Ipv6FragmentHeader, Ipv6Header};
+use etherparse::{IpFragOffset, IpNumber, Ipv6FlowLabel, Ipv6FragmentHeader, Ipv6Header, ip_number};
 
 use crate::split::IP_FRAGMENT_ALIGNMENT_BYTES;
 use crate::{BuildError, IpFragmentPair, Ipv6ExtHeaders};
@@ -14,7 +14,7 @@ const IPV6_EXT_HDR_MIN_LEN: usize = 8;
 fn serialize_pad_extension(next_header: u8, buf: &mut Vec<u8>) {
     buf.push(next_header);
     buf.push(0); // hdr_ext_len = 0 -> total 8 bytes
-                 // PadN option: type=1, length=4 (fills remaining 6 bytes: type + len + 4 zero bytes)
+    // PadN option: type=1, length=4 (fills remaining 6 bytes: type + len + 4 zero bytes)
     buf.push(1); // PadN option type
     buf.push(4); // PadN data length
     buf.extend_from_slice(&[0u8; 4]); // 4 zero padding bytes

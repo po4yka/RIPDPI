@@ -7,7 +7,7 @@ use crate::protocols::{
     TrojanSession, TrojanUdpSession, TuicSession,
 };
 use crate::socks::RelayTargetAddr;
-use crate::telemetry::{sync_quic_migration_state, QuicMigrationTelemetryState};
+use crate::telemetry::{QuicMigrationTelemetryState, sync_quic_migration_state};
 
 pub(crate) enum RelayUdpSession {
     Hysteria2 {

@@ -3,11 +3,11 @@ use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::sync::Arc;
 use std::time::Duration;
 
-use rustls::pki_types::ServerName;
 use rustls::KeyLog;
+use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
-use tungstenite::client::IntoClientRequest;
 use tungstenite::WebSocket;
+use tungstenite::client::IntoClientRequest;
 
 pub type WsOverTlsStream = WebSocket<StreamOwned<ClientConnection, TcpStream>>;
 pub type WsTlsKeyLogCallback = Arc<dyn KeyLog>;

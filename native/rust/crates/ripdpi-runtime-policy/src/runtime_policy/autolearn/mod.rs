@@ -18,8 +18,8 @@ use store::network_scope_key;
 
 use super::types::{LearnedHostRecord, PendingBlockedHost};
 use super::{
-    now_millis, HostAutolearnEvent, HostAutolearnState, RuntimePolicy, BLOCK_CONFIRMATION_WINDOW_MS,
-    EMPTY_LEARNED_HOSTS,
+    BLOCK_CONFIRMATION_WINDOW_MS, EMPTY_LEARNED_HOSTS, HostAutolearnEvent, HostAutolearnState, RuntimePolicy,
+    now_millis,
 };
 
 impl RuntimePolicy {

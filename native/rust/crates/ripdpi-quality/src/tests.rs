@@ -172,7 +172,7 @@ fn record_loss_clamps_out_of_range_inputs() {
     w.record_loss(200.0); // above 100
     w.record_loss(-5.0); // below 0; clamped to 0 by accumulate_loss
     w.record_loss(f32::NAN); // NaN → treated as 0
-                             // All three become 100, 0, 0 → mean = 33.33, clamped ≤ 100.
+    // All three become 100, 0, 0 → mean = 33.33, clamped ≤ 100.
     let s = w.snapshot().expect("snapshot");
     assert!(s.loss_pct >= 0.0 && s.loss_pct <= 100.0, "loss_pct={} out of range", s.loss_pct);
 }

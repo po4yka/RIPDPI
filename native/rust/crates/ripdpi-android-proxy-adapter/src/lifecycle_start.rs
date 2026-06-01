@@ -1,12 +1,12 @@
 use std::sync::{Arc, PoisonError};
 
-use jni::sys::{jint, jlong};
 use jni::Env;
+use jni::sys::{jint, jlong};
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
-use crate::lifecycle::{open_proxy_listener, positive_os_error, proxy_error, IdleGuard};
+use crate::lifecycle::{IdleGuard, open_proxy_listener, positive_os_error, proxy_error};
 use crate::quality_sink::CompositeProxyTelemetrySink;
-use crate::registry::{lookup_proxy_session, try_mark_proxy_running, ProxySessionState};
+use crate::registry::{ProxySessionState, lookup_proxy_session, try_mark_proxy_running};
 use ripdpi_android_bridge_support::{throw_illegal_state_env_with_payload, throw_io_exception_env_with_payload};
 use ripdpi_android_telemetry_adapter::ProxyTelemetryObserver;
 

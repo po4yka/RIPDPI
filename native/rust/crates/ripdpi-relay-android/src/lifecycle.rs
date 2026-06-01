@@ -7,14 +7,14 @@
 //! reported through return values — these functions never throw Java
 //! exceptions.
 
-use android_support::{clear_relay_events, init_android_logging, JNI_VERSION};
+use android_support::{JNI_VERSION, clear_relay_events, init_android_logging};
 use jni::objects::JString;
 use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, JavaVM, Outcome};
 
 use crate::registry::{insert_session, remove_session, session_from_handle};
 use crate::runtime::create_session;
-use crate::telemetry::{install_quality_observer, serialize_runtime_telemetry, IDLE_TELEMETRY_JSON};
+use crate::telemetry::{IDLE_TELEMETRY_JSON, install_quality_observer, serialize_runtime_telemetry};
 
 /// `JNI_OnLoad` body: mask `SIGPIPE`, install Android logging and the panic
 /// hook, and install the default `rustls` crypto provider. Returns the JNI

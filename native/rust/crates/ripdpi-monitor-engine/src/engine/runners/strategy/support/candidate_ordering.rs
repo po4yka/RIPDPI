@@ -9,8 +9,7 @@ use crate::types::ProbeResult;
 pub(in crate::engine::runners::strategy) const ECH_ELIGIBILITY_RATIONALE: &str =
     "Baseline did not expose an ECH-capable HTTPS target, so ECH extension splitting would be a no-op";
 
-pub(in crate::engine::runners::strategy) const FAKE_TTL_ELIGIBILITY_RATIONALE: &str =
-    "setsockopt(IP_TTL) is unavailable on this platform (Android VPN/tun mode); fake-packet strategies that rely on TTL manipulation are skipped";
+pub(in crate::engine::runners::strategy) const FAKE_TTL_ELIGIBILITY_RATIONALE: &str = "setsockopt(IP_TTL) is unavailable on this platform (Android VPN/tun mode); fake-packet strategies that rely on TTL manipulation are skipped";
 
 pub(in crate::engine::runners::strategy) const TCP_FAST_OPEN_ELIGIBILITY_RATIONALE: &str =
     "TCP Fast Open is unavailable on this device/kernel, so TFO probe variants are skipped";

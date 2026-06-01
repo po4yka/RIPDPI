@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use etherparse::{ip_number, Ipv6FlowLabel, Ipv6Header, UdpHeader};
+use etherparse::{Ipv6FlowLabel, Ipv6Header, UdpHeader, ip_number};
 
 use crate::ipv4::build_ipv4_fragment_pair;
 use crate::ipv6::build_ipv6_fragment_pair;

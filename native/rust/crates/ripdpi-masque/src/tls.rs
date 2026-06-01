@@ -1,6 +1,6 @@
 use std::io;
 
-use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject};
 
 use crate::config::MasqueConfig;
 

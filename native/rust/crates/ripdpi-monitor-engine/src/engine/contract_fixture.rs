@@ -4,8 +4,8 @@ use std::sync::{Arc, Mutex};
 use rustls::client::danger::ServerCertVerifier;
 
 use super::runtime::{
-    self, publish_cancelled_run, CollectedStageOutcome, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner,
-    RunnerArtifacts, RunnerOutcome,
+    self, CollectedStageOutcome, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts,
+    RunnerOutcome, publish_cancelled_run,
 };
 use crate::types::{ScanKind, ScanRequest, SharedState};
 

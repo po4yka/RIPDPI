@@ -8,7 +8,7 @@
 //! the dispatch handler" via the marker check.
 
 use feature_contract_harness::{assert_layer_markers, load_family_manifests, locate_repo_root};
-use ripdpi_root_helper_protocol::{command_descriptor, validate_request, COMMAND_DESCRIPTORS};
+use ripdpi_root_helper_protocol::{COMMAND_DESCRIPTORS, command_descriptor, validate_request};
 
 #[test]
 fn root_helper_command_manifests_pin_their_cross_layer_markers() {

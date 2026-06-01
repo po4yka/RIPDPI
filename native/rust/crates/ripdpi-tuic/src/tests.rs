@@ -4,15 +4,15 @@ use std::sync::Arc;
 use bytes::BytesMut;
 use quinn::Endpoint;
 use rcgen::generate_simple_self_signed;
-use rustls::pki_types::PrivateKeyDer;
 use rustls::ServerConfig as RustlsServerConfig;
+use rustls::pki_types::PrivateKeyDer;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use uuid::Uuid;
 
 use crate::client::TuicClient;
 use crate::config::Config;
 use crate::endpoint::{build_tls_config, ensure_crypto_provider};
-use crate::protocol::{PacketHeader, TuicAddress, COMMAND_AUTHENTICATE, COMMAND_CONNECT, TUIC_VERSION};
+use crate::protocol::{COMMAND_AUTHENTICATE, COMMAND_CONNECT, PacketHeader, TUIC_VERSION, TuicAddress};
 
 #[test]
 fn packet_header_round_trips() {

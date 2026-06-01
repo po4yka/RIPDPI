@@ -1,6 +1,6 @@
 use boring::ssl::{SslConnector, SslConnectorBuilder, SslMethod, SslVerifyMode};
 
-use crate::{apply, invariants::validate_profile_config, profile, trust, Error};
+use crate::{Error, apply, invariants::validate_profile_config, profile, trust};
 
 /// Returns a configured builder that the caller can further customize before
 /// calling `.build()`. Use this when you need to set additional options

@@ -9,7 +9,7 @@ use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
 
 use ripdpi_ipfrag::{
-    build_tcp_fragment_pair, build_udp_fragment_pair, TcpFragmentSpec, TcpTimestampOption, UdpFragmentSpec,
+    TcpFragmentSpec, TcpTimestampOption, UdpFragmentSpec, build_tcp_fragment_pair, build_udp_fragment_pair,
 };
 use socket2::Domain;
 
@@ -19,8 +19,8 @@ use crate::linux::raw_packet::{
 };
 use crate::linux::socket_options::get_stream_ttl;
 use crate::linux::tcp_repair::{
-    disable_tcp_repair, probe_tcp_repair, sequence_after_payload, set_tcp_repair, set_tcp_repair_queue,
-    snapshot_tcp_repair_state, TcpRepairSnapshot, TCP_NO_QUEUE, TCP_REPAIR_ON,
+    TCP_NO_QUEUE, TCP_REPAIR_ON, TcpRepairSnapshot, disable_tcp_repair, probe_tcp_repair, sequence_after_payload,
+    set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
 };
 use crate::{IpFragmentationCapabilities, TcpFlagOverrides, TcpPayloadSegment};
 pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {

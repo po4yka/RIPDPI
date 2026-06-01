@@ -13,9 +13,9 @@ mod transport_policy_cache;
 mod types;
 
 pub use block_detection::{
+    BlockSignal, BlockSignalObservation, BlockpageFingerprint, FingerprintLocation, PatternType,
     block_signal_from_failure, bundled_blockpage_fingerprints, classify_http_response_block,
-    load_blockpage_fingerprints, match_blockpage_response, BlockSignal, BlockSignalObservation, BlockpageFingerprint,
-    FingerprintLocation, PatternType,
+    load_blockpage_fingerprints, match_blockpage_response,
 };
 pub use http::classify_http_blockpage;
 pub use quic::classify_quic_probe;
@@ -30,7 +30,7 @@ pub use {
     connection_freeze::classify_connection_freeze,
     dns::confirm_dns_tampering,
     transport_policy_cache::{
-        AccessTypeTag, AtomicFile, CachedTransportPolicy, NetProfileKey, TransportPolicyCache, TransportPolicyCacheKey,
-        DEFAULT_TTL_SECS,
+        AccessTypeTag, AtomicFile, CachedTransportPolicy, DEFAULT_TTL_SECS, NetProfileKey, TransportPolicyCache,
+        TransportPolicyCacheKey,
     },
 };

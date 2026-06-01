@@ -3,7 +3,7 @@
 //! collisions, and an unknown family value with a friendlier message than
 //! the family-specific tests would produce.
 
-use feature_contract_harness::{collect_all_manifests, KNOWN_FAMILIES};
+use feature_contract_harness::{KNOWN_FAMILIES, collect_all_manifests};
 
 #[test]
 fn every_family_directory_has_at_least_one_manifest() {

@@ -2,9 +2,9 @@ use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 
+use ripdpi_socks5_core::Socks5Command;
 use ripdpi_socks5_core::client::{Config as Socks5Config, Socks5Stream};
 use ripdpi_socks5_core::util::target_addr::TargetAddr as Socks5TargetAddr;
-use ripdpi_socks5_core::Socks5Command;
 
 use super::super::connection::TcpClientStream;
 use super::super::state::ResolverInner;

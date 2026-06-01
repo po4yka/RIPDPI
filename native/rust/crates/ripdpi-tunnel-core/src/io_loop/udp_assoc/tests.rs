@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 
-use crate::session::Auth;
 use crate::TunDevice;
+use crate::session::Auth;
 
 use super::association_state::{now_millis, touch_udp_activity, udp_association_is_idle};
-use super::event_handling::{handle_udp_event, UdpEvent};
+use super::event_handling::{UdpEvent, handle_udp_event};
 use super::shutdown::shutdown_udp_associations;
 use super::worker::create_udp_association;
 
@@ -244,7 +244,7 @@ async fn shutdown_cancels_all_associations() {
 #[test]
 fn record_quic_sni_records_server_name_from_quic_initial() {
     use crate::Stats;
-    use ripdpi_packets::{build_realistic_quic_initial, QUIC_V1_VERSION};
+    use ripdpi_packets::{QUIC_V1_VERSION, build_realistic_quic_initial};
 
     let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some("example.test")).expect("build quic initial");
     let stats = Stats::new();

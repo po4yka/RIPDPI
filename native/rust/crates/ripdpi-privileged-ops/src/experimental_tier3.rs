@@ -50,11 +50,7 @@ impl IcmpWrappedUdpRole {
     }
 
     pub const fn from_flags(flags: u8) -> Self {
-        if flags & ICMP_UDP_FLAG_REPLY != 0 {
-            Self::ServerReply
-        } else {
-            Self::ClientRequest
-        }
+        if flags & ICMP_UDP_FLAG_REPLY != 0 { Self::ServerReply } else { Self::ClientRequest }
     }
 }
 

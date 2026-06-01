@@ -1,7 +1,7 @@
 use android_support::ffi_boundary;
-use jni::objects::JObject;
-use jni::sys::{jboolean, JNI_FALSE};
 use jni::EnvUnowned;
+use jni::objects::JObject;
+use jni::sys::{JNI_FALSE, jboolean};
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jniSeqovlSupported(

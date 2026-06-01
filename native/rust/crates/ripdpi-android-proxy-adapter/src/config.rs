@@ -1,15 +1,15 @@
 #[cfg(test)]
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::{
+    ProxyConfigError, ProxyConfigPayload, RuntimeConfigEnvelope,
     parse_proxy_config_json as shared_parse_proxy_config_json,
-    runtime_config_envelope_from_payload as shared_runtime_config_envelope_from_payload, ProxyConfigError,
-    ProxyConfigPayload, RuntimeConfigEnvelope,
+    runtime_config_envelope_from_payload as shared_runtime_config_envelope_from_payload,
 };
 #[cfg(test)]
 use ripdpi_proxy_config::{
-    runtime_config_from_command_line as shared_runtime_config_from_command_line,
+    ProxyUiConfig, runtime_config_from_command_line as shared_runtime_config_from_command_line,
     runtime_config_from_payload as shared_runtime_config_from_payload,
-    runtime_config_from_ui as shared_runtime_config_from_ui, ProxyUiConfig,
+    runtime_config_from_ui as shared_runtime_config_from_ui,
 };
 
 use ripdpi_android_bridge_support::JniProxyError;

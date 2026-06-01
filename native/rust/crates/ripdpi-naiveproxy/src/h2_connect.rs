@@ -1,6 +1,6 @@
 use std::io;
 
-use base64::prelude::{Engine as _, BASE64_STANDARD};
+use base64::prelude::{BASE64_STANDARD, Engine as _};
 use bytes::Bytes;
 use http::header::PROXY_AUTHORIZATION;
 use http::{HeaderMap, HeaderValue, Request};

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::tls::{TlsKeyLogCallback, TlsObservation};
-use crate::transport::{domain_connect_targets, TransportConfig};
+use crate::transport::{TransportConfig, domain_connect_targets};
 use crate::types::DomainTarget;
 use crate::util::now_ms;
 

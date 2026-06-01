@@ -1,4 +1,4 @@
-use ripdpi_failure_classifier::{classify_quic_probe, ClassifiedFailure, FailureAction, FailureClass, FailureStage};
+use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, FailureStage, classify_quic_probe};
 
 use crate::types::{
     ObservationKind, ProbeDetail, ProbeObservation, ProbeResult, StrategyProbeProtocol, TransportFailureKind,

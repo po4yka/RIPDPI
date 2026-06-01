@@ -249,7 +249,7 @@ pub fn validate_request(
 
 #[cfg(test)]
 mod tests {
-    use super::{command_descriptor, validate_request, DescriptorValidationError, COMMAND_DESCRIPTORS};
+    use super::{COMMAND_DESCRIPTORS, DescriptorValidationError, command_descriptor, validate_request};
     use crate::commands::{
         CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
         CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP,

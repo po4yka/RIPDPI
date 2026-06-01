@@ -9,7 +9,7 @@ pub(crate) use framing::{read_length_prefixed_frame_async, write_length_prefixed
 pub(crate) use normalize::normalize_endpoint;
 pub(crate) use util::{format_error_chain, resolve_socket_addr, unix_time_secs};
 pub(crate) use wire::build_dns_query;
-pub use wire::{extract_ip_answer_records, extract_ip_answers, IpAnswerFamily, IpAnswerRecord};
+pub use wire::{IpAnswerFamily, IpAnswerRecord, extract_ip_answer_records, extract_ip_answers};
 
 use std::time::Duration;
 

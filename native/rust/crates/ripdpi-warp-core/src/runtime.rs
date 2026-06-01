@@ -4,16 +4,16 @@ use std::sync::{Arc, Mutex};
 
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
-use crate::config::{now_ms, parse_ipv4_cidr, resolve_endpoint, ResolvedWarpRuntimeConfig, WarpTelemetry};
+use crate::config::{ResolvedWarpRuntimeConfig, WarpTelemetry, now_ms, parse_ipv4_cidr, resolve_endpoint};
 use crate::observe::TcpConnectObservation;
 use crate::platform::WarpPlatform;
 use crate::ports::{PortProtocol, UdpAssociationPool, VirtualPortPool};
 use crate::socks::handle_socks_client;
 use crate::support::to_io_error;
 use crate::virtual_iface::{Bus, DynamicTcpInterface, DynamicUdpInterface};
-use crate::wireguard::{reserved_bytes_from_client_id, WireGuardTunnel};
+use crate::wireguard::{WireGuardTunnel, reserved_bytes_from_client_id};
 
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const READY_SOURCE: &str = "warp";

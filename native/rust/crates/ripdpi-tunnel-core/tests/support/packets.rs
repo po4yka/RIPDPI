@@ -41,11 +41,7 @@ fn udp_checksum_ipv4(src_ip: [u8; 4], dst_ip: [u8; 4], udp_segment: &[u8]) -> u1
     sum += checksum_sum(udp_segment);
     let result = finalize_checksum(sum);
     // UDP checksum of 0 means "no checksum"; use 0xFFFF instead.
-    if result == 0 {
-        0xFFFF
-    } else {
-        result
-    }
+    if result == 0 { 0xFFFF } else { result }
 }
 
 fn set_ip_header_checksum(pkt: &mut [u8]) {

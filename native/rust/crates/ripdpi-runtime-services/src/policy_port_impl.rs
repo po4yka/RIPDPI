@@ -3,16 +3,16 @@ use std::io;
 use std::net::SocketAddr;
 
 use ripdpi_failure_classifier::BlockSignal;
+use ripdpi_runtime_policy::GeoMatcher;
 use ripdpi_runtime_policy::direct_path_learning::DirectPathLearningObserver;
 use ripdpi_runtime_policy::runtime_policy::{
     ConnectionRoute, HostAutolearnEvent, HostAutolearnState, RetrySelectionPenalty, RouteAdvance, RuntimePolicy,
     TransportProtocol,
 };
-use ripdpi_runtime_policy::GeoMatcher;
 use ripdpi_runtime_policy::{DirectPathLearningPort, PolicyPort};
 
-use crate::services_state::ServicesState;
 use crate::ServicesStateHandle;
+use crate::services_state::ServicesState;
 
 impl PolicyPort for ServicesStateHandle {
     fn select_initial(

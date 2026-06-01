@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use ripdpi_config::{dump_cache_entries, RuntimeConfig};
+use ripdpi_config::{RuntimeConfig, dump_cache_entries};
 
 use crate::runtime_policy::types::CacheRecord;
 

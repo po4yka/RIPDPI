@@ -11,7 +11,7 @@ use crate::capsule::encode_connect_udp_payload;
 use crate::client::MasqueClientInner;
 use crate::h2::attempt_h2_connect_udp;
 use crate::h3::attempt_h3_connect_udp;
-use crate::response::{classify_attempt_failure, AttemptError};
+use crate::response::{AttemptError, classify_attempt_failure};
 
 type H3DatagramSender = DatagramSender<h3_quinn::datagram::SendDatagramHandler, Bytes>;
 

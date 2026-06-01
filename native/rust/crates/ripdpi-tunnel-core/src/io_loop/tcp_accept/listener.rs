@@ -5,8 +5,8 @@ use smoltcp::iface::{SocketHandle, SocketSet};
 use smoltcp::socket::tcp::{self, Socket as TcpSocket};
 use tracing::{debug, warn};
 
-use crate::io_loop::packet::{tcp_syn_flow_key, TcpFlowKey};
 use crate::io_loop::TCP_SOCKET_BUF;
+use crate::io_loop::packet::{TcpFlowKey, tcp_syn_flow_key};
 
 use super::socketaddr_to_listen_endpoint;
 

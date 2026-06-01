@@ -207,11 +207,7 @@ impl ComboStats {
     }
 
     pub(crate) fn avg_latency_ms(&self) -> f64 {
-        if self.successes > 0 {
-            self.total_latency_ms as f64 / self.successes as f64
-        } else {
-            FITNESS_LATENCY_CAP_MS
-        }
+        if self.successes > 0 { self.total_latency_ms as f64 / self.successes as f64 } else { FITNESS_LATENCY_CAP_MS }
     }
 
     pub(crate) fn latency_variance_ms(&self) -> f64 {

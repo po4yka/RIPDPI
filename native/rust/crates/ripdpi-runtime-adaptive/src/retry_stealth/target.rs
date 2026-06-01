@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use ripdpi_desync::AdaptivePlannerHints;
 
-use crate::retry_stealth::hash::{stable_hash_update, FNV_OFFSET};
+use crate::retry_stealth::hash::{FNV_OFFSET, stable_hash_update};
 
 pub fn adaptive_signature_hash(fake_ttl: Option<u8>, hints: AdaptivePlannerHints) -> u64 {
     let mut hash = FNV_OFFSET;

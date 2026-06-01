@@ -1,7 +1,7 @@
 pub(crate) mod candidates {
     pub use ripdpi_diagnostics_candidates::candidates::{
-        strategy_probe_encrypted_dns_context, strategy_probe_encrypted_dns_endpoint,
-        strategy_probe_encrypted_dns_label, StrategyProbeBaseline,
+        StrategyProbeBaseline, strategy_probe_encrypted_dns_context, strategy_probe_encrypted_dns_endpoint,
+        strategy_probe_encrypted_dns_label,
     };
 }
 
@@ -10,13 +10,13 @@ pub(crate) mod dns {
 }
 
 pub(crate) mod dns_oracle {
-    pub use ripdpi_diagnostics_protocols::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment, DnsOracleResponse};
+    pub use ripdpi_diagnostics_protocols::dns_oracle::{DnsOracleAssessment, DnsOracleResponse, evaluate_dns_oracles};
 }
 
 pub(crate) mod transport {
-    pub use ripdpi_diagnostics_protocols::transport::{domain_connect_target, resolve_addresses, TargetAddress};
+    pub use ripdpi_diagnostics_protocols::transport::{TargetAddress, domain_connect_target, resolve_addresses};
 }
 
 pub(crate) mod util {
-    pub use ripdpi_diagnostics_protocols::util::{classify_dns_answer_overlap, DnsAnswerOverlap};
+    pub use ripdpi_diagnostics_protocols::util::{DnsAnswerOverlap, classify_dns_answer_overlap};
 }

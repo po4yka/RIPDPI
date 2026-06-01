@@ -1,4 +1,4 @@
-use ring::hkdf::{self, KeyType, Salt, HKDF_SHA256};
+use ring::hkdf::{self, HKDF_SHA256, KeyType, Salt};
 
 use crate::types::{QUIC_V1_VERSION, QUIC_V2_VERSION};
 

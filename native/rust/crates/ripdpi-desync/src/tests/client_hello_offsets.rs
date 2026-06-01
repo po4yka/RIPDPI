@@ -1,5 +1,5 @@
-use crate::{parse_client_hello_offsets, ClientHelloOffsetsError};
-use ripdpi_packets::{parse_tls_client_hello_layout, tls_fake_profile_bytes, TlsFakeProfile};
+use crate::{ClientHelloOffsetsError, parse_client_hello_offsets};
+use ripdpi_packets::{TlsFakeProfile, parse_tls_client_hello_layout, tls_fake_profile_bytes};
 
 #[test]
 fn client_hello_offsets_parse_google_chrome_and_firefox_profiles() {

@@ -1,17 +1,17 @@
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::thread;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
-use crate::execution::{eliminated_candidate_summary, CandidateExecution, StrategyLaneExecutor};
+use crate::execution::{CandidateExecution, StrategyLaneExecutor, eliminated_candidate_summary};
 use crate::types::DomainTarget;
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime};
 use super::super::support::stratified_pilot_targets;
-use super::capability_gating::{candidate_passes_pilot_without_execution, TcpCapabilities};
 use super::StrategyTcpRunner;
+use super::capability_gating::{TcpCapabilities, candidate_passes_pilot_without_execution};
 
 pub(super) fn qualify_pilot_candidates(
     runner: &StrategyTcpRunner,

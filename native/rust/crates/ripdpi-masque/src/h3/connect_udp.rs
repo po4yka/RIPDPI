@@ -11,7 +11,7 @@ use super::transport::connect_h3_transport;
 use crate::auth::AuthHeader;
 use crate::config::MasqueConfig;
 use crate::request::apply_request_headers;
-use crate::response::{validate_connect_udp_response, AttemptError};
+use crate::response::{AttemptError, validate_connect_udp_response};
 use crate::udp::{MasqueUdpFlow, MasqueUdpSender};
 use crate::url::{build_connect_udp_path, parse_proxy_origin, parse_target};
 

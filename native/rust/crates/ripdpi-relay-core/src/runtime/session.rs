@@ -4,7 +4,7 @@ use tokio::net::TcpStream;
 
 use super::RelayRuntime;
 use crate::backend::RelayBackend;
-use crate::socks::{handle_client, SocksSessionConfig};
+use crate::socks::{SocksSessionConfig, handle_client};
 
 pub(super) fn spawn_socks_session(runtime: Arc<RelayRuntime>, backend: Arc<RelayBackend>, stream: TcpStream) {
     tokio::spawn(async move {

@@ -12,13 +12,13 @@ mod schema;
 
 pub(super) use location::adaptive_store_path;
 #[cfg(test)]
-pub(super) use schema::{restore_offset_base, StoredOffsetBase};
+pub(super) use schema::{StoredOffsetBase, restore_offset_base};
 
 use super::types::{AdaptiveFlowKind, AdaptivePlannerTarget};
 use file_io::{read_store, write_store};
 use location::adaptive_store_fingerprint;
 use schema::{
-    StoredAdaptiveNetworkScope, StoredAdaptivePlannerEntry, StoredAdaptivePlannerStore, ADAPTIVE_TUNING_STORE_VERSION,
+    ADAPTIVE_TUNING_STORE_VERSION, StoredAdaptiveNetworkScope, StoredAdaptivePlannerEntry, StoredAdaptivePlannerStore,
 };
 
 pub(super) fn load_adaptive_store(

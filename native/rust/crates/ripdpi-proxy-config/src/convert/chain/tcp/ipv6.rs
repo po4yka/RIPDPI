@@ -1,6 +1,6 @@
 use crate::types::{ProxyConfigError, ProxyUiTcpChainStep};
 
-use crate::convert::chain::ipv6::{parse_ipv6_extension_profile, ParsedIpv6ExtensionProfile};
+use crate::convert::chain::ipv6::{ParsedIpv6ExtensionProfile, parse_ipv6_extension_profile};
 
 pub(crate) fn parse_tcp_ipv6_extension_profile(
     step: &ProxyUiTcpChainStep,

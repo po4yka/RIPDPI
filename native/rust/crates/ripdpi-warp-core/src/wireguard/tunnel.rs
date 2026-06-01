@@ -9,7 +9,7 @@ use tokio::net::UdpSocket;
 use super::keys::{apply_reserved_bytes, decode_key};
 use super::routing::route_protocol;
 use super::socket::bind_tunnel_socket;
-use crate::amneziawg::{rand_u32, AwgParams, AwgWireCodec};
+use crate::amneziawg::{AwgParams, AwgWireCodec, rand_u32};
 use crate::config::WarpAmneziaConfig;
 use crate::platform::WarpPlatform;
 use crate::support::MAX_PACKET;

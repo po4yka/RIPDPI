@@ -6,9 +6,9 @@ use smoltcp::time::Instant;
 use smoltcp::wire::IpAddress;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::io_loop::tcp_accept::{ensure_pending_listen_for_syn, socketaddr_to_listen_endpoint};
-use crate::io_loop::TCP_SOCKET_BUF;
 use crate::TunDevice;
+use crate::io_loop::TCP_SOCKET_BUF;
+use crate::io_loop::tcp_accept::{ensure_pending_listen_for_syn, socketaddr_to_listen_endpoint};
 
 use super::super::{flush_pending_to_session, flush_pending_to_smoltcp, try_read_duplex, try_write_duplex};
 use super::support::{build_ipv4_tcp_ack_packet, build_ipv4_tcp_syn_packet, tcp_seq_ack};

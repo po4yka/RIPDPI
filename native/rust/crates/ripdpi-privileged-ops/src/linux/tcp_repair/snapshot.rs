@@ -3,10 +3,10 @@ use std::io;
 use crate::linux::tcp_info::{read_tcp_info, tcp_has_notsent};
 
 use super::fionread::pending_tcp_read_bytes;
-use super::options::{snapshot_tcp_repair_options, TcpRepairOptionsSnapshot};
+use super::options::{TcpRepairOptionsSnapshot, snapshot_tcp_repair_options};
 use super::sockopt::{
-    get_tcp_queue_seq, get_tcp_repair_window, set_tcp_repair_queue, TcpRepairWindow, TCP_NO_QUEUE, TCP_RECV_QUEUE,
-    TCP_SEND_QUEUE,
+    TCP_NO_QUEUE, TCP_RECV_QUEUE, TCP_SEND_QUEUE, TcpRepairWindow, get_tcp_queue_seq, get_tcp_repair_window,
+    set_tcp_repair_queue,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

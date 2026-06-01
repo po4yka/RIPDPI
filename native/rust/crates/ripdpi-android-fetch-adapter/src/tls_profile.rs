@@ -1,7 +1,7 @@
 use std::io;
 use std::time::Duration;
 
-use ripdpi_tls_profiles::{configure_builder, profile_catalog_version, ProfileMetadata, ProfileTemplateMetadata};
+use ripdpi_tls_profiles::{ProfileMetadata, ProfileTemplateMetadata, configure_builder, profile_catalog_version};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 

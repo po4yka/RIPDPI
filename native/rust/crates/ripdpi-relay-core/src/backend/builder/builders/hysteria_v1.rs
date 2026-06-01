@@ -1,7 +1,7 @@
 use std::io;
 
-use crate::backend::builder::builders::common::to_io_error;
 use crate::backend::builder::BuildContext;
+use crate::backend::builder::builders::common::to_io_error;
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::HysteriaV1SessionFactory;

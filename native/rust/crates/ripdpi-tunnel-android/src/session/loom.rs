@@ -1,4 +1,4 @@
-use super::{ensure_tunnel_destroyable, ensure_tunnel_start_allowed, take_running_tunnel, TunnelSessionState};
+use super::{TunnelSessionState, ensure_tunnel_destroyable, ensure_tunnel_start_allowed, take_running_tunnel};
 use ::loom::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
 

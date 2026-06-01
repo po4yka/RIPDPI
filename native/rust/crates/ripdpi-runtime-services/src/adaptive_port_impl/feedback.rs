@@ -1,5 +1,5 @@
-use crate::strategy_evolution::StrategyEvolutionResolver;
 use crate::ServicesStateHandle;
+use crate::strategy_evolution::StrategyEvolutionResolver;
 use ripdpi_failure_classifier::FailureClass;
 use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use ripdpi_runtime_adaptive::adaptive_port::AdaptiveFeedbackPort;

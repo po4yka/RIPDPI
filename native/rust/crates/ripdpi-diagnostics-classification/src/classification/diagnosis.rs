@@ -15,7 +15,7 @@ mod tests;
 mod throughput;
 mod transport;
 
-use common::{normalize_host, DiagnosisSink};
+use common::{DiagnosisSink, normalize_host};
 pub use strategy_probe::{classify_strategy_probe_baseline_results, strategy_probe_failure_weight};
 pub use transport::classify_transport_failure_text;
 

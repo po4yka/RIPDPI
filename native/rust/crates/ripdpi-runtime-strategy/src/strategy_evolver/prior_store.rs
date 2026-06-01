@@ -1,7 +1,7 @@
-use super::shared_priors::{apply_priors, canonical_combo_hash, ApplyError, SHARED_PRIORS_PUB_KEY};
+use super::StrategyEvolver;
+use super::shared_priors::{ApplyError, SHARED_PRIORS_PUB_KEY, apply_priors, canonical_combo_hash};
 use super::thompson_sampling::BetaParams;
 use super::types::StrategyCombo;
-use super::StrategyEvolver;
 
 impl StrategyEvolver {
     /// Verify a signed shared-priors bundle and load its posteriors into the

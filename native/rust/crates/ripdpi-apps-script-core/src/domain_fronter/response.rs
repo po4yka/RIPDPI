@@ -4,8 +4,8 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::time::timeout;
 
-use super::headers;
 use super::FronterError;
+use super::headers;
 
 pub(super) struct HttpResponse {
     pub(super) status: u16,

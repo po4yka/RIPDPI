@@ -4,7 +4,7 @@ use crate::types::{
 };
 use crate::util::STRATEGY_PROBE_SUITE_FULL_MATRIX_V1;
 
-use super::super::audit_confidence::{build_audit_confidence, AuditSignals};
+use super::super::audit_confidence::{AuditSignals, build_audit_confidence};
 use super::super::audit_counts::{build_audit_coverage, round_percent, strategy_audit_lane_counts};
 use super::super::audit_scoring::{all_candidates_tied, candidate_score_percent, winner_margin_percent};
 

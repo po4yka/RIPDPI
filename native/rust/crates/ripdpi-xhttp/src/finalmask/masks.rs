@@ -60,11 +60,12 @@ impl TcpOutboundMask {
             FinalmaskSpec::Fragment { packets, min_bytes, max_bytes } => {
                 Ok(fragment_bytes(payload, *packets, *min_bytes, *max_bytes))
             }
-            FinalmaskSpec::Sudoku { .. } => Ok(vec![self
-                .sudoku_encoder
-                .as_mut()
-                .ok_or_else(|| io::Error::other("missing sudoku encoder"))?
-                .encode_chunk(payload)?]),
+            FinalmaskSpec::Sudoku { .. } => Ok(vec![
+                self.sudoku_encoder
+                    .as_mut()
+                    .ok_or_else(|| io::Error::other("missing sudoku encoder"))?
+                    .encode_chunk(payload)?,
+            ]),
         }
     }
 }

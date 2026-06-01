@@ -111,11 +111,7 @@ fn lcg_f64(state: &mut u64) -> f64 {
     // Extract 53 high-quality bits (bits 63..11) and map to [0, 1).
     let raw = (*state >> 11) as f64 * (1.0 / (1u64 << 53) as f64);
     // Clamp away exact 0 to keep sample_beta denominators non-zero.
-    if raw == 0.0 {
-        f64::MIN_POSITIVE
-    } else {
-        raw
-    }
+    if raw == 0.0 { f64::MIN_POSITIVE } else { raw }
 }
 
 // ---------------------------------------------------------------------------

@@ -3,8 +3,8 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::tls::{
-    try_tls_handshake_targets, try_tls_handshake_targets_with_key_log, TlsClientProfile, TlsKeyLogCallback,
-    TlsObservation,
+    TlsClientProfile, TlsKeyLogCallback, TlsObservation, try_tls_handshake_targets,
+    try_tls_handshake_targets_with_key_log,
 };
 use crate::transport::{TargetAddress, TransportConfig};
 

@@ -1,6 +1,6 @@
 use std::io;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 use tracing::warn;
 use tun_rs::AsyncDevice;

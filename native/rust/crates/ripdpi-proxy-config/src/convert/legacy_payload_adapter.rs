@@ -3,7 +3,7 @@ use std::{fmt, mem};
 use ripdpi_config::{DesyncMode, OffsetExpr};
 use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 
-use crate::types::{validate_schema_version, ProxyConfigError, ProxyConfigPayload};
+use crate::types::{ProxyConfigError, ProxyConfigPayload, validate_schema_version};
 
 const GROUPED_UI_KEYS: &[&str] = &[
     "listen",

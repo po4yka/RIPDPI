@@ -6,7 +6,7 @@ use bytes::{BufMut, BytesMut};
 use quinn::{RecvStream, SendStream};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use crate::protocol::{TuicAddress, COMMAND_CONNECT, TUIC_VERSION};
+use crate::protocol::{COMMAND_CONNECT, TUIC_VERSION, TuicAddress};
 
 pub struct DuplexStream {
     pub(crate) send: SendStream,

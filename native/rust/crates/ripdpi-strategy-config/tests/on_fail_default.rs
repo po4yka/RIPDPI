@@ -1,4 +1,4 @@
-use ripdpi_strategy_config::{parse_yaml_str, OnFail};
+use ripdpi_strategy_config::{OnFail, parse_yaml_str};
 
 #[test]
 fn on_fail_defaults_to_next_strategy() {

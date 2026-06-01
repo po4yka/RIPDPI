@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use super::{read_u16, ClientHelloOffsetsError};
+use super::{ClientHelloOffsetsError, read_u16};
 
 pub(crate) fn collect_tls_record_payload_spans(buffer: &[u8]) -> Result<Vec<Range<usize>>, ClientHelloOffsetsError> {
     if buffer.len() < 5 {

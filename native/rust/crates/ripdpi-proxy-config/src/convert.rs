@@ -12,7 +12,7 @@ use ripdpi_config::{RuntimeConfig, StartupEnv};
 
 use crate::presets;
 use crate::types::{
-    validate_schema_version, ProxyConfigError, ProxyConfigPayload, ProxyUiConfig, RuntimeConfigEnvelope,
+    ProxyConfigError, ProxyConfigPayload, ProxyUiConfig, RuntimeConfigEnvelope, validate_schema_version,
 };
 
 pub use chain::{parse_tcp_chain_step_kind, parse_udp_chain_step_kind};

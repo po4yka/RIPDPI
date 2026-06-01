@@ -18,7 +18,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use crate::{consts, ReplyError, SocksError};
+use crate::{ReplyError, SocksError, consts};
 
 /// Optional credentials for username/password authentication.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -315,7 +315,7 @@ where
 mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr};
 
-    use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
 
     use super::*;
     use crate::consts;

@@ -1,7 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr};
 use std::time::{Duration, Instant};
 
-use super::fallback_order::{fallback_key, FallbackEntry};
+use super::fallback_order::{FallbackEntry, fallback_key};
 use super::*;
 use crate::health::HealthRegistry;
 use crate::types::{EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsTransport, ResolverNetworkScope};

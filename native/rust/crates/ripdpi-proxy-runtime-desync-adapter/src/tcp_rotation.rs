@@ -246,8 +246,8 @@ impl CircularTcpRotationController {
 mod tests {
     use super::*;
     use crate::model::config::{
-        first_response_settings, OffsetBase, OffsetExpr, RotationCandidate, RuntimeConfig, TcpChainStep,
-        TcpChainStepKind,
+        OffsetBase, OffsetExpr, RotationCandidate, RuntimeConfig, TcpChainStep, TcpChainStepKind,
+        first_response_settings,
     };
 
     fn rotation_controller() -> CircularTcpRotationController {

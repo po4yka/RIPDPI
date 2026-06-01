@@ -24,9 +24,9 @@ pub use entry::{
     Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStart, Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStop,
 };
 
-use android_support::{init_android_logging, JNI_VERSION};
-use jni::sys::{jint, jlong};
+use android_support::{JNI_VERSION, init_android_logging};
 use jni::JavaVM;
+use jni::sys::{jint, jlong};
 
 /// # Safety
 /// Called by the JVM when the native library is loaded. Must not unwind across

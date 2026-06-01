@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP};
 
-use super::facts::MatchFacts;
 use super::GeoMatcher;
+use super::facts::MatchFacts;
 use crate::runtime_policy::TransportProtocol;
 
 pub(super) fn group_requires_payload(group: &DesyncGroup) -> bool {

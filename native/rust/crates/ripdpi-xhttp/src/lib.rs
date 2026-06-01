@@ -9,7 +9,7 @@ mod h2_body;
 mod pool;
 mod relay;
 
-pub use client::{connect_reality, connect_tls, XhttpClient};
+pub use client::{XhttpClient, connect_reality, connect_tls};
 pub use config::{
     AsyncIo, ConfigError, FinalmaskConfig, ProtocolModeParseError, XhttpProtocolMode, XhttpRealityConfig,
     XhttpTlsConfig, XmuxConfig,
@@ -17,8 +17,8 @@ pub use config::{
 #[doc(hidden)]
 pub use finalmask::{__fuzz_decode_finalmask_payload, __fuzz_parse_finalmask_spec};
 pub use grpc::{
-    encode_hunk, encode_hunk_to_bytes, tun_path, GrpcFramingError, GrpcTransport, GrpcTransportConfig, GrpcWireHalves,
-    HunkDecoder,
+    GrpcFramingError, GrpcTransport, GrpcTransportConfig, GrpcWireHalves, HunkDecoder, encode_hunk,
+    encode_hunk_to_bytes, tun_path,
 };
 pub use relay::XhttpStream;
 

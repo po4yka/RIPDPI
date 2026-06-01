@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ripdpi_tor::{build_bridge_pt_config, TorBridgePtConfig, TorPluggableTransport};
+use ripdpi_tor::{TorBridgePtConfig, TorPluggableTransport, build_bridge_pt_config};
 
 const OBFS4_BRIDGE_LINE: &str = "Bridge obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=YXJlIGZyZXF1ZW50bHkgZnVsbCBvZiBsaXR0bGUgbWVzc2FnZXMgeW91IGNhbiBmaW5kLg iat-mode=0";
 const DIRECT_BRIDGE_LINE: &str = "Bridge 192.0.2.83:80 7DD62766BF2052432051D7B7E08A22F7E34A4543";

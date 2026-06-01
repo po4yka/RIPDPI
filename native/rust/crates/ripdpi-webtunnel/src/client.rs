@@ -6,8 +6,8 @@ use boring::ssl::SslStream;
 use thiserror::Error;
 
 use crate::bridge_line::WebTunnelBridgeConfig;
-use crate::http_upgrade::{perform_http_upgrade, HttpUpgradeError, HttpUpgradeRequest};
-use crate::tls::{build_tls_connector, WebTunnelTlsError};
+use crate::http_upgrade::{HttpUpgradeError, HttpUpgradeRequest, perform_http_upgrade};
+use crate::tls::{WebTunnelTlsError, build_tls_connector};
 
 const IO_TIMEOUT: Duration = Duration::from_secs(10);
 

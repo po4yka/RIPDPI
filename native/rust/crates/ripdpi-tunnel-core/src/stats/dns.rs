@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 
-use super::observer;
 use super::Stats;
+use super::observer;
 
 pub(crate) const RESOLVER_LATENCY_WINDOW_CAPACITY: usize = 32;
 

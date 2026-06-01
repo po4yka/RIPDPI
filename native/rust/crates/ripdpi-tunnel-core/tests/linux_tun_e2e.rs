@@ -21,7 +21,7 @@ use std::time::Duration;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_tun_driver::{LinuxTunnel, TunnelDriver};
-use ripdpi_tunnel_core::{run_tunnel, Stats};
+use ripdpi_tunnel_core::{Stats, run_tunnel};
 use tokio_util::sync::CancellationToken;
 
 use support::config::test_tunnel_config;

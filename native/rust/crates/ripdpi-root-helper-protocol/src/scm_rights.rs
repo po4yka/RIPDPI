@@ -110,7 +110,7 @@ mod tests {
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     use std::os::unix::net::UnixStream;
 
-    use super::{recv_message, send_message, MAX_MESSAGE_BYTES};
+    use super::{MAX_MESSAGE_BYTES, recv_message, send_message};
 
     #[test]
     fn send_and_recv_message_transfers_json_line_and_fd() {

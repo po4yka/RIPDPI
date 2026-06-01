@@ -2,9 +2,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use android_support::throw_illegal_argument_env;
+use jni::Env;
 use jni::objects::JString;
 use jni::sys::jstring;
-use jni::Env;
 use ripdpi_proxy_runtime::{RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata};
 use serde::Serialize;
 

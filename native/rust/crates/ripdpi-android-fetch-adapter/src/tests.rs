@@ -4,12 +4,12 @@ use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use bytes::Bytes;
-use http::header::{HeaderValue, LOCATION};
 use http::StatusCode;
-use ripdpi_runtime_platform::protect::{register_protect_callback, unregister_protect_callback, ProtectCallback};
+use http::header::{HeaderValue, LOCATION};
+use ripdpi_runtime_platform::protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
 use serde_json::Value;
 use url::Url;
 

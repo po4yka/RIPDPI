@@ -17,9 +17,9 @@ use crate::config::{MasqueAuthMode, MasqueConfig};
 use crate::h2::{build_h2_connect_udp_request, decode_h2_datagram_capsules, encode_h2_datagram_capsule};
 use crate::h3::decode_udp_payload;
 use crate::request::apply_request_headers;
-use crate::response::{validate_connect_udp_response, validate_proxy_response, AttemptError};
+use crate::response::{AttemptError, validate_connect_udp_response, validate_proxy_response};
 use crate::url::{
-    build_connect_udp_path, parse_proxy_origin, parse_target, resolve_proxy_socket_addr, ProxyOrigin, TargetAuthority,
+    ProxyOrigin, TargetAuthority, build_connect_udp_path, parse_proxy_origin, parse_target, resolve_proxy_socket_addr,
 };
 
 const BORING_ECH_CONFIG_LIST: &[u8] = &[
@@ -110,11 +110,7 @@ fn parse_content_length(headers: &[u8]) -> io::Result<usize> {
         .lines()
         .find_map(|line| {
             let (name, value) = line.split_once(':')?;
-            if name.trim().eq_ignore_ascii_case("content-length") {
-                value.trim().parse::<usize>().ok()
-            } else {
-                None
-            }
+            if name.trim().eq_ignore_ascii_case("content-length") { value.trim().parse::<usize>().ok() } else { None }
         })
         .unwrap_or(0))
 }

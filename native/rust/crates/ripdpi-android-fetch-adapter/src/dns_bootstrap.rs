@@ -2,7 +2,7 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 
 use ripdpi_dns_resolver::{
-    extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
+    EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport, extract_ip_answers,
 };
 
 use crate::socket_protection::owned_fetch_dns_connect_hooks;

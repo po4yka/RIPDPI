@@ -2,10 +2,10 @@ use std::net::{SocketAddr, UdpSocket};
 
 use socket2::{Protocol, SockAddr, Socket, Type};
 
-use crate::util::{stable_probe_hash, IO_TIMEOUT};
+use crate::util::{IO_TIMEOUT, stable_probe_hash};
 
-use super::common::{route_bind_addr, route_bucket_port, socket_domain_for};
 use super::RouteAttemptTracker;
+use super::common::{route_bind_addr, route_bucket_port, socket_domain_for};
 use crate::transport::types::{RouteExperimentConfig, UdpRelayResult};
 
 pub(crate) fn relay_udp_direct_with_route_experiment(

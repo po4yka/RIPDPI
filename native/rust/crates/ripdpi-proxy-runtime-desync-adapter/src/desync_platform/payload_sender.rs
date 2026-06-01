@@ -6,7 +6,7 @@ use ripdpi_desync_runtime::platform::{
     TcpStageWait,
 };
 
-use super::{flagged_payload, ordered_segments, seq_overlap, RuntimeTcpDesyncPlatform};
+use super::{RuntimeTcpDesyncPlatform, flagged_payload, ordered_segments, seq_overlap};
 
 impl TcpPayloadSender for RuntimeTcpDesyncPlatform {
     #[allow(clippy::too_many_arguments)]

@@ -1,8 +1,8 @@
-use crate::util::stream::{tcp_connect_with_timeout, ConnectError};
-use crate::util::target_addr::{read_address, AddrError, TargetAddr};
+use crate::util::stream::{ConnectError, tcp_connect_with_timeout};
+use crate::util::target_addr::{AddrError, TargetAddr, read_address};
 use crate::{
-    consts, new_udp_header, parse_udp_request, read_exact, ready, AuthenticationMethod, ReplyError, Socks5Command,
-    SocksError, UdpHeaderError,
+    AuthenticationMethod, ReplyError, Socks5Command, SocksError, UdpHeaderError, consts, new_udp_header,
+    parse_udp_request, read_exact, ready,
 };
 use anyhow::Context;
 use socket2::{Domain, Socket, Type};

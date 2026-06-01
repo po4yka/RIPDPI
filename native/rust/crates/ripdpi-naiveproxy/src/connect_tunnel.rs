@@ -8,13 +8,13 @@ use hyper_util::rt::{TokioExecutor, TokioIo};
 use rand::RngExt;
 use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio::net::{lookup_host, TcpStream};
+use tokio::net::{TcpStream, lookup_host};
 use tokio_rustls::TlsConnector;
 
 use crate::config::NaiveProxyConfig;
 use crate::h2_connect::{
-    build_h2_connect_request, generate_connect_padding_header, negotiate_payload_padding_from_response,
-    PayloadPaddingMode,
+    PayloadPaddingMode, build_h2_connect_request, generate_connect_padding_header,
+    negotiate_payload_padding_from_response,
 };
 use crate::padding::{PaddingDecoder, PaddingEncoder};
 use crate::socks5::SocksTarget;

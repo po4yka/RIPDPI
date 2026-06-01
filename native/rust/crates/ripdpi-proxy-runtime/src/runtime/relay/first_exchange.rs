@@ -3,8 +3,8 @@ use std::net::{SocketAddr, TcpStream};
 
 #[cfg(test)]
 use super::super::config::{
-    first_response_timeout as projected_first_response_timeout, first_response_timeout_count_limit,
-    FirstResponseSettings,
+    FirstResponseSettings, first_response_timeout as projected_first_response_timeout,
+    first_response_timeout_count_limit,
 };
 #[cfg(test)]
 use super::super::payload::RuntimeFirstResponseBoundaryTracker;

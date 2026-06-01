@@ -1,14 +1,14 @@
 use std::io::{ErrorKind, Read, Write};
 
 use crate::connectivity::adapters::http::{
-    classify_http_response, parse_http_response, read_http_headers, try_http_request_targets_with_key_log,
-    HttpObservation,
+    HttpObservation, classify_http_response, parse_http_response, read_http_headers,
+    try_http_request_targets_with_key_log,
 };
 use crate::connectivity::adapters::tls::{
-    open_probe_stream_targets, open_probe_stream_targets_with_key_log, TlsClientProfile, TlsKeyLogCallback,
+    TlsClientProfile, TlsKeyLogCallback, open_probe_stream_targets, open_probe_stream_targets_with_key_log,
 };
 use crate::connectivity::adapters::transport::TransportConfig;
-use crate::connectivity::adapters::util::{find_headers_end, MAX_HTTP_BYTES};
+use crate::connectivity::adapters::util::{MAX_HTTP_BYTES, find_headers_end};
 use crate::types::ThroughputTarget;
 
 use super::target_parse::parse_http_target;
@@ -22,7 +22,7 @@ pub(super) fn measure_throughput_window(
     let parsed = match parse_http_target(&target.url, target.connect_ip.as_deref(), &target.connect_ips, target.port) {
         Ok(parsed) => parsed,
         Err(err) => {
-            return ThroughputSample { status: "invalid_target".to_string(), bytes_read: 0, bps: 0, error: err }
+            return ThroughputSample { status: "invalid_target".to_string(), bytes_read: 0, bps: 0, error: err };
         }
     };
     let started = std::time::Instant::now();
@@ -51,7 +51,7 @@ pub(super) fn measure_throughput_window(
     let mut stream = match stream_result {
         Ok(result) => result.stream,
         Err(err) => {
-            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err }
+            return ThroughputSample { status: "http_unreachable".to_string(), bytes_read: 0, bps: 0, error: err };
         }
     };
     let request =

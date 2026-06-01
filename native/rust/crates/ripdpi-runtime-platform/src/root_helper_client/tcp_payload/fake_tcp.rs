@@ -1,11 +1,11 @@
 use std::io;
 use std::os::fd::RawFd;
 
-use ripdpi_root_helper_protocol::{FakeTcpParams, CMD_SEND_FAKE_TCP};
+use ripdpi_root_helper_protocol::{CMD_SEND_FAKE_TCP, FakeTcpParams};
 
 use crate::{FakeTcpOptions, TcpStageWait};
 
-use super::super::{command_params, RootHelperClient};
+use super::super::{RootHelperClient, command_params};
 
 impl RootHelperClient {
     #[allow(clippy::too_many_arguments)]

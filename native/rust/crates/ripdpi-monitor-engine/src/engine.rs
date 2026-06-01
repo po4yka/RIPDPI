@@ -10,7 +10,7 @@ pub use runners::probe_descriptors_as_json;
 pub use scan::run_engine_scan;
 
 pub(crate) use contract_fixture::connectivity_partial_report_contract_fixture;
-pub use contract_fixture::{connectivity_runner_parity_snapshot, RunnerParityRecord, RunnerStepSnapshot};
+pub use contract_fixture::{RunnerParityRecord, RunnerStepSnapshot, connectivity_runner_parity_snapshot};
 
 #[cfg(test)]
 mod tests {
@@ -22,7 +22,7 @@ mod tests {
 
     use plan::connectivity_stage_order;
     use report::{connectivity_analytics_summary, connectivity_summary};
-    use runtime::{cancelled_run_summary, ExecutionStageId};
+    use runtime::{ExecutionStageId, cancelled_run_summary};
 
     #[test]
     fn connectivity_summary_reports_bucket_breakdown() {
@@ -103,8 +103,11 @@ mod tests {
         assert!(analytics.contains("dns_compatible_divergence=2"));
         assert!(analytics.contains("dns_contextual_downgraded=2"));
         assert!(analytics.contains("tcp_contextual_downgraded=1"));
-        assert!(analytics
-            .contains("network_verdict=healthy_connectivity_with_cdn_dns_variance_and_tcp_stress_probe_sensitivity",),);
+        assert!(
+            analytics.contains(
+                "network_verdict=healthy_connectivity_with_cdn_dns_variance_and_tcp_stress_probe_sensitivity",
+            ),
+        );
     }
 
     #[test]

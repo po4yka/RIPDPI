@@ -87,11 +87,7 @@ pub(crate) fn copy_name_seeded(out: &mut [u8], pattern: &[u8], rng: &mut OracleR
         *dst = match src {
             b'*' => {
                 let roll = (rng.next_u8() as usize) % (10 + (b'z' - b'a' + 1) as usize);
-                if roll < 10 {
-                    b'0' + roll as u8
-                } else {
-                    b'a' + (roll as u8 - 10)
-                }
+                if roll < 10 { b'0' + roll as u8 } else { b'a' + (roll as u8 - 10) }
             }
             b'?' => b'a' + (rng.next_u8() % (b'z' - b'a' + 1)),
             b'#' => b'0' + (rng.next_u8() % 10),

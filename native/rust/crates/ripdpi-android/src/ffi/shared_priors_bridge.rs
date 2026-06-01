@@ -1,7 +1,7 @@
 use android_support::ffi_boundary;
+use jni::EnvUnowned;
 use jni::objects::{JObject, JString};
 use jni::sys::jstring;
-use jni::EnvUnowned;
 
 // Verify a signed shared-priors bundle and write the resulting prior store into
 // the process-wide registry. The JSON return keeps the Kotlin contract

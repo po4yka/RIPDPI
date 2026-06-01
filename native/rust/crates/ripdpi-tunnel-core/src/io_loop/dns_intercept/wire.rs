@@ -21,9 +21,5 @@ pub(in crate::io_loop) fn dns_query_name(packet: &[u8]) -> Option<String> {
         labels.push(std::str::from_utf8(label).ok()?.to_string());
         offset += length;
     }
-    if labels.is_empty() {
-        None
-    } else {
-        Some(labels.join("."))
-    }
+    if labels.is_empty() { None } else { Some(labels.join(".")) }
 }

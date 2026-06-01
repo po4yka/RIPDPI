@@ -2,14 +2,14 @@ use crate::offset::gen_offset;
 use crate::proto::{init_proto_info, resolve_host_range};
 use crate::types::{DesyncError, FakePacketPlan, HostFakeSpan, ProtoInfo};
 use ripdpi_config::{
-    DesyncGroup, FakePacketSource, OffsetProto, SeqOverlapFakeMode, TcpChainStep, FM_DUPSID, FM_ORIG, FM_PADENCAP,
-    FM_RAND, FM_RNDSNI,
+    DesyncGroup, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, FakePacketSource, OffsetProto,
+    SeqOverlapFakeMode, TcpChainStep,
 };
 use ripdpi_packets::{
-    change_tls_sni_seeded_like_c, duplicate_tls_session_id_inplace, http_fake_profile_bytes, is_tls_client_hello,
-    padencap_tls_into, randomize_tls_seeded_inplace, randomize_tls_sni_seeded_inplace,
-    remove_tls_key_share_group_like_c, tls_fake_profile_bytes, tune_tls_padding_size_into, OracleRng, PacketMutation,
-    TlsFakeProfile, IS_HTTP, IS_HTTPS,
+    IS_HTTP, IS_HTTPS, OracleRng, PacketMutation, TlsFakeProfile, change_tls_sni_seeded_like_c,
+    duplicate_tls_session_id_inplace, http_fake_profile_bytes, is_tls_client_hello, padencap_tls_into,
+    randomize_tls_seeded_inplace, randomize_tls_sni_seeded_inplace, remove_tls_key_share_group_like_c,
+    tls_fake_profile_bytes, tune_tls_padding_size_into,
 };
 
 pub fn resolve_hostfake_span(
@@ -182,11 +182,7 @@ fn tls_sni_capacity(current: &[u8], target_size: usize, new_host: &[u8]) -> usiz
 }
 
 pub(crate) fn normalize_fake_tls_size(value: i32, input_len: usize) -> usize {
-    if value <= 0 {
-        input_len.saturating_sub(value.unsigned_abs() as usize)
-    } else {
-        value as usize
-    }
+    if value <= 0 { input_len.saturating_sub(value.unsigned_abs() as usize) } else { value as usize }
 }
 
 fn avoid_tls_517_size(output: &mut Vec<u8>) {

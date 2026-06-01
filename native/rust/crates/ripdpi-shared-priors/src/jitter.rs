@@ -34,8 +34,8 @@ impl JitterScheduler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::rngs::SmallRng;
     use rand::SeedableRng;
+    use rand::rngs::SmallRng;
 
     fn make_rng(seed: u64) -> SmallRng {
         SmallRng::seed_from_u64(seed)

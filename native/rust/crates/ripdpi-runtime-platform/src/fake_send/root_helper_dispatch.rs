@@ -20,7 +20,7 @@ use std::io;
 use std::net::TcpStream;
 use std::os::fd::{AsRawFd, RawFd};
 
-use crate::{root_helper, FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
+use crate::{FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpStageWait, root_helper};
 
 pub(crate) fn send_fake_rst(
     stream: &TcpStream,

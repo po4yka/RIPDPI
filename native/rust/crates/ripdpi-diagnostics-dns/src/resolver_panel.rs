@@ -282,11 +282,7 @@ mod tests {
         let runner = ResolverSurveyRunner::new(ResolverSurveyOptions::default());
         // Block Cloudflare, let everyone else be Reachable.
         let results = runner.survey(|r| {
-            if r.name == "Cloudflare" {
-                (false, false, None, None)
-            } else {
-                (true, true, Some(15), Some(25))
-            }
+            if r.name == "Cloudflare" { (false, false, None, None) } else { (true, true, Some(15), Some(25)) }
         });
 
         let cloudflare = results.iter().find(|r| r.resolver == "Cloudflare").unwrap();

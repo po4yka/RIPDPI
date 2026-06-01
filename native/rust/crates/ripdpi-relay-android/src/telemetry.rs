@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use android_support::{drain_relay_events, NativeEventRecord};
+use android_support::{NativeEventRecord, drain_relay_events};
 use once_cell::sync::Lazy;
 use ripdpi_quality::{ConnectionQualitySnapshot, QualitySample, QualityWindow, TransportKind};
 use ripdpi_relay_core::TcpConnectObservation;
@@ -125,7 +125,7 @@ mod tests {
     use ripdpi_relay_core::RelayTelemetry as StandardRelayTelemetry;
     use tracing_subscriber::prelude::*;
 
-    use super::{NativeRuntimeEvent, NativeRuntimeSnapshot, IDLE_TELEMETRY_JSON, SNAPSHOT_SCHEMA_VERSION};
+    use super::{IDLE_TELEMETRY_JSON, NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION};
 
     fn sample_telemetry() -> StandardRelayTelemetry {
         StandardRelayTelemetry {

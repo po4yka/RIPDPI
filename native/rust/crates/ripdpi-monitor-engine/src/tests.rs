@@ -14,14 +14,14 @@ use crate::connectivity::{run_dns_probe, run_domain_probe, run_tcp_probe};
 use crate::execution::freeze_adaptive_fake_ttl_for_probe;
 use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::test_fixtures::*;
-use crate::tls::{classify_tls_signal, try_tls_handshake, NoCertificateVerification, TlsClientProfile, TlsObservation};
-use crate::transport::{direct_transport, TargetAddress, TransportConfig};
-use crate::util::{probe_session_seed, DEFAULT_DNS_SERVER};
+use crate::tls::{NoCertificateVerification, TlsClientProfile, TlsObservation, classify_tls_signal, try_tls_handshake};
+use crate::transport::{TargetAddress, TransportConfig, direct_transport};
+use crate::util::{DEFAULT_DNS_SERVER, probe_session_seed};
 use crate::{CandidateProbeRuntime, CandidateRuntimeLauncher, MonitorSession, PreparedCandidateRuntime};
 
 use ripdpi_monitor_adapter::failure::{FailureAction, FailureClass};
 use ripdpi_monitor_adapter::proxy_config::{
-    parse_proxy_config_json, ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiConfig,
+    ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiConfig, parse_proxy_config_json,
 };
 
 use std::net::{IpAddr, Ipv4Addr};
@@ -1081,11 +1081,9 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
 
     assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsTamperingWithFallback);
     assert!(!audit_assessment.dns_short_circuited);
-    assert!(audit_assessment
-        .confidence
-        .warnings
-        .iter()
-        .any(|warning| warning.contains("fallback strategy candidates")));
+    assert!(
+        audit_assessment.confidence.warnings.iter().any(|warning| warning.contains("fallback strategy candidates"))
+    );
 }
 
 #[test]

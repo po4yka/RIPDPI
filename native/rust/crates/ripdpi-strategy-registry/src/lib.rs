@@ -31,14 +31,14 @@ extern crate ripdpi_strategy_window as _;
 
 pub mod fixed_config;
 
-pub use fixed_config::{CandidateArm, CandidateArmViolation, FixedConfigProtocols, FIXED_CONFIG_PROTOCOL_AMNEZIAWG};
+pub use fixed_config::{CandidateArm, CandidateArmViolation, FIXED_CONFIG_PROTOCOL_AMNEZIAWG, FixedConfigProtocols};
 
 use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail, StrategyStep};
 use ripdpi_strategy_trait::{
-    CapabilityTier, DesyncPlan, DesyncStrategy, StrategyContext, StrategyDescriptor, StrategyError,
-    StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams, StrategyStepRegistration, StrategyVerdict,
-    STRATEGY_DESCRIPTOR_REGISTRATIONS, STRATEGY_STEP_REGISTRATIONS,
+    CapabilityTier, DesyncPlan, DesyncStrategy, STRATEGY_DESCRIPTOR_REGISTRATIONS, STRATEGY_STEP_REGISTRATIONS,
+    StrategyContext, StrategyDescriptor, StrategyError, StrategyStepDescriptor, StrategyStepFactory,
+    StrategyStepParams, StrategyStepRegistration, StrategyVerdict,
 };
 use thiserror::Error;
 
@@ -396,11 +396,7 @@ fn hint_score(id: &str, hints: AdaptivePlannerHints) -> u8 {
 }
 
 fn score_if(id: &str, needles: &[&str], score: u8) -> u8 {
-    if needles.iter().any(|needle| id.contains(needle)) {
-        score
-    } else {
-        0
-    }
+    if needles.iter().any(|needle| id.contains(needle)) { score } else { 0 }
 }
 
 fn on_fail_from_config(on_fail: ConfigOnFail) -> OnFail {

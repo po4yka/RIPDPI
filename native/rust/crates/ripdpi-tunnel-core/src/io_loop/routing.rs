@@ -1,5 +1,5 @@
-use crate::classify::classify_ip_packet;
 use crate::IpClass;
+use crate::classify::classify_ip_packet;
 
 use super::dns_intercept::{dns_query_name, resolve_mapped_target, route_dns_packet};
 use super::packet::is_injected_rst;

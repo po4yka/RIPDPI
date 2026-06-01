@@ -77,11 +77,7 @@ static IPV4_ID_ALLOCATOR: OnceLock<Mutex<Ipv4IdAllocator>> = OnceLock::new();
 
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 fn advance_ipv4_identification(value: u16) -> u16 {
-    if value == u16::MAX {
-        1
-    } else {
-        value + 1
-    }
+    if value == u16::MAX { 1 } else { value + 1 }
 }
 
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]

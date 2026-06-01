@@ -1,7 +1,7 @@
 use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
-use ripdpi_monitor_adapter::proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
+use ripdpi_monitor_adapter::proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
-use crate::candidates::{build_strategy_probe_suite, StrategyProbeSuite};
+use crate::candidates::{StrategyProbeSuite, build_strategy_probe_suite};
 use crate::types::ScanRequest;
 use crate::util::probe_session_seed;
 
@@ -26,7 +26,7 @@ pub(super) fn build_strategy_execution_plan(
     let (cfg, runtime_context) = match parse_proxy_config_json(json).map_err(|e| e.to_string())? {
         ProxyConfigPayload::Ui { config, runtime_context, .. } => (config, runtime_context),
         ProxyConfigPayload::CommandLine { .. } => {
-            return Err("strategy_probe scans only support UI proxy config".into())
+            return Err("strategy_probe scans only support UI proxy config".into());
         }
     };
     let suite = build_strategy_probe_suite(&sp.suite_id, &cfg)?;

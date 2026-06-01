@@ -8,8 +8,8 @@ use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
 use ripdpi_runtime_adaptive::strategy_context::{classify_learning_payload, direct_path_capability_for_route};
 use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
 use ripdpi_runtime_strategy::strategy_evolver::{
-    latest_global_probe_results, CapabilityContext, LearningAlpnClass, LearningContext, LearningHostingFamily,
-    LearningReachabilitySet, LearningTargetBucket, LearningTransportKind, ResolverHealthClass, StrategyEvolver,
+    CapabilityContext, LearningAlpnClass, LearningContext, LearningHostingFamily, LearningReachabilitySet,
+    LearningTargetBucket, LearningTransportKind, ResolverHealthClass, StrategyEvolver, latest_global_probe_results,
 };
 
 pub(crate) struct StrategyEvolutionResolver {
@@ -142,11 +142,7 @@ fn udp_learning_context(
     LearningContext {
         network_identity: network_scope_key(config).map(ToOwned::to_owned),
         target_bucket: if classification.is_quic {
-            if classification.has_ech {
-                LearningTargetBucket::Ech
-            } else {
-                LearningTargetBucket::Quic
-            }
+            if classification.has_ech { LearningTargetBucket::Ech } else { LearningTargetBucket::Quic }
         } else {
             LearningTargetBucket::Generic
         },
@@ -243,7 +239,7 @@ fn reachability_set_context(host: Option<&str>) -> LearningReachabilitySet {
 mod tests {
     use super::*;
     use ripdpi_runtime_strategy::strategy_evolver::{
-        apply_global_probe_results, clear_global_probe_results_for_tests, ProbeResult,
+        ProbeResult, apply_global_probe_results, clear_global_probe_results_for_tests,
     };
 
     #[test]

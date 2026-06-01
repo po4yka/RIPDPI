@@ -1,4 +1,4 @@
-use crate::blockpage_fingerprints::{match_blockpage, BlockpageFingerprint};
+use crate::blockpage_fingerprints::{BlockpageFingerprint, match_blockpage};
 
 use super::types::{HttpObservation, HttpResponse};
 

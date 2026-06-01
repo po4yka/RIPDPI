@@ -123,8 +123,8 @@ pub mod probes;
 pub mod scheduled_inventory;
 
 pub use probe_descriptor::{
-    descriptor_by_id, descriptor_by_probe_type, descriptors_for_family, ProbeDescriptor, ProbePathRequirement,
-    PROBE_DESCRIPTORS,
+    PROBE_DESCRIPTORS, ProbeDescriptor, ProbePathRequirement, descriptor_by_id, descriptor_by_probe_type,
+    descriptors_for_family,
 };
 pub use probes::{
     CircumventionReachabilityProbe, DnsIntegrityProbe, DnsTamperingConfirmationProbe, DohJsonSurveyProbe,

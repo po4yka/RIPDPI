@@ -1,7 +1,7 @@
 use ripdpi_failure_classifier::BlockSignal;
 
 use crate::runtime_policy::types::LearnedHostRecord;
-use crate::runtime_policy::{RuntimePolicy, BLOCKED_HOST_TTL_MS, BLOCK_CONFIRMATION_WINDOW_MS};
+use crate::runtime_policy::{BLOCK_CONFIRMATION_WINDOW_MS, BLOCKED_HOST_TTL_MS, RuntimePolicy};
 
 pub(super) fn ensure_host_order(record: &mut LearnedHostRecord, group_index: usize) {
     if !record.preferred_groups.contains(&group_index) {

@@ -2,11 +2,11 @@ use std::mem::zeroed;
 use std::time::Duration;
 
 use crate::linux::tcp_info::{
-    tcp_has_notsent, tcp_total_retransmissions_from_info, wait_tcp_stage_fd, LinuxTcpInfo, TCPI_OPT_SACK,
-    TCPI_OPT_TIMESTAMPS, TCPI_OPT_USEC_TS, TCPI_OPT_WSCALE, TCP_ESTABLISHED,
+    LinuxTcpInfo, TCP_ESTABLISHED, TCPI_OPT_SACK, TCPI_OPT_TIMESTAMPS, TCPI_OPT_USEC_TS, TCPI_OPT_WSCALE,
+    tcp_has_notsent, tcp_total_retransmissions_from_info, wait_tcp_stage_fd,
 };
 use crate::linux::tcp_repair::{
-    decode_tcp_repair_options, probe_tcp_repair, TcpTimestampSnapshot, TcpWindowScaleSnapshot,
+    TcpTimestampSnapshot, TcpWindowScaleSnapshot, decode_tcp_repair_options, probe_tcp_repair,
 };
 
 #[test]

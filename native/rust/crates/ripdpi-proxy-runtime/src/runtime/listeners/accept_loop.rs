@@ -6,7 +6,7 @@ use crate::runtime::state::RuntimeState;
 
 use super::client_job::ClientJob;
 use super::worker_pool::ClientWorkerPool;
-use super::{close_rejected_client, RuntimeShutdown};
+use super::{RuntimeShutdown, close_rejected_client};
 
 const ACCEPT_IDLE_SLEEP: Duration = Duration::from_millis(25);
 

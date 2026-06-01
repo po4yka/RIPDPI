@@ -2,8 +2,8 @@ use std::io;
 use std::net::SocketAddr;
 
 use ripdpi_root_helper_protocol::{
-    RawIpPacketParams, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_RAW_IP_PACKET,
-    CMD_SEND_SYN_HIDE_TCP,
+    CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SYN_HIDE_TCP,
+    RawIpPacketParams,
 };
 
 use super::RootHelperClient;
@@ -49,7 +49,7 @@ mod tests {
     use std::thread;
 
     use ripdpi_root_helper_protocol::{
-        recv_message, send_message, HelperRequest, HelperResponse, CMD_SEND_RAW_IP_PACKET,
+        CMD_SEND_RAW_IP_PACKET, HelperRequest, HelperResponse, recv_message, send_message,
     };
 
     use super::RootHelperClient;

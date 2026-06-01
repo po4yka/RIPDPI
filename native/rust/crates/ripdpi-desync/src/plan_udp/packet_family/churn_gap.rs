@@ -1,7 +1,7 @@
 use ripdpi_config::DesyncGroup;
-use ripdpi_packets::{packetize_quic_initial, QuicInitialBrowserProfile, QuicInitialPacketLayout};
+use ripdpi_packets::{QuicInitialBrowserProfile, QuicInitialPacketLayout, packetize_quic_initial};
 
-use super::super::quic::{browser_like_quic_seed, packetize_browser_like_quic_initial, NormalizedQuicPlannerInput};
+use super::super::quic::{NormalizedQuicPlannerInput, browser_like_quic_seed, packetize_browser_like_quic_initial};
 
 pub(super) fn build_quic_cid_churn_packets(
     group: &DesyncGroup,

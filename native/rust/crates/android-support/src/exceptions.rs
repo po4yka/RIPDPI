@@ -37,11 +37,7 @@ pub fn throw_runtime_exception_env(env: &mut Env<'_>, message: impl AsRef<str>) 
 
 /// Produce a user-safe error message, stripping internal details in release builds.
 pub fn sanitize_error_message(detail: &str, user_message: &str) -> String {
-    if cfg!(debug_assertions) {
-        format!("{user_message}: {detail}")
-    } else {
-        user_message.to_string()
-    }
+    if cfg!(debug_assertions) { format!("{user_message}: {detail}") } else { user_message.to_string() }
 }
 
 pub fn describe_exception(env: &mut EnvUnowned<'_>) -> Option<String> {

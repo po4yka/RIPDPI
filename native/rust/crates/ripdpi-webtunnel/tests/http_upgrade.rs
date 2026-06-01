@@ -3,7 +3,7 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::thread;
 use std::time::Duration;
 
-use ripdpi_webtunnel::http_upgrade::{perform_http_upgrade, HttpUpgradeRequest};
+use ripdpi_webtunnel::http_upgrade::{HttpUpgradeRequest, perform_http_upgrade};
 
 #[test]
 fn http_upgrade_request_matches_go_fixture_and_preserves_tunnel_bytes() {

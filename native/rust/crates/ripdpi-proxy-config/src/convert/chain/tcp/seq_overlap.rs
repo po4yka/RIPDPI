@@ -44,11 +44,7 @@ pub(crate) fn parse_seq_overlap_fields(
 }
 
 fn normalize_seqovl_overlap_size(value: i32) -> i32 {
-    if value > 0 {
-        value
-    } else {
-        SEQOVL_DEFAULT_OVERLAP_SIZE
-    }
+    if value > 0 { value } else { SEQOVL_DEFAULT_OVERLAP_SIZE }
 }
 
 fn parse_seqovl_fake_mode(value: &str) -> Result<SeqOverlapFakeMode, ProxyConfigError> {

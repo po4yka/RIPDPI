@@ -16,7 +16,7 @@ use tokio::net::TcpStream;
 use tokio_boring::SslStream;
 
 use crate::config::VlessRealityConfig;
-use crate::reality_hook::{install_reality_client_hello_hook, SslHandle};
+use crate::reality_hook::{SslHandle, install_reality_client_hello_hook};
 
 /// Connect to a VLESS+Reality server over TCP, performing the
 /// Reality TLS handshake. Cert verification is disabled because

@@ -1,19 +1,19 @@
 use std::io::{self, ErrorKind, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use local_network_fixture::{FixtureConfig, FixtureManifest, FixtureStack};
 use native_soak_support::{
-    acquire_global_lock, assert_growth, write_json_artifact, GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW,
+    GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW, acquire_global_lock, assert_growth, write_json_artifact,
 };
+use ripdpi_monitor_engine::MonitorSession;
 use ripdpi_monitor_engine::contracts::{
     DiagnosticProfileFamily, DnsTarget, DomainTarget, NativeSessionEvent, ScanKind, ScanPathMode, ScanProgress,
     ScanReport, ScanRequest, TcpTarget,
 };
-use ripdpi_monitor_engine::MonitorSession;
 use serde_json::json;
 
 const POLL_INTERVAL: Duration = Duration::from_millis(100);

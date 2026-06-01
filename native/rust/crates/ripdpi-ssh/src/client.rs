@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use russh::client::{self, Config, Handler};
-use russh::keys::{decode_secret_key, HashAlg, PrivateKeyWithHashAlg, PublicKey};
+use russh::keys::{HashAlg, PrivateKeyWithHashAlg, PublicKey, decode_secret_key};
 use russh::{ChannelStream, Disconnect};
 use tokio::sync::Mutex;
 
-use crate::config::{parse_fingerprint, SshAuth, SshConfig, SshHostKeyPolicy};
+use crate::config::{SshAuth, SshConfig, SshHostKeyPolicy, parse_fingerprint};
 use crate::error::{Result, SshError};
 
 /// The bidirectional stream a `direct-tcpip` channel exposes.

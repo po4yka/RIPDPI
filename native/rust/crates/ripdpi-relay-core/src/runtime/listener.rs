@@ -4,8 +4,8 @@ use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::time::timeout;
 
-use super::session::spawn_socks_session;
 use super::RelayRuntime;
+use super::session::spawn_socks_session;
 use crate::backend::RelayBackend;
 
 pub(super) async fn run_accept_loop(

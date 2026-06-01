@@ -1,6 +1,6 @@
+use jni::EnvUnowned;
 use jni::objects::JString;
 use jni::sys::jstring;
-use jni::EnvUnowned;
 
 use crate::entry_dispatch::json_entry;
 use crate::{connect_ech, execute};

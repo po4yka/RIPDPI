@@ -13,13 +13,13 @@ mod ws_first;
 
 use super::super::state::RuntimeState;
 use super::protocol_io::HandshakeKind;
-use super::ws_tunnel::{run_ws_tunnel, run_ws_tunnel_with_seed, WsTunnelResult};
+use super::ws_tunnel::{WsTunnelResult, run_ws_tunnel, run_ws_tunnel_with_seed};
 use crate::runtime::types::RuntimeConnectionRoute;
-use delay::{maybe_delay_connect, DelayConnect};
+use delay::{DelayConnect, maybe_delay_connect};
 use relay::{connect_after_ws_attempt, delayed_connect_relay, immediate_connect_relay};
 use reply::write_success_reply;
 use ws_fallback::run_ws_fallback_after_desync;
-use ws_first::{run_ws_always_first, AlwaysWsOutcome};
+use ws_first::{AlwaysWsOutcome, run_ws_always_first};
 
 pub(super) use error::ConnectRelayError;
 pub(super) use reply::SuccessReply;

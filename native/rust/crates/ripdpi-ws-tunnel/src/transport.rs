@@ -44,11 +44,11 @@ use bytes::{Buf, Bytes, BytesMut};
 use futures::sink::Sink;
 use futures::stream::Stream;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio_tungstenite::tungstenite::handshake::client::{generate_key, Request};
-use tokio_tungstenite::tungstenite::http::header::{HeaderName, HeaderValue};
-use tokio_tungstenite::tungstenite::http::Uri;
-use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
+use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::handshake::client::{Request, generate_key};
+use tokio_tungstenite::tungstenite::http::Uri;
+use tokio_tungstenite::tungstenite::http::header::{HeaderName, HeaderValue};
 
 /// Errors produced while building or driving the generic WS transport.
 #[derive(Debug)]
@@ -418,8 +418,8 @@ fn ws_io_error(err: tokio_tungstenite::tungstenite::Error) -> std::io::Error {
 /// or a peer that dropped the TCP connection without a Close handshake.
 /// On the read side these are surfaced as a clean EOF.
 fn is_eof_like(err: &tokio_tungstenite::tungstenite::Error) -> bool {
-    use tokio_tungstenite::tungstenite::error::ProtocolError;
     use tokio_tungstenite::tungstenite::Error as WsError;
+    use tokio_tungstenite::tungstenite::error::ProtocolError;
     matches!(
         err,
         WsError::ConnectionClosed

@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 use std::net::ToSocketAddrs;
-use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU32;
 
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
 use crate::config::Config;
 use crate::error::{HysteriaError, Result};
 use crate::migration::QuicMigrationState;
-use crate::tcp::{build_tcp_request, read_tcp_response, DuplexStream};
-use crate::tls_quic::{authenticate_connection, build_endpoint, build_tls_config, ClientSocketSpec};
-use crate::udp::{dispatch_udp_datagrams, UdpPacket, UdpSession};
+use crate::tcp::{DuplexStream, build_tcp_request, read_tcp_response};
+use crate::tls_quic::{ClientSocketSpec, authenticate_connection, build_endpoint, build_tls_config};
+use crate::udp::{UdpPacket, UdpSession, dispatch_udp_datagrams};
 
 pub async fn connect(config: &Config) -> Result<HysteriaClient> {
     let server_addr = config

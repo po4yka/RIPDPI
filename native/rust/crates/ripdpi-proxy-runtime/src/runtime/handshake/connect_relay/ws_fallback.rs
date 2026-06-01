@@ -2,9 +2,9 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use super::super::super::state::RuntimeState;
-use super::super::ws_tunnel::{should_ws_tunnel_fallback, WsTunnelResult};
-use super::reply::SuccessReply;
+use super::super::ws_tunnel::{WsTunnelResult, should_ws_tunnel_fallback};
 use super::ConnectRelayError;
+use super::reply::SuccessReply;
 
 pub(super) fn run_ws_fallback_after_desync<WriteSuccessReply, RunWsTunnel, RunWsTunnelWithSeed>(
     client: &mut TcpStream,
@@ -50,11 +50,7 @@ where
         return Err(err);
     };
 
-    if handle_ws_fallback_result(target, state, result) {
-        Ok(())
-    } else {
-        Err(err)
-    }
+    if handle_ws_fallback_result(target, state, result) { Ok(()) } else { Err(err) }
 }
 
 fn handle_ws_fallback_result(target: SocketAddr, state: &RuntimeState, result: WsTunnelResult) -> bool {

@@ -258,11 +258,7 @@ fn build_structured_padding(len: usize) -> Vec<u8> {
 pub fn generate_combined_padding(payload: &[u8], popcount_target: f32, shannon_target: f32, max_pad: usize) -> Vec<u8> {
     let popcount_pad = generate_entropy_padding(payload, popcount_target, max_pad);
     let shannon_pad = generate_shannon_padding(payload, shannon_target, max_pad);
-    if shannon_pad.len() >= popcount_pad.len() {
-        shannon_pad
-    } else {
-        popcount_pad
-    }
+    if shannon_pad.len() >= popcount_pad.len() { shannon_pad } else { popcount_pad }
 }
 
 #[cfg(test)]
@@ -376,7 +372,7 @@ mod tests {
     fn combined_padding_satisfies_both() {
         // Payload with popcount ~4.0 (in GFW detection window) and high Shannon entropy
         let payload = vec![0xAA; 200]; // popcount=4.0, entropy=0.0 (uniform)
-                                       // For this uniform payload, Shannon is 0.0 (already low), but popcount is 4.0
+        // For this uniform payload, Shannon is 0.0 (already low), but popcount is 4.0
         let padding = generate_combined_padding(&payload, POPCOUNT_EXEMPT_LOW, 7.92, 512);
         if !padding.is_empty() {
             let mut combined = padding.clone();
@@ -581,7 +577,7 @@ mod tests {
     fn shannon_padding_realistic_tls_payload() {
         // Simulate realistic TLS: structured 5-byte header + encrypted body
         let mut payload = vec![0x17, 0x03, 0x03, 0x05, 0xDC]; // TLS app data header
-                                                              // Body: pseudo-random encrypted content
+        // Body: pseudo-random encrypted content
         for i in 0..1500 {
             payload.push(((i * 7 + 13) % 256) as u8);
         }

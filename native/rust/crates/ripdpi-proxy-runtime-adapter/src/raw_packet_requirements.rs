@@ -1,7 +1,7 @@
 use std::io;
 
 use ripdpi_config::{RuntimeConfig, TcpChainStepKind, UdpChainStepKind};
-use ripdpi_runtime_platform::raw_packet::{probe_ip_fragmentation_capabilities, IpFragmentationCapabilities};
+use ripdpi_runtime_platform::raw_packet::{IpFragmentationCapabilities, probe_ip_fragmentation_capabilities};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RawPacketRequirements {

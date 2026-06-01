@@ -5,7 +5,7 @@ use crate::config::{RelayKind, ResolvedRelayRuntimeConfig};
 use crate::runtime_validation::{
     describe_runtime_health, describe_upstream, planned_backend_capabilities, planned_backend_fallback_mode,
 };
-use crate::telemetry::{now_ms, ChainHopTelemetrySnapshot, RelayTelemetry};
+use crate::telemetry::{ChainHopTelemetrySnapshot, RelayTelemetry, now_ms};
 
 pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
     let backend = runtime.state.backend();

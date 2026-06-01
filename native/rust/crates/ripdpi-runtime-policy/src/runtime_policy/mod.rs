@@ -9,8 +9,8 @@ mod types;
 mod test_support;
 
 use std::collections::{BTreeMap, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::LazyLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub use ripdpi_runtime_decision_ports::policy_ports::{
@@ -23,8 +23,8 @@ pub use response_failure::{classify_response_failure, response_requires_dns_tamp
 
 #[doc(hidden)]
 pub use matching::{
-    extract_host, extract_host_info, group_requires_payload, is_tls_client_hello_payload, route_matches_payload,
-    route_matches_payload_with_geo, GeoMatcher,
+    GeoMatcher, extract_host, extract_host_info, group_requires_payload, is_tls_client_hello_payload,
+    route_matches_payload, route_matches_payload_with_geo,
 };
 
 const HOST_AUTOLEARN_STORE_VERSION: u32 = 1;

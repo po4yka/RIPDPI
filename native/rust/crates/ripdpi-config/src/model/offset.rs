@@ -127,11 +127,7 @@ impl OffsetExpr {
     }
 
     pub const fn absolute_positive(self) -> Option<i64> {
-        if matches!(self.base, OffsetBase::Abs) && self.delta >= 0 {
-            Some(self.delta)
-        } else {
-            None
-        }
+        if matches!(self.base, OffsetBase::Abs) && self.delta >= 0 { Some(self.delta) } else { None }
     }
 
     pub const fn supports_fake_offset(self) -> bool {

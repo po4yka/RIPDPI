@@ -9,10 +9,10 @@ use std::sync::Once;
 use std::{collections::BTreeSet, result::Result as StdResult};
 
 use arti_client::{
-    config::{
-        pt::TransportConfigBuilder, BoolOrAuto, BridgeConfigBuilder, CfgPath, PtTransportName, TorClientConfigBuilder,
-    },
     IntoTorAddr, TorClient as ArtiTorClient,
+    config::{
+        BoolOrAuto, BridgeConfigBuilder, CfgPath, PtTransportName, TorClientConfigBuilder, pt::TransportConfigBuilder,
+    },
 };
 use tokio::io::{AsyncRead, AsyncWrite};
 use tor_rtcompat::PreferredRuntime;

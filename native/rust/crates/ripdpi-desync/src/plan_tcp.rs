@@ -7,14 +7,14 @@ mod offset_plan;
 
 use self::actions::{push_disoob_actions, push_disorder_actions, push_fake_rst_actions, push_split_actions};
 use self::chain::split_tcp_chain;
-use self::fake_family::{push_fake_chunk_actions, push_hostfake_actions, HostfakePlan};
+use self::fake_family::{HostfakePlan, push_fake_chunk_actions, push_hostfake_actions};
 use self::fragments::push_ipfrag2_or_fallback;
 use self::multi_disorder::plan_multi_disorder_steps;
 use self::offset_plan::{resolve_send_step_offset, seqovl_hard_gate_matches};
 use crate::fake::build_seqovl_fake_prefix;
 use crate::tls_prelude::apply_tls_prelude_steps;
 use crate::types::{
-    activation_filter_matches, ActivationContext, DesyncAction, DesyncError, DesyncPlan, PlannedStep, ProtoInfo,
+    ActivationContext, DesyncAction, DesyncError, DesyncPlan, PlannedStep, ProtoInfo, activation_filter_matches,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStepKind};
 use ripdpi_packets::OracleRng;

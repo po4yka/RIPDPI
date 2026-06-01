@@ -21,7 +21,7 @@
 ///   in KNOWN_STABLE_ARMS together with the recommended remediation.
 ///   The test passes deterministically in both cases; instability is recorded as
 ///   data rather than a hard failure.
-use ripdpi_packets::{tls_marker_info, OracleRng, DEFAULT_FAKE_TLS};
+use ripdpi_packets::{DEFAULT_FAKE_TLS, OracleRng, tls_marker_info};
 
 // ── Neighbourhood size ────────────────────────────────────────────────────────
 //

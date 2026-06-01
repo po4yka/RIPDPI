@@ -65,11 +65,7 @@ pub fn probe_detail_value<'a>(probe: &'a ProbeResult, key: &str) -> &'a str {
 pub fn build_network_environment_probe(snapshot: Option<&ripdpi_proxy_config::NetworkSnapshot>) -> Option<ProbeResult> {
     let snap = snapshot?;
     let outcome = if snap.transport == "none" {
-        if snap.vpn_service_was_active {
-            "vpn_tunnel_down"
-        } else {
-            "network_unavailable"
-        }
+        if snap.vpn_service_was_active { "vpn_tunnel_down" } else { "network_unavailable" }
     } else {
         "network_available"
     };

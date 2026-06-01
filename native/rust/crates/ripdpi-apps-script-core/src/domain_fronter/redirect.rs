@@ -1,9 +1,9 @@
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use super::FronterError;
 use super::headers;
 use super::http;
 use super::response::{self, HttpResponse};
-use super::FronterError;
 
 pub(super) async fn follow<S>(
     stream: &mut S,

@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::connectivity::adapters::util::{classify_dns_answer_overlap, ip_set, DnsAnswerOverlap};
+use crate::connectivity::adapters::util::{DnsAnswerOverlap, classify_dns_answer_overlap, ip_set};
 use crate::types::ScanPathMode;
 
 pub(super) fn classify_dns_probe_outcome(

@@ -1,7 +1,7 @@
 use crate::classification::pack_versions_from_refs;
 use crate::observations::ENGINE_ANALYSIS_VERSION;
 use crate::types::{ProbeObservation, ProbeResult, ScanReport, ScanRequest, StrategyProbeReport};
-use crate::util::{classify_probe_outcome, ProbeOutcomeBucket};
+use crate::util::{ProbeOutcomeBucket, classify_probe_outcome};
 use ripdpi_telemetry::recorder;
 use std::collections::HashSet;
 
@@ -188,11 +188,7 @@ fn effective_probe_bucket(
     let base = classify_probe_outcome(&result.probe_type, path_mode, &result.outcome).bucket;
     let contextual_healthy =
         is_contextual_cdn_dns_variance(result, results) || is_contextual_tcp_stress_probe_sensitivity(result, results);
-    if contextual_healthy {
-        ProbeOutcomeBucket::Healthy
-    } else {
-        base
-    }
+    if contextual_healthy { ProbeOutcomeBucket::Healthy } else { base }
 }
 
 fn network_verdict(results: &[ProbeResult], path_mode: &crate::types::ScanPathMode) -> &'static str {

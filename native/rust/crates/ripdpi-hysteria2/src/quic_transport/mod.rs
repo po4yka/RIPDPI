@@ -40,10 +40,10 @@ pub mod endpoint;
 pub mod h3;
 pub mod stream;
 
-pub use config::{QuicTransportConfig, ALPN_H3};
+pub use config::{ALPN_H3, QuicTransportConfig};
 pub use datagram::QuicDatagramTransport;
 pub use endpoint::{build_client_udp_socket, build_quic_endpoint, maybe_rebind_endpoint};
-pub use h3::{build_connect_request, H3ClientParts, H3ConnectKind, H3Transport};
+pub use h3::{H3ClientParts, H3ConnectKind, H3Transport, build_connect_request};
 pub use stream::{QuicBiStream, QuicTransport};
 
 #[cfg(test)]

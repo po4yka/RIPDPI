@@ -5,7 +5,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use super::dc::TelegramDcResult;
 use super::scoring::{classify_telegram_verdict, compute_telegram_quality_score};
 use super::transfer::TelegramTransferResult;
-use super::ws_tunnel::{telegram_ws_tunnel_probe_with, TelegramWsProbeResult};
+use super::ws_tunnel::{TelegramWsProbeResult, telegram_ws_tunnel_probe_with};
 
 #[test]
 fn verdict_blocked_when_both_transfers_blocked_and_no_dc() {

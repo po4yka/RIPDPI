@@ -1,15 +1,15 @@
 use std::io;
 use std::net::TcpStream;
 use std::os::fd::AsRawFd;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use ripdpi_io_uring::IoUringDriver;
 
 use super::super::super::state::RuntimeState;
 use super::super::session::RelaySession;
-use super::super::stream_copy::{RelayStreamSettings, CONNECTION_FREEZE_MARKER};
+use super::super::stream_copy::{CONNECTION_FREEZE_MARKER, RelayStreamSettings};
 use super::cleanup::{clone_relay_sockets, configure_relay_sockets, detach_drop_sack_if_needed, shutdown_relay_pair};
 use super::inbound_zc::copy_inbound_zc;
 use super::outbound_desync::copy_outbound_half;

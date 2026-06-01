@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
 pub use {
-    manifest::{is_production_key_set, ManifestError, SharedPriorsManifest, SHARED_PRIORS_PUB_KEY},
+    manifest::{ManifestError, SHARED_PRIORS_PUB_KEY, SharedPriorsManifest, is_production_key_set},
     parser::SharedPriorsError,
 };
 

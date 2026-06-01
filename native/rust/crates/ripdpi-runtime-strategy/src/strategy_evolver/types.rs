@@ -18,11 +18,11 @@ pub(crate) use identity::{
     entropy_mode_disc, offset_base_disc, oob_placement_disc, quic_fake_disc, timing_jitter_disc, tls_randrec_disc,
     udp_burst_disc,
 };
-pub(crate) use pool::{combo_from_pool, COMBO_POOL};
-pub(crate) use stats::{combo_fitness_at, combo_fitness_at_with_penalties, CooldownTransition, FITNESS_LATENCY_CAP_MS};
+pub(crate) use pool::{COMBO_POOL, combo_from_pool};
+pub(crate) use stats::{CooldownTransition, FITNESS_LATENCY_CAP_MS, combo_fitness_at, combo_fitness_at_with_penalties};
 #[cfg(test)]
 pub(crate) use stats::{
-    rarity_penalty, retry_cost, LOSS_HALF_LIFE_MS, RARITY_FLOOR, RARITY_PENALTY, RETRY_COST_FACTOR, RETRY_SATURATION,
-    WIN_HALF_LIFE_MS,
+    LOSS_HALF_LIFE_MS, RARITY_FLOOR, RARITY_PENALTY, RETRY_COST_FACTOR, RETRY_SATURATION, WIN_HALF_LIFE_MS,
+    rarity_penalty, retry_cost,
 };
 pub(crate) use time::now_millis;

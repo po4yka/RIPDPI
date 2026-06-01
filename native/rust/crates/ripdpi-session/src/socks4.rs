@@ -1,7 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use crate::types::{
-    read_be_u16, ClientRequest, NameResolver, SessionConfig, SessionError, SocketType, TargetAddr, S_CMD_CONN,
+    ClientRequest, NameResolver, S_CMD_CONN, SessionConfig, SessionError, SocketType, TargetAddr, read_be_u16,
 };
 
 pub fn parse_socks4_request(
@@ -52,7 +52,7 @@ pub fn parse_socks4_request(
 mod tests {
     use std::net::SocketAddr;
 
-    use crate::{ClientRequest, SessionConfig, SocketType, TargetAddr, S_CMD_BIND, S_CMD_CONN, S_VER4};
+    use crate::{ClientRequest, S_CMD_BIND, S_CMD_CONN, S_VER4, SessionConfig, SocketType, TargetAddr};
 
     use super::*;
 

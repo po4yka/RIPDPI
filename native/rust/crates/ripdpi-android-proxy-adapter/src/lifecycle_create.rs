@@ -3,16 +3,16 @@ use std::sync::{Arc, Mutex};
 use android_support::{
     android_log_level_from_debug_verbosity, android_log_level_from_str, set_android_log_scope_level,
 };
+use jni::Env;
 use jni::objects::JString;
 use jni::sys::jlong;
-use jni::Env;
 use log::LevelFilter;
 use ripdpi_proxy_config::RuntimeConfigEnvelope;
 
 use crate::config::{parse_proxy_config_json, runtime_config_envelope_from_payload};
 use crate::lifecycle::proxy_error;
 use crate::registry::{ProxySession, ProxySessionState, SESSIONS};
-use ripdpi_android_bridge_support::{throw_illegal_argument_env_with_payload, JniProxyError};
+use ripdpi_android_bridge_support::{JniProxyError, throw_illegal_argument_env_with_payload};
 use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
 pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {

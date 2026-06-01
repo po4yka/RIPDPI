@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::state::RelayMuxState;
 use crate::RelaySession;
+use crate::state::RelayMuxState;
 
 pub(crate) fn prune_expired_session<S>(state: &mut RelayMuxState<S>, idle_timeout: Duration)
 where

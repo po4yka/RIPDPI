@@ -7,8 +7,8 @@ use ripdpi_proxy_runtime_adapter::model::decision::{
     ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
-    classify_first_outbound_payload, ClientRequest, FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress,
-    SessionError, SessionState,
+    ClientRequest, FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, SessionError, SessionState,
+    classify_first_outbound_payload,
 };
 
 pub(super) type RuntimeConnectionRoute = ConnectionRoute;

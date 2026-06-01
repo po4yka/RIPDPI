@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use rustls::client::danger::ServerCertVerifier;
 
@@ -54,12 +54,12 @@ pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use rustls::client::danger::ServerCertVerifier;
 
-    use super::{collect_family_steps, ConnectivityProbeFamily};
+    use super::{ConnectivityProbeFamily, collect_family_steps};
     use crate::connectivity::ProbeExecutionContext;
     use crate::engine::runtime::{CollectedStageOutcome, ExecutionPlan};
     use crate::transport::direct_transport;

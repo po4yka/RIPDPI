@@ -158,7 +158,7 @@ pub mod connect {
             (IpAddr::V4(ip), SocketAddr::V4(_)) => SocketAddr::new(IpAddr::V4(ip), 0),
             (IpAddr::V6(ip), SocketAddr::V6(_)) => SocketAddr::new(IpAddr::V6(ip), 0),
             _ => {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "bind ip family does not match target family"))
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "bind ip family does not match target family"));
             }
         };
         socket.bind(&SockAddr::from(bind_addr))
@@ -266,7 +266,7 @@ pub mod udp {
         use std::sync::{Arc, Mutex};
 
         use ripdpi_runtime_platform::protect::{
-            register_protect_callback_versioned, unregister_protect_callback_if, ProtectCallback, ProtectGeneration,
+            ProtectCallback, ProtectGeneration, register_protect_callback_versioned, unregister_protect_callback_if,
         };
 
         // The protect callback lives in a single process-global slot, so two

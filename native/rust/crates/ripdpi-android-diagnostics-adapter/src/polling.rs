@@ -1,6 +1,6 @@
 use android_support::throw_runtime_exception_env;
-use jni::sys::{jlong, jstring};
 use jni::Env;
+use jni::sys::{jlong, jstring};
 use ripdpi_monitor_engine::MonitorSession;
 
 use super::registry::diagnostics_session;

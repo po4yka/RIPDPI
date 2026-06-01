@@ -1,7 +1,7 @@
 use crate::proto::{init_proto_info, resolve_host_range};
 use crate::types::{ActivationContext, ProtoInfo, TcpSegmentHint};
 use ripdpi_config::{OffsetBase, OffsetExpr};
-use ripdpi_packets::{second_level_domain_span, OracleRng};
+use ripdpi_packets::{OracleRng, second_level_domain_span};
 
 pub(crate) fn gen_offset(
     expr: OffsetExpr,

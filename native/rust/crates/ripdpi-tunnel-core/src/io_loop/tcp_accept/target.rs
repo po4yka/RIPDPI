@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use smoltcp::socket::tcp::Socket as TcpSocket;
 
-use crate::dns_cache::DnsCache;
 use crate::Stats;
+use crate::dns_cache::DnsCache;
 
 use crate::io_loop::dns_intercept::resolve_mapped_target;
 

@@ -1,4 +1,4 @@
-use ripdpi_config::{parse_tcp_flag_mask, validate_tcp_flag_masks, TcpChainStepKind};
+use ripdpi_config::{TcpChainStepKind, parse_tcp_flag_mask, validate_tcp_flag_masks};
 
 use crate::types::{ProxyConfigError, ProxyUiTcpChainStep};
 

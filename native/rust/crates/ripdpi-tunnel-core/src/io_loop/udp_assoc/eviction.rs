@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 
 use ripdpi_collections::bounded_heap::BoundedHeap;
 
-use super::association_state::{remove_association, UdpAssociation};
+use super::association_state::{UdpAssociation, remove_association};
 
 /// Default maximum number of concurrent UDP associations.
 pub(in crate::io_loop) const DEFAULT_MAX_UDP_ASSOCIATIONS: usize = 512;

@@ -1,8 +1,8 @@
 mod domain_probe;
 
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 use std::thread;
 use std::time::Duration;
@@ -10,15 +10,15 @@ use std::time::Duration;
 use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::candidates::{target_probe_pause_ms, StrategyCandidateSpec};
+use crate::candidates::{StrategyCandidateSpec, target_probe_pause_ms};
 use crate::tls::tls_key_log_callback_for_path;
 use crate::types::DomainTarget;
 use crate::util::stable_probe_hash;
 
-use crate::execution::runtime::{probe_runtime_transport, run_candidate_warmup, CandidateRuntimeLauncher};
+use crate::execution::runtime::{CandidateRuntimeLauncher, probe_runtime_transport, run_candidate_warmup};
 use crate::execution::scoring::{
-    build_candidate_execution, cancelled_candidate_execution, failed_candidate_execution,
-    not_applicable_candidate_execution, CandidateExecution, CandidateScore,
+    CandidateExecution, CandidateScore, build_candidate_execution, cancelled_candidate_execution,
+    failed_candidate_execution, not_applicable_candidate_execution,
 };
 
 use self::domain_probe::probe_domain_chunk;

@@ -18,13 +18,13 @@ use std::os::fd::AsRawFd;
 pub(crate) use handoff::swap_stream_to_replacement;
 pub(crate) use options::TcpTimestampSnapshot;
 #[cfg(test)]
-pub(crate) use options::{decode_tcp_repair_options, TcpRepairOptionsSnapshot, TcpWindowScaleSnapshot};
+pub(crate) use options::{TcpRepairOptionsSnapshot, TcpWindowScaleSnapshot, decode_tcp_repair_options};
 pub(crate) use replacement::{build_replacement_tcp_socket, sequence_after_payload};
 pub(crate) use settings::capture_stream_socket_settings;
-pub(crate) use snapshot::{snapshot_tcp_repair_state, TcpRepairSnapshot};
+pub(crate) use snapshot::{TcpRepairSnapshot, snapshot_tcp_repair_state};
 #[cfg(test)]
 pub(crate) use sockopt::TcpRepairWindow;
-pub(crate) use sockopt::{disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue, TCP_NO_QUEUE, TCP_REPAIR_ON};
+pub(crate) use sockopt::{TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue};
 
 pub(crate) fn probe_tcp_repair(protect_path: Option<&str>) -> io::Result<()> {
     let (client, _server) = connected_loopback_pair()?;

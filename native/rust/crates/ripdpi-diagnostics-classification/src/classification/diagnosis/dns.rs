@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::types::{Diagnosis, ProbeResult};
 use crate::util::is_suspected_dns_tampering_outcome;
 
-use super::common::{diagnosis_evidence, normalize_host, DiagnosisSink};
+use super::common::{DiagnosisSink, diagnosis_evidence, normalize_host};
 use super::failure_detail_value;
 
 pub(crate) fn classify_dns_diagnoses(

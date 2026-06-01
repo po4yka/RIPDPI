@@ -55,14 +55,14 @@ pub use active_network_scope::{active_network_scope, set_active_network_scope};
 // Only types referenced by downstream workspace crates are re-exported here;
 // internal-only types stay reachable as `crate::types::*`.
 pub use types::{
-    CellularSnapshot, NetworkSnapshot, ProxyConfigError, ProxyConfigPayload, ProxyDirectPathCapability,
-    ProxyEncryptedDnsContext, ProxyLogContext, ProxyMorphPolicy, ProxyPreferredEdge, ProxyRuntimeContext,
-    ProxyUiActivationFilter, ProxyUiChainConfig, ProxyUiConfig, ProxyUiFakePacketConfig, ProxyUiHostAutolearnConfig,
-    ProxyUiHostsConfig, ProxyUiListenConfig, ProxyUiNumericRange, ProxyUiParserEvasionConfig, ProxyUiProtocolConfig,
-    ProxyUiQuicConfig, ProxyUiTcpChainStep, ProxyUiTcpRotationCandidate, ProxyUiTcpRotationConfig, ProxyUiUdpChainStep,
-    RuntimeConfigEnvelope, WifiSnapshot, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
-    ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN, FAKE_TLS_SNI_MODE_RANDOMIZED,
-    QUIC_FAKE_PROFILE_DISABLED,
+    ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
+    ADAPTIVE_FAKE_TTL_DEFAULT_MIN, CellularSnapshot, FAKE_TLS_SNI_MODE_RANDOMIZED, NetworkSnapshot, ProxyConfigError,
+    ProxyConfigPayload, ProxyDirectPathCapability, ProxyEncryptedDnsContext, ProxyLogContext, ProxyMorphPolicy,
+    ProxyPreferredEdge, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiChainConfig, ProxyUiConfig,
+    ProxyUiFakePacketConfig, ProxyUiHostAutolearnConfig, ProxyUiHostsConfig, ProxyUiListenConfig, ProxyUiNumericRange,
+    ProxyUiParserEvasionConfig, ProxyUiProtocolConfig, ProxyUiQuicConfig, ProxyUiTcpChainStep,
+    ProxyUiTcpRotationCandidate, ProxyUiTcpRotationConfig, ProxyUiUdpChainStep, QUIC_FAKE_PROFILE_DISABLED,
+    RuntimeConfigEnvelope, WifiSnapshot,
 };
 
 // Public API re-exports -- conversion functions.

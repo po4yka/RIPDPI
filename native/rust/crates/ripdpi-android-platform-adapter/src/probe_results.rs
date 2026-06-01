@@ -1,7 +1,7 @@
 use jni::objects::JString;
 use jni::sys::jstring;
 use jni::{Env, EnvUnowned, Outcome};
-use ripdpi_runtime_strategy::strategy_evolver::{apply_global_probe_results, ProbeResult};
+use ripdpi_runtime_strategy::strategy_evolver::{ProbeResult, apply_global_probe_results};
 
 pub fn inject_entry(mut env: EnvUnowned<'_>, results_json: JString<'_>) -> jstring {
     match env

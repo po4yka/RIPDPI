@@ -268,7 +268,7 @@ mod tests {
         let mut t = RetransmitTracker::new();
         t.observe(&data_pkt(1000, 443, 100, 10)); // flow A first
         t.observe(&data_pkt(2000, 443, 100, 10)); // flow B first (same seq, different ports)
-                                                  // Both are first segments — no retransmit.
+        // Both are first segments — no retransmit.
         assert_eq!(t.retransmits, 0);
         assert_eq!(t.total_segments, 2);
 
@@ -286,7 +286,7 @@ mod tests {
         // Adding one more flow evicts the LRU entry. The evicted flow's
         // next segment should not be counted as a retransmit (it starts fresh).
         t.observe(&data_pkt(9000, 443, 100, 10)); // new flow, evicts oldest
-                                                  // Port 1000 was evicted. Sending same seq for it is now a first-segment.
+        // Port 1000 was evicted. Sending same seq for it is now a first-segment.
         t.observe(&data_pkt(1000, 443, 50, 10)); // re-inserted as new flow
         assert_eq!(t.retransmits, 0, "evicted flow re-entry must not count as retransmit");
     }

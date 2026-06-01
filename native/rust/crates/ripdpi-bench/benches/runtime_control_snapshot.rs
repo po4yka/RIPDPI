@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use ripdpi_proxy_config::{NetworkSnapshot, WifiSnapshot};
 
 fn sample_wifi_snapshot(ssid: &str, dns_servers: &[&str], captured_at_ms: u64) -> NetworkSnapshot {

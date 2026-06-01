@@ -14,29 +14,29 @@ pub(crate) mod dns_analysis {
 
 pub(crate) mod dns_oracle {
     pub use ripdpi_diagnostics_protocols::dns_oracle::{
-        evaluate_dns_oracles, DnsOracleAssessment, DnsOracleResponse, DnsOracleTrust,
+        DnsOracleAssessment, DnsOracleResponse, DnsOracleTrust, evaluate_dns_oracles,
     };
 }
 
 pub(crate) mod fat_header {
     pub use ripdpi_diagnostics_protocols::fat_header::{
-        classify_fat_header_outcome, classify_rst_origin, classify_tcp_block_method, fat_status_label,
-        run_fat_header_attempt_with_key_log, FatHeaderStatus,
+        FatHeaderStatus, classify_fat_header_outcome, classify_rst_origin, classify_tcp_block_method, fat_status_label,
+        run_fat_header_attempt_with_key_log,
     };
 }
 
 pub(crate) mod http {
     pub use ripdpi_diagnostics_protocols::http::{
-        classify_http_response, describe_http_observation, is_blockpage, parse_http_response, read_http_headers,
-        read_http_response, try_http_request, try_http_request_targets_with_key_log, HttpObservation,
+        HttpObservation, classify_http_response, describe_http_observation, is_blockpage, parse_http_response,
+        read_http_headers, read_http_response, try_http_request, try_http_request_targets_with_key_log,
     };
 }
 
 pub(crate) mod tls {
     pub use ripdpi_diagnostics_protocols::tls::{
-        classify_tls_signal, is_server_tls_version_rejection, open_probe_stream_targets,
-        open_probe_stream_targets_with_key_log, preferred_tls_observation, tls_key_log_callback_for_path,
-        try_tls_handshake, try_tls_handshake_with_key_log, TlsClientProfile, TlsKeyLogCallback, TlsObservation,
+        TlsClientProfile, TlsKeyLogCallback, TlsObservation, classify_tls_signal, is_server_tls_version_rejection,
+        open_probe_stream_targets, open_probe_stream_targets_with_key_log, preferred_tls_observation,
+        tls_key_log_callback_for_path, try_tls_handshake, try_tls_handshake_with_key_log,
     };
 }
 
@@ -44,15 +44,15 @@ pub(crate) mod transport {
     #[cfg(test)]
     pub use ripdpi_diagnostics_protocols::transport::direct_transport;
     pub use ripdpi_diagnostics_protocols::transport::{
-        connect_transport_observed, domain_connect_target, domain_connect_targets, quic_connect_target,
-        relay_udp_direct, relay_udp_payload_observed, relay_udp_via_socks5, resolve_addresses,
-        resolve_first_socket_addr, throughput_connect_targets, RouteExperimentReport, TargetAddress, TransportConfig,
+        RouteExperimentReport, TargetAddress, TransportConfig, connect_transport_observed, domain_connect_target,
+        domain_connect_targets, quic_connect_target, relay_udp_direct, relay_udp_payload_observed,
+        relay_udp_via_socks5, resolve_addresses, resolve_first_socket_addr, throughput_connect_targets,
     };
 }
 
 pub(crate) mod util {
     pub use ripdpi_diagnostics_protocols::util::{
-        classify_dns_answer_overlap, find_headers_end, format_result_set, format_socket_result, ip_set,
-        is_suspected_dns_tampering_outcome, now_ms, DnsAnswerOverlap, DEFAULT_DNS_SERVER, IO_TIMEOUT, MAX_HTTP_BYTES,
+        DEFAULT_DNS_SERVER, DnsAnswerOverlap, IO_TIMEOUT, MAX_HTTP_BYTES, classify_dns_answer_overlap,
+        find_headers_end, format_result_set, format_socket_result, ip_set, is_suspected_dns_tampering_outcome, now_ms,
     };
 }

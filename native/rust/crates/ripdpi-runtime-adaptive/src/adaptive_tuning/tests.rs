@@ -1,8 +1,8 @@
+use super::AdaptivePlannerResolver;
 use super::feedback::*;
 use super::key::*;
 use super::persistence::*;
 use super::state::*;
-use super::AdaptivePlannerResolver;
 use std::{fs, net::SocketAddr};
 
 use ripdpi_config::{
@@ -10,7 +10,7 @@ use ripdpi_config::{
     UdpChainStep, UdpChainStepKind,
 };
 use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
-use ripdpi_packets::{build_realistic_quic_initial, DEFAULT_FAKE_TLS, QUIC_V2_VERSION};
+use ripdpi_packets::{DEFAULT_FAKE_TLS, QUIC_V2_VERSION, build_realistic_quic_initial};
 
 fn addr(port: u16) -> SocketAddr {
     SocketAddr::from(([127, 0, 0, 1], port))

@@ -5,8 +5,8 @@ use hickory_proto::op::{Message, MessageType, OpCode, Query};
 use hickory_proto::rr::{Name, RecordType};
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_dns_resolver::{
-    extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
-    OdohConfigSource, OdohEndpointConfig, ODOH_MESSAGE_MEDIA_TYPE,
+    EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport, ODOH_MESSAGE_MEDIA_TYPE,
+    OdohConfigSource, OdohEndpointConfig, extract_ip_answers,
 };
 
 #[test]

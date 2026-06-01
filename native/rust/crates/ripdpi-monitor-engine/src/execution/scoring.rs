@@ -8,8 +8,8 @@ use crate::candidates::StrategyCandidateSpec;
 
 pub use score_state::{CandidateScore, ProbeSample};
 pub use summary::{
-    build_candidate_execution, eliminated_candidate_summary, failed_candidate_execution,
-    not_applicable_candidate_execution, skipped_candidate_summary, CandidateExecution,
+    CandidateExecution, build_candidate_execution, eliminated_candidate_summary, failed_candidate_execution,
+    not_applicable_candidate_execution, skipped_candidate_summary,
 };
 #[cfg(test)]
 pub use winner_selection::winning_candidate_index;

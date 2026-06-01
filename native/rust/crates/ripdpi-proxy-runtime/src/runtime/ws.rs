@@ -1,12 +1,12 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::config::{ws_tunnel_config_with, WsTunnelSettings};
+use ripdpi_proxy_runtime_adapter::model::config::{WsTunnelSettings, ws_tunnel_config_with};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
-    classify_mtproto_seed, detect_telegram_dc, encrypted_dns_ip_answers_for_host, relay_ws_tunnel,
-    resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr, should_tunnel_fallback_with, should_tunnel_first_with,
-    telegram_dc_host, EncryptedDnsIpAnswers, MtprotoSeedClassification, TelegramDc, WsTunnelConfig,
+    EncryptedDnsIpAnswers, MtprotoSeedClassification, TelegramDc, WsTunnelConfig, classify_mtproto_seed,
+    detect_telegram_dc, encrypted_dns_ip_answers_for_host, relay_ws_tunnel, resolve_host_via_encrypted_dns,
+    resolve_ws_tunnel_addr, should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host,
 };
 
 pub(super) type RuntimeEncryptedDnsIpAnswers = EncryptedDnsIpAnswers;
@@ -155,7 +155,7 @@ pub(super) fn runtime_relay_ws_tunnel(
 mod tests {
     use super::*;
     use local_network_fixture::{FixtureConfig, FixtureStack};
-    use ripdpi_proxy_runtime_adapter::model::config::{ws_tunnel_settings, RuntimeConfig, WsTunnelMode};
+    use ripdpi_proxy_runtime_adapter::model::config::{RuntimeConfig, WsTunnelMode, ws_tunnel_settings};
     use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyEncryptedDnsContext;
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::time::Duration;

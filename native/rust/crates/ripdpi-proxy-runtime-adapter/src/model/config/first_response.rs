@@ -1,7 +1,7 @@
 use ripdpi_config::RuntimeConfig;
 pub use ripdpi_proxy_runtime_desync_adapter::model::config::{
-    first_response_bytes_limit, first_response_settings, first_response_timeout, first_response_timeout_count_limit,
-    FirstResponseSettings,
+    FirstResponseSettings, first_response_bytes_limit, first_response_settings, first_response_timeout,
+    first_response_timeout_count_limit,
 };
 
 use super::protect_path_owned;

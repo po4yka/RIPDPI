@@ -1,6 +1,6 @@
-use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
+use ripdpi_packets::{QUIC_V1_VERSION, build_realistic_quic_initial, parse_quic_initial};
 
-use crate::connectivity::adapters::transport::{quic_connect_target, relay_udp_payload_observed, TransportConfig};
+use crate::connectivity::adapters::transport::{TransportConfig, quic_connect_target, relay_udp_payload_observed};
 use crate::connectivity::adapters::util::now_ms;
 use crate::types::{ProbeDetail, ProbeResult, QuicTarget};
 

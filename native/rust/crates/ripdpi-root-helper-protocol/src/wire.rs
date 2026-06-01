@@ -81,10 +81,10 @@ pub fn valid_session_nonce(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        valid_session_nonce, HelperRequest, HelperResponse, CAPABILITY_VERSION, MAX_SESSION_NONCE_BYTES,
-        MIN_SESSION_NONCE_BYTES, PROTOCOL_VERSION,
+        CAPABILITY_VERSION, HelperRequest, HelperResponse, MAX_SESSION_NONCE_BYTES, MIN_SESSION_NONCE_BYTES,
+        PROTOCOL_VERSION, valid_session_nonce,
     };
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
 
     #[test]
     fn validates_urlsafe_session_nonce_shape() {

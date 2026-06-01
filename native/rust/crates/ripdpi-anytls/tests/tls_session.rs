@@ -1,9 +1,9 @@
 use std::net::Ipv4Addr;
 
 use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig};
+use ripdpi_anytls::DEFAULT_PADDING_SCHEME;
 use ripdpi_anytls::padding::PaddingScheme;
 use ripdpi_anytls::session::{AnyTlsClient, AnyTlsClientConfig, AnyTlsError, TargetAddr};
-use ripdpi_anytls::DEFAULT_PADDING_SCHEME;
 use sha2::{Digest, Sha256};
 
 fn client_config(fixture: &AnyTlsLoopback, password: &str) -> AnyTlsClientConfig {

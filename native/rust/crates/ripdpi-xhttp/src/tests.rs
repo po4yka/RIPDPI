@@ -1,6 +1,6 @@
 use crate::config::XhttpProtocolMode;
 use crate::relay::{
-    random_padding_value, referer_padding, stream_one_path, stream_up_path, HEADER_PADDING_MAX, HEADER_PADDING_MIN,
+    HEADER_PADDING_MAX, HEADER_PADDING_MIN, random_padding_value, referer_padding, stream_one_path, stream_up_path,
 };
 use crate::{XhttpTlsConfig, XmuxConfig};
 

@@ -1,6 +1,6 @@
 use crate::types::{Diagnosis, ProbeResult, ScanRequest};
 
-use super::common::{diagnosis_evidence, DiagnosisSink};
+use super::common::{DiagnosisSink, diagnosis_evidence};
 use super::failure_detail_value;
 
 pub(crate) fn classify_tcp_diagnoses(

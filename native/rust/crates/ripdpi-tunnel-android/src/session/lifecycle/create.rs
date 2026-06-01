@@ -3,13 +3,13 @@ use std::sync::{Arc, Mutex};
 use android_support::{
     android_log_level_from_str, set_android_log_scope_level, throw_illegal_argument_env, throw_io_exception_env,
 };
+use jni::Env;
 use jni::objects::JString;
 use jni::sys::jlong;
-use jni::Env;
 
 use crate::telemetry::TunnelTelemetryState;
 
-use super::super::registry::{TunnelSession, TunnelSessionState, SESSIONS};
+use super::super::registry::{SESSIONS, TunnelSession, TunnelSessionState};
 use super::super::runtime::shared_tunnel_runtime;
 use super::validation::parse_session_config;
 

@@ -82,7 +82,7 @@ pub enum EchLookupOutcome {
 
 pub trait OutboundEchResolver {
     fn resolve_https_ech_config_list(&self, request: &EchLookupRequest<'_>)
-        -> Result<EchLookupOutcome, EchFacadeError>;
+    -> Result<EchLookupOutcome, EchFacadeError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

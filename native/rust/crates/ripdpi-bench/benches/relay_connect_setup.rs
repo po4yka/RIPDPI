@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_config::RuntimeConfig;
 

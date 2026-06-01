@@ -211,11 +211,7 @@ pub(crate) enum XhttpMode {
 
 pub(crate) fn normalize_path(path: &str) -> String {
     let trimmed = path.trim().trim_matches('/');
-    if trimmed.is_empty() {
-        "/".to_owned()
-    } else {
-        format!("/{trimmed}")
-    }
+    if trimmed.is_empty() { "/".to_owned() } else { format!("/{trimmed}") }
 }
 
 fn parse_uuid(value: &str) -> Result<[u8; 16], ()> {

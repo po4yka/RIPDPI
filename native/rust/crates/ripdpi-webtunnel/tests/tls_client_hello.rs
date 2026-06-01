@@ -8,7 +8,7 @@ use golden_test_support::repo_root;
 use ripdpi_packets::parse_tls_client_hello_layout;
 use ripdpi_webtunnel::bridge_line::parse_bridge_line;
 use ripdpi_webtunnel::tls::build_tls_connector;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 const CLIENT_HELLO_FIXTURE: &str = "contract-fixtures/webtunnel_client_hello_chrome_parity.json";
 const EXT_SUPPORTED_GROUPS: u16 = 0x000a;

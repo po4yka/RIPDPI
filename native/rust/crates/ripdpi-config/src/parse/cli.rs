@@ -9,7 +9,7 @@ mod tests;
 pub use helpers::{parse_hosts_spec, parse_ipset_spec};
 
 use helpers::split_plugin_options;
-use options::{handle_option, OptionOutcome};
+use options::{OptionOutcome, handle_option};
 use state::CliState;
 
 pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, ConfigError> {

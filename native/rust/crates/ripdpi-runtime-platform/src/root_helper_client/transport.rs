@@ -4,7 +4,7 @@ use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
 use ripdpi_root_helper_protocol::{
-    recv_message, send_message, valid_session_nonce, validate_request, HelperRequest, HelperResponse,
+    HelperRequest, HelperResponse, recv_message, send_message, valid_session_nonce, validate_request,
 };
 
 pub(super) struct ClientTransport {
@@ -98,13 +98,13 @@ fn close_raw_fd(fd: Option<RawFd>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{load_session_nonce, session_nonce_path, ClientTransport};
+    use super::{ClientTransport, load_session_nonce, session_nonce_path};
     use std::io::Write;
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     use std::os::unix::net::UnixListener;
     use std::thread;
 
-    use ripdpi_root_helper_protocol::{recv_message, send_message, HelperResponse};
+    use ripdpi_root_helper_protocol::{HelperResponse, recv_message, send_message};
 
     #[test]
     fn derives_session_nonce_path_from_socket_path() {

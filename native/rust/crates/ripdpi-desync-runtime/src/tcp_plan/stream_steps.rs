@@ -4,7 +4,7 @@ use std::time::Duration;
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind};
 
 use super::flags::step_original_tcp_flags;
-use crate::tcp_lowering::{send_oob_with_android_ttl_fallback, TcpLoweringCapabilities};
+use crate::tcp_lowering::{TcpLoweringCapabilities, send_oob_with_android_ttl_fallback};
 use crate::transport_io::{
     await_writable_action_named, send_oob_action_named, write_strategy_payload_named,
     write_strategy_payload_with_optional_flags_named, write_ttl_sensitive_payload_with_optional_flags_named,

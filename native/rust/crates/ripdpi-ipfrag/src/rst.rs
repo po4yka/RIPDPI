@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use etherparse::{ip_number, Ipv4Header, Ipv6FlowLabel, Ipv6Header, TcpHeader};
+use etherparse::{Ipv4Header, Ipv6FlowLabel, Ipv6Header, TcpHeader, ip_number};
 
 use crate::ipv4::serialize_ipv4_fragment;
 use crate::tcp::{apply_tcp_flag_overrides_to_transport, serialize_tcp_transport};

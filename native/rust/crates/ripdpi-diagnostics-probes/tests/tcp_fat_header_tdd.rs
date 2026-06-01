@@ -7,7 +7,7 @@
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 use ripdpi_diagnostics_probes::probes::tcp_fat_header::{
-    TcpFatHeaderProbe, TcpFatHeaderStatus, TCP_FAT_HEADER_PROBE_ID,
+    TCP_FAT_HEADER_PROBE_ID, TcpFatHeaderProbe, TcpFatHeaderStatus,
 };
 use ripdpi_diagnostics_probes::{Probe, ProbeContext, ProbeVerdict};
 

@@ -1,13 +1,13 @@
 use std::sync::{Arc, Mutex};
 
-use android_support::{clear_android_log_scope_level, HandleRegistry};
+use android_support::{HandleRegistry, clear_android_log_scope_level};
 use jni::sys::jlong;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
-use ripdpi_android_bridge_support::to_handle;
 use ripdpi_android_bridge_support::JniProxyError;
+use ripdpi_android_bridge_support::to_handle;
 use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
 pub(crate) static SESSIONS: once_cell::sync::Lazy<HandleRegistry<ProxySession>> =

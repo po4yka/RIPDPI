@@ -6,7 +6,7 @@
 //! whether subsequent retries are restricted to owned-stack arms.
 
 use ripdpi_diagnostics_classification::classification::ip_block_suspect::{
-    classify_ip_block_suspect, IpBlockSuspectInput,
+    IpBlockSuspectInput, classify_ip_block_suspect,
 };
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 use ripdpi_failure_classifier::IpBlockVerdict;

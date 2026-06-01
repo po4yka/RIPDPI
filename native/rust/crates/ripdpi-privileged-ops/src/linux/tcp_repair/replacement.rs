@@ -7,8 +7,8 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use super::options::apply_tcp_repair_options;
 use super::snapshot::TcpRepairSnapshot;
 use super::sockopt::{
-    disable_tcp_repair, set_tcp_queue_seq, set_tcp_repair, set_tcp_repair_queue, set_tcp_repair_window, TCP_NO_QUEUE,
-    TCP_RECV_QUEUE, TCP_REPAIR_ON, TCP_SEND_QUEUE,
+    TCP_NO_QUEUE, TCP_RECV_QUEUE, TCP_REPAIR_ON, TCP_SEND_QUEUE, disable_tcp_repair, set_tcp_queue_seq, set_tcp_repair,
+    set_tcp_repair_queue, set_tcp_repair_window,
 };
 
 pub(crate) fn build_replacement_tcp_socket(

@@ -5,7 +5,7 @@ use crate::types::{
     ScanPathMode, ServiceTarget, StrategyProbeRequest, TcpTarget, TelegramTarget, ThroughputTarget,
 };
 
-use super::{default_diagnostic_profile_family, default_scan_kind, default_schema_version, EngineProbeTaskWire};
+use super::{EngineProbeTaskWire, default_diagnostic_profile_family, default_scan_kind, default_schema_version};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

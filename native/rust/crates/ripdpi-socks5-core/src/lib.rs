@@ -74,10 +74,10 @@ use std::fmt;
 use std::io;
 use thiserror::Error;
 use util::stream::ConnectError;
-use util::target_addr::read_address;
 use util::target_addr::AddrError;
 use util::target_addr::TargetAddr;
 use util::target_addr::ToTargetAddr;
+use util::target_addr::read_address;
 
 use tokio::io::AsyncReadExt;
 
@@ -382,7 +382,7 @@ mod test {
         sync::oneshot::Sender,
     };
 
-    use crate::{client, parse_udp_request, server, validate_udp_rsv_frag, ReplyError, Socks5Command, UdpHeaderError};
+    use crate::{ReplyError, Socks5Command, UdpHeaderError, client, parse_udp_request, server, validate_udp_rsv_frag};
     use std::{
         net::{SocketAddr, ToSocketAddrs},
         num::ParseIntError,

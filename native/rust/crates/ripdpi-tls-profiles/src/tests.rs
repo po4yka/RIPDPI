@@ -8,9 +8,9 @@ use std::thread;
 use std::time::Duration;
 
 use crate::{
-    build_connector, configure_builder, invariants::validate_profile_config, plan_first_flight, profile,
-    profile_catalog, profile_catalog_version, select_rotated_profile_with_set, selected_profile_metadata,
-    ProfileInvariantStatus, AVAILABLE_PROFILES,
+    AVAILABLE_PROFILES, ProfileInvariantStatus, build_connector, configure_builder,
+    invariants::validate_profile_config, plan_first_flight, profile, profile_catalog, profile_catalog_version,
+    select_rotated_profile_with_set, selected_profile_metadata,
 };
 
 fn capture_client_hello(profile: &str) -> Vec<u8> {

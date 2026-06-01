@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use android_support::{throw_illegal_argument_env, throw_illegal_state_env, throw_io_exception_env};
-use jni::sys::{jint, jlong};
 use jni::Env;
+use jni::sys::{jint, jlong};
 use ripdpi_tunnel_core::Stats;
 use tokio_util::sync::CancellationToken;
 
-use super::registry::{lookup_tunnel_session, remove_tunnel_session, TunnelSessionState};
+use super::registry::{TunnelSessionState, lookup_tunnel_session, remove_tunnel_session};
 
 mod create;
 mod fd;
@@ -23,7 +23,7 @@ pub(crate) use validation::validate_tun_fd;
 
 use fd::adopt_tun_fd;
 use telemetry::{mark_session_started, wire_session_telemetry};
-use worker::{launch_tunnel_worker, WorkerLaunch};
+use worker::{WorkerLaunch, launch_tunnel_worker};
 
 pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong, tun_fd: jint) {
     let session = match lookup_tunnel_session(handle) {

@@ -8,7 +8,7 @@
 //! blockpage fingerprint table inside `ripdpi-failure-classifier`.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
-use ripdpi_failure_classifier::{classify_http_response_block, FailureClass};
+use ripdpi_failure_classifier::{FailureClass, classify_http_response_block};
 
 use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
 

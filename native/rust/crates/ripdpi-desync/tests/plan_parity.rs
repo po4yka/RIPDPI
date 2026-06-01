@@ -1,6 +1,6 @@
 use ripdpi_config::{DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind};
 use ripdpi_desync::{
-    plan_tcp, ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints, TcpDesyncStrategy,
+    ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints, TcpDesyncStrategy, plan_tcp,
 };
 
 fn activation_context(payload: &[u8]) -> ActivationContext {

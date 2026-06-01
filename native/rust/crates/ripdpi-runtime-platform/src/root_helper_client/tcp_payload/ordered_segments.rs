@@ -1,11 +1,11 @@
 use std::io;
 use std::os::fd::RawFd;
 
-use ripdpi_root_helper_protocol::{OrderedTcpSegmentParams, OrderedTcpSegmentsParams, CMD_SEND_ORDERED_TCP_SEGMENTS};
+use ripdpi_root_helper_protocol::{CMD_SEND_ORDERED_TCP_SEGMENTS, OrderedTcpSegmentParams, OrderedTcpSegmentsParams};
 
 use crate::{OrderedTcpSegment, TcpStageWait};
 
-use super::super::{command_params, RootHelperClient};
+use super::super::{RootHelperClient, command_params};
 
 impl RootHelperClient {
     /// Send an ordered raw TCP batch via the helper. Returns replacement fd.

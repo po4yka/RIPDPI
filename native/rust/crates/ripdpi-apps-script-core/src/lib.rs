@@ -8,8 +8,8 @@ mod socks5;
 mod telemetry;
 
 use std::io;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub use config::AppsScriptRuntimeConfig;
 pub use telemetry::RelayTelemetry;

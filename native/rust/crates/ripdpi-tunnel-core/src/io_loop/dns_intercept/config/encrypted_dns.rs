@@ -8,8 +8,8 @@ use ripdpi_dns_resolver::{
     OdohEndpointConfig,
 };
 use ripdpi_tunnel_config::{Config, MapDnsConfig};
-use rustls::pki_types::{pem::PemObject, CertificateDer};
 use rustls::RootCertStore;
+use rustls::pki_types::{CertificateDer, pem::PemObject};
 
 use super::super::protect_hooks::encrypted_dns_connect_hooks;
 
@@ -110,7 +110,10 @@ fn odoh_endpoint_config(
         "custom" | "custom_bytes" => OdohConfigSource::CustomBytes { configs_wire, retrieved_at_secs, ttl_secs },
         "bundled" => OdohConfigSource::Bundled { configs_wire, retrieved_at_secs, ttl_secs },
         value => {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unsupported ODoH configSource '{value}'")))
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("unsupported ODoH configSource '{value}'"),
+            ));
         }
     };
 

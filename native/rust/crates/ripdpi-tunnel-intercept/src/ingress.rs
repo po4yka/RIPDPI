@@ -2,7 +2,7 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 
 use etherparse::{NetSlice, SlicedPacket, TcpHeaderSlice, TransportSlice};
-use ripdpi_strategy_config::{parse_yaml_str, StepType};
+use ripdpi_strategy_config::{StepType, parse_yaml_str};
 use tracing::{debug, warn};
 
 const IPV4_TTL_OFFSET: usize = 8;

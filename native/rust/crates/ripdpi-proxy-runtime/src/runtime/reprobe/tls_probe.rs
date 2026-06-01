@@ -88,11 +88,7 @@ fn read_handshake_type(stream: &mut impl Read, header: [u8; 5]) -> Option<u8> {
     }
 
     let mut handshake_type = [0u8; 1];
-    if stream.read_exact(&mut handshake_type).is_ok() {
-        Some(handshake_type[0])
-    } else {
-        None
-    }
+    if stream.read_exact(&mut handshake_type).is_ok() { Some(handshake_type[0]) } else { None }
 }
 
 #[cfg(test)]

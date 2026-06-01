@@ -21,19 +21,19 @@ mod tests;
 
 pub use builder::{build_connector, configure_builder};
 pub use ech::{
-    configure_boring_ech, configure_ech, configure_rustls_ech, extract_boring_ech_rejection, prepare_ech_retry,
-    require_ech_backend_support, resolve_outbound_ech, EchConfigError, EchFacadeError, EchLookupOutcome,
-    EchLookupRequest, EchLookupTransport, EchOutboundError, EchPolicy, EchPublicNameVerifier, EchRejectedHandshake,
-    EchRetryState, EchSetup, OutboundEchBackend, OutboundEchConfig, OutboundEchResolver,
+    EchConfigError, EchFacadeError, EchLookupOutcome, EchLookupRequest, EchLookupTransport, EchOutboundError,
+    EchPolicy, EchPublicNameVerifier, EchRejectedHandshake, EchRetryState, EchSetup, OutboundEchBackend,
+    OutboundEchConfig, OutboundEchResolver, configure_boring_ech, configure_ech, configure_rustls_ech,
+    extract_boring_ech_rejection, prepare_ech_retry, require_ech_backend_support, resolve_outbound_ech,
 };
 pub use profile::{
-    profile_catalog, profile_metadata, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata,
-    ProfileParityTargets, ProfileTemplateMetadata, AVAILABLE_PROFILES,
+    AVAILABLE_PROFILES, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata, ProfileParityTargets,
+    ProfileTemplateMetadata, profile_catalog, profile_metadata,
 };
-pub use reality_ech::{reality_ech_parity, CoverEchEvidence, RealityEchParity};
+pub use reality_ech::{CoverEchEvidence, RealityEchParity, reality_ech_parity};
 pub use record_choreography::{
-    apply_record_choreography, plan_first_flight, planned_record_payload_boundaries, planned_record_payload_lengths,
-    selected_record_choreography, RecordChoreography, TlsTemplateFirstFlightPlan,
+    RecordChoreography, TlsTemplateFirstFlightPlan, apply_record_choreography, plan_first_flight,
+    planned_record_payload_boundaries, planned_record_payload_lengths, selected_record_choreography,
 };
 pub use rotation::{select_profile_for_connection, select_rotated_profile, select_rotated_profile_with_set};
 

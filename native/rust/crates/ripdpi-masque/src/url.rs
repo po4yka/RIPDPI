@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{SocketAddr, ToSocketAddrs};
 
-use url::{form_urlencoded::byte_serialize, Url};
+use url::{Url, form_urlencoded::byte_serialize};
 
 use crate::config::MasqueConfig;
 
@@ -64,11 +64,7 @@ fn build_request_uri(parsed: &Url) -> String {
 
 fn normalized_url_path(path: &str) -> String {
     let trimmed = path.trim();
-    if trimmed.is_empty() {
-        "/".to_string()
-    } else {
-        trimmed.to_string()
-    }
+    if trimmed.is_empty() { "/".to_string() } else { trimmed.to_string() }
 }
 
 fn derive_udp_base_path(path: &str) -> String {

@@ -52,11 +52,7 @@ pub fn init_android_logging(tag: &'static str) {
 }
 
 pub fn default_android_log_level() -> LevelFilter {
-    if cfg!(debug_assertions) {
-        LevelFilter::Debug
-    } else {
-        LevelFilter::Info
-    }
+    if cfg!(debug_assertions) { LevelFilter::Debug } else { LevelFilter::Info }
 }
 
 pub fn android_log_level_from_str(level: &str) -> Option<LevelFilter> {
@@ -108,7 +104,7 @@ pub fn log_with_level(level: &str, message: impl AsRef<str>) {
 /// code. Writing to a closed socket/pipe delivers SIGPIPE, which terminates
 /// the process unless handled. This must be called once from `JNI_OnLoad`.
 pub fn ignore_sigpipe() {
-    use nix::sys::signal::{signal, SigHandler, Signal};
+    use nix::sys::signal::{SigHandler, Signal, signal};
     // SAFETY: Ignoring SIGPIPE is async-signal-safe. The previous handler is
     // discarded; we don't need to restore it.
     let _ = unsafe { signal(Signal::SIGPIPE, SigHandler::SigIgn) };

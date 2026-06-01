@@ -32,8 +32,8 @@
 
 use std::io;
 
-use crate::backend::builder::{builders, BuildContext};
 use crate::backend::RelayBackend;
+use crate::backend::builder::{BuildContext, builders};
 use crate::config::ResolvedRelayRuntimeConfig;
 
 /// Static, `relay_kind`-keyed capability metadata for one relay transport.

@@ -174,7 +174,7 @@ mod canary {
     }
 }
 
-use canary::{Bomb, Holder, BOMB_DROPS};
+use canary::{BOMB_DROPS, Bomb, Holder};
 use std::sync::Mutex;
 
 /// `cargo test` runs tests in parallel by default. Every test in

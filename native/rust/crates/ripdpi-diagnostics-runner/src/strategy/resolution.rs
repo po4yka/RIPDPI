@@ -2,8 +2,8 @@ use std::net::{IpAddr, SocketAddr};
 
 use crate::probe_context::ProbeExecutionContext;
 use crate::strategy::adapters::dns::resolve_via_encrypted_dns;
-use crate::strategy::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment, DnsOracleResponse};
-use crate::strategy::adapters::transport::{domain_connect_target, resolve_addresses, TargetAddress};
+use crate::strategy::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse, evaluate_dns_oracles};
+use crate::strategy::adapters::transport::{TargetAddress, domain_connect_target, resolve_addresses};
 use crate::types::DomainTarget;
 
 pub(super) struct SystemDnsResolution {

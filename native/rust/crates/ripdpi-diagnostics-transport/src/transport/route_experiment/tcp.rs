@@ -2,10 +2,10 @@ use std::net::{SocketAddr, TcpStream};
 
 use socket2::{Protocol, SockAddr, Socket, Type};
 
-use crate::util::{stable_probe_hash, CONNECT_TIMEOUT};
+use crate::util::{CONNECT_TIMEOUT, stable_probe_hash};
 
-use super::common::{route_bind_addr, route_bucket_port, socket_domain_for};
 use super::RouteAttemptTracker;
+use super::common::{route_bind_addr, route_bucket_port, socket_domain_for};
 use crate::transport::types::{RouteExperimentConfig, RouteExperimentReport};
 
 pub(crate) fn connect_addresses_with_route_experiment(
@@ -75,7 +75,7 @@ mod tests {
     use std::net::{Ipv4Addr, Shutdown, TcpListener};
     use std::thread;
 
-    use crate::transport::{connect_transport_observed, TargetAddress, TransportConfig};
+    use crate::transport::{TargetAddress, TransportConfig, connect_transport_observed};
 
     use super::super::common::{route_bind_addr, route_bucket_port, route_identity};
     use super::*;

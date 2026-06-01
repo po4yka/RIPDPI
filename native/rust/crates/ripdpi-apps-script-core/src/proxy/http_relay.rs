@@ -251,7 +251,7 @@ fn expects_100_continue(headers: &[(String, String)]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use tokio::io::{duplex, AsyncWriteExt};
+    use tokio::io::{AsyncWriteExt, duplex};
 
     use super::*;
 

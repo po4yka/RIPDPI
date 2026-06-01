@@ -2,8 +2,8 @@ use crate::normalize_quic_initial;
 
 use ripdpi_config::DesyncGroup;
 use ripdpi_packets::{
-    build_browser_like_quic_initial_seed, packetize_quic_initial, parse_quic_initial_seed, QuicInitialBrowserProfile,
-    QuicInitialPacketLayout, QuicInitialSeed,
+    QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed, build_browser_like_quic_initial_seed,
+    packetize_quic_initial, parse_quic_initial_seed,
 };
 
 pub(super) const QUIC_INITIAL_MIN_PREFIX: usize = 256;

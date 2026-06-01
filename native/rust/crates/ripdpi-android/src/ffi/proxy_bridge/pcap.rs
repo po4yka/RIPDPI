@@ -1,5 +1,5 @@
 use jni::objects::JString;
-use jni::sys::{jboolean, jlong, jstring, JNI_FALSE};
+use jni::sys::{JNI_FALSE, jboolean, jlong, jstring};
 
 use ripdpi_android_proxy_adapter::{pcap_is_recording_entry, pcap_start_entry, pcap_stop_entry};
 

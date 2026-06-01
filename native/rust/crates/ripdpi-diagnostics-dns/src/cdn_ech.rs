@@ -41,7 +41,7 @@ mod tests;
 mod validation;
 
 pub use cache::{CachedEchSnapshot, CdnEchUpdater};
-pub use catalog::{opportunistic_ech_config_for_ip, opportunistic_ech_provider_for_ip, CdnEchConfig};
+pub use catalog::{CdnEchConfig, opportunistic_ech_config_for_ip, opportunistic_ech_provider_for_ip};
 pub use production::production_updater;
 pub use source::{BundledEchConfigSource, EchConfigSource, EchSourceError, RemoteEchConfigSource};
 pub use validation::validate_ech_config_list_bytes;

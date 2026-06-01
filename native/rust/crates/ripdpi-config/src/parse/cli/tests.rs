@@ -5,7 +5,7 @@ use crate::{
     SeqOverlapFakeMode, TcpChainStepKind, UdpChainStep, UdpChainStepKind, WsizeConfig,
 };
 use ripdpi_packets::{
-    HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL,
+    HttpFakeProfile, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL, TlsFakeProfile, UdpFakeProfile,
 };
 use std::net::IpAddr;
 use std::str::FromStr;

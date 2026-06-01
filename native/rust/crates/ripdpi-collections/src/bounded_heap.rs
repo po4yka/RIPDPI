@@ -84,11 +84,7 @@ impl<T: Ord> BoundedHeap<T> {
 
     /// View the minimum item without removing.
     pub fn peek(&self) -> Option<&T> {
-        if self.len == 0 {
-            None
-        } else {
-            self.data[0].as_ref()
-        }
+        if self.len == 0 { None } else { self.data[0].as_ref() }
     }
 
     /// Remove the first item matching the predicate.

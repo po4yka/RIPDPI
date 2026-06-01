@@ -1,10 +1,10 @@
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use super::plan::ExecutionPlan;
-use super::recording::{record_collected_outcome, CollectedStageOutcome};
+use super::recording::{CollectedStageOutcome, record_collected_outcome};
 use super::state::ExecutionRuntime;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

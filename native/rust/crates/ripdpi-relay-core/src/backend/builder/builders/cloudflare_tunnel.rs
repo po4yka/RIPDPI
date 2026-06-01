@@ -1,7 +1,7 @@
 use std::io;
 
-use crate::backend::builder::builders::common::{finalmask_config, invalid_input};
 use crate::backend::builder::BuildContext;
+use crate::backend::builder::builders::common::{finalmask_config, invalid_input};
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::{XhttpSessionFactory, XhttpSessionMode};

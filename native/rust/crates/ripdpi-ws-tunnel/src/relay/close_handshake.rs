@@ -1,8 +1,8 @@
 use std::io::{self, Read, Write};
 use std::time::{Duration, Instant};
 
-use tungstenite::protocol::Message;
 use tungstenite::WebSocket;
+use tungstenite::protocol::Message;
 
 const CLOSE_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 

@@ -15,8 +15,8 @@
 //!   in `AtomicI64` (ms × 16) so the update is integer-only.
 
 use std::sync::{
-    atomic::{AtomicI64, AtomicU64, Ordering},
     Arc, Mutex,
+    atomic::{AtomicI64, AtomicU64, Ordering},
 };
 
 use arc_swap::ArcSwapOption;

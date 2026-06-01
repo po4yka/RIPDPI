@@ -36,17 +36,17 @@ mod support;
 
 use std::io;
 use std::net::{Ipv4Addr, TcpListener};
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::Duration;
 
 use ripdpi_proxy_runtime::prepare_embedded;
 use ripdpi_proxy_runtime::{create_listener, run_proxy_with_embedded_control};
-use ripdpi_proxy_runtime_adapter::model::runtime_api::{clear_runtime_telemetry, EmbeddedProxyControl};
+use ripdpi_proxy_runtime_adapter::model::runtime_api::{EmbeddedProxyControl, clear_runtime_telemetry};
 
+use support::START_TIMEOUT;
 use support::proxy::ephemeral_proxy_config;
 use support::telemetry::{ProxyHarnessTelemetry, StartupLatch};
-use support::START_TIMEOUT;
 
 /// Number of start/stop cycles exercised by the regression test.
 const RESTART_CYCLES: usize = 10;

@@ -22,11 +22,11 @@ use std::os::fd::AsRawFd;
 
 use ripdpi_config::IpIdMode;
 
+use super::super::TcpFlagOverrides;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use super::super::ipv4_ids::reserve_stream_ipv4_identifications;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use super::super::root_helper;
-use super::super::TcpFlagOverrides;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use super::replacement_fd::swap_replacement_fd;
 

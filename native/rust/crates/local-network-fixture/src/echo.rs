@@ -1,13 +1,13 @@
 use std::io::{self, ErrorKind, Read, Write};
 use std::net::{Shutdown, TcpListener, UdpSocket};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
-use crate::event::{event, EventLog};
+use crate::event::{EventLog, event};
 use crate::fault::FaultController;
 use crate::types::{FixtureFaultOutcome, FixtureFaultTarget, IO_POLL_DELAY, IO_TIMEOUT};
 

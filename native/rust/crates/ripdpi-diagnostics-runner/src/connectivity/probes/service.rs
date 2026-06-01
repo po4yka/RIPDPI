@@ -117,11 +117,7 @@ pub fn run_circumvention_probe(
     let outcome = if is_probe_failure(&handshake.status) {
         "circumvention_blocked"
     } else if is_probe_failure(&bootstrap_status) {
-        if is_server_error(&bootstrap_status) {
-            "circumvention_degraded"
-        } else {
-            "circumvention_blocked"
-        }
+        if is_server_error(&bootstrap_status) { "circumvention_degraded" } else { "circumvention_blocked" }
     } else {
         "circumvention_ok"
     };

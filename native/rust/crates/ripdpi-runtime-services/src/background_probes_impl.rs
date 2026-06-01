@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use ripdpi_proxy_config::{set_active_network_scope, NetworkSnapshot};
+use ripdpi_proxy_config::{NetworkSnapshot, set_active_network_scope};
 use ripdpi_runtime_api::BackgroundProbes;
 
-use crate::services_state::WarmupRequest;
 use crate::ServicesStateHandle;
+use crate::services_state::WarmupRequest;
 
 impl BackgroundProbes for ServicesStateHandle {
     /// Called when the OS reports a network state change.

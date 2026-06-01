@@ -5,7 +5,7 @@ use ripdpi_telemetry::LatencyDistributions;
 use ripdpi_tunnel_core::DnsStatsSnapshot;
 
 use super::state::TunnelTelemetryState;
-use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapshot, SNAPSHOT_SCHEMA_VERSION};
+use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION, TunnelStatsSnapshot};
 
 impl TunnelTelemetryState {
     pub(crate) fn snapshot(

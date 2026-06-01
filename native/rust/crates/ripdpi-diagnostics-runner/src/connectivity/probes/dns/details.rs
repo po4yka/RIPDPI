@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 
 use crate::connectivity::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
-use crate::connectivity::adapters::util::{classify_dns_answer_overlap, format_result_set, ip_set, DnsAnswerOverlap};
+use crate::connectivity::adapters::util::{DnsAnswerOverlap, classify_dns_answer_overlap, format_result_set, ip_set};
 use crate::types::{ProbeDetail, ProbeResult};
 
 use super::classify_dns_latency_quality;

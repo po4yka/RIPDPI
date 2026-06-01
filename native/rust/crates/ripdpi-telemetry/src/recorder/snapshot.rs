@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::recorder::global_install::recorder;
 use crate::LatencyPercentiles;
+use crate::recorder::global_install::recorder;
 
 /// Serializable snapshot of all recorded metrics at a point in time.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -4,7 +4,7 @@ use tracing::Subscriber;
 use tracing_subscriber::layer::{Context, Layer};
 use tracing_subscriber::registry::LookupSpan;
 
-use crate::events::{global_event_rings, EventRing, EventRingBuffers, NativeEventRecord};
+use crate::events::{EventRing, EventRingBuffers, NativeEventRecord, global_event_rings};
 
 #[cfg(target_os = "android")]
 pub(crate) struct AndroidLogLayer;
@@ -131,11 +131,7 @@ impl MessageFieldFormatter {
             parts.push(format!("{field}={value}"));
         }
 
-        if parts.is_empty() {
-            target.to_string()
-        } else {
-            parts.join(" ")
-        }
+        if parts.is_empty() { target.to_string() } else { parts.join(" ") }
     }
 
     #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]

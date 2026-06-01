@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io;
-use std::sync::atomic::AtomicU16;
 use std::sync::Arc;
+use std::sync::atomic::AtomicU16;
 
 use quinn::Endpoint;
 use rustls::ClientConfig as RustlsClientConfig;
@@ -9,12 +9,12 @@ use tokio::sync::Mutex;
 
 use crate::config::Config;
 use crate::endpoint::{
-    build_endpoint, build_tls_config, establish_connection, resolve_server_addr, validate_config, ClientSocketSpec,
+    ClientSocketSpec, build_endpoint, build_tls_config, establish_connection, resolve_server_addr, validate_config,
 };
 use crate::migration::QuicMigrationState;
-use crate::protocol::{authenticate_connection, TuicAddress};
-use crate::tcp::{encode_connect_header, DuplexStream};
-use crate::udp::{dispatch_incoming_datagrams, UdpPacket, UdpSession};
+use crate::protocol::{TuicAddress, authenticate_connection};
+use crate::tcp::{DuplexStream, encode_connect_header};
+use crate::udp::{UdpPacket, UdpSession, dispatch_incoming_datagrams};
 
 #[derive(Clone)]
 pub struct TuicClient {

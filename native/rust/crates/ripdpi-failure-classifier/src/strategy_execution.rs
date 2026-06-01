@@ -103,30 +103,36 @@ mod tests {
 
     #[test]
     fn strategy_execution_failures_ignore_other_stages_and_non_capability_errors() {
-        assert!(classify_strategy_execution_failure(
-            FailureStage::Connect,
-            "set_ttl",
-            io::ErrorKind::InvalidInput,
-            Some(libc::EINVAL),
-            "desync action=set_ttl: Invalid argument (os error 22)",
-        )
-        .is_none());
-        assert!(classify_strategy_execution_failure(
-            FailureStage::FirstWrite,
-            "set_ttl",
-            io::ErrorKind::ConnectionReset,
-            Some(libc::ECONNRESET),
-            "desync action=set_ttl: Connection reset by peer (os error 54)",
-        )
-        .is_none());
-        assert!(classify_strategy_execution_failure(
-            FailureStage::FirstWrite,
-            "set_ttl",
-            io::ErrorKind::ConnectionReset,
-            None,
-            "desync action=set_ttl: Connection reset by peer",
-        )
-        .is_none());
+        assert!(
+            classify_strategy_execution_failure(
+                FailureStage::Connect,
+                "set_ttl",
+                io::ErrorKind::InvalidInput,
+                Some(libc::EINVAL),
+                "desync action=set_ttl: Invalid argument (os error 22)",
+            )
+            .is_none()
+        );
+        assert!(
+            classify_strategy_execution_failure(
+                FailureStage::FirstWrite,
+                "set_ttl",
+                io::ErrorKind::ConnectionReset,
+                Some(libc::ECONNRESET),
+                "desync action=set_ttl: Connection reset by peer (os error 54)",
+            )
+            .is_none()
+        );
+        assert!(
+            classify_strategy_execution_failure(
+                FailureStage::FirstWrite,
+                "set_ttl",
+                io::ErrorKind::ConnectionReset,
+                None,
+                "desync action=set_ttl: Connection reset by peer",
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -148,25 +154,29 @@ mod tests {
 
     #[test]
     fn strategy_execution_rejects_non_capability_errno_without_matching_kind() {
-        assert!(classify_strategy_execution_failure(
-            FailureStage::FirstWrite,
-            "test_action",
-            io::ErrorKind::Other,
-            Some(libc::ECONNRESET),
-            "not a capability error",
-        )
-        .is_none());
+        assert!(
+            classify_strategy_execution_failure(
+                FailureStage::FirstWrite,
+                "test_action",
+                io::ErrorKind::Other,
+                Some(libc::ECONNRESET),
+                "not a capability error",
+            )
+            .is_none()
+        );
     }
 
     #[test]
     fn strategy_execution_rejects_no_errno_and_non_matching_kind() {
-        assert!(classify_strategy_execution_failure(
-            FailureStage::FirstWrite,
-            "test_action",
-            io::ErrorKind::Other,
-            None,
-            "no errno, no matching kind",
-        )
-        .is_none());
+        assert!(
+            classify_strategy_execution_failure(
+                FailureStage::FirstWrite,
+                "test_action",
+                io::ErrorKind::Other,
+                None,
+                "no errno, no matching kind",
+            )
+            .is_none()
+        );
     }
 }

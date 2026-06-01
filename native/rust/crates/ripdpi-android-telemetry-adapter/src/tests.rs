@@ -1,4 +1,4 @@
-use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapshot, SNAPSHOT_SCHEMA_VERSION};
+use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION, TunnelStatsSnapshot};
 use super::*;
 
 use std::net::SocketAddr;

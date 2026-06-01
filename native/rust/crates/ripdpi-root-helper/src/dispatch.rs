@@ -8,10 +8,10 @@ use std::os::fd::RawFd;
 
 use ripdpi_root_helper_protocol as protocol;
 use ripdpi_root_helper_protocol::{
-    validate_request, DescriptorValidationError, HelperRequest, CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP,
-    CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP,
-    CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS,
-    CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
+    CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
+    CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,
+    CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET, CMD_SEND_SEQOVL_TCP,
+    CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN, DescriptorValidationError, HelperRequest, validate_request,
 };
 
 /// The wire strings the dispatch `match` below has an arm for, in match order.
@@ -143,9 +143,9 @@ fn require_fd(received_fd: Option<RawFd>, error: &'static str) -> Result<RawFd, 
 mod tests {
     use std::os::fd::AsRawFd;
 
-    use ripdpi_root_helper_protocol::{HelperRequest, COMMAND_DESCRIPTORS};
+    use ripdpi_root_helper_protocol::{COMMAND_DESCRIPTORS, HelperRequest};
 
-    use super::{dispatch_command, DISPATCH_COMMANDS};
+    use super::{DISPATCH_COMMANDS, dispatch_command};
 
     fn request_for(command: &str) -> HelperRequest {
         HelperRequest { command: command.to_string(), params: serde_json::json!({}), session_nonce: None }

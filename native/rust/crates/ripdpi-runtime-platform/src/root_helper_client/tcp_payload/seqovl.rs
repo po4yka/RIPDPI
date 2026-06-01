@@ -1,11 +1,11 @@
 use std::io;
 use std::os::fd::RawFd;
 
-use ripdpi_root_helper_protocol::{SeqOvlParams, CMD_SEND_SEQOVL_TCP};
+use ripdpi_root_helper_protocol::{CMD_SEND_SEQOVL_TCP, SeqOvlParams};
 
 use crate::TcpFlagOverrides;
 
-use super::super::{command_params, RootHelperClient};
+use super::super::{RootHelperClient, command_params};
 
 impl RootHelperClient {
     /// Perform TCP sequence overlap via the helper. Returns replacement fd.

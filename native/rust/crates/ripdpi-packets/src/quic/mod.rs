@@ -23,10 +23,10 @@ const QUIC_FAKE_DCID: [u8; 8] = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08]
 const QUIC_FAKE_SCID: [u8; 4] = [0x11, 0x22, 0x33, 0x44];
 
 #[cfg(test)]
-use crate::tls::{is_tls_client_hello, TLS_RECORD_HEADER_LEN};
+use crate::tls::{TLS_RECORD_HEADER_LEN, is_tls_client_hello};
 #[cfg(test)]
 use crate::types::{
-    QuicInitialBrowserProfile, QuicInitialPacketLayout, DEFAULT_FAKE_QUIC_COMPAT_LEN, QUIC_V1_VERSION, QUIC_V2_VERSION,
+    DEFAULT_FAKE_QUIC_COMPAT_LEN, QUIC_V1_VERSION, QUIC_V2_VERSION, QuicInitialBrowserProfile, QuicInitialPacketLayout,
 };
 #[cfg(test)]
 use crypto::{quic_derive_client_initial_secret, quic_expand_label, quic_hkdf_label};

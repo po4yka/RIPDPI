@@ -3,10 +3,10 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::transport::{relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, TransportConfig};
+use crate::transport::{TransportConfig, relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr};
 use crate::util::{now_ms, ranged_probe_delay};
 
-use super::wire::{build_dns_query_with_type, parse_dns_response, DNS_RECORD_TYPE_A};
+use super::wire::{DNS_RECORD_TYPE_A, build_dns_query_with_type, parse_dns_response};
 
 const UDP_DNS_ATTEMPTS: usize = 3;
 const UDP_DNS_RETRY_JITTER_MIN_MS: u64 = 20;

@@ -1,4 +1,4 @@
-use ripdpi_strategy_ipv6::{apply_ipv6_ext_header, Ipv6ExtType};
+use ripdpi_strategy_ipv6::{Ipv6ExtType, apply_ipv6_ext_header};
 
 #[test]
 fn ipv4_packets_are_not_modified() {

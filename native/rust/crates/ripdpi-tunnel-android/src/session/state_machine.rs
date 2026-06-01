@@ -12,8 +12,8 @@ use crate::telemetry::{NativeRuntimeSnapshot, TunnelTelemetryState};
 use crate::to_handle;
 
 use super::{
-    ensure_tunnel_destroyable, ensure_tunnel_start_allowed, lookup_tunnel_session, remove_tunnel_session,
-    stats_snapshots_for_state, take_running_tunnel, TunnelSession, TunnelSessionState, SESSIONS,
+    SESSIONS, TunnelSession, TunnelSessionState, ensure_tunnel_destroyable, ensure_tunnel_start_allowed,
+    lookup_tunnel_session, remove_tunnel_session, stats_snapshots_for_state, take_running_tunnel,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -154,11 +154,7 @@ impl Drop for TunnelSessionHarness {
 }
 
 fn tunnel_absent_error(handle: jni::sys::jlong) -> &'static str {
-    if to_handle(handle).is_some() {
-        "Unknown tunnel handle"
-    } else {
-        "Invalid tunnel handle"
-    }
+    if to_handle(handle).is_some() { "Unknown tunnel handle" } else { "Invalid tunnel handle" }
 }
 
 fn tunnel_state_command_strategy() -> impl Strategy<Value = Vec<TunnelStateCommand>> {

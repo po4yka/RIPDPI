@@ -5,9 +5,9 @@ use smoltcp::socket::tcp::{self, Socket as TcpSocket};
 use smoltcp::time::Instant;
 use smoltcp::wire::IpAddress;
 
+use crate::TunDevice;
 use crate::io_loop::packet::{checksum_sum, finalize_checksum};
 use crate::io_loop::tcp_accept::ensure_pending_listen_for_syn;
-use crate::TunDevice;
 
 pub(super) use crate::io_loop::packet::build_ipv4_tcp_syn_packet;
 

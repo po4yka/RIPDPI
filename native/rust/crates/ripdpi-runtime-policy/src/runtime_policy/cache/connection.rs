@@ -2,12 +2,12 @@ use std::fs;
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 
-use ripdpi_config::{dump_cache_entries, load_cache_entries_from_path, prefix_match_bytes, RuntimeConfig};
+use ripdpi_config::{RuntimeConfig, dump_cache_entries, load_cache_entries_from_path, prefix_match_bytes};
 
 use super::route_from_record;
+use crate::runtime_policy::ConnectionRoute;
 use crate::runtime_policy::now_unix;
 use crate::runtime_policy::types::CacheRecord;
-use crate::runtime_policy::ConnectionRoute;
 
 pub(super) fn load_records(config: &RuntimeConfig) -> Vec<CacheRecord> {
     let mut records = Vec::new();

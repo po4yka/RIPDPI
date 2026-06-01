@@ -1,12 +1,12 @@
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{Arc, atomic::AtomicBool};
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::{run_quic_probe, ProbeExecutionContext};
+use crate::connectivity::{ProbeExecutionContext, run_quic_probe};
 use crate::engine::runtime::{CollectedStageOutcome, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
 use crate::types::{ProbeResult, QuicTarget};
 
-use super::support::{collect_family_steps, target_count, ConnectivityProbeFamily};
+use super::support::{ConnectivityProbeFamily, collect_family_steps, target_count};
 
 pub(in crate::engine::runners) struct QuicRunner;
 

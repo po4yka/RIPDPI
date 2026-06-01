@@ -2,10 +2,10 @@ use crate::tls::TlsKeyLogCallback;
 use crate::transport::TransportConfig;
 use crate::types::{ProbeDetail, ProbeResult, TelegramTarget};
 
-use super::dc::{telegram_dc_probe, TelegramDcResult};
+use super::dc::{TelegramDcResult, telegram_dc_probe};
 use super::scoring::{classify_telegram_verdict, compute_telegram_quality_score};
-use super::transfer::{telegram_download_probe, telegram_upload_probe, TelegramTransferResult};
-use super::ws_tunnel::{telegram_ws_tunnel_probe, TelegramWsProbeResult};
+use super::transfer::{TelegramTransferResult, telegram_download_probe, telegram_upload_probe};
+use super::ws_tunnel::{TelegramWsProbeResult, telegram_ws_tunnel_probe};
 
 pub fn run_telegram_probe(
     target: &TelegramTarget,

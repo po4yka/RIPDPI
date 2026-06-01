@@ -24,11 +24,7 @@ pub fn get_observed_ttl(stream: &std::net::TcpStream) -> Option<u8> {
             &mut len,
         )
     };
-    if ret == 0 && ttl > 0 && ttl <= 255 {
-        Some(ttl as u8)
-    } else {
-        None
-    }
+    if ret == 0 && ttl > 0 && ttl <= 255 { Some(ttl as u8) } else { None }
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -74,9 +70,9 @@ mod tests {
     fn estimate_hop_count_boundary_values() {
         // Boundary between 64 and 128 buckets
         assert_eq!(estimate_hop_count(65), 63); // 128 - 65 = 63
-                                                // Boundary between 128 and 255 buckets
+        // Boundary between 128 and 255 buckets
         assert_eq!(estimate_hop_count(129), 126); // 255 - 129 = 126
-                                                  // Maximum TTL
+        // Maximum TTL
         assert_eq!(estimate_hop_count(255), 1); // 255 - 255 = 0, clamped to 1
     }
 }

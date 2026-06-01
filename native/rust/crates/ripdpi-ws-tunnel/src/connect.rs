@@ -6,7 +6,7 @@ use boring::ssl::SslStream;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tungstenite::WebSocket;
 
-use crate::dc::{ws_host, ws_url, TelegramDc};
+use crate::dc::{TelegramDc, ws_host, ws_url};
 use crate::protect;
 use crate::transport::WsTransportConfig;
 
@@ -186,9 +186,9 @@ mod tests {
 
     use std::cell::Cell;
     use std::net::{Ipv4Addr, TcpListener};
+    use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc;
-    use std::sync::Arc;
     use std::thread;
 
     #[test]

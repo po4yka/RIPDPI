@@ -1,5 +1,5 @@
-use super::fallback_order;
 use super::ResolverPool;
+use super::fallback_order;
 use crate::transport::DEFAULT_TIMEOUT;
 use crate::types::{EncryptedDnsError, EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol};
 

@@ -22,12 +22,12 @@ pub use defaults::{
     default_throughput_window_bytes,
 };
 pub use dns_helpers::{
-    classify_dns_answer_overlap, format_result_set, format_socket_result, ip_set, ipv4_prefix_24, ipv6_prefix_48,
-    is_suspected_dns_tampering_outcome, looks_like_sinkhole, DnsAnswerOverlap,
+    DnsAnswerOverlap, classify_dns_answer_overlap, format_result_set, format_socket_result, ip_set, ipv4_prefix_24,
+    ipv6_prefix_48, is_suspected_dns_tampering_outcome, looks_like_sinkhole,
 };
 pub use http_helpers::{fat_threshold_reached, find_headers_end, late_stage_cutoff, parse_content_length};
 pub use outcome_policy::{
-    classify_probe_outcome, event_level_for_outcome, ProbeOutcomeBucket, ProbeOutcomeClassification,
+    ProbeOutcomeBucket, ProbeOutcomeClassification, classify_probe_outcome, event_level_for_outcome,
 };
 pub use scheduling::{probe_session_seed, ranged_probe_delay, stable_probe_hash};
 pub use time::now_ms;

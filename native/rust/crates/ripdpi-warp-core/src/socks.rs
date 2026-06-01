@@ -5,10 +5,10 @@ use std::sync::Arc;
 
 use bytes::{Bytes, BytesMut};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::{lookup_host, TcpStream, UdpSocket};
+use tokio::net::{TcpStream, UdpSocket, lookup_host};
 
 use crate::ports::{PortForwardConfig, PortProtocol, UdpAssociationPool, VirtualPortPool};
-use crate::support::{to_io_error, MAX_PACKET};
+use crate::support::{MAX_PACKET, to_io_error};
 use crate::virtual_iface::{Bus, Event};
 
 pub(crate) async fn handle_socks_client(

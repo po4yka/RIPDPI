@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::run_domain_probe_with_key_log;
 use crate::connectivity::ProbeExecutionContext;
+use crate::connectivity::run_domain_probe_with_key_log;
 use crate::engine::runtime::ExecutionPlan;
 use crate::types::{DomainTarget, ProbeResult};
 

@@ -1,6 +1,6 @@
 use std::io;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tokio::net::TcpListener;
@@ -8,11 +8,11 @@ use tokio::sync::Mutex;
 use tokio::task::JoinSet;
 use tokio::time::timeout;
 
+use crate::AppsScriptRuntimeConfig;
 use crate::domain_fronter::AppsScriptDomainFronter;
 use crate::mitm::MitmCertManager;
 use crate::proxy::client_job;
 use crate::telemetry::SharedTelemetryState;
-use crate::AppsScriptRuntimeConfig;
 
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 

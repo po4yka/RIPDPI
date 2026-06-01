@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(test)]
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub use ripdpi_proxy_runtime_adapter::model::config::{process_settings, ProcessSettings};
+pub use ripdpi_proxy_runtime_adapter::model::config::{ProcessSettings, process_settings};
 use ripdpi_proxy_runtime_adapter::platform::process as process_platform;
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);

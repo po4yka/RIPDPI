@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{Diagnosis, ProbeDetail, ScanPathMode, StrategyProbeReport};
 
-use super::{default_schema_version, EngineObservationWire, ResolverRecommendationWire};
+use super::{EngineObservationWire, ResolverRecommendationWire, default_schema_version};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -3,7 +3,7 @@ use std::net::{Ipv4Addr, SocketAddr};
 use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::UdpSocket;
 
-use crate::platform::{protect_socket_if_configured, WarpPlatform};
+use crate::platform::{WarpPlatform, protect_socket_if_configured};
 
 pub(super) fn bind_tunnel_socket(endpoint: SocketAddr, platform: &WarpPlatform) -> anyhow::Result<UdpSocket> {
     let bind_addr = if endpoint.is_ipv4() {

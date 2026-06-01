@@ -1,8 +1,8 @@
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::Ordering;
 
-use super::time;
 use super::Stats;
+use super::time;
 
 const DHT_TRIGGER_SCALAWAY_62_NET: u32 = u32::from_be_bytes([62, 210, 0, 0]);
 const DHT_TRIGGER_SCALAWAY_62_MASK: u32 = 0xFFFF_8000;

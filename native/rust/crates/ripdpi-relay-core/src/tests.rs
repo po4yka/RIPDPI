@@ -10,8 +10,8 @@ use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tracing_subscriber::prelude::*;
 
-use crate::backend::{build_backend, RelayBackend};
-use crate::bootstrap::{bootstrap_relay_endpoints_with, RelayEndpointBootstrapResolver};
+use crate::backend::{RelayBackend, build_backend};
+use crate::bootstrap::{RelayEndpointBootstrapResolver, bootstrap_relay_endpoints_with};
 use crate::config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
     HysteriaV1RelayConfig, MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind,
@@ -1654,7 +1654,7 @@ fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
 #[test]
 fn relay_transport_registry_is_consistent() {
     use crate::transport_descriptor::{
-        relay_transport_descriptor, relay_transport_registration, RELAY_TRANSPORT_REGISTRATIONS,
+        RELAY_TRANSPORT_REGISTRATIONS, relay_transport_descriptor, relay_transport_registration,
     };
 
     // One config per concrete RelayKind, both VLESS sub-modes, plus "off" and an

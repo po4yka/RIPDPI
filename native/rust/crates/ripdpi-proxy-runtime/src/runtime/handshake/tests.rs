@@ -5,8 +5,8 @@ use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RuntimeConfig};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::session::{
-    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S4_OK, S_ATP_I4, S_ATP_I6, S_CMD_AUDP,
-    S_CMD_CONN, S_VER4, S_VER5,
+    S_ATP_I4, S_ATP_I6, S_CMD_AUDP, S_CMD_CONN, S_VER4, S_VER5, S4_OK, encode_http_connect_reply, encode_socks4_reply,
+    encode_socks5_reply,
 };
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
@@ -457,7 +457,7 @@ fn handle_http_connect_writes_failure_for_invalid_request() {
 
 #[test]
 fn validate_http_proxy_auth_valid() {
-    use base64::engine::{general_purpose::STANDARD, Engine};
+    use base64::engine::{Engine, general_purpose::STANDARD};
     let token = "abc123";
     let encoded = STANDARD.encode(format!("ripdpi:{token}"));
     let request = format!(
@@ -474,7 +474,7 @@ fn validate_http_proxy_auth_missing_header() {
 
 #[test]
 fn validate_http_proxy_auth_wrong_token() {
-    use base64::engine::{general_purpose::STANDARD, Engine};
+    use base64::engine::{Engine, general_purpose::STANDARD};
     let encoded = STANDARD.encode("ripdpi:wrong_token");
     let request = format!("CONNECT example.com:443 HTTP/1.1\r\nProxy-Authorization: Basic {encoded}\r\n\r\n");
     assert!(!validate_http_proxy_auth(request.as_bytes(), "correct_token"));

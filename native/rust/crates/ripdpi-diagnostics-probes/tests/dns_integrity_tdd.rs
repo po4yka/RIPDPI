@@ -7,7 +7,7 @@
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 use ripdpi_diagnostics_probes::probes::dns_integrity::{
-    DnsIntegrityOutcome, DnsIntegrityProbe, DNS_INTEGRITY_PROBE_ID,
+    DNS_INTEGRITY_PROBE_ID, DnsIntegrityOutcome, DnsIntegrityProbe,
 };
 use ripdpi_diagnostics_probes::{Probe, ProbeContext, ProbeVerdict};
 

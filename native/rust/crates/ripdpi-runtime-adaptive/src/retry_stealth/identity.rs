@@ -1,4 +1,4 @@
-use crate::retry_stealth::hash::{stable_hash_update, FNV_OFFSET};
+use crate::retry_stealth::hash::{FNV_OFFSET, stable_hash_update};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RetryLane {

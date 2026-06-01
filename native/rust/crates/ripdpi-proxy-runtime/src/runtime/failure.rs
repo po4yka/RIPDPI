@@ -2,16 +2,16 @@ use std::io;
 use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::failure::{
+    BlockSignal, BlockSignalObservation, ClassifiedFailure, FailureAction, FailureClass, FailureStage, ProbeResult,
     block_signal_from_failure, classify_first_response_closed_before_response,
     classify_first_response_partial_tls_timeout, classify_probe_connect_error, classify_probe_read_error,
     classify_probe_tls_response, classify_probe_write_error, classify_quic_probe, classify_relay_connection_freeze,
     classify_strategy_execution_failure, classify_transport_error, classify_warmup_closed_before_response,
-    classify_warmup_first_response_error, classify_warmup_send_error, should_track_strategy_target, BlockSignal,
-    BlockSignalObservation, ClassifiedFailure, FailureAction, FailureClass, FailureStage, ProbeResult,
+    classify_warmup_first_response_error, classify_warmup_send_error, should_track_strategy_target,
 };
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeTimeoutSettings;
 use ripdpi_proxy_runtime_adapter::model::decision::{
-    classify_response_failure, response_requires_dns_tampering_evidence, DnsTamperingEvidence,
+    DnsTamperingEvidence, classify_response_failure, response_requires_dns_tampering_evidence,
 };
 
 pub(super) type RuntimeClassifiedFailure = ClassifiedFailure;

@@ -73,11 +73,7 @@ fn invalid_args(error: pico_args::Error) -> io::Error {
 fn normalize_optional(value: Option<&str>) -> Option<String> {
     value.and_then(|raw| {
         let trimmed = raw.trim();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed.to_owned())
-        }
+        if trimmed.is_empty() { None } else { Some(trimmed.to_owned()) }
     })
 }
 

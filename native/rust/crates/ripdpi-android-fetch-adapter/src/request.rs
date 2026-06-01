@@ -3,7 +3,7 @@ use std::io;
 use std::time::Duration;
 
 use bytes::Bytes;
-use http::header::{HeaderName, HeaderValue, HOST};
+use http::header::{HOST, HeaderName, HeaderValue};
 use http::{Method, Request};
 use http_body_util::{BodyExt, Full};
 use hyper::client::conn::http1;
@@ -127,11 +127,7 @@ fn build_request(
 }
 
 fn authority_header_value(host: &str, port: u16) -> String {
-    if port == 443 || port == 80 {
-        host.to_string()
-    } else {
-        format!("{host}:{port}")
-    }
+    if port == 443 || port == 80 { host.to_string() } else { format!("{host}:{port}") }
 }
 
 fn default_port(scheme: &str) -> u16 {

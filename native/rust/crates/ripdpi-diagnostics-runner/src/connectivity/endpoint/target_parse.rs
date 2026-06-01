@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use crate::connectivity::adapters::transport::{throughput_connect_targets, TargetAddress};
+use crate::connectivity::adapters::transport::{TargetAddress, throughput_connect_targets};
 
 use super::types::ParsedHttpTarget;
 

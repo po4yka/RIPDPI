@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use crate::model::config::{ws_tunnel_always_enabled, ws_tunnel_fallback_enabled, RuntimeConfig, WsTunnelSettings};
+use crate::model::config::{RuntimeConfig, WsTunnelSettings, ws_tunnel_always_enabled, ws_tunnel_fallback_enabled};
 
 pub use ripdpi_ws_bootstrap::*;
 

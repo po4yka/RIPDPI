@@ -5,7 +5,7 @@ use rand::Rng;
 use rustls::{ClientConfig as RustlsClientConfig, ClientConnection, RootCertStore};
 
 use super::frames::{TLS_HANDSHAKE, TLS_HEADER_LEN};
-use super::hmac::{ShadowTlsHmac, HMAC_LEN};
+use super::hmac::{HMAC_LEN, ShadowTlsHmac};
 
 const SESSION_ID_LEN: usize = 32;
 

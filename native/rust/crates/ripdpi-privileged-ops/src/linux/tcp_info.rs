@@ -12,11 +12,11 @@ use std::time::{Duration, Instant};
 
 use ripdpi_desync::TcpSegmentHint;
 
+use crate::TcpActivationState;
 use crate::linux::socket_options::getsockopt_raw;
 use crate::linux::tcp_repair::{
-    disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state, TCP_NO_QUEUE, TCP_REPAIR_ON,
+    TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
 };
-use crate::TcpActivationState;
 
 pub(crate) const TCP_ESTABLISHED: u8 = 1;
 pub(crate) const TCPI_OPT_TIMESTAMPS: u8 = 1;

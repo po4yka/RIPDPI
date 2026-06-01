@@ -1,8 +1,8 @@
 use ring::digest::{Context as DigestContext, SHA256};
 
-use super::frames::{deframe_payload, frame_payload, FrameDecode, TLS_APPLICATION_DATA, TLS_HANDSHAKE, TLS_HEADER_LEN};
+use super::frames::{FrameDecode, TLS_APPLICATION_DATA, TLS_HANDSHAKE, TLS_HEADER_LEN, deframe_payload, frame_payload};
 use super::handshake::{modify_client_hello, session_id_len};
-use super::hmac::{ShadowTlsHmac, HMAC_LEN};
+use super::hmac::{HMAC_LEN, ShadowTlsHmac};
 
 #[test]
 fn client_hello_modification_signs_session_id() {

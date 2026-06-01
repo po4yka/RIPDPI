@@ -12,7 +12,7 @@
 ///   contamination between target-list fields)
 /// - All runners complete (not cancel) against an empty-target plan
 /// - Target-field isolation: step count tracks the correct target list
-use ripdpi_monitor_engine::contracts::{connectivity_runner_parity_snapshot, RunnerParityRecord};
+use ripdpi_monitor_engine::contracts::{RunnerParityRecord, connectivity_runner_parity_snapshot};
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use super::super::super::state::RuntimeState;
-use super::super::protocol_io::{send_success_reply, HandshakeKind};
+use super::super::protocol_io::{HandshakeKind, send_success_reply};
 use super::ConnectRelayError;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 

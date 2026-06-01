@@ -1,7 +1,7 @@
 use boring::ssl::SslConnectorBuilder;
 
-use crate::profile::ProfileConfig;
 use crate::Error;
+use crate::profile::ProfileConfig;
 
 pub fn apply_profile(builder: &mut SslConnectorBuilder, config: &ProfileConfig) -> Result<(), Error> {
     builder.set_cipher_list(config.cipher_list_tls12)?;

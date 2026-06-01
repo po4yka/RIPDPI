@@ -1,5 +1,5 @@
 use crate::connectivity::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse, DnsOracleTrust};
-use crate::connectivity::adapters::util::{classify_dns_answer_overlap, DnsAnswerOverlap};
+use crate::connectivity::adapters::util::{DnsAnswerOverlap, classify_dns_answer_overlap};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum DnsAnswerClass {

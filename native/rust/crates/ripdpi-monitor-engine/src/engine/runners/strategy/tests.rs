@@ -1,6 +1,6 @@
 use ripdpi_monitor_adapter::failure::FailureClass;
 use ripdpi_monitor_adapter::proxy_config::{
-    parse_proxy_config_json, ProxyConfigPayload, ProxyUiConfig, ProxyUiUdpChainStep,
+    ProxyConfigPayload, ProxyUiConfig, ProxyUiUdpChainStep, parse_proxy_config_json,
 };
 
 use super::FamilyFailureTracker;
@@ -50,7 +50,7 @@ use super::{
     resolve_strategy_probe_audit_assessment, select_promotable_candidate_index,
     select_safe_or_baseline_candidate_index, stratified_pilot_targets,
 };
-use crate::candidates::{build_tcp_candidates, CandidateEligibility};
+use crate::candidates::{CandidateEligibility, build_tcp_candidates};
 use crate::classification::{interleave_candidate_families, reorder_tcp_candidates_for_failure};
 use crate::types::{
     DomainTarget, ProbeDetail, ProbeResult, StrategyProbeAuditAssessment, StrategyProbeAuditConfidenceLevel,
@@ -406,10 +406,9 @@ fn ordered_follow_up_tcp_candidates_prioritize_ech_candidates_after_tls_ech_only
     let ids = ordered.iter().take(2).map(|candidate| candidate.id).collect::<Vec<_>>();
 
     assert_eq!(ids, vec!["ech_split", "ech_tlsrec"]);
-    assert!(ordered
-        .iter()
-        .take(2)
-        .all(|candidate| candidate.eligibility == CandidateEligibility::RequiresEchCapability));
+    assert!(
+        ordered.iter().take(2).all(|candidate| candidate.eligibility == CandidateEligibility::RequiresEchCapability)
+    );
 }
 
 #[test]
@@ -492,10 +491,12 @@ fn ordered_follow_up_tcp_candidates_promote_split_families_within_ech_remainder(
         .position(|candidate| candidate.eligibility != CandidateEligibility::RequiresEchCapability)
         .expect("at least one non-ECH candidate is present");
     assert!(first_non_ech > 0, "ECH-eligible candidates should lead the ECH path");
-    assert!(ordered
-        .iter()
-        .take(first_non_ech)
-        .all(|candidate| candidate.eligibility == CandidateEligibility::RequiresEchCapability));
+    assert!(
+        ordered
+            .iter()
+            .take(first_non_ech)
+            .all(|candidate| candidate.eligibility == CandidateEligibility::RequiresEchCapability)
+    );
 
     // The split families lead the non-ECH remainder (robust to the ECH-spec count).
     let remainder_ids = ordered.iter().skip(first_non_ech).take(3).map(|candidate| candidate.id).collect::<Vec<_>>();
@@ -597,10 +598,11 @@ fn resolve_strategy_probe_audit_assessment_low_when_dns_short_circuited() {
         a.confidence.rationale,
         "Baseline DNS tampering short-circuited the audit before fallback candidates ran"
     );
-    assert!(a
-        .confidence
-        .warnings
-        .contains(&s("Baseline DNS tampering short-circuited the audit before fallback candidates ran.")));
+    assert!(
+        a.confidence
+            .warnings
+            .contains(&s("Baseline DNS tampering short-circuited the audit before fallback candidates ran."))
+    );
 }
 
 #[test]
@@ -618,10 +620,11 @@ fn resolve_strategy_probe_audit_assessment_preserves_dns_fallback_evidence_confi
     assert_eq!(a.confidence.level, StrategyProbeAuditConfidenceLevel::High);
     assert_eq!(a.confidence.score, 100);
     assert_eq!(a.confidence.rationale, "Baseline DNS tampering was detected, but fallback strategy candidates ran");
-    assert!(a
-        .confidence
-        .warnings
-        .contains(&s("Baseline DNS tampering was detected; confidence reflects fallback strategy candidates.")));
+    assert!(
+        a.confidence
+            .warnings
+            .contains(&s("Baseline DNS tampering was detected; confidence reflects fallback strategy candidates."))
+    );
 }
 
 #[test]

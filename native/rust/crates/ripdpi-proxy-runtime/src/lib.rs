@@ -12,8 +12,8 @@ mod sync;
 mod process;
 mod runtime;
 
-pub use process::{prepare_embedded, process_settings, ProcessGuard, ProcessSettings};
+pub use process::{ProcessGuard, ProcessSettings, prepare_embedded, process_settings};
 pub use runtime::{
-    create_listener, load_geo_database_versions, load_geoip_metadata, run_proxy, run_proxy_with_embedded_control,
-    run_proxy_with_listener, RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata,
+    RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, create_listener, load_geo_database_versions, load_geoip_metadata,
+    run_proxy, run_proxy_with_embedded_control, run_proxy_with_listener,
 };

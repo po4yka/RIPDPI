@@ -1,7 +1,7 @@
 //! Compatibility wrapper over the shared blockpage fingerprint matcher.
 
 use crate::http::HttpResponse;
-pub use ripdpi_failure_classifier::{load_blockpage_fingerprints as load_fingerprints, BlockpageFingerprint};
+pub use ripdpi_failure_classifier::{BlockpageFingerprint, load_blockpage_fingerprints as load_fingerprints};
 
 pub fn match_blockpage(response: &HttpResponse, fingerprints: &[BlockpageFingerprint]) -> Option<String> {
     let headers = response.headers.iter().map(|(name, value)| (name.clone(), value.clone())).collect::<Vec<_>>();

@@ -2,13 +2,13 @@ use std::net::IpAddr;
 use std::sync::LazyLock;
 
 use ripdpi_proxy_config::{
-    active_network_scope, ProxyDirectPathCapability, ProxyEncryptedDnsContext, ProxyRuntimeContext,
+    ProxyDirectPathCapability, ProxyEncryptedDnsContext, ProxyRuntimeContext, active_network_scope,
 };
 use ripdpi_runtime_dns_cache::{ResolvedMapping, ResolverMappingCache, ResolverMappingKey, ResolverMappingSource};
 
 use crate::catalog::{
-    default_encrypted_dns_context, primary_encrypted_dns_context, secondary_encrypted_dns_context,
-    PRIMARY_DOH_RESOLVER_ID, SECONDARY_DOH_RESOLVER_ID, WS_TUNNEL_PORT,
+    PRIMARY_DOH_RESOLVER_ID, SECONDARY_DOH_RESOLVER_ID, WS_TUNNEL_PORT, default_encrypted_dns_context,
+    primary_encrypted_dns_context, secondary_encrypted_dns_context,
 };
 
 /// Process-wide learned resolver-selection cache, keyed by `(host, NetProfile)`

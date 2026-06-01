@@ -7,7 +7,7 @@ use rustls::client::danger::ServerCertVerifier;
 use crate::candidates::{CandidateWarmup, StrategyCandidateSpec};
 use crate::http::try_http_request;
 use crate::tls::TlsKeyLogCallback;
-use crate::transport::{domain_connect_target, TransportConfig};
+use crate::transport::{TransportConfig, domain_connect_target};
 use crate::types::DomainTarget;
 
 use self::tls::warmup_tls13;

@@ -12,12 +12,12 @@ use local_network_fixture::{
 };
 use rcgen::generate_simple_self_signed;
 use ring::signature::{Ed25519KeyPair, KeyPair};
-use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer, pem::PemObject};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, TcpListener, TcpStream};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
 

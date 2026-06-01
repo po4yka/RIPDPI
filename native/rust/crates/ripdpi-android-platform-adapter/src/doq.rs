@@ -3,8 +3,8 @@ use std::net::{IpAddr, UdpSocket};
 use std::os::fd::AsRawFd;
 use std::time::Duration;
 
-use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use jni::objects::JString;
 use jni::sys::jstring;
 use jni::{EnvUnowned, Outcome};

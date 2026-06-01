@@ -1,4 +1,4 @@
-use crate::candidates::{strategy_probe_config_json, StrategyCandidateSpec};
+use crate::candidates::{StrategyCandidateSpec, strategy_probe_config_json};
 use crate::types::StrategyProbeCandidateSummary as CandidateSummary;
 
 use super::capabilities::capability_available;

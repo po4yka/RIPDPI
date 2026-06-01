@@ -14,7 +14,7 @@
 //! zero-dep parity; the algorithm below is a line-for-line port and the cipher-
 //! count cross-check against PROVENANCE.md guards against the port drifting.
 
-use super::{tls_fake_profile_bytes, TlsFakeProfile};
+use super::{TlsFakeProfile, tls_fake_profile_bytes};
 
 // ---------------------------------------------------------------------------
 // Inline port of the production JA3 parser (GREASE filter + field extraction).
@@ -193,11 +193,7 @@ const JA3_BIGSIZE_IANA: &str = "771,4866-4867-4865-49196-49200-159-52393-52392-5
 /// Count of `-`-separated cipher-suite IDs in a JA3 pre-hash string (field 2).
 fn cipher_count(ja3: &str) -> usize {
     let ciphers = ja3.split(',').nth(1).expect("ja3 string has a cipher field");
-    if ciphers.is_empty() {
-        0
-    } else {
-        ciphers.split('-').count()
-    }
+    if ciphers.is_empty() { 0 } else { ciphers.split('-').count() }
 }
 
 #[test]

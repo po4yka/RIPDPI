@@ -1,8 +1,8 @@
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex, RwLock};
 
-use metrics::atomics::AtomicU64;
 use metrics::Key;
+use metrics::atomics::AtomicU64;
 
 use crate::{LatencyHistogram, LatencyPercentiles};
 

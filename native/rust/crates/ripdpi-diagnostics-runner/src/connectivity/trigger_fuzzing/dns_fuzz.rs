@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
-use super::summary::{append_trigger_fuzzing_summary, TriggerFuzzOutcome};
+use super::summary::{TriggerFuzzOutcome, append_trigger_fuzzing_summary};
 use crate::connectivity::adapters::dns::{build_dns_query_with_type, parse_dns_response};
 use crate::connectivity::adapters::transport::{
-    relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, TransportConfig,
+    TransportConfig, relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr,
 };
 use crate::connectivity::adapters::util::now_ms;
 use crate::types::{DnsTarget, ProbeDetail};

@@ -7,11 +7,11 @@
 mod entry;
 mod protect_callback;
 
+use jni::JavaVM;
 use jni::objects::JObject;
 use jni::refs::Global;
-use jni::JavaVM;
 
-use ripdpi_native_protect::{register_protect_callback_versioned, unregister_protect_callback_if, ProtectGeneration};
+use ripdpi_native_protect::{ProtectGeneration, register_protect_callback_versioned, unregister_protect_callback_if};
 
 pub use entry::{register_entry, unregister_entry};
 use protect_callback::JniProtectCallback;

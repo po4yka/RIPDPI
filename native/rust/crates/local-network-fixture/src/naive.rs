@@ -364,7 +364,7 @@ enum DecodeState {
 }
 
 fn base64_encode(value: &[u8]) -> String {
-    use base64::prelude::{Engine as _, BASE64_STANDARD};
+    use base64::prelude::{BASE64_STANDARD, Engine as _};
     BASE64_STANDARD.encode(value)
 }
 

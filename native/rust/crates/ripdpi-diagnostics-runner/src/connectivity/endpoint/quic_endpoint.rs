@@ -1,6 +1,6 @@
-use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
+use ripdpi_packets::{QUIC_V1_VERSION, build_realistic_quic_initial, parse_quic_initial};
 
-use crate::connectivity::adapters::transport::{relay_udp_payload_observed, TargetAddress, TransportConfig};
+use crate::connectivity::adapters::transport::{TargetAddress, TransportConfig, relay_udp_payload_observed};
 
 use super::target_parse::connect_target_from_parts;
 use super::types::EndpointProbeObservation;

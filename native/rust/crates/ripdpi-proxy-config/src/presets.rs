@@ -3,12 +3,12 @@
 //! Each preset applies a known-good set of defaults to a `ProxyUiConfig`.
 
 use ripdpi_config::{
-    DesyncGroup, OffsetBase, OffsetExpr, RuntimeConfig, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, FM_ORIG,
-    FM_RNDSNI,
+    DETECT_CONNECT, DesyncGroup, FM_ORIG, FM_RNDSNI, OffsetBase, OffsetExpr, RuntimeConfig, TcpChainStep,
+    TcpChainStepKind,
 };
 use ripdpi_packets::{IS_HTTP, IS_HTTPS};
 
-use crate::types::{ProxyConfigError, ProxyUiConfig, ProxyUiTcpChainStep, FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT};
+use crate::types::{FAKE_PAYLOAD_PROFILE_COMPAT_DEFAULT, ProxyConfigError, ProxyUiConfig, ProxyUiTcpChainStep};
 
 /// Apply the named preset to `config`.
 ///

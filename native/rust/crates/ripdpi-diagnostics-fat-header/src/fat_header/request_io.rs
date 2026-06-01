@@ -18,11 +18,7 @@ pub(super) fn read_response_headers(stream: &mut ConnectionStream) -> Result<(),
 }
 
 pub(super) fn normalized_host_header(host_header: &str) -> &str {
-    if host_header.is_empty() {
-        "localhost"
-    } else {
-        host_header
-    }
+    if host_header.is_empty() { "localhost" } else { host_header }
 }
 
 pub(super) fn padded_head_request_len(index: usize, host_header: &str) -> usize {

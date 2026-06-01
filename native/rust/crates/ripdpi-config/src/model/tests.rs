@@ -6,7 +6,7 @@ use crate::{
     AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_HTTP_LOCAT, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
     HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
-use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile, MH_HMIX, MH_SPACE};
+use ripdpi_packets::{HttpFakeProfile, MH_HMIX, MH_SPACE, TlsFakeProfile, UdpFakeProfile};
 
 #[test]
 fn prefix_match_bytes_honors_partial_bits() {

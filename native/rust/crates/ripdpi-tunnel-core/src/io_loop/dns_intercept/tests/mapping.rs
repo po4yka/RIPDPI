@@ -4,8 +4,8 @@ use std::sync::Arc;
 use hickory_proto::op::Message;
 use hickory_proto::rr::RData;
 
-use crate::dns_cache::DnsCache;
 use crate::Stats;
+use crate::dns_cache::DnsCache;
 
 use super::super::{parse_mapdns_runtime, resolve_mapped_target};
 use super::support::{build_query, build_response, mapdns_config, test_mapdns, tunnel_config_with_mapdns};

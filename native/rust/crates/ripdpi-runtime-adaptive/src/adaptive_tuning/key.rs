@@ -27,19 +27,11 @@ pub(super) fn adaptive_key(
 }
 
 pub(super) fn tcp_flow_kind(payload: &[u8]) -> AdaptiveFlowKind {
-    if is_tls_client_hello_payload(payload) {
-        AdaptiveFlowKind::TcpTls
-    } else {
-        AdaptiveFlowKind::TcpOther
-    }
+    if is_tls_client_hello_payload(payload) { AdaptiveFlowKind::TcpTls } else { AdaptiveFlowKind::TcpOther }
 }
 
 pub(super) fn udp_flow_kind(payload: &[u8]) -> AdaptiveFlowKind {
-    if is_quic_initial(payload) {
-        AdaptiveFlowKind::UdpQuic
-    } else {
-        AdaptiveFlowKind::UdpOther
-    }
+    if is_quic_initial(payload) { AdaptiveFlowKind::UdpQuic } else { AdaptiveFlowKind::UdpOther }
 }
 
 fn normalized_host(host: Option<&str>) -> Option<String> {

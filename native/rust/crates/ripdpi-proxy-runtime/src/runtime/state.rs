@@ -5,85 +5,83 @@ use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::time::Duration;
 
 use super::config::{
+    DETECT_CONNECT, DelayedConnectSettings, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings,
+    ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettingsTable, ResponseFailureEvidenceSettings,
+    RoutePayloadMatcher, RuntimeConfig, RuntimeConfigProjection, TcpRouteConnectSettingsTable, TcpRouteRetrySettings,
+    TcpRouteSynDataSettings, UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
     connection_route_requests_direct_syn_data_tfo_with, delayed_route_matches_payload_with, ensure_default_ttl,
     first_response_timeout, first_response_timeout_count_limit, listener_settings, primary_tcp_strategy_family_with,
     relay_group_settings_with, route_matches_transport_payload_with, route_requires_delay_payload_with,
     runtime_config_projection_with_geo, should_rebind_udp_source_port_with, tcp_rotation_seed_with,
-    tcp_route_connect_settings_with, udp_flow_at_capacity, udp_group_settings_with, DelayedConnectSettings,
-    FirstResponseSettings, ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode,
-    RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RoutePayloadMatcher, RuntimeConfig,
-    RuntimeConfigProjection, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
-    UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
+    tcp_route_connect_settings_with, udp_flow_at_capacity, udp_group_settings_with,
 };
 use super::desync::{
-    execute_udp_actions, plan_udp_actions_for_runtime, runtime_desync_projection, send_tcp_desync_payload,
     DesyncSendRequest, OutboundSendError, OutboundSendOutcome, RuntimeDesyncProjection, TcpDesyncExecutionContext,
     TcpDesyncExecutor, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest,
-    UdpDesyncPlanner,
+    UdpDesyncPlanner, execute_udp_actions, plan_udp_actions_for_runtime, runtime_desync_projection,
+    send_tcp_desync_payload,
 };
 use super::failure::{
-    runtime_block_signal_from_failure, runtime_classify_first_response_closed_before_response,
-    runtime_classify_first_response_partial_tls_timeout, runtime_classify_probe_connect_error,
-    runtime_classify_probe_read_error, runtime_classify_probe_tls_response, runtime_classify_probe_write_error,
-    runtime_classify_quic_probe, runtime_classify_relay_connection_freeze, runtime_classify_response_failure,
-    runtime_classify_strategy_execution_failure, runtime_classify_transport_error,
+    RuntimeBlockSignal, RuntimeClassifiedFailure, RuntimeDnsTamperingEvidence, RuntimeFailureAction,
+    RuntimeFailureClass, RuntimeFailureStage, RuntimeProbeResult, runtime_block_signal_from_failure,
+    runtime_classify_first_response_closed_before_response, runtime_classify_first_response_partial_tls_timeout,
+    runtime_classify_probe_connect_error, runtime_classify_probe_read_error, runtime_classify_probe_tls_response,
+    runtime_classify_probe_write_error, runtime_classify_quic_probe, runtime_classify_relay_connection_freeze,
+    runtime_classify_response_failure, runtime_classify_strategy_execution_failure, runtime_classify_transport_error,
     runtime_classify_warmup_closed_before_response, runtime_classify_warmup_first_response_error,
     runtime_classify_warmup_send_error, runtime_response_requires_dns_tampering_evidence,
-    runtime_should_track_strategy_target, RuntimeBlockSignal, RuntimeClassifiedFailure, RuntimeDnsTamperingEvidence,
-    RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage, RuntimeProbeResult,
+    runtime_should_track_strategy_target,
 };
 use super::payload::{
-    runtime_build_probe_client_hello, runtime_first_response_boundary_tracker,
-    runtime_outbound_tls_client_hello_assembler, RuntimeFirstResponseBoundaryTracker,
-    RuntimeOutboundTlsClientHelloAssembler,
+    RuntimeFirstResponseBoundaryTracker, RuntimeOutboundTlsClientHelloAssembler, runtime_build_probe_client_hello,
+    runtime_first_response_boundary_tracker, runtime_outbound_tls_client_hello_assembler,
 };
 use super::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
     RetryPacingPort,
 };
 use super::response::{
-    runtime_failure_penalizes_strategy, runtime_failure_trigger_mask, runtime_first_response_exchange_required,
-    runtime_response_projection, RuntimeFirstResponseExchangePolicy, RuntimeResponseProjection,
+    RuntimeFirstResponseExchangePolicy, RuntimeResponseProjection, runtime_failure_penalizes_strategy,
+    runtime_failure_trigger_mask, runtime_first_response_exchange_required, runtime_response_projection,
 };
 #[cfg(test)]
-use super::response::{runtime_response_trigger_flag, runtime_response_trigger_supported, RuntimeTriggerEvent};
+use super::response::{RuntimeTriggerEvent, runtime_response_trigger_flag, runtime_response_trigger_supported};
 use super::session::{
-    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, encode_socks5_udp_packet,
-    encode_upstream_socks_connect, extract_payload_host_with, has_inbound_payload, new_session_state,
-    observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
-    observe_outbound_payload, observe_retry_response_payload, outbound_payload_count_this_round,
-    parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
-    read_upstream_socks_reply, runtime_classify_udp_payload, runtime_parse_socks5_udp_packet,
-    runtime_session_projection, validate_http_proxy_auth, FirstOutboundPayloadPolicy, OutboundPayloadInfo,
-    PayloadHostExtractor, ProxyReply, RuntimeSessionProjection, SocketType, UdpPacketParser, UdpPayloadClassifier,
-    UdpPayloadInfo, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_CONN, S_ER_GEN,
-    S_ER_HOST, S_ER_NET, S_ER_TTL, S_VER5,
+    FirstOutboundPayloadPolicy, OutboundPayloadInfo, PayloadHostExtractor, ProxyReply, RuntimeSessionProjection,
+    S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_CONN, S_ER_GEN, S_ER_HOST, S_ER_NET,
+    S_ER_TTL, S_VER5, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, encode_http_connect_reply,
+    encode_socks4_reply, encode_socks5_reply, encode_socks5_udp_packet, encode_upstream_socks_connect,
+    extract_payload_host_with, has_inbound_payload, new_session_state, observe_datagram_outbound_payload,
+    observe_first_response_payload, observe_inbound_payload, observe_outbound_payload, observe_retry_response_payload,
+    outbound_payload_count_this_round, parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request,
+    parse_socks5_request, read_upstream_socks_reply, runtime_classify_udp_payload, runtime_parse_socks5_udp_packet,
+    runtime_session_projection, validate_http_proxy_auth,
 };
 use super::types::{
-    runtime_classify_first_outbound_payload, runtime_client_request, runtime_outbound_progress, runtime_session_error,
     RuntimeClientRequest, RuntimeConnectionRoute, RuntimeOutboundProgress, RuntimeProxyProtocolMode,
     RuntimeRelayGroupSettings, RuntimeRelayRotationSeed, RuntimeRelayTimeouts, RuntimeRetrySelectionPenalty,
     RuntimeRouteAdvance, RuntimeSessionError, RuntimeSessionState, RuntimeTransportProtocol,
+    runtime_classify_first_outbound_payload, runtime_client_request, runtime_outbound_progress, runtime_session_error,
 };
 use super::udp::{
-    runtime_udp_packet_settings, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy,
-    UdpFlowGroupPolicy,
+    RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy,
+    runtime_udp_packet_settings,
 };
 use super::ws::{
+    RuntimeEncryptedDnsIpAnswers, RuntimeTelegramDc, RuntimeWsTunnelConfig, WsSeedClassification,
     runtime_classify_mtproto_seed, runtime_detect_telegram_dc, runtime_encrypted_dns_ip_answers_for_host,
     runtime_relay_ws_tunnel, runtime_resolve_host_via_encrypted_dns, runtime_resolve_ws_tunnel_addr,
     runtime_should_ws_tunnel_fallback, runtime_should_ws_tunnel_first, runtime_telegram_dc_host,
-    runtime_ws_tunnel_config, RuntimeEncryptedDnsIpAnswers, RuntimeTelegramDc, RuntimeWsTunnelConfig,
-    WsSeedClassification,
+    runtime_ws_tunnel_config,
 };
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, NetworkSnapshot, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
-    current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink,
+    EmbeddedProxyControl, RuntimeTelemetrySink, current_runtime_telemetry,
 };
 use ripdpi_proxy_runtime_adapter::model::services::GeoMatcher;
 use ripdpi_proxy_runtime_adapter::model::services::{
-    new_decision_engine, new_services_handle, reprobe_reset_handle, ReprobeResetHandle, RuntimeDecisionEngine,
-    RuntimeDecisionInputs, ServicesStateHandle,
+    ReprobeResetHandle, RuntimeDecisionEngine, RuntimeDecisionInputs, ServicesStateHandle, new_decision_engine,
+    new_services_handle, reprobe_reset_handle,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::raw_packet_requirements::{
@@ -329,23 +327,29 @@ mod state_coverage_tests {
         assert_eq!(RuntimeState::socks5_fixed_address_tail_len(S_ATP_I6), Some(18));
         assert!(RuntimeState::is_socks5_domain_address_type(0x03));
         assert!(RuntimeState::encode_socks4_reply(true).as_bytes().len() >= 8);
-        assert!(RuntimeState::encode_socks5_reply(0, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 80))
-            .as_bytes()
-            .starts_with(&[S_VER5, 0]));
+        assert!(
+            RuntimeState::encode_socks5_reply(0, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 80))
+                .as_bytes()
+                .starts_with(&[S_VER5, 0])
+        );
         assert!(RuntimeState::encode_http_connect_reply(true).as_bytes().starts_with(b"HTTP/1.1 200"));
-        assert!(RuntimeState::encode_upstream_socks_connect(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443))
-            .starts_with(&[S_VER5, 1, 0]));
+        assert!(
+            RuntimeState::encode_upstream_socks_connect(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443))
+                .starts_with(&[S_VER5, 1, 0])
+        );
         let mut socks_reply = Cursor::new([S_VER5, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0, 80]);
-        assert!(RuntimeState::read_upstream_socks_reply(&mut socks_reply)
-            .expect("read reply")
-            .starts_with(&[S_VER5, 0]));
+        assert!(
+            RuntimeState::read_upstream_socks_reply(&mut socks_reply).expect("read reply").starts_with(&[S_VER5, 0])
+        );
         assert!(state.resolve_proxy_name("localhost", SocketType::Stream).is_some());
         assert!(state.resolve_handshake_name("localhost").is_some());
-        assert!(RuntimeState::parse_http_connect_client_request(
-            b"CONNECT 127.0.0.1:443 HTTP/1.1\r\nHost: 127.0.0.1:443\r\n\r\n",
-            |host| host.parse::<IpAddr>().ok().map(|ip| SocketAddr::new(ip, 0))
-        )
-        .is_ok());
+        assert!(
+            RuntimeState::parse_http_connect_client_request(
+                b"CONNECT 127.0.0.1:443 HTTP/1.1\r\nHost: 127.0.0.1:443\r\n\r\n",
+                |host| host.parse::<IpAddr>().ok().map(|ip| SocketAddr::new(ip, 0))
+            )
+            .is_ok()
+        );
         assert!(!RuntimeState::validate_http_proxy_auth(b"", "token"));
         assert!(state.parse_shadowsocks_target(&[S_ATP_I4, 127, 0, 0, 1, 0, 80], |_| None).is_some());
 
@@ -418,42 +422,54 @@ mod state_coverage_tests {
         assert!(!state.route_uses_direct_syn_data_tfo(&route, Some(b"GET / HTTP/1.1\r\n\r\n")));
         let policy = state.route_connect_policy(0, Some(b"GET / HTTP/1.1\r\n\r\n"), true).expect("route policy");
         assert!(policy.connect_timeout.is_some());
-        assert!(state
-            .select_initial_route(target, Some(b"GET / HTTP/1.1\r\n\r\n"), None, true, RuntimeTransportProtocol::Tcp)
-            .is_some());
-        assert!(state
-            .select_next_route(
-                &route,
-                target,
-                Some(b"GET / HTTP/1.1\r\n\r\n"),
-                None,
-                RuntimeTransportProtocol::Tcp,
-                RuntimeState::connect_failure_trigger(),
-                false,
-                None,
-            )
-            .is_none());
+        assert!(
+            state
+                .select_initial_route(
+                    target,
+                    Some(b"GET / HTTP/1.1\r\n\r\n"),
+                    None,
+                    true,
+                    RuntimeTransportProtocol::Tcp
+                )
+                .is_some()
+        );
+        assert!(
+            state
+                .select_next_route(
+                    &route,
+                    target,
+                    Some(b"GET / HTTP/1.1\r\n\r\n"),
+                    None,
+                    RuntimeTransportProtocol::Tcp,
+                    RuntimeState::connect_failure_trigger(),
+                    false,
+                    None,
+                )
+                .is_none()
+        );
         let connect_trigger = RuntimeState::connect_failure_trigger();
         let _ = state.runtime_supports_trigger(connect_trigger);
         let _ = state.retry_trigger_for_failure(&failure);
         assert!(RuntimeState::should_track_strategy_target(target));
         state.note_block_signal_for_failure(Some("example.com"), &failure, None);
         state.note_block_signal("example.com", RuntimeBlockSignal::TcpReset, None, true);
-        assert!(state
-            .advance_route(
-                &route,
-                RuntimeRouteAdvance {
-                    dest: target,
-                    payload: Some(b"GET / HTTP/1.1\r\n\r\n"),
-                    transport: RuntimeTransportProtocol::Tcp,
-                    trigger: connect_trigger,
-                    can_reconnect: false,
-                    host: Some("example.com".to_string()),
-                    penalize_strategy_failure: true,
-                    retry_penalties: None,
-                },
-            )
-            .is_ok());
+        assert!(
+            state
+                .advance_route(
+                    &route,
+                    RuntimeRouteAdvance {
+                        dest: target,
+                        payload: Some(b"GET / HTTP/1.1\r\n\r\n"),
+                        transport: RuntimeTransportProtocol::Tcp,
+                        trigger: connect_trigger,
+                        can_reconnect: false,
+                        host: Some("example.com".to_string()),
+                        penalize_strategy_failure: true,
+                        retry_penalties: None,
+                    },
+                )
+                .is_ok()
+        );
         state.store_udp_route_hint(target, route.group_index, route.attempted_mask, Some("example.com".to_string()));
 
         assert!(state.relay_group(0).is_ok());
@@ -527,14 +543,16 @@ mod state_coverage_tests {
         );
         assert_eq!(RuntimeState::classify_first_response_closed_before_response().class, FailureClass::SilentDrop);
         assert_eq!(RuntimeState::classify_first_response_partial_tls_timeout().class, FailureClass::SilentDrop);
-        assert!(state
-            .classify_response_failure(
-                target,
-                b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
-                b"HTTP/1.1 302 Found\r\nLocation: http://block.example/\r\n\r\n",
-                None,
-            )
-            .is_some());
+        assert!(
+            state
+                .classify_response_failure(
+                    target,
+                    b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
+                    b"HTTP/1.1 302 Found\r\nLocation: http://block.example/\r\n\r\n",
+                    None,
+                )
+                .is_some()
+        );
     }
 
     #[test]

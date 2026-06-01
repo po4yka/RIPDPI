@@ -1,11 +1,11 @@
 use std::io::Write;
 
-use ripdpi_packets::{mod_http_like_c, MH_HMIX, MH_HOSTEXTRASPACE, MH_UNIXEOL};
+use ripdpi_packets::{MH_HMIX, MH_HOSTEXTRASPACE, MH_UNIXEOL, mod_http_like_c};
 
-use super::summary::{append_trigger_fuzzing_summary, TriggerFuzzOutcome};
+use super::summary::{TriggerFuzzOutcome, append_trigger_fuzzing_summary};
 use crate::connectivity::adapters::http::{classify_http_response, read_http_response};
-use crate::connectivity::adapters::tls::{open_probe_stream_targets, TlsClientProfile};
-use crate::connectivity::adapters::transport::{domain_connect_targets, TargetAddress, TransportConfig};
+use crate::connectivity::adapters::tls::{TlsClientProfile, open_probe_stream_targets};
+use crate::connectivity::adapters::transport::{TargetAddress, TransportConfig, domain_connect_targets};
 use crate::types::{DomainTarget, ProbeDetail};
 
 const MAX_HTTP_FUZZ_VARIANTS: usize = 3;

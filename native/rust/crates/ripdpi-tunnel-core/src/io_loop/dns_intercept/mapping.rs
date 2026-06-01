@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use tracing::warn;
 
-use crate::dns_cache::DnsCache;
 use crate::Stats;
+use crate::dns_cache::DnsCache;
 
 pub(in crate::io_loop) fn resolve_mapped_target(
     stats: &Arc<Stats>,

@@ -11,11 +11,7 @@ use super::state::ExecutionRuntime;
 mod progress;
 
 pub(in crate::engine) fn cancelled_run_summary(has_partial_results: bool) -> &'static str {
-    if has_partial_results {
-        "Scan completed with partial results"
-    } else {
-        "Scan cancelled"
-    }
+    if has_partial_results { "Scan completed with partial results" } else { "Scan cancelled" }
 }
 
 pub(in crate::engine) fn publish_cancelled_run(

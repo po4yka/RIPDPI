@@ -54,11 +54,7 @@ impl RuntimeState {
     }
     pub(in crate::runtime) fn socks5_auth_selection(auth_token: Option<&str>, methods: &[u8]) -> ([u8; 2], bool) {
         let method = if auth_token.is_some() {
-            if methods.contains(&S_AUTH_USERPASS) {
-                S_AUTH_USERPASS
-            } else {
-                S_AUTH_BAD
-            }
+            if methods.contains(&S_AUTH_USERPASS) { S_AUTH_USERPASS } else { S_AUTH_BAD }
         } else if methods.contains(&S_AUTH_NONE) {
             S_AUTH_NONE
         } else {

@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::types::{Diagnosis, ProbeResult};
 
-use super::common::{diagnosis_evidence, is_close_error, is_reset_error, is_timeout_error, DiagnosisSink};
+use super::common::{DiagnosisSink, diagnosis_evidence, is_close_error, is_reset_error, is_timeout_error};
 use super::failure_detail_value;
 
 pub(crate) fn classify_domain_diagnoses(

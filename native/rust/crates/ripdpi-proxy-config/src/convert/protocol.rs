@@ -5,8 +5,8 @@ use ripdpi_packets::{
 };
 
 use crate::types::{
-    ProxyConfigError, ProxyUiHostsConfig, ProxyUiParserEvasionConfig, ProxyUiProtocolConfig, ProxyUiQuicConfig,
-    HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST,
+    HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST, ProxyConfigError, ProxyUiHostsConfig, ProxyUiParserEvasionConfig,
+    ProxyUiProtocolConfig, ProxyUiQuicConfig,
 };
 
 use super::shared::parse_hosts;
@@ -65,11 +65,7 @@ pub(crate) fn build_primary_group(
     group.actions.quic_fake_profile = parse_quic_fake_profile(&quic.fake_profile)?;
     group.actions.quic_fake_host = {
         let host = quic.fake_host.trim();
-        if host.is_empty() {
-            None
-        } else {
-            ripdpi_config::normalize_quic_fake_host(host).ok()
-        }
+        if host.is_empty() { None } else { ripdpi_config::normalize_quic_fake_host(host).ok() }
     };
     group.actions.mod_http = (u32::from(parser_evasions.host_mixed_case) * MH_HMIX)
         | (u32::from(parser_evasions.domain_mixed_case) * MH_DMIX)

@@ -117,7 +117,7 @@ fn quic_hkdf_label_produces_correct_binary_format() {
     assert_eq!(&label[..2], &16u16.to_be_bytes());
     // Next byte: label length
     assert_eq!(label[2], 14); // "tls13 quic key".len()
-                              // Then the label bytes
+    // Then the label bytes
     assert_eq!(&label[3..17], b"tls13 quic key");
     // Final byte: empty context (0 length)
     assert_eq!(label[17], 0);
@@ -616,7 +616,7 @@ fn make_raw_initial_header(dcid_len: u8, scid_len: u8, token_len: u64, payload_l
     buf.extend_from_slice(&encode_quic_varint(token_len)); // token length varint
     buf.extend(std::iter::repeat_n(0x00, token_len as usize)); // token bytes
     buf.extend_from_slice(&encode_quic_varint(payload_len)); // payload length varint
-                                                             // Payload bytes (all zeros — we only test the header parser, not decryption)
+    // Payload bytes (all zeros — we only test the header parser, not decryption)
     buf.extend(std::iter::repeat_n(0x00, payload_len as usize));
     buf
 }

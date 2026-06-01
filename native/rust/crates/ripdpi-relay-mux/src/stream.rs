@@ -3,8 +3,8 @@ use std::task::{Context, Poll};
 
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use crate::lease::LeaseGuard;
 use crate::RelaySession;
+use crate::lease::LeaseGuard;
 
 pub struct MuxStream<T, S>
 where

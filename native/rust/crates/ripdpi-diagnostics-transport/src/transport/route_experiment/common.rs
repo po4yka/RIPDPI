@@ -12,11 +12,7 @@ pub(crate) fn route_identity(addresses: &[SocketAddr]) -> String {
 }
 
 pub(crate) fn socket_domain_for(address: SocketAddr) -> Domain {
-    if address.is_ipv4() {
-        Domain::IPV4
-    } else {
-        Domain::IPV6
-    }
+    if address.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 }
 }
 
 pub(crate) fn route_bucket_port(seed: u64, bucket: usize) -> u16 {

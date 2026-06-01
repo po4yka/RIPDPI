@@ -5,11 +5,11 @@ use anyhow::Context;
 use boringtun::noise::{Tunn, TunnResult};
 use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::UdpSocket;
-use tokio::time::{timeout, Instant};
+use tokio::time::{Instant, timeout};
 
 use crate::amneziawg::AwgWireCodec;
-use crate::config::{resolve_endpoint, ResolvedWarpRuntimeEndpoint, WarpEndpointProbeRequest, WarpEndpointProbeResult};
-use crate::platform::{protect_socket_if_configured, WarpPlatform};
+use crate::config::{ResolvedWarpRuntimeEndpoint, WarpEndpointProbeRequest, WarpEndpointProbeResult, resolve_endpoint};
+use crate::platform::{WarpPlatform, protect_socket_if_configured};
 use crate::support::MAX_PACKET;
 use crate::wireguard::{apply_reserved_bytes, build_awg_codec, decode_key, reserved_bytes_from_client_id};
 

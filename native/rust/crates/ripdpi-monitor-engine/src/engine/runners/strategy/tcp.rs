@@ -21,7 +21,7 @@ use super::super::super::runtime::{
 use super::support::FamilyFailureTracker;
 
 use self::baseline::run_baseline_candidate;
-use self::batch_execution::{execute_candidate_batch, select_next_candidate_batch, ROUND2_PARALLELISM};
+use self::batch_execution::{ROUND2_PARALLELISM, execute_candidate_batch, select_next_candidate_batch};
 use self::candidate_ordering::ordered_pending_tcp_candidates;
 use self::capability_gating::{candidate_not_applicable, probe_tcp_capabilities};
 use self::pilot_qualification::qualify_pilot_candidates;

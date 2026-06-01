@@ -3,8 +3,8 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::tls::{
-    open_probe_stream, open_probe_stream_with_key_log, NoCertificateVerification, ProbeStreamResult, TlsClientProfile,
-    TlsKeyLogCallback,
+    NoCertificateVerification, ProbeStreamResult, TlsClientProfile, TlsKeyLogCallback, open_probe_stream,
+    open_probe_stream_with_key_log,
 };
 use crate::transport::{TargetAddress, TransportConfig};
 

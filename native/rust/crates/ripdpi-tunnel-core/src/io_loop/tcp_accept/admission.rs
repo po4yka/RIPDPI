@@ -9,7 +9,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::info;
 
 use crate::dns_cache::DnsCache;
-use crate::io_loop::packet::{endpoint_to_socketaddr, TcpFlowKey};
+use crate::io_loop::packet::{TcpFlowKey, endpoint_to_socketaddr};
 use crate::session::Auth;
 use crate::{ActiveSessions, SessionEntry, Stats};
 

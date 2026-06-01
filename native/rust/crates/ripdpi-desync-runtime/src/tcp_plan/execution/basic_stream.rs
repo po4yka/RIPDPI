@@ -1,6 +1,6 @@
 use super::{TcpPlanStepExecContext, TcpPlanStepInput};
 use crate::tcp_fake_family::TcpStepControl;
-use crate::tcp_plan::stream_steps::{execute_basic_tcp_stream_step, TcpBasicStreamExecContext};
+use crate::tcp_plan::stream_steps::{TcpBasicStreamExecContext, execute_basic_tcp_stream_step};
 use crate::types::OutboundSendError;
 
 pub(super) fn execute(

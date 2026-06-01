@@ -1,10 +1,10 @@
 use ripdpi_failure_classifier::FailureClass;
 
+use super::StrategyEvolver;
 use super::selection::evict_context_if_needed;
 use super::types::{
-    combo_fitness_at, combo_fitness_at_with_penalties, ComboStats, LearningContext, StrategyCombo, StrategyFamily,
+    ComboStats, LearningContext, StrategyCombo, StrategyFamily, combo_fitness_at, combo_fitness_at_with_penalties,
 };
-use super::StrategyEvolver;
 
 impl StrategyEvolver {
     pub(super) fn evict_if_needed(&mut self, keep: &StrategyCombo, now_ms: u64) {

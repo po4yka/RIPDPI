@@ -8,10 +8,10 @@ use std::time::Duration;
 
 use hickory_proto::op::{Message, OpCode, ResponseCode};
 use hickory_proto::rr::{Name, RecordType};
+use hickory_resolver::Resolver;
 use hickory_resolver::config::{ConnectionConfig, NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts};
 use hickory_resolver::lookup::Lookup;
 use hickory_resolver::net::runtime::TokioRuntimeProvider;
-use hickory_resolver::Resolver;
 use url::Url;
 
 use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError};
@@ -122,9 +122,5 @@ fn doh_path(doh_url: Option<&str>) -> String {
         return "/dns-query".to_string();
     };
     let path = url.path();
-    if path.is_empty() || path == "/" {
-        "/dns-query".to_string()
-    } else {
-        path.to_string()
-    }
+    if path.is_empty() || path == "/" { "/dns-query".to_string() } else { path.to_string() }
 }

@@ -230,8 +230,10 @@ mod tests {
     fn required_params_are_rejected_when_missing() {
         // Each input omits exactly one required (non-`#[serde(default)]`) field.
         assert!(serde_json::from_str::<FakeRstParams>(r#"{"tcp_flags_set":4}"#).is_err());
-        assert!(serde_json::from_str::<FakeTcpParams>(r#"{"original_prefix":[],"fake_prefix":[],"default_ttl":64}"#)
-            .is_err());
+        assert!(
+            serde_json::from_str::<FakeTcpParams>(r#"{"original_prefix":[],"fake_prefix":[],"default_ttl":64}"#)
+                .is_err()
+        );
         assert!(serde_json::from_str::<FlaggedTcpPayloadParams>(r#"{"default_ttl":64}"#).is_err());
         assert!(serde_json::from_str::<SeqOvlParams>(r#"{"fake_prefix":[2],"default_ttl":64}"#).is_err());
         assert!(serde_json::from_str::<MultiDisorderParams>(r#"{"payload":[1],"default_ttl":64}"#).is_err());

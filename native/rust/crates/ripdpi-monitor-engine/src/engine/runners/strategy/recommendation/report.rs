@@ -4,7 +4,7 @@ use crate::candidates::{
 };
 use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime};
 use crate::types::{
-    StrategyProbeCompletionKind, StrategyProbeRecommendation, StrategyProbeReport, STRATEGY_PROBE_METHODOLOGY_VERSION,
+    STRATEGY_PROBE_METHODOLOGY_VERSION, StrategyProbeCompletionKind, StrategyProbeRecommendation, StrategyProbeReport,
 };
 
 use super::super::support::{

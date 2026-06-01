@@ -78,7 +78,9 @@ pub struct TcpTimestampOption {
 pub enum BuildError {
     #[error("source and destination socket addresses must use the same IP family")]
     AddressFamilyMismatch,
-    #[error("minimum split {requested} rounds to {effective}, which does not leave two non-empty IP fragments for transport length {transport_len}")]
+    #[error(
+        "minimum split {requested} rounds to {effective}, which does not leave two non-empty IP fragments for transport length {transport_len}"
+    )]
     InvalidSplit { requested: usize, effective: usize, transport_len: usize },
     #[error("fragment payload exceeds protocol limits")]
     ValueTooLarge,

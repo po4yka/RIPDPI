@@ -1,4 +1,4 @@
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{Arc, atomic::AtomicBool};
 
 use rustls::client::danger::ServerCertVerifier;
 
@@ -6,7 +6,7 @@ use crate::connectivity::ProbeExecutionContext;
 use crate::engine::runtime::{CollectedStageOutcome, ExecutionPlan, ExecutionStageId, ExecutionStageRunner};
 use crate::types::{DnsTarget, ProbeDetail, ProbeResult};
 
-use super::support::{collect_family_steps, target_count, ConnectivityProbeFamily};
+use super::support::{ConnectivityProbeFamily, collect_family_steps, target_count};
 
 /// DoH-JSON resolver survey stage.
 ///

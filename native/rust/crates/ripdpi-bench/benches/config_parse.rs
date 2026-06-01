@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use criterion::{criterion_group, criterion_main, Criterion};
-use ripdpi_config::{parse_cli, ParseResult, StartupEnv};
+use criterion::{Criterion, criterion_group, criterion_main};
+use ripdpi_config::{ParseResult, StartupEnv, parse_cli};
 
 fn bench_cli_parse(c: &mut Criterion) {
     let args: Vec<String> =

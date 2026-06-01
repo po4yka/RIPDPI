@@ -2,10 +2,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
 
-use crate::connectivity::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
+use crate::connectivity::adapters::dns_oracle::{DnsOracleResponse, evaluate_dns_oracles};
 use crate::types::ScanPathMode;
 
-use super::answer_classification::{classify_dns_answer_class, DnsAnswerClass};
+use super::answer_classification::{DnsAnswerClass, classify_dns_answer_class};
 use super::classification_policy::resolve_dns_classification;
 use super::https_ech_classification::DnsHttpsClass;
 use super::{classify_dns_probe_outcome, oracle_result_for_probe};

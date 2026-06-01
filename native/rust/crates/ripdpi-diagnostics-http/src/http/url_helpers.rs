@@ -2,11 +2,7 @@ pub fn extract_host_from_url(url: &str) -> Option<String> {
     let without_scheme = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://"))?;
     let host = without_scheme.split('/').next()?;
     let host = host.split(':').next()?;
-    if host.is_empty() {
-        None
-    } else {
-        Some(host.to_string())
-    }
+    if host.is_empty() { None } else { Some(host.to_string()) }
 }
 
 pub fn extract_path_from_url(url: &str) -> String {

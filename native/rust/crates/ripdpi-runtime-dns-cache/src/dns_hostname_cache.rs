@@ -51,13 +51,10 @@ impl DnsHostnameCache {
     #[allow(dead_code)]
     pub fn lookup(&self, ip: &IpAddr) -> Option<String> {
         let mut inner = self.inner.lock().ok()?;
-        let result = inner.lru.get(ip).and_then(|entry| {
-            if entry.expires > Instant::now() {
-                Some(entry.hostname.clone())
-            } else {
-                None
-            }
-        });
+        let result = inner
+            .lru
+            .get(ip)
+            .and_then(|entry| if entry.expires > Instant::now() { Some(entry.hostname.clone()) } else { None });
         match result {
             Some(hostname) => {
                 inner.hits += 1;

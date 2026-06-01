@@ -25,8 +25,8 @@ pub mod experimental_tier3;
 mod linux;
 
 pub use experimental_tier3::{
-    recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_raw_ip_packet, send_syn_hide_tcp, IcmpWrappedUdpRecvFilter,
-    IcmpWrappedUdpRole, IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind, SynHideTcpSpec,
+    IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole, IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind,
+    SynHideTcpSpec, recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_raw_ip_packet, send_syn_hide_tcp,
 };
 pub use fragmentation::{send_ip_fragmented_tcp, send_ip_fragmented_udp};
 pub use raw_packet::{

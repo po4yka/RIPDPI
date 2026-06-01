@@ -1,5 +1,5 @@
 use super::record_framing::is_valid_record_header;
-use super::{read_u16, read_u24, ClientHelloOffsetsError, ParsedClientHelloLayout, ParsedExtension};
+use super::{ClientHelloOffsetsError, ParsedClientHelloLayout, ParsedExtension, read_u16, read_u24};
 
 pub(crate) fn parse_client_hello_layout_in_record(
     buffer: &[u8],

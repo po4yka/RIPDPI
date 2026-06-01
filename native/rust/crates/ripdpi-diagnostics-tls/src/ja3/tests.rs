@@ -1,7 +1,7 @@
 use std::io::{Read, Write};
 
 use super::grease::is_grease;
-use super::{compute_ja3, RecordingStream};
+use super::{RecordingStream, compute_ja3};
 
 #[test]
 fn is_grease_filters_grease_values() {

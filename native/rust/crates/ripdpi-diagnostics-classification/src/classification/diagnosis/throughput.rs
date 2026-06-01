@@ -1,6 +1,6 @@
 use crate::types::{Diagnosis, ProbeResult};
 
-use super::common::{diagnosis_evidence, DiagnosisSink};
+use super::common::{DiagnosisSink, diagnosis_evidence};
 use super::failure_detail_value;
 
 pub(crate) fn classify_throughput_diagnosis(results: &[ProbeResult], sink: &mut DiagnosisSink) {

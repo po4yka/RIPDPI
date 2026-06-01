@@ -1,13 +1,13 @@
 use std::io::{ErrorKind, Read, Write};
 
 use ripdpi_packets::{
-    change_tls_sni_seeded_like_c, is_tls_server_hello, padencap_tls_like_c, remove_tls_key_share_group_like_c,
-    DEFAULT_FAKE_TLS,
+    DEFAULT_FAKE_TLS, change_tls_sni_seeded_like_c, is_tls_server_hello, padencap_tls_like_c,
+    remove_tls_key_share_group_like_c,
 };
 
-use super::summary::{append_trigger_fuzzing_summary, TriggerFuzzOutcome};
+use super::summary::{TriggerFuzzOutcome, append_trigger_fuzzing_summary};
 use crate::connectivity::adapters::transport::{
-    connect_transport_observed, domain_connect_targets, TargetAddress, TransportConfig,
+    TargetAddress, TransportConfig, connect_transport_observed, domain_connect_targets,
 };
 use crate::connectivity::adapters::util::IO_TIMEOUT;
 use crate::types::{DomainTarget, ProbeDetail};
@@ -56,11 +56,7 @@ pub(crate) fn append_trigger_fuzzing_details(
 fn build_fake_client_hello(host: &str) -> Option<Vec<u8>> {
     let capacity = DEFAULT_FAKE_TLS.len() + host.len() + 32;
     let mutation = change_tls_sni_seeded_like_c(DEFAULT_FAKE_TLS, host.as_bytes(), capacity, 7);
-    if mutation.rc == 0 {
-        Some(mutation.bytes)
-    } else {
-        Some(DEFAULT_FAKE_TLS.to_vec())
-    }
+    if mutation.rc == 0 { Some(mutation.bytes) } else { Some(DEFAULT_FAKE_TLS.to_vec()) }
 }
 
 fn execute_variant(

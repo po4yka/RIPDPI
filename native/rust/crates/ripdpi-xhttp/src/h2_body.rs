@@ -3,8 +3,8 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
-use http::header::{CONTENT_TYPE, HOST, REFERER};
 use http::Request;
+use http::header::{CONTENT_TYPE, HOST, REFERER};
 use http_body_util::{BodyExt, Empty};
 use hyper::body::{Body, Frame};
 use tokio::sync::mpsc;

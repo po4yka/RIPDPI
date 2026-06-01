@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use std::io;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use bytes::{BufMut, BytesMut};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
 use crate::client::ClientInner;
 use crate::error::{HysteriaError, Result};

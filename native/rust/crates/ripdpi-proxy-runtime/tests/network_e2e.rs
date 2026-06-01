@@ -15,7 +15,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{
 };
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use ripdpi_proxy_runtime_adapter::model::config::{OffsetBase, OffsetExpr};
-use ripdpi_proxy_runtime_adapter::model::proxy_config::{runtime_config_from_ui, ProxyUiConfig};
+use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyUiConfig, runtime_config_from_ui};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
@@ -23,6 +23,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
 
+use support::START_TIMEOUT;
 use support::proxy::{ephemeral_proxy_config, start_proxy};
 use support::socks5::{
     attempt_socks_connect_ip_round_trip, recv_exact, socks_connect, socks_connect_domain,
@@ -31,8 +32,7 @@ use support::socks5::{
     udp_proxy_client, udp_proxy_roundtrip, udp_proxy_roundtrip_domain, udp_proxy_roundtrip_with_socket,
     wait_for_accepted_connections,
 };
-use support::tls::{http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry, FragmentingProfile};
-use support::START_TIMEOUT;
+use support::tls::{FragmentingProfile, http_connect_round_trip_with_retry, socks5_tls_round_trip_with_retry};
 
 #[allow(dead_code)]
 #[path = "../../ripdpi-packets/tests/rust_packet_seeds.rs"]
@@ -185,7 +185,9 @@ fn domain_resolution_policy_is_enforced_end_to_end() {
 #[test]
 fn chained_upstream_round_trip_records_fixture_socks_usage_end_to_end() {
     if !nested_proxy_e2e_enabled() {
-        eprintln!("skipping chained_upstream_round_trip_records_fixture_socks_usage_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1");
+        eprintln!(
+            "skipping chained_upstream_round_trip_records_fixture_socks_usage_end_to_end because RIPDPI_RUN_NESTED_PROXY_E2E!=1"
+        );
         return;
     }
     let _guard = test_guard();
@@ -224,11 +226,13 @@ fn upstream_tcp_reset_fault_is_observed_end_to_end() {
     let read = stream.read(&mut buf);
 
     assert!(read.is_err() || read.unwrap_or_default() != b"fault reset".len());
-    assert!(fixture
-        .events()
-        .snapshot()
-        .iter()
-        .any(|event| event.service == "tcp_echo" && event.detail.contains("TcpReset")));
+    assert!(
+        fixture
+            .events()
+            .snapshot()
+            .iter()
+            .any(|event| event.service == "tcp_echo" && event.detail.contains("TcpReset"))
+    );
 }
 
 #[test]
@@ -285,10 +289,12 @@ fn socks5_udp_quic_initial_disabled_falls_back_without_host_telemetry() {
     assert!(snapshot.routes.iter().any(|route| {
         route.target.port() == fixture.manifest().udp_echo_port && route.group_index == 1 && route.host.is_none()
     }));
-    assert!(!snapshot
-        .routes
-        .iter()
-        .any(|route| { route.target.port() == fixture.manifest().udp_echo_port && route.group_index == 0 }));
+    assert!(
+        !snapshot
+            .routes
+            .iter()
+            .any(|route| { route.target.port() == fixture.manifest().udp_echo_port && route.group_index == 0 })
+    );
 }
 
 #[test]
@@ -750,10 +756,12 @@ fn socks5_tcp_round_trip(fixture: &FixtureStack) {
     assert!(snapshot.accepted >= 1);
     assert!(snapshot.started >= 1);
     assert!(snapshot.stopped >= 1);
-    assert!(snapshot
-        .routes
-        .iter()
-        .any(|route| route.target.port() == fixture.manifest().tcp_echo_port && route.phase == "initial"));
+    assert!(
+        snapshot
+            .routes
+            .iter()
+            .any(|route| route.target.port() == fixture.manifest().tcp_echo_port && route.phase == "initial")
+    );
     assert!(fixture.events().snapshot().iter().any(|event| event.service == "tcp_echo" && event.detail == "echo"));
 }
 
@@ -795,10 +803,12 @@ fn socks5_tls_round_trip(fixture: &FixtureStack, fragmented: Option<FragmentingP
 
     let snapshot = telemetry.snapshot();
     assert!(snapshot.accepted >= 1);
-    assert!(snapshot
-        .routes
-        .iter()
-        .any(|route| route.target.port() == fixture.manifest().tls_echo_port && route.phase == "initial"));
+    assert!(
+        snapshot
+            .routes
+            .iter()
+            .any(|route| route.target.port() == fixture.manifest().tls_echo_port && route.phase == "initial")
+    );
 
     let events = fixture.events().snapshot();
     assert!(events.iter().any(|event| event.service == "tls_echo" && event.detail == "accept"));
@@ -817,9 +827,9 @@ fn http_connect_round_trip(fixture: &FixtureStack) {
         b"http connect"
     );
     let events = fixture.events().snapshot();
-    assert!(events
-        .iter()
-        .any(|event| { event.service == "tcp_echo" && event.protocol == "tcp" && event.detail == "echo" }));
+    assert!(
+        events.iter().any(|event| { event.service == "tcp_echo" && event.protocol == "tcp" && event.detail == "echo" })
+    );
     drop(proxy);
 }
 
@@ -1301,16 +1311,20 @@ fn repeated_tcp_resets_confirm_blocked_host_and_expose_telemetry() {
         event.action == "host_blocked" && event.host.as_deref() == Some(host) && event.group_index.is_none()
     }));
 
-    assert!(fixture_a
-        .events()
-        .snapshot()
-        .iter()
-        .any(|event| event.service == "tcp_echo" && event.detail.contains("TcpReset")));
-    assert!(fixture_b
-        .events()
-        .snapshot()
-        .iter()
-        .any(|event| event.service == "tcp_echo" && event.detail.contains("TcpReset")));
+    assert!(
+        fixture_a
+            .events()
+            .snapshot()
+            .iter()
+            .any(|event| event.service == "tcp_echo" && event.detail.contains("TcpReset"))
+    );
+    assert!(
+        fixture_b
+            .events()
+            .snapshot()
+            .iter()
+            .any(|event| event.service == "tcp_echo" && event.detail.contains("TcpReset"))
+    );
 }
 
 // ── Multiple desync steps in chain (Linux-only) ──

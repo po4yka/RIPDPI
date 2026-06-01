@@ -2,7 +2,7 @@ use reqwest::header::{ACCEPT, CONTENT_TYPE};
 
 use super::manual_exchange;
 use crate::resolver::EncryptedDnsResolver;
-use crate::transport::{format_error_chain, DNS_MESSAGE_MEDIA_TYPE};
+use crate::transport::{DNS_MESSAGE_MEDIA_TYPE, format_error_chain};
 use crate::types::EncryptedDnsError;
 
 pub(super) async fn exchange_doh(

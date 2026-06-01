@@ -4,8 +4,8 @@ use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 
 use crate::experimental_tier3::{
-    decode_icmp_wrapped_udp_envelope, encode_icmp_wrapped_udp_envelope, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole,
-    IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp,
+    IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole, IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp,
+    decode_icmp_wrapped_udp_envelope, encode_icmp_wrapped_udp_envelope,
 };
 
 use super::checksum::{checksum_sum, finalize_checksum, icmpv6_checksum};
@@ -166,7 +166,7 @@ mod tests {
     use etherparse::Ipv4Header;
 
     use crate::experimental_tier3::{
-        decode_icmp_wrapped_udp_envelope, encode_icmp_wrapped_udp_envelope, IcmpWrappedUdpRole, IcmpWrappedUdpSpec,
+        IcmpWrappedUdpRole, IcmpWrappedUdpSpec, decode_icmp_wrapped_udp_envelope, encode_icmp_wrapped_udp_envelope,
     };
 
     use super::{build_icmp_echo_packet, extract_icmpv4_envelope};

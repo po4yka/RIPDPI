@@ -31,9 +31,9 @@ pub mod tun;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub use bufpool::{BufferHandle, PendingBuffer, RegisteredBufferPool};
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub use probe::{io_uring_capabilities, IoUringCapabilities};
+pub use probe::{IoUringCapabilities, io_uring_capabilities};
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub use ring::{block_on_completion, CompletionFuture, CompletionResult, IoUringDriver, Submission};
+pub use ring::{CompletionFuture, CompletionResult, IoUringDriver, Submission, block_on_completion};
 
 // On non-Linux platforms, provide a stub capabilities struct that always
 // reports unavailable so callers can use it unconditionally.
@@ -54,7 +54,7 @@ mod stub {
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub use stub::{io_uring_capabilities, IoUringCapabilities};
+pub use stub::{IoUringCapabilities, io_uring_capabilities};
 
 #[cfg(test)]
 mod tests {

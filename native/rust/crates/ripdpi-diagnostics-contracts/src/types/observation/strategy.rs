@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::scan::TransportFailureKind;
 
-use super::defaults::{strategy_probe_protocol_candidate, strategy_probe_status_failed, tls_probe_status_not_run};
 use super::TlsProbeStatus;
+use super::defaults::{strategy_probe_protocol_candidate, strategy_probe_status_failed, tls_probe_status_not_run};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]

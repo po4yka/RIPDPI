@@ -7,7 +7,7 @@
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 use ripdpi_diagnostics_probes::probes::domain_reachability::{
-    DomainReachabilityOutcome, DomainReachabilityProbe, DOMAIN_REACHABILITY_PROBE_ID,
+    DOMAIN_REACHABILITY_PROBE_ID, DomainReachabilityOutcome, DomainReachabilityProbe,
 };
 use ripdpi_diagnostics_probes::{Probe, ProbeContext, ProbeVerdict};
 

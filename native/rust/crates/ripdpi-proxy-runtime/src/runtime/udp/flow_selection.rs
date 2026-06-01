@@ -4,11 +4,11 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use super::client_receive::UdpClientPacket;
-use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};
+use super::flow::{UdpFlowActivationState, udp_flow_at_capacity};
 use super::session::UdpFlowSession;
 use super::sockets::build_udp_upstream_socket;
 use super::upstream_pump::send_udp_flow_payload;
-use super::upstream_socks::{open_upstream_udp_associate, UpstreamUdpSocks};
+use super::upstream_socks::{UpstreamUdpSocks, open_upstream_udp_associate};
 use super::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy};
 use crate::runtime::routing::{preferred_targets_for_transport, select_route_for_transport};
 use crate::runtime::state::RuntimeState;

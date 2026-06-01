@@ -1,10 +1,10 @@
 use std::io::{self, ErrorKind, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 
-use crate::event::{event, EventLog};
+use crate::event::{EventLog, event};
 pub(crate) use crate::http_types::{HttpRequest, HttpResponse};
 use crate::types::IO_POLL_DELAY;
 
@@ -81,11 +81,7 @@ fn normalize_http_target(target: &str) -> (&str, &str) {
     let normalized = if let Some((_, rest)) = target.split_once("://") {
         let slash = rest.find('/').map_or(rest.len(), |offset| offset + 1);
         let suffix = &rest[slash..];
-        if suffix.is_empty() {
-            "/"
-        } else {
-            suffix
-        }
+        if suffix.is_empty() { "/" } else { suffix }
     } else {
         target
     };

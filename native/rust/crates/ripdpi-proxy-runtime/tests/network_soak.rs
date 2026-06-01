@@ -16,17 +16,17 @@ use local_network_fixture::{
     FixtureStack,
 };
 use native_soak_support::{
-    acquire_global_lock, assert_growth, write_json_artifact, GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW,
+    GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW, acquire_global_lock, assert_growth, write_json_artifact,
 };
 use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
 use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, StreamOwned};
 use serde_json::json;
 
-use support::proxy::{ephemeral_proxy_config, start_proxy, RunningProxy};
+use support::SOCKET_TIMEOUT;
+use support::proxy::{RunningProxy, ephemeral_proxy_config, start_proxy};
 use support::socks5::{recv_exact, socks_connect, socks_udp_associate, udp_proxy_roundtrip};
 use support::telemetry::NoCertificateVerification;
-use support::SOCKET_TIMEOUT;
 
 const PROGRESS_TIMEOUT: Duration = Duration::from_secs(30);
 

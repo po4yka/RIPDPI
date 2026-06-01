@@ -1,7 +1,7 @@
 use std::os::fd::{BorrowedFd, FromRawFd, OwnedFd};
 
 use jni::sys::jint;
-use nix::fcntl::{fcntl, FcntlArg};
+use nix::fcntl::{FcntlArg, fcntl};
 
 /// Duplicate the TUN file descriptor received from Kotlin via a `.fd()` peek,
 /// returning an `OwnedFd` that the Rust side owns exclusively.

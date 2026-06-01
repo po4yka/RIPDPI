@@ -9,7 +9,7 @@
 //! panic via `log::error!` — it fires before `catch_unwind` returns control,
 //! so this helper does not emit its own log line and never sees the payload.
 
-use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 
 /// Run `f` inside a panic boundary. If `f` panics, return `default_on_panic`
 /// instead of unwinding into foreign code.

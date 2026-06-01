@@ -1,7 +1,7 @@
 use std::io::{self, Read, Write};
 
-use tungstenite::protocol::Message;
 use tungstenite::WebSocket;
+use tungstenite::protocol::Message;
 
 const MTPROTO_INIT_PACKET_LEN: usize = 64;
 

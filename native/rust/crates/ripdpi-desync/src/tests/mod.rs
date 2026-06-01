@@ -19,15 +19,15 @@ use crate::offset::gen_offset;
 use crate::tls_prelude::apply_tls_prelude_steps;
 use crate::*;
 use ripdpi_config::{
-    ActivationFilter, DesyncGroup, EntropyMode, NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, TcpChainStep,
-    TcpChainStepKind, TcpSeqOverlapPayload, TcpTlsRandRecPayload, UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG,
-    FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    ActivationFilter, DesyncGroup, EntropyMode, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, NumericRange,
+    OffsetBase, OffsetExpr, QuicFakeProfile, TcpChainStep, TcpChainStepKind, TcpSeqOverlapPayload,
+    TcpTlsRandRecPayload, UdpChainStep, UdpChainStepKind,
 };
 use ripdpi_packets::{
-    build_realistic_quic_initial, default_fake_quic_compat, entropy::popcount_per_byte, http_marker_info, parse_http,
-    parse_quic_initial, parse_quic_initial_layout, parse_tls, second_level_domain_span, tls_marker_info,
-    HttpFakeProfile, OracleRng, TlsFakeProfile, UdpFakeProfile, DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, IS_HTTP, IS_HTTPS,
-    MH_METHODEOL, MH_UNIXEOL, QUIC_V2_VERSION,
+    DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, HttpFakeProfile, IS_HTTP, IS_HTTPS, MH_METHODEOL, MH_UNIXEOL, OracleRng,
+    QUIC_V2_VERSION, TlsFakeProfile, UdpFakeProfile, build_realistic_quic_initial, default_fake_quic_compat,
+    entropy::popcount_per_byte, http_marker_info, parse_http, parse_quic_initial, parse_quic_initial_layout, parse_tls,
+    second_level_domain_span, tls_marker_info,
 };
 
 pub(super) fn split_expr(pos: i64) -> OffsetExpr {

@@ -100,8 +100,8 @@ impl<T, F: FreeFunction<T>> Drop for ScopedHandle<T, F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     static FREE_CALLS: AtomicUsize = AtomicUsize::new(0);
     // `cargo test` runs tests in parallel by default. Every test in

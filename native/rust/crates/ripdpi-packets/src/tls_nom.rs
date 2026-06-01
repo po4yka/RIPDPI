@@ -4,10 +4,10 @@
 //! buffer, making it compatible with the write-path mutation functions in `tls.rs`.
 
 use crate::types::TlsMarkerInfo;
-use nom::bytes::complete::{tag, take};
-use nom::number::complete::{be_u16, be_u8};
 use nom::IResult;
 use nom::Offset;
+use nom::bytes::complete::{tag, take};
+use nom::number::complete::{be_u8, be_u16};
 
 /// A single TLS extension with its byte offset in the original buffer.
 #[derive(Debug, Clone)]
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn parse_all_fake_profiles_match_manual() {
-        use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+        use crate::fake_profiles::{TlsFakeProfile, tls_fake_profile_bytes};
 
         let profiles = [
             TlsFakeProfile::CompatDefault,
@@ -278,10 +278,10 @@ mod tests {
         buf.push(0x16); // Handshake
         buf.extend_from_slice(&[0x03, 0x01]); // TLS 1.0
         buf.extend_from_slice(&[0x00, 0x00]); // placeholder record length
-                                              // Handshake header
+        // Handshake header
         buf.push(0x01); // ClientHello
         buf.extend_from_slice(&[0x00, 0x00, 0x00]); // placeholder hs length
-                                                    // Version
+        // Version
         buf.extend_from_slice(&[0x03, 0x03]);
         // Random (32 bytes)
         buf.extend_from_slice(&[0xAA; 32]);
@@ -397,7 +397,7 @@ mod tests {
         let mut buf = Vec::new();
         buf.push(0x16); // Handshake content type
         buf.extend_from_slice(&[0x03, 0x01]); // TLS 1.0
-                                              // Handshake body: type 0x02 (ServerHello) + minimal garbage
+        // Handshake body: type 0x02 (ServerHello) + minimal garbage
         let hs_body: &[u8] = &[0x02, 0x00, 0x00, 0x04, 0x03, 0x03, 0x00, 0x00];
         let record_len = hs_body.len() as u16;
         buf.extend_from_slice(&record_len.to_be_bytes());

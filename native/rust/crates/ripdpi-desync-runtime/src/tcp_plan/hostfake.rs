@@ -7,7 +7,7 @@ mod real_write;
 use std::net::TcpStream;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStep};
-use ripdpi_desync::{resolve_hostfake_span, DesyncPlan};
+use ripdpi_desync::{DesyncPlan, resolve_hostfake_span};
 
 use self::construction::HostFakePayload;
 use self::emission_order::{build_custom_ordered_segments, needs_custom_ordering};

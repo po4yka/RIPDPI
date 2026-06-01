@@ -1,5 +1,5 @@
 use crate::{normalize_quic_initial, normalize_tls_client_hello};
-use ripdpi_packets::{build_quic_initial_from_tls, tls_marker_info, QUIC_V1_VERSION};
+use ripdpi_packets::{QUIC_V1_VERSION, build_quic_initial_from_tls, tls_marker_info};
 
 use super::rust_packet_seeds;
 

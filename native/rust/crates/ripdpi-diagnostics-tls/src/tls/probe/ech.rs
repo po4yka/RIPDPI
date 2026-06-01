@@ -3,7 +3,7 @@ use rustls::client::EchStatus;
 use ripdpi_tls_profiles::TlsTemplateFirstFlightPlan;
 
 use super::super::classification::{ech_status_label, first_flight_plan_label};
-use super::super::config::{planned_tls_template_metadata, ECH_CONFIG_UNAVAILABLE_ERROR};
+use super::super::config::{ECH_CONFIG_UNAVAILABLE_ERROR, planned_tls_template_metadata};
 use super::super::types::TlsClientProfile;
 
 pub(crate) struct EchOutcome {

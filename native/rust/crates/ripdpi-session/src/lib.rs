@@ -13,10 +13,10 @@ pub use replies::{encode_http_connect_reply, encode_socks4_reply, encode_socks5_
 pub use socks4::parse_socks4_request;
 pub use socks5::parse_socks5_request;
 pub use state::{OutboundProgress, SessionPhase, SessionState};
-pub use triggers::{detect_response_trigger, TriggerEvent};
+pub use triggers::{TriggerEvent, detect_response_trigger};
 pub use types::{
-    ClientRequest, NameResolver, ProxyReply, SessionConfig, SessionError, SocketType, TargetAddr, S4_ER, S4_OK,
-    S_ATP_I4, S_ATP_I6, S_ATP_ID, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_CMD_AUDP, S_CMD_BIND, S_CMD_CONN,
-    S_ER_ATP, S_ER_CMD, S_ER_CONN, S_ER_DENY, S_ER_GEN, S_ER_HOST, S_ER_NET, S_ER_OK, S_ER_TTL, S_SIZE_I4, S_SIZE_I6,
-    S_SIZE_ID, S_SIZE_MIN, S_VER4, S_VER5,
+    ClientRequest, NameResolver, ProxyReply, S_ATP_I4, S_ATP_I6, S_ATP_ID, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS,
+    S_CMD_AUDP, S_CMD_BIND, S_CMD_CONN, S_ER_ATP, S_ER_CMD, S_ER_CONN, S_ER_DENY, S_ER_GEN, S_ER_HOST, S_ER_NET,
+    S_ER_OK, S_ER_TTL, S_SIZE_I4, S_SIZE_I6, S_SIZE_ID, S_SIZE_MIN, S_VER4, S_VER5, S4_ER, S4_OK, SessionConfig,
+    SessionError, SocketType, TargetAddr,
 };

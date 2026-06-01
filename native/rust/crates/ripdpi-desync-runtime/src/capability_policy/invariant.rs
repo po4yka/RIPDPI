@@ -1,11 +1,11 @@
 use ripdpi_config::DesyncGroup;
-use ripdpi_desync::{plan_tcp, ActivationTransport, AdaptivePlannerHints, DesyncAction};
+use ripdpi_desync::{ActivationTransport, AdaptivePlannerHints, DesyncAction, plan_tcp};
 use ripdpi_session::OutboundProgress;
 
-use crate::activation::activation_context_from_progress;
 use crate::DESYNC_SEED_BASE;
+use crate::activation::activation_context_from_progress;
 
-use super::transparent_tls::{TransparentTlsFamilyError, TWO_PHASE_GAP_MS_MAX, TWO_PHASE_GAP_MS_MIN};
+use super::transparent_tls::{TWO_PHASE_GAP_MS_MAX, TWO_PHASE_GAP_MS_MIN, TransparentTlsFamilyError};
 
 pub(crate) fn validate_transparent_tls_family(
     payload: &[u8],

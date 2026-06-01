@@ -188,11 +188,7 @@ fn decode_varint(buf: &mut BytesMut) -> Result<u64, GrpcFramingError> {
 /// is always `/<service>/Tun`, matching Xray's `GunService` / V2Fly layout.
 pub fn tun_path(service_name: &str) -> String {
     let trimmed = service_name.trim().trim_matches('/');
-    if trimmed.is_empty() {
-        "/Tun".to_owned()
-    } else {
-        format!("/{trimmed}/Tun")
-    }
+    if trimmed.is_empty() { "/Tun".to_owned() } else { format!("/{trimmed}/Tun") }
 }
 
 /// Configuration for an outbound Xray/V2Fly-compatible gRPC transport.

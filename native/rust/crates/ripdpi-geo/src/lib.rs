@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use maxminddb::{geoip2, Reader};
+use maxminddb::{Reader, geoip2};
 use thiserror::Error;
 
 pub use crate::mapped_file::MappedFileError;

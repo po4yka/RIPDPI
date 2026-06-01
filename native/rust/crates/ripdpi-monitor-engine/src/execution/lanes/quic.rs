@@ -3,18 +3,18 @@ use std::thread;
 use std::time::Duration;
 
 use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
-use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
+use ripdpi_packets::{QUIC_V1_VERSION, build_realistic_quic_initial, parse_quic_initial};
 
-use crate::candidates::{target_probe_pause_ms, StrategyCandidateSpec};
-use crate::transport::{quic_connect_targets, relay_udp_payload_observed, TransportConfig};
+use crate::candidates::{StrategyCandidateSpec, target_probe_pause_ms};
+use crate::transport::{TransportConfig, quic_connect_targets, relay_udp_payload_observed};
 use crate::types::{ProbeDetail, ProbeResult, QuicTarget};
 use crate::util::{now_ms, stable_probe_hash};
 
 use super::support::candidate_probe_details;
-use crate::execution::runtime::{probe_runtime_transport, CandidateRuntimeLauncher};
+use crate::execution::runtime::{CandidateRuntimeLauncher, probe_runtime_transport};
 use crate::execution::scoring::{
-    build_candidate_execution, cancelled_candidate_execution, failed_candidate_execution,
-    not_applicable_candidate_execution, CandidateExecution, CandidateScore, ProbeSample,
+    CandidateExecution, CandidateScore, ProbeSample, build_candidate_execution, cancelled_candidate_execution,
+    failed_candidate_execution, not_applicable_candidate_execution,
 };
 
 pub fn execute_quic_candidate(

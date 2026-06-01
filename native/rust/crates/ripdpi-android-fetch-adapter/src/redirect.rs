@@ -1,7 +1,7 @@
 use std::io;
 
-use http::header::LOCATION;
 use http::StatusCode;
+use http::header::LOCATION;
 use url::Url;
 
 use crate::dto::RawHttpResponse;

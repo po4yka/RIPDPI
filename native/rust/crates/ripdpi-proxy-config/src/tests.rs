@@ -1,8 +1,8 @@
 use crate::types::{ProxyMorphPolicy, ProxySessionOverrides};
 use ripdpi_config::{
-    AutoTtlConfig, DesyncMode, FakeOrder, FakePacketSource, FakeSeqMode, OffsetBase, OffsetExpr, OffsetProto,
-    QuicFakeProfile, TcpChainStepKind, UdpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG,
-    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    AutoTtlConfig, DETECT_CONNECT, DesyncMode, FM_DUPSID, FM_ORIG, FakeOrder, FakePacketSource, FakeSeqMode,
+    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, OffsetBase, OffsetExpr, OffsetProto, QuicFakeProfile, TcpChainStepKind,
+    UdpChainStepKind, WsTunnelMode,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP};

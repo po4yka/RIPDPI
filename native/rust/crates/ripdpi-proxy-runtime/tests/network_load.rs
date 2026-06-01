@@ -14,14 +14,14 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use native_soak_support::{
-    acquire_global_lock, assert_growth, capture_process_resource_snapshot, sample_thread_count_by_prefix,
-    write_json_artifact, GrowthThresholds, LatencyRecorder, SoakProfile, SoakSampler,
+    GrowthThresholds, LatencyRecorder, SoakProfile, SoakSampler, acquire_global_lock, assert_growth,
+    capture_process_resource_snapshot, sample_thread_count_by_prefix, write_json_artifact,
 };
 use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
 use serde_json::json;
 
-use support::proxy::{ephemeral_proxy_config, start_proxy};
 use support::SOCKET_TIMEOUT;
+use support::proxy::{ephemeral_proxy_config, start_proxy};
 
 const PROGRESS_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -359,7 +359,9 @@ fn proxy_saturation_load() {
     let total_fail = echo_fail.load(Ordering::Relaxed);
     let overflow_rej = overflow_rejected.load(Ordering::Relaxed);
     let overflow_acc = overflow_accepted.load(Ordering::Relaxed);
-    eprintln!("saturation hold: echo_ok={total_ok} echo_fail={total_fail} overflow_rejected={overflow_rej} overflow_accepted={overflow_acc}");
+    eprintln!(
+        "saturation hold: echo_ok={total_ok} echo_fail={total_fail} overflow_rejected={overflow_rej} overflow_accepted={overflow_acc}"
+    );
 
     // Stop half the saturated connections, verify new ones can be accepted
     stop.store(true, Ordering::Relaxed);
@@ -448,11 +450,7 @@ fn proxy_connection_resource_budget() {
                     let progress = stream.write_all(payload_bytes).and_then(|()| {
                         let mut buf = vec![0u8; payload_bytes.len()];
                         stream.read_exact(&mut buf)?;
-                        if buf == payload_bytes {
-                            Ok(())
-                        } else {
-                            Err(std::io::Error::other("echo mismatch"))
-                        }
+                        if buf == payload_bytes { Ok(()) } else { Err(std::io::Error::other("echo mismatch")) }
                     });
                     if progress.is_ok() {
                         last_progress.store(now_ms(), Ordering::Relaxed);

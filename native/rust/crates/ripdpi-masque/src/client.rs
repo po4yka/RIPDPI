@@ -4,14 +4,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
 use crate::auth::PrivacyPassCache;
 use crate::config::MasqueConfig;
 use crate::h2::{attempt_h2_connect_tcp, attempt_h2_connect_tcp_over_transport};
 use crate::h3::attempt_h3_connect_tcp;
 use crate::migration::QuicMigrationSnapshot;
-use crate::response::{classify_attempt_failure, AttemptError};
+use crate::response::{AttemptError, classify_attempt_failure};
 use crate::udp::MasqueUdpRelay;
 use crate::validation::validate_config;
 

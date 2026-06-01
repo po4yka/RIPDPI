@@ -12,7 +12,7 @@
 /// 4. Parse the re-serialized JSON (second parse).
 /// 5. Assert that second parse == first parse (reflexive typed equality).
 /// 6. Assert that re-serializing the second parse produces the same bytes (idempotence).
-use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
+use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
 fn fixture_path(name: &str) -> std::path::PathBuf {
     golden_test_support::repo_root().join("core/engine/src/test/resources/fixtures").join(name)

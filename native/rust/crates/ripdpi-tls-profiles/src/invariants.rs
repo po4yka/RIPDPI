@@ -1,4 +1,4 @@
-use crate::{profile::ProfileConfig, Error};
+use crate::{Error, profile::ProfileConfig};
 
 pub(crate) fn validate_profile_config(config: &ProfileConfig) -> Result<(), Error> {
     if config.client_hello_size_hint == 517 {

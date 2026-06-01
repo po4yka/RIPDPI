@@ -7,7 +7,7 @@
 //! handle. Failures are reported through return values — these functions never
 //! throw Java exceptions.
 
-use android_support::{clear_warp_events, init_android_logging, JNI_VERSION};
+use android_support::{JNI_VERSION, clear_warp_events, init_android_logging};
 use jni::objects::JString;
 use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, Outcome};

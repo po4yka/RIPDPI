@@ -1,9 +1,9 @@
 use std::sync::LazyLock;
 
-use crate::blockpage_fingerprints::{load_fingerprints, BlockpageFingerprint};
+use crate::blockpage_fingerprints::{BlockpageFingerprint, load_fingerprints};
 use crate::candidates::StrategyCandidateSpec;
 use crate::http::{classify_http_response_with_fingerprints, is_blockpage, try_http_request_targets};
-use crate::transport::{domain_connect_targets, TransportConfig};
+use crate::transport::{TransportConfig, domain_connect_targets};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 use crate::util::now_ms;
 

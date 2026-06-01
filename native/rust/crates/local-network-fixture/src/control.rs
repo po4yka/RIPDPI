@@ -3,9 +3,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use crate::event::{event, EventLog};
+use crate::event::{EventLog, event};
 use crate::fault::FaultController;
-use crate::http::{start_http_server, HttpResponse};
+use crate::http::{HttpResponse, start_http_server};
 use crate::types::{FixtureFaultSpec, FixtureManifest};
 
 pub(crate) fn start_control_server(

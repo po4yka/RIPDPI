@@ -1,4 +1,4 @@
-use ripdpi_packets::{tls_fake_profile_bytes, tune_tls_padding_size_into, TlsFakeProfile};
+use ripdpi_packets::{TlsFakeProfile, tls_fake_profile_bytes, tune_tls_padding_size_into};
 use std::time::{Duration, Instant};
 
 pub const DEFAULT_FAKE_TLS: &[u8] = ripdpi_packets::DEFAULT_FAKE_TLS;

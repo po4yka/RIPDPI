@@ -5,8 +5,8 @@ use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 #[cfg(test)]
 use ripdpi_proxy_runtime_adapter::model::session::TriggerEvent;
 use ripdpi_proxy_runtime_adapter::response_triggers::{
-    failure_penalizes_strategy, failure_trigger_mask, first_response_exchange_policy,
-    first_response_exchange_required_with, FirstResponseExchangePolicy,
+    FirstResponseExchangePolicy, failure_penalizes_strategy, failure_trigger_mask, first_response_exchange_policy,
+    first_response_exchange_required_with,
 };
 #[cfg(test)]
 use ripdpi_proxy_runtime_adapter::response_triggers::{response_trigger_flag, response_trigger_supported};

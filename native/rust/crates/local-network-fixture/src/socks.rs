@@ -1,10 +1,10 @@
 use std::io::{self, ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 
-use crate::event::{event, EventLog};
+use crate::event::{EventLog, event};
 use crate::fault::FaultController;
 use crate::types::{
     FixtureConfig, FixtureFaultOutcome, FixtureFaultTarget, IO_POLL_DELAY, IO_TIMEOUT, SOCKS_IO_TIMEOUT,
@@ -334,11 +334,7 @@ fn resolve_socket_addr(target: &SocksTarget) -> io::Result<SocketAddr> {
 pub(crate) fn map_socket_addr(address: SocketAddr, config: &FixtureConfig) -> SocketAddr {
     let fixture_ip =
         config.fixture_ipv4.parse::<IpAddr>().unwrap_or_else(|_| IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)));
-    if address.ip() == fixture_ip {
-        SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), address.port())
-    } else {
-        address
-    }
+    if address.ip() == fixture_ip { SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), address.port()) } else { address }
 }
 
 fn encode_socks_reply(address: SocketAddr) -> Vec<u8> {

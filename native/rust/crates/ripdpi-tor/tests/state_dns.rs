@@ -4,7 +4,7 @@ use std::net::IpAddr;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_tor::{prepare_arti_state_dirs, TorRelayClient, TorTarget};
+use ripdpi_tor::{TorRelayClient, TorTarget, prepare_arti_state_dirs};
 
 fn _resolve_hostname_uses_tor_client<'a>(
     client: &'a TorRelayClient,

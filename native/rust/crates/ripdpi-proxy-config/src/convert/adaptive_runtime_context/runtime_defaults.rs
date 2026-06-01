@@ -1,4 +1,4 @@
-use ripdpi_config::{RuntimeConfig, AUTO_RECONN, AUTO_SORT};
+use ripdpi_config::{AUTO_RECONN, AUTO_SORT, RuntimeConfig};
 
 use crate::types::{ProxyUiAdaptiveFallbackConfig, ProxyUiHostAutolearnConfig, ProxyUiWsTunnelConfig};
 

@@ -26,7 +26,7 @@
 use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
+use ring::aead::{AES_256_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
 use ring::hkdf;
 use x25519_dalek::{PublicKey, StaticSecret};
 

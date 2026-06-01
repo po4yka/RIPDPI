@@ -4,7 +4,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use ripdpi_webtunnel::pt::{decode_pt_auth_args, parse_client_pt_args, pt_client_transcript, ManagedClientEnvironment};
+use ripdpi_webtunnel::pt::{ManagedClientEnvironment, decode_pt_auth_args, parse_client_pt_args, pt_client_transcript};
 
 #[test]
 fn managed_client_transcript_advertises_webtunnel_socks5() {

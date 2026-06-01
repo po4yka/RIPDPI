@@ -15,12 +15,12 @@ pub use key::direct_path_ip_set_digest;
 pub use observer::DirectPathLearningObserver;
 pub use scoring::{DirectPathBlockClass, RankedArm};
 
-use key::{tuple_key_for_targets, TupleKey};
+use key::{TupleKey, tuple_key_for_targets};
 use observer::emit_learning_signal;
 #[cfg(test)]
 use scoring::DEFAULT_ATTEMPT_BUDGET;
 use scoring::{apply_attempt_budgets, ranked_arms_for_class};
-use state::{block_class_from_state, clear_negative_state, TerminalState, TupleState};
+use state::{TerminalState, TupleState, block_class_from_state, clear_negative_state};
 
 const NO_TCP_FALLBACK_WINDOW_MS: u64 = 3_000;
 

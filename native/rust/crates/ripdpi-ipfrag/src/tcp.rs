@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use etherparse::{ip_number, TcpHeader, TcpHeaderSlice, TcpOptionElement};
+use etherparse::{TcpHeader, TcpHeaderSlice, TcpOptionElement, ip_number};
 
 use crate::ipv4::build_ipv4_fragment_pair;
 use crate::ipv6::build_ipv6_fragment_pair;

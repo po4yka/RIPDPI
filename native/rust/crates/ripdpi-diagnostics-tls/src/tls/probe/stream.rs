@@ -8,7 +8,7 @@ use super::super::types::{ProbeStreamResult, TlsClientProfile};
 use super::capture::capture_tls_handshake;
 use crate::cdn_ech::opportunistic_ech_provider_for_ip;
 use crate::platform_ttl;
-use crate::transport::{connect_transport_observed, ConnectionStream, TargetAddress, TransportConfig};
+use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, connect_transport_observed};
 use crate::util::IO_TIMEOUT;
 
 pub(crate) fn open_probe_stream_targets(

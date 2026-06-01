@@ -152,8 +152,8 @@ pub fn has_protect_callback() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicI32;
     use std::sync::Mutex;
+    use std::sync::atomic::AtomicI32;
 
     static TEST_MUTEX: Mutex<()> = Mutex::new(());
 

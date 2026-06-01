@@ -1,6 +1,6 @@
 use crate::types::{Diagnosis, ProbeResult};
 
-use super::common::{diagnosis_evidence, DiagnosisSink};
+use super::common::{DiagnosisSink, diagnosis_evidence};
 
 pub(crate) fn classify_quic_diagnoses(results: &[ProbeResult], sink: &mut DiagnosisSink) {
     for result in results.iter().filter(|result| result.probe_type == "quic_reachability") {

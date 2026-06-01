@@ -2,8 +2,8 @@ use std::net::SocketAddr;
 
 use tracing::debug;
 
-use crate::dns_cache::DnsCache;
 use crate::TunDevice;
+use crate::dns_cache::DnsCache;
 
 use super::super::super::bridge::enqueue_tun_packet;
 use super::super::super::packet::build_udp_response;

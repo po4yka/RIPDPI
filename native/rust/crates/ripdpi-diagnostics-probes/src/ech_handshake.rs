@@ -136,11 +136,7 @@ impl Probe for EchHandshakeProbe {
 fn sanitize_detail(raw: &str) -> String {
     let sanitized: String =
         raw.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(MAX_DETAIL_LEN).collect();
-    if sanitized.is_empty() {
-        "unknown".to_string()
-    } else {
-        sanitized
-    }
+    if sanitized.is_empty() { "unknown".to_string() } else { sanitized }
 }
 
 // ---------------------------------------------------------------------------

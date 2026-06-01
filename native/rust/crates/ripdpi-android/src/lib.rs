@@ -1,8 +1,8 @@
 mod ffi;
 
-use android_support::{init_android_logging, JNI_VERSION};
-use jni::sys::jint;
+use android_support::{JNI_VERSION, init_android_logging};
 use jni::JavaVM;
+use jni::sys::jint;
 use once_cell::sync::OnceCell;
 
 pub use ffi::*;
@@ -48,9 +48,9 @@ mod tests {
 
     #[test]
     fn jni_facade_exports_stable_native_entrypoints() {
+        use jni::EnvUnowned;
         use jni::objects::{JObject, JString};
         use jni::sys::{jboolean, jint, jlong, jstring};
-        use jni::EnvUnowned;
 
         type VoidHandle = extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong);
         type Long = extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jlong;

@@ -1,9 +1,9 @@
 use std::io;
 use std::os::fd::RawFd;
 
+use jni::JavaVM;
 use jni::objects::{JObject, JValue};
 use jni::refs::Global;
-use jni::JavaVM;
 use ripdpi_native_protect::ProtectCallback;
 
 pub(crate) struct JniProtectCallback {

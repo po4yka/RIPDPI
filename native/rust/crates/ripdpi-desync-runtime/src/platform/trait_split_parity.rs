@@ -7,10 +7,10 @@ use std::io;
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::time::Duration;
 
+use super::test_support::TestTcpDesyncPlatform;
 use super::r#trait::{
     TcpDesyncPlatform, TcpFakeSender, TcpFragmentSender, TcpPayloadSender, TcpPlatformCapabilities, TcpSocketOptions,
 };
-use super::test_support::TestTcpDesyncPlatform;
 use super::types::{FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpPayloadSegment, TcpStageWait};
 
 // ── Compile-time guard ────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 use crate::types::{ProbeResult, ScanProgress, ScanReport, ScanRequest};
 
 use super::{
-    EngineProbeResultWire, EngineProgressWire, EngineScanReportWire, EngineScanRequestWire,
-    DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
+    DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineProbeResultWire, EngineProgressWire, EngineScanReportWire,
+    EngineScanRequestWire,
 };
 
 impl From<EngineScanRequestWire> for ScanRequest {

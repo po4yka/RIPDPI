@@ -2,7 +2,7 @@ use std::io;
 
 use crate::linux::tcp_info::{LinuxTcpInfo, TCPI_OPT_SACK, TCPI_OPT_TIMESTAMPS, TCPI_OPT_USEC_TS, TCPI_OPT_WSCALE};
 
-use super::sockopt::{read_tcp_timestamp, set_tcp_repair_option, set_tcp_timestamp, TcpRepairOpt};
+use super::sockopt::{TcpRepairOpt, read_tcp_timestamp, set_tcp_repair_option, set_tcp_timestamp};
 
 const TCPOPT_MSS: u32 = 2;
 const TCPOPT_WINDOW: u32 = 3;

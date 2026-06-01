@@ -4,8 +4,8 @@
 //! Tests encode a payload, verify it differs from plaintext, then decode
 //! and check exact round-trip fidelity.
 
-use ripdpi_shadowsocks::cipher::{Cipher, CipherKey, PresharedKey, SecretString};
 use ripdpi_shadowsocks::TcpStream;
+use ripdpi_shadowsocks::cipher::{Cipher, CipherKey, PresharedKey, SecretString};
 
 fn fixture_password(s: &str) -> SecretString {
     SecretString::new(s.to_owned())

@@ -4,10 +4,10 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::adapters::http::{describe_http_observation, is_blockpage, try_http_request};
 use crate::connectivity::adapters::tls::{
-    classify_tls_signal, is_server_tls_version_rejection, preferred_tls_observation, tls_key_log_callback_for_path,
-    try_tls_handshake, try_tls_handshake_with_key_log, TlsClientProfile, TlsKeyLogCallback,
+    TlsClientProfile, TlsKeyLogCallback, classify_tls_signal, is_server_tls_version_rejection,
+    preferred_tls_observation, tls_key_log_callback_for_path, try_tls_handshake, try_tls_handshake_with_key_log,
 };
-use crate::connectivity::adapters::transport::{domain_connect_target, resolve_addresses, TransportConfig};
+use crate::connectivity::adapters::transport::{TransportConfig, domain_connect_target, resolve_addresses};
 use crate::connectivity::adapters::util::format_socket_result;
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 
@@ -101,11 +101,7 @@ pub fn run_domain_probe_with_key_log(
             tls_verifier,
             key_log.as_ref(),
         );
-        if retry.status == "tls_ok" {
-            ("tls_ok".to_string(), 1usize)
-        } else {
-            ("unreachable".to_string(), 1usize)
-        }
+        if retry.status == "tls_ok" { ("tls_ok".to_string(), 1usize) } else { ("unreachable".to_string(), 1usize) }
     } else {
         (outcome, 0usize)
     };

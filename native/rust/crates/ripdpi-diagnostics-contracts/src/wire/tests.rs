@@ -1,14 +1,14 @@
 use std::collections::BTreeMap;
 
 use crate::types::{
-    ScanPathMode, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
-    StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeCompletionKind,
-    StrategyProbeRecommendation, StrategyProbeReport, StrategyProbeTargetSelection, STRATEGY_PROBE_METHODOLOGY_VERSION,
+    STRATEGY_PROBE_METHODOLOGY_VERSION, ScanPathMode, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence,
+    StrategyProbeAuditConfidenceLevel, StrategyProbeAuditCoverage, StrategyProbeCandidateSummary,
+    StrategyProbeCompletionKind, StrategyProbeRecommendation, StrategyProbeReport, StrategyProbeTargetSelection,
 };
 
 use super::{
-    EngineProbeResultWire, EngineProgressWire, EngineScanReportWire, ResolverRecommendationWire,
-    DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
+    DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineProbeResultWire, EngineProgressWire, EngineScanReportWire,
+    ResolverRecommendationWire,
 };
 
 #[test]
@@ -164,7 +164,7 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
                     rationale: "Baseline DNS tampering short-circuited the audit before fallback candidates ran"
                         .to_string(),
                     warnings: vec![
-                        "Baseline DNS tampering short-circuited the audit before fallback candidates ran.".to_string()
+                        "Baseline DNS tampering short-circuited the audit before fallback candidates ran.".to_string(),
                     ],
                 },
             }),

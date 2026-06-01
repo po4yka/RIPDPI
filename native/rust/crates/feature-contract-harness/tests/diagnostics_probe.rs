@@ -7,7 +7,7 @@
 //! probe but forgets the descriptor table OR the scheduled inventory.
 
 use feature_contract_harness::{assert_layer_markers, load_family_manifests, locate_repo_root};
-use ripdpi_diagnostics_probes::{descriptor_by_probe_type, PROBE_DESCRIPTORS};
+use ripdpi_diagnostics_probes::{PROBE_DESCRIPTORS, descriptor_by_probe_type};
 
 #[test]
 fn diagnostics_probe_manifests_pin_their_cross_layer_markers() {

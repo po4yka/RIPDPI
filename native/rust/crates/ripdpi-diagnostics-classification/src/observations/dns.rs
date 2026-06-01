@@ -40,9 +40,5 @@ pub(crate) fn build_dns_observation(result: &ProbeResult) -> ProbeObservation {
 
 fn encrypted_addresses(result: &ProbeResult) -> Vec<String> {
     let encrypted = detail_list(result, "encryptedAddresses");
-    if encrypted.is_empty() {
-        detail_list(result, "dohAddresses")
-    } else {
-        encrypted
-    }
+    if encrypted.is_empty() { detail_list(result, "dohAddresses") } else { encrypted }
 }

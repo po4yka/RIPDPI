@@ -5,7 +5,7 @@ use ripdpi_dns_resolver::{EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess};
 
 use crate::{Stats, TunDevice};
 
-use super::super::{handle_dns_result, DnsResponse};
+use super::super::{DnsResponse, handle_dns_result};
 use super::support::{build_query, build_response, test_dns_cache, test_mapdns};
 
 #[test]

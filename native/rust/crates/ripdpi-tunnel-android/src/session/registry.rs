@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use android_support::{clear_android_log_scope_level, HandleRegistry};
+use android_support::{HandleRegistry, clear_android_log_scope_level};
 use jni::sys::jlong;
 use once_cell::sync::Lazy;
 use ripdpi_tunnel_core::Stats;

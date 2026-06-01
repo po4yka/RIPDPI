@@ -1,7 +1,7 @@
 use ripdpi_config::DesyncGroup;
-use ripdpi_packets::{tamper_quic_version, QuicInitialBrowserProfile, QuicInitialPacketLayout};
+use ripdpi_packets::{QuicInitialBrowserProfile, QuicInitialPacketLayout, tamper_quic_version};
 
-use super::super::quic::{packetize_browser_like_quic_initial, NormalizedQuicPlannerInput};
+use super::super::quic::{NormalizedQuicPlannerInput, packetize_browser_like_quic_initial};
 
 pub(super) fn build_quic_fake_version_packets(
     group: &DesyncGroup,

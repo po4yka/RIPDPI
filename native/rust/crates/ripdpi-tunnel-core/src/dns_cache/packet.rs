@@ -1,8 +1,8 @@
 use std::net::Ipv4Addr;
 
 use hickory_proto::op::Message;
-use hickory_proto::rr::rdata::A;
 use hickory_proto::rr::RData;
+use hickory_proto::rr::rdata::A;
 
 use super::parser::{dns_question_end, primary_question_name};
 use super::{DnsCache, DnsCacheError};

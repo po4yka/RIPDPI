@@ -5,7 +5,7 @@ use std::path::Path;
 use golden_test_support::{assert_text_golden, canonicalize_json, repo_root};
 use ripdpi_monitor_engine::contracts::connectivity_partial_report_contract_fixture;
 use ripdpi_monitor_engine::wire::{
-    EngineProgressWire, EngineScanReportWire, EngineScanRequestWire, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
+    DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineProgressWire, EngineScanReportWire, EngineScanRequestWire,
 };
 use serde_json::Value;
 

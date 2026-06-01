@@ -22,11 +22,7 @@ pub fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(Encrypte
         .or_else(|| (protocol == EncryptedDnsProtocol::Doh).then(|| DEFAULT_DOH_URL.to_string()));
     let host =
         target.encrypted_host.clone().or_else(|| doh_url.as_deref().and_then(parse_url_host)).unwrap_or_else(|| {
-            if protocol == EncryptedDnsProtocol::Doh {
-                DEFAULT_DOH_HOST.to_string()
-            } else {
-                String::new()
-            }
+            if protocol == EncryptedDnsProtocol::Doh { DEFAULT_DOH_HOST.to_string() } else { String::new() }
         });
     let port = target.encrypted_port.unwrap_or_else(|| default_port(protocol));
 

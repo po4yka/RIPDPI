@@ -1,5 +1,5 @@
 use golden_test_support::{assert_text_golden, canonicalize_json};
-use ripdpi_webtunnel::bridge_line::{parse_bridge_line, WebTunnelBridgeConfig};
+use ripdpi_webtunnel::bridge_line::{WebTunnelBridgeConfig, parse_bridge_line};
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -19,10 +19,7 @@ fn bridge_line_parser_matches_go_derived_goldens() {
             "explicit-addr-servername",
             "webtunnel 198.51.100.10:443 url=https://cdn.example/a%2Fb addr=203.0.113.9:9443 servername=real.example utls=hellochrome_auto",
         ),
-        (
-            "defaults-with-query-ignored",
-            "Bridge webtunnel 192.0.2.3:1 url=https://front.example:8443/secret?ignored=1",
-        ),
+        ("defaults-with-query-ignored", "Bridge webtunnel 192.0.2.3:1 url=https://front.example:8443/secret?ignored=1"),
         (
             "cert-options-preserved",
             "Bridge webtunnel 192.0.2.3:1 url=https://front.example/s cert=YWJj cert-domain=verify.example",

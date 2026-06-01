@@ -2,7 +2,7 @@ use std::io;
 
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use super::hmac::{ShadowTlsHmac, HMAC_LEN};
+use super::hmac::{HMAC_LEN, ShadowTlsHmac};
 
 pub(crate) const TLS_HEADER_LEN: usize = 5;
 pub(crate) const TLS_FRAME_MAX_LEN: usize = TLS_HEADER_LEN + 65_535;

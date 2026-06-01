@@ -4,7 +4,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use ripdpi_config::{ParseResult, StartupEnv};
-use ripdpi_proxy_runtime::{process_settings, ProcessGuard};
+use ripdpi_proxy_runtime::{ProcessGuard, process_settings};
 use ripdpi_runtime_api::install_runtime_telemetry;
 
 use crate::telemetry::TracingTelemetrySink;
@@ -66,7 +66,7 @@ fn run_proxy(config: ripdpi_config::RuntimeConfig) -> ExitCode {
 }
 
 fn init_logging(debug_level: i32) {
-    use tracing_subscriber::{fmt, EnvFilter};
+    use tracing_subscriber::{EnvFilter, fmt};
 
     let default_filter = match debug_level {
         0 => "warn,ripdpi=info",

@@ -6,12 +6,12 @@ use std::str::FromStr;
 use proptest::collection::vec;
 use proptest::prelude::*;
 use ripdpi_config::{
-    QuicFakeProfile, QuicInitialMode, TcpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, QuicFakeProfile, QuicInitialMode, TcpChainStepKind,
 };
 use ripdpi_proxy_config::{
-    ProxyUiActivationFilter, ProxyUiChainConfig, ProxyUiFakePacketConfig, ProxyUiHostAutolearnConfig,
-    ProxyUiHostsConfig, ProxyUiListenConfig, ProxyUiParserEvasionConfig, ProxyUiProtocolConfig, ProxyUiQuicConfig,
-    ProxyUiTcpChainStep, ProxyUiUdpChainStep, FAKE_TLS_SNI_MODE_RANDOMIZED, QUIC_FAKE_PROFILE_DISABLED,
+    FAKE_TLS_SNI_MODE_RANDOMIZED, ProxyUiActivationFilter, ProxyUiChainConfig, ProxyUiFakePacketConfig,
+    ProxyUiHostAutolearnConfig, ProxyUiHostsConfig, ProxyUiListenConfig, ProxyUiParserEvasionConfig,
+    ProxyUiProtocolConfig, ProxyUiQuicConfig, ProxyUiTcpChainStep, ProxyUiUdpChainStep, QUIC_FAKE_PROFILE_DISABLED,
 };
 
 const HOSTS_DISABLE: &str = "disable";

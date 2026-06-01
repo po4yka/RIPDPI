@@ -9,7 +9,7 @@ use std::env;
 use std::fs::{self, File};
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
-use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -17,7 +17,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use local_network_fixture::{FixtureConfig, FixtureEvent, FixtureManifest, FixtureStack};
-use nix::sys::signal::{kill, Signal};
+use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 use serde_json::Value;
 
@@ -706,11 +706,7 @@ fn tshark_bin() -> String {
 fn capture_interface() -> String {
     env::var(INTERFACE_ENV).unwrap_or_else(
         |_| {
-            if cfg!(target_os = "macos") {
-                "lo0".to_string()
-            } else {
-                "lo".to_string()
-            }
+            if cfg!(target_os = "macos") { "lo0".to_string() } else { "lo".to_string() }
         },
     )
 }

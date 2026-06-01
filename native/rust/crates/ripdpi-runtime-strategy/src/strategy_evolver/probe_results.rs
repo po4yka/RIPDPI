@@ -8,9 +8,9 @@ use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
 use ripdpi_failure_classifier::FailureClass;
 use serde::{Deserialize, Serialize};
 
-use super::selection::combo_matches_bucket;
-use super::types::{combo_fitness_at, ComboStats, LearningContext, StrategyCombo};
 use super::StrategyEvolver;
+use super::selection::combo_matches_bucket;
+use super::types::{ComboStats, LearningContext, StrategyCombo, combo_fitness_at};
 
 pub const PROBE_OBSERVATION_WEIGHT: u32 = 3;
 

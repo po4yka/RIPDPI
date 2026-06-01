@@ -11,7 +11,7 @@ use std::os::fd::{AsRawFd, BorrowedFd};
 use std::ptr;
 use std::ptr::NonNull;
 
-use nix::sys::mman::{mmap_anonymous, munmap, MapFlags, ProtFlags};
+use nix::sys::mman::{MapFlags, ProtFlags, mmap_anonymous, munmap};
 
 /// An anonymous private mmap region of fixed length.
 ///
@@ -61,11 +61,7 @@ impl MmapRegion {
         // this call, and `fd` is a live pipe descriptor borrowed by the
         // caller.
         let queued = unsafe { libc::vmsplice(fd.as_raw_fd(), &iov, 1, 0) };
-        if queued >= 0 {
-            Ok(queued as usize)
-        } else {
-            Err(io::Error::last_os_error())
-        }
+        if queued >= 0 { Ok(queued as usize) } else { Err(io::Error::last_os_error()) }
     }
 
     #[cfg(test)]

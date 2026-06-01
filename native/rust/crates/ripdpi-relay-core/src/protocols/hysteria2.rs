@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
 
-use crate::telemetry::{sync_quic_migration_state, QuicMigrationTelemetryState};
+use crate::telemetry::{QuicMigrationTelemetryState, sync_quic_migration_state};
 
 #[derive(Clone)]
 pub(crate) struct Hysteria2SessionFactory {

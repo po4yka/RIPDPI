@@ -9,10 +9,10 @@ use super::super::super::desync::{DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
 use super::super::platform as relay_platform;
 use super::super::session::RelaySharedSession;
+use super::RELAY_IDLE_TIMEOUT;
+use super::RelayOutboundContext;
 use super::freeze::FreezeDetector;
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
-use super::RelayOutboundContext;
-use super::RELAY_IDLE_TIMEOUT;
 #[allow(clippy::too_many_arguments)]
 pub(super) fn copy_inbound_half(
     mut reader: TcpStream,

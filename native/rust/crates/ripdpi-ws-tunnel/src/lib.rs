@@ -10,15 +10,15 @@ use std::io;
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-pub use dc::{dc_from_ip, is_telegram_ip, ws_host, ws_url, TelegramDc, TelegramDcClass};
+pub use dc::{TelegramDc, TelegramDcClass, dc_from_ip, is_telegram_ip, ws_host, ws_url};
 pub use httpupgrade::{
-    build_upgrade_request, parse_upgrade_response, HttpUpgradeConfig, HttpUpgradeError, HttpUpgradeTransport,
-    UpgradeResponse,
+    HttpUpgradeConfig, HttpUpgradeError, HttpUpgradeTransport, UpgradeResponse, build_upgrade_request,
+    parse_upgrade_response,
 };
 pub use mtproto::{
-    classify_mtproto_seed, decrypt_init_packet, extract_dc_from_init, MtprotoSeedClassification, MtprotoTransportFamily,
+    MtprotoSeedClassification, MtprotoTransportFamily, classify_mtproto_seed, decrypt_init_packet, extract_dc_from_init,
 };
-pub use transport::{build_ws_request, EarlyData, WsTransport, WsTransportConfig, WsTransportError};
+pub use transport::{EarlyData, WsTransport, WsTransportConfig, WsTransportError, build_ws_request};
 
 /// Configuration for a WebSocket tunnel connection.
 pub struct WsTunnelConfig {

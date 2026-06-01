@@ -4,8 +4,8 @@ use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::thread;
 use std::time::Duration;
 
-use tungstenite::protocol::Message;
 use tungstenite::WebSocket;
+use tungstenite::protocol::Message;
 
 const OUTBOUND_QUEUE_CAPACITY: usize = 16;
 const MAX_OUTBOUND_BURST: usize = 8;

@@ -1,6 +1,6 @@
 use android_support::{
-    clear_android_log_scope_level, clear_diagnostics_events, drain_diagnostics_events, set_android_log_scope_level,
-    NativeEventRecord,
+    NativeEventRecord, clear_android_log_scope_level, clear_diagnostics_events, drain_diagnostics_events,
+    set_android_log_scope_level,
 };
 use log::LevelFilter;
 use ripdpi_diagnostics_contracts::NativeSessionEvent;

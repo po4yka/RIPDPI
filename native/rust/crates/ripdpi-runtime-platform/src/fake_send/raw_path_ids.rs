@@ -3,8 +3,8 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_config::IpIdMode;
 
-use crate::ipv4_ids::{reserve_ipv4_identifications, reserve_stream_ipv4_identifications};
 use crate::FakeTcpOptions;
+use crate::ipv4_ids::{reserve_ipv4_identifications, reserve_stream_ipv4_identifications};
 
 pub(crate) fn reserve_one_for_stream(stream: &TcpStream, ip_id_mode: Option<IpIdMode>) -> io::Result<Option<u16>> {
     Ok(reserve_stream_ipv4_identifications(stream, ip_id_mode, 1)?.into_iter().next())

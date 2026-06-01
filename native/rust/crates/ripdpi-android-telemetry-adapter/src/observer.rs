@@ -1,5 +1,5 @@
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_runtime_api::RuntimeTelemetrySink;

@@ -17,13 +17,13 @@
 use std::sync::Mutex;
 use std::time::Duration;
 
+use ripdpi_diagnostics_probes::ProbeContext;
 use ripdpi_diagnostics_probes::probes::doh_json_survey::{
-    default_json_resolvers, DohJsonResolverEndpoint, DohJsonSurveyRunner,
+    DohJsonResolverEndpoint, DohJsonSurveyRunner, default_json_resolvers,
 };
 use ripdpi_diagnostics_probes::probes::doh_survey::{
     DohHttpClient, DohHttpFuture, DohResolverEndpoint, DohSurveyRunner,
 };
-use ripdpi_diagnostics_probes::ProbeContext;
 
 /// Domains that the connectivity-warmup catalogs probe. They must NEVER appear
 /// on the DNS-measurement path — measurement is flow-scoped, warmup is not.

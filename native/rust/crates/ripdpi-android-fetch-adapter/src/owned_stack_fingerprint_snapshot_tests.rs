@@ -7,8 +7,8 @@ use std::thread;
 use std::time::Duration;
 
 use golden_test_support::repo_root;
-use ripdpi_packets::{parse_tls_client_hello_layout, TlsClientHelloLayout};
-use serde_json::{json, Value};
+use ripdpi_packets::{TlsClientHelloLayout, parse_tls_client_hello_layout};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use tokio::net::TcpStream;
 

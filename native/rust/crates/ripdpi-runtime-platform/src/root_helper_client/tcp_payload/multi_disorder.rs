@@ -1,11 +1,11 @@
 use std::io;
 use std::os::fd::RawFd;
 
-use ripdpi_root_helper_protocol::{MultiDisorderParams, SegmentSpec, CMD_SEND_MULTI_DISORDER_TCP};
+use ripdpi_root_helper_protocol::{CMD_SEND_MULTI_DISORDER_TCP, MultiDisorderParams, SegmentSpec};
 
 use crate::{TcpFlagOverrides, TcpPayloadSegment};
 
-use super::super::{command_params, RootHelperClient};
+use super::super::{RootHelperClient, command_params};
 
 impl RootHelperClient {
     /// Send multi-disorder TCP segments via the helper. Returns replacement fd.

@@ -1,4 +1,4 @@
-use crate::transport::{extract_ip_answer_records, IpAnswerFamily};
+use crate::transport::{IpAnswerFamily, extract_ip_answer_records};
 
 use super::{DohBatchLookup, DohBatchRecordType, DohIpAnswerCandidate, DohIpFamily};
 

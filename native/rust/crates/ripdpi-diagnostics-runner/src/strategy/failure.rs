@@ -1,6 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 
-use ripdpi_failure_classifier::{confirm_dns_tampering, ClassifiedFailure, FailureAction, FailureClass, FailureStage};
+use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, FailureStage, confirm_dns_tampering};
 
 use crate::types::DomainTarget;
 

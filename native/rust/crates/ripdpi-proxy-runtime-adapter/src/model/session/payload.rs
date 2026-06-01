@@ -1,4 +1,4 @@
-use super::super::config::{runtime_buffer_size, should_cache_udp_host, RuntimeConfig};
+use super::super::config::{RuntimeConfig, runtime_buffer_size, should_cache_udp_host};
 
 pub struct OutboundPayloadInfo {
     pub host: Option<String>,

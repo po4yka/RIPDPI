@@ -4,10 +4,10 @@ use std::net::SocketAddr;
 use etherparse::{Ipv4Header, TcpHeader};
 
 use super::{connected_pair, missing_protect_socket_path, sample_tcp_repair_snapshot};
+use crate::TcpFlagOverrides;
 use crate::linux::fragmentation;
 use crate::linux::raw_packet;
-use crate::linux::tcp_repair::{sequence_after_payload, TcpTimestampSnapshot};
-use crate::TcpFlagOverrides;
+use crate::linux::tcp_repair::{TcpTimestampSnapshot, sequence_after_payload};
 
 #[test]
 fn mutate_fake_timestamp_applies_signed_delta_with_wrapping() {

@@ -21,10 +21,10 @@ use std::time::{Duration, Instant};
 use crate::sync::{Arc, AtomicBool, Ordering};
 
 use self::client_receive::receive_and_forward_udp_client_packet;
-use self::flow::{expire_udp_flows, UdpFlowActivationState};
+use self::flow::{UdpFlowActivationState, expire_udp_flows};
 pub(in crate::runtime) use self::settings::{
-    runtime_udp_packet_settings, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy,
-    UdpFlowGroupPolicy,
+    RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy,
+    runtime_udp_packet_settings,
 };
 pub(crate) use self::sockets::build_udp_relay_sockets;
 use self::upstream_pump::pump_udp_upstream_responses;

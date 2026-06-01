@@ -32,8 +32,8 @@ use jni::refs::Global;
 use jni::{EnvUnowned, JavaVM, Outcome};
 
 use ripdpi_flow_app_attribution::{
-    begin_attribution_session, end_attribution_session_if, pop_pending_request, store_resolution,
-    AttributionGeneration, FlowResolveRequest,
+    AttributionGeneration, FlowResolveRequest, begin_attribution_session, end_attribution_session_if,
+    pop_pending_request, store_resolution,
 };
 
 /// How long the worker blocks waiting for a queued request before re-checking the
@@ -208,11 +208,7 @@ pub(crate) fn unregister_flow_attribution(token: i64) {
     let generation = AttributionGeneration::from_token(token as u64);
     let to_stop = {
         let mut guard = registered();
-        if guard.as_ref().is_some_and(|reg| reg.generation == generation) {
-            guard.take()
-        } else {
-            None
-        }
+        if guard.as_ref().is_some_and(|reg| reg.generation == generation) { guard.take() } else { None }
     };
     if let Some(reg) = to_stop {
         stop_worker(reg);

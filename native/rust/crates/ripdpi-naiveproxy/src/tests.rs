@@ -9,10 +9,10 @@ use tokio::net::{TcpListener, TcpStream};
 
 use crate::config::NaiveProxyConfig;
 use crate::h2_connect::{
-    build_h2_connect_request, negotiate_payload_padding_from_response, PayloadPaddingMode, CONNECT_PADDING_HEADER_MAX,
-    CONNECT_PADDING_HEADER_MIN, RESPONSE_PADDING_HEADER_MAX, RESPONSE_PADDING_HEADER_MIN,
+    CONNECT_PADDING_HEADER_MAX, CONNECT_PADDING_HEADER_MIN, PayloadPaddingMode, RESPONSE_PADDING_HEADER_MAX,
+    RESPONSE_PADDING_HEADER_MIN, build_h2_connect_request, negotiate_payload_padding_from_response,
 };
-use crate::padding::{PaddingDecoder, PaddingEncoder, MAX_PADDED_FRAMES};
+use crate::padding::{MAX_PADDED_FRAMES, PaddingDecoder, PaddingEncoder};
 use crate::relay::serve_listener;
 use crate::socks5::SocksTarget;
 use crate::tls::default_tls_config;

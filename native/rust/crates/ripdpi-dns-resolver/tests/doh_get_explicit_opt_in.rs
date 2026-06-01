@@ -10,11 +10,7 @@ struct ResolverProfile {
 }
 
 fn select_mode(profile: &ResolverProfile) -> DohRuntimeMode {
-    if profile.allow_doh_get {
-        DohRuntimeMode::Get
-    } else {
-        DohRuntimeMode::Post
-    }
+    if profile.allow_doh_get { DohRuntimeMode::Get } else { DohRuntimeMode::Post }
 }
 
 fn enforce_mode(mode: DohRuntimeMode, profile: &ResolverProfile) -> Result<(), DohClientError> {

@@ -1,8 +1,8 @@
 use std::io;
 use std::path::PathBuf;
 
-use crate::backend::builder::BuildContext;
 use crate::backend::RelayBackend;
+use crate::backend::builder::BuildContext;
 use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::{TorBridgePtRelayConfig, TorPluggableTransportConfig, TorRelayBackend};
 

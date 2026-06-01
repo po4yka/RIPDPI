@@ -9,7 +9,7 @@ use crate::dns_cache::DnsCache;
 use crate::{Stats, TunDevice};
 
 use super::super::send_dns_servfail;
-use super::{handle_dns_result, DnsRequest, DnsResponse, MapDnsRuntime};
+use super::{DnsRequest, DnsResponse, MapDnsRuntime, handle_dns_result};
 
 pub(in crate::io_loop) fn spawn_dns_worker(
     resolver: EncryptedDnsResolver,

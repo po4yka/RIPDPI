@@ -1,11 +1,11 @@
-use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use jni::objects::JString;
 use jni::sys::jstring;
 use jni::{EnvUnowned, Outcome};
 use ripdpi_packets::{
-    build_browser_like_quic_initial, build_generic_quic_initial, build_realistic_quic_initial, tamper_quic_version,
-    QuicInitialBrowserProfile, QUIC_V1_VERSION,
+    QUIC_V1_VERSION, QuicInitialBrowserProfile, build_browser_like_quic_initial, build_generic_quic_initial,
+    build_realistic_quic_initial, tamper_quic_version,
 };
 use serde::{Deserialize, Serialize};
 

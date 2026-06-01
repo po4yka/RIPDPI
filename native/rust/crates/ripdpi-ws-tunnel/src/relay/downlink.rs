@@ -2,11 +2,11 @@ use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use tungstenite::protocol::Message;
 use tungstenite::WebSocket;
+use tungstenite::protocol::Message;
 
-use super::error_mapping::{map_ws_read_error, WsReadErrorAction};
-use super::outbound_queue::{drain_outbound_frames, OutboundReceiver};
+use super::error_mapping::{WsReadErrorAction, map_ws_read_error};
+use super::outbound_queue::{OutboundReceiver, drain_outbound_frames};
 
 pub(super) fn relay_loop<S: Read + Write>(
     mut writer: TcpStream,

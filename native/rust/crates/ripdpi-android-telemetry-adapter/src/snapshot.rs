@@ -4,7 +4,7 @@ use android_support::drain_proxy_events;
 use ripdpi_telemetry::LatencyDistributions;
 
 use super::state::ProxyTelemetryState;
-use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapshot, SNAPSHOT_SCHEMA_VERSION};
+use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, SNAPSHOT_SCHEMA_VERSION, TunnelStatsSnapshot};
 use super::util::now_ms;
 
 impl ProxyTelemetryState {

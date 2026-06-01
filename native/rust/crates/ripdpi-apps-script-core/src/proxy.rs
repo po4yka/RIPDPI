@@ -6,15 +6,15 @@ mod socks_session;
 mod tunnel_dispatch;
 
 use std::io;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use tokio::sync::Mutex;
 
+use crate::AppsScriptRuntimeConfig;
 use crate::domain_fronter::AppsScriptDomainFronter;
 use crate::mitm::MitmCertManager;
 use crate::telemetry::SharedTelemetryState;
-use crate::AppsScriptRuntimeConfig;
 
 pub struct ProxyServer {
     config: AppsScriptRuntimeConfig,

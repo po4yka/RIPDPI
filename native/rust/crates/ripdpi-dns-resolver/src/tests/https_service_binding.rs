@@ -1,10 +1,10 @@
 use super::*;
 use crate::{
-    parse_https_service_bindings, DohBatchLookup, DohBatchRecordResponse, DohBatchRecordType, DohResolverRole,
-    HttpsRrRecordType,
+    DohBatchLookup, DohBatchRecordResponse, DohBatchRecordType, DohResolverRole, HttpsRrRecordType,
+    parse_https_service_bindings,
 };
 use hickory_proto::rr::rdata::https::HTTPS;
-use hickory_proto::rr::rdata::svcb::{Alpn, EchConfigList, SvcParamKey, SvcParamValue, SVCB};
+use hickory_proto::rr::rdata::svcb::{Alpn, EchConfigList, SVCB, SvcParamKey, SvcParamValue};
 
 fn build_service_binding_response(
     query: &[u8],

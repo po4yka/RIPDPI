@@ -1,8 +1,8 @@
 use std::io::{self, ErrorKind};
 use std::net::{Ipv4Addr, TcpListener};
 use std::str::FromStr;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -13,7 +13,7 @@ use hickory_proto::rr::rdata::TXT;
 use hickory_proto::rr::{Name, RData, Record, RecordType};
 use ring::signature::{Ed25519KeyPair, KeyPair};
 
-use crate::event::{event, EventLog};
+use crate::event::{EventLog, event};
 use crate::fault::FaultController;
 use crate::types::{FixtureFaultTarget, IO_POLL_DELAY, IO_TIMEOUT};
 use crate::util;

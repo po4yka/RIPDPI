@@ -1,8 +1,8 @@
 use std::io::Write;
 
 use crate::tls::{
-    open_probe_stream, open_probe_stream_targets, open_probe_stream_targets_with_key_log,
-    open_probe_stream_with_key_log, TlsClientProfile, TlsKeyLogCallback,
+    TlsClientProfile, TlsKeyLogCallback, open_probe_stream, open_probe_stream_targets,
+    open_probe_stream_targets_with_key_log, open_probe_stream_with_key_log,
 };
 use crate::transport::{TargetAddress, TransportConfig};
 use crate::util::MAX_HTTP_BYTES;

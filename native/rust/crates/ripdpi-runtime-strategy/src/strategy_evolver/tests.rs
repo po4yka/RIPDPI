@@ -227,7 +227,7 @@ fn random_exploration_returns_unfrozen_combo_when_some_remain() {
 fn rarity_penalty_drops_to_zero_at_floor() {
     // Use the helper to assert the curve directly. The internal helper
     // is `pub(super)` so we re-import via the module path.
-    use crate::strategy_evolver::types::{rarity_penalty, RARITY_FLOOR, RARITY_PENALTY};
+    use crate::strategy_evolver::types::{RARITY_FLOOR, RARITY_PENALTY, rarity_penalty};
     assert_eq!(rarity_penalty(0), RARITY_PENALTY * f64::from(RARITY_FLOOR));
     assert_eq!(rarity_penalty(RARITY_FLOOR - 1), RARITY_PENALTY);
     assert_eq!(rarity_penalty(RARITY_FLOOR), 0.0);
@@ -236,7 +236,7 @@ fn rarity_penalty_drops_to_zero_at_floor() {
 
 #[test]
 fn retry_cost_is_zero_below_saturation_and_log_damped_above() {
-    use crate::strategy_evolver::types::{retry_cost, RETRY_COST_FACTOR, RETRY_SATURATION};
+    use crate::strategy_evolver::types::{RETRY_COST_FACTOR, RETRY_SATURATION, retry_cost};
     assert_eq!(retry_cost(0), 0.0);
     assert_eq!(retry_cost(RETRY_SATURATION), 0.0);
     let one_over = retry_cost(RETRY_SATURATION + 1);
@@ -279,7 +279,7 @@ fn fitness_with_penalties_demotes_rare_arm_below_proven_arm() {
 fn fitness_with_penalties_demotes_oversaturated_arm() {
     // Two arms with identical per-attempt stats; one has tried 5×
     // saturation many times. Penalties must drop its score.
-    use crate::strategy_evolver::types::{combo_fitness_at_with_penalties, RETRY_SATURATION};
+    use crate::strategy_evolver::types::{RETRY_SATURATION, combo_fitness_at_with_penalties};
     let combo = combo_from_pool(1);
     let n_fresh = 5_u32;
     let n_saturated = RETRY_SATURATION * 5;

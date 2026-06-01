@@ -4,7 +4,7 @@ use std::fs;
 
 use crate::runtime_policy::test_support::{autolearn_config, sample_dest};
 use crate::runtime_policy::types::LearnedGroupStats;
-use crate::runtime_policy::{ConnectionRoute, RuntimePolicy, DEFAULT_NETWORK_SCOPE_KEY, HOST_AUTOLEARN_STORE_VERSION};
+use crate::runtime_policy::{ConnectionRoute, DEFAULT_NETWORK_SCOPE_KEY, HOST_AUTOLEARN_STORE_VERSION, RuntimePolicy};
 use serde_json::json;
 
 #[test]

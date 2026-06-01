@@ -2,8 +2,8 @@ use ripdpi_config::DesyncGroup;
 use ripdpi_packets::QuicInitialPacketLayout;
 
 use super::super::quic::{
-    packetize_browser_like_quic_initial, packetize_input_quic_initial, quic_browser_profile_for_index,
-    NormalizedQuicPlannerInput, QUIC_INITIAL_MIN_PREFIX,
+    NormalizedQuicPlannerInput, QUIC_INITIAL_MIN_PREFIX, packetize_browser_like_quic_initial,
+    packetize_input_quic_initial, quic_browser_profile_for_index,
 };
 
 pub(super) fn build_dummy_prepend_packets(

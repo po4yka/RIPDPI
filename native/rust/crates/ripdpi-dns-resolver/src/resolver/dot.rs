@@ -2,8 +2,8 @@ use boring::ssl::{SslConnector, SslConnectorBuilder, SslMethod, SslVerifyMode};
 use boring::x509::X509;
 use tokio::time::timeout;
 
-use super::connection::{DotTlsStream, PooledConnection};
 use super::EncryptedDnsResolver;
+use super::connection::{DotTlsStream, PooledConnection};
 use crate::transport::{read_length_prefixed_frame_async, write_length_prefixed_frame_async};
 use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsError};
 

@@ -3,15 +3,15 @@ use std::sync::{Arc, Mutex};
 
 use rustls::client::danger::ServerCertVerifier;
 
+use crate::CandidateRuntimeLauncher;
 use crate::connectivity::{push_event, set_progress, set_report};
 use crate::transport::transport_for_request_with_session;
 use crate::types::{ScanKind, ScanProgress, ScanRequest, SharedState};
-use crate::CandidateRuntimeLauncher;
 
 use super::plan::build_execution_plan;
 use super::report::{build_report, connectivity_analytics_summary, connectivity_summary};
 use super::runners::execution_coordinator;
-use super::runtime::{publish_cancelled_run, ExecutionRuntime, RunnerOutcome};
+use super::runtime::{ExecutionRuntime, RunnerOutcome, publish_cancelled_run};
 
 pub fn run_engine_scan(
     shared: Arc<Mutex<SharedState>>,

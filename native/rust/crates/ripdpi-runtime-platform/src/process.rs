@@ -35,7 +35,7 @@ pub fn detected_parallelism(fallback: usize) -> usize {
 }
 
 pub fn install_shutdown_signal_handlers(handler: extern "C" fn(c_int)) -> io::Result<()> {
-    use nix::sys::signal::{signal, SigHandler, Signal};
+    use nix::sys::signal::{SigHandler, Signal, signal};
 
     for sig in [Signal::SIGINT, Signal::SIGTERM, Signal::SIGHUP] {
         // SAFETY: the caller-provided handler must be async-signal-safe.

@@ -1,5 +1,5 @@
 use super::*;
-use crate::{doh_ip_answer_candidates, DohBatchRecordType, DohIpFamily, DohResolverPipeline, DohResolverRole};
+use crate::{DohBatchRecordType, DohIpFamily, DohResolverPipeline, DohResolverRole, doh_ip_answer_candidates};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn spawn_batched_doh_fixture(

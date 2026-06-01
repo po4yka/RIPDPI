@@ -10,8 +10,8 @@ mod stream_copy_uring;
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use self::execution::{record_relay_result, relay_with_uring_if_available, RelayResultContext};
-use self::failure_retry::{prepare_relay, PreparedRelay};
+use self::execution::{RelayResultContext, record_relay_result, relay_with_uring_if_available};
+use self::failure_retry::{PreparedRelay, prepare_relay};
 use super::state::RuntimeState;
 use super::types::RuntimeConnectionRoute;
 
@@ -66,14 +66,14 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::super::config::{
-        first_response_settings, RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE,
-        DETECT_TORST,
+        DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST, RuntimeConfig,
+        first_response_settings,
     };
     use super::super::failure::{RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage};
     use super::super::payload::{
-        RuntimeFirstResponseBoundaryTracker, RuntimeOutboundTlsClientHelloAssembler, RuntimeTlsRecordBoundaryTracker,
         RUNTIME_DEFAULT_FAKE_TLS, RUNTIME_FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT,
-        RUNTIME_FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
+        RUNTIME_FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT, RuntimeFirstResponseBoundaryTracker,
+        RuntimeOutboundTlsClientHelloAssembler, RuntimeTlsRecordBoundaryTracker,
     };
     use super::super::response::RuntimeTriggerEvent;
     use super::failure_retry::retry_logic::classify_first_write_failure;

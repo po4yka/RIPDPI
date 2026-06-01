@@ -1,9 +1,9 @@
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 
 use crate::types::{
-    read_be_u16, ClientRequest, NameResolver, SessionConfig, SessionError, SocketType, TargetAddr, S_ATP_I4, S_ATP_I6,
-    S_ATP_ID, S_CMD_AUDP, S_CMD_CONN, S_ER_ATP, S_ER_CMD, S_ER_GEN, S_ER_HOST, S_SIZE_I4, S_SIZE_I6, S_SIZE_ID,
-    S_SIZE_MIN,
+    ClientRequest, NameResolver, S_ATP_I4, S_ATP_I6, S_ATP_ID, S_CMD_AUDP, S_CMD_CONN, S_ER_ATP, S_ER_CMD, S_ER_GEN,
+    S_ER_HOST, S_SIZE_I4, S_SIZE_I6, S_SIZE_ID, S_SIZE_MIN, SessionConfig, SessionError, SocketType, TargetAddr,
+    read_be_u16,
 };
 
 pub fn parse_socks5_request(
@@ -68,8 +68,8 @@ mod tests {
     use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 
     use crate::{
-        ClientRequest, SessionConfig, SocketType, TargetAddr, S_ATP_I4, S_ATP_I6, S_ATP_ID, S_CMD_AUDP, S_CMD_BIND,
-        S_CMD_CONN, S_ER_ATP, S_ER_CMD, S_ER_GEN, S_ER_HOST, S_VER5,
+        ClientRequest, S_ATP_I4, S_ATP_I6, S_ATP_ID, S_CMD_AUDP, S_CMD_BIND, S_CMD_CONN, S_ER_ATP, S_ER_CMD, S_ER_GEN,
+        S_ER_HOST, S_VER5, SessionConfig, SocketType, TargetAddr,
     };
 
     use super::*;

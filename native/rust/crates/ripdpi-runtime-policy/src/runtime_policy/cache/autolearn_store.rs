@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, VecDeque};
 use ripdpi_config::RuntimeConfig;
 
 use super::store_reset_event;
+use crate::runtime_policy::HostAutolearnEvent;
 use crate::runtime_policy::autolearn::load_learned_host_store;
 use crate::runtime_policy::types::{LearnedHostRecord, LoadLearnedHostStoreError};
-use crate::runtime_policy::HostAutolearnEvent;
 
 pub(super) fn load_autolearn_store(
     config: &RuntimeConfig,

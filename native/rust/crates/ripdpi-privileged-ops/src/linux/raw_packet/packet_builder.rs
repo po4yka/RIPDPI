@@ -5,21 +5,17 @@
 use std::io;
 use std::net::SocketAddr;
 
-use etherparse::{ip_number, Ipv4Header, Ipv6FlowLabel, Ipv6Header, TcpHeader, TcpHeaderSlice};
+use etherparse::{Ipv4Header, Ipv6FlowLabel, Ipv6Header, TcpHeader, TcpHeaderSlice, ip_number};
 use ripdpi_config::{
     TCP_FLAG_ACK, TCP_FLAG_AE, TCP_FLAG_CWR, TCP_FLAG_ECE, TCP_FLAG_FIN, TCP_FLAG_PSH, TCP_FLAG_R1, TCP_FLAG_R2,
     TCP_FLAG_R3, TCP_FLAG_RST, TCP_FLAG_SYN, TCP_FLAG_URG,
 };
 
-use crate::linux::tcp_repair::TcpTimestampSnapshot;
 use crate::TcpFlagOverrides;
+use crate::linux::tcp_repair::TcpTimestampSnapshot;
 
 pub(crate) fn resolve_raw_ttl(default_ttl: u8) -> u8 {
-    if default_ttl != 0 {
-        default_ttl
-    } else {
-        64
-    }
+    if default_ttl != 0 { default_ttl } else { 64 }
 }
 
 fn apply_tcp_flag_overrides_to_bytes(flags_bytes: &mut [u8], overrides: TcpFlagOverrides) {
@@ -151,7 +147,7 @@ pub(crate) fn build_tcp_segment_packet(
         raw_opts.extend(std::iter::repeat_n(1u8, padding_needed)); // Noop
         raw_opts.push(19); // Kind=MD5 Signature (RFC 2385)
         raw_opts.push(18); // Length=18 (2 header + 16 signature)
-                           // Random 16-byte signature (deterministic from seq for reproducibility)
+        // Random 16-byte signature (deterministic from seq for reproducibility)
         let seed = sequence_number;
         for i in 0u32..4 {
             raw_opts.extend_from_slice(&seed.wrapping_add(i).wrapping_mul(2654435761).to_be_bytes());

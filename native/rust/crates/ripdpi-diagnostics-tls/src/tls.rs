@@ -11,7 +11,7 @@ pub use classification::{
     preferred_tls_observation, tls_version_label,
 };
 pub use config::{default_root_store, make_server_name, planned_tls_template_metadata, planned_tls_template_profile};
-pub use key_log::{tls_key_log_callback_for_path, TlsKeyLogCallback, TlsKeyLogFile};
+pub use key_log::{TlsKeyLogCallback, TlsKeyLogFile, tls_key_log_callback_for_path};
 pub use probe::{
     open_probe_stream, open_probe_stream_targets, open_probe_stream_targets_with_key_log,
     open_probe_stream_with_key_log, try_tls_handshake, try_tls_handshake_targets,
@@ -27,8 +27,8 @@ mod tests {
     use super::*;
     use crate::transport::TargetAddress;
     use ripdpi_tls_profiles::TlsTemplateFirstFlightPlan;
-    use rustls::pki_types::ServerName;
     use rustls::ClientConfig;
+    use rustls::pki_types::ServerName;
     use std::net::IpAddr;
 
     fn obs(status: &str, cert_anomaly: bool) -> TlsObservation {

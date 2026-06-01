@@ -1,11 +1,11 @@
 use std::io;
 use std::os::fd::RawFd;
 
-use ripdpi_root_helper_protocol::{FlaggedTcpPayloadParams, CMD_SEND_FLAGGED_TCP_PAYLOAD};
+use ripdpi_root_helper_protocol::{CMD_SEND_FLAGGED_TCP_PAYLOAD, FlaggedTcpPayloadParams};
 
 use crate::TcpFlagOverrides;
 
-use super::super::{command_params, RootHelperClient};
+use super::super::{RootHelperClient, command_params};
 
 impl RootHelperClient {
     pub fn send_flagged_tcp_payload(

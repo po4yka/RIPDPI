@@ -7,12 +7,12 @@ use std::thread;
 use std::time::Duration;
 
 use golden_test_support::repo_root;
-use ripdpi_packets::{parse_tls_client_hello_layout, TlsClientHelloLayout};
-use serde_json::{json, Value};
+use ripdpi_packets::{TlsClientHelloLayout, parse_tls_client_hello_layout};
+use serde_json::{Value, json};
 
 use crate::{
-    apply_record_choreography, build_connector, planned_record_payload_lengths, selected_profile_config,
-    selected_profile_metadata, AVAILABLE_PROFILES,
+    AVAILABLE_PROFILES, apply_record_choreography, build_connector, planned_record_payload_lengths,
+    selected_profile_config, selected_profile_metadata,
 };
 
 const EXT_SUPPORTED_GROUPS: u16 = 0x000a;

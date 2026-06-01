@@ -34,11 +34,11 @@ use std::time::Duration;
 use std::hint::black_box;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use io_uring::IoUring;
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use ripdpi_io_uring::{block_on_completion, io_uring_capabilities, IoUringDriver, RegisteredBufferPool};
+use ripdpi_io_uring::{IoUringDriver, RegisteredBufferPool, block_on_completion, io_uring_capabilities};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 const POOL_CAPACITY: u16 = 16;

@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use super::super::{
-    StrategyEvolver, DEFAULT_COOLDOWN_AFTER_FAILURES, DEFAULT_COOLDOWN_MS, DEFAULT_DECAY_HALF_LIFE_MS,
-    DEFAULT_EXPERIMENT_TTL_MS,
+    DEFAULT_COOLDOWN_AFTER_FAILURES, DEFAULT_COOLDOWN_MS, DEFAULT_DECAY_HALF_LIFE_MS, DEFAULT_EXPERIMENT_TTL_MS,
+    StrategyEvolver,
 };
-use crate::strategy_evolver::types::{now_millis, LearningContext};
+use crate::strategy_evolver::types::{LearningContext, now_millis};
 
 impl StrategyEvolver {
     pub fn new(enabled: bool, epsilon: f64) -> Self {

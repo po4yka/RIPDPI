@@ -1,6 +1,6 @@
 use crate::types::{Diagnosis, ProbeResult};
 
-use super::common::{diagnosis_evidence, is_http_failure, is_tls_failure, DiagnosisSink};
+use super::common::{DiagnosisSink, diagnosis_evidence, is_http_failure, is_tls_failure};
 use super::failure_detail_value;
 
 pub(crate) fn classify_circumvention_diagnoses(results: &[ProbeResult], sink: &mut DiagnosisSink) {

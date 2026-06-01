@@ -2,7 +2,7 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind};
-use ripdpi_desync::{activation_filter_matches, ActivationContext, TcpDesyncStrategy};
+use ripdpi_desync::{ActivationContext, TcpDesyncStrategy, activation_filter_matches};
 use ripdpi_session::OutboundProgress;
 
 use crate::activation::apply_entropy_padding;
@@ -12,7 +12,7 @@ use crate::tcp_actions::execute_tcp_actions;
 use crate::tcp_plan::{execute_tcp_plan, requires_special_tcp_execution};
 use crate::transport_io::write_transport_payload;
 use crate::types::{OutboundSendError, OutboundSendOutcome, PcapHook};
-use crate::{platform, DESYNC_SEED_BASE};
+use crate::{DESYNC_SEED_BASE, platform};
 
 #[allow(clippy::too_many_arguments)]
 pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(

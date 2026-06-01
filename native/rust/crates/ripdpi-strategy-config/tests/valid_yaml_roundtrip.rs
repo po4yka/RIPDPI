@@ -1,4 +1,4 @@
-use ripdpi_strategy_config::{parse_yaml_str, OnFail, ProtocolName, StepType};
+use ripdpi_strategy_config::{OnFail, ProtocolName, StepType, parse_yaml_str};
 
 #[test]
 fn parses_canonical_yaml_schema() {

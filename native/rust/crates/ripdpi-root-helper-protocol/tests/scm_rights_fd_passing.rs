@@ -28,8 +28,8 @@ use std::io::{Read, Write};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
 
-use ripdpi_root_helper_protocol::{recv_message, send_message, HelperRequest, CMD_SEND_FAKE_RST};
-use serde_json::{json, Value};
+use ripdpi_root_helper_protocol::{CMD_SEND_FAKE_RST, HelperRequest, recv_message, send_message};
+use serde_json::{Value, json};
 
 /// A nonce of the documented shape (32 URL-safe Base64 chars). Only its
 /// presence in the request matters here; this harness does not validate it.

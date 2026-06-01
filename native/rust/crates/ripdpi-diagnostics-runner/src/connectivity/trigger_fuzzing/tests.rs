@@ -1,13 +1,13 @@
 use std::io::ErrorKind;
 use std::net::{Ipv4Addr, UdpSocket};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use crate::connectivity::adapters::transport::direct_transport;
 use crate::connectivity::{run_dns_probe, run_domain_probe};
-use crate::test_fixtures::{build_udp_dns_answer, HttpTextServer, TlsHttpServer, TlsMode};
+use crate::test_fixtures::{HttpTextServer, TlsHttpServer, TlsMode, build_udp_dns_answer};
 use crate::types::{DnsTarget, DomainTarget, ProbeDetail, ScanPathMode};
 
 #[test]

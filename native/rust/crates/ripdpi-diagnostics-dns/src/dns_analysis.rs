@@ -15,5 +15,5 @@ mod wire_header;
 mod tests;
 
 pub use compression::has_malformed_compression_pointers;
-pub use records::{compare_dns_responses, parse_record_set, DnsComparisonResult, DnsRecord, DnsRecordSet};
-pub use response::{analyze_dns_response, DnsResponseAnalysis};
+pub use records::{DnsComparisonResult, DnsRecord, DnsRecordSet, compare_dns_responses, parse_record_set};
+pub use response::{DnsResponseAnalysis, analyze_dns_response};

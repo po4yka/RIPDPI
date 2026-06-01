@@ -1,5 +1,5 @@
 use crate::candidates::StrategyCandidateSpec;
-use crate::execution::{skipped_candidate_summary, CandidateExecution};
+use crate::execution::{CandidateExecution, skipped_candidate_summary};
 use crate::types::StrategyProbeProgressLane;
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime, RunnerArtifacts};

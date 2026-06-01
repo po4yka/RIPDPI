@@ -54,11 +54,7 @@ impl TcpSocketOptions for TestTcpDesyncPlatform {
                     std::mem::size_of_val(&value) as libc::socklen_t,
                 )
             };
-            if rc == -1 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(())
-            }
+            if rc == -1 { Err(io::Error::last_os_error()) } else { Ok(()) }
         }
 
         #[cfg(not(any(target_os = "android", target_os = "linux")))]

@@ -41,9 +41,5 @@ pub(crate) fn parse_tlsrandrec_fragment_fields(
 }
 
 fn normalize_tlsrandrec_step_field(value: i32, default: i32) -> i32 {
-    if value > 0 {
-        value
-    } else {
-        default
-    }
+    if value > 0 { value } else { default }
 }

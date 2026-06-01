@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
 
 use ripdpi_socks5_core::client::{Config as Socks5Config, Socks5Stream};
 use ripdpi_socks5_core::util::target_addr::TargetAddr as Socks5TargetAddr;
-use ripdpi_socks5_core::{validate_udp_rsv_frag, Socks5Command, SocksError};
+use ripdpi_socks5_core::{Socks5Command, SocksError, validate_udp_rsv_frag};
 
 use crate::util::IO_TIMEOUT;
 

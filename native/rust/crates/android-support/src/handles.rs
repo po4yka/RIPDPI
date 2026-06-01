@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, PoisonError};
 
-use crate::sync::{fetch_add_u64, AtomicU64, Mutex, Ordering};
+use crate::sync::{AtomicU64, Mutex, Ordering, fetch_add_u64};
 
 pub struct HandleRegistry<T> {
     next: AtomicU64,

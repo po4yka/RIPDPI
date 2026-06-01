@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 use std::net::IpAddr;
 
-use ripdpi_config::{DesyncGroup, DETECT_RECONN};
+use ripdpi_config::{DETECT_RECONN, DesyncGroup};
 use ripdpi_failure_classifier::BlockSignal;
 
 use crate::runtime_policy::test_support::{autolearn_config, config_with_groups, sample_dest};
 use crate::runtime_policy::types::LearnedGroupStats;
 use crate::runtime_policy::{
-    now_millis, ConnectionRoute, GeoMatcher, RetrySelectionPenalty, RuntimePolicy, TransportProtocol,
+    ConnectionRoute, GeoMatcher, RetrySelectionPenalty, RuntimePolicy, TransportProtocol, now_millis,
 };
 
 #[test]

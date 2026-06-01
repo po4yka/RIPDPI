@@ -6,8 +6,8 @@ mod signal_mapping;
 mod signal_types;
 
 pub use fingerprint_catalog::{
-    bundled_blockpage_fingerprints, load_blockpage_fingerprints, load_blockpage_fingerprints_from_csv,
-    BlockpageFingerprint, FingerprintLocation, PatternType,
+    BlockpageFingerprint, FingerprintLocation, PatternType, bundled_blockpage_fingerprints,
+    load_blockpage_fingerprints, load_blockpage_fingerprints_from_csv,
 };
 pub use http_classification::classify_http_response_block;
 pub use response_fingerprint::match_blockpage_response;

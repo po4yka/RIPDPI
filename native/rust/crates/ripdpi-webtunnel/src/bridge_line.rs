@@ -119,11 +119,7 @@ fn optional_non_empty<'a>(
 }
 
 fn non_empty<'a>(value: &'a str, key: &'static str) -> Result<&'a str, BridgeLineError> {
-    if value.is_empty() {
-        Err(BridgeLineError::EmptyValue(key))
-    } else {
-        Ok(value)
-    }
+    if value.is_empty() { Err(BridgeLineError::EmptyValue(key)) } else { Ok(value) }
 }
 
 fn validate_endpoint(endpoint: &str) -> Result<(), BridgeLineError> {
@@ -137,11 +133,7 @@ fn validate_endpoint(endpoint: &str) -> Result<(), BridgeLineError> {
 }
 
 fn default_addr(host: &str, port: u16) -> String {
-    if host.contains(':') && !host.starts_with('[') {
-        format!("[{host}]:{port}")
-    } else {
-        format!("{host}:{port}")
-    }
+    if host.contains(':') && !host.starts_with('[') { format!("[{host}]:{port}") } else { format!("{host}:{port}") }
 }
 
 fn tls_profile_for_utls(utls: &str) -> Result<&'static str, BridgeLineError> {

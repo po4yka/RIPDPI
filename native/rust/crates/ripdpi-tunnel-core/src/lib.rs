@@ -18,7 +18,7 @@ pub mod tunnel_api;
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 pub use io_loop::IoUringTunContext;
 pub use {
-    classify::{classify_ip_packet, IpClass},
+    classify::{IpClass, classify_ip_packet},
     device::TunDevice,
     io_loop::io_loop_task,
     sessions::{ActiveSessions, SessionEntry},

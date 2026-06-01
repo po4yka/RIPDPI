@@ -164,11 +164,7 @@ async fn connect_transport(
 }
 
 fn authority_header_value(host: &str, port: u16) -> String {
-    if port == 443 {
-        host.to_string()
-    } else {
-        format!("{host}:{port}")
-    }
+    if port == 443 { host.to_string() } else { format!("{host}:{port}") }
 }
 
 async fn socks5_handshake_no_auth(stream: &mut TcpStream) -> io::Result<()> {
@@ -220,7 +216,7 @@ async fn socks5_connect_domain(stream: &mut TcpStream, host: &str, port: u16) ->
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("SOCKS5 CONNECT returned invalid ATYP={atyp:#04x}"),
-            ))
+            ));
         }
     }
     Ok(())

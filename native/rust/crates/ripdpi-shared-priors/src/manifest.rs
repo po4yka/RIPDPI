@@ -197,7 +197,7 @@ pub mod test_support {
     use ring::rand::SystemRandom;
     use ring::signature::{Ed25519KeyPair, KeyPair};
 
-    use super::{build_signing_input, sha256_32, SHARED_PRIORS_MANIFEST_VERSION};
+    use super::{SHARED_PRIORS_MANIFEST_VERSION, build_signing_input, sha256_32};
 
     pub struct TestKey {
         pub keypair: Ed25519KeyPair,

@@ -14,8 +14,8 @@ use std::time::Duration;
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind};
 use ripdpi_desync::DesyncPlan;
 
-use super::decision::{handle_tcp_plan_step_control, tcp_step_strategy_family, TcpPlanLoopControl};
-use super::fake_packets::{build_tcp_fake_packets, BuiltFakePackets};
+use super::decision::{TcpPlanLoopControl, handle_tcp_plan_step_control, tcp_step_strategy_family};
+use super::fake_packets::{BuiltFakePackets, build_tcp_fake_packets};
 use super::multi_disorder::execute_multi_disorder_tcp_plan;
 use crate::strategy_family::{strategy_fallback_family, write_action_name};
 use crate::sync::AtomicBool;

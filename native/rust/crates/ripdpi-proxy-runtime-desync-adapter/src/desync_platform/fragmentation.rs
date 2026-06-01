@@ -7,8 +7,8 @@ use ripdpi_desync_runtime::platform::{
 
 use crate::platform as runtime_platform;
 
-use super::conversion::to_runtime_flags;
 use super::RuntimeTcpDesyncPlatform;
+use super::conversion::to_runtime_flags;
 
 impl TcpFragmentSender for RuntimeTcpDesyncPlatform {
     #[allow(clippy::too_many_arguments)]

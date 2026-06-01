@@ -5,7 +5,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use super::parallel;
 use super::plan::ExecutionPlan;
-use super::recording::{record_steps, CollectedStageOutcome};
+use super::recording::{CollectedStageOutcome, record_steps};
 use super::stage::{ExecutionStageId, ExecutionStageRunner, RunnerOutcome};
 use super::state::ExecutionRuntime;
 

@@ -4,11 +4,7 @@ use ripdpi_config::DesyncGroup;
 /// Effective TTL for disorder-family steps: use the configured fake_ttl,
 /// falling back to 1 when fake_ttl is zero (unconfigured).
 pub(super) fn disorder_ttl(fake_ttl: u8) -> u8 {
-    if fake_ttl == 0 {
-        1
-    } else {
-        fake_ttl
-    }
+    if fake_ttl == 0 { 1 } else { fake_ttl }
 }
 
 pub(super) fn push_split_actions(actions: &mut Vec<DesyncAction>, bytes: Vec<u8>) {

@@ -17,7 +17,7 @@ use udp_burst_profile::restore_udp_burst_profile;
 pub(in crate::adaptive_tuning) use offset_base::restore_offset_base;
 pub(in crate::adaptive_tuning) use stored::StoredOffsetBase;
 pub(super) use stored::{
-    StoredAdaptiveNetworkScope, StoredAdaptivePlannerEntry, StoredAdaptivePlannerStore, ADAPTIVE_TUNING_STORE_VERSION,
+    ADAPTIVE_TUNING_STORE_VERSION, StoredAdaptiveNetworkScope, StoredAdaptivePlannerEntry, StoredAdaptivePlannerStore,
 };
 
 impl AdaptivePlannerState {

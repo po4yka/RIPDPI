@@ -26,7 +26,7 @@ use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
 use self::state::RuntimeState;
-pub use geo::{load_geo_database_versions, load_geoip_metadata, RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata};
+pub use geo::{RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, load_geo_database_versions, load_geoip_metadata};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 
 pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
@@ -59,11 +59,11 @@ mod tests {
     use crate::runtime::state::RuntimeState;
     use crate::sync::{Arc, AtomicUsize};
     use ripdpi_proxy_runtime_adapter::model::config::{
-        DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT,
+        DETECT_CONNECT, DETECT_HTTP_LOCAT, DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind,
     };
     use ripdpi_proxy_runtime_adapter::model::session::{
-        encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, OutboundProgress, S_ATP_I4, S_ATP_I6,
-        S_CMD_CONN, S_ER_CONN, S_VER5,
+        OutboundProgress, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_CONN, S_VER5, encode_http_connect_reply,
+        encode_socks4_reply, encode_socks5_reply,
     };
     use ripdpi_proxy_runtime_adapter::protocol_payload::{DEFAULT_FAKE_TLS, IS_HTTPS};
     use std::io::Read;

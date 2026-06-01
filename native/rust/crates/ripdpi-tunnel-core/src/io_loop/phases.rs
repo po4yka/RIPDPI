@@ -127,7 +127,7 @@ mod tests {
 
     use super::super::retransmit::RetransmitTracker;
     use super::super::state::{LoopRuntime, LoopState};
-    use super::super::udp_assoc::{UdpEvictionEntry, DEFAULT_MAX_UDP_ASSOCIATIONS};
+    use super::super::udp_assoc::{DEFAULT_MAX_UDP_ASSOCIATIONS, UdpEvictionEntry};
     use super::*;
 
     #[tokio::test]

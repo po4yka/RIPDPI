@@ -1,9 +1,9 @@
 use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::https::HTTPS;
-use hickory_proto::rr::rdata::svcb::{SvcParamKey, SvcParamValue, Unknown, SVCB};
+use hickory_proto::rr::rdata::svcb::{SVCB, SvcParamKey, SvcParamValue, Unknown};
 use hickory_proto::rr::{Name, RData, Record, RecordType};
 use ripdpi_dns_resolver::{
-    parse_https_service_bindings, OdohConfigLookupSecurity, OdohConfigSource, OdohConfigSourceKind, OdohError,
+    OdohConfigLookupSecurity, OdohConfigSource, OdohConfigSourceKind, OdohError, parse_https_service_bindings,
 };
 
 const ODOHCONFIGS: &str =

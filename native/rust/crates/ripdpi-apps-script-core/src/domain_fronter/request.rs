@@ -1,10 +1,10 @@
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use serde::Serialize;
 use serde_json::Value;
 
-use super::headers;
 use super::FronterError;
+use super::headers;
 
 #[derive(Serialize)]
 struct RelayRequest<'a> {

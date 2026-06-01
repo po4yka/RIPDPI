@@ -1,4 +1,4 @@
-use ripdpi_strategy_config::{parse_yaml_str, StepType};
+use ripdpi_strategy_config::{StepType, parse_yaml_str};
 use ripdpi_strategy_registry::StrategyRegistry;
 
 #[test]

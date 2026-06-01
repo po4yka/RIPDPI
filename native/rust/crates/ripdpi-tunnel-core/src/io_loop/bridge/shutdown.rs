@@ -2,10 +2,10 @@ use std::time::Duration;
 
 use smoltcp::iface::SocketSet;
 
-use crate::dns_cache::DnsCache;
 use crate::ActiveSessions;
+use crate::dns_cache::DnsCache;
 
-use super::session_cleanup::{remove_session, TaskDrain};
+use super::session_cleanup::{TaskDrain, remove_session};
 
 pub(in crate::io_loop) async fn shutdown_active_sessions(
     sessions: &mut ActiveSessions,

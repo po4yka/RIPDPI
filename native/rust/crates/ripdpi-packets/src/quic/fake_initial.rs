@@ -1,7 +1,7 @@
-use crate::tls::{change_tls_sni_seeded_like_c, is_tls_client_hello, TLS_RECORD_HEADER_LEN};
-use crate::types::{QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed, QUIC_V1_VERSION};
+use crate::tls::{TLS_RECORD_HEADER_LEN, change_tls_sni_seeded_like_c, is_tls_client_hello};
+use crate::types::{QUIC_V1_VERSION, QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed};
 use crate::util::read_u16;
-use crate::{tls_fake_profile_bytes, TlsFakeProfile};
+use crate::{TlsFakeProfile, tls_fake_profile_bytes};
 
 use super::build::build_quic_initial_raw;
 use super::frames::{append_segmented_quic_crypto_frames, defrag_quic_crypto_frames};

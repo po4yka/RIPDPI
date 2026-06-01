@@ -27,11 +27,7 @@ pub(crate) fn dup2_fd(source: BorrowedFd<'_>, target: BorrowedFd<'_>) -> io::Res
     // (enforced by `BorrowedFd<'_>` lifetimes). `dup2` accepts any pair of
     // valid descriptor numbers.
     let rc = unsafe { libc::dup2(source.as_raw_fd(), target.as_raw_fd()) };
-    if rc >= 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    if rc >= 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
 }
 
 /// Consume an owned descriptor, closing it. Equivalent to `drop(fd)` but
@@ -44,15 +40,11 @@ pub(crate) fn close_owned_fd(fd: OwnedFd) -> io::Result<()> {
     // have forgotten it without dropping, so no other code path will close
     // `raw`. This call closes it exactly once.
     let rc = unsafe { libc::close(raw) };
-    if rc == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    if rc == 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
 }
 
 pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
-    use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags};
+    use nix::sys::socket::{ControlMessage, MsgFlags, sendmsg};
     use std::io::IoSlice;
 
     tracing::debug!(path = path, "protect_socket: connecting");
@@ -100,11 +92,7 @@ pub(crate) fn peer_addr(fd: libc::c_int) -> io::Result<libc::sockaddr_storage> {
     // SAFETY: `fd` is a valid socket descriptor and `storage`/`len` are live
     // writable stack slots whose sizes match the `getpeername` ABI.
     let rc = unsafe { libc::getpeername(fd, (&mut storage as *mut libc::sockaddr_storage).cast(), &mut len) };
-    if rc == 0 {
-        Ok(storage)
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    if rc == 0 { Ok(storage) } else { Err(io::Error::last_os_error()) }
 }
 
 // Compile-time guard for soundness issue #23 (type punning).

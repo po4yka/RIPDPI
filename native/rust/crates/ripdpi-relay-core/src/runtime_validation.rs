@@ -6,7 +6,7 @@ use ripdpi_relay_mux::{RelayCapabilities, RelayPoolConfig};
 
 use crate::backend::RelayBackend;
 use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
-use crate::transport_descriptor::{relay_transport_descriptor, relay_transport_registration, RelayTransportDescriptor};
+use crate::transport_descriptor::{RelayTransportDescriptor, relay_transport_descriptor, relay_transport_registration};
 
 /// The [`RelayTransportDescriptor`] for `config`'s relay kind, or `None` for
 /// the `Unsupported` catch-all (which has no descriptor row).
@@ -111,11 +111,7 @@ pub(crate) fn describe_runtime_health(state: &str, backend: Option<&RelayBackend
 
 pub(crate) fn normalized_xhttp_path(config: &ResolvedRelayRuntimeConfig) -> String {
     let trimmed = config.xhttp_path().trim().trim_matches('/');
-    if trimmed.is_empty() {
-        "/".to_owned()
-    } else {
-        format!("/{trimmed}")
-    }
+    if trimmed.is_empty() { "/".to_owned() } else { format!("/{trimmed}") }
 }
 
 pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayBackend) -> io::Result<()> {

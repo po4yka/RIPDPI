@@ -2,11 +2,11 @@ use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
-use blake2::digest::consts::U32;
-use blake2::digest::Digest;
 use blake2::Blake2b;
+use blake2::digest::Digest;
+use blake2::digest::consts::U32;
 use quinn::{AsyncUdpSocket, UdpPoller};
 use rand::Rng;
 

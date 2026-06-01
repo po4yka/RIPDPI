@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use rustls::ClientConfig;
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::CertificateDer;
-use rustls::ClientConfig;
 use tokio::sync::Mutex as AsyncMutex;
 
 use super::connection::ConnectionPool;

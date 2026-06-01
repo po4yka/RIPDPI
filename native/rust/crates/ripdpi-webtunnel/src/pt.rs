@@ -3,15 +3,15 @@ use std::env;
 use std::fmt;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
 use thiserror::Error;
 
-use crate::bridge_line::{parse_bridge_line, BridgeLineError, WebTunnelBridgeConfig};
-use crate::client::{connect_webtunnel, WebTunnelStream};
+use crate::bridge_line::{BridgeLineError, WebTunnelBridgeConfig, parse_bridge_line};
+use crate::client::{WebTunnelStream, connect_webtunnel};
 
 const TRANSPORT_NAME: &str = "webtunnel";
 const SUPPORTED_MANAGED_VERSION: &str = "1";

@@ -3,7 +3,7 @@ use jni::objects::JString;
 use jni::sys::{jint, jlong, jstring};
 use jni::{EnvUnowned, Outcome};
 
-use ripdpi_android_bridge_support::{extract_panic_message, NativeBridgeError, NativeBridgeErrorDomain};
+use ripdpi_android_bridge_support::{NativeBridgeError, NativeBridgeErrorDomain, extract_panic_message};
 
 use crate::entry_error::{log_and_throw, log_and_throw_with_payload};
 use crate::geo_versions::{geo_database_versions, geoip_metadata};

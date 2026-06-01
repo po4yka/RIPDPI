@@ -1,14 +1,14 @@
 pub(super) use std::net::SocketAddr;
 
 pub(super) use etherparse::{
-    ip_number, IpNumber, Ipv4Header, Ipv4HeaderSlice, Ipv6FragmentHeader, Ipv6Header, TcpHeader, TcpOptionElement,
-    UdpHeader,
+    IpNumber, Ipv4Header, Ipv4HeaderSlice, Ipv6FragmentHeader, Ipv6Header, TcpHeader, TcpOptionElement, UdpHeader,
+    ip_number,
 };
 
 pub(super) use crate::split::IP_FRAGMENT_ALIGNMENT_BYTES;
 pub(super) use crate::{
-    build_fake_rst_packet, build_tcp_fragment_pair, build_udp_fragment_pair, BuildError, Ipv6ExtHeaders,
-    TcpFragmentSpec, TcpTimestampOption, UdpFragmentSpec,
+    BuildError, Ipv6ExtHeaders, TcpFragmentSpec, TcpTimestampOption, UdpFragmentSpec, build_fake_rst_packet,
+    build_tcp_fragment_pair, build_udp_fragment_pair,
 };
 
 pub(super) fn reassemble_ipv4_transport(first: &[u8], second: &[u8]) -> Vec<u8> {

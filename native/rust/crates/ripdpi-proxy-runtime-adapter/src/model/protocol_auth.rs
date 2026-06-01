@@ -1,5 +1,5 @@
 pub fn validate_http_proxy_auth(request: &[u8], token: &str) -> bool {
-    use base64::engine::{general_purpose::STANDARD, Engine};
+    use base64::engine::{Engine, general_purpose::STANDARD};
 
     let Ok(request_str) = std::str::from_utf8(request) else { return false };
     for line in request_str.lines() {

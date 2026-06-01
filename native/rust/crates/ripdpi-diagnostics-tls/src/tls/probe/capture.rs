@@ -2,7 +2,7 @@ use std::net::TcpStream;
 use std::sync::Arc;
 use std::time::Instant;
 
-use ripdpi_tls_profiles::{plan_first_flight, TlsTemplateFirstFlightPlan};
+use ripdpi_tls_profiles::{TlsTemplateFirstFlightPlan, plan_first_flight};
 use rustls::client::danger::ServerCertVerifier;
 use rustls::{ClientConnection, StreamOwned};
 

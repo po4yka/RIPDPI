@@ -10,7 +10,7 @@ use ripdpi_shadowsocks::{
     UdpPacket,
 };
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::{lookup_host, TcpSocket, TcpStream, UdpSocket};
+use tokio::net::{TcpSocket, TcpStream, UdpSocket, lookup_host};
 
 const BUFFER_SIZE: usize = 65_536;
 

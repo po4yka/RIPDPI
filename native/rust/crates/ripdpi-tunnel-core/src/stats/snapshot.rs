@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 
-use super::time;
 use super::Stats;
+use super::time;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DnsStatsSnapshot {
@@ -43,13 +43,11 @@ pub(crate) fn dns_snapshot(stats: &Stats) -> DnsStatsSnapshot {
 }
 
 fn resolver_latency_average(stats: &Stats) -> Option<u64> {
-    stats.resolver_latency_window.lock().ok().and_then(|guard| {
-        if guard.is_empty() {
-            None
-        } else {
-            Some(guard.iter().sum::<u64>() / guard.len() as u64)
-        }
-    })
+    stats
+        .resolver_latency_window
+        .lock()
+        .ok()
+        .and_then(|guard| if guard.is_empty() { None } else { Some(guard.iter().sum::<u64>() / guard.len() as u64) })
 }
 
 fn cloned_mutex_value(target: &std::sync::Mutex<Option<String>>) -> Option<String> {

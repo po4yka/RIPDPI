@@ -2,8 +2,8 @@ use std::io;
 use std::sync::Arc;
 
 use rcgen::generate_simple_self_signed;
-use rustls::pki_types::PrivateKeyDer;
 use rustls::ServerConfig;
+use rustls::pki_types::PrivateKeyDer;
 
 use crate::types::FixtureConfig;
 use crate::util;

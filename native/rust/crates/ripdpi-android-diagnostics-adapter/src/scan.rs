@@ -1,7 +1,7 @@
 use android_support::{throw_illegal_argument_env, throw_illegal_state_env};
+use jni::Env;
 use jni::objects::JString;
 use jni::sys::jlong;
-use jni::Env;
 use ripdpi_diagnostics_contracts::EngineScanRequestWire;
 
 use super::registry::diagnostics_session;

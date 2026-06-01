@@ -7,7 +7,7 @@ use ripdpi_tunnel_config::Config;
 
 use crate::Stats;
 
-use super::dns_intercept::{build_encrypted_dns_resolver, spawn_dns_worker, DnsRequest, DnsResponse};
+use super::dns_intercept::{DnsRequest, DnsResponse, build_encrypted_dns_resolver, spawn_dns_worker};
 
 type DnsWorkerChannels =
     (Option<tokio::sync::mpsc::Sender<DnsRequest>>, Option<tokio::sync::mpsc::Receiver<DnsResponse>>);

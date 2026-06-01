@@ -1,10 +1,10 @@
 use std::ops::Range;
 
-use crate::first_flight_ir::{normalize_tls_client_hello_handshake_bytes, TlsClientHelloIr};
+use crate::first_flight_ir::{TlsClientHelloIr, normalize_tls_client_hello_handshake_bytes};
 use crate::normalize_tls_client_hello;
 use crate::types::{ProtoInfo, TlsProtoInfo};
 use ripdpi_config::OffsetProto;
-use ripdpi_packets::{http_marker_info, IS_HTTP, IS_HTTPS};
+use ripdpi_packets::{IS_HTTP, IS_HTTPS, http_marker_info};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum HostOffsetBias {

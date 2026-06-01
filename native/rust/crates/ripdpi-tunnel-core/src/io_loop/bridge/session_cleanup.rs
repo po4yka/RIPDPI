@@ -4,8 +4,8 @@ use smoltcp::iface::{SocketHandle, SocketSet};
 use smoltcp::socket::tcp::Socket as TcpSocket;
 use tokio::io::AsyncWriteExt;
 
-use crate::dns_cache::DnsCache;
 use crate::ActiveSessions;
+use crate::dns_cache::DnsCache;
 
 pub(super) enum TaskDrain {
     Abort,

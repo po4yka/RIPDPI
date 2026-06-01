@@ -30,11 +30,7 @@ pub(crate) unsafe fn setsockopt_raw<T>(
     // SAFETY: caller guarantees `fd` is a live socket descriptor and `val`
     // matches the kernel ABI payload for `level`/`name`.
     let rc = unsafe { libc::setsockopt(fd, level, name, (val as *const T).cast(), size_of::<T>() as libc::socklen_t) };
-    if rc == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    if rc == 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
 }
 
 /// Thin wrapper around `libc::getsockopt` that handles zero-init, the
@@ -57,11 +53,7 @@ pub(crate) unsafe fn getsockopt_raw<T>(
     // SAFETY: caller guarantees `fd` and the option layout are valid; `val` and
     // `len` are live writable stack slots for the duration of the syscall.
     let rc = unsafe { libc::getsockopt(fd, level, name, (&mut val as *mut T).cast(), &mut len) };
-    if rc == 0 {
-        Ok((val, len))
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    if rc == 0 { Ok((val, len)) } else { Err(io::Error::last_os_error()) }
 }
 
 /// Safe wrapper for socket options whose Linux ABI is a plain `c_int`.

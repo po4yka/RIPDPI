@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use crate::types::{ProxyReply, S4_ER, S4_OK, S_ATP_I4, S_ATP_I6, S_VER5};
+use crate::types::{ProxyReply, S_ATP_I4, S_ATP_I6, S_VER5, S4_ER, S4_OK};
 
 pub fn encode_socks4_reply(success: bool) -> ProxyReply {
     ProxyReply::Socks4(vec![0, if success { S4_OK } else { S4_ER }, 0, 0, 0, 0, 0, 0])
@@ -32,7 +32,7 @@ pub fn encode_http_connect_reply(success: bool) -> ProxyReply {
 mod tests {
     use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 
-    use crate::{S4_ER, S4_OK, S_ATP_I4, S_ATP_I6, S_ER_OK, S_VER5};
+    use crate::{S_ATP_I4, S_ATP_I6, S_ER_OK, S_VER5, S4_ER, S4_OK};
 
     use super::*;
 

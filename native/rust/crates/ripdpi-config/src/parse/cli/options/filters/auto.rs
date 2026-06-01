@@ -1,4 +1,4 @@
-use crate::{ConfigError, AUTO_NOPOST, AUTO_RECONN, AUTO_SORT};
+use crate::{AUTO_NOPOST, AUTO_RECONN, AUTO_SORT, ConfigError};
 
 use super::super::super::helpers::{next_value, parse_auto_detect_token};
 use super::super::super::state::CliState;

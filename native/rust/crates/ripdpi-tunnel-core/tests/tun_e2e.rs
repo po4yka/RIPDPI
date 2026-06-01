@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
-use ripdpi_tunnel_core::{run_tunnel, Stats};
+use ripdpi_tunnel_core::{Stats, run_tunnel};
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
@@ -86,7 +86,7 @@ fn recv_tcp_with_flags(
             }
             Ok(_) => continue, // wrong packet type, keep reading
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock || e.kind() == std::io::ErrorKind::TimedOut => {
-                continue
+                continue;
             }
             Err(_) => return None,
         }
@@ -191,8 +191,7 @@ fn tcp_round_trip_through_tunnel() {
     let fixture_events = fixture.events().snapshot();
     let residual_packets = harness.drain();
     assert_eq!(
-        echoed_data,
-        payload,
+        echoed_data, payload,
         "echo server must reflect the payload through the tunnel; observed_packets={observed_packets:?}; fixture_events={fixture_events:?}; residual_packets={residual_packets:?}"
     );
 

@@ -1,13 +1,13 @@
 use std::io;
 use std::net::ToSocketAddrs;
 
-use rustls::pki_types::ServerName;
 use rustls::ClientConnection;
+use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use crate::config::Config;
-use crate::frames::{read_tls_frame, verify_handshake_frame, TLS_ALERT, TLS_APPLICATION_DATA};
+use crate::frames::{TLS_ALERT, TLS_APPLICATION_DATA, read_tls_frame, verify_handshake_frame};
 use crate::handshake::{build_rustls_config, modify_client_hello, parse_validated_server_hello, read_client_hello};
 use crate::hmac::ShadowTlsHmac;
 use crate::stream::ShadowTlsStream;

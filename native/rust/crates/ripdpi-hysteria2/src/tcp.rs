@@ -4,7 +4,7 @@ use std::task::{Context, Poll};
 
 use bytes::{Bytes, BytesMut};
 use rand::Rng;
-use tokio::io::{sink, AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf, sink};
 
 use crate::varint::{put_varint, read_varint};
 

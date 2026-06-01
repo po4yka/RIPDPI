@@ -5,7 +5,7 @@ use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::ProbeResult;
 
 use super::super::super::support::push_detail;
-use super::answer_classification::{classify_dns_answer_class, DnsAnswerClass};
+use super::answer_classification::{DnsAnswerClass, classify_dns_answer_class};
 use super::classification_policy::resolve_dns_classification;
 use super::https_ech_classification::classify_dns_https_support;
 use super::resolver_role::selected_resolver_role;

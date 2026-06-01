@@ -7,7 +7,7 @@ use rustls::client::danger::ServerCertVerifier;
 use crate::candidates::{candidate_pause_ms, probe_fake_ttl_capability, probe_ip_fragmentation_capabilities};
 use crate::classification::next_candidate_index;
 use crate::execution::{
-    skipped_candidate_summary, CandidateRuntimeLauncher, DefaultStrategyLaneExecutor, StrategyLaneExecutor,
+    CandidateRuntimeLauncher, DefaultStrategyLaneExecutor, StrategyLaneExecutor, skipped_candidate_summary,
 };
 use crate::types::StrategyProbeProgressLane;
 
@@ -15,8 +15,8 @@ use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
 };
 use super::support::{
-    annotate_emitter_execution, capability_available, capability_suffix, missing_capability_rationale,
-    strategy_probe_live_progress_with_targets, FamilyFailureTracker,
+    FamilyFailureTracker, annotate_emitter_execution, capability_available, capability_suffix,
+    missing_capability_rationale, strategy_probe_live_progress_with_targets,
 };
 
 mod selection;

@@ -1,4 +1,4 @@
-use crate::candidates::{build_quic_candidates_for_suite, probe_tcp_fast_open_capability, StrategyCandidateSpec};
+use crate::candidates::{StrategyCandidateSpec, build_quic_candidates_for_suite, probe_tcp_fast_open_capability};
 use crate::classification::{filter_quic_candidates_for_failure, interleave_candidate_families};
 use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime};
 use crate::types::QuicTarget;

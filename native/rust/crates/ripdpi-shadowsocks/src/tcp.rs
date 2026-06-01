@@ -149,11 +149,7 @@ fn counter_nonce(counter: u64) -> Vec<u8> {
 }
 
 fn max_chunk_len(cipher: Cipher) -> usize {
-    if cipher.is_aead_2022() {
-        SIP022_MAX_CHUNK_LEN
-    } else {
-        SIP004_MAX_CHUNK_LEN
-    }
+    if cipher.is_aead_2022() { SIP022_MAX_CHUNK_LEN } else { SIP004_MAX_CHUNK_LEN }
 }
 
 /// Minimal base64 decode helper scoped to this module.

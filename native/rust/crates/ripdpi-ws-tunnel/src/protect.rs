@@ -7,7 +7,7 @@ use std::io;
 /// VpnService via a Unix socket at `path`, which calls `VpnService.protect()`.
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
-    use nix::sys::socket::{sendmsg, ControlMessage, MsgFlags};
+    use nix::sys::socket::{ControlMessage, MsgFlags, sendmsg};
     use std::io::IoSlice;
     use std::io::Read;
     use std::os::fd::AsRawFd;

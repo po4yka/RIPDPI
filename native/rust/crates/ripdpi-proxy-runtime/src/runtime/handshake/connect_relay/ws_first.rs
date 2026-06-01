@@ -2,9 +2,9 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use super::super::super::state::RuntimeState;
-use super::super::ws_tunnel::{should_ws_tunnel_first, WsTunnelResult};
-use super::reply::SuccessReply;
+use super::super::ws_tunnel::{WsTunnelResult, should_ws_tunnel_first};
 use super::ConnectRelayError;
+use super::reply::SuccessReply;
 
 pub(super) enum AlwaysWsOutcome {
     Handled,

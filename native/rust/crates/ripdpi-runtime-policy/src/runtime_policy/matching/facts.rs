@@ -1,6 +1,6 @@
 use ripdpi_config::{QuicInitialMode, RuntimeConfig};
-use ripdpi_desync::{init_proto_info, ProtoInfo};
-use ripdpi_packets::classify::{default_registry, ProtocolId};
+use ripdpi_desync::{ProtoInfo, init_proto_info};
+use ripdpi_packets::classify::{ProtocolId, default_registry};
 use ripdpi_packets::{is_http, parse_quic_initial};
 
 use crate::runtime_policy::{ExtractedHost, HostSource};

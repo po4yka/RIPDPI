@@ -16,16 +16,16 @@ mod telemetry;
 mod transport_descriptor;
 
 pub use config::{
-    AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
-    HysteriaV1RelayConfig, MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig,
-    ResolvedChainRelayHopConfig, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
-    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, SshRelayConfig, TorPluggableTransportConfig,
-    TorRelayConfig, TrojanGoRelayConfig, TrojanRelayConfig, TuicRelayConfig, UnsupportedRelayConfig,
-    VlessRealityRelayConfig, VmessRelayConfig, CHAIN_RELAY_MAX_HOPS, CHAIN_RELAY_MIN_HOPS,
+    AnyTlsRelayConfig, CHAIN_RELAY_MAX_HOPS, CHAIN_RELAY_MIN_HOPS, ChainRelayConfig, CloudflareTunnelRelayConfig,
+    CommonRelayConfig, Hysteria2RelayConfig, HysteriaV1RelayConfig, MasqueRelayConfig, MieruRelayConfig,
+    NaiveProxyRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayFinalmaskConfig,
+    ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, SshRelayConfig,
+    TorPluggableTransportConfig, TorRelayConfig, TrojanGoRelayConfig, TrojanRelayConfig, TuicRelayConfig,
+    UnsupportedRelayConfig, VlessRealityRelayConfig, VmessRelayConfig,
 };
 pub use runtime::RelayRuntime;
 pub use telemetry::{RelayTelemetry, TcpConnectObservation};
-pub use transport_descriptor::{relay_transport_descriptor, RelayTransportDescriptor};
+pub use transport_descriptor::{RelayTransportDescriptor, relay_transport_descriptor};
 
 #[cfg(test)]
 mod tests;

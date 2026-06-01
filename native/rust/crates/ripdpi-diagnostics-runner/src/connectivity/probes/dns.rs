@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 
 use crate::connectivity::adapters::dns::{resolve_via_encrypted_dns_with_raw, resolve_via_udp_with_observations};
-use crate::connectivity::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
+use crate::connectivity::adapters::dns_oracle::{DnsOracleResponse, evaluate_dns_oracles};
 use crate::connectivity::adapters::transport::TransportConfig;
-use crate::connectivity::adapters::util::{is_suspected_dns_tampering_outcome, DEFAULT_DNS_SERVER};
+use crate::connectivity::adapters::util::{DEFAULT_DNS_SERVER, is_suspected_dns_tampering_outcome};
 use crate::probe_context::ProbeExecutionContext;
 use crate::types::{DnsTarget, ProbeDetail, ProbeResult, ScanPathMode};
 
@@ -14,7 +14,7 @@ mod details;
 mod response_analysis;
 
 use classification::{append_dns_classifier_details, classify_dns_probe_outcome, oracle_result_for_probe};
-use details::{append_injection_profile_details, build_dns_probe_details, DnsProbeDetailInputs};
+use details::{DnsProbeDetailInputs, append_injection_profile_details, build_dns_probe_details};
 use response_analysis::{append_record_comparison_details, append_udp_response_analysis};
 
 /// Classify DNS latency into a human-readable quality tier.

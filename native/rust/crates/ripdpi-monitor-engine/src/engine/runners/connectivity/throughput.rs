@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::run_throughput_probe;
 use crate::connectivity::ProbeExecutionContext;
+use crate::connectivity::run_throughput_probe;
 use crate::engine::runtime::ExecutionPlan;
 use crate::tls::tls_key_log_callback_for_path;
 use crate::types::{ProbeResult, ThroughputTarget};

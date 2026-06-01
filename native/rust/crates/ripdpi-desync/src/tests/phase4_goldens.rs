@@ -1,9 +1,9 @@
 use golden_test_support::{assert_text_golden, canonicalize_json};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::first_flight_ir::TlsClientHelloIr;
-use crate::{normalize_quic_initial, normalize_tls_client_hello};
 use crate::{ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints};
+use crate::{normalize_quic_initial, normalize_tls_client_hello};
 use ripdpi_config::{DesyncGroup, UdpChainStep, UdpChainStepKind};
 
 use super::{rust_packet_seeds, tlsrandrec_step};

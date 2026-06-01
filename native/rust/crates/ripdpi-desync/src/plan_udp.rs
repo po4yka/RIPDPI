@@ -3,11 +3,11 @@ mod packet_family;
 mod quic;
 mod sequencing;
 
-use crate::types::{activation_filter_matches, ActivationContext, AdaptiveUdpBurstProfile, DesyncAction};
+use crate::types::{ActivationContext, AdaptiveUdpBurstProfile, DesyncAction, activation_filter_matches};
 use ripdpi_config::{DesyncGroup, UdpChainStepKind};
 
 use self::fragmentation::build_ip_fragmented_udp_action;
-use self::packet_family::{build_udp_prelude_packets, UdpPreludeState};
+use self::packet_family::{UdpPreludeState, build_udp_prelude_packets};
 use self::quic::normalized_quic_plan_input;
 use self::sequencing::append_ttl_wrapped_packets;
 

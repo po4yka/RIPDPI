@@ -4,9 +4,9 @@ use std::sync::Arc;
 use tokio::io::duplex;
 use tokio_util::sync::CancellationToken;
 
+use crate::Stats;
 use crate::io_loop::DUPLEX_BUF;
 use crate::session::{Auth, TargetAddr, TcpSession};
-use crate::Stats;
 
 use super::SessionDuplex;
 

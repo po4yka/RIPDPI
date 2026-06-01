@@ -10,11 +10,7 @@ pub(super) fn strategy_emitter_tier(tier: EmitterTier) -> StrategyEmitterTier {
 }
 
 pub(super) fn max_emitter_tier(current: EmitterTier, next: EmitterTier) -> EmitterTier {
-    if next > current {
-        next
-    } else {
-        current
-    }
+    if next > current { next } else { current }
 }
 
 pub(super) fn config_emitter_tier(config: &ProxyUiConfig) -> EmitterTier {

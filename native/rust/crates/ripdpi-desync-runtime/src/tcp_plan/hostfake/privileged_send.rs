@@ -1,5 +1,5 @@
-use super::pacing::hostfake_pacing;
 use super::TcpHostFakeExecContext;
+use super::pacing::hostfake_pacing;
 use crate::platform;
 use crate::transport_io::{send_fake_tcp_action_named, send_ordered_fake_segments_action_named};
 use crate::types::OutboundSendError;

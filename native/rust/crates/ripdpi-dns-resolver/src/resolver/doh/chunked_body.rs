@@ -1,7 +1,7 @@
 use tokio::io::AsyncRead;
 
-use super::http1_response::read_more_doh_bytes;
 use super::MAX_DOH_RESPONSE_BYTES;
+use super::http1_response::read_more_doh_bytes;
 use crate::types::EncryptedDnsError;
 
 pub(super) async fn read_chunked_doh_body<S>(stream: &mut S, mut buffer: Vec<u8>) -> Result<Vec<u8>, EncryptedDnsError>

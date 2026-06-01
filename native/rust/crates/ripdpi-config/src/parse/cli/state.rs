@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use crate::{ConfigError, DesyncGroup, RuntimeConfig, StartupEnv, HOST_AUTOLEARN_DEFAULT_STORE_FILE};
+use crate::{ConfigError, DesyncGroup, HOST_AUTOLEARN_DEFAULT_STORE_FILE, RuntimeConfig, StartupEnv};
 
 use super::helpers::add_group;
 

@@ -1,7 +1,7 @@
 use android_support::ffi_boundary;
+use jni::EnvUnowned;
 use jni::objects::{JObject, JString};
 use jni::sys::jstring;
-use jni::EnvUnowned;
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_NativeOwnedTlsHttpFetcherNativeBindings_jniExecute(

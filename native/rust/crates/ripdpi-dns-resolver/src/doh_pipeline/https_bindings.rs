@@ -1,4 +1,4 @@
-use crate::https_service_binding::{parse_https_service_bindings, HttpsRr, HttpsSvcbParseError};
+use crate::https_service_binding::{HttpsRr, HttpsSvcbParseError, parse_https_service_bindings};
 
 use super::{DohBatchLookup, DohBatchRecordType, DohResolverPipeline};
 

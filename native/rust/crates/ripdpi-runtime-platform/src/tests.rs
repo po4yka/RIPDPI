@@ -4,7 +4,7 @@ use std::path::Path;
 use ripdpi_config::IpIdMode;
 
 use crate::capability::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
-use crate::ipv4_ids::{reserve_ipv4_identifications, Ipv4IdAllocator};
+use crate::ipv4_ids::{Ipv4IdAllocator, reserve_ipv4_identifications};
 
 #[test]
 fn ipv4_id_allocator_seq_is_contiguous_per_flow() {

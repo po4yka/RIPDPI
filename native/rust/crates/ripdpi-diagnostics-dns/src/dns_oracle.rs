@@ -35,7 +35,7 @@ mod tests {
 
     use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
 
-    use super::{evaluate_dns_oracles, DnsOracleTrust};
+    use super::{DnsOracleTrust, evaluate_dns_oracles};
 
     #[derive(Clone, Debug)]
     struct StubAnswer {

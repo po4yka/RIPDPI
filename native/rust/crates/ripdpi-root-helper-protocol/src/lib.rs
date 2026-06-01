@@ -7,7 +7,7 @@ mod scm_rights;
 mod wire;
 
 pub use command_descriptor::{
-    command_descriptor, validate_request, CommandDescriptor, DescriptorValidationError, COMMAND_DESCRIPTORS,
+    COMMAND_DESCRIPTORS, CommandDescriptor, DescriptorValidationError, command_descriptor, validate_request,
 };
 pub use commands::{
     CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FAKE_TCP,
@@ -21,6 +21,6 @@ pub use params::{
 };
 pub use scm_rights::{recv_message, send_message};
 pub use wire::{
-    valid_session_nonce, HelperRequest, HelperResponse, CAPABILITY_VERSION, MAX_SESSION_NONCE_BYTES,
-    MIN_SESSION_NONCE_BYTES, PROTOCOL_VERSION,
+    CAPABILITY_VERSION, HelperRequest, HelperResponse, MAX_SESSION_NONCE_BYTES, MIN_SESSION_NONCE_BYTES,
+    PROTOCOL_VERSION, valid_session_nonce,
 };

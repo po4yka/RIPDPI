@@ -8,20 +8,20 @@ use proptest::prelude::*;
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{
-    should_cache_udp_host, udp_flow_limit, QuicInitialMode, RuntimeConfig,
+    QuicInitialMode, RuntimeConfig, should_cache_udp_host, udp_flow_limit,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{ExtractedHost, HostSource, TransportProtocol};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::session::S_ATP_I4;
 
-use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};
+use super::flow::{UdpFlowActivationState, udp_flow_at_capacity};
 use super::session::UdpFlowSession;
 use super::upstream_pump::pump_udp_upstream_responses;
 #[cfg(unix)]
 use super::upstream_pump::ready_udp_poll_keys;
 use super::{
-    build_udp_relay_sockets, encode_socks5_udp_packet, parse_socks5_udp_packet, sockets, RuntimeUdpPacketSettings,
-    RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy,
+    RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, build_udp_relay_sockets,
+    encode_socks5_udp_packet, parse_socks5_udp_packet, sockets,
 };
 use crate::runtime::routing::preferred_targets_for_transport;
 use crate::runtime::state::RuntimeState;

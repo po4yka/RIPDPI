@@ -9,7 +9,7 @@ use tracing::debug;
 use crate::session::{Auth, UdpSession};
 
 use super::super::packet::build_udp_response;
-use super::association_state::{now_millis, touch_udp_activity, udp_association_is_idle, UdpAssociation};
+use super::association_state::{UdpAssociation, now_millis, touch_udp_activity, udp_association_is_idle};
 use super::event_handling::UdpEvent;
 
 #[allow(clippy::too_many_arguments)]

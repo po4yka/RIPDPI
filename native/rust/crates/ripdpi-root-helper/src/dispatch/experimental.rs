@@ -2,7 +2,7 @@ use ripdpi_privileged_ops::{IcmpWrappedUdpRecvFilter, IcmpWrappedUdpSpec, SynHid
 use ripdpi_root_helper_protocol::HelperRequest;
 use ripdpi_root_helper_protocol::RawIpPacketParams;
 
-use crate::dispatch::{decode_params, DispatchOutcome};
+use crate::dispatch::{DispatchOutcome, decode_params};
 use crate::handlers;
 
 pub(crate) fn dispatch_send_syn_hide_tcp(request: &HelperRequest) -> DispatchOutcome {

@@ -1,7 +1,7 @@
-use aes::cipher::{array::Array, BlockCipherEncrypt, KeyInit as BlockKeyInit};
 use aes::Aes128;
-use ring::aead::{self, Aad, LessSafeKey, UnboundKey, AES_128_GCM};
-use ring::hkdf::{self, KeyType, Salt, HKDF_SHA256};
+use aes::cipher::{BlockCipherEncrypt, KeyInit as BlockKeyInit, array::Array};
+use ring::aead::{self, AES_128_GCM, Aad, LessSafeKey, UnboundKey};
+use ring::hkdf::{self, HKDF_SHA256, KeyType, Salt};
 use ripdpi_packets::change_tls_sni_seeded_like_c;
 
 #[allow(dead_code)]

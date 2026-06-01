@@ -1,5 +1,5 @@
-use crate::strategy_evolver::types::{combo_fitness_at, ComboStats, StrategyCombo};
 use crate::strategy_evolver::StrategyEvolver;
+use crate::strategy_evolver::types::{ComboStats, StrategyCombo, combo_fitness_at};
 
 impl StrategyEvolver {
     /// Returns the best-performing combo found so far. Decay is applied so

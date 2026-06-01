@@ -1,19 +1,19 @@
 use std::sync::PoisonError;
 
 use android_support::throw_illegal_argument_env;
+use jni::Env;
 use jni::objects::JString;
 use jni::sys::jlong;
-use jni::Env;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::NetworkSnapshot;
 
 pub(crate) use crate::lifecycle_create::create_session;
 pub(crate) use crate::lifecycle_start::start_session;
-use ripdpi_android_bridge_support::{throw_illegal_state_env_with_payload, NativeBridgeError, NativeBridgeErrorDomain};
+use ripdpi_android_bridge_support::{NativeBridgeError, NativeBridgeErrorDomain, throw_illegal_state_env_with_payload};
 use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
 use super::registry::{
-    control_for_proxy_stop, ensure_proxy_destroyable, lookup_proxy_session, remove_proxy_session, ProxySessionState,
+    ProxySessionState, control_for_proxy_stop, ensure_proxy_destroyable, lookup_proxy_session, remove_proxy_session,
 };
 
 pub(crate) fn proxy_error(code: &'static str, message: impl Into<String>) -> NativeBridgeError {

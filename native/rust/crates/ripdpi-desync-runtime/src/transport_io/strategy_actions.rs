@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::platform;
 use crate::strategy_family::restore_ttl_action_name;
-use crate::tcp_lowering::{write_payload_with_android_ttl_fallback, TcpLoweringCapabilities};
+use crate::tcp_lowering::{TcpLoweringCapabilities, write_payload_with_android_ttl_fallback};
 use crate::types::OutboundSendError;
 
 use super::errors::{strategy_result, transport_result};

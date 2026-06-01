@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use android_support::{drain_warp_events, NativeEventRecord};
+use android_support::{NativeEventRecord, drain_warp_events};
 use jni::sys::jlong;
 use jni::{EnvUnowned, Outcome};
 use once_cell::sync::Lazy;

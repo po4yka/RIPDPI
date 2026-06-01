@@ -12,8 +12,8 @@ use crate::runtime_policy::types::{
     LearnedHostRecord, LearnedHostStore, LearnedNetworkScopeStore, LoadLearnedHostStoreError,
 };
 use crate::runtime_policy::{
-    next_temp_file_nonce, now_millis, RuntimePolicy, AUTOLEARN_PERSIST_DEBOUNCE_MS, DEFAULT_NETWORK_SCOPE_KEY,
-    HOST_AUTOLEARN_STORE_VERSION,
+    AUTOLEARN_PERSIST_DEBOUNCE_MS, DEFAULT_NETWORK_SCOPE_KEY, HOST_AUTOLEARN_STORE_VERSION, RuntimePolicy,
+    next_temp_file_nonce, now_millis,
 };
 
 impl RuntimePolicy {

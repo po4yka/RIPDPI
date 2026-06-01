@@ -6,7 +6,7 @@ use jni::objects::{JObject, JValue};
 use jni::refs::Global;
 use jni::{EnvUnowned, JavaVM, Outcome};
 use ripdpi_native_protect::{
-    register_protect_callback_versioned, unregister_protect_callback_if, ProtectCallback, ProtectGeneration,
+    ProtectCallback, ProtectGeneration, register_protect_callback_versioned, unregister_protect_callback_if,
 };
 use ripdpi_warp_core::WarpPlatform;
 

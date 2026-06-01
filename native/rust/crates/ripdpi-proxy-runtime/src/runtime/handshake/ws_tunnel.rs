@@ -168,8 +168,8 @@ mod tests {
 
     use crate::runtime::config::{RuntimeConfig, WsTunnelMode};
     use crate::runtime::state::RuntimeState;
-    use aes::cipher::{KeyIvInit, StreamCipher};
     use aes::Aes256;
+    use aes::cipher::{KeyIvInit, StreamCipher};
     use std::net::{IpAddr, Ipv4Addr, TcpListener};
     use std::thread;
     use std::time::Duration;

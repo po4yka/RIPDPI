@@ -36,7 +36,7 @@ use self::bridge::enqueue_tun_packet;
 use self::dns_intercept::MapDnsRuntime;
 use self::packet::build_udp_response;
 use self::setup::setup_io_loop;
-use self::wait::{wait_for_next_event, WaitOutcome};
+use self::wait::{WaitOutcome, wait_for_next_event};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

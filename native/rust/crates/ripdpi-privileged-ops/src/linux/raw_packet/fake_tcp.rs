@@ -15,9 +15,8 @@ use crate::linux::raw_packet::raw_socket::send_raw_packets;
 use crate::linux::socket_options::{get_stream_ttl, set_stream_ttl, set_tcp_md5sig, try_set_stream_ttl_with_outcome};
 use crate::linux::tcp_info::wait_tcp_stage_fd;
 use crate::linux::tcp_repair::{
-    build_replacement_tcp_socket, capture_stream_socket_settings, disable_tcp_repair, set_tcp_repair,
-    set_tcp_repair_queue, snapshot_tcp_repair_state, swap_stream_to_replacement, TcpTimestampSnapshot, TCP_NO_QUEUE,
-    TCP_REPAIR_ON,
+    TCP_NO_QUEUE, TCP_REPAIR_ON, TcpTimestampSnapshot, build_replacement_tcp_socket, capture_stream_socket_settings,
+    disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state, swap_stream_to_replacement,
 };
 use crate::{FakeTcpOptions, TcpStageWait};
 

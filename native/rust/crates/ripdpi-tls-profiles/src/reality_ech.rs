@@ -82,7 +82,7 @@ pub fn reality_ech_parity(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::profile::{lookup_profile, AVAILABLE_PROFILES};
+    use crate::profile::{AVAILABLE_PROFILES, lookup_profile};
 
     #[test]
     fn ech_capable_profile_greases_only_with_cover_ech_evidence() {

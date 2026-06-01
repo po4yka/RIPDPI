@@ -9,7 +9,7 @@ mod failure;
 mod overrides;
 mod resolution;
 
-use self::adapters::candidates::{strategy_probe_encrypted_dns_label, StrategyProbeBaseline};
+use self::adapters::candidates::{StrategyProbeBaseline, strategy_probe_encrypted_dns_label};
 use self::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
 use crate::probe_context::ProbeExecutionContext;
 use crate::types::{DomainTarget, ProbeResult};
@@ -19,7 +19,7 @@ use self::details::build_dns_integrity_result;
 use self::failure::build_strategy_dns_failure;
 use self::overrides::collect_encrypted_ip_override;
 use self::resolution::{
-    fallback_encrypted_dns_assessment, resolve_system_target, should_skip_strategy_dns_target, SystemDnsResolution,
+    SystemDnsResolution, fallback_encrypted_dns_assessment, resolve_system_target, should_skip_strategy_dns_target,
 };
 
 struct StrategyDnsTargetEvaluation {
@@ -133,7 +133,7 @@ mod tests {
     use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
     use ripdpi_proxy_config::ProxyEncryptedDnsContext;
 
-    use crate::strategy::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
+    use crate::strategy::adapters::dns_oracle::{DnsOracleResponse, evaluate_dns_oracles};
     use crate::types::DomainTarget;
 
     use super::evaluate_strategy_dns_target;

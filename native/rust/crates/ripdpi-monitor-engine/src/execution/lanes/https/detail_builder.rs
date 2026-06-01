@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use crate::candidates::StrategyCandidateSpec;
-use crate::tls::{planned_tls_template_metadata, planned_tls_template_profile, TlsClientProfile, TlsObservation};
+use crate::tls::{TlsClientProfile, TlsObservation, planned_tls_template_metadata, planned_tls_template_profile};
 use crate::types::ProbeDetail;
 
 use super::super::support::candidate_probe_details;

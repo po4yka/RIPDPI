@@ -10,7 +10,7 @@ use ripdpi_config::RuntimeConfig;
 use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_proxy_config::ProxyMorphPolicy;
 use ripdpi_runtime_adaptive::adaptive_port::AdaptiveHintPort;
-use ripdpi_runtime_adaptive::retry_stealth::{adaptive_signature_hash, target_key, RetrySignature};
+use ripdpi_runtime_adaptive::retry_stealth::{RetrySignature, adaptive_signature_hash, target_key};
 use ripdpi_runtime_adaptive::strategy_context::{network_scope_key, retry_lane_for_payload};
 use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
 

@@ -24,11 +24,7 @@ pub(super) fn append_route_details(
     route_report: Option<&RouteExperimentReport>,
 ) {
     let key = |suffix: &str| {
-        if prefix.is_empty() {
-            suffix.to_string()
-        } else {
-            format!("{prefix}{suffix}")
-        }
+        if prefix.is_empty() { suffix.to_string() } else { format!("{prefix}{suffix}") }
     };
     if let Some(addr) = local_addr {
         details.push(ProbeDetail { key: key("LocalAddress"), value: addr.to_string() });

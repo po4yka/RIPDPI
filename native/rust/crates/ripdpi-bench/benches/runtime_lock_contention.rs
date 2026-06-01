@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
-use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use ripdpi_runtime_adaptive::retry_stealth::{RetryLane, RetryPacer, RetrySignature};
 use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
 

@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::tls::{try_tls_handshake, try_tls_handshake_with_key_log, TlsClientProfile, TlsKeyLogCallback};
-use crate::transport::{domain_connect_target, TransportConfig};
+use crate::tls::{TlsClientProfile, TlsKeyLogCallback, try_tls_handshake, try_tls_handshake_with_key_log};
+use crate::transport::{TransportConfig, domain_connect_target};
 use crate::types::DomainTarget;
 
 pub(super) fn warmup_tls13(

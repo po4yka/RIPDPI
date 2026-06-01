@@ -1,23 +1,23 @@
 use std::io::{self, ErrorKind, Read, Write};
 use std::net::{Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
 use std::str::FromStr;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use bytes::Bytes;
 use odoh_rs::{
-    compose, decrypt_query, encrypt_response, parse, ObliviousDoHKeyPair, ObliviousDoHMessage,
-    ObliviousDoHMessagePlaintext,
+    ObliviousDoHKeyPair, ObliviousDoHMessage, ObliviousDoHMessagePlaintext, compose, decrypt_query, encrypt_response,
+    parse,
 };
 use quinn::crypto::rustls::QuicServerConfig;
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use tokio::runtime::Builder;
 
-use crate::event::{event, EventLog};
+use crate::event::{EventLog, event};
 use crate::fault::FaultController;
-use crate::http::{read_until_marker, start_http_server, HttpResponse};
+use crate::http::{HttpResponse, read_until_marker, start_http_server};
 use crate::types::{
     FixtureFaultOutcome, FixtureFaultTarget, IO_POLL_DELAY, IO_TIMEOUT, ODOH_TARGET_CONFIGS_HEX, SOCKS_IO_TIMEOUT,
 };

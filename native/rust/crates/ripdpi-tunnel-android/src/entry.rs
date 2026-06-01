@@ -36,9 +36,9 @@
 //! ownership) and §6 (panic containment).
 
 use android_support::ffi_boundary;
+use jni::EnvUnowned;
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
-use jni::EnvUnowned;
 
 use crate::session::{
     tunnel_create_entry, tunnel_destroy_entry, tunnel_pcap_list_captures_entry, tunnel_pcap_redact_entry,

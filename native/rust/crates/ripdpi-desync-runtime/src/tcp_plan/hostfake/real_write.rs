@@ -1,7 +1,7 @@
 use ripdpi_config::TcpChainStep;
 
-use super::pacing::await_hostfake_writable;
 use super::TcpHostFakeExecContext;
+use super::pacing::await_hostfake_writable;
 use crate::tcp_plan::flags::step_original_tcp_flags;
 use crate::transport_io::{write_strategy_payload_named, write_strategy_payload_with_optional_flags_named};
 use crate::types::OutboundSendError;

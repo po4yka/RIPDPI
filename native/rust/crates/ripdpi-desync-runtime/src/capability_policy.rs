@@ -19,8 +19,8 @@ pub(crate) use invariant::validate_transparent_tls_family;
 use transparent_tls::apply_transparent_tls_family;
 #[cfg(all(test, not(feature = "loom")))]
 pub(crate) use transparent_tls::{
-    apply_transparent_tls_family, transparent_tls_variant_with_seed, TransparentTlsFamilyError,
     TWO_PHASE_FIRST_WRITE_MAX, TWO_PHASE_FIRST_WRITE_MIN, TWO_PHASE_GAP_MS_MAX, TWO_PHASE_GAP_MS_MIN,
+    TransparentTlsFamilyError, apply_transparent_tls_family, transparent_tls_variant_with_seed,
 };
 
 pub fn apply_tcp_capability_policy<'a>(
