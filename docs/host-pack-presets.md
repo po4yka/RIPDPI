@@ -6,7 +6,7 @@ RIPDPI bundles three curated host-pack presets for the Advanced settings screen:
 - `telegram`
 - `discord`
 
-These presets are app-side convenience lists only. They rewrite the existing `hosts_mode`, `hosts_blacklist`, and `hosts_whitelist` settings and do not add any new engine behavior.
+These presets are app-side convenience lists only. They rewrite the existing `hostsMode`, `hostsBlacklist`, and `hostsWhitelist` settings (the `HostPackApplyResult` fields in `HostPackCatalog.kt`) and do not add any new engine behavior.
 
 The app ships with a bundled snapshot and can also refresh those packs manually at runtime. Runtime refresh is opt-in, uses the canonical `raw.githubusercontent.com` release artifact, and only replaces the on-device cache after SHA-256 verification succeeds.
 

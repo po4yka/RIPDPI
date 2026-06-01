@@ -49,7 +49,7 @@ Release signing is still driven by:
 - `RIPDPI_SIGNING_KEY_ALIAS`
 - `RIPDPI_SIGNING_KEY_PASSWORD`
 
-The GitHub updater verifies package name, version code, metadata `minSdk` when present, APK archive readability, and SHA-256 before opening Android installer UI. Android then enforces signing compatibility during installation.
+The GitHub updater verifies package name, version code, version name, APK file-name safety, and SHA-256 before opening Android installer UI (`GithubUpdateMetadata.isStructurallyValid()`). `minSdk` is carried in the metadata when present but is not independently checked client-side — Android enforces `minSdk` and signing compatibility during installation.
 
 ## Google Play Flow
 

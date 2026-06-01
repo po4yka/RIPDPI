@@ -19,6 +19,10 @@ Pipeline code:
 - `scripts/analytics/cluster.py`
 - `scripts/analytics/publish.py`
 - `scripts/analytics/bless.py`
+- `scripts/analytics/calibrate.py`
+- `scripts/analytics/simulate.py`
+- `scripts/analytics/strategy_pack.py`
+- `scripts/analytics/common.py` (shared utilities)
 
 Checked-in sample corpus:
 
