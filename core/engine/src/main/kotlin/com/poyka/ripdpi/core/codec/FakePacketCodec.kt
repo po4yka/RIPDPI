@@ -32,6 +32,10 @@ internal data class NativeFakePacketConfig(
     val dropSack: Boolean = false,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val md5sig: Boolean = false,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val tlsMinorEnabled: Boolean = false,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val tlsMinorValue: Int = 0,
     val windowClamp: Int? = null,
     val wsizeWindow: Int? = null,
     val wsizeScale: Int? = null,
@@ -86,6 +90,8 @@ internal object PacketCodec {
             oobChar = value.oobChar.toChar(),
             dropSack = value.dropSack,
             md5sig = value.md5sig,
+            tlsMinorEnabled = value.tlsMinorEnabled,
+            tlsMinorValue = value.tlsMinorValue,
             windowClamp = value.windowClamp,
             wsizeWindow = value.wsizeWindow,
             wsizeScale = value.wsizeScale,
@@ -126,6 +132,8 @@ internal object PacketCodec {
             oobChar = value.oobChar.code,
             dropSack = value.dropSack,
             md5sig = value.md5sig,
+            tlsMinorEnabled = value.tlsMinorEnabled,
+            tlsMinorValue = value.tlsMinorValue,
             windowClamp = value.windowClamp,
             wsizeWindow = value.wsizeWindow,
             wsizeScale = value.wsizeScale,

@@ -115,6 +115,8 @@ data class RipDpiFakePacketConfig(
     val oobChar: Char = 'a',
     val dropSack: Boolean = false,
     val md5sig: Boolean = false,
+    val tlsMinorEnabled: Boolean = false,
+    val tlsMinorValue: Int = 0,
     val windowClamp: Int? = null,
     val wsizeWindow: Int? = null,
     val wsizeScale: Int? = null,
