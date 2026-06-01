@@ -125,6 +125,11 @@ message AppSettings {
   // Root-gated: request TCP_MD5SIG on outbound desync sockets. The native
   // proxy-config conversion forces this false unless root mode is enabled.
   bool fake_md5sig = 331;
+  // Override the TLS record-layer minor-version byte on the genuine
+  // first-flight payload (CLI -m/--tlsminor). The value applies only when
+  // tls_minor_enabled is true; otherwise the byte is left untouched.
+  bool tls_minor_enabled = 332;
+  int32 tls_minor_value = 333;
 
   // Protocol
   bool desync_http = 23;

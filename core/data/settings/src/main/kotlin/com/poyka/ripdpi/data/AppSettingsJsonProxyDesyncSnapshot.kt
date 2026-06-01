@@ -41,6 +41,8 @@ internal data class AppSettingsProxyDesyncSnapshot(
     val oobData: String = defaultSettings.oobData,
     val dropSack: Boolean = defaultSettings.dropSack,
     val fakeMd5Sig: Boolean = defaultSettings.fakeMd5Sig,
+    val tlsMinorEnabled: Boolean = defaultSettings.tlsMinorEnabled,
+    val tlsMinorValue: Int = defaultSettings.tlsMinorValue,
     val desyncHttp: Boolean = defaultSettings.desyncHttp,
     val desyncHttps: Boolean = defaultSettings.desyncHttps,
     val desyncUdp: Boolean = defaultSettings.desyncUdp,
@@ -101,6 +103,8 @@ internal fun JsonObjectBuilder.writeProxyDesyncSnapshot(snapshot: AppSettingsPro
     put("oobData", snapshot.oobData)
     put("dropSack", snapshot.dropSack)
     put("fakeMd5Sig", snapshot.fakeMd5Sig)
+    put("tlsMinorEnabled", snapshot.tlsMinorEnabled)
+    put("tlsMinorValue", snapshot.tlsMinorValue)
     put("desyncHttp", snapshot.desyncHttp)
     put("desyncHttps", snapshot.desyncHttps)
     put("desyncUdp", snapshot.desyncUdp)
@@ -162,6 +166,8 @@ internal fun JsonObject.readProxyDesyncSnapshot(
         oobData = stringValue("oobData", defaults.oobData),
         dropSack = booleanValue("dropSack", defaults.dropSack),
         fakeMd5Sig = booleanValue("fakeMd5Sig", defaults.fakeMd5Sig),
+        tlsMinorEnabled = booleanValue("tlsMinorEnabled", defaults.tlsMinorEnabled),
+        tlsMinorValue = intValue("tlsMinorValue", defaults.tlsMinorValue),
         desyncHttp = booleanValue("desyncHttp", defaults.desyncHttp),
         desyncHttps = booleanValue("desyncHttps", defaults.desyncHttps),
         desyncUdp = booleanValue("desyncUdp", defaults.desyncUdp),
