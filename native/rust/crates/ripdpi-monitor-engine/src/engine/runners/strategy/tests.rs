@@ -45,8 +45,9 @@ fn family_tracker_resets_on_different_family() {
 }
 
 use super::{
-    baseline_has_tls_ech_only, baseline_supports_ech_candidates, ordered_follow_up_tcp_candidates, pilot_bucket_label,
-    resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment, select_promotable_candidate_index,
+    baseline_has_tls_ech_only, baseline_has_tls_version_split, baseline_supports_ech_candidates,
+    ordered_follow_up_tcp_candidates, pilot_bucket_label, resolve_recommended_proxy_config_json,
+    resolve_strategy_probe_audit_assessment, select_promotable_candidate_index,
     select_safe_or_baseline_candidate_index, stratified_pilot_targets,
 };
 use crate::candidates::{build_tcp_candidates, CandidateEligibility};
@@ -429,6 +430,119 @@ fn ordered_follow_up_tcp_candidates_keep_normal_order_without_ech_promotable_bas
         7,
         true,
     );
+
+    assert_eq!(
+        ordered.iter().map(|candidate| candidate.id).collect::<Vec<_>>(),
+        expected.iter().map(|candidate| candidate.id).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn baseline_version_split_detection_matches_only_strategy_https_version_split() {
+    assert!(baseline_has_tls_version_split(&[baseline_https_result("tls_version_split", "none")]));
+    assert!(!baseline_has_tls_version_split(&[baseline_https_result("tls_ok", "none")]));
+    assert!(!baseline_has_tls_version_split(&[baseline_https_result("tls_ech_only", "none")]));
+    // Only the strategy_https probe type carries the differential signal.
+    assert!(!baseline_has_tls_version_split(&[ProbeResult {
+        probe_type: s("domain_reachability"),
+        target: s("example.com"),
+        outcome: s("tls_version_split"),
+        details: vec![],
+    }]));
+}
+
+#[test]
+fn ordered_follow_up_tcp_candidates_promote_split_families_after_tls_version_split() {
+    // Split probing reported one TLS version reachable, the other blocked, and
+    // the transport layer has no opinion (failure_class = None). The SNI-split
+    // families must be floated to the front, ahead of the seed-shuffled
+    // interleave that would otherwise scatter them.
+    let candidates = build_tcp_candidates(&ProxyUiConfig::default());
+
+    let ordered = ordered_follow_up_tcp_candidates(
+        &candidates,
+        None,
+        &[baseline_https_result("tls_version_split", "none")],
+        7,
+        true,
+    );
+
+    let ids = ordered.iter().take(3).map(|candidate| candidate.id).collect::<Vec<_>>();
+    assert_eq!(ids, vec!["tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]);
+}
+
+#[test]
+fn ordered_follow_up_tcp_candidates_promote_split_families_within_ech_remainder() {
+    // ECH-capable baseline AND tls_version_split, no transport failure class:
+    // ECH-eligible candidates keep precedence (lead the list), and the
+    // SNI-split families are floated to the front of the non-ECH remainder.
+    let candidates = build_tcp_candidates(&ProxyUiConfig::default());
+
+    let ordered = ordered_follow_up_tcp_candidates(
+        &candidates,
+        None,
+        &[baseline_https_result("tls_version_split", "ech_config_available")],
+        7,
+        true,
+    );
+
+    // ECH-eligible specs lead.
+    let first_non_ech = ordered
+        .iter()
+        .position(|candidate| candidate.eligibility != CandidateEligibility::RequiresEchCapability)
+        .expect("at least one non-ECH candidate is present");
+    assert!(first_non_ech > 0, "ECH-eligible candidates should lead the ECH path");
+    assert!(ordered
+        .iter()
+        .take(first_non_ech)
+        .all(|candidate| candidate.eligibility == CandidateEligibility::RequiresEchCapability));
+
+    // The split families lead the non-ECH remainder (robust to the ECH-spec count).
+    let remainder_ids = ordered.iter().skip(first_non_ech).take(3).map(|candidate| candidate.id).collect::<Vec<_>>();
+    assert_eq!(remainder_ids, vec!["tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]);
+}
+
+#[test]
+fn ordered_follow_up_tcp_candidates_version_split_never_overrides_transport_failure_order() {
+    // A transport failure class is the higher-confidence signal and already
+    // orders toward split itself; the L7 version-split bias must NOT fire when
+    // one is present. With TlsAlert set, the result equals the plain ordering
+    // even though the baseline also reports tls_version_split.
+    let candidates = build_tcp_candidates(&ProxyUiConfig::default());
+    let expected = interleave_candidate_families(
+        reorder_tcp_candidates_for_failure(&candidates, Some(FailureClass::TlsAlert), true)
+            .into_iter()
+            .skip(1)
+            .collect(),
+        7,
+    );
+
+    let ordered = ordered_follow_up_tcp_candidates(
+        &candidates,
+        Some(FailureClass::TlsAlert),
+        &[baseline_https_result("tls_version_split", "none")],
+        7,
+        true,
+    );
+
+    assert_eq!(
+        ordered.iter().map(|candidate| candidate.id).collect::<Vec<_>>(),
+        expected.iter().map(|candidate| candidate.id).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn ordered_follow_up_tcp_candidates_keep_normal_order_without_version_split() {
+    // No version-split signal and no transport failure class: ordering is the
+    // unbiased interleave. Guards against the promotion becoming always-on.
+    let candidates = build_tcp_candidates(&ProxyUiConfig::default());
+    let expected = interleave_candidate_families(
+        reorder_tcp_candidates_for_failure(&candidates, None, true).into_iter().skip(1).collect(),
+        7,
+    );
+
+    let ordered =
+        ordered_follow_up_tcp_candidates(&candidates, None, &[baseline_https_result("tls_ok", "none")], 7, true);
 
     assert_eq!(
         ordered.iter().map(|candidate| candidate.id).collect::<Vec<_>>(),

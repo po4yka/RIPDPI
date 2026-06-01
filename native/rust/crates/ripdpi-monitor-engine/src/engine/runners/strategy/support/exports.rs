@@ -1,6 +1,8 @@
 pub(in crate::engine::runners::strategy) use super::audit_assessment::resolve_strategy_probe_audit_assessment;
 #[cfg(test)]
-pub(in crate::engine::runners::strategy) use super::candidate_ordering::baseline_has_tls_ech_only;
+pub(in crate::engine::runners::strategy) use super::candidate_ordering::{
+    baseline_has_tls_ech_only, baseline_has_tls_version_split,
+};
 pub(in crate::engine::runners::strategy) use super::candidate_ordering::{
     baseline_supports_ech_candidates, compute_rst_adaptive_timeout, ordered_follow_up_tcp_candidates,
     FamilyFailureTracker, ECH_ELIGIBILITY_RATIONALE, FAKE_TTL_ELIGIBILITY_RATIONALE,

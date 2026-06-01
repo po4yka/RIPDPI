@@ -11,7 +11,7 @@ pub(super) use recommendation::StrategyRecommendationRunner;
 pub(super) use tcp::StrategyTcpRunner;
 
 #[cfg(test)]
-use support::baseline_has_tls_ech_only;
+use support::{baseline_has_tls_ech_only, baseline_has_tls_version_split};
 #[cfg(test)]
 use support::{
     baseline_supports_ech_candidates, ordered_follow_up_tcp_candidates, pilot_bucket_label,
