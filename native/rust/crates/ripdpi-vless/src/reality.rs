@@ -54,6 +54,25 @@ where
     let connector = builder.build();
     let config_ssl =
         connector.configure().map_err(|error| io::Error::other(format!("boring SSL configure: {error}")))?;
+
+    // REALITY ECH parity (ADR 0001). REALITY never emits *real* ECH — it
+    // authenticates with the visible cover `server_name` plus the sealed
+    // SessionID — but may emit ECH GREASE for outer-ClientHello fingerprint
+    // parity when the selected profile is ECH-capable AND the cover population
+    // is known to carry ECH. No per-cover evidence table exists yet (future
+    // profile-catalog data work, ADR 0001 § Consequences), so we pass
+    // `Unknown`, which resolves to `Off` and preserves the documented no-ECH
+    // baseline. The real-ECH facade (`configure_ech` / `resolve_outbound_ech`
+    // / `prepare_ech_retry`) is intentionally NOT used on the REALITY path.
+    match ripdpi_tls_profiles::reality_ech_parity(
+        ripdpi_tls_profiles::selected_profile_config(&config.tls_fingerprint_profile),
+        &config.server_name,
+        ripdpi_tls_profiles::CoverEchEvidence::Unknown,
+    ) {
+        ripdpi_tls_profiles::RealityEchParity::Grease => config_ssl.set_enable_ech_grease(true),
+        ripdpi_tls_profiles::RealityEchParity::Off => {}
+    }
+
     let ssl = config_ssl
         .into_ssl(&config.server_name)
         .map_err(|error| io::Error::other(format!("SSL configure: {error}")))?;
