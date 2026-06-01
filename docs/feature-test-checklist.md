@@ -31,7 +31,7 @@ Every feature should be tested against the dimensions that can affect it.
 | Diagnostics profile | Connectivity, quick strategy probe, full matrix audit, home composite run, RAW_PATH run |
 | Data state | Fresh install, migrated install, cleared app data, imported profile, remembered network, full history |
 | UI state | Light theme, dark theme, dynamic color, compact width, expanded width, large font, TalkBack, RTL locale |
-| Locale | en, ru, es, de, fr, fa, zh-CN |
+| Locale | en, ru, es, de, fr, fa, ar, zh-CN |
 
 ## Core Smoke Matrix
 
@@ -48,7 +48,7 @@ Run this matrix before considering a build broadly healthy.
 | Packet strategies | Candidate is serialized, applied, logged, and either succeeds or degrades with clear reason | Packet smoke, native tests, diagnostics report | IPv4, IPv6, TCP, UDP, QUIC where relevant |
 | Settings | Changes persist, migrate, export/import, and reset without stale state | DataStore tests, manual settings pass | Fresh install, migrated install, locale switch |
 | Logging/export | Logs and archives redact sensitive values and omit traffic payloads | Redaction tests, archive inspection | Diagnostics export, support archive, failure path |
-| Localization | All locale keys exist, strings fit, RTL renders, native language names stay stable | lint, locale key diff, Roborazzi | Seven locales, large font, RTL |
+| Localization | All locale keys exist, strings fit, RTL renders, native language names stay stable | lint, locale key diff, Roborazzi | Eight locales, large font, RTL |
 | CI release gates | Static analysis, native lint/tests, packet smoke, coverage, release verification | GitHub Actions run | Push, pull request, manual/nightly |
 
 ## App Shell, Navigation, and Settings
@@ -326,7 +326,7 @@ Combination checks:
 - [ ] Compose state collection uses lifecycle-aware collection.
 - [ ] One-shot UI events do not repeat after rotation.
 - [ ] Long-running work is not launched directly from composable recomposition.
-- [ ] All string keys in `app` exist in en, ru, es, de, fr, fa, and zh-CN.
+- [ ] All string keys in `app` exist in en, ru, es, de, fr, fa, ar, and zh-CN.
 - [ ] All string keys in `core/service` exist in all service locales.
 - [ ] Native language display-name keys remain byte-identical across locales.
 - [ ] Persian RTL layout keeps icons and labels semantically correct.

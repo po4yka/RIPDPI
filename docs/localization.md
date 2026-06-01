@@ -1,6 +1,6 @@
 # Localization
 
-RIPDPI ships **7 locales** today: `en` (source), `ru`, `es`, `de`, `fr`, `fa`, and `zh-CN`. Source strings live in `app/src/main/res/values/strings.xml` (~2970 strings) and `core/service/src/main/res/values/strings.xml` (6 strings). Each locale has a matching `values-<qualifier>/strings.xml` resource directory, and the enabled set is mirrored in `app/src/main/res/xml/locales_config.xml`.
+RIPDPI ships **8 locales** today: `en` (source), `ru`, `es`, `de`, `fr`, `fa`, `ar`, and `zh-CN`. Source strings live in `app/src/main/res/values/strings.xml` (~3030 strings) and `core/service/src/main/res/values/strings.xml` (6 strings; 4 translatable, 2 `translatable="false"`). Each locale has a matching `values-<qualifier>/strings.xml` resource directory, and the enabled set is mirrored in `app/src/main/res/xml/locales_config.xml`.
 
 This document records how translations are managed, why, and exactly how a new contributor adds one.
 
@@ -46,7 +46,7 @@ Everything is done through a normal GitHub fork and pull request — no account 
 
 2. **Translate the values, and only the values.** Edit the text content of each `<string>`, `<plurals>`, and `<string-array>` entry. Do **not** translate or alter the `name="…"` attributes, and do **not** include any string marked `translatable="false"` — those are not user-facing and must stay out of locale files. Preserve all format specifiers (`%1$s`, `%d`), escaping (`\'`, `\n`), and inline markup exactly as in the source.
 
-3. **Mirror the service module.** Repeat steps 1–2 for `core/service/src/main/res/values/strings.xml` → `core/service/src/main/res/values-<qualifier>/strings.xml`. It is only ~6 strings, but it is required — a missing key there fails CI the same way.
+3. **Mirror the service module.** Repeat steps 1–2 for `core/service/src/main/res/values/strings.xml` → `core/service/src/main/res/values-<qualifier>/strings.xml`. It is only 4 translatable strings, but it is required — a missing key there fails CI the same way.
 
 4. **Register the locale.** Add the locale to `app/src/main/res/xml/locales_config.xml` as a `<locale android:name="…" />` entry. Use the **BCP-47 tag** here (e.g. `pt-BR`, `zh-CN`), which uses a hyphen and no `r` prefix — distinct from the resource directory qualifier in step 1.
 
