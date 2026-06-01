@@ -4,7 +4,7 @@ See [AGENTS.md](AGENTS.md) for the complete project reference: architecture, bui
 
 For architecture, start at [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) -- the canonical "start here" map. It links the deeper references: [NATIVE_RUST.md](docs/architecture/NATIVE_RUST.md) (crate taxonomy), [JNI_CONTRACT.md](docs/architecture/JNI_CONTRACT.md) (Kotlin/Rust boundary), [CONFIG_CONTRACTS.md](docs/architecture/CONFIG_CONTRACTS.md) (settings/protobuf/config compatibility), and [FEATURE_EXTENSION_GUIDE.md](docs/architecture/FEATURE_EXTENSION_GUIDE.md) (adding features safely).
 
-For relay/protocol documentation, code is the source of truth: verify Kotlin `RelayKindDescriptors`, Rust relay-core `RelayKind` / `RelayBackend` / transport descriptors, crate existence under `native/rust/crates/`, schema version `6`, and tests before writing claims. Snowflake is still the external Go PT binary per `docs/architecture/snowflake-native-rust-decision.md`; VLESS Reality does not use real ECH per `docs/adr/0001-reality-ech.md`.
+For relay/protocol documentation, code is the source of truth: verify Kotlin `RelayKindDescriptors`, Rust relay-core `RelayKind` / `RelayBackend` / transport descriptors, crate existence under `native/rust/crates/`, schema version `8`, and tests before writing claims. Snowflake is still the external Go PT binary per `docs/architecture/snowflake-native-rust-decision.md`; VLESS Reality does not use real ECH per `docs/adr/0001-reality-ech.md`.
 
 The `PreToolUse` hook blocks edits to `*baseline*` files -- the baseline policy in AGENTS.md § Project Rules is hook-enforced for Claude Code.
 

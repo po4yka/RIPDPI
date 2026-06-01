@@ -2,10 +2,11 @@
 /// treats as the default.
 ///
 /// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant. Version 7
-/// generalizes the chain-relay section model to an ordered, bounded hop list;
-/// the flat wire field set is unchanged from v6, so legacy v6 payloads migrate
-/// forward losslessly and are still accepted — see
-/// [`MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION`].
+/// generalized the chain-relay section model to an ordered, bounded hop list
+/// (2..=4 hops); version 8 removed the legacy VMess / Trojan-Go / Hysteria-v1
+/// relay kinds (ADR 0004). The flat wire field set is unchanged across
+/// v6/v7/v8, so legacy v6 payloads migrate forward losslessly and are still
+/// accepted — see [`MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION`].
 const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 8;
 
 /// The oldest relay native-config wire schema version this build still accepts.

@@ -63,7 +63,7 @@ Every job or feature is performed in a dedicated git worktree, never directly on
 Split parallel work along crate / module boundaries (the workspace already gives you these), not across the same files from two directions. One set of files is touched by nearly every change and causes *semantic* conflicts that pass CI per-branch but break `main` once combined — assign these to a **single serialized lane**, never two parallel agents at once:
 
 - `native/rust/Cargo.lock` and `gradle/libs.versions.toml` — dependency graph.
-- `*.proto` + `EngineContract.kt` + Rust `wire.rs`, and any bump of `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` / `RelayNativeConfigSchemaVersion` (schema `6`) — the Kotlin/Rust wire contract.
+- `*.proto` + `EngineContract.kt` + Rust `wire.rs`, and any bump of `DIAGNOSTICS_ENGINE_SCHEMA_VERSION` / `RelayNativeConfigSchemaVersion` (schema `8`) — the Kotlin/Rust wire contract.
 - the 7 `values*/strings.xml` locale sets — `MissingTranslation` parity gate.
 - `*baseline*` files and `config/static/architecture-health-baseline.json` — hook-enforced and the `architecture-delta` gate.
 - golden fixtures under `tests/golden/` / `src/test/resources/golden/` — see `.claude/rules/golden-bless-discipline.md`.
@@ -304,7 +304,7 @@ Supporting crates providing shared traits, data structures, and classification:
 
 - Current relay kind strings are `off`, `vless`, `vless_reality`, `hysteria2`, `chain_relay`, `masque`, `anytls`, `cloudflare_tunnel`, `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `naiveproxy`, `tor`, `google_apps_script`, `snowflake`, `webtunnel`, and `obfs4`.
 - Native relay-core descriptor-backed backends are Hysteria2, TUIC v5, VLESS Reality/xHTTP, Cloudflare Tunnel consume path, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, and Tor. NaiveProxy is a subprocess fallback. WebTunnel is the in-repository Rust `ripdpi-webtunnel` PT helper binary; Snowflake and obfs4 are external PT binary paths managed by Kotlin service code. Google Apps Script uses the in-repository Apps Script runtime. WARP and AmneziaWG are separate VPN/tunnel profile surfaces.
-- `RelayNativeConfigSchemaVersion` and Rust `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are currently `6`; bump them together only for a breaking relay native-config shape change.
+- `RelayNativeConfigSchemaVersion` and Rust `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are currently `8` (v6 base → v7 generalized the chain-relay section to a 2..=4 hop list → v8 removed the legacy VMess/Trojan-Go/Hysteria-v1 kinds per ADR 0004); the accepted range is `6..=8`. Bump them together only for a breaking relay native-config shape change.
 - Snowflake remains the external Go `ripdpi-snowflake` binary; do not document or create native Rust Snowflake unless the no-go decision is superseded. VLESS Reality does not use real ECH; link `docs/adr/0001-reality-ech.md` for the GREASE-only policy.
 - Relay/test oracles include `local-network-fixture`, `rust-turmoil`, Chutney-gated Tor tests, relay-core descriptor/schema tests, and golden fixtures. Use `RIPDPI_BLESS_GOLDENS=1` only intentionally and under the golden bless discipline.
 

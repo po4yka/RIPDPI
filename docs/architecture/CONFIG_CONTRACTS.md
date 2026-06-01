@@ -322,8 +322,8 @@ is a `kind` string) — but an old Rust build will drop it (§5).
   (`ripdpi-strategy-config`).
 - The **relay native runtime config** carries `schemaVersion` on
   `ResolvedRipDpiRelayConfig`; Kotlin `RelayNativeConfigSchemaVersion` and Rust
-  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `7`. **Version 7**
-  generalizes the chain-relay section model from the fixed `chainEntry` /
+  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `8`. **Version 7**
+  generalized the chain-relay section model from the fixed `chainEntry` /
   `chainExit` pair to an ordered, bounded hop list — `RelayChainSection.hops` is
   a `List<ResolvedChainRelayHopRef>` with `RelayChainMinHops = 2` ..
   `RelayChainMaxHops = 4`; a count outside that range raises the typed
@@ -347,9 +347,13 @@ is a `kind` string) — but an old Rust build will drop it (§5).
   the entry/exit scalars are folded into a 2-element list exactly as before —
   the 2-hop wire object is byte-identical to v6. Kotlin
   `RelayNativeConfigMinSchemaVersion = 6` and the Rust `validate_schema_version`
-  accept the inclusive range `6..=7`; a legacy relay payload with no
-  `schemaVersion` defaults to the current value (`7`), while any value outside
-  `6..=7` is rejected by `ripdpi-relay-core`. The wire round-trip is covered by
+  accept the inclusive range `6..=8`; a legacy relay payload with no
+  `schemaVersion` defaults to the current value (`8`), while any value outside
+  `6..=8` is rejected by `ripdpi-relay-core`. (**Version 8** removed the legacy
+  VMess / Trojan-Go / Hysteria-v1 relay kinds per
+  `docs/adr/0004-protocol-support-policy.md`; the flat wire field set is
+  unchanged across v6/v7/v8, so the chain hop-list and migration behavior above
+  are identical at v8.) The wire round-trip is covered by
   `RelayNativeConfigTest` (Kotlin `chainHops` 3-hop trip) and
   `ripdpi-relay-core::tests` (`chain_relay_three_hop_list_round_trips_through_flat_wire`,
   `chain_relay_wire_rejects_out_of_range_hop_count`).

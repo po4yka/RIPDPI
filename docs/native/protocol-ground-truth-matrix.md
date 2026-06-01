@@ -175,9 +175,9 @@ The remaining extended-outbound relays still carry the full config parse/validat
 
 | Step | Declared | Impl | Evidence | Gap |
 |---|---|---|---|---|
-| Ordered chain of 2–4 hops over the flat wire (schema v7) | `CONFIG_CONTRACTS.md` | **full (wire)** | `core/engine-api/.../RelayNativeConfig.kt:269` (`RelayNativeConfigSchemaVersion = 7`), `:281`/`:284` (`RelayChainMinHops=2`/`RelayChainMaxHops=4`); validation `RelaySectionsDto.kt:57` | Schema version is now **7**, not the 6 quoted in CLAUDE.md/AGENTS.md prose — update that prose. |
+| Ordered chain of 2–4 hops over the flat wire (schema v8) | `CONFIG_CONTRACTS.md` | **full (wire)** | `core/engine-api/.../RelayNativeConfig.kt` (`RelayNativeConfigSchemaVersion = 8`, `RelayChainMinHops=2`/`RelayChainMaxHops=4`); validation `RelaySectionsDto.kt:57`; Rust `config/flat.rs:9` (`= 8`, accepts `6..=8`) | Schema version is **8** (v6 base → v7 chain hop-list → v8 legacy-kind removal per ADR 0004). CLAUDE.md/AGENTS.md/CONFIG_CONTRACTS prose synced to 8. |
 | Per-hop bind/protect; entry-only outbound bind | `CONFIG_CONTRACTS.md` | **full** | `ripdpi-relay-core` chain backend/builder (entry hop carries the outbound bind IP; later hops tunnel `connect_over` the prior stream) | none verified-contradictory. |
-| QUIC-only kinds rejected at non-entry positions | `CONFIG_CONTRACTS.md` | partial | builder rejects QUIC-only kinds off the entry hop; an explicit standalone validation rule was not separately confirmed in this pass | Re-verify the rejection rule's exact site before relying on it. |
+| QUIC-only kinds rejected at non-entry positions | `CONFIG_CONTRACTS.md` | **full** | explicit standalone rule `reject_quic_non_entry()` at `native/rust/crates/ripdpi-relay-core/src/backend/builder/builders/chain_relay.rs:114`, called for Hysteria2 (`:98`) and TUIC (`:102`) before connector construction; test `chain_relay_rejects_quic_kind_as_non_entry_hop` (`relay-core src/tests.rs:643`) | none — confirmed explicit. |
 
 ---
 
