@@ -566,7 +566,7 @@ Adaptive fake TTL derived from the server's response TTL. Configuration:
 | --- | --- | --- |
 | `delta` | `i8` | TTL adjustment from detected server hop distance (negative = reduce) |
 | `min_ttl` | `u8` | Floor value (default 3) |
-| `max_ttl` | `u8` | Ceiling value (default 20) |
+| `max_ttl` | `u8` | Ceiling value (default 12) |
 
 The runtime infers hop distance from the SYN-ACK TTL (common initial TTLs: 64, 128, 255), then applies `detected_hops + delta` clamped to `[min_ttl, max_ttl]`. This lets fake packets expire before reaching the server.
 
