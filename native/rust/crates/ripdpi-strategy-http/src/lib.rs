@@ -109,7 +109,7 @@ pub struct MethodeolStrategy;
 pub struct UnixeolStrategy;
 
 macro_rules! impl_http_strategy {
-    ($type:ty, $id:literal, $label:literal, $apply:expr) => {
+    ($type:ty, $id:literal, $label:literal, $apply:expr_2021) => {
         impl DesyncStrategy for $type {
             fn id(&self) -> &str {
                 $id

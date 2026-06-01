@@ -20,7 +20,7 @@ pub(crate) use builder::build_backend;
 pub(crate) use pool::{BoxedIo, PooledRelayBackend};
 
 macro_rules! dispatch_pooled_backend {
-    ($self:expr, $backend:ident => $expr:expr, unsupported => $unsupported:expr) => {
+    ($self:expr_2021, $backend:ident => $expr:expr_2021, unsupported => $unsupported:expr_2021) => {
         match $self {
             RelayBackend::Hysteria2($backend) => $expr,
             RelayBackend::Tuic($backend) => $expr,
@@ -44,7 +44,7 @@ macro_rules! dispatch_pooled_backend {
 }
 
 macro_rules! open_quic_udp_session {
-    ($backend:expr, $variant:ident) => {{
+    ($backend:expr_2021, $variant:ident) => {{
         let migration = $backend.quic_migration_snapshot_state();
         $backend
             .open_udp_session(move |session| RelayUdpSession::$variant { session, migration: migration.clone() })

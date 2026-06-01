@@ -1,10 +1,10 @@
 use ripdpi_config::{OffsetBase, QuicFakeProfile};
 
-use super::types::{
-    combo_fitness_at, combo_from_pool, ContextBanditState, LearningTargetBucket, StrategyCombo, StrategyFamily,
-    COMBO_POOL,
-};
 use super::StrategyEvolver;
+use super::types::{
+    COMBO_POOL, ContextBanditState, LearningTargetBucket, StrategyCombo, StrategyFamily, combo_fitness_at,
+    combo_from_pool,
+};
 
 impl StrategyEvolver {
     pub(super) fn select_next_combo(&mut self) -> StrategyCombo {
@@ -26,10 +26,10 @@ impl StrategyEvolver {
         let Some(state) = self.contexts.get(&context) else {
             return self.pick_non_cooled_random_for_bucket(bucket, now_ms);
         };
-        if let Some(niche) = state.niche_winners.get(&bucket) {
-            if !state.combos.get(niche).is_some_and(|stats| stats.is_cooled(now_ms)) {
-                return niche.clone();
-            }
+        if let Some(niche) = state.niche_winners.get(&bucket)
+            && !state.combos.get(niche).is_some_and(|stats| stats.is_cooled(now_ms))
+        {
+            return niche.clone();
         }
         let Some(family) = Self::select_next_family(state, bucket) else {
             return self.pick_non_cooled_random_for_bucket(bucket, now_ms);

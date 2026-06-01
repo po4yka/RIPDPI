@@ -2,12 +2,12 @@ use crate::normalize_tls_client_hello;
 use crate::offset::{gen_offset, insert_boundary, random_tail_fragment_lengths, resolve_adaptive_offset};
 use crate::proto::init_proto_info;
 use crate::types::{
-    activation_filter_matches, ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints,
-    AdaptiveTlsRandRecProfile, DesyncError, ProtoInfo, TamperResult, TcpSegmentHint,
+    ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints, AdaptiveTlsRandRecProfile,
+    DesyncError, ProtoInfo, TamperResult, TcpSegmentHint, activation_filter_matches,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind, TcpTlsRandRecPayload};
-use ripdpi_packets::{mod_http_inplace, OracleRng, IS_HTTP};
-use ripdpi_tls_profiles::{apply_record_choreography, plan_first_flight, TlsTemplateFirstFlightPlan};
+use ripdpi_packets::{IS_HTTP, OracleRng, mod_http_inplace};
+use ripdpi_tls_profiles::{TlsTemplateFirstFlightPlan, apply_record_choreography, plan_first_flight};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TlsPreludeState {
@@ -226,12 +226,13 @@ pub(crate) fn apply_tls_prelude_steps(
         info = ProtoInfo::default();
         init_proto_info(&output, &mut info);
     }
-    if let Some(tlsminor) = group.actions.tlsminor {
-        if info.tls.is_some() && output.len() > 2 {
-            output[2] = tlsminor;
-            info = ProtoInfo::default();
-            init_proto_info(&output, &mut info);
-        }
+    if let Some(tlsminor) = group.actions.tlsminor
+        && info.tls.is_some()
+        && output.len() > 2
+    {
+        output[2] = tlsminor;
+        info = ProtoInfo::default();
+        init_proto_info(&output, &mut info);
     }
     if !prelude_steps.is_empty() {
         let mut rng = OracleRng::seeded(seed);

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 
-use ripdpi_config::{RuntimeConfig, DETECT_RECONN};
+use ripdpi_config::{DETECT_RECONN, RuntimeConfig};
 
 use crate::runtime_policy::autolearn::{
     host_has_active_block, host_penalty_active_for_group, record_has_learned_winner,
@@ -10,7 +10,7 @@ use crate::runtime_policy::matching::group_matches_with_geo;
 use crate::runtime_policy::selection::retry_penalty::select_best_candidate;
 use crate::runtime_policy::types::LearnedHostRecord;
 use crate::runtime_policy::{
-    now_millis, ConnectionRoute, GeoMatcher, RetrySelectionPenalty, RuntimePolicy, TransportProtocol,
+    ConnectionRoute, GeoMatcher, RetrySelectionPenalty, RuntimePolicy, TransportProtocol, now_millis,
 };
 
 pub(crate) fn select_host_route(
@@ -24,12 +24,12 @@ pub(crate) fn select_host_route(
     geo: Option<&dyn GeoMatcher>,
 ) -> Option<ConnectionRoute> {
     let record = policy.learned_hosts(config).get(host)?;
-    if host_has_active_block(record, now_millis()) && !record_has_learned_winner(record) {
-        if let Some(route) =
+    if host_has_active_block(record, now_millis())
+        && !record_has_learned_winner(record)
+        && let Some(route) =
             select_blocked_host_route(policy, config, record, dest, payload, allow_unknown_payload, transport, geo)
-        {
-            return Some(route);
-        }
+    {
+        return Some(route);
     }
     if let Some(route) = preferred_host_candidate(
         policy,

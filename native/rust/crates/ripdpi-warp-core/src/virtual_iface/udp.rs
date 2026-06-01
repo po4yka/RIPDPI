@@ -50,20 +50,16 @@ impl DynamicUdpInterface {
                     let _ = iface.poll(loop_start, &mut device, &mut sockets);
                     for (virtual_port, client_handle) in &port_client_handle_map {
                         let client_socket = sockets.get_mut::<udp::Socket>(*client_handle);
-                        if client_socket.can_send() {
-                            if let Some(queue) = send_queue.get_mut(virtual_port) {
-                                if let Some((target, data)) = queue.pop_front() {
+                        if client_socket.can_send()
+                            && let Some(queue) = send_queue.get_mut(virtual_port)
+                                && let Some((target, data)) = queue.pop_front() {
                                     let _ = client_socket.send_slice(&data, udp::UdpMetadata::from(target));
                                 }
-                            }
-                        }
-                        if client_socket.can_recv() {
-                            if let Ok((data, _peer)) = client_socket.recv() {
-                                if !data.is_empty() {
+                        if client_socket.can_recv()
+                            && let Ok((data, _peer)) = client_socket.recv()
+                                && !data.is_empty() {
                                     endpoint.send(Event::RemoteData(*virtual_port, Bytes::copy_from_slice(data)));
                                 }
-                            }
-                        }
                     }
                     next_poll = iface
                         .poll_delay(loop_start, &sockets)

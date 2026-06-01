@@ -1,7 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_config::{RuntimeConfig, AUTO_NOPOST, AUTO_SORT};
+use ripdpi_config::{AUTO_NOPOST, AUTO_SORT, RuntimeConfig};
 
 use crate::runtime_policy::autolearn::normalize_learned_host;
 use crate::runtime_policy::{ConnectionRoute, RouteAdvance, RuntimePolicy, TransportProtocol};
@@ -72,16 +72,17 @@ fn apply_strategy_failure_penalty(
     route: &ConnectionRoute,
     request: &RouteAdvance<'_>,
 ) {
-    if request.penalize_strategy_failure {
-        if let Some(group) = policy.groups.get_mut(route.group_index) {
-            group.fail_count += 1;
-        }
+    if request.penalize_strategy_failure
+        && let Some(group) = policy.groups.get_mut(route.group_index)
+    {
+        group.fail_count += 1;
     }
 
-    if request.transport == TransportProtocol::Tcp && request.penalize_strategy_failure {
-        if let Some(host) = request.host.as_deref() {
-            policy.note_host_failure(config, host, route.group_index);
-        }
+    if request.transport == TransportProtocol::Tcp
+        && request.penalize_strategy_failure
+        && let Some(host) = request.host.as_deref()
+    {
+        policy.note_host_failure(config, host, route.group_index);
     }
 }
 

@@ -44,21 +44,20 @@ pub(super) fn observe_rotation_inbound_chunk(
         }
         Err(_) => return,
     };
-    if let Some(target) = target {
-        if let Some(failure) =
+    if let Some(target) = target
+        && let Some(failure) =
             classify_response_failure(state, target, &request_bytes, &response_bytes, host.as_deref())
-        {
-            note_block_signal_for_failure(state, host.as_deref(), &failure, None);
-            if let Ok(mut rotation) = rotation.lock() {
-                rotation.observe_round_failure(
-                    host.as_deref(),
-                    Some(target),
-                    RotationFailureReason::ResponseClassified(failure.class),
-                    0,
-                );
-            }
-            return;
+    {
+        note_block_signal_for_failure(state, host.as_deref(), &failure, None);
+        if let Ok(mut rotation) = rotation.lock() {
+            rotation.observe_round_failure(
+                host.as_deref(),
+                Some(target),
+                RotationFailureReason::ResponseClassified(failure.class),
+                0,
+            );
         }
+        return;
     }
     let retrans_delta = relay_platform::relay_tcp_total_retransmissions(reader)
         .ok()
@@ -124,8 +123,8 @@ pub(super) fn observe_rotation_transport_failure(
 mod tests {
     use super::*;
     use ripdpi_proxy_runtime_adapter::model::config::{
-        first_response_settings, DesyncGroup, OffsetBase, OffsetExpr, RotationCandidate, RotationPolicy, RuntimeConfig,
-        TcpChainStep, TcpChainStepKind,
+        DesyncGroup, OffsetBase, OffsetExpr, RotationCandidate, RotationPolicy, RuntimeConfig, TcpChainStep,
+        TcpChainStepKind, first_response_settings,
     };
     use std::io::ErrorKind;
     use std::net::{Ipv4Addr, SocketAddr, TcpListener};

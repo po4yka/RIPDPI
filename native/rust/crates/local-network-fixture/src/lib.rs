@@ -38,34 +38,38 @@ mod tests {
     use std::time::Duration;
 
     use ripdpi_dns_resolver::{
-        extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
+        EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport, extract_ip_answers,
     };
     use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-    use rustls::pki_types::{pem::PemObject, CertificateDer, ServerName, UnixTime};
+    use rustls::pki_types::{CertificateDer, ServerName, UnixTime, pem::PemObject};
     use rustls::{
         ClientConfig, ClientConnection, DigitallySignedStruct, Error as TlsError, SignatureScheme, StreamOwned,
     };
 
     use crate::dns::parse_dns_question_name;
     use crate::http::read_until_marker;
-    use crate::socks::{map_socket_addr, map_target, SocksTarget};
+    use crate::socks::{SocksTarget, map_socket_addr, map_target};
 
     static FIXTURE_STACK_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn fixture_config_reads_env_override() {
-        std::env::set_var("RIPDPI_FIXTURE_TCP_ECHO_PORT", "47001");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("RIPDPI_FIXTURE_TCP_ECHO_PORT", "47001") };
         let config = FixtureConfig::from_env();
         assert_eq!(config.tcp_echo_port, 47001);
-        std::env::remove_var("RIPDPI_FIXTURE_TCP_ECHO_PORT");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("RIPDPI_FIXTURE_TCP_ECHO_PORT") };
     }
 
     #[test]
     fn fixture_config_reads_android_host_override() {
-        std::env::set_var("RIPDPI_FIXTURE_ANDROID_HOST", "127.0.0.1");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("RIPDPI_FIXTURE_ANDROID_HOST", "127.0.0.1") };
         let config = FixtureConfig::from_env();
         assert_eq!(config.android_host, "127.0.0.1");
-        std::env::remove_var("RIPDPI_FIXTURE_ANDROID_HOST");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("RIPDPI_FIXTURE_ANDROID_HOST") };
     }
 
     #[test]
@@ -118,9 +122,11 @@ mod tests {
             .take_matching(FixtureFaultTarget::TcpEcho, |outcome| matches!(outcome, FixtureFaultOutcome::TcpReset))
             .expect("one-shot fault");
         assert_eq!(oneshot.scope, FixtureFaultScope::OneShot);
-        assert!(controller
-            .take_matching(FixtureFaultTarget::TcpEcho, |outcome| matches!(outcome, FixtureFaultOutcome::TcpReset))
-            .is_none());
+        assert!(
+            controller
+                .take_matching(FixtureFaultTarget::TcpEcho, |outcome| matches!(outcome, FixtureFaultOutcome::TcpReset))
+                .is_none()
+        );
 
         let persistent_first = controller
             .take_matching(FixtureFaultTarget::TcpEcho, |outcome| matches!(outcome, FixtureFaultOutcome::TcpTruncate))
@@ -579,9 +585,9 @@ mod tests {
 
         let events = stack.events().snapshot();
         assert!(events.iter().any(|event| event.service == "socks5_relay" && event.protocol == "tcp"));
-        assert!(events
-            .iter()
-            .any(|event| event.service == "tcp_echo" && event.protocol == "tcp" && event.detail == "echo"));
+        assert!(
+            events.iter().any(|event| event.service == "tcp_echo" && event.protocol == "tcp" && event.detail == "echo")
+        );
         assert!(events.iter().any(|event| event.service == "socks5_relay" && event.protocol == "udp"));
     }
 

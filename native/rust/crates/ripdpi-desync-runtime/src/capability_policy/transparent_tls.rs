@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ripdpi_config::{DesyncGroup, DesyncGroupActionSettings, OffsetBase, OffsetExpr, TcpChainStep, TcpChainStepKind};
-use ripdpi_packets::{tls_marker_info, OracleRng};
+use ripdpi_packets::{OracleRng, tls_marker_info};
 use ripdpi_proxy_config::ProxyDirectPathCapability;
 use ripdpi_session::OutboundProgress;
 
@@ -62,15 +62,15 @@ pub(crate) fn apply_transparent_tls_family(
         ..DesyncGroupActionSettings::default()
     };
 
-    if TRANSPARENT_TLS_RUNTIME_INVARIANT_ENABLED {
-        if let Err(original_error) = validate_transparent_tls_family(payload, strategy_family, &adjusted) {
-            variant = transparent_tls_canonical_variant(strategy_family, payload)?;
-            adjusted.actions = DesyncGroupActionSettings {
-                tcp_chain: transparent_tls_family_chain(strategy_family, variant)?,
-                ..DesyncGroupActionSettings::default()
-            };
-            validate_transparent_tls_family(payload, strategy_family, &adjusted).map_err(|_| original_error)?;
-        }
+    if TRANSPARENT_TLS_RUNTIME_INVARIANT_ENABLED
+        && let Err(original_error) = validate_transparent_tls_family(payload, strategy_family, &adjusted)
+    {
+        variant = transparent_tls_canonical_variant(strategy_family, payload)?;
+        adjusted.actions = DesyncGroupActionSettings {
+            tcp_chain: transparent_tls_family_chain(strategy_family, variant)?,
+            ..DesyncGroupActionSettings::default()
+        };
+        validate_transparent_tls_family(payload, strategy_family, &adjusted).map_err(|_| original_error)?;
     }
 
     tracing::debug!(

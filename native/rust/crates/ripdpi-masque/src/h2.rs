@@ -11,16 +11,16 @@ use tokio::sync::mpsc;
 
 use crate::auth::AuthHeader;
 use crate::capsule::{
-    decode_connect_udp_payload, decode_datagram_capsules, encode_connect_udp_payload, encode_datagram_capsule,
-    CapsuleError, CapsuleErrorKind,
+    CapsuleError, CapsuleErrorKind, decode_connect_udp_payload, decode_datagram_capsules, encode_connect_udp_payload,
+    encode_datagram_capsule,
 };
 use crate::client::AsyncIo;
 use crate::config::MasqueConfig;
 use crate::request::apply_request_headers;
-use crate::response::{validate_connect_udp_response, validate_proxy_response, AttemptError};
+use crate::response::{AttemptError, validate_connect_udp_response, validate_proxy_response};
 use crate::tls::apply_h2_client_auth;
 use crate::udp::{MasqueUdpFlow, MasqueUdpSender};
-use crate::url::{build_connect_udp_path, parse_proxy_origin, resolve_proxy_socket_addr, ProxyOrigin, TargetAuthority};
+use crate::url::{ProxyOrigin, TargetAuthority, build_connect_udp_path, parse_proxy_origin, resolve_proxy_socket_addr};
 
 pub(crate) fn encode_h2_datagram_capsule(payload: &[u8]) -> Result<Vec<u8>, CapsuleError> {
     encode_datagram_capsule(payload)
@@ -67,7 +67,7 @@ pub(crate) async fn attempt_h2_connect_tcp(
     config: &MasqueConfig,
     target: &str,
     auth_header: Option<&AuthHeader>,
-) -> Result<impl AsyncIo, AttemptError> {
+) -> Result<impl AsyncIo + use<>, AttemptError> {
     let proxy_origin = parse_proxy_origin(config)?;
     let tcp = TcpStream::connect(resolve_proxy_socket_addr(config, &proxy_origin)?)
         .await
@@ -81,7 +81,7 @@ pub(crate) async fn attempt_h2_connect_tcp_over_transport<S>(
     transport: S,
     target: &str,
     auth_header: Option<&AuthHeader>,
-) -> Result<impl AsyncIo, AttemptError>
+) -> Result<impl AsyncIo + use<S>, AttemptError>
 where
     S: AsyncIo + 'static,
 {

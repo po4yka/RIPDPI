@@ -14,7 +14,7 @@
 //! a failure ("no handle" or a non-success status).
 
 macro_rules! export_jni {
-    ($name:ident, ($($arg:ident: $arg_ty:ty),* $(,)?), $ret:ty, $entry:ident, $panic_default:expr $(,)?) => {
+    ($name:ident, ($($arg:ident: $arg_ty:ty),* $(,)?), $ret:ty, $entry:ident, $panic_default:expr_2021 $(,)?) => {
         #[unsafe(no_mangle)]
         pub extern "system" fn $name(
             env: jni::EnvUnowned<'_>,

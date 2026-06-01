@@ -1,18 +1,18 @@
 use std::collections::{HashMap, VecDeque};
 use std::net::{Ipv4Addr, Ipv6Addr};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use boring::ssl::SslVersion;
 use boring::x509::X509;
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc, oneshot, Mutex};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use tokio_boring::SslStream;
 
 use crate::frame::{Command, Frame, FrameError};
-use crate::padding::{PaddingAction, PaddingScheme, DEFAULT_PADDING_SCHEME};
+use crate::padding::{DEFAULT_PADDING_SCHEME, PaddingAction, PaddingScheme};
 
 const UDP_OVER_TCP_V2_TARGET: &str = "sp.v2.udp-over-tcp.arpa";
 
@@ -473,15 +473,15 @@ async fn run_session<S>(
 }
 
 async fn handle_synack(streams: &Arc<Mutex<HashMap<u32, StreamRoute>>>, stream_id: u32, data: &[u8]) {
-    if let Some(route) = streams.lock().await.get_mut(&stream_id) {
-        if let Some(open_ack) = route.open_ack.take() {
-            let result = if data.is_empty() {
-                Ok(())
-            } else {
-                Err(AnyTlsError::StreamOpenRejected(String::from_utf8_lossy(data).into_owned()))
-            };
-            open_ack.send(result).ok();
-        }
+    if let Some(route) = streams.lock().await.get_mut(&stream_id)
+        && let Some(open_ack) = route.open_ack.take()
+    {
+        let result = if data.is_empty() {
+            Ok(())
+        } else {
+            Err(AnyTlsError::StreamOpenRejected(String::from_utf8_lossy(data).into_owned()))
+        };
+        open_ack.send(result).ok();
     }
 }
 

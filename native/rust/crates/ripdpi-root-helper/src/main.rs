@@ -9,8 +9,8 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use tracing::{error, info, warn};
 
@@ -19,7 +19,7 @@ use std::process::Command;
 
 use ripdpi_root_helper_protocol as protocol;
 use ripdpi_root_helper_protocol::{
-    valid_session_nonce, HelperRequest, HelperResponse, CAPABILITY_VERSION, PROTOCOL_VERSION,
+    CAPABILITY_VERSION, HelperRequest, HelperResponse, PROTOCOL_VERSION, valid_session_nonce,
 };
 
 struct RootHelperConfig {
@@ -129,11 +129,11 @@ fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()>
     let reply_fd = dispatch.reply_fd;
 
     // Close received fd if we didn't consume it and it wasn't returned.
-    if let Some(fd) = received_fd {
-        if reply_fd != Some(fd) {
-            // fd was consumed by the handler (wrapped in FromRawFd + IntoRawFd).
-            // Don't double-close.
-        }
+    if let Some(fd) = received_fd
+        && reply_fd != Some(fd)
+    {
+        // fd was consumed by the handler (wrapped in FromRawFd + IntoRawFd).
+        // Don't double-close.
     }
 
     send_response(stream, response, reply_fd)?;
@@ -184,11 +184,7 @@ fn chown_socket(socket_path: &Path, uid: u32, gid: u32) -> io::Result<()> {
     })?;
     // SAFETY: `c_path` is a valid, NUL-terminated filesystem path and the uid/gid values come from `metadata(2)`.
     let rc = unsafe { libc::chown(c_path.as_ptr(), uid, gid) };
-    if rc == 0 {
-        Ok(())
-    } else {
-        Err(io::Error::last_os_error())
-    }
+    if rc == 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
 }
 
 #[cfg(target_os = "android")]
@@ -270,9 +266,9 @@ mod tests {
     use std::sync::Mutex;
     use std::thread;
 
-    use ripdpi_root_helper_protocol::{recv_message, send_message, HelperRequest, HelperResponse, CMD_SHUTDOWN};
+    use ripdpi_root_helper_protocol::{CMD_SHUTDOWN, HelperRequest, HelperResponse, recv_message, send_message};
 
-    use super::{handle_connection, prepare_socket_for_app, read_session_nonce_file, session_nonce_matches, RUNNING};
+    use super::{RUNNING, handle_connection, prepare_socket_for_app, read_session_nonce_file, session_nonce_matches};
 
     const TEST_NONCE: &str = "abcdefghijklmnopqrstuvwxyzABCDEF";
     static RUNNING_TEST_LOCK: Mutex<()> = Mutex::new(());

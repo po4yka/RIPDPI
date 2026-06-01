@@ -163,10 +163,10 @@ fn resolve_script_ids(raw: &RawAppsScriptRuntimeConfig) -> io::Result<Vec<String
         values.extend(script_ids.into_vec());
     } else if let Some(script_id) = raw.script_id.clone() {
         values.extend(script_id.into_vec());
-    } else if let Some(path) = raw.xhttp_path.as_deref() {
-        if let Some(script_id) = parse_script_id_from_path(path) {
-            values.push(script_id);
-        }
+    } else if let Some(path) = raw.xhttp_path.as_deref()
+        && let Some(script_id) = parse_script_id_from_path(path)
+    {
+        values.push(script_id);
     }
 
     values.retain(|value| !value.trim().is_empty());

@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_tor::{load_arti_config_from_toml, prepare_arti_state_dirs, TorRelayClient, TorTarget};
+use ripdpi_tor::{TorRelayClient, TorTarget, load_arti_config_from_toml, prepare_arti_state_dirs};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 const CHUTNEY_VERIFY_PORT: u16 = 4747;
 
@@ -213,10 +213,10 @@ fn find_first_file(root: &Path, name: &str) -> Option<PathBuf> {
         if path.file_name().is_some_and(|file_name| file_name == name) {
             return Some(path);
         }
-        if path.is_dir() {
-            if let Some(found) = find_first_file(&path, name) {
-                return Some(found);
-            }
+        if path.is_dir()
+            && let Some(found) = find_first_file(&path, name)
+        {
+            return Some(found);
         }
     }
     None

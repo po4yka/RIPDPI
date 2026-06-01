@@ -1,7 +1,7 @@
-use super::parse::{parse_http_parts, parse_http_request_layout, HttpRequestLayout};
+use super::parse::{HttpRequestLayout, parse_http_parts, parse_http_request_layout};
 use crate::types::{
-    PacketMutation, MH_DMIX, MH_HMIX, MH_HOSTEXTRASPACE, MH_HOSTPAD, MH_HOSTTAB, MH_METHODEOL, MH_METHODSPACE,
-    MH_SPACE, MH_UNIXEOL,
+    MH_DMIX, MH_HMIX, MH_HOSTEXTRASPACE, MH_HOSTPAD, MH_HOSTTAB, MH_METHODEOL, MH_METHODSPACE, MH_SPACE, MH_UNIXEOL,
+    PacketMutation,
 };
 
 /// Apply HTTP header mutations in place on `buf`. Returns 0 if modified, -1 otherwise.
@@ -17,59 +17,59 @@ pub fn mod_http_like_c(input: &[u8], flags: u32) -> PacketMutation {
     let mut output = input.to_vec();
     let mut modified = false;
 
-    if flags & MH_HMIX != 0 {
-        if let Some(next) = apply_host_mixed_case(&output) {
-            modified |= next != output;
-            output = next;
-        }
+    if flags & MH_HMIX != 0
+        && let Some(next) = apply_host_mixed_case(&output)
+    {
+        modified |= next != output;
+        output = next;
     }
-    if flags & MH_DMIX != 0 {
-        if let Some(next) = apply_domain_mixed_case(&output) {
-            modified |= next != output;
-            output = next;
-        }
+    if flags & MH_DMIX != 0
+        && let Some(next) = apply_domain_mixed_case(&output)
+    {
+        modified |= next != output;
+        output = next;
     }
-    if flags & MH_SPACE != 0 {
-        if let Some(next) = apply_host_remove_spaces(&output) {
-            modified |= next != output;
-            output = next;
-        }
+    if flags & MH_SPACE != 0
+        && let Some(next) = apply_host_remove_spaces(&output)
+    {
+        modified |= next != output;
+        output = next;
     }
-    if flags & MH_UNIXEOL != 0 {
-        if let Some(next) = apply_http_unix_eol(&output) {
-            modified |= next != output;
-            output = next;
-        }
+    if flags & MH_UNIXEOL != 0
+        && let Some(next) = apply_http_unix_eol(&output)
+    {
+        modified |= next != output;
+        output = next;
     }
-    if flags & MH_METHODEOL != 0 {
-        if let Some(next) = apply_http_method_eol(&output) {
-            modified |= next != output;
-            output = next;
-        }
+    if flags & MH_METHODEOL != 0
+        && let Some(next) = apply_http_method_eol(&output)
+    {
+        modified |= next != output;
+        output = next;
     }
-    if flags & MH_METHODSPACE != 0 {
-        if let Some(next) = apply_http_method_space(&output) {
-            modified |= next != output;
-            output = next;
-        }
+    if flags & MH_METHODSPACE != 0
+        && let Some(next) = apply_http_method_space(&output)
+    {
+        modified |= next != output;
+        output = next;
     }
-    if flags & MH_HOSTPAD != 0 {
-        if let Some(next) = apply_http_host_pad(&output) {
-            modified |= next != output;
-            output = next;
-        }
+    if flags & MH_HOSTPAD != 0
+        && let Some(next) = apply_http_host_pad(&output)
+    {
+        modified |= next != output;
+        output = next;
     }
-    if flags & MH_HOSTEXTRASPACE != 0 {
-        if let Some(next) = apply_host_extra_space(&output) {
-            modified |= next != output;
-            output = next;
-        }
+    if flags & MH_HOSTEXTRASPACE != 0
+        && let Some(next) = apply_host_extra_space(&output)
+    {
+        modified |= next != output;
+        output = next;
     }
-    if flags & MH_HOSTTAB != 0 {
-        if let Some(next) = apply_host_tab(&output) {
-            modified |= next != output;
-            output = next;
-        }
+    if flags & MH_HOSTTAB != 0
+        && let Some(next) = apply_host_tab(&output)
+    {
+        modified |= next != output;
+        output = next;
     }
 
     PacketMutation { rc: if modified { 0 } else { -1 }, bytes: if modified { output } else { input.to_vec() } }

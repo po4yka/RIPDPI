@@ -1,7 +1,7 @@
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -505,10 +505,10 @@ pub fn handle_fat_http_stream(stream: &mut impl ReadWrite, fat_mode: FatServerMo
         }
         total_read += request.len();
         let request_text = String::from_utf8_lossy(&request).to_ascii_lowercase();
-        if let FatServerMode::AllowHost(expected) = &fat_mode {
-            if !request_text.contains(&expected.to_ascii_lowercase()) {
-                return;
-            }
+        if let FatServerMode::AllowHost(expected) = &fat_mode
+            && !request_text.contains(&expected.to_ascii_lowercase())
+        {
+            return;
         }
         if matches!(&fat_mode, FatServerMode::CutoffAtThreshold) && total_read >= FAT_HEADER_THRESHOLD_BYTES {
             return;

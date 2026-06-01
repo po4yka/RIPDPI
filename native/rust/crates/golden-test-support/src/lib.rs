@@ -24,11 +24,7 @@ where
 
 pub fn normalize_text(value: &str) -> String {
     let normalized = value.replace("\r\n", "\n");
-    if normalized.ends_with('\n') {
-        normalized
-    } else {
-        format!("{normalized}\n")
-    }
+    if normalized.ends_with('\n') { normalized } else { format!("{normalized}\n") }
 }
 
 pub fn assert_text_golden(manifest_dir: &str, relative_path: &str, actual: &str) {
@@ -211,7 +207,8 @@ mod tests {
     impl EnvRestore {
         fn set(key: &'static str, value: &Path) -> Self {
             let previous = env::var_os(key);
-            env::set_var(key, value);
+            // FIXME: Audit that the environment access only happens in single-threaded code.
+            unsafe { env::set_var(key, value) };
             Self { key, previous }
         }
     }
@@ -219,9 +216,11 @@ mod tests {
     impl Drop for EnvRestore {
         fn drop(&mut self) {
             if let Some(previous) = &self.previous {
-                env::set_var(self.key, previous);
+                // FIXME: Audit that the environment access only happens in single-threaded code.
+                unsafe { env::set_var(self.key, previous) };
             } else {
-                env::remove_var(self.key);
+                // FIXME: Audit that the environment access only happens in single-threaded code.
+                unsafe { env::remove_var(self.key) };
             }
         }
     }

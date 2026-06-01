@@ -1,7 +1,7 @@
+use crate::ReplyError;
 use crate::consts;
 use crate::consts::SOCKS5_ADDR_TYPE_IPV4;
 use crate::read_exact;
-use crate::ReplyError;
 use std::fmt;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
@@ -108,7 +108,7 @@ impl TargetAddr {
                 buf.extend_from_slice(&(addr.ip()).octets()); // ip
                 buf.extend_from_slice(&addr.port().to_be_bytes()); // port
             }
-            TargetAddr::Domain(ref domain, port) => {
+            TargetAddr::Domain(domain, port) => {
                 debug!("TargetAddr::Domain");
                 if domain.len() > u8::max_value() as usize {
                     return Err(AddrError::DomainLenTooLong(domain.len()));

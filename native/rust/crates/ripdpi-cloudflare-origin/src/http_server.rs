@@ -11,7 +11,7 @@ use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
 use crate::config::OriginConfig;
 use crate::errors::{classify_error, emit_structured_error};
@@ -164,10 +164,10 @@ async fn pump_request_body(mut body: Incoming, inbound_tx: mpsc::Sender<Bytes>) 
         let frame = frame.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionAborted, format!("POST body read failed: {error}"))
         })?;
-        if let Ok(data) = frame.into_data() {
-            if inbound_tx.send(data).await.is_err() {
-                break;
-            }
+        if let Ok(data) = frame.into_data()
+            && inbound_tx.send(data).await.is_err()
+        {
+            break;
         }
     }
     Ok(())

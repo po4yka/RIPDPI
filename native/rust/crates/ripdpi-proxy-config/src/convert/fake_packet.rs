@@ -1,13 +1,13 @@
 use ripdpi_config::{
-    EntropyMode, FakePacketSource, IpIdMode, TcpChainStepKind, WsizeConfig, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND,
-    FM_RNDSNI,
+    EntropyMode, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, FakePacketSource, IpIdMode, TcpChainStepKind,
+    WsizeConfig,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 
 use crate::types::{
-    ProxyConfigError, ProxyUiFakePacketConfig, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED,
-    FAKE_TLS_SNI_MODE_RANDOMIZED, FAKE_TLS_SOURCE_CAPTURED_CLIENT_HELLO, FAKE_TLS_SOURCE_PROFILE, IP_ID_MODE_RND,
-    IP_ID_MODE_SEQ, IP_ID_MODE_SEQGROUP, IP_ID_MODE_ZERO,
+    ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED, FAKE_TLS_SNI_MODE_RANDOMIZED,
+    FAKE_TLS_SOURCE_CAPTURED_CLIENT_HELLO, FAKE_TLS_SOURCE_PROFILE, IP_ID_MODE_RND, IP_ID_MODE_SEQ,
+    IP_ID_MODE_SEQGROUP, IP_ID_MODE_ZERO, ProxyConfigError, ProxyUiFakePacketConfig,
 };
 
 use super::legacy_payload_adapter::parse_offset_expr_field;
@@ -61,20 +61,20 @@ pub(crate) fn apply_fake_packet_section(
         "combined" => EntropyMode::Combined,
         _ => EntropyMode::Disabled,
     };
-    if let Some(value) = fake_packets.entropy_padding_target_permil {
-        if value > 0 {
-            group.actions.entropy_padding_target_permil = Some(value);
-        }
+    if let Some(value) = fake_packets.entropy_padding_target_permil
+        && value > 0
+    {
+        group.actions.entropy_padding_target_permil = Some(value);
     }
-    if let Some(value) = fake_packets.entropy_padding_max {
-        if value > 0 {
-            group.actions.entropy_padding_max = value;
-        }
+    if let Some(value) = fake_packets.entropy_padding_max
+        && value > 0
+    {
+        group.actions.entropy_padding_max = value;
     }
-    if let Some(value) = fake_packets.shannon_entropy_target_permil {
-        if value > 0 {
-            group.actions.shannon_entropy_target_permil = Some(value);
-        }
+    if let Some(value) = fake_packets.shannon_entropy_target_permil
+        && value > 0
+    {
+        group.actions.shannon_entropy_target_permil = Some(value);
     }
 
     let has_fake_step = group.effective_tcp_chain().iter().any(|step| {

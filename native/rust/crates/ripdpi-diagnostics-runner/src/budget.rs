@@ -62,12 +62,11 @@ impl BudgetState {
         if self.probe_bytes > budget.max_probe_bytes {
             return Some(BudgetTrip::MaxProbeBytes);
         }
-        if budget.stop_on_first_stable_success {
-            if let Some(confirmations) = self.first_success_confirmations {
-                if confirmations >= 1 {
-                    return Some(BudgetTrip::StableSuccess);
-                }
-            }
+        if budget.stop_on_first_stable_success
+            && let Some(confirmations) = self.first_success_confirmations
+            && confirmations >= 1
+        {
+            return Some(BudgetTrip::StableSuccess);
         }
         None
     }

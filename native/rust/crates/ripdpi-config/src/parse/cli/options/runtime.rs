@@ -8,11 +8,11 @@ use super::super::helpers::{next_value, parse_numeric_addr, parse_timeout, parse
 use super::super::state::CliState;
 
 macro_rules! parse_value_into {
-    ($args:expr, $idx:expr, $arg:expr, $target:expr, secs_to_ms) => {{
+    ($args:expr_2021, $idx:expr_2021, $arg:expr_2021, $target:expr_2021, secs_to_ms) => {{
         let value = next_value($args, $idx, $arg)?;
         $target = seconds_to_millis(value).map_err(|_| ConfigError::invalid($arg, Some(value)))?;
     }};
-    ($args:expr, $idx:expr, $arg:expr, $target:expr, $ty:ty) => {{
+    ($args:expr_2021, $idx:expr_2021, $arg:expr_2021, $target:expr_2021, $ty:ty) => {{
         let value = next_value($args, $idx, $arg)?;
         $target = value.parse::<$ty>().map_err(|_| ConfigError::invalid($arg, Some(value)))?;
     }};

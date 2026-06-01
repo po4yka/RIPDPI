@@ -63,7 +63,7 @@ impl RelaySession for TrojanSession {
 pub async fn connect_trojan_tcp(
     config: &TrojanClientConfig,
     target: &str,
-) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send> {
+) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send + use<>> {
     let (addr, port) = target_to_trojan(target)?;
     ripdpi_trojan::TrojanClient::connect_tcp(config, &addr, port, &[]).await.map_err(to_io_error)
 }
@@ -72,7 +72,7 @@ pub async fn connect_trojan_tcp_over<S>(
     config: &TrojanClientConfig,
     transport: S,
     target: &str,
-) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send>
+) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send + use<S>>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send,
 {

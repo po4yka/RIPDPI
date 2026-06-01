@@ -52,12 +52,12 @@ pub fn data_from_str(spec: &str) -> Result<Vec<u8>, ConfigError> {
         while oct_end < bytes.len() && oct_end < idx + 3 && (b'0'..=b'7').contains(&bytes[oct_end]) {
             oct_end += 1;
         }
-        if oct_end > idx {
-            if let Ok(value) = u8::from_str_radix(&spec[idx..oct_end], 8) {
-                out.push(value);
-                idx = oct_end;
-                continue;
-            }
+        if oct_end > idx
+            && let Ok(value) = u8::from_str_radix(&spec[idx..oct_end], 8)
+        {
+            out.push(value);
+            idx = oct_end;
+            continue;
         }
         out.push(ch as u8);
         idx += 1;

@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use super::protect::protect_socket_if_available;
-use super::socks5::{associate, decode_udp_frame, encode_udp_frame, handshake, Auth};
+use super::socks5::{Auth, associate, decode_udp_frame, encode_udp_frame, handshake};
 
 /// Default timeout waiting for a UDP response from the relay.
 const DEFAULT_RECV_TIMEOUT: Duration = Duration::from_secs(10);
@@ -122,8 +122,8 @@ impl UdpSession {
 mod tests {
     use super::*;
     use std::net::{IpAddr, Ipv4Addr};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
@@ -151,15 +151,15 @@ mod tests {
         tokio::spawn(async move {
             for datagram_index in 0..expected_datagrams {
                 let mut buf = vec![0u8; 65535];
-                if let Ok((n, peer)) = udp_echo.recv_from(&mut buf).await {
-                    if let Ok((_from, payload)) = decode_udp_frame(&buf[..n]) {
-                        let src: SocketAddr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), relay_port);
-                        let reply = encode_udp_frame(src, payload);
-                        let _ = udp_echo.send_to(&reply, peer).await;
-                        if duplicate_first_reply && datagram_index == 0 {
-                            let push = encode_udp_frame(src, b"push");
-                            let _ = udp_echo.send_to(&push, peer).await;
-                        }
+                if let Ok((n, peer)) = udp_echo.recv_from(&mut buf).await
+                    && let Ok((_from, payload)) = decode_udp_frame(&buf[..n])
+                {
+                    let src: SocketAddr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), relay_port);
+                    let reply = encode_udp_frame(src, payload);
+                    let _ = udp_echo.send_to(&reply, peer).await;
+                    if duplicate_first_reply && datagram_index == 0 {
+                        let push = encode_udp_frame(src, b"push");
+                        let _ = udp_echo.send_to(&push, peer).await;
                     }
                 }
             }
@@ -414,7 +414,7 @@ mod tests {
     #[tokio::test]
     async fn udp_session_protects_ctrl_and_relay_sockets() {
         use ripdpi_runtime_platform::protect::{
-            register_protect_callback_versioned, unregister_protect_callback_if, ProtectCallback, ProtectGeneration,
+            ProtectCallback, ProtectGeneration, register_protect_callback_versioned, unregister_protect_callback_if,
         };
         use std::os::fd::RawFd;
         use std::sync::Mutex as StdMutex;

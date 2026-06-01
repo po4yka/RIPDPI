@@ -595,10 +595,10 @@ mod enabled {
         let split = lua
             .create_function(move |_, (offset, disorder, ttl): (usize, bool, Option<u8>)| {
                 let mut plan = lock_lua_call_plan(&split_plan)?;
-                if let Some(ttl) = ttl {
-                    if plan.actions.last() != Some(&DesyncAction::SetTtl(ttl)) {
-                        plan.actions.push(DesyncAction::SetTtl(ttl));
-                    }
+                if let Some(ttl) = ttl
+                    && plan.actions.last() != Some(&DesyncAction::SetTtl(ttl))
+                {
+                    plan.actions.push(DesyncAction::SetTtl(ttl));
                 }
                 plan.actions.push(DesyncAction::Split { offset, disorder });
                 plan.verdict = Some(StrategyVerdict::Apply);

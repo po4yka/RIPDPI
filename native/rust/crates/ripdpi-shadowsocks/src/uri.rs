@@ -143,11 +143,7 @@ fn decode_base64(s: &str) -> Option<String> {
 
 fn pad_base64(s: &str) -> String {
     let rem = s.len() % 4;
-    if rem == 0 {
-        s.to_owned()
-    } else {
-        format!("{}{}", s, "=".repeat(4 - rem))
-    }
+    if rem == 0 { s.to_owned() } else { format!("{}{}", s, "=".repeat(4 - rem)) }
 }
 
 fn url_decode(s: &str) -> String {
@@ -156,12 +152,13 @@ fn url_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let (Some(h), Some(l)) = (hex_digit(bytes[i + 1]), hex_digit(bytes[i + 2])) {
-                out.push(char::from(h << 4 | l));
-                i += 3;
-                continue;
-            }
+        if bytes[i] == b'%'
+            && i + 2 < bytes.len()
+            && let (Some(h), Some(l)) = (hex_digit(bytes[i + 1]), hex_digit(bytes[i + 2]))
+        {
+            out.push(char::from(h << 4 | l));
+            i += 3;
+            continue;
         }
         if bytes[i] == b'+' {
             out.push(' ');

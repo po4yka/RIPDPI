@@ -19,11 +19,11 @@ pub(crate) struct XhttpClientInner {
     pub(crate) state: Mutex<PoolState>,
 }
 
-pub async fn connect_reality(config: &XhttpRealityConfig, target: &str) -> io::Result<impl AsyncIo> {
+pub async fn connect_reality(config: &XhttpRealityConfig, target: &str) -> io::Result<impl AsyncIo + use<>> {
     XhttpClient::new_reality(config.clone()).connect(target).await
 }
 
-pub async fn connect_tls(config: &XhttpTlsConfig, target: &str) -> io::Result<impl AsyncIo> {
+pub async fn connect_tls(config: &XhttpTlsConfig, target: &str) -> io::Result<impl AsyncIo + use<>> {
     XhttpClient::new_tls(config.clone()).connect(target).await
 }
 

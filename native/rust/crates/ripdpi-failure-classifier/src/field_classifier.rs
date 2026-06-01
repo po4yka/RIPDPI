@@ -6,7 +6,7 @@
 
 use ripdpi_packets::fields::FieldCache;
 
-use crate::block_detection::{match_blockpage_response, BlockpageFingerprint};
+use crate::block_detection::{BlockpageFingerprint, match_blockpage_response};
 use crate::{ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, FailureStage};
 
 /// Classify a failure from pre-extracted protocol fields.
@@ -79,18 +79,18 @@ pub fn classify_from_fields(cache: &FieldCache, fingerprints: &[BlockpageFingerp
         }
 
         // Redirect without fingerprint match — still suspicious.
-        if (300..400).contains(&status) {
-            if let Some(location) = cache.redirect_location() {
-                return Some(
-                    ClassifiedFailure::new(
-                        FailureClass::Redirect,
-                        FailureStage::HttpResponse,
-                        FailureAction::RetryWithMatchingGroup,
-                        format!("HTTP {status} redirect to {location}"),
-                    )
-                    .with_tag("location", location.to_string()),
-                );
-            }
+        if (300..400).contains(&status)
+            && let Some(location) = cache.redirect_location()
+        {
+            return Some(
+                ClassifiedFailure::new(
+                    FailureClass::Redirect,
+                    FailureStage::HttpResponse,
+                    FailureAction::RetryWithMatchingGroup,
+                    format!("HTTP {status} redirect to {location}"),
+                )
+                .with_tag("location", location.to_string()),
+            );
         }
     }
 

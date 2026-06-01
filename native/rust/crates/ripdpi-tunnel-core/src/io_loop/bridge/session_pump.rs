@@ -2,11 +2,11 @@ use smoltcp::iface::SocketSet;
 use smoltcp::socket::tcp::Socket as TcpSocket;
 use tracing::debug;
 
-use crate::dns_cache::DnsCache;
 use crate::ActiveSessions;
+use crate::dns_cache::DnsCache;
 
 use super::duplex::{flush_pending_to_session, flush_pending_to_smoltcp, try_read_duplex, try_write_duplex};
-use super::session_cleanup::{remove_session, TaskDrain};
+use super::session_cleanup::{TaskDrain, remove_session};
 use crate::io_loop::PUMP_CHUNK;
 
 pub(in crate::io_loop) async fn pump_active_sessions(
@@ -27,29 +27,29 @@ pub(in crate::io_loop) async fn pump_active_sessions(
 
         if session.pending_to_session.is_empty() {
             let mut tmp = [0u8; PUMP_CHUNK];
-            if let Ok(read) = tcp.recv_slice(&mut tmp) {
-                if read > 0 {
-                    debug!("read {read} bytes from smoltcp socket {:?}", handle);
-                    match try_write_duplex(&mut session.smoltcp_side, &tmp[..read]) {
-                        Some(Ok(0)) => {
-                            debug!("session duplex stream accepted zero bytes — closing session {:?}", handle);
-                            to_remove.push(handle);
-                            continue;
+            if let Ok(read) = tcp.recv_slice(&mut tmp)
+                && read > 0
+            {
+                debug!("read {read} bytes from smoltcp socket {:?}", handle);
+                match try_write_duplex(&mut session.smoltcp_side, &tmp[..read]) {
+                    Some(Ok(0)) => {
+                        debug!("session duplex stream accepted zero bytes — closing session {:?}", handle);
+                        to_remove.push(handle);
+                        continue;
+                    }
+                    Some(Ok(sent)) => {
+                        debug!("wrote {sent} bytes into session duplex {:?}", handle);
+                        if sent < read {
+                            session.pending_to_session.extend_from_slice(&tmp[sent..read]);
                         }
-                        Some(Ok(sent)) => {
-                            debug!("wrote {sent} bytes into session duplex {:?}", handle);
-                            if sent < read {
-                                session.pending_to_session.extend_from_slice(&tmp[sent..read]);
-                            }
-                        }
-                        Some(Err(err)) => {
-                            debug!("smoltcp_side write error: {} — closing session {:?}", err, handle);
-                            to_remove.push(handle);
-                            continue;
-                        }
-                        None => {
-                            session.pending_to_session.extend_from_slice(&tmp[..read]);
-                        }
+                    }
+                    Some(Err(err)) => {
+                        debug!("smoltcp_side write error: {} — closing session {:?}", err, handle);
+                        to_remove.push(handle);
+                        continue;
+                    }
+                    None => {
+                        session.pending_to_session.extend_from_slice(&tmp[..read]);
                     }
                 }
             }

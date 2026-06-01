@@ -40,10 +40,10 @@ pub fn tune_tls_padding_size_like_c(input: &[u8], target_size: usize) -> PacketM
             output.resize(target_size, 0);
             let grow = target_size - original_len;
             if let Some(pad_offs) = pad_offs {
-                if pad_offs + 4 <= output.len() {
-                    if let Some(pad_len) = read_u16(input, pad_offs + 2) {
-                        let _ = write_u16(&mut output, pad_offs + 2, pad_len.saturating_add(grow));
-                    }
+                if pad_offs + 4 <= output.len()
+                    && let Some(pad_len) = read_u16(input, pad_offs + 2)
+                {
+                    let _ = write_u16(&mut output, pad_offs + 2, pad_len.saturating_add(grow));
                 }
             } else if grow >= 4 {
                 let pad_offs = original_len;
@@ -58,12 +58,11 @@ pub fn tune_tls_padding_size_like_c(input: &[u8], target_size: usize) -> PacketM
         std::cmp::Ordering::Less => {
             let shrink = original_len - target_size;
             output.truncate(target_size);
-            if let Some(pad_offs) = pad_offs {
-                if pad_offs + 4 <= output.len() {
-                    if let Some(pad_len) = read_u16(input, pad_offs + 2) {
-                        let _ = write_u16(&mut output, pad_offs + 2, pad_len.saturating_sub(shrink));
-                    }
-                }
+            if let Some(pad_offs) = pad_offs
+                && pad_offs + 4 <= output.len()
+                && let Some(pad_len) = read_u16(input, pad_offs + 2)
+            {
+                let _ = write_u16(&mut output, pad_offs + 2, pad_len.saturating_sub(shrink));
             }
             if !adjust_tls_lengths(&mut output, ext_len_start, -(shrink as isize)) {
                 return PacketMutation { rc: -1, bytes: input.to_vec() };

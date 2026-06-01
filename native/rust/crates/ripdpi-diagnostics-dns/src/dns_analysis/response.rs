@@ -65,7 +65,7 @@ pub fn analyze_dns_response(packet: &[u8]) -> DnsResponseAnalysis {
 
         for record in &message.answers {
             ttls.push(record.ttl);
-            if let RData::CNAME(ref name) = &record.data {
+            if let RData::CNAME(name) = &record.data {
                 analysis.cname_targets.push(name.to_string());
             }
         }

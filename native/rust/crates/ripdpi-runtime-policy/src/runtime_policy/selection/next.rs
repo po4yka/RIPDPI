@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 
-use ripdpi_config::{RuntimeConfig, DETECT_RECONN};
+use ripdpi_config::{DETECT_RECONN, RuntimeConfig};
 
 use crate::runtime_policy::autolearn::normalize_learned_host;
 use crate::runtime_policy::matching::group_matches_with_geo;
@@ -53,8 +53,7 @@ impl RuntimePolicy {
     ) -> Option<ConnectionRoute> {
         if let Some(normalized_host) =
             host.filter(|_| transport == TransportProtocol::Tcp).and_then(normalize_learned_host)
-        {
-            if let Some(next) = select_host_route_after(
+            && let Some(next) = select_host_route_after(
                 self,
                 config,
                 route,
@@ -66,9 +65,9 @@ impl RuntimePolicy {
                 can_reconnect,
                 retry_penalties,
                 geo,
-            ) {
-                return Some(next);
-            }
+            )
+        {
+            return Some(next);
         }
 
         let mut attempted_mask = route.attempted_mask | config.groups[route.group_index].bit;

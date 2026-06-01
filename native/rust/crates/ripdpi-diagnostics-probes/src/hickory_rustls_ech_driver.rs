@@ -15,16 +15,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use hickory_resolver::{
-    config::{ResolverConfig, ResolverOpts, CLOUDFLARE},
+    TokioResolver,
+    config::{CLOUDFLARE, ResolverConfig, ResolverOpts},
     net::runtime::TokioRuntimeProvider,
     proto::rr::rdata::svcb::{SvcParamKey, SvcParamValue},
     proto::rr::{RData, RecordType},
-    TokioResolver,
 };
+use rustls::RootCertStore;
 use rustls::client::{EchConfig, EchMode, EchStatus};
 use rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES;
 use rustls::pki_types::{EchConfigListBytes, ServerName};
-use rustls::RootCertStore;
 use tokio_rustls::TlsConnector;
 
 use crate::probes::ech_handshake::{EchHandshakeDriver, EchHandshakeOutcome};
@@ -98,10 +98,10 @@ impl EchHandshakeDriver for HickoryRustlsEchHandshakeDriver {
             };
 
             for (key, value) in svc_params {
-                if *key == SvcParamKey::EchConfigList {
-                    if let SvcParamValue::EchConfigList(ech) = value {
-                        return Ok(Some(ech.0.clone()));
-                    }
+                if *key == SvcParamKey::EchConfigList
+                    && let SvcParamValue::EchConfigList(ech) = value
+                {
+                    return Ok(Some(ech.0.clone()));
                 }
             }
         }

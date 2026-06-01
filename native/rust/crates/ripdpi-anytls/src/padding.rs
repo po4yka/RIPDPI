@@ -169,10 +169,10 @@ impl PaddingScheme {
                     } else if !remaining.is_empty() {
                         actions.push(PaddingAction::Payload(remaining.to_vec()));
                         cursor = payload.len();
-                        if let Some(waste_len) = target_size.checked_sub(remaining.len() + WASTE_FRAME_HEADER_LEN) {
-                            if waste_len > 0 {
-                                actions.push(PaddingAction::Waste { len: waste_len });
-                            }
+                        if let Some(waste_len) = target_size.checked_sub(remaining.len() + WASTE_FRAME_HEADER_LEN)
+                            && waste_len > 0
+                        {
+                            actions.push(PaddingAction::Waste { len: waste_len });
                         }
                     } else if target_size > 0 {
                         actions.push(PaddingAction::Waste { len: target_size });

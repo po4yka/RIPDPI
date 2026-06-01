@@ -4,7 +4,7 @@ use std::sync::{Arc as StdArc, Condvar, Mutex as StdMutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::client_job::{process_client_job, ClientJob};
+use super::client_job::{ClientJob, process_client_job};
 
 const WORKER_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 const WORKER_PARALLELISM_FALLBACK: usize = 4;
@@ -74,13 +74,11 @@ impl ClientWorkerPool {
             }
         };
 
-        if should_spawn {
-            if let Err(err) = self.spawn_reserved_worker() {
-                let mut state = self.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-                state.live_workers = state.live_workers.saturating_sub(1);
-                self.shared.available.notify_all();
-                return Err(err);
-            }
+        if should_spawn && let Err(err) = self.spawn_reserved_worker() {
+            let mut state = self.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            state.live_workers = state.live_workers.saturating_sub(1);
+            self.shared.available.notify_all();
+            return Err(err);
         }
 
         Ok(())

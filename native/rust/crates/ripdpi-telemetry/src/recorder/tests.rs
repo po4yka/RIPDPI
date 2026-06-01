@@ -4,9 +4,9 @@ use std::sync::Mutex;
 use metrics::Key;
 
 use super::*;
-use crate::recorder::histogram_handle::HistogramHandle;
-use crate::recorder::state::{MetricKind, MAX_METRIC_KEYS};
 use crate::LatencyHistogram;
+use crate::recorder::histogram_handle::HistogramHandle;
+use crate::recorder::state::{MAX_METRIC_KEYS, MetricKind};
 
 static GLOBAL_RECORDER_TEST_LOCK: Mutex<()> = Mutex::new(());
 
@@ -69,10 +69,10 @@ fn counter_increment_via_recorder() {
         install();
         metrics::counter!("test_counter_inc").increment(1);
         metrics::counter!("test_counter_inc").increment(2);
-        if let Some(snap) = snapshot() {
-            if let Some(&val) = snap.counters.get("test_counter_inc") {
-                assert!(val >= 3, "expected >= 3, got {val}");
-            }
+        if let Some(snap) = snapshot()
+            && let Some(&val) = snap.counters.get("test_counter_inc")
+        {
+            assert!(val >= 3, "expected >= 3, got {val}");
         }
     });
 }
@@ -82,10 +82,10 @@ fn gauge_set_via_recorder() {
     with_global_recorder_test(|| {
         install();
         metrics::gauge!("test_gauge_set").set(42.0);
-        if let Some(snap) = snapshot() {
-            if let Some(&val) = snap.gauges.get("test_gauge_set") {
-                assert_eq!(val, 42.0_f64.to_bits());
-            }
+        if let Some(snap) = snapshot()
+            && let Some(&val) = snap.gauges.get("test_gauge_set")
+        {
+            assert_eq!(val, 42.0_f64.to_bits());
         }
     });
 }
@@ -95,10 +95,10 @@ fn histogram_record_via_recorder() {
     with_global_recorder_test(|| {
         install();
         metrics::histogram!("test_hist_rec").record(0.050);
-        if let Some(snap) = snapshot() {
-            if let Some(perc) = snap.histograms.get("test_hist_rec") {
-                assert!(perc.p50 >= 45 && perc.p50 <= 55, "p50={}", perc.p50);
-            }
+        if let Some(snap) = snapshot()
+            && let Some(perc) = snap.histograms.get("test_hist_rec")
+        {
+            assert!(perc.p50 >= 45 && perc.p50 <= 55, "p50={}", perc.p50);
         }
     });
 }
@@ -235,10 +235,10 @@ fn counter_same_key_returns_shared_atomic() {
         install();
         metrics::counter!("shared_counter_test").increment(5);
         metrics::counter!("shared_counter_test").increment(3);
-        if let Some(snap) = snapshot() {
-            if let Some(&val) = snap.counters.get("shared_counter_test") {
-                assert!(val >= 8, "expected >= 8, got {val}");
-            }
+        if let Some(snap) = snapshot()
+            && let Some(&val) = snap.counters.get("shared_counter_test")
+        {
+            assert!(val >= 8, "expected >= 8, got {val}");
         }
     });
 }

@@ -66,7 +66,7 @@ fn entropy_padding_combined_mode_works() {
 fn entropy_padding_adaptive_override_takes_precedence() {
     let mut group = test_group();
     group.actions.entropy_mode = EntropyMode::Disabled; // group says disabled
-                                                        // But adaptive override says Shannon
+    // But adaptive override says Shannon
     let payload: Vec<u8> = (0..2048).map(|i| (i % 256) as u8).collect();
     let result = apply_entropy_padding(&group, &payload, Some(EntropyMode::Shannon));
     assert!(matches!(result, Cow::Owned(_)), "adaptive override should enable padding");
@@ -77,7 +77,7 @@ fn entropy_padding_adaptive_override_takes_precedence() {
 fn entropy_padding_adaptive_override_can_disable() {
     let mut group = test_group();
     group.actions.entropy_mode = EntropyMode::Shannon; // group says Shannon
-                                                       // But adaptive override says Disabled
+    // But adaptive override says Disabled
     let payload: Vec<u8> = (0..2048).map(|i| (i % 256) as u8).collect();
     let result = apply_entropy_padding(&group, &payload, Some(EntropyMode::Disabled));
     assert!(matches!(result, Cow::Borrowed(_)), "adaptive Disabled should skip padding");
@@ -169,10 +169,10 @@ fn fake_step_group(entropy_mode: EntropyMode) -> DesyncGroup {
 fn extract_fake_decoy(plan: &DesyncPlan, fake_ttl: u8, default_ttl: u8) -> Vec<u8> {
     let mut iter = plan.actions.iter();
     while let Some(action) = iter.next() {
-        if matches!(action, DesyncAction::SetTtl(ttl) if *ttl == fake_ttl && *ttl != default_ttl) {
-            if let Some(DesyncAction::Write(bytes)) = iter.next() {
-                return bytes.clone();
-            }
+        if matches!(action, DesyncAction::SetTtl(ttl) if *ttl == fake_ttl && *ttl != default_ttl)
+            && let Some(DesyncAction::Write(bytes)) = iter.next()
+        {
+            return bytes.clone();
         }
     }
     panic!("no fake decoy Write found in plan actions: {:?}", plan.actions);
@@ -265,10 +265,11 @@ fn hostfake_step_group(entropy_mode: EntropyMode) -> DesyncGroup {
     group.actions.entropy_mode = entropy_mode;
     group.actions.entropy_padding_target_permil = Some(3400);
     group.actions.ttl = Some(9);
-    group.actions.tcp_chain =
-        vec![TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
             .with_midhost_offset(Some(OffsetExpr::marker(OffsetBase::MidSld, 0)))
-            .with_fake_host_template(Some("googlevideo.com".to_string()))];
+            .with_fake_host_template(Some("googlevideo.com".to_string())),
+    ];
     group
 }
 

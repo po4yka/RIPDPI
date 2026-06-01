@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Context};
-use base64::{engine::general_purpose::STANDARD, Engine as _};
+use anyhow::{Context, anyhow};
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 
 pub(crate) fn decode_key(value: &str) -> anyhow::Result<[u8; 32]> {
     let bytes = STANDARD.decode(value).context("base64 decode failed")?;
@@ -8,11 +8,11 @@ pub(crate) fn decode_key(value: &str) -> anyhow::Result<[u8; 32]> {
 
 pub(crate) fn reserved_bytes_from_client_id(client_id: Option<&str>) -> [u8; 3] {
     let mut reserved = [0u8; 3];
-    if let Some(client_id) = client_id {
-        if let Ok(decoded) = STANDARD.decode(client_id) {
-            for (index, value) in decoded.iter().take(3).enumerate() {
-                reserved[index] = *value;
-            }
+    if let Some(client_id) = client_id
+        && let Ok(decoded) = STANDARD.decode(client_id)
+    {
+        for (index, value) in decoded.iter().take(3).enumerate() {
+            reserved[index] = *value;
         }
     }
     reserved

@@ -97,13 +97,14 @@ impl ActiveSessions {
             let heap_entry = SessionHeapEntry { handle, sequence: seq };
             if let Some(evicted) = self.eviction_heap.push_or_evict(heap_entry) {
                 // Eviction occurred — clean up the evicted session.
-                if let Some(oldest) = self.entries.remove(&evicted.handle) {
-                    oldest.cancel.cancel();
-                    drop(oldest.smoltcp_side);
-                    oldest.handle.abort();
-                    Some(evicted.handle)
-                } else {
-                    None
+                match self.entries.remove(&evicted.handle) {
+                    Some(oldest) => {
+                        oldest.cancel.cancel();
+                        drop(oldest.smoltcp_side);
+                        oldest.handle.abort();
+                        Some(evicted.handle)
+                    }
+                    _ => None,
                 }
             } else {
                 None

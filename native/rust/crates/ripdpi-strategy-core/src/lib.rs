@@ -44,8 +44,8 @@ macro_rules! core_strategy {
     (
         $strategy:ident, $make:ident, $registration:ident,
         id = $id:literal, label = $label:literal,
-        tier = $tier:expr, caps = $caps:expr,
-        action = $action:expr $(,)?
+        tier = $tier:expr_2021, caps = $caps:expr_2021,
+        action = $action:expr_2021 $(,)?
     ) => {
         #[doc = concat!("The `", $id, "` core desync technique.")]
         #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

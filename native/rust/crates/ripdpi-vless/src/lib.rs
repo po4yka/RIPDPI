@@ -79,7 +79,11 @@ impl VlessRealityClient {
     /// Used for chain relay: the `transport` is the output of a previous
     /// `VlessRealityClient::connect()` call (first hop), and we layer a second
     /// VLESS+Reality connection on top of it to reach the final destination.
-    pub async fn connect_over<S>(config: &VlessRealityConfig, transport: S, target: &str) -> io::Result<impl AsyncIo>
+    pub async fn connect_over<S>(
+        config: &VlessRealityConfig,
+        transport: S,
+        target: &str,
+    ) -> io::Result<impl AsyncIo + use<S>>
     where
         S: AsyncIo + 'static,
     {
@@ -206,11 +210,11 @@ mod protect_tests {
     use base64::prelude::*;
     use std::net::TcpListener;
     use std::os::fd::RawFd;
-    use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 
     use ripdpi_runtime_platform::protect::{
-        has_protect_callback, register_protect_callback, unregister_protect_callback, ProtectCallback,
+        ProtectCallback, has_protect_callback, register_protect_callback, unregister_protect_callback,
     };
 
     // Held across `.await`, so it must be an async-aware mutex (clippy

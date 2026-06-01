@@ -21,10 +21,10 @@ pub(crate) fn validate_payload(payload: &TunnelConfigPayload) -> Result<(), Stri
     if payload.socks5_port == 0 {
         return Err("socks5Port must be non-zero".to_string());
     }
-    if let Some(port) = payload.mapdns_port {
-        if port == 0 {
-            return Err("mapdnsPort must be non-zero".to_string());
-        }
+    if let Some(port) = payload.mapdns_port
+        && port == 0
+    {
+        return Err("mapdnsPort must be non-zero".to_string());
     }
     validate_limits(payload)
 }

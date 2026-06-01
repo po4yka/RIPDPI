@@ -3,8 +3,8 @@ use std::time::Instant;
 
 use tokio::sync::OwnedSemaphorePermit;
 
-use crate::state::RelayMuxState;
 use crate::RelaySession;
+use crate::state::RelayMuxState;
 
 pub(crate) struct LeaseGuard<S>
 where
@@ -41,10 +41,11 @@ where
         }
         if self.reusable {
             let no_active_leases = state.active_leases == 0;
-            if let (Some(session), Some(cached)) = (&self.session, state.cached_session.as_mut()) {
-                if Arc::ptr_eq(session, &cached.session) && no_active_leases {
-                    cached.idle_since = Instant::now();
-                }
+            if let (Some(session), Some(cached)) = (&self.session, state.cached_session.as_mut())
+                && Arc::ptr_eq(session, &cached.session)
+                && no_active_leases
+            {
+                cached.idle_since = Instant::now();
             }
         }
     }

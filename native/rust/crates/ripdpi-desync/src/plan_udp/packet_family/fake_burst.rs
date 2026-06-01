@@ -7,7 +7,7 @@ use ripdpi_packets::{
 
 use crate::types::ActivationContext;
 
-use super::super::quic::{effective_quic_realistic_host, NormalizedQuicPlannerInput};
+use super::super::quic::{NormalizedQuicPlannerInput, effective_quic_realistic_host};
 
 pub(super) fn udp_fake_payload(
     group: &DesyncGroup,
@@ -16,21 +16,20 @@ pub(super) fn udp_fake_payload(
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
 ) -> Vec<u8> {
     let quic_fake_profile = context.adaptive.quic_fake_profile.unwrap_or(group.actions.quic_fake_profile);
-    if quic_fake_profile != QuicFakeProfile::Disabled {
-        if let Some(quic) = normalized_quic {
-            match quic_fake_profile {
-                QuicFakeProfile::Disabled => {}
-                QuicFakeProfile::CompatDefault => return default_fake_quic_compat(),
-                QuicFakeProfile::RealisticInitial => {
-                    if let Some(fake) = build_realistic_quic_initial(
-                        quic.version,
-                        effective_quic_realistic_host(group, normalized_quic),
-                    ) {
-                        return fake;
-                    }
+    if quic_fake_profile != QuicFakeProfile::Disabled
+        && let Some(quic) = normalized_quic
+    {
+        match quic_fake_profile {
+            QuicFakeProfile::Disabled => {}
+            QuicFakeProfile::CompatDefault => return default_fake_quic_compat(),
+            QuicFakeProfile::RealisticInitial => {
+                if let Some(fake) =
+                    build_realistic_quic_initial(quic.version, effective_quic_realistic_host(group, normalized_quic))
+                {
+                    return fake;
                 }
-                _ => {}
             }
+            _ => {}
         }
     }
 
@@ -39,10 +38,10 @@ pub(super) fn udp_fake_payload(
         .fake_data
         .clone()
         .unwrap_or_else(|| udp_fake_profile_bytes(group.actions.udp_fake_profile).to_vec());
-    if let Some(offset) = group.actions.fake_offset {
-        if let Some(pos) = offset.absolute_positive().filter(|pos| (*pos as usize) < fake.len()) {
-            fake = fake[pos as usize..].to_vec();
-        }
+    if let Some(offset) = group.actions.fake_offset
+        && let Some(pos) = offset.absolute_positive().filter(|pos| (*pos as usize) < fake.len())
+    {
+        fake = fake[pos as usize..].to_vec();
     }
 
     apply_entropy_padding_to_fake(group, fake)
@@ -75,11 +74,7 @@ fn apply_entropy_padding_to_fake(group: &DesyncGroup, fake: Vec<u8>) -> Vec<u8> 
             // Apply whichever padding is larger (more defensive).
             let pop_pad = generate_entropy_padding(&fake, popcount_target, max_pad);
             let sha_pad = generate_shannon_padding(&fake, shannon_target, max_pad);
-            if sha_pad.len() >= pop_pad.len() {
-                sha_pad
-            } else {
-                pop_pad
-            }
+            if sha_pad.len() >= pop_pad.len() { sha_pad } else { pop_pad }
         }
         // EntropyMode is #[non_exhaustive]; no padding for unknown future variants.
         _ => return fake,

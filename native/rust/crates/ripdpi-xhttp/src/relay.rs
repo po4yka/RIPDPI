@@ -7,12 +7,12 @@ use http_body_util::BodyExt;
 use hyper::StatusCode;
 use rand::{Rng, RngExt};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
-use tokio::sync::{mpsc, OwnedSemaphorePermit};
+use tokio::sync::{OwnedSemaphorePermit, mpsc};
 
 use ripdpi_vless::addons::VlessFlow;
 
-use crate::config::{normalize_path, XhttpMode, XhttpProtocolMode};
-use crate::h2_body::{build_get_request, build_post_request, ChannelBody};
+use crate::config::{XhttpMode, XhttpProtocolMode, normalize_path};
+use crate::h2_body::{ChannelBody, build_get_request, build_post_request};
 use crate::pool::PooledConnection;
 
 const STREAM_BUFFER_SIZE: usize = 64 * 1024;
@@ -253,10 +253,10 @@ where
                     break;
                 }
             };
-            if let Ok(data) = frame.into_data() {
-                if transport_download.write_all(&data).await.is_err() {
-                    break;
-                }
+            if let Ok(data) = frame.into_data()
+                && transport_download.write_all(&data).await.is_err()
+            {
+                break;
             }
         }
         let _ = transport_download.shutdown().await;
@@ -288,11 +288,7 @@ pub(crate) fn random_padding_value() -> String {
 
 pub(crate) fn stream_up_path(path: &str, session_id: &str) -> String {
     let normalized = normalize_path(path);
-    if normalized == "/" {
-        format!("/{session_id}")
-    } else {
-        format!("{normalized}/{session_id}")
-    }
+    if normalized == "/" { format!("/{session_id}") } else { format!("{normalized}/{session_id}") }
 }
 
 /// Stream-one URL path: the bare configured path. xray-core's

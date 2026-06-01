@@ -5,8 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 use rcgen::{CertificateParams, DistinguishedName, DnType, IsCa, KeyPair};
-use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::ServerConfig;
+use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -216,14 +216,12 @@ async fn handle_connection(
                     write_frame(&mut tls, CMD_HEART_REQUEST, 0, &[]).await?;
                     observe_heart_response_before_close(&mut tls, &observed).await;
                 }
-                if should_update {
-                    if let Some(scheme) = &config.server_padding_scheme {
-                        observed.lock().expect("anytls observed").update_padding_scheme_count += 1;
-                        write_frame(&mut tls, CMD_UPDATE_PADDING_SCHEME, 0, scheme.as_bytes()).await?;
-                        if config.close_after_update {
-                            tls.shutdown().await?;
-                            return Ok(());
-                        }
+                if should_update && let Some(scheme) = &config.server_padding_scheme {
+                    observed.lock().expect("anytls observed").update_padding_scheme_count += 1;
+                    write_frame(&mut tls, CMD_UPDATE_PADDING_SCHEME, 0, scheme.as_bytes()).await?;
+                    if config.close_after_update {
+                        tls.shutdown().await?;
+                        return Ok(());
                     }
                 }
             }
@@ -318,10 +316,10 @@ async fn observe_heart_response_before_close(
     stream: &mut tokio_rustls::server::TlsStream<TcpStream>,
     observed: &Arc<Mutex<AnyTlsLoopbackObserved>>,
 ) {
-    if let Ok(Ok(frame)) = tokio::time::timeout(std::time::Duration::from_millis(250), read_frame(stream)).await {
-        if frame.command == CMD_HEART_RESPONSE {
-            observed.lock().expect("anytls observed").heart_responses += 1;
-        }
+    if let Ok(Ok(frame)) = tokio::time::timeout(std::time::Duration::from_millis(250), read_frame(stream)).await
+        && frame.command == CMD_HEART_RESPONSE
+    {
+        observed.lock().expect("anytls observed").heart_responses += 1;
     }
 }
 

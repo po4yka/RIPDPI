@@ -9,14 +9,14 @@ use crate::auth::AuthHeader;
 use crate::client::AsyncIo;
 use crate::config::MasqueConfig;
 use crate::request::apply_request_headers;
-use crate::response::{validate_proxy_response, AttemptError};
+use crate::response::{AttemptError, validate_proxy_response};
 use crate::url::parse_proxy_origin;
 
 pub(crate) async fn attempt_h3_connect_tcp(
     config: &MasqueConfig,
     target: &str,
     auth_header: Option<&AuthHeader>,
-) -> Result<impl AsyncIo, AttemptError> {
+) -> Result<impl AsyncIo + use<>, AttemptError> {
     let proxy_origin = parse_proxy_origin(config)?;
     let (mut driver, mut send_request) = connect_h3_transport(config, false).await?;
     let request = Request::builder()

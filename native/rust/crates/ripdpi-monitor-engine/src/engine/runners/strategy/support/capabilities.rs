@@ -46,15 +46,14 @@ pub(in crate::engine::runners::strategy) fn annotate_emitter_execution(
                 .push(format!("Exact rooted emitter unavailable; executed approximate {fallback_family} fallback"));
         }
     }
-    if summary.exact_emitter_requires_root {
-        if let Some(capability) = spec
+    if summary.exact_emitter_requires_root
+        && let Some(capability) = spec
             .requires_capabilities
             .iter()
             .copied()
             .find(|&capability| !capability_available(capability, fake_ttl_available, ipfrag_caps))
-        {
-            summary.notes.push(missing_capability_note(spec, capability));
-        }
+    {
+        summary.notes.push(missing_capability_note(spec, capability));
     }
 }
 

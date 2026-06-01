@@ -130,21 +130,23 @@ impl HealthRegistry {
     }
 
     pub fn rank_indices_in_scope(&self, scope: &ResolverNetworkScope, labels: &[&str]) -> Vec<usize> {
-        if let Ok(mut inner) = self.inner.lock() {
-            let now = (inner.clock)();
-            let mut scored: Vec<(usize, bool, f64)> = labels
-                .iter()
-                .enumerate()
-                .map(|(i, &label)| {
-                    let score = inner.endpoint_score_or_insert(scope, label);
-                    (i, score.is_quarantined(now), score.composite_score())
-                })
-                .collect();
-            scored
-                .sort_by(|a, b| a.1.cmp(&b.1).then_with(|| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal)));
-            scored.into_iter().map(|(i, _, _)| i).collect()
-        } else {
-            (0..labels.len()).collect()
+        match self.inner.lock() {
+            Ok(mut inner) => {
+                let now = (inner.clock)();
+                let mut scored: Vec<(usize, bool, f64)> = labels
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &label)| {
+                        let score = inner.endpoint_score_or_insert(scope, label);
+                        (i, score.is_quarantined(now), score.composite_score())
+                    })
+                    .collect();
+                scored.sort_by(|a, b| {
+                    a.1.cmp(&b.1).then_with(|| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal))
+                });
+                scored.into_iter().map(|(i, _, _)| i).collect()
+            }
+            _ => (0..labels.len()).collect(),
         }
     }
 
@@ -154,18 +156,19 @@ impl HealthRegistry {
     }
 
     pub fn rank_bootstrap_ips_in_scope(&self, scope: &ResolverNetworkScope, ips: &[IpAddr]) -> Vec<IpAddr> {
-        if let Ok(mut inner) = self.inner.lock() {
-            let mut scored: Vec<(IpAddr, f64)> = ips
-                .iter()
-                .map(|&ip| {
-                    let score = inner.bootstrap_score_or_insert(scope, ip).composite_score();
-                    (ip, score)
-                })
-                .collect();
-            scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-            scored.into_iter().map(|(ip, _)| ip).collect()
-        } else {
-            ips.to_vec()
+        match self.inner.lock() {
+            Ok(mut inner) => {
+                let mut scored: Vec<(IpAddr, f64)> = ips
+                    .iter()
+                    .map(|&ip| {
+                        let score = inner.bootstrap_score_or_insert(scope, ip).composite_score();
+                        (ip, score)
+                    })
+                    .collect();
+                scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                scored.into_iter().map(|(ip, _)| ip).collect()
+            }
+            _ => ips.to_vec(),
         }
     }
 

@@ -123,19 +123,19 @@ proptest::proptest! {
 /// from a TLS record. Returns `None` when the record is malformed or does
 /// not contain an SNI extension.
 fn extract_sni_via_tls_parser(data: &[u8]) -> Option<Vec<u8>> {
-    use tls_parser::{parse_tls_plaintext, TlsMessage, TlsMessageHandshake};
+    use tls_parser::{TlsMessage, TlsMessageHandshake, parse_tls_plaintext};
 
     let (_, record) = parse_tls_plaintext(data).ok()?;
     for msg in &record.msg {
-        if let TlsMessage::Handshake(TlsMessageHandshake::ClientHello(ch)) = msg {
-            if let Some(ext_data) = ch.ext {
-                let (_, exts) = tls_parser::parse_tls_client_hello_extensions(ext_data).ok()?;
-                for ext in &exts {
-                    if let tls_parser::TlsExtension::SNI(sni_list) = ext {
-                        for (name_type, name) in sni_list {
-                            if *name_type == tls_parser::SNIType::HostName {
-                                return Some(name.to_vec());
-                            }
+        if let TlsMessage::Handshake(TlsMessageHandshake::ClientHello(ch)) = msg
+            && let Some(ext_data) = ch.ext
+        {
+            let (_, exts) = tls_parser::parse_tls_client_hello_extensions(ext_data).ok()?;
+            for ext in &exts {
+                if let tls_parser::TlsExtension::SNI(sni_list) = ext {
+                    for (name_type, name) in sni_list {
+                        if *name_type == tls_parser::SNIType::HostName {
+                            return Some(name.to_vec());
                         }
                     }
                 }
@@ -291,7 +291,7 @@ fn randomize_tls_seeded_handles_short_input() {
 
 #[test]
 fn change_tls_sni_replaces_hostname() {
-    use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+    use crate::fake_profiles::{TlsFakeProfile, tls_fake_profile_bytes};
     let input = tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome);
     let new_host = b"test.example.com";
     let capacity = input.len() + 100; // extra room
@@ -311,7 +311,7 @@ fn change_tls_sni_capacity_too_small_fails() {
 
 #[test]
 fn change_tls_sni_same_length_host() {
-    use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+    use crate::fake_profiles::{TlsFakeProfile, tls_fake_profile_bytes};
     // Use a well-formed single-record profile to avoid multi-record edge cases
     let input = tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome);
     let original_sni = parse_tls(input).unwrap();
@@ -326,7 +326,7 @@ fn change_tls_sni_same_length_host() {
 
 #[test]
 fn remove_tls_key_share_group_strips_x25519_but_keeps_supported_groups() {
-    use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+    use crate::fake_profiles::{TlsFakeProfile, tls_fake_profile_bytes};
 
     let input = tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome);
     let before = parse_tls_client_hello_layout(input).expect("google chrome layout");
@@ -352,7 +352,7 @@ fn remove_tls_key_share_group_strips_x25519_but_keeps_supported_groups() {
 
 #[test]
 fn remove_tls_key_share_group_fails_when_no_fallback_share_exists() {
-    use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+    use crate::fake_profiles::{TlsFakeProfile, tls_fake_profile_bytes};
 
     let input = tls_fake_profile_bytes(TlsFakeProfile::IanaFirefox);
     let mutation = remove_tls_key_share_group_like_c(input, 0x001d);
@@ -394,7 +394,7 @@ fn part_tls_beyond_record_returns_original() {
 
 #[test]
 fn tune_tls_padding_on_well_formed_profile() {
-    use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+    use crate::fake_profiles::{TlsFakeProfile, tls_fake_profile_bytes};
     let input = tls_fake_profile_bytes(TlsFakeProfile::IanaFirefox);
     let grown = tune_tls_padding_size_like_c(input, input.len() + 20);
     assert_eq!(grown.rc, 0);
@@ -406,7 +406,7 @@ fn tune_tls_padding_on_well_formed_profile() {
 
 #[test]
 fn padencap_on_well_formed_profile() {
-    use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+    use crate::fake_profiles::{TlsFakeProfile, tls_fake_profile_bytes};
     let input = tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome);
     let mutation = padencap_tls_like_c(input, 32);
     assert_eq!(mutation.rc, 0);
@@ -490,10 +490,10 @@ fn build_server_hello_resp(sid: &[u8], include_supported_versions: bool) -> Vec<
     let mut buf = Vec::with_capacity(128);
     // Record header
     buf.extend_from_slice(&[0x16, 0x03, 0x03, 0x00, 0x00]); // placeholder length
-                                                            // Handshake header: ServerHello (0x02)
+    // Handshake header: ServerHello (0x02)
     buf.push(0x02);
     buf.extend_from_slice(&[0x00, 0x00, 0x00]); // placeholder hs length
-                                                // Version
+    // Version
     buf.extend_from_slice(&[0x03, 0x03]);
     // Random (32 bytes)
     buf.extend_from_slice(&[0xBB; 32]);
@@ -502,7 +502,7 @@ fn build_server_hello_resp(sid: &[u8], include_supported_versions: bool) -> Vec<
     buf.extend_from_slice(sid);
     // Cipher suite (2 bytes)
     buf.extend_from_slice(&[0x13, 0x01]); // TLS_AES_128_GCM_SHA256
-                                          // Compression method (1 byte)
+    // Compression method (1 byte)
     buf.push(0x00);
     // Extensions
     if include_supported_versions {
@@ -556,7 +556,7 @@ fn tls_session_id_mismatch_detects_different_sid_lengths() {
     // the supported_versions extension is findable at that offset despite
     // having a different sid_len byte at resp[43].
     let req_sid_len = DEFAULT_FAKE_TLS[43] as usize; // 32
-                                                     // Build resp with same-length SID so extensions align, then flip resp[43]
+    // Build resp with same-length SID so extensions align, then flip resp[43]
     let resp_sid = vec![0xAA; req_sid_len];
     let mut resp = build_server_hello_resp(&resp_sid, true);
     // Overwrite sid_len byte to a different value while keeping the actual
@@ -698,7 +698,7 @@ fn build_ext_test_buffer(extensions: &[(u16, &[u8])]) -> (Vec<u8>, usize) {
     let handshake_len = 35 + 2 + ext_data_len;
     let record_len = handshake_len + 4;
     let mut buf = Vec::with_capacity(5 + record_len + 64); // extra capacity for resize tests
-                                                           // Record header: 0x16 0x03 0x03 [len]
+    // Record header: 0x16 0x03 0x03 [len]
     buf.push(0x16);
     buf.extend_from_slice(&0x0303u16.to_be_bytes());
     buf.extend_from_slice(&(record_len as u16).to_be_bytes());

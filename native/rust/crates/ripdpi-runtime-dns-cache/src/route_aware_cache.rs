@@ -125,10 +125,10 @@ impl RouteAwareDnsCache {
 
             for alt_route in candidates {
                 let alt_key = CacheKey { domain: key.domain.clone(), qtype: key.qtype, route: alt_route };
-                if let Some(entry) = inner.lru.get(&alt_key) {
-                    if entry.expiry > now {
-                        return LookupResult::Hit(entry.clone());
-                    }
+                if let Some(entry) = inner.lru.get(&alt_key)
+                    && entry.expiry > now
+                {
+                    return LookupResult::Hit(entry.clone());
                 }
             }
         } else {
@@ -141,10 +141,10 @@ impl RouteAwareDnsCache {
 
             for alt_route in candidates {
                 let alt_key = CacheKey { domain: key.domain.clone(), qtype: key.qtype, route: alt_route };
-                if let Some(entry) = inner.lru.peek(&alt_key) {
-                    if entry.expiry > now {
-                        return LookupResult::Reresolve;
-                    }
+                if let Some(entry) = inner.lru.peek(&alt_key)
+                    && entry.expiry > now
+                {
+                    return LookupResult::Reresolve;
                 }
             }
         }

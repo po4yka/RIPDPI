@@ -5,8 +5,8 @@ use ring::rand::{SecureRandom, SystemRandom};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::time::timeout;
 
-use super::connection::PooledConnection;
 use super::EncryptedDnsResolver;
+use super::connection::PooledConnection;
 use crate::dnscrypt::*;
 use crate::transport::{
     build_dns_query, read_length_prefixed_frame_async, unix_time_secs, write_length_prefixed_frame_async,
@@ -93,12 +93,12 @@ impl EncryptedDnsResolver {
 
     async fn current_dnscrypt_certificate(&self) -> Result<DnsCryptCachedCertificate, EncryptedDnsError> {
         let now = unix_time_secs();
-        if let Ok(guard) = self.inner.dnscrypt_state.lock() {
-            if let Some(cached) = guard.clone() {
-                if cached.valid_from <= now && now <= cached.valid_until.saturating_sub(60) {
-                    return Ok(cached);
-                }
-            }
+        if let Ok(guard) = self.inner.dnscrypt_state.lock()
+            && let Some(cached) = guard.clone()
+            && cached.valid_from <= now
+            && now <= cached.valid_until.saturating_sub(60)
+        {
+            return Ok(cached);
         }
 
         let fetched = self.fetch_dnscrypt_certificate().await?;

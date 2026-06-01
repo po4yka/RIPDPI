@@ -12,20 +12,20 @@ async fn authenticate_callback<T: AsyncRead + AsyncWrite + Unpin, A: Authenticat
 ) -> Result<(Socks5ServerProtocol<T, states::Authenticated>, A::Item), SocksServerError> {
     match auth {
         StandardAuthenticationStarted::NoAuthentication(auth) => {
-            if let Some(credentials) = auth_callback.authenticate(None).await {
+            match auth_callback.authenticate(None).await { Some(credentials) => {
                 Ok((auth.finish_auth(), credentials))
-            } else {
+            } _ => {
                 Err(SocksServerError::AuthenticationRejected)
-            }
+            }}
         }
         StandardAuthenticationStarted::PasswordAuthentication(auth) => {
             let (username, password, auth) = auth.read_username_password().await?;
-            if let Some(credentials) = auth_callback.authenticate(Some((username, password))).await {
+            match auth_callback.authenticate(Some((username, password))).await { Some(credentials) => {
                 Ok((auth.accept().await?.finish_auth(), credentials))
-            } else {
+            } _ => {
                 auth.reject().await?;
                 Err(SocksServerError::AuthenticationRejected)
-            }
+            }}
         }
     }
 }

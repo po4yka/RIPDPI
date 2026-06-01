@@ -76,7 +76,7 @@ impl AnyTlsUdpSession {
 pub async fn connect_anytls_tcp(
     config: &AnyTlsClientConfig,
     target: &str,
-) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send> {
+) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send + use<>> {
     let client = ripdpi_anytls::session::AnyTlsClient::new(config.clone()).map_err(to_io_error)?;
     let (addr, port) = target_to_anytls(target)?;
     let stream = client.open_tcp(addr, port).await.map_err(to_io_error)?;
@@ -87,7 +87,7 @@ pub async fn connect_anytls_tcp_over<S>(
     config: &AnyTlsClientConfig,
     transport: S,
     target: &str,
-) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send>
+) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send + use<S>>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {

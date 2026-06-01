@@ -2,8 +2,8 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -363,10 +363,10 @@ pub fn extract_last_error(extra: &Value) -> Option<String> {
 pub fn monotonic_u64_samples(samples: &[SoakSample], field: &str) -> bool {
     let mut previous = None;
     for value in samples.iter().filter_map(|sample| sample.extra.get(field)).filter_map(Value::as_u64) {
-        if let Some(previous) = previous {
-            if value < previous {
-                return false;
-            }
+        if let Some(previous) = previous
+            && value < previous
+        {
+            return false;
         }
         previous = Some(value);
     }
@@ -384,7 +384,8 @@ mod tests {
 
     #[test]
     fn profile_env_defaults_to_smoke() {
-        std::env::remove_var("RIPDPI_SOAK_PROFILE");
+        // FIXME: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::remove_var("RIPDPI_SOAK_PROFILE") };
         assert_eq!(SoakProfile::from_env(), SoakProfile::Smoke);
     }
 
@@ -399,11 +400,13 @@ mod tests {
             thread_count: None,
             extra: json!({}),
         }];
-        assert!(assert_growth(
-            &samples,
-            Duration::from_secs(1),
-            GrowthThresholds { rss_growth_bytes: 1, fd_growth: 1, thread_growth: 1 }
-        )
-        .is_ok());
+        assert!(
+            assert_growth(
+                &samples,
+                Duration::from_secs(1),
+                GrowthThresholds { rss_growth_bytes: 1, fd_growth: 1, thread_growth: 1 }
+            )
+            .is_ok()
+        );
     }
 }

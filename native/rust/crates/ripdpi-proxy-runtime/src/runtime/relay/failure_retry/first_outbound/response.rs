@@ -5,7 +5,7 @@ use std::time::Instant;
 use crate::runtime::adaptive::note_server_ttl_for_route;
 use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_success;
-use crate::runtime::relay::first_exchange::{read_first_response, FirstResponse};
+use crate::runtime::relay::first_exchange::{FirstResponse, read_first_response};
 use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeConnectionRoute;
@@ -42,16 +42,10 @@ pub(super) fn handle_first_response(
             if !has_inbound_payload {
                 return Ok(FirstResponseDecision::Complete { recorded_success: false });
             }
-            if RuntimeState::should_track_strategy_target(context.target) {
-                if let Some(ttl) = server_ttl {
-                    note_server_ttl_for_route(
-                        context.state,
-                        context.target,
-                        context.route.group_index,
-                        context.host,
-                        ttl,
-                    )?;
-                }
+            if RuntimeState::should_track_strategy_target(context.target)
+                && let Some(ttl) = server_ttl
+            {
+                note_server_ttl_for_route(context.state, context.target, context.route.group_index, context.host, ttl)?;
             }
             record_stream_relay_success(
                 context.state,

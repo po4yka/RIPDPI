@@ -137,10 +137,10 @@ pub(in crate::engine::runners::strategy) fn stratified_pilot_targets(
         }
     }
 
-    if selected.is_empty() {
-        if let Some(first) = domain_targets.first() {
-            selected.push(first.clone());
-        }
+    if selected.is_empty()
+        && let Some(first) = domain_targets.first()
+    {
+        selected.push(first.clone());
     }
     selected
 }

@@ -29,11 +29,11 @@ impl KeyLog for TlsKeyLogFile {
             tracing::warn!("TLS keylog mutex poisoned");
             return;
         };
-        if let Some(parent) = self.path.parent() {
-            if let Err(err) = std::fs::create_dir_all(parent) {
-                tracing::warn!(error = %err, "failed to create TLS keylog parent directory");
-                return;
-            }
+        if let Some(parent) = self.path.parent()
+            && let Err(err) = std::fs::create_dir_all(parent)
+        {
+            tracing::warn!(error = %err, "failed to create TLS keylog parent directory");
+            return;
         }
         match OpenOptions::new().create(true).append(true).open(&self.path) {
             Ok(mut file) => {

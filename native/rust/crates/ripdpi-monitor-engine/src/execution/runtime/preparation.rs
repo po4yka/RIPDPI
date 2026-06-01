@@ -1,4 +1,4 @@
-use ripdpi_monitor_adapter::proxy_config::{runtime_config_from_ui, ProxyRuntimeContext};
+use ripdpi_monitor_adapter::proxy_config::{ProxyRuntimeContext, runtime_config_from_ui};
 
 use crate::candidates::StrategyCandidateSpec;
 
@@ -22,10 +22,10 @@ pub(crate) fn prepare_candidate_runtime(
     })?;
     let _ = ripdpi_monitor_adapter::proxy_config::presets::apply_runtime_preset("ripdpi_default", &mut config);
     config.network.listen.listen_port = 0;
-    if let Some(ctx) = runtime_context {
-        if let Some(ref path) = ctx.protect_path {
-            config.process.protect_path = Some(path.clone());
-        }
+    if let Some(ctx) = runtime_context
+        && let Some(ref path) = ctx.protect_path
+    {
+        config.process.protect_path = Some(path.clone());
     }
     Ok(PreparedCandidateRuntime { config, runtime_context: runtime_context.cloned() })
 }

@@ -26,7 +26,7 @@ use tokio::time::timeout;
 /// ```
 #[macro_export]
 macro_rules! read_exact {
-    ($stream: expr, $array: expr) => {{
+    ($stream: expr_2021, $array: expr_2021) => {{
         let mut x = $array;
         //        $stream
         //            .read_exact(&mut x)
@@ -38,7 +38,7 @@ macro_rules! read_exact {
 
 #[macro_export]
 macro_rules! ready {
-    ($e:expr $(,)?) => {
+    ($e:expr_2021 $(,)?) => {
         match $e {
             std::task::Poll::Ready(t) => t,
             std::task::Poll::Pending => return std::task::Poll::Pending,

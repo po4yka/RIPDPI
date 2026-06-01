@@ -39,10 +39,10 @@ impl SudokuTable {
                     encode_group(groups[3]),
                 ];
                 let key = pack_key(sort4(hints));
-                if let Some(existing) = decode_map.insert(key, value as u8) {
-                    if existing != value as u8 {
-                        return Err(io::Error::other("sudoku decode collision"));
-                    }
+                if let Some(existing) = decode_map.insert(key, value as u8)
+                    && existing != value as u8
+                {
+                    return Err(io::Error::other("sudoku decode collision"));
                 }
                 encodings.push(hints);
             }

@@ -554,7 +554,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::CommandR
 }
 
 macro_rules! try_notify {
-    ($proto:expr, $e:expr) => {
+    ($proto:expr_2021, $e:expr_2021) => {
         match $e {
             Ok(res) => res,
             Err(err) => {

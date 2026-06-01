@@ -1,15 +1,15 @@
 use ripdpi_monitor_adapter::failure::ClassifiedFailure;
 
 use crate::candidates::{
-    probe_fake_ttl_capability, probe_ip_fragmentation_capabilities, probe_tcp_fast_open_capability,
-    CandidateEligibility, StrategyCandidateSpec,
+    CandidateEligibility, StrategyCandidateSpec, probe_fake_ttl_capability, probe_ip_fragmentation_capabilities,
+    probe_tcp_fast_open_capability,
 };
 use crate::types::ProbeResult;
 
 use super::super::support::{
+    ECH_ELIGIBILITY_RATIONALE, FAKE_TTL_ELIGIBILITY_RATIONALE, TCP_FAST_OPEN_ELIGIBILITY_RATIONALE,
     baseline_supports_ech_candidates, capability_available, capability_suffix, compute_rst_adaptive_timeout,
-    missing_capability_rationale, ECH_ELIGIBILITY_RATIONALE, FAKE_TTL_ELIGIBILITY_RATIONALE,
-    TCP_FAST_OPEN_ELIGIBILITY_RATIONALE,
+    missing_capability_rationale,
 };
 
 #[derive(Clone, Copy)]
@@ -44,10 +44,10 @@ pub(super) fn probe_tcp_capabilities(
         raw_ipv6 = capabilities.ipfrag_caps.raw_ipv6,
         "strategy probe: capabilities probed"
     );
-    if let Some(failure) = baseline_failure {
-        if let Some(timeout) = compute_rst_adaptive_timeout(failure) {
-            tracing::info!(adaptive_timeout_ms = timeout.as_millis(), "strategy probe: adaptive timeout (rst)");
-        }
+    if let Some(failure) = baseline_failure
+        && let Some(timeout) = compute_rst_adaptive_timeout(failure)
+    {
+        tracing::info!(adaptive_timeout_ms = timeout.as_millis(), "strategy probe: adaptive timeout (rst)");
     }
     capabilities
 }

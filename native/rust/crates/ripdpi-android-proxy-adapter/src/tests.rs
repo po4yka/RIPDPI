@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use android_support::describe_exception;
 use jni::sys::jlong;
-use jni::{sys::jstring, Env};
+use jni::{Env, sys::jstring};
 use proptest::collection::vec;
 use proptest::prelude::*;
 use ripdpi_config::RuntimeConfig;
@@ -21,8 +21,8 @@ use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
 use super::lifecycle::open_proxy_listener;
 use super::registry::{
-    control_for_proxy_stop, ensure_proxy_destroyable, lookup_proxy_session, remove_proxy_session,
-    try_mark_proxy_running, ProxySession, ProxySessionState, SESSIONS,
+    ProxySession, ProxySessionState, SESSIONS, control_for_proxy_stop, ensure_proxy_destroyable, lookup_proxy_session,
+    remove_proxy_session, try_mark_proxy_running,
 };
 
 const GEOIP_ASN_FIXTURE: &[u8] = include_bytes!("../../ripdpi-geo/tests/fixtures/GeoLite2-ASN-Test.mmdb");
@@ -362,10 +362,10 @@ impl ProxySessionHarness {
 
     fn cleanup(&mut self) {
         if let Some(handle) = self.active_handle.take() {
-            if let Ok(session) = lookup_proxy_session(handle) {
-                if let Ok(mut state) = session.state.lock() {
-                    *state = ProxySessionState::Idle;
-                }
+            if let Ok(session) = lookup_proxy_session(handle)
+                && let Ok(mut state) = session.state.lock()
+            {
+                *state = ProxySessionState::Idle;
             }
             let _ = remove_proxy_session(handle);
             self.stale_handle = Some(handle);
@@ -418,11 +418,7 @@ impl Drop for ProxyHandle {
 }
 
 fn proxy_absent_error(handle: jlong) -> String {
-    if to_handle(handle).is_some() {
-        "Unknown proxy handle".to_string()
-    } else {
-        "Invalid proxy handle".to_string()
-    }
+    if to_handle(handle).is_some() { "Unknown proxy handle".to_string() } else { "Invalid proxy handle".to_string() }
 }
 
 fn proxy_state_command_strategy() -> impl Strategy<Value = Vec<ProxyStateCommand>> {

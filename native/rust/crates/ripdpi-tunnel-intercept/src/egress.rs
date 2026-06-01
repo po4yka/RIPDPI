@@ -5,13 +5,13 @@ use std::io;
 use std::net::SocketAddr;
 
 use ripdpi_packets::{
-    http_marker_info, parse_quic_initial, parse_quic_initial_layout, parse_tls, second_level_domain_span,
-    tls_marker_info, QuicInitialLayout,
+    QuicInitialLayout, http_marker_info, parse_quic_initial, parse_quic_initial_layout, parse_tls,
+    second_level_domain_span, tls_marker_info,
 };
 use ripdpi_strategy_config::{
     LoadedStrategy, LoadedStrategyConfig, OnFail, ProtocolName, StepType, StrategyMatch, StrategyStep,
 };
-use ripdpi_strategy_ipv6::{apply_ipv6_ext_header, Ipv6ExtType};
+use ripdpi_strategy_ipv6::{Ipv6ExtType, apply_ipv6_ext_header};
 use ripdpi_strategy_registry::StrategyRegistry;
 use ripdpi_strategy_trait::{
     Capabilities, CapabilityTier, ConnectionState, DesyncAction, DesyncPlan, Dissect, FlowDirection, FlowId,
@@ -22,12 +22,12 @@ use tracing::{debug, warn};
 mod packet;
 
 use self::packet::{
-    low_ttl_tcp_copy, packet_destination, packet_with_payload, set_packet_hop_limit, transport_endpoint, PacketMeta,
-    Transport,
+    PacketMeta, Transport, low_ttl_tcp_copy, packet_destination, packet_with_payload, set_packet_hop_limit,
+    transport_endpoint,
 };
 
 #[cfg(test)]
-use self::packet::{recompute_ipv4_header_checksum, IPV4_MIN_HEADER_LEN, IPV6_HEADER_LEN, TCP_PROTO, UDP_PROTO};
+use self::packet::{IPV4_MIN_HEADER_LEN, IPV6_HEADER_LEN, TCP_PROTO, UDP_PROTO, recompute_ipv4_header_checksum};
 
 pub trait TunPacketInjector {
     fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()>;
@@ -442,10 +442,10 @@ fn inject_strategy_output<I: TunPacketInjector>(
     }
     let injection = if transport_endpoint(output).is_some() {
         let mut packet = output.to_vec();
-        if let Some(ttl) = ttl {
-            if set_packet_hop_limit(&mut packet, ttl).is_none() {
-                return false;
-            }
+        if let Some(ttl) = ttl
+            && set_packet_hop_limit(&mut packet, ttl).is_none()
+        {
+            return false;
         }
         packet
     } else {
@@ -507,7 +507,7 @@ mod tests {
     use std::io;
     use std::net::{IpAddr, Ipv6Addr};
 
-    use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial_layout, QUIC_V1_VERSION};
+    use ripdpi_packets::{QUIC_V1_VERSION, build_realistic_quic_initial, parse_quic_initial_layout};
 
     use super::*;
 

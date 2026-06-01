@@ -71,10 +71,10 @@ impl AppFamilyMemory {
     /// No-op when no mark exists for the package.
     pub fn invalidate_on_app_update(&mut self, package_name: &str, new_version_code: u64) {
         // Remove any mark whose version no longer matches.
-        if let Some(recorded) = self.marked.get(package_name).copied() {
-            if recorded != new_version_code {
-                self.marked.remove(package_name);
-            }
+        if let Some(recorded) = self.marked.get(package_name).copied()
+            && recorded != new_version_code
+        {
+            self.marked.remove(package_name);
         }
     }
 }

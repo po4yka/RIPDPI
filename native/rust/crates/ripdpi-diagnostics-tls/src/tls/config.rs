@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ripdpi_tls_profiles::{selected_profile_config, selected_profile_metadata, ProfileMetadata};
+use ripdpi_tls_profiles::{ProfileMetadata, selected_profile_config, selected_profile_metadata};
 use rustls::client::danger::ServerCertVerifier;
 use rustls::client::{EchConfig, EchMode};
 use rustls::pki_types::{EchConfigListBytes, ServerName};
@@ -10,8 +10,8 @@ use super::key_log::TlsKeyLogCallback;
 use super::types::TlsClientProfile;
 use crate::cdn_ech::opportunistic_ech_config_for_ip;
 use crate::dns::{
-    encrypted_dns_endpoint_for_resolver_id, resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
-    EchResolutionOutcome,
+    EchResolutionOutcome, encrypted_dns_endpoint_for_resolver_id,
+    resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
 };
 use crate::transport::{TargetAddress, TransportConfig};
 
@@ -123,10 +123,10 @@ fn resolve_opportunistic_ech(target: &TargetAddress) -> Option<&'static crate::c
 }
 
 pub fn make_server_name(name: &str, target: &TargetAddress) -> Result<ServerName<'static>, String> {
-    if !name.is_empty() {
-        if let Ok(server_name) = ServerName::try_from(name.to_string()) {
-            return Ok(server_name);
-        }
+    if !name.is_empty()
+        && let Ok(server_name) = ServerName::try_from(name.to_string())
+    {
+        return Ok(server_name);
     }
     match target {
         TargetAddress::Ip(ip) => Ok(ServerName::IpAddress((*ip).into())),

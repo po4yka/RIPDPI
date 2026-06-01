@@ -66,12 +66,11 @@ impl AdaptiveHintPort for ServicesStateHandle {
         group: &DesyncGroup,
         payload: &[u8],
     ) -> io::Result<AdaptivePlannerHints> {
-        if config.adaptive.strategy_evolution {
-            if let Ok(mut evolver) = self.0.adaptive.strategy_evolver.write() {
-                if let Some(hints) = evolver.tcp_hints(config, context, target, host, payload) {
-                    return Ok(morph_policy::apply_tcp_morph_policy_to_hints(self.morph_policy(), hints));
-                }
-            }
+        if config.adaptive.strategy_evolution
+            && let Ok(mut evolver) = self.0.adaptive.strategy_evolver.write()
+            && let Some(hints) = evolver.tcp_hints(config, context, target, host, payload)
+        {
+            return Ok(morph_policy::apply_tcp_morph_policy_to_hints(self.morph_policy(), hints));
         }
         self.resolve_tcp_hints(self.network_scope_key(config).as_deref(), group_index, target, host, group, payload)
     }
@@ -85,14 +84,13 @@ impl AdaptiveHintPort for ServicesStateHandle {
         group: &DesyncGroup,
         payload: &[u8],
     ) -> io::Result<AdaptivePlannerHints> {
-        if config.adaptive.strategy_evolution {
-            if let Ok(mut evolver) = self.0.adaptive.strategy_evolver.write() {
-                if let Some(hints) = evolver.udp_hints(config, context, target, host, payload) {
-                    let hints = morph_policy::apply_udp_morph_policy_to_hints(self.morph_policy(), hints);
-                    let capability = strategy_context::direct_path_capability_for_route(context, host, target);
-                    return Ok(merge_udp_hints_with_capability(hints, capability));
-                }
-            }
+        if config.adaptive.strategy_evolution
+            && let Ok(mut evolver) = self.0.adaptive.strategy_evolver.write()
+            && let Some(hints) = evolver.udp_hints(config, context, target, host, payload)
+        {
+            let hints = morph_policy::apply_udp_morph_policy_to_hints(self.morph_policy(), hints);
+            let capability = strategy_context::direct_path_capability_for_route(context, host, target);
+            return Ok(merge_udp_hints_with_capability(hints, capability));
         }
         self.resolve_udp_hints(self.network_scope_key(config).as_deref(), group_index, target, host, group, payload)
     }

@@ -13,12 +13,12 @@ use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
-use connect_relay::{connect_and_relay, ConnectRelayError, SuccessReply};
+use connect_relay::{ConnectRelayError, SuccessReply, connect_and_relay};
 use protocol_io::{
     negotiate_socks5, read_http_connect_request, read_shadowsocks_request, read_socks4_request, read_socks5_request,
 };
 
-use super::state::{RuntimeState, HANDSHAKE_TIMEOUT};
+use super::state::{HANDSHAKE_TIMEOUT, RuntimeState};
 use super::types::{RuntimeClientRequest, RuntimeProxyProtocolMode, RuntimeSessionError};
 
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
@@ -168,12 +168,12 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
 
 fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let request = read_http_connect_request(&mut client)?;
-    if let Some(token) = state.proxy_auth_token() {
-        if !protocol_io::validate_http_proxy_auth(&request, token) {
-            let reply = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"ripdpi\"\r\nContent-Length: 0\r\n\r\n";
-            let _ = client.write_all(reply);
-            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "missing or invalid http proxy credentials"));
-        }
+    if let Some(token) = state.proxy_auth_token()
+        && !protocol_io::validate_http_proxy_auth(&request, token)
+    {
+        let reply = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"ripdpi\"\r\nContent-Length: 0\r\n\r\n";
+        let _ = client.write_all(reply);
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "missing or invalid http proxy credentials"));
     }
     let resolver = |host: &str| state.resolve_handshake_name(host);
     match RuntimeState::parse_http_connect_client_request(&request, resolver) {

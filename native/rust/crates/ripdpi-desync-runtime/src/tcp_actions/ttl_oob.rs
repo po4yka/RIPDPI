@@ -4,7 +4,7 @@ use super::accounting::{ActionContext, FallbackAccounting};
 
 use crate::strategy_family::{restore_ttl_action_name, set_ttl_action_name, write_action_name};
 use crate::tcp_lowering::{
-    send_oob_with_android_ttl_fallback, write_payload_with_android_ttl_fallback, TcpLoweringCapabilities,
+    TcpLoweringCapabilities, send_oob_with_android_ttl_fallback, write_payload_with_android_ttl_fallback,
 };
 use crate::transport_io::{send_oob_action_named, send_transport_oob_payload};
 use crate::types::OutboundSendError;
@@ -117,17 +117,17 @@ impl TtlOobActionExecutor {
         context: &ActionContext,
         accounting: &FallbackAccounting,
     ) -> Result<(), OutboundSendError> {
-        if let Some(restore) = cached_restore_ttl {
-            if lowering_caps.restore_default_ttl_named(
+        if let Some(restore) = cached_restore_ttl
+            && lowering_caps.restore_default_ttl_named(
                 writer,
                 restore,
                 context.strategy_family.map_or("restore_default_ttl", restore_ttl_action_name),
                 context.strategy_family.unwrap_or("split"),
                 accounting.fallback(),
                 accounting.bytes_committed(),
-            )? {
-                *ttl_modified = false;
-            }
+            )?
+        {
+            *ttl_modified = false;
         }
         Ok(())
     }

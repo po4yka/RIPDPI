@@ -201,11 +201,11 @@ impl TransportPolicyCache {
     pub fn lookup(&mut self, key: &TransportPolicyCacheKey) -> Option<&CachedTransportPolicy> {
         let ttl = self.ttl_secs;
         let now = now_secs();
-        if let Some(entry) = self.entries.get(key) {
-            if entry.is_expired(now, ttl) {
-                self.entries.remove(key);
-                return None;
-            }
+        if let Some(entry) = self.entries.get(key)
+            && entry.is_expired(now, ttl)
+        {
+            self.entries.remove(key);
+            return None;
         }
         self.entries.get(key).map(|e| &e.policy)
     }

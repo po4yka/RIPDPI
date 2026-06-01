@@ -95,7 +95,7 @@ impl DnsCache {
             .lru
             .iter()
             .rev()
-            .find(|(_, &slot)| {
+            .find(|&(_, &slot)| {
                 let candidate_ip = self.net | slot as u32;
                 !self.pinned.contains(&candidate_ip)
             })

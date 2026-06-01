@@ -1,20 +1,20 @@
 use std::collections::HashMap;
 use std::io;
 use std::net::SocketAddr;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use ripdpi_collections::bounded_heap::BoundedHeap;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
-use crate::session::Auth;
 use crate::Stats;
+use crate::session::Auth;
 
-use super::association_state::{remove_association, touch_udp_activity, UdpAssociation};
+use super::association_state::{UdpAssociation, remove_association, touch_udp_activity};
 use super::event_handling::UdpEvent;
-use super::eviction::{evict_if_over_capacity, UdpEvictionEntry};
+use super::eviction::{UdpEvictionEntry, evict_if_over_capacity};
 use super::worker::create_udp_association;
 
 /// IANA IP protocol number for UDP, for flow-attribution `note_flow`.
@@ -30,10 +30,10 @@ pub(in crate::io_loop) fn record_quic_sni_if_present(stats: &Stats, payload: &[u
     }
     if let Some(info) = ripdpi_packets::parse_quic_initial(payload) {
         let host = info.host();
-        if !host.is_empty() {
-            if let Ok(sni) = std::str::from_utf8(host) {
-                stats.record_last_host(Some(sni));
-            }
+        if !host.is_empty()
+            && let Ok(sni) = std::str::from_utf8(host)
+        {
+            stats.record_last_host(Some(sni));
         }
     }
 }

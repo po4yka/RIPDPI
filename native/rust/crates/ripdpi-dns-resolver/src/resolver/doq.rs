@@ -35,10 +35,10 @@ impl EncryptedDnsResolver {
         // Try cached connection.
         {
             let guard = self.inner.doq_connection.lock().await;
-            if let Some(ref conn) = *guard {
-                if conn.close_reason().is_none() {
-                    return Ok(conn.clone());
-                }
+            if let Some(ref conn) = *guard
+                && conn.close_reason().is_none()
+            {
+                return Ok(conn.clone());
             }
         }
         // New connection.
@@ -120,8 +120,8 @@ fn doq_bind_addr(endpoint: &EncryptedDnsEndpoint) -> io::Result<SocketAddr> {
 #[cfg(test)]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, UdpSocket};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::build_doq_endpoint;
     use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsProtocol};

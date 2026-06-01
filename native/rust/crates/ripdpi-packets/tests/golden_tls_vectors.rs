@@ -38,7 +38,7 @@ const FIXTURES: &[GoldenFixture] = &[
 ];
 
 fn extract_sni_via_tls_parser(data: &[u8]) -> Option<Vec<u8>> {
-    use tls_parser::{parse_tls_extensions, parse_tls_plaintext, TlsExtension, TlsMessage, TlsMessageHandshake};
+    use tls_parser::{TlsExtension, TlsMessage, TlsMessageHandshake, parse_tls_extensions, parse_tls_plaintext};
 
     let (_, record) = parse_tls_plaintext(data).ok()?;
     for msg in &record.msg {
@@ -46,10 +46,10 @@ fn extract_sni_via_tls_parser(data: &[u8]) -> Option<Vec<u8>> {
             let exts = ch.ext?;
             if let Ok((_, extensions)) = parse_tls_extensions(exts) {
                 for ext in &extensions {
-                    if let TlsExtension::SNI(sni_list) = ext {
-                        if let Some((_, name)) = sni_list.first() {
-                            return Some(name.to_vec());
-                        }
+                    if let TlsExtension::SNI(sni_list) = ext
+                        && let Some((_, name)) = sni_list.first()
+                    {
+                        return Some(name.to_vec());
                     }
                 }
             }

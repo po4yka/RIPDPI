@@ -63,12 +63,13 @@ fn parse_issuer_cn(der: &[u8]) -> Option<String> {
         while !attr_pos.is_empty() {
             let (next_attr, seq_content) = read_der_sequence(attr_pos)?;
             // First element is the OID
-            if let Some((value_bytes, oid_bytes)) = read_der_element(seq_content) {
-                if oid_bytes.len() >= OID_CN.len() && oid_bytes.ends_with(OID_CN) {
-                    // Second element is the value (UTF8String, PrintableString, etc.)
-                    if let Some((_rest, cn_bytes)) = read_der_element(value_bytes) {
-                        return String::from_utf8(cn_bytes.to_vec()).ok();
-                    }
+            if let Some((value_bytes, oid_bytes)) = read_der_element(seq_content)
+                && oid_bytes.len() >= OID_CN.len()
+                && oid_bytes.ends_with(OID_CN)
+            {
+                // Second element is the value (UTF8String, PrintableString, etc.)
+                if let Some((_rest, cn_bytes)) = read_der_element(value_bytes) {
+                    return String::from_utf8(cn_bytes.to_vec()).ok();
                 }
             }
             attr_pos = next_attr;

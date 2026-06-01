@@ -1,7 +1,7 @@
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream, ToSocketAddrs, UdpSocket};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
@@ -14,7 +14,7 @@ use serde_json::Value;
 use crate::transport::{decode_socks5_udp_frame, encode_socks5_udp_frame};
 use crate::types::ScanReport;
 use crate::util::{CONNECT_TIMEOUT, FAT_HEADER_THRESHOLD_BYTES, IO_TIMEOUT};
-use crate::{contracts::ScanProgress, MonitorSession};
+use crate::{MonitorSession, contracts::ScanProgress};
 
 pub struct UdpDnsServer {
     addr: SocketAddr,
@@ -489,12 +489,12 @@ fn scrub_flaky_http_fuzz_detail(detail_key: &str, value: &mut Value) {
         "httpResponse" => Some("403 Forbidden server=unknown"),
         "probeRetryCount" => Some("0"),
         "httpFuzzBaseline" => Some("http_blockpage"),
-        "httpFuzzOutcomes" if text.contains("unix_eol=") => {
-            Some("host_case_mix=http_blockpage:status=403|host_extra_space=http_blockpage:status=403|unix_eol=http_unreachable:<error>")
-        }
-        "httpFuzzFieldOutcomes" if text.contains("line_endings=unix_eol:") => {
-            Some("host_header_format=host_case_mix:http_blockpage,host_extra_space:http_blockpage;line_endings=unix_eol:http_unreachable")
-        }
+        "httpFuzzOutcomes" if text.contains("unix_eol=") => Some(
+            "host_case_mix=http_blockpage:status=403|host_extra_space=http_blockpage:status=403|unix_eol=http_unreachable:<error>",
+        ),
+        "httpFuzzFieldOutcomes" if text.contains("line_endings=unix_eol:") => Some(
+            "host_header_format=host_case_mix:http_blockpage,host_extra_space:http_blockpage;line_endings=unix_eol:http_unreachable",
+        ),
         "httpFuzzChangedFields" => Some("line_endings"),
         "httpFuzzChangedCount" => Some("1"),
         _ => None,
@@ -661,10 +661,10 @@ pub fn handle_fat_http_stream(stream: &mut impl ReadWrite, fat_mode: FatServerMo
         }
         total_read += request.len();
         let request_text = String::from_utf8_lossy(&request).to_ascii_lowercase();
-        if let FatServerMode::AllowHost(expected) = &fat_mode {
-            if !request_text.contains(&expected.to_ascii_lowercase()) {
-                return;
-            }
+        if let FatServerMode::AllowHost(expected) = &fat_mode
+            && !request_text.contains(&expected.to_ascii_lowercase())
+        {
+            return;
         }
         if matches!(&fat_mode, FatServerMode::CutoffAtThreshold) && total_read >= FAT_HEADER_THRESHOLD_BYTES {
             return;

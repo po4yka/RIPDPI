@@ -35,7 +35,7 @@ use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::reality_seal::{seal_session_id, SESSION_ID_LEN, SESSION_ID_OFFSET};
+use crate::reality_seal::{SESSION_ID_LEN, SESSION_ID_OFFSET, seal_session_id};
 
 #[repr(C)]
 pub(crate) struct SslCtxHandle {
@@ -67,7 +67,7 @@ pub(crate) type RealityHelloCb =
     extern "C" fn(ssl: *mut SslHandle, msg: *mut u8, msg_len: usize, arg: *mut c_void) -> c_int;
 
 #[cfg(not(feature = "miri-stubs"))]
-extern "C" {
+unsafe extern "C" {
     /// Patched BoringSSL accessor. Returns 1 if it copied 32 bytes
     /// into `out`, 0 otherwise. Valid only between
     /// `ssl_setup_key_shares` and the destruction of the handshake
@@ -95,7 +95,7 @@ extern "C" {
 /// Enable via `cargo +nightly miri test -p ripdpi-vless --features miri-stubs`.
 #[cfg(feature = "miri-stubs")]
 mod miri_stubs {
-    use super::{c_int, c_void, RealityHelloCb, SslCtxHandle, SslHandle};
+    use super::{RealityHelloCb, SslCtxHandle, SslHandle, c_int, c_void};
 
     /// Writes 32 zero bytes to `out` and returns 1 (success) so the
     /// callback's `priv_key` path doesn't take the empty-key error

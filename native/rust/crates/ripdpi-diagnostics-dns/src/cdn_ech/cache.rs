@@ -56,10 +56,10 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
     pub fn current_config(&self) -> Vec<u8> {
         let mut guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
 
-        if let Some(ref cached) = *guard {
-            if cached.fetched_at.elapsed() < self.ttl {
-                return cached.config.clone();
-            }
+        if let Some(ref cached) = *guard
+            && cached.fetched_at.elapsed() < self.ttl
+        {
+            return cached.config.clone();
         }
 
         let fresh = self.primary.fetch().or_else(|primary_error| {
@@ -81,11 +81,7 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
             }
             Err(error) => {
                 tracing::warn!(error = %error, "ECH fallback source also failed");
-                if let Some(ref stale) = *guard {
-                    stale.config.clone()
-                } else {
-                    CLOUDFLARE_ECH_CONFIG_LIST.to_vec()
-                }
+                if let Some(ref stale) = *guard { stale.config.clone() } else { CLOUDFLARE_ECH_CONFIG_LIST.to_vec() }
             }
         }
     }

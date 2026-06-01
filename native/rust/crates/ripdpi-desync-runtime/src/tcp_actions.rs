@@ -167,10 +167,8 @@ pub(crate) fn execute_tcp_actions(
     })();
 
     // Safety net: restore TTL even on early error return.
-    if ttl_modified {
-        if let Some(restore) = cached_restore_ttl {
-            let _ = set_stream_ttl(writer, restore);
-        }
+    if ttl_modified && let Some(restore) = cached_restore_ttl {
+        let _ = set_stream_ttl(writer, restore);
     }
 
     // Propagate per-connection discovery to the session-level flag so

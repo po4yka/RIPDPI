@@ -28,26 +28,21 @@ pub(crate) fn apply_tcp_capability_fallback<'a>(
 
     let mut adjusted = group.clone();
     let mut changed = false;
-    if let Some(fallback_kind) = tcp_fallback_kind_for_strategy(strategy_family) {
-        if let Some(step) = adjusted.actions.tcp_chain.iter_mut().find(|step| !step.kind().is_tls_prelude()) {
-            if step.kind() != fallback_kind {
-                *step = TcpChainStep::new(fallback_kind, step.offset())
-                    .with_activation_filter(step.activation_filter())
-                    .with_inter_segment_delay_ms(step.inter_segment_delay_ms());
-                changed = true;
-            }
-        }
+    if let Some(fallback_kind) = tcp_fallback_kind_for_strategy(strategy_family)
+        && let Some(step) = adjusted.actions.tcp_chain.iter_mut().find(|step| !step.kind().is_tls_prelude())
+        && step.kind() != fallback_kind
+    {
+        *step = TcpChainStep::new(fallback_kind, step.offset())
+            .with_activation_filter(step.activation_filter())
+            .with_inter_segment_delay_ms(step.inter_segment_delay_ms());
+        changed = true;
     }
     if adjusted.actions.fake_tcp_timestamp_enabled {
         adjusted.actions.fake_tcp_timestamp_enabled = false;
         changed = true;
     }
 
-    if changed {
-        Cow::Owned(adjusted)
-    } else {
-        Cow::Borrowed(group)
-    }
+    if changed { Cow::Owned(adjusted) } else { Cow::Borrowed(group) }
 }
 
 pub(crate) fn capability_requires_desync_fallback(capability: &ProxyDirectPathCapability) -> bool {

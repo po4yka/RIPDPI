@@ -14,8 +14,8 @@
 use std::fs::{self, File};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -114,14 +114,14 @@ impl PcapCaptureSet {
             files: Vec::new(),
             total_drops: self.drops.load(Ordering::Relaxed),
         };
-        if let Some(handle) = self.writer_thread.take() {
-            if let Ok(writer_result) = handle.join() {
-                result.files = writer_result.files;
-                // Annotate the drops on the last file (most informative
-                // location for the UI).
-                if let Some(last) = result.files.last_mut() {
-                    last.drops = result.total_drops;
-                }
+        if let Some(handle) = self.writer_thread.take()
+            && let Ok(writer_result) = handle.join()
+        {
+            result.files = writer_result.files;
+            // Annotate the drops on the last file (most informative
+            // location for the UI).
+            if let Some(last) = result.files.last_mut() {
+                last.drops = result.total_drops;
             }
         }
         result

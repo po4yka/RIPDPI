@@ -75,13 +75,12 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
                 tcp_chain_step_kind_label(kind)
             )));
         }
-        if let ripdpi_config::TcpTypedChainStep::HostFake { payload, .. } = typed_step {
-            if kind == TcpChainStepKind::HostFake
-                && payload.ordering.order != FakeOrder::BeforeEach
-                && payload.midhost_offset.is_none()
-            {
-                return Err(ProxyConfigError::InvalidConfig("hostfake fakeOrder requires midhostMarker".to_string()));
-            }
+        if let ripdpi_config::TcpTypedChainStep::HostFake { payload, .. } = typed_step
+            && kind == TcpChainStepKind::HostFake
+            && payload.ordering.order != FakeOrder::BeforeEach
+            && payload.midhost_offset.is_none()
+        {
+            return Err(ProxyConfigError::InvalidConfig("hostfake fakeOrder requires midhostMarker".to_string()));
         }
     }
 

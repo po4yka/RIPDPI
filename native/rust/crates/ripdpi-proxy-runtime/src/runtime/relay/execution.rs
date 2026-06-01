@@ -5,7 +5,7 @@ use super::super::routing::{emit_failure_classified, note_block_signal_for_failu
 use super::super::state::RuntimeState;
 use super::failure_retry::record_stream_relay_success;
 use super::session::RelaySession;
-use super::stream_copy::{relay_streams, RelayStreamSettings, CONNECTION_FREEZE_MARKER};
+use super::stream_copy::{CONNECTION_FREEZE_MARKER, RelayStreamSettings, relay_streams};
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 use super::stream_copy_uring;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeRelayTimeouts};
@@ -75,25 +75,26 @@ pub(super) fn record_relay_result(
     state: &RuntimeState,
     context: RelayResultContext<'_>,
 ) -> io::Result<()> {
-    if let Ok(final_state) = relay_result {
-        if !context.success_recorded && final_state.has_inbound_payload() {
-            record_stream_relay_success(
-                state,
-                context.target,
-                context.route,
-                context.success_host,
-                context.success_payload,
-                context.success_strategy_family,
-                context.primary_strategy_family,
-            )?;
-        }
+    if let Ok(final_state) = relay_result
+        && !context.success_recorded
+        && final_state.has_inbound_payload()
+    {
+        record_stream_relay_success(
+            state,
+            context.target,
+            context.route,
+            context.success_host,
+            context.success_payload,
+            context.success_strategy_family,
+            context.primary_strategy_family,
+        )?;
     }
-    if let Err(err) = relay_result {
-        if err.to_string().contains(CONNECTION_FREEZE_MARKER) {
-            let failure = RuntimeState::classify_relay_connection_freeze(context.relay_timeouts);
-            note_block_signal_for_failure(state, context.success_host, &failure, None);
-            emit_failure_classified(state, context.target, &failure, context.success_host);
-        }
+    if let Err(err) = relay_result
+        && err.to_string().contains(CONNECTION_FREEZE_MARKER)
+    {
+        let failure = RuntimeState::classify_relay_connection_freeze(context.relay_timeouts);
+        note_block_signal_for_failure(state, context.success_host, &failure, None);
+        emit_failure_classified(state, context.target, &failure, context.success_host);
     }
     Ok(())
 }

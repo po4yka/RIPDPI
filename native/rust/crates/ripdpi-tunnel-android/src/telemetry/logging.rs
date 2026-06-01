@@ -40,7 +40,7 @@ impl TunnelTelemetryState {
 }
 
 macro_rules! emit_tunnel_event {
-    ($level:expr, $state:expr, $source:expr, $kind:expr, $message:expr) => {{
+    ($level:expr_2021, $state:expr_2021, $source:expr_2021, $kind:expr_2021, $message:expr_2021) => {{
         let context = LogContextProjection::from_state($state);
         tracing::event!(
             $level,

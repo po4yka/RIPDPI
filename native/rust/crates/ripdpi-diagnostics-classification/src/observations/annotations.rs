@@ -7,11 +7,11 @@ use crate::types::ProbeObservation;
 pub(crate) fn annotate_dns_injection_pools(observations: &mut [ProbeObservation]) {
     let mut ip_to_indices: HashMap<String, Vec<usize>> = HashMap::new();
     for (idx, obs) in observations.iter().enumerate() {
-        if let Some(dns) = &obs.dns {
-            if let Some(forged) = &dns.forged_addresses {
-                for ip in forged {
-                    ip_to_indices.entry(ip.clone()).or_default().push(idx);
-                }
+        if let Some(dns) = &obs.dns
+            && let Some(forged) = &dns.forged_addresses
+        {
+            for ip in forged {
+                ip_to_indices.entry(ip.clone()).or_default().push(idx);
             }
         }
     }

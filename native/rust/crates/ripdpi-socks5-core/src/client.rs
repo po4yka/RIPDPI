@@ -2,9 +2,9 @@ pub mod outbound;
 
 use crate::read_exact;
 use crate::util::stream::{tcp_connect, tcp_connect_with_timeout};
-use crate::util::target_addr::{read_address, TargetAddr, ToTargetAddr};
+use crate::util::target_addr::{TargetAddr, ToTargetAddr, read_address};
 use crate::{
-    consts, new_udp_header, parse_udp_request, AuthenticationMethod, ReplyError, Result, Socks5Command, SocksError,
+    AuthenticationMethod, ReplyError, Result, Socks5Command, SocksError, consts, new_udp_header, parse_udp_request,
 };
 use anyhow::Context;
 use std::io;
@@ -179,7 +179,7 @@ where
         debug!("Password will be used");
         let (username, password) = match methods.get(1) {
             Some(AuthenticationMethod::None) => unreachable!(),
-            Some(AuthenticationMethod::Password { ref username, ref password }) => Ok((username, password)),
+            Some(AuthenticationMethod::Password { username, password }) => Ok((username, password)),
             None => Err(SocksError::AuthenticationRejected(format!("Authentication rejected, missing user pass"))),
         }?;
 
@@ -230,7 +230,7 @@ where
     async fn request_header(&mut self, cmd: Socks5Command) -> Result<()> {
         let mut packet = [0u8; MAX_ADDR_LEN + 3];
         let padding; // maximum len of the headers sent
-                     // build our request packet with (socks version, Command, reserved)
+        // build our request packet with (socks version, Command, reserved)
         packet[..3].copy_from_slice(&[consts::SOCKS5_VERSION, cmd.as_u8(), 0x00]);
 
         match self.target_addr.as_ref() {
@@ -267,7 +267,7 @@ where
                     packet[20..padding].copy_from_slice(&addr.port().to_be_bytes());
                     // port
                 }
-                TargetAddr::Domain(ref domain, port) => {
+                TargetAddr::Domain(domain, port) => {
                     debug!("TargetAddr::Domain");
                     if domain.len() > u8::MAX as usize {
                         return Err(SocksError::ExceededMaxDomainLen(domain.len()));

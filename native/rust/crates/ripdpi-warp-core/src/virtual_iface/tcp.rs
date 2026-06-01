@@ -63,27 +63,23 @@ impl DynamicTcpInterface {
                     let _ = iface.poll(loop_start, &mut device, &mut sockets);
                     for (virtual_port, client_handle) in &port_client_handle_map {
                         let client_socket = sockets.get_mut::<tcp::Socket>(*client_handle);
-                        if client_socket.can_send() {
-                            if let Some(queue) = send_queue.get_mut(virtual_port) {
-                                if let Some(to_send) = queue.pop_front() {
+                        if client_socket.can_send()
+                            && let Some(queue) = send_queue.get_mut(virtual_port) {
+                                match queue.pop_front() { Some(to_send) => {
                                     let total = to_send.len();
-                                    if let Ok(sent) = client_socket.send_slice(&to_send) {
-                                        if sent < total {
+                                    if let Ok(sent) = client_socket.send_slice(&to_send)
+                                        && sent < total {
                                             queue.push_front(Bytes::copy_from_slice(&to_send[sent..]));
                                         }
-                                    }
-                                } else if client_socket.state() == tcp::State::CloseWait {
+                                } _ => if client_socket.state() == tcp::State::CloseWait {
                                     client_socket.close();
-                                }
+                                }}
                             }
-                        }
-                        if client_socket.can_recv() {
-                            if let Ok(data) = client_socket.recv(|buffer| (buffer.len(), Bytes::copy_from_slice(buffer))) {
-                                if !data.is_empty() {
+                        if client_socket.can_recv()
+                            && let Ok(data) = client_socket.recv(|buffer| (buffer.len(), Bytes::copy_from_slice(buffer)))
+                                && !data.is_empty() {
                                     endpoint.send(Event::RemoteData(*virtual_port, data));
                                 }
-                            }
-                        }
                     }
                     next_poll = iface
                         .poll_delay(loop_start, &sockets)

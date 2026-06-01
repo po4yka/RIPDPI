@@ -1,7 +1,7 @@
 use crate::transport::TransportConfig;
 use crate::types::{ScanKind, ScanRequest};
 
-use super::runners::{registration_for_family, PROBE_STAGE_REGISTRATIONS};
+use super::runners::{PROBE_STAGE_REGISTRATIONS, registration_for_family};
 use super::runtime::{ExecutionPlan, ExecutionStageId};
 use super::strategy_plan::build_strategy_execution_plan;
 
@@ -54,10 +54,10 @@ pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionSt
 
     if !request.probe_tasks.is_empty() {
         for task in &request.probe_tasks {
-            if let Some(registration) = registration_for_family(&task.family) {
-                if !ordered.contains(&registration.stage_id) {
-                    ordered.push(registration.stage_id.clone());
-                }
+            if let Some(registration) = registration_for_family(&task.family)
+                && !ordered.contains(&registration.stage_id)
+            {
+                ordered.push(registration.stage_id.clone());
             }
         }
         return ordered;

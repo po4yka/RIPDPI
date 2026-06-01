@@ -17,7 +17,7 @@ use tun_rs::AsyncDevice;
 
 use ripdpi_tunnel_config::Config;
 
-use crate::{io_loop_task, ActiveSessions, Stats, TunDevice};
+use crate::{ActiveSessions, Stats, TunDevice, io_loop_task};
 
 fn parse_tunnel_address(value: &str) -> Option<(IpAddress, u8)> {
     let (ip_part, prefix_part) = value.split_once('/').map_or((value, None), |(ip, prefix)| (ip, Some(prefix)));
@@ -128,31 +128,31 @@ pub async fn run_tunnel(
     let mut iface = Interface::new(iface_cfg, &mut device, Instant::now());
     iface.set_any_ip(true);
 
-    if let Some(ref ipv4_str) = config.tunnel.ipv4 {
-        if let Some((ip, prefix)) = parse_tunnel_address(ipv4_str) {
-            iface.update_ip_addrs(|addrs| {
-                let _ = addrs.push(IpCidr::new(ip, prefix));
-            });
-            if let IpAddress::Ipv4(v4) = ip {
-                iface
-                    .routes_mut()
-                    .add_default_ipv4_route(v4)
-                    .map_err(|e| io::Error::other(format!("install default IPv4 route for {ipv4_str}: {e}")))?;
-            }
+    if let Some(ref ipv4_str) = config.tunnel.ipv4
+        && let Some((ip, prefix)) = parse_tunnel_address(ipv4_str)
+    {
+        iface.update_ip_addrs(|addrs| {
+            let _ = addrs.push(IpCidr::new(ip, prefix));
+        });
+        if let IpAddress::Ipv4(v4) = ip {
+            iface
+                .routes_mut()
+                .add_default_ipv4_route(v4)
+                .map_err(|e| io::Error::other(format!("install default IPv4 route for {ipv4_str}: {e}")))?;
         }
     }
 
-    if let Some(ref ipv6_str) = config.tunnel.ipv6 {
-        if let Some((ip, prefix)) = parse_tunnel_address(ipv6_str) {
-            iface.update_ip_addrs(|addrs| {
-                let _ = addrs.push(IpCidr::new(ip, prefix));
-            });
-            if let IpAddress::Ipv6(v6) = ip {
-                iface
-                    .routes_mut()
-                    .add_default_ipv6_route(v6)
-                    .map_err(|e| io::Error::other(format!("install default IPv6 route for {ipv6_str}: {e}")))?;
-            }
+    if let Some(ref ipv6_str) = config.tunnel.ipv6
+        && let Some((ip, prefix)) = parse_tunnel_address(ipv6_str)
+    {
+        iface.update_ip_addrs(|addrs| {
+            let _ = addrs.push(IpCidr::new(ip, prefix));
+        });
+        if let IpAddress::Ipv6(v6) = ip {
+            iface
+                .routes_mut()
+                .add_default_ipv6_route(v6)
+                .map_err(|e| io::Error::other(format!("install default IPv6 route for {ipv6_str}: {e}")))?;
         }
     }
 
