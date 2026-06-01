@@ -18,7 +18,7 @@ This crate implements the Hysteria 2 client over Quinn, including:
 - Bearer / preshared auth headers
 - H3 CONNECT and CONNECT-UDP paths for TCP and UDP forwarding
 
-Pins on the v2 release line. v1 is documented as unsupported in `docs/tasks/issues/add-hysteria-v1-outbound-client-crate-and-profile-editor.md`.
+Pins on the v2 release line. v1 was removed entirely per `docs/adr/0004-protocol-support-policy.md`.
 
 ## Drift policy
 

@@ -31,4 +31,4 @@ Post-handshake socket rebind is implemented in `migration.rs`; Quinn performs RF
 ## Non-goals
 
 - Server-side Hysteria.
-- v1 client; see `add-hysteria-v1-outbound-client-crate-and-profile-editor.md` for a separate decision.
+- v1 client; Hysteria v1 was removed entirely per `docs/adr/0004-protocol-support-policy.md` (legacy, never carried traffic).

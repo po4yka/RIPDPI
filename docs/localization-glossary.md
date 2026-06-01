@@ -28,9 +28,7 @@ Han script.
 | Term | Keep verbatim | Notes |
 | --- | --- | --- |
 | VLESS | yes | Relay protocol. `RelayKind::VlessReality` (a). VLESS Reality does not use real ECH per `docs/adr/0001-reality-ech.md`. |
-| VMess | yes | Proxy protocol identifier; keep mixed-case `VMess`. |
 | Trojan | yes | Relay protocol. `RelayKind::Trojan` (a). |
-| Trojan-Go | yes | Trojan variant; keep the `-Go` suffix and hyphen. |
 | Shadowsocks | yes | Relay protocol. `RelayKind::Shadowsocks` (a). |
 | Hysteria | yes | Relay protocol family. |
 | Hysteria2 | yes | Relay protocol. `RelayKind::Hysteria2` (a); wire id `hysteria2`. Keep the trailing `2` (no space). |

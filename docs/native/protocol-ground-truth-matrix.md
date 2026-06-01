@@ -10,7 +10,7 @@ This is a point-in-time snapshot derived from source at audit time, not a living
 
 - **SOCKS5 UDP ASSOCIATE exists and is on by default — the docs say it does not exist.** Implemented in two independent paths; the Kotlin layer has no field to disable it.
 - **Mixed inbound (SOCKS4 + SOCKS5 + HTTP CONNECT on one port) is implemented and undocumented.** First-byte peek dispatches; SOCKS4 inbound is wholly undeclared (§7).
-- **Five of six extended-outbound relays ship config/validation/UI but a STUBBED wire engine** that fails session creation with `Unimplemented` (VMess, Trojan-Go, Mieru, Hysteria-v1, SSH). Only **AnyTLS** carries traffic. SSH is stubbed *specifically* to avoid opening an unprotected socket — it honors the `VpnService.protect()` invariant (§10).
+- **VMess, Trojan-Go, and Hysteria v1 were removed entirely** (code + docs) per [ADR 0004](../adr/0004-protocol-support-policy.md) — they were never-completed stubs that carried no traffic. The remaining stubbed relays are **Mieru** and **SSH** (backlog, not legacy); only **AnyTLS** of the extended-outbound set carries traffic. SSH is stubbed *specifically* to avoid opening an unprotected socket — it honors the `VpnService.protect()` invariant (§10).
 - **The Xray provider (VLESS/REALITY/XHTTP) is a Go/gomobile path, not Rust**; its `.so` is not committed and its REALITY ECH behavior is opaque to the Kotlin/Rust layers (§11).
 - **VLESS REALITY emits no ECH extension at all** (neither real ECH nor GREASE). The cover-domain-conditioned ECH-GREASE policy lives only in ADR 0001 as future intent.
 - **DoQ is silently blocked over SOCKS5 transport**, which is the transport the proxy runtime uses internally; the new DoH-JSON survey is **diagnostics-only** and never a runtime resolver path (§4).
@@ -149,19 +149,18 @@ This is a point-in-time snapshot derived from source at audit time, not a living
 |---|---|---|---|---|
 | `VpnService.Builder.setHttpProxy(ProxyInfo)` advertises the local listener on Android 10+ | `CONFIG_CONTRACTS.md` (listener contract); not in `docs/native/proxy-engine.md` | **full** | `core/service/.../RipDpiVpnService.kt` (`builder.setHttpProxy(buildHttpProxyInfo(httpProxyPort))` gated on `SDK_INT >= Q`; `buildHttpProxyInfo` = `ProxyInfo.buildDirectProxy("127.0.0.1", port, httpProxyExclusionList)`) | Opt-in; loopback excluded from proxying. Effective port follows the proxy listener. |
 
-## 10 — Extended outbound relay protocols (VMess / Trojan-Go / Mieru / Hysteria-v1 / SSH / AnyTLS)
+## 10 — Extended outbound relay protocols (Mieru / SSH / AnyTLS)
 
-Commit `b189c9c8e`: for every protocol the config parse/validate, typed legacy/error rejection, secret redaction, `RelayKind`/`RelayBackend`/transport-descriptor registration (drift-matched Kotlin↔Rust), wire DTO + section codec, URI codec + round-trip tests, Compose editor, and all-7-locale strings are **real**. The novel crypto wire-engines are **stubbed** behind typed `Unimplemented` errors with `TODO(outbound-<proto>)`.
+> **2026-06-01 — VMess, Trojan-Go, and Hysteria v1 were removed entirely** per [ADR 0004](../adr/0004-protocol-support-policy.md). The `ripdpi-vmess`/`ripdpi-trojan-go`/`ripdpi-hysteria-v1` crates, their `RelayKind`/builder/descriptor/flat-config surface, the Kotlin `ProxyProfile.Vmess`/`TrojanGo`/`HysteriaV1` types + editors + URI-codec arms, the proto fields (reserved), and all locale strings are gone. The relay native-config schema ceiling is now `8`. A persisted config or share-link naming a removed kind is rejected (native `Unsupported` catch-all / URI codec returns `null`); a subscription node naming one is skipped. The rows below cover only the relays that still exist.
+
+The remaining extended-outbound relays still carry the full config parse/validate, typed error rejection, secret redaction, `RelayKind`/`RelayBackend`/transport-descriptor registration (drift-matched Kotlin↔Rust), wire DTO + section codec, URI codec + round-trip tests, Compose editor, and localized strings. Of them, only **AnyTLS** has a live wire engine; **Mieru** and **SSH** remain stubbed behind typed `Unimplemented` errors (backlog work, not legacy).
 
 | Step | Declared | Impl | Evidence | Gap |
 |---|---|---|---|---|
-| `RelayKind` registration for all six | (undocumented) | **full** | `ripdpi-relay-core/src/config/kind.rs:6-10,17` (`Vmess`/`TrojanGo`/`Mieru`/`HysteriaV1`/`Ssh`/`AnyTls`) | Config/enum surface complete. |
-| VMess wire engine | (undocumented) | **absent (stub)** | `ripdpi-relay-core/src/backend/builder/builders/vmess.rs:11-13` (validates config, session-create fails `Unimplemented`) | AEAD handshake not wired. |
-| Trojan-Go wire engine | (undocumented) | **absent (stub)** | `builders/trojan_go.rs:13` | SMUX/WS engine not wired; sunset-flagged. |
-| Mieru wire engine | (undocumented) | **absent (stub)** | `builders/mieru.rs:14` | Session/replay engine not wired. |
-| Hysteria-v1 wire engine | (undocumented) | **absent (stub)** | `builders/hysteria_v1.rs:14` | QUIC-v1 engine not wired; legacy, sunset-flagged. |
-| SSH wire engine | (undocumented) | **absent (stub — protect-invariant)** | `builders/ssh.rs:12-16` ("`russh` … stubbed because the relay layer exposes no protected outbound connector … fails … `Unimplemented` rather than opening an unprotected socket"); `ripdpi-ssh/Cargo.toml:9` has a real `russh` dep | The `russh` engine is cryptographically real but unreachable from relay until a `VpnService.protect()`-honoring connector exists. A faithful application of `vpnservice-protect-invariant.md`. |
-| AnyTLS wire engine | (undocumented) | **full** | `builders/anytls.rs:8-28` (builds live `AnyTlsSessionFactory`/`AnyTlsClientConfig`; no `Unimplemented`) | Carries traffic — the only one of the six that does. |
+| `RelayKind` registration for the remaining kinds | (undocumented) | **full** | `ripdpi-relay-core/src/config/kind.rs` (`Mieru`/`Ssh`/`AnyTls`, alongside the shipped Hysteria2/TUIC/VLESS/etc.) | Config/enum surface complete; removed kinds fall through to the `Unsupported` catch-all. |
+| Mieru wire engine | (undocumented) | **absent (stub)** | `builders/mieru.rs` | Session/replay engine not wired. Backlog. |
+| SSH wire engine | (undocumented) | **absent (stub — protect-invariant)** | `builders/ssh.rs` ("`russh` … stubbed because the relay layer exposes no protected outbound connector … fails … `Unimplemented` rather than opening an unprotected socket"); `ripdpi-ssh/Cargo.toml` has a real `russh` dep | The `russh` engine is cryptographically real but unreachable from relay until a `VpnService.protect()`-honoring connector exists. A faithful application of `vpnservice-protect-invariant.md`. |
+| AnyTLS wire engine | (undocumented) | **full** | `builders/anytls.rs` (builds live `AnyTlsSessionFactory`/`AnyTlsClientConfig`; no `Unimplemented`) | Carries traffic — the only one of the remaining set that does. |
 | Upstream SOCKS5 chaining forwards ASSOCIATE | docs: n/a | **absent** | `ripdpi-socks5-core/src/client/outbound.rs:14` ("out of scope (v1)") | Unchanged by the extended-outbound work — ASSOCIATE still not forwarded upstream. |
 
 ## 11 — Xray provider (libXray — VLESS / REALITY / XHTTP)

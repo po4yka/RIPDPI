@@ -20,7 +20,6 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | high | rust-native | [Add uTLS per-connection TLS-fingerprint rotation](issues/add-utls-per-connection-tls-fingerprint-rotation.md) | — |
 | medium | outbound | [Finish AnyTLS profile editor and compatibility gaps](issues/add-anytls-outbound-client-crate-and-profile-editor.md) | extended-outbound-protocol-support |
 | medium | outbound | [Add Mieru outbound client crate and profile editor](issues/add-mieru-outbound-client-crate-and-profile-editor.md) | extended-outbound-protocol-support |
-| medium | outbound | [Add VMess outbound client crate and profile editor](issues/add-vmess-outbound-client-crate-and-profile-editor.md) | extended-outbound-protocol-support |
 | medium | outbound | [Add Xray profile UX and import flow](issues/add-xray-profile-ux-and-import-flow.md) | xray-provider-mode |
 | medium | rust-native | [Validate H3-to-H2 MASQUE fallback telemetry sufficiency](issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md) | — |
 | medium | rust-native | [Add post-quantum hybrid KEM (X25519MLKEM768) for outbound TLS](issues/add-post-quantum-hybrid-kem-x25519mlkem768-for-tls-handshakes.md) | — |
@@ -33,8 +32,6 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | medium | diagnostics | [Report OWNED_STACK_ONLY verdict from diagnostic](issues/report-owned-stack-only-verdict-from-diagnostic.md) | — |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | — |
 | medium | epic | [Epic — Localization expansion](issues/epic-localization-expansion.md) | — |
-| low | outbound | [Add Hysteria v1 outbound client crate and profile editor](issues/add-hysteria-v1-outbound-client-crate-and-profile-editor.md) | extended-outbound-protocol-support |
-| low | outbound | [Add Trojan-Go outbound client crate and profile editor](issues/add-trojan-go-outbound-client-crate-and-profile-editor.md) | extended-outbound-protocol-support |
 | low | testing | [Add cross-stack chain tests (VLESS over xHTTP over Reality)](issues/add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality.md) | — |
 
 ## Review (8)
