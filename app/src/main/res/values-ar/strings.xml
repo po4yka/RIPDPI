@@ -1745,6 +1745,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="ripdpi_fake_offset_setting">علامة الإزاحة الوهمية</string>
     <string name="ripdpi_drop_sack_setting">تجاهل SACK</string>
+    <string name="ripdpi_md5sig_setting">توقيع TCP MD5</string>
     <string name="ripdpi_ip_id_mode_title">وضع معرّف IPv4</string>
     <string name="ripdpi_ip_id_mode_body">يتحكم في قيم تعريف IPv4 لمسارات الحزم الوهمية والمجزّأة. يعزّز Seqgroup أيضاً إرسال TCP الوهمي/الأصلي المختلط على مسار الاستبدال الخام للحفاظ على دقة المعرّفات.</string>
     <string name="ripdpi_protocols_category">البروتوكولات</string>

@@ -1823,6 +1823,7 @@ Quelle: %2$s</string>
     <string name="quic_initial_support_v1_body">Erlaubt die Hostnamen-Extraktion aus Initial-Paketen von QUIC Version 1.</string>
     <string name="ripdpi_default_ttl_setting">Standard-TTL</string>
     <string name="ripdpi_drop_sack_setting">SACK verwerfen</string>
+    <string name="ripdpi_md5sig_setting">TCP-MD5-Signatur</string>
     <string name="ripdpi_fake_approx_badge_fakeddisorder">fakeddisorder</string>
     <string name="ripdpi_fake_approx_cli_body">Die visuelle Fake-Approximations-Anleitung bleibt hier sichtbar, aber die aktive Chain stammt aus Raw-RIPDPI-Argumenten, solange Befehlszeileneinstellungen aktiviert sind.</string>
     <string name="ripdpi_fake_approx_protocols_off_title">HTTP und HTTPS sind aus</string>

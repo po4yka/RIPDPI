@@ -92,6 +92,7 @@ data class FakeTransportUiState(
     val udpFakeProfile: String = FakePayloadProfileCompatDefault,
     val oobData: String = "a",
     val dropSack: Boolean = false,
+    val md5sig: Boolean = false,
     val ipIdMode: String = IpIdModeDefault,
 ) {
     val adaptiveFakeTtlMode: String

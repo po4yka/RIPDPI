@@ -548,6 +548,16 @@ private fun DesyncPacketTailControls(model: DesyncSectionModel) {
         showDivider = true,
         testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DropSack),
     )
+    if (model.uiState.settings.rootModeEnabled) {
+        SettingsRow(
+            title = stringResource(R.string.ripdpi_md5sig_setting),
+            checked = model.uiState.fake.md5sig,
+            onCheckedChange = { model.actions.onToggleChanged(AdvancedToggleSetting.Md5Sig, it) },
+            enabled = model.visualEditorEnabled,
+            showDivider = true,
+            testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.Md5Sig),
+        )
+    }
     AdvancedDropdownSetting(
         title = stringResource(R.string.ripdpi_ip_id_mode_title),
         description = stringResource(R.string.ripdpi_ip_id_mode_body),

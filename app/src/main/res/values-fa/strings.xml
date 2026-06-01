@@ -2310,6 +2310,7 @@ fakeddisorder endhost</string>
     <string name="qs_tile_subtitle_tap_disconnect">برای قطع، ضربه بزنید</string>
     <string name="ripdpi_desync_method_setting">روش desync</string>
     <string name="ripdpi_drop_sack_setting">حذف SACK</string>
+    <string name="ripdpi_md5sig_setting">امضای TCP MD5</string>
     <string name="ripdpi_fake_tls_base_title">پایه ClientHello</string>
     <string name="ripdpi_fake_tls_custom_body">RIPDPI هرگاه زنجیره TCP فعلی بسته‌های HTTPS جعلی منتشر کند، از پروفایل ClientHello جعلی تنظیم‌شده زیر استفاده خواهد کرد.</string>
     <string name="ripdpi_fake_tls_default_title">پروفایل پیش‌فرض TLS جعلی</string>

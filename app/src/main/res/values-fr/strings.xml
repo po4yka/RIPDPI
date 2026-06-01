@@ -1823,6 +1823,7 @@ Source : %2$s</string>
     <string name="quic_initial_support_v1_body">Autoriser l\'extraction du nom d\'hôte à partir des paquets Initial QUIC version 1.</string>
     <string name="ripdpi_default_ttl_setting">TTL par défaut</string>
     <string name="ripdpi_drop_sack_setting">Supprimer SACK</string>
+    <string name="ripdpi_md5sig_setting">Signature TCP MD5</string>
     <string name="ripdpi_fake_approx_badge_fakeddisorder">fakeddisorder</string>
     <string name="ripdpi_fake_approx_cli_body">Les conseils visuels d\'approximation factice restent visibles ici, mais la chaîne active provient des arguments RIPDPI bruts tant que les paramètres de ligne de commande sont activés.</string>
     <string name="ripdpi_fake_approx_protocols_off_title">HTTP et HTTPS sont désactivés</string>

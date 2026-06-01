@@ -9,6 +9,7 @@ internal enum class AdvancedToggleSetting {
     TcpFastOpen,
     MixedInbound,
     DropSack,
+    Md5Sig,
     FakeTlsRandomize,
     FakeTlsDupSessionId,
     FakeTlsPadEncap,

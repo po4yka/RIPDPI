@@ -12,6 +12,8 @@ internal val desyncToggleHandlers: Map<AdvancedToggleSetting, DesyncToggleHandle
     mapOf(
         AdvancedToggleSetting.DropSack to
             { enabled -> updateBoolean("dropSack", enabled) { setDropSack(enabled) } },
+        AdvancedToggleSetting.Md5Sig to
+            { enabled -> updateBoolean("fakeMd5Sig", enabled) { setFakeMd5Sig(enabled) } },
         AdvancedToggleSetting.FakeTlsRandomize to
             { enabled -> updateBoolean("fakeTlsRandomize", enabled) { setFakeTlsRandomize(enabled) } },
         AdvancedToggleSetting.FakeTlsDupSessionId to
