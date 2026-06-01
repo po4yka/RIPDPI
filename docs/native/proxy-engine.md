@@ -452,16 +452,18 @@ All markers support delta arithmetic: `sniext+1`, `echext+4`, `host-2`.
 - `DummyPrepend` (aliases: `dummy_prepend`) -- random UDP datagram before QUIC Initial to reset middlebox flow state
 - `QuicSniSplit` (aliases: `quic_sni_split`) -- re-encrypt Initial with ClientHello split across CRYPTO frames
 - `QuicFakeVersion` (aliases: `quic_fake_version`) -- replace QUIC version field to alter parser assumptions on the path
-- `IpFrag2Udp` (aliases: `ip_frag2_udp`) -- IP-level fragmentation of QUIC Initial packet (8-byte aligned)
+- `IpFrag2Udp` (wire name: `ipfrag2_udp`) -- IP-level fragmentation of QUIC Initial packet (8-byte aligned)
 
-Config parser accepts both PascalCase and snake_case for all UDP chain step kinds, so `quic_sni_split` and `QuicSniSplit` are equivalent.
+Additional QUIC chain step kinds accepted by the parser (`native/rust/crates/ripdpi-proxy-config/src/convert/chain/udp.rs::parse_udp_chain_step_kind`): `fake_burst`, `quic_crypto_split`, `quic_padding_ladder`, `quic_cid_churn`, `quic_packet_number_gap`, `quic_version_negotiation_decoy`, `quic_multi_initial_realistic`.
+
+The native parser matches literal wire strings: it accepts a collapsed all-lowercase spelling and a snake_case spelling for most kinds (e.g. `quicsnisplit` or `quic_sni_split`). It does **not** lowercase its input, so raw PascalCase (`QuicSniSplit`) is rejected with an unknown-kind error -- the Kotlin layer lowercases wire names before they reach Rust. Exceptions accepted in their exact snake form only: `fake_burst` and `ipfrag2_udp`.
 
 #### TUN-egress packet action kinds
 
 The VPN tunnel can apply packet actions before forwarding the original session to the local SOCKS5 bridge:
 
 - `fake` -- optional low-TTL TCP copy emitted from the TUN path
-- `udplen` -- UDP length-field variation with raw IPv4 packet emission
+- `udplen` -- UDP length-field variation with raw IPv4 **and IPv6** packet emission; emitted only under VpnMode (TUN egress). In proxy/loopback mode (no raw-socket capability) the step is a silent no-op
 - `ipv6Ext` -- IPv6 extension-header insertion with raw IPv6 packet emission
 - Lua `rawsend` -- explicit raw packet emission requested by a parsed Lua strategy
 
@@ -592,7 +594,7 @@ Configuration:
 
 The fake-transport path now includes:
 
-- built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
+- built-in fake payload profile libraries for HTTP, TLS, and UDP; QUIC Initial packets are generated dynamically from the TLS profiles (no static QUIC Initial profile library)
 - richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
 - fixed or adaptive fake TTL for TCP fake sends (see Auto TTL above)
 - optional IPv4 ID control (`seq`, `seqgroup`, `rnd`, `zero`) for raw IPv4 fake and fragmentation paths
@@ -617,7 +619,7 @@ Beyond UDP chain steps, the QUIC subsystem exposes:
 | `quic_migrate_after_handshake` | `bool` | false | Trigger connection migration after handshake |
 | `quic_initial_mode` | enum | `route_and_cache` | `route` / `route_and_cache` / `disabled` -- how QUIC Initial packets are processed |
 | `support_v1` | `bool` | true | Enable QUIC v1 |
-| `support_v2` | `bool` | false | Enable QUIC v2 |
+| `support_v2` | `bool` | true | Enable QUIC v2 |
 
 ### Activation filters
 
