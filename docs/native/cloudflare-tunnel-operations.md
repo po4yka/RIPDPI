@@ -9,7 +9,7 @@ RIPDPI supports two Cloudflare Tunnel modes:
 | Mode | Purpose | Runtime path |
 | --- | --- | --- |
 | `consume_existing` | Connect to an already published Cloudflare Tunnel hostname | Native xHTTP relay client |
-| `publish_local_origin` | Publish a local loopback origin through Cloudflare Tunnel from Android | `ripdpi-cloudflare-origin` + `ripdpi-cloudflared` helper runtime |
+| `publish_local_origin` | Publish a local loopback origin through Cloudflare Tunnel from Android | `ripdpi-cloudflare-origin` (in-repo) + external `cloudflared` binary |
 
 Both modes use the `cloudflare_tunnel` relay kind. The selected mode is stored in `cloudflareTunnelMode`.
 
@@ -130,8 +130,8 @@ Publish mode is managed by `CloudflarePublishRuntime`.
 
 Helpers:
 
-- `ripdpi-cloudflare-origin`
-- `ripdpi-cloudflared`
+- `ripdpi-cloudflare-origin` (in-repo Rust origin helper crate)
+- `cloudflared` (external Cloudflare-supplied binary — there is no `ripdpi-cloudflared` crate)
 
 Runtime behavior:
 

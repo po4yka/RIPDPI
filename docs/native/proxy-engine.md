@@ -292,7 +292,7 @@ Runtime policy:
 
 - Non-default `altorder` can still use the normal fake/original execution path when exact raw sequence control is not required.
 - `seqmode=sequential` and any combination with other raw-only features (original TCP flag overrides, exact `seqgroup`, and similar settings) are executed through the generalized raw TCP batch sender.
-- If exact sequential fake sequencing would require raw/TCP_REPAIR support and that capability is unavailable, RIPDPI fails closed instead of silently degrading to duplicate mode.
+- If exact sequential fake sequencing would require raw/`TCP_REPAIR` support and that capability is unavailable, the step falls back to the generalized raw TCP batch sender. Note: explicit *fail-closed* gates are exercised by tests for the `ipfrag2` and original-TCP-flag-override paths; an equivalent tested gate for `seqmode=sequential` specifically is not yet in place, so do not rely on a hard fail-closed guarantee for that path on capability-restricted devices (see `android-desync-primitive-capabilities.md`).
 - `hostfake` rejects non-default `altorder` without `midhost=` in both Kotlin and native validation.
 
 Example DSL:
@@ -391,9 +391,9 @@ The runtime now supports:
 | `disorder` | Send segment with TTL trick (DPI sees, server ignores expired packet) | offset | All |
 | `multidisorder` | Split at 2+ markers, send resulting 3+ segments in reverse order via raw sockets | 2+ marker offsets, `inter_segment_delay_ms` (0-100, default 0) | Linux/Android |
 | `fake` | Fake packet (TTL/checksum-invalidated) before real payload | TTL, `md5sig` | All |
-| `fakedsplit` | Fake packet + split at marker | TTL, `md5sig`, offset | All |
-| `fakeddisorder` | Fake packet + disorder | TTL, `md5sig`, offset | All |
-| `hostfake` | Fake packet with spoofed hostname | `midhost_offset`, `fake_host_template` | All |
+| `fakedsplit` | Fake packet + split at marker | TTL, `md5sig`, offset | Linux/Android (raw + `TCP_REPAIR`; degrades to a plain split on non-rooted Android) |
+| `fakeddisorder` | Fake packet + disorder | TTL, `md5sig`, offset | Linux/Android (raw + `TCP_REPAIR`; degrades to a plain split on non-rooted Android) |
+| `hostfake` | Fake packet with spoofed hostname | `midhost_offset`, `fake_host_template` | Linux/Android (raw fake-packet path) |
 | `oob` | Out-of-band urgent data byte injection | `oob_data` byte | All |
 | `disoob` | Disorder + OOB combination | `oob_data` byte | All |
 | `tlsrec` | TLS record splitting at extension boundary | offset (e.g. `extlen`, `sniext`, `echext`) | All |

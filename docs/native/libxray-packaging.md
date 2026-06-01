@@ -29,7 +29,7 @@ script fails if a produced artifact's manifest drifts from any pin.
 > `v1.260327.0`). The build script's drift gate compares the pin to the go.mod
 > value, so `xray-core` is pinned as `1.260327.0`. These pins were validated in
 > the container lane below (libXray clone + xray-core drift gate pass on
-> Go 1.26.3 / NDK 29).
+> Go 1.26.2+ / NDK 29).
 
 ## Stable vs canary update policy
 

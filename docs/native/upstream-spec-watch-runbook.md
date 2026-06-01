@@ -9,7 +9,7 @@ Defined in `.github/workflows/upstream-spec-watch.yml`. Runs every Monday at 09:
 1. Runs `scripts/ci/verify_spec_versions.py --format-only` to assert every protocol crate has a well-formed `SPEC_VERSION.md` with the required fields (`Upstream repo`, `Upstream tag`, `Upstream commit`, `Last reviewed`).
 2. Runs `scripts/ci/check_protocol_fixture_versions.py` to assert checked-in protocol fixtures use tags pinned by their crate's `SPEC_VERSION.md`.
 3. Runs `scripts/ci/verify_spec_md_present.sh` to assert every protocol crate ships a `SPEC.md` with at least an `Upstream` or `Standards` section.
-4. Emits a pin-inventory report listing each crate's currently-pinned reference and uploads the report as a workflow artifact.
+4. Emits a `drift-report.md` artifact. This is currently a **placeholder** (format-only; it echoes the `SPEC_VERSION.md` pins rather than diffing them against live upstream releases) — full per-crate drift detection is expanded as the watch matures.
 
 Currently the drift detection is format-only — the per-protocol upstream-release diffing (xray-core release feed, hysteria release tags, etc.) is staged in as those API integrations are added.
 
