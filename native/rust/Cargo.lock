@@ -6190,7 +6190,6 @@ version = "0.1.0"
 dependencies = [
  "rand 0.10.1",
  "ripdpi-anytls",
- "ripdpi-hysteria-v1",
  "ripdpi-mieru",
  "ripdpi-relay-mux",
  "ripdpi-shadowsocks",
@@ -6198,9 +6197,7 @@ dependencies = [
  "ripdpi-ssh",
  "ripdpi-tor",
  "ripdpi-trojan",
- "ripdpi-trojan-go",
  "ripdpi-vless",
- "ripdpi-vmess",
  "tokio",
  "tokio-boring",
 ]

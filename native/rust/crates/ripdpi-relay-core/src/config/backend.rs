@@ -1,10 +1,7 @@
 include!("backend/hysteria2.rs");
 include!("backend/tuic.rs");
 include!("backend/vless.rs");
-include!("backend/vmess.rs");
-include!("backend/trojan_go.rs");
 include!("backend/mieru.rs");
-include!("backend/hysteria_v1.rs");
 include!("backend/ssh.rs");
 include!("backend/cloudflare.rs");
 include!("backend/chain.rs");
@@ -22,10 +19,7 @@ pub enum RelayBackendConfig {
     Hysteria2(Hysteria2RelayConfig),
     TuicV5(TuicRelayConfig),
     VlessReality(VlessRealityRelayConfig),
-    Vmess(VmessRelayConfig),
-    TrojanGo(TrojanGoRelayConfig),
     Mieru(MieruRelayConfig),
-    HysteriaV1(HysteriaV1RelayConfig),
     Ssh(SshRelayConfig),
     CloudflareTunnel(CloudflareTunnelRelayConfig),
     ChainRelay(ChainRelayConfig),
@@ -45,10 +39,7 @@ impl RelayBackendConfig {
             Self::Hysteria2(_) => "hysteria2",
             Self::TuicV5(_) => "tuic_v5",
             Self::VlessReality(_) => "vless_reality",
-            Self::Vmess(_) => "vmess",
-            Self::TrojanGo(_) => "trojan_go",
             Self::Mieru(_) => "mieru",
-            Self::HysteriaV1(_) => "hysteria_v1",
             Self::Ssh(_) => "ssh",
             Self::CloudflareTunnel(_) => "cloudflare_tunnel",
             Self::ChainRelay(_) => "chain_relay",

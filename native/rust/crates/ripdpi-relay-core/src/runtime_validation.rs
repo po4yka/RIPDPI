@@ -62,10 +62,7 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
             RelayPoolConfig { max_active_leases: 48, idle_timeout: Duration::from_secs(20) }
         }
         RelayKind::VlessReality { xhttp: false }
-        | RelayKind::Vmess
-        | RelayKind::TrojanGo
         | RelayKind::Mieru
-        | RelayKind::HysteriaV1
         | RelayKind::Ssh
         | RelayKind::ChainRelay
         | RelayKind::ShadowTlsV3

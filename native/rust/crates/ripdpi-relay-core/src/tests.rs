@@ -14,11 +14,10 @@ use crate::backend::{RelayBackend, build_backend};
 use crate::bootstrap::{RelayEndpointBootstrapResolver, bootstrap_relay_endpoints_with};
 use crate::config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
-    HysteriaV1RelayConfig, MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind,
+    MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind,
     ResolvedChainRelayHopConfig, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
     ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, ShadowsocksRelayConfig, SshRelayConfig,
-    TorPluggableTransportConfig, TorRelayConfig, TrojanGoRelayConfig, TrojanRelayConfig, TuicRelayConfig,
-    VlessRealityRelayConfig, VmessRelayConfig,
+    TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig, TuicRelayConfig, VlessRealityRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
@@ -76,21 +75,6 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             xhttp_host: String::new(),
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
         }),
-        "vmess" => RelayBackendConfig::Vmess(VmessRelayConfig {
-            server: "relay.example".to_string(),
-            port: 443,
-            uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
-            security: "aes-128-gcm".to_string(),
-            transport: "tcp".to_string(),
-            ..VmessRelayConfig::default()
-        }),
-        "trojan_go" => RelayBackendConfig::TrojanGo(TrojanGoRelayConfig {
-            server: "relay.example".to_string(),
-            port: 443,
-            password: Some("secret".to_string()),
-            mux: "off".to_string(),
-            ..TrojanGoRelayConfig::default()
-        }),
         "mieru" => RelayBackendConfig::Mieru(MieruRelayConfig {
             server: "relay.example".to_string(),
             port: 443,
@@ -99,18 +83,6 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             protocol: "tcp".to_string(),
             multiplexing: "middle".to_string(),
             mtu: 1400,
-        }),
-        "hysteria_v1" => RelayBackendConfig::HysteriaV1(HysteriaV1RelayConfig {
-            server: "relay.example".to_string(),
-            port: 443,
-            auth_type: "string".to_string(),
-            auth_payload: Some("secret".to_string()),
-            obfuscation: Some("obfs".to_string()),
-            protocol: "udp".to_string(),
-            up_mbps: 10,
-            down_mbps: 50,
-            sni: Some("relay.example".to_string()),
-            alpn: Some("h3".to_string()),
         }),
         "ssh" => RelayBackendConfig::Ssh(SshRelayConfig {
             host: "relay.example".to_string(),
@@ -344,10 +316,7 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
         "hysteria2",
         "tuic_v5",
         "vless_reality",
-        "vmess",
-        "trojan_go",
         "mieru",
-        "hysteria_v1",
         "ssh",
         "cloudflare_tunnel",
         "chain_relay",
@@ -1517,14 +1486,11 @@ fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeCon
 #[test]
 fn relay_planned_capabilities_are_pinned_for_every_kind() {
     // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
-    let pinned: [(&str, bool, bool, bool, bool); 17] = [
+    let pinned: [(&str, bool, bool, bool, bool); 14] = [
         ("hysteria2", true, true, true, false),
         ("tuic_v5", true, true, true, true),
         ("vless_reality", true, false, false, true),
-        ("vmess", true, false, false, false),
-        ("trojan_go", true, false, false, false),
         ("mieru", true, false, false, false),
-        ("hysteria_v1", true, false, false, false),
         ("ssh", true, false, false, false),
         ("cloudflare_tunnel", true, false, true, true),
         ("chain_relay", true, false, false, true),
@@ -1595,10 +1561,7 @@ fn relay_dispatch_class(kind: RelayKind<'_>) -> RelayDispatchClass {
         RelayKind::Hysteria2
         | RelayKind::TuicV5
         | RelayKind::VlessReality { .. }
-        | RelayKind::Vmess
-        | RelayKind::TrojanGo
         | RelayKind::Mieru
-        | RelayKind::HysteriaV1
         | RelayKind::Ssh
         | RelayKind::CloudflareTunnel
         | RelayKind::ChainRelay
@@ -1623,10 +1586,7 @@ fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
         RelayBackend::Hysteria2(_) => Some("hysteria2"),
         RelayBackend::Tuic(_) => Some("tuic_v5"),
         RelayBackend::VlessReality(_) | RelayBackend::Xhttp(_) => Some("vless_reality"),
-        RelayBackend::Vmess(_) => Some("vmess"),
-        RelayBackend::TrojanGo(_) => Some("trojan_go"),
         RelayBackend::Mieru(_) => Some("mieru"),
-        RelayBackend::HysteriaV1(_) => Some("hysteria_v1"),
         RelayBackend::Ssh(_) => Some("ssh"),
         RelayBackend::ChainRelay { .. } => Some("chain_relay"),
         RelayBackend::Masque(_) => Some("masque"),
@@ -1666,10 +1626,7 @@ fn relay_transport_registry_is_consistent() {
         sample_config("tuic_v5"),
         sample_config("vless_reality"),
         vless_xhttp,
-        sample_config("vmess"),
-        sample_config("trojan_go"),
         sample_config("mieru"),
-        sample_config("hysteria_v1"),
         sample_config("ssh"),
         sample_config("cloudflare_tunnel"),
         sample_config("chain_relay"),
@@ -1762,10 +1719,7 @@ fn relay_transport_registry_is_consistent() {
         "hysteria2",
         "tuic_v5",
         "vless_reality",
-        "vmess",
-        "trojan_go",
         "mieru",
-        "hysteria_v1",
         "ssh",
         "chain_relay",
         "masque",
@@ -1818,13 +1772,11 @@ async fn relay_transport_registry_dispatches_vless_sub_modes() {
 #[test]
 fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
     // kind_id, fallback_mode, pool max_active_leases, pool idle_timeout (secs)
-    let pinned: [(&str, Option<&str>, usize, u64); 16] = [
+    let pinned: [(&str, Option<&str>, usize, u64); 14] = [
         ("hysteria2", None, 64, 45),
         ("tuic_v5", None, 64, 45),
         ("vless_reality", None, 16, 5), // reality_tcp sub-mode
-        ("trojan_go", None, 16, 5),
         ("mieru", None, 16, 5),
-        ("hysteria_v1", None, 16, 5),
         ("ssh", None, 16, 5),
         ("cloudflare_tunnel", None, 48, 20),
         ("chain_relay", None, 16, 5),
@@ -1895,7 +1847,7 @@ fn legacy_payload_without_schema_version_defaults_to_current_version() {
     assert_eq!("hysteria2", config.kind_id());
     // The flat form re-serializes with the defaulted `schemaVersion`.
     let reserialized = serde_json::to_value(&config).expect("reserialize relay config");
-    assert_eq!(reserialized["schemaVersion"], serde_json::json!(7), "absent schemaVersion defaults to 7");
+    assert_eq!(reserialized["schemaVersion"], serde_json::json!(8), "absent schemaVersion defaults to 8");
 }
 
 #[test]
@@ -1925,15 +1877,26 @@ fn payload_with_explicit_schema_version_seven_deserializes() {
 }
 
 #[test]
-fn payload_with_unsupported_schema_version_is_rejected() {
+fn payload_with_explicit_schema_version_eight_deserializes() {
     let mut object = relay_config_json_object();
     object.insert("schemaVersion".to_string(), serde_json::json!(8));
 
+    let config: ResolvedRelayRuntimeConfig = serde_json::from_value(serde_json::Value::Object(object))
+        .expect("payload with schemaVersion 8 should deserialize");
+
+    assert_eq!("hysteria2", config.kind_id());
+}
+
+#[test]
+fn payload_with_unsupported_schema_version_is_rejected() {
+    let mut object = relay_config_json_object();
+    object.insert("schemaVersion".to_string(), serde_json::json!(9));
+
     let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(serde_json::Value::Object(object))
-        .expect_err("payload with schemaVersion 8 should be rejected");
+        .expect_err("payload with schemaVersion 9 should be rejected");
 
     assert!(
-        err.to_string().contains("unsupported native config schemaVersion 8"),
+        err.to_string().contains("unsupported native config schemaVersion 9"),
         "error should name the found version, got: {err}"
     );
 }

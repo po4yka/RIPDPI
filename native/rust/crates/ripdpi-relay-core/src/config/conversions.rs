@@ -35,28 +35,6 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 xhttp_host: flat.xhttp_host,
                 uuid: flat.vless_uuid,
             }),
-            "vmess" => RelayBackendConfig::Vmess(VmessRelayConfig {
-                server: flat.vmess_server,
-                port: flat.vmess_port,
-                uuid: flat.vmess_uuid,
-                security: flat.vmess_security,
-                transport: flat.vmess_transport,
-                ws_path: flat.vmess_ws_path,
-                ws_host: flat.vmess_ws_host,
-                grpc_service: flat.vmess_grpc_service,
-                h2_path: flat.vmess_h2_path,
-                h2_host: flat.vmess_h2_host,
-            }),
-            "trojan_go" => RelayBackendConfig::TrojanGo(TrojanGoRelayConfig {
-                server: flat.trojan_go_server,
-                port: flat.trojan_go_port,
-                password: flat.trojan_go_password,
-                sni: flat.trojan_go_sni,
-                ws_path: flat.trojan_go_ws_path,
-                ws_host: flat.trojan_go_ws_host,
-                mux: flat.trojan_go_mux,
-                inner_cipher: flat.trojan_go_inner_cipher,
-            }),
             "mieru" => RelayBackendConfig::Mieru(MieruRelayConfig {
                 server: flat.mieru_server,
                 port: flat.mieru_port,
@@ -65,18 +43,6 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 protocol: flat.mieru_protocol,
                 multiplexing: flat.mieru_multiplexing,
                 mtu: flat.mieru_mtu,
-            }),
-            "hysteria_v1" => RelayBackendConfig::HysteriaV1(HysteriaV1RelayConfig {
-                server: flat.hysteria_v1_server,
-                port: flat.hysteria_v1_port,
-                auth_type: flat.hysteria_v1_auth_type,
-                auth_payload: flat.hysteria_v1_auth_payload,
-                obfuscation: flat.hysteria_v1_obfuscation,
-                protocol: flat.hysteria_v1_protocol,
-                up_mbps: flat.hysteria_v1_up_mbps,
-                down_mbps: flat.hysteria_v1_down_mbps,
-                sni: flat.hysteria_v1_sni,
-                alpn: flat.hysteria_v1_alpn,
             }),
             "ssh" => RelayBackendConfig::Ssh(SshRelayConfig {
                 host: flat.ssh_host,
@@ -252,24 +218,6 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             cloudflare_tunnel_token: None,
             cloudflare_tunnel_credentials_json: None,
             finalmask: config.common.finalmask.clone(),
-            vmess_server: String::new(),
-            vmess_port: 0,
-            vmess_uuid: None,
-            vmess_security: String::new(),
-            vmess_transport: String::new(),
-            vmess_ws_path: None,
-            vmess_ws_host: None,
-            vmess_grpc_service: None,
-            vmess_h2_path: None,
-            vmess_h2_host: None,
-            trojan_go_server: String::new(),
-            trojan_go_port: 0,
-            trojan_go_password: None,
-            trojan_go_sni: None,
-            trojan_go_ws_path: None,
-            trojan_go_ws_host: None,
-            trojan_go_mux: String::new(),
-            trojan_go_inner_cipher: String::new(),
             mieru_server: String::new(),
             mieru_port: 0,
             mieru_username: None,
@@ -277,16 +225,6 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             mieru_protocol: String::new(),
             mieru_multiplexing: String::new(),
             mieru_mtu: 0,
-            hysteria_v1_server: String::new(),
-            hysteria_v1_port: 0,
-            hysteria_v1_auth_type: String::new(),
-            hysteria_v1_auth_payload: None,
-            hysteria_v1_obfuscation: None,
-            hysteria_v1_protocol: String::new(),
-            hysteria_v1_up_mbps: 0,
-            hysteria_v1_down_mbps: 0,
-            hysteria_v1_sni: None,
-            hysteria_v1_alpn: None,
             ssh_host: String::new(),
             ssh_port: 0,
             ssh_username: None,
@@ -316,28 +254,6 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.xhttp_host = config.xhttp_host.clone();
                 flat.vless_uuid = config.uuid.clone();
             }
-            RelayBackendConfig::Vmess(config) => {
-                flat.vmess_server = config.server.clone();
-                flat.vmess_port = config.port;
-                flat.vmess_uuid = config.uuid.clone();
-                flat.vmess_security = config.security.clone();
-                flat.vmess_transport = config.transport.clone();
-                flat.vmess_ws_path = config.ws_path.clone();
-                flat.vmess_ws_host = config.ws_host.clone();
-                flat.vmess_grpc_service = config.grpc_service.clone();
-                flat.vmess_h2_path = config.h2_path.clone();
-                flat.vmess_h2_host = config.h2_host.clone();
-            }
-            RelayBackendConfig::TrojanGo(config) => {
-                flat.trojan_go_server = config.server.clone();
-                flat.trojan_go_port = config.port;
-                flat.trojan_go_password = config.password.clone();
-                flat.trojan_go_sni = config.sni.clone();
-                flat.trojan_go_ws_path = config.ws_path.clone();
-                flat.trojan_go_ws_host = config.ws_host.clone();
-                flat.trojan_go_mux = config.mux.clone();
-                flat.trojan_go_inner_cipher = config.inner_cipher.clone();
-            }
             RelayBackendConfig::Mieru(config) => {
                 flat.mieru_server = config.server.clone();
                 flat.mieru_port = config.port;
@@ -346,18 +262,6 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.mieru_protocol = config.protocol.clone();
                 flat.mieru_multiplexing = config.multiplexing.clone();
                 flat.mieru_mtu = config.mtu;
-            }
-            RelayBackendConfig::HysteriaV1(config) => {
-                flat.hysteria_v1_server = config.server.clone();
-                flat.hysteria_v1_port = config.port;
-                flat.hysteria_v1_auth_type = config.auth_type.clone();
-                flat.hysteria_v1_auth_payload = config.auth_payload.clone();
-                flat.hysteria_v1_obfuscation = config.obfuscation.clone();
-                flat.hysteria_v1_protocol = config.protocol.clone();
-                flat.hysteria_v1_up_mbps = config.up_mbps;
-                flat.hysteria_v1_down_mbps = config.down_mbps;
-                flat.hysteria_v1_sni = config.sni.clone();
-                flat.hysteria_v1_alpn = config.alpn.clone();
             }
             RelayBackendConfig::Ssh(config) => {
                 flat.ssh_host = config.host.clone();

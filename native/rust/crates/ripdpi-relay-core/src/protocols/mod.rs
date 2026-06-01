@@ -10,9 +10,9 @@ pub(crate) use chain::{ChainHopConnector, ChainRelaySessionFactory};
 pub(crate) use hysteria2::{Hysteria2Session, Hysteria2SessionFactory};
 pub(crate) use masque::{MasqueSession, MasqueSessionFactory};
 pub(crate) use ripdpi_relay_tls_transports::{
-    AnyTlsSession, AnyTlsSessionFactory, AnyTlsUdpSession, HysteriaV1SessionFactory, MieruSessionFactory,
-    ShadowTlsSessionFactory, ShadowsocksSession, ShadowsocksSessionFactory, ShadowsocksUdpSession, SshSessionFactory,
-    TrojanGoSessionFactory, TrojanSession, TrojanSessionFactory, TrojanUdpSession, VmessSessionFactory,
+    AnyTlsSession, AnyTlsSessionFactory, AnyTlsUdpSession, MieruSessionFactory, ShadowTlsSessionFactory,
+    ShadowsocksSession, ShadowsocksSessionFactory, ShadowsocksUdpSession, SshSessionFactory, TrojanSession,
+    TrojanSessionFactory, TrojanUdpSession,
 };
 pub(crate) use tor::{TorBridgePtRelayConfig, TorPluggableTransportConfig, TorRelayBackend};
 pub(crate) use tuic::{TuicSession, TuicSessionFactory};

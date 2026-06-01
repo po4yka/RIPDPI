@@ -6,7 +6,7 @@
 /// the flat wire field set is unchanged from v6, so legacy v6 payloads migrate
 /// forward losslessly and are still accepted — see
 /// [`MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION`].
-const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 7;
+const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 8;
 
 /// The oldest relay native-config wire schema version this build still accepts.
 ///
@@ -215,42 +215,6 @@ struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub finalmask: ResolvedRelayFinalmaskConfig,
     #[serde(default)]
-    pub vmess_server: String,
-    #[serde(default)]
-    pub vmess_port: i32,
-    #[serde(default)]
-    pub vmess_uuid: Option<String>,
-    #[serde(default)]
-    pub vmess_security: String,
-    #[serde(default)]
-    pub vmess_transport: String,
-    #[serde(default)]
-    pub vmess_ws_path: Option<String>,
-    #[serde(default)]
-    pub vmess_ws_host: Option<String>,
-    #[serde(default)]
-    pub vmess_grpc_service: Option<String>,
-    #[serde(default)]
-    pub vmess_h2_path: Option<String>,
-    #[serde(default)]
-    pub vmess_h2_host: Option<String>,
-    #[serde(default)]
-    pub trojan_go_server: String,
-    #[serde(default)]
-    pub trojan_go_port: i32,
-    #[serde(default)]
-    pub trojan_go_password: Option<String>,
-    #[serde(default)]
-    pub trojan_go_sni: Option<String>,
-    #[serde(default)]
-    pub trojan_go_ws_path: Option<String>,
-    #[serde(default)]
-    pub trojan_go_ws_host: Option<String>,
-    #[serde(default)]
-    pub trojan_go_mux: String,
-    #[serde(default)]
-    pub trojan_go_inner_cipher: String,
-    #[serde(default)]
     pub mieru_server: String,
     #[serde(default)]
     pub mieru_port: i32,
@@ -264,26 +228,6 @@ struct FlatResolvedRelayRuntimeConfig {
     pub mieru_multiplexing: String,
     #[serde(default)]
     pub mieru_mtu: i32,
-    #[serde(default)]
-    pub hysteria_v1_server: String,
-    #[serde(default)]
-    pub hysteria_v1_port: i32,
-    #[serde(default)]
-    pub hysteria_v1_auth_type: String,
-    #[serde(default)]
-    pub hysteria_v1_auth_payload: Option<String>,
-    #[serde(default)]
-    pub hysteria_v1_obfuscation: Option<String>,
-    #[serde(default)]
-    pub hysteria_v1_protocol: String,
-    #[serde(default)]
-    pub hysteria_v1_up_mbps: i32,
-    #[serde(default)]
-    pub hysteria_v1_down_mbps: i32,
-    #[serde(default)]
-    pub hysteria_v1_sni: Option<String>,
-    #[serde(default)]
-    pub hysteria_v1_alpn: Option<String>,
     #[serde(default)]
     pub ssh_host: String,
     #[serde(default)]
