@@ -187,7 +187,7 @@ The Rust crate graph is centered on:
 - `ripdpi-tunnel-core` (includes session and DNS cache as internal modules)
 - `tokio`
 - `smoltcp`
-- `fast-socks5`
+- `ripdpi-socks5-core` (vendored from `fast-socks5` upstream)
 - `serde`
 - `tokio-util`
 

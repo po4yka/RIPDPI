@@ -166,22 +166,22 @@ TCP chain steps now support runtime branching through the existing `activationFi
 - TCP-state predicates are ANDed with the existing `when_round`, `when_size_*`, and `when_stream_*` filters.
 - Unknown TCP state fails closed for that predicate. RIPDPI skips the step instead of guessing.
 - `tcp_has_ech` is derived from the current outbound TLS payload's markers, not from persistent socket state.
-- `tcp_window_lt` and `tcp_mss_lt` prefer TCP repair snapshot data and fall back to the existing segment hints only when a repair snapshot does not provide the value.
+- `tcp_window_below` and `tcp_mss_below` prefer TCP repair snapshot data and fall back to the existing segment hints only when a repair snapshot does not provide the value.
 
-Supported TCP predicates:
+Supported TCP predicates (config field names; JSON uses the camelCase forms `tcpHasTimestamp` / `tcpHasEch` / `tcpWindowBelow` / `tcpMssBelow`):
 
-- `tcp_has_ts=true|false` -- whether the negotiated TCP connection has timestamps
+- `tcp_has_timestamp=true|false` -- whether the negotiated TCP connection has timestamps
 - `tcp_has_ech=true|false` -- whether the current outbound TLS payload contains an ECH extension
-- `tcp_window_lt=<u16>` -- current advertised receive window is below the threshold
-- `tcp_mss_lt=<u16>` -- negotiated MSS is below the threshold
+- `tcp_window_below=<u16>` -- current advertised receive window is below the threshold
+- `tcp_mss_below=<u16>` -- negotiated MSS is below the threshold
 
 Example chain DSL:
 
 ```text
-fake(tcp_has_ts=true)
-fake(tcp_has_ts=false,when_round=1)
+fake(tcp_has_timestamp=true)
+fake(tcp_has_timestamp=false,when_round=1)
 tlsrec(extlen,tcp_has_ech=true)
-split(host+1,tcp_window_lt=4096,tcp_mss_lt=1300)
+split(host+1,tcp_window_below=4096,tcp_mss_below=1300)
 ```
 
 Equivalent JSON fragment:
@@ -665,7 +665,7 @@ The shared runtime layer now also adds:
 
 - **Priority-based outbound failover** (`OutboundFailover`) which walks `OutboundRole` in strict priority order: Primary REALITY → HTTPS fallback → Hysteria2. Hysteria2 is gated behind UDP/443 viability confirmation.
 - Geneva-style strategy evolution (`StrategyEvolver`) with epsilon-greedy + UCB1 selection across combo dimensions, configurable via `strategy_evolution` (bool) and `evolution_epsilon_permil` (default 100 = 10% exploration rate)
-- host autolearn and per-host preferred group promotion scoped by `networkScopeKey`, with configurable `penalty_ttl_secs` (default 600), `max_hosts` (default 1024), and optional `store_path` for persistence
+- host autolearn and per-host preferred group promotion scoped by `networkScopeKey`, with configurable `penalty_ttl_secs` (default 21600 -- 6h), `max_hosts` (default 512), and optional `store_path` for persistence
 - `cache_prefix` (u8) for isolated policy caches when multiple profiles share storage, with `cache_ttl` and optional `cache_file`
 - validated remembered-network policy replay with hashed network fingerprints and optional VPN DNS override
 - automatic diagnostics probing plus `full_matrix_v1` audit runs with rotating curated target cohorts, hidden handover-triggered `quick_v1` probes, and manual recommendation output
