@@ -25,6 +25,7 @@ pub use mux::{MuxConfigError, VlessMuxConfig, VlessMuxProtocol};
 
 use std::io;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
+use std::os::fd::AsRawFd;
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream};
@@ -124,6 +125,17 @@ async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
     };
+    // VpnService.protect() invariant: the VLESS server is non-loopback, so the
+    // outbound socket must be kept out of the TUN route BEFORE it binds or
+    // connects — otherwise its traffic loops back into the tunnel the VPN owns
+    // (exponential packet growth). Loopback targets never leave the device and
+    // are exempt. `connect_over()` carries no OS socket of its own (it layers
+    // over an already-protected transport), so `connect_tcp` is the only VLESS
+    // socket-creation site that needs this. See
+    // .claude/rules/vpnservice-protect-invariant.md.
+    if !address.ip().is_loopback() {
+        protect_outbound_socket(&socket)?;
+    }
     if let Some(bind_ip) = bind_ip {
         let bind_addr = match (bind_ip, address) {
             (IpAddr::V4(ip), SocketAddr::V4(_)) => SocketAddr::new(IpAddr::V4(ip), 0),
@@ -157,5 +169,144 @@ fn resolve_server_addr(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> 
         candidates
             .next()
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "relay server resolved to no addresses"))
+    }
+}
+
+/// Protect a freshly created outbound socket via the registered
+/// `VpnService.protect()` callback before it connects to a non-loopback peer.
+///
+/// Fails closed: under an active TUN there is no other mechanism to keep the
+/// socket out of the tunnel route, so a missing callback refuses the
+/// connection rather than dialing unprotected. The Android relay datapath
+/// always runs with the callback installed by the VPN-protect adapter; a
+/// missing callback means a non-Android/host context where a non-loopback dial
+/// would be unprotected — refusing there is the safe outcome (host integration
+/// tests dial loopback, which never reaches this helper). See
+/// `ripdpi_runtime_platform::protect` and
+/// .claude/rules/vpnservice-protect-invariant.md.
+fn protect_outbound_socket<T: AsRawFd>(socket: &T) -> io::Result<()> {
+    if !ripdpi_runtime_platform::protect::has_protect_callback() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotConnected,
+            "no VpnService.protect callback registered for non-loopback VLESS socket under active TUN",
+        ));
+    }
+    ripdpi_runtime_platform::protect::protect_socket_via_callback(socket.as_raw_fd())
+        .map_err(|error| io::Error::new(error.kind(), format!("protect VLESS outbound socket: {error}")))
+}
+
+#[cfg(test)]
+mod protect_tests {
+    //! `connect_tcp` must protect the outbound socket before it touches the
+    //! wire (vpnservice-protect-invariant.md). The protect callback registry
+    //! is process-global, so every test serializes on `PROTECT_TEST_LOCK` and
+    //! clears the slot before releasing it.
+
+    use super::*;
+    use base64::prelude::*;
+    use std::net::TcpListener;
+    use std::os::fd::RawFd;
+    use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    use ripdpi_runtime_platform::protect::{
+        has_protect_callback, register_protect_callback, unregister_protect_callback, ProtectCallback,
+    };
+
+    // Held across `.await`, so it must be an async-aware mutex (clippy
+    // `await_holding_lock` would fire on a std Mutex guard).
+    static PROTECT_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+    struct RecordingCallback {
+        last_fd: AtomicI32,
+        calls: AtomicUsize,
+        fail_with: Option<io::ErrorKind>,
+    }
+
+    impl RecordingCallback {
+        fn new(fail_with: Option<io::ErrorKind>) -> Arc<Self> {
+            Arc::new(Self { last_fd: AtomicI32::new(-1), calls: AtomicUsize::new(0), fail_with })
+        }
+    }
+
+    impl ProtectCallback for RecordingCallback {
+        fn protect(&self, fd: RawFd) -> io::Result<()> {
+            self.last_fd.store(fd, Ordering::SeqCst);
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            match self.fail_with {
+                Some(kind) => Err(io::Error::new(kind, "test protect failure")),
+                None => Ok(()),
+            }
+        }
+    }
+
+    fn config_for(server: &str, port: u16) -> VlessRealityConfig {
+        let key = BASE64_STANDARD.encode([0xABu8; 32]);
+        VlessRealityConfig::from_strings(
+            server,
+            i32::from(port),
+            "550e8400-e29b-41d4-a716-446655440000",
+            "www.example.com",
+            &key,
+            "abcd1234",
+            "chrome_stable",
+        )
+        .expect("valid base config")
+    }
+
+    // TEST-NET-1 (RFC 5737) is a guaranteed-unroutable literal: it parses
+    // without DNS and the protect failure aborts before any connect attempt,
+    // so the test never actually dials it.
+    const NON_LOOPBACK: &str = "192.0.2.1";
+
+    #[tokio::test]
+    async fn nonloopback_socket_is_protected_before_connect() {
+        let _guard = PROTECT_TEST_LOCK.lock().await;
+        let cb = RecordingCallback::new(Some(io::ErrorKind::PermissionDenied));
+        register_protect_callback(cb.clone());
+
+        let cfg = config_for(NON_LOOPBACK, 9);
+        let err = connect_tcp(&cfg, None).await.expect_err("protect failure must abort the connect");
+
+        // The callback fired (recorded a real fd) and its error kind is
+        // propagated — proving protect runs before the wire is touched.
+        assert_eq!(cb.calls.load(Ordering::SeqCst), 1, "protect callback must be invoked exactly once");
+        assert!(cb.last_fd.load(Ordering::SeqCst) >= 0, "callback must receive the socket fd");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied, "protect error kind must propagate");
+
+        unregister_protect_callback();
+    }
+
+    #[tokio::test]
+    async fn nonloopback_without_callback_fails_closed() {
+        let _guard = PROTECT_TEST_LOCK.lock().await;
+        unregister_protect_callback();
+        assert!(!has_protect_callback(), "test precondition: no protect callback registered");
+
+        let cfg = config_for(NON_LOOPBACK, 9);
+        let err = connect_tcp(&cfg, None).await.expect_err("non-loopback dial must fail closed without a callback");
+
+        assert_eq!(err.kind(), io::ErrorKind::NotConnected, "missing protect mechanism must fail closed");
+    }
+
+    #[tokio::test]
+    async fn loopback_socket_skips_protect_and_connects() {
+        let _guard = PROTECT_TEST_LOCK.lock().await;
+        // A recording callback that would fail if ever called — loopback must
+        // never reach it.
+        let cb = RecordingCallback::new(Some(io::ErrorKind::PermissionDenied));
+        register_protect_callback(cb.clone());
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback listener");
+        let port = listener.local_addr().expect("listener addr").port();
+
+        let cfg = config_for("127.0.0.1", port);
+        let stream = connect_tcp(&cfg, None).await.expect("loopback connect must succeed without protect");
+        drop(stream);
+
+        assert_eq!(cb.calls.load(Ordering::SeqCst), 0, "loopback target must be exempt from protect");
+
+        unregister_protect_callback();
+        drop(listener);
     }
 }

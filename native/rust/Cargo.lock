@@ -6736,6 +6736,7 @@ dependencies = [
  "hex",
  "ring",
  "ripdpi-relay-mux",
+ "ripdpi-runtime-platform",
  "ripdpi-tls-profiles",
  "thiserror 2.0.18",
  "tokio",
