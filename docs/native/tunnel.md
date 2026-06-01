@@ -6,7 +6,7 @@ The TUN-to-SOCKS tunnel is used only in VPN mode. It takes the Android TUN file 
 
 When encrypted DNS is enabled, the tunnel also intercepts DNS with a mapped-DNS listener (`198.18.0.53` over the synthetic `198.18.0.0/15` pool), resolves those queries through the shared encrypted resolver, and rewrites follow-up traffic back to the real upstream IPv4 targets before opening SOCKS sessions. The active encrypted DNS path can come from the user's current settings or from a validated remembered VPN policy that replays an exact DoH/DoT/DNSCrypt/DoQ endpoint for the current network.
 
-Supported encrypted DNS protocols: DoH (DNS over HTTPS), DoT (DNS over TLS), DNSCrypt, and DoQ (DNS over QUIC, RFC 9250). DoQ provides 18-22% latency improvement over DoT by combining transport and crypto handshake in a single QUIC round-trip.
+Supported encrypted DNS protocols: DoH (DNS over HTTPS), DoT (DNS over TLS), DNSCrypt, and DoQ (DNS over QUIC, RFC 9250). DoQ can reduce connection-setup latency versus DoT by folding the transport and crypto handshake into a single QUIC round-trip (an RFC 9250 design property); RIPDPI ships no benchmark substantiating a specific percentage. DoQ is unavailable when the encrypted resolver runs over the SOCKS5 transport (SOCKS5 is TCP-only) — only the Direct/VPN transport reaches the DoQ engine.
 
 The built shared library is `libripdpi-tunnel.so`.
 
