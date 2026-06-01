@@ -6,7 +6,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RuntimeConfig};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, S4_OK, S_ATP_I4, S_ATP_I6, S_CMD_AUDP,
-    S_CMD_CONN, S_ER_GEN, S_VER4, S_VER5,
+    S_CMD_CONN, S_VER4, S_VER5,
 };
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
@@ -293,7 +293,10 @@ fn handle_client_sends_socks5_failure_reply_when_upstream_connect_fails() {
     let mut failure = [0u8; 10];
     client.read_exact(&mut failure).expect("read socks5 failure reply");
     assert_eq!(failure[0], S_VER5);
-    assert_eq!(failure[1], S_ER_GEN);
+    // The SOCKS5 reply code must mirror the actual connect-failure kind per
+    // RFC 1928 §6 (e.g. ConnectionRefused -> 0x05), not a hard-coded generic
+    // failure — the accepted kinds above map to distinct REP codes.
+    assert_eq!(failure[1], RuntimeState::socks5_reply_code_for_kind(err.kind()));
 }
 
 #[test]
