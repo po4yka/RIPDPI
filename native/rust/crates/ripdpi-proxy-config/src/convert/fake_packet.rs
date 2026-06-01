@@ -24,6 +24,11 @@ pub(crate) fn apply_fake_packet_section(
     // runtime also degrades gracefully if it is somehow unavailable).
     group.actions.md5sig = fake_packets.md5sig && root_mode;
 
+    // The TLS record-layer minor-version override maps to the optional
+    // `tlsminor` action: present only when explicitly enabled. Unlike md5sig it
+    // needs no privilege gating — it rewrites a payload byte, not a socket option.
+    group.actions.tlsminor = fake_packets.tls_minor_enabled.then_some(fake_packets.tls_minor_value);
+
     group.actions.http_fake_profile = parse_http_fake_profile(&fake_packets.http_fake_profile)?;
     group.actions.tls_fake_profile = parse_tls_fake_profile(&fake_packets.tls_fake_profile)?;
     group.actions.udp_fake_profile = parse_udp_fake_profile(&fake_packets.udp_fake_profile)?;
@@ -223,5 +228,25 @@ mod tests {
         // Not requested -> stays false regardless of root mode.
         assert!(!md5sig_after_conversion(false, true));
         assert!(!md5sig_after_conversion(false, false));
+    }
+
+    fn tlsminor_after_conversion(enabled: bool, value: u8) -> Option<u8> {
+        let mut group = ripdpi_config::DesyncGroup::new(0);
+        let fake_packets =
+            ProxyUiFakePacketConfig { tls_minor_enabled: enabled, tls_minor_value: value, ..Default::default() };
+        apply_fake_packet_section(&mut group, &fake_packets, false).expect("fake-packet conversion succeeds");
+        group.actions.tlsminor
+    }
+
+    #[test]
+    fn tlsminor_present_only_when_enabled() {
+        // Enabled -> Some(value); the override byte rides through unchanged.
+        assert_eq!(tlsminor_after_conversion(true, 3), Some(3));
+        assert_eq!(tlsminor_after_conversion(true, 0), Some(0));
+        // Disabled -> None, regardless of the carried value (the byte is ignored).
+        assert_eq!(tlsminor_after_conversion(false, 3), None);
+        assert_eq!(tlsminor_after_conversion(false, 0), None);
+        // No privilege gating: enabled stays enabled even without root mode (the
+        // helper above passes root_mode = false).
     }
 }

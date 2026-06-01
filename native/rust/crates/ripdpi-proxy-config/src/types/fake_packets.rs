@@ -57,6 +57,14 @@ pub struct ProxyUiFakePacketConfig {
     /// the runtime degrades gracefully when the option is unavailable.
     #[serde(default)]
     pub md5sig: bool,
+    /// Override the TLS record-layer minor-version byte (the third byte of the
+    /// TLS record header) on the genuine first-flight payload. `tls_minor_enabled`
+    /// gates the override; when disabled the byte is left untouched. Maps to the
+    /// CLI `-m/--tlsminor` knob and `DesyncActions::tlsminor: Option<u8>`.
+    #[serde(default)]
+    pub tls_minor_enabled: bool,
+    #[serde(default)]
+    pub tls_minor_value: u8,
     #[serde(default)]
     pub window_clamp: Option<u32>,
     #[serde(default)]
@@ -116,6 +124,8 @@ impl Default for ProxyUiFakePacketConfig {
             oob_char: b'a',
             drop_sack: false,
             md5sig: false,
+            tls_minor_enabled: false,
+            tls_minor_value: 0,
             window_clamp: None,
             wsize_window: None,
             wsize_scale: None,
