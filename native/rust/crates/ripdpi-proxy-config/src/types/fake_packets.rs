@@ -51,6 +51,12 @@ pub struct ProxyUiFakePacketConfig {
     pub fake_offset_marker: String,
     pub oob_char: u8,
     pub drop_sack: bool,
+    /// Apply the TCP_MD5SIG option to fake/decoy packets so a middlebox is
+    /// desynced while the real server drops them. Root-only (CAP_NET_ADMIN):
+    /// the conversion forces this to `false` unless root mode is enabled, and
+    /// the runtime degrades gracefully when the option is unavailable.
+    #[serde(default)]
+    pub md5sig: bool,
     #[serde(default)]
     pub window_clamp: Option<u32>,
     #[serde(default)]
@@ -109,6 +115,7 @@ impl Default for ProxyUiFakePacketConfig {
             fake_offset_marker: default_fake_offset_marker(),
             oob_char: b'a',
             drop_sack: false,
+            md5sig: false,
             window_clamp: None,
             wsize_window: None,
             wsize_scale: None,

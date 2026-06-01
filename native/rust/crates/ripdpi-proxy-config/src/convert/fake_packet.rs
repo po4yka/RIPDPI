@@ -15,8 +15,14 @@ use super::legacy_payload_adapter::parse_offset_expr_field;
 pub(crate) fn apply_fake_packet_section(
     group: &mut ripdpi_config::DesyncGroup,
     fake_packets: &ProxyUiFakePacketConfig,
+    root_mode: bool,
 ) -> Result<(), ProxyConfigError> {
     apply_ttl_settings(group, fake_packets)?;
+
+    // TCP_MD5SIG needs CAP_NET_ADMIN / root. Gate it on root mode so an
+    // unprivileged device never even requests the option (defense in depth: the
+    // runtime also degrades gracefully if it is somehow unavailable).
+    group.actions.md5sig = fake_packets.md5sig && root_mode;
 
     group.actions.http_fake_profile = parse_http_fake_profile(&fake_packets.http_fake_profile)?;
     group.actions.tls_fake_profile = parse_tls_fake_profile(&fake_packets.tls_fake_profile)?;
@@ -190,5 +196,32 @@ fn parse_ip_id_mode(value: &str) -> Result<Option<IpIdMode>, ProxyConfigError> {
         _ => Err(ProxyConfigError::InvalidConfig(
             "fakePackets.ipIdMode must be seq, seqgroup, rnd, zero, or empty".to_string(),
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fake_packets_with_md5sig(md5sig: bool) -> ProxyUiFakePacketConfig {
+        ProxyUiFakePacketConfig { md5sig, ..Default::default() }
+    }
+
+    fn md5sig_after_conversion(md5sig: bool, root_mode: bool) -> bool {
+        let mut group = ripdpi_config::DesyncGroup::new(0);
+        apply_fake_packet_section(&mut group, &fake_packets_with_md5sig(md5sig), root_mode)
+            .expect("fake-packet conversion succeeds");
+        group.actions.md5sig
+    }
+
+    #[test]
+    fn md5sig_passes_through_only_with_root_mode() {
+        // Requested + root mode on -> applied (root-only feature is honored).
+        assert!(md5sig_after_conversion(true, true));
+        // Requested + root mode off -> forced false (non-root baseline).
+        assert!(!md5sig_after_conversion(true, false));
+        // Not requested -> stays false regardless of root mode.
+        assert!(!md5sig_after_conversion(false, true));
+        assert!(!md5sig_after_conversion(false, false));
     }
 }

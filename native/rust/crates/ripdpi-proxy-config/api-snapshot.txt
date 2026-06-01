@@ -159,6 +159,7 @@ pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_tls_use_original: bool
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::fake_ttl: i32
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::http_fake_profile: alloc::string::String
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::ip_id_mode: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::md5sig: bool
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::oob_char: u8
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::quic_bind_low_port: bool
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::quic_fake_version: core::option::Option<u32>
