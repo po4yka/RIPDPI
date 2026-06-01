@@ -145,7 +145,7 @@ RIPDPI این موارد را ذخیره **نمی‌کند**:
 
 ## ساخت
 
-پیش‌نیازها: JDK 17، Android SDK، Android NDK `29.0.14206865`، زنجیرهٔ ابزار Rust `1.94.0`، و اهداف Rust اندروید برای ABIهای مورد نیاز.
+پیش‌نیازها: JDK 17، Android SDK، Android NDK `29.0.14206865`، زنجیرهٔ ابزار Rust `1.96.0`، و اهداف Rust اندروید برای ABIهای مورد نیاز.
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git

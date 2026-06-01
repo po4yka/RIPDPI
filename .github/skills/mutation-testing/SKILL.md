@@ -80,7 +80,7 @@ exclude_re = ["Display::fmt", "impl.*Debug"]
 - `in_diff` -- `true` to only mutate lines changed vs main
 
 **Key details**:
-- Rust toolchain pinned to 1.94.0 (keep in sync with `rust-toolchain.toml`)
+- Rust toolchain pinned to 1.96.0 (keep in sync with `rust-toolchain.toml`)
 - Installs `cargo-nextest` and `cargo-mutants` via `taiki-e/install-action`
 - Runs on `ubuntu-latest` with a 90-minute timeout
 - Uploads `target/mutants-output/` as artifact, retained 14 days

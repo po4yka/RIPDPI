@@ -7,8 +7,8 @@ RIPDPI pins its Rust toolchain at `native/rust/rust-toolchain.toml`. The pin is 
 ```toml
 # native/rust/rust-toolchain.toml
 [toolchain]
-channel = "1.94.0"
-components = ["rustfmt", "clippy"]
+channel = "1.96.0"
+components = ["rustfmt", "clippy", "rust-src", "rust-analyzer"]
 targets = [
     "aarch64-linux-android",
     "armv7-linux-androideabi",

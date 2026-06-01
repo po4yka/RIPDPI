@@ -143,7 +143,7 @@ RIPDPI **不**记录：
 
 ## 构建
 
-要求：JDK 17、Android SDK、Android NDK `29.0.14206865`、Rust 工具链 `1.94.0`、所需 ABI 的 Android Rust 目标。
+要求：JDK 17、Android SDK、Android NDK `29.0.14206865`、Rust 工具链 `1.96.0`、所需 ABI 的 Android Rust 目标。
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git

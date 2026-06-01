@@ -46,7 +46,7 @@ runs:
     # Keep in sync with native/rust/rust-toolchain.toml
     - uses: dtolnay/rust-toolchain@master
       with:
-        toolchain: "1.94.0"
+        toolchain: "1.96.0"
         components: ${{ inputs.rust-components }}
 
     # Android CLI bootstrap from the official dl.google.com installer. The

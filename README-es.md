@@ -143,7 +143,7 @@ La privacidad del tráfico de relevo depende del endpoint de relevo y del perfil
 
 ## Compilación
 
-Requisitos: JDK 17, Android SDK, Android NDK `29.0.14206865`, toolchain de Rust `1.94.0`, targets de Rust para Android para las ABI necesarias.
+Requisitos: JDK 17, Android SDK, Android NDK `29.0.14206865`, toolchain de Rust `1.96.0`, targets de Rust para Android para las ABI necesarias.
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git

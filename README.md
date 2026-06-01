@@ -142,7 +142,7 @@ Multi-hop relay chains carry an ordered list of 2-4 TCP hops (entry, optional in
 
 ## Build
 
-Requirements: JDK 17, Android SDK, Android NDK `29.0.14206865`, Rust toolchain `1.94.0`, Android Rust targets for the needed ABIs.
+Requirements: JDK 17, Android SDK, Android NDK `29.0.14206865`, Rust toolchain `1.96.0`, Android Rust targets for the needed ABIs.
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git

@@ -100,7 +100,7 @@ Place at `native/rust/clippy.toml`. Configures parameterized lints from the tabl
 
 ```toml
 # Stay on workspace MSRV — clippy will not suggest features above this.
-msrv = "1.94.0"
+msrv = "1.96.0"
 
 # Allow workspace owners to use non-prebreaking-API freedom in this private workspace.
 avoid-breaking-exported-api = false

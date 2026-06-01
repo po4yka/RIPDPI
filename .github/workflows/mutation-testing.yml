@@ -33,7 +33,7 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.94.0"
+          toolchain: "1.96.0"
 
       - uses: taiki-e/install-action@d9be7d8cda89035c9c843f78bd44d4f72d8403d4 # v2.79.7
         with:

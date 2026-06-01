@@ -70,7 +70,7 @@ steps:
 
   - uses: dtolnay/rust-toolchain@master
     with:
-      toolchain: "1.94.0"
+      toolchain: "1.96.0"
       components: rustfmt, clippy
 
   - uses: android-actions/setup-android@v4
