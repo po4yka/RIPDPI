@@ -8,6 +8,7 @@ mod edge;
 mod firefox;
 mod invariants;
 mod profile;
+mod reality_ech;
 mod record_choreography;
 mod rotation;
 mod safari;
@@ -29,6 +30,7 @@ pub use profile::{
     profile_catalog, profile_metadata, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata,
     ProfileParityTargets, ProfileTemplateMetadata, AVAILABLE_PROFILES,
 };
+pub use reality_ech::{reality_ech_parity, CoverEchEvidence, RealityEchParity};
 pub use record_choreography::{
     apply_record_choreography, plan_first_flight, planned_record_payload_boundaries, planned_record_payload_lengths,
     selected_record_choreography, RecordChoreography, TlsTemplateFirstFlightPlan,
