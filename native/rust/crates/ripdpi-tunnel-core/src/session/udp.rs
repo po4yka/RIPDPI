@@ -635,8 +635,8 @@ mod tests {
             quinn::crypto::rustls::QuicServerConfig::try_from(server_tls).expect("QuicServerConfig"),
         ));
         let mut transport = quinn::TransportConfig::default();
-        // Short idle timeout so wait_idle() drains quickly at teardown.
-        transport.max_idle_timeout(Some(Duration::from_secs(3).try_into().expect("idle timeout")));
+        // Match the client-side idle budget; CI can delay relayed QUIC app-data long enough for a tight server timeout to close the connection.
+        transport.max_idle_timeout(Some(Duration::from_secs(30).try_into().expect("idle timeout")));
         server_cfg.transport = Arc::new(transport);
 
         let endpoint =
