@@ -5,7 +5,7 @@ use std::fs;
 use std::io;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
-use std::sync::Once;
+use std::sync::{Arc, Once};
 use std::{collections::BTreeSet, result::Result as StdResult};
 
 use arti_client::{
@@ -280,7 +280,7 @@ impl fmt::Display for TorTarget {
 }
 
 pub struct TorRelayClient {
-    inner: ArtiTorClient<PreferredRuntime>,
+    inner: Arc<ArtiTorClient<PreferredRuntime>>,
 }
 
 impl TorRelayClient {
@@ -297,7 +297,7 @@ impl TorRelayClient {
     }
 
     pub fn from_arti_client(inner: ArtiTorClient<PreferredRuntime>) -> Self {
-        Self { inner }
+        Self { inner: Arc::new(inner) }
     }
 
     pub async fn connect_tcp(&self, target: &TorTarget) -> io::Result<BoxedIo> {
