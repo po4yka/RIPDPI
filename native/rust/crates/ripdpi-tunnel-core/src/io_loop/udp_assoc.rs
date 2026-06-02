@@ -1,3 +1,4 @@
+mod association_removal;
 mod association_state;
 mod event_handling;
 mod eviction;

@@ -1,11 +1,14 @@
 use std::time::Duration;
 
 use smoltcp::iface::{SocketHandle, SocketSet};
-use smoltcp::socket::tcp::Socket as TcpSocket;
 use tokio::io::AsyncWriteExt;
 
 use crate::ActiveSessions;
 use crate::dns_cache::DnsCache;
+
+mod socket_removal;
+
+use socket_removal::remove_tcp_socket;
 
 pub(super) enum TaskDrain {
     Abort,
@@ -36,11 +39,5 @@ pub(super) async fn remove_session(
         }
     }
 
-    if socket_set.iter().any(|(socket_handle, _)| socket_handle == handle) {
-        let tcp = socket_set.get_mut::<TcpSocket>(handle);
-        if tcp.is_active() {
-            tcp.close();
-        }
-        socket_set.remove(handle);
-    }
+    remove_tcp_socket(socket_set, handle);
 }

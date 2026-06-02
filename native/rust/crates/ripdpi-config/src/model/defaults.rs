@@ -10,6 +10,9 @@ use super::{
     RuntimeProcessSettings, RuntimeQuicSettings, RuntimeTimeoutSettings, WsTunnelMode,
 };
 
+mod host_autolearn;
+mod quic;
+
 impl Default for DesyncGroupActionSettings {
     fn default() -> Self {
         Self {
@@ -97,12 +100,6 @@ impl Default for RuntimeTimeoutSettings {
     }
 }
 
-impl Default for RuntimeQuicSettings {
-    fn default() -> Self {
-        Self { initial_mode: QuicInitialMode::RouteAndCache, support_v1: true, support_v2: true }
-    }
-}
-
 impl Default for RuntimeAdaptiveSettings {
     fn default() -> Self {
         Self {
@@ -119,19 +116,6 @@ impl Default for RuntimeAdaptiveSettings {
             evolution_decay_half_life_ms: 3_600_000,
             evolution_cooldown_after_failures: 3,
             evolution_cooldown_ms: 300_000,
-        }
-    }
-}
-
-impl Default for HostAutolearnSettings {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            penalty_ttl_secs: HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
-            max_hosts: HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
-            store_path: None,
-            warmup_probe_enabled: true,
-            network_reprobe_enabled: true,
         }
     }
 }
