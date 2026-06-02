@@ -19,6 +19,7 @@ const SLIDES = [
 const OUT_DIR = path.resolve("../docs/screenshots");
 const DEFAULT_LANG = "en";
 const BROWSER_ARGS = process.env.CI ? ["--no-sandbox", "--disable-setuid-sandbox"] : [];
+const BROWSER_EXECUTABLE_PATH = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -30,7 +31,11 @@ async function main() {
     ensureDir(path.join(OUT_DIR, lang));
   }
 
-  const browser = await puppeteer.launch({ args: BROWSER_ARGS, headless: true });
+  const browser = await puppeteer.launch({
+    args: BROWSER_ARGS,
+    executablePath: BROWSER_EXECUTABLE_PATH,
+    headless: true,
+  });
   const page = await browser.newPage();
 
   for (const lang of LANGS) {
