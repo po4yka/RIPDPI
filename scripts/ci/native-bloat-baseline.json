@@ -15,22 +15,22 @@
       "functions": [
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_aes_gcm_encrypt_avx512",
+          "name": "aws_lc_0_41_0_aes_gcm_encrypt_avx512",
           "size": 339925
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_aes_gcm_decrypt_avx512",
+          "name": "aws_lc_0_41_0_aes_gcm_decrypt_avx512",
           "size": 339921
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_edwards25519_scalarmuldouble_alt",
+          "name": "aws_lc_0_41_0_edwards25519_scalarmuldouble_alt",
           "size": 28621
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_edwards25519_scalarmuldouble",
+          "name": "aws_lc_0_41_0_edwards25519_scalarmuldouble",
           "size": 28133
         },
         {
@@ -58,12 +58,12 @@
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_curve25519_x25519_byte_alt",
+          "name": "aws_lc_0_41_0_curve25519_x25519_byte_alt",
           "size": 21815
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_curve25519_x25519_byte",
+          "name": "aws_lc_0_41_0_curve25519_x25519_byte",
           "size": 20950
         },
         {
@@ -88,12 +88,12 @@
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_p521_jdouble_alt",
+          "name": "aws_lc_0_41_0_p521_jdouble_alt",
           "size": 17044
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_p521_jdouble",
+          "name": "aws_lc_0_41_0_p521_jdouble",
           "size": 15857
         },
         {
@@ -201,22 +201,22 @@
       "functions": [
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_aes_gcm_encrypt_avx512",
+          "name": "aws_lc_0_41_0_aes_gcm_encrypt_avx512",
           "size": 339925
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_aes_gcm_decrypt_avx512",
+          "name": "aws_lc_0_41_0_aes_gcm_decrypt_avx512",
           "size": 339921
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_edwards25519_scalarmuldouble_alt",
+          "name": "aws_lc_0_41_0_edwards25519_scalarmuldouble_alt",
           "size": 28621
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_edwards25519_scalarmuldouble",
+          "name": "aws_lc_0_41_0_edwards25519_scalarmuldouble",
           "size": 28133
         },
         {
@@ -234,12 +234,12 @@
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_curve25519_x25519_byte_alt",
+          "name": "aws_lc_0_41_0_curve25519_x25519_byte_alt",
           "size": 21815
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_curve25519_x25519_byte",
+          "name": "aws_lc_0_41_0_curve25519_x25519_byte",
           "size": 20950
         },
         {
@@ -269,7 +269,7 @@
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_p521_jdouble_alt",
+          "name": "aws_lc_0_41_0_p521_jdouble_alt",
           "size": 17044
         },
         {
@@ -279,7 +279,7 @@
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_p521_jdouble",
+          "name": "aws_lc_0_41_0_p521_jdouble",
           "size": 15857
         },
         {
@@ -294,7 +294,7 @@
         },
         {
           "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_edwards25519_scalarmulbase_alt",
+          "name": "aws_lc_0_41_0_edwards25519_scalarmulbase_alt",
           "size": 12667
         }
       ],
