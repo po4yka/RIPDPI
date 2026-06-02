@@ -54,7 +54,9 @@ jobs:
         # runtime resolves -- no PUPPETEER_CACHE_DIR override needed.
         run: |
           rm -rf "$HOME/.cache/puppeteer"
-          node node_modules/puppeteer/lib/cjs/puppeteer/node/cli.js browsers install chrome
+          CHROME_BUILD_ID="$(node -e 'const { PUPPETEER_REVISIONS } = require("puppeteer-core/internal/revisions.js"); console.log(PUPPETEER_REVISIONS.chrome)')"
+          CHROME_PATH="$(node node_modules/@puppeteer/browsers/lib/cjs/main-cli.js install "chrome@${CHROME_BUILD_ID}" --platform linux --path "$HOME/.cache/puppeteer" --format '{{path}}' | tail -n 1)"
+          test -x "$CHROME_PATH"
           node -e 'import("puppeteer").then((p) => console.log(p.default.executablePath()))'
 
       - name: Regenerate marketing screenshots
