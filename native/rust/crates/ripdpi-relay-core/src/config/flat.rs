@@ -248,3 +248,91 @@ struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub ssh_strict_host_key: bool,
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::{Value, json};
+
+    use crate::config::ResolvedRelayRuntimeConfig;
+
+    fn relay_config_json_object() -> serde_json::Map<String, Value> {
+        let mut value = json!({
+            "enabled": true,
+            "kind": "hysteria2",
+            "profileId": "default",
+            "outboundBindIp": "",
+            "server": "relay.example",
+            "serverPort": 443,
+            "serverName": "relay.example",
+            "localSocksHost": "127.0.0.1",
+            "localSocksPort": 1080,
+            "udpEnabled": false,
+            "tcpFallbackEnabled": true,
+            "quicBindLowPort": false,
+            "quicMigrateAfterHandshake": false,
+            "tlsFingerprintProfile": "chrome_stable",
+            "hysteriaPassword": "secret"
+        });
+        value.as_object_mut().expect("relay config object").clone()
+    }
+
+    #[test]
+    fn legacy_payload_without_schema_version_defaults_to_current_version() {
+        let object = relay_config_json_object();
+        assert!(!object.contains_key("schemaVersion"), "legacy payload must not carry schemaVersion");
+
+        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object))
+            .expect("legacy payload without schemaVersion should deserialize");
+
+        assert_eq!("hysteria2", config.kind_id());
+        let reserialized = serde_json::to_value(&config).expect("reserialize relay config");
+        assert_eq!(reserialized["schemaVersion"], json!(8), "absent schemaVersion defaults to 8");
+    }
+
+    #[test]
+    fn payload_with_explicit_schema_version_six_deserializes() {
+        let mut object = relay_config_json_object();
+        object.insert("schemaVersion".to_string(), json!(6));
+
+        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object))
+            .expect("legacy payload with schemaVersion 6 should still deserialize");
+
+        assert_eq!("hysteria2", config.kind_id());
+    }
+
+    #[test]
+    fn payload_with_explicit_schema_version_seven_deserializes() {
+        let mut object = relay_config_json_object();
+        object.insert("schemaVersion".to_string(), json!(7));
+
+        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object))
+            .expect("payload with schemaVersion 7 should deserialize");
+
+        assert_eq!("hysteria2", config.kind_id());
+    }
+
+    #[test]
+    fn payload_with_explicit_schema_version_eight_deserializes() {
+        let mut object = relay_config_json_object();
+        object.insert("schemaVersion".to_string(), json!(8));
+
+        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object))
+            .expect("payload with schemaVersion 8 should deserialize");
+
+        assert_eq!("hysteria2", config.kind_id());
+    }
+
+    #[test]
+    fn payload_with_unsupported_schema_version_is_rejected() {
+        let mut object = relay_config_json_object();
+        object.insert("schemaVersion".to_string(), json!(9));
+
+        let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(Value::Object(object))
+            .expect_err("payload with schemaVersion 9 should be rejected");
+
+        assert!(
+            err.to_string().contains("unsupported native config schemaVersion 9"),
+            "error should name the found version, got: {err}"
+        );
+    }
+}

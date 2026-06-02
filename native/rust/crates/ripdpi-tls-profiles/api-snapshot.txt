@@ -40,21 +40,21 @@ pub ripdpi_tls_profiles::ech::EchLookupRequest::backend: ripdpi_tls_profiles::ec
 pub ripdpi_tls_profiles::ech::EchLookupRequest::inner_name: &'a str
 pub ripdpi_tls_profiles::ech::EchLookupRequest::transport: ripdpi_tls_profiles::ech::EchLookupTransport
 impl<'a> ripdpi_tls_profiles::ech::EchLookupRequest<'a>
-pub const fn ripdpi_tls_profiles::ech::EchLookupRequest<'a>::for_backend(inner_name: &'a str, transport: ripdpi_tls_profiles::ech::EchLookupTransport, backend: ripdpi_tls_profiles::ech::OutboundEchBackend) -> Self
-pub const fn ripdpi_tls_profiles::ech::EchLookupRequest<'a>::new(inner_name: &'a str, transport: ripdpi_tls_profiles::ech::EchLookupTransport) -> Self
+pub const fn ripdpi_tls_profiles::ech::EchLookupRequest<'a>::for_backend(&'a str, ripdpi_tls_profiles::ech::EchLookupTransport, ripdpi_tls_profiles::ech::OutboundEchBackend) -> Self
+pub const fn ripdpi_tls_profiles::ech::EchLookupRequest<'a>::new(&'a str, ripdpi_tls_profiles::ech::EchLookupTransport) -> Self
 pub struct ripdpi_tls_profiles::ech::EchPolicy
 pub ripdpi_tls_profiles::ech::EchPolicy::backend_opt_out: core::option::Option<ripdpi_tls_profiles::ech::OutboundEchBackend>
 pub ripdpi_tls_profiles::ech::EchPolicy::enabled: bool
 pub ripdpi_tls_profiles::ech::EchPolicy::grease_when_unavailable: bool
 impl ripdpi_tls_profiles::ech::EchPolicy
-pub const fn ripdpi_tls_profiles::ech::EchPolicy::with_backend_opt_out(self, backend: ripdpi_tls_profiles::ech::OutboundEchBackend) -> Self
+pub const fn ripdpi_tls_profiles::ech::EchPolicy::with_backend_opt_out(self, ripdpi_tls_profiles::ech::OutboundEchBackend) -> Self
 impl core::default::Default for ripdpi_tls_profiles::ech::EchPolicy
 pub fn ripdpi_tls_profiles::ech::EchPolicy::default() -> Self
 pub struct ripdpi_tls_profiles::ech::EchRejectedHandshake
 pub ripdpi_tls_profiles::ech::EchRejectedHandshake::public_name: core::option::Option<alloc::vec::Vec<u8>>
 pub ripdpi_tls_profiles::ech::EchRejectedHandshake::retry_config_list: core::option::Option<alloc::vec::Vec<u8>>
 impl ripdpi_tls_profiles::ech::EchRejectedHandshake
-pub fn ripdpi_tls_profiles::ech::EchRejectedHandshake::new(public_name: core::option::Option<alloc::vec::Vec<u8>>, retry_config_list: core::option::Option<alloc::vec::Vec<u8>>) -> Self
+pub fn ripdpi_tls_profiles::ech::EchRejectedHandshake::new(core::option::Option<alloc::vec::Vec<u8>>, core::option::Option<alloc::vec::Vec<u8>>) -> Self
 pub struct ripdpi_tls_profiles::ech::EchRetryState
 impl ripdpi_tls_profiles::ech::EchRetryState
 pub fn ripdpi_tls_profiles::ech::EchRetryState::retry_attempted(&self) -> bool
@@ -62,18 +62,22 @@ pub struct ripdpi_tls_profiles::ech::OutboundEchConfig
 pub ripdpi_tls_profiles::ech::OutboundEchConfig::config_list: alloc::vec::Vec<u8>
 pub ripdpi_tls_profiles::ech::OutboundEchConfig::public_name: alloc::string::String
 impl ripdpi_tls_profiles::ech::OutboundEchConfig
-pub fn ripdpi_tls_profiles::ech::OutboundEchConfig::new(public_name: impl core::convert::Into<alloc::string::String>, config_list: alloc::vec::Vec<u8>) -> core::result::Result<Self, ripdpi_tls_profiles::ech::EchConfigError>
+pub fn ripdpi_tls_profiles::ech::OutboundEchConfig::new(impl core::convert::Into<alloc::string::String>, alloc::vec::Vec<u8>) -> core::result::Result<Self, ripdpi_tls_profiles::ech::EchConfigError>
 pub trait ripdpi_tls_profiles::ech::EchPublicNameVerifier
-pub fn ripdpi_tls_profiles::ech::EchPublicNameVerifier::verify_ech_public_name(&self, public_name: &str) -> bool
+pub fn ripdpi_tls_profiles::ech::EchPublicNameVerifier::verify_ech_public_name(&self, &str) -> bool
 pub trait ripdpi_tls_profiles::ech::OutboundEchResolver
-pub fn ripdpi_tls_profiles::ech::OutboundEchResolver::resolve_https_ech_config_list(&self, request: &ripdpi_tls_profiles::ech::EchLookupRequest<'_>) -> core::result::Result<ripdpi_tls_profiles::ech::EchLookupOutcome, ripdpi_tls_profiles::ech::EchFacadeError>
-pub fn ripdpi_tls_profiles::ech::configure_boring_ech(config: &mut boring::ssl::connector::ConnectConfiguration, ech_config: core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>
-pub fn ripdpi_tls_profiles::ech::configure_ech(config: &mut boring::ssl::connector::ConnectConfiguration, setup: &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchFacadeError>
-pub fn ripdpi_tls_profiles::ech::configure_rustls_ech(builder: rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVersions>, setup: &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVerifier>, ripdpi_tls_profiles::ech::EchFacadeError>
-pub fn ripdpi_tls_profiles::ech::extract_boring_ech_rejection<S>(failed: &boring::ssl::MidHandshakeSslStream<S>) -> core::option::Option<ripdpi_tls_profiles::ech::EchRejectedHandshake>
-pub fn ripdpi_tls_profiles::ech::prepare_ech_retry(rejected: &ripdpi_tls_profiles::ech::EchRejectedHandshake, verifier: &impl ripdpi_tls_profiles::ech::EchPublicNameVerifier, state: &mut ripdpi_tls_profiles::ech::EchRetryState) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
-pub fn ripdpi_tls_profiles::ech::require_ech_backend_support(backend: ripdpi_tls_profiles::ech::OutboundEchBackend, config: core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>
-pub fn ripdpi_tls_profiles::ech::resolve_outbound_ech(request: &ripdpi_tls_profiles::ech::EchLookupRequest<'_>, policy: ripdpi_tls_profiles::ech::EchPolicy, resolver: &impl ripdpi_tls_profiles::ech::OutboundEchResolver) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::ech::OutboundEchResolver::resolve_https_ech_config_list(&self, &ripdpi_tls_profiles::ech::EchLookupRequest<'_>) -> core::result::Result<ripdpi_tls_profiles::ech::EchLookupOutcome, ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::ech::configure_boring_ech(&mut boring::ssl::connector::ConnectConfiguration, core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>
+pub fn ripdpi_tls_profiles::ech::configure_ech(&mut boring::ssl::connector::ConnectConfiguration, &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::ech::configure_rustls_ech(rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVersions>, &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVerifier>, ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::ech::extract_boring_ech_rejection<S>(&boring::ssl::MidHandshakeSslStream<S>) -> core::option::Option<ripdpi_tls_profiles::ech::EchRejectedHandshake>
+pub fn ripdpi_tls_profiles::ech::prepare_ech_retry(&ripdpi_tls_profiles::ech::EchRejectedHandshake, &impl ripdpi_tls_profiles::ech::EchPublicNameVerifier, &mut ripdpi_tls_profiles::ech::EchRetryState) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::ech::require_ech_backend_support(ripdpi_tls_profiles::ech::OutboundEchBackend, core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>
+pub fn ripdpi_tls_profiles::ech::resolve_outbound_ech(&ripdpi_tls_profiles::ech::EchLookupRequest<'_>, ripdpi_tls_profiles::ech::EchPolicy, &impl ripdpi_tls_profiles::ech::OutboundEchResolver) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
+pub enum ripdpi_tls_profiles::CoverEchEvidence
+pub ripdpi_tls_profiles::CoverEchEvidence::CoverOmitsEch
+pub ripdpi_tls_profiles::CoverEchEvidence::CoverUsesEch
+pub ripdpi_tls_profiles::CoverEchEvidence::Unknown
 pub enum ripdpi_tls_profiles::EchConfigError
 pub ripdpi_tls_profiles::EchConfigError::MalformedConfigList
 pub ripdpi_tls_profiles::EchConfigError::MissingPublicName
@@ -119,6 +123,9 @@ pub ripdpi_tls_profiles::ProfileInvariantStatus::AvoidsBlocked517ByteClientHello
 pub ripdpi_tls_profiles::ProfileInvariantStatus::Satisfied
 impl ripdpi_tls_profiles::ProfileInvariantStatus
 pub const fn ripdpi_tls_profiles::ProfileInvariantStatus::as_str(self) -> &'static str
+pub enum ripdpi_tls_profiles::RealityEchParity
+pub ripdpi_tls_profiles::RealityEchParity::Grease
+pub ripdpi_tls_profiles::RealityEchParity::Off
 pub enum ripdpi_tls_profiles::RecordChoreography
 pub ripdpi_tls_profiles::RecordChoreography::HostTailTwoRecord
 pub ripdpi_tls_profiles::RecordChoreography::SingleRecord
@@ -131,21 +138,21 @@ pub ripdpi_tls_profiles::EchLookupRequest::backend: ripdpi_tls_profiles::ech::Ou
 pub ripdpi_tls_profiles::EchLookupRequest::inner_name: &'a str
 pub ripdpi_tls_profiles::EchLookupRequest::transport: ripdpi_tls_profiles::ech::EchLookupTransport
 impl<'a> ripdpi_tls_profiles::ech::EchLookupRequest<'a>
-pub const fn ripdpi_tls_profiles::ech::EchLookupRequest<'a>::for_backend(inner_name: &'a str, transport: ripdpi_tls_profiles::ech::EchLookupTransport, backend: ripdpi_tls_profiles::ech::OutboundEchBackend) -> Self
-pub const fn ripdpi_tls_profiles::ech::EchLookupRequest<'a>::new(inner_name: &'a str, transport: ripdpi_tls_profiles::ech::EchLookupTransport) -> Self
+pub const fn ripdpi_tls_profiles::ech::EchLookupRequest<'a>::for_backend(&'a str, ripdpi_tls_profiles::ech::EchLookupTransport, ripdpi_tls_profiles::ech::OutboundEchBackend) -> Self
+pub const fn ripdpi_tls_profiles::ech::EchLookupRequest<'a>::new(&'a str, ripdpi_tls_profiles::ech::EchLookupTransport) -> Self
 pub struct ripdpi_tls_profiles::EchPolicy
 pub ripdpi_tls_profiles::EchPolicy::backend_opt_out: core::option::Option<ripdpi_tls_profiles::ech::OutboundEchBackend>
 pub ripdpi_tls_profiles::EchPolicy::enabled: bool
 pub ripdpi_tls_profiles::EchPolicy::grease_when_unavailable: bool
 impl ripdpi_tls_profiles::ech::EchPolicy
-pub const fn ripdpi_tls_profiles::ech::EchPolicy::with_backend_opt_out(self, backend: ripdpi_tls_profiles::ech::OutboundEchBackend) -> Self
+pub const fn ripdpi_tls_profiles::ech::EchPolicy::with_backend_opt_out(self, ripdpi_tls_profiles::ech::OutboundEchBackend) -> Self
 impl core::default::Default for ripdpi_tls_profiles::ech::EchPolicy
 pub fn ripdpi_tls_profiles::ech::EchPolicy::default() -> Self
 pub struct ripdpi_tls_profiles::EchRejectedHandshake
 pub ripdpi_tls_profiles::EchRejectedHandshake::public_name: core::option::Option<alloc::vec::Vec<u8>>
 pub ripdpi_tls_profiles::EchRejectedHandshake::retry_config_list: core::option::Option<alloc::vec::Vec<u8>>
 impl ripdpi_tls_profiles::ech::EchRejectedHandshake
-pub fn ripdpi_tls_profiles::ech::EchRejectedHandshake::new(public_name: core::option::Option<alloc::vec::Vec<u8>>, retry_config_list: core::option::Option<alloc::vec::Vec<u8>>) -> Self
+pub fn ripdpi_tls_profiles::ech::EchRejectedHandshake::new(core::option::Option<alloc::vec::Vec<u8>>, core::option::Option<alloc::vec::Vec<u8>>) -> Self
 pub struct ripdpi_tls_profiles::EchRetryState
 impl ripdpi_tls_profiles::ech::EchRetryState
 pub fn ripdpi_tls_profiles::ech::EchRetryState::retry_attempted(&self) -> bool
@@ -153,7 +160,7 @@ pub struct ripdpi_tls_profiles::OutboundEchConfig
 pub ripdpi_tls_profiles::OutboundEchConfig::config_list: alloc::vec::Vec<u8>
 pub ripdpi_tls_profiles::OutboundEchConfig::public_name: alloc::string::String
 impl ripdpi_tls_profiles::ech::OutboundEchConfig
-pub fn ripdpi_tls_profiles::ech::OutboundEchConfig::new(public_name: impl core::convert::Into<alloc::string::String>, config_list: alloc::vec::Vec<u8>) -> core::result::Result<Self, ripdpi_tls_profiles::ech::EchConfigError>
+pub fn ripdpi_tls_profiles::ech::OutboundEchConfig::new(impl core::convert::Into<alloc::string::String>, alloc::vec::Vec<u8>) -> core::result::Result<Self, ripdpi_tls_profiles::ech::EchConfigError>
 pub struct ripdpi_tls_profiles::ProfileCatalog
 pub ripdpi_tls_profiles::ProfileCatalog::default_profile_set_id: &'static str
 pub ripdpi_tls_profiles::ProfileCatalog::profiles: &'static [&'static str]
@@ -218,28 +225,29 @@ pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::record_choreography: ripdpi
 pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::record_payload_boundaries: alloc::vec::Vec<usize>
 pub const ripdpi_tls_profiles::AVAILABLE_PROFILES: &[&str]
 pub trait ripdpi_tls_profiles::EchPublicNameVerifier
-pub fn ripdpi_tls_profiles::EchPublicNameVerifier::verify_ech_public_name(&self, public_name: &str) -> bool
+pub fn ripdpi_tls_profiles::EchPublicNameVerifier::verify_ech_public_name(&self, &str) -> bool
 pub trait ripdpi_tls_profiles::OutboundEchResolver
-pub fn ripdpi_tls_profiles::OutboundEchResolver::resolve_https_ech_config_list(&self, request: &ripdpi_tls_profiles::ech::EchLookupRequest<'_>) -> core::result::Result<ripdpi_tls_profiles::ech::EchLookupOutcome, ripdpi_tls_profiles::ech::EchFacadeError>
-pub fn ripdpi_tls_profiles::apply_record_choreography(profile: &str, client_hello: &[u8]) -> core::option::Option<alloc::vec::Vec<u8>>
-pub fn ripdpi_tls_profiles::build_connector(profile: &str, verify: bool) -> core::result::Result<boring::ssl::connector::SslConnector, ripdpi_tls_profiles::Error>
-pub fn ripdpi_tls_profiles::configure_boring_ech(config: &mut boring::ssl::connector::ConnectConfiguration, ech_config: core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>
-pub fn ripdpi_tls_profiles::configure_builder(profile: &str) -> core::result::Result<boring::ssl::connector::SslConnectorBuilder, ripdpi_tls_profiles::Error>
-pub fn ripdpi_tls_profiles::configure_ech(config: &mut boring::ssl::connector::ConnectConfiguration, setup: &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchFacadeError>
-pub fn ripdpi_tls_profiles::configure_rustls_ech(builder: rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVersions>, setup: &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVerifier>, ripdpi_tls_profiles::ech::EchFacadeError>
-pub fn ripdpi_tls_profiles::extract_boring_ech_rejection<S>(failed: &boring::ssl::MidHandshakeSslStream<S>) -> core::option::Option<ripdpi_tls_profiles::ech::EchRejectedHandshake>
-pub fn ripdpi_tls_profiles::plan_first_flight(profile: &str, client_hello: &[u8]) -> core::option::Option<ripdpi_tls_profiles::TlsTemplateFirstFlightPlan>
-pub fn ripdpi_tls_profiles::planned_record_payload_boundaries(profile: &str, client_hello: &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
-pub fn ripdpi_tls_profiles::planned_record_payload_lengths(profile: &str, client_hello: &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
-pub fn ripdpi_tls_profiles::prepare_ech_retry(rejected: &ripdpi_tls_profiles::ech::EchRejectedHandshake, verifier: &impl ripdpi_tls_profiles::ech::EchPublicNameVerifier, state: &mut ripdpi_tls_profiles::ech::EchRetryState) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::OutboundEchResolver::resolve_https_ech_config_list(&self, &ripdpi_tls_profiles::ech::EchLookupRequest<'_>) -> core::result::Result<ripdpi_tls_profiles::ech::EchLookupOutcome, ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::apply_record_choreography(&str, &[u8]) -> core::option::Option<alloc::vec::Vec<u8>>
+pub fn ripdpi_tls_profiles::build_connector(&str, bool) -> core::result::Result<boring::ssl::connector::SslConnector, ripdpi_tls_profiles::Error>
+pub fn ripdpi_tls_profiles::configure_boring_ech(&mut boring::ssl::connector::ConnectConfiguration, core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>
+pub fn ripdpi_tls_profiles::configure_builder(&str) -> core::result::Result<boring::ssl::connector::SslConnectorBuilder, ripdpi_tls_profiles::Error>
+pub fn ripdpi_tls_profiles::configure_ech(&mut boring::ssl::connector::ConnectConfiguration, &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::configure_rustls_ech(rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVersions>, &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVerifier>, ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::extract_boring_ech_rejection<S>(&boring::ssl::MidHandshakeSslStream<S>) -> core::option::Option<ripdpi_tls_profiles::ech::EchRejectedHandshake>
+pub fn ripdpi_tls_profiles::plan_first_flight(&str, &[u8]) -> core::option::Option<ripdpi_tls_profiles::TlsTemplateFirstFlightPlan>
+pub fn ripdpi_tls_profiles::planned_record_payload_boundaries(&str, &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
+pub fn ripdpi_tls_profiles::planned_record_payload_lengths(&str, &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
+pub fn ripdpi_tls_profiles::prepare_ech_retry(&ripdpi_tls_profiles::ech::EchRejectedHandshake, &impl ripdpi_tls_profiles::ech::EchPublicNameVerifier, &mut ripdpi_tls_profiles::ech::EchRetryState) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
 pub fn ripdpi_tls_profiles::profile_catalog() -> &'static ripdpi_tls_profiles::ProfileCatalog
 pub fn ripdpi_tls_profiles::profile_catalog_version() -> &'static str
-pub fn ripdpi_tls_profiles::profile_metadata(name: &str) -> ripdpi_tls_profiles::ProfileMetadata
-pub fn ripdpi_tls_profiles::require_ech_backend_support(backend: ripdpi_tls_profiles::ech::OutboundEchBackend, config: core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>
-pub fn ripdpi_tls_profiles::resolve_outbound_ech(request: &ripdpi_tls_profiles::ech::EchLookupRequest<'_>, policy: ripdpi_tls_profiles::ech::EchPolicy, resolver: &impl ripdpi_tls_profiles::ech::OutboundEchResolver) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
-pub fn ripdpi_tls_profiles::select_profile_for_connection(rotation_enabled: bool, default_profile: &str, domain: &str, session_seed: u64, allowed_profiles: &[alloc::string::String]) -> &'static str
-pub fn ripdpi_tls_profiles::select_rotated_profile(domain: &str, session_seed: u64, allowed_profiles: &[alloc::string::String]) -> &'static str
-pub fn ripdpi_tls_profiles::select_rotated_profile_with_set(authority: &str, session_seed: u64, profile_set_id: &str, allowed_profiles: &[alloc::string::String]) -> &'static str
-pub fn ripdpi_tls_profiles::selected_profile_config(profile: &str) -> &'static ripdpi_tls_profiles::ProfileConfig
-pub fn ripdpi_tls_profiles::selected_profile_metadata(profile: &str) -> ripdpi_tls_profiles::ProfileMetadata
-pub fn ripdpi_tls_profiles::selected_record_choreography(profile: &str) -> ripdpi_tls_profiles::RecordChoreography
+pub fn ripdpi_tls_profiles::profile_metadata(&str) -> ripdpi_tls_profiles::ProfileMetadata
+pub fn ripdpi_tls_profiles::reality_ech_parity(&ripdpi_tls_profiles::ProfileConfig, &str, ripdpi_tls_profiles::CoverEchEvidence) -> ripdpi_tls_profiles::RealityEchParity
+pub fn ripdpi_tls_profiles::require_ech_backend_support(ripdpi_tls_profiles::ech::OutboundEchBackend, core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>
+pub fn ripdpi_tls_profiles::resolve_outbound_ech(&ripdpi_tls_profiles::ech::EchLookupRequest<'_>, ripdpi_tls_profiles::ech::EchPolicy, &impl ripdpi_tls_profiles::ech::OutboundEchResolver) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::select_profile_for_connection(bool, &str, &str, u64, &[alloc::string::String]) -> &'static str
+pub fn ripdpi_tls_profiles::select_rotated_profile(&str, u64, &[alloc::string::String]) -> &'static str
+pub fn ripdpi_tls_profiles::select_rotated_profile_with_set(&str, u64, &str, &[alloc::string::String]) -> &'static str
+pub fn ripdpi_tls_profiles::selected_profile_config(&str) -> &'static ripdpi_tls_profiles::ProfileConfig
+pub fn ripdpi_tls_profiles::selected_profile_metadata(&str) -> ripdpi_tls_profiles::ProfileMetadata
+pub fn ripdpi_tls_profiles::selected_record_choreography(&str) -> ripdpi_tls_profiles::RecordChoreography

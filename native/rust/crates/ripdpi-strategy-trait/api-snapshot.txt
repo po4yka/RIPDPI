@@ -83,7 +83,7 @@ pub struct ripdpi_strategy_trait::Capabilities
 pub ripdpi_strategy_trait::Capabilities::available: alloc::vec::Vec<ripdpi_strategy_trait::RuntimeCapability>
 pub ripdpi_strategy_trait::Capabilities::tier: ripdpi_strategy_trait::CapabilityTier
 impl ripdpi_strategy_trait::Capabilities
-pub fn ripdpi_strategy_trait::Capabilities::has(&self, capability: ripdpi_strategy_trait::RuntimeCapability) -> bool
+pub fn ripdpi_strategy_trait::Capabilities::has(&self, ripdpi_strategy_trait::RuntimeCapability) -> bool
 pub struct ripdpi_strategy_trait::ConnectionState
 pub ripdpi_strategy_trait::ConnectionState::packet_count: u64
 pub struct ripdpi_strategy_trait::DesyncPlan
@@ -161,5 +161,5 @@ pub static ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS: linkme::distribut
 pub trait ripdpi_strategy_trait::DesyncStrategy: core::marker::Send + core::marker::Sync
 pub fn ripdpi_strategy_trait::DesyncStrategy::describe(&self) -> ripdpi_strategy_trait::StrategyDescriptor
 pub fn ripdpi_strategy_trait::DesyncStrategy::id(&self) -> &str
-pub fn ripdpi_strategy_trait::DesyncStrategy::matches(&self, ctx: &ripdpi_strategy_trait::StrategyContext<'_>) -> bool
-pub fn ripdpi_strategy_trait::DesyncStrategy::plan(&self, ctx: &ripdpi_strategy_trait::StrategyContext<'_>, plan: &mut ripdpi_strategy_trait::DesyncPlan) -> core::result::Result<(), ripdpi_strategy_trait::StrategyError>
+pub fn ripdpi_strategy_trait::DesyncStrategy::matches(&self, &ripdpi_strategy_trait::StrategyContext<'_>) -> bool
+pub fn ripdpi_strategy_trait::DesyncStrategy::plan(&self, &ripdpi_strategy_trait::StrategyContext<'_>, &mut ripdpi_strategy_trait::DesyncPlan) -> core::result::Result<(), ripdpi_strategy_trait::StrategyError>

@@ -399,6 +399,7 @@ class StubInstrumentedVpnTunnelSessionProvider : VpnTunnelSessionProvider {
         host: VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
+        httpProxyPort: Int?,
     ): VpnTunnelSession = StubInstrumentedVpnTunnelSession()
 }
 

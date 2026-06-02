@@ -1,30 +1,30 @@
 pub mod ripdpi_config
 pub mod ripdpi_config::cli
-pub fn ripdpi_config::cli::parse_cli(args: &[alloc::string::String], startup: &ripdpi_config::startup_env::StartupEnv) -> core::result::Result<ripdpi_config::ParseResult, ripdpi_config::ConfigError>
-pub fn ripdpi_config::cli::parse_hosts_spec(spec: &str) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::cli::parse_ipset_spec(spec: &str) -> core::result::Result<alloc::vec::Vec<ripdpi_config::Cidr>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::cli::parse_cli(&[alloc::string::String], &ripdpi_config::startup_env::StartupEnv) -> core::result::Result<ripdpi_config::ParseResult, ripdpi_config::ConfigError>
+pub fn ripdpi_config::cli::parse_hosts_spec(&str) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::cli::parse_ipset_spec(&str) -> core::result::Result<alloc::vec::Vec<ripdpi_config::Cidr>, ripdpi_config::ConfigError>
 pub mod ripdpi_config::fake_profiles
-pub fn ripdpi_config::fake_profiles::data_from_str(spec: &str) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::fake_profiles::file_or_inline_bytes(spec: &str) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::fake_profiles::normalize_fake_host_template(spec: &str) -> core::result::Result<alloc::string::String, ripdpi_config::ConfigError>
-pub fn ripdpi_config::fake_profiles::normalize_quic_fake_host(spec: &str) -> core::result::Result<alloc::string::String, ripdpi_config::ConfigError>
-pub fn ripdpi_config::fake_profiles::parse_http_fake_profile(spec: &str) -> core::result::Result<ripdpi_packets::fake_profiles::HttpFakeProfile, ripdpi_config::ConfigError>
-pub fn ripdpi_config::fake_profiles::parse_quic_fake_profile(spec: &str) -> core::result::Result<ripdpi_config::QuicFakeProfile, ripdpi_config::ConfigError>
-pub fn ripdpi_config::fake_profiles::parse_tls_fake_profile(spec: &str) -> core::result::Result<ripdpi_packets::fake_profiles::TlsFakeProfile, ripdpi_config::ConfigError>
-pub fn ripdpi_config::fake_profiles::parse_udp_fake_profile(spec: &str) -> core::result::Result<ripdpi_packets::fake_profiles::UdpFakeProfile, ripdpi_config::ConfigError>
+pub fn ripdpi_config::fake_profiles::data_from_str(&str) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::fake_profiles::file_or_inline_bytes(&str) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::fake_profiles::normalize_fake_host_template(&str) -> core::result::Result<alloc::string::String, ripdpi_config::ConfigError>
+pub fn ripdpi_config::fake_profiles::normalize_quic_fake_host(&str) -> core::result::Result<alloc::string::String, ripdpi_config::ConfigError>
+pub fn ripdpi_config::fake_profiles::parse_http_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::HttpFakeProfile, ripdpi_config::ConfigError>
+pub fn ripdpi_config::fake_profiles::parse_quic_fake_profile(&str) -> core::result::Result<ripdpi_config::QuicFakeProfile, ripdpi_config::ConfigError>
+pub fn ripdpi_config::fake_profiles::parse_tls_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::TlsFakeProfile, ripdpi_config::ConfigError>
+pub fn ripdpi_config::fake_profiles::parse_udp_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::UdpFakeProfile, ripdpi_config::ConfigError>
 pub mod ripdpi_config::offsets
-pub fn ripdpi_config::offsets::parse_auto_ttl_spec(spec: &str) -> core::result::Result<ripdpi_config::AutoTtlConfig, ripdpi_config::ConfigError>
-pub fn ripdpi_config::offsets::parse_offset_expr(spec: &str) -> core::result::Result<ripdpi_config::OffsetExpr, ripdpi_config::ConfigError>
-pub fn ripdpi_config::offsets::parse_payload_size_range_spec(spec: &str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::offsets::parse_round_range_spec(spec: &str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::offsets::parse_stream_byte_range_spec(spec: &str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::offsets::parse_auto_ttl_spec(&str) -> core::result::Result<ripdpi_config::AutoTtlConfig, ripdpi_config::ConfigError>
+pub fn ripdpi_config::offsets::parse_offset_expr(&str) -> core::result::Result<ripdpi_config::OffsetExpr, ripdpi_config::ConfigError>
+pub fn ripdpi_config::offsets::parse_payload_size_range_spec(&str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::offsets::parse_round_range_spec(&str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::offsets::parse_stream_byte_range_spec(&str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
 pub mod ripdpi_config::startup_env
 pub struct ripdpi_config::startup_env::StartupEnv
 pub ripdpi_config::startup_env::StartupEnv::protect_path_present: bool
 pub ripdpi_config::startup_env::StartupEnv::ss_local_port: core::option::Option<alloc::string::String>
 pub ripdpi_config::startup_env::StartupEnv::ss_plugin_options: core::option::Option<alloc::string::String>
 impl ripdpi_config::startup_env::StartupEnv
-pub fn ripdpi_config::startup_env::StartupEnv::from_env_and_cwd(cwd: &std::path::Path) -> Self
+pub fn ripdpi_config::startup_env::StartupEnv::from_env_and_cwd(&std::path::Path) -> Self
 pub mod ripdpi_config::tcp_flags
 pub const ripdpi_config::tcp_flags::TCP_FLAG_ACK: u16
 pub const ripdpi_config::tcp_flags::TCP_FLAG_AE: u16
@@ -39,9 +39,9 @@ pub const ripdpi_config::tcp_flags::TCP_FLAG_R3: u16
 pub const ripdpi_config::tcp_flags::TCP_FLAG_RST: u16
 pub const ripdpi_config::tcp_flags::TCP_FLAG_SYN: u16
 pub const ripdpi_config::tcp_flags::TCP_FLAG_URG: u16
-pub fn ripdpi_config::tcp_flags::format_tcp_flag_mask(mask: u16) -> alloc::string::String
-pub fn ripdpi_config::tcp_flags::parse_tcp_flag_mask(spec: &str) -> core::result::Result<u16, ripdpi_config::ConfigError>
-pub fn ripdpi_config::tcp_flags::validate_tcp_flag_masks(kind: ripdpi_config::TcpChainStepKind, fake_set: core::option::Option<u16>, fake_unset: core::option::Option<u16>, orig_set: core::option::Option<u16>, orig_unset: core::option::Option<u16>, field_name: &str) -> core::result::Result<(), ripdpi_config::ConfigError>
+pub fn ripdpi_config::tcp_flags::format_tcp_flag_mask(u16) -> alloc::string::String
+pub fn ripdpi_config::tcp_flags::parse_tcp_flag_mask(&str) -> core::result::Result<u16, ripdpi_config::ConfigError>
+pub fn ripdpi_config::tcp_flags::validate_tcp_flag_masks(ripdpi_config::TcpChainStepKind, core::option::Option<u16>, core::option::Option<u16>, core::option::Option<u16>, core::option::Option<u16>, &str) -> core::result::Result<(), ripdpi_config::ConfigError>
 #[non_exhaustive] pub enum ripdpi_config::DesyncMode
 pub ripdpi_config::DesyncMode::Disoob = 4
 pub ripdpi_config::DesyncMode::Disorder = 2
@@ -143,7 +143,7 @@ pub ripdpi_config::TcpChainStepKind::TlsRec
 impl ripdpi_config::TcpChainStepKind
 pub const fn ripdpi_config::TcpChainStepKind::as_mode(self) -> core::option::Option<ripdpi_config::DesyncMode>
 pub const fn ripdpi_config::TcpChainStepKind::emitter_tier(self) -> ripdpi_config::EmitterTier
-pub const fn ripdpi_config::TcpChainStepKind::from_mode(mode: ripdpi_config::DesyncMode) -> core::option::Option<Self>
+pub const fn ripdpi_config::TcpChainStepKind::from_mode(ripdpi_config::DesyncMode) -> core::option::Option<Self>
 pub const fn ripdpi_config::TcpChainStepKind::is_tls_prelude(self) -> bool
 pub const fn ripdpi_config::TcpChainStepKind::supports_fake_ordering(self) -> bool
 pub const fn ripdpi_config::TcpChainStepKind::supports_fake_tcp_flags(self) -> bool
@@ -227,13 +227,13 @@ pub struct ripdpi_config::Cidr
 pub ripdpi_config::Cidr::addr: core::net::ip_addr::IpAddr
 pub ripdpi_config::Cidr::bits: u8
 impl ripdpi_config::Cidr
-pub fn ripdpi_config::Cidr::matches(&self, ip: core::net::ip_addr::IpAddr) -> bool
+pub fn ripdpi_config::Cidr::matches(&self, core::net::ip_addr::IpAddr) -> bool
 pub struct ripdpi_config::ConfigError
 pub ripdpi_config::ConfigError::option: alloc::string::String
 pub ripdpi_config::ConfigError::value: core::option::Option<alloc::string::String>
 impl core::error::Error for ripdpi_config::ConfigError
 impl core::fmt::Display for ripdpi_config::ConfigError
-pub fn ripdpi_config::ConfigError::fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub fn ripdpi_config::ConfigError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct ripdpi_config::DesyncGroup
 pub ripdpi_config::DesyncGroup::actions: ripdpi_config::DesyncGroupActionSettings
 pub ripdpi_config::DesyncGroup::bit: u64
@@ -245,9 +245,9 @@ pub fn ripdpi_config::DesyncGroup::activation_filter(&self) -> core::option::Opt
 pub fn ripdpi_config::DesyncGroup::effective_tcp_chain(&self) -> alloc::vec::Vec<ripdpi_config::TcpChainStep>
 pub fn ripdpi_config::DesyncGroup::effective_udp_chain(&self) -> alloc::vec::Vec<ripdpi_config::UdpChainStep>
 pub fn ripdpi_config::DesyncGroup::is_actionable(&self) -> bool
-pub fn ripdpi_config::DesyncGroup::new(id: usize) -> Self
-pub fn ripdpi_config::DesyncGroup::set_activation_filter(&mut self, filter: ripdpi_config::ActivationFilter)
-pub fn ripdpi_config::DesyncGroup::set_round_activation(&mut self, range: core::option::Option<ripdpi_config::NumericRange<i64>>)
+pub fn ripdpi_config::DesyncGroup::new(usize) -> Self
+pub fn ripdpi_config::DesyncGroup::set_activation_filter(&mut self, ripdpi_config::ActivationFilter)
+pub fn ripdpi_config::DesyncGroup::set_round_activation(&mut self, core::option::Option<ripdpi_config::NumericRange<i64>>)
 pub struct ripdpi_config::DesyncGroupActionSettings
 pub ripdpi_config::DesyncGroupActionSettings::auto_ttl: core::option::Option<ripdpi_config::AutoTtlConfig>
 pub ripdpi_config::DesyncGroupActionSettings::drop_sack: bool
@@ -308,9 +308,9 @@ pub ripdpi_config::FilterSet::hosts: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_config::FilterSet::ipset: alloc::vec::Vec<ripdpi_config::Cidr>
 impl ripdpi_config::FilterSet
 pub fn ripdpi_config::FilterSet::host_filters_empty(&self) -> bool
-pub fn ripdpi_config::FilterSet::hosts_match(&self, host: &str) -> bool
+pub fn ripdpi_config::FilterSet::hosts_match(&self, &str) -> bool
 pub fn ripdpi_config::FilterSet::ip_filters_empty(&self) -> bool
-pub fn ripdpi_config::FilterSet::ipset_match(&self, ip: core::net::ip_addr::IpAddr) -> bool
+pub fn ripdpi_config::FilterSet::ipset_match(&self, core::net::ip_addr::IpAddr) -> bool
 pub struct ripdpi_config::HostAutolearnSettings
 pub ripdpi_config::HostAutolearnSettings::enabled: bool
 pub ripdpi_config::HostAutolearnSettings::max_hosts: usize
@@ -329,7 +329,7 @@ pub struct ripdpi_config::NumericRange<T>
 pub ripdpi_config::NumericRange::end: T
 pub ripdpi_config::NumericRange::start: T
 impl<T> ripdpi_config::NumericRange<T>
-pub const fn ripdpi_config::NumericRange<T>::new(start: T, end: T) -> Self
+pub const fn ripdpi_config::NumericRange<T>::new(T, T) -> Self
 pub struct ripdpi_config::OffsetExpr
 pub ripdpi_config::OffsetExpr::base: ripdpi_config::OffsetBase
 pub ripdpi_config::OffsetExpr::delta: i64
@@ -337,16 +337,16 @@ pub ripdpi_config::OffsetExpr::proto: ripdpi_config::OffsetProto
 pub ripdpi_config::OffsetExpr::repeats: i32
 pub ripdpi_config::OffsetExpr::skip: i32
 impl ripdpi_config::OffsetExpr
-pub const fn ripdpi_config::OffsetExpr::absolute(delta: i64) -> Self
+pub const fn ripdpi_config::OffsetExpr::absolute(i64) -> Self
 pub const fn ripdpi_config::OffsetExpr::absolute_positive(self) -> core::option::Option<i64>
-pub const fn ripdpi_config::OffsetExpr::adaptive(base: ripdpi_config::OffsetBase) -> Self
-pub const fn ripdpi_config::OffsetExpr::host(delta: i64) -> Self
-pub const fn ripdpi_config::OffsetExpr::marker(base: ripdpi_config::OffsetBase, delta: i64) -> Self
+pub const fn ripdpi_config::OffsetExpr::adaptive(ripdpi_config::OffsetBase) -> Self
+pub const fn ripdpi_config::OffsetExpr::host(i64) -> Self
+pub const fn ripdpi_config::OffsetExpr::marker(ripdpi_config::OffsetBase, i64) -> Self
 pub const fn ripdpi_config::OffsetExpr::needs_tls_record_adjustment(self) -> bool
 pub const fn ripdpi_config::OffsetExpr::supports_fake_offset(self) -> bool
-pub const fn ripdpi_config::OffsetExpr::tls_host(delta: i64) -> Self
-pub const fn ripdpi_config::OffsetExpr::tls_marker(base: ripdpi_config::OffsetBase, delta: i64) -> Self
-pub const fn ripdpi_config::OffsetExpr::with_repeat_skip(self, repeats: i32, skip: i32) -> Self
+pub const fn ripdpi_config::OffsetExpr::tls_host(i64) -> Self
+pub const fn ripdpi_config::OffsetExpr::tls_marker(ripdpi_config::OffsetBase, i64) -> Self
+pub const fn ripdpi_config::OffsetExpr::with_repeat_skip(self, i32, i32) -> Self
 pub struct ripdpi_config::PartSpec
 pub ripdpi_config::PartSpec::mode: ripdpi_config::DesyncMode
 pub ripdpi_config::PartSpec::offset: ripdpi_config::OffsetExpr
@@ -373,6 +373,7 @@ pub ripdpi_config::RuntimeAdaptiveSettings::evolution_epsilon_permil: u32
 pub ripdpi_config::RuntimeAdaptiveSettings::evolution_experiment_ttl_ms: u64
 pub ripdpi_config::RuntimeAdaptiveSettings::network_scope_key: core::option::Option<alloc::string::String>
 pub ripdpi_config::RuntimeAdaptiveSettings::strategy_evolution: bool
+pub ripdpi_config::RuntimeAdaptiveSettings::ws_tunnel_allow_insecure_sni: bool
 pub ripdpi_config::RuntimeAdaptiveSettings::ws_tunnel_fake_sni: core::option::Option<alloc::string::String>
 pub ripdpi_config::RuntimeAdaptiveSettings::ws_tunnel_mode: ripdpi_config::WsTunnelMode
 impl core::default::Default for ripdpi_config::RuntimeAdaptiveSettings
@@ -399,6 +400,7 @@ pub ripdpi_config::RuntimeNetworkSettings::http_connect: bool
 pub ripdpi_config::RuntimeNetworkSettings::ipv6: bool
 pub ripdpi_config::RuntimeNetworkSettings::listen: ripdpi_config::ListenConfig
 pub ripdpi_config::RuntimeNetworkSettings::max_open: i32
+pub ripdpi_config::RuntimeNetworkSettings::mixed: bool
 pub ripdpi_config::RuntimeNetworkSettings::resolve: bool
 pub ripdpi_config::RuntimeNetworkSettings::shadowsocks: bool
 pub ripdpi_config::RuntimeNetworkSettings::tfo: bool
@@ -440,7 +442,7 @@ pub ripdpi_config::StartupEnv::protect_path_present: bool
 pub ripdpi_config::StartupEnv::ss_local_port: core::option::Option<alloc::string::String>
 pub ripdpi_config::StartupEnv::ss_plugin_options: core::option::Option<alloc::string::String>
 impl ripdpi_config::startup_env::StartupEnv
-pub fn ripdpi_config::startup_env::StartupEnv::from_env_and_cwd(cwd: &std::path::Path) -> Self
+pub fn ripdpi_config::startup_env::StartupEnv::from_env_and_cwd(&std::path::Path) -> Self
 pub struct ripdpi_config::TcpChainStep
 impl ripdpi_config::TcpChainStep
 pub const fn ripdpi_config::TcpChainStep::activation_filter(&self) -> core::option::Option<ripdpi_config::ActivationFilter>
@@ -448,24 +450,24 @@ pub fn ripdpi_config::TcpChainStep::fake_host_template(&self) -> core::option::O
 pub const fn ripdpi_config::TcpChainStep::inter_segment_delay_ms(&self) -> u32
 pub const fn ripdpi_config::TcpChainStep::kind(&self) -> ripdpi_config::TcpChainStepKind
 pub const fn ripdpi_config::TcpChainStep::midhost_offset(&self) -> core::option::Option<ripdpi_config::OffsetExpr>
-pub const fn ripdpi_config::TcpChainStep::new(kind: ripdpi_config::TcpChainStepKind, offset: ripdpi_config::OffsetExpr) -> Self
+pub const fn ripdpi_config::TcpChainStep::new(ripdpi_config::TcpChainStepKind, ripdpi_config::OffsetExpr) -> Self
 pub const fn ripdpi_config::TcpChainStep::offset(&self) -> ripdpi_config::OffsetExpr
 pub const fn ripdpi_config::TcpChainStep::random_fake_host(&self) -> bool
-pub fn ripdpi_config::TcpChainStep::with_activation_filter(self, activation_filter: core::option::Option<ripdpi_config::ActivationFilter>) -> Self
-pub fn ripdpi_config::TcpChainStep::with_fake_host_template(self, fake_host_template: core::option::Option<alloc::string::String>) -> Self
-pub fn ripdpi_config::TcpChainStep::with_inter_segment_delay_ms(self, delay_ms: u32) -> Self
-pub fn ripdpi_config::TcpChainStep::with_midhost_offset(self, midhost_offset: core::option::Option<ripdpi_config::OffsetExpr>) -> Self
-pub fn ripdpi_config::TcpChainStep::with_offset(self, offset: ripdpi_config::OffsetExpr) -> Self
-pub fn ripdpi_config::TcpChainStep::with_random_fake_host(self, random_fake_host: bool) -> Self
+pub fn ripdpi_config::TcpChainStep::with_activation_filter(self, core::option::Option<ripdpi_config::ActivationFilter>) -> Self
+pub fn ripdpi_config::TcpChainStep::with_fake_host_template(self, core::option::Option<alloc::string::String>) -> Self
+pub fn ripdpi_config::TcpChainStep::with_inter_segment_delay_ms(self, u32) -> Self
+pub fn ripdpi_config::TcpChainStep::with_midhost_offset(self, core::option::Option<ripdpi_config::OffsetExpr>) -> Self
+pub fn ripdpi_config::TcpChainStep::with_offset(self, ripdpi_config::OffsetExpr) -> Self
+pub fn ripdpi_config::TcpChainStep::with_random_fake_host(self, bool) -> Self
 impl ripdpi_config::TcpChainStep
 pub const fn ripdpi_config::TcpChainStep::fake_flag_overrides(&self) -> ripdpi_config::TcpFlagOverrides
 pub const fn ripdpi_config::TcpChainStep::original_flag_overrides(&self) -> ripdpi_config::TcpFlagOverrides
 impl ripdpi_config::TcpChainStep
 pub const fn ripdpi_config::TcpChainStep::fake_ordering(&self) -> ripdpi_config::TcpFakeOrdering
 pub fn ripdpi_config::TcpChainStep::fake_payload(&self) -> core::option::Option<ripdpi_config::TcpFakePayload>
-pub fn ripdpi_config::TcpChainStep::with_fake_payload(self, payload: ripdpi_config::TcpFakePayload) -> Self
+pub fn ripdpi_config::TcpChainStep::with_fake_payload(self, ripdpi_config::TcpFakePayload) -> Self
 impl ripdpi_config::TcpChainStep
-pub fn ripdpi_config::TcpChainStep::from_typed_step(step: ripdpi_config::TcpTypedChainStep<'_>) -> Self
+pub fn ripdpi_config::TcpChainStep::from_typed_step(ripdpi_config::TcpTypedChainStep<'_>) -> Self
 pub fn ripdpi_config::TcpChainStep::try_typed_step(&self) -> core::result::Result<ripdpi_config::TcpTypedChainStep<'_>, ripdpi_config::TcpStepPayloadInvariantError>
 pub fn ripdpi_config::TcpChainStep::typed_payload(&self) -> ripdpi_config::TcpStepPayload<'_>
 pub fn ripdpi_config::TcpChainStep::typed_step(&self) -> ripdpi_config::TcpTypedChainStep<'_>
@@ -474,13 +476,13 @@ pub fn ripdpi_config::TcpChainStep::host_fake_payload(&self) -> core::option::Op
 impl ripdpi_config::TcpChainStep
 pub fn ripdpi_config::TcpChainStep::ip_frag_payload(&self) -> core::option::Option<ripdpi_config::TcpIpFragPayload>
 pub const fn ripdpi_config::TcpChainStep::ipv6_extension_payload(&self) -> ripdpi_config::TcpIpv6ExtensionPayload
-pub fn ripdpi_config::TcpChainStep::with_ip_frag_payload(self, payload: ripdpi_config::TcpIpFragPayload) -> Self
+pub fn ripdpi_config::TcpChainStep::with_ip_frag_payload(self, ripdpi_config::TcpIpFragPayload) -> Self
 impl ripdpi_config::TcpChainStep
 pub fn ripdpi_config::TcpChainStep::seq_overlap_payload(&self) -> core::option::Option<ripdpi_config::TcpSeqOverlapPayload>
-pub fn ripdpi_config::TcpChainStep::with_seq_overlap_payload(self, payload: ripdpi_config::TcpSeqOverlapPayload) -> Self
+pub fn ripdpi_config::TcpChainStep::with_seq_overlap_payload(self, ripdpi_config::TcpSeqOverlapPayload) -> Self
 impl ripdpi_config::TcpChainStep
 pub fn ripdpi_config::TcpChainStep::tls_randrec_payload(&self) -> core::option::Option<ripdpi_config::TcpTlsRandRecPayload>
-pub fn ripdpi_config::TcpChainStep::with_tls_randrec_payload(self, payload: ripdpi_config::TcpTlsRandRecPayload) -> Self
+pub fn ripdpi_config::TcpChainStep::with_tls_randrec_payload(self, ripdpi_config::TcpTlsRandRecPayload) -> Self
 impl ripdpi_config::TcpChainStep
 pub fn ripdpi_config::TcpChainStep::validate_payload_family(&self) -> core::result::Result<(), ripdpi_config::TcpStepPayloadInvariantError>
 pub struct ripdpi_config::TcpFakeOrdering
@@ -523,21 +525,21 @@ pub ripdpi_config::TcpSeqOverlapPayload::fake_flags: ripdpi_config::TcpFlagOverr
 pub ripdpi_config::TcpSeqOverlapPayload::fake_mode: ripdpi_config::SeqOverlapFakeMode
 pub ripdpi_config::TcpSeqOverlapPayload::overlap_size: i32
 impl ripdpi_config::TcpSeqOverlapPayload
-pub const fn ripdpi_config::TcpSeqOverlapPayload::profile(overlap_size: i32) -> Self
+pub const fn ripdpi_config::TcpSeqOverlapPayload::profile(i32) -> Self
 pub struct ripdpi_config::TcpStepCommon
 pub ripdpi_config::TcpStepCommon::activation_filter: core::option::Option<ripdpi_config::ActivationFilter>
 pub ripdpi_config::TcpStepCommon::inter_segment_delay_ms: u32
 pub ripdpi_config::TcpStepCommon::offset: ripdpi_config::OffsetExpr
 impl ripdpi_config::TcpStepCommon
-pub const fn ripdpi_config::TcpStepCommon::new(offset: ripdpi_config::OffsetExpr) -> Self
+pub const fn ripdpi_config::TcpStepCommon::new(ripdpi_config::OffsetExpr) -> Self
 pub struct ripdpi_config::TcpStepPayloadInvariantError
 impl ripdpi_config::TcpStepPayloadInvariantError
 pub const fn ripdpi_config::TcpStepPayloadInvariantError::field(&self) -> &'static str
 pub const fn ripdpi_config::TcpStepPayloadInvariantError::kind(&self) -> ripdpi_config::TcpChainStepKind
-pub const fn ripdpi_config::TcpStepPayloadInvariantError::new(kind: ripdpi_config::TcpChainStepKind, field: &'static str) -> Self
+pub const fn ripdpi_config::TcpStepPayloadInvariantError::new(ripdpi_config::TcpChainStepKind, &'static str) -> Self
 impl core::error::Error for ripdpi_config::TcpStepPayloadInvariantError
 impl core::fmt::Display for ripdpi_config::TcpStepPayloadInvariantError
-pub fn ripdpi_config::TcpStepPayloadInvariantError::fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub fn ripdpi_config::TcpStepPayloadInvariantError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct ripdpi_config::TcpTlsRandRecPayload
 pub ripdpi_config::TcpTlsRandRecPayload::fragment_count: i32
 pub ripdpi_config::TcpTlsRandRecPayload::max_fragment_size: i32
@@ -553,7 +555,7 @@ pub ripdpi_config::UdpChainStep::ipv6_hop_by_hop: bool
 pub ripdpi_config::UdpChainStep::kind: ripdpi_config::UdpChainStepKind
 pub ripdpi_config::UdpChainStep::split_bytes: i32
 impl ripdpi_config::UdpChainStep
-pub const fn ripdpi_config::UdpChainStep::new(kind: ripdpi_config::UdpChainStepKind, count: i32) -> Self
+pub const fn ripdpi_config::UdpChainStep::new(ripdpi_config::UdpChainStepKind, i32) -> Self
 pub struct ripdpi_config::UpstreamSocksConfig
 pub ripdpi_config::UpstreamSocksConfig::addr: core::net::socket_addr::SocketAddr
 pub struct ripdpi_config::WsizeConfig
@@ -597,26 +599,26 @@ pub const ripdpi_config::TCP_FLAG_RST: u16
 pub const ripdpi_config::TCP_FLAG_SYN: u16
 pub const ripdpi_config::TCP_FLAG_URG: u16
 pub const ripdpi_config::VERSION: &str
-pub fn ripdpi_config::data_from_str(spec: &str) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::dump_cache_entries(entries: &[ripdpi_config::CacheEntry]) -> alloc::string::String
-pub fn ripdpi_config::file_or_inline_bytes(spec: &str) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::format_tcp_flag_mask(mask: u16) -> alloc::string::String
-pub fn ripdpi_config::load_cache_entries(text: &str) -> alloc::vec::Vec<ripdpi_config::CacheEntry>
-pub fn ripdpi_config::load_cache_entries_from_path(path: &std::path::Path) -> core::result::Result<alloc::vec::Vec<ripdpi_config::CacheEntry>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::normalize_fake_host_template(spec: &str) -> core::result::Result<alloc::string::String, ripdpi_config::ConfigError>
-pub fn ripdpi_config::normalize_quic_fake_host(spec: &str) -> core::result::Result<alloc::string::String, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_auto_ttl_spec(spec: &str) -> core::result::Result<ripdpi_config::AutoTtlConfig, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_cli(args: &[alloc::string::String], startup: &ripdpi_config::startup_env::StartupEnv) -> core::result::Result<ripdpi_config::ParseResult, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_hosts_spec(spec: &str) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_http_fake_profile(spec: &str) -> core::result::Result<ripdpi_packets::fake_profiles::HttpFakeProfile, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_ipset_spec(spec: &str) -> core::result::Result<alloc::vec::Vec<ripdpi_config::Cidr>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_offset_expr(spec: &str) -> core::result::Result<ripdpi_config::OffsetExpr, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_payload_size_range_spec(spec: &str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_quic_fake_profile(spec: &str) -> core::result::Result<ripdpi_config::QuicFakeProfile, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_round_range_spec(spec: &str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_stream_byte_range_spec(spec: &str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_tcp_flag_mask(spec: &str) -> core::result::Result<u16, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_tls_fake_profile(spec: &str) -> core::result::Result<ripdpi_packets::fake_profiles::TlsFakeProfile, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_udp_fake_profile(spec: &str) -> core::result::Result<ripdpi_packets::fake_profiles::UdpFakeProfile, ripdpi_config::ConfigError>
-pub fn ripdpi_config::prefix_match_bytes(lhs: &[u8], rhs: &[u8], bits: u8) -> bool
-pub fn ripdpi_config::validate_tcp_flag_masks(kind: ripdpi_config::TcpChainStepKind, fake_set: core::option::Option<u16>, fake_unset: core::option::Option<u16>, orig_set: core::option::Option<u16>, orig_unset: core::option::Option<u16>, field_name: &str) -> core::result::Result<(), ripdpi_config::ConfigError>
+pub fn ripdpi_config::data_from_str(&str) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::dump_cache_entries(&[ripdpi_config::CacheEntry]) -> alloc::string::String
+pub fn ripdpi_config::file_or_inline_bytes(&str) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::format_tcp_flag_mask(u16) -> alloc::string::String
+pub fn ripdpi_config::load_cache_entries(&str) -> alloc::vec::Vec<ripdpi_config::CacheEntry>
+pub fn ripdpi_config::load_cache_entries_from_path(&std::path::Path) -> core::result::Result<alloc::vec::Vec<ripdpi_config::CacheEntry>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::normalize_fake_host_template(&str) -> core::result::Result<alloc::string::String, ripdpi_config::ConfigError>
+pub fn ripdpi_config::normalize_quic_fake_host(&str) -> core::result::Result<alloc::string::String, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_auto_ttl_spec(&str) -> core::result::Result<ripdpi_config::AutoTtlConfig, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_cli(&[alloc::string::String], &ripdpi_config::startup_env::StartupEnv) -> core::result::Result<ripdpi_config::ParseResult, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_hosts_spec(&str) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_http_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::HttpFakeProfile, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_ipset_spec(&str) -> core::result::Result<alloc::vec::Vec<ripdpi_config::Cidr>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_offset_expr(&str) -> core::result::Result<ripdpi_config::OffsetExpr, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_payload_size_range_spec(&str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_quic_fake_profile(&str) -> core::result::Result<ripdpi_config::QuicFakeProfile, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_round_range_spec(&str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_stream_byte_range_spec(&str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_tcp_flag_mask(&str) -> core::result::Result<u16, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_tls_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::TlsFakeProfile, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_udp_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::UdpFakeProfile, ripdpi_config::ConfigError>
+pub fn ripdpi_config::prefix_match_bytes(&[u8], &[u8], u8) -> bool
+pub fn ripdpi_config::validate_tcp_flag_masks(ripdpi_config::TcpChainStepKind, core::option::Option<u16>, core::option::Option<u16>, core::option::Option<u16>, core::option::Option<u16>, &str) -> core::result::Result<(), ripdpi_config::ConfigError>

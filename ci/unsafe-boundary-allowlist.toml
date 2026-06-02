@@ -436,6 +436,42 @@ enforcement = "JNI spec contract (NewGlobalRef/DeleteGlobalRef atomic, AttachCur
 owner = "android-ffi"
 review_date = "2026-11-15"
 
+[[entries]]
+file = "native/rust/crates/ripdpi-android-proxy-adapter/src/readiness.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "JniReadinessCallback holds a JavaVM handle plus a JNI Global listener ref for a one-shot lifecycle readiness callback"
+preconditions = "JavaVM is a wrapper around *mut sys::JavaVM (JVM is thread-safe); Global<JObject<'static>> is GC-pinned and safe across threads; `on_ready()` attaches the current thread before invoking Java"
+enforcement = "Private struct fields, one-shot observer registration, JNI GlobalRef liveness, and AttachCurrentThread invocation discipline; no data-plane calls or raw object dereferences occur"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-relay-android/src/readiness.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "JniReadinessCallback holds a JavaVM handle plus a JNI Global listener ref for a one-shot relay lifecycle readiness callback"
+preconditions = "JavaVM is a wrapper around *mut sys::JavaVM (JVM is thread-safe); Global<JObject<'static>> is GC-pinned and safe across threads; `on_ready()` attaches the current thread before invoking Java"
+enforcement = "Private struct fields, one-shot observer registration, JNI GlobalRef liveness, and AttachCurrentThread invocation discipline; no data-plane calls or raw object dereferences occur"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-tunnel-android/src/flow_attribution.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "JniFlowNotifier holds a JavaVM handle plus a JNI Global bridge ref for a dedicated background attribution worker"
+preconditions = "JavaVM is a wrapper around *mut sys::JavaVM (JVM is thread-safe); Global<JObject<'static>> is GC-pinned and safe across threads; `note()` attaches the worker thread before invoking Java"
+enforcement = "Private struct fields, single worker ownership behind the registration mutex, JNI GlobalRef liveness, and AttachCurrentThread invocation discipline; flow data is copied into JNI strings per call"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-warp-android/src/readiness.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "JniReadinessCallback holds a JavaVM handle plus a JNI Global listener ref for a one-shot WARP lifecycle readiness callback"
+preconditions = "JavaVM is a wrapper around *mut sys::JavaVM (JVM is thread-safe); Global<JObject<'static>> is GC-pinned and safe across threads; `on_ready()` attaches the current thread before invoking Java"
+enforcement = "Private struct fields, one-shot observer registration, JNI GlobalRef liveness, and AttachCurrentThread invocation discipline; no data-plane calls or raw object dereferences occur"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
 # ---------------------------------------------------------------------------
 # `raw usize handle in public fn` — handle types are integer indices into a
 # Mutex-guarded HashMap, NOT raw pointers. Forging a handle returns
@@ -483,6 +519,15 @@ pattern = "raw usize handle in public fn"
 reason = "`unregister_entry(token: i64)` consumes the monotonic generation token returned by WARP VPN protect registration; the token is not a pointer"
 preconditions = "Token originates from `ProtectGeneration::token()` or may be forged by Java/test callers; forged, zero, stale, or superseded tokens are accepted as safe no-ops"
 enforcement = "`ProtectGeneration::from_token` wraps the integer and `unregister_protect_callback_if` clears only when the registry generation matches; no raw pointer dereference or unchecked memory access occurs"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-tunnel-android/src/flow_attribution.rs"
+pattern = "raw usize handle in public fn"
+reason = "`unregister_flow_attribution(token: i64)` consumes the monotonic generation token returned by flow-attribution registration; the token is not a pointer"
+preconditions = "Token originates from `AttributionGeneration::token()` or may be forged by Java/test callers; forged, zero, stale, or superseded tokens are accepted as safe no-ops"
+enforcement = "`AttributionGeneration::from_token` wraps the integer and the registration mutex clears only when the stored generation matches; the exported functions never reinterpret the integer as an address"
 owner = "android-ffi"
 review_date = "2026-11-15"
 

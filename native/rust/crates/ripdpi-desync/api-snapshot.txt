@@ -137,13 +137,14 @@ pub ripdpi_desync::TamperResult::bytes: alloc::vec::Vec<u8>
 pub ripdpi_desync::TamperResult::proto: ripdpi_desync::ProtoInfo
 pub struct ripdpi_desync::TcpDesyncStrategy<'a>
 impl<'a> ripdpi_desync::TcpDesyncStrategy<'a>
-pub fn ripdpi_desync::TcpDesyncStrategy<'a>::new(group: &'a ripdpi_config::model::group::DesyncGroup, seed: u32, default_ttl: u8, context: ripdpi_desync::ActivationContext) -> Self
-pub fn ripdpi_desync::TcpDesyncStrategy<'a>::plan(&self, input: &[u8]) -> core::result::Result<ripdpi_desync::DesyncPlan, ripdpi_desync::DesyncError>
+pub fn ripdpi_desync::TcpDesyncStrategy<'a>::new(&'a ripdpi_config::model::group::DesyncGroup, u32, u8, ripdpi_desync::ActivationContext) -> Self
+pub fn ripdpi_desync::TcpDesyncStrategy<'a>::plan(&self, &[u8]) -> core::result::Result<ripdpi_desync::DesyncPlan, ripdpi_desync::DesyncError>
+pub fn ripdpi_desync::TcpDesyncStrategy<'a>::plan_with_fake_reference(&self, &[u8], &[u8]) -> core::result::Result<ripdpi_desync::DesyncPlan, ripdpi_desync::DesyncError>
 impl ripdpi_strategy_trait::DesyncStrategy for ripdpi_desync::TcpDesyncStrategy<'_>
 pub fn ripdpi_desync::TcpDesyncStrategy<'_>::describe(&self) -> ripdpi_strategy_trait::StrategyDescriptor
 pub fn ripdpi_desync::TcpDesyncStrategy<'_>::id(&self) -> &str
-pub fn ripdpi_desync::TcpDesyncStrategy<'_>::matches(&self, _ctx: &ripdpi_strategy_trait::StrategyContext<'_>) -> bool
-pub fn ripdpi_desync::TcpDesyncStrategy<'_>::plan(&self, ctx: &ripdpi_strategy_trait::StrategyContext<'_>, plan: &mut ripdpi_strategy_trait::DesyncPlan) -> core::result::Result<(), ripdpi_strategy_trait::StrategyError>
+pub fn ripdpi_desync::TcpDesyncStrategy<'_>::matches(&self, &ripdpi_strategy_trait::StrategyContext<'_>) -> bool
+pub fn ripdpi_desync::TcpDesyncStrategy<'_>::plan(&self, &ripdpi_strategy_trait::StrategyContext<'_>, &mut ripdpi_strategy_trait::DesyncPlan) -> core::result::Result<(), ripdpi_strategy_trait::StrategyError>
 pub struct ripdpi_desync::TcpSegmentHint
 pub ripdpi_desync::TcpSegmentHint::advmss: core::option::Option<i64>
 pub ripdpi_desync::TcpSegmentHint::ip_header_overhead: i64
@@ -170,19 +171,19 @@ pub struct ripdpi_desync::TlsRecordBoundary
 pub ripdpi_desync::TlsRecordBoundary::handshake: core::ops::range::Range<usize>
 pub ripdpi_desync::TlsRecordBoundary::header: core::ops::range::Range<usize>
 pub ripdpi_desync::TlsRecordBoundary::payload: core::ops::range::Range<usize>
-pub fn ripdpi_desync::activation_filter_matches(filter: core::option::Option<ripdpi_config::model::offset::ActivationFilter>, context: ripdpi_desync::ActivationContext) -> bool
-pub fn ripdpi_desync::apply_tamper(group: &ripdpi_config::model::group::DesyncGroup, input: &[u8], seed: u32) -> core::result::Result<ripdpi_desync::TamperResult, ripdpi_desync::DesyncError>
-pub fn ripdpi_desync::apply_tls_template_record_choreography(profile: &str, input: &[u8]) -> core::result::Result<ripdpi_desync::TamperResult, ripdpi_desync::DesyncError>
-pub fn ripdpi_desync::build_fake_packet(group: &ripdpi_config::model::group::DesyncGroup, input: &[u8], seed: u32) -> core::result::Result<ripdpi_desync::FakePacketPlan, ripdpi_desync::DesyncError>
-pub fn ripdpi_desync::build_fake_region_bytes(fake: &ripdpi_desync::FakePacketPlan, stream_offset: usize, len: usize) -> alloc::vec::Vec<u8>
-pub fn ripdpi_desync::build_hostfake_bytes(real_host: &[u8], template: core::option::Option<&str>, seed: u32, random: bool) -> alloc::vec::Vec<u8>
-pub fn ripdpi_desync::build_secondary_fake_packet(group: &ripdpi_config::model::group::DesyncGroup, input: &[u8], seed: u32) -> core::result::Result<core::option::Option<ripdpi_desync::FakePacketPlan>, ripdpi_desync::DesyncError>
-pub fn ripdpi_desync::build_seqovl_fake_prefix(group: &ripdpi_config::model::group::DesyncGroup, input: &[u8], seed: u32, overlap_size: usize, fake_mode: ripdpi_config::model::tcp::SeqOverlapFakeMode) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_desync::DesyncError>
-pub fn ripdpi_desync::init_proto_info(buffer: &[u8], info: &mut ripdpi_desync::ProtoInfo)
-pub fn ripdpi_desync::normalize_quic_initial(packet: &[u8]) -> core::option::Option<ripdpi_desync::QuicInitialIr>
-pub fn ripdpi_desync::normalize_tls_client_hello(packet: &[u8]) -> core::option::Option<ripdpi_desync::TlsClientHelloIr>
-pub fn ripdpi_desync::parse_client_hello_offsets(buffer: &[u8]) -> core::result::Result<ripdpi_desync::ClientHelloOffsets, ripdpi_desync::ClientHelloOffsetsError>
-pub fn ripdpi_desync::plan_tcp(group: &ripdpi_config::model::group::DesyncGroup, input: &[u8], seed: u32, default_ttl: u8, context: ripdpi_desync::ActivationContext) -> core::result::Result<ripdpi_desync::DesyncPlan, ripdpi_desync::DesyncError>
-pub fn ripdpi_desync::plan_tls_template_first_flight(profile: &str, input: &[u8]) -> core::result::Result<ripdpi_tls_profiles::record_choreography::TlsTemplateFirstFlightPlan, ripdpi_desync::DesyncError>
-pub fn ripdpi_desync::plan_udp(group: &ripdpi_config::model::group::DesyncGroup, payload: &[u8], default_ttl: u8, context: ripdpi_desync::ActivationContext) -> alloc::vec::Vec<ripdpi_desync::DesyncAction>
-pub fn ripdpi_desync::resolve_hostfake_span(step: &ripdpi_config::model::tcp::TcpChainStep, buffer: &[u8], step_start: usize, step_end: usize, seed: u32) -> core::option::Option<ripdpi_desync::HostFakeSpan>
+pub fn ripdpi_desync::activation_filter_matches(core::option::Option<ripdpi_config::model::offset::ActivationFilter>, ripdpi_desync::ActivationContext) -> bool
+pub fn ripdpi_desync::apply_tamper(&ripdpi_config::model::group::DesyncGroup, &[u8], u32) -> core::result::Result<ripdpi_desync::TamperResult, ripdpi_desync::DesyncError>
+pub fn ripdpi_desync::apply_tls_template_record_choreography(&str, &[u8]) -> core::result::Result<ripdpi_desync::TamperResult, ripdpi_desync::DesyncError>
+pub fn ripdpi_desync::build_fake_packet(&ripdpi_config::model::group::DesyncGroup, &[u8], u32) -> core::result::Result<ripdpi_desync::FakePacketPlan, ripdpi_desync::DesyncError>
+pub fn ripdpi_desync::build_fake_region_bytes(&ripdpi_desync::FakePacketPlan, usize, usize) -> alloc::vec::Vec<u8>
+pub fn ripdpi_desync::build_hostfake_bytes(&[u8], core::option::Option<&str>, u32, bool) -> alloc::vec::Vec<u8>
+pub fn ripdpi_desync::build_secondary_fake_packet(&ripdpi_config::model::group::DesyncGroup, &[u8], u32) -> core::result::Result<core::option::Option<ripdpi_desync::FakePacketPlan>, ripdpi_desync::DesyncError>
+pub fn ripdpi_desync::build_seqovl_fake_prefix(&ripdpi_config::model::group::DesyncGroup, &[u8], u32, usize, ripdpi_config::model::tcp::SeqOverlapFakeMode) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_desync::DesyncError>
+pub fn ripdpi_desync::init_proto_info(&[u8], &mut ripdpi_desync::ProtoInfo)
+pub fn ripdpi_desync::normalize_quic_initial(&[u8]) -> core::option::Option<ripdpi_desync::QuicInitialIr>
+pub fn ripdpi_desync::normalize_tls_client_hello(&[u8]) -> core::option::Option<ripdpi_desync::TlsClientHelloIr>
+pub fn ripdpi_desync::parse_client_hello_offsets(&[u8]) -> core::result::Result<ripdpi_desync::ClientHelloOffsets, ripdpi_desync::ClientHelloOffsetsError>
+pub fn ripdpi_desync::plan_tcp(&ripdpi_config::model::group::DesyncGroup, &[u8], u32, u8, ripdpi_desync::ActivationContext) -> core::result::Result<ripdpi_desync::DesyncPlan, ripdpi_desync::DesyncError>
+pub fn ripdpi_desync::plan_tls_template_first_flight(&str, &[u8]) -> core::result::Result<ripdpi_tls_profiles::record_choreography::TlsTemplateFirstFlightPlan, ripdpi_desync::DesyncError>
+pub fn ripdpi_desync::plan_udp(&ripdpi_config::model::group::DesyncGroup, &[u8], u8, ripdpi_desync::ActivationContext) -> alloc::vec::Vec<ripdpi_desync::DesyncAction>
+pub fn ripdpi_desync::resolve_hostfake_span(&ripdpi_config::model::tcp::TcpChainStep, &[u8], usize, usize, u32) -> core::option::Option<ripdpi_desync::HostFakeSpan>

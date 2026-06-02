@@ -28,14 +28,14 @@ pub ripdpi_failure_classifier::block_detection::BlockpageFingerprint::name: allo
 pub ripdpi_failure_classifier::block_detection::BlockpageFingerprint::pattern: alloc::string::String
 pub ripdpi_failure_classifier::block_detection::BlockpageFingerprint::pattern_type: ripdpi_failure_classifier::PatternType
 pub ripdpi_failure_classifier::block_detection::BlockpageFingerprint::scope: alloc::string::String
-pub fn ripdpi_failure_classifier::block_detection::block_signal_from_failure(failure: &ripdpi_failure_classifier::ClassifiedFailure, tcp_total_retransmissions: core::option::Option<u32>) -> core::option::Option<ripdpi_failure_classifier::BlockSignalObservation>
+pub fn ripdpi_failure_classifier::block_detection::block_signal_from_failure(&ripdpi_failure_classifier::ClassifiedFailure, core::option::Option<u32>) -> core::option::Option<ripdpi_failure_classifier::BlockSignalObservation>
 pub fn ripdpi_failure_classifier::block_detection::bundled_blockpage_fingerprints() -> &'static [ripdpi_failure_classifier::BlockpageFingerprint]
-pub fn ripdpi_failure_classifier::block_detection::classify_http_response_block(response: &[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
+pub fn ripdpi_failure_classifier::block_detection::classify_http_response_block(&[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
 pub fn ripdpi_failure_classifier::block_detection::load_blockpage_fingerprints() -> alloc::vec::Vec<ripdpi_failure_classifier::BlockpageFingerprint>
-pub fn ripdpi_failure_classifier::block_detection::load_blockpage_fingerprints_from_csv(csv: &str) -> alloc::vec::Vec<ripdpi_failure_classifier::BlockpageFingerprint>
-pub fn ripdpi_failure_classifier::block_detection::match_blockpage_response(headers: &[(alloc::string::String, alloc::string::String)], body: &[u8], fingerprints: &[ripdpi_failure_classifier::BlockpageFingerprint]) -> core::option::Option<alloc::string::String>
+pub fn ripdpi_failure_classifier::block_detection::load_blockpage_fingerprints_from_csv(&str) -> alloc::vec::Vec<ripdpi_failure_classifier::BlockpageFingerprint>
+pub fn ripdpi_failure_classifier::block_detection::match_blockpage_response(&[(alloc::string::String, alloc::string::String)], &[u8], &[ripdpi_failure_classifier::BlockpageFingerprint]) -> core::option::Option<alloc::string::String>
 pub mod ripdpi_failure_classifier::field_classifier
-pub fn ripdpi_failure_classifier::field_classifier::classify_from_fields(cache: &ripdpi_packets::fields::FieldCache, fingerprints: &[ripdpi_failure_classifier::BlockpageFingerprint]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
+pub fn ripdpi_failure_classifier::field_classifier::classify_from_fields(&ripdpi_packets::fields::FieldCache, &[ripdpi_failure_classifier::BlockpageFingerprint]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
 pub enum ripdpi_failure_classifier::ArmGate
 pub ripdpi_failure_classifier::ArmGate::OwnedStackOnly
 pub ripdpi_failure_classifier::ArmGate::Unrestricted
@@ -109,9 +109,9 @@ pub const ripdpi_failure_classifier::AccessTypeTag::VPN: Self
 pub const ripdpi_failure_classifier::AccessTypeTag::WIFI: Self
 pub struct ripdpi_failure_classifier::AtomicFile
 impl ripdpi_failure_classifier::AtomicFile
-pub fn ripdpi_failure_classifier::AtomicFile::new(path: impl core::convert::Into<std::path::PathBuf>) -> Self
+pub fn ripdpi_failure_classifier::AtomicFile::new(impl core::convert::Into<std::path::PathBuf>) -> Self
 pub fn ripdpi_failure_classifier::AtomicFile::path(&self) -> &std::path::Path
-pub fn ripdpi_failure_classifier::AtomicFile::write(&self, data: &[u8]) -> std::io::error::Result<()>
+pub fn ripdpi_failure_classifier::AtomicFile::write(&self, &[u8]) -> std::io::error::Result<()>
 pub struct ripdpi_failure_classifier::BlockSignalObservation
 pub ripdpi_failure_classifier::BlockSignalObservation::provider: core::option::Option<alloc::string::String>
 pub ripdpi_failure_classifier::BlockSignalObservation::signal: ripdpi_failure_classifier::BlockSignal
@@ -132,14 +132,14 @@ pub ripdpi_failure_classifier::ClassifiedFailure::class: ripdpi_failure_classifi
 pub ripdpi_failure_classifier::ClassifiedFailure::evidence: ripdpi_failure_classifier::FailureEvidence
 pub ripdpi_failure_classifier::ClassifiedFailure::stage: ripdpi_failure_classifier::FailureStage
 impl ripdpi_failure_classifier::ClassifiedFailure
-pub fn ripdpi_failure_classifier::ClassifiedFailure::new(class: ripdpi_failure_classifier::FailureClass, stage: ripdpi_failure_classifier::FailureStage, action: ripdpi_failure_classifier::FailureAction, summary: impl core::convert::Into<alloc::string::String>) -> Self
-pub fn ripdpi_failure_classifier::ClassifiedFailure::with_tag(self, key: &str, value: impl core::convert::Into<alloc::string::String>) -> Self
+pub fn ripdpi_failure_classifier::ClassifiedFailure::new(ripdpi_failure_classifier::FailureClass, ripdpi_failure_classifier::FailureStage, ripdpi_failure_classifier::FailureAction, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn ripdpi_failure_classifier::ClassifiedFailure::with_tag(self, &str, impl core::convert::Into<alloc::string::String>) -> Self
 pub struct ripdpi_failure_classifier::FailureEvidence
 pub ripdpi_failure_classifier::FailureEvidence::summary: alloc::string::String
 pub ripdpi_failure_classifier::FailureEvidence::tags: alloc::vec::Vec<alloc::string::String>
 impl ripdpi_failure_classifier::FailureEvidence
-pub fn ripdpi_failure_classifier::FailureEvidence::new(summary: impl core::convert::Into<alloc::string::String>) -> Self
-pub fn ripdpi_failure_classifier::FailureEvidence::with_tag(self, key: &str, value: impl core::convert::Into<alloc::string::String>) -> Self
+pub fn ripdpi_failure_classifier::FailureEvidence::new(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn ripdpi_failure_classifier::FailureEvidence::with_tag(self, &str, impl core::convert::Into<alloc::string::String>) -> Self
 pub struct ripdpi_failure_classifier::IpBlockSuspectVerdict
 pub ripdpi_failure_classifier::IpBlockSuspectVerdict::arm_gate: ripdpi_failure_classifier::ArmGate
 pub ripdpi_failure_classifier::IpBlockSuspectVerdict::verdict: ripdpi_failure_classifier::IpBlockVerdict
@@ -149,37 +149,37 @@ pub ripdpi_failure_classifier::NetProfileKey::asn: u32
 pub ripdpi_failure_classifier::NetProfileKey::ech_available: bool
 pub struct ripdpi_failure_classifier::TransportPolicyCache
 impl ripdpi_failure_classifier::TransportPolicyCache
-pub fn ripdpi_failure_classifier::TransportPolicyCache::insert(&mut self, key: ripdpi_failure_classifier::TransportPolicyCacheKey, policy: ripdpi_failure_classifier::CachedTransportPolicy, svcb_ttl_secs: u64)
-pub fn ripdpi_failure_classifier::TransportPolicyCache::invalidate_on_access_type_change(&mut self, old_tag: ripdpi_failure_classifier::AccessTypeTag) -> bool
-pub fn ripdpi_failure_classifier::TransportPolicyCache::invalidate_on_asn_change(&mut self, old_asn: u32) -> bool
-pub fn ripdpi_failure_classifier::TransportPolicyCache::invalidate_on_ech_change(&mut self, new_ech_available: bool) -> bool
-pub fn ripdpi_failure_classifier::TransportPolicyCache::invalidate_on_three_failures(&mut self, host: &str) -> bool
+pub fn ripdpi_failure_classifier::TransportPolicyCache::insert(&mut self, ripdpi_failure_classifier::TransportPolicyCacheKey, ripdpi_failure_classifier::CachedTransportPolicy, u64)
+pub fn ripdpi_failure_classifier::TransportPolicyCache::invalidate_on_access_type_change(&mut self, ripdpi_failure_classifier::AccessTypeTag) -> bool
+pub fn ripdpi_failure_classifier::TransportPolicyCache::invalidate_on_asn_change(&mut self, u32) -> bool
+pub fn ripdpi_failure_classifier::TransportPolicyCache::invalidate_on_ech_change(&mut self, bool) -> bool
+pub fn ripdpi_failure_classifier::TransportPolicyCache::invalidate_on_three_failures(&mut self, &str) -> bool
 pub fn ripdpi_failure_classifier::TransportPolicyCache::is_empty(&self) -> bool
 pub fn ripdpi_failure_classifier::TransportPolicyCache::len(&self) -> usize
-pub fn ripdpi_failure_classifier::TransportPolicyCache::lookup(&mut self, key: &ripdpi_failure_classifier::TransportPolicyCacheKey) -> core::option::Option<&ripdpi_failure_classifier::CachedTransportPolicy>
+pub fn ripdpi_failure_classifier::TransportPolicyCache::lookup(&mut self, &ripdpi_failure_classifier::TransportPolicyCacheKey) -> core::option::Option<&ripdpi_failure_classifier::CachedTransportPolicy>
 pub fn ripdpi_failure_classifier::TransportPolicyCache::new() -> Self
-pub fn ripdpi_failure_classifier::TransportPolicyCache::prune_expired(&mut self, now: u64) -> usize
-pub fn ripdpi_failure_classifier::TransportPolicyCache::record_failure(&mut self, host: &str) -> bool
-pub fn ripdpi_failure_classifier::TransportPolicyCache::with_ttl(ttl_secs: u64) -> Self
+pub fn ripdpi_failure_classifier::TransportPolicyCache::prune_expired(&mut self, u64) -> usize
+pub fn ripdpi_failure_classifier::TransportPolicyCache::record_failure(&mut self, &str) -> bool
+pub fn ripdpi_failure_classifier::TransportPolicyCache::with_ttl(u64) -> Self
 pub struct ripdpi_failure_classifier::TransportPolicyCacheKey
 pub ripdpi_failure_classifier::TransportPolicyCacheKey::app_family: alloc::string::String
 pub ripdpi_failure_classifier::TransportPolicyCacheKey::host: alloc::string::String
 pub ripdpi_failure_classifier::TransportPolicyCacheKey::ip_set: alloc::vec::Vec<core::net::ip_addr::IpAddr>
 pub ripdpi_failure_classifier::TransportPolicyCacheKey::net_profile: ripdpi_failure_classifier::NetProfileKey
 impl ripdpi_failure_classifier::TransportPolicyCacheKey
-pub fn ripdpi_failure_classifier::TransportPolicyCacheKey::new(host: impl core::convert::Into<alloc::string::String>, ip_set: alloc::vec::Vec<core::net::ip_addr::IpAddr>, app_family: impl core::convert::Into<alloc::string::String>, net_profile: ripdpi_failure_classifier::NetProfileKey) -> Self
+pub fn ripdpi_failure_classifier::TransportPolicyCacheKey::new(impl core::convert::Into<alloc::string::String>, alloc::vec::Vec<core::net::ip_addr::IpAddr>, impl core::convert::Into<alloc::string::String>, ripdpi_failure_classifier::NetProfileKey) -> Self
 pub const ripdpi_failure_classifier::DEFAULT_TTL_SECS: u64
-pub fn ripdpi_failure_classifier::block_signal_from_failure(failure: &ripdpi_failure_classifier::ClassifiedFailure, tcp_total_retransmissions: core::option::Option<u32>) -> core::option::Option<ripdpi_failure_classifier::BlockSignalObservation>
+pub fn ripdpi_failure_classifier::block_signal_from_failure(&ripdpi_failure_classifier::ClassifiedFailure, core::option::Option<u32>) -> core::option::Option<ripdpi_failure_classifier::BlockSignalObservation>
 pub fn ripdpi_failure_classifier::bundled_blockpage_fingerprints() -> &'static [ripdpi_failure_classifier::BlockpageFingerprint]
-pub fn ripdpi_failure_classifier::classify_connection_freeze(bytes_received: usize, stall_windows: u32, window_ms: u32) -> ripdpi_failure_classifier::ClassifiedFailure
-pub fn ripdpi_failure_classifier::classify_http_blockpage(response: &[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
-pub fn ripdpi_failure_classifier::classify_http_response_block(response: &[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
-pub fn ripdpi_failure_classifier::classify_quic_probe(outcome: &str, error: core::option::Option<&str>) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
-pub fn ripdpi_failure_classifier::classify_redirect_failure(summary: impl core::convert::Into<alloc::string::String>) -> ripdpi_failure_classifier::ClassifiedFailure
-pub fn ripdpi_failure_classifier::classify_strategy_execution_failure(stage: ripdpi_failure_classifier::FailureStage, action: &str, kind: std::io::error::ErrorKind, errno: core::option::Option<i32>, summary: impl core::convert::Into<alloc::string::String>) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
-pub fn ripdpi_failure_classifier::classify_tls_alert(response: &[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
-pub fn ripdpi_failure_classifier::classify_tls_handshake_failure(summary: impl core::convert::Into<alloc::string::String>) -> ripdpi_failure_classifier::ClassifiedFailure
-pub fn ripdpi_failure_classifier::classify_transport_error(stage: ripdpi_failure_classifier::FailureStage, error: &std::io::error::Error) -> ripdpi_failure_classifier::ClassifiedFailure
-pub fn ripdpi_failure_classifier::confirm_dns_tampering(host: &str, target_ip: core::net::ip_addr::IpAddr, encrypted_answers: &[core::net::ip_addr::IpAddr], source_label: &str) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
+pub fn ripdpi_failure_classifier::classify_connection_freeze(usize, u32, u32) -> ripdpi_failure_classifier::ClassifiedFailure
+pub fn ripdpi_failure_classifier::classify_http_blockpage(&[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
+pub fn ripdpi_failure_classifier::classify_http_response_block(&[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
+pub fn ripdpi_failure_classifier::classify_quic_probe(&str, core::option::Option<&str>) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
+pub fn ripdpi_failure_classifier::classify_redirect_failure(impl core::convert::Into<alloc::string::String>) -> ripdpi_failure_classifier::ClassifiedFailure
+pub fn ripdpi_failure_classifier::classify_strategy_execution_failure(ripdpi_failure_classifier::FailureStage, &str, std::io::error::ErrorKind, core::option::Option<i32>, impl core::convert::Into<alloc::string::String>) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
+pub fn ripdpi_failure_classifier::classify_tls_alert(&[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
+pub fn ripdpi_failure_classifier::classify_tls_handshake_failure(impl core::convert::Into<alloc::string::String>) -> ripdpi_failure_classifier::ClassifiedFailure
+pub fn ripdpi_failure_classifier::classify_transport_error(ripdpi_failure_classifier::FailureStage, &std::io::error::Error) -> ripdpi_failure_classifier::ClassifiedFailure
+pub fn ripdpi_failure_classifier::confirm_dns_tampering(&str, core::net::ip_addr::IpAddr, &[core::net::ip_addr::IpAddr], &str) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
 pub fn ripdpi_failure_classifier::load_blockpage_fingerprints() -> alloc::vec::Vec<ripdpi_failure_classifier::BlockpageFingerprint>
-pub fn ripdpi_failure_classifier::match_blockpage_response(headers: &[(alloc::string::String, alloc::string::String)], body: &[u8], fingerprints: &[ripdpi_failure_classifier::BlockpageFingerprint]) -> core::option::Option<alloc::string::String>
+pub fn ripdpi_failure_classifier::match_blockpage_response(&[(alloc::string::String, alloc::string::String)], &[u8], &[ripdpi_failure_classifier::BlockpageFingerprint]) -> core::option::Option<alloc::string::String>

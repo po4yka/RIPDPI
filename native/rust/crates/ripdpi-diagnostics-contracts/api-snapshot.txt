@@ -42,6 +42,7 @@ pub ripdpi_diagnostics_contracts::types::ObservationKind::Throughput
 pub enum ripdpi_diagnostics_contracts::types::ProbeTaskFamily
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Circumvention
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Dns
+pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::DohJsonSurvey
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Quic
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Service
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Tcp
@@ -236,7 +237,7 @@ pub ripdpi_diagnostics_contracts::types::ProbeResult::outcome: alloc::string::St
 pub ripdpi_diagnostics_contracts::types::ProbeResult::probe_type: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ProbeResult::target: alloc::string::String
 impl core::convert::From<ripdpi_diagnostics_contracts::ProbeResult> for ripdpi_diagnostics_contracts::EngineProbeResultWire
-pub fn ripdpi_diagnostics_contracts::EngineProbeResultWire::from(value: ripdpi_diagnostics_contracts::ProbeResult) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineProbeResultWire::from(ripdpi_diagnostics_contracts::ProbeResult) -> Self
 pub struct ripdpi_diagnostics_contracts::types::ProbeTask
 pub ripdpi_diagnostics_contracts::types::ProbeTask::family: ripdpi_diagnostics_contracts::ProbeTaskFamily
 pub ripdpi_diagnostics_contracts::types::ProbeTask::label: alloc::string::String
@@ -265,7 +266,7 @@ pub ripdpi_diagnostics_contracts::types::ScanProgress::session_id: alloc::string
 pub ripdpi_diagnostics_contracts::types::ScanProgress::strategy_probe_progress: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeLiveProgress>
 pub ripdpi_diagnostics_contracts::types::ScanProgress::total_steps: usize
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
-pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(value: ripdpi_diagnostics_contracts::ScanProgress) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::types::ScanReport
 pub ripdpi_diagnostics_contracts::types::ScanReport::classifier_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ScanReport::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
@@ -282,7 +283,7 @@ pub ripdpi_diagnostics_contracts::types::ScanReport::started_at: u64
 pub ripdpi_diagnostics_contracts::types::ScanReport::strategy_probe_report: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeReport>
 pub ripdpi_diagnostics_contracts::types::ScanReport::summary: alloc::string::String
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_diagnostics_contracts::EngineScanReportWire
-pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(value: ripdpi_diagnostics_contracts::ScanReport) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::types::ScanRequest
 pub ripdpi_diagnostics_contracts::types::ScanRequest::circumvention_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::CircumventionTarget>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::diagnostic_tls_keylog_path: core::option::Option<alloc::string::String>
@@ -310,9 +311,9 @@ pub ripdpi_diagnostics_contracts::types::ScanRequest::telegram_target: core::opt
 pub ripdpi_diagnostics_contracts::types::ScanRequest::throughput_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::ThroughputTarget>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::whitelist_sni: alloc::vec::Vec<alloc::string::String>
 impl core::convert::From<ripdpi_diagnostics_contracts::EngineScanRequestWire> for ripdpi_diagnostics_contracts::ScanRequest
-pub fn ripdpi_diagnostics_contracts::ScanRequest::from(value: ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
+pub fn ripdpi_diagnostics_contracts::ScanRequest::from(ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanRequest> for ripdpi_diagnostics_contracts::EngineScanRequestWire
-pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(value: ripdpi_diagnostics_contracts::ScanRequest) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(ripdpi_diagnostics_contracts::ScanRequest) -> Self
 pub struct ripdpi_diagnostics_contracts::types::ServiceObservationFact
 pub ripdpi_diagnostics_contracts::types::ServiceObservationFact::bootstrap_status: ripdpi_diagnostics_contracts::HttpProbeStatus
 pub ripdpi_diagnostics_contracts::types::ServiceObservationFact::endpoint_failure: ripdpi_diagnostics_contracts::TransportFailureKind
@@ -544,8 +545,8 @@ pub const ripdpi_diagnostics_contracts::util::TELEGRAM_SPEED_SAMPLE_INTERVAL: co
 pub const ripdpi_diagnostics_contracts::util::TLS_FAKE_PROFILE_GOOGLE_CHROME: &str
 pub const ripdpi_diagnostics_contracts::util::TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR: &str
 pub const ripdpi_diagnostics_contracts::util::UDP_FAKE_PROFILE_DNS_QUERY: &str
-pub fn ripdpi_diagnostics_contracts::util::classify_dns_answer_overlap(udp: &[alloc::string::String], encrypted: &[alloc::string::String]) -> ripdpi_diagnostics_contracts::util::DnsAnswerOverlap
-pub fn ripdpi_diagnostics_contracts::util::classify_probe_outcome(probe_type: &str, path_mode: &ripdpi_diagnostics_contracts::ScanPathMode, outcome: &str) -> ripdpi_diagnostics_contracts::util::ProbeOutcomeClassification
+pub fn ripdpi_diagnostics_contracts::util::classify_dns_answer_overlap(&[alloc::string::String], &[alloc::string::String]) -> ripdpi_diagnostics_contracts::util::DnsAnswerOverlap
+pub fn ripdpi_diagnostics_contracts::util::classify_probe_outcome(&str, &ripdpi_diagnostics_contracts::ScanPathMode, &str) -> ripdpi_diagnostics_contracts::util::ProbeOutcomeClassification
 pub fn ripdpi_diagnostics_contracts::util::default_diagnosis_severity() -> alloc::string::String
 pub fn ripdpi_diagnostics_contracts::util::default_diagnostic_profile_family() -> ripdpi_diagnostics_contracts::DiagnosticProfileFamily
 pub fn ripdpi_diagnostics_contracts::util::default_http_path() -> alloc::string::String
@@ -558,22 +559,22 @@ pub fn ripdpi_diagnostics_contracts::util::default_telegram_total_timeout_ms() -
 pub fn ripdpi_diagnostics_contracts::util::default_telegram_upload_size() -> usize
 pub fn ripdpi_diagnostics_contracts::util::default_throughput_runs() -> usize
 pub fn ripdpi_diagnostics_contracts::util::default_throughput_window_bytes() -> usize
-pub fn ripdpi_diagnostics_contracts::util::event_level_for_outcome(probe_type: &str, path_mode: &ripdpi_diagnostics_contracts::ScanPathMode, outcome: &str) -> &'static str
-pub fn ripdpi_diagnostics_contracts::util::fat_threshold_reached(bytes_sent: usize) -> bool
-pub fn ripdpi_diagnostics_contracts::util::find_headers_end(buffer: &[u8]) -> core::option::Option<usize>
-pub fn ripdpi_diagnostics_contracts::util::format_result_set(result: &core::result::Result<alloc::vec::Vec<alloc::string::String>, alloc::string::String>) -> alloc::string::String
-pub fn ripdpi_diagnostics_contracts::util::format_socket_result(result: &core::result::Result<alloc::vec::Vec<core::net::socket_addr::SocketAddr>, alloc::string::String>) -> alloc::string::String
-pub fn ripdpi_diagnostics_contracts::util::ip_set(values: &[alloc::string::String]) -> alloc::collections::btree::set::BTreeSet<alloc::string::String>
-pub fn ripdpi_diagnostics_contracts::util::ipv4_prefix_24(value: &str) -> core::option::Option<[u8; 3]>
-pub fn ripdpi_diagnostics_contracts::util::ipv6_prefix_48(value: &str) -> core::option::Option<[u16; 3]>
-pub fn ripdpi_diagnostics_contracts::util::is_suspected_dns_tampering_outcome(outcome: &str) -> bool
-pub fn ripdpi_diagnostics_contracts::util::late_stage_cutoff(bytes_sent: usize, responses_seen: usize) -> bool
-pub fn ripdpi_diagnostics_contracts::util::looks_like_sinkhole(value: &str) -> bool
+pub fn ripdpi_diagnostics_contracts::util::event_level_for_outcome(&str, &ripdpi_diagnostics_contracts::ScanPathMode, &str) -> &'static str
+pub fn ripdpi_diagnostics_contracts::util::fat_threshold_reached(usize) -> bool
+pub fn ripdpi_diagnostics_contracts::util::find_headers_end(&[u8]) -> core::option::Option<usize>
+pub fn ripdpi_diagnostics_contracts::util::format_result_set(&core::result::Result<alloc::vec::Vec<alloc::string::String>, alloc::string::String>) -> alloc::string::String
+pub fn ripdpi_diagnostics_contracts::util::format_socket_result(&core::result::Result<alloc::vec::Vec<core::net::socket_addr::SocketAddr>, alloc::string::String>) -> alloc::string::String
+pub fn ripdpi_diagnostics_contracts::util::ip_set(&[alloc::string::String]) -> alloc::collections::btree::set::BTreeSet<alloc::string::String>
+pub fn ripdpi_diagnostics_contracts::util::ipv4_prefix_24(&str) -> core::option::Option<[u8; 3]>
+pub fn ripdpi_diagnostics_contracts::util::ipv6_prefix_48(&str) -> core::option::Option<[u16; 3]>
+pub fn ripdpi_diagnostics_contracts::util::is_suspected_dns_tampering_outcome(&str) -> bool
+pub fn ripdpi_diagnostics_contracts::util::late_stage_cutoff(usize, usize) -> bool
+pub fn ripdpi_diagnostics_contracts::util::looks_like_sinkhole(&str) -> bool
 pub fn ripdpi_diagnostics_contracts::util::now_ms() -> u64
-pub fn ripdpi_diagnostics_contracts::util::parse_content_length(headers: &[u8]) -> core::option::Option<usize>
-pub fn ripdpi_diagnostics_contracts::util::probe_session_seed(network_scope_key: core::option::Option<&str>, session_id: &str) -> u64
-pub fn ripdpi_diagnostics_contracts::util::ranged_probe_delay(seed: u64, lhs: &str, rhs: &str, min_ms: u64, max_ms: u64) -> u64
-pub fn ripdpi_diagnostics_contracts::util::stable_probe_hash(seed: u64, value: &str) -> u64
+pub fn ripdpi_diagnostics_contracts::util::parse_content_length(&[u8]) -> core::option::Option<usize>
+pub fn ripdpi_diagnostics_contracts::util::probe_session_seed(core::option::Option<&str>, &str) -> u64
+pub fn ripdpi_diagnostics_contracts::util::ranged_probe_delay(u64, &str, &str, u64, u64) -> u64
+pub fn ripdpi_diagnostics_contracts::util::stable_probe_hash(u64, &str) -> u64
 pub mod ripdpi_diagnostics_contracts::wire
 pub struct ripdpi_diagnostics_contracts::wire::EngineProbeResultWire
 pub ripdpi_diagnostics_contracts::wire::EngineProbeResultWire::details: alloc::vec::Vec<ripdpi_diagnostics_contracts::ProbeDetail>
@@ -582,7 +583,7 @@ pub ripdpi_diagnostics_contracts::wire::EngineProbeResultWire::probe_retry_count
 pub ripdpi_diagnostics_contracts::wire::EngineProbeResultWire::probe_type: alloc::string::String
 pub ripdpi_diagnostics_contracts::wire::EngineProbeResultWire::target: alloc::string::String
 impl core::convert::From<ripdpi_diagnostics_contracts::ProbeResult> for ripdpi_diagnostics_contracts::EngineProbeResultWire
-pub fn ripdpi_diagnostics_contracts::EngineProbeResultWire::from(value: ripdpi_diagnostics_contracts::ProbeResult) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineProbeResultWire::from(ripdpi_diagnostics_contracts::ProbeResult) -> Self
 pub struct ripdpi_diagnostics_contracts::wire::EngineProgressWire
 pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::completed_steps: usize
 pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::is_finished: bool
@@ -595,7 +596,7 @@ pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::session_id: alloc::s
 pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::strategy_probe_progress: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeLiveProgress>
 pub ripdpi_diagnostics_contracts::wire::EngineProgressWire::total_steps: usize
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
-pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(value: ripdpi_diagnostics_contracts::ScanProgress) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::wire::EngineScanReportWire
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::classifier_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
@@ -613,7 +614,7 @@ pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::started_at: u64
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::strategy_probe_report: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeReport>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::summary: alloc::string::String
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_diagnostics_contracts::EngineScanReportWire
-pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(value: ripdpi_diagnostics_contracts::ScanReport) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::wire::EngineScanRequestWire
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::circumvention_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::CircumventionTarget>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::diagnostic_tls_keylog_path: core::option::Option<alloc::string::String>
@@ -643,9 +644,9 @@ pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::telegram_target: 
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::throughput_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::ThroughputTarget>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::whitelist_sni: alloc::vec::Vec<alloc::string::String>
 impl core::convert::From<ripdpi_diagnostics_contracts::EngineScanRequestWire> for ripdpi_diagnostics_contracts::ScanRequest
-pub fn ripdpi_diagnostics_contracts::ScanRequest::from(value: ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
+pub fn ripdpi_diagnostics_contracts::ScanRequest::from(ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanRequest> for ripdpi_diagnostics_contracts::EngineScanRequestWire
-pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(value: ripdpi_diagnostics_contracts::ScanRequest) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(ripdpi_diagnostics_contracts::ScanRequest) -> Self
 pub struct ripdpi_diagnostics_contracts::wire::ResolverRecommendationWire
 pub ripdpi_diagnostics_contracts::wire::ResolverRecommendationWire::applied_temporarily: bool
 pub ripdpi_diagnostics_contracts::wire::ResolverRecommendationWire::persistable: bool
@@ -707,6 +708,7 @@ pub ripdpi_diagnostics_contracts::ObservationKind::Throughput
 pub enum ripdpi_diagnostics_contracts::ProbeTaskFamily
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Circumvention
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Dns
+pub ripdpi_diagnostics_contracts::ProbeTaskFamily::DohJsonSurvey
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Quic
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Service
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Tcp
@@ -876,7 +878,7 @@ pub ripdpi_diagnostics_contracts::EngineProbeResultWire::probe_retry_count: core
 pub ripdpi_diagnostics_contracts::EngineProbeResultWire::probe_type: alloc::string::String
 pub ripdpi_diagnostics_contracts::EngineProbeResultWire::target: alloc::string::String
 impl core::convert::From<ripdpi_diagnostics_contracts::ProbeResult> for ripdpi_diagnostics_contracts::EngineProbeResultWire
-pub fn ripdpi_diagnostics_contracts::EngineProbeResultWire::from(value: ripdpi_diagnostics_contracts::ProbeResult) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineProbeResultWire::from(ripdpi_diagnostics_contracts::ProbeResult) -> Self
 pub struct ripdpi_diagnostics_contracts::EngineProgressWire
 pub ripdpi_diagnostics_contracts::EngineProgressWire::completed_steps: usize
 pub ripdpi_diagnostics_contracts::EngineProgressWire::is_finished: bool
@@ -889,7 +891,7 @@ pub ripdpi_diagnostics_contracts::EngineProgressWire::session_id: alloc::string:
 pub ripdpi_diagnostics_contracts::EngineProgressWire::strategy_probe_progress: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeLiveProgress>
 pub ripdpi_diagnostics_contracts::EngineProgressWire::total_steps: usize
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
-pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(value: ripdpi_diagnostics_contracts::ScanProgress) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::EngineScanReportWire
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::classifier_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
@@ -907,7 +909,7 @@ pub ripdpi_diagnostics_contracts::EngineScanReportWire::started_at: u64
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::strategy_probe_report: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeReport>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::summary: alloc::string::String
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_diagnostics_contracts::EngineScanReportWire
-pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(value: ripdpi_diagnostics_contracts::ScanReport) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::EngineScanRequestWire
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::circumvention_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::CircumventionTarget>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::diagnostic_tls_keylog_path: core::option::Option<alloc::string::String>
@@ -937,9 +939,9 @@ pub ripdpi_diagnostics_contracts::EngineScanRequestWire::telegram_target: core::
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::throughput_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::ThroughputTarget>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::whitelist_sni: alloc::vec::Vec<alloc::string::String>
 impl core::convert::From<ripdpi_diagnostics_contracts::EngineScanRequestWire> for ripdpi_diagnostics_contracts::ScanRequest
-pub fn ripdpi_diagnostics_contracts::ScanRequest::from(value: ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
+pub fn ripdpi_diagnostics_contracts::ScanRequest::from(ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanRequest> for ripdpi_diagnostics_contracts::EngineScanRequestWire
-pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(value: ripdpi_diagnostics_contracts::ScanRequest) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(ripdpi_diagnostics_contracts::ScanRequest) -> Self
 pub struct ripdpi_diagnostics_contracts::NativeSessionEvent
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::created_at: u64
 pub ripdpi_diagnostics_contracts::NativeSessionEvent::fingerprint_hash: core::option::Option<alloc::string::String>
@@ -972,7 +974,7 @@ pub ripdpi_diagnostics_contracts::ProbeResult::outcome: alloc::string::String
 pub ripdpi_diagnostics_contracts::ProbeResult::probe_type: alloc::string::String
 pub ripdpi_diagnostics_contracts::ProbeResult::target: alloc::string::String
 impl core::convert::From<ripdpi_diagnostics_contracts::ProbeResult> for ripdpi_diagnostics_contracts::EngineProbeResultWire
-pub fn ripdpi_diagnostics_contracts::EngineProbeResultWire::from(value: ripdpi_diagnostics_contracts::ProbeResult) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineProbeResultWire::from(ripdpi_diagnostics_contracts::ProbeResult) -> Self
 pub struct ripdpi_diagnostics_contracts::ProbeTask
 pub ripdpi_diagnostics_contracts::ProbeTask::family: ripdpi_diagnostics_contracts::ProbeTaskFamily
 pub ripdpi_diagnostics_contracts::ProbeTask::label: alloc::string::String
@@ -1016,7 +1018,7 @@ pub ripdpi_diagnostics_contracts::ScanProgress::session_id: alloc::string::Strin
 pub ripdpi_diagnostics_contracts::ScanProgress::strategy_probe_progress: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeLiveProgress>
 pub ripdpi_diagnostics_contracts::ScanProgress::total_steps: usize
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_diagnostics_contracts::EngineProgressWire
-pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(value: ripdpi_diagnostics_contracts::ScanProgress) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::ScanReport
 pub ripdpi_diagnostics_contracts::ScanReport::classifier_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ScanReport::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
@@ -1033,7 +1035,7 @@ pub ripdpi_diagnostics_contracts::ScanReport::started_at: u64
 pub ripdpi_diagnostics_contracts::ScanReport::strategy_probe_report: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeReport>
 pub ripdpi_diagnostics_contracts::ScanReport::summary: alloc::string::String
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_diagnostics_contracts::EngineScanReportWire
-pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(value: ripdpi_diagnostics_contracts::ScanReport) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::ScanRequest
 pub ripdpi_diagnostics_contracts::ScanRequest::circumvention_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::CircumventionTarget>
 pub ripdpi_diagnostics_contracts::ScanRequest::diagnostic_tls_keylog_path: core::option::Option<alloc::string::String>
@@ -1061,9 +1063,9 @@ pub ripdpi_diagnostics_contracts::ScanRequest::telegram_target: core::option::Op
 pub ripdpi_diagnostics_contracts::ScanRequest::throughput_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::ThroughputTarget>
 pub ripdpi_diagnostics_contracts::ScanRequest::whitelist_sni: alloc::vec::Vec<alloc::string::String>
 impl core::convert::From<ripdpi_diagnostics_contracts::EngineScanRequestWire> for ripdpi_diagnostics_contracts::ScanRequest
-pub fn ripdpi_diagnostics_contracts::ScanRequest::from(value: ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
+pub fn ripdpi_diagnostics_contracts::ScanRequest::from(ripdpi_diagnostics_contracts::EngineScanRequestWire) -> Self
 impl core::convert::From<ripdpi_diagnostics_contracts::ScanRequest> for ripdpi_diagnostics_contracts::EngineScanRequestWire
-pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(value: ripdpi_diagnostics_contracts::ScanRequest) -> Self
+pub fn ripdpi_diagnostics_contracts::EngineScanRequestWire::from(ripdpi_diagnostics_contracts::ScanRequest) -> Self
 pub struct ripdpi_diagnostics_contracts::ServiceObservationFact
 pub ripdpi_diagnostics_contracts::ServiceObservationFact::bootstrap_status: ripdpi_diagnostics_contracts::HttpProbeStatus
 pub ripdpi_diagnostics_contracts::ServiceObservationFact::endpoint_failure: ripdpi_diagnostics_contracts::TransportFailureKind
