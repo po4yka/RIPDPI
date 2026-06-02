@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
 import com.poyka.ripdpi.core.GeoDatabasePaths
-import com.poyka.ripdpi.core.RipDpiGeoDatabaseVersions
 import com.poyka.ripdpi.core.RipDpiGeoIpMetadata
 import com.poyka.ripdpi.core.RipDpiProxyBindings
 import org.junit.Assert.assertEquals
@@ -85,11 +84,6 @@ class EngineGeoIpSubnetMetadataLookupTest {
             snapshotJson: String,
         ) = error("unused")
 
-        override fun geoDatabaseVersions(
-            geoipDbPath: String,
-            geositeDbPath: String,
-        ): RipDpiGeoDatabaseVersions? = error("unused")
-
         override fun geoIpMetadata(
             geoipDbPath: String,
             geositeDbPath: String,
@@ -117,11 +111,6 @@ class EngineGeoIpSubnetMetadataLookupTest {
             handle: Long,
             snapshotJson: String,
         ) = error("unused")
-
-        override fun geoDatabaseVersions(
-            geoipDbPath: String,
-            geositeDbPath: String,
-        ): RipDpiGeoDatabaseVersions? = error("unused")
 
         override fun geoIpMetadata(
             geoipDbPath: String,

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
+import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -98,99 +99,8 @@ class ChainRelayTrustDomainResolverTest {
     @Test
     fun `resolve three-hop chain carries every ordered hop over the wire as chainHops`() =
         runTest {
-            val resolver =
-                resolver(
-                    relayProfileStore =
-                        TestRelayProfileStore().apply {
-                            save(
-                                RelayProfileRecord(
-                                    id = "chain",
-                                    kind = RelayKindChainRelay,
-                                    chainEntryProfileId = "entry-hop",
-                                    chainMiddleProfileIds = listOf("middle-hop"),
-                                    chainExitProfileId = "exit-hop",
-                                ),
-                            )
-                            save(
-                                RelayProfileRecord(
-                                    id = "entry-hop",
-                                    kind = RelayKindVlessReality,
-                                    server = "entry.example",
-                                    serverPort = 443,
-                                    serverName = "entry-sni.example",
-                                    realityPublicKey = "entry-public",
-                                    realityShortId = "entry-short",
-                                ),
-                            )
-                            save(
-                                RelayProfileRecord(
-                                    id = "middle-hop",
-                                    kind = RelayKindVlessReality,
-                                    server = "middle.example",
-                                    serverPort = 8443,
-                                    serverName = "middle-sni.example",
-                                    realityPublicKey = "middle-public",
-                                    realityShortId = "middle-short",
-                                ),
-                            )
-                            save(
-                                RelayProfileRecord(
-                                    id = "exit-hop",
-                                    kind = RelayKindVlessReality,
-                                    server = "exit.example",
-                                    serverPort = 9443,
-                                    serverName = "exit-sni.example",
-                                    realityPublicKey = "exit-public",
-                                    realityShortId = "exit-short",
-                                ),
-                            )
-                        },
-                    relayCredentialStore =
-                        TestRelayCredentialStore().apply {
-                            save(
-                                RelayCredentialRecord(
-                                    profileId = "entry-hop",
-                                    vlessUuid = "11111111-1111-1111-1111-111111111111",
-                                ),
-                            )
-                            save(
-                                RelayCredentialRecord(
-                                    profileId = "middle-hop",
-                                    vlessUuid = "44444444-4444-4444-4444-444444444444",
-                                ),
-                            )
-                            save(
-                                RelayCredentialRecord(
-                                    profileId = "exit-hop",
-                                    vlessUuid = "22222222-2222-2222-2222-222222222222",
-                                ),
-                            )
-                        },
-                )
-
-            val resolved =
-                resolver.resolve(
-                    config =
-                        RipDpiRelayConfig(
-                            enabled = true,
-                            kind = RelayKindChainRelay,
-                            profileId = "chain",
-                        ),
-                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
-                )
-
-            // The full ordered hop list crosses the wire as `chainHops` for N > 2.
-            assertEquals(3, resolved.chainHops.size)
-            assertEquals("entry-hop", resolved.chainHops[0].profileId)
-            assertEquals("middle-hop", resolved.chainHops[1].profileId)
-            assertEquals("middle.example", resolved.chainHops[1].server)
-            assertEquals("44444444-4444-4444-4444-444444444444", resolved.chainHops[1].vlessUuid)
-            assertEquals("exit-hop", resolved.chainHops[2].profileId)
-            // The flat entry/exit scalars stay a derived hop[0]/hop[last] mirror.
-            assertEquals("entry-hop", resolved.chainEntryProfileId)
-            assertEquals("entry.example", resolved.chainEntryServer)
-            assertEquals("exit-hop", resolved.chainExitProfileId)
-            assertEquals("exit.example", resolved.chainExitServer)
+            val resolved = resolveThreeHopChain()
+            assertThreeHopChainHops(resolved)
         }
 
     @Test
@@ -470,6 +380,87 @@ class ChainRelayTrustDomainResolverTest {
         }
 
     private fun credentialFixture(label: String): String = "relay-test-credential-$label"
+
+    private suspend fun resolveThreeHopChain(): ResolvedRipDpiRelayConfig =
+        threeHopChainResolver().resolve(
+            config = chainRelayConfig(),
+            quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+        )
+
+    private suspend fun threeHopChainResolver(): DefaultUpstreamRelayRuntimeConfigResolver =
+        resolver(
+            relayProfileStore = threeHopChainProfileStore(),
+            relayCredentialStore = threeHopChainCredentialStore(),
+        )
+
+    private suspend fun threeHopChainProfileStore(): TestRelayProfileStore =
+        TestRelayProfileStore().apply {
+            save(threeHopChainRecord())
+            save(vlessRealityHopRecord(id = "entry-hop", server = "entry.example", port = 443, sni = "entry-sni"))
+            save(vlessRealityHopRecord(id = "middle-hop", server = "middle.example", port = 8443, sni = "middle-sni"))
+            save(vlessRealityHopRecord(id = "exit-hop", server = "exit.example", port = 9443, sni = "exit-sni"))
+        }
+
+    private fun threeHopChainRecord(): RelayProfileRecord =
+        RelayProfileRecord(
+            id = "chain",
+            kind = RelayKindChainRelay,
+            chainEntryProfileId = "entry-hop",
+            chainMiddleProfileIds = listOf("middle-hop"),
+            chainExitProfileId = "exit-hop",
+        )
+
+    private fun vlessRealityHopRecord(
+        id: String,
+        server: String,
+        port: Int,
+        sni: String,
+    ): RelayProfileRecord =
+        RelayProfileRecord(
+            id = id,
+            kind = RelayKindVlessReality,
+            server = server,
+            serverPort = port,
+            serverName = "$sni.example",
+            realityPublicKey = "$sni-public",
+            realityShortId = "$sni-short",
+        )
+
+    private suspend fun threeHopChainCredentialStore(): TestRelayCredentialStore =
+        TestRelayCredentialStore().apply {
+            save(vlessCredential(profileId = "entry-hop", uuid = "11111111-1111-1111-1111-111111111111"))
+            save(vlessCredential(profileId = "middle-hop", uuid = "44444444-4444-4444-4444-444444444444"))
+            save(vlessCredential(profileId = "exit-hop", uuid = "22222222-2222-2222-2222-222222222222"))
+        }
+
+    private fun vlessCredential(
+        profileId: String,
+        uuid: String,
+    ): RelayCredentialRecord =
+        RelayCredentialRecord(
+            profileId = profileId,
+            vlessUuid = uuid,
+        )
+
+    private fun chainRelayConfig(): RipDpiRelayConfig =
+        RipDpiRelayConfig(
+            enabled = true,
+            kind = RelayKindChainRelay,
+            profileId = "chain",
+        )
+
+    private fun assertThreeHopChainHops(resolved: ResolvedRipDpiRelayConfig) {
+        assertEquals(3, resolved.chainHops.size)
+        assertEquals("entry-hop", resolved.chainHops[0].profileId)
+        assertEquals("middle-hop", resolved.chainHops[1].profileId)
+        assertEquals("middle.example", resolved.chainHops[1].server)
+        assertEquals("44444444-4444-4444-4444-444444444444", resolved.chainHops[1].vlessUuid)
+        assertEquals("exit-hop", resolved.chainHops[2].profileId)
+        assertEquals("entry-hop", resolved.chainEntryProfileId)
+        assertEquals("entry.example", resolved.chainEntryServer)
+        assertEquals("exit-hop", resolved.chainExitProfileId)
+        assertEquals("exit.example", resolved.chainExitServer)
+    }
 
     private fun resolver(
         relayProfileStore: TestRelayProfileStore,

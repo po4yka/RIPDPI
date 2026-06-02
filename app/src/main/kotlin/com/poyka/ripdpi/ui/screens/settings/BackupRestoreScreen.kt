@@ -62,6 +62,8 @@ import java.util.Date
 import java.util.Locale
 
 private const val BackupMimeType = "application/json"
+private const val BytesPerKilobyte = 1_024L
+private const val BytesPerMegabyte = 1_048_576L
 
 /** Builds the default export filename, e.g. `ripdpi-backup-2026-05-29T14-30.json`. */
 internal fun defaultBackupFilename(now: Date = Date()): String {
@@ -355,14 +357,20 @@ private fun BackupRestoreEffectHandler(
     onConsume: () -> Unit,
     onRestart: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val restoredMessage = stringResource(R.string.backup_restore_success)
+    val unsupportedMessage =
+        (effect as? BackupRestoreEffect.UnsupportedVersion)?.let {
+            stringResource(R.string.backup_restore_unsupported_version, it.found, it.supported)
+        }
+    val malformedMessage = stringResource(R.string.backup_restore_malformed)
+    val nothingSelectedMessage = stringResource(R.string.backup_restore_nothing_selected)
     androidx.compose.runtime.LaunchedEffect(effect) {
         when (val current = effect) {
             BackupRestoreEffect.Restored -> {
                 // Surface the message, then restart. The snackbar is best-effort —
                 // the rebirth may pre-empt it, which is acceptable.
                 snackbarHostState.showRipDpiSnackbar(
-                    message = context.getString(R.string.backup_restore_success),
+                    message = restoredMessage,
                     tone = RipDpiSnackbarTone.Info,
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )
@@ -372,12 +380,7 @@ private fun BackupRestoreEffectHandler(
 
             is BackupRestoreEffect.UnsupportedVersion -> {
                 snackbarHostState.showRipDpiSnackbar(
-                    message =
-                        context.getString(
-                            R.string.backup_restore_unsupported_version,
-                            current.found,
-                            current.supported,
-                        ),
+                    message = unsupportedMessage.orEmpty(),
                     tone = RipDpiSnackbarTone.Error,
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )
@@ -386,7 +389,7 @@ private fun BackupRestoreEffectHandler(
 
             BackupRestoreEffect.Malformed -> {
                 snackbarHostState.showRipDpiSnackbar(
-                    message = context.getString(R.string.backup_restore_malformed),
+                    message = malformedMessage,
                     tone = RipDpiSnackbarTone.Error,
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )
@@ -395,7 +398,7 @@ private fun BackupRestoreEffectHandler(
 
             BackupRestoreEffect.NothingSelected -> {
                 snackbarHostState.showRipDpiSnackbar(
-                    message = context.getString(R.string.backup_restore_nothing_selected),
+                    message = nothingSelectedMessage,
                     tone = RipDpiSnackbarTone.Warning,
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )
@@ -587,7 +590,7 @@ private fun BackupShareEffectHandler(
     onReady: () -> Unit,
     onFailed: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val failedMessage = stringResource(R.string.backup_export_failed)
     androidx.compose.runtime.LaunchedEffect(effect) {
         when (effect) {
             com.poyka.ripdpi.backup.BackupShareEffect.Ready -> {
@@ -598,7 +601,7 @@ private fun BackupShareEffectHandler(
             com.poyka.ripdpi.backup.BackupShareEffect.Failed -> {
                 onFailed()
                 snackbarHostState.showRipDpiSnackbar(
-                    message = context.getString(R.string.backup_export_failed),
+                    message = failedMessage,
                     tone = RipDpiSnackbarTone.Error,
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )
@@ -646,18 +649,22 @@ private fun BackupExportEffectHandler(
     onConsume: () -> Unit,
     onShare: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val successMessage =
+        (effect as? BackupExportEffect.Success)?.let {
+            stringResource(R.string.backup_export_success, formatBytes(it.byteCount))
+        }
+    val shareActionLabel = stringResource(R.string.backup_export_share_action)
+    val failedMessage = stringResource(R.string.backup_export_failed)
     androidx.compose.runtime.LaunchedEffect(effect) {
         when (val current = effect) {
             is BackupExportEffect.Success -> {
-                val message =
-                    context.getString(R.string.backup_export_success, formatBytes(current.byteCount))
+                val message = successMessage.orEmpty()
                 if (current.offerShare) {
                     val result =
                         snackbarHostState.showRipDpiSnackbar(
                             message = message,
                             tone = RipDpiSnackbarTone.Info,
-                            actionLabel = context.getString(R.string.backup_export_share_action),
+                            actionLabel = shareActionLabel,
                             testTag = RipDpiTestTags.BackupExportSnackbar,
                         )
                     if (result == SnackbarResult.ActionPerformed) onShare()
@@ -673,7 +680,7 @@ private fun BackupExportEffectHandler(
 
             BackupExportEffect.WriteFailed -> {
                 snackbarHostState.showRipDpiSnackbar(
-                    message = context.getString(R.string.backup_export_failed),
+                    message = failedMessage,
                     tone = RipDpiSnackbarTone.Error,
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )
@@ -693,8 +700,8 @@ private fun BackupExportEffectHandler(
 
 private fun formatBytes(bytes: Long): String =
     when {
-        bytes >= 1_048_576L -> String.format(Locale.US, "%.1f MB", bytes / 1_048_576.0)
-        bytes >= 1_024L -> String.format(Locale.US, "%.1f KB", bytes / 1_024.0)
+        bytes >= BytesPerMegabyte -> String.format(Locale.US, "%.1f MB", bytes / BytesPerMegabyte.toDouble())
+        bytes >= BytesPerKilobyte -> String.format(Locale.US, "%.1f KB", bytes / BytesPerKilobyte.toDouble())
         else -> "$bytes B"
     }
 

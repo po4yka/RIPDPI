@@ -103,7 +103,7 @@ mod miri_stubs {
     ///
     /// # Safety
     /// `out` must point to 32 writable bytes.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub(super) unsafe extern "C" fn SSL_handshake_get_x25519_private_key(
         _ssl: *const SslHandle,
         out: *mut u8,
@@ -122,7 +122,7 @@ mod miri_stubs {
     ///
     /// Stub never dereferences any argument; safety obligations are
     /// inherited from the real extern signature.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub(super) unsafe extern "C" fn SSL_CTX_set_client_hello_cb(
         _ctx: *mut SslCtxHandle,
         _cb: RealityHelloCb,
@@ -136,7 +136,7 @@ mod miri_stubs {
     /// # Safety
     ///
     /// Returned pointer must not be dereferenced under stubs.
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub(super) unsafe extern "C" fn SSL_get_SSL_CTX(_ssl: *const SslHandle) -> *mut SslCtxHandle {
         // 0x1 sentinel: never dereferenced under stubs.
         std::ptr::without_provenance_mut::<SslCtxHandle>(1)

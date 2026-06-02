@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,6 +59,7 @@ fun DomainBypassListRoute(
     viewModel: DomainBypassListViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val clipboardManager = remember(context) { context.getSystemService(ClipboardManager::class.java) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -86,9 +88,9 @@ fun DomainBypassListRoute(
             viewModel.save(text) { savedCount ->
                 val message =
                     if (savedCount == 0) {
-                        context.getString(R.string.domain_bypass_cleared)
+                        resources.getString(R.string.domain_bypass_cleared)
                     } else {
-                        context.getString(R.string.domain_bypass_saved, savedCount)
+                        resources.getString(R.string.domain_bypass_saved, savedCount)
                     }
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
@@ -153,10 +155,10 @@ internal fun DomainBypassListScreen(
         }
         if (state.errors.isNotEmpty()) {
             item(key = "domain_bypass_errors") {
-                val context = LocalContext.current
+                val resources = LocalResources.current
                 val errorMessage =
                     state.errors.joinToString("\n") { error ->
-                        context.getString(R.string.domain_bypass_error_line, error.lineNumber, error.message)
+                        resources.getString(R.string.domain_bypass_error_line, error.lineNumber, error.message)
                     }
                 WarningBanner(
                     title = stringResource(R.string.domain_bypass_errors_title, state.errors.size),

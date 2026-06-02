@@ -360,37 +360,45 @@ class BackupRestoreViewModel
          * data (the use case re-validates from the same bytes).
          */
         fun confirmRestore() {
-            val preview = _uiState.value.importPreview ?: return
-            if (_uiState.value.restoring) return
-            if (!preview.selection.any) {
-                _restoreEffects.value = BackupRestoreEffect.NothingSelected
-                return
-            }
-            _uiState.update { it.copy(restoring = true) }
-            viewModelScope.launch {
-                val result =
-                    withContext(Dispatchers.Default) {
-                        restoreUseCase.restore(preview.json, preview.selection)
+            val state = _uiState.value
+            val preview = state.importPreview
+            when {
+                preview == null || state.restoring -> {
+                    Unit
+                }
+
+                !preview.selection.any -> {
+                    _restoreEffects.value = BackupRestoreEffect.NothingSelected
+                }
+
+                else -> {
+                    _uiState.update { it.copy(restoring = true) }
+                    viewModelScope.launch {
+                        val result =
+                            withContext(Dispatchers.Default) {
+                                restoreUseCase.restore(preview.json, preview.selection)
+                            }
+                        _uiState.update { it.copy(restoring = false, importPreview = null) }
+                        _restoreEffects.value =
+                            when (result) {
+                                is RestoreResult.Success -> {
+                                    BackupRestoreEffect.Restored
+                                }
+
+                                is RestoreResult.UnsupportedVersion -> {
+                                    BackupRestoreEffect.UnsupportedVersion(result.found, result.supported)
+                                }
+
+                                is RestoreResult.Aborted -> {
+                                    BackupRestoreEffect.Malformed
+                                }
+
+                                RestoreResult.NothingSelected -> {
+                                    BackupRestoreEffect.NothingSelected
+                                }
+                            }
                     }
-                _uiState.update { it.copy(restoring = false, importPreview = null) }
-                _restoreEffects.value =
-                    when (result) {
-                        is RestoreResult.Success -> {
-                            BackupRestoreEffect.Restored
-                        }
-
-                        is RestoreResult.UnsupportedVersion -> {
-                            BackupRestoreEffect.UnsupportedVersion(result.found, result.supported)
-                        }
-
-                        is RestoreResult.Aborted -> {
-                            BackupRestoreEffect.Malformed
-                        }
-
-                        RestoreResult.NothingSelected -> {
-                            BackupRestoreEffect.NothingSelected
-                        }
-                    }
+                }
             }
         }
 

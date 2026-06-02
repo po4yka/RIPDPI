@@ -108,14 +108,13 @@ fun AssetProviderRoute(
 private val GeoAssetImportMimeTypes = arrayOf("application/octet-stream", "*/*")
 
 @Composable
-private fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetProviderBanner {
-    val context = LocalContext.current
-    return when (outcome) {
+private fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetProviderBanner =
+    when (outcome) {
         is AssetProviderCheckOutcome.Updated -> {
             AssetProviderBanner(
-                title = context.getString(R.string.asset_provider_updated_title),
+                title = stringResource(R.string.asset_provider_updated_title),
                 message =
-                    context.getString(
+                    stringResource(
                         R.string.asset_provider_updated_body,
                         outcome.geoipTag ?: "—",
                         outcome.geositeTag ?: "—",
@@ -126,29 +125,28 @@ private fun rememberOutcomeBanner(outcome: AssetProviderCheckOutcome): AssetProv
 
         AssetProviderCheckOutcome.UpToDate -> {
             AssetProviderBanner(
-                title = context.getString(R.string.asset_provider_uptodate_title),
-                message = context.getString(R.string.asset_provider_uptodate_body),
+                title = stringResource(R.string.asset_provider_uptodate_title),
+                message = stringResource(R.string.asset_provider_uptodate_body),
                 tone = WarningBannerTone.Info,
             )
         }
 
         AssetProviderCheckOutcome.Imported -> {
             AssetProviderBanner(
-                title = context.getString(R.string.asset_provider_imported_title),
-                message = context.getString(R.string.asset_provider_imported_body),
+                title = stringResource(R.string.asset_provider_imported_title),
+                message = stringResource(R.string.asset_provider_imported_body),
                 tone = WarningBannerTone.Info,
             )
         }
 
         is AssetProviderCheckOutcome.Failed -> {
             AssetProviderBanner(
-                title = context.getString(R.string.asset_provider_failed_title),
+                title = stringResource(R.string.asset_provider_failed_title),
                 message = outcome.message,
                 tone = WarningBannerTone.Error,
             )
         }
     }
-}
 
 @Composable
 internal fun AssetProviderScreen(

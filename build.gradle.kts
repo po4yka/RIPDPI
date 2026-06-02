@@ -129,8 +129,12 @@ abstract class VerifyAppEngineBoundaryTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val sourceFiles: ConfigurableFileCollection
 
+    @get:Internal
+    abstract val repoRoot: DirectoryProperty
+
     @TaskAction
     fun verify() {
+        val rootDir = repoRoot.get().asFile
         val directEngineDependencyPattern = Regex("""project\(":core:engine"\)|projects\.core\.engine""")
         val allowedDependencyConfigurations =
             setOf(
@@ -149,7 +153,7 @@ abstract class VerifyAppEngineBoundaryTask : DefaultTask() {
                     val configuration = trimmed.substringBefore("(", missingDelimiterValue = "")
                     val isAllowedConfiguration = configuration in allowedDependencyConfigurations
                     if (directEngineDependencyPattern.containsMatchIn(trimmed) && !isAllowedConfiguration) {
-                        "${appBuildFile.get().asFile.relativeTo(project.rootDir).path}:${index + 1}: $trimmed"
+                        "${appBuildFile.get().asFile.relativeTo(rootDir).path}:${index + 1}: $trimmed"
                     } else {
                         null
                     }
@@ -179,7 +183,7 @@ abstract class VerifyAppEngineBoundaryTask : DefaultTask() {
                                     "com.poyka.ripdpi.core.detection." !in trimmed
 
                             if (isForbiddenImport || isForbiddenQualifiedReference) {
-                                "${sourceFile.relativeTo(project.rootDir).path}:${index + 1}: $trimmed"
+                                "${sourceFile.relativeTo(rootDir).path}:${index + 1}: $trimmed"
                             } else {
                                 null
                             }
@@ -315,6 +319,7 @@ tasks.register<CheckNoTrackedJavaSourcesTask>("checkNoTrackedJavaSources") {
 tasks.register<VerifyAppEngineBoundaryTask>("verifyAppEngineBoundary") {
     group = "verification"
     description = "Ensures :app does not depend on :core:engine internals."
+    repoRoot.set(layout.projectDirectory)
     appBuildFile.set(layout.projectDirectory.file("app/build.gradle.kts"))
     sourceFiles.from(
         fileTree(layout.projectDirectory.dir("app/src/main")) {
