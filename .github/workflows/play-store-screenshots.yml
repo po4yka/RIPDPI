@@ -53,8 +53,9 @@ jobs:
         # explicitly. Installs into the default $HOME/.cache/puppeteer that the
         # runtime resolves -- no PUPPETEER_CACHE_DIR override needed.
         run: |
-          rm -rf "$HOME/.cache/puppeteer/chrome"
-          ./node_modules/.bin/puppeteer browsers install chrome
+          rm -rf "$HOME/.cache/puppeteer"
+          node node_modules/puppeteer/lib/cjs/puppeteer/node/cli.js browsers install chrome
+          node -e 'import("puppeteer").then((p) => console.log(p.default.executablePath()))'
 
       - name: Regenerate marketing screenshots
         run: bun run capture:prod
