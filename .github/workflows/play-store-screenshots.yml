@@ -52,7 +52,9 @@ jobs:
         # for trustedDependencies), so fetch the matching Chrome build
         # explicitly. Installs into the default $HOME/.cache/puppeteer that the
         # runtime resolves -- no PUPPETEER_CACHE_DIR override needed.
-        run: bunx puppeteer browsers install chrome
+        run: |
+          rm -rf "$HOME/.cache/puppeteer/chrome"
+          bunx puppeteer browsers install chrome
 
       - name: Regenerate marketing screenshots
         run: bun run capture:prod
