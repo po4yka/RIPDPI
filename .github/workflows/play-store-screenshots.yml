@@ -54,7 +54,7 @@ jobs:
         # runtime resolves -- no PUPPETEER_CACHE_DIR override needed.
         run: |
           rm -rf "$HOME/.cache/puppeteer/chrome"
-          bunx puppeteer browsers install chrome
+          ./node_modules/.bin/puppeteer browsers install chrome
 
       - name: Regenerate marketing screenshots
         run: bun run capture:prod
