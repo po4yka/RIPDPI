@@ -4,6 +4,9 @@
 //! global ref and calling `VpnService.protect(int)` via JNI. Registered
 //! at VPN startup, cleared at VPN shutdown.
 
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 mod entry;
 mod protect_callback;
 
@@ -24,8 +27,14 @@ use protect_callback::JniProtectCallback;
 /// [`unregister_vpn_protect`] so a stale unregister cannot clobber a newer
 /// session's callback.
 pub(crate) fn register_vpn_protect(vm: &JavaVM, vpn_service: Global<JObject<'static>>) -> i64 {
-    // SAFETY: JavaVM pointer is held live by JNI_OnLoad registration for the duration of the process.
-    // Re-create a JavaVM handle from the raw pointer (just copies the pointer).
+    // SAFETY: `vm.get_raw()` returns the live `*mut JavaVM` invocation-interface
+    // pointer the JVM owns for the whole process lifetime (it was published by
+    // `JNI_OnLoad` and is never freed while native code runs), so it is valid for
+    // the duration of `vm_clone`. `JavaVM::from_raw` only copies the pointer; it
+    // takes no ownership and does not mutate VM state. The clone is used solely to
+    // call `attach_current_thread` in `JniProtectCallback::protect`, which the JNI
+    // invocation interface is explicitly designed to serve concurrently, so the
+    // duplicate handle introduces no aliasing hazard.
     let vm_clone = unsafe { JavaVM::from_raw(vm.get_raw()) };
     let callback = std::sync::Arc::new(JniProtectCallback { vm: vm_clone, vpn_service });
     let generation = register_protect_callback_versioned(callback);
