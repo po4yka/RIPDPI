@@ -65,6 +65,7 @@ fun ProfileShareDialog(
         onDismiss()
     }) {
         RipDpiCard(modifier = modifier) {
+            val shareUri = uiState.shareUri
             when {
                 uiState.warningVisible -> {
                     ShareWarningContent(
@@ -77,9 +78,9 @@ fun ProfileShareDialog(
                     ShareUnshareableContent()
                 }
 
-                uiState.shareUri != null -> {
+                shareUri != null -> {
                     ShareContent(
-                        shareUri = uiState.shareUri!!,
+                        shareUri = shareUri,
                         onCopyUri = onCopyUri,
                         onShareImage = onShareImage,
                     )
