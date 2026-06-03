@@ -39,8 +39,16 @@ where
 pub(crate) fn with_current<R>(f: impl FnOnce(&dyn TcpDesyncPlatform) -> R) -> R {
     CURRENT_PLATFORM.with(|slot| {
         if let Some(pointer) = *slot.borrow() {
-            // SAFETY: `with_tcp_desync_platform` installs a pointer that is valid
-            // for the duration of the synchronous execution closure.
+            // SAFETY: the only writer of this slot is `with_tcp_desync_platform`,
+            // which stores a `*const dyn TcpDesyncPlatform` derived from a `&P`
+            // borrow (`P: 'static`) and installs a `Restore` guard that clears the
+            // slot back to its previous value on drop. `with_current` runs strictly
+            // inside that synchronous `f()` call, so the referent is still borrowed
+            // and live; the pointer is non-null (it came from a reference) and
+            // properly aligned. The reborrow is shared (`&dyn`), matching the
+            // shared `&P` the pointer was derived from, so no `&`/`&mut` aliasing
+            // can occur. The slot is thread-local, so no cross-thread aliasing
+            // exists either.
             let platform = unsafe { &*pointer };
             return f(platform);
         }

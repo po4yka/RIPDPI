@@ -342,6 +342,13 @@ fn tcp_window_clamp(stream: &std::net::TcpStream) -> io::Result<u32> {
 
     let mut value: libc::c_int = 0;
     let mut len = mem::size_of_val(&value) as libc::socklen_t;
+    // SAFETY: `stream` is a live `TcpStream`, so `as_raw_fd()` yields a valid
+    // socket fd for the duration of the call. `TCP_WINDOW_CLAMP` writes a single
+    // `c_int`; `&mut value` points to an initialized `c_int` stack local and
+    // `&mut len` is initialized to its `size_of`, matching the kernel's expected
+    // out-parameter layout for this option. Both pointers outlive the call and
+    // are exclusively borrowed here, so no aliasing occurs. The return value is
+    // checked below and `errno` is converted via `last_os_error()`.
     let rc = unsafe {
         libc::getsockopt(
             stream.as_raw_fd(),

@@ -45,6 +45,13 @@ impl TcpSocketOptions for TestTcpDesyncPlatform {
         #[cfg(any(target_os = "android", target_os = "linux"))]
         {
             let value = _size as libc::c_int;
+            // SAFETY: `_stream` is a live `TcpStream`, so `as_raw_fd()` yields a
+            // valid socket fd that outlives this call. `TCP_WINDOW_CLAMP` reads a
+            // single `c_int`; `&value` points to an initialized `c_int` stack local
+            // that lives for the whole call, and the length argument is exactly its
+            // `size_of`, matching the kernel's expected layout for this option. The
+            // return value is checked below and `errno` is converted via
+            // `last_os_error()`.
             let rc = unsafe {
                 libc::setsockopt(
                     _stream.as_raw_fd(),
