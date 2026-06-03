@@ -123,6 +123,17 @@ data class EncryptedDnsConfigInput(
     val odohConfigsTtlSecs: Long = 0L,
 )
 
+/**
+ * Legacy built-in resolver list: the behavior-preserving compatibility surface that backs
+ * [dnsProviderById], the canonical defaults, and every persisted `dnsProviderId`. Its ordering
+ * (AdGuard first), IPv4-only bootstrap sets, and the IP-form variants ([DnsProviderCloudflareIp] /
+ * [DnsProviderGoogleIp]) are load-bearing for [activeDnsSettings] output and MUST NOT drift.
+ *
+ * The richer bundled catalog ([BundledDnsProviderCatalog] / [bundledDnsProviderDefinitions]) is the
+ * additive selection surface exposed through `:core:service`'s `DnsProviderCatalogLoader`; it carries
+ * IPv6 bootstraps and extra providers. The two overlap on the shared ids (cloudflare/google/yandex/…)
+ * but this list stays the authority for the legacy resolution path.
+ */
 val BuiltInDnsProviders: List<DnsProviderDefinition> =
     listOf(
         DnsProviderDefinition(
