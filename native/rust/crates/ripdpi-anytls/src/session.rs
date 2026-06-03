@@ -225,6 +225,12 @@ impl AnyTlsClient {
             self.clear_cached_session(&session).await;
         }
 
+        // PROTECT INVARIANT: this bare `TcpStream::connect` is NOT a violation of
+        // `vpnservice-protect-invariant.md`. On Android, AnyTLS is only reachable as a
+        // relay-chain entry hop, whose outbound socket is bind-protected upstream via
+        // `outbound_bind_ip` in `ripdpi-relay-core` (`reject_bind_for_kind` fails closed
+        // if the kind cannot be bind-protected — see relay-core `chain.rs`). This bare
+        // connect path only runs off-TUN (desktop / CLI), where no protect is required.
         let tcp = TcpStream::connect((self.config.server_host.as_str(), self.config.server_port)).await?;
         tcp.set_nodelay(true)?;
         self.establish_session(tcp).await

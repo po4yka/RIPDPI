@@ -33,6 +33,12 @@ impl ShadowTlsClient {
         let address = (server, port).to_socket_addrs()?.next().ok_or_else(|| {
             io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
         })?;
+        // PROTECT INVARIANT: this bare `TcpStream::connect` is NOT a violation of
+        // `vpnservice-protect-invariant.md`. On Android, ShadowTLS is only reachable as a
+        // relay-chain entry hop, whose outbound socket is bind-protected upstream via
+        // `outbound_bind_ip` in `ripdpi-relay-core` (`reject_bind_for_kind` fails closed
+        // if the kind cannot be bind-protected — see relay-core `chain.rs`). This bare
+        // connect path only runs off-TUN (desktop / CLI), where no protect is required.
         let stream = TcpStream::connect(address).await?;
         stream.set_nodelay(true)?;
         self.connect_over(stream).await
