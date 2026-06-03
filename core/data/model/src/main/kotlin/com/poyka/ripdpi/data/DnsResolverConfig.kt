@@ -128,15 +128,17 @@ data class EncryptedDnsConfigInput(
 )
 
 /**
- * Legacy built-in resolver list: the behavior-preserving compatibility surface that backs
- * [dnsProviderById], the canonical defaults, and every persisted `dnsProviderId`. Its ordering
- * (AdGuard first), IPv4-only bootstrap sets, and the IP-form variants ([DnsProviderCloudflareIp] /
- * [DnsProviderGoogleIp]) are load-bearing for [activeDnsSettings] output and MUST NOT drift.
+ * Legacy built-in resolver list: the behavior-preserving compatibility surface that takes precedence
+ * in [dnsProviderById], supplies the canonical defaults, and backs every persisted `dnsProviderId`
+ * that matches a legacy id. Its ordering (AdGuard first), IPv4-only bootstrap sets, and the IP-form
+ * variants ([DnsProviderCloudflareIp] / [DnsProviderGoogleIp]) are load-bearing for [activeDnsSettings]
+ * output and MUST NOT drift.
  *
  * The richer bundled catalog ([BundledDnsProviderCatalog] / [bundledDnsProviderDefinitions]) is the
  * additive selection surface exposed through `:core:service`'s `DnsProviderCatalogLoader`; it carries
  * IPv6 bootstraps and extra providers. The two overlap on the shared ids (cloudflare/google/yandex/…)
- * but this list stays the authority for the legacy resolution path.
+ * where this list stays the authority for the legacy resolution path; catalog-only ids fall through
+ * to the bundled catalog so a catalog-selected provider still resolves and persists.
  */
 val BuiltInDnsProviders: List<DnsProviderDefinition> =
     listOf(
@@ -235,8 +237,17 @@ fun canonicalDefaultEncryptedDnsSettings(): ActiveDnsSettings =
 fun canonicalDefaultEncryptedDnsPathCandidate(): EncryptedDnsPathCandidate =
     requireNotNull(canonicalDefaultEncryptedDnsSettings().toEncryptedDnsPathCandidate())
 
+/**
+ * Resolves a persisted `dnsProviderId` to its [DnsProviderDefinition] with legacy precedence:
+ * [BuiltInDnsProviders] wins first (preserving its AdGuard-first ordering and IPv4-only bootstraps
+ * that the data tests pin), and a catalog-only id falls back to the bundled catalog
+ * ([bundledDnsProviderDefinition]). The fallback is load-bearing: `SettingsDnsActions
+ * .selectBuiltInDnsProvider` early-returns on an unresolved id, so without it a catalog-selected
+ * provider would silently fail to persist.
+ */
 fun dnsProviderById(providerId: String): DnsProviderDefinition? =
     BuiltInDnsProviders.firstOrNull { it.providerId == providerId }
+        ?: bundledDnsProviderDefinition(providerId)
 
 fun normalizeDnsBootstrapIps(values: Iterable<String>): List<String> =
     values
