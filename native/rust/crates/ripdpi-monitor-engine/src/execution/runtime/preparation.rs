@@ -3,12 +3,12 @@ use ripdpi_monitor_adapter::proxy_config::{ProxyRuntimeContext, runtime_config_f
 use crate::candidates::StrategyCandidateSpec;
 
 use super::adaptive_freeze::freeze_adaptive_fake_ttl_for_probe;
-use super::contracts::PreparedCandidateRuntime;
+use super::contracts::{CandidateRuntimeError, PreparedCandidateRuntime};
 
 pub(crate) fn prepare_candidate_runtime(
     spec: &StrategyCandidateSpec,
     runtime_context: Option<&ProxyRuntimeContext>,
-) -> Result<PreparedCandidateRuntime, String> {
+) -> Result<PreparedCandidateRuntime, CandidateRuntimeError> {
     let mut runtime_config = spec.config.clone();
     runtime_config.listen.ip = "127.0.0.1".to_string();
     runtime_config.host_autolearn.enabled = false;
@@ -18,7 +18,7 @@ pub(crate) fn prepare_candidate_runtime(
     }
     let mut config = runtime_config_from_ui(runtime_config).map_err(|err| {
         tracing::warn!(candidate = spec.id, error = %err, "probe runtime config validation failed");
-        err.to_string()
+        CandidateRuntimeError::Preparation(err.to_string())
     })?;
     let _ = ripdpi_monitor_adapter::proxy_config::presets::apply_runtime_preset("ripdpi_default", &mut config);
     config.network.listen.listen_port = 0;

@@ -1803,6 +1803,7 @@ dependencies = [
  "hickory-proto",
  "ripdpi-failure-classifier",
  "serde",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

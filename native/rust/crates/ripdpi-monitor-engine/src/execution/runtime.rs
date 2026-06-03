@@ -10,7 +10,8 @@ use std::time::Duration;
 #[cfg(test)]
 pub(crate) use adaptive_freeze::freeze_adaptive_fake_ttl_for_probe;
 pub use contracts::{
-    CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime, UnavailableCandidateRuntimeLauncher,
+    CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, PreparedCandidateRuntime,
+    UnavailableCandidateRuntimeLauncher,
 };
 pub use launch::probe_runtime_transport;
 pub use warmup::run_candidate_warmup;
@@ -95,7 +96,7 @@ mod tests {
         fn start_candidate_runtime(
             &self,
             prepared: PreparedCandidateRuntime,
-        ) -> Result<Box<dyn CandidateProbeRuntime>, String> {
+        ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
             assert_eq!(prepared.config.network.listen.listen_ip.to_string(), "127.0.0.1");
             assert_eq!(prepared.config.network.listen.listen_port, 0);
             Ok(Box::new(FakeProbeRuntime {
@@ -142,7 +143,7 @@ mod tests {
         fn start_candidate_runtime(
             &self,
             _prepared: PreparedCandidateRuntime,
-        ) -> Result<Box<dyn CandidateProbeRuntime>, String> {
+        ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
             Ok(Box::new(FakeProbeRuntime { transport: TransportConfig::Direct { route_experiment: None } }))
         }
     }
@@ -153,7 +154,7 @@ mod tests {
         fn start_candidate_runtime(
             &self,
             prepared: PreparedCandidateRuntime,
-        ) -> Result<Box<dyn CandidateProbeRuntime>, String> {
+        ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
             assert_eq!(prepared.config.network.listen.listen_ip.to_string(), "127.0.0.1");
             assert_eq!(prepared.config.network.listen.listen_port, 0);
             Ok(Box::new(FakeProbeRuntime { transport: TransportConfig::Direct { route_experiment: None } }))
@@ -167,7 +168,8 @@ mod tests {
         let Err(err) = probe_runtime_transport(&launcher, &spec, None) else {
             panic!("launcher should be unavailable");
         };
-        assert_eq!(err, "candidate runtime launcher is not configured");
+        assert_eq!(err, CandidateRuntimeError::LauncherUnavailable);
+        assert_eq!(err.to_string(), "candidate runtime launcher is not configured");
     }
 
     #[test]

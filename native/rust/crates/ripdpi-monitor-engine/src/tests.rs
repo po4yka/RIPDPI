@@ -17,7 +17,9 @@ use crate::test_fixtures::*;
 use crate::tls::{NoCertificateVerification, TlsClientProfile, TlsObservation, classify_tls_signal, try_tls_handshake};
 use crate::transport::{TargetAddress, TransportConfig, direct_transport};
 use crate::util::{DEFAULT_DNS_SERVER, probe_session_seed};
-use crate::{CandidateProbeRuntime, CandidateRuntimeLauncher, MonitorSession, PreparedCandidateRuntime};
+use crate::{
+    CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, MonitorSession, PreparedCandidateRuntime,
+};
 
 use ripdpi_monitor_adapter::failure::{FailureAction, FailureClass};
 use ripdpi_monitor_adapter::proxy_config::{
@@ -58,7 +60,7 @@ impl CandidateRuntimeLauncher for DirectCandidateRuntimeLauncher {
     fn start_candidate_runtime(
         &self,
         _prepared: PreparedCandidateRuntime,
-    ) -> Result<Box<dyn CandidateProbeRuntime>, String> {
+    ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
         Ok(Box::new(DirectCandidateRuntime))
     }
 }

@@ -85,6 +85,6 @@ pub fn execute_tcp_candidate(
             .record(probe_started.elapsed().as_secs_f64());
             build_candidate_execution(spec, score, 3)
         }
-        Err(err) => failed_candidate_execution(spec, targets.len() * 2, 3, err),
+        Err(err) => failed_candidate_execution(spec, targets.len() * 2, 3, err.to_string()),
     }
 }

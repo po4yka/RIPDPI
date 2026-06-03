@@ -1,8 +1,65 @@
 #![forbid(unsafe_code)]
 
 use std::collections::HashMap;
+use std::num::ParseIntError;
 
 pub use ripdpi_failure_classifier::{BlockpageFingerprint, load_blockpage_fingerprints as load_fingerprints};
+
+/// Failure modes when parsing an HTTP response head + body.
+///
+/// `Display` is kept byte-for-byte compatible with the previous
+/// `Result<_, String>` contract so that error text surfaced at any
+/// `String` boundary (JNI, diagnostics summaries) is unchanged.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum HttpParseError {
+    /// The header block had no status line at all.
+    #[error("missing_status_line")]
+    MissingStatusLine,
+    /// The status line had no status-code token.
+    #[error("missing_status_code")]
+    MissingStatusCode,
+    /// The status-code token was not a valid integer.
+    #[error("{0}")]
+    InvalidStatusCode(String),
+}
+
+impl From<ParseIntError> for HttpParseError {
+    fn from(err: ParseIntError) -> Self {
+        HttpParseError::InvalidStatusCode(err.to_string())
+    }
+}
+
+/// Failure modes when parsing a DNS response packet.
+///
+/// `Display` mirrors the historical `Result<_, String>` error tokens so the
+/// observable error text at every boundary is preserved.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum DnsParseError {
+    #[error("dns_response_too_short")]
+    ResponseTooShort,
+    #[error("dns_response_id_mismatch")]
+    IdMismatch,
+    #[error("dns_nxdomain")]
+    NxDomain,
+    #[error("dns_servfail")]
+    ServFail,
+    #[error("dns_refused")]
+    Refused,
+    #[error("dns_question_truncated")]
+    QuestionTruncated,
+    #[error("dns_answer_truncated")]
+    AnswerTruncated,
+    #[error("dns_rdata_truncated")]
+    RdataTruncated,
+    #[error("dns_name_truncated")]
+    NameTruncated,
+    #[error("dns_pointer_truncated")]
+    PointerTruncated,
+    #[error("dns_label_truncated")]
+    LabelTruncated,
+    #[error("dns_empty")]
+    Empty,
+}
 
 #[derive(Clone, Debug)]
 pub struct HttpResponse {
@@ -12,17 +69,13 @@ pub struct HttpResponse {
     pub body: Vec<u8>,
 }
 
-pub fn parse_http_response(headers: &[u8], body: Vec<u8>) -> Result<HttpResponse, String> {
+pub fn parse_http_response(headers: &[u8], body: Vec<u8>) -> Result<HttpResponse, HttpParseError> {
     let text = String::from_utf8_lossy(headers);
     let mut lines = text.split("\r\n");
-    let status_line = lines.next().ok_or_else(|| "missing_status_line".to_string())?;
+    let status_line = lines.next().ok_or(HttpParseError::MissingStatusLine)?;
     let mut status_parts = status_line.splitn(3, ' ');
     let _http_version = status_parts.next();
-    let status_code = status_parts
-        .next()
-        .ok_or_else(|| "missing_status_code".to_string())?
-        .parse::<u16>()
-        .map_err(|err| err.to_string())?;
+    let status_code = status_parts.next().ok_or(HttpParseError::MissingStatusCode)?.parse::<u16>()?;
     let reason = status_parts.next().unwrap_or_default().to_string();
     let mut parsed_headers = HashMap::new();
     for line in lines {
@@ -60,23 +113,23 @@ pub fn match_blockpage(response: &HttpResponse, fingerprints: &[BlockpageFingerp
     ripdpi_failure_classifier::match_blockpage_response(&headers, &response.body, fingerprints)
 }
 
-pub fn parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>, String> {
+pub fn parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>, DnsParseError> {
     if packet.len() < 12 {
-        return Err("dns_response_too_short".to_string());
+        return Err(DnsParseError::ResponseTooShort);
     }
     let id = u16::from_be_bytes([packet[0], packet[1]]);
     if id != expected_id {
-        return Err("dns_response_id_mismatch".to_string());
+        return Err(DnsParseError::IdMismatch);
     }
     let rcode = packet[3] & 0x0F;
     if rcode == 3 {
-        return Err("dns_nxdomain".to_string());
+        return Err(DnsParseError::NxDomain);
     }
     if rcode == 2 {
-        return Err("dns_servfail".to_string());
+        return Err(DnsParseError::ServFail);
     }
     if rcode == 5 {
-        return Err("dns_refused".to_string());
+        return Err(DnsParseError::Refused);
     }
     let answer_count = u16::from_be_bytes([packet[6], packet[7]]) as usize;
     let question_count = u16::from_be_bytes([packet[4], packet[5]]) as usize;
@@ -85,20 +138,20 @@ pub fn parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>
         offset = skip_dns_name(packet, offset)?;
         offset += 4;
         if offset > packet.len() {
-            return Err("dns_question_truncated".to_string());
+            return Err(DnsParseError::QuestionTruncated);
         }
     }
     let mut answers = Vec::new();
     for _ in 0..answer_count {
         offset = skip_dns_name(packet, offset)?;
         if offset + 10 > packet.len() {
-            return Err("dns_answer_truncated".to_string());
+            return Err(DnsParseError::AnswerTruncated);
         }
         let record_type = u16::from_be_bytes([packet[offset], packet[offset + 1]]);
         let data_len = u16::from_be_bytes([packet[offset + 8], packet[offset + 9]]) as usize;
         offset += 10;
         if offset + data_len > packet.len() {
-            return Err("dns_rdata_truncated".to_string());
+            return Err(DnsParseError::RdataTruncated);
         }
         if record_type == 1 && data_len == 4 {
             answers.push(
@@ -108,17 +161,17 @@ pub fn parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>
         }
         offset += data_len;
     }
-    if answers.is_empty() { Err("dns_empty".to_string()) } else { Ok(answers) }
+    if answers.is_empty() { Err(DnsParseError::Empty) } else { Ok(answers) }
 }
 
-fn skip_dns_name(packet: &[u8], mut offset: usize) -> Result<usize, String> {
+fn skip_dns_name(packet: &[u8], mut offset: usize) -> Result<usize, DnsParseError> {
     loop {
         let Some(length) = packet.get(offset).copied() else {
-            return Err("dns_name_truncated".to_string());
+            return Err(DnsParseError::NameTruncated);
         };
         if length & 0b1100_0000 == 0b1100_0000 {
             if offset + 1 >= packet.len() {
-                return Err("dns_pointer_truncated".to_string());
+                return Err(DnsParseError::PointerTruncated);
             }
             return Ok(offset + 2);
         }
@@ -128,16 +181,16 @@ fn skip_dns_name(packet: &[u8], mut offset: usize) -> Result<usize, String> {
         }
         offset += length as usize;
         if offset > packet.len() {
-            return Err("dns_label_truncated".to_string());
+            return Err(DnsParseError::LabelTruncated);
         }
     }
 }
 
-pub fn fuzz_parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>, String> {
+pub fn fuzz_parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>, DnsParseError> {
     parse_dns_response(packet, expected_id)
 }
 
-pub fn fuzz_parse_http_response(headers: &[u8], body: &[u8]) -> Result<(), String> {
+pub fn fuzz_parse_http_response(headers: &[u8], body: &[u8]) -> Result<(), HttpParseError> {
     let response = parse_http_response(headers, body.to_vec())?;
     let _ = classify_http_response(&response);
     Ok(())

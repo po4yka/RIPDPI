@@ -6,7 +6,8 @@ mod scoring;
 pub(crate) use lanes::DefaultStrategyLaneExecutor;
 pub(crate) use runner_contract::StrategyLaneExecutor;
 pub use runtime::{
-    CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime, UnavailableCandidateRuntimeLauncher,
+    CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, PreparedCandidateRuntime,
+    UnavailableCandidateRuntimeLauncher,
 };
 pub(super) use scoring::{
     CandidateExecution, eliminated_candidate_summary, not_applicable_candidate_execution, skipped_candidate_summary,

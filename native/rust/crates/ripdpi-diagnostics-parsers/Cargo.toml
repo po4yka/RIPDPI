@@ -11,3 +11,4 @@ workspace = true
 hickory-proto = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 serde = { workspace = true }
+thiserror = { workspace = true }

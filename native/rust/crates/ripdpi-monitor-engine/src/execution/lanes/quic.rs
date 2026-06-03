@@ -56,7 +56,7 @@ pub fn execute_quic_candidate(
             .record(probe_started.elapsed().as_secs_f64());
             build_candidate_execution(spec, score, 2)
         }
-        Err(err) => failed_candidate_execution(spec, targets.len(), 2, err),
+        Err(err) => failed_candidate_execution(spec, targets.len(), 2, err.to_string()),
     }
 }
 pub(super) fn run_quic_strategy_probe(

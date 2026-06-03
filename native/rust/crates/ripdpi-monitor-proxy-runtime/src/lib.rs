@@ -6,7 +6,9 @@ use std::thread::{self, JoinHandle};
 
 use ripdpi_diagnostics_transport::transport::TransportConfig;
 use ripdpi_diagnostics_transport::transport::wait_for_listener;
-use ripdpi_monitor_engine::{CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime};
+use ripdpi_monitor_engine::{
+    CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, PreparedCandidateRuntime,
+};
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
 pub struct ProductionCandidateRuntimeLauncher;
@@ -21,16 +23,17 @@ impl CandidateRuntimeLauncher for ProductionCandidateRuntimeLauncher {
     fn start_candidate_runtime(
         &self,
         prepared: PreparedCandidateRuntime,
-    ) -> Result<Box<dyn CandidateProbeRuntime>, String> {
-        let listener = ripdpi_proxy_runtime::create_listener(&prepared.config).map_err(|err| err.to_string())?;
-        let addr = listener.local_addr().map_err(|err| err.to_string())?;
+    ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
+        let listener = ripdpi_proxy_runtime::create_listener(&prepared.config)
+            .map_err(|err| CandidateRuntimeError::Launch(err.to_string()))?;
+        let addr = listener.local_addr().map_err(|err| CandidateRuntimeError::Launch(err.to_string()))?;
         let control = Arc::new(EmbeddedProxyControl::new_with_context(None, prepared.runtime_context));
         let worker_control = control.clone();
         let handle = thread::spawn(move || {
             ripdpi_proxy_runtime::run_proxy_with_embedded_control(prepared.config, listener, worker_control)
                 .map_err(|err| err.to_string())
         });
-        wait_for_listener(addr)?;
+        wait_for_listener(addr).map_err(CandidateRuntimeError::Launch)?;
         Ok(Box::new(TemporaryProxyRuntime { addr, control, handle: Some(handle) }))
     }
 }

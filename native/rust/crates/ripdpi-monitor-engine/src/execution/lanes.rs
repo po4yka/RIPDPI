@@ -66,7 +66,9 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     use super::*;
-    use crate::execution::runtime::CandidateRuntimeLauncher;
+    use crate::execution::runtime::{
+        CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, PreparedCandidateRuntime,
+    };
     use crate::types::DomainTarget;
 
     struct FailingRuntimeLauncher {
@@ -86,10 +88,10 @@ mod tests {
     impl CandidateRuntimeLauncher for FailingRuntimeLauncher {
         fn start_candidate_runtime(
             &self,
-            _prepared: crate::execution::runtime::PreparedCandidateRuntime,
-        ) -> Result<Box<dyn crate::execution::runtime::CandidateProbeRuntime>, String> {
+            _prepared: PreparedCandidateRuntime,
+        ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
             self.starts.fetch_add(1, Ordering::Relaxed);
-            Err("runtime unavailable".to_string())
+            Err(CandidateRuntimeError::Launch("runtime unavailable".to_string()))
         }
     }
 

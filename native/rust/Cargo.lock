@@ -5668,6 +5668,7 @@ dependencies = [
  "hickory-proto",
  "ripdpi-failure-classifier",
  "serde",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -5944,6 +5945,7 @@ dependencies = [
  "serde",
  "serde_json",
  "socket2",
+ "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]
