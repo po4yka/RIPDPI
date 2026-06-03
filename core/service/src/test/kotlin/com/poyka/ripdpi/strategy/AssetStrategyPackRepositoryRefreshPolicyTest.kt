@@ -22,11 +22,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 import java.io.IOException
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class AssetStrategyPackRepositoryRefreshPolicyTest {
     private lateinit var application: Application
     private val refreshClock = StrategyPackClock { 1_712_345_678_000L }

@@ -25,6 +25,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 import java.io.File
 import java.io.IOException
 import java.security.KeyPair
@@ -34,6 +35,7 @@ import java.security.Signature
 import java.util.Base64
 
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class AssetHostPackCatalogRepositoryTest {
     private lateinit var application: Application
     private val refreshClock = HostPackCatalogClock { 1_710_000_000_000L }

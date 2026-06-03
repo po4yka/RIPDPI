@@ -10,6 +10,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 import java.io.File
 
 /**
@@ -22,6 +23,7 @@ import java.io.File
  * 5. CloudflaredLaunchPlanBuilder writes credential files into the provided stateDir.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class CloudflarePublishCredentialLifecycleTest {
     private val context: Application get() = RuntimeEnvironment.getApplication()
 

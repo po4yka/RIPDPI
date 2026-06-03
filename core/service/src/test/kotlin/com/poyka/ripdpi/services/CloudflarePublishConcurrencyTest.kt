@@ -15,6 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 import java.io.File
 
 /**
@@ -25,6 +26,7 @@ import java.io.File
  * can be started.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class CloudflarePublishConcurrencyTest {
     private val context: Application get() = RuntimeEnvironment.getApplication()
 
