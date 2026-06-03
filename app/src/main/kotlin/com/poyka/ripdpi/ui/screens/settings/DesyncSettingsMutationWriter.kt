@@ -232,7 +232,6 @@ internal class DesyncSettingsMutationWriter(
     ) {
         when (value) {
             AdaptiveSplitPresetCustom -> {
-                Unit
             }
 
             AdaptiveSplitPresetManual -> {
@@ -259,7 +258,6 @@ internal class DesyncSettingsMutationWriter(
     ) {
         when (value) {
             AdaptiveFakeTtlModeCustom -> {
-                Unit
             }
 
             AdaptiveFakeTtlModeFixed -> {

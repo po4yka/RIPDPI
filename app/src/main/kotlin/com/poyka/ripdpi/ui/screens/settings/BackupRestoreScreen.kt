@@ -406,7 +406,6 @@ private fun BackupRestoreEffectHandler(
             }
 
             null -> {
-                Unit
             }
         }
     }
@@ -426,7 +425,6 @@ private fun BackupResetEffectHandler(
             }
 
             null -> {
-                Unit
             }
         }
     }
@@ -609,7 +607,6 @@ private fun BackupShareEffectHandler(
             }
 
             null -> {
-                Unit
             }
         }
     }
@@ -692,7 +689,6 @@ private fun BackupExportEffectHandler(
             }
 
             null -> {
-                Unit
             }
         }
     }

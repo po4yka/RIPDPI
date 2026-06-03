@@ -276,7 +276,6 @@ class DetectionResolverNetworkStack(
                     }
 
                     DetectionNetworkBinding.None -> {
-                        Unit
                     }
                 }
             }.build()
@@ -328,7 +327,6 @@ class DetectionResolverNetworkStack(
                         }
 
                         DetectionNetworkBinding.None -> {
-                            Unit
                         }
                     }
                 }.build()
@@ -718,7 +716,6 @@ internal object ResolverSocketBinder {
             }
 
             DetectionNetworkBinding.None -> {
-                Unit
             }
         }
     }
@@ -739,7 +736,6 @@ internal object ResolverSocketBinder {
             }
 
             DetectionNetworkBinding.None -> {
-                Unit
             }
         }
     }

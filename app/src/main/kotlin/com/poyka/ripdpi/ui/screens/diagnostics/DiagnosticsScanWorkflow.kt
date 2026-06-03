@@ -173,7 +173,6 @@ internal fun DiagnosticsScanWorkflowCard(
                         }
 
                         DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> {
-                            Unit
                         }
                     }
                 },

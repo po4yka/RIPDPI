@@ -127,7 +127,6 @@ class OnboardingViewModel
                         }
 
                         null -> {
-                            Unit
                         }
                     }
                     performValidation(currentState.selectedMode)
@@ -228,7 +227,6 @@ class OnboardingViewModel
                 }
 
                 null -> {
-                    Unit
                 }
             }
         }

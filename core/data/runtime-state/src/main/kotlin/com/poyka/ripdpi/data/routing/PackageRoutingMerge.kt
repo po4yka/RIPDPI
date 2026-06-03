@@ -83,7 +83,6 @@ object PackageRoutingMerge {
 
                 userRule.action == normalized.action -> {
                     // The user already wants this exact action; nothing to apply, no conflict.
-                    Unit
                 }
 
                 else -> {

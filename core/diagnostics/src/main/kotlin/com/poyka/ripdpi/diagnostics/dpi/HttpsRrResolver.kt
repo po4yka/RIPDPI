@@ -208,6 +208,8 @@ class AndroidSystemHttpsRrQuery(
     @SuppressLint("NewApi", "WrongConstant")
     override suspend fun query(host: String): List<HttpsRrRecord> {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyList()
+        // TODO(npochaev): DnsResolver.getInstance() deprecated; needs Context plumbing
+        @Suppress("DEPRECATION")
         val resolver = resolverProvider?.invoke() ?: DnsResolver.getInstance()
         val bytes =
             suspendCancellableCoroutine { continuation ->

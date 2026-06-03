@@ -64,7 +64,6 @@ internal class QuickTileController(
                         }
 
                         is ServiceEvent.PermissionRevoked -> {
-                            Unit
                         }
                     }
                 }

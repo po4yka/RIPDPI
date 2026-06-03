@@ -53,7 +53,6 @@ internal class MainConnectionActions(
         setConnectingState()
         when (val result = serviceController.start(mode)) {
             is ServiceStartResult.Accepted -> {
-                Unit
             }
 
             is ServiceStartResult.Rejected -> {

@@ -364,7 +364,6 @@ class BackupRestoreViewModel
             val preview = state.importPreview
             when {
                 preview == null || state.restoring -> {
-                    Unit
                 }
 
                 !preview.selection.any -> {

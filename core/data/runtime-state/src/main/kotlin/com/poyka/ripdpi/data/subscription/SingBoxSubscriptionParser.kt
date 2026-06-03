@@ -250,8 +250,8 @@ private fun mapVlessReality(
     val fingerprint = (tlsObj?.get("utls") as? JsonObject)?.string("fingerprint")
     val transportObj = obj["transport"] as? JsonObject
     val isXhttp = transportObj?.string("type")?.lowercase() == "xhttp"
-    val xhttpPath = if (isXhttp) transportObj?.string("path") else null
-    val xhttpHost = if (isXhttp) transportObj?.string("host") else null
+    val xhttpPath = if (isXhttp) transportObj.string("path") else null
+    val xhttpHost = if (isXhttp) transportObj.string("host") else null
     return ProxyProfile.VlessReality(
         id = newId(),
         displayName = name,
@@ -509,7 +509,7 @@ private fun applyHysteriaExtras(
         val extras = hyExtras[profile.displayName] as? JsonObject ?: return@map profile
         val obfsObj = extras["obfs"] as? JsonObject
         val obfsType = obfsObj?.string("type")?.lowercase()
-        val obfsPassword = if (obfsType == "salamander") obfsObj?.string("password") else null
+        val obfsPassword = if (obfsType == "salamander") obfsObj.string("password") else null
         val insecure = extras.bool("insecure")
         val portHopObj = extras["port_hopping"] as? JsonObject
         val portHopPorts = portHopObj?.string("ports")

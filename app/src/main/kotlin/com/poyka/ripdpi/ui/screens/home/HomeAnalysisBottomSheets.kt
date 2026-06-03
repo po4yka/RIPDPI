@@ -200,7 +200,6 @@ private fun HomeSheetRemediationLadder(
                 DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
                 DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
                 -> {
-                    Unit
                 }
             }
         },

@@ -73,7 +73,6 @@ fun HomeNetworkConditionBanner(
         NetworkCondition.Normal,
         NetworkCondition.BlockedReconnecting,
         -> {
-            Unit
         }
     }
 }

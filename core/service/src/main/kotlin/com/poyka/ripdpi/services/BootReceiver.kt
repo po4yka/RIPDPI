@@ -33,7 +33,6 @@ class BootReceiver : BroadcastReceiver() {
             }
 
             else -> {
-                Unit
             }
         }
     }

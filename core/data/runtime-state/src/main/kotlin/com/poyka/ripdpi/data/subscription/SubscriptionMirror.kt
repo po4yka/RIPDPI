@@ -161,7 +161,6 @@ data class SubscriptionMirrorSet(
                 }
 
                 is MirrorFetchOutcome.Failure -> {
-                    Unit
                 }
             }
         }

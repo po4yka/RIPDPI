@@ -705,7 +705,6 @@ class DebugAutomationController
                 }
 
                 AutomationServicePreset.Live -> {
-                    Unit
                 }
 
                 AutomationServicePreset.ConnectedProxy -> {

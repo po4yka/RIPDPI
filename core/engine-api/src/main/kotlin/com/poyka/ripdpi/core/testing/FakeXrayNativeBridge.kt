@@ -73,7 +73,6 @@ open class FakeXrayNativeBridge(
         running = false
         when (stopBehavior) {
             StopBehavior.Clean -> {
-                Unit
             }
 
             StopBehavior.Throw -> {

@@ -47,7 +47,7 @@ internal val desyncToggleHandlers: Map<AdvancedToggleSetting, DesyncToggleHandle
         AdvancedToggleSetting.HttpHostTab to
             { enabled -> updateBoolean("httpHostTab", enabled) { setHttpHostTab(enabled) } },
         AdvancedToggleSetting.TlsrecEnabled to
-            { _ -> Unit },
+            { _ -> },
         AdvancedToggleSetting.StrategyEvolution to
             { enabled -> updateBoolean("strategyEvolution", enabled) { setStrategyEvolution(enabled) } },
     )

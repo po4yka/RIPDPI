@@ -26,11 +26,9 @@ internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcom
         }
 
         DiagnosticsHomeDetectionVerdict.NOT_DETECTED -> {
-            Unit
         }
 
         null -> {
-            Unit
         }
     }
 
@@ -66,7 +64,6 @@ internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcom
         }
 
         else -> {
-            Unit
         }
     }
 
@@ -84,7 +81,6 @@ internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcom
         }
 
         else -> {
-            Unit
         }
     }
 

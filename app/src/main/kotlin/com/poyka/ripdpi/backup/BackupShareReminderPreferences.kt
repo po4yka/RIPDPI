@@ -18,7 +18,7 @@ import javax.inject.Singleton
 class BackupShareReminderPreferences
     @Inject
     constructor(
-        @param:ApplicationContext context: Context,
+        @ApplicationContext context: Context,
     ) {
         private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
