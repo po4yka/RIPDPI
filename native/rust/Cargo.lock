@@ -6431,7 +6431,6 @@ name = "ripdpi-socks5-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
  "log",
  "socket2",
  "thiserror 2.0.18",

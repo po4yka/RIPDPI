@@ -222,7 +222,6 @@ ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
 criterion = { version = "0.8", features = ["html_reports"] }
 daemonize = "0.5"
 enum-map = "2"
-async-trait = "0.1"
 arti-client = { version = "0.43.0", default-features = false, features = ["tokio", "rustls", "pt-client", "bridge-client", "onion-service-client", "static-sqlite"] }
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }

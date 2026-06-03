@@ -1,9 +1,18 @@
 /// Use this trait to handle a custom authentication on your end.
-#[async_trait::async_trait]
+///
+/// The `authenticate` future is declared `+ Send` so it preserves the Send
+/// guarantee that `#[async_trait]`'s boxed future used to provide: the SOCKS5
+/// server `.await`s it inside the per-connection task, which is spawned onto a
+/// multi-thread runtime. Native `async fn` in traits (RPITIT) is stable since
+/// 1.75; the trait is only ever used via generic `A: Authentication` bounds
+/// (never `dyn Authentication`), so it stays object-safe-free by design.
 pub trait Authentication: Send + Sync {
     type Item;
 
-    async fn authenticate(&self, credentials: Option<(String, String)>) -> Option<Self::Item>;
+    fn authenticate(
+        &self,
+        credentials: Option<(String, String)>,
+    ) -> impl Future<Output = Option<Self::Item>> + Send;
 }
 
 async fn authenticate_callback<T: AsyncRead + AsyncWrite + Unpin, A: Authentication>(
@@ -43,7 +52,6 @@ pub struct AuthSucceeded {
 
 /// This is an example to auth via simple credentials.
 /// If the auth succeed, we return the username authenticated with, for further uses.
-#[async_trait::async_trait]
 impl Authentication for SimpleUserPassword {
     type Item = AuthSucceeded;
 
@@ -70,7 +78,6 @@ impl Authentication for SimpleUserPassword {
 #[derive(Copy, Clone, Default)]
 pub struct DenyAuthentication {}
 
-#[async_trait::async_trait]
 impl Authentication for DenyAuthentication {
     type Item = ();
 
@@ -83,7 +90,6 @@ impl Authentication for DenyAuthentication {
 #[derive(Copy, Clone, Default)]
 pub struct AcceptAuthentication {}
 
-#[async_trait::async_trait]
 impl Authentication for AcceptAuthentication {
     type Item = ();
 
