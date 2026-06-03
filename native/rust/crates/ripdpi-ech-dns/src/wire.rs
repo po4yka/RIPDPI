@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
 
-pub(crate) const DNS_RECORD_TYPE_A: u16 = 1;
+pub const DNS_RECORD_TYPE_A: u16 = 1;
 pub(crate) const DNS_RECORD_TYPE_SVCB: u16 = 64;
 pub(crate) const DNS_RECORD_TYPE_HTTPS: u16 = 65;
 

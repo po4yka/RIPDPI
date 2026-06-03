@@ -5622,6 +5622,7 @@ dependencies = [
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
+ "ripdpi-ech-dns",
  "ripdpi-tls-profiles",
  "tokio",
  "tracing",
@@ -5803,6 +5804,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-ech-dns"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-transport",
+ "ripdpi-dns-resolver",
+ "ripdpi-tls-profiles",
+]
+
+[[package]]
 name = "ripdpi-failure-classifier"
 version = "0.1.0"
 dependencies = [
@@ -5889,7 +5900,7 @@ dependencies = [
  "quinn",
  "reqwest",
  "ring",
- "ripdpi-diagnostics-dns",
+ "ripdpi-ech-dns",
  "ripdpi-hysteria2",
  "ripdpi-tls-profiles",
  "rustls",

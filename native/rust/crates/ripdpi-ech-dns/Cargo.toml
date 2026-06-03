@@ -1,0 +1,14 @@
+[package]
+name = "ripdpi-ech-dns"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-diagnostics-transport = { workspace = true }
+ripdpi-dns-resolver = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }

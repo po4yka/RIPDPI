@@ -45,7 +45,7 @@ pub struct MasqueConfig {
 }
 
 pub fn resolve_ech_config_via_encrypted_dns(host: &str) -> io::Result<Option<OutboundEchConfig>> {
-    ripdpi_diagnostics_dns::dns::resolve_outbound_ech_config_via_encrypted_dns(host)
+    ripdpi_ech_dns::resolve_outbound_ech_config_via_encrypted_dns(host)
         .map_err(|error| io::Error::other(format!("MASQUE ECH resolution failed: {error}")))
 }
 
