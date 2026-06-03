@@ -365,6 +365,16 @@ fn decode_base64_psk(encoded: &str) -> Result<Vec<u8>, CipherError> {
 /// OpenSSL `EVP_BytesToKey` with MD5 and no salt (Shadowsocks legacy key derivation).
 ///
 /// Produces `key_len` bytes from the password by chaining MD5 digests.
+///
+/// MD5 here is PROTOCOL-MANDATED, not a free cryptographic choice: the
+/// Shadowsocks wire format defines the master-key KDF as OpenSSL
+/// `EVP_BytesToKey(MD5, password, key_len)` with no salt and one iteration.
+/// Every interoperable Shadowsocks implementation derives the key this exact
+/// way, so swapping in SHA-256/HKDF would break compatibility with all
+/// existing servers. This is key derivation, NOT message integrity or any
+/// security-sensitive hashing — MD5's collision/preimage weaknesses are not
+/// in scope, because the digest output is only stretched into key material,
+/// never used as an authentication tag. Do NOT "upgrade" this hash.
 fn evp_bytes_to_key(password: &[u8], key_len: usize) -> Vec<u8> {
     let mut result = Vec::with_capacity(key_len);
     let mut prev: Vec<u8> = Vec::new();
@@ -386,6 +396,10 @@ fn md5_digest(prev: &[u8], password: &[u8]) -> [u8; 16] {
 }
 
 /// MD5 implementation using the `md5` workspace crate (already present).
+///
+/// Used ONLY by the protocol-mandated `evp_bytes_to_key` legacy KDF above —
+/// not for message integrity or any security-sensitive digest. See that
+/// function's doc comment for why MD5 is required and must not be replaced.
 fn md5_raw(data: &[u8]) -> [u8; 16] {
     let digest = md5::compute(data);
     digest.0
