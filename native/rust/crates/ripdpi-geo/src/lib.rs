@@ -181,15 +181,35 @@ pub struct GeositeDomainRule {
 
 impl GeositeDomainRule {
     fn matches(&self, domain: &str) -> bool {
-        let domain = domain.trim_end_matches('.').to_ascii_lowercase();
-        let value = self.value.trim_end_matches('.').to_ascii_lowercase();
+        // Avoid allocating lowercase Strings on this per-flow hot path: compare
+        // case-insensitively over borrowed ASCII slices (rust-performance skill —
+        // remove per-lookup heap allocation).
+        let domain = domain.trim_end_matches('.');
+        let value = self.value.trim_end_matches('.');
         match self.kind {
-            GeositeDomainKind::Plain => domain.contains(&value),
-            GeositeDomainKind::Regex => domain == value,
-            GeositeDomainKind::RootDomain => domain == value || domain.ends_with(&format!(".{value}")),
-            GeositeDomainKind::Full => domain == value,
+            GeositeDomainKind::Plain => ascii_contains_ignore_case(domain, value),
+            GeositeDomainKind::Regex | GeositeDomainKind::Full => domain.eq_ignore_ascii_case(value),
+            GeositeDomainKind::RootDomain => {
+                domain.eq_ignore_ascii_case(value)
+                    || (domain.len() > value.len()
+                        && domain.as_bytes()[domain.len() - value.len() - 1] == b'.'
+                        && domain[domain.len() - value.len()..].eq_ignore_ascii_case(value))
+            }
         }
     }
+}
+
+/// Case-insensitive (ASCII) substring search without allocating a lowercased copy
+/// of either operand. Equivalent to `haystack.to_ascii_lowercase().contains(&needle.to_ascii_lowercase())`.
+fn ascii_contains_ignore_case(haystack: &str, needle: &str) -> bool {
+    let (haystack, needle) = (haystack.as_bytes(), needle.as_bytes());
+    if needle.is_empty() {
+        return true;
+    }
+    if needle.len() > haystack.len() {
+        return false;
+    }
+    haystack.windows(needle.len()).any(|window| window.eq_ignore_ascii_case(needle))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
