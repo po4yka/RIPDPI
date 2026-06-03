@@ -47,7 +47,7 @@ class DefaultLastExitInspector
                     )
                 }.getOrElse { error ->
                     Logger.w(error) { "Unable to read historical process exit reasons" }
-                    return
+                    emptyList()
                 }
             exits.forEach { info ->
                 if (isMemoryLimiterExit(info.reason, info.description)) {
