@@ -77,10 +77,28 @@ impl ProxyReply {
     }
 }
 
+/// Resolves a host name to a [`SocketAddr`] for the SOCKS/HTTP request parsers.
+///
+/// # Non-extensibility (semver)
+///
+/// This trait is implemented by the crate ONLY through the `Fn(&str,
+/// SocketType) -> Option<SocketAddr>` convenience blanket impl below. It is NOT
+/// a public extension point: downstream code is expected to supply a closure or
+/// `fn` item, never a hand-written `impl NameResolver for MyType`. The blanket
+/// impl is `#[doc(hidden)]` so it does not advertise itself as an extension
+/// surface, and no other impl is offered. Treat the set of implementors as
+/// closed; adding a manual impl here would be a semver hazard for callers that
+/// rely on the blanket impl staying the sole coherence-resolving implementor.
+/// See `.claude/rules/llm-rust-prompts.md` (blanket-impl sentinel) and the
+/// `rust-discipline` skill.
 pub trait NameResolver {
     fn resolve(&self, host: &str, socket_type: SocketType) -> Option<SocketAddr>;
 }
 
+// Convenience-only blanket impl: lets call sites pass a closure / `fn` item as a
+// resolver. Hidden from docs to keep `NameResolver` from reading as a public
+// extension point (see the trait doc above).
+#[doc(hidden)]
 impl<F> NameResolver for F
 where
     F: Fn(&str, SocketType) -> Option<SocketAddr>,
