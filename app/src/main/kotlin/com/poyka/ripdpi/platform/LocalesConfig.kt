@@ -11,16 +11,16 @@ object LocalesConfig {
         @XmlRes resId: Int = R.xml.locales_config,
     ): List<String> {
         val parser = context.resources.getXml(resId)
-        val tags = mutableListOf<String>()
-        try {
-            while (parser.eventType != XmlPullParser.END_DOCUMENT) {
-                parser.readLocaleTag()?.let(tags::add)
-                parser.next()
+        return buildList {
+            try {
+                while (parser.eventType != XmlPullParser.END_DOCUMENT) {
+                    parser.readLocaleTag()?.let(::add)
+                    parser.next()
+                }
+            } finally {
+                parser.close()
             }
-        } finally {
-            parser.close()
         }
-        return tags
     }
 
     private fun XmlPullParser.readLocaleTag(): String? {
