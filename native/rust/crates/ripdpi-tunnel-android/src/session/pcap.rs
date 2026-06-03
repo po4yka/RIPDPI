@@ -18,15 +18,14 @@ use std::io::{BufReader, BufWriter};
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
-use once_cell::sync::Lazy;
 use ripdpi_pcap::rewrite_endpoints;
 use ripdpi_tunnel_core::PacketObserver;
 
 use crate::pcap::{PcapCaptureSet, list_captures};
 
-static REGISTRY: Lazy<Mutex<HashMap<i64, Arc<PcapCaptureSet>>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static REGISTRY: LazyLock<Mutex<HashMap<i64, Arc<PcapCaptureSet>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 static NEXT_SET_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Inner entry: start a capture set bound to the given session handle.

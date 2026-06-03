@@ -1,14 +1,13 @@
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex, OnceLock};
 
 use android_support::describe_exception;
 use jni::objects::{JLongArray, JObject, JString};
 use jni::sys::{jint, jlong, jlongArray};
 use jni::{Env, EnvUnowned, InitArgsBuilder, JNIVersion, JavaVM};
-use once_cell::sync::{Lazy, OnceCell};
 use serde_json::Value;
 
-static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
-static JNI_TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static TEST_JVM: OnceLock<JavaVM> = OnceLock::new();
+static JNI_TEST_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 struct TunnelHandle {
     raw: jlong,

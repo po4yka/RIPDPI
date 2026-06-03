@@ -1,9 +1,8 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::thread::JoinHandle;
 
 use android_support::{HandleRegistry, clear_android_log_scope_level};
 use jni::sys::jlong;
-use once_cell::sync::Lazy;
 use ripdpi_tunnel_core::Stats;
 use tokio::runtime::Runtime;
 use tokio_util::sync::CancellationToken;
@@ -11,7 +10,7 @@ use tokio_util::sync::CancellationToken;
 use crate::telemetry::TunnelTelemetryState;
 use crate::to_handle;
 
-pub(crate) static SESSIONS: Lazy<HandleRegistry<TunnelSession>> = Lazy::new(HandleRegistry::new);
+pub(crate) static SESSIONS: LazyLock<HandleRegistry<TunnelSession>> = LazyLock::new(HandleRegistry::new);
 
 pub(crate) struct TunnelSession {
     pub(crate) runtime: Arc<Runtime>,
