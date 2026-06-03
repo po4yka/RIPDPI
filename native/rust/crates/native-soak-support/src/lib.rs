@@ -119,7 +119,14 @@ where
 {
     let path = artifact_dir()?.join(name);
     let file = File::create(&path)?;
-    serde_json::to_writer_pretty(file, value).map_err(io::Error::other)?;
+    let mut writer = BufWriter::new(file);
+    serde_json::to_writer_pretty(&mut writer, value).map_err(io::Error::other)?;
+    // Per android-vpn-lifecycle.md: flush + sync_all() so an LMK SIGKILL between
+    // the write and the kernel flushing the page cache cannot leave a truncated
+    // or empty artifact on disk.
+    writer.flush()?;
+    let file = writer.into_inner().map_err(|e| io::Error::other(e.into_error()))?;
+    file.sync_all()?;
     Ok(path)
 }
 
