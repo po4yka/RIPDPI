@@ -3,17 +3,16 @@ mod contracts;
 mod launch;
 mod preparation;
 mod timeout;
+mod unavailable;
 mod warmup;
 
 use std::time::Duration;
 
 #[cfg(test)]
 pub(crate) use adaptive_freeze::freeze_adaptive_fake_ttl_for_probe;
-pub use contracts::{
-    CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, PreparedCandidateRuntime,
-    UnavailableCandidateRuntimeLauncher,
-};
+pub use contracts::{CandidateProbeRuntime, CandidateRuntimeError, CandidateRuntimeLauncher, PreparedCandidateRuntime};
 pub use launch::probe_runtime_transport;
+pub use unavailable::UnavailableCandidateRuntimeLauncher;
 pub use warmup::run_candidate_warmup;
 
 /// Compute adaptive connect timeout based on observed control RTT.

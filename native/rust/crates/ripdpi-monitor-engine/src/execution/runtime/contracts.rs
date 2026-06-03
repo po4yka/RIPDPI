@@ -37,14 +37,3 @@ pub trait CandidateRuntimeLauncher: Send + Sync {
         prepared: PreparedCandidateRuntime,
     ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError>;
 }
-
-pub struct UnavailableCandidateRuntimeLauncher;
-
-impl CandidateRuntimeLauncher for UnavailableCandidateRuntimeLauncher {
-    fn start_candidate_runtime(
-        &self,
-        _prepared: PreparedCandidateRuntime,
-    ) -> Result<Box<dyn CandidateProbeRuntime>, CandidateRuntimeError> {
-        Err(CandidateRuntimeError::LauncherUnavailable)
-    }
-}
