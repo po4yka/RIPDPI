@@ -53,6 +53,14 @@
 //!   implement the JNI side. No `jni` dependency may be added here.
 //! - **No policy.** Strategy / adaptive *decision* logic is L3, not here.
 
+// Lint floor for unsafe-bearing crates (see the `rust-unsafe` skill): every
+// `unsafe { ... }` block needs a preceding `// SAFETY:` note, and a block may
+// not bundle multiple unsafe operations under one comment. Matches the floor
+// already opted into by `ripdpi-io-uring` / `ripdpi-privileged-ops` /
+// `ripdpi-proxy-runtime`.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 // ===== Public facade modules — the stable API surface =====
 pub mod capability;
 pub mod experimental;
