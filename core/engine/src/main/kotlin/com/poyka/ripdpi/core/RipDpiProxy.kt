@@ -7,7 +7,8 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import kotlinx.serialization.Serializable
@@ -334,7 +335,7 @@ class RipDpiProxy(
         try {
             val capturedHandle = handle
             val completionHandle =
-                coroutineContext[Job]!!.invokeOnCompletion {
+                currentCoroutineContext().job.invokeOnCompletion {
                     // Always dispatch stop -- do not gate on the exclusive section.
                     // The volatile handle field is readable without a lock, and
                     // nativeBindings.stop() is idempotent on the Rust side.

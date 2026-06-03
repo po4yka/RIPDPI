@@ -5,8 +5,9 @@ import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
@@ -333,7 +334,7 @@ class RipDpiWarp(
 
         try {
             val completionHandle =
-                coroutineContext[Job]!!.invokeOnCompletion {
+                currentCoroutineContext().job.invokeOnCompletion {
                     try {
                         if (handle == createdHandle && createdHandle != 0L) {
                             nativeBindings.stop(createdHandle)
