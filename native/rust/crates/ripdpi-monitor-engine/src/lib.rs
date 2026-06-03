@@ -1,3 +1,15 @@
+// Crate-local hardening for the unsafe-block audit (H1). `ripdpi-monitor-engine`
+// carries a single `unsafe` block: a test-only raw-pointer deref that shares a
+// stack-local cancel flag with a probe family via an `AtomicPtr`
+// (`engine/runners/connectivity/support.rs`). Re-enabling the workspace-deferred
+// `undocumented_unsafe_blocks` lint locally turns the inline SAFETY-comment
+// requirement into a build-time error, and `multiple_unsafe_ops_per_block`
+// forces a separate justification per unsafe operation — matching the floor
+// already opted into by ripdpi-vless / ripdpi-io-uring / ripdpi-privileged-ops /
+// ripdpi-proxy-runtime while the rest of the workspace migrates gradually.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 mod engine;
 mod execution;
 mod platform;

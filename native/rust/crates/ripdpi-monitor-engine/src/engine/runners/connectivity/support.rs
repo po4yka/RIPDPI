@@ -198,7 +198,17 @@ mod tests {
                     // fires and returns Cancelled before the second target runs.
                     let ptr = CANCEL_FLAG_PTR.load(Ordering::Acquire);
                     if !ptr.is_null() {
-                        // SAFETY: pointer is valid for the lifetime of this test.
+                        // SAFETY: `ptr` was published (line below in the test body) from
+                        // `&cancel as *const AtomicBool as *mut AtomicBool`, where `cancel`
+                        // is a stack-local owned by the enclosing test. `run_probe` is invoked
+                        // synchronously from `collect_family_steps`, which is called while that
+                        // stack frame is still live, so `cancel` is not yet dropped: the pointer
+                        // is non-null (checked above), properly aligned (derived from a live
+                        // `&AtomicBool`), and points to an initialized `AtomicBool`. No `&mut`
+                        // alias exists — the only other access is the shared `&cancel` borrow
+                        // inside `collect_family_steps`, and `AtomicBool::store` synchronizes
+                        // concurrent access — so dereferencing `ptr` to a shared reference is
+                        // sound. The single unsafe op is the raw-pointer deref `*ptr`.
                         unsafe { (*ptr).store(true, Ordering::Release) };
                     }
                 }
