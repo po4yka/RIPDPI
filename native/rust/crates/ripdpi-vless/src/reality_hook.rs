@@ -192,10 +192,25 @@ impl Drop for RealityHookGuard {
     }
 }
 
-// SAFETY: RealityCallbackState contains only `[u8; 32]`, `Vec<u8>`,
-// and `AtomicBool`, all of which are `Send + Sync`. The guard owns a
-// raw pointer to a heap-allocated state object; once handed off to
-// the C callback, the only mutator is the atomic flag.
+// SAFETY: `RealityHookGuard` holds `state_ptr`, a raw
+// `*mut RealityCallbackState` (raw pointers are `!Send`, which is the
+// only reason the auto-derived `Send` is missing). Moving the guard —
+// and thus the pointer — across threads is sound because:
+//   1. Sole owner: the pointer comes from `Box::into_raw` in
+//      `install_reality_client_hello_hook` and the guard is the only
+//      Rust value that owns it. `Drop` reclaims it via `Box::from_raw`
+//      exactly once, so there is no double-free across threads.
+//   2. No aliasing while the guard lives: the only other reader is the
+//      C `client_hello_cb`, which dereferences the pointer (stored in
+//      the SSL `ex_data`) and mutates *only* the `AtomicBool` flag via
+//      atomic ops — no `&mut` aliasing of the Rust-owned `Box`, and the
+//      guard never hands out a `&mut` to the state.
+//   3. Lifetime tied to the guard: the pointee outlives every callback
+//      invocation because callers contract to drop the SSL object
+//      before the guard, so the C side can never dereference freed
+//      memory after the move or after `Drop`.
+//   4. The pointee's fields (`[u8; 32]`, `Vec<u8>`, `AtomicBool`) are
+//      all `Send`, so transferring ownership to another thread is sound.
 unsafe impl Send for RealityHookGuard {}
 
 /// Install the Reality `client_hello_cb` on the `SSL_CTX` backing
