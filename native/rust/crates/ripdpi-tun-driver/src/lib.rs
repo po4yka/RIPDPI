@@ -1,3 +1,15 @@
+// Crate-local hardening per docs/rust-soundness-policy.md and the
+// `rust-unsafe` skill lint floor. `ripdpi-tun-driver` currently holds no
+// `unsafe` blocks — the former hand-rolled ioctl/union TUN FFI was replaced
+// by the `tun-rs` crate (see `linux.rs`). These crate-local warnings are a
+// forward guard: any future `unsafe { }` re-introduced into the TUN device
+// surface (raw fd handling, ioctl, sockaddr casts) must carry an inline
+// SAFETY comment and split multiple unsafe ops, turning the documentation
+// requirement into a build-time error before the workspace-wide
+// `undocumented_unsafe_blocks` migration completes.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::os::unix::io::RawFd;
 
