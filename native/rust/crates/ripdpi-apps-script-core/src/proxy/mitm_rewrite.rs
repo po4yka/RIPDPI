@@ -30,10 +30,9 @@ pub(crate) async fn mitm_then_relay(
     let effective_host = sni_host.as_deref().unwrap_or(host).to_string();
     telemetry.record_target(&format!("{effective_host}:{port}"));
 
-    let server_config = {
-        let mut manager = mitm.lock().await;
-        manager.get_server_config(&effective_host).map_err(|error| io::Error::other(error.to_string()))?
-    };
+    let server_config = MitmCertManager::get_server_config(&mitm, &effective_host)
+        .await
+        .map_err(|error| io::Error::other(error.to_string()))?;
     let mut tls_stream = acceptor
         .into_stream(server_config)
         .await
@@ -59,10 +58,8 @@ pub(crate) async fn sni_rewrite_tunnel(
     mitm: Arc<Mutex<MitmCertManager>>,
     telemetry: SharedTelemetryState,
 ) -> io::Result<()> {
-    let server_config = {
-        let mut manager = mitm.lock().await;
-        manager.get_server_config(host).map_err(|error| io::Error::other(error.to_string()))?
-    };
+    let server_config =
+        MitmCertManager::get_server_config(&mitm, host).await.map_err(|error| io::Error::other(error.to_string()))?;
     let inbound = TlsAcceptor::from(server_config)
         .accept(stream)
         .await
