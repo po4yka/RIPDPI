@@ -1,5 +1,15 @@
 //! Root helper IPC protocol facade.
 
+// `scm_rights` carries the SCM_RIGHTS `sendmsg`/`recvmsg` fd-passing path,
+// the crate's only `unsafe` surface (`libc::close` on a kernel-installed fd
+// and `OwnedFd::from_raw_fd` in tests). Re-enabling the workspace-deferred
+// `undocumented_unsafe_blocks` and `multiple_unsafe_ops_per_block` lints
+// locally turns the per-block SAFETY documentation requirement into a
+// build-time error, matching the convention in `ripdpi-vless`,
+// `ripdpi-io-uring`, `ripdpi-privileged-ops`, and `ripdpi-proxy-runtime`.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 mod command_descriptor;
 mod commands;
 mod params;
