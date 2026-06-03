@@ -36,6 +36,9 @@
 //! containment), §7 (error mapping), §8 (callback rules) and §10
 //! (VpnService.protect callback).
 
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 mod endpoint_probe;
 mod lifecycle;
 mod provisioning;
