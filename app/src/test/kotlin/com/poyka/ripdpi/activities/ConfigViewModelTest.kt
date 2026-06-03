@@ -628,10 +628,10 @@ class ConfigViewModelRelayRecommendationTest {
         // Config surface mirrors the Diagnostics/Home recommendation exactly.
         val reasons =
             TransportRemediationKind
-                .values()
+                .entries
                 .map { it.toRelayPresetReason() }
                 .toSet()
-        assertEquals(TransportRemediationKind.values().size, reasons.size)
+        assertEquals(TransportRemediationKind.entries.size, reasons.size)
         for (reason in reasons) {
             assertTrue("reason must start with 'Direct-mode': '$reason'", reason.startsWith("Direct-mode"))
         }
