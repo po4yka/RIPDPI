@@ -1,3 +1,6 @@
+# Mirror the toolchain channel pin in rust-toolchain.toml (rust-toolchain-pin.md).
+msrv = "1.96.0"
+
 too-many-arguments-threshold = 8
 type-complexity-threshold = 300
 
