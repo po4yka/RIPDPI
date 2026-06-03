@@ -6756,6 +6756,7 @@ dependencies = [
  "ripdpi-warp-core",
  "serde",
  "serde_json",
+ "socket2",
  "tokio",
  "tokio-boring",
  "tracing",

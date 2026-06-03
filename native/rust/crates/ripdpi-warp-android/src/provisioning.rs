@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 use std::io;
+use std::net::SocketAddr;
+use std::os::fd::AsRawFd;
 
 use boring::ssl::SslVersion;
 use bytes::Bytes;
@@ -12,8 +14,9 @@ use jni::objects::JString;
 use jni::{EnvUnowned, Outcome};
 use ripdpi_tls_profiles::configure_builder;
 use serde::{Deserialize, Serialize};
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpStream, lookup_host};
 use url::Url;
 
 const HTTP11_ALPN: &[u8] = b"\x08http/1.1";
@@ -154,13 +157,63 @@ async fn connect_transport(
 ) -> io::Result<TcpStream> {
     match proxy {
         Some(proxy) => {
-            let mut stream = TcpStream::connect((proxy.host.as_str(), proxy.port)).await?;
+            let mut stream = connect_protected(proxy.host.as_str(), proxy.port).await?;
             socks5_handshake_no_auth(&mut stream).await?;
             socks5_connect_domain(&mut stream, host, port).await?;
             Ok(stream)
         }
-        None => TcpStream::connect((host, port)).await,
+        None => connect_protected(host, port).await,
     }
+}
+
+/// Open a TCP connection that is protected from the VPN's own TUN route.
+///
+/// This mirrors the create-protect-connect ordering in
+/// `ripdpi-warp-core::wireguard::socket::bind_tunnel_socket`: the socket fd is
+/// handed to [`ripdpi_native_protect::protect_socket_via_callback`] BEFORE
+/// `connect()` so the kernel binds it to the underlying network rather than
+/// looping its traffic back into the TUN device. See
+/// `.claude/rules/vpnservice-protect-invariant.md`.
+///
+/// `register()`/`refresh()` provisioning can run while the VPN is active, so
+/// this path must honor the invariant. When no protect callback is registered
+/// (the genuine off-TUN case) the helper proceeds best-effort, matching
+/// `protect_socket_if_configured` in warp-core.
+async fn connect_protected(host: &str, port: u16) -> io::Result<TcpStream> {
+    let mut last_err: Option<io::Error> =
+        Some(io::Error::new(io::ErrorKind::AddrNotAvailable, format!("no addresses resolved for {host}:{port}")));
+    for addr in lookup_host((host, port)).await? {
+        match connect_protected_addr(addr).await {
+            Ok(stream) => return Ok(stream),
+            Err(error) => last_err = Some(error),
+        }
+    }
+    Err(last_err.unwrap_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "connect failed")))
+}
+
+async fn connect_protected_addr(addr: SocketAddr) -> io::Result<TcpStream> {
+    // Build, protect, and connect on a blocking socket inside `spawn_blocking`,
+    // then hand the connected fd to tokio. Keeping the connect blocking avoids
+    // the nonblocking `EINPROGRESS` dance (which is not portably distinguishable
+    // from a fatal error without a `libc` dependency) while preserving the
+    // create-protect-connect ordering the invariant requires.
+    let std_stream = tokio::task::spawn_blocking(move || -> io::Result<std::net::TcpStream> {
+        let socket = Socket::new(Domain::for_address(addr), Type::STREAM, Some(Protocol::TCP))?;
+        // Protect BEFORE connect: bind the fd to the underlying network so its
+        // traffic is not captured by the VPN's own TUN route. NotConnected means
+        // no callback is registered (off-TUN provisioning) — proceed best-effort.
+        match ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd()) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotConnected => {}
+            Err(error) => return Err(error),
+        }
+        socket.connect(&SockAddr::from(addr))?;
+        Ok(socket.into())
+    })
+    .await
+    .map_err(io::Error::other)??;
+    std_stream.set_nonblocking(true)?;
+    TcpStream::from_std(std_stream)
 }
 
 fn authority_header_value(host: &str, port: u16) -> String {
