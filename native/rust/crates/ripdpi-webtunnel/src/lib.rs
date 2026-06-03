@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod bridge_line;
 pub mod client;
 pub mod http_upgrade;

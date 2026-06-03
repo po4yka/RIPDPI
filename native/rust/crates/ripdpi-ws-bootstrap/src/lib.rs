@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod catalog;
 mod endpoint;
 mod policy;

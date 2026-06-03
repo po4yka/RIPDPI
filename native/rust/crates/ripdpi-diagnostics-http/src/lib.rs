@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod blockpage_fingerprints;
 pub mod http;
 pub mod http_injection_probe;

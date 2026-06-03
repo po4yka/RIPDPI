@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod connect;
 pub mod dc;
 pub mod httpupgrade;

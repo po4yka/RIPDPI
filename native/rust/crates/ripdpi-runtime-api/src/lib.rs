@@ -47,6 +47,8 @@
 //! and load-bearing, not accidental coupling, and dropping them is explicitly
 //! out of scope for this crate.
 
+#![forbid(unsafe_code)]
+
 // Contract ports (stable) -- traits implemented outside this crate.
 mod background_probes;
 mod telemetry_sink;

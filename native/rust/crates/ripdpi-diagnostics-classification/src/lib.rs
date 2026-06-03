@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod classification;
 pub mod observations;
 

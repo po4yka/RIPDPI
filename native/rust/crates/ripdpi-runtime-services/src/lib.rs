@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod adaptive_port_impl;
 mod background_probes_impl;
 pub mod decision_helpers;

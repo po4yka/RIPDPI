@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod adaptive_fake_ttl;
 pub mod adaptive_port;
 pub mod adaptive_tuning;

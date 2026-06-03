@@ -1,5 +1,7 @@
 //! HTTP-layer desync strategy helpers.
 
+#![forbid(unsafe_code)]
+
 use std::ops::Range;
 
 use ripdpi_strategy_trait::{

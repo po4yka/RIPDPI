@@ -38,6 +38,8 @@
 //! [`end_attribution_session_if`] clears state only when the stored generation
 //! still matches, mirroring `ripdpi-native-protect`'s protect-callback guard.
 
+#![forbid(unsafe_code)]
+
 use std::collections::VecDeque;
 use std::net::{IpAddr, SocketAddr};
 use std::num::NonZeroUsize;

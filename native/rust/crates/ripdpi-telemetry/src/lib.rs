@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod recorder;
 
 use std::sync::{Arc, Mutex};

@@ -1,5 +1,7 @@
 //! IPv6 extension-header desync strategies.
 
+#![forbid(unsafe_code)]
+
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
     StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams, StrategyStepRegistration,

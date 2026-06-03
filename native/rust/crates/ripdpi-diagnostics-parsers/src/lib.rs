@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use std::collections::HashMap;
 
 pub use ripdpi_failure_classifier::{BlockpageFingerprint, load_blockpage_fingerprints as load_fingerprints};

@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod budget;
 pub mod connectivity;
 pub mod domain;

@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod dns_bootstrap;
 mod dto;
 mod entry;

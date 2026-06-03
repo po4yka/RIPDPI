@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod cdn_ech;
 pub mod dns;
 pub mod dns_analysis;

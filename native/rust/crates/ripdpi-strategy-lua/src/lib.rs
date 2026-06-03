@@ -1,5 +1,7 @@
 //! Optional Lua strategy backend.
 
+#![forbid(unsafe_code)]
+
 #[cfg(feature = "lua-strategies")]
 mod enabled {
     use std::collections::{HashMap, HashSet};

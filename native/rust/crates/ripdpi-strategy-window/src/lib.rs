@@ -6,6 +6,8 @@
 //! `ripdpi-strategy-registry` resolves it by ID with no central match arm.
 //! See `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1.
 
+#![forbid(unsafe_code)]
+
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, RuntimeCapability, StrategyContext, StrategyDescriptor,
     StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepRegistration, StrategyVerdict,

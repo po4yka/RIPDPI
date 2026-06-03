@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod telegram;
 
 pub(crate) mod http {

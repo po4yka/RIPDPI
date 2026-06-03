@@ -38,6 +38,8 @@
 //! `parse_desync_mode` is itself unreferenced). Tightening them is a separate
 //! `convert`-module re-export refactor rather than a safe one-line change.
 
+#![forbid(unsafe_code)]
+
 pub mod presets;
 
 mod active_network_scope;

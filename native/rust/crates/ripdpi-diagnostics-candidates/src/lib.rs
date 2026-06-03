@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod candidates;
 
 pub mod dns {

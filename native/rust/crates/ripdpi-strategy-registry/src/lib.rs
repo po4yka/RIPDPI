@@ -23,6 +23,8 @@
 //! strategy and the one central edit (the `extern crate` force-link) the
 //! `linkme` seam still needs.
 
+#![forbid(unsafe_code)]
+
 extern crate ripdpi_strategy_core as _;
 extern crate ripdpi_strategy_http as _;
 extern crate ripdpi_strategy_ipv6 as _;

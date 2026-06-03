@@ -12,6 +12,8 @@
 //! [payload follows]
 //! ```
 
+#![forbid(unsafe_code)]
+
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use boring::x509::X509;

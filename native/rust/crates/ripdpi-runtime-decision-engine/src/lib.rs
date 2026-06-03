@@ -47,6 +47,8 @@
 //! sites and enriching the engine with adaptive/retry hints. These remain
 //! sequenced separately to keep each refactor reviewable.
 
+#![forbid(unsafe_code)]
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 

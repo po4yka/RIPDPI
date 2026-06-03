@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use thiserror::Error;
 
 mod apply;

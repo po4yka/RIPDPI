@@ -17,6 +17,8 @@
 //! See `README.md` and `FEATURE_EXTENSION_GUIDE.md` §1 for how to add a
 //! strategy and which central edits each registration path requires.
 
+#![forbid(unsafe_code)]
+
 use std::collections::HashMap;
 
 /// Stable identifier for a transport flow.

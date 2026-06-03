@@ -6,6 +6,8 @@
 //! `ripdpi-diagnostics-transport`, `ripdpi-diagnostics-fat-header`, and
 //! `ripdpi-diagnostics-contracts`.
 
+#![forbid(unsafe_code)]
+
 #[deprecated(since = "0.1.0", note = "import from the split ripdpi-diagnostics-* protocol crates instead")]
 pub mod compat {
     include!("compat.rs");

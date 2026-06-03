@@ -5,6 +5,8 @@
 //! `runtime` owns listener lifecycle, SOCKS dispatch, counters, error state, and
 //! telemetry projection as separate runtime slices.
 
+#![forbid(unsafe_code)]
+
 mod backend;
 mod bootstrap;
 mod config;

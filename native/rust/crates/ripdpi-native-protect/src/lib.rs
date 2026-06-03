@@ -33,6 +33,8 @@
 //! session (a single active VPN session — the common case — is unaffected:
 //! the generation increments and always matches on release).
 
+#![forbid(unsafe_code)]
+
 use std::io;
 use std::os::fd::RawFd;
 use std::sync::atomic::{AtomicU64, Ordering};

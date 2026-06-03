@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod platform_bridge;
 mod polling;
 mod registry;

@@ -3,6 +3,8 @@
 //! This crate gives orchestrators one dependency for protocol families while
 //! keeping imports behind named modules instead of root-level facade exports.
 
+#![forbid(unsafe_code)]
+
 pub mod compat {
     include!("compat.rs");
 }

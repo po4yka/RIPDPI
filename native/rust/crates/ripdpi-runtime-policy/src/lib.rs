@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 pub mod app_family_memory;
 pub mod direct_path_learning;
 pub mod policy_port;

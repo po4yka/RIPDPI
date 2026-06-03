@@ -1,5 +1,7 @@
 //! UDP packet-level desync strategies.
 
+#![forbid(unsafe_code)]
+
 use ripdpi_strategy_trait::{
     CapabilityTier, DesyncAction, DesyncPlan, DesyncStrategy, L7Protocol, RuntimeCapability, StrategyContext,
     StrategyDescriptor, StrategyError, StrategyStepDescriptor, StrategyStepFactory, StrategyStepParams,

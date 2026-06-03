@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod dnscrypt;
 pub mod doh;
 mod doh_pipeline;

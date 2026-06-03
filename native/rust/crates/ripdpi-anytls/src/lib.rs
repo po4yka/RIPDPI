@@ -1,5 +1,7 @@
 //! AnyTLS outbound client support.
 
+#![forbid(unsafe_code)]
+
 pub mod frame;
 pub mod padding;
 pub mod session;

@@ -15,6 +15,8 @@
 //! [`assert_layer_markers`] to validate each family's manifests against the
 //! checked-in tree.
 
+#![forbid(unsafe_code)]
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};

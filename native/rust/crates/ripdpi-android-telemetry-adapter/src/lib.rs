@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod adaptive;
 mod autolearn;
 mod direct_path;

@@ -4,6 +4,8 @@
 //! policy/adaptive engines directly. The engines remain behind these port traits
 //! and selected-route data contracts.
 
+#![forbid(unsafe_code)]
+
 mod adaptive;
 mod policy;
 mod snapshot;

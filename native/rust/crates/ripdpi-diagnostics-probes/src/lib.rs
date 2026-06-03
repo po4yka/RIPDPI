@@ -21,6 +21,7 @@
 //! The `compat-facade` feature is on by default as an empty compatibility
 //! marker. Root exports are unconditional today.
 
+#![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;

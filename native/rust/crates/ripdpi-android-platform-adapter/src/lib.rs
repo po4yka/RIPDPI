@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 mod cdn_ech;
 mod doq;
 mod probe_results;
