@@ -1,3 +1,20 @@
+//! Android JNI cdylib facade for the RIPDPI native core.
+//!
+//! This crate is a loader/export boundary: it owns `JNI_OnLoad` and the
+//! `Java_*` export symbols, delegating all real work to the sibling adapter
+//! crates. The only `unsafe` in this crate is the Rust 2024
+//! `#[unsafe(no_mangle)]` attribute on each `extern "system"` export (there are
+//! no `unsafe { }` blocks, `unsafe fn` bodies, or `unsafe impl`s); panic
+//! containment lives in `android_support::ffi_boundary` / `catch_unwind` so a
+//! Rust panic never unwinds across the FFI boundary. The lint floor below
+//! matches the convention used by `ripdpi-vless` / `ripdpi-io-uring` /
+//! `ripdpi-privileged-ops` / `ripdpi-proxy-runtime`: it locks the crate to the
+//! "every `unsafe { }` carries a `// SAFETY:` comment" contract immediately, so
+//! any future raw-pointer / FFI `unsafe` block added here is rejected at build
+//! time unless it is documented and minimal.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 mod ffi;
 
 use android_support::{JNI_VERSION, init_android_logging};
