@@ -2,6 +2,23 @@
 
 **Target:** Rust 1.96.0, edition 2024 · **Scope:** 111 crates · **Auditors:** 14 · **Raw findings:** 161
 
+## Implementation outcome (2026-06-03, branch `worktree-rust-modernization`)
+
+All **feasible** modernizations were implemented, one Conventional Commit per crate/unit, each verified with `cargo check --locked --all-targets` (+ `cargo fmt`, workspace clippy, and tests for the semantic changes):
+
+| Step | Status | Commit scope |
+|---|---|---|
+| Drop unused `once_cell` (dns-resolver) | ✅ done | `chore(dns-resolver)` |
+| `once_cell`→`std` (android adapters, android, android-support, bridge-support, relay-android, warp-android) | ✅ done | 5 commits; **8 crates dropped the `once_cell` dep** |
+| `once_cell`→`std` (tunnel-android) | ⚠️ partial | 3 mechanical files migrated; **`runtime.rs` retains `once_cell`** and the dep stays — `OnceLock::get_or_try_init` is **unstable** (`once_cell_try`, rust#109737) on the 1.96 pin; documented in-code |
+| `io::Error::other` | ✅ done (rescoped) | **1** genuine `ErrorKind::Other` site (socks5-core). The audit's other 20 "sites" use `InvalidData`/`InvalidInput`; collapsing them would change the `ErrorKind`, so they were **deliberately left** |
+| let-chain flatten (diagnostics-probes) | ✅ done | `refactor(diagnostics-probes)` |
+| RPITIT — socks5-core `Authentication` | ✅ done | `#[async_trait]`→native async fn (`+ Send` preserved); **`async-trait` dep dropped** from crate + workspace |
+| RPITIT — relay `RelaySession`/`RelaySessionFactory` | ✅ done | one atomic commit: trait + 12 impl files + test mock; `BoxFuture` alias removed; relay-core (78) + relay-mux (57) tests pass |
+| `assert!(matches!)`→`assert_matches!` (240 sites) | ❌ infeasible | `assert_matches!` is **unstable** (`assert_matches`, rust#82775) on the 1.96 pin; requires nightly `#![feature(...)]` → violates `rust-toolchain.toml`. **Not done.** |
+
+**Two audit self-corrections (verified against source, not assumed):** the audit claimed both `OnceLock::get_or_try_init` and `assert_matches!` were stable in 1.96 — **both are still unstable**. The `io::Error::other` category was over-reported (21 → 1 genuine site). Net dependency reductions delivered: **`once_cell` removed from 8 crates; `async-trait` removed as a direct dependency** (now transitive-only via the arti stack).
+
 ## Executive summary
 
 The workspace is already in strong modernization health — 14 auditors found **zero blockers** and confirmed the majority of crates are clean. The 161 raw findings collapse into **five actionable categories** plus a set of "already-modern" confirmations that need no change.
