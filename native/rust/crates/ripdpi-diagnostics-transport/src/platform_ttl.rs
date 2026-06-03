@@ -13,8 +13,14 @@ pub fn get_observed_ttl(stream: &std::net::TcpStream) -> Option<u8> {
     let fd = stream.as_raw_fd();
     let mut ttl: libc::c_int = 0;
     let mut len: libc::socklen_t = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
-    // SAFETY: fd is a valid TCP socket fd (from TcpStream::as_raw_fd) and ttl/len are stack-allocated
-    // variables whose pointers remain valid for the duration of the getsockopt call.
+    // SAFETY: `fd` is a live socket descriptor borrowed from `stream` via
+    // `as_raw_fd()`; `stream` outlives this call, so the fd stays valid for the
+    // syscall's duration. `getsockopt(IPPROTO_IP, IP_TTL)` is a pure read: the
+    // kernel writes a `c_int` into the buffer pointed to by the value pointer and
+    // updates `len`. Both `ttl` (a `c_int`) and `len` (a `socklen_t`) are
+    // stack-allocated, correctly aligned for their types, initialized, and their
+    // pointers remain valid and exclusively borrowed for the duration of the call.
+    // The return value is checked below before `ttl` is read.
     let ret = unsafe {
         libc::getsockopt(
             fd,
