@@ -138,8 +138,7 @@ impl std::net::ToSocketAddrs for TargetAddr {
     fn to_socket_addrs(&self) -> io::Result<IntoIter<SocketAddr>> {
         match *self {
             TargetAddr::Ip(addr) => Ok(vec![addr].into_iter()),
-            TargetAddr::Domain(_, _) => Err(io::Error::new(
-                io::ErrorKind::Other,
+            TargetAddr::Domain(_, _) => Err(io::Error::other(
                 "Domain name has to be explicitly resolved, please use TargetAddr::resolve_dns().",
             )),
         }
