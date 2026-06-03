@@ -44,6 +44,6 @@ highlight = "all"
 
 [sources]
 unknown-registry = "deny"
-unknown-git = "warn"
+unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []
