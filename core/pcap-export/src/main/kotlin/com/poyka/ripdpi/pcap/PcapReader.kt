@@ -74,14 +74,13 @@ class PcapReader(
     }
 
     /** Read every remaining record into an immutable list. */
-    fun read(): ImmutableList<PcapReaderRecord> {
-        val records = mutableListOf<PcapReaderRecord>()
-        while (true) {
-            val record = readOne() ?: break
-            records.add(record)
-        }
-        return records.toPersistentList()
-    }
+    fun read(): ImmutableList<PcapReaderRecord> =
+        buildList {
+            while (true) {
+                val record = readOne() ?: break
+                add(record)
+            }
+        }.toPersistentList()
 
     /** Read one record, or null at EOF / truncated tail. */
     fun readOne(): PcapReaderRecord? {
