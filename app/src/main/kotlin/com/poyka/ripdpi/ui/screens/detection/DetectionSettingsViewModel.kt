@@ -35,7 +35,7 @@ internal class DetectionSettingsViewModel
             }
         }
 
-        fun setNetworkRequestsEnabled(enabled: Boolean) {
+        val setNetworkRequestsEnabled: (Boolean) -> Unit = { enabled ->
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckNetworkRequestsEnabled = enabled
@@ -181,7 +181,7 @@ internal class DetectionSettingsViewModel
             }
         }
 
-        fun setDiagnosticRandomHostnamesEnabled(enabled: Boolean) {
+        val setDiagnosticRandomHostnamesEnabled: (Boolean) -> Unit = { enabled ->
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionDiagnosticRandomHostnamesEnabled = enabled

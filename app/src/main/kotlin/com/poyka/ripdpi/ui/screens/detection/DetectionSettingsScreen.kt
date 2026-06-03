@@ -54,7 +54,7 @@ internal fun DetectionSettingsRoute(
         onBack = onBack,
         actions =
             DetectionSettingsActions(
-                onNetworkRequestsChange = remember(viewModel) { viewModel::setNetworkRequestsEnabled },
+                onNetworkRequestsChange = remember(viewModel) { viewModel.setNetworkRequestsEnabled },
                 onCdnPullingChange = remember(viewModel) { viewModel::setCdnPullingEnabled },
                 onCdnPullingMeduzaChange = remember(viewModel) { viewModel::setCdnPullingMeduzaEnabled },
                 onCallTransportProbeChange = remember(viewModel) { viewModel::setCallTransportProbeEnabled },
@@ -72,7 +72,7 @@ internal fun DetectionSettingsRoute(
                 onDnsDohBootstrapIpsChange = remember(viewModel) { viewModel::setDnsDohBootstrapIps },
                 onDnsRouteThroughProxyChange = remember(viewModel) { viewModel::setDnsRouteThroughProxy },
                 onDiagnosticRandomHostnamesChange =
-                    remember(viewModel) { viewModel::setDiagnosticRandomHostnamesEnabled },
+                    remember(viewModel) { viewModel.setDiagnosticRandomHostnamesEnabled },
                 onTlsKeylogPathChange = remember(viewModel) { viewModel::setTlsKeylogPath },
                 onPrivacyModeChange = remember(viewModel) { viewModel.setPrivacyModeEnabled },
                 onDebugModeChange = remember(viewModel) { viewModel.setDebugModeEnabled },
