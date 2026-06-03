@@ -106,11 +106,6 @@ interface RipDpiProxyBindings {
         snapshotJson: String,
     )
 
-    fun geoDatabaseVersions(
-        geoipDbPath: String,
-        geositeDbPath: String,
-    ): RipDpiGeoDatabaseVersions?
-
     fun geoIpMetadata(
         geoipDbPath: String,
         geositeDbPath: String,
@@ -219,17 +214,6 @@ class RipDpiProxyNativeBindings
             jniUnregisterReadinessListener(handle)
         }
 
-        override fun geoDatabaseVersions(
-            geoipDbPath: String,
-            geositeDbPath: String,
-        ): RipDpiGeoDatabaseVersions? =
-            jniGeoDatabaseVersions(geoipDbPath, geositeDbPath)
-                ?.let { payload ->
-                    runCatching {
-                        geoDatabaseVersionsJson.decodeFromString<RipDpiGeoDatabaseVersions>(payload)
-                    }.getOrNull()
-                }
-
         override fun geoIpMetadata(
             geoipDbPath: String,
             geositeDbPath: String,
@@ -241,16 +225,6 @@ class RipDpiProxyNativeBindings
                         geoDatabaseVersionsJson.decodeFromString<RipDpiGeoIpMetadata>(payload)
                     }.getOrNull()
                 }
-
-        external fun jniStartPcapRecording(
-            handle: Long,
-            dirPath: String,
-            maxBytes: Long,
-        ): Boolean
-
-        external fun jniStopPcapRecording(handle: Long): String?
-
-        external fun jniIsPcapRecording(handle: Long): Boolean
 
         private external fun jniCreate(configJson: String): Long
 
@@ -273,11 +247,6 @@ class RipDpiProxyNativeBindings
         ): Long
 
         private external fun jniUnregisterReadinessListener(handle: Long)
-
-        private external fun jniGeoDatabaseVersions(
-            geoipDbPath: String,
-            geositeDbPath: String,
-        ): String?
 
         private external fun jniGeoIpMetadata(
             geoipDbPath: String,

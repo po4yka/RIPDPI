@@ -3,6 +3,11 @@ use std::time::Duration;
 use ripdpi_relay_mux::RelayPoolConfig;
 
 use super::*;
+use crate::config::RelayKind;
+use crate::runtime_validation::{planned_backend_fallback_mode, pool_config_for_backend};
+use crate::transport_descriptor::{
+    RELAY_TRANSPORT_REGISTRATIONS, relay_transport_descriptor, relay_transport_registration,
+};
 
 /// How the relay runtime dispatches a concrete `relay_kind`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,29 +48,6 @@ fn relay_dispatch_class(kind: RelayKind<'_>) -> RelayDispatchClass {
     }
 }
 
-/// Compile-time drift guard for the runtime-dispatch backend enum. The
-/// `dispatch_pooled_backend!` macro routes SOCKS traffic by `RelayBackend`
-/// variant; this maps each variant back to the `relay_kind` it serves. A new
-/// `RelayBackend` variant fails to compile here until it is mapped, which
-/// forces a matching registration. `Unsupported` carries no `relay_kind`.
-pub(super) fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
-    match backend {
-        RelayBackend::Hysteria2(_) => Some("hysteria2"),
-        RelayBackend::Tuic(_) => Some("tuic_v5"),
-        RelayBackend::VlessReality(_) | RelayBackend::Xhttp(_) => Some("vless_reality"),
-        RelayBackend::Mieru(_) => Some("mieru"),
-        RelayBackend::Ssh(_) => Some("ssh"),
-        RelayBackend::ChainRelay { .. } => Some("chain_relay"),
-        RelayBackend::Masque(_) => Some("masque"),
-        RelayBackend::ShadowTls(_) => Some("shadowtls_v3"),
-        RelayBackend::Trojan(_) => Some("trojan"),
-        RelayBackend::AnyTls(_) => Some("anytls"),
-        RelayBackend::Shadowsocks(_) => Some("shadowsocks"),
-        RelayBackend::Tor(_) => Some("tor"),
-        RelayBackend::Unsupported { .. } => None,
-    }
-}
-
 /// Drift guard for the merged relay transport registry, tying
 /// `RELAY_TRANSPORT_REGISTRATIONS` to the runtime-dispatch surface:
 ///
@@ -80,10 +62,6 @@ pub(super) fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static s
 /// until the registry is extended.
 #[test]
 fn relay_transport_registry_is_consistent() {
-    use crate::transport_descriptor::{
-        RELAY_TRANSPORT_REGISTRATIONS, relay_transport_descriptor, relay_transport_registration,
-    };
-
     // One config per concrete RelayKind, both VLESS sub-modes, plus "off" and an
     // unknown kind. `from_config` drives the classification.
     let mut vless_xhttp = sample_config("vless_reality");

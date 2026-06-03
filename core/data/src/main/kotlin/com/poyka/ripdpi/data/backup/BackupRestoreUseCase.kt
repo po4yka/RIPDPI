@@ -9,9 +9,35 @@ import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.SerializationException
 import javax.inject.Inject
 
 private const val LogTag = "BackupRestore"
+
+private sealed interface BackupImportOutcome {
+    data class Ready(
+        val document: BackupV1,
+    ) : BackupImportOutcome
+
+    data class Unsupported(
+        val found: Int,
+        val supported: Int,
+    ) : BackupImportOutcome
+
+    data class Malformed(
+        val reason: String,
+    ) : BackupImportOutcome
+}
+
+private sealed interface StagedRestoreOutcome {
+    data class Ready(
+        val staged: StagedRestore,
+    ) : StagedRestoreOutcome
+
+    data class Aborted(
+        val reason: String,
+    ) : StagedRestoreOutcome
+}
 
 /**
  * Which categories of a backup the user opted to restore. Unchecked categories
@@ -139,32 +165,36 @@ class BackupRestoreUseCase
         private val settingsRepository: AppSettingsRepository,
     ) {
         /** Parses [json] into a [BackupPreview] without touching any store. */
-        fun preview(json: String): BackupPreviewResult {
-            val document =
-                try {
-                    BackupImporter.import(json)
-                } catch (e: UnsupportedBackupVersion) {
-                    return BackupPreviewResult.UnsupportedVersion(found = e.found, supported = e.supported)
-                } catch (e: Exception) {
-                    // Log only the exception type — `e`/`e.message` can quote the JSON payload.
-                    Log.w(LogTag, "Backup preview parse failed: ${e::class.simpleName}")
-                    return BackupPreviewResult.Malformed(reason = e::class.simpleName.orEmpty())
+        fun preview(json: String): BackupPreviewResult =
+            when (val imported = importBackup(json, "Backup preview parse failed")) {
+                is BackupImportOutcome.Ready -> {
+                    imported.document.toPreviewResult()
                 }
 
-            val decoded = BackupRestoreDecoder.decodeProfiles(document)
+                is BackupImportOutcome.Unsupported -> {
+                    BackupPreviewResult.UnsupportedVersion(found = imported.found, supported = imported.supported)
+                }
+
+                is BackupImportOutcome.Malformed -> {
+                    BackupPreviewResult.Malformed(reason = imported.reason)
+                }
+            }
+
+        private fun BackupV1.toPreviewResult(): BackupPreviewResult {
+            val decoded = BackupRestoreDecoder.decodeProfiles(this)
             val restorable = decoded.filterIsInstance<ProfileDecodeResult.Decoded>()
             val failed = decoded.filterIsInstance<ProfileDecodeResult.Failed>()
 
             return BackupPreviewResult.Ready(
                 BackupPreview(
-                    schemaVersion = document.schemaVersion,
-                    appVersion = document.appVersion,
-                    createdAtEpochMillis = document.createdAtEpochMillis,
-                    containsCredentials = document.containsCredentials,
+                    schemaVersion = schemaVersion,
+                    appVersion = appVersion,
+                    createdAtEpochMillis = createdAtEpochMillis,
+                    containsCredentials = containsCredentials,
                     restorableProfileCount = restorable.size,
-                    groupCount = document.groups.size,
-                    ruleCount = document.rules.size,
-                    settingCount = document.settings.size,
+                    groupCount = groups.size,
+                    ruleCount = rules.size,
+                    settingCount = settings.size,
                     undecodableProfiles = failed.map { it.displayName },
                 ),
             )
@@ -180,30 +210,42 @@ class BackupRestoreUseCase
         suspend fun restore(
             json: String,
             selection: RestoreSelection,
+        ): RestoreResult =
+            when {
+                !selection.any -> {
+                    RestoreResult.NothingSelected
+                }
+
+                else -> {
+                    when (val imported = importBackup(json, "Backup restore parse failed")) {
+                        is BackupImportOutcome.Ready -> {
+                            restoreImported(imported.document, selection)
+                        }
+
+                        is BackupImportOutcome.Unsupported -> {
+                            RestoreResult.UnsupportedVersion(found = imported.found, supported = imported.supported)
+                        }
+
+                        is BackupImportOutcome.Malformed -> {
+                            RestoreResult.Aborted(reason = imported.reason)
+                        }
+                    }
+                }
+            }
+
+        private suspend fun restoreImported(
+            document: BackupV1,
+            selection: RestoreSelection,
+        ): RestoreResult =
+            when (val outcome = stageSafely(document, selection)) {
+                is StagedRestoreOutcome.Ready -> commit(outcome.staged, selection)
+                is StagedRestoreOutcome.Aborted -> RestoreResult.Aborted(reason = outcome.reason)
+            }
+
+        private suspend fun commit(
+            staged: StagedRestore,
+            selection: RestoreSelection,
         ): RestoreResult {
-            if (!selection.any) return RestoreResult.NothingSelected
-
-            val document =
-                try {
-                    BackupImporter.import(json)
-                } catch (e: UnsupportedBackupVersion) {
-                    return RestoreResult.UnsupportedVersion(found = e.found, supported = e.supported)
-                } catch (e: Exception) {
-                    // Log only the exception type — `e`/`e.message` can quote the JSON payload.
-                    Log.w(LogTag, "Backup restore parse failed: ${e::class.simpleName}")
-                    return RestoreResult.Aborted(reason = e::class.simpleName.orEmpty())
-                }
-
-            // -- Staging: decode and validate everything selected, NO writes yet. --
-            val staged =
-                try {
-                    stage(document, selection)
-                } catch (e: Exception) {
-                    // Log only the exception type — `e`/`e.message` can quote the JSON payload.
-                    Log.w(LogTag, "Backup restore staging failed; live data untouched: ${e::class.simpleName}")
-                    return RestoreResult.Aborted(reason = e::class.simpleName.orEmpty())
-                }
-
             // -- Commit: each store swaps atomically; ordering is independent. --
             if (selection.profilesAndGroups) {
                 profileSink.replaceAll(staged.profiles)
@@ -223,6 +265,39 @@ class BackupRestoreUseCase
             )
             return RestoreResult.Success(restartRequired = true)
         }
+
+        private suspend fun stageSafely(
+            document: BackupV1,
+            selection: RestoreSelection,
+        ): StagedRestoreOutcome =
+            try {
+                StagedRestoreOutcome.Ready(stage(document, selection))
+            } catch (e: IllegalArgumentException) {
+                Log.w(LogTag, "Backup restore staging failed; live data untouched: ${e::class.simpleName}")
+                StagedRestoreOutcome.Aborted(reason = e::class.simpleName.orEmpty())
+            } catch (e: IllegalStateException) {
+                Log.w(LogTag, "Backup restore staging failed; live data untouched: ${e::class.simpleName}")
+                StagedRestoreOutcome.Aborted(reason = e::class.simpleName.orEmpty())
+            }
+
+        private fun importBackup(
+            json: String,
+            malformedLogPrefix: String,
+        ): BackupImportOutcome =
+            try {
+                BackupImportOutcome.Ready(BackupImporter.import(json))
+            } catch (e: UnsupportedBackupVersion) {
+                BackupImportOutcome.Unsupported(found = e.found, supported = e.supported)
+            } catch (e: SerializationException) {
+                Log.w(LogTag, "$malformedLogPrefix: ${e::class.simpleName}")
+                BackupImportOutcome.Malformed(reason = e::class.simpleName.orEmpty())
+            } catch (e: IllegalArgumentException) {
+                Log.w(LogTag, "$malformedLogPrefix: ${e::class.simpleName}")
+                BackupImportOutcome.Malformed(reason = e::class.simpleName.orEmpty())
+            } catch (e: IllegalStateException) {
+                Log.w(LogTag, "$malformedLogPrefix: ${e::class.simpleName}")
+                BackupImportOutcome.Malformed(reason = e::class.simpleName.orEmpty())
+            }
 
         private suspend fun stage(
             document: BackupV1,

@@ -215,11 +215,6 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
         updateFailure?.let { throw it }
     }
 
-    override fun geoDatabaseVersions(
-        geoipDbPath: String,
-        geositeDbPath: String,
-    ): RipDpiGeoDatabaseVersions? = RipDpiGeoDatabaseVersions()
-
     override fun geoIpMetadata(
         geoipDbPath: String,
         geositeDbPath: String,

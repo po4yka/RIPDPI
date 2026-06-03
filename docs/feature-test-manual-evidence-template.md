@@ -52,17 +52,12 @@ Run `test-lab/scripts/check-relay-matrix-config.sh --config <private-matrix>` be
 | mock_relay | | | | | | | | | | | |
 | vless_reality | | | | | | | | | | | |
 | vless_xhttp | | | | | | | | | | | |
-| chain_relay | | | | | | | | | | | |
 | warp | | | | | | | | | | | |
 | cloudflare_tunnel | | | | | | | | | | | |
 | masque | | | | | | | | | | | |
 | hysteria2 | | | | | | | | | | | |
 | tuic_v5 | | | | | | | | | | | |
 | shadowtls_v3 | | | | | | | | | | | |
-| trojan | | | | | | | | | | | |
-| anytls | | | | | | | | | | | |
-| shadowsocks | | | | | | | | | | | |
-| tor | | | | | | | | | | | |
 | naiveproxy | | | | | | | | | | | |
 | webtunnel | | | | | | | | | | | |
 | obfs4 | | | | | | | | | | | |

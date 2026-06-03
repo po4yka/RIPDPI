@@ -255,9 +255,9 @@ internal const val LegacyChainExitProfileSuffix = "__ripdpi_chain_exit"
 
 /**
  * App-side mirror of the engine-api chain-relay hop bounds
- * (`com.poyka.ripdpi.core.RelayChainMinHops` / `RelayChainMaxHops`). The engine-api
- * constants are not on the `:app` compile classpath (`:core:engine` is forbidden and
- * `:core:engine-api` is not a direct dependency), so the UI editor mirrors them here.
+ * (`RelayChainMinHops` / `RelayChainMaxHops`). The engine-api constants are not on the
+ * `:app` compile classpath (`:core:engine` is forbidden and `:core:engine-api` is not a
+ * direct dependency), so the UI editor mirrors them here.
  * Keep these in sync with `core/engine-api/.../RelayNativeConfig.kt` §RelayChain*Hops.
  */
 internal const val RelayChainMinHopsUi = 2

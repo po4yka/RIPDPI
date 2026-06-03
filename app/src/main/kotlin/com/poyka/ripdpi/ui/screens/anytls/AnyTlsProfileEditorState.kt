@@ -84,19 +84,21 @@ data class AnyTlsProfileEditorState(
     fun toProfile(): ProxyProfile.AnyTls? {
         if (!isComplete) return null
         val server = rawText(AnyTlsEditorField.SERVER).trim()
-        val port = rawText(AnyTlsEditorField.SERVER_PORT).toIntOrNull() ?: return null
+        val port = rawText(AnyTlsEditorField.SERVER_PORT).toIntOrNull()
         val password = rawText(AnyTlsEditorField.PASSWORD)
         val displayName = rawText(AnyTlsEditorField.DISPLAY_NAME).trim().ifEmpty { server }
         val serverName = rawText(AnyTlsEditorField.SNI).trim().ifEmpty { server }
-        return ProxyProfile.AnyTls(
-            id = UUID.randomUUID().toString(),
-            displayName = displayName,
-            groupId = "",
-            server = server,
-            serverPort = port,
-            serverName = serverName,
-            password = password,
-        )
+        return port?.let {
+            ProxyProfile.AnyTls(
+                id = UUID.randomUUID().toString(),
+                displayName = displayName,
+                groupId = "",
+                server = server,
+                serverPort = it,
+                serverName = serverName,
+                password = password,
+            )
+        }
     }
 
     companion object {

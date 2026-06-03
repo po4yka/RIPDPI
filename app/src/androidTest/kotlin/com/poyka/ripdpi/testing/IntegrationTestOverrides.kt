@@ -331,6 +331,7 @@ class RecordingVpnTunnelSessionProvider(
         host: com.poyka.ripdpi.services.VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
+        httpProxyPort: Int?,
     ): VpnTunnelSession {
         if (session.isClosed) {
             session = RecordingVpnTunnelSession.open(events)

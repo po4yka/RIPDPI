@@ -454,27 +454,12 @@ private fun ProxyToggleSettings(
     val context = LocalContext.current
 
     if (showAllowLanWarning) {
-        RipDpiDialog(
-            onDismissRequest = { showAllowLanWarning = false },
-            title = stringResource(R.string.settings_proxy_allow_lan_warn_title),
-            dismissAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.settings_proxy_allow_lan_warn_dismiss),
-                    onClick = { showAllowLanWarning = false },
-                ),
-            confirmAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.settings_proxy_allow_lan_warn_confirm),
-                    onClick = {
-                        showAllowLanWarning = false
-                        onToggleChanged(AdvancedToggleSetting.ProxyAllowLan, true)
-                    },
-                ),
-            visuals =
-                RipDpiDialogVisuals(
-                    message = stringResource(R.string.settings_proxy_allow_lan_warn_message),
-                    tone = RipDpiDialogTone.Info,
-                ),
+        ProxyAllowLanWarningDialog(
+            onDismiss = { showAllowLanWarning = false },
+            onConfirm = {
+                showAllowLanWarning = false
+                onToggleChanged(AdvancedToggleSetting.ProxyAllowLan, true)
+            },
         )
     }
 
@@ -528,20 +513,57 @@ private fun ProxyToggleSettings(
         testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan),
     )
     if (uiState.proxy.allowLan && uiState.proxy.lanAuthToken.isNotEmpty()) {
-        SettingsRow(
-            title = stringResource(R.string.settings_proxy_lan_token_label),
-            value = uiState.proxy.lanAuthToken,
-            monospaceValue = true,
-            onClick = {
-                val clipboard = context.getSystemService(ClipboardManager::class.java)
-                clipboard?.setPrimaryClip(
-                    ClipData.newPlainText("lan_auth_token", uiState.proxy.lanAuthToken),
-                )
-            },
+        ProxyLanTokenRow(
+            token = uiState.proxy.lanAuthToken,
             enabled = visualEditorEnabled,
-            testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan) + "_token",
+            onCopy = {
+                val clipboard = context.getSystemService(ClipboardManager::class.java)
+                clipboard?.setPrimaryClip(ClipData.newPlainText("lan_auth_token", uiState.proxy.lanAuthToken))
+            },
         )
     }
+}
+
+@Composable
+private fun ProxyAllowLanWarningDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.settings_proxy_allow_lan_warn_title),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.settings_proxy_allow_lan_warn_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.settings_proxy_allow_lan_warn_confirm),
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.settings_proxy_allow_lan_warn_message),
+                tone = RipDpiDialogTone.Info,
+            ),
+    )
+}
+
+@Composable
+private fun ProxyLanTokenRow(
+    token: String,
+    enabled: Boolean,
+    onCopy: () -> Unit,
+) {
+    SettingsRow(
+        title = stringResource(R.string.settings_proxy_lan_token_label),
+        value = token,
+        monospaceValue = true,
+        onClick = onCopy,
+        enabled = enabled,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan) + "_token",
+    )
 }
 
 private fun numberKeyboardOptions(): KeyboardOptions =

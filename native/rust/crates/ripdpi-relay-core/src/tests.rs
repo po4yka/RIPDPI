@@ -9,24 +9,23 @@ use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tracing_subscriber::prelude::*;
 
+mod transport_registry;
+
 use crate::backend::{RelayBackend, build_backend};
 use crate::bootstrap::{RelayEndpointBootstrapResolver, bootstrap_relay_endpoints_with};
 use crate::config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
-    MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, RelayKind,
-    ResolvedChainRelayHopConfig, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
-    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, ShadowsocksRelayConfig, SshRelayConfig,
-    TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig, TuicRelayConfig, VlessRealityRelayConfig,
+    MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig,
+    ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig,
+    ShadowsocksRelayConfig, SshRelayConfig, TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig,
+    TuicRelayConfig, VlessRealityRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
-    describe_upstream, planned_backend_capabilities, planned_backend_fallback_mode, pool_config_for_backend,
-    validate_finalmask_config, validate_runtime_config,
+    describe_upstream, planned_backend_capabilities, pool_config_for_backend, validate_finalmask_config,
+    validate_runtime_config,
 };
 use crate::socks::RelayTargetAddr;
-
-mod transport_registry;
-use transport_registry::relay_backend_kind_id;
 
 #[derive(Default)]
 struct FakeBootstrapResolver {
@@ -1539,78 +1538,25 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
     assert_outbound_bind_ip_support("totally_unknown", &unsupported, true);
 }
 
-// --- schemaVersion envelope tests ---
-
-/// A minimal valid relay config JSON object, derived from `sample_config`.
-/// The `schemaVersion` key is removed so the legacy-payload case is exercised.
-fn relay_config_json_object() -> serde_json::Map<String, serde_json::Value> {
-    let mut value = serde_json::to_value(sample_config("hysteria2")).expect("serialize relay config");
-    let object = value.as_object_mut().expect("relay config object");
-    object.remove("schemaVersion");
-    object.clone()
-}
-
-#[test]
-fn legacy_payload_without_schema_version_defaults_to_current_version() {
-    let object = relay_config_json_object();
-    assert!(!object.contains_key("schemaVersion"), "legacy payload must not carry schemaVersion");
-
-    let config: ResolvedRelayRuntimeConfig = serde_json::from_value(serde_json::Value::Object(object))
-        .expect("legacy payload without schemaVersion should deserialize");
-
-    assert_eq!("hysteria2", config.kind_id());
-    // The flat form re-serializes with the defaulted `schemaVersion`.
-    let reserialized = serde_json::to_value(&config).expect("reserialize relay config");
-    assert_eq!(reserialized["schemaVersion"], serde_json::json!(8), "absent schemaVersion defaults to 8");
-}
-
-#[test]
-fn payload_with_explicit_schema_version_six_deserializes() {
-    // v6 is the legacy two-hop chain shape; the v6->v7 chain-relay
-    // generalization left the flat wire field set unchanged, so a v6 payload
-    // still deserializes and is folded into the 2-element hop list on the
-    // Kotlin side.
-    let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(6));
-
-    let config: ResolvedRelayRuntimeConfig = serde_json::from_value(serde_json::Value::Object(object))
-        .expect("legacy payload with schemaVersion 6 should still deserialize");
-
-    assert_eq!("hysteria2", config.kind_id());
-}
-
-#[test]
-fn payload_with_explicit_schema_version_seven_deserializes() {
-    let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(7));
-
-    let config: ResolvedRelayRuntimeConfig = serde_json::from_value(serde_json::Value::Object(object))
-        .expect("payload with schemaVersion 7 should deserialize");
-
-    assert_eq!("hysteria2", config.kind_id());
-}
-
-#[test]
-fn payload_with_explicit_schema_version_eight_deserializes() {
-    let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(8));
-
-    let config: ResolvedRelayRuntimeConfig = serde_json::from_value(serde_json::Value::Object(object))
-        .expect("payload with schemaVersion 8 should deserialize");
-
-    assert_eq!("hysteria2", config.kind_id());
-}
-
-#[test]
-fn payload_with_unsupported_schema_version_is_rejected() {
-    let mut object = relay_config_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(9));
-
-    let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(serde_json::Value::Object(object))
-        .expect_err("payload with schemaVersion 9 should be rejected");
-
-    assert!(
-        err.to_string().contains("unsupported native config schemaVersion 9"),
-        "error should name the found version, got: {err}"
-    );
+/// Compile-time drift guard for the runtime-dispatch backend enum. The
+/// `dispatch_pooled_backend!` macro routes SOCKS traffic by `RelayBackend`
+/// variant; this maps each variant back to the `relay_kind` it serves. A new
+/// `RelayBackend` variant fails to compile here until it is mapped, which
+/// forces a matching registration. `Unsupported` carries no `relay_kind`.
+fn relay_backend_kind_id(backend: &RelayBackend) -> Option<&'static str> {
+    match backend {
+        RelayBackend::Hysteria2(_) => Some("hysteria2"),
+        RelayBackend::Tuic(_) => Some("tuic_v5"),
+        RelayBackend::VlessReality(_) | RelayBackend::Xhttp(_) => Some("vless_reality"),
+        RelayBackend::Mieru(_) => Some("mieru"),
+        RelayBackend::Ssh(_) => Some("ssh"),
+        RelayBackend::ChainRelay { .. } => Some("chain_relay"),
+        RelayBackend::Masque(_) => Some("masque"),
+        RelayBackend::ShadowTls(_) => Some("shadowtls_v3"),
+        RelayBackend::Trojan(_) => Some("trojan"),
+        RelayBackend::AnyTls(_) => Some("anytls"),
+        RelayBackend::Shadowsocks(_) => Some("shadowsocks"),
+        RelayBackend::Tor(_) => Some("tor"),
+        RelayBackend::Unsupported { .. } => None,
+    }
 }

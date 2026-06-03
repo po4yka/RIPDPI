@@ -103,15 +103,14 @@ fn md5sig_setsockopt_is_not_silently_swallowed() {
     let err = io::Error::last_os_error();
     let errno = err.raw_os_error().unwrap_or(0);
 
-    // On Linux the expected errno is EPERM (operation not permitted) because
-    // the kernel's tcp_md5sig path checks capable(CAP_NET_ADMIN).
-    // On macOS/BSD the expected errno is ENOPROTOOPT (option unknown).
-    // Either proves the error surfaces — it is NOT Ok(()).
+    // On Linux, upstream kernels commonly report EPERM because the tcp_md5sig
+    // path checks capable(CAP_NET_ADMIN), but some hosted kernels reject the
+    // zeroed audit fixture as EINVAL first. Either proves the error surfaces; it
+    // is NOT Ok(()).
     #[cfg(target_os = "linux")]
-    assert_eq!(
-        errno,
-        libc::EPERM,
-        "Linux: setsockopt(TCP_MD5SIG) should fail with EPERM for an unprivileged UID, got errno={errno}"
+    assert!(
+        errno == libc::EPERM || errno == libc::EINVAL,
+        "Linux: setsockopt(TCP_MD5SIG) should fail with EPERM/EINVAL for an unprivileged UID, got errno={errno}"
     );
 
     #[cfg(not(target_os = "linux"))]

@@ -119,23 +119,25 @@ data class MieruProfileEditorState(
     fun toProfile(): ProxyProfile.Mieru? {
         if (!isComplete) return null
         val server = rawText(MieruEditorField.SERVER).trim()
-        val port = rawText(MieruEditorField.SERVER_PORT).toIntOrNull() ?: return null
+        val port = rawText(MieruEditorField.SERVER_PORT).toIntOrNull()
         val username = rawText(MieruEditorField.USERNAME)
         val password = rawText(MieruEditorField.PASSWORD)
         val mtu = rawText(MieruEditorField.MTU).toIntOrNull() ?: RelayMieruMtuDefault
         val displayName = rawText(MieruEditorField.DISPLAY_NAME).trim().ifEmpty { server }
-        return ProxyProfile.Mieru(
-            id = UUID.randomUUID().toString(),
-            displayName = displayName,
-            groupId = "",
-            server = server,
-            serverPort = port,
-            username = username,
-            password = password,
-            protocol = protocol,
-            multiplexing = multiplexing,
-            mtu = mtu,
-        )
+        return port?.let {
+            ProxyProfile.Mieru(
+                id = UUID.randomUUID().toString(),
+                displayName = displayName,
+                groupId = "",
+                server = server,
+                serverPort = it,
+                username = username,
+                password = password,
+                protocol = protocol,
+                multiplexing = multiplexing,
+                mtu = mtu,
+            )
+        }
     }
 
     companion object {

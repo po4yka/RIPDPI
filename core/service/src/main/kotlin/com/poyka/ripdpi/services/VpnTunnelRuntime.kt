@@ -9,6 +9,9 @@ import com.poyka.ripdpi.data.ProxySettingsSection
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.toSettingsSections
 
+private const val DefaultSocksListenerPort = 1080
+private const val DefaultMixedInboundListenerPort = 2080
+
 internal class VpnTunnelRuntime(
     private val vpnHost: VpnCoordinatorHost,
     private val appSettingsRepository: AppSettingsRepository,
@@ -133,4 +136,5 @@ internal class VpnTunnelRuntime(
  * importing that internal helper across module boundaries.
  */
 internal fun effectiveListenerPort(proxy: ProxySettingsSection): Int =
-    proxy.proxyPort.takeIf { it > 0 } ?: if (proxy.mixedInboundEnabled) 2080 else 1080
+    proxy.proxyPort.takeIf { it > 0 }
+        ?: if (proxy.mixedInboundEnabled) DefaultMixedInboundListenerPort else DefaultSocksListenerPort

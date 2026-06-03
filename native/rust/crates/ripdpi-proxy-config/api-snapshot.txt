@@ -1,7 +1,7 @@
 pub mod ripdpi_proxy_config
 pub mod ripdpi_proxy_config::presets
-pub fn ripdpi_proxy_config::presets::apply_preset(preset_id: &str, config: &mut ripdpi_proxy_config::ProxyUiConfig) -> core::result::Result<(), ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::presets::apply_runtime_preset(preset_id: &str, config: &mut ripdpi_config::model::runtime::RuntimeConfig) -> core::result::Result<(), ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::presets::apply_preset(&str, &mut ripdpi_proxy_config::ProxyUiConfig) -> core::result::Result<(), ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::presets::apply_runtime_preset(&str, &mut ripdpi_config::model::runtime::RuntimeConfig) -> core::result::Result<(), ripdpi_proxy_config::ProxyConfigError>
 pub enum ripdpi_proxy_config::ProxyConfigError
 pub ripdpi_proxy_config::ProxyConfigError::InvalidConfig(alloc::string::String)
 pub ripdpi_proxy_config::ProxyConfigError::UnsupportedSchemaVersion
@@ -168,6 +168,8 @@ pub ripdpi_proxy_config::ProxyUiFakePacketConfig::shannon_entropy_target_permil:
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::strip_timestamps: bool
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::tls_fake_profile: alloc::string::String
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::tls_fingerprint_profile: alloc::string::String
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::tls_minor_enabled: bool
+pub ripdpi_proxy_config::ProxyUiFakePacketConfig::tls_minor_value: u8
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::udp_fake_profile: alloc::string::String
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::window_clamp: core::option::Option<u32>
 pub ripdpi_proxy_config::ProxyUiFakePacketConfig::wsize_scale: core::option::Option<i32>
@@ -197,6 +199,7 @@ pub ripdpi_proxy_config::ProxyUiListenConfig::default_ttl: i32
 pub ripdpi_proxy_config::ProxyUiListenConfig::freeze_detection_enabled: bool
 pub ripdpi_proxy_config::ProxyUiListenConfig::ip: alloc::string::String
 pub ripdpi_proxy_config::ProxyUiListenConfig::max_connections: i32
+pub ripdpi_proxy_config::ProxyUiListenConfig::mixed: bool
 pub ripdpi_proxy_config::ProxyUiListenConfig::port: i32
 pub ripdpi_proxy_config::ProxyUiListenConfig::tcp_fast_open: bool
 impl core::default::Default for ripdpi_proxy_config::ProxyUiListenConfig
@@ -219,6 +222,7 @@ pub ripdpi_proxy_config::ProxyUiProtocolConfig::desync_http: bool
 pub ripdpi_proxy_config::ProxyUiProtocolConfig::desync_https: bool
 pub ripdpi_proxy_config::ProxyUiProtocolConfig::desync_udp: bool
 pub ripdpi_proxy_config::ProxyUiProtocolConfig::resolve_domains: bool
+pub ripdpi_proxy_config::ProxyUiProtocolConfig::udp_associate_enabled: core::option::Option<bool>
 impl core::default::Default for ripdpi_proxy_config::ProxyUiProtocolConfig
 pub fn ripdpi_proxy_config::ProxyUiProtocolConfig::default() -> Self
 pub struct ripdpi_proxy_config::ProxyUiQuicConfig
@@ -288,17 +292,19 @@ pub const ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MAX: i32
 pub const ripdpi_proxy_config::ADAPTIVE_FAKE_TTL_DEFAULT_MIN: i32
 pub const ripdpi_proxy_config::FAKE_TLS_SNI_MODE_RANDOMIZED: &str
 pub const ripdpi_proxy_config::QUIC_FAKE_PROFILE_DISABLED: &str
-pub fn ripdpi_proxy_config::normalize_fake_tls_sni_mode(value: &str) -> &'static str
-pub fn ripdpi_proxy_config::parse_desync_mode(value: &str) -> core::result::Result<ripdpi_config::model::tcp::DesyncMode, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::parse_http_fake_profile(value: &str) -> core::result::Result<ripdpi_packets::fake_profiles::HttpFakeProfile, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::parse_proxy_config_json(json: &str) -> core::result::Result<ripdpi_proxy_config::ProxyConfigPayload, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::parse_quic_fake_profile(value: &str) -> core::result::Result<ripdpi_config::model::group::QuicFakeProfile, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::parse_quic_initial_mode(value: &str) -> core::result::Result<ripdpi_config::model::group::QuicInitialMode, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::parse_tcp_chain_step_kind(value: &str) -> core::result::Result<ripdpi_config::model::tcp::TcpChainStepKind, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::parse_tls_fake_profile(value: &str) -> core::result::Result<ripdpi_packets::fake_profiles::TlsFakeProfile, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::parse_udp_chain_step_kind(value: &str) -> core::result::Result<ripdpi_config::model::udp::UdpChainStepKind, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::parse_udp_fake_profile(value: &str) -> core::result::Result<ripdpi_packets::fake_profiles::UdpFakeProfile, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::runtime_config_envelope_from_payload(payload: ripdpi_proxy_config::ProxyConfigPayload) -> core::result::Result<ripdpi_proxy_config::RuntimeConfigEnvelope, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::runtime_config_from_command_line(args: alloc::vec::Vec<alloc::string::String>) -> core::result::Result<ripdpi_config::model::runtime::RuntimeConfig, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::runtime_config_from_payload(payload: ripdpi_proxy_config::ProxyConfigPayload) -> core::result::Result<ripdpi_config::model::runtime::RuntimeConfig, ripdpi_proxy_config::ProxyConfigError>
-pub fn ripdpi_proxy_config::runtime_config_from_ui(payload: ripdpi_proxy_config::ProxyUiConfig) -> core::result::Result<ripdpi_config::model::runtime::RuntimeConfig, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::active_network_scope() -> core::option::Option<alloc::string::String>
+pub fn ripdpi_proxy_config::normalize_fake_tls_sni_mode(&str) -> &'static str
+pub fn ripdpi_proxy_config::parse_desync_mode(&str) -> core::result::Result<ripdpi_config::model::tcp::DesyncMode, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_http_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::HttpFakeProfile, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_proxy_config_json(&str) -> core::result::Result<ripdpi_proxy_config::ProxyConfigPayload, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_quic_fake_profile(&str) -> core::result::Result<ripdpi_config::model::group::QuicFakeProfile, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_quic_initial_mode(&str) -> core::result::Result<ripdpi_config::model::group::QuicInitialMode, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_tcp_chain_step_kind(&str) -> core::result::Result<ripdpi_config::model::tcp::TcpChainStepKind, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_tls_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::TlsFakeProfile, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_udp_chain_step_kind(&str) -> core::result::Result<ripdpi_config::model::udp::UdpChainStepKind, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::parse_udp_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::UdpFakeProfile, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::runtime_config_envelope_from_payload(ripdpi_proxy_config::ProxyConfigPayload) -> core::result::Result<ripdpi_proxy_config::RuntimeConfigEnvelope, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::runtime_config_from_command_line(alloc::vec::Vec<alloc::string::String>) -> core::result::Result<ripdpi_config::model::runtime::RuntimeConfig, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::runtime_config_from_payload(ripdpi_proxy_config::ProxyConfigPayload) -> core::result::Result<ripdpi_config::model::runtime::RuntimeConfig, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::runtime_config_from_ui(ripdpi_proxy_config::ProxyUiConfig) -> core::result::Result<ripdpi_config::model::runtime::RuntimeConfig, ripdpi_proxy_config::ProxyConfigError>
+pub fn ripdpi_proxy_config::set_active_network_scope(core::option::Option<alloc::string::String>)

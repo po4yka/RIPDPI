@@ -9,10 +9,9 @@ import android.os.Build
  *
  * This status is computed entirely Kotlin-side and is purely informational: it
  * is NOT a policy source for the VPN DNS interceptor. RIPDPI always programs its
- * own interceptor DNS for encrypted profiles (see [com.poyka.ripdpi.services]'s
- * `vpnDnsAddressForProfile`), so system Private DNS never changes how the VPN
- * resolves names. The status only helps the user understand a possible mismatch
- * between what Android reports and what RIPDPI actually does.
+ * own interceptor DNS for encrypted profiles, so system Private DNS never changes
+ * how the VPN resolves names. The status only helps the user understand a possible
+ * mismatch between what Android reports and what RIPDPI actually does.
  */
 enum class SystemPrivateDnsStatus(
     val wireValue: String,

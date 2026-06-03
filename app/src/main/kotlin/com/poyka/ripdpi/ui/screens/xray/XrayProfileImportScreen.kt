@@ -81,7 +81,6 @@ internal fun XrayProfileImportScreen(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val spacing = RipDpiThemeTokens.spacing
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.xray_import_title),
         navigationIcon = RipDpiIcons.Back,
@@ -89,78 +88,24 @@ internal fun XrayProfileImportScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier = modifier,
     ) {
-        RipDpiCard {
-            RipDpiPanelHeader(
-                title = stringResource(R.string.xray_service_mode_section_title),
-                supporting = stringResource(R.string.xray_service_mode_section_body),
-            )
-            XrayServiceModeOption.all.forEach { option ->
-                SettingsRow(
-                    title = stringResource(stringIdFor(option.titleKey)),
-                    subtitle = stringResource(stringIdFor(option.descriptionKey)),
-                    checked = uiState.selectedOption == option,
-                    onCheckedChange = { selected -> if (selected) onSelectOption(option) },
-                    testTag = "xray_mode_${option.name}",
-                )
-            }
-        }
+        XrayServiceModeCard(
+            selectedOption = uiState.selectedOption,
+            onSelectOption = onSelectOption,
+        )
 
         if (uiState.requiresXrayProfile) {
-            RipDpiCard {
-                RipDpiPanelHeader(
-                    title = stringResource(R.string.xray_import_profile_section_title),
-                    supporting = stringResource(R.string.xray_import_profile_section_body),
-                )
-                RipDpiTextField(
-                    value = uiState.rawInput,
-                    onValueChange = onRawInputChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    decoration =
-                        RipDpiTextFieldDecoration(
-                            label = stringResource(R.string.xray_import_input_label),
-                            placeholder = stringResource(R.string.xray_import_input_placeholder),
-                            errorText = uiState.errorMessage,
-                            testTag = "xray_import_input",
-                        ),
-                    behavior = RipDpiTextFieldBehavior(singleLine = false),
-                )
-                RipDpiButton(
-                    text = stringResource(R.string.xray_import_validate_action),
-                    onClick = onValidate,
-                    enabled = !uiState.validating,
-                    loading = uiState.validating,
-                    variant = RipDpiButtonVariant.Secondary,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            uiState.errorMessage?.let { message ->
-                WarningBanner(
-                    title = stringResource(R.string.xray_import_error_title),
-                    message = message,
-                    tone = WarningBannerTone.Error,
-                    testTag = "xray_import_error",
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-
-            if (uiState.acceptedConfigReady) {
-                RipDpiCard {
-                    RipDpiPanelHeader(
-                        title = stringResource(R.string.xray_import_capabilities_title),
-                        supporting = stringResource(R.string.xray_import_capabilities_body),
-                    )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                        uiState.capabilities.forEach { capability ->
-                            RipDpiChip(
-                                text = stringResource(stringIdFor(capability.titleKey)),
-                                onClick = {},
-                                selected = true,
-                            )
-                        }
-                    }
-                }
-            }
+            XrayProfileInputCard(
+                rawInput = uiState.rawInput,
+                validating = uiState.validating,
+                errorMessage = uiState.errorMessage,
+                onRawInputChange = onRawInputChange,
+                onValidate = onValidate,
+            )
+            XrayImportErrorBanner(message = uiState.errorMessage)
+            XrayCapabilitiesCard(
+                visible = uiState.acceptedConfigReady,
+                capabilities = uiState.capabilities,
+            )
         }
 
         RipDpiButton(
@@ -174,6 +119,103 @@ internal fun XrayProfileImportScreen(
             enabled = uiState.canFinish && !uiState.imported,
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+@Composable
+private fun XrayServiceModeCard(
+    selectedOption: XrayServiceModeOption,
+    onSelectOption: (XrayServiceModeOption) -> Unit,
+) {
+    RipDpiCard {
+        RipDpiPanelHeader(
+            title = stringResource(R.string.xray_service_mode_section_title),
+            supporting = stringResource(R.string.xray_service_mode_section_body),
+        )
+        XrayServiceModeOption.all.forEach { option ->
+            SettingsRow(
+                title = stringResource(stringIdFor(option.titleKey)),
+                subtitle = stringResource(stringIdFor(option.descriptionKey)),
+                checked = selectedOption == option,
+                onCheckedChange = { selected -> if (selected) onSelectOption(option) },
+                testTag = "xray_mode_${option.name}",
+            )
+        }
+    }
+}
+
+@Composable
+private fun XrayProfileInputCard(
+    rawInput: String,
+    validating: Boolean,
+    errorMessage: String?,
+    onRawInputChange: (String) -> Unit,
+    onValidate: () -> Unit,
+) {
+    RipDpiCard {
+        RipDpiPanelHeader(
+            title = stringResource(R.string.xray_import_profile_section_title),
+            supporting = stringResource(R.string.xray_import_profile_section_body),
+        )
+        RipDpiTextField(
+            value = rawInput,
+            onValueChange = onRawInputChange,
+            modifier = Modifier.fillMaxWidth(),
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.xray_import_input_label),
+                    placeholder = stringResource(R.string.xray_import_input_placeholder),
+                    errorText = errorMessage,
+                    testTag = "xray_import_input",
+                ),
+            behavior = RipDpiTextFieldBehavior(singleLine = false),
+        )
+        RipDpiButton(
+            text = stringResource(R.string.xray_import_validate_action),
+            onClick = onValidate,
+            enabled = !validating,
+            loading = validating,
+            variant = RipDpiButtonVariant.Secondary,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun XrayImportErrorBanner(message: String?) {
+    message?.let {
+        WarningBanner(
+            title = stringResource(R.string.xray_import_error_title),
+            message = it,
+            tone = WarningBannerTone.Error,
+            testTag = "xray_import_error",
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun XrayCapabilitiesCard(
+    visible: Boolean,
+    capabilities: List<XrayCapability>,
+) {
+    if (!visible) return
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard {
+        RipDpiPanelHeader(
+            title = stringResource(R.string.xray_import_capabilities_title),
+            supporting = stringResource(R.string.xray_import_capabilities_body),
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            capabilities.forEach { capability ->
+                RipDpiChip(
+                    text = stringResource(stringIdFor(capability.titleKey)),
+                    onClick = {},
+                    selected = true,
+                )
+            }
+        }
     }
 }
 

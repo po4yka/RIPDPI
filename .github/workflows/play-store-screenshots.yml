@@ -46,13 +46,17 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install Chrome for Puppeteer
+      - name: Resolve Chrome for Puppeteer
         # `bun install --frozen-lockfile` does not reliably run Puppeteer's
         # postinstall browser download in CI (lifecycle scripts are gated even
-        # for trustedDependencies), so fetch the matching Chrome build
-        # explicitly. Installs into the default $HOME/.cache/puppeteer that the
-        # runtime resolves -- no PUPPETEER_CACHE_DIR override needed.
-        run: bunx puppeteer browsers install chrome
+        # for trustedDependencies), so prefer the runner-provided Chrome and
+        # pass it explicitly to Puppeteer. This avoids stale or partial
+        # $HOME/.cache/puppeteer browser downloads on hosted runners.
+        run: |
+          CHROME_PATH="$(command -v google-chrome || command -v google-chrome-stable || true)"
+          test -x "$CHROME_PATH"
+          echo "PUPPETEER_EXECUTABLE_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+          "$CHROME_PATH" --version
 
       - name: Regenerate marketing screenshots
         run: bun run capture:prod

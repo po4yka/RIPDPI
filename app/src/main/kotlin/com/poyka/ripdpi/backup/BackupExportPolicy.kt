@@ -25,13 +25,11 @@ class BackupExportPolicy
         @param:ApplicationContext private val context: Context,
     ) {
         /** Returns `true` when device policy forbids exporting a backup. */
-        fun isExportDisabledByPolicy(): Boolean {
-            val manager =
-                context.getSystemService(Context.RESTRICTIONS_SERVICE) as? RestrictionsManager
-                    ?: return false
-            val restrictions = manager.applicationRestrictions ?: return false
-            return restrictions.getBoolean(DisableExportKey, false)
-        }
+        fun isExportDisabledByPolicy(): Boolean =
+            (context.getSystemService(Context.RESTRICTIONS_SERVICE) as? RestrictionsManager)
+                ?.applicationRestrictions
+                ?.getBoolean(DisableExportKey, false)
+                ?: false
 
         private companion object {
             const val DisableExportKey = "com.poyka.ripdpi.backup.disable_export"

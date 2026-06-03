@@ -136,7 +136,6 @@ private fun AuthSection(
         )
         if (editor.authType == RelaySshAuthTypePrivateKey) {
             SecretField(
-                field = SshEditorField.PRIVATE_KEY,
                 label = stringResource(R.string.ssh_field_private_key),
                 value = editor.rawText(SshEditorField.PRIVATE_KEY),
                 revealed = editor.privateKeyRevealed,
@@ -144,7 +143,6 @@ private fun AuthSection(
                 onReveal = onRevealPrivateKey,
             )
             SecretField(
-                field = SshEditorField.PRIVATE_KEY_PASSPHRASE,
                 label = stringResource(R.string.ssh_field_private_key_passphrase),
                 value = editor.rawText(SshEditorField.PRIVATE_KEY_PASSPHRASE),
                 revealed = editor.passphraseRevealed,
@@ -217,7 +215,6 @@ private fun PlainField(
 
 @Composable
 private fun SecretField(
-    field: SshEditorField,
     label: String,
     value: String,
     revealed: Boolean,

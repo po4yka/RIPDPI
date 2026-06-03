@@ -77,7 +77,7 @@ fn linux_tun_fixture_config() -> FixtureConfig {
 
 /// Count open file descriptors in the current process via /proc/self/fd.
 fn count_open_fds() -> usize {
-    std::fs::read_dir("/proc/self/fd").map(|d| d.count()).unwrap_or(0)
+    std::fs::read_dir("/proc/self/fd").map_or(0, Iterator::count)
 }
 
 /// Return `true` if `raw_fd` is closed (i.e. `fstat` returns EBADF).

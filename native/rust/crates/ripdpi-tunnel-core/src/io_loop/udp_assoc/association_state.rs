@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -32,13 +31,4 @@ pub(super) fn touch_udp_activity(last_activity: &Arc<AtomicU64>) {
 pub(super) fn udp_association_is_idle(last_activity: &Arc<AtomicU64>, idle_timeout: Duration) -> bool {
     // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
     now_millis().saturating_sub(last_activity.load(Ordering::Relaxed)) >= idle_timeout.as_millis() as u64
-}
-
-pub(super) fn remove_association(associations: &mut HashMap<SocketAddr, UdpAssociation>, src: SocketAddr) {
-    if let Some(association) = associations.remove(&src) {
-        association.cancel.cancel();
-        // Drop the per-app attribution cache entry so a later flow to the same
-        // destination (possibly a different app) re-resolves its owner.
-        ripdpi_flow_app_attribution::evict_flow(association.dest.ip());
-    }
 }
