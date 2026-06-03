@@ -58,12 +58,10 @@ pub(crate) fn with_current<R>(f: impl FnOnce(&dyn TcpDesyncPlatform) -> R) -> R 
         }
         #[cfg(not(test))]
         {
-            debug_assert!(
-                false,
+            panic!(
                 "tcp desync platform not installed: with_current called outside a \
                  with_tcp_desync_platform scope"
             );
-            panic!("tcp desync platform not installed");
         }
     })
 }
