@@ -249,7 +249,10 @@ jobs:
     if: github.event_name != 'schedule'
     needs: [rust-native]
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # Builds three debug APK flavors (~22-23 min typical); 25 was too tight a
+    # cap and flaked on slower runners. 40 matches the headroom of the other
+    # heavy Android build jobs without reaching their 60-min ceiling.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
