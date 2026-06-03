@@ -3,6 +3,17 @@
 // then become dead in that one configuration; quiet the lint instead of
 // annotating each item.
 #![cfg_attr(all(test, feature = "loom"), allow(dead_code, unused_imports))]
+// Crate-local unsafe-hardening floor. `ripdpi-tunnel-android` is a JNI cdylib
+// whose unsafe surface is the FFI boundary: raw-fd adoption (TUN dup, pcap
+// detachFd), JNI object construction (`*::from_raw`), `JavaVM::from_raw`, and
+// the manual `Send`/`Sync` impls on the flow-attribution notifier. Per the
+// rust-unsafe skill lint floor, every `unsafe { }` block must carry an inline
+// SAFETY comment and each unsafe op must be individually justified, so the FFI
+// invariants stay auditable next to the operation. Matches the opt-in already
+// landed in ripdpi-vless / ripdpi-io-uring / ripdpi-privileged-ops /
+// ripdpi-proxy-runtime while the rest of the workspace migrates.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
 
 mod config;
 mod entry;

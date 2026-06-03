@@ -63,6 +63,11 @@ fn test_jvm() -> &'static JavaVM {
 /// The returned `EnvUnowned` borrows the same JNI env pointer and must not
 /// outlive the `Env` it was derived from.
 fn env_to_unowned<'local>(env: &mut Env<'local>) -> EnvUnowned<'local> {
+    // SAFETY: `env.get_raw()` returns the live `*mut jni::sys::JNIEnv` backing the
+    // borrowed `Env<'local>`. The returned `EnvUnowned<'local>` carries the same
+    // lifetime as the `&mut Env`, so the borrow checker prevents it from outliving
+    // the env it was derived from. `from_raw` only copies the pointer; it does not
+    // detach the thread or take ownership of the JNI env.
     unsafe { EnvUnowned::from_raw(env.get_raw()) }
 }
 
@@ -122,6 +127,10 @@ fn decode_jstring(env: &mut Env<'_>, raw: jni::sys::jstring) -> Option<String> {
     if raw.is_null() {
         return None;
     }
+    // SAFETY: `raw` is a `jstring` returned by a `jni*` FFI entry point above and
+    // is a valid JNI local reference in the current frame (null-checked at the top
+    // of the fn). It is consumed exactly once here, and the resulting `JString`
+    // borrows `env`, so it cannot outlive the JNI local frame.
     let string = unsafe { JString::from_raw(env, raw) };
     Some(string.try_to_string(env).expect("read jstring"))
 }
@@ -130,6 +139,10 @@ fn decode_long_array(env: &mut Env<'_>, raw: jlongArray) -> Option<Vec<jlong>> {
     if raw.is_null() {
         return None;
     }
+    // SAFETY: `raw` is a `jlongArray` returned by `jniGetStats` above and is a
+    // valid JNI local reference in the current frame (null-checked at the top of
+    // the fn). It is consumed exactly once here, and the resulting `JLongArray`
+    // borrows `env`, so it cannot outlive the JNI local frame.
     let array = unsafe { JLongArray::from_raw(env, raw) };
     let len = array.len(env).expect("stats array length");
     let mut values = vec![0; len];
