@@ -23,7 +23,7 @@
 //! `.so`, and `NATIVE_RUST.md` restricts `jni` to the L8 allowlist.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -127,7 +127,11 @@ struct Registered {
 static REGISTERED: Mutex<Option<Registered>> = Mutex::new(None);
 
 fn registered() -> std::sync::MutexGuard<'static, Option<Registered>> {
-    REGISTERED.lock().expect("flow-attribution registration lock poisoned")
+    // The guarded value is a plain `Option<Registered>` whose consistency is owned
+    // by the generation guard, not the lock; a panic on another thread cannot leave
+    // it in a torn state. Recover from poison rather than panicking in production
+    // (rust-discipline panic policy; llm-rust-prompts.md `.expect` outside tests).
+    REGISTERED.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 fn stop_worker(mut reg: Registered) {
@@ -139,7 +143,11 @@ fn stop_worker(mut reg: Registered) {
 
 /// Spawn the worker that drives `notifier`, replacing any prior registration, and
 /// return the session [`AttributionGeneration`].
-fn register_with_notifier(notifier: Box<dyn FlowNotifier>) -> AttributionGeneration {
+///
+/// Returns an error if the worker thread cannot be spawned; in that case the
+/// just-begun session is rolled back via [`end_attribution_session_if`] so no
+/// orphaned generation is left behind.
+fn register_with_notifier(notifier: Box<dyn FlowNotifier>) -> std::io::Result<AttributionGeneration> {
     // Stop a prior worker (if any) before starting a new session. Taken out of the
     // lock so the join does not hold REGISTERED.
     let previous = registered().take();
@@ -150,12 +158,20 @@ fn register_with_notifier(notifier: Box<dyn FlowNotifier>) -> AttributionGenerat
     let generation = begin_attribution_session();
     let stop = Arc::new(AtomicBool::new(false));
     let worker_stop = Arc::clone(&stop);
-    let join = std::thread::Builder::new()
+    let join = match std::thread::Builder::new()
         .name("ripdpi-flow-attribution".to_owned())
         .spawn(move || worker_loop(notifier, worker_stop))
-        .expect("spawn flow-attribution worker");
+    {
+        Ok(join) => join,
+        Err(err) => {
+            // Roll back the session we just began so a failed register does not
+            // leave a live generation with no worker draining it.
+            end_attribution_session_if(generation);
+            return Err(err);
+        }
+    };
     *registered() = Some(Registered { generation, stop, join: Some(join) });
-    generation
+    Ok(generation)
 }
 
 /// Register the Kotlin flow-attribution bridge and start the worker.
@@ -168,9 +184,18 @@ fn register_flow_attribution(vm: &JavaVM, bridge: Global<JObject<'static>>) -> i
     // SAFETY: the JavaVM pointer is valid for the life of the process (held by the
     // JNI runtime); `from_raw` only copies the pointer.
     let vm = unsafe { JavaVM::from_raw(vm.get_raw()) };
-    let generation = register_with_notifier(Box::new(JniFlowNotifier { vm, bridge }));
-    tracing::info!(generation = generation.token(), "flow-attribution bridge registered via JNI");
-    generation.token() as i64
+    match register_with_notifier(Box::new(JniFlowNotifier { vm, bridge })) {
+        Ok(generation) => {
+            tracing::info!(generation = generation.token(), "flow-attribution bridge registered via JNI");
+            generation.token() as i64
+        }
+        Err(err) => {
+            // Map the spawn failure onto the existing `0` failed-register sentinel,
+            // which `unregister_flow_attribution` treats as a safe no-op.
+            tracing::error!("flow-attribution worker spawn failed: {err}");
+            0
+        }
+    }
 }
 
 /// JNI entry for `jniRegisterFlowAttribution`: capture the `JavaVM` and a global
