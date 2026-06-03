@@ -25,14 +25,10 @@ internal object NotificationContentBuilder {
         rttMs: Long?,
     ): String? {
         if (activeSessions <= 0 && rttMs == null) return null
-        val parts = mutableListOf<String>()
-        if (activeSessions > 0) {
-            parts += "$activeSessions active sessions"
-        }
-        if (rttMs != null && rttMs > 0) {
-            parts += "RTT ${rttMs}ms"
-        }
-        return parts.joinToString("  \u00B7  ")
+        return buildList {
+            if (activeSessions > 0) add("$activeSessions active sessions")
+            if (rttMs != null && rttMs > 0) add("RTT ${rttMs}ms")
+        }.joinToString("  \u00B7  ")
     }
 
     private fun formatBytes(bytes: Long): String =

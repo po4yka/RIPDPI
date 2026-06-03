@@ -150,7 +150,7 @@ class DefaultSecureHttpClient
                         headers = headers,
                         authority = authority,
                         defaultTrace = defaultTrace,
-                        firstError = error!!,
+                        firstError = checkNotNull(error),
                     )
                 }
 
