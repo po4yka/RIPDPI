@@ -1,3 +1,14 @@
+// The only `unsafe` in this crate is the `std::env::set_var` / `remove_var`
+// pair the test module uses to exercise `FixtureConfig::from_env`; under the
+// 2024 edition those are `unsafe` because they mutate the process-global
+// environment table without synchronization. Each call site documents the
+// serialization invariant that makes it sound. Workspace-wide
+// `undocumented_unsafe_blocks` is still `allow` while the legacy corpus is
+// being annotated; re-enabling it crate-locally locks this surface to the
+// documentation contract immediately.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 mod anytls;
 mod config_env;
 mod control;
@@ -54,21 +65,42 @@ mod tests {
 
     #[test]
     fn fixture_config_reads_env_override() {
-        // FIXME: Audit that the environment access only happens in single-threaded code.
+        // Hold the crate-wide fixture mutex for the whole set/read/remove
+        // window so no other test in this binary touches the process
+        // environment concurrently. `FixtureConfig::from_env` reads ~20
+        // env vars and is the only env reader; every env-mutating test takes
+        // this same lock, so the writes below cannot race a reader.
+        let _guard = lock_fixture_stack_tests();
+        // SAFETY: `set_var` mutates the unsynchronized process-global environment
+        // and is sound only with no concurrent environment access. `_guard`
+        // serializes this test against every other env-touching test in the
+        // crate, and no live thread reads `RIPDPI_FIXTURE_TCP_ECHO_PORT` outside
+        // this critical section, so no read/write or write/write race exists.
         unsafe { std::env::set_var("RIPDPI_FIXTURE_TCP_ECHO_PORT", "47001") };
         let config = FixtureConfig::from_env();
         assert_eq!(config.tcp_echo_port, 47001);
-        // FIXME: Audit that the environment access only happens in single-threaded code.
+        // SAFETY: still holding `_guard`; same no-concurrent-access invariant as
+        // the matching `set_var` above. The removal restores the pristine
+        // environment before the lock is released.
         unsafe { std::env::remove_var("RIPDPI_FIXTURE_TCP_ECHO_PORT") };
     }
 
     #[test]
     fn fixture_config_reads_android_host_override() {
-        // FIXME: Audit that the environment access only happens in single-threaded code.
+        // See the sibling test: the fixture mutex serializes this env mutation
+        // against all other env-touching tests in the binary.
+        let _guard = lock_fixture_stack_tests();
+        // SAFETY: `set_var` mutates the unsynchronized process-global environment
+        // and is sound only with no concurrent environment access. `_guard`
+        // serializes this test against every other env-touching test in the
+        // crate, and no live thread reads `RIPDPI_FIXTURE_ANDROID_HOST` outside
+        // this critical section, so no read/write or write/write race exists.
         unsafe { std::env::set_var("RIPDPI_FIXTURE_ANDROID_HOST", "127.0.0.1") };
         let config = FixtureConfig::from_env();
         assert_eq!(config.android_host, "127.0.0.1");
-        // FIXME: Audit that the environment access only happens in single-threaded code.
+        // SAFETY: still holding `_guard`; same no-concurrent-access invariant as
+        // the matching `set_var` above. The removal restores the pristine
+        // environment before the lock is released.
         unsafe { std::env::remove_var("RIPDPI_FIXTURE_ANDROID_HOST") };
     }
 
