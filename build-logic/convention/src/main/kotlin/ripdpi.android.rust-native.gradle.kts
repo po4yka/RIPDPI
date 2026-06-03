@@ -26,6 +26,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
 import java.security.MessageDigest
+import java.util.HexFormat
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import javax.inject.Inject
@@ -698,6 +699,7 @@ abstract class BuildPluggableTransportAssetsTask
                             } else {
                                 null
                             }
+                        val capturedError = buildError
                         for (outputName in source.outputNames) {
                             val launcher = abiBinDir.resolve(outputName)
                             val upstreamBinary = abiBinDir.resolve("$outputName.upstream")
@@ -707,12 +709,12 @@ abstract class BuildPluggableTransportAssetsTask
                                     sourceBuildLauncherScript(upstreamBinary.name),
                                     Charsets.UTF_8,
                                 )
-                            } else if (buildError != null) {
+                            } else if (capturedError != null) {
                                 if (upstreamBinary.exists()) {
                                     upstreamBinary.delete()
                                 }
                                 launcher.writeText(
-                                    sourceBuildFailedScript(outputName, source, buildError!!),
+                                    sourceBuildFailedScript(outputName, source, capturedError),
                                     Charsets.UTF_8,
                                 )
                             } else {
@@ -1146,7 +1148,7 @@ abstract class BuildPluggableTransportAssetsTask
                     digest.update(buffer, 0, read)
                 }
             }
-            return digest.digest().joinToString("") { "%02x".format(it) }
+            return HexFormat.of().formatHex(digest.digest())
         }
 
         private fun abiToGoArch(abi: String): GoArch =
