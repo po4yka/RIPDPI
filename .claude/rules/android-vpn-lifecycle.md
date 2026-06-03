@@ -50,6 +50,28 @@ A panic that originates from an unhandled SIGPIPE crashes the entire process and
 
 CI matrix MUST include `adb shell am kill <package>` mid-session and verify the next session reconstructs state correctly. Without this, persistence regressions ship unnoticed.
 
+### Detecting an Android 17 memory-limiter kill
+
+Android 17 introduces a per-app memory cap: instead of letting one bloated process push well-behaved cached apps out of memory, the OS hard-caps the offender. A persistent foreground VPN service (RIPDPI) is exactly the kind of privileged, LMK-shielded process the cap now targets.
+
+When the limiter caps the process, the kill surfaces through `ApplicationExitInfo` (API 30+) as `REASON_OTHER` with a `getDescription()` string containing `"MemoryLimiter:AnonSwap"`. On startup, read the recent exits and record a diagnostics event so a memory-cap kill is distinguishable from a crash or an ordinary background kill:
+
+```kotlin
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+    val am = context.getSystemService(ActivityManager::class.java)
+    am?.getHistoricalProcessExitReasons(context.packageName, /* pid = */ 0, /* maxNum = */ 16)
+        ?.filter { it.reason == ApplicationExitInfo.REASON_OTHER &&
+            it.description?.contains("MemoryLimiter:AnonSwap") == true }
+        ?.forEach { /* persist as a diagnostics event, keyed by (timestamp, pid) for idempotent re-scan */ }
+}
+```
+
+Rules:
+- Guard every call behind `SDK_INT >= R` — `ApplicationExitInfo` does not exist below API 30 and `minSdk` is 27.
+- Key the recorded event by a deterministic id derived from `(timestamp, pid)` so re-scanning the same history on every later launch is idempotent (Room `OnConflictStrategy.REPLACE`).
+- Do the read off the main thread (the diagnostics store is suspend/`Room`); failure-isolate it so a read error never affects startup.
+- Implementation: `DefaultLastExitInspector` in `core/diagnostics`, invoked from `AppStartupInitializer.initialize()`. Pairs with `onTrimMemory` shedding (`TrimmableCache`) which lowers the chance of being capped in the first place.
+
 ### Cross-references
 
 - `rust-async-internals` skill — JNI-to-async bridge canonical pattern.

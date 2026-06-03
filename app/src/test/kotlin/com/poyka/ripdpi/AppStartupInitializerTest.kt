@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
@@ -457,6 +458,7 @@ class AppStartupInitializerTest {
         proxyGroupRepository: ProxyGroupRepository = EmptyProxyGroupRepository,
         bootSessionRecorder: RecordingBootSessionRecorder = RecordingBootSessionRecorder(),
         resetEventRecorder: ResetEventRecorder = NoOpResetEventRecorder,
+        lastExitInspector: LastExitInspector = NoOpLastExitInspector,
         scope: CoroutineScope,
     ): AppStartupInitializer =
         AppStartupInitializer(
@@ -470,6 +472,7 @@ class AppStartupInitializerTest {
             proxyGroupRepository = proxyGroupRepository,
             bootSessionRecorder = bootSessionRecorder,
             resetEventRecorder = resetEventRecorder,
+            lastExitInspector = lastExitInspector,
             appShortcutsPublisher =
                 AppShortcutsPublisher(
                     context = application,
@@ -480,6 +483,10 @@ class AppStartupInitializerTest {
                 ),
             applicationScope = scope,
         )
+}
+
+private object NoOpLastExitInspector : LastExitInspector {
+    override suspend fun recordRecentMemoryLimiterExits() = Unit
 }
 
 private object NoOpResetEventRecorder : ResetEventRecorder {

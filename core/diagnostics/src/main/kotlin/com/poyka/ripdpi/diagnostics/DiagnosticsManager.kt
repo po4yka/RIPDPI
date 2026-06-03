@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.TrimmableCache
 import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions
+import com.poyka.ripdpi.diagnostics.exit.DefaultLastExitInspector
+import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter
 import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader
@@ -411,6 +413,10 @@ abstract class DiagnosticsManagerModule {
     @Binds
     @IntoSet
     abstract fun bindProbeResultCacheTrimmable(cache: DefaultProbeResultCache): TrimmableCache
+
+    @Binds
+    @Singleton
+    abstract fun bindLastExitInspector(inspector: DefaultLastExitInspector): LastExitInspector
 
     @Binds
     @Singleton

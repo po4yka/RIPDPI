@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
@@ -39,6 +40,7 @@ class AppStartupInitializer
         private val bootSessionRecorder: BootSessionRecorder,
         private val appShortcutsPublisher: AppShortcutsPublisher,
         private val resetEventRecorder: ResetEventRecorder,
+        private val lastExitInspector: LastExitInspector,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
@@ -47,6 +49,14 @@ class AppStartupInitializer
             applicationScope.launch {
                 val report = initializeSubsystems()
                 Logger.i { report.toLogMessage() }
+                // Record whether the previous process was capped by Android 17's
+                // memory limiter. A pure diagnostics read, isolated from the
+                // subsystem report so a failure here never affects startup.
+                runCatching {
+                    lastExitInspector.recordRecentMemoryLimiterExits()
+                }.onFailure { error ->
+                    Logger.w(error) { "Memory-limiter exit scan failed" }
+                }
                 runCatching {
                     detectionObservationStarter.startObserving(context, this)
                 }.onFailure { error ->
