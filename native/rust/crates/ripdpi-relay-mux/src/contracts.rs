@@ -1,8 +1,5 @@
 use std::future::Future;
-use std::pin::Pin;
 use std::sync::Arc;
-
-pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RelayCapabilities {
@@ -16,9 +13,16 @@ pub trait RelaySession: Send + Sync + 'static {
     type Datagram: Send + 'static;
     type Error: Send + Sync + 'static;
 
-    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>>;
+    // RPITIT (stable since 1.75) replaces the previous `BoxFuture` (boxed
+    // `dyn Future`) return type: no per-call heap allocation on the relay data
+    // path. The explicit `+ Send` bound preserves the Send guarantee that the
+    // boxed `dyn Future + Send` provided -- `RelayMux` `.await`s these futures
+    // inside tasks spawned on a multi-thread runtime. The trait is only ever
+    // used via generic `F: RelaySessionFactory` bounds, never as `dyn`, so RPITIT
+    // (which is not dyn-compatible) is safe here.
+    fn open_stream(&self, target: &str) -> impl Future<Output = Result<Self::Stream, Self::Error>> + Send;
 
-    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>>;
+    fn open_datagram(&self) -> impl Future<Output = Result<Self::Datagram, Self::Error>> + Send;
 }
 
 pub trait RelaySessionFactory: Send + Sync + 'static {
@@ -27,5 +31,5 @@ pub trait RelaySessionFactory: Send + Sync + 'static {
 
     fn capabilities(&self) -> RelayCapabilities;
 
-    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>>;
+    fn create_session(&self) -> impl Future<Output = Result<Arc<Self::Session>, Self::Error>> + Send;
 }

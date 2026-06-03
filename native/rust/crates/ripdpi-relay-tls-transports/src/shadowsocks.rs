@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rand::RngExt;
-use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
+use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use ripdpi_shadowsocks::{
     Aead2022UdpPacketType, Aead2022UdpSession, Cipher, PresharedKey, SecretString, TcpStream as ShadowsocksTcpCodec,
     UdpPacket,
@@ -66,25 +66,23 @@ impl RelaySession for ShadowsocksSession {
     type Datagram = ShadowsocksUdpSession;
     type Error = io::Error;
 
-    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move { connect_tcp(Arc::clone(&self.config), target).await })
+    async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
+        connect_tcp(Arc::clone(&self.config), target).await
     }
 
-    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
         let config = Arc::clone(&self.config);
-        Box::pin(async move {
-            let socket = bind_udp(config.outbound_bind_ip).await?;
-            socket.connect((config.server_host.as_str(), config.server_port)).await?;
-            let codec = if config.cipher.is_aead_2022() {
-                let psk = PresharedKey::from_base64(config.cipher, &config.password).map_err(invalid_input)?;
-                let mut session_id = [0_u8; 8];
-                rand::rng().fill(&mut session_id);
-                ShadowsocksUdpCodec::Aead2022(Aead2022UdpSession::new(config.cipher, psk, session_id).map_err(to_io)?)
-            } else {
-                ShadowsocksUdpCodec::Legacy(UdpPacket::new(config.cipher, false))
-            };
-            Ok(ShadowsocksUdpSession { socket, config, codec })
-        })
+        let socket = bind_udp(config.outbound_bind_ip).await?;
+        socket.connect((config.server_host.as_str(), config.server_port)).await?;
+        let codec = if config.cipher.is_aead_2022() {
+            let psk = PresharedKey::from_base64(config.cipher, &config.password).map_err(invalid_input)?;
+            let mut session_id = [0_u8; 8];
+            rand::rng().fill(&mut session_id);
+            ShadowsocksUdpCodec::Aead2022(Aead2022UdpSession::new(config.cipher, psk, session_id).map_err(to_io)?)
+        } else {
+            ShadowsocksUdpCodec::Legacy(UdpPacket::new(config.cipher, false))
+        };
+        Ok(ShadowsocksUdpSession { socket, config, codec })
     }
 }
 
@@ -96,9 +94,9 @@ impl RelaySessionFactory for ShadowsocksSessionFactory {
         RelayCapabilities { tcp: true, udp: true, reusable: false }
     }
 
-    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let config = Arc::clone(&self.config);
-        Box::pin(async move { Ok(Arc::new(ShadowsocksSession { config })) })
+        Ok(Arc::new(ShadowsocksSession { config }))
     }
 }
 

@@ -6,7 +6,7 @@ use std::time::Duration;
 use tokio::io::duplex;
 use tokio::time::sleep;
 
-use crate::{BoxFuture, RelayCapabilities, RelayMux, RelayPoolConfig, RelaySession, RelaySessionFactory};
+use crate::{RelayCapabilities, RelayMux, RelayPoolConfig, RelaySession, RelaySessionFactory};
 
 #[derive(Clone)]
 struct TestFactory {
@@ -21,12 +21,12 @@ impl RelaySession for TestSession {
     type Datagram = usize;
     type Error = Infallible;
 
-    fn open_stream<'a>(&'a self, _target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move { Ok(duplex(64).0) })
+    async fn open_stream(&self, _target: &str) -> Result<Self::Stream, Self::Error> {
+        Ok(duplex(64).0)
     }
 
-    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
-        Box::pin(async move { Ok(7) })
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        Ok(7)
     }
 }
 
@@ -38,9 +38,9 @@ impl RelaySessionFactory for TestFactory {
         RelayCapabilities { tcp: true, udp: true, reusable: self.reusable }
     }
 
-    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         self.creations.fetch_add(1, Ordering::SeqCst);
-        Box::pin(async move { Ok(Arc::new(TestSession)) })
+        Ok(Arc::new(TestSession))
     }
 }
 

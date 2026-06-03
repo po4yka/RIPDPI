@@ -1,7 +1,7 @@
 use std::io;
 use std::sync::Arc;
 
-use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
+use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 
 #[derive(Clone)]
 pub(crate) enum XhttpSessionMode {
@@ -23,14 +23,12 @@ impl RelaySession for XhttpSession {
     type Datagram = ();
     type Error = io::Error;
 
-    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move { self.client.connect(target).await })
+    async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
+        self.client.connect(target).await
     }
 
-    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
-        Box::pin(async move {
-            Err(io::Error::new(io::ErrorKind::Unsupported, "xHTTP relay does not support UDP ASSOCIATE"))
-        })
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "xHTTP relay does not support UDP ASSOCIATE"))
     }
 }
 
@@ -42,14 +40,12 @@ impl RelaySessionFactory for XhttpSessionFactory {
         RelayCapabilities { tcp: true, udp: false, reusable: true }
     }
 
-    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let mode = self.mode.clone();
-        Box::pin(async move {
-            let client = match mode {
-                XhttpSessionMode::Reality(config) => ripdpi_xhttp::XhttpClient::new_reality(config),
-                XhttpSessionMode::Tls(config) => ripdpi_xhttp::XhttpClient::new_tls(config),
-            };
-            Ok(Arc::new(XhttpSession { client }))
-        })
+        let client = match mode {
+            XhttpSessionMode::Reality(config) => ripdpi_xhttp::XhttpClient::new_reality(config),
+            XhttpSessionMode::Tls(config) => ripdpi_xhttp::XhttpClient::new_tls(config),
+        };
+        Ok(Arc::new(XhttpSession { client }))
     }
 }

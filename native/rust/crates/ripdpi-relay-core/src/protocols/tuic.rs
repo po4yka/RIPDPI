@@ -1,7 +1,7 @@
 use std::io;
 use std::sync::Arc;
 
-use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
+use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 
 use crate::telemetry::{QuicMigrationTelemetryState, sync_quic_migration_state};
 
@@ -21,20 +21,16 @@ impl RelaySession for TuicSession {
     type Datagram = ripdpi_tuic::UdpSession;
     type Error = io::Error;
 
-    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move {
-            let stream = self.client.tcp_connect(target).await?;
-            sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
-            Ok(stream)
-        })
+    async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
+        let stream = self.client.tcp_connect(target).await?;
+        sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
+        Ok(stream)
     }
 
-    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
-        Box::pin(async move {
-            let session = self.client.udp_session().await?;
-            sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
-            Ok(session)
-        })
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        let session = self.client.udp_session().await?;
+        sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
+        Ok(session)
     }
 }
 
@@ -46,13 +42,11 @@ impl RelaySessionFactory for TuicSessionFactory {
         RelayCapabilities { tcp: true, udp: true, reusable: true }
     }
 
-    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let config = self.config.clone();
         let migration = self.migration.clone();
-        Box::pin(async move {
-            let client = ripdpi_tuic::TuicClient::connect(config).await?;
-            sync_quic_migration_state(&migration, client.quic_migration_snapshot());
-            Ok(Arc::new(TuicSession { client, migration }))
-        })
+        let client = ripdpi_tuic::TuicClient::connect(config).await?;
+        sync_quic_migration_state(&migration, client.quic_migration_snapshot());
+        Ok(Arc::new(TuicSession { client, migration }))
     }
 }

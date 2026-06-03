@@ -2,7 +2,7 @@ use std::io;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
+use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 
 #[derive(Clone)]
 pub(crate) struct VlessRealitySessionFactory {
@@ -20,23 +20,17 @@ impl RelaySession for VlessRealitySession {
     type Datagram = ();
     type Error = io::Error;
 
-    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move {
-            let stream = match self.outbound_bind_ip {
-                Some(bind_ip) => {
-                    ripdpi_vless::VlessRealityClient::connect_with_bind(&self.config, bind_ip, target).await?
-                }
-                None => ripdpi_vless::VlessRealityClient::connect(&self.config, target).await?,
-            };
-            let stream: Box<dyn ripdpi_vless::AsyncIo> = Box::new(stream);
-            Ok(stream)
-        })
+    async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
+        let stream = match self.outbound_bind_ip {
+            Some(bind_ip) => ripdpi_vless::VlessRealityClient::connect_with_bind(&self.config, bind_ip, target).await?,
+            None => ripdpi_vless::VlessRealityClient::connect(&self.config, target).await?,
+        };
+        let stream: Box<dyn ripdpi_vless::AsyncIo> = Box::new(stream);
+        Ok(stream)
     }
 
-    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
-        Box::pin(async move {
-            Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS Reality relay does not support UDP ASSOCIATE"))
-        })
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS Reality relay does not support UDP ASSOCIATE"))
     }
 }
 
@@ -48,9 +42,9 @@ impl RelaySessionFactory for VlessRealitySessionFactory {
         RelayCapabilities { tcp: true, udp: false, reusable: false }
     }
 
-    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let config = self.config.clone();
         let outbound_bind_ip = self.outbound_bind_ip;
-        Box::pin(async move { Ok(Arc::new(VlessRealitySession { config, outbound_bind_ip })) })
+        Ok(Arc::new(VlessRealitySession { config, outbound_bind_ip }))
     }
 }

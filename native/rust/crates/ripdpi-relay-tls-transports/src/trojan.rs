@@ -2,7 +2,7 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
-use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
+use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 pub use ripdpi_trojan::TrojanClientConfig;
@@ -41,22 +41,18 @@ impl RelaySession for TrojanSession {
     type Datagram = TrojanUdpSession;
     type Error = io::Error;
 
-    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move {
-            let (addr, port) = target_to_trojan(target)?;
-            let stream = ripdpi_trojan::TrojanClient::connect_tcp(&self.client_config, &addr, port, &[])
-                .await
-                .map_err(to_io_error)?;
-            Ok(Box::new(stream) as Box<dyn AsyncIo>)
-        })
+    async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
+        let (addr, port) = target_to_trojan(target)?;
+        let stream = ripdpi_trojan::TrojanClient::connect_tcp(&self.client_config, &addr, port, &[])
+            .await
+            .map_err(to_io_error)?;
+        Ok(Box::new(stream) as Box<dyn AsyncIo>)
     }
 
-    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
-        Box::pin(async move {
-            let stream =
-                ripdpi_trojan::TrojanClient::connect_udp_associate(&self.client_config).await.map_err(to_io_error)?;
-            Ok(TrojanUdpSession { stream: Box::new(stream) })
-        })
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        let stream =
+            ripdpi_trojan::TrojanClient::connect_udp_associate(&self.client_config).await.map_err(to_io_error)?;
+        Ok(TrojanUdpSession { stream: Box::new(stream) })
     }
 }
 
@@ -92,9 +88,9 @@ impl RelaySessionFactory for TrojanSessionFactory {
         RelayCapabilities { tcp: true, udp: true, reusable: false }
     }
 
-    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let client_config = self.client_config.clone();
-        Box::pin(async move { Ok(Arc::new(TrojanSession { client_config })) })
+        Ok(Arc::new(TrojanSession { client_config }))
     }
 }
 

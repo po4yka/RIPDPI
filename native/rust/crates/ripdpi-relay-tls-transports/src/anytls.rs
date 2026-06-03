@@ -2,7 +2,7 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
-use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
+use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 pub use ripdpi_anytls::session::AnyTlsClientConfig;
@@ -28,19 +28,15 @@ impl RelaySession for AnyTlsSession {
     type Datagram = AnyTlsUdpSession;
     type Error = io::Error;
 
-    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move {
-            let (addr, port) = target_to_anytls(target)?;
-            let stream = self.client.open_tcp(addr, port).await.map_err(to_io_error)?;
-            Ok(Box::new(bridge_stream(stream)) as Box<dyn AnyTlsAsyncIo>)
-        })
+    async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
+        let (addr, port) = target_to_anytls(target)?;
+        let stream = self.client.open_tcp(addr, port).await.map_err(to_io_error)?;
+        Ok(Box::new(bridge_stream(stream)) as Box<dyn AnyTlsAsyncIo>)
     }
 
-    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
-        Box::pin(async move {
-            let udp = self.client.open_udp_over_tcp().await.map_err(to_io_error)?;
-            Ok(AnyTlsUdpSession { udp })
-        })
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        let udp = self.client.open_udp_over_tcp().await.map_err(to_io_error)?;
+        Ok(AnyTlsUdpSession { udp })
     }
 }
 
@@ -52,12 +48,10 @@ impl RelaySessionFactory for AnyTlsSessionFactory {
         RelayCapabilities { tcp: true, udp: true, reusable: true }
     }
 
-    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let config = self.client_config.clone();
-        Box::pin(async move {
-            let client = ripdpi_anytls::session::AnyTlsClient::new(config).map_err(to_io_error)?;
-            Ok(Arc::new(AnyTlsSession { client }))
-        })
+        let client = ripdpi_anytls::session::AnyTlsClient::new(config).map_err(to_io_error)?;
+        Ok(Arc::new(AnyTlsSession { client }))
     }
 }
 

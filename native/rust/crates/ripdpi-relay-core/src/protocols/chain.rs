@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Instant;
 
-use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
+use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::telemetry::{ChainHopRole, ChainHopTelemetryState};
@@ -210,61 +210,57 @@ impl RelaySession for ChainRelaySession {
     type Datagram = ();
     type Error = io::Error;
 
-    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
+    async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
         // cancel-safe: each hop's connect/connect_over is itself cancel-safe and
         // the fold publishes nothing until the final stream is returned. A drop
         // mid-fold closes the partially-built tunnel (every prior hop's stream is
         // owned by `stream` and dropped with it) and leaves no orphaned task —
         // there is no detached `tokio::spawn` in this path.
-        Box::pin(async move {
-            let last_index = self.hops.len() - 1;
+        let last_index = self.hops.len() - 1;
 
-            // Entry hop (index 0): the only hop that opens a real outbound
-            // socket. Its destination is the next hop's proxy authority (for a
-            // 2-hop chain that is the exit's authority).
-            let entry_destination = if last_index == 0 { target.to_string() } else { self.hops[1].proxy_target()? };
-            self.record(0, "connecting", None);
+        // Entry hop (index 0): the only hop that opens a real outbound
+        // socket. Its destination is the next hop's proxy authority (for a
+        // 2-hop chain that is the exit's authority).
+        let entry_destination = if last_index == 0 { target.to_string() } else { self.hops[1].proxy_target()? };
+        self.record(0, "connecting", None);
+        let started = Instant::now();
+        let mut stream = match self.hops[0].connect(self.outbound_bind_ip, &entry_destination).await {
+            Ok(stream) => {
+                self.record(0, "connected", Some(started.elapsed().as_millis() as u64));
+                stream
+            }
+            Err(error) => {
+                self.record(0, "failed", Some(started.elapsed().as_millis() as u64));
+                return Err(error);
+            }
+        };
+
+        // Intermediate + exit hops: each tunnels through the prior hop's
+        // stream. Hop `i` dials hop `i+1`'s proxy authority, except the last
+        // hop, which dials the caller's final `target`.
+        for index in 1..self.hops.len() {
+            let destination =
+                if index == last_index { target.to_string() } else { self.hops[index + 1].proxy_target()? };
+            self.record(index, "connecting", None);
             let started = Instant::now();
-            let mut stream = match self.hops[0].connect(self.outbound_bind_ip, &entry_destination).await {
+            stream = match self.hops[index].connect_over(stream, &destination).await {
                 Ok(stream) => {
-                    self.record(0, "connected", Some(started.elapsed().as_millis() as u64));
+                    self.record(index, "connected", Some(started.elapsed().as_millis() as u64));
                     stream
                 }
                 Err(error) => {
-                    self.record(0, "failed", Some(started.elapsed().as_millis() as u64));
+                    self.record(index, "failed", Some(started.elapsed().as_millis() as u64));
                     return Err(error);
                 }
             };
+        }
 
-            // Intermediate + exit hops: each tunnels through the prior hop's
-            // stream. Hop `i` dials hop `i+1`'s proxy authority, except the last
-            // hop, which dials the caller's final `target`.
-            for index in 1..self.hops.len() {
-                let destination =
-                    if index == last_index { target.to_string() } else { self.hops[index + 1].proxy_target()? };
-                self.record(index, "connecting", None);
-                let started = Instant::now();
-                stream = match self.hops[index].connect_over(stream, &destination).await {
-                    Ok(stream) => {
-                        self.record(index, "connected", Some(started.elapsed().as_millis() as u64));
-                        stream
-                    }
-                    Err(error) => {
-                        self.record(index, "failed", Some(started.elapsed().as_millis() as u64));
-                        return Err(error);
-                    }
-                };
-            }
-
-            Ok(stream)
-        })
+        Ok(stream)
     }
 
-    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
         // cancel-safe: returns immediately with an error; no awaits, no state.
-        Box::pin(async move {
-            Err(io::Error::new(io::ErrorKind::Unsupported, "chain relay does not support UDP ASSOCIATE"))
-        })
+        Err(io::Error::new(io::ErrorKind::Unsupported, "chain relay does not support UDP ASSOCIATE"))
     }
 }
 
@@ -276,11 +272,11 @@ impl RelaySessionFactory for ChainRelaySessionFactory {
         RelayCapabilities { tcp: true, udp: false, reusable: false }
     }
 
-    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let hops = self.hops.clone();
         let outbound_bind_ip = self.outbound_bind_ip;
         let telemetry = self.telemetry.clone();
         // cancel-safe: pure construction, no awaits with side effects.
-        Box::pin(async move { Ok(Arc::new(ChainRelaySession { hops, outbound_bind_ip, telemetry })) })
+        Ok(Arc::new(ChainRelaySession { hops, outbound_bind_ip, telemetry }))
     }
 }

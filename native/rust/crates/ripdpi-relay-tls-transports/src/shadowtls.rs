@@ -1,7 +1,7 @@
 use std::io;
 use std::sync::Arc;
 
-use ripdpi_relay_mux::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
+use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 pub type ShadowTlsClientConfig = ripdpi_shadowtls::Config;
@@ -70,22 +70,18 @@ impl RelaySession for ShadowTlsSession {
     type Datagram = ();
     type Error = io::Error;
 
-    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move {
-            let factory = ShadowTlsSessionFactory {
-                client_config: self.client_config.clone(),
-                outer_server: self.outer_server.clone(),
-                outer_server_port: self.outer_server_port,
-                inner: self.inner.clone(),
-            };
-            connect_shadowtls_tcp(&factory, target).await
-        })
+    async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
+        let factory = ShadowTlsSessionFactory {
+            client_config: self.client_config.clone(),
+            outer_server: self.outer_server.clone(),
+            outer_server_port: self.outer_server_port,
+            inner: self.inner.clone(),
+        };
+        connect_shadowtls_tcp(&factory, target).await
     }
 
-    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
-        Box::pin(async move {
-            Err(io::Error::new(io::ErrorKind::Unsupported, "ShadowTLS relay does not support UDP ASSOCIATE"))
-        })
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        Err(io::Error::new(io::ErrorKind::Unsupported, "ShadowTLS relay does not support UDP ASSOCIATE"))
     }
 }
 
@@ -139,13 +135,11 @@ impl RelaySessionFactory for ShadowTlsSessionFactory {
         RelayCapabilities { tcp: true, udp: false, reusable: false }
     }
 
-    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let client_config = self.client_config.clone();
         let outer_server = self.outer_server.clone();
         let outer_server_port = self.outer_server_port;
         let inner = self.inner.clone();
-        Box::pin(
-            async move { Ok(Arc::new(ShadowTlsSession { client_config, outer_server, outer_server_port, inner })) },
-        )
+        Ok(Arc::new(ShadowTlsSession { client_config, outer_server, outer_server_port, inner }))
     }
 }

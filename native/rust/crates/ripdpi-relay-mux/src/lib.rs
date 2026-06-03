@@ -28,7 +28,7 @@ mod tests;
 mod types;
 pub mod wire_mux;
 
-pub use contracts::{BoxFuture, RelayCapabilities, RelaySession, RelaySessionFactory};
+pub use contracts::{RelayCapabilities, RelaySession, RelaySessionFactory};
 pub use pool::RelayMux;
 pub use stream::{MuxLease, MuxStream};
 pub use types::{RelayPoolConfig, RelayPoolHealth};
