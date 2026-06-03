@@ -1,3 +1,15 @@
+// Crate-local hardening for the unsafe lint floor (rust-unsafe skill +
+// .claude/rules/llm-rust-prompts.md: undocumented `unsafe` is a top UB
+// predictor). `golden-test-support`'s only `unsafe` surface is the test-only
+// `env::set_var` / `env::remove_var` mutation, which became `unsafe` in Rust
+// 2024 because the process environment is global mutable state with no
+// internal synchronization. Re-enabling the workspace-deferred
+// `undocumented_unsafe_blocks` lint crate-locally turns the SAFETY-comment
+// requirement into a build-time error while the rest of the workspace
+// continues the gradual migration.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 use std::env;
 use std::fs;
 use std::io;
@@ -207,7 +219,13 @@ mod tests {
     impl EnvRestore {
         fn set(key: &'static str, value: &Path) -> Self {
             let previous = env::var_os(key);
-            // FIXME: Audit that the environment access only happens in single-threaded code.
+            // SAFETY: `env::set_var` is unsafe because the process environment is
+            // global mutable state with no internal locking; a concurrent reader or
+            // writer is a data race. Every call site in this crate's tests (and the
+            // matching restore in `Drop` below) is serialized behind the `ENV_LOCK`
+            // mutex, which the caller holds for the whole test, so no other
+            // `EnvRestore`/`repo_root`/`contract_fixture_path` env access can run
+            // concurrently. `key` is a `'static` env name and `value` a valid path.
             unsafe { env::set_var(key, value) };
             Self { key, previous }
         }
@@ -216,10 +234,15 @@ mod tests {
     impl Drop for EnvRestore {
         fn drop(&mut self) {
             if let Some(previous) = &self.previous {
-                // FIXME: Audit that the environment access only happens in single-threaded code.
+                // SAFETY: same serialization invariant as `EnvRestore::set` — this
+                // `Drop` runs while the test still holds the `ENV_LOCK` guard (the
+                // guard is declared before the `EnvRestore`, so it outlives this
+                // drop), so the restoring write cannot race another env access.
                 unsafe { env::set_var(self.key, previous) };
             } else {
-                // FIXME: Audit that the environment access only happens in single-threaded code.
+                // SAFETY: same serialization invariant as `EnvRestore::set` — this
+                // `Drop` runs under the still-held `ENV_LOCK` guard, so removing the
+                // (previously unset) key cannot race another env access.
                 unsafe { env::remove_var(self.key) };
             }
         }
