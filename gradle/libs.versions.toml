@@ -38,6 +38,7 @@ kaml = "0.104.0"
 room = "2.8.4"
 robolectric = "4.16.1"
 roborazzi = "1.63.0"
+leakcanary = "2.14"
 compose-preview-plugin = "0.12.1"
 module-graph = "0.13.0"
 retrofit = "3.0.0"
@@ -148,6 +149,7 @@ hilt-android-testing = { module = "com.google.dagger:hilt-android-testing", vers
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 androidx-hilt-lifecycle-viewmodel-compose = { module = "androidx.hilt:hilt-lifecycle-viewmodel-compose", version.ref = "hilt-lifecycle-viewmodel-compose" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+leakcanary-android = { module = "com.squareup.leakcanary:leakcanary-android", version.ref = "leakcanary" }
 roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
 roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
