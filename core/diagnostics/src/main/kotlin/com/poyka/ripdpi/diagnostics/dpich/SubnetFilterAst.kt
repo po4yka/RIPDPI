@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
 sealed interface SubnetFilterAst {
-    object Empty : SubnetFilterAst
+    data object Empty : SubnetFilterAst
 
     data class Org(
         val args: List<String>,
