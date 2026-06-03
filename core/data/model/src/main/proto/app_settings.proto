@@ -414,6 +414,11 @@ message AppSettings {
   string detection_check_dns_direct_servers = 279;
   string detection_check_dns_doh_url = 280;
   string detection_check_dns_doh_bootstrap_ips = 281;
+  // Censorship-resistance lever: route the chosen encrypted-DNS connection
+  // through the SOCKS5/relay path so the TSPU cannot SNI-block the resolver
+  // endpoint. Drives the native MapDnsConfig serde key
+  // "route-dns-through-socks5". proto3 bool defaults to false (off).
+  bool detection_check_dns_route_through_proxy = 408;
   int32 dpi_suite_concurrency = 282; // Max concurrent requests for manual DPI probe suite (default 100)
   bool detection_diagnostic_random_hostnames_enabled = 283; // Randomize Host/SNI in manual diagnostic probes
   string detection_diagnostic_tls_keylog_path = 284; // Hidden diagnostic TLS keylog path; empty disables

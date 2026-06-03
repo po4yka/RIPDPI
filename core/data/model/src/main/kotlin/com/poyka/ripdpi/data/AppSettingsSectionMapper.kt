@@ -222,6 +222,7 @@ private fun AppSettings.detectionSection(): DetectionSettingsSection =
         detectionCheckDnsDirectServers = detectionCheckDnsDirectServers,
         detectionCheckDnsDohUrl = detectionCheckDnsDohUrl,
         detectionCheckDnsDohBootstrapIps = detectionCheckDnsDohBootstrapIps,
+        detectionCheckDnsRouteThroughProxy = detectionCheckDnsRouteThroughProxy,
         dpiSuiteConcurrency = dpiSuiteConcurrency,
         detectionDiagnosticRandomHostnamesEnabled = detectionDiagnosticRandomHostnamesEnabled,
         detectionDiagnosticTlsKeylogPath = detectionDiagnosticTlsKeylogPath,

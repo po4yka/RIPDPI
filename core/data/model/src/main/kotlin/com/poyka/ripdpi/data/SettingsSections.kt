@@ -216,6 +216,7 @@ data class DetectionSettingsSection(
     val detectionCheckDnsDirectServers: String = "",
     val detectionCheckDnsDohUrl: String = "",
     val detectionCheckDnsDohBootstrapIps: String = "",
+    val detectionCheckDnsRouteThroughProxy: Boolean = false,
     val dpiSuiteConcurrency: Int = 0,
     val detectionDiagnosticRandomHostnamesEnabled: Boolean = false,
     val detectionDiagnosticTlsKeylogPath: String = "",

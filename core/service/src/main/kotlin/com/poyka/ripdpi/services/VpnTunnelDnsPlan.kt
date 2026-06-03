@@ -30,6 +30,9 @@ internal fun vpnTunnelDnsPlan(
             ),
         resolverDns = resolverDns,
         mapDnsEnabled = resolverDns.mode == DnsModeEncrypted,
-        routeDnsThroughSocks5 = forceTunnelDns,
+        // Relay fail-closed (forceTunnelDns) OR the user-facing
+        // "route encrypted DNS through proxy" setting drive the native
+        // MapDnsConfig "route-dns-through-socks5" flag.
+        routeDnsThroughSocks5 = forceTunnelDns || activeDns.routeThroughProxy,
     )
 }

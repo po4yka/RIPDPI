@@ -64,6 +64,10 @@ data class ActiveDnsSettings(
     val encryptedDnsOdohConfigsHex: String = "",
     val encryptedDnsOdohConfigsRetrievedAtSecs: Long = 0L,
     val encryptedDnsOdohConfigsTtlSecs: Long = 0L,
+    // Censorship-resistance lever: tunnel the encrypted-DNS connection through
+    // the SOCKS5/relay path. Carried to the native MapDnsConfig serde key
+    // "route-dns-through-socks5". Defaults off; sourced from the user setting.
+    val routeThroughProxy: Boolean = false,
 ) {
     val isEncrypted: Boolean
         get() = mode == DnsModeEncrypted
@@ -491,4 +495,4 @@ fun AppSettings.activeDnsSettings(): ActiveDnsSettings =
                 odohConfigsRetrievedAtSecs = encryptedDnsOdohConfigsRetrievedAtSecs,
                 odohConfigsTtlSecs = encryptedDnsOdohConfigsTtlSecs,
             ),
-    )
+    ).copy(routeThroughProxy = detectionCheckDnsRouteThroughProxy)

@@ -137,10 +137,10 @@ internal class DetectionSettingsViewModel
             viewModelScope.launch {
                 appSettingsRepository.update {
                     detectionCheckDnsPreset = preset.wireValue
-                    if (preset != DetectionDnsPreset.CUSTOM) {
+                    if (!preset.isCustom) {
                         detectionCheckDnsDirectServers = preset.directServers
                         detectionCheckDnsDohUrl = preset.dohUrl
-                        detectionCheckDnsDohBootstrapIps = preset.directServers
+                        detectionCheckDnsDohBootstrapIps = preset.dohBootstrapIps
                     }
                 }
             }
@@ -169,6 +169,14 @@ internal class DetectionSettingsViewModel
                 appSettingsRepository.update {
                     detectionCheckDnsPreset = DetectionDnsPreset.CUSTOM.wireValue
                     detectionCheckDnsDohBootstrapIps = value
+                }
+            }
+        }
+
+        fun setDnsRouteThroughProxy(enabled: Boolean) {
+            viewModelScope.launch {
+                appSettingsRepository.update {
+                    detectionCheckDnsRouteThroughProxy = enabled
                 }
             }
         }
