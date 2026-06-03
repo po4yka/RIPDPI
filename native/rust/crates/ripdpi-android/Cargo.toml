@@ -16,7 +16,6 @@ crate-type = ["cdylib"]
 # symbols and process-level library initialization.
 android-support = { workspace = true }
 jni = { workspace = true }
-once_cell = { workspace = true }
 ripdpi-android-bridge-support = { workspace = true }
 ripdpi-android-diagnostics-adapter = { workspace = true }
 ripdpi-android-fetch-adapter = { workspace = true }

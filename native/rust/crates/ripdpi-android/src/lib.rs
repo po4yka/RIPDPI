@@ -3,11 +3,11 @@ mod ffi;
 use android_support::{JNI_VERSION, init_android_logging};
 use jni::JavaVM;
 use jni::sys::jint;
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 
 pub use ffi::*;
 
-static JVM: OnceCell<JavaVM> = OnceCell::new();
+static JVM: OnceLock<JavaVM> = OnceLock::new();
 
 fn jni_on_load_impl() -> jint {
     android_support::ignore_sigpipe();

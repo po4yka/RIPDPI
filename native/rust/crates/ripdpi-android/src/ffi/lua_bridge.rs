@@ -5,12 +5,12 @@ use android_support::ffi_boundary;
 use jni::objects::{JObject, JObjectArray, JString};
 use jni::sys::{jobjectArray, jstring};
 use jni::{Env, EnvUnowned, Outcome};
-use once_cell::sync::Lazy;
 use ripdpi_strategy_lua::{LuaError, LuaStrategyEngine};
+use std::sync::LazyLock;
 
-static LUA_ENGINE: Lazy<Result<Mutex<LuaStrategyEngine>, String>> =
-    Lazy::new(|| LuaStrategyEngine::new().map(Mutex::new).map_err(|error| error.to_string()));
-static LOADED_SCRIPT_PATHS: Lazy<Mutex<Vec<PathBuf>>> = Lazy::new(|| Mutex::new(Vec::new()));
+static LUA_ENGINE: LazyLock<Result<Mutex<LuaStrategyEngine>, String>> =
+    LazyLock::new(|| LuaStrategyEngine::new().map(Mutex::new).map_err(|error| error.to_string()));
+static LOADED_SCRIPT_PATHS: LazyLock<Mutex<Vec<PathBuf>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaLoadScript(

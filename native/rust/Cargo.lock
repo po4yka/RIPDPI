@@ -5300,7 +5300,6 @@ version = "0.1.0"
 dependencies = [
  "android-support",
  "jni",
- "once_cell",
  "ripdpi-android-bridge-support",
  "ripdpi-android-diagnostics-adapter",
  "ripdpi-android-fetch-adapter",
