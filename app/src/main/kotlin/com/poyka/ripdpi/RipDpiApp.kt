@@ -1,6 +1,7 @@
 package com.poyka.ripdpi
 
 import android.app.Application
+import android.content.ComponentCallbacks2
 import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
@@ -10,6 +11,7 @@ import co.touchlab.kermit.platformLogWriter
 import com.poyka.ripdpi.diagnostics.BreadcrumbLogWriter
 import com.poyka.ripdpi.diagnostics.FileLogWriter
 import com.poyka.ripdpi.diagnostics.crash.CrashReportWriter
+import com.poyka.ripdpi.platform.MemoryTrimCoordinator
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -25,6 +27,9 @@ class RipDpiApp :
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
+
+    @Inject
+    lateinit var memoryTrimCoordinator: MemoryTrimCoordinator
 
     // Hilt-WorkManager integration: WorkManager queries this provider when
     // it needs to instantiate a `@HiltWorker`-annotated worker so the
@@ -51,6 +56,21 @@ class RipDpiApp :
         Logger.setLogWriters(platformLogWriter(), fileLogWriter, breadcrumbWriter)
         Logger.setMinSeverity(if (BuildConfig.DEBUG) Severity.Verbose else Severity.Warn)
         startupInitializer.initialize()
+    }
+
+    // Android reclaims memory from backgrounded processes and, on Android 17,
+    // hard-caps a single app's footprint. Voluntarily shed regenerable caches
+    // when the UI is hidden so the OS does not have to (and so RIPDPI stays
+    // under the cap). Only TRIM_MEMORY_UI_HIDDEN and TRIM_MEMORY_BACKGROUND are
+    // still delivered by the platform as of Android 14/15; the other levels are
+    // deprecated no-ops.
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ||
+            level == ComponentCallbacks2.TRIM_MEMORY_BACKGROUND
+        ) {
+            memoryTrimCoordinator.onAppBackgrounded()
+        }
     }
 }
 

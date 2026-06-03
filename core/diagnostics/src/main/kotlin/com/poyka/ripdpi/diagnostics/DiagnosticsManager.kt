@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.TrimmableCache
 import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter
@@ -13,6 +14,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
@@ -402,6 +404,13 @@ abstract class DiagnosticsManagerModule {
     @Binds
     @Singleton
     abstract fun bindProbeResultCache(cache: DefaultProbeResultCache): ProbeResultCache
+
+    // Lets RipDpiApp.onTrimMemory shed the in-memory probe cache when the app is
+    // backgrounded (Android 17 per-app memory cap). The persisted file survives;
+    // only the regenerable in-memory map is dropped. See [TrimmableCache].
+    @Binds
+    @IntoSet
+    abstract fun bindProbeResultCacheTrimmable(cache: DefaultProbeResultCache): TrimmableCache
 
     @Binds
     @Singleton

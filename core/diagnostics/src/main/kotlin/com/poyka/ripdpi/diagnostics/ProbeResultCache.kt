@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.TrimmableCache
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -41,7 +42,8 @@ class DefaultProbeResultCache
     constructor(
         @ApplicationContext context: Context,
         @param:Named("diagnosticsJson") private val json: Json,
-    ) : ProbeResultCache {
+    ) : ProbeResultCache,
+        TrimmableCache {
         private companion object {
             private const val MAX_ENTRIES = 10
             private const val TTL_MS = 24L * 60L * 60L * 1_000L
@@ -50,6 +52,8 @@ class DefaultProbeResultCache
 
         private val cacheFile = File(context.filesDir, "probe_result_cache.json")
         private val mutex = Mutex()
+
+        @Volatile
         private var entries: MutableMap<String, CachedProbeOutcome>? = null
 
         private fun ensureLoaded(): MutableMap<String, CachedProbeOutcome> {
@@ -126,4 +130,17 @@ class DefaultProbeResultCache
                 map.clear()
                 persist(map)
             }
+
+        /**
+         * Drops the in-memory copy of the cache (the persisted file is left
+         * untouched). The next [lookup]/[store] reloads it from disk via
+         * [ensureLoaded], so this only sheds regenerable memory -- exactly the
+         * behaviour Android's `TRIM_MEMORY_UI_HIDDEN`/`TRIM_MEMORY_BACKGROUND`
+         * callbacks ask for. Non-blocking and main-thread safe; `entries` is
+         * volatile so the null write is visible to concurrent suspend callers,
+         * which simply reload on their next access.
+         */
+        override fun trimToBackground() {
+            entries = null
+        }
     }
