@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NativeEventRecord {
@@ -197,7 +197,7 @@ impl EventRingBuffers {
 }
 
 pub(crate) fn global_event_rings() -> &'static EventRingBuffers {
-    static EVENT_RINGS: OnceCell<EventRingBuffers> = OnceCell::new();
+    static EVENT_RINGS: OnceLock<EventRingBuffers> = OnceLock::new();
     EVENT_RINGS.get_or_init(EventRingBuffers::default)
 }
 

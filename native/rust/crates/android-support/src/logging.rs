@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::PoisonError;
 
 use log::LevelFilter;
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 #[cfg(target_os = "android")]
 use tracing_log::LogTracer;
 #[cfg(target_os = "android")]
@@ -19,9 +19,9 @@ use crate::tracing_layer::EventRingLayer;
 /// so that the log backend is already wired up to logcat (on Android) or
 /// stderr (on other targets).
 ///
-/// Guarded by `OnceCell` -- safe to call from multiple `.so` loads.
+/// Guarded by `OnceLock` -- safe to call from multiple `.so` loads.
 pub fn install_panic_hook() {
-    static HOOK: OnceCell<()> = OnceCell::new();
+    static HOOK: OnceLock<()> = OnceLock::new();
     HOOK.get_or_init(|| {
         std::panic::set_hook(Box::new(|info| {
             let backtrace = std::backtrace::Backtrace::force_capture();
@@ -31,7 +31,7 @@ pub fn install_panic_hook() {
 }
 
 pub fn init_android_logging(tag: &'static str) {
-    static INIT: OnceCell<()> = OnceCell::new();
+    static INIT: OnceLock<()> = OnceLock::new();
     INIT.get_or_init(|| {
         #[cfg(target_os = "android")]
         {
@@ -111,7 +111,7 @@ pub fn ignore_sigpipe() {
 }
 
 fn log_scope_levels() -> &'static Mutex<HashMap<String, LevelFilter>> {
-    static LOG_SCOPE_LEVELS: OnceCell<Mutex<HashMap<String, LevelFilter>>> = OnceCell::new();
+    static LOG_SCOPE_LEVELS: OnceLock<Mutex<HashMap<String, LevelFilter>>> = OnceLock::new();
     LOG_SCOPE_LEVELS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 

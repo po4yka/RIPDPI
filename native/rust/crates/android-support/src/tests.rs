@@ -1,17 +1,17 @@
 use golden_test_support::{assert_contract_fixture, assert_text_golden};
 use jni::{Env, EnvUnowned, InitArgsBuilder, JNIVersion, JavaVM};
 use log::LevelFilter;
-use once_cell::sync::{Lazy, OnceCell};
 use serde_json::json;
 use std::sync::Mutex;
+use std::sync::{LazyLock, OnceLock};
 use tracing_subscriber::prelude::*;
 
 use super::*;
 use crate::tracing_layer::MessageFieldFormatter;
 
-static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
-static JNI_TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
-static LOG_LEVEL_TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static TEST_JVM: OnceLock<JavaVM> = OnceLock::new();
+static JNI_TEST_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+static LOG_LEVEL_TEST_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 #[test]
 fn install_panic_hook_is_idempotent() {
