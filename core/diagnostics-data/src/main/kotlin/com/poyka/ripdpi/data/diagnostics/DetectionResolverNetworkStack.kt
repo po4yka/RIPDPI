@@ -5,6 +5,7 @@ import android.os.ParcelFileDescriptor
 import android.system.Os
 import android.system.OsConstants
 import com.poyka.ripdpi.data.ActiveDnsSettings
+import com.poyka.ripdpi.data.BundledDnsProviderCatalog
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import okhttp3.Dispatcher
@@ -53,29 +54,30 @@ data class DnsPreset(
     val dohHost: String,
 ) {
     companion object {
-        val CLOUDFLARE =
-            DnsPreset(
-                id = "cloudflare",
-                servers = listOf("1.1.1.1", "1.0.0.1"),
-                dohUrl = "https://cloudflare-dns.com/dns-query",
-                dohHost = "cloudflare-dns.com",
-            )
-        val GOOGLE =
-            DnsPreset(
-                id = "google",
-                servers = listOf("8.8.8.8", "8.8.4.4"),
-                dohUrl = "https://dns.google/dns-query",
-                dohHost = "dns.google",
-            )
-        val YANDEX =
-            DnsPreset(
-                id = "yandex",
-                servers = listOf("77.88.8.8", "77.88.8.1"),
-                dohUrl = "https://common.dot.dns.yandex.net/dns-query",
-                dohHost = "common.dot.dns.yandex.net",
-            )
+        /**
+         * Every DoH-capable bundled catalog entry, mapped onto the diagnostics-facing [DnsPreset]
+         * shape and cached so each id yields one stable instance (the [assertSame] identity the
+         * resolver tests rely on). Sourced from [BundledDnsProviderCatalog] — the same offline
+         * catalog the encrypted-DNS settings pipeline and the `:core:service` loader agree on.
+         */
+        val ALL: List<DnsPreset> =
+            BundledDnsProviderCatalog.providers
+                .filter { it.supportsDoh && it.dohUrl.isNotBlank() }
+                .map { entry ->
+                    DnsPreset(
+                        id = entry.id,
+                        servers = entry.bootstrapIps,
+                        dohUrl = entry.dohUrl,
+                        dohHost = entry.tlsServerName.ifBlank { entry.dotHost },
+                    )
+                }
 
-        val ALL = listOf(CLOUDFLARE, GOOGLE, YANDEX)
+        /** Convenience accessors for the historically named presets; resolve via the catalog by id. */
+        val CLOUDFLARE: DnsPreset = requireNotNull(byId("cloudflare")) { "cloudflare missing from DNS catalog" }
+        val GOOGLE: DnsPreset = requireNotNull(byId("google")) { "google missing from DNS catalog" }
+        val YANDEX: DnsPreset = requireNotNull(byId("yandex")) { "yandex missing from DNS catalog" }
+
+        private fun byId(id: String): DnsPreset? = ALL.firstOrNull { it.id.equals(id, ignoreCase = true) }
 
         fun byName(name: String): DnsPreset? =
             ALL.firstOrNull { it.id.equals(name, ignoreCase = true) || it.dohHost.equals(name, ignoreCase = true) }

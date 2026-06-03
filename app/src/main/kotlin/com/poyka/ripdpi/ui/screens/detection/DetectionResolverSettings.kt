@@ -42,7 +42,7 @@ private fun DetectionDnsPreset.toDataDnsPreset(
     configuredDohUrl: String,
 ): DnsPreset {
     val preset = DnsPreset.byName(wireValue)
-    if (this != DetectionDnsPreset.CUSTOM && preset != null) return preset
+    if (!isCustom && preset != null) return preset
 
     val fallback = preset ?: DnsPreset.CLOUDFLARE
     val dohUrl = configuredDohUrl.ifBlank { fallback.dohUrl }

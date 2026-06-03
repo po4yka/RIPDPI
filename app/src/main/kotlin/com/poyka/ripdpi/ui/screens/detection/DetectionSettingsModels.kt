@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.ui.screens.detection
 
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
+import com.poyka.ripdpi.data.BundledDnsProviderCatalog
+import com.poyka.ripdpi.data.DnsProviderCatalogEntry
+import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.proto.AppSettings
 import kotlin.math.max
 
@@ -56,22 +59,97 @@ enum class DetectionDnsResolverMode(
     }
 }
 
-enum class DetectionDnsPreset(
+/**
+ * A selectable DNS preset for the detection resolver. Keyed by the catalog id ([wireValue]); any id
+ * present in [BundledDnsProviderCatalog] resolves to a catalog-backed preset, so the persisted
+ * wireValue is no longer limited to a closed enum. The user-defined custom resolver keeps the stable
+ * "custom" sentinel ([CUSTOM]).
+ *
+ * [directServers] is the IPv4-only, comma-joined bootstrap list used to pre-fill the editable direct
+ * field (matching the historical preset strings); [dohBootstrapIps] mirrors it for the DoH bootstrap
+ * field. The richer (IPv6-bearing) bootstrap set stays available via the catalog entry / loader.
+ */
+data class DetectionDnsPreset(
     val wireValue: String,
     val displayName: String,
     val directServers: String,
     val dohUrl: String,
+    val dohBootstrapIps: String,
+    val noLog: Boolean = false,
+    val noFilter: Boolean = false,
+    val dnssec: Boolean = false,
+    val jurisdictionRu: Boolean = false,
 ) {
-    CUSTOM("custom", "Custom", "", ""),
-    CLOUDFLARE("cloudflare", "Cloudflare", "1.1.1.1, 1.0.0.1", "https://cloudflare-dns.com/dns-query"),
-    GOOGLE("google", "Google", "8.8.8.8, 8.8.4.4", "https://dns.google/dns-query"),
-    YANDEX("yandex", "Yandex", "77.88.8.8, 77.88.8.1", "https://common.dot.dns.yandex.net/dns-query"),
-    ;
+    val isCustom: Boolean
+        get() = wireValue == DnsProviderCustom
 
     companion object {
-        fun fromWire(value: String): DetectionDnsPreset = entries.firstOrNull { it.wireValue == value } ?: CUSTOM
+        /** Stable sentinel for the user-defined custom resolver. */
+        val CUSTOM: DetectionDnsPreset =
+            DetectionDnsPreset(
+                wireValue = DnsProviderCustom,
+                displayName = "Custom",
+                directServers = "",
+                dohUrl = "",
+                dohBootstrapIps = "",
+            )
+
+        /** Catalog-backed accessors for the historically curated short-list presets. */
+        val CLOUDFLARE: DetectionDnsPreset = fromCatalogId("cloudflare")
+        val GOOGLE: DetectionDnsPreset = fromCatalogId("google")
+        val YANDEX: DetectionDnsPreset = fromCatalogId("yandex")
+
+        /**
+         * The curated short-list set surfaced in the preset chip selector — kept stable (custom +
+         * the three historical providers) so the settings screen contract and its screenshots do not
+         * churn as the bundled catalog grows. Selection of any other catalog id still resolves through
+         * [fromWire] and [selectDnsPreset].
+         */
+        val entries: List<DetectionDnsPreset> = listOf(CUSTOM, CLOUDFLARE, GOOGLE, YANDEX)
+
+        /**
+         * The full picker set: the custom sentinel followed by every bundled catalog provider in
+         * catalog order. This is what the catalog-driven provider picker surfaces (~15 providers +
+         * Custom), as opposed to the curated [entries] short-list used by the legacy chip contract.
+         */
+        val catalogPresets: List<DetectionDnsPreset> =
+            buildList {
+                add(CUSTOM)
+                BundledDnsProviderCatalog.providers.forEach { add(it.toPreset()) }
+            }
+
+        /**
+         * Resolves any persisted wireValue: the curated short-list entries first, then any other
+         * bundled catalog id, falling back to [CUSTOM] for unknown / user-defined resolvers.
+         */
+        fun fromWire(value: String): DetectionDnsPreset =
+            entries.firstOrNull { it.wireValue == value }
+                ?: BundledDnsProviderCatalog.byId(value)?.toPreset()
+                ?: CUSTOM
+
+        private fun fromCatalogId(id: String): DetectionDnsPreset =
+            requireNotNull(BundledDnsProviderCatalog.byId(id)) { "$id missing from bundled DNS catalog" }.toPreset()
+
+        private fun DnsProviderCatalogEntry.toPreset(): DetectionDnsPreset {
+            val ipv4Bootstraps = bootstrapIps.filter { it.isIpv4Literal() }.joinToString(", ")
+            return DetectionDnsPreset(
+                wireValue = id,
+                displayName = name,
+                directServers = ipv4Bootstraps,
+                dohUrl = dohUrl,
+                dohBootstrapIps = ipv4Bootstraps,
+                noLog = flags.noLog,
+                noFilter = flags.noFilter,
+                dnssec = flags.dnssec,
+                jurisdictionRu = rf.jurisdictionRu,
+            )
+        }
     }
 }
+
+private fun String.isIpv4Literal(): Boolean = !contains(':') && IPV4_PRESET_LITERAL.matches(trim())
+
+private val IPV4_PRESET_LITERAL = Regex("""\d{1,3}(?:\.\d{1,3}){3}""")
 
 data class DetectionSettingsUiState(
     val networkRequestsEnabled: Boolean = true,
@@ -104,7 +182,7 @@ data class DetectionSettingsUiState(
         get() = if (networkRequestsEnabled) EnabledControlAlpha else DisabledControlAlpha
 
     val dnsFieldsEditable: Boolean
-        get() = dnsPreset == DetectionDnsPreset.CUSTOM
+        get() = dnsPreset.isCustom
 
     val tlsKeylogPathVisible: Boolean
         get() = debugModeEnabled
@@ -131,14 +209,14 @@ data class DetectionSettingsUiState(
             }
 
     fun selectDnsPreset(preset: DetectionDnsPreset): DetectionSettingsUiState =
-        if (preset == DetectionDnsPreset.CUSTOM) {
+        if (preset.isCustom) {
             copy(dnsPreset = preset)
         } else {
             copy(
                 dnsPreset = preset,
                 dnsDirectServers = preset.directServers,
                 dnsDohUrl = preset.dohUrl,
-                dnsDohBootstrapIps = preset.directServers,
+                dnsDohBootstrapIps = preset.dohBootstrapIps,
             )
         }
 
@@ -178,7 +256,7 @@ data class DetectionSettingsUiState(
 }
 
 private fun DetectionSettingsUiState.selectDnsPresetIfNeeded(preset: DetectionDnsPreset): DetectionSettingsUiState =
-    if (preset == DetectionDnsPreset.CUSTOM) this else selectDnsPreset(preset)
+    if (preset.isCustom) this else selectDnsPreset(preset)
 
 private fun Int.nonZeroOr(defaultValue: Int): Int = if (this == 0) defaultValue else this
 
