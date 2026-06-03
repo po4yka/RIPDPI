@@ -26,6 +26,15 @@
 //! See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
 //! containment) and §7 (error mapping).
 
+// The only `unsafe` in this crate is in the `test-support` module's JNI helpers
+// (`EnvUnowned::from_raw`, `JString::from_raw`). Re-enable the workspace-deferred
+// unsafe-documentation lints locally so every `unsafe` block keeps its inline
+// `// SAFETY:` invariant and no block fuses multiple unsafe operations — matching
+// the convention in `ripdpi-vless` / `ripdpi-io-uring` / `ripdpi-privileged-ops`
+// / `ripdpi-proxy-runtime` (per the `rust-unsafe` skill's lint floor).
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 use std::any::Any;
 
 use android_support::{
