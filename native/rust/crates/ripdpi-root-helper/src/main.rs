@@ -1,3 +1,13 @@
+// Lint floor for a crate that contains `unsafe` (raw-fd adoption over
+// SCM_RIGHTS, `libc::close`/`libc::chown`/`libc::signal` syscall wrappers).
+// Mirrors the convention adopted by ripdpi-vless / ripdpi-privileged-ops /
+// ripdpi-io-uring / ripdpi-proxy-runtime: re-enable the workspace-deferred
+// unsafe-documentation lints locally so every `unsafe` block in this crate
+// carries an inline `// SAFETY:` rationale (or a `# Safety` rustdoc block for
+// `unsafe fn`) at build time, ahead of the gradual workspace-wide migration.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 mod dispatch;
 mod handlers;
 
@@ -67,6 +77,13 @@ fn main() {
     let running = Arc::new(AtomicBool::new(true));
 
     // Handle SIGTERM for clean shutdown.
+    // SAFETY: `libc::signal` installs `signal_handler` as the disposition for
+    // `SIGTERM`. `signal_handler` is a real `extern "C" fn` whose body only
+    // performs an `AtomicBool::store` on the `'static RUNNING` flag, which is
+    // async-signal-safe; the cast to `sighandler_t` is the standard function-
+    // pointer-to-handler conversion the libc ABI expects. We discard the
+    // previously-installed handler (the process default) and never need to
+    // restore it.
     unsafe {
         libc::signal(libc::SIGTERM, signal_handler as *const () as libc::sighandler_t);
     }
