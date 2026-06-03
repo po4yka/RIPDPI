@@ -56,11 +56,16 @@ impl ChainHopConnector {
     /// Open the entry hop's single real outbound socket.
     ///
     /// `outbound_bind_ip` binds the socket to the protected physical interface —
-    /// the relay data plane's protect-equivalent — and is honored only by the
-    /// transports that create a bindable TCP socket. Non-entry hops never call
-    /// this (they tunnel via [`connect_over`](Self::connect_over)); the builder
-    /// also forbids `outbound_bind_ip` on any non-entry hop, so a later hop can
-    /// never silently open an unbound, TUN-routed socket.
+    /// the relay data plane's protect-equivalent (see
+    /// `.claude/rules/vpnservice-protect-invariant.md`) — and is honored only by
+    /// the transports that create a bindable TCP socket. The kinds that cannot
+    /// honor a bind IP ([`reject_bind_for_kind`]: AnyTLS, ShadowTLS, Trojan,
+    /// MASQUE, Hysteria2, TUIC) **fail closed** — they return `Err` before any
+    /// `connect`/`bind` runs rather than open an unbound, TUN-routed socket that
+    /// the kernel would loop back into the VPN's own TUN device. Non-entry hops
+    /// never call this (they tunnel via [`connect_over`](Self::connect_over));
+    /// the builder also forbids `outbound_bind_ip` on any non-entry hop, so a
+    /// later hop can never silently open an unbound, TUN-routed socket.
     ///
     /// cancel-safe: drops the partially-built stream on cancellation; no shared
     /// state is published before the returned `Box<dyn ChainAsyncIo>` is handed
@@ -278,5 +283,35 @@ impl RelaySessionFactory for ChainRelaySessionFactory {
         let telemetry = self.telemetry.clone();
         // cancel-safe: pure construction, no awaits with side effects.
         Ok(Arc::new(ChainRelaySession { hops, outbound_bind_ip, telemetry }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// VpnService.protect() invariant (`.claude/rules/vpnservice-protect-invariant.md`):
+    /// the chain entry kinds that cannot bind to the protected interface must
+    /// fail closed. `connect(Some(bind_ip), ..)` routes every such kind through
+    /// `reject_bind_for_kind` *before* any `connect`/`bind` runs, so a bind IP it
+    /// cannot honor never opens an unbound, TUN-routed socket. This pins that the
+    /// guard rejects a bind IP for each of those kinds (AnyTLS, ShadowTLS, Trojan,
+    /// MASQUE, Hysteria2, TUIC) and accepts the no-bind path.
+    #[test]
+    fn reject_bind_for_kind_fails_closed_on_bind_ip() {
+        let bind_ip = Some(IpAddr::from([10, 0, 0, 1]));
+
+        // Every kind whose `connect` arm calls `reject_bind_for_kind` must
+        // surface an error the moment a bind IP is supplied.
+        for kind in ["AnyTLS", "ShadowTLS", "Trojan", "MASQUE", "Hysteria2", "TUIC"] {
+            let err = reject_bind_for_kind(bind_ip, kind)
+                .expect_err("a bind IP must be rejected so the hop never opens an unbound socket");
+            assert_eq!(err.kind(), io::ErrorKind::InvalidInput, "kind {kind} must reject the bind IP");
+        }
+
+        // The no-bind path is the only accepted shape for these kinds.
+        for kind in ["AnyTLS", "ShadowTLS", "Trojan", "MASQUE", "Hysteria2", "TUIC"] {
+            reject_bind_for_kind(None, kind).expect("a missing bind IP must be accepted");
+        }
     }
 }
