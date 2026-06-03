@@ -12,8 +12,7 @@
 //! "every `unsafe { }` carries a `// SAFETY:` comment" contract immediately, so
 //! any future raw-pointer / FFI `unsafe` block added here is rejected at build
 //! time unless it is documented and minimal.
-#![warn(clippy::undocumented_unsafe_blocks)]
-#![warn(clippy::multiple_unsafe_ops_per_block)]
+#![warn(clippy::undocumented_unsafe_blocks, clippy::multiple_unsafe_ops_per_block)]
 
 mod ffi;
 
