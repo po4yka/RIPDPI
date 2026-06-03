@@ -9,7 +9,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
@@ -67,19 +69,21 @@ class MainActivity : AppCompatActivity() {
         shellController.setLaunchRouteRequest(automationConfig?.startRoute)
         mainActivityHost.register(this, viewModel)
         lifecycleScope.launch {
-            shellController.hostCommands.collect { command ->
-                runCatching { mainActivityHost.handle(command) }
-                    .onFailure { error ->
-                        Logger.e(error) { "Host command failed: $command" }
-                        hostCommandFailurePermissionResult(command)?.let { (kind, result) ->
-                            viewModel.onPermissionResult(kind = kind, result = result)
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                shellController.hostCommands.collect { command ->
+                    runCatching { mainActivityHost.handle(command) }
+                        .onFailure { error ->
+                            Logger.e(error) { "Host command failed: $command" }
+                            hostCommandFailurePermissionResult(command)?.let { (kind, result) ->
+                                viewModel.onPermissionResult(kind = kind, result = result)
+                            }
+                            val message =
+                                error.message
+                                    ?.takeIf { it.isNotBlank() }
+                                    ?: getString(R.string.onboarding_validation_failed_generic)
+                            shellController.onEffect(MainEffect.ShowError(message))
                         }
-                        val message =
-                            error.message
-                                ?.takeIf { it.isNotBlank() }
-                                ?: getString(R.string.onboarding_validation_failed_generic)
-                        shellController.onEffect(MainEffect.ShowError(message))
-                    }
+                }
             }
         }
         splashScreen.setKeepOnScreenCondition { !viewModel.startupState.value.isReady }
