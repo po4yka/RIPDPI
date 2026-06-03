@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection
 
 import android.content.Context
+import androidx.core.content.edit
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import dagger.Binds
 import dagger.Module
@@ -59,7 +60,7 @@ class DetectionHistoryStore
                                 .distinctBy { it.networkFingerprint }
                                 .take(MAX_ENTRIES),
                     )
-                prefs.edit().putString(KEY_HISTORY, json.encodeToString(updated)).apply()
+                prefs.edit { putString(KEY_HISTORY, json.encodeToString(updated)) }
             }
 
         override suspend fun loadLatest(count: Int): List<DetectionHistoryEntry> =
@@ -74,7 +75,7 @@ class DetectionHistoryStore
 
         override suspend fun clear() =
             withContext(dispatchers.io) {
-                prefs.edit().remove(KEY_HISTORY).apply()
+                prefs.edit { remove(KEY_HISTORY) }
             }
 
         private fun loadBlocking(): DetectionHistory =

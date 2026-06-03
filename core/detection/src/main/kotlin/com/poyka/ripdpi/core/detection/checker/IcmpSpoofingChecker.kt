@@ -206,30 +206,28 @@ object IcmpSpoofingChecker {
         blockedTargetReplied: Boolean,
         controlRttLow: Boolean,
         confidence: EvidenceConfidence,
-    ): List<Finding> {
-        val findings = mutableListOf<Finding>()
-        findings.add(probeSummary(blockedProbe))
-        findings.add(probeSummary(controlProbe))
+    ): List<Finding> =
+        buildList {
+            add(probeSummary(blockedProbe))
+            add(probeSummary(controlProbe))
 
-        if (controlRttLow && controlProbe.rttMs != null) {
-            findings.add(Finding("$CONTROL_TARGET RTT ${formatRtt(controlProbe.rttMs)}ms below local spoof threshold"))
+            if (controlRttLow && controlProbe.rttMs != null) {
+                add(Finding("$CONTROL_TARGET RTT ${formatRtt(controlProbe.rttMs)}ms below local spoof threshold"))
+            }
+
+            if (blockedTargetReplied || controlRttLow) {
+                add(
+                    Finding(
+                        description = reviewDescription(blockedTargetReplied, controlRttLow),
+                        needsReview = true,
+                        source = EvidenceSource.ICMP_SPOOFING,
+                        confidence = confidence,
+                    ),
+                )
+            } else {
+                add(Finding("ICMP spoofing: no suspicious replies"))
+            }
         }
-
-        if (blockedTargetReplied || controlRttLow) {
-            findings.add(
-                Finding(
-                    description = reviewDescription(blockedTargetReplied, controlRttLow),
-                    needsReview = true,
-                    source = EvidenceSource.ICMP_SPOOFING,
-                    confidence = confidence,
-                ),
-            )
-        } else {
-            findings.add(Finding("ICMP spoofing: no suspicious replies"))
-        }
-
-        return findings
-    }
 
     private fun probeSummary(probe: PingProbeResult): Finding {
         val address = probe.resolvedIpv4 ?: "unresolved"

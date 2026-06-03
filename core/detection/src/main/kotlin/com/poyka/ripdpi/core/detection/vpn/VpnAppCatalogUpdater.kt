@@ -42,13 +42,7 @@ object VpnAppCatalogUpdater {
     fun mergedSignatures(context: Context): List<VpnAppSignature> {
         val extra = loadExtraEntries(context)
         val builtinNames = VpnAppCatalog.knownPackageNames
-        val merged = VpnAppCatalog.signatures.toMutableList()
-        for (sig in extra) {
-            if (sig.packageName !in builtinNames) {
-                merged.add(sig)
-            }
-        }
-        return merged
+        return VpnAppCatalog.signatures + extra.filter { it.packageName !in builtinNames }
     }
 
     private fun RemoteVpnAppEntry.toSignature(): VpnAppSignature =

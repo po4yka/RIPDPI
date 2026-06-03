@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.core.detection.community
 
 import android.content.Context
+import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -30,15 +31,14 @@ class CommunityComparisonStore
         }
 
         fun cacheStats(stats: CommunityStats) {
-            prefs
-                .edit()
-                .putString(KEY_CACHED_STATS, json.encodeToString(stats))
-                .putLong(KEY_STATS_CACHED_AT, System.currentTimeMillis())
-                .apply()
+            prefs.edit {
+                putString(KEY_CACHED_STATS, json.encodeToString(stats))
+                putLong(KEY_STATS_CACHED_AT, System.currentTimeMillis())
+            }
         }
 
         fun clear() {
-            prefs.edit().clear().apply()
+            prefs.edit { clear() }
         }
 
         companion object {
