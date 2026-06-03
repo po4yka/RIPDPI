@@ -6,7 +6,7 @@ mod snapshot;
 mod time;
 
 use std::collections::VecDeque;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::{Arc, Mutex};
 
 pub use snapshot::DnsStatsSnapshot;
@@ -82,11 +82,32 @@ pub struct Stats {
     pub quality_observer: Mutex<Option<Arc<dyn Fn(TcpConnectObservation) + Send + Sync>>>,
     /// Optional synchronous packet observer. Invoked on every packet
     /// at the TUN drain (inbound) and TUN flush (outbound) boundaries
-    /// of `io_loop_task`. When `None`, the hot-path helpers
-    /// `on_inbound_packet` / `on_outbound_packet` are a near-no-op
-    /// (single Mutex lock + Option check). Wired from the JNI layer
-    /// in `ripdpi-tunnel-android` to feed `PcapCaptureSet`.
+    /// of `io_loop_task`. Wired from the JNI layer in
+    /// `ripdpi-tunnel-android` to feed `PcapCaptureSet`.
+    ///
+    /// The per-packet hot path (`notify_inbound_packet` /
+    /// `notify_outbound_packet`) gates this `Mutex` behind
+    /// [`Self::packet_observer_present`] so the common (no PCAP capture
+    /// active) case takes NO lock per packet -- only a `Relaxed` atomic
+    /// load. The lock is acquired only when an observer is actually
+    /// installed.
     pub packet_observer: Mutex<Option<Arc<dyn PacketObserver>>>,
+    /// Fast-path presence flag for [`Self::packet_observer`]. Set to
+    /// `true` while holding the `packet_observer` lock whenever an
+    /// observer is installed, cleared when removed. The per-packet
+    /// notify helpers check this atomic FIRST and skip the `Mutex`
+    /// lock entirely when it reads `false` -- the overwhelmingly
+    /// common case on the io_loop hot path.
+    ///
+    /// `Relaxed` ordering is sufficient: the flag is a hint, never a
+    /// gate for data published through other memory. When it transitions
+    /// `false -> true` the `set_packet_observer` writer also publishes the
+    /// `Arc` under the `Mutex`, whose `lock()` provides the acquire/release
+    /// happens-before edge for the observer pointer itself. A momentarily
+    /// stale `false` read simply drops one packet from the capture (which
+    /// `PcapCaptureSet` already tolerates via its lossy `ArrayQueue`); a
+    /// stale `true` read just takes the lock and re-checks the `Option`.
+    pub packet_observer_present: AtomicBool,
     /// Optional callback invoked every `LOSS_EMIT_INTERVAL` loop iterations
     /// with the current TCP-retransmit-derived loss percentage (0.0..=100.0).
     /// Kept in an `Arc<dyn Fn>` for the same reason as other observers:
@@ -125,6 +146,7 @@ impl Stats {
             dns_latency_observer: Mutex::new(None),
             quality_observer: Mutex::new(None),
             packet_observer: Mutex::new(None),
+            packet_observer_present: AtomicBool::new(false),
             loss_observer: Mutex::new(None),
         }
     }

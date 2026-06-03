@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 use super::{PacketObserver, Stats, TcpConnectObservation};
 
@@ -64,15 +65,28 @@ pub(crate) fn notify_loss(stats: &Stats, loss_pct: f32) {
 pub(crate) fn set_packet_observer(stats: &Stats, observer: Arc<dyn PacketObserver>) {
     if let Ok(mut guard) = stats.packet_observer.lock() {
         *guard = Some(observer);
+        // Publish the fast-path presence flag while STILL holding the
+        // lock, so a concurrent notify that observes `true` and then
+        // takes the lock is guaranteed to see the installed `Arc`
+        // (the lock's release/acquire provides the happens-before edge).
+        // `Relaxed` on the flag itself is sufficient -- it is only a
+        // hint that gates whether the lock is taken at all.
+        stats.packet_observer_present.store(true, Ordering::Relaxed);
     }
 }
 
 pub(crate) fn notify_inbound_packet(stats: &Stats, packet: &[u8]) {
+    // Fast path: when no PCAP observer is installed (the overwhelmingly
+    // common case), a single `Relaxed` atomic load lets us skip the
+    // `Mutex` lock entirely on the per-packet io_loop hot path. Only when
+    // an observer is present do we pay for the lock.
+    if !stats.packet_observer_present.load(Ordering::Relaxed) {
+        return;
+    }
     // Same reentrancy-safety contract as `notify_dns_latency`: clone the
     // Arc inside the lock, release the lock, THEN invoke the observer.
     // The Arc clone is one atomic refcount bump; the lock window is
-    // therefore O(1) and bounded -- critical for the per-packet io_loop
-    // hot path.
+    // therefore O(1) and bounded.
     let observer = match stats.packet_observer.lock() {
         Ok(guard) => guard.as_ref().map(Arc::clone),
         Err(_) => None,
@@ -83,6 +97,11 @@ pub(crate) fn notify_inbound_packet(stats: &Stats, packet: &[u8]) {
 }
 
 pub(crate) fn notify_outbound_packet(stats: &Stats, packet: &[u8]) {
+    // Same fast-path gate as `notify_inbound_packet`: skip the lock when
+    // no observer is installed.
+    if !stats.packet_observer_present.load(Ordering::Relaxed) {
+        return;
+    }
     // Same reentrancy-safety contract as `notify_inbound_packet`.
     let observer = match stats.packet_observer.lock() {
         Ok(guard) => guard.as_ref().map(Arc::clone),
