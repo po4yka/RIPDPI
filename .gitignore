@@ -60,6 +60,8 @@ PROMPT.md
 .claude/scheduled_tasks.lock
 .claude/agent-memory/
 .claude/logs/
+# Per-workspace agent scratch state (e.g. native/rust/.claude/agent-memory/)
+native/rust/.claude/
 security-audit-report.*
 .omc/
 docs/superpowers/
