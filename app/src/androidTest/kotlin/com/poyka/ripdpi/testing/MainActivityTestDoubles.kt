@@ -52,6 +52,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
+import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
+import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.platform.LauncherIconController
@@ -219,6 +221,14 @@ internal class RecordingMainActivityHost : MainActivityHost {
 
 class StubInstrumentedDiagnosticsBootstrapper : DiagnosticsBootstrapper {
     override suspend fun initialize() = Unit
+}
+
+class StubInstrumentedLastExitInspector : LastExitInspector {
+    override suspend fun recordRecentMemoryLimiterExits() = Unit
+}
+
+class StubInstrumentedMemoryProfilingRegistrar : MemoryProfilingRegistrar {
+    override fun register() = Unit
 }
 
 class StubInstrumentedDiagnosticsTimelineSource : DiagnosticsTimelineSource {

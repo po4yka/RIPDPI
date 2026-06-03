@@ -32,6 +32,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
+import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
+import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
@@ -69,6 +71,8 @@ import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsResolverActions
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsScanController
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsShareService
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsTimelineSource
+import com.poyka.ripdpi.testing.StubInstrumentedLastExitInspector
+import com.poyka.ripdpi.testing.StubInstrumentedMemoryProfilingRegistrar
 import com.poyka.ripdpi.testing.StubInstrumentedProxyPreferencesResolver
 import com.poyka.ripdpi.testing.StubInstrumentedRipDpiProxyFactory
 import com.poyka.ripdpi.testing.StubInstrumentedTun2SocksBridgeFactory
@@ -162,6 +166,14 @@ class MainActivityShellInstrumentedTest {
     @BindValue
     @JvmField
     var diagnosticsBootstrapper: DiagnosticsBootstrapper = StubInstrumentedDiagnosticsBootstrapper()
+
+    @BindValue
+    @JvmField
+    var lastExitInspector: LastExitInspector = StubInstrumentedLastExitInspector()
+
+    @BindValue
+    @JvmField
+    var memoryProfilingRegistrar: MemoryProfilingRegistrar = StubInstrumentedMemoryProfilingRegistrar()
 
     @BindValue
     @JvmField
