@@ -270,11 +270,10 @@ fn parse_doh_answer(body: &[u8]) -> DohResolverStatus {
     // Look for the first "data":"<value>" field in an Answer section.
     if let Some(pos) = text.find("\"data\":\"") {
         let after = &text[pos + 8..];
-        if let Some(end) = after.find('"') {
-            let ip = after[..end].to_string();
-            if !ip.is_empty() {
-                return DohResolverStatus::Ok { answered_ip: ip };
-            }
+        if let Some(end) = after.find('"')
+            && !after[..end].is_empty()
+        {
+            return DohResolverStatus::Ok { answered_ip: after[..end].to_string() };
         }
     }
 
