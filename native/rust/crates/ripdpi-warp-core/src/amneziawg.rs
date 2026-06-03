@@ -357,6 +357,54 @@ impl AwgWireCodec {
         out
     }
 
+    /// Like [`AwgWireCodec::encode`], but overlays the 3 WireGuard reserved
+    /// bytes (`packet[1..4]`) with `reserved` during the single output copy,
+    /// avoiding a redundant per-packet `to_vec` at the call site.
+    ///
+    /// Output is byte-identical to
+    /// `{ let mut p = packet.to_vec(); apply_reserved_bytes(&mut p, reserved); self.encode(&p) }`.
+    pub(crate) fn encode_with_reserved(&self, packet: &[u8], reserved: [u8; 3]) -> Vec<u8> {
+        // Fallback paths in `encode` return `packet.to_vec()` unchanged, so the
+        // reserved overlay must still be applied to preserve exact bytes.
+        let needs_reserved = packet.len() >= 4;
+        let passthrough_or_untyped =
+            self.params.is_passthrough() || packet.first().and_then(|&t| Self::type_index(t)).is_none();
+        if passthrough_or_untyped {
+            let mut out = packet.to_vec();
+            if needs_reserved {
+                out[1..4].copy_from_slice(&reserved);
+            }
+            return out;
+        }
+
+        // SAFETY of indexing: `type_index` succeeded above, so `packet[0]` is a
+        // valid WireGuard type byte and `packet` is non-empty.
+        let wg_type = packet[0];
+        let index = Self::type_index(wg_type).expect("type byte validated above");
+        let body = &packet[1..];
+        let pad_len = self.params.size_padding[index] as usize;
+        let headers_active = self.params.headers_active();
+        let header_len = if headers_active { 4 } else { 1 };
+        let mut out = Vec::with_capacity(header_len + body.len() + pad_len);
+        if headers_active {
+            out.extend_from_slice(&self.params.magic_headers[index].to_le_bytes());
+        } else {
+            out.push(wg_type);
+        }
+        out.extend_from_slice(body);
+        // Overlay reserved bytes at the body's [0..3] (original packet [1..4]),
+        // which now sit just after the header in `out`.
+        if needs_reserved {
+            out[header_len..header_len + 3].copy_from_slice(&reserved);
+        }
+        if pad_len > 0 {
+            let pad_start = out.len();
+            out.resize(pad_start + pad_len, 0u8);
+            fill_random(&mut out[pad_start..]);
+        }
+        out
+    }
+
     /// Reverse [`AwgWireCodec::encode`] for a packet received from the peer.
     ///
     /// Returns `(wg_type, body)` -- the reconstructed WireGuard type byte and

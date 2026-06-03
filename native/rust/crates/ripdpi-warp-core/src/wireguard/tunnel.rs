@@ -93,11 +93,9 @@ impl WireGuardTunnel {
 
     fn encode_outbound_packet(&self, packet: &[u8]) -> Vec<u8> {
         match &self.amnezia {
-            Some(codec) => {
-                let mut wg_packet = packet.to_vec();
-                apply_reserved_bytes(&mut wg_packet, self.reserved);
-                codec.encode(&wg_packet)
-            }
+            // `encode_with_reserved` overlays the reserved bytes during its
+            // single output copy, dropping the redundant per-packet `to_vec`.
+            Some(codec) => codec.encode_with_reserved(packet, self.reserved),
             None => {
                 let mut payload = packet.to_vec();
                 apply_reserved_bytes(&mut payload, self.reserved);
