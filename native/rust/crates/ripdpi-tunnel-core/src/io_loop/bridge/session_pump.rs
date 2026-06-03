@@ -1,6 +1,5 @@
 use smoltcp::iface::SocketSet;
 use smoltcp::socket::tcp::Socket as TcpSocket;
-use tracing::debug;
 
 use crate::ActiveSessions;
 use crate::dns_cache::DnsCache;
@@ -19,8 +18,7 @@ pub(in crate::io_loop) async fn pump_active_sessions(
     for (handle, session) in sessions.iter_mut() {
         let tcp = socket_set.get_mut::<TcpSocket>(handle);
 
-        if let Some(Err(err)) = flush_pending_to_session(&mut session.smoltcp_side, &mut session.pending_to_session) {
-            debug!("session pending flush error: {} — closing session {:?}", err, handle);
+        if let Some(Err(_err)) = flush_pending_to_session(&mut session.smoltcp_side, &mut session.pending_to_session) {
             to_remove.push(handle);
             continue;
         }
@@ -30,21 +28,17 @@ pub(in crate::io_loop) async fn pump_active_sessions(
             if let Ok(read) = tcp.recv_slice(&mut tmp)
                 && read > 0
             {
-                debug!("read {read} bytes from smoltcp socket {:?}", handle);
                 match try_write_duplex(&mut session.smoltcp_side, &tmp[..read]) {
                     Some(Ok(0)) => {
-                        debug!("session duplex stream accepted zero bytes — closing session {:?}", handle);
                         to_remove.push(handle);
                         continue;
                     }
                     Some(Ok(sent)) => {
-                        debug!("wrote {sent} bytes into session duplex {:?}", handle);
                         if sent < read {
                             session.pending_to_session.extend_from_slice(&tmp[sent..read]);
                         }
                     }
-                    Some(Err(err)) => {
-                        debug!("smoltcp_side write error: {} — closing session {:?}", err, handle);
+                    Some(Err(_err)) => {
                         to_remove.push(handle);
                         continue;
                     }
@@ -55,8 +49,7 @@ pub(in crate::io_loop) async fn pump_active_sessions(
             }
         }
 
-        if let Err(err) = flush_pending_to_smoltcp(tcp, &mut session.pending_to_smoltcp) {
-            debug!("smoltcp pending flush error: {} — closing session {:?}", err, handle);
+        if let Err(_err) = flush_pending_to_smoltcp(tcp, &mut session.pending_to_smoltcp) {
             to_remove.push(handle);
             continue;
         }
@@ -69,7 +62,6 @@ pub(in crate::io_loop) async fn pump_active_sessions(
             let mut tmp = [0u8; PUMP_CHUNK];
             match try_read_duplex(&mut session.smoltcp_side, &mut tmp) {
                 Some(Ok(0)) => {
-                    debug!("session duplex reached EOF {:?}", handle);
                     session.upstream_closed = true;
                     if tcp.is_open() {
                         tcp.close();
@@ -77,22 +69,16 @@ pub(in crate::io_loop) async fn pump_active_sessions(
                 }
                 Some(Ok(read)) => match tcp.send_slice(&tmp[..read]) {
                     Ok(sent) => {
-                        debug!(
-                            "read {read} bytes from session duplex and enqueued {sent} bytes to smoltcp {:?}",
-                            handle
-                        );
                         if sent < read {
                             session.pending_to_smoltcp.extend_from_slice(&tmp[sent..read]);
                         }
                     }
-                    Err(err) => {
-                        debug!("smoltcp send error: {} — closing session {:?}", err, handle);
+                    Err(_err) => {
                         to_remove.push(handle);
                         continue;
                     }
                 },
-                Some(Err(err)) => {
-                    debug!("smoltcp_side read error: {} — closing session {:?}", err, handle);
+                Some(Err(_err)) => {
                     to_remove.push(handle);
                     continue;
                 }
