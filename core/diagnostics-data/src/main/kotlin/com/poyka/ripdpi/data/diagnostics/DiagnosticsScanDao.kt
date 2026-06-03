@@ -1,9 +1,8 @@
 package com.poyka.ripdpi.data.diagnostics
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -34,13 +33,13 @@ interface DiagnosticsScanDao {
     )
     suspend fun getScanSession(sessionId: String): ScanSessionEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun upsertScanSession(session: ScanSessionEntity)
 
     @Query("SELECT * FROM probe_results WHERE sessionId = :sessionId ORDER BY createdAt ASC")
     suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity>
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertProbeResults(results: List<ProbeResultEntity>)
 
     @Query("DELETE FROM probe_results WHERE sessionId = :sessionId")
