@@ -12,6 +12,9 @@ import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.platform.StringResolver
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import java.util.Locale
 import javax.inject.Inject
 
@@ -43,7 +46,7 @@ internal class HistoryConnectionDetailUiFactory
                         context.getString(R.string.history_connection_remembered_policy_badge)
                     },
                 metrics =
-                    listOf(
+                    persistentListOf(
                         DiagnosticsMetricUiModel("Duration", formatDurationMs(durationMs)),
                         DiagnosticsMetricUiModel("TX", coreSupport.formatBytes(session.txBytes), DiagnosticsTone.Info),
                         DiagnosticsMetricUiModel(
@@ -76,7 +79,7 @@ internal class HistoryConnectionDetailUiFactory
         private fun buildConnectionHighlights(
             session: DiagnosticConnectionSession,
             latestTelemetry: DiagnosticTelemetrySample?,
-        ): List<DiagnosticsMetricUiModel> {
+        ): ImmutableList<DiagnosticsMetricUiModel> {
             val retryCount = latestTelemetry?.retryCount() ?: session.retryCount()
             val retryTone = if (retryCount > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral
             val errorTone = if (session.totalErrors > 0) DiagnosticsTone.Warning else DiagnosticsTone.Neutral
@@ -107,7 +110,7 @@ internal class HistoryConnectionDetailUiFactory
                     ),
                 )
                 add(DiagnosticsMetricUiModel("Retries", retryCount.toString(), retryTone))
-            }
+            }.toImmutableList()
         }
 
         private fun buildConnectionContextGroups(

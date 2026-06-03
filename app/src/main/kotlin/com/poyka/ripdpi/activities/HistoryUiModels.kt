@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import androidx.compose.runtime.Immutable
+import kotlinx.collections.immutable.ImmutableList
 
 enum class HistorySection {
     Connections,
@@ -26,14 +27,14 @@ data class HistoryConnectionRowUiModel(
     val startedAtLabel: String,
     val summary: String,
     val rememberedPolicyBadge: String? = null,
-    val metrics: List<DiagnosticsMetricUiModel>,
+    val metrics: ImmutableList<DiagnosticsMetricUiModel>,
     val tone: DiagnosticsTone,
 )
 
 @Immutable
 data class HistoryConnectionDetailUiModel(
     val session: HistoryConnectionRowUiModel,
-    val highlights: List<DiagnosticsMetricUiModel>,
+    val highlights: ImmutableList<DiagnosticsMetricUiModel>,
     val contextGroups: List<DiagnosticsContextGroupUiModel>,
     val snapshots: List<DiagnosticsNetworkSnapshotUiModel>,
     val events: List<DiagnosticsEventUiModel>,

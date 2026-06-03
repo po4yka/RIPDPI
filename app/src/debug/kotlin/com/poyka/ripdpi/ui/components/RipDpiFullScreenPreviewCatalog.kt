@@ -395,7 +395,7 @@ internal fun RipDpiHistoryPreviewScene() {
                                         networkType = "wifi",
                                         startedAtLabel = "Today 14:02",
                                         summary = "18 min, 12 MB transferred",
-                                        metrics = emptyList(),
+                                        metrics = persistentListOf(),
                                         tone = DiagnosticsTone.Positive,
                                     ),
                                     HistoryConnectionRowUiModel(
@@ -407,7 +407,7 @@ internal fun RipDpiHistoryPreviewScene() {
                                         networkType = "mobile",
                                         startedAtLabel = "Yesterday 09:15",
                                         summary = "2 min, connection lost",
-                                        metrics = emptyList(),
+                                        metrics = persistentListOf(),
                                         tone = DiagnosticsTone.Negative,
                                     ),
                                 ),

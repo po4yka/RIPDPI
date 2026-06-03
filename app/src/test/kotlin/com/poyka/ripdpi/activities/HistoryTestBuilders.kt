@@ -326,7 +326,7 @@ internal fun historyConnectionDetailUi(id: String = "connection-1"): HistoryConn
                 metrics = persistentListOf(DiagnosticsMetricUiModel("Duration", "1m 0s")),
                 tone = DiagnosticsTone.Positive,
             ),
-        highlights = listOf(DiagnosticsMetricUiModel("Health", "Healthy")),
+        highlights = persistentListOf(DiagnosticsMetricUiModel("Health", "Healthy")),
         contextGroups = emptyList(),
         snapshots = emptyList(),
         events = emptyList(),

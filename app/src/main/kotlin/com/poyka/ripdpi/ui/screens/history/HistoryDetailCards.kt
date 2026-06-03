@@ -13,6 +13,7 @@ import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryEntry
 import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryRows
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
 
 @Composable
 internal fun ProbeGroupCard(group: DiagnosticsProbeGroupUiModel) {
@@ -75,7 +76,7 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
 }
 
 @Composable
-internal fun MetricList(metrics: List<DiagnosticsMetricUiModel>) {
+internal fun MetricList(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
     RipDpiTelemetryRows(
         entries =
             metrics.map { metric ->
