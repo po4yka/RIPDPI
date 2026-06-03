@@ -2279,6 +2279,13 @@ fakeddisorder endhost</string>
     <string name="settings_clear_community_cache">مسح ذاكرة التخزين المؤقت للمجتمع</string>
     <string name="title_detection_check">فحص الكشف</string>
     <string name="title_detection_settings">إعدادات الكشف</string>
+    <string name="detection_dns_provider_label">مزوّد DNS</string>
+    <string name="detection_dns_provider_flag_no_log">بدون سجلّات</string>
+    <string name="detection_dns_provider_flag_no_filter">بدون تصفية</string>
+    <string name="detection_dns_provider_flag_dnssec">DNSSEC</string>
+    <string name="detection_dns_provider_jurisdiction_ru_warning">يخضع للولاية القضائية الروسية (RKN). تجنّبه لتجاوز الرقابة.</string>
+    <string name="detection_dns_route_through_proxy_title">توجيه DNS المشفّر عبر الوكيل</string>
+    <string name="detection_dns_route_through_proxy_subtitle">يرسل DNS المشفّر عبر الوكيل النشط حتى لا يمكن حظر التحليل على الشبكة المحلية.</string>
     <string name="title_shared_diagnostic_result">تشخيص مشترك</string>
     <string name="detection_check_subtitle">تحقق من مدى ظهور إعداد VPN/الوكيل الخاص بك</string>
     <string name="detection_check_start">تشغيل الفحص</string>

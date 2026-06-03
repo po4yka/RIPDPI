@@ -30,6 +30,8 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
+import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
+import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -39,6 +41,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 internal fun DetectionSettingsRoute(
@@ -67,6 +70,7 @@ internal fun DetectionSettingsRoute(
                 onDnsDirectServersChange = remember(viewModel) { viewModel::setDnsDirectServers },
                 onDnsDohUrlChange = remember(viewModel) { viewModel::setDnsDohUrl },
                 onDnsDohBootstrapIpsChange = remember(viewModel) { viewModel::setDnsDohBootstrapIps },
+                onDnsRouteThroughProxyChange = remember(viewModel) { viewModel::setDnsRouteThroughProxy },
                 onDiagnosticRandomHostnamesChange =
                     remember(viewModel) { viewModel::setDiagnosticRandomHostnamesEnabled },
                 onTlsKeylogPathChange = remember(viewModel) { viewModel::setTlsKeylogPath },
@@ -94,6 +98,7 @@ internal data class DetectionSettingsActions(
     val onDnsDirectServersChange: (String) -> Unit = {},
     val onDnsDohUrlChange: (String) -> Unit = {},
     val onDnsDohBootstrapIpsChange: (String) -> Unit = {},
+    val onDnsRouteThroughProxyChange: (Boolean) -> Unit = {},
     val onDiagnosticRandomHostnamesChange: (Boolean) -> Unit = {},
     val onTlsKeylogPathChange: (String) -> Unit = {},
     val onPrivacyModeChange: (Boolean) -> Unit = {},
@@ -161,6 +166,7 @@ internal fun DetectionSettingsScreen(
                 onDnsDirectServersChange = actions.onDnsDirectServersChange,
                 onDnsDohUrlChange = actions.onDnsDohUrlChange,
                 onDnsDohBootstrapIpsChange = actions.onDnsDohBootstrapIpsChange,
+                onDnsRouteThroughProxyChange = actions.onDnsRouteThroughProxyChange,
             )
         }
         item {
@@ -328,6 +334,7 @@ private fun DetectionDnsSettingsSection(
     onDnsDirectServersChange: (String) -> Unit,
     onDnsDohUrlChange: (String) -> Unit,
     onDnsDohBootstrapIpsChange: (String) -> Unit,
+    onDnsRouteThroughProxyChange: (Boolean) -> Unit,
 ) {
     SettingsSection(title = "DNS resolver") {
         ChipSelector(
@@ -337,11 +344,8 @@ private fun DetectionDnsSettingsSection(
             label = DetectionDnsResolverMode::displayName,
             onSelect = onDnsResolverModeChange,
         )
-        ChipSelector(
-            title = "Preset",
-            entries = DetectionDnsPreset.entries,
+        DnsProviderPicker(
             selected = state.dnsPreset,
-            label = DetectionDnsPreset::displayName,
             onSelect = onDnsPresetChange,
         )
         RipDpiTextField(
@@ -369,7 +373,74 @@ private fun DetectionDnsSettingsSection(
             behavior = RipDpiTextFieldBehavior(enabled = state.dnsFieldsEditable),
             modifier = Modifier.fillMaxWidth(),
         )
+        SettingsRow(
+            title = stringResource(R.string.detection_dns_route_through_proxy_title),
+            subtitle = stringResource(R.string.detection_dns_route_through_proxy_subtitle),
+            checked = state.dnsRouteThroughProxy,
+            onCheckedChange = onDnsRouteThroughProxyChange,
+        )
     }
+}
+
+/**
+ * Catalog-driven DNS provider picker: the full bundled provider set plus the user-defined custom
+ * sentinel, surfaced as a single dropdown so the list scales past the legacy 3-option chip row.
+ * Below the field it renders a flag caption (no-log / no-filter / DNSSEC) and a jurisdiction warning
+ * for resolvers operated under RU jurisdiction (advisory app-config metadata only).
+ */
+@Composable
+private fun DnsProviderPicker(
+    selected: DetectionDnsPreset,
+    onSelect: (DetectionDnsPreset) -> Unit,
+) {
+    val presets = DetectionDnsPreset.catalogPresets
+    val options =
+        presets
+            .map { preset ->
+                RipDpiDropdownOption(value = preset.wireValue, label = preset.displayName)
+            }.toImmutableList()
+    val caption = dnsProviderFlagsCaption(selected)
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+        RipDpiDropdown(
+            options = options,
+            selectedValue = selected.wireValue,
+            onValueSelected = { wireValue ->
+                presets.firstOrNull { it.wireValue == wireValue }?.let(onSelect)
+            },
+            label = stringResource(R.string.detection_dns_provider_label),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (caption != null) {
+            Text(
+                text = caption,
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
+        if (selected.jurisdictionRu) {
+            Text(
+                text = stringResource(R.string.detection_dns_provider_jurisdiction_ru_warning),
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.warning,
+            )
+        }
+    }
+}
+
+@Composable
+private fun dnsProviderFlagsCaption(preset: DetectionDnsPreset): String? {
+    if (preset.isCustom) {
+        return null
+    }
+    val flags =
+        buildList {
+            if (preset.noLog) add(stringResource(R.string.detection_dns_provider_flag_no_log))
+            if (preset.noFilter) add(stringResource(R.string.detection_dns_provider_flag_no_filter))
+            if (preset.dnssec) add(stringResource(R.string.detection_dns_provider_flag_dnssec))
+        }
+    return flags
+        .takeIf { it.isNotEmpty() }
+        ?.joinToString(stringResource(R.string.detection_dns_provider_flag_separator))
 }
 
 @Composable

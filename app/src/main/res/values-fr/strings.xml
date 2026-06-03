@@ -959,6 +959,13 @@ fakeddisorder endhost</string>
     <string name="title_app_customization">Personnalisation de l\'appli</string>
     <string name="title_detection_check">Vérification de détection</string>
     <string name="title_detection_settings">Paramètres de détection</string>
+    <string name="detection_dns_provider_label">Fournisseur DNS</string>
+    <string name="detection_dns_provider_flag_no_log">sans journaux</string>
+    <string name="detection_dns_provider_flag_no_filter">sans filtrage</string>
+    <string name="detection_dns_provider_flag_dnssec">DNSSEC</string>
+    <string name="detection_dns_provider_jurisdiction_ru_warning">Sous juridiction russe (RKN). À éviter pour contourner la censure.</string>
+    <string name="detection_dns_route_through_proxy_title">Acheminer le DNS chiffré via le proxy</string>
+    <string name="detection_dns_route_through_proxy_subtitle">Envoie le DNS chiffré via le proxy actif afin que la résolution ne puisse pas être bloquée sur le réseau local.</string>
     <string name="title_owned_stack_browser">Navigateur RIPDPI</string>
     <string name="tls_fake_profile_interaction">SNI fake TLS, randomisation, duplication de Session ID, remplissage et ajustement de taille se superposent à ce profil de base.</string>
     <string name="tls_fake_profile_title">Payload fake TLS</string>

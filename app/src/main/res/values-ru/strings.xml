@@ -1920,6 +1920,13 @@ fakeddisorder endhost</string>
 
     <string name="title_detection_check">Проверка обнаружения</string>
     <string name="title_detection_settings">Настройки обнаружения</string>
+    <string name="detection_dns_provider_label">DNS-провайдер</string>
+    <string name="detection_dns_provider_flag_no_log">без логов</string>
+    <string name="detection_dns_provider_flag_no_filter">без фильтрации</string>
+    <string name="detection_dns_provider_flag_dnssec">DNSSEC</string>
+    <string name="detection_dns_provider_jurisdiction_ru_warning">Под российской юрисдикцией (РКН). Не используйте для обхода цензуры.</string>
+    <string name="detection_dns_route_through_proxy_title">Направлять зашифрованный DNS через прокси</string>
+    <string name="detection_dns_route_through_proxy_subtitle">Отправляет зашифрованный DNS через активный прокси, чтобы его нельзя было заблокировать в локальной сети.</string>
     <string name="detection_check_subtitle">Проверьте, насколько заметна ваша настройка VPN/прокси</string>
     <string name="detection_check_start">Запустить проверку</string>
     <string name="detection_check_stop">Остановить</string>

@@ -1599,6 +1599,13 @@ fakeddisorder endhost</string>
     <string name="title_app_icon">آیکن برنامه</string>
     <string name="title_detection_check">بررسی شناسایی</string>
     <string name="title_detection_settings">تنظیمات شناسایی</string>
+    <string name="detection_dns_provider_label">ارائه‌دهنده DNS</string>
+    <string name="detection_dns_provider_flag_no_log">بدون گزارش</string>
+    <string name="detection_dns_provider_flag_no_filter">بدون فیلتر</string>
+    <string name="detection_dns_provider_flag_dnssec">DNSSEC</string>
+    <string name="detection_dns_provider_jurisdiction_ru_warning">تحت صلاحیت قضایی روسیه (RKN). برای عبور از سانسور استفاده نکنید.</string>
+    <string name="detection_dns_route_through_proxy_title">هدایت DNS رمزگذاری‌شده از طریق پراکسی</string>
+    <string name="detection_dns_route_through_proxy_subtitle">DNS رمزگذاری‌شده را از طریق پراکسی فعال ارسال می‌کند تا نتوان آن را در شبکه محلی مسدود کرد.</string>
     <string name="use_command_line_settings">استفاده از تنظیمات خط فرمان</string>
     <string name="warp_account_kind_title">نوع حساب</string>
     <string name="warp_amnezia_h3_title">Amnezia H3</string>

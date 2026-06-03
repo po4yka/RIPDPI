@@ -871,6 +871,13 @@ fakeddisorder endhost</string>
     <string name="title_app_icon">应用图标</string>
     <string name="title_detection_check">检测检查</string>
     <string name="title_detection_settings">检测设置</string>
+    <string name="detection_dns_provider_label">DNS 提供商</string>
+    <string name="detection_dns_provider_flag_no_log">不记录日志</string>
+    <string name="detection_dns_provider_flag_no_filter">不过滤</string>
+    <string name="detection_dns_provider_flag_dnssec">DNSSEC</string>
+    <string name="detection_dns_provider_jurisdiction_ru_warning">受俄罗斯司法管辖（RKN）。请勿用于绕过审查。</string>
+    <string name="detection_dns_route_through_proxy_title">通过代理转发加密 DNS</string>
+    <string name="detection_dns_route_through_proxy_subtitle">通过活动代理发送加密 DNS，使其无法在本地网络上被拦截。</string>
     <string name="title_onboarding">引导</string>
     <string name="title_vpn_config">VPN 配置</string>
     <string name="tls_fake_profile_scope_live">用于当前链上的假 HTTPS ClientHello 数据包。</string>

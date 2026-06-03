@@ -2386,6 +2386,14 @@ Source: %2$s</string>
 
     <string name="title_detection_check">Detection Check</string>
     <string name="title_detection_settings">Detection settings</string>
+    <string name="detection_dns_provider_label">DNS provider</string>
+    <string name="detection_dns_provider_flag_no_log">no log</string>
+    <string name="detection_dns_provider_flag_no_filter">no filter</string>
+    <string name="detection_dns_provider_flag_dnssec">DNSSEC</string>
+    <string name="detection_dns_provider_flag_separator" translatable="false"> · </string>
+    <string name="detection_dns_provider_jurisdiction_ru_warning">Operated under Russian jurisdiction (RKN). Avoid for censorship resistance.</string>
+    <string name="detection_dns_route_through_proxy_title">Route encrypted DNS through proxy</string>
+    <string name="detection_dns_route_through_proxy_subtitle">Send encrypted DNS through the active proxy so resolution can’t be blocked on the local network.</string>
     <string name="title_shared_diagnostic_result">Shared diagnostic</string>
     <string name="detection_check_subtitle">Check how visible your VPN/proxy setup is</string>
     <string name="detection_check_start">Run Check</string>
