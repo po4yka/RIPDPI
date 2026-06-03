@@ -11,9 +11,21 @@ pub(crate) struct JniProtectCallback {
     pub(crate) vpn_service: Global<JObject<'static>>,
 }
 
-// SAFETY: JavaVM is Send+Sync and Global<JObject<'static>> keeps the Java object alive across threads.
+// SAFETY: The only shared state across threads is `vm: JavaVM` and
+// `vpn_service: Global<JObject<'static>>`.
+// - `JavaVM` is documented by the `jni` crate as safe to move and share between
+//   threads: it represents the process-global JNI invocation interface, and each
+//   thread obtains its own `JNIEnv` via `attach_current_thread` (see `protect`
+//   below). No `JNIEnv`/`AttachGuard` is ever stored in this struct, so the
+//   non-`Send` thread-locality of those types never escapes.
+// - `Global<JObject<'static>>` is a JNI global reference: it is created with the
+//   VM and remains valid (the Java object is pinned alive) regardless of which
+//   thread dereferences it, and reading it is a plain pointer copy.
+// `protect` attaches the calling thread on every invocation and only reads the
+// global reference, so concurrent use from multiple threads is sound. Hence the
+// manual `Send`/`Sync` impls hold (the auto-impls are blocked only because raw
+// JNI handle types are conservatively `!Send`/`!Sync`).
 unsafe impl Send for JniProtectCallback {}
-// SAFETY: protect() only attaches the current thread and reads the global object reference.
 unsafe impl Sync for JniProtectCallback {}
 
 impl ProtectCallback for JniProtectCallback {
