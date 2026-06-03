@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
+import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
@@ -41,6 +42,7 @@ class AppStartupInitializer
         private val appShortcutsPublisher: AppShortcutsPublisher,
         private val resetEventRecorder: ResetEventRecorder,
         private val lastExitInspector: LastExitInspector,
+        private val memoryProfilingRegistrar: MemoryProfilingRegistrar,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
@@ -56,6 +58,13 @@ class AppStartupInitializer
                     lastExitInspector.recordRecentMemoryLimiterExits()
                 }.onFailure { error ->
                     Logger.w(error) { "Memory-limiter exit scan failed" }
+                }
+                // Register Android 17 OOM/anomaly profiling triggers (no-op below
+                // API 37). A captured heap dump is delivered to our result callback.
+                runCatching {
+                    memoryProfilingRegistrar.register()
+                }.onFailure { error ->
+                    Logger.w(error) { "Memory profiling registration failed" }
                 }
                 runCatching {
                     detectionObservationStarter.startObserving(context, this)

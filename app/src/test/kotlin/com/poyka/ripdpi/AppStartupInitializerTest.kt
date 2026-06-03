@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
+import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
@@ -459,6 +460,7 @@ class AppStartupInitializerTest {
         bootSessionRecorder: RecordingBootSessionRecorder = RecordingBootSessionRecorder(),
         resetEventRecorder: ResetEventRecorder = NoOpResetEventRecorder,
         lastExitInspector: LastExitInspector = NoOpLastExitInspector,
+        memoryProfilingRegistrar: MemoryProfilingRegistrar = NoOpMemoryProfilingRegistrar,
         scope: CoroutineScope,
     ): AppStartupInitializer =
         AppStartupInitializer(
@@ -473,6 +475,7 @@ class AppStartupInitializerTest {
             bootSessionRecorder = bootSessionRecorder,
             resetEventRecorder = resetEventRecorder,
             lastExitInspector = lastExitInspector,
+            memoryProfilingRegistrar = memoryProfilingRegistrar,
             appShortcutsPublisher =
                 AppShortcutsPublisher(
                     context = application,
@@ -487,6 +490,10 @@ class AppStartupInitializerTest {
 
 private object NoOpLastExitInspector : LastExitInspector {
     override suspend fun recordRecentMemoryLimiterExits() = Unit
+}
+
+private object NoOpMemoryProfilingRegistrar : MemoryProfilingRegistrar {
+    override fun register() = Unit
 }
 
 private object NoOpResetEventRecorder : ResetEventRecorder {

@@ -9,6 +9,8 @@ import com.poyka.ripdpi.diagnostics.exit.DefaultLastExitInspector
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter
 import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService
+import com.poyka.ripdpi.diagnostics.profiling.DefaultMemoryProfilingRegistrar
+import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader
 import dagger.Binds
 import dagger.Module
@@ -417,6 +419,10 @@ abstract class DiagnosticsManagerModule {
     @Binds
     @Singleton
     abstract fun bindLastExitInspector(inspector: DefaultLastExitInspector): LastExitInspector
+
+    @Binds
+    @Singleton
+    abstract fun bindMemoryProfilingRegistrar(registrar: DefaultMemoryProfilingRegistrar): MemoryProfilingRegistrar
 
     @Binds
     @Singleton
