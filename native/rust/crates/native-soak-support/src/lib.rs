@@ -1,3 +1,14 @@
+// `native-soak-support` is test-support-only but still contains one `unsafe`
+// block: the edition-2024 `std::env::remove_var` call in the tests below
+// (env mutation is `unsafe` because it is not thread-safe). Re-enable the
+// workspace-deferred unsafe-documentation lints locally so that every
+// `unsafe` block in this crate carries a justifying `// SAFETY:` comment and
+// each unsafe operation is accounted for individually, matching the
+// convention already opted into by ripdpi-vless / ripdpi-io-uring /
+// ripdpi-privileged-ops / ripdpi-proxy-runtime.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -391,7 +402,15 @@ mod tests {
 
     #[test]
     fn profile_env_defaults_to_smoke() {
-        // FIXME: Audit that the environment access only happens in single-threaded code.
+        // SAFETY: `std::env::remove_var` is `unsafe` in edition 2024 because
+        // mutating the process environment races with any concurrent
+        // `getenv`/`setenv` (including `std::env::var`) on another thread. The
+        // only env reader in this crate is `SoakProfile::from_env`, which is
+        // called synchronously on this same thread immediately after the
+        // removal. No other test in this module touches the environment or
+        // spawns a thread before this point, so at the moment of the call this
+        // is the sole thread accessing the environment — the mutation cannot
+        // race with a concurrent read or write.
         unsafe { std::env::remove_var("RIPDPI_SOAK_PROFILE") };
         assert_eq!(SoakProfile::from_env(), SoakProfile::Smoke);
     }
