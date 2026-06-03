@@ -231,13 +231,13 @@ pub mod test_support {
     use jni::sys::jstring;
 
     pub fn lock_jni_tests() -> MutexGuard<'static, ()> {
-        static JNI_TEST_MUTEX: once_cell::sync::Lazy<std::sync::Mutex<()>> =
-            once_cell::sync::Lazy::new(|| std::sync::Mutex::new(()));
+        static JNI_TEST_MUTEX: std::sync::LazyLock<std::sync::Mutex<()>> =
+            std::sync::LazyLock::new(|| std::sync::Mutex::new(()));
         JNI_TEST_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     pub fn with_env<R>(f: impl for<'a> FnOnce(&mut Env<'a>) -> R) -> R {
-        static TEST_JVM: once_cell::sync::OnceCell<jni::JavaVM> = once_cell::sync::OnceCell::new();
+        static TEST_JVM: std::sync::OnceLock<jni::JavaVM> = std::sync::OnceLock::new();
         TEST_JVM
             .get_or_init(|| {
                 let args = jni::InitArgsBuilder::new()

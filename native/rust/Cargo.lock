@@ -5320,7 +5320,6 @@ dependencies = [
  "golden-test-support",
  "jni",
  "log",
- "once_cell",
  "serde_json",
  "thiserror 2.0.18",
 ]
