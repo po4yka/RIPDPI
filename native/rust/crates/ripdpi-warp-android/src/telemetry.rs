@@ -1,9 +1,8 @@
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use android_support::{NativeEventRecord, drain_warp_events};
 use jni::sys::jlong;
 use jni::{EnvUnowned, Outcome};
-use once_cell::sync::Lazy;
 use ripdpi_quality::{ConnectionQualitySnapshot, QualitySample, QualityWindow, TransportKind};
 use ripdpi_warp_core::{TcpConnectObservation, WarpRuntime, WarpTelemetry};
 use serde::Serialize;
@@ -12,7 +11,8 @@ use crate::registry;
 
 /// Process-wide quality window for the warp runtime. Receives observations
 /// from the quality observer installed in `install_quality_observer`.
-static QUALITY_WINDOW: Lazy<Arc<QualityWindow>> = Lazy::new(|| Arc::new(QualityWindow::new(TransportKind::TcpProxy)));
+static QUALITY_WINDOW: LazyLock<Arc<QualityWindow>> =
+    LazyLock::new(|| Arc::new(QualityWindow::new(TransportKind::TcpProxy)));
 
 const IDLE_TELEMETRY_JSON: &str =
     "{\"source\":\"warp\",\"schemaVersion\":1,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";

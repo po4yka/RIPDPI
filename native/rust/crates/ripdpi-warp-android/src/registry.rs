@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use jni::sys::jlong;
-use once_cell::sync::Lazy;
 use ripdpi_warp_core::WarpRuntime;
 
-static NEXT_HANDLE: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(1));
-static SESSIONS: Lazy<Mutex<HashMap<u64, Arc<WarpRuntime>>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static NEXT_HANDLE: LazyLock<Mutex<u64>> = LazyLock::new(|| Mutex::new(1));
+static SESSIONS: LazyLock<Mutex<HashMap<u64, Arc<WarpRuntime>>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn insert(session: Arc<WarpRuntime>) -> jlong {
     let handle = {

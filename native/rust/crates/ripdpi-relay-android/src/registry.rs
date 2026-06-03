@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use jni::sys::jlong;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::runtime::SessionRuntime;
 
-static NEXT_HANDLE: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(1));
-static SESSIONS: Lazy<Mutex<HashMap<u64, SessionRuntime>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static NEXT_HANDLE: LazyLock<Mutex<u64>> = LazyLock::new(|| Mutex::new(1));
+static SESSIONS: LazyLock<Mutex<HashMap<u64, SessionRuntime>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub(crate) fn insert_session(session: SessionRuntime) -> u64 {
     let handle = {

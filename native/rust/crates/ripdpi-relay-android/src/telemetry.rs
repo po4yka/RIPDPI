@@ -1,16 +1,17 @@
 use std::sync::Arc;
 
 use android_support::{NativeEventRecord, drain_relay_events};
-use once_cell::sync::Lazy;
 use ripdpi_quality::{ConnectionQualitySnapshot, QualitySample, QualityWindow, TransportKind};
 use ripdpi_relay_core::TcpConnectObservation;
 use serde::Serialize;
 
 use crate::runtime::SessionRuntime;
+use std::sync::LazyLock;
 
 /// Process-wide quality window for the relay runtime. Receives observations
 /// from the quality observer installed in `install_quality_observer`.
-static QUALITY_WINDOW: Lazy<Arc<QualityWindow>> = Lazy::new(|| Arc::new(QualityWindow::new(TransportKind::UdpRelay)));
+static QUALITY_WINDOW: LazyLock<Arc<QualityWindow>> =
+    LazyLock::new(|| Arc::new(QualityWindow::new(TransportKind::UdpRelay)));
 
 pub(crate) const IDLE_TELEMETRY_JSON: &str =
     "{\"source\":\"relay\",\"schemaVersion\":1,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
