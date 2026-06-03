@@ -21,6 +21,21 @@ where
     })
 }
 
+/// Runs `f` against the platform installed for the current thread.
+///
+/// The platform is installed for the lifetime of the synchronous closure
+/// passed to [`with_tcp_desync_platform`]. Every dispatch wrapper in
+/// `dispatch_wrappers` reaches this function and relies on that
+/// thread-local precondition holding.
+///
+/// # Panics
+///
+/// Panics in non-test builds if no platform is installed on the current
+/// thread (i.e. this is called outside a [`with_tcp_desync_platform`]
+/// scope). The dispatch wrappers return `R` directly and cannot surface a
+/// recoverable error without a cross-crate API break, so the precondition
+/// is enforced by a panic rather than a `Result`. In test builds a default
+/// [`TestTcpDesyncPlatform`] is substituted instead of panicking.
 pub(crate) fn with_current<R>(f: impl FnOnce(&dyn TcpDesyncPlatform) -> R) -> R {
     CURRENT_PLATFORM.with(|slot| {
         if let Some(pointer) = *slot.borrow() {
@@ -35,6 +50,11 @@ pub(crate) fn with_current<R>(f: impl FnOnce(&dyn TcpDesyncPlatform) -> R) -> R 
         }
         #[cfg(not(test))]
         {
+            debug_assert!(
+                false,
+                "tcp desync platform not installed: with_current called outside a \
+                 with_tcp_desync_platform scope"
+            );
             panic!("tcp desync platform not installed");
         }
     })
