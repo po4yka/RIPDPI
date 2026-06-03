@@ -172,6 +172,8 @@
     <string name="diagnostics_metric_mode">Modo</string>
     <string name="diagnostics_metric_resolver_fallback_active">Activo</string>
     <string name="diagnostics_metric_rx_packets">Paquetes RX</string>
+    <string name="diagnostics_metric_native_heap">Heap nativo</string>
+    <string name="diagnostics_metric_rss">RSS del proceso</string>
     <string name="diagnostics_metric_tx_packets">Paquetes TX</string>
     <string name="diagnostics_no_strategy_signature">No se capturó ninguna firma de estrategia</string>
     <string name="diagnostics_overview_automatic_probe_detail_handover_format">Completado %1$s • %2$s</string>

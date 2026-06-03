@@ -172,6 +172,8 @@
     <string name="diagnostics_metric_mode">Mode</string>
     <string name="diagnostics_metric_resolver_fallback_active">Actif</string>
     <string name="diagnostics_metric_rx_packets">Paquets RX</string>
+    <string name="diagnostics_metric_native_heap">Tas natif</string>
+    <string name="diagnostics_metric_rss">RSS du processus</string>
     <string name="diagnostics_metric_tx_packets">Paquets TX</string>
     <string name="diagnostics_no_strategy_signature">Aucune signature de stratégie capturée</string>
     <string name="diagnostics_overview_automatic_probe_detail_handover_format">Terminé %1$s • %2$s</string>

@@ -2183,6 +2183,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_metric_resolver_fallback_active">فعال</string>
     <string name="diagnostics_metric_retries">تلاش‌های مجدد</string>
     <string name="diagnostics_metric_rx_packets">بسته‌های RX</string>
+    <string name="diagnostics_metric_native_heap">هیپ بومی</string>
+    <string name="diagnostics_metric_rss">RSS فرآیند</string>
     <string name="diagnostics_metric_strategy">استراتژی</string>
     <string name="diagnostics_metric_tx">TX</string>
     <string name="diagnostics_probe_copy_action">کپی نتیجه</string>

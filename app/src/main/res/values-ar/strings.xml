@@ -2084,6 +2084,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_metric_dns_failures">فشل DNS</string>
     <string name="diagnostics_metric_tx_packets">حزم TX</string>
     <string name="diagnostics_metric_rx_packets">حزم RX</string>
+    <string name="diagnostics_metric_native_heap">الكومة الأصلية</string>
+    <string name="diagnostics_metric_rss">RSS العملية</string>
     <string name="diagnostics_metric_warnings">تحذيرات</string>
     <string name="diagnostics_metric_errors">أخطاء</string>
     <string name="diagnostics_metric_strategy">الاستراتيجية</string>

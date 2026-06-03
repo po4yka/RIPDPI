@@ -67,6 +67,10 @@ data class TelemetrySampleEntity(
     val txBytes: Long,
     val rxPackets: Long,
     val rxBytes: Long,
+    // Process memory footprint at sample time (Android 17 per-app cap signal).
+    // Nullable so destructively-recreated/idle samples decode cleanly.
+    val nativeHeapBytes: Long? = null,
+    val processRssBytes: Long? = null,
     val createdAt: Long,
 )
 

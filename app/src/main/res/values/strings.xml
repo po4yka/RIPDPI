@@ -2147,6 +2147,8 @@ Source: %2$s</string>
     <string name="diagnostics_metric_dns_failures">DNS failures</string>
     <string name="diagnostics_metric_tx_packets">TX packets</string>
     <string name="diagnostics_metric_rx_packets">RX packets</string>
+    <string name="diagnostics_metric_native_heap">Native heap</string>
+    <string name="diagnostics_metric_rss">Process RSS</string>
     <string name="diagnostics_metric_warnings">Warnings</string>
     <string name="diagnostics_metric_errors">Errors</string>
     <string name="diagnostics_metric_strategy">Strategy</string>

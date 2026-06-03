@@ -560,6 +560,8 @@
     <string name="diagnostics_metric_network">网络</string>
     <string name="diagnostics_metric_resolver">解析器</string>
     <string name="diagnostics_metric_rx_packets">RX 数据包</string>
+    <string name="diagnostics_metric_native_heap">原生堆</string>
+    <string name="diagnostics_metric_rss">进程 RSS</string>
     <string name="diagnostics_metric_telemetry_error">遥测错误</string>
     <string name="diagnostics_metric_winning_strategy">胜出策略</string>
     <string name="diagnostics_scan_blocked_setting_label">被阻止的设置</string>

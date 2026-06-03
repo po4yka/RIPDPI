@@ -150,6 +150,13 @@ internal fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
         }
         addInfoMetric(R.string.diagnostics_metric_tx_packets, telemetry.txPackets.toString())
         addInfoMetric(R.string.diagnostics_metric_rx_packets, telemetry.rxPackets.toString())
+        // Process memory footprint -- the signal Android 17's per-app cap watches.
+        telemetry.processRssBytes?.takeIf { it > 0 }?.let { rss ->
+            addInfoMetric(R.string.diagnostics_metric_rss, formatBytes(rss))
+        }
+        telemetry.nativeHeapBytes?.takeIf { it > 0 }?.let { heap ->
+            addInfoMetric(R.string.diagnostics_metric_native_heap, formatBytes(heap))
+        }
     }
 }
 

@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryRetentionStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.LinkedHashSet
@@ -27,6 +28,7 @@ class RuntimeArtifactPersister
         private val networkMetadataProvider: NetworkMetadataProvider,
         private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val serviceStateStore: ServiceStateStore,
+        private val nativeMemoryProbe: NativeMemoryProbe,
     ) {
         private val eventKeysMutex = Mutex()
         private val persistedEventKeys = LinkedHashSet<String>()
@@ -178,8 +180,9 @@ class RuntimeArtifactPersister
             telemetry: ServiceTelemetrySnapshot,
             createdAt: Long,
             connectionStateOverride: String? = null,
-        ): TelemetrySampleEntity =
-            TelemetrySampleEntity(
+        ): TelemetrySampleEntity {
+            val memory = nativeMemoryProbe.sample()
+            return TelemetrySampleEntity(
                 id = UUID.randomUUID().toString(),
                 sessionId = null,
                 connectionSessionId = connectionSessionId,
@@ -218,8 +221,11 @@ class RuntimeArtifactPersister
                 txBytes = telemetry.tunnelStats.txBytes,
                 rxPackets = telemetry.tunnelStats.rxPackets,
                 rxBytes = telemetry.tunnelStats.rxBytes,
+                nativeHeapBytes = memory.nativeHeapBytes,
+                processRssBytes = memory.processRssBytes,
                 createdAt = createdAt,
             )
+        }
 
         private fun trimPersistedEventKeys() {
             while (persistedEventKeys.size > MaxPersistedEventKeys) {

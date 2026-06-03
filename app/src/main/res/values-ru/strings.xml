@@ -1696,6 +1696,8 @@ fakeddisorder endhost</string>
     <string name="diagnostics_metric_dns_failures">Сбои DNS</string>
     <string name="diagnostics_metric_tx_packets">TX пакеты</string>
     <string name="diagnostics_metric_rx_packets">RX пакеты</string>
+    <string name="diagnostics_metric_native_heap">Нативная куча</string>
+    <string name="diagnostics_metric_rss">RSS процесса</string>
     <string name="diagnostics_metric_warnings">Предупреждения</string>
     <string name="diagnostics_metric_errors">Ошибки</string>
     <string name="diagnostics_metric_strategy">Стратегия</string>

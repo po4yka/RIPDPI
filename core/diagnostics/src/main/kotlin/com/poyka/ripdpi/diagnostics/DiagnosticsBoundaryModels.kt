@@ -186,6 +186,8 @@ data class DiagnosticTelemetrySample(
     val txBytes: Long,
     val rxPackets: Long,
     val rxBytes: Long,
+    val nativeHeapBytes: Long? = null,
+    val processRssBytes: Long? = null,
     val createdAt: Long,
 )
 

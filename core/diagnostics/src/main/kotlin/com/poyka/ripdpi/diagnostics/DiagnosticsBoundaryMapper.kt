@@ -141,6 +141,8 @@ class DiagnosticsBoundaryMapper
                 txBytes = entity.txBytes,
                 rxPackets = entity.rxPackets,
                 rxBytes = entity.rxBytes,
+                nativeHeapBytes = entity.nativeHeapBytes,
+                processRssBytes = entity.processRssBytes,
                 createdAt = entity.createdAt,
             )
 

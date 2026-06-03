@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryClock
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.diagnostics.memory.NativeMemorySample
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -348,6 +349,7 @@ internal fun createRuntimeHistoryMonitor(
             networkMetadataProvider = networkMetadataProvider,
             diagnosticsContextProvider = diagnosticsContextProvider,
             serviceStateStore = serviceStateStore,
+            nativeMemoryProbe = { NativeMemorySample(nativeHeapBytes = 0, processRssBytes = 0) },
         )
     val sessionCoordinator =
         RuntimeSessionCoordinator(
