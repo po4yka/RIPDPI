@@ -37,6 +37,13 @@ pub(super) async fn connect_fronted_stream(
     connect_host: &str,
     front_domain: &str,
 ) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
+    // PROTECT INVARIANT: no `protect_socket(fd)` is required here. The Apps Script
+    // domain-fronter runs only inside the relay native session, which serves a loopback
+    // SOCKS listener in proxy mode and owns no TUN device (see
+    // `ripdpi-relay-android/src/lib.rs` §"Idempotency, fds, errors": "it serves a loopback
+    // SOCKS listener and owns its transport sockets"; the relay registers no VPN-protect
+    // callback). With no TUN to capture outbound traffic, this front connection cannot loop
+    // back into the tunnel, so the `vpnservice-protect-invariant.md` rule does not apply.
     let stream = TcpStream::connect((connect_host, 443)).await?;
     stream.set_nodelay(true)?;
     let server_name = ServerName::try_from(front_domain.to_string())?;
