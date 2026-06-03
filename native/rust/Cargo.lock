@@ -5787,7 +5787,6 @@ dependencies = [
  "lru",
  "metrics",
  "odoh-rs",
- "once_cell",
  "quinn",
  "rand 0.9.3",
  "rcgen",
