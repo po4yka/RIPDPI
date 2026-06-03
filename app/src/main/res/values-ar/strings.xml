@@ -1307,6 +1307,7 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_quad9_body">محلِّل عام يركِّز على الأمان مع حجب التهديدات.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">محلِّل عام يُركِّز على حجب الإعلانات وأدوات التتبُّع.</string>
+    <string name="dns_resolver_catalog_generic_body">DNS مشفّر عبر HTTPS.</string>
     <string name="title_app_customization">تخصيص التطبيق</string>
     <string name="save_logs">حفظ السجلات</string>
     <string name="logs_clear">مسح</string>

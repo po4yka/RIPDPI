@@ -44,7 +44,7 @@ internal fun DnsActiveConfigurationCard(
     val type = RipDpiThemeTokens.type
     val motion = RipDpiThemeTokens.motion
     val title =
-        selectedResolver?.let { stringResource(it.titleRes) }
+        selectedResolver?.let { it.title ?: it.titleRes?.let { res -> stringResource(res) } }
             ?: if (uiState.dns.dnsMode == DnsModeEncrypted) {
                 stringResource(R.string.dns_custom_title)
             } else {
@@ -321,7 +321,8 @@ internal fun DnsResolverCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val motion = RipDpiThemeTokens.motion
-    val resolverTitle = stringResource(resolver.titleRes)
+    val resolverTitle = resolver.title ?: resolver.titleRes?.let { stringResource(it) } ?: ""
+    val resolverBody = resolver.description ?: resolver.descriptionRes?.let { stringResource(it) } ?: ""
     RipDpiCard(
         variant = if (selected) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
         onClick = onClick,
@@ -347,10 +348,17 @@ internal fun DnsResolverCard(
                     color = colors.foreground,
                 )
                 Text(
-                    text = stringResource(resolver.descriptionRes),
+                    text = resolverBody,
                     style = type.body,
                     color = colors.mutedForeground,
                 )
+                if (resolver.jurisdictionRu) {
+                    Text(
+                        text = stringResource(R.string.detection_dns_provider_jurisdiction_ru_warning),
+                        style = type.caption,
+                        color = colors.warning,
+                    )
+                }
             }
             if (selected) {
                 DnsBadge(

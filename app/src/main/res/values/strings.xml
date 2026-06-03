@@ -1334,6 +1334,7 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_quad9_body">Security-focused public resolver with threat blocking.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">Public resolver that emphasizes ad and tracker blocking.</string>
+    <string name="dns_resolver_catalog_generic_body">Encrypted DNS over HTTPS.</string>
     <string name="title_app_customization">App customization</string>
     <string name="save_logs">Save logs</string>
     <string name="logs_clear">Clear</string>

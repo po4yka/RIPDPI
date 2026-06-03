@@ -2211,6 +2211,7 @@ Origen: %2$s</string>
     <string name="dns_protocol_dnscrypt">DNSCrypt</string>
     <string name="dns_protocol_dot_body">DNS-over-TLS en el puerto 853. Útil cuando controlas el nombre de host y el nombre del servidor TLS.</string>
     <string name="dns_resolver_adguard_body">Resolvedor público que enfatiza el bloqueo de anuncios y rastreadores.</string>
+    <string name="dns_resolver_catalog_generic_body">DNS cifrado sobre HTTPS.</string>
     <string name="dns_resolver_google_body">Resolvedor público ampliamente accesible con valores predeterminados familiares.</string>
     <string name="dns_selected_badge">Seleccionado</string>
     <string name="fake_order_card_order_body">Elige cómo se intercalan los tramos falsos y los genuinos para este paso de envío.</string>

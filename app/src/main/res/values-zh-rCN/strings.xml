@@ -2162,6 +2162,7 @@ fake_burst 3</string>
     <string name="dns_protocol_doh_body">最佳默认工作流。已内置 Cloudflare、Google、Quad9 和 AdGuard 配置,可直接使用。</string>
     <string name="dns_protocol_helper">选择 RIPDPI 应当用于 VPN DNS 拦截和诊断的加密 DNS 传输方式。</string>
     <string name="dns_resolver_adguard_body">侧重广告和跟踪器拦截的公共解析器。</string>
+    <string name="dns_resolver_catalog_generic_body">基于 HTTPS 的加密 DNS。</string>
     <string name="dns_resolver_custom_active">正在使用自定义地址</string>
     <string name="dns_resolver_quad9_title">Quad9</string>
     <string name="fake_order_card_body">无需编辑完整链 DSL,即可控制主伪族步骤中伪段与真实段的交错方式。</string>

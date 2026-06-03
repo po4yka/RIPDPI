@@ -990,6 +990,7 @@ fakeddisorder endhost</string>
     <string name="dns_resolver_quad9_body">Публичный резолвер с акцентом на безопасность и блокировкой угроз.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">Публичный резолвер с упором на блокировку рекламы и трекеров.</string>
+    <string name="dns_resolver_catalog_generic_body">Шифрованный DNS поверх HTTPS.</string>
     <string name="title_app_customization">Персонализация приложения</string>
     <string name="save_logs">Сохранить логи</string>
     <string name="logs_clear">Очистить</string>

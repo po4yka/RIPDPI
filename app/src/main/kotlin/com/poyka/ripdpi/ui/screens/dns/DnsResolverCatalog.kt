@@ -2,13 +2,21 @@ package com.poyka.ripdpi.ui.screens.dns
 
 import androidx.annotation.StringRes
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.BundledDnsProviderCatalog
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 internal const val dnsPortWeightFraction = 0.4f
 
+/**
+ * One row in the primary VPN DNS picker. Curated rows carry localized [titleRes]/[descriptionRes];
+ * catalog-derived rows instead carry the provider's proper name in [title] (proper names are not
+ * translated) and reuse a generic [descriptionRes]. [jurisdictionRu] drives the RU-jurisdiction
+ * caption rendered below the description.
+ */
 internal data class DnsResolverOption(
     val providerId: String,
     val protocol: String,
@@ -18,11 +26,18 @@ internal data class DnsResolverOption(
     val tlsServerName: String,
     val dohUrl: String,
     val bootstrapIps: ImmutableList<String>,
-    @param:StringRes val titleRes: Int,
-    @param:StringRes val descriptionRes: Int,
+    @param:StringRes val titleRes: Int? = null,
+    @param:StringRes val descriptionRes: Int? = null,
+    val title: String? = null,
+    val description: String? = null,
+    val jurisdictionRu: Boolean = false,
 )
 
-internal val resolverOptions =
+/**
+ * The four curated, hand-localized resolver rows. Kept byte-identical so their screenshots do not
+ * churn; the remaining catalog providers are appended in [resolverOptions].
+ */
+private val curatedResolverOptions =
     listOf(
         DnsResolverOption(
             providerId = DnsProviderCloudflare,
@@ -73,3 +88,29 @@ internal val resolverOptions =
             descriptionRes = R.string.dns_resolver_adguard_body,
         ),
     )
+
+/**
+ * The full resolver picker: the four curated rows followed by every other DoH-capable bundled
+ * catalog provider. Catalog-derived rows carry the provider's proper name (not translated) and a
+ * generic localized description. A selection persists because the prior data layer's
+ * `dnsProviderById` falls back to the bundled catalog for catalog-only ids.
+ */
+internal val resolverOptions: List<DnsResolverOption> =
+    curatedResolverOptions +
+        BundledDnsProviderCatalog.providers
+            .filter { entry -> entry.supportsDoh && curatedResolverOptions.none { it.providerId == entry.id } }
+            .map { entry ->
+                DnsResolverOption(
+                    providerId = entry.id,
+                    protocol = EncryptedDnsProtocolDoh,
+                    address = entry.bootstrapIps.firstOrNull().orEmpty(),
+                    host = entry.dotHost,
+                    port = entry.port,
+                    tlsServerName = entry.tlsServerName.ifBlank { entry.dotHost },
+                    dohUrl = entry.dohUrl,
+                    bootstrapIps = entry.bootstrapIps.toImmutableList(),
+                    title = entry.name,
+                    descriptionRes = R.string.dns_resolver_catalog_generic_body,
+                    jurisdictionRu = entry.rf.jurisdictionRu,
+                )
+            }

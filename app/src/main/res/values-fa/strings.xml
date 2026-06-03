@@ -2230,6 +2230,7 @@ fakeddisorder endhost</string>
     <string name="dns_protocol_dot_body">DNS-over-TLS روی پورت 853. مناسب وقتی شما نام میزبان و نام سرور TLS را کنترل می‌کنید.</string>
     <string name="dns_protocol_section">پروتکل رمزنگاری‌شده</string>
     <string name="dns_resolver_adguard_body">تحلیل‌گر عمومی که بر مسدودسازی تبلیغات و ردیاب‌ها تأکید می‌کند.</string>
+    <string name="dns_resolver_catalog_generic_body">DNS رمزگذاری‌شده روی HTTPS.</string>
     <string name="dns_resolver_cloudflare_title">Cloudflare</string>
     <string name="dns_resolver_google_title">Google Public DNS</string>
     <string name="dns_resolvers_section">تحلیل‌گرها</string>
