@@ -5,6 +5,9 @@ use super::headers;
 use super::http;
 use super::response::{self, HttpResponse};
 
+// NOT cancel-safe: each redirect hop send_get-writes the follow-up request and
+// then response::read consumes the reply across awaits; cancellation can
+// truncate a request or drop already-consumed response bytes.
 pub(super) async fn follow<S>(
     stream: &mut S,
     mut response: HttpResponse,

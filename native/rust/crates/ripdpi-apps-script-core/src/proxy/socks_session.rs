@@ -13,6 +13,11 @@ use crate::proxy::tunnel_dispatch;
 use crate::socks5::{read_target, write_reply};
 use crate::telemetry::SharedTelemetryState;
 
+// NOT cancel-safe: the SOCKS5 handshake reads and writes fixed byte sequences
+// across multiple awaits; cancellation mid-handshake loses bytes already
+// consumed from the stream and may leave a partial reply written. The connection
+// is single-owned, so the only fallout is that one truncated session, but the
+// fn must not be polled in a select! arm expecting clean resumption.
 pub(crate) async fn handle(
     mut stream: TcpStream,
     relay: Arc<AppsScriptDomainFronter>,

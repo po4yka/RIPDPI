@@ -13,6 +13,9 @@ pub(super) struct HttpResponse {
     pub(super) body: Vec<u8>,
 }
 
+// NOT cancel-safe: accumulates headers and body into local buffers across many
+// timed reads; cancellation discards the partial response already consumed from
+// the stream.
 pub(super) async fn read<S>(stream: &mut S) -> Result<HttpResponse, FronterError>
 where
     S: AsyncRead + Unpin,
@@ -81,6 +84,8 @@ where
     Ok(HttpResponse { status, headers, body })
 }
 
+// NOT cancel-safe: decodes chunks into an output buffer across many reads;
+// cancellation discards partially decoded data already taken from the stream.
 async fn read_chunked<S>(stream: &mut S, mut buffer: Vec<u8>) -> Result<Vec<u8>, FronterError>
 where
     S: AsyncRead + Unpin,
@@ -111,6 +116,9 @@ where
     }
 }
 
+// NOT cancel-safe: appends timed reads into the caller-owned buffer until a CRLF
+// is found; cancellation between the read await and the append loses bytes
+// already pulled from the stream.
 async fn read_crlf_line<S>(stream: &mut S, buffer: &mut Vec<u8>, scratch: &mut [u8]) -> Result<Vec<u8>, FronterError>
 where
     S: AsyncRead + Unpin,
@@ -130,6 +138,9 @@ where
     }
 }
 
+// NOT cancel-safe: reads until the caller-owned buffer holds `wanted` bytes;
+// cancellation after a timed read completes but before the append loses bytes
+// already consumed from the stream.
 async fn fill_buffer<S>(
     stream: &mut S,
     buffer: &mut Vec<u8>,

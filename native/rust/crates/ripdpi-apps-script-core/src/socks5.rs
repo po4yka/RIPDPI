@@ -35,6 +35,9 @@ impl fmt::Display for RelayTargetAddr {
     }
 }
 
+// NOT cancel-safe: issues several read_exact calls for the address octets and
+// port; cancellation between them loses bytes already consumed from the stream,
+// leaving the SOCKS5 framing desynchronised.
 pub async fn read_target<S>(stream: &mut S, address_type: u8) -> io::Result<RelayTargetAddr>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -70,6 +73,8 @@ where
     }
 }
 
+// NOT cancel-safe: write_all may complete a partial write before cancellation,
+// leaving a truncated SOCKS5 reply on the wire.
 pub async fn write_reply<S>(stream: &mut S, reply_code: u8, bound: SocketAddr) -> io::Result<()>
 where
     S: AsyncWrite + Unpin,

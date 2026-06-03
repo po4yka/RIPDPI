@@ -12,6 +12,9 @@ use crate::mitm::MitmCertManager;
 use crate::proxy::http_relay;
 use crate::telemetry::SharedTelemetryState;
 
+// NOT cancel-safe: performs a multi-step TLS handshake (ClientHello sniff +
+// into_stream) then loops over handle_request, which partial-reads/writes the
+// HTTP exchange. Cancellation can leave the handshake or a response truncated.
 pub(crate) async fn mitm_then_relay(
     stream: TcpStream,
     host: &str,
@@ -44,6 +47,10 @@ pub(crate) async fn mitm_then_relay(
     }
 }
 
+// NOT cancel-safe: the TLS accept and outbound connect are multi-step awaits
+// preceding the copy_bidirectional; cancellation during the handshake leaves a
+// partially negotiated TLS session. (The steady-state copy phase alone would be
+// cancel-safe, but the fn as a whole is not.)
 pub(crate) async fn sni_rewrite_tunnel(
     stream: TcpStream,
     host: &str,

@@ -16,6 +16,10 @@ use crate::telemetry::SharedTelemetryState;
 
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
+// cancel-safe: the accept loop holds no partial-protocol state across awaits;
+// per-connection work runs in spawned JoinSet tasks. On drop the JoinSet aborts
+// every task and `stop_requested` is the explicit shutdown bit, so cancelling
+// the listener future cleanly tears down without corrupting shared state.
 pub(crate) async fn run(
     config: &AppsScriptRuntimeConfig,
     relay: Arc<AppsScriptDomainFronter>,

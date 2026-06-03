@@ -14,6 +14,9 @@ use crate::telemetry::SharedTelemetryState;
 
 const FIRST_BYTES_TIMEOUT: Duration = Duration::from_millis(300);
 
+// NOT cancel-safe: the initial peek does not consume, but dispatch then delegates
+// to the MITM / HTTP-relay handlers which read and partial-write across awaits.
+// Cancellation can truncate the dispatched connection.
 pub(crate) async fn dispatch(
     stream: TcpStream,
     host: &str,
@@ -50,6 +53,9 @@ pub(crate) async fn dispatch(
     plain_tcp_passthrough(stream, host, port).await
 }
 
+// cancel-safe: after the outbound connect, the body is a single
+// copy_bidirectional await; cancellation just drops both half-duplex copies and
+// closes the sockets without leaving partial protocol state owned by this fn.
 pub(crate) async fn plain_tcp_passthrough(mut inbound: TcpStream, host: &str, port: u16) -> io::Result<()> {
     let outbound = TcpStream::connect((host, port)).await?;
     outbound.set_nodelay(true)?;

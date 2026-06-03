@@ -57,6 +57,9 @@ impl AppsScriptDomainFronter {
         }
     }
 
+    // NOT cancel-safe: drives relay_once (which opens a fronted stream and
+    // partial-writes the upstream request) under a timeout; cancelling the
+    // outer future abandons the in-flight upstream request mid-exchange.
     pub async fn relay(&self, method: &str, url: &str, headers: &[(String, String)], body: &[u8]) -> Vec<u8> {
         match timeout(RELAY_TIMEOUT, self.relay_once(method, url, headers, body)).await {
             Ok(Ok(response)) => response,
@@ -65,6 +68,9 @@ impl AppsScriptDomainFronter {
         }
     }
 
+    // NOT cancel-safe: send_post writes the request and then response::read /
+    // redirect::follow consume the reply across many awaits; cancellation can
+    // truncate the request or drop already-consumed response bytes.
     async fn relay_once(
         &self,
         method: &str,
@@ -92,6 +98,9 @@ impl AppsScriptDomainFronter {
         relay_json::parse(&response.body)
     }
 
+    // NOT cancel-safe: establishes a TCP + TLS connection through a multi-step
+    // handshake; cancellation mid-handshake leaves a partially negotiated TLS
+    // session that is dropped without a clean close_notify.
     async fn open_fronted_stream(&self) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
         tls::connect_fronted_stream(&self.tls_connector, &self.connect_host, &self.front_domain).await
     }

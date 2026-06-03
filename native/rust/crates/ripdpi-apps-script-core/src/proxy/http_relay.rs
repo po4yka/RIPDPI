@@ -7,6 +7,9 @@ use tokio::net::TcpStream;
 use crate::domain_fronter::AppsScriptDomainFronter;
 use crate::telemetry::SharedTelemetryState;
 
+// NOT cancel-safe: loops over handle_request, which can be cancelled mid
+// request-read or mid response-write, losing consumed bytes / truncating the
+// response. Cancellation aborts the whole keep-alive connection.
 pub(crate) async fn relay_raw(
     mut stream: TcpStream,
     host: &str,
@@ -24,6 +27,9 @@ pub(crate) async fn relay_raw(
     }
 }
 
+// NOT cancel-safe: reads the request across multiple awaits then writes the
+// response with write_all + flush as separate awaits; cancellation can drop
+// bytes already consumed from the stream or leave a truncated response.
 pub(crate) async fn handle_request<S>(
     stream: &mut S,
     host: &str,
@@ -77,6 +83,9 @@ pub(crate) fn looks_like_http(bytes: &[u8]) -> bool {
         .any(|method| bytes.starts_with(method.as_bytes()))
 }
 
+// NOT cancel-safe: accumulates header bytes into a local buffer across reads;
+// cancellation drops the buffer, permanently losing bytes already read off the
+// stream.
 async fn read_http_head<S>(stream: &mut S) -> io::Result<Option<(Vec<u8>, Vec<u8>)>>
 where
     S: AsyncRead + Unpin,
@@ -125,6 +134,9 @@ fn parse_request_head(head: &[u8]) -> Option<(String, String, String, Vec<(Strin
     Some((method, target, version, headers))
 }
 
+// NOT cancel-safe: may write a 100-continue line and then accumulates body
+// bytes into a local buffer across reads; cancellation loses the partial body
+// already consumed from the stream.
 async fn read_body<S>(stream: &mut S, leftover: &[u8], headers: &[(String, String)]) -> io::Result<Vec<u8>>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -173,6 +185,8 @@ where
     Ok(body)
 }
 
+// NOT cancel-safe: decodes chunks into an output buffer across many reads;
+// cancellation discards partially decoded data already taken from the stream.
 async fn read_chunked_request_body<S>(stream: &mut S, mut buffer: Vec<u8>) -> io::Result<Vec<u8>>
 where
     S: AsyncRead + Unpin,
@@ -204,6 +218,9 @@ where
     }
 }
 
+// NOT cancel-safe: appends reads into the caller-owned buffer until a CRLF is
+// found; cancellation between the read await and the buffer append loses bytes
+// already pulled from the stream.
 async fn read_crlf_line<S>(stream: &mut S, buffer: &mut Vec<u8>, scratch: &mut [u8]) -> io::Result<Vec<u8>>
 where
     S: AsyncRead + Unpin,
@@ -222,6 +239,9 @@ where
     }
 }
 
+// NOT cancel-safe: reads until the caller-owned buffer holds `wanted` bytes;
+// cancellation after a read await completes but before the append loses bytes
+// already consumed from the stream.
 async fn fill_buffer<S>(stream: &mut S, buffer: &mut Vec<u8>, scratch: &mut [u8], wanted: usize) -> io::Result<()>
 where
     S: AsyncRead + Unpin,

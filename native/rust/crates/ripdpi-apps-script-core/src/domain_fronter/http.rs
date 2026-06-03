@@ -2,6 +2,8 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use super::FronterError;
 
+// NOT cancel-safe: write_all of the request line/headers and body are separate
+// awaits, so cancellation between them leaves a partial HTTP request on the wire.
 pub(super) async fn send_post<S>(stream: &mut S, path: &str, host: &str, body: &[u8]) -> Result<(), FronterError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -16,6 +18,8 @@ where
     Ok(())
 }
 
+// NOT cancel-safe: write_all then flush are distinct awaits; cancellation can
+// leave a partial GET request on the wire.
 pub(super) async fn send_get<S>(stream: &mut S, path: &str, host: &str) -> Result<(), FronterError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
