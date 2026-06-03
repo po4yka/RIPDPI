@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
-use bytes::{BufMut, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use tokio::sync::{Mutex, mpsc};
 
 use crate::client::ClientInner;
@@ -193,7 +193,7 @@ async fn send_udp_payload(
 
     if header_len + payload.len() <= max_datagram_size {
         let datagram = build_udp_datagram(session_id, packet_id, 0, 1, address, payload);
-        client.connection.send_datagram(datagram.into())?;
+        client.connection.send_datagram(datagram)?;
         return Ok(());
     }
 
@@ -206,7 +206,7 @@ async fn send_udp_payload(
     for (fragment_id, chunk) in payload.chunks(max_payload).enumerate() {
         let datagram =
             build_udp_datagram(session_id, packet_id, fragment_id as u8, fragment_count as u8, address, chunk);
-        client.connection.send_datagram(datagram.into())?;
+        client.connection.send_datagram(datagram)?;
     }
 
     Ok(())
@@ -219,7 +219,7 @@ fn build_udp_datagram(
     fragment_count: u8,
     address: &str,
     payload: &[u8],
-) -> Vec<u8> {
+) -> Bytes {
     let mut datagram = BytesMut::with_capacity(8 + address.len() + payload.len() + 8);
     datagram.extend_from_slice(&session_id.to_be_bytes());
     datagram.extend_from_slice(&packet_id.to_be_bytes());
@@ -228,7 +228,7 @@ fn build_udp_datagram(
     datagram.extend_from_slice(&encode_varint(address.len() as u64));
     datagram.extend_from_slice(address.as_bytes());
     datagram.extend_from_slice(payload);
-    datagram.to_vec()
+    datagram.freeze()
 }
 
 #[derive(Debug)]
