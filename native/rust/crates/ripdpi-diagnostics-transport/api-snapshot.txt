@@ -1,0 +1,85 @@
+pub mod ripdpi_diagnostics_transport
+pub mod ripdpi_diagnostics_transport::platform_ttl
+pub fn ripdpi_diagnostics_transport::platform_ttl::estimate_hop_count(u8) -> u8
+pub fn ripdpi_diagnostics_transport::platform_ttl::get_observed_ttl(&std::net::tcp::TcpStream) -> core::option::Option<u8>
+pub mod ripdpi_diagnostics_transport::transport
+pub enum ripdpi_diagnostics_transport::transport::ConnectionStream
+pub ripdpi_diagnostics_transport::transport::ConnectionStream::Plain(std::net::tcp::TcpStream)
+pub ripdpi_diagnostics_transport::transport::ConnectionStream::Tls(alloc::boxed::Box<rustls::stream::StreamOwned<rustls::client::client_conn::connection::ClientConnection, std::net::tcp::TcpStream>>)
+impl ripdpi_diagnostics_transport::transport::ConnectionStream
+pub fn ripdpi_diagnostics_transport::transport::ConnectionStream::shutdown(&mut self)
+impl std::io::Read for ripdpi_diagnostics_transport::transport::ConnectionStream
+pub fn ripdpi_diagnostics_transport::transport::ConnectionStream::read(&mut self, &mut [u8]) -> std::io::error::Result<usize>
+impl std::io::Write for ripdpi_diagnostics_transport::transport::ConnectionStream
+pub fn ripdpi_diagnostics_transport::transport::ConnectionStream::flush(&mut self) -> std::io::error::Result<()>
+pub fn ripdpi_diagnostics_transport::transport::ConnectionStream::write(&mut self, &[u8]) -> std::io::error::Result<usize>
+pub enum ripdpi_diagnostics_transport::transport::TargetAddress
+pub ripdpi_diagnostics_transport::transport::TargetAddress::Host(alloc::string::String)
+pub ripdpi_diagnostics_transport::transport::TargetAddress::Ip(core::net::ip_addr::IpAddr)
+pub enum ripdpi_diagnostics_transport::transport::TransportConfig
+pub ripdpi_diagnostics_transport::transport::TransportConfig::Direct
+pub ripdpi_diagnostics_transport::transport::TransportConfig::Direct::route_experiment: core::option::Option<ripdpi_diagnostics_transport::transport::RouteExperimentConfig>
+pub ripdpi_diagnostics_transport::transport::TransportConfig::Socks5
+pub ripdpi_diagnostics_transport::transport::TransportConfig::Socks5::host: alloc::string::String
+pub ripdpi_diagnostics_transport::transport::TransportConfig::Socks5::port: u16
+pub struct ripdpi_diagnostics_transport::transport::RouteExperimentConfig
+pub ripdpi_diagnostics_transport::transport::RouteExperimentConfig::diversity_buckets: usize
+pub ripdpi_diagnostics_transport::transport::RouteExperimentConfig::diversity_on_failure_only: bool
+pub ripdpi_diagnostics_transport::transport::RouteExperimentConfig::session_seed: u64
+pub ripdpi_diagnostics_transport::transport::RouteExperimentConfig::stable_flow_attempts: usize
+pub struct ripdpi_diagnostics_transport::transport::RouteExperimentReport
+pub ripdpi_diagnostics_transport::transport::RouteExperimentReport::diversity_attempts_run: usize
+pub ripdpi_diagnostics_transport::transport::RouteExperimentReport::selected_bucket: usize
+pub ripdpi_diagnostics_transport::transport::RouteExperimentReport::selected_bucket_kind: alloc::string::String
+pub ripdpi_diagnostics_transport::transport::RouteExperimentReport::stable_attempts_run: usize
+pub ripdpi_diagnostics_transport::transport::RouteExperimentReport::summary: alloc::string::String
+pub struct ripdpi_diagnostics_transport::transport::TransportConnectResult
+pub ripdpi_diagnostics_transport::transport::TransportConnectResult::connected_addr: core::option::Option<core::net::socket_addr::SocketAddr>
+pub ripdpi_diagnostics_transport::transport::TransportConnectResult::local_addr: core::option::Option<core::net::socket_addr::SocketAddr>
+pub ripdpi_diagnostics_transport::transport::TransportConnectResult::route_report: core::option::Option<ripdpi_diagnostics_transport::transport::RouteExperimentReport>
+pub ripdpi_diagnostics_transport::transport::TransportConnectResult::stream: std::net::tcp::TcpStream
+pub struct ripdpi_diagnostics_transport::transport::UdpRelayResult
+pub ripdpi_diagnostics_transport::transport::UdpRelayResult::connected_addr: core::option::Option<core::net::socket_addr::SocketAddr>
+pub ripdpi_diagnostics_transport::transport::UdpRelayResult::local_addr: core::option::Option<core::net::socket_addr::SocketAddr>
+pub ripdpi_diagnostics_transport::transport::UdpRelayResult::payload: alloc::vec::Vec<u8>
+pub ripdpi_diagnostics_transport::transport::UdpRelayResult::route_report: core::option::Option<ripdpi_diagnostics_transport::transport::RouteExperimentReport>
+pub fn ripdpi_diagnostics_transport::transport::connect_direct(&ripdpi_diagnostics_transport::transport::TargetAddress, u16) -> core::result::Result<std::net::tcp::TcpStream, alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::connect_transport_observed(&[ripdpi_diagnostics_transport::transport::TargetAddress], u16, &ripdpi_diagnostics_transport::transport::TransportConfig) -> core::result::Result<ripdpi_diagnostics_transport::transport::TransportConnectResult, alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::decode_socks5_udp_frame(&[u8]) -> core::result::Result<(core::net::socket_addr::SocketAddr, alloc::vec::Vec<u8>), alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::describe_transport(&ripdpi_diagnostics_transport::transport::TransportConfig) -> alloc::string::String
+pub fn ripdpi_diagnostics_transport::transport::direct_transport() -> ripdpi_diagnostics_transport::transport::TransportConfig
+pub fn ripdpi_diagnostics_transport::transport::domain_connect_target(&ripdpi_diagnostics_contracts::types::target::DomainTarget) -> ripdpi_diagnostics_transport::transport::TargetAddress
+pub fn ripdpi_diagnostics_transport::transport::domain_connect_targets(&ripdpi_diagnostics_contracts::types::target::DomainTarget) -> alloc::vec::Vec<ripdpi_diagnostics_transport::transport::TargetAddress>
+pub fn ripdpi_diagnostics_transport::transport::encode_socks5_udp_frame(core::net::socket_addr::SocketAddr, &[u8]) -> alloc::vec::Vec<u8>
+pub fn ripdpi_diagnostics_transport::transport::negotiate_socks5(std::net::tcp::TcpStream, &ripdpi_diagnostics_transport::transport::TargetAddress, u16) -> core::result::Result<std::net::tcp::TcpStream, alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::normalize_udp_relay_addr(core::net::socket_addr::SocketAddr, &std::net::tcp::TcpStream) -> core::result::Result<core::net::socket_addr::SocketAddr, alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::quic_connect_target(&ripdpi_diagnostics_contracts::types::target::QuicTarget) -> ripdpi_diagnostics_transport::transport::TargetAddress
+pub fn ripdpi_diagnostics_transport::transport::quic_connect_targets(&ripdpi_diagnostics_contracts::types::target::QuicTarget) -> alloc::vec::Vec<ripdpi_diagnostics_transport::transport::TargetAddress>
+pub fn ripdpi_diagnostics_transport::transport::relay_udp_direct(core::net::socket_addr::SocketAddr, &[u8]) -> core::result::Result<(alloc::vec::Vec<u8>, core::net::socket_addr::SocketAddr), alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::relay_udp_payload_observed(&[ripdpi_diagnostics_transport::transport::TargetAddress], u16, &ripdpi_diagnostics_transport::transport::TransportConfig, &[u8]) -> core::result::Result<ripdpi_diagnostics_transport::transport::UdpRelayResult, alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::relay_udp_via_socks5(&str, u16, core::net::socket_addr::SocketAddr, &[u8]) -> core::result::Result<(alloc::vec::Vec<u8>, core::net::socket_addr::SocketAddr), alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::resolve_addresses(&ripdpi_diagnostics_transport::transport::TargetAddress, u16) -> core::result::Result<alloc::vec::Vec<core::net::socket_addr::SocketAddr>, alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::resolve_first_socket_addr(&str) -> core::result::Result<core::net::socket_addr::SocketAddr, alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::socks5_noauth_handshake(&mut std::net::tcp::TcpStream) -> core::result::Result<(), alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::socks5_udp_associate(&mut std::net::tcp::TcpStream) -> core::result::Result<core::net::socket_addr::SocketAddr, alloc::string::String>
+pub fn ripdpi_diagnostics_transport::transport::throughput_connect_targets(core::option::Option<&str>, core::option::Option<&str>, &[alloc::string::String]) -> alloc::vec::Vec<ripdpi_diagnostics_transport::transport::TargetAddress>
+pub fn ripdpi_diagnostics_transport::transport::transport_for_request_with_session(&ripdpi_diagnostics_contracts::types::request::config::ScanRequest, &str) -> ripdpi_diagnostics_transport::transport::TransportConfig
+pub fn ripdpi_diagnostics_transport::transport::wait_for_listener(core::net::socket_addr::SocketAddr) -> core::result::Result<(), alloc::string::String>
+pub mod ripdpi_diagnostics_transport::ws_tls
+pub struct ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector
+impl ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector
+pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::connect(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget) -> std::io::error::Result<ripdpi_diagnostics_transport::ws_tls::WsOverTlsStream>
+pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::connect_with_key_log(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget, core::option::Option<ripdpi_diagnostics_transport::ws_tls::WsTlsKeyLogCallback>) -> std::io::error::Result<ripdpi_diagnostics_transport::ws_tls::WsOverTlsStream>
+pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::probe(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget) -> std::io::error::Result<()>
+pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::probe_with_key_log(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget, core::option::Option<ripdpi_diagnostics_transport::ws_tls::WsTlsKeyLogCallback>) -> std::io::error::Result<()>
+pub struct ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget
+pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::connect_timeout: core::option::Option<core::time::Duration>
+pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::host: alloc::string::String
+pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::path: alloc::string::String
+pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::port: u16
+pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::resolved_addr: core::option::Option<core::net::socket_addr::SocketAddr>
+impl ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget
+pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::with_resolved_addr(self, core::option::Option<core::net::socket_addr::SocketAddr>) -> Self
+pub type ripdpi_diagnostics_transport::ws_tls::WsOverTlsStream = tungstenite::protocol::WebSocket<rustls::stream::StreamOwned<rustls::client::client_conn::connection::ClientConnection, std::net::tcp::TcpStream>>
+pub type ripdpi_diagnostics_transport::ws_tls::WsTlsKeyLogCallback = alloc::sync::Arc<dyn rustls::key_log::KeyLog>
