@@ -337,28 +337,21 @@ object BackupImporter {
             raw["schemaVersion"]
                 ?: error("Backup JSON is missing 'schemaVersion'")
         val version = versionElement.jsonPrimitive.content.toInt()
-        when {
-            // Strict newer-than-app gating: never partially overwrite live data.
-            version > BackupSchemaVersion -> {
-                throw UnsupportedBackupVersion(found = version, supported = BackupSchemaVersion)
-            }
-
-            // Below the oldest real format there is nothing to migrate from.
-            version < OldestSupportedBackupVersion -> {
-                throw UnsupportedBackupVersion(found = version, supported = BackupSchemaVersion)
-            }
-
-            // A genuine older-but-known version is migrated forward before decoding.
-            // v1 is currently both oldest and current, so this is the identity
-            // transform; add migrateVNToVN+1 steps here as new versions land.
-            version < BackupSchemaVersion -> {
-                Unit
-            }
-
-            else -> {
-                Unit
-            }
+        // Strict newer-than-app gating: never partially overwrite live data.
+        if (version >
+            BackupSchemaVersion
+        ) {
+            throw UnsupportedBackupVersion(found = version, supported = BackupSchemaVersion)
         }
+        // Below the oldest real format there is nothing to migrate from.
+        if (version <
+            OldestSupportedBackupVersion
+        ) {
+            throw UnsupportedBackupVersion(found = version, supported = BackupSchemaVersion)
+        }
+        // A genuine older-but-known version is migrated forward before decoding.
+        // v1 is currently both oldest and current, so this is the identity
+        // transform; add migrateVNToVN+1 steps here as new versions land.
         return backupJson.decodeFromJsonElement(raw)
     }
 }
