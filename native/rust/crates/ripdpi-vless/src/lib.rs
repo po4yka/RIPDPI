@@ -186,16 +186,16 @@ fn resolve_server_addr(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> 
 /// missing callback means a non-Android/host context where a non-loopback dial
 /// would be unprotected — refusing there is the safe outcome (host integration
 /// tests dial loopback, which never reaches this helper). See
-/// `ripdpi_runtime_platform::protect` and
+/// `ripdpi_native_protect` and
 /// .claude/rules/vpnservice-protect-invariant.md.
 fn protect_outbound_socket<T: AsRawFd>(socket: &T) -> io::Result<()> {
-    if !ripdpi_runtime_platform::protect::has_protect_callback() {
+    if !ripdpi_native_protect::has_protect_callback() {
         return Err(io::Error::new(
             io::ErrorKind::NotConnected,
             "no VpnService.protect callback registered for non-loopback VLESS socket under active TUN",
         ));
     }
-    ripdpi_runtime_platform::protect::protect_socket_via_callback(socket.as_raw_fd())
+    ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd())
         .map_err(|error| io::Error::new(error.kind(), format!("protect VLESS outbound socket: {error}")))
 }
 
@@ -213,7 +213,7 @@ mod protect_tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 
-    use ripdpi_runtime_platform::protect::{
+    use ripdpi_native_protect::{
         ProtectCallback, has_protect_callback, register_protect_callback, unregister_protect_callback,
     };
 
