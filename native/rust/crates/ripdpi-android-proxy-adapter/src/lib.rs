@@ -1,3 +1,13 @@
+// Crate-local hardening matching the unsafe-bearing crate convention
+// (`ripdpi-vless`, `ripdpi-io-uring`, `ripdpi-privileged-ops`,
+// `ripdpi-proxy-runtime`). The only unsafe in this crate is the JNI
+// readiness callback (`readiness.rs`): the manual `Send`/`Sync` impls on
+// `JniReadinessCallback` and the `JavaVM::from_raw` clone. Re-enabling these
+// lints crate-locally turns the SAFETY-comment requirement into a build-time
+// error so any future `unsafe` block lands with a per-operation justification.
+#![warn(clippy::undocumented_unsafe_blocks)]
+#![warn(clippy::multiple_unsafe_ops_per_block)]
+
 mod config;
 mod entry;
 mod entry_error;
