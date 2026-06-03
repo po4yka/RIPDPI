@@ -16,7 +16,7 @@ pub use config::{
     ResolvedWarpRuntimeConfig, ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, WarpEndpointProbeRequest,
     WarpEndpointProbeResult, WarpManualEndpoint, WarpTelemetry,
 };
-pub use endpoint_probe::{probe_endpoint, probe_endpoint_with_platform};
+pub use endpoint_probe::{WarpProbeError, probe_endpoint, probe_endpoint_with_platform};
 pub use observe::TcpConnectObservation;
 pub use platform::{WarpPlatform, WarpSocketProtector};
 pub use runtime::WarpRuntime;
