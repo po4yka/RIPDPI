@@ -7,7 +7,8 @@ use android_support::{
 use jni::objects::JString;
 use jni::sys::{jboolean, jlong, jstring};
 use jni::{Env, EnvUnowned, Outcome};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
+
 use ripdpi_diagnostics_pcap::PcapRecordingSession;
 
 use ripdpi_android_bridge_support::extract_panic_message;
@@ -15,7 +16,7 @@ use ripdpi_android_bridge_support::extract_panic_message;
 const DEFAULT_MAX_BYTES: u64 = 10 * 1024 * 1024; // 10 MB
 const DEFAULT_MAX_CONNECTIONS: u32 = 50;
 
-static PCAP_SESSION: Lazy<Mutex<Option<Arc<PcapRecordingSession>>>> = Lazy::new(|| Mutex::new(None));
+static PCAP_SESSION: LazyLock<Mutex<Option<Arc<PcapRecordingSession>>>> = LazyLock::new(|| Mutex::new(None));
 
 fn lock_session() -> Option<MutexGuard<'static, Option<Arc<PcapRecordingSession>>>> {
     PCAP_SESSION.lock().ok()

@@ -28,7 +28,8 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
+
 use ripdpi_android_telemetry_adapter::ProxyTelemetryObserver;
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_quality::{QualitySample, QualityWindow, TransportKind};
@@ -41,7 +42,8 @@ use ripdpi_runtime_decision_ports::snapshots::RuntimeDecisionSnapshot;
 /// across every proxy session for the DegradationStrip's "instant 60s" /
 /// "series 15min" views. Per-session windows would not survive the session
 /// boundary and would defeat the rolling aggregation.
-static QUALITY_WINDOW: Lazy<Arc<QualityWindow>> = Lazy::new(|| Arc::new(QualityWindow::new(TransportKind::TcpProxy)));
+static QUALITY_WINDOW: LazyLock<Arc<QualityWindow>> =
+    LazyLock::new(|| Arc::new(QualityWindow::new(TransportKind::TcpProxy)));
 
 /// Returns a clone of the process-wide TCP-proxy `QualityWindow` handle.
 ///

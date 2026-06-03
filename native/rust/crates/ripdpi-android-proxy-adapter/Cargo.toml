@@ -12,7 +12,6 @@ android-support = { workspace = true }
 jni = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true }
-once_cell = { workspace = true }
 ripdpi-android-bridge-support = { workspace = true }
 ripdpi-android-telemetry-adapter = { workspace = true }
 ripdpi-config = { workspace = true }

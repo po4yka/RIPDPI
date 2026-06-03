@@ -11,7 +11,6 @@ workspace = true
 android-support = { workspace = true }
 jni = { workspace = true }
 log = { workspace = true }
-once_cell = { workspace = true }
 ripdpi-android-bridge-support = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-monitor-engine = { workspace = true }

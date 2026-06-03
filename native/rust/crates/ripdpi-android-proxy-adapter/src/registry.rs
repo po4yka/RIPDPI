@@ -10,8 +10,8 @@ use ripdpi_android_bridge_support::JniProxyError;
 use ripdpi_android_bridge_support::to_handle;
 use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
-pub(crate) static SESSIONS: once_cell::sync::Lazy<HandleRegistry<ProxySession>> =
-    once_cell::sync::Lazy::new(HandleRegistry::new);
+pub(crate) static SESSIONS: std::sync::LazyLock<HandleRegistry<ProxySession>> =
+    std::sync::LazyLock::new(HandleRegistry::new);
 
 pub(crate) struct ProxySession {
     pub(crate) config: RuntimeConfig,

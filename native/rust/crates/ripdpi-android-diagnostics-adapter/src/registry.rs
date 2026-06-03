@@ -9,8 +9,8 @@ use ripdpi_monitor_proxy_runtime::ProductionCandidateRuntimeLauncher;
 use super::platform_bridge::AndroidMonitorPlatformBridge;
 use ripdpi_android_bridge_support::{invalid_handle_message, to_handle, unknown_handle_message};
 
-pub(crate) static DIAGNOSTIC_SESSIONS: once_cell::sync::Lazy<HandleRegistry<MonitorSession>> =
-    once_cell::sync::Lazy::new(HandleRegistry::new);
+pub(crate) static DIAGNOSTIC_SESSIONS: std::sync::LazyLock<HandleRegistry<MonitorSession>> =
+    std::sync::LazyLock::new(HandleRegistry::new);
 
 pub(crate) fn create_diagnostics_session() -> jlong {
     DIAGNOSTIC_SESSIONS.insert(MonitorSession::with_platform_bridge_and_candidate_runtime_launcher(
