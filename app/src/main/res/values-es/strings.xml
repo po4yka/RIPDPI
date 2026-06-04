@@ -3083,7 +3083,9 @@ Origen: %2$s</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">Resolutor DNS centrado en la privacidad.</string>
     <string name="onboarding_dns_advanced">Configuración avanzada de DNS</string>
-    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <string name="onboarding_setup_mode_subtitle">Elige cómo debe enrutar RIPDPI el tráfico en este dispositivo.</string>
+    <string name="onboarding_setup_mode_vpn_meta">Solicita el permiso de VPN de Android durante la prueba.</string>
+    <string name="onboarding_test_permission_card_title">Permiso de VPN local</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Inicia el modo seleccionado y verifica que RIPDPI puede enrutar el tráfico correctamente.</string>
     <string name="onboarding_test_step_tunnel_vpn">Iniciar túnel VPN local</string>

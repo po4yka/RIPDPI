@@ -1456,7 +1456,9 @@ fakeddisorder endhost</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">Privacy-focused DNS resolver.</string>
     <string name="onboarding_dns_advanced">Advanced DNS settings</string>
-    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <string name="onboarding_setup_mode_subtitle">Select how RIPDPI should route traffic on this device.</string>
+    <string name="onboarding_setup_mode_vpn_meta">Requests Android VPN permission during the test.</string>
+    <string name="onboarding_test_permission_card_title">Local VPN permission</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Start the selected mode and verify that RIPDPI can route traffic correctly.</string>
     <string name="onboarding_test_step_tunnel_vpn">Start local VPN tunnel</string>

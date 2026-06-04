@@ -3202,7 +3202,9 @@ fakeddisorder endhost</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">DNS-резолвер с акцентом на приватность.</string>
     <string name="onboarding_dns_advanced">Расширенные настройки DNS</string>
-    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <string name="onboarding_setup_mode_subtitle">Выберите, как RIPDPI должен направлять трафик на этом устройстве.</string>
+    <string name="onboarding_setup_mode_vpn_meta">Запрашивает разрешение Android VPN во время теста.</string>
+    <string name="onboarding_test_permission_card_title">Разрешение для локального VPN</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Запустите выбранный режим и убедитесь, что RIPDPI правильно маршрутизирует трафик.</string>
     <string name="onboarding_test_step_tunnel_vpn">Запуск локального VPN-туннеля</string>

@@ -3084,7 +3084,9 @@ fake_burst 3</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">侧重隐私的 DNS 解析器。</string>
     <string name="onboarding_dns_advanced">高级 DNS 设置</string>
-    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <string name="onboarding_setup_mode_subtitle">选择 RIPDPI 在此设备上路由流量的方式。</string>
+    <string name="onboarding_setup_mode_vpn_meta">测试期间会请求 Android VPN 权限。</string>
+    <string name="onboarding_test_permission_card_title">本地 VPN 权限</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">启动所选模式,确认 RIPDPI 能够正确路由流量。</string>
     <string name="onboarding_test_step_tunnel_vpn">启动本地 VPN 隧道</string>

@@ -49,6 +49,10 @@ fun WarningBanner(
     testTag: String? = null,
     tone: WarningBannerTone = WarningBannerTone.Warning,
     icon: ImageVector? = null,
+    // When true (status changes, errors), the banner is a Polite live region and is auto-announced by
+    // TalkBack. Set false for static, always-present informational notices so they are read on focus
+    // only and not re-announced on every recomposition.
+    announce: Boolean = true,
     onClick: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
 ) {
@@ -58,11 +62,16 @@ fun WarningBanner(
             RipDpiThemeTokens.stateRoles.banner.fromTone(tone),
         )
     val resolvedIcon = icon ?: defaultWarningBannerIcon(tone)
-    val surfaceModifier =
+    val baseModifier =
         modifier
             .fillMaxWidth()
             .ripDpiTestTag(testTag)
-            .semantics { liveRegion = LiveRegionMode.Polite }
+    val surfaceModifier =
+        if (announce) {
+            baseModifier.semantics { liveRegion = LiveRegionMode.Polite }
+        } else {
+            baseModifier
+        }
 
     Surface(
         modifier = onClick?.let { surfaceModifier.ripDpiClickable(onClick = it) } ?: surfaceModifier,

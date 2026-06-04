@@ -9,10 +9,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -22,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -45,6 +43,10 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+/**
+ * Traffic-mode cards. Vertical placement (centering/scroll) and the page title/subtitle are owned by
+ * the enclosing setup scaffold, so this is a plain content column.
+ */
 @Composable
 internal fun OnboardingModeSelectionContent(
     selectedMode: Mode,
@@ -53,15 +55,13 @@ internal fun OnboardingModeSelectionContent(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(spacing.md, Alignment.CenterVertically),
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         OnboardingOptionCard(
             title = stringResource(R.string.onboarding_setup_mode_vpn_title),
             description = stringResource(R.string.onboarding_setup_mode_vpn_body),
+            metadata = stringResource(R.string.onboarding_setup_mode_vpn_meta),
             badgeText = stringResource(R.string.onboarding_badge_recommended),
             selected = selectedMode == Mode.VPN,
             onClick = { onModeSelected(Mode.VPN) },
@@ -78,6 +78,11 @@ internal fun OnboardingModeSelectionContent(
     }
 }
 
+/**
+ * Curated DNS cards + a clearly interactive "Advanced DNS settings" row. The list scrolls and is
+ * top-aligned by the enclosing setup scaffold (DNS is the one long setup step); cards show only a
+ * precise protocol label, never a resolver host.
+ */
 @Composable
 internal fun OnboardingDnsSelectionContent(
     selectedProviderId: String,
@@ -85,17 +90,9 @@ internal fun OnboardingDnsSelectionContent(
     onOpenAdvancedDns: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
-    val context = LocalContext.current
-    val getString: (Int, String, String) -> String = { res, a, b -> context.getString(res, a, b) }
-
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         OnboardingDnsOptions.forEach { option ->
@@ -116,39 +113,51 @@ internal fun OnboardingDnsSelectionContent(
             OnboardingOptionCard(
                 title = title,
                 description = stringResource(option.descriptionRes),
-                metadata = onboardingDnsMetadataLine(option.providerId, getString),
+                metadata = onboardingDnsProtocolLabel(option.providerId),
                 badgeText = option.badgeRes?.let { stringResource(it) },
                 selected = selected,
                 onClick = { onDnsSelected(option.providerId) },
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.onboardingDnsProvider(option.providerId)),
             )
         }
-        TextButton(
-            onClick = onOpenAdvancedDns,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.OnboardingAdvancedDns),
+        OnboardingAdvancedDnsRow(onOpenAdvancedDns = onOpenAdvancedDns)
+    }
+}
+
+/** Full-width, ripple-backed settings-style row that opens the full DNS catalog. */
+@Composable
+private fun OnboardingAdvancedDnsRow(
+    onOpenAdvancedDns: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val components = RipDpiThemeTokens.components
+    TextButton(
+        onClick = onOpenAdvancedDns,
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .heightIn(min = components.rows.settingsRowMinHeight)
+                .ripDpiTestTag(RipDpiTestTags.OnboardingAdvancedDns),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.onboarding_dns_advanced),
-                    style = type.introAction,
-                    color = colors.foreground,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    imageVector = RipDpiIcons.ChevronRight,
-                    contentDescription = null,
-                    tint = colors.foreground,
-                    modifier = Modifier.size(RipDpiThemeTokens.components.inputs.chipIconSize),
-                )
-            }
+            Text(
+                text = stringResource(R.string.onboarding_dns_advanced),
+                style = type.introAction,
+                color = colors.foreground,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = RipDpiIcons.ChevronRight,
+                contentDescription = null,
+                tint = colors.mutedForeground,
+                modifier = Modifier.size(components.inputs.chipIconSize),
+            )
         }
-        Spacer(modifier = Modifier.height(spacing.lg))
     }
 }
 
@@ -165,11 +174,8 @@ internal fun OnboardingModeValidationContent(
     val state = uiState.validationState
 
     Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(spacing.md, Alignment.CenterVertically),
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.lg),
     ) {
         OnboardingValidationStatusBlock(
             state = state,
@@ -188,7 +194,6 @@ internal fun OnboardingModeValidationContent(
             onFinishDisconnected = onFinishDisconnected,
             onFinishAnyway = onFinishAnyway,
         )
-        Spacer(modifier = Modifier.height(spacing.lg))
     }
 }
 
@@ -285,30 +290,22 @@ private fun OnboardingValidationStatusBlock(
     }
 }
 
-/** Quiet lock-prefixed note clarifying the Android VPN consent prompt is for a LOCAL tunnel. */
+/**
+ * Low-emphasis info card clarifying the Android VPN consent prompt is for a LOCAL tunnel. Reuses the
+ * shared [WarningBanner] in its quiet [WarningBannerTone.Info] tone with a lock glyph, so it reads as
+ * a clearly separated notice (title + supporting text) rather than a faint inline caption.
+ */
 @Composable
 private fun OnboardingPermissionNote(modifier: Modifier = Modifier) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    val spacing = RipDpiThemeTokens.spacing
-    val components = RipDpiThemeTokens.components
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Icon(
-            imageVector = RipDpiIcons.Lock,
-            contentDescription = null,
-            tint = colors.mutedForeground,
-            modifier = Modifier.size(components.inputs.chipIconSize),
-        )
-        Text(
-            text = stringResource(R.string.onboarding_test_permission_note),
-            style = type.caption,
-            color = colors.mutedForeground,
-        )
-    }
+    WarningBanner(
+        title = stringResource(R.string.onboarding_test_permission_card_title),
+        message = stringResource(R.string.onboarding_test_permission_note),
+        tone = WarningBannerTone.Info,
+        icon = RipDpiIcons.Lock,
+        // Static reference note (always shown in the VPN idle state) — read on focus, not auto-announced.
+        announce = false,
+        modifier = modifier,
+    )
 }
 
 private enum class OnboardingRowStatus { Pending, Active, Complete, Failed }

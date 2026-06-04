@@ -6,7 +6,6 @@ import android.net.VpnService
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,14 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -88,25 +79,6 @@ private const val alphaIllusRange = 0.6f
 // Illustration scale keyframe fractions
 private const val scaleIllusBase = 0.88f
 private const val scaleIllusRange = 0.12f
-
-// LocalFirst illustration fractions — device outline containing a local node + short tunnel stub
-private const val localDeviceLeftX = 0.30f
-private const val localDeviceRightX = 0.70f
-private const val localDeviceTopY = 0.16f
-private const val localDeviceBottomY = 0.84f
-private const val localDeviceCorner = 12f
-private const val localNodeRadius = 0.085f
-private const val localTunnelStartX = 0.50f
-private const val localTunnelEndX = 0.86f
-private const val localTunnelY = 0.5f
-private const val localTunnelTickInset = 0.04f
-private const val localTunnelTickHeight = 0.07f
-
-// No-cloud mark — a struck circle to the upper right of the device ("no cloud, nothing leaves").
-private const val noCloudCx = 0.82f
-private const val noCloudCy = 0.20f
-private const val noCloudRadius = 0.09f
-private const val noCloudSlashSpan = 1.3f
 
 // Intro illustration is drawn container-less at this multiple of the base illustration size.
 private const val introIllustrationScale = 1.5f
@@ -620,13 +592,16 @@ private fun OnboardingInfoPageScene(
                         alpha = bodyAlpha
                     },
         )
-        Spacer(modifier = Modifier.height(spacing.xl))
+        Spacer(modifier = Modifier.height(spacing.lg))
         OnboardingGuaranteeGrid(
-            labels =
+            privacyLabels =
                 listOf(
                     R.string.onboarding_chip_no_account,
                     R.string.onboarding_chip_no_telemetry,
                     R.string.onboarding_chip_no_cloud_sync,
+                ),
+            localLabels =
+                listOf(
                     R.string.onboarding_chip_local_vpn,
                     R.string.onboarding_chip_local_proxy,
                     R.string.onboarding_chip_local_config,
@@ -636,34 +611,41 @@ private fun OnboardingInfoPageScene(
 }
 
 /**
- * Passive 2-column guarantee grid: each cell is a small check mark + label in muted text. Read-only
- * by design — deliberately NOT bordered pills, so it never reads as an interactive filter-chip row.
+ * Passive guarantee grid in two grouped columns — privacy promises on the left, local-engine
+ * capabilities on the right — each a small check mark + muted label. Read-only by design:
+ * deliberately NOT bordered pills, so it never reads as an interactive filter-chip row.
  */
 @Composable
 private fun OnboardingGuaranteeGrid(
+    privacyLabels: List<Int>,
+    localLabels: List<Int>,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.md),
+    ) {
+        OnboardingGuaranteeColumn(labels = privacyLabels, modifier = Modifier.weight(1f))
+        OnboardingGuaranteeColumn(labels = localLabels, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun OnboardingGuaranteeColumn(
     labels: List<Int>,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        labels.chunked(2).forEach { rowLabels ->
-            Row(
+        labels.forEach { labelRes ->
+            OnboardingGuaranteeItem(
+                text = stringResource(labelRes),
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            ) {
-                rowLabels.forEach { labelRes ->
-                    OnboardingGuaranteeItem(
-                        text = stringResource(labelRes),
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                if (rowLabels.size == 1) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
+            )
         }
     }
 }
@@ -692,10 +674,19 @@ private fun OnboardingGuaranteeItem(
             text = text,
             style = type.secondaryBody,
             color = colors.mutedForeground,
+            // Constrain to the remaining column width so long translated labels wrap, never clip.
+            modifier = Modifier.weight(1f),
         )
     }
 }
 
+/**
+ * One coherent setup step: a header (title + optional subtitle) followed by the step content, laid
+ * out as a single scrollable group. Short steps (mode, connection test) are vertically balanced
+ * between the top bar and the bottom action area; the longer DNS list is top-aligned and scrolls.
+ * The outer [Column] supplies the bounded weight slot so centering works while overflow still
+ * scrolls at large font scales.
+ */
 @Composable
 private fun OnboardingSetupPageScene(
     pageModel: OnboardingPage.Setup,
@@ -709,18 +700,83 @@ private fun OnboardingSetupPageScene(
     onFinishAnyway: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val introLayout = rememberRipDpiIntroScaffoldMetrics()
+    val balanced = pageModel.kind != SetupPageKind.DnsSelection
+    val headerToContentGap = introLayout.setupHeaderToContentGap
+
+    Column(
+        modifier = modifier.fillMaxSize().padding(horizontal = introLayout.bodyHorizontalPadding),
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement =
+                if (balanced) {
+                    Arrangement.spacedBy(headerToContentGap, Alignment.CenterVertically)
+                } else {
+                    Arrangement.spacedBy(headerToContentGap)
+                },
+        ) {
+            OnboardingSetupHeader(
+                titleRes = pageModel.titleRes,
+                subtitleRes = onboardingSetupSubtitleRes(pageModel.kind),
+            )
+
+            when (pageModel.kind) {
+                SetupPageKind.ModeSelection -> {
+                    OnboardingModeSelectionContent(
+                        selectedMode = uiState.selectedMode,
+                        onModeSelected = onModeSelected,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                SetupPageKind.DnsSelection -> {
+                    OnboardingDnsSelectionContent(
+                        selectedProviderId = uiState.selectedDnsProviderId,
+                        onDnsSelected = onDnsSelected,
+                        onOpenAdvancedDns = onOpenAdvancedDns,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                SetupPageKind.ConnectionTest -> {
+                    OnboardingModeValidationContent(
+                        uiState = uiState,
+                        onAcceptSuggestedMode = onAcceptSuggestedMode,
+                        onChangeDns = onChangeDns,
+                        onFinishDisconnected = onFinishDisconnected,
+                        onFinishAnyway = onFinishAnyway,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Centered header for a setup step: the page title plus an optional one-line subtitle. */
+@Composable
+private fun OnboardingSetupHeader(
+    titleRes: Int,
+    subtitleRes: Int?,
+    modifier: Modifier = Modifier,
+) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
-
     Column(
-        modifier = modifier.padding(horizontal = introLayout.bodyHorizontalPadding),
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        Spacer(modifier = Modifier.height(spacing.section))
         Text(
-            text = stringResource(pageModel.titleRes),
+            text = stringResource(titleRes),
             style = type.introTitle,
             color = colors.foreground,
             textAlign = TextAlign.Center,
@@ -729,110 +785,28 @@ private fun OnboardingSetupPageScene(
                     .fillMaxWidth()
                     .padding(horizontal = introLayout.titleHorizontalPadding),
         )
-        Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
-
-        when (pageModel.kind) {
-            SetupPageKind.ModeSelection -> {
-                OnboardingModeSelectionContent(
-                    selectedMode = uiState.selectedMode,
-                    onModeSelected = onModeSelected,
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                )
-            }
-
-            SetupPageKind.DnsSelection -> {
-                OnboardingDnsSelectionContent(
-                    selectedProviderId = uiState.selectedDnsProviderId,
-                    onDnsSelected = onDnsSelected,
-                    onOpenAdvancedDns = onOpenAdvancedDns,
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                )
-            }
-
-            SetupPageKind.ConnectionTest -> {
-                OnboardingModeValidationContent(
-                    uiState = uiState,
-                    onAcceptSuggestedMode = onAcceptSuggestedMode,
-                    onChangeDns = onChangeDns,
-                    onFinishDisconnected = onFinishDisconnected,
-                    onFinishAnyway = onFinishAnyway,
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                )
-            }
+        subtitleRes?.let { res ->
+            Text(
+                text = stringResource(res),
+                style = type.introBody,
+                color = colors.mutedForeground,
+                textAlign = TextAlign.Center,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = introLayout.bodyHorizontalPadding),
+            )
         }
     }
 }
 
-@Composable
-private fun OnboardingIllustrationBox(modifier: Modifier = Modifier) {
-    val colors = RipDpiThemeTokens.colors
-    val introLayout = rememberRipDpiIntroScaffoldMetrics()
-    val strokeWidth = introLayout.illustrationIconStrokeWidth
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val stroke =
-                Stroke(
-                    width = strokeWidth.toPx(),
-                    cap = StrokeCap.Round,
-                    join = StrokeJoin.Round,
-                )
-
-            drawLocalFirstGlyph(colors.foreground, stroke, strokeWidth.toPx())
-        }
+/** Optional one-line subtitle shown under a setup step's title. */
+private fun onboardingSetupSubtitleRes(kind: SetupPageKind): Int? =
+    when (kind) {
+        SetupPageKind.ModeSelection -> R.string.onboarding_setup_mode_subtitle
+        SetupPageKind.DnsSelection -> null
+        SetupPageKind.ConnectionTest -> null
     }
-}
-
-/** Device outline + local node + contained tunnel stub + a struck "no cloud" mark. */
-private fun DrawScope.drawLocalFirstGlyph(
-    color: Color,
-    stroke: Stroke,
-    strokeWidthPx: Float,
-) {
-    drawRoundRect(
-        color = color,
-        topLeft = Offset(size.width * localDeviceLeftX, size.height * localDeviceTopY),
-        size =
-            Size(
-                size.width * (localDeviceRightX - localDeviceLeftX),
-                size.height * (localDeviceBottomY - localDeviceTopY),
-            ),
-        cornerRadius = CornerRadius(localDeviceCorner, localDeviceCorner),
-        style = stroke,
-    )
-    val nodeCx = size.width * localTunnelStartX
-    val nodeCy = size.height * localTunnelY
-    drawCircle(color = color, center = Offset(nodeCx, nodeCy), radius = size.minDimension * localNodeRadius)
-    drawLine(
-        color = color,
-        start = Offset(nodeCx, nodeCy),
-        end = Offset(size.width * localTunnelEndX, nodeCy),
-        strokeWidth = strokeWidthPx,
-        cap = StrokeCap.Round,
-    )
-    val tickX = size.width * (localTunnelEndX - localTunnelTickInset)
-    drawLine(
-        color = color,
-        start = Offset(tickX, nodeCy - size.height * localTunnelTickHeight),
-        end = Offset(tickX, nodeCy + size.height * localTunnelTickHeight),
-        strokeWidth = strokeWidthPx,
-        cap = StrokeCap.Round,
-    )
-    val cloudCx = size.width * noCloudCx
-    val cloudCy = size.height * noCloudCy
-    val cloudR = size.minDimension * noCloudRadius
-    drawCircle(color = color, center = Offset(cloudCx, cloudCy), radius = cloudR, style = stroke)
-    drawLine(
-        color = color,
-        start = Offset(cloudCx - cloudR * noCloudSlashSpan, cloudCy + cloudR * noCloudSlashSpan),
-        end = Offset(cloudCx + cloudR * noCloudSlashSpan, cloudCy - cloudR * noCloudSlashSpan),
-        strokeWidth = strokeWidthPx,
-        cap = StrokeCap.Round,
-    )
-}
 
 private fun PagerState.onboardingPageOffset(page: Int): Float = (currentPage - page) + currentPageOffsetFraction
 

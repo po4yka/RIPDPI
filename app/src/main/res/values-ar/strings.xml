@@ -3063,7 +3063,9 @@ fakeddisorder endhost</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">محلِّل DNS يركِّز على الخصوصية.</string>
     <string name="onboarding_dns_advanced">إعدادات DNS المتقدِّمة</string>
-    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <string name="onboarding_setup_mode_subtitle">اختر كيف يوجّه RIPDPI حركة البيانات على هذا الجهاز.</string>
+    <string name="onboarding_setup_mode_vpn_meta">يطلب إذن VPN في أندرويد أثناء الاختبار.</string>
+    <string name="onboarding_test_permission_card_title">إذن VPN المحلي</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">شغِّل الوضع المحدَّد وتحقَّق من أن RIPDPI يمكنه توجيه الحركة بشكل صحيح.</string>
     <string name="onboarding_test_step_tunnel_vpn">تشغيل نفق VPN المحلي</string>

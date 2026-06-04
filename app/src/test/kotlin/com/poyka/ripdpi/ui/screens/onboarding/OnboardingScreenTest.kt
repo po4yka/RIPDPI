@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -74,11 +79,13 @@ class OnboardingScreenTest {
     fun `dns setup presents the curated onboarding subset and advanced affordance`() {
         composeRule.setContent {
             RipDpiTheme {
-                OnboardingDnsSelectionContent(
-                    selectedProviderId = OnboardingDnsSystemId,
-                    onDnsSelected = {},
-                    onOpenAdvancedDns = {},
-                )
+                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    OnboardingDnsSelectionContent(
+                        selectedProviderId = OnboardingDnsSystemId,
+                        onDnsSelected = {},
+                        onOpenAdvancedDns = {},
+                    )
+                }
             }
         }
 
@@ -121,11 +128,13 @@ class OnboardingScreenTest {
         var opened = false
         composeRule.setContent {
             RipDpiTheme {
-                OnboardingDnsSelectionContent(
-                    selectedProviderId = OnboardingDnsSystemId,
-                    onDnsSelected = {},
-                    onOpenAdvancedDns = { opened = true },
-                )
+                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    OnboardingDnsSelectionContent(
+                        selectedProviderId = OnboardingDnsSystemId,
+                        onDnsSelected = {},
+                        onOpenAdvancedDns = { opened = true },
+                    )
+                }
             }
         }
 

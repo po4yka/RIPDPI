@@ -3088,7 +3088,9 @@ fakeddisorder endhost</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">حل‌کننده DNS متمرکز بر حریم خصوصی.</string>
     <string name="onboarding_dns_advanced">تنظیمات پیشرفته DNS</string>
-    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <string name="onboarding_setup_mode_subtitle">انتخاب کنید RIPDPI چگونه ترافیک را روی این دستگاه هدایت کند.</string>
+    <string name="onboarding_setup_mode_vpn_meta">هنگام آزمایش، مجوز VPN اندروید را درخواست می‌کند.</string>
+    <string name="onboarding_test_permission_card_title">مجوز VPN محلی</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">حالت انتخاب‌شده را اجرا کنید و بررسی کنید که RIPDPI می‌تواند ترافیک را به‌درستی مسیریابی کند.</string>
     <string name="onboarding_test_step_tunnel_vpn">راه‌اندازی تونل VPN محلی</string>

@@ -11,7 +11,6 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.dnsProviderById
-import java.net.URI
 
 /**
  * Onboarding-only sentinel id for the "use the system / device DNS" choice. It is intentionally NOT
@@ -65,47 +64,23 @@ internal val OnboardingDnsOptions: List<OnboardingDnsOption> =
     )
 
 /**
- * Resolves the technical metadata for a curated DNS option from the existing data layer (nothing is
- * hardcoded). Returns a `(protocol, endpointHost)` pair, e.g. `("DoH", "cloudflare-dns.com")`, or
- * `null` for the system option (which has no resolver definition).
+ * Precise, unambiguous encryption-protocol label for a curated DNS option (e.g. "DNS-over-HTTPS"),
+ * resolved from the existing data layer — or `null` for the system option, which pins no resolver.
  *
- * The endpoint host is parsed from the provider's [dohUrl] (the DoH endpoint host, NOT a bare IP),
- * falling back to the provider's [host] when no DoH URL is present.
+ * Onboarding cards deliberately show ONLY this protocol label, never a resolver host/endpoint: a
+ * bare host implies an endpoint it is not, and low-level host metadata over-loads the main list. The
+ * full per-resolver address detail stays reachable via Advanced DNS settings. The names are
+ * locale-invariant protocol proper nouns, so — like the data layer's
+ * [com.poyka.ripdpi.data.protocolDisplayName] — they live in code, not string resources.
  */
-private fun onboardingDnsMetadataParts(providerId: String): Pair<String, String>? {
+internal fun onboardingDnsProtocolLabel(providerId: String): String? {
     if (providerId == OnboardingDnsSystemId) return null
     val def = dnsProviderById(providerId) ?: return null
-    val endpointHost = def.dohUrl?.let { hostFromUrl(it) }?.takeIf { it.isNotBlank() } ?: def.host
-    return onboardingProtocolFullName(def.protocol) to endpointHost
-}
-
-/**
- * Spelled-out, unambiguous protocol name for the onboarding card metadata (e.g. "DNS-over-HTTPS"
- * rather than the terse "DoH"). These are locale-invariant protocol proper nouns, so — like the
- * data layer's [com.poyka.ripdpi.data.protocolDisplayName] — they live in code, not string resources.
- */
-private fun onboardingProtocolFullName(protocol: String): String =
-    when (protocol) {
+    return when (def.protocol) {
         EncryptedDnsProtocolDot -> "DNS-over-TLS"
         EncryptedDnsProtocolDoq -> "DNS-over-QUIC"
         EncryptedDnsProtocolDnsCrypt -> "DNSCrypt"
         EncryptedDnsProtocolOdoh -> "Oblivious DoH"
         else -> "DNS-over-HTTPS"
     }
-
-private fun hostFromUrl(url: String): String = runCatching { URI(url).host.orEmpty() }.getOrDefault("")
-
-/**
- * Builds the formatted technical metadata line (`protocol · endpoint host`) for a curated DNS option
- * using the `onboarding_dns_meta` template, or `null` for the system option.
- *
- * The caller supplies a [getString] bridge (typically `context::getString` or a `stringResource`
- * lambda) so this stays free of an Android `Context` dependency and is unit-testable.
- */
-internal fun onboardingDnsMetadataLine(
-    providerId: String,
-    getString: (Int, String, String) -> String,
-): String? {
-    val (protocol, host) = onboardingDnsMetadataParts(providerId) ?: return null
-    return getString(R.string.onboarding_dns_meta, protocol, host)
 }

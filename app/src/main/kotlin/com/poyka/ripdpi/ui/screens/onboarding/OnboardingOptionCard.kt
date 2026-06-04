@@ -49,8 +49,11 @@ internal fun OnboardingOptionCard(
     val shape = RipDpiThemeTokens.shapes.xl
     val interactionSource = remember { MutableInteractionSource() }
 
+    // Selection reads as a subtle filled container + the radio dot — NOT a harsh black outline.
+    // Borders stay on the quiet outline ramp so the card looks like a real Material surface, with
+    // the selected state carrying a slightly stronger (but still soft) outline for a non-color cue.
     val container = if (selected) colors.muted else colors.card
-    val borderColor = if (selected) colors.foreground else colors.border
+    val borderColor = if (selected) colors.outline else colors.outlineVariant
     // Token-derived widths (no literal dp): 2 dp selected / 1 dp unselected.
     val borderWidth = if (selected) spacing.xs / 2 else spacing.xs / 4
 

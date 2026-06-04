@@ -3083,7 +3083,9 @@ Quelle: %2$s</string>
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">Datenschutzorientierter DNS-Resolver.</string>
     <string name="onboarding_dns_advanced">Erweiterte DNS-Einstellungen</string>
-    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <string name="onboarding_setup_mode_subtitle">Wähle, wie RIPDPI den Datenverkehr auf diesem Gerät leiten soll.</string>
+    <string name="onboarding_setup_mode_vpn_meta">Fordert während des Tests die Android-VPN-Berechtigung an.</string>
+    <string name="onboarding_test_permission_card_title">Berechtigung für lokales VPN</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Starten Sie den gewählten Modus und prüfen Sie, ob RIPDPI den Datenverkehr korrekt weiterleiten kann.</string>
     <string name="onboarding_test_step_tunnel_vpn">Lokalen VPN-Tunnel starten</string>
