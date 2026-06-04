@@ -37,6 +37,10 @@ class OnboardingViewModel
 
         private var validationJob: Job? = null
 
+        // Guards the one-shot, rejection-driven VPN consent request (see [requestVpnConsentIfRejected])
+        // so a post-grant re-rejection falls through to the failure state instead of looping the dialog.
+        private var vpnConsentRetryUsed = false
+
         init {
             observeOnboardingSelections()
         }
@@ -103,6 +107,8 @@ class OnboardingViewModel
             validationJob?.cancel()
             validationJob =
                 viewModelScope.launch {
+                    // A fresh, user-initiated attempt re-arms the one-shot consent-on-rejection recovery.
+                    vpnConsentRetryUsed = false
                     val currentState = _uiState.value
                     settingsCoordinator.saveSelection(
                         mode = currentState.selectedMode,
@@ -200,6 +206,25 @@ class OnboardingViewModel
                 validationCoordinator.validate(mode = mode) { progress ->
                     _uiState.update { it.withValidationState(progress) }
                 }
+            // The service is the authoritative consent gate: it can reject a VPN start for missing
+            // consent even when the advisory pre-check (OnboardingPermissionCoordinator.nextValidationPrompt)
+            // reported consent granted, because VpnService.prepare() can disagree across calls. When that
+            // happens, launch the system consent dialog off the rejection instead of dead-ending on the
+            // "Grant VPN permission" failure state. One-shot per attempt (guarded by vpnConsentRetryUsed)
+            // so a re-rejection after the user grants falls through to the failure state rather than looping.
+            val failed = validationState as? OnboardingValidationState.Failed
+            val rejectedForConsent =
+                mode == Mode.VPN &&
+                    !vpnConsentRetryUsed &&
+                    failed?.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION
+            val consentPrompt =
+                if (rejectedForConsent) permissionCoordinator.requestVpnConsentPrompt() else null
+            if (consentPrompt != null) {
+                vpnConsentRetryUsed = true
+                _uiState.update { it.withValidationState(OnboardingValidationState.RequestingVpnConsent) }
+                _effects.emit(OnboardingEffect.RequestVpnConsent(consentPrompt.intent))
+                return
+            }
             _uiState.update { current ->
                 current.withValidationState(validationState)
             }
@@ -208,6 +233,7 @@ class OnboardingViewModel
         private fun invalidateValidation() {
             validationJob?.cancel()
             validationJob = null
+            vpnConsentRetryUsed = false
             permissionCoordinator.clearPendingPermission()
             validationCoordinator.stopActiveValidation()
         }

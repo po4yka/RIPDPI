@@ -66,6 +66,24 @@ class OnboardingPermissionCoordinator
             return prompt
         }
 
+        /**
+         * Builds a VPN-consent prompt on demand. Used to recover when the service authoritatively
+         * rejected the start for missing consent even though [nextValidationPrompt] did not pre-empt
+         * it — `VpnService.prepare()` can report consent granted on one call and missing on the next
+         * (e.g. an `ACTIVATE_VPN` app-op left in a transient state), so the advisory pre-check and the
+         * service-side check disagree. Returns null when no consent intent is available, in which case
+         * the caller keeps the failure state.
+         */
+        internal fun requestVpnConsentPrompt(): OnboardingPermissionPrompt.VpnConsent? {
+            val prompt =
+                permissionPlatformBridge
+                    .prepareVpnPermissionIntent()
+                    ?.let(OnboardingPermissionPrompt::VpnConsent)
+            pendingValidationPermission =
+                if (prompt != null) PendingValidationPermission.VpnConsent else null
+            return prompt
+        }
+
         internal fun onNotificationPermissionResult(result: PermissionResult): OnboardingPermissionOutcome? {
             if (pendingValidationPermission != PendingValidationPermission.Notifications) {
                 return null

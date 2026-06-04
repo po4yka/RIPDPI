@@ -248,6 +248,87 @@ class OnboardingViewModelTest {
         }
 
     @Test
+    fun `service vpn consent rejection requests the dialog even when the pre-check reported granted`() =
+        runTest {
+            // Advisory pre-check reports consent granted (VpnService.prepare() can spuriously return
+            // null), so nextValidationPrompt does NOT pre-empt with a dialog...
+            val permissionStatusProvider =
+                FakePermissionStatusProvider(
+                    snapshot =
+                        PermissionSnapshot(
+                            vpnConsent = PermissionStatus.Granted,
+                            notifications = PermissionStatus.Granted,
+                            batteryOptimization = PermissionStatus.NotApplicable,
+                        ),
+                )
+            // ...but the service authoritatively rejects the start for missing consent.
+            val runner =
+                FakeOnboardingModeValidationRunner().apply {
+                    result =
+                        OnboardingValidationResult.Failed(
+                            reason = "VPN consent not given",
+                            recoveryKind = OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION,
+                            suggestedMode = Mode.Proxy,
+                            failedStep = OnboardingValidationStep.Tunnel,
+                        )
+                }
+            val vm =
+                createViewModel(
+                    validationRunner = runner,
+                    permissionStatusProvider = permissionStatusProvider,
+                    permissionPlatformBridge = FakePermissionPlatformBridge(vpnPermissionIntent = Intent("fake.vpn")),
+                )
+
+            vm.effects.test {
+                vm.runValidation()
+                // The consent dialog is launched off the authoritative rejection, not skipped.
+                assertTrue(awaitItem() is OnboardingEffect.RequestVpnConsent)
+            }
+            assertEquals(OnboardingValidationState.RequestingVpnConsent, vm.uiState.value.validationState)
+        }
+
+    @Test
+    fun `vpn consent re-rejection after grant surfaces failure without re-looping the dialog`() =
+        runTest {
+            val permissionStatusProvider =
+                FakePermissionStatusProvider(
+                    snapshot =
+                        PermissionSnapshot(
+                            vpnConsent = PermissionStatus.Granted,
+                            notifications = PermissionStatus.Granted,
+                            batteryOptimization = PermissionStatus.NotApplicable,
+                        ),
+                )
+            val runner =
+                FakeOnboardingModeValidationRunner().apply {
+                    result =
+                        OnboardingValidationResult.Failed(
+                            reason = "VPN consent not given",
+                            recoveryKind = OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION,
+                            suggestedMode = Mode.Proxy,
+                            failedStep = OnboardingValidationStep.Tunnel,
+                        )
+                }
+            val vm =
+                createViewModel(
+                    validationRunner = runner,
+                    permissionStatusProvider = permissionStatusProvider,
+                )
+
+            vm.effects.test {
+                vm.runValidation()
+                assertTrue(awaitItem() is OnboardingEffect.RequestVpnConsent)
+                // User grants, but the service STILL rejects — must not re-launch the dialog forever.
+                vm.onVpnPermissionResult(PermissionResult.Granted)
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+
+            val state = vm.uiState.value.validationState as OnboardingValidationState.Failed
+            assertEquals(OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION, state.recoveryKind)
+        }
+
+    @Test
     fun `notifications permission is requested when validation start needs it`() =
         runTest {
             val permissionStatusProvider =
