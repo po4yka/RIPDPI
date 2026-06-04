@@ -246,11 +246,13 @@ internal fun RipDpiIntroLargeFontPreviewScene() {
             onContinue = {},
             onModeSelected = {},
             onDnsSelected = {},
+            onOpenAdvancedDns = {},
             onRunValidation = {},
             onFinishKeepingRunning = {},
             onFinishDisconnected = {},
             onFinishAnyway = {},
             onAcceptSuggestedMode = {},
+            onChangeDns = {},
         )
     }
 }

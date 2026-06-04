@@ -395,6 +395,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                     popUpTo<Route.Onboarding> { inclusive = true }
                 }
             },
+            onOpenAdvancedDns = { navController.navigate(Route.DnsSettings) },
         )
     }
     composable<Route.Home>(

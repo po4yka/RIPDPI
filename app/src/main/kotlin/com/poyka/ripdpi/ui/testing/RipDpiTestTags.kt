@@ -171,6 +171,8 @@ internal object RipDpiTestTags {
     const val OnboardingFinishDisconnected = "onboarding-finish-disconnected"
     const val OnboardingFinishAnyway = "onboarding-finish-anyway"
     const val OnboardingSwitchSuggestedMode = "onboarding-switch-suggested-mode"
+    const val OnboardingChangeDns = "onboarding-change-dns"
+    const val OnboardingAdvancedDns = "onboarding-advanced-dns"
 
     val onboardingDnsProvider: (String) -> String = { providerId -> "onboarding-dns-${sanitize(providerId)}" }
 

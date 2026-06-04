@@ -38,6 +38,7 @@ fun PresetCard(
     title: String,
     description: String,
     modifier: Modifier = Modifier,
+    metadata: String? = null,
     badgeText: String? = null,
     selected: Boolean = false,
     enabled: Boolean = true,
@@ -120,6 +121,15 @@ fun PresetCard(
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
         )
+        metadata?.let { meta ->
+            Text(
+                text = meta,
+                style = type.caption,
+                color = colors.mutedForeground,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
     }
 }
 

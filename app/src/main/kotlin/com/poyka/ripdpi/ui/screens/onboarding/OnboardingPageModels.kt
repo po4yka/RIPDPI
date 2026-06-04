@@ -64,3 +64,7 @@ internal val OnboardingPages: List<OnboardingPage> =
     )
 
 internal const val OnboardingInfoPageCount = 1
+
+/** Index of the DNS-selection page in [OnboardingPages]; used by the failed-validation "Change DNS" action. */
+internal val OnboardingDnsPageIndex: Int =
+    OnboardingPages.indexOfFirst { it is OnboardingPage.Setup && it.kind == SetupPageKind.DnsSelection }
