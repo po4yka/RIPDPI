@@ -11,7 +11,6 @@ internal sealed interface OnboardingPage {
         @param:StringRes override val titleRes: Int,
         @param:StringRes val descriptionRes: Int,
         @param:StringRes override val buttonLabelRes: Int,
-        val illustration: OnboardingIllustration,
     ) : OnboardingPage
 
     data class Setup(
@@ -19,15 +18,6 @@ internal sealed interface OnboardingPage {
         @param:StringRes override val titleRes: Int,
         @param:StringRes override val buttonLabelRes: Int,
     ) : OnboardingPage
-}
-
-internal enum class OnboardingIllustration {
-    LocalFirst,
-    Permission,
-    Modes,
-    Diagnostics,
-    BypassModes,
-    Privacy,
 }
 
 internal enum class SetupPageKind {
@@ -43,7 +33,6 @@ internal val OnboardingPages: List<OnboardingPage> =
             titleRes = R.string.onboarding_local_first_title,
             descriptionRes = R.string.onboarding_local_first_body,
             buttonLabelRes = R.string.onboarding_continue,
-            illustration = OnboardingIllustration.LocalFirst,
         ),
         // -- Setup wizard pages --
         OnboardingPage.Setup(
