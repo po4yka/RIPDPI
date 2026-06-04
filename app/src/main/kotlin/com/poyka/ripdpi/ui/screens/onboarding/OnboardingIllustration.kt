@@ -43,6 +43,15 @@ private const val noCloudWidth = 0.38f
 private const val noCloudHeight = 0.23f
 private const val noCloudSlashExtend = 1.18f
 
+// Cloud-silhouette bezier coefficients (fractions of the cloud box) for [cloudPath].
+private const val cloudBaseYFactor = 0.34f
+private const val cloudTopYFactor = 0.5f
+private const val cloudEdgeInset = 0.12f
+private const val cloudOuterBulge = 0.02f
+private const val cloudShoulderRise = 0.04f
+private const val cloudBumpInset = 0.16f
+private const val cloudCrownInset = 0.22f
+
 /** The monochrome "private by design" glyph drawn on the intro page. */
 @Composable
 internal fun OnboardingIllustrationBox(modifier: Modifier = Modifier) {
@@ -150,13 +159,34 @@ private fun cloudPath(
 ): Path {
     val left = cx - w / 2f
     val right = cx + w / 2f
-    val baseY = cy + h * 0.34f
-    val topY = cy - h * 0.5f
+    val baseY = cy + h * cloudBaseYFactor
+    val topY = cy - h * cloudTopYFactor
     return Path().apply {
-        moveTo(left + w * 0.12f, baseY)
-        cubicTo(left - w * 0.02f, baseY, left - w * 0.02f, cy + h * 0.04f, left + w * 0.16f, cy - h * 0.02f)
-        cubicTo(left + w * 0.22f, topY, right - w * 0.22f, topY, right - w * 0.16f, cy - h * 0.02f)
-        cubicTo(right + w * 0.02f, cy + h * 0.04f, right + w * 0.02f, baseY, right - w * 0.12f, baseY)
+        moveTo(left + w * cloudEdgeInset, baseY)
+        cubicTo(
+            left - w * cloudOuterBulge,
+            baseY,
+            left - w * cloudOuterBulge,
+            cy + h * cloudShoulderRise,
+            left + w * cloudBumpInset,
+            cy - h * cloudOuterBulge,
+        )
+        cubicTo(
+            left + w * cloudCrownInset,
+            topY,
+            right - w * cloudCrownInset,
+            topY,
+            right - w * cloudBumpInset,
+            cy - h * cloudOuterBulge,
+        )
+        cubicTo(
+            right + w * cloudOuterBulge,
+            cy + h * cloudShoulderRise,
+            right + w * cloudOuterBulge,
+            baseY,
+            right - w * cloudEdgeInset,
+            baseY,
+        )
         close()
     }
 }
