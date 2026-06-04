@@ -156,17 +156,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-onboarding-onboardingscreen.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/onboarding/OnboardingScreen.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/onboarding/OnboardingScreen.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:core-service-src-main-kotlin-com-poyka-ripdpi-services-networkfingerprintprovider.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
@@ -317,17 +306,6 @@
       "message": "ScanProgressCard spans 115 lines",
       "metricName": "functionLines",
       "baselineValue": 115,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-onboarding-onboardingscreen.kt:onboardingillustrationbox",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/onboarding/OnboardingScreen.kt",
-      "message": "OnboardingIllustrationBox spans 207 lines",
-      "metricName": "functionLines",
-      "baselineValue": 207,
       "limit": 100,
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     },
