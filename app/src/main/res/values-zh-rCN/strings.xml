@@ -691,15 +691,15 @@
     <string name="notice_strategy_pack_refresh_failed_message">RIPDPI 无法刷新最新的策略包目录。当前策略快照仍保持活动。</string>
     <string name="notice_telemetry_salt_reset_message">下次连接时将生成新的盐值。之前记录的指纹哈希将无法再被关联。</string>
     <string name="onboarding_continue">继续</string>
-    <string name="onboarding_local_first_body">RIPDPI 在你的设备上运行 VPN、代理和配置。无账号、无遥测、无云同步。</string>
+    <string name="onboarding_local_first_body">RIPDPI 在你的设备上本地运行。无账号、无遥测、无云同步。</string>
     <string name="onboarding_permission_body">Android 需要 VPN 权限才能将流量路由经过应用。RIPDPI 使用本地隧道，但 DNS 和连接检查可能会联系你选择的提供方或测试端点。</string>
-    <string name="onboarding_setup_dns_adguard_body">内置广告和追踪器拦截的 DNS。</string>
+    <string name="onboarding_setup_dns_adguard_body">带广告和追踪器过滤的 DNS 解析器。</string>
     <string name="onboarding_setup_dns_system_body">原样使用你网络的 DNS 服务器。</string>
     <string name="onboarding_setup_dns_provider_body">%1$s 解析器，主地址为 %2$s。</string>
-    <string name="onboarding_setup_mode_proxy_body">通过本地代理路由流量。为高级用户提供精细控制。</string>
+    <string name="onboarding_setup_mode_proxy_body">为支持手动代理配置的应用或客户端运行本地代理。</string>
     <string name="onboarding_setup_mode_vpn_title">VPN 模式</string>
     <string name="onboarding_setup_test_run">运行测试</string>
-    <string name="onboarding_setup_validate_title">验证你选择的模式</string>
+    <string name="onboarding_setup_validate_title">测试连接</string>
     <string name="onboarding_setup_validate_mode_title">验证 %1$s</string>
     <string name="onboarding_step_progress">第 %1$d 步,共 %2$d 步</string>
     <string name="onboarding_validation_failed_generic">所选模式无法通过验证。</string>
@@ -1215,9 +1215,9 @@ fakeddisorder endhost</string>
     <string name="notice_strategy_pack_refresh_failed_title">无法刷新策略包</string>
     <string name="notice_telemetry_salt_reset_title">遥测盐值已重置</string>
     <string name="onboarding_diagnostics_body">无需离开应用即可检测 DPI 干扰并分析您的网络健康状况。</string>
-    <string name="onboarding_local_first_title">默认本地优先</string>
+    <string name="onboarding_local_first_title">隐私优先设计</string>
     <string name="onboarding_permission_title">本地 VPN,而非远程 VPN</string>
-    <string name="onboarding_setup_dns_cloudflare_body">由 Cloudflare 提供的快速、注重隐私的 DNS。</string>
+    <string name="onboarding_setup_dns_cloudflare_body">快速的通用 DNS 解析器。</string>
     <string name="onboarding_setup_dns_system">系统默认</string>
     <string name="onboarding_setup_mode_proxy_title">代理模式</string>
     <string name="onboarding_setup_next">下一步</string>
@@ -1743,8 +1743,8 @@ fake_burst 3</string>
     <string name="onboarding_modes_body">从开箱即用的预设开始,或手动配置每个参数。随时可改变主意。</string>
     <string name="onboarding_privacy_body">无遥测、无追踪、无账号。设置和诊断历史会保留在你的设备上，除非你明确导出。</string>
     <string name="onboarding_setup_dns_google_body">由 Google 提供的可靠 DNS。</string>
-    <string name="onboarding_setup_dns_title">选择 DNS 提供方</string>
-    <string name="onboarding_setup_mode_title">选择您的模式</string>
+    <string name="onboarding_setup_dns_title">选择 DNS</string>
+    <string name="onboarding_setup_mode_title">选择流量模式</string>
     <string name="onboarding_setup_test_failed">连接失败:%1$s</string>
     <string name="onboarding_setup_test_success">已在 %1$d 毫秒内连接</string>
     <string name="onboarding_validation_checking_proxy">正在通过代理模式检查流量…</string>
@@ -2260,9 +2260,9 @@ fake_burst 3</string>
     <string name="onboarding_get_started">开始</string>
     <string name="onboarding_modes_title">预设或完全自定义</string>
     <string name="onboarding_privacy_title">天生透明</string>
-    <string name="onboarding_setup_dns_quad9_body">侧重安全、拦截威胁的 DNS。</string>
+    <string name="onboarding_setup_dns_quad9_body">侧重安全的 DNS 解析器。</string>
     <string name="onboarding_setup_finish">完成</string>
-    <string name="onboarding_setup_mode_vpn_body">通过本地 VPN 隧道路由全部设备流量。全面覆盖,无需配置。</string>
+    <string name="onboarding_setup_mode_vpn_body">通过设备上的本地 VPN 路由全部应用流量。全面覆盖,无需手动配置。</string>
     <string name="onboarding_setup_test_hint">开始前先验证您的互联网连接。</string>
     <string name="onboarding_setup_test_title">测试您的连接</string>
     <string name="onboarding_validation_checking_vpn">正在通过 VPN 模式检查流量…</string>
@@ -3065,4 +3065,46 @@ fake_burst 3</string>
     <string name="xray_import_capabilities_body">此连接提供：</string>
     <string name="xray_import_finish_action">使用此模式</string>
     <string name="xray_import_done_action">完成</string>
+
+    <!-- onboarding refactor additions -->
+    <!-- intro chips -->
+    <string name="onboarding_chip_no_account">无账号</string>
+    <string name="onboarding_chip_no_telemetry">无遥测</string>
+    <string name="onboarding_chip_no_cloud_sync">无云同步</string>
+    <string name="onboarding_chip_local_vpn">本地 VPN</string>
+    <string name="onboarding_chip_local_proxy">本地代理</string>
+    <string name="onboarding_chip_local_config">本地配置</string>
+    <!-- per-screen skip -->
+    <string name="onboarding_skip_setup">跳过设置</string>
+    <string name="onboarding_use_recommended">使用推荐设置</string>
+    <string name="onboarding_skip_test">跳过测试</string>
+    <!-- mode badges -->
+    <string name="onboarding_badge_recommended">推荐</string>
+    <string name="onboarding_badge_advanced">高级</string>
+    <!-- DNS -->
+    <string name="onboarding_setup_dns_mullvad_body">侧重隐私的 DNS 解析器。</string>
+    <string name="onboarding_dns_advanced">高级 DNS 设置</string>
+    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <!-- validation / test connection -->
+    <string name="onboarding_test_idle_body">启动所选模式,确认 RIPDPI 能够正确路由流量。</string>
+    <string name="onboarding_test_step_tunnel_vpn">启动本地 VPN 隧道</string>
+    <string name="onboarding_test_step_tunnel_proxy">启动本地代理</string>
+    <string name="onboarding_test_step_dns">检查 DNS 解析</string>
+    <string name="onboarding_test_step_connectivity">验证互联网连接</string>
+    <string name="onboarding_test_start">开始测试</string>
+    <string name="onboarding_test_running_cta">测试中…</string>
+    <string name="onboarding_test_retry">重试</string>
+    <string name="onboarding_test_change_dns">更改 DNS</string>
+    <string name="onboarding_test_finish_without">不测试直接完成</string>
+    <string name="onboarding_test_state_permission">Android 将请求创建本地 VPN 连接的权限。</string>
+    <string name="onboarding_test_state_dns">正在检查 DNS 解析…</string>
+    <string name="onboarding_test_state_connectivity">正在检查网络连接…</string>
+    <string name="onboarding_test_success_title">设置完成</string>
+    <string name="onboarding_test_success_body">RIPDPI 已可使用。</string>
+    <string name="onboarding_test_failed_title">连接测试失败</string>
+    <!-- accessibility state descriptions for checklist rows -->
+    <string name="onboarding_test_row_state_pending">待处理</string>
+    <string name="onboarding_test_row_state_active">进行中</string>
+    <string name="onboarding_test_row_state_done">已完成</string>
+    <string name="onboarding_test_row_state_failed">失败</string>
 </resources>

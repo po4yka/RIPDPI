@@ -1355,8 +1355,8 @@ fakeddisorder endhost</string>
     <string name="onboarding_get_started">ابدأ الآن</string>
     <string name="onboarding_setup_next">التالي</string>
     <string name="onboarding_setup_finish">إنهاء</string>
-    <string name="onboarding_local_first_title">محلي أولاً بشكل افتراضي</string>
-    <string name="onboarding_local_first_body">يعمل RIPDPI بنظام VPN والوكيل والإعدادات على جهازك. بدون حسابات أو قياس عن بُعد أو مزامنة سحابية.</string>
+    <string name="onboarding_local_first_title">خاص بحكم التصميم</string>
+    <string name="onboarding_local_first_body">يعمل RIPDPI محلياً على جهازك. بدون حسابات، بدون قياس عن بُعد، بدون مزامنة سحابية.</string>
     <string name="onboarding_permission_title">VPN محلي لا بُعدي</string>
     <string name="onboarding_permission_body">يتطلب Android إذن VPN لتوجيه الحركة عبر التطبيق. يستخدم RIPDPI نفقاً محلياً، بينما قد يتصل DNS وفحوصات الاتصال بالمزوِّد أو نقطة الاختبار التي تختارها.</string>
     <string name="onboarding_modes_title">إعدادات مسبقة أو تحكُّم كامل</string>
@@ -1367,20 +1367,20 @@ fakeddisorder endhost</string>
     <string name="onboarding_bypass_modes_body">وجِّه الحركة عبر VPN محلي للتغطية الكاملة، أو استخدم وكيلاً محلياً للتحكُّم الدقيق. بدِّل في أي وقت.</string>
     <string name="onboarding_privacy_title">شفَّافية بالتصميم</string>
     <string name="onboarding_privacy_body">بدون قياس عن بُعد، بدون تتبُّع، بدون حسابات. تبقى الإعدادات وسجل التشخيصات على جهازك ما لم تصدِّرها صراحةً.</string>
-    <string name="onboarding_setup_mode_title">اختر وضعك</string>
+    <string name="onboarding_setup_mode_title">اختر وضع الحركة</string>
     <string name="onboarding_setup_mode_vpn_title">وضع VPN</string>
-    <string name="onboarding_setup_mode_vpn_body">يوجِّه جميع حركة الجهاز عبر نفق VPN محلي. تغطية كاملة، إعداد صفري.</string>
+    <string name="onboarding_setup_mode_vpn_body">يوجِّه جميع حركة التطبيقات عبر VPN محلي على الجهاز. تغطية كاملة، بدون إعداد يدوي.</string>
     <string name="onboarding_setup_mode_proxy_title">وضع الوكيل</string>
-    <string name="onboarding_setup_mode_proxy_body">يوجِّه الحركة عبر وكيل محلي. تحكُّم دقيق للمستخدمين المتقدِّمين.</string>
-    <string name="onboarding_setup_dns_title">اختر مزوِّد DNS</string>
+    <string name="onboarding_setup_mode_proxy_body">يشغِّل وكيلاً محلياً للتطبيقات أو العملاء الذين يدعمون تهيئة الوكيل يدوياً.</string>
+    <string name="onboarding_setup_dns_title">اختر DNS</string>
     <string name="onboarding_setup_dns_system">الافتراضي للنظام</string>
     <string name="onboarding_setup_dns_system_body">استخدام خوادم DNS الخاصة بشبكتك كما هي.</string>
     <string name="onboarding_setup_dns_provider_body">محلِّل %1$s يستخدم %2$s كعنوانه الأساسي.</string>
-    <string name="onboarding_setup_dns_cloudflare_body">DNS سريع يركِّز على الخصوصية من Cloudflare.</string>
+    <string name="onboarding_setup_dns_cloudflare_body">محلِّل DNS سريع للأغراض العامة.</string>
     <string name="onboarding_setup_dns_google_body">DNS موثوق من Google.</string>
-    <string name="onboarding_setup_dns_quad9_body">DNS يركِّز على الأمان ويحجب التهديدات.</string>
-    <string name="onboarding_setup_dns_adguard_body">DNS مع حجب مدمج للإعلانات وأدوات التتبُّع.</string>
-    <string name="onboarding_setup_validate_title">تحقَّق من الوضع المحدَّد</string>
+    <string name="onboarding_setup_dns_quad9_body">محلِّل DNS يركِّز على الأمان.</string>
+    <string name="onboarding_setup_dns_adguard_body">محلِّل DNS مع تصفية الإعلانات وأدوات التتبُّع.</string>
+    <string name="onboarding_setup_validate_title">اختبار الاتصال</string>
     <string name="onboarding_setup_validate_mode_title">التحقُّق من %1$s</string>
     <string name="onboarding_step_progress">الخطوة %1$d من %2$d</string>
     <string name="onboarding_setup_test_title">اختبر اتصالك</string>
@@ -3044,4 +3044,46 @@ fakeddisorder endhost</string>
     <string name="ssh_secret_hidden">مخفي — انقر على الكشف للعرض</string>
     <string name="ssh_reveal_secret_action">كشف</string>
     <string name="ssh_save_action">حفظ</string>
+
+    <!-- onboarding refactor additions -->
+    <!-- intro chips -->
+    <string name="onboarding_chip_no_account">بدون حساب</string>
+    <string name="onboarding_chip_no_telemetry">بدون قياس عن بُعد</string>
+    <string name="onboarding_chip_no_cloud_sync">بدون مزامنة سحابية</string>
+    <string name="onboarding_chip_local_vpn">VPN محلي</string>
+    <string name="onboarding_chip_local_proxy">وكيل محلي</string>
+    <string name="onboarding_chip_local_config">تهيئة محلية</string>
+    <!-- per-screen skip -->
+    <string name="onboarding_skip_setup">تخطّي الإعداد</string>
+    <string name="onboarding_use_recommended">استخدام الموصى به</string>
+    <string name="onboarding_skip_test">تخطّي الاختبار</string>
+    <!-- mode badges -->
+    <string name="onboarding_badge_recommended">موصى به</string>
+    <string name="onboarding_badge_advanced">متقدِّم</string>
+    <!-- DNS -->
+    <string name="onboarding_setup_dns_mullvad_body">محلِّل DNS يركِّز على الخصوصية.</string>
+    <string name="onboarding_dns_advanced">إعدادات DNS المتقدِّمة</string>
+    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <!-- validation / test connection -->
+    <string name="onboarding_test_idle_body">شغِّل الوضع المحدَّد وتحقَّق من أن RIPDPI يمكنه توجيه الحركة بشكل صحيح.</string>
+    <string name="onboarding_test_step_tunnel_vpn">تشغيل نفق VPN المحلي</string>
+    <string name="onboarding_test_step_tunnel_proxy">تشغيل الوكيل المحلي</string>
+    <string name="onboarding_test_step_dns">التحقُّق من تحليل DNS</string>
+    <string name="onboarding_test_step_connectivity">التحقُّق من اتصال الإنترنت</string>
+    <string name="onboarding_test_start">بدء الاختبار</string>
+    <string name="onboarding_test_running_cta">جارٍ الاختبار…</string>
+    <string name="onboarding_test_retry">إعادة المحاولة</string>
+    <string name="onboarding_test_change_dns">تغيير DNS</string>
+    <string name="onboarding_test_finish_without">الإنهاء دون اختبار</string>
+    <string name="onboarding_test_state_permission">سيطلب Android إذناً لإنشاء اتصال VPN محلي.</string>
+    <string name="onboarding_test_state_dns">جارٍ التحقُّق من تحليل DNS…</string>
+    <string name="onboarding_test_state_connectivity">جارٍ التحقُّق من اتصال الشبكة…</string>
+    <string name="onboarding_test_success_title">اكتمل الإعداد</string>
+    <string name="onboarding_test_success_body">RIPDPI جاهز للاستخدام.</string>
+    <string name="onboarding_test_failed_title">فشل اختبار الاتصال</string>
+    <!-- accessibility state descriptions for checklist rows -->
+    <string name="onboarding_test_row_state_pending">قيد الانتظار</string>
+    <string name="onboarding_test_row_state_active">قيد التنفيذ</string>
+    <string name="onboarding_test_row_state_done">تمَّ</string>
+    <string name="onboarding_test_row_state_failed">فشل</string>
 </resources>

@@ -327,7 +327,7 @@
     <string name="notice_pin_key_lost_title">Backup-PIN zurückgesetzt</string>
     <string name="notice_strategy_packs_refreshed_message">RIPDPI hat den neuesten für dieses Gerät zugelassenen Strategie-Paket-Katalog heruntergeladen, verifiziert und aktiviert.</string>
     <string name="onboarding_bypass_modes_title">VPN oder Proxy — Ihre Wahl</string>
-    <string name="onboarding_local_first_body">RIPDPI führt VPN, Proxy und Konfiguration auf Ihrem Gerät aus. Keine Konten, keine Telemetrie und keine Cloud-Synchronisierung.</string>
+    <string name="onboarding_local_first_body">RIPDPI läuft lokal auf Ihrem Gerät. Keine Konten, keine Telemetrie, keine Cloud-Synchronisierung.</string>
     <string name="onboarding_permission_title">Ein lokales VPN, kein entferntes</string>
     <string name="onboarding_setup_dns_google_body">Zuverlässiges DNS von Google.</string>
     <string name="onboarding_setup_finish">Fertigstellen</string>
@@ -812,10 +812,10 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="notice_remembered_networks_cleared_message">RIPDPI hat alle gespeicherten netzwerkspezifischen Routing-Richtlinien entfernt. Aktuelle Einstellungen bleiben unverändert.</string>
     <string name="notice_strategy_packs_refreshed_title">Strategie-Pakete aktualisiert</string>
     <string name="onboarding_continue">Weiter</string>
-    <string name="onboarding_local_first_title">Standardmäßig lokal</string>
+    <string name="onboarding_local_first_title">Von Grund auf privat</string>
     <string name="onboarding_privacy_body">Keine Telemetrie, kein Tracking, keine Konten. Einstellungen und Diagnoseverlauf bleiben auf Ihrem Gerät, sofern Sie sie nicht ausdrücklich exportieren.</string>
-    <string name="onboarding_setup_dns_quad9_body">Sicherheitsorientiertes DNS, das Bedrohungen blockiert.</string>
-    <string name="onboarding_setup_mode_proxy_body">Leitet den Datenverkehr durch einen lokalen Proxy. Feinabgestimmte Kontrolle für fortgeschrittene Benutzer.</string>
+    <string name="onboarding_setup_dns_quad9_body">Sicherheitsorientierter DNS-Resolver.</string>
+    <string name="onboarding_setup_mode_proxy_body">Führt einen lokalen Proxy für Apps oder Clients aus, die eine manuelle Proxy-Konfiguration unterstützen.</string>
     <string name="onboarding_setup_next">Weiter</string>
     <string name="onboarding_setup_test_success">Verbunden in %1$d ms</string>
     <string name="onboarding_validation_checking_vpn">Datenverkehr im VPN-Modus wird geprüft…</string>
@@ -1797,12 +1797,12 @@ Quelle: %2$s</string>
     <string name="notice_telemetry_salt_reset_title">Telemetrie-Salt zurückgesetzt</string>
     <string name="onboarding_diagnostics_title">Integrierte Diagnose</string>
     <string name="onboarding_modes_title">Voreinstellungen oder volle Kontrolle</string>
-    <string name="onboarding_setup_dns_adguard_body">DNS mit integrierter Werbe- und Tracker-Blockierung.</string>
+    <string name="onboarding_setup_dns_adguard_body">DNS-Resolver mit Werbe- und Tracker-Filterung.</string>
     <string name="onboarding_setup_dns_system_body">Verwenden Sie die DNS-Server Ihres Netzwerks unverändert.</string>
     <string name="onboarding_setup_dns_provider_body">%1$s-Resolver mit %2$s als primärer Adresse.</string>
-    <string name="onboarding_setup_mode_title">Wählen Sie Ihren Modus</string>
+    <string name="onboarding_setup_mode_title">Datenverkehrsmodus wählen</string>
     <string name="onboarding_setup_test_hint">Überprüfen Sie Ihre Internetverbindung, bevor Sie loslegen.</string>
-    <string name="onboarding_setup_validate_title">Gewählten Modus validieren</string>
+    <string name="onboarding_setup_validate_title">Verbindung testen</string>
     <string name="onboarding_setup_validate_mode_title">%1$s validieren</string>
     <string name="onboarding_step_progress">Schritt %1$d von %2$d</string>
     <string name="onboarding_validation_failed_generic">Der gewählte Modus konnte nicht validiert werden.</string>
@@ -2309,9 +2309,9 @@ Quelle: %2$s</string>
     <string name="onboarding_bypass_modes_body">Leiten Sie den Verkehr über ein lokales VPN für vollständige Abdeckung oder verwenden Sie einen lokalen Proxy für feingranulare Kontrolle. Jederzeit umschaltbar.</string>
     <string name="onboarding_get_started">Loslegen</string>
     <string name="onboarding_permission_body">Android benötigt die VPN-Berechtigung, um den Verkehr durch die App zu leiten. RIPDPI nutzt einen lokalen Tunnel, während DNS und Verbindungstests den von Ihnen gewählten Anbieter oder Testendpunkt kontaktieren können.</string>
-    <string name="onboarding_setup_dns_cloudflare_body">Schnelles, datenschutzfokussiertes DNS von Cloudflare.</string>
-    <string name="onboarding_setup_dns_title">DNS-Anbieter wählen</string>
-    <string name="onboarding_setup_mode_vpn_body">Leitet den gesamten Geräteverkehr durch einen lokalen VPN-Tunnel. Vollständige Abdeckung, kein Setup.</string>
+    <string name="onboarding_setup_dns_cloudflare_body">Schneller universeller DNS-Resolver.</string>
+    <string name="onboarding_setup_dns_title">DNS wählen</string>
+    <string name="onboarding_setup_mode_vpn_body">Leitet den gesamten App-Verkehr durch ein lokales VPN auf dem Gerät. Vollständige Abdeckung, keine manuelle Einrichtung.</string>
     <string name="onboarding_setup_test_run">Test ausführen</string>
     <string name="onboarding_skip">Später einrichten</string>
     <string name="onboarding_set_up_later">Später einrichten</string>
@@ -3064,4 +3064,46 @@ Quelle: %2$s</string>
     <string name="xray_import_capabilities_body">Diese Verbindung bietet:</string>
     <string name="xray_import_finish_action">Diesen Modus verwenden</string>
     <string name="xray_import_done_action">Fertig</string>
+
+    <!-- onboarding refactor additions -->
+    <!-- intro chips -->
+    <string name="onboarding_chip_no_account">Kein Konto</string>
+    <string name="onboarding_chip_no_telemetry">Keine Telemetrie</string>
+    <string name="onboarding_chip_no_cloud_sync">Keine Cloud-Synchronisierung</string>
+    <string name="onboarding_chip_local_vpn">Lokales VPN</string>
+    <string name="onboarding_chip_local_proxy">Lokaler Proxy</string>
+    <string name="onboarding_chip_local_config">Lokale Konfiguration</string>
+    <!-- per-screen skip -->
+    <string name="onboarding_skip_setup">Einrichtung überspringen</string>
+    <string name="onboarding_use_recommended">Empfohlene verwenden</string>
+    <string name="onboarding_skip_test">Test überspringen</string>
+    <!-- mode badges -->
+    <string name="onboarding_badge_recommended">Empfohlen</string>
+    <string name="onboarding_badge_advanced">Erweitert</string>
+    <!-- DNS -->
+    <string name="onboarding_setup_dns_mullvad_body">Datenschutzorientierter DNS-Resolver.</string>
+    <string name="onboarding_dns_advanced">Erweiterte DNS-Einstellungen</string>
+    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <!-- validation / test connection -->
+    <string name="onboarding_test_idle_body">Starten Sie den gewählten Modus und prüfen Sie, ob RIPDPI den Datenverkehr korrekt weiterleiten kann.</string>
+    <string name="onboarding_test_step_tunnel_vpn">Lokalen VPN-Tunnel starten</string>
+    <string name="onboarding_test_step_tunnel_proxy">Lokalen Proxy starten</string>
+    <string name="onboarding_test_step_dns">DNS-Auflösung prüfen</string>
+    <string name="onboarding_test_step_connectivity">Internetverbindung überprüfen</string>
+    <string name="onboarding_test_start">Test starten</string>
+    <string name="onboarding_test_running_cta">Wird getestet…</string>
+    <string name="onboarding_test_retry">Wiederholen</string>
+    <string name="onboarding_test_change_dns">DNS ändern</string>
+    <string name="onboarding_test_finish_without">Ohne Test abschließen</string>
+    <string name="onboarding_test_state_permission">Android fragt nach der Berechtigung, eine lokale VPN-Verbindung zu erstellen.</string>
+    <string name="onboarding_test_state_dns">DNS-Auflösung wird geprüft…</string>
+    <string name="onboarding_test_state_connectivity">Netzwerkverbindung wird geprüft…</string>
+    <string name="onboarding_test_success_title">Einrichtung abgeschlossen</string>
+    <string name="onboarding_test_success_body">RIPDPI ist einsatzbereit.</string>
+    <string name="onboarding_test_failed_title">Verbindungstest fehlgeschlagen</string>
+    <!-- accessibility state descriptions for checklist rows -->
+    <string name="onboarding_test_row_state_pending">Ausstehend</string>
+    <string name="onboarding_test_row_state_active">Läuft</string>
+    <string name="onboarding_test_row_state_done">Fertig</string>
+    <string name="onboarding_test_row_state_failed">Fehlgeschlagen</string>
 </resources>

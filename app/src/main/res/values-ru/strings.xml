@@ -1023,8 +1023,8 @@ fakeddisorder endhost</string>
     <string name="onboarding_skip_confirm_continue">Продолжить настройку</string>
     <string name="onboarding_continue">Продолжить</string>
     <string name="onboarding_get_started">Начать</string>
-    <string name="onboarding_local_first_title">Сначала локально</string>
-    <string name="onboarding_local_first_body">RIPDPI запускает VPN, прокси и настройки на вашем устройстве. Без аккаунтов, телеметрии и облачной синхронизации.</string>
+    <string name="onboarding_local_first_title">Конфиденциально по умолчанию</string>
+    <string name="onboarding_local_first_body">RIPDPI работает локально на вашем устройстве. Без аккаунтов, без телеметрии, без облачной синхронизации.</string>
     <string name="onboarding_permission_title">Разрешение локального VPN</string>
     <string name="onboarding_permission_body">Android запросит разрешение VPN, чтобы направлять трафик через приложение. RIPDPI использует локальный туннель, а DNS и проверки подключения могут обращаться к выбранному провайдеру или тестовой точке.</string>
     <string name="onboarding_modes_title">Выберите режим</string>
@@ -1035,20 +1035,20 @@ fakeddisorder endhost</string>
     <string name="onboarding_privacy_body">Никакой телеметрии, отслеживания или аккаунтов. Настройки и история диагностики остаются на устройстве, если вы явно не экспортируете их.</string>
     <string name="onboarding_setup_next">Далее</string>
     <string name="onboarding_setup_finish">Завершить</string>
-    <string name="onboarding_setup_mode_title">Выберите режим</string>
+    <string name="onboarding_setup_mode_title">Выберите режим трафика</string>
     <string name="onboarding_setup_mode_vpn_title">Режим VPN</string>
-    <string name="onboarding_setup_mode_vpn_body">Направляет весь трафик устройства через локальный VPN-туннель. Полное покрытие без дополнительной настройки.</string>
+    <string name="onboarding_setup_mode_vpn_body">Направляет весь трафик приложений через локальный VPN на устройстве. Полное покрытие без ручной настройки.</string>
     <string name="onboarding_setup_mode_proxy_title">Режим Proxy</string>
-    <string name="onboarding_setup_mode_proxy_body">Направляет трафик через локальный прокси. Больше контроля для продвинутой настройки.</string>
-    <string name="onboarding_setup_dns_title">Выберите DNS-провайдера</string>
+    <string name="onboarding_setup_mode_proxy_body">Запускает локальный прокси для приложений и клиентов, поддерживающих ручную настройку прокси.</string>
+    <string name="onboarding_setup_dns_title">Выберите DNS</string>
     <string name="onboarding_setup_dns_system">Системный по умолчанию</string>
     <string name="onboarding_setup_dns_system_body">Использовать DNS-серверы текущей сети без изменений.</string>
     <string name="onboarding_setup_dns_provider_body">Резолвер %1$s с основным адресом %2$s.</string>
-    <string name="onboarding_setup_dns_cloudflare_body">Быстрый DNS от Cloudflare с акцентом на приватность.</string>
+    <string name="onboarding_setup_dns_cloudflare_body">Быстрый универсальный DNS-резолвер.</string>
     <string name="onboarding_setup_dns_google_body">Надёжный DNS от Google.</string>
-    <string name="onboarding_setup_dns_quad9_body">DNS с акцентом на безопасность и блокировкой угроз.</string>
-    <string name="onboarding_setup_dns_adguard_body">DNS со встроенной блокировкой рекламы и трекеров.</string>
-    <string name="onboarding_setup_validate_title">Проверьте выбранный режим</string>
+    <string name="onboarding_setup_dns_quad9_body">DNS-резолвер с акцентом на безопасность.</string>
+    <string name="onboarding_setup_dns_adguard_body">DNS-резолвер с фильтрацией рекламы и трекеров.</string>
+    <string name="onboarding_setup_validate_title">Проверка соединения</string>
     <string name="onboarding_setup_validate_mode_title">Проверьте %1$s</string>
     <string name="onboarding_step_progress">Шаг %1$d из %2$d</string>
     <string name="onboarding_validation_run">Проверить выбранный режим</string>
@@ -3183,4 +3183,46 @@ fakeddisorder endhost</string>
     <string name="xray_import_capabilities_body">Это подключение обеспечивает:</string>
     <string name="xray_import_finish_action">Использовать режим</string>
     <string name="xray_import_done_action">Готово</string>
+
+    <!-- onboarding refactor additions -->
+    <!-- intro chips -->
+    <string name="onboarding_chip_no_account">Без аккаунта</string>
+    <string name="onboarding_chip_no_telemetry">Без телеметрии</string>
+    <string name="onboarding_chip_no_cloud_sync">Без облачной синхронизации</string>
+    <string name="onboarding_chip_local_vpn">Локальный VPN</string>
+    <string name="onboarding_chip_local_proxy">Локальный прокси</string>
+    <string name="onboarding_chip_local_config">Локальная конфигурация</string>
+    <!-- per-screen skip -->
+    <string name="onboarding_skip_setup">Пропустить настройку</string>
+    <string name="onboarding_use_recommended">Использовать рекомендуемое</string>
+    <string name="onboarding_skip_test">Пропустить проверку</string>
+    <!-- mode badges -->
+    <string name="onboarding_badge_recommended">Рекомендуется</string>
+    <string name="onboarding_badge_advanced">Расширенный</string>
+    <!-- DNS -->
+    <string name="onboarding_setup_dns_mullvad_body">DNS-резолвер с акцентом на приватность.</string>
+    <string name="onboarding_dns_advanced">Расширенные настройки DNS</string>
+    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <!-- validation / test connection -->
+    <string name="onboarding_test_idle_body">Запустите выбранный режим и убедитесь, что RIPDPI правильно маршрутизирует трафик.</string>
+    <string name="onboarding_test_step_tunnel_vpn">Запуск локального VPN-туннеля</string>
+    <string name="onboarding_test_step_tunnel_proxy">Запуск локального прокси</string>
+    <string name="onboarding_test_step_dns">Проверка разрешения DNS</string>
+    <string name="onboarding_test_step_connectivity">Проверка доступа в интернет</string>
+    <string name="onboarding_test_start">Начать проверку</string>
+    <string name="onboarding_test_running_cta">Проверка…</string>
+    <string name="onboarding_test_retry">Повторить</string>
+    <string name="onboarding_test_change_dns">Сменить DNS</string>
+    <string name="onboarding_test_finish_without">Завершить без проверки</string>
+    <string name="onboarding_test_state_permission">Android запросит разрешение на создание локального VPN-подключения.</string>
+    <string name="onboarding_test_state_dns">Проверка разрешения DNS…</string>
+    <string name="onboarding_test_state_connectivity">Проверка сетевого подключения…</string>
+    <string name="onboarding_test_success_title">Настройка завершена</string>
+    <string name="onboarding_test_success_body">RIPDPI готов к работе.</string>
+    <string name="onboarding_test_failed_title">Проверка соединения не удалась</string>
+    <!-- accessibility state descriptions for checklist rows -->
+    <string name="onboarding_test_row_state_pending">Ожидание</string>
+    <string name="onboarding_test_row_state_active">Выполняется</string>
+    <string name="onboarding_test_row_state_done">Готово</string>
+    <string name="onboarding_test_row_state_failed">Ошибка</string>
 </resources>

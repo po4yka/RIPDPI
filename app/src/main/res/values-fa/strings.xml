@@ -1445,9 +1445,9 @@ fakeddisorder endhost</string>
     <string name="onboarding_get_started">شروع</string>
     <string name="onboarding_modes_body">با یک پیش‌تنظیم که از همان ابتدا کار می‌کند شروع کنید، یا هر پارامتر را به‌صورت دستی پیکربندی کنید. همیشه می‌توانید نظر خود را تغییر دهید.</string>
     <string name="onboarding_permission_title">یک VPN محلی، نه راه دور</string>
-    <string name="onboarding_setup_dns_adguard_body">DNS با مسدودسازی داخلی تبلیغات و ردیاب.</string>
-    <string name="onboarding_setup_dns_quad9_body">DNS متمرکز بر امنیت که تهدیدات را مسدود می‌کند.</string>
-    <string name="onboarding_setup_dns_title">یک ارائه‌دهنده DNS انتخاب کنید</string>
+    <string name="onboarding_setup_dns_adguard_body">حل‌کننده DNS با فیلتر تبلیغات و ردیاب.</string>
+    <string name="onboarding_setup_dns_quad9_body">حل‌کننده DNS متمرکز بر امنیت.</string>
+    <string name="onboarding_setup_dns_title">انتخاب DNS</string>
     <string name="onboarding_setup_mode_proxy_title">حالت پروکسی</string>
     <string name="onboarding_setup_mode_vpn_title">حالت VPN</string>
     <string name="onboarding_setup_test_hint">قبل از شروع، اتصال اینترنت خود را تأیید کنید.</string>
@@ -1862,14 +1862,14 @@ fakeddisorder endhost</string>
     <string name="notice_strategy_packs_refreshed_title">بسته‌های استراتژی به‌روزرسانی شدند</string>
     <string name="onboarding_bypass_modes_body">ترافیک را برای پوشش کامل از طریق یک VPN محلی مسیریابی کنید، یا برای کنترل دقیق از یک proxy محلی استفاده کنید. در هر زمان جابجا شوید.</string>
     <string name="onboarding_diagnostics_body">بدون خروج از برنامه، اختلال DPI را شناسایی کنید و سلامت شبکه خود را تحلیل کنید.</string>
-    <string name="onboarding_local_first_body">RIPDPI VPN، پروکسی و پیکربندی را روی دستگاه شما اجرا می‌کند. بدون حساب کاربری، بدون تله‌متری و بدون همگام‌سازی ابری.</string>
+    <string name="onboarding_local_first_body">RIPDPI به‌صورت محلی روی دستگاه شما اجرا می‌شود. بدون حساب کاربری، بدون تله‌متری، بدون همگام‌سازی ابری.</string>
     <string name="onboarding_modes_title">پیش‌تنظیم‌ها یا کنترل کامل</string>
     <string name="onboarding_privacy_body">بدون تله‌متری، بدون ردیابی، بدون حساب کاربری. تنظیمات و سابقهٔ عیب‌یابی روی دستگاه شما می‌مانند مگر اینکه آن‌ها را صریحاً صادر کنید.</string>
-    <string name="onboarding_setup_dns_cloudflare_body">DNS سریع و حریم‌خصوصی‌محور از Cloudflare.</string>
+    <string name="onboarding_setup_dns_cloudflare_body">حل‌کننده DNS سریع و همه‌منظوره.</string>
     <string name="onboarding_setup_dns_system_body">از سرورهای DNS شبکه‌تان همان‌طور که هستند استفاده کنید.</string>
     <string name="onboarding_setup_dns_provider_body">resolver %1$s که از %2$s به‌عنوان نشانی اصلی استفاده می‌کند.</string>
     <string name="onboarding_setup_finish">پایان</string>
-    <string name="onboarding_setup_mode_title">حالت خود را انتخاب کنید</string>
+    <string name="onboarding_setup_mode_title">حالت ترافیک را انتخاب کنید</string>
     <string name="onboarding_setup_next">بعدی</string>
     <string name="onboarding_setup_test_run">اجرای تست</string>
     <string name="onboarding_setup_test_title">اتصال خود را تست کنید</string>
@@ -2284,16 +2284,16 @@ fakeddisorder endhost</string>
     <string name="notice_telemetry_salt_reset_message">در اتصال بعدی یک salt جدید تولید خواهد شد. هش‌های اثرانگشت قبلاً ثبت‌شده دیگر قابل همبستگی نیستند.</string>
     <string name="onboarding_bypass_modes_title">VPN یا پراکسی — انتخاب با شماست</string>
     <string name="onboarding_diagnostics_title">تشخیص‌های داخلی</string>
-    <string name="onboarding_local_first_title">محلی به‌صورت پیش‌فرض</string>
+    <string name="onboarding_local_first_title">حریم خصوصی از پایه</string>
     <string name="onboarding_permission_body">اندروید برای مسیریابی ترافیک از طریق برنامه به مجوز VPN نیاز دارد. RIPDPI از تونل محلی استفاده می‌کند، اما DNS و بررسی‌های اتصال ممکن است با ارائه‌دهنده یا نقطهٔ آزمایشی انتخابی شما تماس بگیرند.</string>
     <string name="onboarding_privacy_title">شفاف به‌طور طراحی‌شده</string>
     <string name="onboarding_setup_dns_google_body">DNS قابل‌اعتماد توسط Google.</string>
     <string name="onboarding_setup_dns_system">پیش‌فرض سیستم</string>
-    <string name="onboarding_setup_mode_proxy_body">ترافیک را از طریق یک پراکسی محلی مسیریابی می‌کند. کنترل دقیق برای کاربران پیشرفته.</string>
-    <string name="onboarding_setup_mode_vpn_body">تمام ترافیک دستگاه را از طریق یک تونل VPN محلی مسیریابی می‌کند. پوشش کامل، بدون نیاز به راه‌اندازی.</string>
+    <string name="onboarding_setup_mode_proxy_body">یک پراکسی محلی برای برنامه‌ها یا کلاینت‌هایی که از پیکربندی دستی پراکسی پشتیبانی می‌کنند اجرا می‌کند.</string>
+    <string name="onboarding_setup_mode_vpn_body">تمام ترافیک برنامه‌ها را از طریق یک VPN محلی روی دستگاه مسیریابی می‌کند. پوشش کامل، بدون راه‌اندازی دستی.</string>
     <string name="onboarding_setup_test_failed">اتصال ناموفق بود: %1$s</string>
     <string name="onboarding_setup_test_running">در حال بررسی اتصال…</string>
-    <string name="onboarding_setup_validate_title">حالت انتخاب‌شده خود را تأیید کنید</string>
+    <string name="onboarding_setup_validate_title">آزمایش اتصال</string>
     <string name="onboarding_setup_validate_mode_title">تأیید %1$s</string>
     <string name="onboarding_step_progress">مرحله %1$d از %2$d</string>
     <string name="onboarding_validation_checking_vpn">در حال بررسی ترافیک از طریق حالت VPN…</string>
@@ -3069,4 +3069,46 @@ fakeddisorder endhost</string>
     <string name="xray_import_capabilities_body">این اتصال فراهم می‌کند:</string>
     <string name="xray_import_finish_action">استفاده از این حالت</string>
     <string name="xray_import_done_action">انجام شد</string>
+
+    <!-- onboarding refactor additions -->
+    <!-- intro chips -->
+    <string name="onboarding_chip_no_account">بدون حساب کاربری</string>
+    <string name="onboarding_chip_no_telemetry">بدون تله‌متری</string>
+    <string name="onboarding_chip_no_cloud_sync">بدون همگام‌سازی ابری</string>
+    <string name="onboarding_chip_local_vpn">VPN محلی</string>
+    <string name="onboarding_chip_local_proxy">پراکسی محلی</string>
+    <string name="onboarding_chip_local_config">پیکربندی محلی</string>
+    <!-- per-screen skip -->
+    <string name="onboarding_skip_setup">رد کردن راه‌اندازی</string>
+    <string name="onboarding_use_recommended">استفاده از تنظیمات پیشنهادی</string>
+    <string name="onboarding_skip_test">رد کردن آزمایش</string>
+    <!-- mode badges -->
+    <string name="onboarding_badge_recommended">پیشنهادی</string>
+    <string name="onboarding_badge_advanced">پیشرفته</string>
+    <!-- DNS -->
+    <string name="onboarding_setup_dns_mullvad_body">حل‌کننده DNS متمرکز بر حریم خصوصی.</string>
+    <string name="onboarding_dns_advanced">تنظیمات پیشرفته DNS</string>
+    <string name="onboarding_dns_meta">%1$s · %2$s</string>
+    <!-- validation / test connection -->
+    <string name="onboarding_test_idle_body">حالت انتخاب‌شده را اجرا کنید و بررسی کنید که RIPDPI می‌تواند ترافیک را به‌درستی مسیریابی کند.</string>
+    <string name="onboarding_test_step_tunnel_vpn">راه‌اندازی تونل VPN محلی</string>
+    <string name="onboarding_test_step_tunnel_proxy">راه‌اندازی پراکسی محلی</string>
+    <string name="onboarding_test_step_dns">بررسی تفکیک DNS</string>
+    <string name="onboarding_test_step_connectivity">بررسی اتصال اینترنت</string>
+    <string name="onboarding_test_start">شروع آزمایش</string>
+    <string name="onboarding_test_running_cta">در حال آزمایش…</string>
+    <string name="onboarding_test_retry">تلاش دوباره</string>
+    <string name="onboarding_test_change_dns">تغییر DNS</string>
+    <string name="onboarding_test_finish_without">پایان بدون آزمایش</string>
+    <string name="onboarding_test_state_permission">اندروید برای ایجاد یک اتصال VPN محلی درخواست مجوز می‌کند.</string>
+    <string name="onboarding_test_state_dns">در حال بررسی تفکیک DNS…</string>
+    <string name="onboarding_test_state_connectivity">در حال بررسی اتصال شبکه…</string>
+    <string name="onboarding_test_success_title">راه‌اندازی کامل شد</string>
+    <string name="onboarding_test_success_body">RIPDPI آمادهٔ استفاده است.</string>
+    <string name="onboarding_test_failed_title">آزمایش اتصال ناموفق بود</string>
+    <!-- accessibility state descriptions for checklist rows -->
+    <string name="onboarding_test_row_state_pending">در انتظار</string>
+    <string name="onboarding_test_row_state_active">در حال انجام</string>
+    <string name="onboarding_test_row_state_done">انجام شد</string>
+    <string name="onboarding_test_row_state_failed">ناموفق</string>
 </resources>
