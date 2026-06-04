@@ -15,6 +15,12 @@ enum class OnboardingValidationRecoveryKind {
     SWITCH_MODE,
 }
 
+enum class OnboardingValidationStep {
+    Tunnel,
+    Dns,
+    Connectivity,
+}
+
 sealed interface OnboardingValidationState {
     data object Idle : OnboardingValidationState
 
@@ -23,6 +29,10 @@ sealed interface OnboardingValidationState {
     data object RequestingVpnConsent : OnboardingValidationState
 
     data class StartingMode(
+        val mode: Mode,
+    ) : OnboardingValidationState
+
+    data class CheckingDns(
         val mode: Mode,
     ) : OnboardingValidationState
 
@@ -39,6 +49,7 @@ sealed interface OnboardingValidationState {
         val reason: String,
         val recoveryKind: OnboardingValidationRecoveryKind = OnboardingValidationRecoveryKind.RETRY,
         val suggestedMode: Mode? = null,
+        val failedStep: OnboardingValidationStep? = null,
     ) : OnboardingValidationState
 }
 
@@ -74,6 +85,7 @@ internal val OnboardingValidationState.isBusy: Boolean
             OnboardingValidationState.RequestingNotifications,
             OnboardingValidationState.RequestingVpnConsent,
             is OnboardingValidationState.StartingMode,
+            is OnboardingValidationState.CheckingDns,
             is OnboardingValidationState.RunningTrafficCheck,
             -> true
         }

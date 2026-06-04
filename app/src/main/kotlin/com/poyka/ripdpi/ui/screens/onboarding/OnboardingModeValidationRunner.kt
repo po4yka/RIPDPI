@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
+import com.poyka.ripdpi.activities.OnboardingValidationStep
 import com.poyka.ripdpi.activities.displayMessage
 import com.poyka.ripdpi.activities.suggestedModeFor
 import com.poyka.ripdpi.activities.validationRecoveryKind
@@ -35,8 +36,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import okhttp3.Request
 import java.io.IOException
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Proxy
+import java.net.URI
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -59,6 +63,7 @@ sealed interface OnboardingValidationResult {
         val reason: String,
         val recoveryKind: OnboardingValidationRecoveryKind = OnboardingValidationRecoveryKind.RETRY,
         val suggestedMode: Mode? = null,
+        val failedStep: OnboardingValidationStep? = null,
     ) : OnboardingValidationResult
 }
 
@@ -92,15 +97,28 @@ class DefaultOnboardingModeValidationRunner
         ): OnboardingValidationResult =
             try {
                 ensureSelectedModeRunning(mode = mode, onProgress = onProgress)
+                onProgress(OnboardingValidationState.CheckingDns(mode))
+                runDnsProbe(mode)
                 onProgress(OnboardingValidationState.RunningTrafficCheck(mode))
                 val latencyMs = runConnectivityProbe(mode)
                 OnboardingValidationResult.Success(latencyMs = latencyMs)
+            } catch (e: OnboardingProbeException) {
+                Logger.w(e) { "Onboarding validation ${e.step} probe failed for $mode" }
+                stopActiveValidation()
+                OnboardingValidationResult.Failed(
+                    reason = e.reasonMessage,
+                    recoveryKind = OnboardingValidationRecoveryKind.RETRY,
+                    // A DNS failure is fixed by Change DNS, not by switching mode — keep suggestedMode null.
+                    suggestedMode = if (e.step == OnboardingValidationStep.Dns) null else mode.alternateOrNull(),
+                    failedStep = e.step,
+                )
             } catch (e: TimeoutCancellationException) {
                 Logger.w(e) { "Onboarding validation timed out for $mode" }
                 stopActiveValidation()
                 OnboardingValidationResult.Failed(
                     reason = stringResolver.getString(R.string.onboarding_validation_failed_generic),
                     suggestedMode = mode.alternateOrNull(),
+                    failedStep = OnboardingValidationStep.Tunnel,
                 )
             } catch (e: CancellationException) {
                 stopActiveValidation()
@@ -111,6 +129,7 @@ class DefaultOnboardingModeValidationRunner
                 OnboardingValidationResult.Failed(
                     reason = e.message ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
                     suggestedMode = mode.alternateOrNull(),
+                    failedStep = OnboardingValidationStep.Connectivity,
                 )
             } catch (e: ImmediateServiceStartRejected) {
                 Logger.w { "Onboarding validation start rejected for ${e.mode}: ${e.reason}" }
@@ -119,6 +138,7 @@ class DefaultOnboardingModeValidationRunner
                     reason = e.reason.displayMessage(stringResolver),
                     recoveryKind = e.reason.validationRecoveryKind(),
                     suggestedMode = e.reason.suggestedModeFor(e.mode),
+                    failedStep = OnboardingValidationStep.Tunnel,
                 )
             } catch (e: ServiceStartupRejectedException) {
                 Logger.w(e) { "Onboarding validation failed for $mode" }
@@ -126,6 +146,7 @@ class DefaultOnboardingModeValidationRunner
                 OnboardingValidationResult.Failed(
                     reason = e.message ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
                     suggestedMode = mode.alternateOrNull(),
+                    failedStep = OnboardingValidationStep.Tunnel,
                 )
             }
 
@@ -197,9 +218,70 @@ class DefaultOnboardingModeValidationRunner
             }
         }
 
+        private suspend fun runDnsProbe(mode: Mode) {
+            Logger.d { "Onboarding DNS probe starting for $mode" }
+            val host =
+                runCatching { URI(OnboardingConnectivityCheckUrl).host }
+                    .getOrNull()
+                    ?.takeIf { it.isNotBlank() }
+                    ?: throw OnboardingProbeException(
+                        step = OnboardingValidationStep.Dns,
+                        reasonMessage = stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                    )
+            try {
+                withContext(dispatchers.io) {
+                    withTimeout(ValidationTrafficTimeoutMs) {
+                        val resolved = InetAddress.getAllByName(host)
+                        if (resolved.isEmpty()) {
+                            throw UnknownHostException(host)
+                        }
+                    }
+                }
+            } catch (e: CancellationException) {
+                // TimeoutCancellationException (DNS step) is a CancellationException subtype — tag it as Dns
+                // rather than letting it propagate to the Tunnel-tagged TimeoutCancellationException branch.
+                if (e is TimeoutCancellationException) {
+                    throw OnboardingProbeException(
+                        step = OnboardingValidationStep.Dns,
+                        reasonMessage = stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                        cause = e,
+                    )
+                }
+                throw e
+            } catch (e: UnknownHostException) {
+                throw OnboardingProbeException(
+                    step = OnboardingValidationStep.Dns,
+                    reasonMessage =
+                        e.message?.takeIf { it.isNotBlank() }
+                            ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                    cause = e,
+                )
+            } catch (e: IOException) {
+                throw OnboardingProbeException(
+                    step = OnboardingValidationStep.Dns,
+                    reasonMessage =
+                        e.message?.takeIf { it.isNotBlank() }
+                            ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                    cause = e,
+                )
+            }
+        }
+
         private suspend fun runConnectivityProbe(mode: Mode): Long =
-            withContext(dispatchers.io) {
-                runConnectivityProbeBlocking(mode)
+            try {
+                withContext(dispatchers.io) {
+                    runConnectivityProbeBlocking(mode)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                throw OnboardingProbeException(
+                    step = OnboardingValidationStep.Connectivity,
+                    reasonMessage =
+                        e.message?.takeIf { it.isNotBlank() }
+                            ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                    cause = e,
+                )
             }
 
         private suspend fun runConnectivityProbeBlocking(mode: Mode): Long {
@@ -260,6 +342,12 @@ class DefaultOnboardingModeValidationRunner
             throw IOException(message, e)
         }
     }
+
+private class OnboardingProbeException(
+    val step: OnboardingValidationStep,
+    val reasonMessage: String,
+    cause: Throwable? = null,
+) : RuntimeException(reasonMessage, cause)
 
 private class ImmediateServiceStartRejected(
     val mode: Mode,

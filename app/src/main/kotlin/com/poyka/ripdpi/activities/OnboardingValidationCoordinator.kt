@@ -42,6 +42,7 @@ class OnboardingValidationCoordinator
                                 recoveryKind
                             },
                         suggestedMode = suggestedMode,
+                        failedStep = failedStep,
                     )
                 }
             }
