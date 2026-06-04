@@ -6,8 +6,11 @@ import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderMullvad
 import com.poyka.ripdpi.data.DnsProviderQuad9
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.dnsProviderById
-import com.poyka.ripdpi.data.protocolDisplayName
 import java.net.URI
 
 /**
@@ -73,8 +76,22 @@ private fun onboardingDnsMetadataParts(providerId: String): Pair<String, String>
     if (providerId == OnboardingDnsSystemId) return null
     val def = dnsProviderById(providerId) ?: return null
     val endpointHost = def.dohUrl?.let { hostFromUrl(it) }?.takeIf { it.isNotBlank() } ?: def.host
-    return protocolDisplayName(def.protocol) to endpointHost
+    return onboardingProtocolFullName(def.protocol) to endpointHost
 }
+
+/**
+ * Spelled-out, unambiguous protocol name for the onboarding card metadata (e.g. "DNS-over-HTTPS"
+ * rather than the terse "DoH"). These are locale-invariant protocol proper nouns, so — like the
+ * data layer's [com.poyka.ripdpi.data.protocolDisplayName] — they live in code, not string resources.
+ */
+private fun onboardingProtocolFullName(protocol: String): String =
+    when (protocol) {
+        EncryptedDnsProtocolDot -> "DNS-over-TLS"
+        EncryptedDnsProtocolDoq -> "DNS-over-QUIC"
+        EncryptedDnsProtocolDnsCrypt -> "DNSCrypt"
+        EncryptedDnsProtocolOdoh -> "Oblivious DoH"
+        else -> "DNS-over-HTTPS"
+    }
 
 private fun hostFromUrl(url: String): String = runCatching { URI(url).host.orEmpty() }.getOrDefault("")
 
