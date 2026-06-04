@@ -3073,6 +3073,11 @@ fakeddisorder endhost</string>
     <string name="onboarding_test_start">بدء الاختبار</string>
     <string name="onboarding_test_running_cta">جارٍ الاختبار…</string>
     <string name="onboarding_test_retry">إعادة المحاولة</string>
+    <string name="onboarding_test_grant_permission">منح إذن VPN</string>
+    <string name="onboarding_test_use_proxy">استخدام وضع الوكيل بدلاً من ذلك</string>
+    <string name="onboarding_test_use_vpn">استخدام وضع VPN بدلاً من ذلك</string>
+    <string name="onboarding_test_permission_note">قد يطلب Android إذناً قبل أن يتمكَّن RIPDPI من إنشاء نفق VPN محلي. لا يُستخدَم أي خادم VPN بعيد.</string>
+    <string name="onboarding_test_failed_permission">يتطلَّب Android إذناً قبل أن يتمكَّن RIPDPI من إنشاء نفق VPN محلي على هذا الجهاز. لا يُستخدَم أي خادم VPN بعيد.</string>
     <string name="onboarding_test_change_dns">تغيير DNS</string>
     <string name="onboarding_test_finish_without">الإنهاء دون اختبار</string>
     <string name="onboarding_test_state_permission">سيطلب Android إذناً لإنشاء اتصال VPN محلي.</string>

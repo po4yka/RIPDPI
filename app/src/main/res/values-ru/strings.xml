@@ -3212,6 +3212,11 @@ fakeddisorder endhost</string>
     <string name="onboarding_test_start">Начать проверку</string>
     <string name="onboarding_test_running_cta">Проверка…</string>
     <string name="onboarding_test_retry">Повторить</string>
+    <string name="onboarding_test_grant_permission">Предоставить разрешение VPN</string>
+    <string name="onboarding_test_use_proxy">Использовать режим Proxy</string>
+    <string name="onboarding_test_use_vpn">Использовать режим VPN</string>
+    <string name="onboarding_test_permission_note">Android может запросить разрешение, прежде чем RIPDPI сможет создать локальный VPN-туннель. Удалённый VPN-сервер не используется.</string>
+    <string name="onboarding_test_failed_permission">Android требует разрешение, прежде чем RIPDPI сможет создать локальный VPN-туннель на этом устройстве. Удалённый VPN-сервер не используется.</string>
     <string name="onboarding_test_change_dns">Сменить DNS</string>
     <string name="onboarding_test_finish_without">Завершить без проверки</string>
     <string name="onboarding_test_state_permission">Android запросит разрешение на создание локального VPN-подключения.</string>

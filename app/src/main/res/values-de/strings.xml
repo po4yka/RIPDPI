@@ -3092,7 +3092,12 @@ Quelle: %2$s</string>
     <string name="onboarding_test_step_connectivity">Internetverbindung überprüfen</string>
     <string name="onboarding_test_start">Test starten</string>
     <string name="onboarding_test_running_cta">Wird getestet…</string>
-    <string name="onboarding_test_retry">Wiederholen</string>
+    <string name="onboarding_test_retry">Erneut versuchen</string>
+    <string name="onboarding_test_grant_permission">VPN-Berechtigung erteilen</string>
+    <string name="onboarding_test_use_proxy">Stattdessen Proxy-Modus verwenden</string>
+    <string name="onboarding_test_use_vpn">Stattdessen VPN-Modus verwenden</string>
+    <string name="onboarding_test_permission_note">Android fragt möglicherweise nach einer Berechtigung, bevor RIPDPI einen lokalen VPN-Tunnel erstellen kann. Es wird kein entfernter VPN-Server verwendet.</string>
+    <string name="onboarding_test_failed_permission">Android erfordert eine Berechtigung, bevor RIPDPI auf diesem Gerät einen lokalen VPN-Tunnel erstellen kann. Es wird kein entfernter VPN-Server verwendet.</string>
     <string name="onboarding_test_change_dns">DNS ändern</string>
     <string name="onboarding_test_finish_without">Ohne Test abschließen</string>
     <string name="onboarding_test_state_permission">Android fragt nach der Berechtigung, eine lokale VPN-Verbindung zu erstellen.</string>

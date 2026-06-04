@@ -3098,6 +3098,11 @@ fakeddisorder endhost</string>
     <string name="onboarding_test_start">شروع آزمایش</string>
     <string name="onboarding_test_running_cta">در حال آزمایش…</string>
     <string name="onboarding_test_retry">تلاش دوباره</string>
+    <string name="onboarding_test_grant_permission">اعطای مجوز VPN</string>
+    <string name="onboarding_test_use_proxy">به‌جای آن از حالت پراکسی استفاده کنید</string>
+    <string name="onboarding_test_use_vpn">به‌جای آن از حالت VPN استفاده کنید</string>
+    <string name="onboarding_test_permission_note">اندروید ممکن است پیش از آنکه RIPDPI بتواند یک تونل VPN محلی ایجاد کند، درخواست مجوز کند. هیچ سرور VPN راه دوری استفاده نمی‌شود.</string>
+    <string name="onboarding_test_failed_permission">اندروید پیش از آنکه RIPDPI بتواند روی این دستگاه یک تونل VPN محلی ایجاد کند، به مجوز نیاز دارد. هیچ سرور VPN راه دوری استفاده نمی‌شود.</string>
     <string name="onboarding_test_change_dns">تغییر DNS</string>
     <string name="onboarding_test_finish_without">پایان بدون آزمایش</string>
     <string name="onboarding_test_state_permission">اندروید برای ایجاد یک اتصال VPN محلی درخواست مجوز می‌کند.</string>

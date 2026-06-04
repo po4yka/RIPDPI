@@ -1465,9 +1465,14 @@ fakeddisorder endhost</string>
     <string name="onboarding_test_step_connectivity">Verify internet connectivity</string>
     <string name="onboarding_test_start">Start test</string>
     <string name="onboarding_test_running_cta">Testing…</string>
-    <string name="onboarding_test_retry">Retry</string>
+    <string name="onboarding_test_retry">Try again</string>
+    <string name="onboarding_test_grant_permission">Grant VPN permission</string>
     <string name="onboarding_test_change_dns">Change DNS</string>
+    <string name="onboarding_test_use_proxy">Use Proxy mode instead</string>
+    <string name="onboarding_test_use_vpn">Use VPN mode instead</string>
     <string name="onboarding_test_finish_without">Finish without testing</string>
+    <string name="onboarding_test_permission_note">Android may ask for permission before RIPDPI can create a local VPN tunnel. No remote VPN server is used.</string>
+    <string name="onboarding_test_failed_permission">Android requires permission before RIPDPI can create a local VPN tunnel on this device. No remote VPN server is used.</string>
     <string name="onboarding_test_state_permission">Android will ask for permission to create a local VPN connection.</string>
     <string name="onboarding_test_state_dns">Checking DNS resolution…</string>
     <string name="onboarding_test_state_connectivity">Checking network connectivity…</string>

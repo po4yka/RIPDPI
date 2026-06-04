@@ -3093,6 +3093,11 @@ Origen: %2$s</string>
     <string name="onboarding_test_start">Iniciar prueba</string>
     <string name="onboarding_test_running_cta">Probando…</string>
     <string name="onboarding_test_retry">Reintentar</string>
+    <string name="onboarding_test_grant_permission">Conceder permiso de VPN</string>
+    <string name="onboarding_test_use_proxy">Usar el modo proxy en su lugar</string>
+    <string name="onboarding_test_use_vpn">Usar el modo VPN en su lugar</string>
+    <string name="onboarding_test_permission_note">Android puede solicitar permiso antes de que RIPDPI pueda crear un túnel VPN local. No se usa ningún servidor VPN remoto.</string>
+    <string name="onboarding_test_failed_permission">Android requiere permiso antes de que RIPDPI pueda crear un túnel VPN local en este dispositivo. No se usa ningún servidor VPN remoto.</string>
     <string name="onboarding_test_change_dns">Cambiar DNS</string>
     <string name="onboarding_test_finish_without">Finalizar sin probar</string>
     <string name="onboarding_test_state_permission">Android pedirá permiso para crear una conexión VPN local.</string>

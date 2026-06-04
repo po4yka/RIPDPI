@@ -3094,6 +3094,11 @@ fake_burst 3</string>
     <string name="onboarding_test_start">开始测试</string>
     <string name="onboarding_test_running_cta">测试中…</string>
     <string name="onboarding_test_retry">重试</string>
+    <string name="onboarding_test_grant_permission">授予 VPN 权限</string>
+    <string name="onboarding_test_use_proxy">改用代理模式</string>
+    <string name="onboarding_test_use_vpn">改用 VPN 模式</string>
+    <string name="onboarding_test_permission_note">Android 可能会在 RIPDPI 创建本地 VPN 隧道之前请求权限。不会使用任何远程 VPN 服务器。</string>
+    <string name="onboarding_test_failed_permission">Android 要求授予权限,RIPDPI 才能在此设备上创建本地 VPN 隧道。不会使用任何远程 VPN 服务器。</string>
     <string name="onboarding_test_change_dns">更改 DNS</string>
     <string name="onboarding_test_finish_without">不测试直接完成</string>
     <string name="onboarding_test_state_permission">Android 将请求创建本地 VPN 连接的权限。</string>
