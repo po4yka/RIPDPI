@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -332,6 +333,55 @@ class OnboardingViewModelTest {
         }
 
     @Test
+    fun `dns step failure surfaces change dns recovery without alternate mode suggestion`() =
+        runTest {
+            val runner =
+                FakeOnboardingModeValidationRunner().apply {
+                    result =
+                        OnboardingValidationResult.Failed(
+                            reason = "DNS resolution failed",
+                            suggestedMode = null,
+                            failedStep = OnboardingValidationStep.Dns,
+                        )
+                }
+            val vm = createViewModel(validationRunner = runner)
+
+            vm.runValidation()
+            advanceUntilIdle()
+
+            val state = vm.uiState.value.validationState as OnboardingValidationState.Failed
+            assertEquals(OnboardingValidationStep.Dns, state.failedStep)
+            // A DNS failure is fixed by Change DNS, never by switching mode.
+            assertNull(state.suggestedMode)
+            // Without a suggested mode the RETRY recovery is NOT promoted to SWITCH_MODE.
+            assertEquals(OnboardingValidationRecoveryKind.RETRY, state.recoveryKind)
+        }
+
+    @Test
+    fun `tunnel step failure still suggests the alternate mode`() =
+        runTest {
+            val runner =
+                FakeOnboardingModeValidationRunner().apply {
+                    result =
+                        OnboardingValidationResult.Failed(
+                            reason = "VPN tunnel start timed out",
+                            suggestedMode = Mode.Proxy,
+                            failedStep = OnboardingValidationStep.Tunnel,
+                        )
+                }
+            val vm = createViewModel(validationRunner = runner)
+
+            vm.runValidation()
+            advanceUntilIdle()
+
+            val state = vm.uiState.value.validationState as OnboardingValidationState.Failed
+            assertEquals(OnboardingValidationStep.Tunnel, state.failedStep)
+            assertEquals(Mode.Proxy, state.suggestedMode)
+            // A failure with a suggested alternate mode is promoted to SWITCH_MODE recovery.
+            assertEquals(OnboardingValidationRecoveryKind.SWITCH_MODE, state.recoveryKind)
+        }
+
+    @Test
     fun `finish and keep running completes onboarding without stopping runtime`() =
         runTest {
             val repository = FakeAppSettingsRepository()
@@ -416,6 +466,7 @@ class OnboardingViewModelTest {
         ): OnboardingValidationResult {
             validateCalls += mode
             onProgress(OnboardingValidationState.StartingMode(mode))
+            onProgress(OnboardingValidationState.CheckingDns(mode))
             onProgress(OnboardingValidationState.RunningTrafficCheck(mode))
             return result
         }

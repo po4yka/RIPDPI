@@ -357,6 +357,7 @@ class RipDpiScreenCatalogScreenshotTest {
                 OnboardingValidationState.RequestingNotifications,
                 OnboardingValidationState.RequestingVpnConsent,
                 is OnboardingValidationState.StartingMode,
+                is OnboardingValidationState.CheckingDns,
                 is OnboardingValidationState.RunningTrafficCheck,
                 -> true
             }
@@ -392,11 +393,13 @@ private fun OnboardingScreenPreviewScene(uiState: OnboardingUiState) {
             onContinue = {},
             onModeSelected = {},
             onDnsSelected = {},
+            onOpenAdvancedDns = {},
             onRunValidation = {},
             onFinishKeepingRunning = {},
             onFinishDisconnected = {},
             onFinishAnyway = {},
             onAcceptSuggestedMode = {},
+            onChangeDns = {},
         )
     }
 }

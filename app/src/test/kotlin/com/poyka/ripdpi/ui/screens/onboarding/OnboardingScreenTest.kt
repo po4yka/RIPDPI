@@ -3,19 +3,24 @@ package com.poyka.ripdpi.ui.screens.onboarding
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.activities.OnboardingUiState
-import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
-import com.poyka.ripdpi.data.BuiltInDnsProviders
+import com.poyka.ripdpi.activities.OnboardingValidationStep
+import com.poyka.ripdpi.data.DnsProviderCloudflare
+import com.poyka.ripdpi.data.DnsProviderCloudflareIp
+import com.poyka.ripdpi.data.DnsProviderDnsSb
+import com.poyka.ripdpi.data.DnsProviderGoogle
+import com.poyka.ripdpi.data.DnsProviderGoogleIp
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -33,34 +38,18 @@ class OnboardingScreenTest {
 
     @Test
     fun `onboarding exposes stable selector contract`() {
-        composeRule.setContent {
-            RipDpiTheme {
-                OnboardingScreen(
-                    uiState = OnboardingUiState(),
-                    onPageChanged = {},
-                    onSkip = {},
-                    onContinue = {},
-                    onModeSelected = {},
-                    onDnsSelected = {},
-                    onRunValidation = {},
-                    onFinishKeepingRunning = {},
-                    onFinishDisconnected = {},
-                    onFinishAnyway = {},
-                    onAcceptSuggestedMode = {},
-                )
-            }
-        }
+        renderOnboarding(OnboardingUiState(currentPage = 0))
 
         composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.Onboarding)).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).assertExists()
-        composeRule.onNodeWithText("Set up later").assertExists()
+        composeRule.onNodeWithText("Skip setup").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingContinue).assertExists()
     }
 
     @Test
-    fun `set up later on intro completes without confirmation`() {
+    fun `skip on intro completes immediately without confirmation`() {
         var skipped = false
-        renderValidationPage(
+        renderOnboarding(
             uiState = OnboardingUiState(currentPage = 0),
             onSkip = { skipped = true },
         )
@@ -72,83 +61,183 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `set up later on setup page requires confirmation`() {
+    fun `skip on setup page completes immediately without confirmation`() {
         var skipped = false
-        renderValidationPage(
+        renderOnboarding(
             uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount),
             onSkip = { skipped = true },
         )
 
+        composeRule.onNodeWithText("Use recommended").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).performClick()
 
-        assertFalse(skipped)
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipConfirmDialog).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipConfirmContinue).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipConfirmSetUpLater).performClick()
         assertTrue(skipped)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipConfirmDialog).assertCountEquals(0)
     }
 
     @Test
-    fun `dns setup uses canonical built in provider catalog`() {
+    fun `dns setup presents the curated onboarding subset and advanced affordance`() {
         composeRule.setContent {
             RipDpiTheme {
                 OnboardingDnsSelectionContent(
-                    selectedProviderId = BuiltInDnsProviders.first().providerId,
+                    selectedProviderId = OnboardingDnsSystemId,
                     onDnsSelected = {},
+                    onOpenAdvancedDns = {},
                 )
             }
         }
 
-        BuiltInDnsProviders.forEach { provider ->
-            composeRule.onNodeWithTag(RipDpiTestTags.onboardingDnsProvider(provider.providerId)).assertExists()
-            composeRule.onNodeWithText(provider.displayName).assertExists()
+        // Exactly the curated five ids are shown, in order.
+        listOf(
+            OnboardingDnsSystemId,
+            com.poyka.ripdpi.data.DnsProviderAdGuard,
+            DnsProviderCloudflare,
+            com.poyka.ripdpi.data.DnsProviderQuad9,
+            com.poyka.ripdpi.data.DnsProviderMullvad,
+        ).forEach { id ->
+            composeRule.onNodeWithTag(RipDpiTestTags.onboardingDnsProvider(id)).assertExists()
         }
+
+        // Removed catalog duplicates/extras must NOT leak into onboarding.
+        listOf(
+            DnsProviderGoogle,
+            DnsProviderGoogleIp,
+            DnsProviderCloudflareIp,
+            DnsProviderDnsSb,
+        ).forEach { id ->
+            composeRule.onAllNodesWithTag(RipDpiTestTags.onboardingDnsProvider(id)).assertCountEquals(0)
+        }
+
+        // Curated display names render; Cloudflare uses the DoH-host variant, not the bare-IP one.
+        composeRule.onNodeWithText("System default").assertExists()
+        composeRule.onNodeWithText("AdGuard DNS").assertExists()
+        composeRule.onNodeWithText("Cloudflare").assertExists()
+        composeRule.onNodeWithText("Quad9").assertExists()
+        composeRule.onNodeWithText("Mullvad DNS").assertExists()
+        composeRule.onAllNodesWithText("Cloudflare (IP)").assertCountEquals(0)
+
+        // Advanced DNS settings affordance is present.
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingAdvancedDns).assertExists()
+        composeRule.onNodeWithText("Advanced DNS settings").assertExists()
     }
 
     @Test
-    fun `final page renders validation action before validation`() {
-        renderValidationPage(OnboardingUiState(currentPage = OnboardingPages.lastIndex))
+    fun `advanced dns affordance opens advanced settings`() {
+        var opened = false
+        composeRule.setContent {
+            RipDpiTheme {
+                OnboardingDnsSelectionContent(
+                    selectedProviderId = OnboardingDnsSystemId,
+                    onDnsSelected = {},
+                    onOpenAdvancedDns = { opened = true },
+                )
+            }
+        }
+
+        // The affordance sits below the curated cards inside a vertical scroll container.
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingAdvancedDns).performScrollTo().performClick()
+
+        assertTrue(opened)
+    }
+
+    @Test
+    fun `idle connection test exposes start cta and pending checklist`() {
+        renderOnboarding(OnboardingUiState(currentPage = OnboardingPages.lastIndex))
 
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidateAction).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertExists()
+        composeRule.onNodeWithText("Start test").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidationStatus).assertExists()
+        // No in-content finish/keep-running button in Idle.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertCountEquals(0)
+        // Idle skip path lives on the top bar ("Skip test") and is NOT a content finish action.
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertCountEquals(0)
     }
 
     @Test
-    fun `failed validation renders retry finish anyway and suggested mode action`() {
-        renderValidationPage(
+    fun `failed validation renders retry finish without testing and suggested mode action`() {
+        renderOnboarding(
             OnboardingUiState(
                 currentPage = OnboardingPages.lastIndex,
                 validationState =
                     OnboardingValidationState.Failed(
-                        reason = "VPN permission denied",
-                        suggestedMode = Mode.Proxy,
+                        reason = "SOCKS listener failed",
+                        suggestedMode = Mode.VPN,
+                        failedStep = OnboardingValidationStep.Connectivity,
                     ),
             ),
         )
 
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidateAction).assertExists()
+        composeRule.onNodeWithText("Retry").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSwitchSuggestedMode).assertExists()
+        // A connectivity/mode failure is recovered by switching mode, not by changing DNS.
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingChangeDns).assertCountEquals(0)
     }
 
     @Test
-    fun `successful validation renders explicit finish actions`() {
-        renderValidationPage(
+    fun `dns step failure renders change dns action and suppresses mode switch`() {
+        renderOnboarding(
+            OnboardingUiState(
+                currentPage = OnboardingPages.lastIndex,
+                validationState =
+                    OnboardingValidationState.Failed(
+                        reason = "DNS resolution failed",
+                        suggestedMode = null,
+                        failedStep = OnboardingValidationStep.Dns,
+                    ),
+            ),
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingChangeDns).assertExists()
+        composeRule.onNodeWithText("Change DNS").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertExists()
+        // Retry remains the footer CTA on the failed page.
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidateAction).assertExists()
+        // A DNS failure never offers a mode switch.
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSwitchSuggestedMode).assertCountEquals(0)
+    }
+
+    @Test
+    fun `change dns action navigates back to dns selection`() {
+        var changeDns = false
+        renderOnboarding(
+            OnboardingUiState(
+                currentPage = OnboardingPages.lastIndex,
+                validationState =
+                    OnboardingValidationState.Failed(
+                        reason = "DNS resolution failed",
+                        failedStep = OnboardingValidationStep.Dns,
+                    ),
+            ),
+            onChangeDns = { changeDns = true },
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingChangeDns).performClick()
+
+        assertTrue(changeDns)
+    }
+
+    @Test
+    fun `successful validation renders finish and disconnect actions`() {
+        renderOnboarding(
             OnboardingUiState(
                 currentPage = OnboardingPages.lastIndex,
                 validationState = OnboardingValidationState.Success(latencyMs = 42, mode = Mode.VPN),
             ),
         )
 
+        // Footer CTA = "Finish" (keep running); content secondary = finish disconnected.
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishDisconnected).assertExists()
+        composeRule.onNodeWithText("Setup complete").assertExists()
+        // No "finish without testing" once the test succeeded.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertCountEquals(0)
     }
 
     @Test
-    fun `validation running state hides finish actions`() {
-        renderValidationPage(
+    fun `running connectivity check hides finish and validate actions`() {
+        renderOnboarding(
             OnboardingUiState(
                 currentPage = OnboardingPages.lastIndex,
                 validationState = OnboardingValidationState.RunningTrafficCheck(Mode.Proxy),
@@ -157,12 +246,31 @@ class OnboardingScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidationStatus).assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertCountEquals(0)
     }
 
     @Test
-    fun `validation busy state renders mode-specific copy and blocks skip`() {
-        renderValidationPage(
+    fun `checking dns busy state hides actions and blocks skip`() {
+        renderOnboarding(
+            OnboardingUiState(
+                currentPage = OnboardingPages.lastIndex,
+                selectedMode = Mode.VPN,
+                validationState = OnboardingValidationState.CheckingDns(Mode.VPN),
+            ),
+        )
+
+        // Busy footer CTA carries no actionable tag and shows the testing label.
+        composeRule.onNodeWithText("Testing…").assertExists()
+        composeRule.onNodeWithContentDescription("Step 4 of 4").assertExists()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidationStatus).assertExists()
+    }
+
+    @Test
+    fun `starting mode busy state blocks skip and validate actions`() {
+        renderOnboarding(
             OnboardingUiState(
                 currentPage = OnboardingPages.lastIndex,
                 selectedMode = Mode.VPN,
@@ -170,50 +278,31 @@ class OnboardingScreenTest {
             ),
         )
 
-        composeRule.onNodeWithText("Validate VPN mode").assertExists()
-        composeRule
-            .onNodeWithText("This can take a moment. If Android asks for permission, allow it to continue.")
-            .assertExists()
         composeRule.onNodeWithContentDescription("Step 4 of 4").assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
     }
 
     @Test
-    fun `notification permission failure renders allow recovery action`() {
-        renderValidationPage(
+    fun `requesting vpn consent surfaces the local permission helper copy`() {
+        renderOnboarding(
             OnboardingUiState(
                 currentPage = OnboardingPages.lastIndex,
-                validationState =
-                    OnboardingValidationState.Failed(
-                        reason = "Notifications required",
-                        recoveryKind = OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS,
-                    ),
+                selectedMode = Mode.VPN,
+                validationState = OnboardingValidationState.RequestingVpnConsent,
             ),
         )
 
-        composeRule.onNodeWithText("Allow").assertExists()
+        composeRule
+            .onNodeWithText("Android will ask for permission to create a local VPN connection.")
+            .assertExists()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
     }
 
-    @Test
-    fun `vpn permission failure renders grant recovery action`() {
-        renderValidationPage(
-            OnboardingUiState(
-                currentPage = OnboardingPages.lastIndex,
-                validationState =
-                    OnboardingValidationState.Failed(
-                        reason = "VPN permission denied",
-                        recoveryKind = OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION,
-                    ),
-            ),
-        )
-
-        composeRule.onNodeWithText("Grant VPN permission").assertExists()
-    }
-
-    private fun renderValidationPage(
+    private fun renderOnboarding(
         uiState: OnboardingUiState,
         onSkip: () -> Unit = {},
+        onChangeDns: () -> Unit = {},
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -224,11 +313,13 @@ class OnboardingScreenTest {
                     onContinue = {},
                     onModeSelected = {},
                     onDnsSelected = {},
+                    onOpenAdvancedDns = {},
                     onRunValidation = {},
                     onFinishKeepingRunning = {},
                     onFinishDisconnected = {},
                     onFinishAnyway = {},
                     onAcceptSuggestedMode = {},
+                    onChangeDns = onChangeDns,
                 )
             }
         }
