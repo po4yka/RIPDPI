@@ -23,6 +23,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+// Border widths are derived from spacing.xs (no literal dp): halve it for the 2 dp selected
+// outline, quarter it for the 1 dp unselected outline.
+private const val selectedBorderDivisor = 2
+private const val unselectedBorderDivisor = 4
+
 /**
  * Onboarding-scoped selectable option card used for both the traffic-mode and DNS choices.
  *
@@ -55,7 +60,7 @@ internal fun OnboardingOptionCard(
     val container = if (selected) colors.muted else colors.card
     val borderColor = if (selected) colors.outline else colors.outlineVariant
     // Token-derived widths (no literal dp): 2 dp selected / 1 dp unselected.
-    val borderWidth = if (selected) spacing.xs / 2 else spacing.xs / 4
+    val borderWidth = if (selected) spacing.xs / selectedBorderDivisor else spacing.xs / unselectedBorderDivisor
 
     Column(
         modifier =

@@ -43,6 +43,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -83,8 +84,11 @@ private const val scaleIllusRange = 0.12f
 // Intro illustration is drawn container-less at this multiple of the base illustration size.
 private const val introIllustrationScale = 1.5f
 
-// Illustration travel fraction for entrance animation
+// Parallax travel fractions (× illustration size) for the page-swipe entrance animation.
 private const val illusTravelFraction = 0.55f
+private const val titleTravelFraction = 0.35f
+private const val bodyTravelFraction = 0.52f
+private const val illusLiftFraction = 0.15f
 
 @Composable
 fun OnboardingRoute(
@@ -508,6 +512,39 @@ private fun OnboardingFooterCta(
     }
 }
 
+/** Per-frame parallax + fade values for the swipeable info page, derived once from the page offset. */
+private class OnboardingInfoParallax(
+    val clampedOffset: Float,
+    val pageProgress: Float,
+    val illustrationTravelPx: Float,
+    val titleTravelPx: Float,
+    val bodyTravelPx: Float,
+    val illustrationLiftPx: Float,
+    val textAlpha: Float,
+    val bodyAlpha: Float,
+)
+
+@Composable
+private fun onboardingInfoParallax(
+    pageOffset: Float,
+    illustrationSize: Dp,
+): OnboardingInfoParallax {
+    val clampedOffset = pageOffset.coerceIn(-1f, 1f)
+    val pageProgress = (1f - clampedOffset.absoluteValue).coerceIn(0f, 1f)
+    return with(LocalDensity.current) {
+        OnboardingInfoParallax(
+            clampedOffset = clampedOffset,
+            pageProgress = pageProgress,
+            illustrationTravelPx = (illustrationSize * illusTravelFraction).toPx(),
+            titleTravelPx = (illustrationSize * titleTravelFraction).toPx(),
+            bodyTravelPx = (illustrationSize * bodyTravelFraction).toPx(),
+            illustrationLiftPx = (illustrationSize * illusLiftFraction).toPx(),
+            textAlpha = (alphaTextMin + (pageProgress * alphaTextRange)).coerceIn(0f, 1f),
+            bodyAlpha = (alphaBodyMin + (pageProgress * alphaBodyRange)).coerceIn(0f, 1f),
+        )
+    }
+}
+
 @Composable
 private fun OnboardingInfoPageScene(
     pageModel: OnboardingPage.Informational,
@@ -518,27 +555,7 @@ private fun OnboardingInfoPageScene(
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
-    val density = LocalDensity.current
-    val clampedOffset = pageOffset.coerceIn(-1f, 1f)
-    val pageProgress = (1f - clampedOffset.absoluteValue).coerceIn(0f, 1f)
-    val illustrationTravelPx =
-        with(density) {
-            (introLayout.illustrationSize * illusTravelFraction).toPx()
-        }
-    val titleTravelPx =
-        with(density) {
-            (introLayout.illustrationSize * 0.35f).toPx()
-        }
-    val bodyTravelPx =
-        with(density) {
-            (introLayout.illustrationSize * 0.52f).toPx()
-        }
-    val illustrationLiftPx =
-        with(density) {
-            (introLayout.illustrationSize * 0.15f).toPx()
-        }
-    val textAlpha = (alphaTextMin + (pageProgress * alphaTextRange)).coerceIn(0f, 1f)
-    val bodyAlpha = (alphaBodyMin + (pageProgress * alphaBodyRange)).coerceIn(0f, 1f)
+    val parallax = onboardingInfoParallax(pageOffset, introLayout.illustrationSize)
 
     Column(
         modifier =
@@ -554,12 +571,12 @@ private fun OnboardingInfoPageScene(
                 Modifier
                     .size(introLayout.illustrationSize * introIllustrationScale)
                     .graphicsLayer {
-                        translationX = -clampedOffset * illustrationTravelPx
-                        translationY = (1f - pageProgress) * illustrationLiftPx
-                        rotationZ = clampedOffset * 2f
-                        scaleX = scaleIllusBase + (pageProgress * scaleIllusRange)
-                        scaleY = scaleIllusBase + (pageProgress * scaleIllusRange)
-                        alpha = (alphaIllusMin + (pageProgress * alphaIllusRange)).coerceIn(0f, 1f)
+                        translationX = -parallax.clampedOffset * parallax.illustrationTravelPx
+                        translationY = (1f - parallax.pageProgress) * parallax.illustrationLiftPx
+                        rotationZ = parallax.clampedOffset * 2f
+                        scaleX = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
+                        scaleY = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
+                        alpha = (alphaIllusMin + (parallax.pageProgress * alphaIllusRange)).coerceIn(0f, 1f)
                     },
         )
         Spacer(modifier = Modifier.height(introLayout.illustrationToTitleGap))
@@ -573,8 +590,8 @@ private fun OnboardingInfoPageScene(
                     .fillMaxWidth()
                     .padding(horizontal = introLayout.titleHorizontalPadding)
                     .graphicsLayer {
-                        translationX = clampedOffset * titleTravelPx
-                        alpha = textAlpha
+                        translationX = parallax.clampedOffset * parallax.titleTravelPx
+                        alpha = parallax.textAlpha
                     },
         )
         Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
@@ -588,8 +605,8 @@ private fun OnboardingInfoPageScene(
                     .fillMaxWidth()
                     .padding(horizontal = introLayout.bodyHorizontalPadding)
                     .graphicsLayer {
-                        translationX = clampedOffset * bodyTravelPx
-                        alpha = bodyAlpha
+                        translationX = parallax.clampedOffset * parallax.bodyTravelPx
+                        alpha = parallax.bodyAlpha
                     },
         )
         Spacer(modifier = Modifier.height(spacing.lg))

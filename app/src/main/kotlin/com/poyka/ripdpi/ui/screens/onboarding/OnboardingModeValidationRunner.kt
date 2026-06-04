@@ -220,52 +220,47 @@ class DefaultOnboardingModeValidationRunner
 
         private suspend fun runDnsProbe(mode: Mode) {
             Logger.d { "Onboarding DNS probe starting for $mode" }
-            val host =
-                runCatching { URI(OnboardingConnectivityCheckUrl).host }
-                    .getOrNull()
-                    ?.takeIf { it.isNotBlank() }
-                    ?: throw OnboardingProbeException(
-                        step = OnboardingValidationStep.Dns,
-                        reasonMessage = stringResolver.getString(R.string.onboarding_validation_failed_generic),
-                    )
+            val host = resolveDnsProbeHost()
             try {
-                withContext(dispatchers.io) {
-                    withTimeout(ValidationTrafficTimeoutMs) {
-                        val resolved = InetAddress.getAllByName(host)
-                        if (resolved.isEmpty()) {
-                            throw UnknownHostException(host)
-                        }
-                    }
-                }
-            } catch (e: CancellationException) {
-                // TimeoutCancellationException (DNS step) is a CancellationException subtype — tag it as Dns
-                // rather than letting it propagate to the Tunnel-tagged TimeoutCancellationException branch.
-                if (e is TimeoutCancellationException) {
-                    throw OnboardingProbeException(
-                        step = OnboardingValidationStep.Dns,
-                        reasonMessage = stringResolver.getString(R.string.onboarding_validation_failed_generic),
-                        cause = e,
-                    )
-                }
-                throw e
-            } catch (e: UnknownHostException) {
-                throw OnboardingProbeException(
-                    step = OnboardingValidationStep.Dns,
-                    reasonMessage =
-                        e.message?.takeIf { it.isNotBlank() }
-                            ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
-                    cause = e,
-                )
+                performDnsLookup(host)
+            } catch (e: TimeoutCancellationException) {
+                // TimeoutCancellationException (a CancellationException subtype) means the DNS step
+                // itself timed out — tag it as Dns. A plain CancellationException is intentionally NOT
+                // caught here, so genuine cancellation propagates untouched.
+                throw dnsProbeFailure(cause = e)
             } catch (e: IOException) {
-                throw OnboardingProbeException(
-                    step = OnboardingValidationStep.Dns,
-                    reasonMessage =
-                        e.message?.takeIf { it.isNotBlank() }
-                            ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
-                    cause = e,
-                )
+                // UnknownHostException is an IOException, so this single branch covers both lookup failures.
+                throw dnsProbeFailure(cause = e, message = e.message)
             }
         }
+
+        private fun resolveDnsProbeHost(): String =
+            runCatching { URI(OnboardingConnectivityCheckUrl).host }
+                .getOrNull()
+                ?.takeIf { it.isNotBlank() }
+                ?: throw dnsProbeFailure()
+
+        private suspend fun performDnsLookup(host: String) {
+            withContext(dispatchers.io) {
+                withTimeout(ValidationTrafficTimeoutMs) {
+                    if (InetAddress.getAllByName(host).isEmpty()) {
+                        throw UnknownHostException(host)
+                    }
+                }
+            }
+        }
+
+        private fun dnsProbeFailure(
+            cause: Throwable? = null,
+            message: String? = null,
+        ): OnboardingProbeException =
+            OnboardingProbeException(
+                step = OnboardingValidationStep.Dns,
+                reasonMessage =
+                    message?.takeIf { it.isNotBlank() }
+                        ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                cause = cause,
+            )
 
         private suspend fun runConnectivityProbe(mode: Mode): Long =
             try {

@@ -75,12 +75,13 @@ internal val OnboardingDnsOptions: List<OnboardingDnsOption> =
  */
 internal fun onboardingDnsProtocolLabel(providerId: String): String? {
     if (providerId == OnboardingDnsSystemId) return null
-    val def = dnsProviderById(providerId) ?: return null
-    return when (def.protocol) {
-        EncryptedDnsProtocolDot -> "DNS-over-TLS"
-        EncryptedDnsProtocolDoq -> "DNS-over-QUIC"
-        EncryptedDnsProtocolDnsCrypt -> "DNSCrypt"
-        EncryptedDnsProtocolOdoh -> "Oblivious DoH"
-        else -> "DNS-over-HTTPS"
+    return dnsProviderById(providerId)?.let { def ->
+        when (def.protocol) {
+            EncryptedDnsProtocolDot -> "DNS-over-TLS"
+            EncryptedDnsProtocolDoq -> "DNS-over-QUIC"
+            EncryptedDnsProtocolDnsCrypt -> "DNSCrypt"
+            EncryptedDnsProtocolOdoh -> "Oblivious DoH"
+            else -> "DNS-over-HTTPS"
+        }
     }
 }
