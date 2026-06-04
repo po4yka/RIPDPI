@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.activities.OnboardingUiState
+import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
 import com.poyka.ripdpi.activities.OnboardingValidationStep
 import com.poyka.ripdpi.data.DnsProviderCloudflare
@@ -61,18 +62,12 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `skip on setup page completes immediately without confirmation`() {
-        var skipped = false
-        renderOnboarding(
-            uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount),
-            onSkip = { skipped = true },
-        )
+    fun `setup pages do not show a top skip action`() {
+        renderOnboarding(uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount))
 
-        composeRule.onNodeWithText("Use recommended").assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).performClick()
-
-        assertTrue(skipped)
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipConfirmDialog).assertCountEquals(0)
+        // The mode step relies on safe defaults + the bottom CTA; no top "Use recommended"/skip.
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
+        composeRule.onAllNodesWithText("Use recommended").assertCountEquals(0)
     }
 
     @Test
@@ -149,7 +144,10 @@ class OnboardingScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidationStatus).assertExists()
         // No in-content finish/keep-running button in Idle.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertCountEquals(0)
-        // Idle skip path lives on the top bar ("Skip test") and is NOT a content finish action.
+        // Skip is a secondary action near the bottom CTA ("Skip test"), not a top-right action.
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).assertExists()
+        composeRule.onNodeWithText("Skip test").assertExists()
+        // The bottom "Skip test" maps to finish-anyway but does not carry the content finish tag.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertCountEquals(0)
     }
 
@@ -168,11 +166,38 @@ class OnboardingScreenTest {
         )
 
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidateAction).assertExists()
-        composeRule.onNodeWithText("Retry").assertExists()
+        composeRule.onNodeWithText("Try again").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSwitchSuggestedMode).assertExists()
         // A connectivity/mode failure is recovered by switching mode, not by changing DNS.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingChangeDns).assertCountEquals(0)
+    }
+
+    @Test
+    fun `vpn permission failure surfaces grant permission cta and proxy fallback`() {
+        renderOnboarding(
+            OnboardingUiState(
+                currentPage = OnboardingPages.lastIndex,
+                selectedMode = Mode.VPN,
+                validationState =
+                    OnboardingValidationState.Failed(
+                        reason = "VPN permission denied",
+                        recoveryKind = OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION,
+                        suggestedMode = Mode.Proxy,
+                        failedStep = OnboardingValidationStep.Tunnel,
+                    ),
+            ),
+        )
+
+        // Primary recovery is granting permission, NOT switching modes.
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidateAction).assertExists()
+        composeRule.onNodeWithText("Grant VPN permission").assertExists()
+        // Proxy fallback + finish are grouped secondary actions.
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSwitchSuggestedMode).assertExists()
+        composeRule.onNodeWithText("Use Proxy mode instead").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertExists()
+        // The local-VPN clarification is shown in the error banner.
+        composeRule.onAllNodesWithText("Try again").assertCountEquals(0)
     }
 
     @Test
@@ -213,7 +238,7 @@ class OnboardingScreenTest {
             onChangeDns = { changeDns = true },
         )
 
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingChangeDns).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingChangeDns).performScrollTo().performClick()
 
         assertTrue(changeDns)
     }
