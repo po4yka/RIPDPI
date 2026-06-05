@@ -6061,6 +6061,9 @@ dependencies = [
 name = "ripdpi-protocol-loopback"
 version = "0.1.0"
 dependencies = [
+ "quinn",
+ "rcgen",
+ "rustls",
  "thiserror 2.0.18",
  "tokio",
  "tracing",

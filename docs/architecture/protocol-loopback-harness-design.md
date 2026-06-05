@@ -1,6 +1,6 @@
 # Protocol Loopback Harness — Design
 
-> Status: **scaffold implemented; per-protocol loopbacks pending in this crate**. Authored: 2026-05-15, refreshed 2026-05-28 against `native/rust/crates/ripdpi-protocol-loopback` and the current `local-network-fixture` loopbacks.
+> Status: **scaffold + `QuicLoopback` landed; remaining per-protocol loopbacks pending**. Authored: 2026-05-15, refreshed 2026-06-05. The crate now ships `EchoLoopback` (plain TCP) and `QuicLoopback` (generic QUIC echo: self-signed cert, `ring` provider, `AcceptAnyServerCert` client verifier, `QUIC_LOOPBACK_ALPN`, plus a one-call `connect()` client helper). The QUIC primitive unblocks the QUIC-dependent consumers (port-hopping soak, QUIC PMTU regression, the Hysteria 2 / TUIC slices of the per-transport benches). Still pending: the ShadowTLS, VLESS-Reality (stub-auth per the risk note below), and xHTTP loopback servers.
 
 ## Why this design exists
 

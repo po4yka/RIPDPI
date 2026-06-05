@@ -30,6 +30,9 @@ use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
+mod quic;
+pub use quic::{AcceptAnyServerCert, QUIC_LOOPBACK_ALPN, QuicLoopback};
+
 /// Common shape for a loopback echo server. Each per-protocol module
 /// returns a value implementing this trait so consumer code can
 /// substitute one backend for another without rewriting the test
@@ -48,6 +51,8 @@ pub trait ProtocolLoopbackServer: Send {
 pub enum LoopbackError {
     #[error("io: {0}")]
     Io(#[from] io::Error),
+    #[error("loopback setup failed: {0}")]
+    Setup(String),
     #[error("shutdown signal already fired")]
     ShutdownDuplicate,
 }
