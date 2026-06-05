@@ -71,7 +71,7 @@ _All blocked on the gomobile/libXray AAR toolchain + on-device smoke lane._
 | medium | testing | [Audit VLESS chained-connect over relay end-to-end coverage](issues/audit-vless-chained-connect-over-relay-end-to-end-tests.md) | — |
 | low | testing | [Add ShadowTLS loopback test server for soak runs](issues/add-shadowtls-loopback-test-server-for-soak-runs.md) | — |
 
-## Backlog (17)
+## Backlog (18)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -83,6 +83,7 @@ _All blocked on the gomobile/libXray AAR toolchain + on-device smoke lane._
 | medium | transport | [Spike: DNS-Morph bootstrap fallback channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | — |
 | medium | transport | [Wire Hysteria Realm STUN-discovered NAT traversal](issues/wire-hysteria-realm-stun-nat-traversal.md) | — |
 | medium | transport | [Investigate RKN unannounced protocol-class signatures](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | direct-mode-transport-policy-and-verdicts¹ |
+| medium | diagnostics | [Model ASN exposure denylist advisory](issues/model-asn-exposure-denylist-advisory.md) | — |
 | medium | routing | [Adopt Android 17 split-tunnel UI (ACTION_VPN_APP_EXCLUSION)](issues/adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion.md) | advanced-routing-rules-and-geoip-enforcement¹ |
 | medium | routing | [Adopt process-based per-package routing via Xray TUN routeOnly](issues/adopt-process-based-per-package-routing-via-xray-tun-routeonly.md) | advanced-routing-rules-and-geoip-enforcement¹ |
 | medium | testing | [Spike CensorLab as offline censor-replay harness](issues/spike-censorlab-as-offline-censor-replay-harness.md) | orchestration-test-posture |

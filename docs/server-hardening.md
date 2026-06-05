@@ -191,3 +191,13 @@ This document does not provide:
 - a server implementation for SYN-Hide or UDP-over-ICMP transport experiments
 
 Those remain separate Tier 3 transport work.
+
+## ASN Exposure Denylist Advisory
+
+Some server operators use maintained ASN and service-network feeds as an exposure-reduction layer: ingress filtering limits direct probing from listed networks, while egress filtering reduces accidental server contact with service ecosystems that may participate in app telemetry, probing, or reputation pipelines. Public source references for this model include `https://github.com/C24Be/AS_Network_List` and the supplemental sheet at `https://docs.google.com/spreadsheets/d/1YWS5aMEykkM9koxcZW1q_bZBi2j1UGmTbhFhOfnrd4k/edit?gid=2065371898#gid=2065371898`.
+
+RIPDPI should treat this as server-side operator policy, not an Android runtime feature. The app must not bundle generated ranges, fetch denylist feeds in the background, or apply firewall policy. If surfaced in diagnostics or documentation, describe it as an infrastructure hardening control that belongs in the deployment layer with schema validation, dry-run review, canary rollout, false-positive monitoring, and rollback criteria.
+
+Safety boundary: do not copy ASN rows, IP ranges, firewall commands, route blackholes, or generated rule files into this repository. Preserve only the defensive model and provenance.
+
+Required server-side follow-up belongs in the deploy repo: a design boundary document, placeholder-only schema fixtures, redacted dry-run summaries, disabled-by-default render tests, canary/log-only rollout notes, false-positive monitoring, and rollback criteria. Until those artifacts exist, RIPDPI should only describe the control objective and source provenance.
