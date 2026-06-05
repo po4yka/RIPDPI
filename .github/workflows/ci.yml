@@ -1094,9 +1094,9 @@ jobs:
             ${{ runner.temp }}/macrobenchmark-summary.md
           retention-days: 7
 
-  # Runs :app instrumented tests on Gradle Managed Devices — one runner per device.
-  # GMD builds the app + androidTest APKs itself; prebuilt x86_64 native shards from
-  # the rust-native matrix are staged via -Pripdpi.prebuilt*Dir so cargo is skipped.
+  # Runs :app instrumented tests on explicitly provisioned x86_64 emulators — one runner per device image.
+  # Prebuilt x86_64 native shards from the rust-native matrix are staged via
+  # -Pripdpi.prebuilt*Dir so cargo is skipped.
   android-instrumented-tests:
     if: github.event_name != 'schedule'
     needs: [rust-native]
@@ -1143,25 +1143,39 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Install emulator and system image
+      - name: Provision ${{ matrix.device }} emulator
         run: |
-          android sdk install \
-            "cmdline-tools/latest" \
-            "emulator" \
-            "system-images/android-34/${{ matrix.system-image }}/x86_64"
+          bash scripts/ci/start-android-emulator.sh \
+            --avd "${{ matrix.device }}" \
+            --api 34 \
+            --arch x86_64 \
+            --target "${{ matrix.system-image }}" \
+            --boot-timeout 600
 
       - name: Run instrumented tests on ${{ matrix.device }}
         env:
           RUSTC_WRAPPER: sccache
         run: |
-          ./gradlew :app:${{ matrix.device }}GithubDebugAndroidTest \
+          ./gradlew :app:connectedGithubDebugAndroidTest \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \
             -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.integration \
+            -Pandroid.testInstrumentationRunnerArguments.coverage=false \
             -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+
+      - name: Capture Android instrumented-test emulator diagnostics
+        if: always()
+        run: |
+          bash scripts/ci/capture-android-emulator-diagnostics.sh \
+            --avd "${{ matrix.device }}" \
+            --output-dir "$RUNNER_TEMP/android-instrumented-${{ matrix.device }}"
+
+      - name: Stop ${{ matrix.device }} emulator
+        if: always()
+        run: bash scripts/ci/stop-android-emulator.sh --avd "${{ matrix.device }}"
 
       - name: Upload Android instrumented-test artifacts
         if: always()
@@ -1172,6 +1186,7 @@ jobs:
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             app/build/outputs/managed_device_android_test_additional_output/
+            ${{ runner.temp }}/android-instrumented-${{ matrix.device }}/
           retention-days: 7
 
   rust-loom:

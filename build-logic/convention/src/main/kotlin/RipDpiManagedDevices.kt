@@ -20,11 +20,13 @@ internal fun CommonExtension.configureRipDpiManagedDevices() {
         device = "Pixel 6"
         apiLevel = 34
         systemImageSource = "aosp-atd"
+        testedAbi = "x86_64"
     }
     devices.create("pixel6Api34Google") {
         device = "Pixel 6"
         apiLevel = 34
         systemImageSource = "google_apis"
+        testedAbi = "x86_64"
     }
     testOptions.managedDevices.groups.create("ciDevices") {
         targetDevices.add(devices.getByName("pixel6Api34Atd"))

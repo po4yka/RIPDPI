@@ -114,7 +114,7 @@ fi
 echo "Installing emulator SDK packages for android-${api_level}/${target}/${arch}"
 # Android CLI 1.0 uses slash-notation package IDs (`system-images/android-NN/...`),
 # not the legacy sdkmanager semicolon notation. See `android sdk install --help`.
-timeout 1200 android sdk install \
+bash "$script_dir/android-sdk-install.sh" \
   "cmdline-tools/latest" \
   "emulator" \
   "system-images/android-${api_level}/${target}/${arch}"

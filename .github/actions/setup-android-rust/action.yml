@@ -111,7 +111,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        android sdk install \
+        bash scripts/ci/android-sdk-install.sh \
           "platform-tools" \
           "platforms/android-${{ steps.native-toolchain.outputs.compile-sdk }}"
 
@@ -130,7 +130,7 @@ runs:
     - name: Install NDK via android CLI
       if: inputs.skip-android-sdk-ndk != 'true' && steps.cache-android-sdk.outputs.cache-hit != 'true'
       shell: bash
-      run: android sdk install "ndk/${{ steps.native-toolchain.outputs.ndk }}"
+      run: bash scripts/ci/android-sdk-install.sh "ndk/${{ steps.native-toolchain.outputs.ndk }}"
 
     - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
       env:
