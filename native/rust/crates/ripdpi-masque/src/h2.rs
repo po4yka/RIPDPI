@@ -18,7 +18,7 @@ use crate::client::AsyncIo;
 use crate::config::MasqueConfig;
 use crate::request::apply_request_headers;
 use crate::response::{AttemptError, validate_connect_udp_response, validate_proxy_response};
-use crate::tls::apply_h2_client_auth;
+use crate::tls::{apply_h2_client_auth, apply_h2_root_certificate};
 use crate::udp::{MasqueUdpFlow, MasqueUdpSender};
 use crate::url::{ProxyOrigin, TargetAuthority, build_connect_udp_path, parse_proxy_origin, resolve_proxy_socket_addr};
 
@@ -89,8 +89,14 @@ where
     let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
     apply_h2_client_auth(&mut connector_builder, config)?;
+    apply_h2_root_certificate(&mut connector_builder, config)?;
+    // Test-only: relax verification for the loopback fixture's self-signed cert
+    // ONLY when no explicit trust anchor was pinned, so a test that sets
+    // `root_certificate_pem` exercises the real pin-and-verify path.
     #[cfg(test)]
-    relax_loopback_fixture_certificate_verification(&mut connector_builder, &proxy_origin.host);
+    if config.root_certificate_pem.is_none() {
+        relax_loopback_fixture_certificate_verification(&mut connector_builder, &proxy_origin.host);
+    }
     let connector = connector_builder.build();
     let mut ssl = connector
         .configure()
@@ -147,8 +153,14 @@ pub(crate) async fn attempt_h2_connect_udp(
     let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
     apply_h2_client_auth(&mut connector_builder, config)?;
+    apply_h2_root_certificate(&mut connector_builder, config)?;
+    // Test-only: relax verification for the loopback fixture's self-signed cert
+    // ONLY when no explicit trust anchor was pinned, so a test that sets
+    // `root_certificate_pem` exercises the real pin-and-verify path.
     #[cfg(test)]
-    relax_loopback_fixture_certificate_verification(&mut connector_builder, &proxy_origin.host);
+    if config.root_certificate_pem.is_none() {
+        relax_loopback_fixture_certificate_verification(&mut connector_builder, &proxy_origin.host);
+    }
     let connector = connector_builder.build();
     let mut ssl = connector
         .configure()

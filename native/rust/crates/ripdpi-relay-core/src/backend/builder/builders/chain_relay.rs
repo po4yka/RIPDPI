@@ -171,6 +171,7 @@ fn resolved_hop_masque_config(
         privacy_pass_provider_url: hop.masque_privacy_pass_provider_url.clone(),
         privacy_pass_provider_auth_token: hop.masque_privacy_pass_provider_auth_token.clone(),
         tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
+        root_certificate_pem: None,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,

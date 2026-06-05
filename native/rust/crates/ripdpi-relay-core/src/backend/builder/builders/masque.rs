@@ -38,6 +38,7 @@ fn build_masque_client_config_with_ech_lookup(
         privacy_pass_provider_url: masque.privacy_pass_provider_url.clone(),
         privacy_pass_provider_auth_token: masque.privacy_pass_provider_auth_token.clone(),
         tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
+        root_certificate_pem: None,
         quic_bind_low_port: config.common.quic_bind_low_port,
         quic_migrate_after_handshake: config.common.quic_migrate_after_handshake,
         ech_config,

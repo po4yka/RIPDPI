@@ -5478,6 +5478,7 @@ dependencies = [
  "criterion",
  "local-network-fixture",
  "ripdpi-config",
+ "ripdpi-masque",
  "ripdpi-proxy-config",
  "ripdpi-proxy-runtime",
  "ripdpi-runtime-adaptive",

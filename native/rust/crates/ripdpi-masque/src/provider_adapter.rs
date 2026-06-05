@@ -214,6 +214,7 @@ mod tests {
             privacy_pass_provider_url: None,
             privacy_pass_provider_auth_token: None,
             tls_fingerprint_profile: "native_default".to_string(),
+            root_certificate_pem: None,
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
             ech_config: None,

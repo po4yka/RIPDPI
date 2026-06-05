@@ -44,6 +44,7 @@ pub struct MasqueH2ConnectUdpFixture {
     address: SocketAddr,
     udp_echo_address: SocketAddr,
     tcp_echo_address: SocketAddr,
+    certificate_pem: String,
     observed: Arc<Mutex<Vec<MasqueObservedRequest>>>,
     shutdown: Option<oneshot::Sender<()>>,
     thread: Option<JoinHandle<()>>,
@@ -51,7 +52,7 @@ pub struct MasqueH2ConnectUdpFixture {
 
 impl MasqueH2ConnectUdpFixture {
     pub async fn start() -> io::Result<Self> {
-        let tls = server_tls_config()?;
+        let (tls, certificate_pem) = server_tls_config()?;
         let observed = Arc::new(Mutex::new(Vec::new()));
         let (addr_tx, addr_rx) = std::sync::mpsc::channel();
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
@@ -80,6 +81,7 @@ impl MasqueH2ConnectUdpFixture {
             address,
             udp_echo_address,
             tcp_echo_address,
+            certificate_pem,
             observed,
             shutdown: Some(shutdown_tx),
             thread: Some(thread),
@@ -98,6 +100,13 @@ impl MasqueH2ConnectUdpFixture {
         self.tcp_echo_address.to_string()
     }
 
+    /// PEM of the fixture's self-signed server certificate, for clients that
+    /// pin it as a trust anchor (e.g. `MasqueConfig::root_certificate_pem`)
+    /// instead of relaxing TLS verification.
+    pub fn certificate_pem(&self) -> &str {
+        &self.certificate_pem
+    }
+
     pub fn observed_requests(&self) -> Vec<MasqueObservedRequest> {
         self.observed.lock().expect("MASQUE fixture observations").clone()
     }
@@ -114,7 +123,7 @@ impl Drop for MasqueH2ConnectUdpFixture {
     }
 }
 
-fn server_tls_config() -> io::Result<Arc<ServerConfig>> {
+fn server_tls_config() -> io::Result<(Arc<ServerConfig>, String)> {
     let key_pair = KeyPair::generate().map_err(to_io)?;
     let mut params = CertificateParams::new(vec![SERVER_NAME.to_owned(), "127.0.0.1".to_owned()]).map_err(to_io)?;
     params.is_ca = IsCa::NoCa;
@@ -122,6 +131,7 @@ fn server_tls_config() -> io::Result<Arc<ServerConfig>> {
     dn.push(DnType::CommonName, SERVER_NAME);
     params.distinguished_name = dn;
     let cert = params.self_signed(&key_pair).map_err(to_io)?;
+    let certificate_pem = cert.pem();
 
     let provider = rustls::crypto::aws_lc_rs::default_provider();
     let mut server = ServerConfig::builder_with_provider(provider.into())
@@ -134,7 +144,7 @@ fn server_tls_config() -> io::Result<Arc<ServerConfig>> {
         )
         .map_err(to_io)?;
     server.alpn_protocols = vec![b"h2".to_vec()];
-    Ok(Arc::new(server))
+    Ok((Arc::new(server), certificate_pem))
 }
 
 async fn serve(

@@ -42,6 +42,7 @@ fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&s
         privacy_pass_provider_url: Some(provider_url),
         privacy_pass_provider_auth_token: provider_auth_token.map(ToOwned::to_owned),
         tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,
@@ -152,6 +153,7 @@ fn new_client_starts_with_not_attempted_quic_snapshot() {
         privacy_pass_provider_url: None,
         privacy_pass_provider_auth_token: None,
         tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,
@@ -176,6 +178,7 @@ fn masque_config_accepts_ech_and_boring_h2_backend_can_apply_it() {
         privacy_pass_provider_url: None,
         privacy_pass_provider_auth_token: None,
         tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: Some(ech),
@@ -202,6 +205,7 @@ fn parse_proxy_origin_preserves_request_path_and_query() {
         privacy_pass_provider_url: None,
         privacy_pass_provider_auth_token: None,
         tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,
@@ -226,6 +230,7 @@ fn proxy_socket_addr_prefers_bootstrapped_endpoint_without_rewriting_origin_host
         privacy_pass_provider_url: None,
         privacy_pass_provider_auth_token: None,
         tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,
@@ -268,6 +273,7 @@ fn apply_request_headers_does_not_add_proprietary_geohash() {
         privacy_pass_provider_url: None,
         privacy_pass_provider_auth_token: None,
         tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,
@@ -430,6 +436,7 @@ async fn quic_migration_snapshot_records_http2_fallback_reason() {
         privacy_pass_provider_url: None,
         privacy_pass_provider_auth_token: None,
         tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,
@@ -486,6 +493,7 @@ async fn udp_session_round_trips_through_conformant_h2_connect_udp_fixture() {
         privacy_pass_provider_url: None,
         privacy_pass_provider_auth_token: None,
         tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,
@@ -534,6 +542,7 @@ async fn adapter_selected_http_auth_lands_on_connect_udp_request() {
             privacy_pass_provider_url: None,
             privacy_pass_provider_auth_token: None,
             tls_fingerprint_profile: "native_default".to_string(),
+            root_certificate_pem: None,
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
             ech_config: None,
@@ -585,6 +594,7 @@ async fn connect_over_h2_transport_tunnels_tcp_to_target() {
         privacy_pass_provider_url: None,
         privacy_pass_provider_auth_token: None,
         tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,
@@ -607,4 +617,79 @@ async fn connect_over_h2_transport_tunnels_tcp_to_target() {
     let observed = fixture.observed_requests();
     assert_eq!(observed[0].protocol.as_deref(), Some("connect-tcp"));
     assert_eq!(observed[0].target.as_deref(), Some(fixture.tcp_echo_target().as_str()));
+}
+
+/// `root_certificate_pem` PINS the proxy's self-signed cert as a trust anchor
+/// with TLS verification left ON. Setting it suppresses the cfg(test)
+/// loopback-verification relax (see `h2.rs`), so this exercises the real
+/// pin-and-verify path: the handshake succeeds only because the fixture's cert
+/// is trusted AND its `127.0.0.1` SAN matches the connect authority.
+#[tokio::test]
+async fn connect_over_h2_with_pinned_root_certificate_verifies_and_tunnels() {
+    let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+    let config = MasqueConfig {
+        url: fixture.masque_url(),
+        proxy_socket_addr: None,
+        use_http2_fallback: true,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: Some(fixture.certificate_pem().to_string()),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    };
+    let proxy_origin = parse_proxy_origin(&config).expect("proxy origin");
+    let transport =
+        tokio::net::TcpStream::connect(resolve_proxy_socket_addr(&config, &proxy_origin).expect("proxy addr"))
+            .await
+            .expect("connect proxy transport");
+
+    let mut stream = MasqueClient::connect_over(&config, transport, &fixture.tcp_echo_target())
+        .await
+        .expect("pinned-cert handshake must verify and tunnel");
+
+    stream.write_all(b"pinned-ping").await.expect("write pinned stream");
+    let mut reply = [0u8; 11];
+    stream.read_exact(&mut reply).await.expect("read pinned stream");
+    assert_eq!(&reply, b"pinned-ping");
+}
+
+/// A wrong/unrelated pinned trust anchor must FAIL the handshake — proves the
+/// pin path actually verifies rather than silently trusting anything.
+#[tokio::test]
+async fn connect_over_h2_with_unrelated_root_certificate_fails_verification() {
+    let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+    // A syntactically valid but unrelated self-signed cert: a second fixture's.
+    let other = MasqueH2ConnectUdpFixture::start().await.expect("start second MASQUE fixture");
+    let config = MasqueConfig {
+        url: fixture.masque_url(),
+        proxy_socket_addr: None,
+        use_http2_fallback: true,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: Some(other.certificate_pem().to_string()),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    };
+    let proxy_origin = parse_proxy_origin(&config).expect("proxy origin");
+    let transport =
+        tokio::net::TcpStream::connect(resolve_proxy_socket_addr(&config, &proxy_origin).expect("proxy addr"))
+            .await
+            .expect("connect proxy transport");
+
+    let result = MasqueClient::connect_over(&config, transport, &fixture.tcp_echo_target()).await;
+    assert!(result.is_err(), "pinning an unrelated cert must fail TLS verification, not succeed");
 }

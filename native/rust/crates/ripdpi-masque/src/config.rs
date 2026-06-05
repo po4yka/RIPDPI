@@ -36,6 +36,13 @@ pub struct MasqueConfig {
     pub privacy_pass_provider_auth_token: Option<String>,
     /// TLS fingerprint profile used for HTTP/2 fallback handshakes.
     pub tls_fingerprint_profile: String,
+    /// Optional PEM trust anchor for the H2 proxy's TLS certificate. When set,
+    /// the certificate is added to the connector's trust store (verification
+    /// stays ON — this PINS the proxy cert, it does not disable verification),
+    /// which lets a self-signed or private-CA MASQUE proxy be trusted without
+    /// relaxing verification. Mirrors `root_certificate_pem` on the Trojan and
+    /// AnyTLS clients. `None` uses the system trust store.
+    pub root_certificate_pem: Option<String>,
     /// Prefer binding the QUIC transport to a lower, stable-looking UDP source port range.
     pub quic_bind_low_port: bool,
     /// Rebind the owned QUIC transport after the handshake so Quinn performs RFC 9000 path validation.

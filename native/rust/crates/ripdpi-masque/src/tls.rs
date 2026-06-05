@@ -30,6 +30,28 @@ pub(crate) fn load_client_identity(
     }
 }
 
+/// Add the configured PEM trust anchor (if any) to the H2 connector's
+/// certificate store. This PINS a self-signed / private-CA proxy certificate;
+/// it does NOT relax verification — `tokio_boring::connect` still performs full
+/// chain + hostname validation. Mirrors the Trojan/AnyTLS `root_certificate_pem`
+/// handling.
+pub(crate) fn apply_h2_root_certificate(
+    builder: &mut boring::ssl::SslConnectorBuilder,
+    config: &MasqueConfig,
+) -> io::Result<()> {
+    let Some(root_pem) = config.root_certificate_pem.as_deref().filter(|value| !value.trim().is_empty()) else {
+        return Ok(());
+    };
+    let cert = boring::x509::X509::from_pem(root_pem.as_bytes()).map_err(|error| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid MASQUE root certificate PEM: {error}"))
+    })?;
+    builder
+        .cert_store_mut()
+        .add_cert(cert)
+        .map_err(|error| io::Error::other(format!("failed to add MASQUE root certificate: {error}")))?;
+    Ok(())
+}
+
 pub(crate) fn apply_h2_client_auth(
     builder: &mut boring::ssl::SslConnectorBuilder,
     config: &MasqueConfig,

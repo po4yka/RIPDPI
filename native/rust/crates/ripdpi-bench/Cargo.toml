@@ -48,6 +48,7 @@ ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-strategy = { workspace = true }
 # Per-transport throughput benches drive each protocol client against its
 # loopback server fixture.
+ripdpi-masque = { workspace = true }
 ripdpi-shadowtls = { workspace = true, features = ["test-server"] }
 ripdpi-vless = { workspace = true }
 ripdpi-xhttp = { workspace = true }

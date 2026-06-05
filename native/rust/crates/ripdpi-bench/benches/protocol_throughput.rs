@@ -7,18 +7,15 @@
 //! once per benchmark, outside the timed loop, so the measurement reflects data
 //! throughput rather than handshake cost.
 //!
-//! Coverage today: VLESS+Reality, VLESS-over-xHTTP-over-Reality, and ShadowTLS v3
-//! — the transports with a drivable protocol-server loopback that pipeline
-//! cleanly (see `docs/architecture/protocol-loopback-harness-design.md`).
+//! Coverage today: VLESS+Reality, VLESS-over-xHTTP-over-Reality, ShadowTLS v3,
+//! and MASQUE (H2 CONNECT-TCP) — the transports with a drivable protocol-server
+//! loopback that pipeline cleanly (see
+//! `docs/architecture/protocol-loopback-harness-design.md`). The MASQUE case
+//! pins the fixture's self-signed cert via `MasqueConfig::root_certificate_pem`
+//! (TLS verification stays ON) rather than relaxing verification.
 //! Deferred, with what each needs first:
 //!   - Hysteria 2 / TUIC: a QUIC *proxy-server* loopback (the existing
 //!     `QuicLoopback` is a generic echo, not a Hysteria2/TUIC protocol server).
-//!   - MASQUE: the `MasqueH2ConnectUdpFixture` mints a fresh ephemeral
-//!     self-signed cert per `start()` that it never exposes, and the masque
-//!     client only relaxes TLS verification under `#[cfg(test)]` (no feature
-//!     flag, no public trust-anchor injection). An external bench crate cannot
-//!     pass the H2 TLS handshake without a non-test cert-relaxation hook on the
-//!     client or a cert getter + trust-anchor API on the fixture.
 //!   - WS-tunnel: the matching client (`ripdpi-webtunnel` — not the
 //!     Telegram/MTProto-specific `ripdpi-ws-tunnel`) returns a *synchronous*
 //!     boring `SslStream<std::net::TcpStream>` (std `Read`/`Write`, not tokio
@@ -38,7 +35,9 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::runtime::Runtime;
 
-use local_network_fixture::{VlessRealityLoopback, XhttpRealityLoopback};
+use local_network_fixture::{MasqueH2ConnectUdpFixture, VlessRealityLoopback, XhttpRealityLoopback};
+use ripdpi_masque::MasqueClient;
+use ripdpi_masque::config::MasqueConfig;
 use ripdpi_shadowtls::{Config as ShadowTlsConfig, ShadowTlsClient, ShadowTlsLoopback};
 use ripdpi_vless::VlessRealityClient;
 use ripdpi_vless::config::VlessRealityConfig;
@@ -168,11 +167,67 @@ fn bench_shadowtls(c: &mut Criterion, rt: &Runtime) {
     drop((reader, writer));
 }
 
+fn bench_masque_h2_connect_tcp(c: &mut Criterion, rt: &Runtime) {
+    let server = rt.block_on(MasqueH2ConnectUdpFixture::start()).expect("start MASQUE fixture");
+    let masque_url = server.masque_url();
+    // masque_url is https://127.0.0.1:PORT/.well-known/masque/ip — derive the
+    // proxy SocketAddr so we can pre-connect a raw transport and use
+    // connect_over (avoids MasqueClient::connect's ~5s H3-first probe; the
+    // fixture is H2-only).
+    let proxy_addr: std::net::SocketAddr = {
+        let port = masque_url
+            .rsplit(':')
+            .next()
+            .and_then(|tail| tail.split('/').next())
+            .and_then(|port| port.parse::<u16>().ok())
+            .expect("MASQUE fixture url carries a port");
+        (std::net::Ipv4Addr::LOCALHOST, port).into()
+    };
+    let target = server.tcp_echo_target();
+    let config = MasqueConfig {
+        url: masque_url,
+        proxy_socket_addr: None,
+        use_http2_fallback: true,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        // Pin the fixture's self-signed cert; TLS verification stays ON.
+        root_certificate_pem: Some(server.certificate_pem().to_string()),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    };
+
+    let stream = rt.block_on(async {
+        let transport = tokio::net::TcpStream::connect(proxy_addr).await.expect("connect MASQUE proxy transport");
+        MasqueClient::connect_over(&config, transport, &target).await.expect("MASQUE connect_over")
+    });
+    let (mut reader, mut writer) = tokio::io::split(stream);
+
+    let payload = vec![0xAB_u8; PAYLOAD_LEN];
+    let mut recv = vec![0_u8; PAYLOAD_LEN];
+
+    let mut group = c.benchmark_group("protocol-throughput");
+    group.throughput(Throughput::Bytes(PAYLOAD_LEN as u64));
+    group.bench_function("masque_h2_connect_tcp/1MiB", |b| {
+        b.iter(|| rt.block_on(roundtrip(&mut reader, &mut writer, &payload, &mut recv)));
+    });
+    group.finish();
+
+    drop((reader, writer));
+}
+
 fn bench_protocol_throughput(c: &mut Criterion) {
     let rt = runtime();
     bench_vless_reality(c, &rt);
     bench_vless_over_xhttp_reality(c, &rt);
     bench_shadowtls(c, &rt);
+    bench_masque_h2_connect_tcp(c, &rt);
 }
 
 criterion_group! {
