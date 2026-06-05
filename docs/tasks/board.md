@@ -60,7 +60,7 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | — |
 | low | testing | [Add ShadowTLS loopback test server for soak runs](issues/add-shadowtls-loopback-test-server-for-soak-runs.md) | — |
 
-## Backlog (19)
+## Backlog (18)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -82,4 +82,3 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | low | testing | [Add cross-stack chain tests (VLESS over xHTTP over Reality)](issues/add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality.md) | — |
 | low | rust-native | [Add upstream HTTP and SOCKS5 proxy override for diagnostic probes](issues/add-upstream-http-and-socks5-proxy-override-for-diagnostic-probes.md) | — |
 | low | vpn | [Spike FakeIP mode compatibility on Android](issues/spike-fakeip-mode-compatibility-on-android.md) | epic-fail-closed-android-vpn-policy-engine |
-| low | diagnostics | [Spike relay-assisted QUICstep rescue mode after NO_DIRECT_SOLUTION](issues/spike-relay-assisted-quicstep-rescue-mode-after-no-direct-solution.md) | — |
