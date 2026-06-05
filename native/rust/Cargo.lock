@@ -5853,6 +5853,7 @@ dependencies = [
  "quinn",
  "rand 0.10.1",
  "rcgen",
+ "ripdpi-protocol-loopback",
  "rustls",
  "socket2",
  "thiserror 2.0.18",

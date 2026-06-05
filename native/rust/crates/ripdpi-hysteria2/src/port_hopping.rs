@@ -396,4 +396,80 @@ mod tests {
         }
         assert_eq!(telemetry.count(), 30, "telemetry counter must match the hop count");
     }
+
+    /// Quinn-side port-hopping rebind soak over the shared `QuicLoopback`
+    /// harness. For each of 16 hops it transfers bytes bidirectionally on the
+    /// live QUIC connection, records the hop, then migrates the connection to a
+    /// fresh ephemeral UDP socket via `endpoint.rebind()` (RFC 9000 path
+    /// validation). Asserts strictly-monotonic hop indices, a bidirectional
+    /// round-trip every hop, distinct local ports across rebinds, and a
+    /// telemetry counter matching the hop count.
+    ///
+    /// Closes the deferred socket-rebind + bidirectional-bytes criteria of
+    /// `docs/tasks/issues/add-port-hopping-window-soak-test-for-hysteria2.md`
+    /// using the `ripdpi-protocol-loopback` Quinn harness. Runs in standard CI
+    /// (16 hops complete in well under a second).
+    #[tokio::test]
+    async fn quic_rebind_soak_preserves_bidirectional_bytes_across_monotonic_hops() {
+        use std::collections::BTreeSet;
+        use std::sync::Arc;
+
+        use ripdpi_protocol_loopback::{ProtocolLoopbackServer, QuicLoopback};
+
+        use crate::quic_transport::build_client_udp_socket;
+
+        // N > 10 so a regression that breaks hop scheduling after window N>10
+        // (the task definition of done) is caught.
+        const HOPS: u32 = 16;
+
+        let server = QuicLoopback::start(64 * 1024).await.expect("start QUIC loopback");
+
+        let socket = build_client_udp_socket(false, false).expect("initial client socket");
+        let mut endpoint =
+            quinn::Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime))
+                .expect("client endpoint");
+        endpoint.set_default_client_config(server.client_config().expect("client config"));
+
+        let connection =
+            endpoint.connect(server.local_addr(), "localhost").expect("connect call").await.expect("handshake");
+
+        let mut telemetry = HopIntervalTelemetry::new();
+        let mut hop_indices = Vec::new();
+        let mut ports = Vec::new();
+
+        for hop in 0..HOPS {
+            let started = std::time::Instant::now();
+
+            // Bidirectional byte transfer over the current (possibly migrated) path.
+            let payload = format!("hop-{hop}-payload").into_bytes();
+            let (mut send, mut recv) = connection.open_bi().await.expect("open bi-stream");
+            send.write_all(&payload).await.expect("client write");
+            send.finish().expect("client finish");
+            let echoed = recv.read_to_end(payload.len()).await.expect("client read echo");
+            assert_eq!(echoed, payload, "hop {hop} must round-trip bytes bidirectionally");
+
+            hop_indices.push(hop);
+            ports.push(endpoint.local_addr().expect("endpoint local addr").port());
+            telemetry.record(started.elapsed().max(Duration::from_nanos(1)));
+
+            // Port-hop: migrate the live connection onto a fresh ephemeral socket.
+            let replacement = build_client_udp_socket(false, false).expect("rebind socket");
+            endpoint.rebind(replacement).expect("endpoint rebind");
+        }
+
+        assert_eq!(
+            hop_indices,
+            (0..HOPS).collect::<Vec<_>>(),
+            "hop indices must be strictly monotonic with no gaps or repeats",
+        );
+        assert_eq!(telemetry.count(), u64::from(HOPS), "telemetry counter must match the hop count");
+        assert!(ports.iter().all(|&port| port != 0), "every hop must bind a concrete local port");
+        assert!(
+            ports.iter().copied().collect::<BTreeSet<_>>().len() >= 2,
+            "rebinds must exercise more than one local port: {ports:?}",
+        );
+
+        drop(connection);
+        server.shutdown().await.expect("clean shutdown");
+    }
 }

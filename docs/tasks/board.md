@@ -6,7 +6,7 @@ hand-edit it; regenerate it from the issue frontmatter (see `README.md` § Regen
 
 _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`dropped` files are deleted)._
 
-## Doing (14)
+## Doing (13)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -18,7 +18,6 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | high | transport | [Enforce per-exit-IP concurrent-TLS-connection cap (~12, RU home-ISP policing)](issues/enforce-per-exit-ip-concurrent-tls-cap.md) | — |
 | medium | outbound | [Finish AnyTLS profile editor and compatibility gaps](issues/add-anytls-outbound-client-crate-and-profile-editor.md) | epic-extended-outbound-protocol-support |
 | medium | outbound | [Add Mieru outbound client crate and profile editor](issues/add-mieru-outbound-client-crate-and-profile-editor.md) | epic-extended-outbound-protocol-support |
-| medium | testing | [Add port-hopping window soak test for Hysteria 2](issues/add-port-hopping-window-soak-test-for-hysteria2.md) | — |
 | medium | rust-native | [Add post-quantum hybrid KEM (X25519MLKEM768) for outbound TLS handshakes](issues/add-post-quantum-hybrid-kem-x25519mlkem768-for-tls-handshakes.md) | — |
 | medium | rust-native | [Add TUIC v4 fallback or explicit version detection](issues/add-tuic-v4-fallback-or-version-detection.md) | — |
 | medium | outbound | [Add Xray profile UX and import flow](issues/add-xray-profile-ux-and-import-flow.md) | epic-xray-provider-mode |

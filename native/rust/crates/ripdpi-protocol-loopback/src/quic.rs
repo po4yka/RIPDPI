@@ -144,13 +144,16 @@ impl QuicLoopback {
         self.max_bytes_per_stream
     }
 
-    /// Connect a fresh quinn client to this loopback and return the established
-    /// connection. The client trusts the self-signed cert via
-    /// [`AcceptAnyServerCert`] and negotiates [`QUIC_LOOPBACK_ALPN`].
+    /// A quinn client config that trusts this loopback's self-signed cert
+    /// (via [`AcceptAnyServerCert`]) and negotiates [`QUIC_LOOPBACK_ALPN`].
+    ///
+    /// Use this when you need to own the client [`quinn::Endpoint`] — e.g. a
+    /// port-hopping soak that calls [`quinn::Endpoint::rebind`] to migrate the
+    /// connection. For a one-shot connection, prefer [`QuicLoopback::connect`].
     ///
     /// # Errors
-    /// Returns [`LoopbackError`] if the client crypto, bind, or handshake fails.
-    pub async fn connect(&self) -> Result<quinn::Connection, LoopbackError> {
+    /// Returns [`LoopbackError`] if the rustls/quinn client crypto fails to build.
+    pub fn client_config(&self) -> Result<quinn::ClientConfig, LoopbackError> {
         let mut client_tls =
             rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
                 .with_safe_default_protocol_versions()
@@ -162,10 +165,18 @@ impl QuicLoopback {
 
         let quic_crypto = quinn::crypto::rustls::QuicClientConfig::try_from(client_tls)
             .map_err(|e| LoopbackError::Setup(e.to_string()))?;
-        let client_cfg = quinn::ClientConfig::new(Arc::new(quic_crypto));
+        Ok(quinn::ClientConfig::new(Arc::new(quic_crypto)))
+    }
 
+    /// Connect a fresh quinn client to this loopback and return the established
+    /// connection. The client trusts the self-signed cert via
+    /// [`AcceptAnyServerCert`] and negotiates [`QUIC_LOOPBACK_ALPN`].
+    ///
+    /// # Errors
+    /// Returns [`LoopbackError`] if the client crypto, bind, or handshake fails.
+    pub async fn connect(&self) -> Result<quinn::Connection, LoopbackError> {
         let mut endpoint = quinn::Endpoint::client((std::net::Ipv4Addr::LOCALHOST, 0).into())?;
-        endpoint.set_default_client_config(client_cfg);
+        endpoint.set_default_client_config(self.client_config()?);
 
         let connection = endpoint
             .connect(self.local_addr, "localhost")

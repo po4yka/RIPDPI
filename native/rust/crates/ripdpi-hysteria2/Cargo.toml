@@ -23,6 +23,7 @@ webpki-roots = { workspace = true }
 [dev-dependencies]
 golden-test-support = { workspace = true }
 rcgen = { workspace = true }
+ripdpi-protocol-loopback = { workspace = true }
 
 [lints]
 workspace = true
