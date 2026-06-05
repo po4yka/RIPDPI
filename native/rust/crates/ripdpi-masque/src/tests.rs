@@ -507,6 +507,69 @@ async fn udp_session_round_trips_through_conformant_h2_connect_udp_fixture() {
     assert_eq!(observed[0].capsule_protocol.as_deref(), Some("?1"));
 }
 
+/// Integration coverage for the provider-adapter decoupling: the auth header the
+/// `MasqueProviderAdapter` selects for a config is exactly what lands on the wire
+/// of a relayed CONNECT-UDP request against a conformant RFC 9298 proxy — for
+/// both HTTP-layer auth modes (`Bearer` -> `authorization`, `Preshared` ->
+/// `proxy-authorization`). Closes the integration criterion on
+/// `extract-masque-provider-adapter-trait-to-decouple-cloudflare` for the
+/// HTTP-auth path; Privacy Pass retry and TLS client-certificate setup are
+/// covered by their own component tests (`privacy_pass_provider_fetch_caches_spare_headers`,
+/// `provider_adapter::tests`).
+#[tokio::test]
+async fn adapter_selected_http_auth_lands_on_connect_udp_request() {
+    use crate::provider_adapter::adapter_for_config;
+
+    for (auth_mode, token) in [("bearer", "bearer-secret"), ("preshared", "preshared-secret")] {
+        let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+        let config = MasqueConfig {
+            url: fixture.masque_url(),
+            proxy_socket_addr: None,
+            use_http2_fallback: true,
+            auth_mode: Some(auth_mode.to_string()),
+            auth_token: Some(token.to_string()),
+            client_certificate_chain_pem: None,
+            client_private_key_pem: None,
+            cloudflare_geohash_header: None,
+            privacy_pass_provider_url: None,
+            privacy_pass_provider_auth_token: None,
+            tls_fingerprint_profile: "native_default".to_string(),
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            ech_config: None,
+        };
+
+        // What the decoupled adapter says it will apply for this config.
+        let expected = adapter_for_config(&config)
+            .auth_header(&config)
+            .expect("adapter auth header")
+            .expect("http auth mode yields a header");
+
+        let client = MasqueClient::new(config.clone()).expect("client");
+        let mut udp = client.udp_session();
+        udp.send_to(&fixture.udp_echo_target(), b"masque-adapter-auth").await.expect("send via MASQUE");
+        let (target, payload) = tokio::time::timeout(std::time::Duration::from_secs(10), udp.recv_from())
+            .await
+            .expect("receive timeout")
+            .expect("receive via MASQUE");
+        assert_eq!(target, fixture.udp_echo_target());
+        assert_eq!(payload, b"masque-adapter-auth");
+
+        let observed = fixture.observed_requests();
+        assert_eq!(observed.len(), 1, "{auth_mode}: exactly one CONNECT-UDP request expected");
+        let on_wire = match expected.name {
+            "authorization" => observed[0].authorization.as_deref(),
+            "proxy-authorization" => observed[0].proxy_authorization.as_deref(),
+            other => panic!("unexpected adapter header name {other}"),
+        };
+        assert_eq!(
+            on_wire,
+            Some(expected.value.as_str()),
+            "{auth_mode}: adapter-selected auth header not applied on the CONNECT-UDP request",
+        );
+    }
+}
+
 #[tokio::test]
 async fn connect_over_h2_transport_tunnels_tcp_to_target() {
     let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");

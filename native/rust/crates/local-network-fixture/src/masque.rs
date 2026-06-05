@@ -35,6 +35,8 @@ pub struct MasqueObservedRequest {
     pub target: Option<String>,
     pub protocol: Option<String>,
     pub capsule_protocol: Option<String>,
+    pub authorization: Option<String>,
+    pub proxy_authorization: Option<String>,
 }
 
 // Drop order: shutdown sends before thread join; fixture tasks need the shutdown signal before their runtime thread is joined.
@@ -172,6 +174,10 @@ async fn handle_request(
     let protocol = request.extensions().get::<Protocol>().map(|protocol| protocol.as_str().to_string());
     let capsule_protocol =
         request.headers().get("capsule-protocol").and_then(|value| value.to_str().ok()).map(ToOwned::to_owned);
+    let authorization =
+        request.headers().get("authorization").and_then(|value| value.to_str().ok()).map(ToOwned::to_owned);
+    let proxy_authorization =
+        request.headers().get("proxy-authorization").and_then(|value| value.to_str().ok()).map(ToOwned::to_owned);
     let path = request.uri().path().to_string();
     let udp_target = parse_connect_udp_target(&path);
     let tcp_target = request.uri().authority().and_then(|authority| authority.as_str().parse::<SocketAddr>().ok());
@@ -185,6 +191,8 @@ async fn handle_request(
         target: observed_target.map(ToString::to_string),
         protocol: protocol.clone(),
         capsule_protocol: capsule_protocol.clone(),
+        authorization,
+        proxy_authorization,
     });
 
     if request.method() != Method::CONNECT {
