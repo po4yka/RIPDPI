@@ -53,6 +53,11 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 ## Work log
 
 - 2026-06-05: No UID enforcement exists at the tun2socks packet-forwarding layer. `ripdpi-tun-driver` is a TUN open/configure crate only. `ripdpi-flow-app-attribution` + `FlowAppAttributionStore.kt` call `getConnectionOwnerUid` for attribution/learning only — no RST, no UDP drop, no allowlist gate. No SO_BINDTODEVICE bypass countermeasure found in Rust or Kotlin. No integration test for this scenario in `appium/`. All acceptance criteria unmet; full implementation work remains.
+- 2026-06-05: **Architecture resolved (open question in "Risks" closed):** the userspace stack is **`smoltcp`**, driven from `ripdpi-tunnel-core` (`session/`, `sessions.rs`, `io_loop.rs`, `classify.rs`) — NOT gVisor/Go. Concrete plan for the next (on-device) session:
+  1. **Enforcement point:** add a `UidFlowPolicy` gate consulted at session *establishment* in `ripdpi-tunnel-core` (where `classify.rs` first sees a new TCP SYN / first UDP datagram), BEFORE a SOCKS session is opened. Verdicts: `Allow` / `ResetTcp` (smoltcp `abort()`/RST on the listening socket) / `DropUdp` (drop + cache the `(local,remote,proto)` binding to throttle lookups). Pure decision fn `(uid, proto, &allowlist) -> Verdict` is unit-testable in-crate; the smoltcp wiring is not.
+  2. **UID source:** JNI callback to `ConnectivityManager.getConnectionOwnerUid(proto, local, localPort, remote, remotePort)` (API 29+, no root), reusing the resolver behind `FlowAppAttributionStore`. Must run off the per-packet hot path — cache per 5-tuple, mirror the UDP port-binding cache the task specifies. Honor `vpnservice-protect-invariant.md` and `network-fingerprint-privacy.md` (never log raw UID/IP — only the existing scope/dest digest).
+  3. **Version gate:** only arm on kernel ≥ 5.7 (Android 12+/API 31+); below that the escape doesn't apply.
+  - **Why not implemented here:** acceptance criteria 4–6 are device-gated (Appium `SO_BINDTODEVICE=tun0` flow, kernel 5.7+ *and* <5.7 device runs, `adb shell cat /proc/net/tcp`); a data-plane gate cannot be verified green without a device, and an unverified RST/drop path either breaks all traffic or fails open silently. Kept `backlog` pending an on-device session.
 
 ## References
 
