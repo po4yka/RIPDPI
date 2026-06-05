@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -24,12 +24,12 @@ Reference implementations: refraction-networking/utls (Go), sing-box's uTLS inte
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-tls-profiles` exposes a `RotatingProfileSelector` that picks from a pool of browser fingerprints per connection.
-- [ ] Pool covers at least: Chrome 130, Firefox 125, Safari 18, iOS 18 Safari, Edge 130.
-- [ ] Each TLS outbound (VLESS, xHTTP, ShadowTLS) accepts a `Profile::Rotating` config option that consults the selector.
-- [ ] Unit tests assert: every connection consumes a fresh profile; profile distribution is roughly uniform over 1000 trials.
-- [ ] Telemetry counter `tls.fingerprint_rotation_active` increments on each rotated handshake.
-- [ ] Documentation under `docs/native/` explains the threat model and pool composition.
+- [x] `ripdpi-tls-profiles` exposes a `RotatingProfileSelector` that picks from a pool of browser fingerprints per connection.
+- [ ] Pool covers at least: Chrome 130, Firefox 125, Safari 18, iOS 18 Safari, Edge 130. (Chrome/Firefox/Safari/Edge done; **iOS 18 Safari pending an authentic ClientHello template** — see below.)
+- [ ] Each TLS outbound (VLESS, xHTTP, ShadowTLS) accepts a `Profile::Rotating` config option that consults the selector. (selector mechanism exists; per-protocol call-site wiring still pending.)
+- [x] Unit tests assert: every connection consumes a fresh profile; profile distribution is roughly uniform over 1000 trials.
+- [x] Telemetry counter `tls.fingerprint_rotation_active` increments on each rotated handshake. (crate-local `AtomicU64` + `fingerprint_rotation_count()` + tracing event; surfacing through the Android telemetry ring still pending.)
+- [x] Documentation under `docs/native/` explains the threat model and pool composition.
 
 ## Risks / open questions
 
@@ -39,3 +39,8 @@ Reference implementations: refraction-networking/utls (Go), sing-box's uTLS inte
 ## Links
 
 - [[Epic - Control-plane hardening]]
+
+## Work log
+
+- 2026-06-05: Rotation core (select_rotated_profile, select_profile_for_connection) exists in ripdpi-tls-profiles/src/rotation.rs; pool has chrome/firefox/safari/edge but no iOS 18 Safari profile; no RotatingProfileSelector struct, no Profile::Rotating config option, no tls.fingerprint_rotation_active telemetry counter, no distribution/uniformity tests over 1000 trials, no docs/native/ threat-model doc — all 6 acceptance criteria remain unmet.
+- 2026-06-05: Implemented the verifiable core — `RotatingProfileSelector` (default uniform pool over chrome/firefox/safari/edge), deterministic-per-`(authority, seed)` selection, `tls.fingerprint_rotation_active` counter (`fingerprint_rotation_count()`) + tracing event, and 6 selector tests incl. the 1000-trial uniformity + per-selection counter assertions (47 tests pass, clippy clean). Added `docs/native/tls-fingerprint-rotation.md`. **Remaining (kept `doing`):** (2) an *authentic* iOS 18 Safari ClientHello template — deliberately NOT fabricated, since a wrong JA3/JA4 is itself a detection signal; gated on refraction-networking/utls reference data. (3) wire a `"rotating"` profile option through the VLESS / xHTTP / ShadowTLS outbound call sites (pass a fresh session seed per connection) + surface the counter through the Android telemetry ring.

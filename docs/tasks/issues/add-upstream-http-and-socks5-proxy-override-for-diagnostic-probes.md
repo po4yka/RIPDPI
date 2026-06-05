@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-25
-updated: 2026-04-25
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -51,3 +51,7 @@ dpi-detector v3.2.2: `dpi_detector.py` `--proxy` CLI argument and `config.yml` `
 ## Links
 
 - [[ripdpi-android]]
+
+## Work log
+
+- 2026-06-05: `ScanRequest` has `proxy_host`/`proxy_port` (host+port only, no URL/auth) and `TransportConfig::Socks5` routes InPath probes through RIPDPI's own local service — not the user-supplied external proxy described here. No URL parsing (socks5://user:pass@…), no HTTP CONNECT variant, no credential-privacy enforcement, no "via upstream" result badge, no per-run UI input field for an arbitrary external proxy. All five acceptance criteria remain unimplemented.

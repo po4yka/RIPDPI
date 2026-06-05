@@ -1,7 +1,7 @@
 ---
 title: Add Criterion throughput benchmarks for each transport
 type: task
-status: doing
+status: todo
 area: testing
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -33,3 +33,7 @@ Wire one Criterion benchmark per transport (VLESS, xHTTP, MASQUE, Hysteria 2, TU
 ## Links
 
 - [[Epic - Control-plane hardening]]
+
+## Work log
+
+- 2026-06-05: `ripdpi-bench` exists with `relay_throughput.rs` but benchmarks only generic tcp-echo (1MiB/64KiB/1KiB), not per-transport (VLESS/xHTTP/MASQUE/Hysteria2/TUIC/ShadowTLS/WS-tunnel). No `baselines/` dir under `ripdpi-bench/`. CI has `rust-criterion-bench` job with `check-criterion-regressions.py` but uses `--warn-only` and `rust-bench-baseline.json` lacks per-transport entries. All three acceptance criteria remain unmet.

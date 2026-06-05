@@ -9,7 +9,7 @@ parent: epic-localization-expansion
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -23,10 +23,10 @@ MT pre-translation is acceptable as a starting point for the translator to work 
 ## Acceptance criteria
 
 - [x] (2026-05-29) `app/src/main/res/values-zh-rCN/strings.xml` exists and has zero missing keys versus `values/`.
-- [ ] At least one human reviewer sign-off documented in the merge PR.
-- [ ] Roborazzi screenshot tests in zh-CN for: Home, Config, Diagnostics, Settings, Onboarding.
+- [x] At least one human reviewer sign-off documented in the merge PR.
+- [x] Roborazzi screenshot tests in zh-CN for: Home, Config, Diagnostics, Settings, Onboarding.
 - [ ] No hard-coded strings surface on the reviewed screens (manual audit + lint rule).
-- [ ] Glossary terms land in the shared glossary for consistency with other future locales.
+- [x] Glossary terms land in the shared glossary for consistency with other future locales.
 
 ## Source references
 
@@ -38,6 +38,10 @@ MT pre-translation is acceptable as a starting point for the translator to work 
 **License note:** both upstreams are Apache 2.0 / GPL-3.0. Do NOT copy string values verbatim without proper attribution — the file headers would propagate. Use as **reference for terminology consistency** only; strings for RIPDPI must be translated independently from its own English source.
 
 **Adapt (glossary alignment):** Match Reference implementation's zh-CN term choices for proxy/protocol vocabulary so subscription-importing users see familiar terminology. **Skip:** verbatim value copy.
+
+## Work log
+
+- 2026-06-05: Sign-off documented in docs/localization-provenance.md (Nikita Pochaev, 2026-05-30); zh-CN Roborazzi tests exist for all 5 screens (SimplifiedChineseLocaleScreenshotTest.kt); glossary in docs/localization-glossary.md. Remaining: HardcodedText lint rule not present in lint.xml — manual audit + lint enforcement for hardcoded strings still needed.
 
 ## Links
 

@@ -1,7 +1,7 @@
 ---
 title: Operate Phase-16 real-provider SIM runner
 type: task
-status: review
+status: backlog
 area: testing
 priority: high
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-25
-updated: 2026-05-25
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -41,3 +41,4 @@ The repository now has a contract that separates synthetic lab evidence from rea
 - 2026-05-25: Added fail-closed real-provider runner config validation for `phase16_real_provider_runner_v1`, symbolic namespace lookup, and required pcap scrub policy; real-provider prepare hooks now receive `RIPDPI_PHASE16_REQUESTED_NAMESPACE`, suppress hook stdout/stderr, and emit only non-secret hook metadata.
 - 2026-05-25: Extended `phase16-run.json` and `phase16-pcap-summary.json` metadata with real-provider config/hook status, and documented the exact `include_real_provider=true` workflow dispatch input plus required `phase16-<entry-id>` artifact evidence before release confidence can claim real-provider coverage.
 - 2026-05-25: Verification run: `python3 scripts/ci/phase16_matrix.py validate`, `bash -n scripts/ci/run-phase16-matrix-entry.sh`, targeted real-provider unittest cases, and full `python3 -m unittest scripts.tests.test_phase16_matrix` passed.
+- 2026-06-05: Repo-side contract fully implemented (criteria 2-4 verified: suppress hook stdout/stderr + RIPDPI_PHASE16_REQUESTED_NAMESPACE export in run-phase16-matrix-entry.sh:140/156, fail-closed runner_unavailable paths in run-phase16-matrix-entry.sh:37-40/174-187, release dispatch docs in docs/testing.md:220). Criterion 1 remains open: physical carrier SIM hardware and self-hosted runner registration with real-provider + namespace labels is operator infrastructure not present in the repo.

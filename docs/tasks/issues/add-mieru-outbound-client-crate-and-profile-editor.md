@@ -9,7 +9,7 @@ parent: epic-extended-outbound-protocol-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -25,10 +25,10 @@ Mieru uses a custom UDP-based protocol with replay resistance; the Go reference 
 - [ ] `ripdpi-mieru` crate passes upstream reference handshake + session-framing test vectors.
 - [ ] UDP and TCP transport modes both supported.
 - [ ] Multiplexing behavior matches upstream.
-- [ ] `MieruProfileScreen` validates server + port, username, password, protocol mode (TCP/UDP), mTU.
+- [x] `MieruProfileScreen` validates server + port, username, password, protocol mode (TCP/UDP), mTU.
 - [ ] Mieru's time-based replay protection is clock-synced via the existing network-time source, not `System.currentTimeMillis`.
-- [ ] Credentials redacted in all diagnostic surfaces.
-- [ ] Subscription import path recognizes `mieru://` URIs.
+- [x] Credentials redacted in all diagnostic surfaces.
+- [x] Subscription import path recognizes `mieru://` URIs.
 
 ## Source references
 
@@ -45,3 +45,7 @@ Mieru uses a custom UDP-based protocol with replay resistance; the Go reference 
 ## Links
 
 - [[Epic - Extended outbound protocol support]]
+
+## Work log
+
+- 2026-06-05: crate scaffold exists at native/rust/crates/ripdpi-mieru/ with config, validation, and password-redacted Debug; MieruProfileScreen and mieru:// URI codec are complete; actual UDP/TCP session handshake and replay protection remain stubbed returning MieruError::Unimplemented — the 3 protocol-level criteria are unmet.

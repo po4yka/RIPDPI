@@ -52,7 +52,7 @@ run_fuzz_target() {
 }
 
 if [[ -n "${RIPDPI_FUZZ_SECONDS:-}" ]]; then
-  for target in packets_parse packets_tls_quic failure_http_response failure_field_cache; do
+  for target in packets_parse packets_tls_quic failure_http_response failure_field_cache finalmask_spec finalmask_decoder; do
     echo "==> fuzz nightly: run $target for ${RIPDPI_FUZZ_SECONDS}s"
     run_fuzz_target "$target" -max_total_time="$RIPDPI_FUZZ_SECONDS"
   done
@@ -61,7 +61,7 @@ else
   run_fuzz_target packets_parse -runs=1
   echo "==> fuzz smoke: build packets_tls_quic"
   run_fuzz build packets_tls_quic
-  for target in failure_http_response failure_field_cache; do
+  for target in failure_http_response failure_field_cache finalmask_spec finalmask_decoder; do
     echo "==> fuzz smoke: build $target"
     run_fuzz build "$target"
   done

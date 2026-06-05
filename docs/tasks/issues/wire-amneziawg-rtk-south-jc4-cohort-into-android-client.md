@@ -1,7 +1,7 @@
 ---
 title: "Wire AmneziaWG RTK South cohort (Jc=4) into Android client"
 type: task
-status: doing
+status: todo
 area: transport
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-05-31
+updated: 2026-06-05
 source_wiki_pages:
   - "wireguard-rtk-south-amneziawg-bypass"
 linked_task: null
@@ -37,7 +37,7 @@ Community-tested working parameters at RTK South: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H
 
 ## Acceptance criteria
 
-- [ ] AmneziaWG client support compiles for all 4 Android ABIs.
+- [x] AmneziaWG client support compiles for all 4 Android ABIs.
 - [ ] Cohort profile import populates Jc/Jmin/Jmax/S/H/I from server-provided YAML or subscription URL.
 - [ ] Smoke test against synthetic AWG endpoint with RTK South parameters succeeds.
 - [ ] Probabilistic-retry logic implemented (max 4 attempts, configurable per-cohort).
@@ -48,6 +48,10 @@ Community-tested working parameters at RTK South: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H
 - Whether RIPDPI already has Kotlin-layer WireGuard integration (sing-box ships WG; if RIPDPI wraps that, AWG support may already be partially available via sing-box config) — verify before writing a new crate.
 - "Sometimes stalls on handshake requiring 3–4 connection attempts" — probabilistic; empirical retry-budget tuning per ISP may be needed.
 - Jc=4 was measured at one RTK South vantage; other Rostov-region Rostelecom nodes may have different thresholds.
+
+## Work log
+
+- 2026-06-05: AWG Rust kernel complete — `ripdpi-warp-core/src/amneziawg.rs` implements full Jc/Jmin/Jmax/H1-H4/S1-S4/I1-I5 codec with unit tests; `wireguard/tunnel.rs` wires it into the tunnel; proto fields `warp_amnezia_*` exist in `app_settings.proto`; `WarpAmneziaConfig` struct in config.rs carries all parameters. Remaining work: cohort profile import from server YAML (no Kotlin mapping found), probabilistic-retry logic (not implemented), JNI/Kotlin diagnostic surface for AWG mode (no Kotlin amnezia references found), smoke test against synthetic AWG endpoint.
 
 ## References
 

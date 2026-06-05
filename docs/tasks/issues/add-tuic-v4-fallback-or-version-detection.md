@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -38,3 +38,7 @@ EAimTY/tuic v4 and v5 differ on the wire (auth, packet framing). Some deployed s
 ## Links
 
 - [[introduce-protocol-version-enum-and-version-probe-diagnostic]]
+
+## Work log
+
+- 2026-06-05: NOT done — Definition of Done ("v4-server connection attempts produce a user-actionable diagnostic") is unmet. The classifier scaffolding exists (ADR `docs/architecture/tuic-v4-policy.md`; `FailureClass::TuicVersionUnsupported` in `ripdpi-failure-classifier/src/types.rs`; `ripdpi-tuic::classify_failure_payload` mapping v4 bytes to `TuicFailureKind::VersionUnsupported`; `classify_probe_observation` in `ripdpi-diagnostics-protocols/src/version_probe.rs`), but NONE of it is wired into a runtime path: `classify_failure_payload` has zero external callers, `classify_probe_observation` has zero callers (dead code with unit tests only), and `FailureClass::TuicVersionUnsupported` is never constructed at runtime — it appears only in the enum def and one `response_triggers.rs` match arm that maps it to `0`. The handshake-failure→diagnostic mapping the body calls a "follow-up" still does not exist. Keep status `doing`.

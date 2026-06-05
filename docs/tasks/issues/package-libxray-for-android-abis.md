@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -58,3 +58,7 @@ Official libXray recommends its build script and notes Android support through `
 - [[Epic - Xray provider mode]]
 - ripdpi-android-xray-provider-plan-2026-04-24
 - Recurring upstream watch for xray-core REALITY ECH XHTTP changes (closed task)
+
+## Work log
+
+- 2026-06-05: Version pins (libxray v26.3.27, xray-core 1.260327.0, gomobile pin) and license docs confirmed in gradle/libs.versions.toml + docs/native/libxray-packaging.md; build-libxray.sh and verify-libxray-artifacts.sh exist in scripts/native/; verifyLibXrayArtifacts Gradle task wired in core/engine/build.gradle.kts but intentionally not attached to assemble; native/xray/artifacts/ dir absent (no real .aar produced); task remains blocked on external Go+gomobile+NDK29 toolchain.

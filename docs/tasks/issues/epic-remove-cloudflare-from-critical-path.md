@@ -10,7 +10,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Goal
@@ -42,7 +42,7 @@ In progress. Cross-project resilience epic derived from the 2026-05-01 Cloudflar
 
 - [ ] No production profile requires Cloudflare for primary transport. — *Code/automation landed; operator action pending.* The client now gates Cloudflare binary extraction to publish mode (`b7b32df5b`) so non-publish profiles no longer pull in the Cloudflare path, and a direct non-CDN HTTPS XHTTP frontend exists on the deploy side (`79f2f5e`). Whether a given production profile actually avoids Cloudflare depends on the operator deploying the non-CDN frontend on a real host and pointing profiles at it.
 - [ ] Subscription delivery works through at least one non-Cloudflare endpoint. — *Code/automation landed; operator action pending.* The deploy repo adds an opt-in continuous payload mirror on the subscription host (`5ab17cf`). It is opt-in and requires the operator to enable it and provision the mirror endpoint before this is true in production.
-- [ ] DNS bootstrap and tunneled DNS have non-Cloudflare paths. — *Not addressed by this batch.* None of the landed commits touch the resolver chain; this milestone remains open (tracked separately, e.g. the DNS-Morph bootstrap spike).
+- [x] DNS bootstrap and tunneled DNS have non-Cloudflare paths. — *Addressed by `ad540878e`.* `CriticalResolverChainBuilder` in `core/data/settings` filters `DnsProviderCloudflare` and `DnsProviderCloudflareIp` from the critical resolver chain by default; Cloudflare DNS is opt-in via `CriticalResolverProfile.CloudflareAllowed`. 10 tests lock in the exclusion semantics.
 - [ ] Cloudflare XHTTP/HTTPS profiles are manual or low priority when degraded. — *Code/automation landed; operator action pending.* The client gating (`b7b32df5b`) keeps Cloudflare off the default non-publish path, and the non-CDN XHTTP fallback frontend (`79f2f5e`) provides the alternative to fail over to. End-to-end "demote when degraded" still depends on operator selector/priority configuration against live endpoints, so this is not yet fully done.
 - [x] Monitoring detects Cloudflare-like 16 KB payload throttling, not just TLS success. — Deploy repo adds a per-ASN ~16 KiB payload-throttling probe (`a2d4d06`); the detection capability — distinct from plain TLS-success checks — is implemented. (Continuous coverage across all RU ASNs still depends on operator-run probe hosts, but the throttling-detection automation itself has landed.)
 
@@ -83,3 +83,7 @@ Honest milestone state:
 - [[Epic - Fail-closed Android VPN policy engine]]
 - Epic - Subscription and profile import
 - Child issues: 6
+
+## Work log
+
+- 2026-06-05: DNS milestone verified done via `ad540878e` + `CriticalResolverChain.kt` (Cloudflare excluded from critical chain by default); 3 remaining milestones (non-CF primary transport, non-CF subscription delivery, CF demotion-when-degraded) have code/automation landed but await operator provisioning of real non-Cloudflare hosts; 2 open child tasks (provision non-CF delivery host, Russian ISP payload monitoring probes) remain unresolved; epic stays in doing.

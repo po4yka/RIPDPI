@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-05-28
+updated: 2026-06-05
 source_wiki_pages:
   - "dns-morph-bootstrap"
 linked_task: null
@@ -53,3 +53,7 @@ Stand up DNS-Morph bootstrap as a fallback bootstrap channel in RIPDPI Android:
 - dns-morph-bootstrap — wiki concept page with mechanism + threat-model comparison
 - censorship-update-net4people-2026-05-22 — net4people #619 source
 - Linked deploy task: `add-dns-morph-bridge-ansible-role`
+
+## Work log
+
+- 2026-06-05: No implementation started — `ripdpi-dns-morph` crate does not exist, no dns-morph references anywhere in native/rust/crates/, app/, or core/; test-lab/dns/ exists but contains no dns-morph scenario; all acceptance criteria unmet.

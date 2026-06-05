@@ -25,6 +25,7 @@ nix = { workspace = true }
 [dev-dependencies]
 rcgen = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync"] }
+tracing-subscriber = { workspace = true }
 
 [lints]
 workspace = true

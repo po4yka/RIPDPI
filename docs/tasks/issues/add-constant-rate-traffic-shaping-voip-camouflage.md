@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-16
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -40,3 +40,7 @@ A shaper pads outgoing payloads to a fixed size and emits them on a fixed clock;
 
 - [[Epic - Control-plane hardening]]
 - WebRTC dummy-packet padding (RFC 6562)
+
+## Work log
+
+- 2026-06-05: No implementation found — `ripdpi-traffic-shape` crate does not exist under native/rust/crates/, no Shaper trait, no opus_voip/webrtc_video profiles, no schema config, no tests. All acceptance criteria remain open.

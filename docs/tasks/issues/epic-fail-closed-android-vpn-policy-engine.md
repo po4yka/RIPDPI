@@ -1,7 +1,7 @@
 ---
 title: Epic - Fail-closed Android VPN policy engine
 type: epic
-status: review
+status: doing
 area: vpn
 priority: critical
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Goal
@@ -65,6 +65,10 @@ New cross-cutting hardening epic derived from the client-problem analysis. It co
 ## Notes
 
 This epic intentionally removes an entire class of client problems rather than mirroring individual behavior from reference Android implementation, reference implementation, Streisand, or sing-box GUI clients.
+
+## Work log
+
+- 2026-06-05: NOT done — deletion refuted. The 5 milestones are largely implemented in live code (DeviceProfile.kt/SplitStrictDnsPolicy.kt typed bundle; DnsInterceptorDispatcher.kt full-device DNS interception; AndroidHardKillSwitchState.kt + HardKillSwitchUiState.kt lockdown UX; LifecycleRegressionMatrixTest.kt/DnsLeakMatrixTest.kt fail-closed tests; DiagnosticsRedactor.kt + DiagnosticsBundleRedactionTest.kt redaction). BUT the `## Child work` list above is stale: two later-added children parented to this epic remain open in backlog — `add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md` (status: backlog, all acceptance criteria unmet per its 2026-06-05 work log; no UID enforcement at the tun2socks layer) and `spike-fakeip-mode-compatibility-on-android.md` (status: backlog). Epic stays open until those close.
 
 ## Links
 

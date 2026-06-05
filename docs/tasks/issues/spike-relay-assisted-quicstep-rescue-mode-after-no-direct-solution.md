@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-22
-updated: 2026-05-14
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -41,4 +41,6 @@ Do not let this reopen the default direct-mode plan. If the answer is "interesti
 - quicstep-first-flight-hiding
 
 
-## localization-expansion
+## Work log
+
+- 2026-06-05: Spike not started — no quicstep rescue implementation or design doc exists in codebase. NO_DIRECT_SOLUTION verdict is implemented in ripdpi-runtime-policy and ripdpi-runtime-adaptive, but no relay-assisted QUIC rescue track exists. All five acceptance criteria remain open (research output not produced). No ADR records a go/no-go decision for this feature.

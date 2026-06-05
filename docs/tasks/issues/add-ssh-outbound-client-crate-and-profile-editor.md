@@ -1,7 +1,7 @@
 ---
 title: Add SSH outbound client crate and profile editor
 type: task
-status: review
+status: blocked
 area: outbound
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-extended-outbound-protocol-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -22,13 +22,13 @@ SSH tunnels are a common hobbyist bypass primitive, especially for users who con
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-ssh` crate compiles with a maintained SSH crate dependency (evaluate `russh`, `thrussh` successors).
-- [ ] Password and OpenSSH private-key auth both supported.
-- [ ] Host-key verification is on by default; "trust on first use" is a per-profile opt-in.
-- [ ] `direct-tcpip` forwarding to arbitrary target host:port works for TCP; UDP is out of scope for v1.
+- [x] `ripdpi-ssh` crate compiles with a maintained SSH crate dependency (evaluate `russh`, `thrussh` successors).
+- [x] Password and OpenSSH private-key auth both supported.
+- [x] Host-key verification is on by default; "trust on first use" is a per-profile opt-in.
+- [x] `direct-tcpip` forwarding to arbitrary target host:port works for TCP; UDP is out of scope for v1.
 - [ ] `SshProfileScreen` validates host, port, user, and auth selection. Private key is stored via `EncryptedFile`; never SharedPreferences.
 - [ ] Host key fingerprint is surfaced on first connect with explicit accept / reject action.
-- [ ] Passphrase and private-key material are redacted in all diagnostic surfaces.
+- [x] Passphrase and private-key material are redacted in all diagnostic surfaces.
 
 ## Source references
 
@@ -45,3 +45,7 @@ SSH tunnels are a common hobbyist bypass primitive, especially for users who con
 ## Links
 
 - [[Epic - Extended outbound protocol support]]
+
+## Work log
+
+- 2026-06-05: Rust crate (`ripdpi-ssh`) is a full russh-backed implementation (password + private-key auth, TOFU host-key policy, direct-tcpip, Debug redaction). `SshProfileScreen` / `SshProfileViewModel` / `SshProfileEditorState` exist and are wired into NavHost. Two criteria remain open: (1) `SshProfileViewModel.onSave()` only flips `saved=true` — the actual write path to `KeystoreRelayCredentialStore` for SSH credentials is not wired from the editor; (2) no connect-time UI dialog for `SshError::HostKeyUntrusted` (TOFU first-connect accept/reject) exists anywhere in Kotlin.

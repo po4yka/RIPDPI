@@ -5,11 +5,11 @@ status: backlog
 area: routing
 priority: medium
 owner: unassigned
-parent: epic-advanced-routing-rules-and-geoip-enforcement
+parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-25
-updated: 2026-04-25
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -32,3 +32,7 @@ ripdpi-android-research-2026-04-25 §Android platform — Android 17 Beta 3 (202
 - Project: [[ripdpi-android]]
 - Epic: [[Epic - Advanced routing rules and geoip enforcement]]
 - Research: ripdpi-android-research-2026-04-25 §Android platform
+
+## Work log
+
+- 2026-06-05: Not started. `ACTION_VPN_APP_EXCLUSION_SETTINGS` not referenced anywhere in codebase. `SplitTunnelScreen.kt` uses in-app picker only, no Android-version branching. All 4 acceptance criteria remain unmet. Parent epic `epic-advanced-routing-rules-and-geoip-enforcement` is dangling (not in known epic list) — nulled out.

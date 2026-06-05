@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -35,3 +35,7 @@ Port hopping is a transport-evasion feature whose failure modes are hard to surf
 
 - [[add-protocol-throughput-benchmarks-for-each-transport]]
 - [[add-quic-path-mtu-discovery-regression-test]]
+
+## Work log
+
+- 2026-06-05: `socket_rebind_soak_thirty_iterations` (30-hop bind/drop/telemetry-count check) now exists in `ripdpi-hysteria2/src/port_hopping.rs:386`; still missing: monotonic-hop-index assertion, bidirectional-bytes check, and a nightly CI lane — all awaiting the shared Quinn loopback harness.

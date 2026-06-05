@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-16
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -39,3 +39,7 @@ RIPDPI's transports today all look like *some* protocol on the wire (HTTPS, QUIC
 
 - Marionette: https://www.usenix.org/conference/usenixsecurity15/technical-sessions/presentation/dyer
 - [[add-constant-rate-traffic-shaping-voip-camouflage]]
+
+## Work log
+
+- 2026-06-05: No implementation exists — `ripdpi-fte` crate absent from native/rust/crates/, no FTE/Marionette code or docs anywhere in the repo; all acceptance criteria remain open.

@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -33,3 +33,7 @@ Hysteria 2, TUIC, and MASQUE all run over Quinn. Quinn's PMTUD behaviour is conf
 ## Links
 
 - [[add-port-hopping-window-soak-test-for-hysteria2]]
+
+## Work log
+
+- 2026-06-05: No `quic_mtu_test_util` crate or MTU test exists; no mtu/pmtud references in ripdpi-hysteria2, ripdpi-tuic, or ripdpi-masque; all acceptance criteria unmet — work not started.

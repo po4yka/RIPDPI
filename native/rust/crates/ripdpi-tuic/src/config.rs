@@ -98,4 +98,82 @@ mod tests {
         assert!(dbg.contains("<redacted>"), "redaction marker should be present");
         assert!(dbg.contains("example.com"), "server should remain visible");
     }
+
+    /// Install a temporary subscriber that captures every event's
+    /// field-set into a single joined string, run `emit`, and return
+    /// the captured render. Mirrors the CaptureLayer pattern in
+    /// `ripdpi-vless/src/config.rs`
+    /// (`tracing_event_with_config_field_does_not_echo_uuid_or_key`).
+    fn capture_events(emit: impl FnOnce()) -> String {
+        use std::fmt;
+        use std::sync::{Arc, Mutex};
+
+        use tracing::{Event, Subscriber};
+        use tracing_subscriber::Registry;
+        use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
+
+        struct CaptureLayer(Arc<Mutex<Vec<String>>>);
+
+        impl<S: Subscriber> Layer<S> for CaptureLayer {
+            fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+                struct Visitor<'a>(&'a mut String);
+                impl<'a> tracing::field::Visit for Visitor<'a> {
+                    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn fmt::Debug) {
+                        use fmt::Write;
+                        let _ = write!(self.0, " {}={:?}", field.name(), value);
+                    }
+                }
+                let mut rendered = String::new();
+                event.record(&mut Visitor(&mut rendered));
+                self.0.lock().expect("capture mutex").push(rendered);
+            }
+        }
+
+        let captured = Arc::new(Mutex::new(Vec::<String>::new()));
+        let subscriber = Registry::default().with(CaptureLayer(Arc::clone(&captured)));
+        tracing::subscriber::with_default(subscriber, emit);
+        captured.lock().expect("capture mutex").join("\n")
+    }
+
+    fn assert_no_credentials(joined: &str) {
+        // UUID (dashed and the dashless hex form a derived Debug might
+        // emit) and password must never appear in a captured event.
+        assert!(
+            !joined.contains("550e8400-e29b-41d4-a716-446655440000"),
+            "tracing event exposes UUID (dashed): {joined}",
+        );
+        assert!(
+            !joined.contains("550e8400e29b41d4a716446655440000"),
+            "tracing event exposes UUID (no dashes): {joined}",
+        );
+        assert!(!joined.contains("hunter2-secret-password"), "tracing event exposes password: {joined}",);
+        assert!(joined.contains("<redacted>"), "tracing event must carry the redaction marker: {joined}");
+    }
+
+    /// Happy-path tracing-event-capture variant of the redaction
+    /// contract: a representative `tracing::debug!(config = ?cfg, ...)`
+    /// at a connect site must not echo the UUID or password. Closes the
+    /// tracing-event-capture criterion for ripdpi-tuic on
+    /// `add-credential-redaction-tests-for-vless-uuid-tuic-uuid-naive-auth`.
+    #[test]
+    fn tracing_event_with_config_field_does_not_echo_uuid_or_password() {
+        let cfg = sample_config();
+        let joined = capture_events(|| {
+            tracing::debug!(config = ?cfg, "TUIC connecting");
+        });
+        assert_no_credentials(&joined);
+    }
+
+    /// Error-path variant: the way a misconfig / connect failure would
+    /// log the config (`tracing::error!(config = ?cfg, "...")`) must
+    /// also be free of credentials. Removing the manual Debug impl
+    /// (e.g. deriving it) fails this assertion.
+    #[test]
+    fn tracing_error_event_with_config_field_does_not_echo_uuid_or_password() {
+        let cfg = sample_config();
+        let joined = capture_events(|| {
+            tracing::error!(config = ?cfg, error = "connection refused", "TUIC connect failed");
+        });
+        assert_no_credentials(&joined);
+    }
 }

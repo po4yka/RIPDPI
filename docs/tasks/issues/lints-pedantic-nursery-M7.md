@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-06-03
-updated: 2026-06-03
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -130,7 +130,7 @@ fix-the-findings effort before scaling out.
       if/when that file is next touched.
 - [ ] At least one leaf candidate crate carries a gate-clean
       `#![warn(clippy::pedantic)]` opt-in (its own commit).
-- [ ] No workspace-wide `pedantic`/`nursery` group entry is added to
+- [x] No workspace-wide `pedantic`/`nursery` group entry is added to
       `[workspace.lints.clippy]` (the curated cherry-pick block stays the floor).
 
 ## Definition of done
@@ -145,3 +145,7 @@ fix-the-findings effort before scaling out.
   diff-acceptance gate that motivate this.
 - `native/rust/Cargo.toml` — `[workspace.lints.clippy]` curated floor.
 - `rust-lints` skill — canonical `[workspace.lints]` / `clippy.toml` template.
+
+## Work log
+
+- 2026-06-05: Plan doc exists; workspace Cargo.toml confirmed to have only cherry-picked pedantic lints (no group-level pedantic/nursery entry — criterion 3 done). All 10 candidate crates confirmed present under native/rust/crates/. No crate carries #![warn(clippy::pedantic)] yet — criteria 1 (soft; conditional on next touch of llm-rust-prompts.md) and 2 (first demonstration crate) remain open.

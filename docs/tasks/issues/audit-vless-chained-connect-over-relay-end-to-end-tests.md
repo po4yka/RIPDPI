@@ -1,7 +1,7 @@
 ---
 title: Audit VLESS chained connect_over relay end-to-end test coverage
 type: task
-status: todo
+status: backlog
 area: testing
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -33,3 +33,7 @@ Chain relay is a multi-hop tunnel where the second hop's TLS is nested inside th
 ## Links
 
 - [[Epic - Control-plane hardening]]
+
+## Work log
+
+- 2026-06-05: `VlessRealityClient::connect_over` is implemented in `ripdpi-vless/src/lib.rs:82` and called via `ripdpi-relay-core/src/protocols/chain.rs:135`; existing e2e chain tests drive data through Shadowsocks and AnyTLS loopbacks but none through VLESS Reality; `ripdpi-protocol-loopback` crate explicitly lists `add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality` as a backlog task, confirming the loopback harness for VLESS does not exist yet; both the happy-path and negative-path criteria remain unimplemented.

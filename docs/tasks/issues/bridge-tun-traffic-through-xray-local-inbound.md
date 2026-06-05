@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -45,6 +45,10 @@ Keep the direct `SetTunFd` path as an explicit follow-up decision, not an accide
 
 - Xray local inbound authentication support must be validated before exposing any localhost listener beyond the tunnel's private use.
 - DNS interception ownership needs one clear source of truth: RIPDPI tunnel, Xray DNS, or a deliberately split model.
+
+## Work log
+
+- 2026-06-05: All 4 orchestration criteria verified in source (XrayTunnelHandoff, XrayProviderOrchestrator, XrayProtectFdContractTest, XrayDnsLoopRegressionTest, XrayProviderOrchestratorTest, XrayServiceLifecycleMatrixTest all exist in core/engine-api); smoke criterion remains open — docs/contributor/xray-tun-bridge-smoke.md documents the manual lane but CI cannot run it without gomobile/libXray + NDK29 + live server.
 
 ## Links
 

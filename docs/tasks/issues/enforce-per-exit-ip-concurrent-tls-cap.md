@@ -1,7 +1,7 @@
 ---
 title: "Enforce per-exit-IP concurrent-TLS-connection cap (~12, RU home-ISP policing)"
 type: task
-status: backlog
+status: doing
 area: transport
 priority: high
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-05-22
+updated: 2026-06-05
 source_wiki_pages:
   - "tls-policing-home-isps"
 linked_task: null
@@ -38,11 +38,11 @@ If the RIPDPI client opens more than ~12 concurrent TLS sessions to a single exi
 
 ## Acceptance criteria
 
-- [ ] Concurrent-TLS-session counter in proxy runtime, configurable per-transport.
-- [ ] Default cap of 8 for VLESS+Reality+Vision on port 443.
-- [ ] Mux-preference logic: new streams reuse existing TLS sessions when cap is approached.
-- [ ] Integration test in `test-lab/tls/` reproduces the 5-simultaneous-connections probe.
-- [ ] LOW-confidence dedup resolved in PR description: explicitly confirmed no overlap with `ripdpi-runtime-adaptive` connection limit (if any) or `ripdpi-strategy-window`.
+- [x] Concurrent-TLS-session counter in proxy runtime, configurable per-transport. (`ExitIpSessionLimiter` + `ExitIpSessionCaps` in `ripdpi-proxy-runtime/src/exit_ip_cap.rs`, per-`(exit_ip, transport)` counting with a RAII release guard.)
+- [x] Default cap of 8 for VLESS+Reality+Vision on port 443. (`DEFAULT_EXIT_IP_SESSION_CAP = 8`; per-transport overrides via `ExitIpSessionCaps::with_transport`.)
+- [ ] Mux-preference logic: new streams reuse existing TLS sessions when cap is approached. (The limiter returns `None` at cap as the mux-preference signal; the reuse wiring at the session-establishment site is the follow-up.)
+- [ ] Integration test in `test-lab/tls/` reproduces the 5-simultaneous-connections probe. (Unit-level equivalents land in `exit_ip_cap::tests` — 5-under-cap succeed, 9th refused; the live `test-lab/tls/` network probe + hot-path wiring remain.)
+- [x] LOW-confidence dedup resolved: confirmed no overlap — `ripdpi-runtime-adaptive` carries timeout adaptation only (no per-exit-IP / concurrent-TLS counter), and `ripdpi-strategy-window` is TCP-window manipulation; this limiter is net-new.
 
 ## Risks / open questions
 
@@ -55,3 +55,8 @@ If the RIPDPI client opens more than ~12 concurrent TLS sessions to a single exi
 - tls-policing-home-isps — wiki concept page with full mechanism + workarounds
 - censorship-update-net4people-2026-05-15 — source digest with operational quick-probe
 - Linked deploy task: `add-non-443-fallback-port-to-xray-role`
+
+## Work log
+
+- 2026-06-05: No implementation found; ripdpi-proxy-runtime and ripdpi-runtime-adaptive have no per-exit-IP TLS counter, no session cap, no mux-preference logic, and test-lab/tls/ has no concurrent-connection probe. All acceptance criteria remain open.
+- 2026-06-05: Landed the accounting primitive — `ExitIpSessionLimiter` / `ExitIpSessionCaps` / `ExitIpSessionGuard` in `ripdpi-proxy-runtime/src/exit_ip_cap.rs` (per-`(exit_ip, transport)` counter, configurable caps, `DEFAULT_EXIT_IP_SESSION_CAP = 8`, RAII release guard, `try_acquire` returns `None` at cap as the mux-preference signal). 5 unit tests (5-under-cap succeed / 9th refused / drop-frees-slot / per-transport + per-IP independence) pass, clippy clean. Dedup confirmed (criterion 5). **Remaining (kept `doing`):** wire the limiter into the outbound session-establishment path with mux-preference reuse, and add the live `test-lab/tls/` 5-simultaneous-connections probe — both need the proxy-runtime hot-path integration + network harness.

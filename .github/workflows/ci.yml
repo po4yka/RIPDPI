@@ -589,6 +589,41 @@ jobs:
       - name: Run cargo-deny
         run: cargo deny --manifest-path native/rust/Cargo.toml check
 
+  diagnostics-probes-facade:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.96.0"
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+          shared-key: diagnostics-probes-facade
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+      # The compat-facade feature is default-on; the diagnostics-probes crate
+      # must compile with it OFF (root exports unconditional) and ON.
+      - name: Check ripdpi-diagnostics-probes (compat-facade OFF)
+        env:
+          RUSTC_WRAPPER: sccache
+        run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --locked
+
+      - name: Check ripdpi-diagnostics-probes (compat-facade ON)
+        env:
+          RUSTC_WRAPPER: sccache
+        run: cargo check --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-probes --no-default-features --features compat-facade --locked
+
   rust-lint:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest

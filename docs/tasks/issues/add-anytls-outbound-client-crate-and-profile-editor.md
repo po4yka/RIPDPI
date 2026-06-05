@@ -9,7 +9,7 @@ parent: epic-extended-outbound-protocol-support
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -28,7 +28,7 @@ Upstream reference: `anytls/anytls-go`. The current source has `native/rust/crat
 - [x] Relay native config carries AnyTLS password and root-certificate fields.
 - [ ] Cross-interop against upstream `anytls-go` is verified and recorded.
 - [ ] Fallback-SNI and fallback-server behavior matches upstream spec, or unsupported behavior is rejected explicitly.
-- [ ] `AnyTLSProfileScreen` validates password length, server + port, and server-name (SNI).
+- [x] `AnyTLSProfileScreen` validates password length, server + port, and server-name (SNI).
 - [ ] Main Mode Editor exposes AnyTLS fields instead of relying only on import/profile records.
 - [ ] Strategy-pack metadata advertises AnyTLS compat hints, especially around QUIC-heavy neighborhoods.
 - [ ] Password is redacted in all diagnostic surfaces.
@@ -48,3 +48,7 @@ Upstream reference: `anytls/anytls-go`. The current source has `native/rust/crat
 ## Links
 
 - [[Epic - Extended outbound protocol support]]
+
+## Work log
+
+- 2026-06-05: AnyTlsProfileScreen with validation exists and is wired into nav graph (Route.AnyTlsProfile); ripdpi-anytls crate, relay-core backend, import parsing all confirmed present; Mode Editor (ModeEditorRelaySection.kt/RelayFields.kt) has no AnyTLS fields; no strategy-pack compat hints for AnyTLS found in strategy-registry; no password-redaction evidence in diagnostics; interop/fallback-SNI tests absent.
