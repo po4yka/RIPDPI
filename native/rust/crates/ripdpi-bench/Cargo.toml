@@ -18,6 +18,10 @@ name = "relay_throughput"
 harness = false
 
 [[bench]]
+name = "protocol_throughput"
+harness = false
+
+[[bench]]
 name = "runtime_control_snapshot"
 harness = false
 
@@ -42,4 +46,9 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-adaptive = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-strategy = { workspace = true }
+# Per-transport throughput benches drive each protocol client against its
+# loopback server fixture.
+ripdpi-vless = { workspace = true }
+ripdpi-xhttp = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "io-util", "macros", "net"] }

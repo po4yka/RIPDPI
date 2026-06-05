@@ -176,6 +176,7 @@ async fn serve_vless(listener: TcpListener, acceptor: Arc<SslAcceptor>, observed
         let Ok((socket, _)) = listener.accept().await else {
             break;
         };
+        let _ = socket.set_nodelay(true);
         let acceptor = Arc::clone(&acceptor);
         let observed_target = Arc::clone(&observed_target);
         tokio::spawn(async move {

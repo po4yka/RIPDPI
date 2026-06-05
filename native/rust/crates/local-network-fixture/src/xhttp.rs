@@ -165,6 +165,7 @@ async fn serve_xhttp(listener: TcpListener, acceptor: Arc<SslAcceptor>) {
         let Ok((socket, _)) = listener.accept().await else {
             break;
         };
+        let _ = socket.set_nodelay(true);
         let acceptor = Arc::clone(&acceptor);
         tokio::spawn(async move {
             let Ok(tls) = tokio_boring::accept(&acceptor, socket).await else {

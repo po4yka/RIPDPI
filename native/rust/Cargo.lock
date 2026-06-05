@@ -5483,7 +5483,10 @@ dependencies = [
  "ripdpi-runtime-adaptive",
  "ripdpi-runtime-api",
  "ripdpi-runtime-strategy",
+ "ripdpi-vless",
+ "ripdpi-xhttp",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
