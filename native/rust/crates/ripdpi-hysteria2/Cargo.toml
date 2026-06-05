@@ -22,8 +22,10 @@ webpki-roots = { workspace = true }
 
 [dev-dependencies]
 golden-test-support = { workspace = true }
+local-network-fixture = { workspace = true }
 rcgen = { workspace = true }
 ripdpi-protocol-loopback = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints]
 workspace = true

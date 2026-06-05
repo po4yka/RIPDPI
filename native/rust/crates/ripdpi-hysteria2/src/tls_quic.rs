@@ -35,6 +35,14 @@ pub(crate) async fn authenticate_connection(config: &Config, connection: &quinn:
     stream.finish().await?;
     let response = stream.recv_response().await?;
     tokio::spawn(async move {
+        // Keep the h3 `SendRequest` alive for the QUIC connection's lifetime.
+        // Dropping it makes the h3 client begin a graceful shutdown that closes
+        // the underlying QUIC connection (H3_NO_ERROR) — which would tear down
+        // the raw bidirectional proxy streams Hysteria 2 multiplexes onto the
+        // same connection right after auth. Holding it (and driving the
+        // connection via `poll_close`) keeps the connection open until it is
+        // genuinely closed by the peer or an error.
+        let _send_request = send_request;
         let _ = std::future::poll_fn(|cx| h3_connection.poll_close(cx)).await;
     });
 

@@ -8,19 +8,18 @@
 //! throughput rather than handshake cost.
 //!
 //! Coverage today: VLESS+Reality, VLESS-over-xHTTP-over-Reality, ShadowTLS v3,
-//! MASQUE (H2 CONNECT-TCP), and WS-tunnel (WebTunnel HTTP-Upgrade-over-TLS) —
-//! the transports with a drivable protocol-server loopback that pipeline cleanly
-//! (see `docs/architecture/protocol-loopback-harness-design.md`). The MASQUE case
-//! pins the fixture's self-signed cert via `MasqueConfig::root_certificate_pem`
-//! (TLS verification stays ON) rather than relaxing verification; the WS-tunnel
-//! case uses the async `connect_webtunnel_async` client.
-//! Deferred, with what each needs first:
-//!   - Hysteria 2: blocked on a client lifecycle issue, not a fixture gap. A
-//!     quinn + `h3::server` loopback auths (status 233) and accepts the raw proxy
-//!     stream, but the client closes its own QUIC connection right after auth
-//!     (h3 graceful shutdown → `H3_NO_ERROR`), racing ahead of the proxy
-//!     round-trip. See
-//!     `docs/tasks/issues/investigate-hysteria2-client-closes-quic-connection-after-auth.md`.
+//! MASQUE (H2 CONNECT-TCP), WS-tunnel (WebTunnel HTTP-Upgrade-over-TLS), and
+//! Hysteria 2 — the transports with a drivable protocol-server loopback that
+//! pipeline cleanly (see `docs/architecture/protocol-loopback-harness-design.md`).
+//! The MASQUE case pins the fixture's self-signed cert via
+//! `MasqueConfig::root_certificate_pem` (TLS verification stays ON) rather than
+//! relaxing verification; the WS-tunnel case uses the async
+//! `connect_webtunnel_async` client;
+//! the Hysteria 2 case drives the real client against `Hysteria2Loopback`
+//! (quinn + h3 auth + raw proxy streams) with the client's runtime `insecure`
+//! flag (the client now keeps its h3 `SendRequest` alive so the post-auth h3
+//! shutdown no longer closes the shared QUIC connection).
+//! Deferred, with what it needs first:
 //!   - TUIC: a TUIC protocol-server loopback (QUIC + TLS keying-material-export
 //!     auth + command framing). The generic `QuicLoopback` is an echo, not a
 //!     TUIC server.
@@ -36,7 +35,9 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::runtime::Runtime;
 
-use local_network_fixture::{MasqueH2ConnectUdpFixture, VlessRealityLoopback, WebTunnelFixture, XhttpRealityLoopback};
+use local_network_fixture::{
+    Hysteria2Loopback, MasqueH2ConnectUdpFixture, VlessRealityLoopback, WebTunnelFixture, XhttpRealityLoopback,
+};
 use ripdpi_masque::MasqueClient;
 use ripdpi_masque::config::MasqueConfig;
 use ripdpi_shadowtls::{Config as ShadowTlsConfig, ShadowTlsClient, ShadowTlsLoopback};
@@ -255,6 +256,33 @@ fn bench_ws_tunnel(c: &mut Criterion, rt: &Runtime) {
     drop((reader, writer));
 }
 
+fn bench_hysteria2(c: &mut Criterion, rt: &Runtime) {
+    let server = rt.block_on(Hysteria2Loopback::start()).expect("start Hysteria2 fixture");
+    // insecure=1 makes the client trust the fixture's self-signed cert via its
+    // runtime flag (no cfg(test) gating); the loopback echoes regardless of the
+    // requested target, so any well-formed address works.
+    let url = format!("hysteria2://bench@127.0.0.1:{}/?sni=localhost&insecure=1", server.port());
+    let config = ripdpi_hysteria2::Config::from_url(&url).expect("hysteria2 config");
+
+    let stream = rt.block_on(async {
+        let client = ripdpi_hysteria2::connect(&config).await.expect("hysteria2 connect");
+        client.tcp_connect("127.0.0.1:9").await.expect("hysteria2 tcp_connect")
+    });
+    let (mut reader, mut writer) = tokio::io::split(stream);
+
+    let payload = vec![0xAB_u8; PAYLOAD_LEN];
+    let mut recv = vec![0_u8; PAYLOAD_LEN];
+
+    let mut group = c.benchmark_group("protocol-throughput");
+    group.throughput(Throughput::Bytes(PAYLOAD_LEN as u64));
+    group.bench_function("hysteria2/1MiB", |b| {
+        b.iter(|| rt.block_on(roundtrip(&mut reader, &mut writer, &payload, &mut recv)));
+    });
+    group.finish();
+
+    drop((reader, writer));
+}
+
 fn bench_protocol_throughput(c: &mut Criterion) {
     let rt = runtime();
     bench_vless_reality(c, &rt);
@@ -262,6 +290,7 @@ fn bench_protocol_throughput(c: &mut Criterion) {
     bench_shadowtls(c, &rt);
     bench_masque_h2_connect_tcp(c, &rt);
     bench_ws_tunnel(c, &rt);
+    bench_hysteria2(c, &rt);
 }
 
 criterion_group! {

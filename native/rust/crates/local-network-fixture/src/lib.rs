@@ -18,6 +18,7 @@ mod event;
 mod fault;
 mod http;
 mod http_types;
+mod hysteria2;
 mod masque;
 mod naive;
 mod shadowsocks;
@@ -42,7 +43,7 @@ pub use self::trojan::*;
 pub use self::types::*;
 // Grouped to keep the crate root within the architecture-health root-facade
 // export budget (`check_architecture_health.py` ROOT_FACADE_EXPORT_LIMIT).
-pub use self::{vless::*, webtunnel::*, xhttp::*};
+pub use self::{hysteria2::*, vless::*, webtunnel::*, xhttp::*};
 
 #[cfg(test)]
 mod tests {
