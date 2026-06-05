@@ -18,9 +18,9 @@ Run focused benchmarks from the native workspace with `cargo bench -p ripdpi-ben
 `benches/protocol_throughput.rs` measures steady-state 1 MiB full-duplex
 throughput of each transport's data path by driving the real protocol client
 against its in-process loopback server fixture (handshake established once,
-outside the timed loop). Covered today: VLESS+Reality and
-VLESS-over-xHTTP-over-Reality. See the bench module doc for the deferred
-transports and why.
+outside the timed loop). Covered today: VLESS+Reality,
+VLESS-over-xHTTP-over-Reality, and ShadowTLS v3. See the bench module doc for the
+deferred transports and why.
 
 Run just this bench:
 

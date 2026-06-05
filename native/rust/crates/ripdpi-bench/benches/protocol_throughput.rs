@@ -7,18 +7,10 @@
 //! once per benchmark, outside the timed loop, so the measurement reflects data
 //! throughput rather than handshake cost.
 //!
-//! Coverage today: VLESS+Reality and VLESS-over-xHTTP-over-Reality — the
-//! transports with a drivable protocol-server loopback that pipeline cleanly
-//! (see `docs/architecture/protocol-loopback-harness-design.md`). Deferred, with
-//! what each needs first:
-//!   - ShadowTLS v3: `ShadowTlsStream` shares `pending_frame`/`pending_frame_offset`
-//!     between `poll_read` and `poll_write`, which serializes bidirectional
-//!     traffic into a frame-by-frame ping-pong. Measured here at ~0.5 MiB/s under
-//!     concurrent split read+write (vs ~70 MiB/s for VLESS) because the
-//!     serialized request/response pattern hits the ~40ms delayed-ACK timer per
-//!     16 KiB frame. The relay's `copy_bidirectional` would throttle the same
-//!     way, so this needs investigation before a meaningful baseline — see
-//!     `docs/tasks/issues/investigate-shadowtls-stream-concurrent-throughput.md`.
+//! Coverage today: VLESS+Reality, VLESS-over-xHTTP-over-Reality, and ShadowTLS v3
+//! — the transports with a drivable protocol-server loopback that pipeline
+//! cleanly (see `docs/architecture/protocol-loopback-harness-design.md`).
+//! Deferred, with what each needs first:
 //!   - Hysteria 2 / TUIC: a QUIC *proxy-server* loopback (the existing
 //!     `QuicLoopback` is a generic echo, not a Hysteria2/TUIC protocol server).
 //!   - MASQUE / WS-tunnel: drive `local-network-fixture`'s `masque` / `webtunnel`
@@ -36,6 +28,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::runtime::Runtime;
 
 use local_network_fixture::{VlessRealityLoopback, XhttpRealityLoopback};
+use ripdpi_shadowtls::{Config as ShadowTlsConfig, ShadowTlsClient, ShadowTlsLoopback};
 use ripdpi_vless::VlessRealityClient;
 use ripdpi_vless::config::VlessRealityConfig;
 use ripdpi_xhttp::{XhttpRealityConfig, connect_reality};
@@ -132,10 +125,43 @@ fn bench_vless_over_xhttp_reality(c: &mut Criterion, rt: &Runtime) {
     drop((reader, writer));
 }
 
+fn bench_shadowtls(c: &mut Criterion, rt: &Runtime) {
+    const PASSWORD: &str = "bench-shadowtls-password";
+    let server = rt.block_on(ShadowTlsLoopback::start(PASSWORD.to_string())).expect("start ShadowTLS fixture");
+    let local_addr = server.local_addr();
+
+    // The ShadowTLS loopback HMAC-echoes application data directly (no separate
+    // upstream), so the tunnel stream itself is the echo round-trip.
+    let stream = rt.block_on(async {
+        let tcp = tokio::net::TcpStream::connect(local_addr).await.expect("tcp connect");
+        tcp.set_nodelay(true).expect("set nodelay");
+        let client = ShadowTlsClient::new(ShadowTlsConfig {
+            password: PASSWORD.to_string(),
+            server_name: "localhost".to_string(),
+            inner_profile_id: "default".to_string(),
+        });
+        client.connect_over(tcp).await.expect("ShadowTLS handshake")
+    });
+    let (mut reader, mut writer) = tokio::io::split(stream);
+
+    let payload = vec![0xAB_u8; PAYLOAD_LEN];
+    let mut recv = vec![0_u8; PAYLOAD_LEN];
+
+    let mut group = c.benchmark_group("protocol-throughput");
+    group.throughput(Throughput::Bytes(PAYLOAD_LEN as u64));
+    group.bench_function("shadowtls_v3/1MiB", |b| {
+        b.iter(|| rt.block_on(roundtrip(&mut reader, &mut writer, &payload, &mut recv)));
+    });
+    group.finish();
+
+    drop((reader, writer));
+}
+
 fn bench_protocol_throughput(c: &mut Criterion) {
     let rt = runtime();
     bench_vless_reality(c, &rt);
     bench_vless_over_xhttp_reality(c, &rt);
+    bench_shadowtls(c, &rt);
 }
 
 criterion_group! {

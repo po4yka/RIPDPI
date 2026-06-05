@@ -2,23 +2,33 @@ use ring::hmac::{self, Key};
 
 pub(crate) const HMAC_LEN: usize = 4;
 
-#[derive(Clone, Debug)]
+/// Rolling HMAC-SHA1 over the cumulative ShadowTLS byte sequence, truncated to
+/// 4 bytes. The HMAC chains across every frame (payload, then digest, then the
+/// next payload, ...), so it must absorb the whole stream.
+///
+/// It keeps an incremental [`hmac::Context`] rather than buffering every byte
+/// and re-signing on each call. Buffering was O(n²) in frame count — each
+/// `digest()` re-hashed all prior bytes — and grew memory without bound for the
+/// life of a connection, which throttled and bloated long-lived ShadowTLS
+/// relays. `digest()` clones the context and finalizes the clone, leaving the
+/// running context free to keep absorbing (HMAC streaming is identical to a
+/// one-shot sign over the concatenation, so the wire contract is unchanged).
+#[derive(Clone)]
 pub(crate) struct ShadowTlsHmac {
-    key: Key,
-    data: Vec<u8>,
+    context: hmac::Context,
 }
 
 impl ShadowTlsHmac {
     pub(crate) fn new(password: &[u8]) -> Self {
-        Self { key: Key::new(hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY, password), data: Vec::new() }
+        Self { context: hmac::Context::with_key(&Key::new(hmac::HMAC_SHA1_FOR_LEGACY_USE_ONLY, password)) }
     }
 
     pub(crate) fn update(&mut self, data: &[u8]) {
-        self.data.extend_from_slice(data);
+        self.context.update(data);
     }
 
     pub(crate) fn digest(&self) -> [u8; HMAC_LEN] {
-        let tag = hmac::sign(&self.key, &self.data);
+        let tag = self.context.clone().sign();
         let mut out = [0u8; HMAC_LEN];
         out.copy_from_slice(&tag.as_ref()[..HMAC_LEN]);
         out

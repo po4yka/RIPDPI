@@ -50,6 +50,10 @@ impl ShadowTlsLoopback {
                     _ = &mut shutdown_rx => break,
                     accept = listener.accept() => {
                         let Ok((stream, _peer)) = accept else { break };
+                        // Disable Nagle so the per-frame echo is not throttled by
+                        // the Nagle/delayed-ACK interaction (a socket artifact,
+                        // independent of the stream's framing).
+                        let _ = stream.set_nodelay(true);
                         let password = password.clone();
                         tokio::spawn(async move {
                             let _ = handle_connection(stream, &password).await;
@@ -228,6 +232,58 @@ mod tests {
             tls.read_exact(&mut buf).await.expect("read echo");
             assert_eq!(buf, payload, "round {round} must echo byte-for-byte");
         }
+
+        server.shutdown().await;
+    }
+
+    /// Regression for two ShadowTLS bugs that an 8 MiB full-duplex transfer over
+    /// a `tokio::io::split` stream exposes (and that small-payload tests miss):
+    ///
+    /// 1. `ShadowTlsHmac` re-hashed its whole accumulated buffer on every
+    ///    `digest()`, making the rolling HMAC O(n²) in frame count — 8 MiB took
+    ///    minutes (and leaked memory) before the incremental-context fix.
+    /// 2. `ShadowTlsStream` shared one `pending_frame` between `poll_read` and
+    ///    `poll_write`, corrupting data under concurrent read+write (HMAC
+    ///    verification failure) before the read/write state was separated.
+    ///
+    /// With both fixed this completes in well under a second and echoes
+    /// byte-for-byte. Multi-thread runtime so the writer task and the reader make
+    /// progress concurrently.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn shadowtls_loopback_full_duplex_does_not_serialize() {
+        const PAYLOAD_LEN: usize = 8 * 1024 * 1024;
+        let pw = "loopback-fullduplex";
+        let server = ShadowTlsLoopback::start(pw.to_string()).await.expect("start loopback");
+        let tcp = TcpStream::connect(server.local_addr()).await.expect("tcp connect");
+        // Nodelay on both ends takes the Nagle/delayed-ACK timer out of the
+        // picture so this test isolates the stream's read/write serialization.
+        tcp.set_nodelay(true).expect("set nodelay");
+
+        let client = ShadowTlsClient::new(config(pw));
+        let tls = client.connect_over(tcp).await.expect("shadowtls handshake");
+        let (mut reader, mut writer) = tokio::io::split(tls);
+
+        let payload = vec![0xC3_u8; PAYLOAD_LEN];
+        let expected = payload.clone();
+        let writer_task = tokio::spawn(async move {
+            writer.write_all(&payload).await.expect("write");
+            writer.flush().await.expect("flush");
+        });
+
+        let read_fut = async {
+            let mut received = vec![0u8; PAYLOAD_LEN];
+            reader.read_exact(&mut received).await.expect("read echo");
+            received
+        };
+        // The fixed path does ~8 MiB in well under a second; the O(n²)-HMAC
+        // regression takes minutes, so a 10 s ceiling cleanly separates them
+        // with ample headroom for slow CI.
+        let received = tokio::time::timeout(std::time::Duration::from_secs(10), read_fut)
+            .await
+            .expect("full-duplex 8 MiB must finish quickly (O(n^2) HMAC / shared frame-state regression)");
+
+        writer_task.await.expect("writer task");
+        assert_eq!(received, expected, "8 MiB full-duplex must echo byte-for-byte");
 
         server.shutdown().await;
     }

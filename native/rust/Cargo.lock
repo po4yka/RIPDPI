@@ -5483,6 +5483,7 @@ dependencies = [
  "ripdpi-runtime-adaptive",
  "ripdpi-runtime-api",
  "ripdpi-runtime-strategy",
+ "ripdpi-shadowtls",
  "ripdpi-vless",
  "ripdpi-xhttp",
  "serde_json",
