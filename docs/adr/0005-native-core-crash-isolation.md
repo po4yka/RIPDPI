@@ -1,6 +1,6 @@
 # ADR 0005: Native relay-core crash isolation
 
-> Status: accepted (decision spike). Decision date: 2026-06-05. Recommendation: **NO-GO** for out-of-process isolation of the relay-core data plane; keep the in-process core hardened by panic sentinels and the existing supervisor.
+> Status: accepted (ratified 2026-06-05). Decision date: 2026-06-05. Recommendation: **NO-GO** for out-of-process isolation of the relay-core data plane; keep the in-process core hardened by panic sentinels and the existing supervisor.
 
 ## Context
 
