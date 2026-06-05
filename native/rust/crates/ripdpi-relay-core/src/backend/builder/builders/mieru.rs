@@ -8,10 +8,12 @@ use crate::protocols::MieruSessionFactory;
 
 /// Build the Mieru relay backend.
 ///
-/// Mieru is TCP-only in this foundation and non-reusable. The custom UDP/TCP
-/// wire engine and replay-resistant handshake in `ripdpi-mieru` are stubbed, so
-/// the built backend validates config and fails session creation with
-/// `Unimplemented` rather than carrying traffic.
+/// Mieru is TCP-only (the UDP/KCP carrier is out of scope) and non-reusable
+/// (one relayed stream per session). The `ripdpi-mieru` engine implements the
+/// real XChaCha20-Poly1305 time-rotated-key wire protocol, open-session
+/// handshake, and in-tunnel SOCKS5 connect; the session factory dials the
+/// carrier and runs it. On-wire interoperability with an upstream mieru server
+/// is not yet verified against a live server.
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::Mieru(mieru) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected Mieru config"));

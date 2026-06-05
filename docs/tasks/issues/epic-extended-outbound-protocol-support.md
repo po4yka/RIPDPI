@@ -38,7 +38,7 @@ Subscription import is only useful if imported protocols can execute. SSH and Mi
 
 ## Ship definition
 
-- [~] Remaining protocol crates/profile support exist and are unit-tested against upstream reference test vectors. (`ripdpi-ssh` real with 438-line `client.rs` and tests; `ripdpi-mieru` is a stub — `client.rs` `connect()` returns `MieruError::Unimplemented`.)
+- [~] Remaining protocol crates/profile support exist and are unit-tested against upstream reference test vectors. (`ripdpi-ssh` real with 438-line `client.rs` and tests; `ripdpi-mieru` TCP carrier now implemented — XChaCha20-Poly1305 time-rotated keys + open-session handshake + segment framing + in-tunnel SOCKS5, wired into the relay via `MieruSessionFactory`, self-consistency-tested via an in-crate loopback. Both still lack **upstream/live-server** reference vectors; `ripdpi-mieru` UDP carrier + multiplexing are deferred.)
 - [x] Each protocol has a profile-edit screen with schema-backed validation. (`SshProfileScreen.kt`, `MieruProfileScreen.kt`, `AnyTlsProfileScreen.kt` under `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/`.)
 - [ ] Each protocol can be parsed from its standard URI scheme into a valid RIPDPI profile and round-tripped back to URI. (No `ssh://` codec case in `app/src/main`; only a doc-comment reference in `ImportHandlerActivity.kt`.)
 - [ ] Strategy-pack metadata includes per-protocol compatibility hints (e.g. Trojan inside xHTTP, SSH direct vs SSH-over-TLS). (`core/service/src/main/assets/strategy-packs/catalog.json` contains zero `ssh`/`mieru` entries.)

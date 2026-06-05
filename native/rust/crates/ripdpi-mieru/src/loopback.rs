@@ -1,0 +1,146 @@
+//! Self-consistency test: drive the real [`MieruClient`] against a spec-faithful
+//! in-crate Mieru *server* (built from the same cipher/segment code). This
+//! proves the client's open handshake, in-tunnel SOCKS5 connect, and data
+//! round-trip are internally consistent end to end. It does **not** prove
+//! interoperability with a real upstream mieru server (see `PROTOCOL.md`).
+
+use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
+
+use crate::cipher::{self, KEY_LEN};
+use crate::client::MieruClient;
+use crate::config::{MieruConfig, MieruMux, MieruProtocol};
+use crate::error::Result;
+use crate::metadata::{DataAckMeta, ProtocolType};
+use crate::segment::{Decryptor, Encryptor, MAX_PDU, decapsulate, encapsulate};
+
+const NOW: i64 = 1_700_000_000;
+const USERNAME: &str = "alice";
+const PASSWORD: &str = "correct-horse-battery";
+
+/// Minimal spec-faithful mieru TCP server: skips the open request, answers the
+/// in-tunnel SOCKS5 negotiation, then echoes all subsequent data.
+async fn run_server(transport: DuplexStream, key: [u8; KEY_LEN], username: Vec<u8>) -> Result<()> {
+    let (mut reader, mut writer) = tokio::io::split(transport);
+    let mut dec = Decryptor::new(key);
+    let mut enc = Encryptor::new(key, username);
+
+    // SOCKS5 greeting (the open-session request is skipped by recv_data).
+    let greeting = recv_data(&mut dec, &mut reader).await?.expect("greeting");
+    assert_eq!(greeting, vec![0x05, 0x01, 0x00], "client SOCKS5 greeting");
+    send_data(&mut enc, &mut writer, &[0x05, 0x00]).await?;
+
+    // SOCKS5 CONNECT request.
+    let request = recv_data(&mut dec, &mut reader).await?.expect("connect request");
+    assert_eq!(request[0], 0x05);
+    assert_eq!(request[1], 0x01, "CONNECT command");
+    // Success reply with a dummy bound v4 address.
+    send_data(&mut enc, &mut writer, &[0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await?;
+
+    // Echo loop.
+    while let Some(chunk) = recv_data(&mut dec, &mut reader).await? {
+        send_data(&mut enc, &mut writer, &chunk).await?;
+    }
+    Ok(())
+}
+
+async fn send_data<W>(enc: &mut Encryptor, writer: &mut W, bytes: &[u8]) -> Result<()>
+where
+    W: tokio::io::AsyncWrite + Unpin,
+{
+    for chunk in bytes.chunks(MAX_PDU) {
+        let blob = encapsulate(chunk)?;
+        let (prefix, suffix) = enc.next_padding()?;
+        let payload_len = u16::try_from(blob.len()).expect("fragment fits u16");
+        enc.write_segment(
+            writer,
+            prefix,
+            suffix,
+            |prefix_len, suffix_len| {
+                DataAckMeta {
+                    protocol: ProtocolType::DataServerToClient,
+                    session_id: 1,
+                    seq: 0,
+                    unack_seq: 0,
+                    window_size: 0,
+                    fragment: 0,
+                    prefix_len,
+                    payload_len,
+                    suffix_len,
+                }
+                .marshal(NOW)
+            },
+            Some(&blob),
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+async fn recv_data<R>(dec: &mut Decryptor, reader: &mut R) -> Result<Option<Vec<u8>>>
+where
+    R: tokio::io::AsyncRead + Unpin,
+{
+    loop {
+        let (meta, payload) = match dec.read_segment(reader).await {
+            Ok(segment) => segment,
+            Err(crate::error::MieruError::Io(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        if ProtocolType::from_u8(meta[0])? == ProtocolType::DataClientToServer
+            && let Some(blob) = payload
+        {
+            return Ok(Some(decapsulate(&blob)?));
+        }
+        // open/close/ack control segments: skip.
+    }
+}
+
+fn test_config() -> MieruConfig {
+    MieruConfig {
+        server: "loopback".to_owned(),
+        port: 443,
+        username: USERNAME.to_owned(),
+        password: PASSWORD.to_owned(),
+        protocol: MieruProtocol::Tcp,
+        multiplexing: MieruMux::Off,
+        mtu: 1400,
+    }
+}
+
+#[tokio::test]
+async fn client_round_trips_one_mib_through_spec_faithful_loopback() {
+    let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+    let (client_side, server_side) = tokio::io::duplex(1 << 20);
+    let server = tokio::spawn(run_server(server_side, key, USERNAME.as_bytes().to_vec()));
+
+    let client = MieruClient::connect_over(client_side, &test_config(), NOW).await.expect("session open");
+    let stream = client.tcp_connect("example.com:443").await.expect("in-tunnel SOCKS5 connect");
+    let (mut read_half, mut write_half) = tokio::io::split(stream);
+
+    let payload = vec![0xABu8; 1 << 20];
+    let expected = payload.clone();
+    let write = async move {
+        write_half.write_all(&payload).await.expect("write payload");
+        write_half.shutdown().await.expect("shutdown");
+    };
+    let read = async move {
+        let mut got = vec![0u8; expected.len()];
+        read_half.read_exact(&mut got).await.expect("read echo");
+        assert_eq!(got, expected, "1 MiB round-trip must match");
+    };
+    tokio::join!(write, read);
+
+    drop(server); // server task ends on client EOF
+}
+
+#[tokio::test]
+async fn udp_protocol_is_rejected() {
+    let mut config = test_config();
+    config.protocol = MieruProtocol::Udp;
+    let (client_side, _server_side) = tokio::io::duplex(1024);
+    match MieruClient::connect_over(client_side, &config, NOW).await {
+        Err(crate::error::MieruError::UdpUnsupported) => {}
+        Ok(_) => panic!("udp config must be rejected"),
+        Err(other) => panic!("expected UdpUnsupported, got {other:?}"),
+    }
+}

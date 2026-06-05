@@ -1,61 +1,46 @@
 #![forbid(unsafe_code)]
 
-//! Mieru outbound foundation for RIPDPI.
+//! Mieru outbound client for RIPDPI — **TCP carrier**.
 //!
-//! Mieru ([enfein/mieru](https://github.com/enfein/mieru)) is a socks5/proxy
-//! protocol built on a **custom UDP/TCP carrier with replay protection**: the
-//! handshake mixes a clock-synced nonce so a captured packet cannot be replayed
-//! later. This crate provides the configuration, validation, password
-//! redaction, and relay-registration surface, but the **custom UDP/TCP session
-//! and the replay-resistant handshake are intentionally stubbed**: a fully valid
-//! config still terminates in [`MieruError::Unimplemented`] rather than
-//! fabricating a placeholder handshake. The real engine — including a
-//! network-time source for the replay clock (NOT `System` time) — is tracked
-//! under `epic-extended-outbound-protocol-support`.
+//! Mieru ([enfein/mieru](https://github.com/enfein/mieru)) tunnels a proxy
+//! session over a custom carrier with **time-rotated keys for replay
+//! protection**: the AEAD key is derived from `(username, password)` and a
+//! 2-minute `timeSalt`, so a captured packet cannot be replayed in a later
+//! window. This crate implements the **TCP carrier** end to end:
+//!
+//! - [`cipher`]: XChaCha20-Poly1305 with `PBKDF2-HMAC-SHA256` time-rotated keys
+//!   and the user-stamped, incrementing nonce.
+//! - [`metadata`] / [`segment`]: the byte-exact 32-byte metadata headers and the
+//!   AEAD-sealed, padded segment frame (nonce once per direction on TCP).
+//! - [`session`] / [`client`]: the open-session handshake, the in-tunnel SOCKS5
+//!   connect, and a [`MieruClient`] that presents a tunnelled target as a plain
+//!   duplex stream.
+//!
+//! See `PROTOCOL.md` for the byte-exact wire contract and its upstream
+//! citations. The **UDP carrier** (KCP-like reliable ARQ) is out of scope and
+//! returns [`MieruError::UdpUnsupported`].
+//!
+//! The replay clock comes from a caller-supplied network-time source
+//! (`now_unix`), never `SystemTime::now()`. The transport is supplied
+//! already-protected by the relay layer (the engine never opens a raw socket),
+//! keeping the `VpnService.protect()` invariant intact.
+//!
+//! **Verification status.** Cipher/codec primitives are covered by deterministic
+//! unit vectors and the framed session by a spec-faithful in-crate loopback peer
+//! (self-consistency). On-wire interoperability with a real mieru server is
+//! **not** verified offline — see `PROTOCOL.md`.
 
+mod cipher;
 mod client;
 mod config;
 mod error;
+mod metadata;
+mod segment;
+mod session;
 
 pub use client::*;
 pub use config::*;
 pub use error::*;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn valid_config() -> MieruConfig {
-        MieruConfig {
-            server: "mieru.example".to_string(),
-            port: 443,
-            username: "alice".to_string(),
-            password: "correct-horse".to_string(),
-            protocol: MieruProtocol::Tcp,
-            multiplexing: MieruMux::Middle,
-            mtu: 1400,
-        }
-    }
-
-    #[tokio::test]
-    async fn connect_returns_unimplemented_for_valid_config() {
-        let error = connect(&valid_config()).await.expect_err("foundation connect is stubbed");
-        assert!(matches!(error, MieruError::Unimplemented));
-    }
-
-    #[tokio::test]
-    async fn connect_validates_before_stubbing() {
-        let mut config = valid_config();
-        config.password = String::new();
-        let error = connect(&config).await.expect_err("invalid config must fail validation");
-        assert!(matches!(error, MieruError::EmptyPassword));
-    }
-
-    #[tokio::test]
-    async fn tcp_connect_returns_unimplemented() {
-        // The client is only constructible once the real engine lands; until
-        // then exercise the stub through the public connect path.
-        let error = connect(&valid_config()).await.expect_err("foundation connect is stubbed");
-        assert!(matches!(error, MieruError::Unimplemented));
-    }
-}
+mod loopback;

@@ -2,13 +2,7 @@ use std::io;
 
 use thiserror::Error;
 
-/// Errors surfaced by the Mieru outbound foundation.
-///
-/// The custom UDP/TCP session and the replay-resistant handshake are
-/// intentionally stubbed in this foundation build, so any attempt to drive a
-/// live connection through a *valid* config terminates in
-/// [`MieruError::Unimplemented`] rather than fabricating a placeholder
-/// handshake.
+/// Errors surfaced by the Mieru outbound engine (TCP carrier).
 #[derive(Debug, Error)]
 pub enum MieruError {
     /// The server port is outside the valid `1..=65535` range.
@@ -33,10 +27,21 @@ pub enum MieruError {
     /// is the rejected token.
     #[error("unsupported Mieru multiplexing `{0}`; only off, low, middle and high are supported")]
     UnsupportedMultiplexing(String),
-    /// The Mieru custom UDP/TCP wire engine is not implemented in this
-    /// foundation build.
-    #[error("Mieru custom UDP/TCP wire engine is not implemented in this foundation build")]
-    Unimplemented,
+    /// The UDP carrier (KCP-like reliable ARQ) is not implemented. The TCP
+    /// carrier is the supported, recommended transport.
+    #[error("Mieru UDP carrier is not implemented; use protocol=tcp")]
+    UdpUnsupported,
+    /// An AEAD / key-derivation / RNG operation failed. The inner string is a
+    /// static stage label and never contains key material.
+    #[error("Mieru cipher error: {0}")]
+    Crypto(&'static str),
+    /// A received segment violated the wire protocol (bad marker, length, or
+    /// metadata). The inner string describes the violation, never payload bytes.
+    #[error("Mieru protocol error: {0}")]
+    Protocol(String),
+    /// The in-tunnel SOCKS5 negotiation to the relay target failed.
+    #[error("Mieru in-tunnel SOCKS5 error: {0}")]
+    Socks5(String),
     /// Underlying I/O failure.
     #[error("I/O error: {0}")]
     Io(#[from] io::Error),

@@ -15,7 +15,7 @@ ripdpi-mieru = { workspace = true }
 ripdpi-ssh = { workspace = true }
 ripdpi-vless = { workspace = true }
 rand = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "net"] }
+tokio = { workspace = true, features = ["io-util", "net", "sync"] }
 tokio-boring = { workspace = true }
 
 [lints]
