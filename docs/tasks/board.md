@@ -49,19 +49,18 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | outbound | [Add Xray provider regression matrix](issues/add-xray-provider-regression-matrix.md) | epic-xray-provider-mode |
 | medium | outbound | [Surface Xray diagnostics and telemetry](issues/surface-xray-diagnostics-and-telemetry.md) | epic-xray-provider-mode |
 
-## Todo (7)
+## Todo (6)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
 | medium | testing | [Add Criterion throughput benchmarks for each transport](issues/add-protocol-throughput-benchmarks-for-each-transport.md) | — |
 | medium | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | — |
 | medium | testing | [Add VLESS mux conformance tests against xray-core](issues/add-vless-mux-conformance-tests-against-xray-core.md) | — |
-| medium | tooling | [Adopt clippy::pedantic / clippy::nursery per-crate for high-AI-authorship crates](issues/lints-pedantic-nursery-M7.md) | — |
 | medium | service | [Wire NaiveProxy helper probe into manager startup](issues/make-naiveproxy-helper-probe-return-structured-version-json.md) | — |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | — |
 | low | testing | [Add ShadowTLS loopback test server for soak runs](issues/add-shadowtls-loopback-test-server-for-soak-runs.md) | — |
 
-## Backlog (22)
+## Backlog (20)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -83,7 +82,5 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | low | rust-native | [Add format-transforming encryption (Marionette-style) for protocol shape-shifting](issues/add-format-transforming-encryption-marionette-style-protocol-shapeshift.md) | — |
 | low | testing | [Add cross-stack chain tests (VLESS over xHTTP over Reality)](issues/add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality.md) | — |
 | low | rust-native | [Add upstream HTTP and SOCKS5 proxy override for diagnostic probes](issues/add-upstream-http-and-socks5-proxy-override-for-diagnostic-probes.md) | — |
-| low | diagnostics | [Evaluate sing-box 1.14 rule-action model for policy DSL parity](issues/evaluate-sing-box-1-14-rule-action-model-for-policy-dsl-parity.md) | — |
 | low | vpn | [Spike FakeIP mode compatibility on Android](issues/spike-fakeip-mode-compatibility-on-android.md) | epic-fail-closed-android-vpn-policy-engine |
-| low | service | [Spike - native core crash isolation tradeoffs](issues/spike-native-core-crash-isolation-tradeoffs.md) | — |
 | low | diagnostics | [Spike relay-assisted QUICstep rescue mode after NO_DIRECT_SOLUTION](issues/spike-relay-assisted-quicstep-rescue-mode-after-no-direct-solution.md) | — |

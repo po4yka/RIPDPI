@@ -31,7 +31,7 @@ No exceptions. The reviewer pass costs minutes; an unaudited bug from this list 
 ### CI infrastructure expectations
 
 - **Miri nightly** for every crate without `#![forbid(unsafe_code)]`. The 10× test slowdown is the price; empirical measurement shows 22/40 (~55%) of LLM-generated `unsafe` samples have UB. Run as a scheduled (nightly) job, not on every PR.
-- **`clippy::pedantic` + `clippy::nursery`** enabled for files where AI authorship ≥ 50%. Many LLM-class errors surface only at these lint levels.
+- **`clippy::pedantic` + `clippy::nursery`** enabled for files where AI authorship ≥ 50%. Many LLM-class errors surface only at these lint levels. Adopt this **per-crate** (crate-root `#![warn(clippy::pedantic)]` opt-in), not as a workspace-wide group flip — see `docs/tasks/issues/lints-pedantic-nursery-M7.md` for the rationale and pattern (`ripdpi-tor` is the first demonstration crate).
 - **`cargo deny` on every PR** — already wired in RIPDPI; do not regress.
 - **`cargo audit` daily on `main`** to catch published advisories against pinned deps.
 
