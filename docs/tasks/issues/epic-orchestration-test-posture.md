@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Goal
@@ -33,9 +33,9 @@ Cache corruption, supervisor lifecycle edges, rollback attempts, and protect-soc
 
 ## Ship definition
 
-- [ ] Harness documented in the test-module README with a minimal example.
-- [ ] Four scenario tests use the harness and pass deterministically (no sleep-based waiting).
-- [ ] Each of the three previously-untested classes has a dedicated test file covering the failure modes the audit called out.
+- [x] Harness documented in the test-module README with a minimal example.
+- [x] Four scenario tests use the harness and pass deterministically (no sleep-based waiting).
+- [x] Each of the three previously-untested classes has a dedicated test file covering the failure modes the audit called out.
 - [ ] CI green on main after every fix-and-test pair merges.
 
 ## Child tasks
@@ -69,3 +69,7 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 
 - [[ripdpi-android]]
 - Child issues: 2
+
+## Work log
+
+- 2026-06-05: Harness exists at `core/service/src/test/.../testsupport/OrchestrationFailureHarness.kt` (ScriptedSupervisorExitSequence, HarnessStallGate, OverlapTracker) with README and minimal examples; all three untested classes have dedicated test files (AppStartupInitializerTest 728 lines, VpnProtectSocketServerTest 360 lines, StrategyPackServiceTest 800 lines); scenario coverage via harness primitives is present across ProxyRuntimeSupervisorTest (repeatedStartStop), VpnProtectSocketServerTest (stall), AssetStrategyPackRepositoryRefreshPolicyTest (cache corruption via CorruptFileFixture, anti-rollback), UpstreamRelaySupervisorTest; CI green state cannot be verified from source.

@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Goal
@@ -35,11 +35,11 @@ Most of the actual bypass-client user base outside Russia includes Persian-, Chi
 
 ## Ship definition
 
-- [ ] Translation pipeline is documented in `docs/`; a new contributor can open a PR with a new locale by following README steps only.
-- [ ] Registered non-English locales (`values-ru`, `values-es`, `values-de`, `values-fr`, `values-fa`, `values-zh-rCN`) stay complete against `values/`; `values-ar` exists and covers ≥95% of source strings if Arabic remains in scope.
+- [x] Translation pipeline is documented in `docs/`; a new contributor can open a PR with a new locale by following README steps only.
+- [x] Registered non-English locales (`values-ru`, `values-es`, `values-de`, `values-fr`, `values-fa`, `values-zh-rCN`) stay complete against `values/`; `values-ar` exists and covers ≥95% of source strings if Arabic remains in scope.
 - [ ] RTL layout renders correctly in fa, and in ar if Arabic lands (screenshot tests under Roborazzi cover the main screens in each).
-- [ ] `translatable="false"` is set on strings that must not be translated (protocol names, internal keys).
-- [ ] A CI check fails the build if a new source string is added without being picked up by the pipeline export.
+- [x] `translatable="false"` is set on strings that must not be translated (protocol names, internal keys).
+- [x] A CI check fails the build if a new source string is added without being picked up by the pipeline export.
 
 ## Child tasks
 
@@ -57,6 +57,10 @@ Most of the actual bypass-client user base outside Russia includes Persian-, Chi
 - Translator recruiting; community chats are the most realistic source but introduce moderation overhead.
 - RTL regression risk; bake in Roborazzi RTL variants during the setup task rather than adding post hoc.
 - Locale-specific font fallbacks for Persian/Arabic with the Geist family — verify glyph coverage or wire fallbacks.
+
+## Work log
+
+- 2026-06-05: Pipeline docs (docs/localization.md) complete; values-ar exists with 100% translatable strings (41 missing are all translatable="false"); i18n-export.yml CI gate live; translatable="false" audit done (41 strings). Remaining: RtlVariantGalleryTest is @Ignored — RTL Roborazzi goldens not yet blessed for fa/ar main screens.
 
 ## Links
 

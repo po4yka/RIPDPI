@@ -9,7 +9,7 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-05-22
+updated: 2026-06-05
 source_wiki_pages:
   - "android-so-bindtodevice-vpn-bypass"
 linked_task: null
@@ -49,6 +49,10 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 - ICMP UID attribution is unreliable in kernel; default to block + opt-in pass.
 - Whether RIPDPI's existing tun2socks uses gVisor or a different userspace stack — implementation may need stack-specific adaptation.
 - Scope boundary (per wiki): closes the `SO_BINDTODEVICE` escape but does not hide VPN presence from the OS (`tun0` interface name still queryable via `NetworkCapabilities`). See `platform-vpn-detection-april-2026` for the broader detection surface.
+
+## Work log
+
+- 2026-06-05: No UID enforcement exists at the tun2socks packet-forwarding layer. `ripdpi-tun-driver` is a TUN open/configure crate only. `ripdpi-flow-app-attribution` + `FlowAppAttributionStore.kt` call `getConnectionOwnerUid` for attribution/learning only — no RST, no UDP drop, no allowlist gate. No SO_BINDTODEVICE bypass countermeasure found in Rust or Kotlin. No integration test for this scenario in `appium/`. All acceptance criteria unmet; full implementation work remains.
 
 ## References
 

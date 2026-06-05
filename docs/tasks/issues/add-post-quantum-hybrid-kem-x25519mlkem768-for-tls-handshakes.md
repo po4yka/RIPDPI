@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -25,7 +25,7 @@ BoringSSL ships X25519MLKEM768 (`SSL_GROUP_X25519_MLKEM768`); the `boring` crate
 ## Acceptance criteria
 
 - [ ] `ripdpi-tls-profiles` exposes a `kem_groups` config option that accepts `["X25519MLKEM768", "X25519", "P256"]`-style ordered lists.
-- [ ] Default for modern profiles (Chrome 130+) advertises X25519MLKEM768 first.
+- [x] Default for modern profiles (Chrome 130+) advertises X25519MLKEM768 first.
 - [ ] All TLS-using outbounds (VLESS+Reality, xHTTP, MASQUE) honour the option.
 - [ ] Negotiation-fallback test: if server doesn't speak the hybrid, falls through to X25519 without surfacing an error.
 - [ ] Telemetry counter `tls.pq_kem_negotiated` increments when the hybrid is selected.
@@ -40,3 +40,7 @@ BoringSSL ships X25519MLKEM768 (`SSL_GROUP_X25519_MLKEM768`); the `boring` crate
 - [[add-utls-per-connection-tls-fingerprint-rotation]]
 - add-ech-encrypted-client-hello-for-tls-outbounds (closed task)
 - IETF draft-ietf-tls-hybrid-design
+
+## Work log
+
+- 2026-06-05: X25519MLKEM768 is hardcoded in chrome.rs/edge.rs `curves` field and verified by packet_parity_tests; no structured `kem_groups` config option exists in ProfileConfig, no negotiation-fallback test, and no `tls.pq_kem_negotiated` telemetry counter found in codebase.

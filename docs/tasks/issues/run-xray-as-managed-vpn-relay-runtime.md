@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -54,3 +54,7 @@ Map Xray readiness and stop outcomes into the same service-level language used f
 - [[Package libXray for Android ABIs]]
 - [[Render validated Xray client configs]]
 - ripdpi-android-xray-provider-plan-2026-04-24
+
+## Work log
+
+- 2026-06-05: Adapter layer complete — `RipDpiXrayRuntime` + 14 tests in `RipDpiXrayRuntimeTest` + 4 tests in `XrayProtectFdContractTest` all green offline via `FakeXrayNativeBridge`; `XrayNativeBridgeLibXrayImpl` throws `NotImplementedError` on every method (UNVERIFIED IN CI, gomobile libXray AAR absent). Blocked on gomobile build + NDK29 native link + real device run.

@@ -1,7 +1,7 @@
 ---
 title: Extract MasqueProviderAdapter trait to decouple Cloudflare-specific paths
 type: task
-status: review
+status: todo
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -41,3 +41,7 @@ Keep MASQUE provider behavior behind `MasqueProviderAdapter` so self-hosted RFC 
 
 - `native/rust/crates/ripdpi-masque/CONFORMANCE.md`
 - audit-cloudflare-only-dependencies (closed task)
+
+## Work log
+
+- 2026-06-05: Trait + `GenericSelfHostedAdapter` fully implemented in `provider_adapter.rs`; adapter used via `adapter_for_config` in `auth.rs`; unit tests pass all four checked criteria. The single open criterion (integration coverage of adapter-selected auth across request construction, Privacy Pass retry, TLS client cert, and relay traffic against a CONNECT-UDP proxy) is explicitly listed as remaining work in `CONFORMANCE.md` Audit Gaps and TDD Plan Slice 4. `udp_session_round_trips_through_conformant_h2_connect_udp_fixture` uses `auth_mode: None` and does not exercise provider-specific auth against the fixture. Status reset from `review` to `todo` because the open criterion is not met.

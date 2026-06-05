@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-29
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -39,3 +39,7 @@ RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this
 
 - audit-cloudflare-only-dependencies (closed task; done)
 - `native/rust/crates/ripdpi-masque/CONFORMANCE.md`
+
+## Work log
+
+- 2026-06-05: No implementation exists — no Workers URL/auth schema fields, no WS-tunnel Workers variant, no `docs/native/cloudflare-workers/` dir or `relay.js`, no loopback test, and `docs/native/cloudflare-tunnel-operations.md` covers cloudflare_tunnel mode only (not Workers fronting). All 5 acceptance criteria remain unstarted.

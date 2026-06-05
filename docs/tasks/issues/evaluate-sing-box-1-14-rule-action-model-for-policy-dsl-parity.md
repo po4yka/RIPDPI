@@ -5,11 +5,11 @@ status: backlog
 area: diagnostics
 priority: low
 owner: unassigned
-parent: epic-direct-mode-transport-policy-and-verdicts
+parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-14
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -32,3 +32,7 @@ ripdpi-android-research-2026-04-20 §Upstream transport engines — sing-box 1.1
 - [[Define TransportPolicy struct and per-host state]]
 - Cache transport policy per network and host tuple (closed task)
 - ripdpi-android-research-2026-04-20
+
+## Work log
+
+- 2026-06-05: Research spike not started; no sing-box 1.14 vocabulary summary or alignment decision found anywhere in docs/adr/; TransportPolicy struct exists and is operational (core/data/model/.../TransportPolicy.kt) but the comparison/evaluation has not been performed; parent epic epic-direct-mode-transport-policy-and-verdicts is dangling (not in known epics list), nulled out.

@@ -1,7 +1,7 @@
 ---
 title: Review landed fa de es fr translations and finish Arabic RTL coverage
 type: task
-status: review
+status: backlog
 area: ui
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-localization-expansion
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -23,11 +23,11 @@ Persian is already registered and Arabic is not. Arabic remains a candidate RTL 
 ## Acceptance criteria
 
 - [x] (2026-05-29) `values-fa/`, `values-de/`, `values-es/`, and `values-fr/` exist and have zero missing keys versus `values/`.
-- [ ] `values-ar/` exists and covers ≥95% of default strings if Arabic remains in scope.
-- [ ] Each landed locale has documented human reviewer sign-off.
-- [ ] Roborazzi RTL screenshot tests for fa, and for ar if Arabic lands, cover Home, Config, Diagnostics, Settings, Onboarding.
-- [ ] RTL padding / chevron / icon-flip regressions, if any, fixed in the same PR stack.
-- [ ] Persian glyph coverage for the Geist font family is verified; Arabic glyph coverage and fallback are verified if Arabic lands.
+- [x] `values-ar/` exists and covers ≥95% of default strings if Arabic remains in scope.
+- [x] Each landed locale has documented human reviewer sign-off.
+- [x] Roborazzi RTL screenshot tests for fa, and for ar if Arabic lands, cover Home, Config, Diagnostics, Settings, Onboarding.
+- [x] RTL padding / chevron / icon-flip regressions, if any, fixed in the same PR stack.
+- [x] Persian glyph coverage for the Geist font family is verified; Arabic glyph coverage and fallback are verified if Arabic lands.
 - [ ] Weekly string-diff from the pipeline keeps these locales fresh without manual polling.
 
 ## Source references
@@ -38,6 +38,10 @@ Persian is already registered and Arabic is not. Arabic remains a candidate RTL 
 - **amneziawg-android** ([repo](https://github.com/amnezia-vpn/amneziawg-android), local: `/Users/po4yka/GitRep/amneziawg-android/`) — 35 locale directories; the richest RTL reference among WireGuard-ecosystem clients. Paths: `ui/src/main/res/values-fa-rIR/`, `values-ar-rSA/`, `values-de/`, `values-es-rES/`, `values-fr/`. RTL layout survey is especially strong here — look at how AWG handles bidirectional text in their `strings.xml` with HTML entities and bidi marks.
 
 **Adapt (glossary alignment):** Consistent terminology for tunnel/peer/interface across WireGuard-ecosystem clients (AWG baseline); for proxy protocol names, reference implementation is the broader reference. **Skip:** verbatim value copy. **License note:** Both upstreams are Apache 2.0 / GPL-3.0; string-value copies would propagate headers — use as terminology reference only.
+
+## Work log
+
+- 2026-06-05: values-ar/ exists (98.7% coverage, 3047/3088 keys); all locales signed off in docs/localization-provenance.md (2026-05-30/31); PersianLocaleScreenshotTest + ArabicLocaleScreenshotTest cover all 5 screens with blessed goldens; font/glyph coverage documented via platform Noto fallback; only missing: a weekly scheduled CI job diffing changed source keys against locale files (docs/localization.md references it as a sibling task, no .github/workflows entry exists for it).
 
 ## Links
 

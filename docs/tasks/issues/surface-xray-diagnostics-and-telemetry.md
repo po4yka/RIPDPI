@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -50,3 +50,7 @@ If Xray metrics/API mode is not safe in-process, prefer wrapper `Ping`, `XrayVer
 - [[Epic - Xray provider mode]]
 - [[Run Xray as managed VPN relay runtime]]
 - ripdpi-android-xray-provider-plan-2026-04-24
+
+## Work log
+
+- 2026-06-05: Data substrate fully landed in `core/data/runtime-state` (XrayProviderSnapshot, XrayConnectionStage, XrayProviderFailureClass, XrayProviderProbeKind/ProbeResult/ProbeReport, XrayProviderTelemetrySummaries, XrayProviderDiagnosticsFixtures — 15 unit tests); criteria 1/3/4/5 verified. Criterion 2 (live probe population via libXray/gomobile in `:core:service`) and Home/Diagnostics Compose surfaces (`:app`) are absent from source — blocked on gomobile/libXray packaging task.

@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -50,3 +50,7 @@ Use provider capability labels rather than protocol jargon wherever possible: VP
 - [[Epic - Xray provider mode]]
 - [[Render validated Xray client configs]]
 - ripdpi-android-xray-provider-plan-2026-04-24
+
+## Work log
+
+- 2026-06-05: Core data lane complete — `XrayImportParser`, `XrayCapability`, `XrayServiceModeOption` implemented and tested (`core/data/catalog`, `core/data/runtime-state`); `XrayProfileImportScreen`/`ViewModel` + `XrayProviderSelection` exist in `app/` and are wired into nav (`RipDpiNavHost.kt`); test files `XrayProfileImportScreenTest.kt` / `XrayProfileImportViewModelTest.kt` authored. Remaining gaps: (1) onboarding-to-finish flow has zero Xray wiring — `XrayProfileImportViewModel` docstring claims onboarding reuse but no onboarding file (`OnboardingValidationCoordinator`, `OnboardingModeValidationRunner`, `OnboardingSetupPages`) references it; criterion 4 is unmet. (2) `:app` UI/ViewModel tests unverified in CI (gradle-kotlin-dsl-plugins offline cache miss).

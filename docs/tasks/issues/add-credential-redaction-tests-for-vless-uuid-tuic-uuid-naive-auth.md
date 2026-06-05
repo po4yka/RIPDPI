@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -23,7 +23,7 @@ add-no-secret-logging-and-diagnostics-redaction-tests (closed task) establishes 
 ## Acceptance criteria
 
 - [x] (partial, 2026-05-15) Manual Debug impls on `VlessRealityConfig` and `ripdpi-tuic::Config` redact UUID, REALITY public key, and password. Unit tests `redacted_debug_omits_uuid_and_reality_key` (vless) and `redacted_debug_omits_uuid_and_password` (tuic) assert the contract. **Remaining work:** capture tracing events directly via a test subscriber to assert no leak in error-path events, and cover NaiveProxy + MTProto seed paths.
-- [ ] (original) A per-crate test asserts that `tracing` events emitted on a representative happy-path connect do not contain the UUID or credential as a substring of any captured line.
+- [x] (original) A per-crate test asserts that `tracing` events emitted on a representative happy-path connect do not contain the UUID or credential as a substring of any captured line. **Done for vless** (`tracing_event_with_config_field_does_not_echo_uuid_or_key` in `ripdpi-vless/src/config.rs`); **still missing for ripdpi-tuic, ripdpi-naiveproxy, ripdpi-ws-tunnel.**
 - [ ] A per-crate test asserts that error events triggered by misconfiguration do not echo the credential.
 - [ ] The MTProto seed test asserts that the 64-byte init buffer is never logged in full hex.
 - [ ] If a tracing call requires partial visibility (e.g. last 4 bytes), a small `redact_uuid`/`redact_seed` helper centralises the format.
@@ -31,6 +31,10 @@ add-no-secret-logging-and-diagnostics-redaction-tests (closed task) establishes 
 ## Definition of done
 
 - Removing the redaction in any one crate fails its targeted test.
+
+## Work log
+
+- 2026-06-05: vless Debug-redaction test + tracing-event-capture test exist (`ripdpi-vless/src/config.rs`); tuic has Debug-redaction test only (no tracing-event-capture); ripdpi-naiveproxy has no redaction/tracing tests; ripdpi-ws-tunnel has no MTProto seed logging tests; `redact_uuid`/`redact_seed` helpers not yet implemented in any crate.
 
 ## Links
 

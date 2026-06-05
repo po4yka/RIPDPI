@@ -1,7 +1,7 @@
 ---
 title: Add cross-stack chain tests (VLESS over xHTTP over Reality)
 type: task
-status: doing
+status: backlog
 area: testing
 priority: low
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -34,3 +34,7 @@ Per-crate tests do not catch interaction bugs between transport layers: an xHTTP
 
 - [[audit-vless-chained-connect-over-relay-end-to-end-tests]]
 - [[add-vless-mux-conformance-tests-against-xray-core]]
+
+## Work log
+
+- 2026-06-05: no cross-stack tests exist; ripdpi-vless/tests/ has only manuallydrop_canary.rs and ripdpi-xhttp/src/tests.rs has per-crate unit tests only; all three acceptance criteria unmet, work not started

@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -39,3 +39,7 @@ Reference implementations: refraction-networking/utls (Go), sing-box's uTLS inte
 ## Links
 
 - [[Epic - Control-plane hardening]]
+
+## Work log
+
+- 2026-06-05: Rotation core (select_rotated_profile, select_profile_for_connection) exists in ripdpi-tls-profiles/src/rotation.rs; pool has chrome/firefox/safari/edge but no iOS 18 Safari profile; no RotatingProfileSelector struct, no Profile::Rotating config option, no tls.fingerprint_rotation_active telemetry counter, no distribution/uniformity tests over 1000 trials, no docs/native/ threat-model doc — all 6 acceptance criteria remain unmet.

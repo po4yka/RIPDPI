@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -23,7 +23,7 @@ FinalMask is custom obfuscation, not a standardized format. The decoder operates
 ## Acceptance criteria
 
 - [x] (partial, 2026-05-15) A new `finalmask_spec` fuzz target under `native/rust/fuzz/fuzz_targets/finalmask_spec.rs`. Covers `FinalmaskSpec::from_config` through the new `__fuzz_parse_finalmask_spec` entry point in `ripdpi-xhttp`, which includes Sudoku-seed parsing, header/trailer hex decoders, and rand-range parsing. **Remaining work:** the byte-stream decoder path (`TcpInboundMask`) needs its own target that constructs a Sudoku table first and then feeds arbitrary cipher bytes; the spec-side parser is the higher- value entry point and shipped first.
-- [ ] (original) A new `finalmask_decoder` fuzz target under `native/rust/fuzz/fuzz_targets/`.
+- [x] (original) A new `finalmask_decoder` fuzz target under `native/rust/fuzz/fuzz_targets/`.
 - [ ] Initial corpus drawn from `finalmask::tests` happy-path bytes plus random low-entropy seeds.
 - [ ] CI runs the target on the same nightly schedule as the other fuzz lanes.
 - [ ] The fuzz README links the target to `finalmask/masks.rs` and `finalmask/spec.rs`.
@@ -35,3 +35,7 @@ FinalMask is custom obfuscation, not a standardized format. The decoder operates
 ## Links
 
 - [[add-fuzz-targets-for-vless-wire-and-mtproto-init]]
+
+## Work log
+
+- 2026-06-05: Both `finalmask_spec.rs` and `finalmask_decoder.rs` targets exist under `native/rust/fuzz/fuzz_targets/`. Remaining: no corpus dirs under `native/rust/fuzz/corpus/finalmask_*`; neither target is listed in `scripts/ci/run-rust-fuzz-smoke.sh` nightly loop; README (`native/rust/fuzz/README.md`) lists only `finalmask_spec`, missing `finalmask_decoder` and source file links.

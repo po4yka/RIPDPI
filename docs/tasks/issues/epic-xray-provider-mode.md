@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Goal
@@ -87,3 +87,7 @@ Child tasks roll up via the TaskNotes relationships view on this note.
 - vless-reality-stack-research-2026-04-22
 - Recurring upstream watch for xray-core REALITY ECH XHTTP changes (closed task)
 - Child issues: 8
+
+## Work log
+
+- 2026-06-05: Full Kotlin/Gradle substrate verified in source (XrayConfigRenderer, XrayNativeBridge interface, XrayNativeBridgeLibXrayImpl with throwUnlinked stubs, RipDpiXrayRuntime, XrayProviderOrchestrator, XrayProtectFdContractTest, XrayDnsLoopRegressionTest, XrayServiceLifecycleMatrixTest, XrayProviderSnapshot/XrayConnectionStage types, XrayProfileImportScreen UI). native/xray/ contains only README.md — no real .aar or .so. build-libxray.sh is marked UNVERIFIED IN CI. Three ship criteria remain open, all blocked on gomobile + Go toolchain (absent), NDK29 (environment has 28.2 only), and device/live-server smoke; status correctly remains blocked.

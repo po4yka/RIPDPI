@@ -9,7 +9,7 @@ parent: epic-fail-closed-android-vpn-policy-engine
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-05-01
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -38,3 +38,6 @@ This is intentionally low priority. The current production recommendation is Rea
 
 
 ## general
+
+## Work log
+- 2026-06-05: No FakeIP implementation exists anywhere in the codebase (no Rust crate, no Kotlin code, no ADR, no doc); all acceptance criteria remain open; spike is unstarted.

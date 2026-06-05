@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -33,3 +33,7 @@ VLESS-mux multiplexes multiple logical streams over a single VLESS connection. S
 ## Links
 
 - `contract-fixtures/vless/README.md`
+
+## Work log
+
+- 2026-06-05: Fixture walker `upstream_yamux_fixtures_round_trip` exists in `ripdpi-relay-mux/src/wire_mux/yamux.rs:540`; only 1 golden fixture present (`contract-fixtures/vless/v1.260206.0/mux/yamux/syn-data-stream1-abc.bin`) vs required 8+; no multi-stream interleave test found; no sing-mux fixture walker or fixtures; all three acceptance criteria unmet.

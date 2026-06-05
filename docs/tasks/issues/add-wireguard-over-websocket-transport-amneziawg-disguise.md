@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-05-16
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -40,3 +40,7 @@ WireGuard's UDP fingerprint is one of the easiest DPI signatures in the wild: a 
 - `docs/amneziawg-uri-scheme.md`
 - ws-tunnel-telegram
 - AmneziaWG protocol spec
+
+## Work log
+
+- 2026-06-05: No implementation exists; ripdpi-wireguard-ws crate absent, no WireGuard Rust code found anywhere in native/rust/crates/, no AmneziaWG junk-packet or Jc/Jmin/Jmax wiring, no WireguardOutbound schema extension. All acceptance criteria unmet; docs/amneziawg-uri-scheme.md present (schema spec only).

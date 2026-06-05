@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-06-01
+updated: 2026-06-05
 ---
 
 > **2026-06-01 — scope reduced per [ADR 0004](../../adr/0004-protocol-support-policy.md).** VMess, Trojan-Go, and Hysteria v1 are **dropped from this epic and removed from the codebase** — they were never-completed stubs that carried no traffic, and RIPDPI maintains support only for current/actual protocols. The remaining open backlog is **SSH** and **Mieru** only (not-yet-implemented compatibility work, explicitly *not* legacy). Their child tasks are deleted.
@@ -68,3 +68,7 @@ Subscription import is only useful if imported protocols can execute. SSH and Mi
 - Epic - Subscription and profile import
 - [ADR 0004: Protocol Support Policy](../../adr/0004-protocol-support-policy.md)
 - Child issues: 3
+
+## Work log
+
+- 2026-06-05: SSH crate fully implemented (ripdpi-ssh, SshProfileScreen.kt, relay adapter in ripdpi-relay-tls-transports/src/ssh.rs, secrets redacted in Debug); Mieru crate is stubbed (connect() returns MieruError::Unimplemented, no real handshake); SSH has no ssh:// case in ProxyUriCodec.parse() or ProxyProfileUriEncoder.encode(); strategy-pack catalog.json contains no SSH or Mieru compatibility hints; AnyTLS crate and profile screen are complete.

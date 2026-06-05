@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -32,10 +32,14 @@ Verified 2026-05-28 against the current diagnostics and policy code:
 
 ## Acceptance criteria
 
-- [ ] Diagnostic orchestrator emits `OWNED_STACK_ONLY` when the winning arm is A9 or A10 and no transparent arm succeeded.
+- [x] Diagnostic orchestrator emits `OWNED_STACK_ONLY` when the winning arm is A9 or A10 and no transparent arm succeeded.
 - [x] UI/diagnostics surface: "Transparent mode: no / Owned-stack mode: yes" with a direct action to open the URL in the in-app browser.
 - [x] Persisted policy sets `outcome = OWNED_STACK_ONLY` on the `TransportPolicy` when owned-stack-only diagnostic evidence is present.
 - [ ] Third-party apps hitting this host in transparent mode get a structured "not supported in transparent mode" result, not a silent failure.
+
+## Work log
+
+- 2026-06-05: Criteria 1–3 verified done: `deriveOrchestratorVerdict` in `OrchestratorTypes.kt` emits `OWNED_STACK_ONLY` verdict; `DiagnosticsUiCoreSupport.kt` surfaces `ownedStackOnly` flag + browser launch URL; `DirectModePolicySupport.kt` persists `outcome=OWNED_STACK_ONLY`. Criterion 4 (structured "not supported in transparent mode" result for third-party apps) has no implementation found — remains open.
 
 ## Links
 

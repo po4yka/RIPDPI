@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -33,3 +33,7 @@ Without an in-tree server, every test path that needs a peer must rely on a real
 ## Links
 
 - [[add-shadowtls-v2-compatibility-or-document-v3-only]]
+
+## Work log
+
+- 2026-06-05: No test-server feature, no soak tests, and no server code in native/rust/crates/ripdpi-shadowtls/; SPEC.md explicitly notes the absence. All three acceptance criteria remain unmet.

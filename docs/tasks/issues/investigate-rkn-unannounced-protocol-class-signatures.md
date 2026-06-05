@@ -5,11 +5,11 @@ status: backlog
 area: transport
 priority: medium
 owner: unassigned
-parent: epic-direct-mode-transport-policy-and-verdicts
+parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-05-22
+updated: 2026-06-05
 source_wiki_pages:
   - "rkn-protocol-class-blocking-shift-dec-2025"
 linked_task: null
@@ -46,5 +46,9 @@ Diagnostic investigation, not a feature build:
 
 - rkn-protocol-class-blocking-shift-dec-2025 — wiki concept page
 - rkn-block-checker-methodology — diagnostic tool
-- Parent epic: `epic-direct-mode-transport-policy-and-verdicts`
+- Parent epic: `epic-direct-mode-transport-policy-and-verdicts` (dangling — epic removed)
 - Linked deploy task: `investigate-rkn-unannounced-protocol-class-signatures-deploy`
+
+## Work log
+
+- 2026-06-05: No acceptance criteria met — no empirical block-rate matrix, no wiki field-measurement section, no ripdpi-runtime-policy defaults adjusted from RKN fingerprint research. Parent epic `epic-direct-mode-transport-policy-and-verdicts` is dangling (nulled). Task remains open as a research/diagnostic investigation requiring external ISP vantage testing.

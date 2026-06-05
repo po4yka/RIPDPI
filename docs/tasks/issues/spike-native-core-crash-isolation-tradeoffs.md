@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-29
-updated: 2026-05-29
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -40,3 +40,7 @@ xivpn's headline architectural feature is running Xray-core in a separate proces
 
 - [[Epic - Runtime lifecycle and supervisors]]
 - `.claude/rules/vpnservice-protect-invariant.md`, `.claude/rules/android-vpn-lifecycle.md`, `.claude/rules/llm-rust-prompts.md`
+
+## Work log
+
+- 2026-06-05: No ADR exists under docs/adr/ for this topic; all 5 acceptance criteria unmet; spike not started — remains backlog.

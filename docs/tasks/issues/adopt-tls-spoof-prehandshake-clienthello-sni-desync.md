@@ -5,11 +5,11 @@ status: backlog
 area: rust-native
 priority: medium
 owner: unassigned
-parent: epic-control-plane-hardening
+parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-30
-updated: 2026-05-30
+updated: 2026-06-05
 ---
 
 - [ ] #task Adopt tls_spoof pre-handshake ClientHello SNI desync for whitelist bypass #repo/RIPDPI #area/rust-native #status/backlog 🔼
@@ -56,6 +56,10 @@ This is the sing-box-native equivalent of the patterniha "SNI-Spoofing" techniqu
 - Spoofing SNI does nothing where the censor blocks by destination IP rather than SNI — scope this to SNI-filter / whitelist-SNI networks only.
 - Running with raw-socket capabilities expands the blast radius on any host that holds them; keep the feature off by default and out of standard subscription profiles.
 - sing-box ships this on the v1.14 **alpha** line; the API may shift before stable. Re-verify the field names and privilege table on each upstream bump.
+
+## Work log
+
+- 2026-06-05: No tls_spoof implementation exists anywhere in the codebase — no Rust crate, no Kotlin surface, no config fields, no tests, no telemetry counters, no docs/native/proxy-engine.md section. The spike (gating AC) has not been completed. Parent epic-control-plane-hardening was dangling (not in allowed epic list); nulled out.
 
 ## Source references
 

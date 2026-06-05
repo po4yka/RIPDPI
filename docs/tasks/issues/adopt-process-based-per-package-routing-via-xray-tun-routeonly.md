@@ -5,11 +5,11 @@ status: backlog
 area: routing
 priority: medium
 owner: unassigned
-parent: epic-advanced-routing-rules-and-geoip-enforcement
+parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-25
-updated: 2026-04-25
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -23,8 +23,8 @@ ripdpi-android-research-2026-04-25 §Peer mobile clients — reference Android i
 ## Acceptance criteria
 
 - [ ] TUN bridge enables `routeOnly` mode per reference Android implementation 2.1.0 reference
-- [ ] UI exposes per-package allowlist (route through tunnel) and blocklist (route direct)
-- [ ] Default blocklist seeds with VPN-detection-positive apps (RuStore, Sber, Wildberries) per platform-vpn-detection-april-2026
+- [x] UI exposes per-package allowlist (route through tunnel) and blocklist (route direct)
+- [x] Default blocklist seeds with VPN-detection-positive apps (RuStore, Sber, Wildberries) per platform-vpn-detection-april-2026
 - [ ] Integration test verifies blocklisted apps egress with non-tunnel IP while allowed apps go through VLESS
 
 ## Links
@@ -33,5 +33,9 @@ ripdpi-android-research-2026-04-25 §Peer mobile clients — reference Android i
 - Epic: [[Epic - Advanced routing rules and geoip enforcement]]
 - Research: ripdpi-android-research-2026-04-25 §Peer mobile clients
 
+
+## Work log
+
+- 2026-06-05: RIPDPI uses tun2socks bridge + VpnService.Builder app filters (not Xray TUN routeOnly); SplitTunnelScreen/SplitTunnelViewModel/AppPickerSheet implement the UI (criterion 2 done); app-routing-policy.json seeds Sber/Wildberries/RuStore/VK-Store (criterion 3 done); no integration test verifying non-tunnel egress IP exists (criterion 4 open); criterion 1 as worded (Xray TUN routeOnly) does not match current architecture — needs reframing or architectural decision.
 
 ## amneziawg-outbound-support

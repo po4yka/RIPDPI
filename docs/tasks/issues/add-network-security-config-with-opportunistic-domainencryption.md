@@ -1,7 +1,7 @@
 ---
 title: Add network-security-config with opportunistic domainEncryption
 type: task
-status: review
+status: blocked
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-20
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -39,6 +39,7 @@ Verified 2026-05-28 against the current tree:
 
 ## Work log
 
+- 2026-06-05: NOT done. Static parts confirmed in source (`res/xml/network_security_config.xml` base, `res/xml-v37/network_security_config.xml` with opportunistic `<domainEncryption>`, manifest `@xml/network_security_config`) — first three criteria met. A new committed instrumented test (`app/src/androidTest/kotlin/com/poyka/ripdpi/integration/NscPlatformEchInstrumentedTest.kt`, commit 246068e55) does NOT satisfy criterion 4: step 1 exercises the native rustls bridge (native readiness, not platform NSC), and step 2 only asserts the platform `HttpsURLConnection` *reaches* the host — under opportunistic mode the connection succeeds identically whether or not ECH was attempted, so it cannot confirm an ECH attempt. The test's own docstring calls step 2 "necessary-but-not-sufficient proof of an ECH attempt." Blocked: Android surfaces no API for ECH-attempt confirmation; closing this needs a physical Android 17 device plus a packet capture asserting an encrypted ClientHello inner SNI.
 - **2026-05-28** — Docs audit refreshed the status. The static Network Security Config path and generated domain-encryption XML are covered by source/tests. The current instrumented ECH probe proves native ECH readiness, not platform Network Security Config ECH behavior, so the Android 17 platform proof remains open.
 - **2026-05-16** — Blocked on Android 17 instrumented test requiring a physical device for ECH attempt verification. Static parts (config file `res/xml/network_security_config.xml` + `res/xml-v37/network_security_config.xml` overlay, manifest reference `@xml/network_security_config`, multi-platform build passing `just build`) are landed and verified. The remaining acceptance criterion (instrumented test on Android 17 confirming ECH is attempted when DNS surfaces an ECH config) cannot run in CI — no physical Android 17 device available.
 - 2026-05-16: Reclassified to backlog — no concrete blocker recorded in frontmatter (physical device constraint is an environment limitation, not a tracked dependency slug).

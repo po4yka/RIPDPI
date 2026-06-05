@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-05-22
+updated: 2026-06-05
 source_wiki_pages:
   - "tls-policing-home-isps"
 linked_task: null
@@ -55,3 +55,7 @@ If the RIPDPI client opens more than ~12 concurrent TLS sessions to a single exi
 - tls-policing-home-isps — wiki concept page with full mechanism + workarounds
 - censorship-update-net4people-2026-05-15 — source digest with operational quick-probe
 - Linked deploy task: `add-non-443-fallback-port-to-xray-role`
+
+## Work log
+
+- 2026-06-05: No implementation found; ripdpi-proxy-runtime and ripdpi-runtime-adaptive have no per-exit-IP TLS counter, no session cap, no mux-preference logic, and test-lab/tls/ has no concurrent-connection probe. All acceptance criteria remain open.

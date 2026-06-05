@@ -1,7 +1,7 @@
 ---
 title: Wire NaiveProxy helper probe into manager startup
 type: task
-status: doing
+status: todo
 area: service
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -41,3 +41,7 @@ The helper-side `--probe` line and Kotlin parser now exist. Finish the Android s
 ## Links
 
 - [[relay-naiveproxy-runtime]]
+
+## Work log
+
+- 2026-06-05: First two criteria verified done (Rust probe emission in ripdpi-naiveproxy/src/main.rs with 2 tests; NaiveProxyProbeParser.kt with full parser tests); NaiveProxyManager.start() has no --probe call, no manager-preflight tests, and docs/native/relay-naiveproxy-runtime.md explicitly notes probe is not yet enforced — 4 criteria remain open.

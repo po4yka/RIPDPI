@@ -1,7 +1,7 @@
 ---
 title: Add Hysteria 2 Salamander obfuscation conformance fixtures
 type: task
-status: doing
+status: blocked
 area: testing
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Summary
@@ -34,3 +34,7 @@ Salamander is XOR-style obfuscation keyed by a server-supplied key. Reference ve
 
 - `contract-fixtures/`
 - `docs/native/upstream-spec-watch-runbook.md`
+
+## Work log
+
+- 2026-06-05: Fixture harness exists (`salamander::tests::upstream_salamander_fixtures_decode_cleanly`) and one synthetic `.bin` file is present at `contract-fixtures/hysteria2/v2/salamander/746f702d736563726574/hello-zero-salt.bin`; the eight upstream-conformance goldens from apernet/hysteria test vectors are still missing — criteria 1 and 3 remain deferred pending sourcing of real upstream byte vectors.

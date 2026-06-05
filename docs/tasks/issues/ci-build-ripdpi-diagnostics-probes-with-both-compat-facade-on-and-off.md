@@ -1,7 +1,7 @@
 ---
 title: CI: build ripdpi-diagnostics-probes with both compat-facade on and off
 type: task
-status: todo
+status: backlog
 area: ci
 priority: medium
 owner: Senior Build Gradle CI Engineer
@@ -9,11 +9,12 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-04
-updated: 2026-05-31
+updated: 2026-06-05
 ---
 
 ## Work log
 
+- 2026-06-05: Crate confirmed at `native/rust/crates/ripdpi-diagnostics-probes/Cargo.toml` with `compat-facade = []` feature (default-on). Only `diagnostics-probes-real-world.yml` exists — it runs live `#[ignore]` tests on a weekly cron; no workflow runs `cargo check --no-default-features` or `cargo check --features compat-facade`. Acceptance criteria not met; feature-matrix CI step still needed.
 - 2026-05-28: Docs audit refreshed the precondition. `native/rust/crates/ripdpi-diagnostics-probes` is now a registered Cargo crate with `Cargo.toml`, `src/`, tests, and a default empty `compat-facade` feature. Root exports are unconditional today. This task is no longer blocked on crate scaffolding; the remaining work is the CI feature-matrix check below.
 - 2026-05-16: Reclassified to backlog — no concrete blocker recorded in frontmatter.
 
