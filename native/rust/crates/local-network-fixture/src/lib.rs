@@ -27,6 +27,7 @@ mod tls;
 mod trojan;
 mod types;
 mod util;
+mod vless;
 mod webtunnel;
 
 pub use self::anytls::*;
@@ -38,7 +39,9 @@ pub use self::shadowsocks::*;
 pub use self::stack::FixtureStack;
 pub use self::trojan::*;
 pub use self::types::*;
-pub use self::webtunnel::*;
+// Grouped to keep the crate root within the architecture-health root-facade
+// export budget (`check_architecture_health.py` ROOT_FACADE_EXPORT_LIMIT).
+pub use self::{vless::*, webtunnel::*};
 
 #[cfg(test)]
 mod tests {

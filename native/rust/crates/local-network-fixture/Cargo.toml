@@ -25,11 +25,13 @@ quinn = { workspace = true }
 rcgen = { workspace = true }
 ring = { workspace = true }
 ripdpi-shadowsocks = { workspace = true }
+ripdpi-vless = { workspace = true }
 rustls = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "time", "io-util", "macros", "net", "sync"] }
+tokio-boring = { workspace = true }
 tokio-rustls = { workspace = true }
 
 [dev-dependencies]

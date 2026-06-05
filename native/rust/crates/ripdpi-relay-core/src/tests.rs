@@ -3,7 +3,9 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 use android_support::EventRingLayer;
-use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig, ShadowsocksLoopback, TrojanLoopback};
+use local_network_fixture::{
+    AnyTlsLoopback, AnyTlsLoopbackConfig, ShadowsocksLoopback, TrojanLoopback, VlessRealityLoopback,
+};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
@@ -532,6 +534,99 @@ fn shadowsocks_hop(profile_id: &str, port: u16, password: &str) -> ResolvedChain
         shadowsocks_password: Some(password.to_string()),
         ..ResolvedChainRelayHopConfig::default()
     }
+}
+
+fn vless_hop(profile_id: &str, port: u16, server_name: &str) -> ResolvedChainRelayHopConfig {
+    ResolvedChainRelayHopConfig {
+        kind: "vless_reality".to_string(),
+        profile_id: profile_id.to_string(),
+        server: "127.0.0.1".to_string(),
+        server_port: i32::from(port),
+        server_name: server_name.to_string(),
+        reality_public_key: valid_reality_public_key(),
+        reality_short_id: String::new(),
+        vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
+        ..ResolvedChainRelayHopConfig::default()
+    }
+}
+
+/// Chain-relay happy path through a real VLESS+Reality entry hop and a real
+/// VLESS+Reality exit hop on loopback. The entry hop tunnels the exit hop's
+/// nested TLS-in-TLS handshake (`VlessRealityClient::connect_over`), and the
+/// exit hop proxies to its embedded echo. Two round-trips assert bidirectional
+/// payload integrity across the two-hop tunnel. Closes the first open criterion
+/// on `audit-vless-chained-connect-over-relay-end-to-end-tests`.
+#[tokio::test]
+async fn chain_relay_routes_tcp_through_vless_entry_and_vless_exit() {
+    let entry = VlessRealityLoopback::start().await.expect("start entry vless fixture");
+    let exit = VlessRealityLoopback::start().await.expect("start exit vless fixture");
+
+    let mut config = sample_config("chain_relay");
+    chain_config_mut(&mut config).hops = vec![
+        vless_hop("vless-entry", entry.port(), entry.server_name()),
+        vless_hop("vless-exit", exit.port(), exit.server_name()),
+    ];
+
+    let backend = build_backend(&config).await.expect("chain backend builds VLESS entry and VLESS exit");
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), exit.target_port()));
+    let mut stream = backend.connect_tcp(&target).await.expect("connect through VLESS-over-VLESS chain");
+
+    for payload in [b"chain vless entry exit payload".as_slice(), b"second round-trip over the same tunnel".as_slice()]
+    {
+        stream.write_all(payload).await.expect("write chain payload");
+        let mut echoed = vec![0_u8; payload.len()];
+        stream.read_exact(&mut echoed).await.expect("read chain payload");
+        assert_eq!(echoed, payload, "two-hop VLESS chain must echo byte-for-byte in both directions");
+    }
+
+    // The exit hop's request target is the caller's final destination.
+    assert_eq!(exit.observed_target(), Some(format!("127.0.0.1:{}", exit.target_port())));
+}
+
+/// Chain-relay negative path: the second (exit) hop fails — it cannot reach the
+/// final destination because the target port has no listener. The exit hop
+/// closes without a VLESS response, so the chained `connect_over` surfaces a
+/// recognizable connection-failure error to the caller rather than hanging or
+/// silently succeeding. Closes the negative-path criterion on
+/// `audit-vless-chained-connect-over-relay-end-to-end-tests`.
+#[tokio::test]
+async fn chain_relay_vless_second_hop_failure_surfaces_recognizable_error() {
+    let entry = VlessRealityLoopback::start().await.expect("start entry vless fixture");
+    let exit = VlessRealityLoopback::start().await.expect("start exit vless fixture");
+
+    // A loopback port with no listener: bind, capture the port, drop the
+    // listener. Connecting to it from the exit hop refuses deterministically.
+    let dead_port = {
+        let probe = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind probe listener");
+        probe.local_addr().expect("probe addr").port()
+    };
+
+    let mut config = sample_config("chain_relay");
+    chain_config_mut(&mut config).hops = vec![
+        vless_hop("vless-entry", entry.port(), entry.server_name()),
+        vless_hop("vless-exit", exit.port(), exit.server_name()),
+    ];
+
+    let backend = build_backend(&config).await.expect("chain backend builds for the failure case");
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), dead_port));
+    let error = backend
+        .connect_tcp(&target)
+        .await
+        .err()
+        .expect("a second-hop failure to reach the destination must surface an error");
+
+    assert!(
+        matches!(
+            error.kind(),
+            io::ErrorKind::UnexpectedEof
+                | io::ErrorKind::ConnectionReset
+                | io::ErrorKind::ConnectionAborted
+                | io::ErrorKind::ConnectionRefused
+                | io::ErrorKind::BrokenPipe
+        ),
+        "second-hop failure must be a recognizable connection-failure class, got {:?}",
+        error.kind(),
+    );
 }
 
 #[tokio::test]
