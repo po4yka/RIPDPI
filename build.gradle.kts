@@ -4,6 +4,7 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
@@ -333,12 +334,27 @@ tasks.register<VerifyAppEngineBoundaryTask>("verifyAppEngineBoundary") {
     )
 }
 
+tasks.register<Exec>("checkAsnExposureDenylistAssets") {
+    group = "verification"
+    description = "Verifies ASN exposure denylist data is not bundled in Android runtime assets."
+    inputs.file(layout.projectDirectory.file("scripts/ci/check_asn_exposure_denylist_assets.py"))
+    inputs.files(
+        fileTree(layout.projectDirectory) {
+            include("**/src/main/assets/**")
+            exclude("**/build/**")
+        },
+    )
+    workingDir = rootDir
+    commandLine("python3", "scripts/ci/check_asn_exposure_denylist_assets.py")
+}
+
 tasks.register("staticAnalysis") {
     group = "verification"
     description = "Runs detekt, ktlint, Android Lint, and file LoC checks across all modules"
     dependsOn(
         ":quality:detekt-rules:test",
         tasks.named("checkFileLocLimits"),
+        tasks.named("checkAsnExposureDenylistAssets"),
         tasks.named("checkNoTrackedJavaSources"),
         tasks.named("verifyAppEngineBoundary"),
         ":app:verifyEngineBoundaryClasspath",
