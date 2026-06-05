@@ -8,21 +8,15 @@
 //! throughput rather than handshake cost.
 //!
 //! Coverage today: VLESS+Reality, VLESS-over-xHTTP-over-Reality, ShadowTLS v3,
-//! and MASQUE (H2 CONNECT-TCP) — the transports with a drivable protocol-server
-//! loopback that pipeline cleanly (see
-//! `docs/architecture/protocol-loopback-harness-design.md`). The MASQUE case
+//! MASQUE (H2 CONNECT-TCP), and WS-tunnel (WebTunnel HTTP-Upgrade-over-TLS) —
+//! the transports with a drivable protocol-server loopback that pipeline cleanly
+//! (see `docs/architecture/protocol-loopback-harness-design.md`). The MASQUE case
 //! pins the fixture's self-signed cert via `MasqueConfig::root_certificate_pem`
-//! (TLS verification stays ON) rather than relaxing verification.
+//! (TLS verification stays ON) rather than relaxing verification; the WS-tunnel
+//! case uses the async `connect_webtunnel_async` client.
 //! Deferred, with what each needs first:
 //!   - Hysteria 2 / TUIC: a QUIC *proxy-server* loopback (the existing
 //!     `QuicLoopback` is a generic echo, not a Hysteria2/TUIC protocol server).
-//!   - WS-tunnel: the matching client (`ripdpi-webtunnel` — not the
-//!     Telegram/MTProto-specific `ripdpi-ws-tunnel`) returns a *synchronous*
-//!     boring `SslStream<std::net::TcpStream>` (std `Read`/`Write`, not tokio
-//!     `AsyncRead`/`AsyncWrite`), so it cannot be `tokio::io::split` into the
-//!     async `roundtrip` helper, and boring TLS is not safe to read+write
-//!     concurrently from two threads. Needs an async WebTunnel client variant
-//!     (and an async `WebTunnelFixture`) before it fits this harness.
 //!
 //! Baselines are intentionally NOT committed from a developer machine —
 //! Criterion numbers are host-dependent and a dev-box baseline would gate CI on
@@ -35,12 +29,14 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::runtime::Runtime;
 
-use local_network_fixture::{MasqueH2ConnectUdpFixture, VlessRealityLoopback, XhttpRealityLoopback};
+use local_network_fixture::{MasqueH2ConnectUdpFixture, VlessRealityLoopback, WebTunnelFixture, XhttpRealityLoopback};
 use ripdpi_masque::MasqueClient;
 use ripdpi_masque::config::MasqueConfig;
 use ripdpi_shadowtls::{Config as ShadowTlsConfig, ShadowTlsClient, ShadowTlsLoopback};
 use ripdpi_vless::VlessRealityClient;
 use ripdpi_vless::config::VlessRealityConfig;
+use ripdpi_webtunnel::bridge_line::parse_bridge_line;
+use ripdpi_webtunnel::client::connect_webtunnel_async;
 use ripdpi_xhttp::{XhttpRealityConfig, connect_reality};
 
 const PAYLOAD_LEN: usize = 1024 * 1024;
@@ -222,12 +218,43 @@ fn bench_masque_h2_connect_tcp(c: &mut Criterion, rt: &Runtime) {
     drop((reader, writer));
 }
 
+fn bench_ws_tunnel(c: &mut Criterion, rt: &Runtime) {
+    // WebTunnelFixture::start is synchronous (std threads); the async client
+    // connects to it over TCP. The fixture echoes application bytes on the
+    // tunnel itself (no separate upstream).
+    let fixture = WebTunnelFixture::start("/secret").expect("start WebTunnel fixture");
+    let bridge = parse_bridge_line(&format!(
+        "Bridge webtunnel 192.0.2.3:1 url={} addr={} servername=localhost utls=hellochrome_auto",
+        fixture.url(),
+        fixture.addr(),
+    ))
+    .expect("WebTunnel bridge line");
+
+    // verify=false: the fixture's self-signed cert is not exposed; this is a
+    // loopback test fixture, not a production path (matches the crate's own e2e).
+    let stream = rt.block_on(connect_webtunnel_async(&bridge, false)).expect("WebTunnel async connect");
+    let (mut reader, mut writer) = tokio::io::split(stream);
+
+    let payload = vec![0xAB_u8; PAYLOAD_LEN];
+    let mut recv = vec![0_u8; PAYLOAD_LEN];
+
+    let mut group = c.benchmark_group("protocol-throughput");
+    group.throughput(Throughput::Bytes(PAYLOAD_LEN as u64));
+    group.bench_function("ws_tunnel/1MiB", |b| {
+        b.iter(|| rt.block_on(roundtrip(&mut reader, &mut writer, &payload, &mut recv)));
+    });
+    group.finish();
+
+    drop((reader, writer));
+}
+
 fn bench_protocol_throughput(c: &mut Criterion) {
     let rt = runtime();
     bench_vless_reality(c, &rt);
     bench_vless_over_xhttp_reality(c, &rt);
     bench_shadowtls(c, &rt);
     bench_masque_h2_connect_tcp(c, &rt);
+    bench_ws_tunnel(c, &rt);
 }
 
 criterion_group! {

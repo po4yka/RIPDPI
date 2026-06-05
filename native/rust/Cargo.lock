@@ -5486,6 +5486,7 @@ dependencies = [
  "ripdpi-runtime-strategy",
  "ripdpi-shadowtls",
  "ripdpi-vless",
+ "ripdpi-webtunnel",
  "ripdpi-xhttp",
  "serde_json",
  "tokio",
@@ -6821,6 +6822,8 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "tokio",
+ "tokio-boring",
  "url",
 ]
 

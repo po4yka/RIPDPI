@@ -51,6 +51,7 @@ ripdpi-runtime-strategy = { workspace = true }
 ripdpi-masque = { workspace = true }
 ripdpi-shadowtls = { workspace = true, features = ["test-server"] }
 ripdpi-vless = { workspace = true }
+ripdpi-webtunnel = { workspace = true }
 ripdpi-xhttp = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "io-util", "macros", "net"] }

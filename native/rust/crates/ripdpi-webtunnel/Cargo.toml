@@ -9,6 +9,9 @@ boring.workspace = true
 ripdpi-tls-profiles = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true
+# Async WebTunnel client (connect_webtunnel_async): tokio TCP + tokio-boring TLS.
+tokio = { workspace = true, features = ["io-util", "net"] }
+tokio-boring = { workspace = true }
 url.workspace = true
 
 [dev-dependencies]
@@ -16,6 +19,7 @@ golden-test-support = { workspace = true }
 local-network-fixture = { workspace = true }
 ripdpi-packets = { workspace = true }
 serde_json.workspace = true
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread"] }
 
 [lints]
 workspace = true
