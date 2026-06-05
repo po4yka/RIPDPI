@@ -7,22 +7,20 @@
 //! once per benchmark, outside the timed loop, so the measurement reflects data
 //! throughput rather than handshake cost.
 //!
-//! Coverage today: VLESS+Reality, VLESS-over-xHTTP-over-Reality, ShadowTLS v3,
-//! MASQUE (H2 CONNECT-TCP), WS-tunnel (WebTunnel HTTP-Upgrade-over-TLS), and
-//! Hysteria 2 — the transports with a drivable protocol-server loopback that
-//! pipeline cleanly (see `docs/architecture/protocol-loopback-harness-design.md`).
-//! The MASQUE case pins the fixture's self-signed cert via
-//! `MasqueConfig::root_certificate_pem` (TLS verification stays ON) rather than
-//! relaxing verification; the WS-tunnel case uses the async
-//! `connect_webtunnel_async` client;
-//! the Hysteria 2 case drives the real client against `Hysteria2Loopback`
-//! (quinn + h3 auth + raw proxy streams) with the client's runtime `insecure`
-//! flag (the client now keeps its h3 `SendRequest` alive so the post-auth h3
-//! shutdown no longer closes the shared QUIC connection).
-//! Deferred, with what it needs first:
-//!   - TUIC: a TUIC protocol-server loopback (QUIC + TLS keying-material-export
-//!     auth + command framing). The generic `QuicLoopback` is an echo, not a
-//!     TUIC server.
+//! Coverage: all 7 transports — VLESS+Reality, VLESS-over-xHTTP-over-Reality,
+//! ShadowTLS v3, MASQUE (H2 CONNECT-TCP), WS-tunnel (WebTunnel
+//! HTTP-Upgrade-over-TLS), Hysteria 2, and TUIC v5 — each driven by the real
+//! client against an in-process protocol-server loopback (see
+//! `docs/architecture/protocol-loopback-harness-design.md`).
+//!
+//! Notes on the trickier transports: MASQUE and TUIC pin the fixture's
+//! self-signed cert via their `root_certificate_pem` config option (TLS
+//! verification stays ON) rather than relaxing verification; WS-tunnel uses the
+//! async `connect_webtunnel_async` client; Hysteria 2 drives the real client
+//! against `Hysteria2Loopback` (quinn + h3 auth + raw proxy streams) with the
+//! client's runtime `insecure` flag, after a client fix to keep its h3
+//! `SendRequest` alive so the post-auth h3 shutdown no longer closes the shared
+//! QUIC connection.
 //!
 //! Baselines are intentionally NOT committed from a developer machine —
 //! Criterion numbers are host-dependent and a dev-box baseline would gate CI on
@@ -36,7 +34,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::runtime::Runtime;
 
 use local_network_fixture::{
-    Hysteria2Loopback, MasqueH2ConnectUdpFixture, VlessRealityLoopback, WebTunnelFixture, XhttpRealityLoopback,
+    Hysteria2Loopback, MasqueH2ConnectUdpFixture, TuicLoopback, VlessRealityLoopback, WebTunnelFixture,
+    XhttpRealityLoopback,
 };
 use ripdpi_masque::MasqueClient;
 use ripdpi_masque::config::MasqueConfig;
@@ -283,6 +282,43 @@ fn bench_hysteria2(c: &mut Criterion, rt: &Runtime) {
     drop((reader, writer));
 }
 
+fn bench_tuic(c: &mut Criterion, rt: &Runtime) {
+    let server = rt.block_on(TuicLoopback::start()).expect("start TUIC fixture");
+    let config = ripdpi_tuic::Config {
+        server: "127.0.0.1".to_string(),
+        server_port: i32::from(server.port()),
+        server_name: "localhost".to_string(),
+        uuid: "11111111-1111-1111-1111-111111111111".to_string(),
+        password: "bench-tuic-password".to_string(),
+        zero_rtt: false,
+        congestion_control: "bbr".to_string(),
+        udp_enabled: false,
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        keepalive_interval_ms: 0,
+        // Pin the fixture's self-signed cert; TLS verification stays ON.
+        root_certificate_pem: Some(server.certificate_pem().to_string()),
+    };
+
+    let stream = rt.block_on(async {
+        let client = ripdpi_tuic::TuicClient::connect(config).await.expect("tuic connect");
+        client.tcp_connect("127.0.0.1:9").await.expect("tuic tcp_connect")
+    });
+    let (mut reader, mut writer) = tokio::io::split(stream);
+
+    let payload = vec![0xAB_u8; PAYLOAD_LEN];
+    let mut recv = vec![0_u8; PAYLOAD_LEN];
+
+    let mut group = c.benchmark_group("protocol-throughput");
+    group.throughput(Throughput::Bytes(PAYLOAD_LEN as u64));
+    group.bench_function("tuic/1MiB", |b| {
+        b.iter(|| rt.block_on(roundtrip(&mut reader, &mut writer, &payload, &mut recv)));
+    });
+    group.finish();
+
+    drop((reader, writer));
+}
+
 fn bench_protocol_throughput(c: &mut Criterion) {
     let rt = runtime();
     bench_vless_reality(c, &rt);
@@ -291,6 +327,7 @@ fn bench_protocol_throughput(c: &mut Criterion) {
     bench_masque_h2_connect_tcp(c, &rt);
     bench_ws_tunnel(c, &rt);
     bench_hysteria2(c, &rt);
+    bench_tuic(c, &rt);
 }
 
 criterion_group! {

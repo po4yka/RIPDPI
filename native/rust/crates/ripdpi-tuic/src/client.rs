@@ -5,6 +5,8 @@ use std::sync::atomic::AtomicU16;
 
 use quinn::Endpoint;
 use rustls::ClientConfig as RustlsClientConfig;
+use rustls::pki_types::CertificateDer;
+use rustls::pki_types::pem::PemObject;
 use tokio::sync::Mutex;
 
 use crate::config::Config;
@@ -23,7 +25,8 @@ pub struct TuicClient {
 
 impl TuicClient {
     pub async fn connect(config: Config) -> io::Result<Self> {
-        let tls_config = build_tls_config(config.zero_rtt, None)?;
+        let additional_roots = additional_roots_from_pem(config.root_certificate_pem.as_deref())?;
+        let tls_config = build_tls_config(config.zero_rtt, additional_roots)?;
         Self::connect_with_tls(config, tls_config).await
     }
 
@@ -99,6 +102,23 @@ impl TuicClient {
         encode_connect_header(&mut send, target).await?;
         Ok(DuplexStream { send, recv })
     }
+}
+
+/// Parse the optional PEM trust anchor into DER certificates for
+/// [`build_tls_config`]'s `additional_roots`. Pins a self-signed / private-CA
+/// server cert; verification stays ON.
+fn additional_roots_from_pem(pem: Option<&str>) -> io::Result<Option<Vec<CertificateDer<'static>>>> {
+    let Some(pem) = pem.filter(|value| !value.trim().is_empty()) else {
+        return Ok(None);
+    };
+    let certificates =
+        CertificateDer::pem_slice_iter(pem.as_bytes()).collect::<Result<Vec<_>, _>>().map_err(|error| {
+            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid TUIC root certificate PEM: {error}"))
+        })?;
+    if certificates.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "TUIC root certificate PEM contained no certificates"));
+    }
+    Ok(Some(certificates))
 }
 
 pub(crate) struct ClientInner {

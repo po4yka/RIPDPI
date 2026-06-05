@@ -129,6 +129,7 @@ async fn tuic_client_relays_tcp_and_udp() {
             quic_bind_low_port: false,
             quic_migrate_after_handshake: true,
             keepalive_interval_ms: 0,
+            root_certificate_pem: None,
         },
         tls_config,
     )

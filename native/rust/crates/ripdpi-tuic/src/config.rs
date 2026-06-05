@@ -28,6 +28,15 @@ pub struct Config {
     /// window without re-handshaking.
     #[serde(default)]
     pub keepalive_interval_ms: u32,
+    /// Optional PEM trust anchor for the server's TLS certificate. When set, the
+    /// certificate(s) are added to the QUIC client's root store (verification
+    /// stays ON — this PINS the server cert, it does not disable verification),
+    /// letting a self-signed / private-CA TUIC server be trusted. Mirrors
+    /// `root_certificate_pem` on the Trojan / AnyTLS / MASQUE clients. `None`
+    /// uses the system (webpki) roots. `#[serde(default)]` keeps older profiles
+    /// deserializable.
+    #[serde(default)]
+    pub root_certificate_pem: Option<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -44,6 +53,7 @@ impl std::fmt::Debug for Config {
             .field("quic_bind_low_port", &self.quic_bind_low_port)
             .field("quic_migrate_after_handshake", &self.quic_migrate_after_handshake)
             .field("keepalive_interval_ms", &self.keepalive_interval_ms)
+            .field("root_certificate_pem", &self.root_certificate_pem.as_ref().map(|_| "<pinned>"))
             .finish()
     }
 }
@@ -65,6 +75,7 @@ mod tests {
             quic_bind_low_port: false,
             quic_migrate_after_handshake: true,
             keepalive_interval_ms: 15_000,
+            root_certificate_pem: None,
         }
     }
 

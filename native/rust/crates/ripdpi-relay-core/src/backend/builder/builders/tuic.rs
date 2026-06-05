@@ -26,6 +26,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 // control, but not TUIC keepalive. Keep it disabled until the
                 // Kotlin/native relay config contract adds an explicit field.
                 keepalive_interval_ms: 0,
+                root_certificate_pem: None,
             },
             migration: context.quic_migration.clone(),
         },

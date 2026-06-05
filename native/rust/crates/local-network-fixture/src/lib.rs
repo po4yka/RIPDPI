@@ -26,6 +26,7 @@ mod socks;
 mod stack;
 mod tls;
 mod trojan;
+mod tuic;
 mod types;
 mod util;
 mod vless;
@@ -43,7 +44,7 @@ pub use self::trojan::*;
 pub use self::types::*;
 // Grouped to keep the crate root within the architecture-health root-facade
 // export budget (`check_architecture_health.py` ROOT_FACADE_EXPORT_LIMIT).
-pub use self::{hysteria2::*, vless::*, webtunnel::*, xhttp::*};
+pub use self::{hysteria2::*, tuic::*, vless::*, webtunnel::*, xhttp::*};
 
 #[cfg(test)]
 mod tests {

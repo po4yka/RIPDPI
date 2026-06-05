@@ -5489,6 +5489,7 @@ dependencies = [
  "ripdpi-runtime-api",
  "ripdpi-runtime-strategy",
  "ripdpi-shadowtls",
+ "ripdpi-tuic",
  "ripdpi-vless",
  "ripdpi-webtunnel",
  "ripdpi-xhttp",
@@ -6630,6 +6631,7 @@ name = "ripdpi-tuic"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "local-network-fixture",
  "quinn",
  "rcgen",
  "rustls",

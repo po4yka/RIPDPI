@@ -305,6 +305,7 @@ fn resolved_hop_tuic_factory(
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
             keepalive_interval_ms: 0,
+            root_certificate_pem: None,
         },
         migration: quic_migration,
     })
