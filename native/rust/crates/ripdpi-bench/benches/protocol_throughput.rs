@@ -13,8 +13,19 @@
 //! Deferred, with what each needs first:
 //!   - Hysteria 2 / TUIC: a QUIC *proxy-server* loopback (the existing
 //!     `QuicLoopback` is a generic echo, not a Hysteria2/TUIC protocol server).
-//!   - MASQUE / WS-tunnel: drive `local-network-fixture`'s `masque` / `webtunnel`
-//!     fixtures through their clients (auth/bootstrap plumbing pending).
+//!   - MASQUE: the `MasqueH2ConnectUdpFixture` mints a fresh ephemeral
+//!     self-signed cert per `start()` that it never exposes, and the masque
+//!     client only relaxes TLS verification under `#[cfg(test)]` (no feature
+//!     flag, no public trust-anchor injection). An external bench crate cannot
+//!     pass the H2 TLS handshake without a non-test cert-relaxation hook on the
+//!     client or a cert getter + trust-anchor API on the fixture.
+//!   - WS-tunnel: the matching client (`ripdpi-webtunnel` — not the
+//!     Telegram/MTProto-specific `ripdpi-ws-tunnel`) returns a *synchronous*
+//!     boring `SslStream<std::net::TcpStream>` (std `Read`/`Write`, not tokio
+//!     `AsyncRead`/`AsyncWrite`), so it cannot be `tokio::io::split` into the
+//!     async `roundtrip` helper, and boring TLS is not safe to read+write
+//!     concurrently from two threads. Needs an async WebTunnel client variant
+//!     (and an async `WebTunnelFixture`) before it fits this harness.
 //!
 //! Baselines are intentionally NOT committed from a developer machine —
 //! Criterion numbers are host-dependent and a dev-box baseline would gate CI on
