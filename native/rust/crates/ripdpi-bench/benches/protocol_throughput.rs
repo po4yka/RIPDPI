@@ -15,8 +15,15 @@
 //! (TLS verification stays ON) rather than relaxing verification; the WS-tunnel
 //! case uses the async `connect_webtunnel_async` client.
 //! Deferred, with what each needs first:
-//!   - Hysteria 2 / TUIC: a QUIC *proxy-server* loopback (the existing
-//!     `QuicLoopback` is a generic echo, not a Hysteria2/TUIC protocol server).
+//!   - Hysteria 2: blocked on a client lifecycle issue, not a fixture gap. A
+//!     quinn + `h3::server` loopback auths (status 233) and accepts the raw proxy
+//!     stream, but the client closes its own QUIC connection right after auth
+//!     (h3 graceful shutdown → `H3_NO_ERROR`), racing ahead of the proxy
+//!     round-trip. See
+//!     `docs/tasks/issues/investigate-hysteria2-client-closes-quic-connection-after-auth.md`.
+//!   - TUIC: a TUIC protocol-server loopback (QUIC + TLS keying-material-export
+//!     auth + command framing). The generic `QuicLoopback` is an echo, not a
+//!     TUIC server.
 //!
 //! Baselines are intentionally NOT committed from a developer machine —
 //! Criterion numbers are host-dependent and a dev-box baseline would gate CI on

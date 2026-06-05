@@ -48,11 +48,12 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | outbound | [Add Xray provider regression matrix](issues/add-xray-provider-regression-matrix.md) | epic-xray-provider-mode |
 | medium | outbound | [Surface Xray diagnostics and telemetry](issues/surface-xray-diagnostics-and-telemetry.md) | epic-xray-provider-mode |
 
-## Todo (5)
+## Todo (6)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
 | medium | testing | [Add Criterion throughput benchmarks for each transport](issues/add-protocol-throughput-benchmarks-for-each-transport.md) | — |
+| medium | rust-native | [Investigate Hysteria2 client closing the QUIC connection after auth](issues/investigate-hysteria2-client-closes-quic-connection-after-auth.md) | — |
 | medium | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | — |
 | medium | testing | [Add VLESS mux conformance tests against xray-core](issues/add-vless-mux-conformance-tests-against-xray-core.md) | — |
 | medium | service | [Wire NaiveProxy helper probe into manager startup](issues/make-naiveproxy-helper-probe-return-structured-version-json.md) | — |
