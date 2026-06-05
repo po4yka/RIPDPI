@@ -18,7 +18,8 @@ pub use httpupgrade::{
     parse_upgrade_response,
 };
 pub use mtproto::{
-    MtprotoSeedClassification, MtprotoTransportFamily, classify_mtproto_seed, decrypt_init_packet, extract_dc_from_init,
+    MtprotoSeedClassification, MtprotoTransportFamily, classify_mtproto_seed, decrypt_init_packet,
+    extract_dc_from_init, redact_seed,
 };
 pub use transport::{EarlyData, WsTransport, WsTransportConfig, WsTransportError, build_ws_request};
 

@@ -6,13 +6,12 @@ hand-edit it; regenerate it from the issue frontmatter (see `README.md` § Regen
 
 _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`dropped` files are deleted)._
 
-## Doing (14)
+## Doing (13)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
 | critical | vpn | [Epic - Fail-closed Android VPN policy engine](issues/epic-fail-closed-android-vpn-policy-engine.md) | — |
 | critical | relay | [Epic - Remove Cloudflare from critical path](issues/epic-remove-cloudflare-from-critical-path.md) | — |
-| high | testing | [Add credential redaction tests for VLESS UUID, TUIC UUID, NaiveProxy auth](issues/add-credential-redaction-tests-for-vless-uuid-tuic-uuid-naive-auth.md) | — |
 | high | rust-native | [Add uTLS per-connection TLS-fingerprint rotation for outbound TLS handshakes](issues/add-utls-per-connection-tls-fingerprint-rotation.md) | — |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | — |
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | — |

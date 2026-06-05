@@ -6005,6 +6005,8 @@ dependencies = [
  "rustls",
  "tokio",
  "tokio-rustls",
+ "tracing",
+ "tracing-subscriber",
  "webpki-roots",
 ]
 
@@ -6618,6 +6620,7 @@ dependencies = [
  "socket2",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "uuid",
  "webpki-roots",
 ]
@@ -6842,6 +6845,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tracing",
+ "tracing-subscriber",
  "tungstenite",
 ]
 

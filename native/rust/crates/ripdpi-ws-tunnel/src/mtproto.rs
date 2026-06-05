@@ -66,6 +66,31 @@ pub enum MtprotoSeedClassification {
     UnmappableDc { raw_dc: i32, dc: Option<TelegramDc> },
 }
 
+/// Format a redacted summary of an MTProto seed / init buffer for
+/// tracing.
+///
+/// The 64-byte init buffer carries the obfuscation key (`[8..40]`) and
+/// IV (`[40..56]`); logging it in full would expose key material and a
+/// per-connection fingerprint (see
+/// `.claude/rules/network-fingerprint-privacy.md`). This helper shows
+/// only the byte length and the last 4 bytes in hex — never the key/IV
+/// region, never the full buffer. Any tracing site that needs partial
+/// visibility into the seed MUST route through this helper rather than
+/// formatting the raw slice.
+///
+/// Example output: `seed(len=64, ..=00000003)`.
+#[must_use]
+pub fn redact_seed(seed: &[u8]) -> String {
+    let len = seed.len();
+    let tail = seed.get(len.saturating_sub(4)..).unwrap_or(seed);
+    let mut hex = String::with_capacity(tail.len() * 2);
+    for byte in tail {
+        use std::fmt::Write;
+        let _ = write!(hex, "{byte:02x}");
+    }
+    format!("seed(len={len}, ..={hex})")
+}
+
 pub fn decrypt_init_packet(init: &[u8; 64]) -> [u8; 64] {
     let key = &init[8..40];
     let iv = &init[40..56];
@@ -265,6 +290,77 @@ mod tests {
         for tag in [[0xaa; 4], [0x00; 4], [0xff; 4], [0xde, 0xad, 0xbe, 0xef]] {
             assert_eq!(MtprotoTransportFamily::from_tag_bytes(&tag), None, "unexpected accept for {tag:?}");
         }
+    }
+
+    #[test]
+    fn redact_seed_never_exposes_full_buffer() {
+        // A 64-byte init buffer with distinct, recognisable bytes so a
+        // leak of the key/IV region would be unmistakable in the output.
+        let mut seed = [0u8; 64];
+        for (i, byte) in seed.iter_mut().enumerate() {
+            *byte = i as u8;
+        }
+
+        let full_hex: String = seed.iter().map(|b| format!("{b:02x}")).collect();
+        let redacted = redact_seed(&seed);
+
+        // The full 128-char hex run must never appear in the redacted form.
+        assert!(!redacted.contains(&full_hex), "redact_seed leaked the full buffer: {redacted}");
+        // The key region (bytes [8..40]) must not appear as a hex run.
+        let key_hex: String = seed[8..40].iter().map(|b| format!("{b:02x}")).collect();
+        assert!(!redacted.contains(&key_hex), "redact_seed leaked the obfuscation key: {redacted}");
+        // It does carry the length and the last 4 bytes for triage.
+        assert!(redacted.contains("len=64"), "redact_seed should report the length: {redacted}");
+        assert!(redacted.contains("3c3d3e3f"), "redact_seed should show the last 4 bytes: {redacted}");
+    }
+
+    #[test]
+    fn tracing_event_with_redacted_seed_does_not_echo_full_buffer() {
+        use std::fmt;
+        use std::sync::{Arc, Mutex};
+
+        use tracing::{Event, Subscriber};
+        use tracing_subscriber::Registry;
+        use tracing_subscriber::layer::{Context, Layer, SubscriberExt};
+
+        struct CaptureLayer(Arc<Mutex<Vec<String>>>);
+
+        impl<S: Subscriber> Layer<S> for CaptureLayer {
+            fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
+                struct Visitor<'a>(&'a mut String);
+                impl<'a> tracing::field::Visit for Visitor<'a> {
+                    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn fmt::Debug) {
+                        use fmt::Write;
+                        let _ = write!(self.0, " {}={:?}", field.name(), value);
+                    }
+                    fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
+                        use fmt::Write;
+                        let _ = write!(self.0, " {}={}", field.name(), value);
+                    }
+                }
+                let mut rendered = String::new();
+                event.record(&mut Visitor(&mut rendered));
+                self.0.lock().expect("capture mutex").push(rendered);
+            }
+        }
+
+        let mut seed = [0u8; 64];
+        for (i, byte) in seed.iter_mut().enumerate() {
+            *byte = i as u8;
+        }
+        let full_hex: String = seed.iter().map(|b| format!("{b:02x}")).collect();
+
+        let captured = Arc::new(Mutex::new(Vec::<String>::new()));
+        let subscriber = Registry::default().with(CaptureLayer(Arc::clone(&captured)));
+        tracing::subscriber::with_default(subscriber, || {
+            // The canonical way a seed-aware tracing site MUST log: via
+            // redact_seed, never the raw buffer.
+            tracing::debug!(seed = %redact_seed(&seed), "WS tunnel seed framed");
+        });
+
+        let joined = captured.lock().expect("capture mutex").join("\n");
+        assert!(!joined.contains(&full_hex), "tracing event leaked the full seed: {joined}");
+        assert!(joined.contains("len=64"), "tracing event should carry the redacted summary: {joined}");
     }
 
     #[test]
