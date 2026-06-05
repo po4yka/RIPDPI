@@ -29,6 +29,7 @@ mod types;
 mod util;
 mod vless;
 mod webtunnel;
+mod xhttp;
 
 pub use self::anytls::*;
 pub use self::event::*;
@@ -41,7 +42,7 @@ pub use self::trojan::*;
 pub use self::types::*;
 // Grouped to keep the crate root within the architecture-health root-facade
 // export budget (`check_architecture_health.py` ROOT_FACADE_EXPORT_LIMIT).
-pub use self::{vless::*, webtunnel::*};
+pub use self::{vless::*, webtunnel::*, xhttp::*};
 
 #[cfg(test)]
 mod tests {
