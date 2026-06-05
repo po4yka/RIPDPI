@@ -62,7 +62,7 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | — |
 | low | testing | [Add ShadowTLS loopback test server for soak runs](issues/add-shadowtls-loopback-test-server-for-soak-runs.md) | — |
 
-## Backlog (24)
+## Backlog (23)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -72,7 +72,6 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | — |
 | medium | rust-native | [Add Cloudflare Workers domain-fronting bypass adapter](issues/add-cloudflare-workers-domain-fronting-bypass.md) | — |
 | medium | rust-native | [Add constant-rate traffic shaping with VoIP camouflage profile](issues/add-constant-rate-traffic-shaping-voip-camouflage.md) | — |
-| medium | ui | [Review landed fa de es fr translations and finish Arabic RTL coverage](issues/add-fa-ar-de-es-fr-translations-and-rtl-screenshot-tests.md) | epic-localization-expansion |
 | medium | rust-native | [Validate H3-to-H2 MASQUE fallback telemetry sufficiency](issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md) | — |
 | medium | routing | [Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS](issues/adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion.md) | — |
 | medium | routing | [Adopt process-based per-package routing via Xray TUN routeOnly](issues/adopt-process-based-per-package-routing-via-xray-tun-routeonly.md) | — |

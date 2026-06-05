@@ -1,0 +1,44 @@
+# .github/workflows/i18n-locale-drift.yml
+#
+# Weekly (and on-demand) gate: diffs every locale strings.xml against the
+# source strings and fails if any locale is missing keys vs. the source.
+#
+# Complements i18n-export.yml (which checks the translatable-key manifest is
+# in sync with source) by checking that the locale files themselves are in
+# parity with the source.
+
+name: i18n locale parity
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # Every Monday at 06:00 UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app/src/main/res/values/strings.xml"
+      - "app/src/main/res/values-*/strings.xml"
+      - "core/service/src/main/res/values/strings.xml"
+      - "core/service/src/main/res/values-*/strings.xml"
+      - "scripts/ci/check-locale-parity.sh"
+      - ".github/workflows/i18n-locale-drift.yml"
+  pull_request:
+    paths:
+      - "app/src/main/res/values/strings.xml"
+      - "app/src/main/res/values-*/strings.xml"
+      - "core/service/src/main/res/values/strings.xml"
+      - "core/service/src/main/res/values-*/strings.xml"
+      - "scripts/ci/check-locale-parity.sh"
+      - ".github/workflows/i18n-locale-drift.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  locale-parity:
+    name: Assert all locale files are in parity with source strings
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check locale parity
+        run: scripts/ci/check-locale-parity.sh
