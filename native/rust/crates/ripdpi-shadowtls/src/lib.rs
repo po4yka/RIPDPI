@@ -5,12 +5,18 @@ mod config;
 mod frames;
 mod handshake;
 mod hmac;
+#[cfg(any(test, feature = "test-server"))]
+mod loopback;
 mod stream;
 #[cfg(test)]
 mod tests;
 
 pub use client::ShadowTlsClient;
 pub use config::Config;
+/// Dev-only loopback test server (enabled by the `test-server` feature). Never
+/// part of the production relay path.
+#[cfg(feature = "test-server")]
+pub use loopback::ShadowTlsLoopback;
 pub use stream::ShadowTlsStream;
 
 /// Coarse classification of a failed ShadowTLS handshake payload.

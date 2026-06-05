@@ -20,6 +20,17 @@ ShadowTLS servers.
 No privileged operations — runs fully on non-rooted devices. See
 [`ROOT_HELPER_CONTRACT.md`](../../../../docs/architecture/ROOT_HELPER_CONTRACT.md).
 
+## Test server (`test-server` feature)
+
+The `test-server` feature compiles `ShadowTlsLoopback` (`src/loopback.rs`): an
+in-process loopback server that completes the v3 handshake with this crate's
+client and HMAC-echoes application data, for soak and round-trip tests. It is a
+**dev/test fixture, NOT a production ShadowTLS server implementation** — it emits
+a self-signed cover ServerHello and does not proxy to a real cover host. Never
+enable `test-server` in a release build. The back-to-back-handshake soak case is
+`#[ignore]` by default; run it with
+`cargo nextest run -p ripdpi-shadowtls --run-ignored all`.
+
 ## Extension checklist
 
 1. Add ShadowTLS features behind the existing frame/handshake types.

@@ -12,5 +12,18 @@ serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["io-util", "net"] }
 webpki-roots.workspace = true
 
+[features]
+# Compiles the dev-only `ShadowTlsLoopback` test server (see src/loopback.rs).
+# Never enabled in production builds; pulls in rcgen for a self-signed cover cert.
+test-server = ["dep:rcgen", "tokio/rt", "tokio/macros", "tokio/sync"]
+
+[dependencies.rcgen]
+workspace = true
+optional = true
+
+[dev-dependencies]
+rcgen = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
+
 [lints]
 workspace = true
