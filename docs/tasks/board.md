@@ -60,7 +60,7 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | — |
 | low | testing | [Add ShadowTLS loopback test server for soak runs](issues/add-shadowtls-loopback-test-server-for-soak-runs.md) | — |
 
-## Backlog (23)
+## Backlog (22)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -75,7 +75,6 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | routing | [Adopt process-based per-package routing via Xray TUN routeOnly](issues/adopt-process-based-per-package-routing-via-xray-tun-routeonly.md) | — |
 | medium | rust-native | [Adopt tls_spoof pre-handshake ClientHello SNI desync for whitelist bypass](issues/adopt-tls-spoof-prehandshake-clienthello-sni-desync.md) | — |
 | medium | testing | [Audit VLESS chained connect_over relay end-to-end test coverage](issues/audit-vless-chained-connect-over-relay-end-to-end-tests.md) | — |
-| medium | ci | [CI: build ripdpi-diagnostics-probes with both compat-facade on and off](issues/ci-build-ripdpi-diagnostics-probes-with-both-compat-facade-on-and-off.md) | — |
 | medium | transport | [Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | — |
 | medium | testing | [Spike CensorLab as offline censor-replay harness](issues/spike-censorlab-as-offline-censor-replay-harness.md) | epic-orchestration-test-posture |
 | medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | — |
