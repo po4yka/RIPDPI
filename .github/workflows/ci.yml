@@ -46,6 +46,11 @@ on:
         required: false
         default: false
         type: boolean
+      capture_criterion_baseline:
+        description: Capture a fresh Rust criterion baseline (uploads a candidate JSON artifact for human review + PR commit)
+        required: false
+        default: false
+        type: boolean
       run_android_macrobenchmark:
         description: Run Android macrobenchmark suite
         required: false
@@ -971,6 +976,7 @@ jobs:
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.run_rust_criterion_bench == 'true') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.capture_criterion_baseline == 'true') ||
       (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-bench'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -1000,9 +1006,12 @@ jobs:
       - name: Run criterion benchmarks
         run: |
           cd native/rust
-          cargo bench --package ripdpi-bench 2>&1 | tee "$RUNNER_TEMP/criterion-output.txt"
+          cargo bench --locked --package ripdpi-bench 2>&1 | tee "$RUNNER_TEMP/criterion-output.txt"
 
-      - name: Check for regressions
+      # Advisory on PRs / manual dispatch: heterogeneous hardware should not hard-fail
+      # on throughput noise, so warn only (full suite, baseline 10% threshold).
+      - name: Check for regressions (advisory)
+        if: github.event_name != 'schedule' && github.event.inputs.capture_criterion_baseline != 'true'
         run: |
           python3 scripts/ci/check-criterion-regressions.py \
             --criterion-dir native/rust/target/criterion \
@@ -1010,6 +1019,49 @@ jobs:
             --warn-only \
             --markdown-output "$RUNNER_TEMP/criterion-summary.md"
           cat "$RUNNER_TEMP/criterion-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      # Enforced on the nightly reference runner only: a >20% mean regression in any
+      # protocol-throughput transport fails the lane (DoD). Scoped to
+      # protocol-throughput/* so the noisier microbenches can't flap the gate; the
+      # 20% threshold tolerates shared-runner noise while catching the 25% DoD target.
+      # Until a reference-runner baseline lands the 7 protocol-throughput/* keys, this
+      # is a safe no-op (missing keys -> "new benchmark" warning -> exit 0).
+      - name: Check for regressions (enforced, nightly)
+        if: github.event_name == 'schedule'
+        run: |
+          python3 scripts/ci/check-criterion-regressions.py \
+            --criterion-dir native/rust/target/criterion \
+            --baseline scripts/ci/rust-bench-baseline.json \
+            --only-prefix 'protocol-throughput/' \
+            --max-regression-percent 20 \
+            --markdown-output "$RUNNER_TEMP/criterion-summary.md"
+          cat "$RUNNER_TEMP/criterion-summary.md" >> "$GITHUB_STEP_SUMMARY"
+
+      # Manual capture of a fresh reference-runner baseline. Dumps the FULL result set
+      # (all benches, not just protocol-throughput) and uploads it as a candidate
+      # artifact for a human to review and commit to scripts/ci/rust-bench-baseline.json
+      # via a normal reviewed PR -- never auto-committed (see golden-bless-discipline.md).
+      - name: Capture criterion baseline candidate
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.capture_criterion_baseline == 'true'
+        run: |
+          python3 scripts/ci/check-criterion-regressions.py \
+            --criterion-dir native/rust/target/criterion \
+            --dump-current \
+            > "$RUNNER_TEMP/rust-bench-baseline.json"
+          {
+            echo "## Captured criterion baseline candidate"
+            echo ""
+            echo "Download the \`rust-bench-baseline-candidate\` artifact and commit it to"
+            echo "\`scripts/ci/rust-bench-baseline.json\` via a reviewed PR to arm the nightly lane."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload criterion baseline candidate
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.capture_criterion_baseline == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rust-bench-baseline-candidate
+          path: ${{ runner.temp }}/rust-bench-baseline.json
+          retention-days: 14
 
       - name: Save criterion baseline (main only)
         if: github.ref == 'refs/heads/main'

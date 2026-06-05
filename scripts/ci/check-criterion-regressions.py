@@ -38,6 +38,21 @@ def discover_benchmarks(criterion_dir: Path) -> dict[str, dict[str, float]]:
     return results
 
 
+def filter_by_prefix(
+    benchmarks: dict[str, dict[str, float]],
+    prefixes: list[str],
+) -> dict[str, dict[str, float]]:
+    """Keep only benchmarks whose name starts with one of ``prefixes``.
+
+    Used by the enforcing nightly lane to gate a specific bench family (e.g.
+    ``protocol-throughput/``) without letting unrelated, noisier microbenches
+    flap the gate. An empty ``prefixes`` list is a no-op (keep everything).
+    """
+    if not prefixes:
+        return benchmarks
+    return {name: values for name, values in benchmarks.items() if any(name.startswith(p) for p in prefixes)}
+
+
 def build_baseline_payload(
     current: dict[str, dict[str, float]],
     max_regression_percent: float,
@@ -186,6 +201,17 @@ def main() -> int:
         default=None,
         help="Override the baseline's maxRegressionPercent threshold.",
     )
+    parser.add_argument(
+        "--only-prefix",
+        action="append",
+        default=[],
+        metavar="PREFIX",
+        help=(
+            "Restrict the comparison to benchmarks whose name starts with PREFIX "
+            "(repeatable). Does not affect --dump-current, which always captures "
+            "the full result set."
+        ),
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -211,6 +237,9 @@ def main() -> int:
         return 0
 
     baseline = read_json(baseline_path)
+    if args.only_prefix:
+        current = filter_by_prefix(current, args.only_prefix)
+        baseline["benchmarks"] = filter_by_prefix(baseline.get("benchmarks", {}), args.only_prefix)
     threshold = args.max_regression_percent if args.max_regression_percent is not None else baseline["maxRegressionPercent"]
     regressions, improvements, warnings = compare(current, baseline, args.max_regression_percent)
 

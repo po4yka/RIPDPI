@@ -18,9 +18,10 @@ Run focused benchmarks from the native workspace with `cargo bench -p ripdpi-ben
 `benches/protocol_throughput.rs` measures steady-state 1 MiB full-duplex
 throughput of each transport's data path by driving the real protocol client
 against its in-process loopback server fixture (handshake established once,
-outside the timed loop). Covered today: VLESS+Reality,
-VLESS-over-xHTTP-over-Reality, and ShadowTLS v3. See the bench module doc for the
-deferred transports and why.
+outside the timed loop). Covers all 7 transports: VLESS+Reality,
+VLESS-over-xHTTP-over-Reality, ShadowTLS v3, MASQUE (H2 CONNECT-TCP), WS-tunnel
+(WebTunnel), Hysteria 2, and TUIC v5. See the bench module doc for the
+per-transport fixture notes.
 
 Run just this bench:
 
@@ -28,16 +29,35 @@ Run just this bench:
 cargo bench -p ripdpi-bench --bench protocol_throughput
 ```
 
-### Baselines
+### Baselines and the regression lane
+
+The committed baseline is `scripts/ci/rust-bench-baseline.json` (one entry per
+Criterion key, e.g. `protocol-throughput/tuic_1MiB`, with `mean_ns` / `median_ns`
+and a `maxRegressionPercent`). `scripts/ci/check-criterion-regressions.py`
+discovers `native/rust/target/criterion/**/new/estimates.json` and compares mean
+against that baseline.
 
 Baselines are **not committed from developer machines** — Criterion throughput is
-host-dependent, and a dev-box baseline would gate CI on hardware noise. The
-`regression-detector` baseline must be captured on the CI reference runner:
+host-dependent, so a dev-box baseline would gate CI on hardware noise. They are
+captured on the CI reference runner. Wiring (in the `rust-criterion-bench` job of
+`.github/workflows/ci.yml`, which runs on the nightly `schedule`):
 
-1. On the reference runner, run the bench to completion (full sample size, no
-   `--measurement-time` override).
-2. Save Criterion's `target/criterion/**/new/estimates.json` for each case as the
-   committed baseline under `native/rust/crates/ripdpi-bench/baselines/`.
-3. Wire `regression-detector` to compare against those committed numbers in the
-   nightly lane (flip `check-criterion-regressions.py` off `--warn-only` only once
-   the reference baseline exists).
+- **Nightly (`schedule`) — enforced:** runs the bench and fails the lane on a
+  `>20%` mean regression in any `protocol-throughput/*` transport
+  (`--only-prefix 'protocol-throughput/' --max-regression-percent 20`, no
+  `--warn-only`). The 20% gate tolerates shared-runner noise while still catching
+  the 25% definition-of-done slowdown. Until the baseline holds the 7
+  `protocol-throughput/*` keys this is a safe no-op (missing key → warning → pass).
+- **PRs / manual dispatch — advisory:** full suite with `--warn-only` (early
+  warnings, never a hard fail on heterogeneous PR hardware).
+
+To (re)capture the reference baseline:
+
+1. Run the **CI** workflow manually: Actions → CI → *Run workflow* with
+   `capture_criterion_baseline = true`. It runs the full bench on the reference
+   runner and uploads a `rust-bench-baseline-candidate` artifact (full
+   `--dump-current` result set).
+2. Download the artifact, review the numbers, and commit it to
+   `scripts/ci/rust-bench-baseline.json` via a normal reviewed PR. Baselines are
+   never auto-committed (see `.claude/rules/golden-bless-discipline.md` by
+   analogy). Merging that PR arms the nightly enforced lane.

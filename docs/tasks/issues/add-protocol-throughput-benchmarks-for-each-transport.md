@@ -27,12 +27,17 @@ Wire one Criterion benchmark per transport (VLESS, xHTTP, MASQUE, Hysteria 2, TU
   - WS-tunnel was unblocked by adding an async client `connect_webtunnel_async` to `ripdpi-webtunnel`, since the sync `connect_webtunnel` returns a `std`-I/O boring `SslStream` that cannot feed the async harness.
   - Hysteria2 was unblocked by fixing the client to keep its h3 `SendRequest` alive past auth (it was closing the shared QUIC connection on `SendRequest` drop) and adding `Hysteria2Loopback` (quinn + `h3::server` auth + raw proxy streams).
   - TUIC got its own protocol-server loopback `TuicLoopback` (QUIC ALPN `h3` + drains the keying-material-export auth uni-stream + parses the Connect command framing and echoes) — the generic `QuicLoopback` is an echo, not a TUIC server. Each pinned-cert transport has a `loopback_e2e.rs` regression test (positive round-trip + negative wrong-cert verification).
-- [ ] Baselines committed under `native/rust/crates/ripdpi-bench/baselines/`. **Deliberately not done from a dev box**: Criterion numbers are host-dependent, so a dev-machine baseline would gate CI on noise. The baseline must be captured on the CI reference runner; capture procedure documented in the crate README.
-- [ ] `regression-detector` agent is wired into a nightly CI lane. **Pending the reference-runner baseline above.**
+- [~] Baselines committed in `scripts/ci/rust-bench-baseline.json` (the canonical path — NOT `native/rust/crates/ripdpi-bench/baselines/`, which never existed; that path in the original criterion was a doc error, now corrected here and in the crate README). **Capture mechanism wired; the 7 `protocol-throughput/*` numbers pending one CI run.** Criterion throughput is host-dependent, so numbers are captured on the CI reference runner, not a dev box. To capture: run the `CI` workflow (`workflow_dispatch`) with `capture_criterion_baseline = true` → the `rust-criterion-bench` job runs the full bench and uploads a `rust-bench-baseline-candidate` artifact (full `--dump-current`); a human reviews it and commits it to `scripts/ci/rust-bench-baseline.json` via a normal reviewed PR (never auto-committed — `golden-bless-discipline.md` by analogy).
+- [~] `regression-detector` wired into the nightly CI lane. The existing `rust-criterion-bench` job (`.github/workflows/ci.yml`, nightly `schedule` cron `0 3 * * *`) now **enforces** on schedule runs (`--only-prefix 'protocol-throughput/' --max-regression-percent 20`, no `--warn-only`) while PR/dispatch runs stay advisory (`--warn-only`, full suite). The enforced lane is a safe no-op until the committed baseline holds the `protocol-throughput/*` keys, then auto-arms. **Unblocks together with criterion 2** (needs the captured baseline committed). `--only-prefix` was added to `check-criterion-regressions.py` so the gate covers exactly the DoD scope and the noisier microbenches can't flap it; the 20% threshold tolerates shared-runner noise while catching the 25% DoD slowdown.
 
 ## Definition of done
 
 - A deliberate 25% slowdown in any one transport fails the regression-detector lane.
+  - **Mechanism verified locally**: against a populated baseline, injecting +25% on a
+    `protocol-throughput/*` key with `--only-prefix 'protocol-throughput/'
+    --max-regression-percent 20` yields a `REGRESSION` and exit 1; the unperturbed
+    control and the not-yet-populated real baseline both exit 0. The lane is fully
+    armed once the reference-runner baseline (criterion 2) commits the 7 keys.
 
 ## Links
 
