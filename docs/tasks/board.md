@@ -6,7 +6,7 @@ hand-edit it; regenerate it from the issue frontmatter (see `README.md` § Regen
 
 _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`dropped` files are deleted)._
 
-## Doing (13)
+## Doing (14)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -15,6 +15,7 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | high | rust-native | [Add uTLS per-connection TLS-fingerprint rotation for outbound TLS handshakes](issues/add-utls-per-connection-tls-fingerprint-rotation.md) | — |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | — |
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | — |
+| high | transport | [Enforce per-exit-IP concurrent-TLS-connection cap (~12, RU home-ISP policing)](issues/enforce-per-exit-ip-concurrent-tls-cap.md) | — |
 | medium | outbound | [Finish AnyTLS profile editor and compatibility gaps](issues/add-anytls-outbound-client-crate-and-profile-editor.md) | epic-extended-outbound-protocol-support |
 | medium | outbound | [Add Mieru outbound client crate and profile editor](issues/add-mieru-outbound-client-crate-and-profile-editor.md) | epic-extended-outbound-protocol-support |
 | medium | testing | [Add port-hopping window soak test for Hysteria 2](issues/add-port-hopping-window-soak-test-for-hysteria2.md) | — |
@@ -60,13 +61,12 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | — |
 | low | testing | [Add ShadowTLS loopback test server for soak runs](issues/add-shadowtls-loopback-test-server-for-soak-runs.md) | — |
 
-## Backlog (22)
+## Backlog (21)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
 | high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | epic-fail-closed-android-vpn-policy-engine |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | — |
-| high | transport | [Enforce per-exit-IP concurrent-TLS-connection cap (~12, RU home-ISP policing)](issues/enforce-per-exit-ip-concurrent-tls-cap.md) | — |
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | — |
 | medium | rust-native | [Add Cloudflare Workers domain-fronting bypass adapter](issues/add-cloudflare-workers-domain-fronting-bypass.md) | — |
 | medium | rust-native | [Add constant-rate traffic shaping with VoIP camouflage profile](issues/add-constant-rate-traffic-shaping-voip-camouflage.md) | — |

@@ -9,9 +9,11 @@
 
 mod sync;
 
+mod exit_ip_cap;
 mod process;
 mod runtime;
 
+pub use exit_ip_cap::{DEFAULT_EXIT_IP_SESSION_CAP, ExitIpSessionCaps, ExitIpSessionGuard, ExitIpSessionLimiter};
 pub use process::{ProcessGuard, ProcessSettings, prepare_embedded, process_settings};
 pub use runtime::{
     RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, create_listener, load_geo_database_versions, load_geoip_metadata,
