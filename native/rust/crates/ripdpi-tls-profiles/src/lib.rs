@@ -37,7 +37,10 @@ pub use record_choreography::{
     RecordChoreography, TlsTemplateFirstFlightPlan, apply_record_choreography, plan_first_flight,
     planned_record_payload_boundaries, planned_record_payload_lengths, selected_record_choreography,
 };
-pub use rotation::{select_profile_for_connection, select_rotated_profile, select_rotated_profile_with_set};
+pub use rotation::{
+    RotatingProfileSelector, fingerprint_rotation_count, select_profile_for_connection, select_rotated_profile,
+    select_rotated_profile_with_set,
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
