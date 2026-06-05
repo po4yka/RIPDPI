@@ -49,3 +49,4 @@ Mieru uses a custom UDP-based protocol with replay resistance; the Go reference 
 ## Work log
 
 - 2026-06-05: crate scaffold exists at native/rust/crates/ripdpi-mieru/ with config, validation, and password-redacted Debug; MieruProfileScreen and mieru:// URI codec are complete; actual UDP/TCP session handshake and replay protection remain stubbed returning MieruError::Unimplemented — the 3 protocol-level criteria are unmet.
+- 2026-06-05: audit — verified against source. Criteria 4/6/7 confirmed [x]: `MieruProfileScreen.kt` validates all fields, `native/rust/crates/ripdpi-mieru/src/config.rs:125` redacts password in `Debug`, `ProxyUriCodec.kt` dispatches `"mieru"` to `parseMieru()` and `ProxyProfileUriEncoder.kt` emits `encodeMieru()`. Criteria 1/2/3/5 remain [ ]: `client.rs::connect()` and `tcp_connect()` both return `MieruError::Unimplemented`; no reference handshake test vectors present; replay clock TODO is in the stub comment only. Status stays `doing`.

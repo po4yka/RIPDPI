@@ -50,11 +50,11 @@ New cross-cutting hardening epic derived from the client-problem analysis. It co
 
 ## Milestones
 
-- [ ] Internal VPN profile is a typed policy bundle, not only imported URI strings.
-- [ ] Secure default captures full-device traffic with DNS interception and explicit IPv4-only policy.
-- [ ] Lockdown onboarding clearly distinguishes Android system kill switch from soft reconnect.
-- [ ] Core crash, network switch, and VPN revoke paths fail closed in tests.
-- [ ] Logs, diagnostics, crash exports, QR/import, and subscription refreshes redact live credentials.
+- [x] Internal VPN profile is a typed policy bundle, not only imported URI strings.
+- [x] Secure default captures full-device traffic with DNS interception and explicit IPv4-only policy.
+- [x] Lockdown onboarding clearly distinguishes Android system kill switch from soft reconnect.
+- [x] Core crash, network switch, and VPN revoke paths fail closed in tests.
+- [x] Logs, diagnostics, crash exports, QR/import, and subscription refreshes redact live credentials.
 
 ## Risks
 
@@ -69,6 +69,7 @@ This epic intentionally removes an entire class of client problems rather than m
 ## Work log
 
 - 2026-06-05: NOT done — deletion refuted. The 5 milestones are largely implemented in live code (DeviceProfile.kt/SplitStrictDnsPolicy.kt typed bundle; DnsInterceptorDispatcher.kt full-device DNS interception; AndroidHardKillSwitchState.kt + HardKillSwitchUiState.kt lockdown UX; LifecycleRegressionMatrixTest.kt/DnsLeakMatrixTest.kt fail-closed tests; DiagnosticsRedactor.kt + DiagnosticsBundleRedactionTest.kt redaction). BUT the `## Child work` list above is stale: two later-added children parented to this epic remain open in backlog — `add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md` (status: backlog, all acceptance criteria unmet per its 2026-06-05 work log; no UID enforcement at the tun2socks layer) and `spike-fakeip-mode-compatibility-on-android.md` (status: backlog). Epic stays open until those close.
+- 2026-06-05: Epic audit (child rollup). Re-verified all 5 milestones against live source and marked them [x]: typed bundle (core/data/model/.../DeviceProfile.kt, core/service/.../SplitStrictDnsPolicy.kt), full-device DNS interception (core/service/.../DnsInterceptorDispatcher.kt), kill-switch UX (core/service/.../AndroidHardKillSwitchState.kt + app/.../HardKillSwitchUiState.kt), fail-closed tests (core/service/src/test/.../lifecycle/LifecycleRegressionMatrixTest.kt + leak/DnsLeakMatrixTest.kt), redaction (core/service/.../keystore/ProfileDiagnosticsRedactor.kt + src/test/.../redaction/DiagnosticsBundleRedactionTest.kt; keystore encryption via EncryptedProfileStore.kt/KeystoreKeyManager.kt). Both tracked children remain `backlog` per their freshly-audited 2026-06-05 logs (no `UidFlowPolicy` in native/rust/crates; no FakeIP implementation anywhere). Status stays `doing` (not `done`): milestones met but two children open. `updated: 2026-06-05`.
 
 ## Links
 

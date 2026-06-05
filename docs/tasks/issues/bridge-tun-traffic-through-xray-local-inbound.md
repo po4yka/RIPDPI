@@ -1,7 +1,7 @@
 ---
 title: Bridge TUN traffic through Xray local inbound
 type: task
-status: blocked
+status: doing
 area: outbound
 priority: high
 owner: unassigned
@@ -49,6 +49,7 @@ Keep the direct `SetTunFd` path as an explicit follow-up decision, not an accide
 ## Work log
 
 - 2026-06-05: All 4 orchestration criteria verified in source (XrayTunnelHandoff, XrayProviderOrchestrator, XrayProtectFdContractTest, XrayDnsLoopRegressionTest, XrayProviderOrchestratorTest, XrayServiceLifecycleMatrixTest all exist in core/engine-api); smoke criterion remains open — docs/contributor/xray-tun-bridge-smoke.md documents the manual lane but CI cannot run it without gomobile/libXray + NDK29 + live server.
+- 2026-06-05: Re-audit confirms source evidence for criteria 1–4: XrayTunnelHandoff.kt (152 lines) and XrayProviderOrchestrator.kt (263 lines) in core/engine-api/src/main; protect-first ordering confirmed in RipDpiXrayRuntime.kt (line 83–84: bridge.registerProtect before Xray opens sockets); all 5 test files present in core/engine-api/src/test. Status changed from `blocked` to `doing` — `blocked_by` was empty, the constraint is a CI/device gap, not a sibling-task dependency; `doing` matches 4/5 criteria verified and one remaining.
 
 ## Links
 

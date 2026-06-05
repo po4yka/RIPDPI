@@ -1,7 +1,7 @@
 ---
 title: Epic - Localization expansion
 type: epic
-status: doing
+status: review
 area: epic
 priority: medium
 owner: unassigned
@@ -37,7 +37,7 @@ Most of the actual bypass-client user base outside Russia includes Persian-, Chi
 
 - [x] Translation pipeline is documented in `docs/`; a new contributor can open a PR with a new locale by following README steps only.
 - [x] Registered non-English locales (`values-ru`, `values-es`, `values-de`, `values-fr`, `values-fa`, `values-zh-rCN`) stay complete against `values/`; `values-ar` exists and covers ≥95% of source strings if Arabic remains in scope.
-- [ ] RTL layout renders correctly in fa, and in ar if Arabic lands (screenshot tests under Roborazzi cover the main screens in each).
+- [x] RTL layout renders correctly in fa, and in ar if Arabic lands (screenshot tests under Roborazzi cover the main screens in each).
 - [x] `translatable="false"` is set on strings that must not be translated (protocol names, internal keys).
 - [x] A CI check fails the build if a new source string is added without being picked up by the pipeline export.
 
@@ -61,6 +61,7 @@ Most of the actual bypass-client user base outside Russia includes Persian-, Chi
 ## Work log
 
 - 2026-06-05: Pipeline docs (docs/localization.md) complete; values-ar exists with 100% translatable strings (41 missing are all translatable="false"); i18n-export.yml CI gate live; translatable="false" audit done (41 strings). Remaining: RtlVariantGalleryTest is @Ignored — RTL Roborazzi goldens not yet blessed for fa/ar main screens.
+- 2026-06-05 (audit): Status doing -> review. RTL criterion flipped [ ] -> [x] on source evidence the prior note missed: ArabicLocaleScreenshotTest.kt and PersianLocaleScreenshotTest.kt are NOT @Ignored, each covers all 5 main screens (Home/Config/Diagnostics/Settings/Onboarding) with MaybeRtl(rtl=true) under qualifiers ar-rSA / fa-rIR, and 10 blessed goldens are git-tracked under app/src/test/screenshots/ (ArabicLocaleScreenshotTest.* + PersianLocaleScreenshotTest.*). The @Ignored RtlVariantGalleryTest is only an infrastructure smoke test, not the locale coverage. All 5 Ship-definition criteria now verified: docs/localization.md (pipeline), values-ar 3043/3043 translatable strings (3084 total - 41 translatable="false"), RTL goldens, 41 translatable="false" entries, i18n-export.yml gate. Not done because the single extant child (add-zh-cn-translation-and-initial-human-review) is at review (4/5; HardcodedText lint rule absent from lint.xml) and the two other wikilinked children (pipeline-setup, fa-ar-de-es-fr) have no task files.
 
 ## Links
 

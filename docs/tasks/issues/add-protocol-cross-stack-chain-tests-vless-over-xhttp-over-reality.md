@@ -1,7 +1,7 @@
 ---
 title: Add cross-stack chain tests (VLESS over xHTTP over Reality)
 type: task
-status: backlog
+status: doing
 area: testing
 priority: low
 owner: unassigned
@@ -41,3 +41,4 @@ Per-crate tests do not catch interaction bugs between transport layers: an xHTTP
 
 - 2026-06-05: no cross-stack tests exist; ripdpi-vless/tests/ has only manuallydrop_canary.rs and ripdpi-xhttp/src/tests.rs has per-crate unit tests only; all three acceptance criteria unmet, work not started
 - 2026-06-05: added `XhttpRealityLoopback` to `local-network-fixture` (boring Reality `SslAcceptor` + hyper HTTP/2 server speaking the xray-core stream-up wire shape: GET `/<path>/<sid>` download body + POST upload body correlated by path, VLESS handshake carried in the H2 bodies, proxy to an embedded echo). Added `cross_stack_vless_over_xhttp_over_reality_single_stream` driving the real `vless_reality` xHTTP backend end to end — closes the single-stream criterion. The mux criterion remains blocked: VLESS wire-mux is not implemented in the datapath (only `VlessMuxConfig` parsing exists), so it needs the yamux/sing-mux feature landed first (tracked alongside [[add-vless-mux-conformance-tests-against-xray-core]]).
+- 2026-06-05: source-verified all criteria. `cross_stack_vless_over_xhttp_over_reality_single_stream` confirmed at `ripdpi-relay-core/src/tests.rs:596`, uses `XhttpRealityLoopback` from `local-network-fixture/src/xhttp.rs`, asserts bidirectional payload integrity (two `assert_eq!` round-trips); runs via `cargo nextest run --workspace` in `scripts/ci/run-rust-workspace-tests.sh`. Mux criterion confirmed blocked: `VlessMuxConfig` is referenced only in `ripdpi-vless/src/{mux,config,lib}.rs` — no relay backend or datapath wiring found. Status upgraded from `backlog` to `doing` (criteria 1/3/4 [x], criterion 2 blocked).

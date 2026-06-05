@@ -42,6 +42,7 @@ MT pre-translation is acceptable as a starting point for the translator to work 
 ## Work log
 
 - 2026-06-05: Sign-off documented in docs/localization-provenance.md (Nikita Pochaev, 2026-05-30); zh-CN Roborazzi tests exist for all 5 screens (SimplifiedChineseLocaleScreenshotTest.kt); glossary in docs/localization-glossary.md. Remaining: HardcodedText lint rule not present in lint.xml — manual audit + lint enforcement for hardcoded strings still needed.
+- 2026-06-05 (audit): Source-verified all criteria. Criterion 1: values-zh-rCN/strings.xml exists; 41 apparent missing keys are all translatable="false" in values/strings.xml, so zero translatable keys are absent. Criterion 2: provenance ledger at docs/localization-provenance.md records Nikita Pochaev review on 2026-05-30 for zh-CN row. Criterion 3: SimplifiedChineseLocaleScreenshotTest.kt covers all 5 required screens with @Config(qualifiers = "zh-rCN"). Criterion 4: no HardcodedText severity entry found in any lint.xml — [ ] is correct. Criterion 5: docs/localization-glossary.md contains zh-CN column with canonical term mappings. Status remains review (4/5 criteria done; criterion 4 unresolved).
 
 ## Links
 

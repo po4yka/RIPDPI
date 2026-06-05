@@ -1,7 +1,7 @@
 ---
 title: Wire NaiveProxy helper probe into manager startup
 type: task
-status: todo
+status: doing
 area: service
 priority: medium
 owner: unassigned

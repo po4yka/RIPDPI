@@ -1,7 +1,7 @@
 ---
 title: Add SSH outbound client crate and profile editor
 type: task
-status: blocked
+status: doing
 area: outbound
 priority: medium
 owner: unassigned
@@ -26,7 +26,7 @@ SSH tunnels are a common hobbyist bypass primitive, especially for users who con
 - [x] Password and OpenSSH private-key auth both supported.
 - [x] Host-key verification is on by default; "trust on first use" is a per-profile opt-in.
 - [x] `direct-tcpip` forwarding to arbitrary target host:port works for TCP; UDP is out of scope for v1.
-- [ ] `SshProfileScreen` validates host, port, user, and auth selection. Private key is stored via `EncryptedFile`; never SharedPreferences.
+- [~] `SshProfileScreen` validates host, port, user, and auth selection. Private key is stored via `EncryptedFile`; never SharedPreferences.
 - [ ] Host key fingerprint is surfaced on first connect with explicit accept / reject action.
 - [x] Passphrase and private-key material are redacted in all diagnostic surfaces.
 
@@ -49,3 +49,4 @@ SSH tunnels are a common hobbyist bypass primitive, especially for users who con
 ## Work log
 
 - 2026-06-05: Rust crate (`ripdpi-ssh`) is a full russh-backed implementation (password + private-key auth, TOFU host-key policy, direct-tcpip, Debug redaction). `SshProfileScreen` / `SshProfileViewModel` / `SshProfileEditorState` exist and are wired into NavHost. Two criteria remain open: (1) `SshProfileViewModel.onSave()` only flips `saved=true` — the actual write path to `KeystoreRelayCredentialStore` for SSH credentials is not wired from the editor; (2) no connect-time UI dialog for `SshError::HostKeyUntrusted` (TOFU first-connect accept/reject) exists anywhere in Kotlin.
+- 2026-06-05: Re-audit (source verification). Confirmed criteria 1–4 and 7 via `native/rust/crates/ripdpi-ssh/src/{client.rs,config.rs,error.rs}`. Criterion 5 upgraded to [~]: `SshProfileEditorState.isComplete` validates host/port/user/auth and screen is NavHost-wired (`RipDpiNavHost.kt` line 772), but `onSave()` only sets `saved=true` with no write to `EncryptedFile`/`KeystoreRelayCredentialStore`; EncryptedFile reference in ViewModel is doc-comment-only. Criterion 6 stays `[ ]`: `SshError::HostKeyUntrusted` exists in Rust but no Kotlin accept/reject dialog found (grep confirmed). Status changed from `blocked` to `doing`: no blocker is noted or evident; work is actively partial.

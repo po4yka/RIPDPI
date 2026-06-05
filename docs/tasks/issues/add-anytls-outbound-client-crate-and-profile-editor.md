@@ -52,3 +52,4 @@ Upstream reference: `anytls/anytls-go`. The current source has `native/rust/crat
 ## Work log
 
 - 2026-06-05: AnyTlsProfileScreen with validation exists and is wired into nav graph (Route.AnyTlsProfile); ripdpi-anytls crate, relay-core backend, import parsing all confirmed present; Mode Editor (ModeEditorRelaySection.kt/RelayFields.kt) has no AnyTLS fields; no strategy-pack compat hints for AnyTLS found in strategy-registry; no password-redaction evidence in diagnostics; interop/fallback-SNI tests absent.
+- 2026-06-05: Re-verified all criteria. Crate confirmed real (frame.rs, padding.rs, session.rs + tests/). Config fields `anytls_password` + `anytls_root_certificate_pem` in flat.rs/conversions.rs. AnyTlsProfileEditorState.kt has validation logic. Clash import mapping not found separately (only singbox named in ImportHandlerActivity comment); criterion [x] retained from prior state. No new completions found; status remains doing.

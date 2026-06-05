@@ -58,6 +58,7 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
   2. **UID source:** JNI callback to `ConnectivityManager.getConnectionOwnerUid(proto, local, localPort, remote, remotePort)` (API 29+, no root), reusing the resolver behind `FlowAppAttributionStore`. Must run off the per-packet hot path — cache per 5-tuple, mirror the UDP port-binding cache the task specifies. Honor `vpnservice-protect-invariant.md` and `network-fingerprint-privacy.md` (never log raw UID/IP — only the existing scope/dest digest).
   3. **Version gate:** only arm on kernel ≥ 5.7 (Android 12+/API 31+); below that the escape doesn't apply.
   - **Why not implemented here:** acceptance criteria 4–6 are device-gated (Appium `SO_BINDTODEVICE=tun0` flow, kernel 5.7+ *and* <5.7 device runs, `adb shell cat /proc/net/tcp`); a data-plane gate cannot be verified green without a device, and an unverified RST/drop path either breaks all traffic or fails open silently. Kept `backlog` pending an on-device session.
+- 2026-06-05: Re-audit confirms all 6 acceptance criteria remain unmet. `rg UidFlowPolicy` finds no match in `native/rust/crates/`; `ripdpi-tunnel-core/src/classify.rs` has no UID policy gating; no `SO_BINDTODEVICE` integration test exists under `appium/` or `journeys/` (only doc references). Status unchanged: `backlog`.
 
 ## References
 

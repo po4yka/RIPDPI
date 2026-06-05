@@ -60,6 +60,7 @@ This is the sing-box-native equivalent of the patterniha "SNI-Spoofing" techniqu
 ## Work log
 
 - 2026-06-05: No tls_spoof implementation exists anywhere in the codebase — no Rust crate, no Kotlin surface, no config fields, no tests, no telemetry counters, no docs/native/proxy-engine.md section. The spike (gating AC) has not been completed. Parent epic-control-plane-hardening was dangling (not in allowed epic list); nulled out.
+- 2026-06-05: Re-verified: `ripdpi-desync` and `ripdpi-desync-runtime` crates exist (native/rust/crates/) with real desync/fake-packet code, but none of it is tls_spoof — no `SpoofMethod`, `wrong_ack`, `wrong_md5`, `wrong_timestamp`, or pre-handshake decoy-SNI path; `docs/adr/0006-singbox-rule-action-parity.md` confirms tls_spoof is tracked as open. Status remains `backlog`; all checkboxes remain `[ ]`.
 
 ## Source references
 

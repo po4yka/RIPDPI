@@ -1,7 +1,7 @@
 ---
 title: Validate H3-to-H2 MASQUE fallback telemetry sufficiency
 type: task
-status: backlog
+status: doing
 area: rust-native
 priority: medium
 owner: unassigned
@@ -37,3 +37,4 @@ The existing test `quic_migration_snapshot_records_http2_fallback_reason` covers
 ## Work log
 
 - 2026-06-05: AC1 fully done — `migration.rs` defines `MigrationStatus` and `H3FallbackReason` with stable strings and backwards-compatible string API. AC3 done — CONFORMANCE.md documents the telemetry vocabulary. AC2 still open: `migration.rs` typed_status_tests (lines 97–131) only verify string rendering; no per-reason snapshot-capture test exists beyond the single `quic_migration_snapshot_records_http2_fallback_reason` in `tests.rs`. DoD (non-exhaustive enum match assertion helper) also not yet implemented. Callsite migration from string API to typed enums is pending.
+- 2026-06-05 (re-audit): Confirmed AC1 and AC3 [x] via source read (`migration.rs` lines 1–132, `CONFORMANCE.md` §"QUIC Migration Telemetry Vocabulary"). AC2 [ ] confirmed — `rg H3FallbackReason tests.rs` returns nothing, CONFORMANCE.md line 16 explicitly states "five tests in migration.rs cover local telemetry string stability only." Status corrected from `backlog` to `doing` (two of three criteria verifiably done, one still open).
