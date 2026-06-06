@@ -63,15 +63,6 @@ class OnboardingViewModel
             }
         }
 
-        fun previousPage() {
-            if (_uiState.value.validationState.isBusy) {
-                return
-            }
-            _uiState.update { state ->
-                state.copy(currentPage = (state.currentPage - 1).coerceAtLeast(0))
-            }
-        }
-
         fun selectMode(mode: Mode) {
             val current = _uiState.value
             if (current.selectedMode == mode) {
@@ -82,7 +73,27 @@ class OnboardingViewModel
                 it.copy(selectedMode = mode).withValidationState(OnboardingValidationState.Idle)
             }
             viewModelScope.launch {
-                settingsCoordinator.saveSelection(mode = mode, dnsProviderId = current.selectedDnsProviderId)
+                settingsCoordinator.saveSelection(
+                    mode = mode,
+                    dnsProviderId = current.selectedDnsProviderId,
+                    persona = current.selectedPersona,
+                )
+            }
+        }
+
+        fun selectPersona(persona: String) {
+            val current = _uiState.value
+            val normalized = if (persona == "advanced") "advanced" else "simple"
+            if (current.selectedPersona == normalized) {
+                return
+            }
+            _uiState.update { it.copy(selectedPersona = normalized) }
+            viewModelScope.launch {
+                settingsCoordinator.saveSelection(
+                    mode = current.selectedMode,
+                    dnsProviderId = current.selectedDnsProviderId,
+                    persona = normalized,
+                )
             }
         }
 
@@ -96,7 +107,11 @@ class OnboardingViewModel
                 it.copy(selectedDnsProviderId = providerId).withValidationState(OnboardingValidationState.Idle)
             }
             viewModelScope.launch {
-                settingsCoordinator.saveSelection(mode = current.selectedMode, dnsProviderId = providerId)
+                settingsCoordinator.saveSelection(
+                    mode = current.selectedMode,
+                    dnsProviderId = providerId,
+                    persona = current.selectedPersona,
+                )
             }
         }
 
@@ -113,6 +128,7 @@ class OnboardingViewModel
                     settingsCoordinator.saveSelection(
                         mode = currentState.selectedMode,
                         dnsProviderId = currentState.selectedDnsProviderId,
+                        persona = currentState.selectedPersona,
                     )
 
                     when (val prompt = permissionCoordinator.nextValidationPrompt(currentState.selectedMode)) {

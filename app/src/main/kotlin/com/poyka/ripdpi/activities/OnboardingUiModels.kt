@@ -57,6 +57,7 @@ data class OnboardingUiState(
     val currentPage: Int = 0,
     val totalPages: Int = DefaultOnboardingPageCount,
     val selectedMode: Mode = Mode.VPN,
+    val selectedPersona: String = "simple",
     val selectedDnsProviderId: String = DefaultOnboardingDnsProviderId,
     val validationState: OnboardingValidationState = OnboardingValidationState.Idle,
     val canFinishAnyway: Boolean = true,

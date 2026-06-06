@@ -342,18 +342,11 @@ class OnboardingScreenTest {
             RipDpiTheme {
                 OnboardingScreen(
                     uiState = uiState,
-                    onPageChanged = {},
-                    onSkip = onSkip,
-                    onContinue = {},
-                    onModeSelected = {},
-                    onDnsSelected = {},
-                    onOpenAdvancedDns = {},
-                    onRunValidation = {},
-                    onFinishKeepingRunning = {},
-                    onFinishDisconnected = {},
-                    onFinishAnyway = {},
-                    onAcceptSuggestedMode = {},
-                    onChangeDns = onChangeDns,
+                    actions =
+                        OnboardingScreenActions(
+                            onSkip = onSkip,
+                            onChangeDns = onChangeDns,
+                        ),
                 )
             }
         }

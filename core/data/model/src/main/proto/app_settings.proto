@@ -460,4 +460,7 @@ message AppSettings {
 
   // Start-on-boot: drives the BootReceiver enabled state. proto3 bool defaults to false.
   bool start_on_boot = 304;
+
+  // UI persona: "simple" | "advanced". Simple is the default user-facing surface.
+  string ui_persona = 409;
 }

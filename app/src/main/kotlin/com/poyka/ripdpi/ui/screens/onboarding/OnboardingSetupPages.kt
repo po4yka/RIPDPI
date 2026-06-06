@@ -78,6 +78,35 @@ internal fun OnboardingModeSelectionContent(
     }
 }
 
+@Composable
+internal fun OnboardingPersonaSelectionContent(
+    selectedPersona: String,
+    onPersonaSelected: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
+    ) {
+        OnboardingOptionCard(
+            title = stringResource(R.string.persona_simple),
+            description = stringResource(R.string.onboarding_persona_simple_body),
+            badgeText = stringResource(R.string.onboarding_badge_recommended),
+            selected = selectedPersona != "advanced",
+            onClick = { onPersonaSelected("simple") },
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingPersonaSimple),
+        )
+        OnboardingOptionCard(
+            title = stringResource(R.string.persona_advanced),
+            description = stringResource(R.string.onboarding_persona_advanced_body),
+            selected = selectedPersona == "advanced",
+            onClick = { onPersonaSelected("advanced") },
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingPersonaAdvanced),
+        )
+    }
+}
+
 /**
  * Curated DNS cards + a clearly interactive "Advanced DNS settings" row. The list scrolls and is
  * top-aligned by the enclosing setup scaffold (DNS is the one long setup step); cards show only a

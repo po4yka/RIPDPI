@@ -37,6 +37,7 @@ internal fun AppSettings.toUiState(
     return SettingsUiState(
         settings = this,
         appTheme = appTheme.ifEmpty { "system" },
+        uiPersona = uiPersona.ifEmpty { "simple" },
         appIconVariant = LauncherIconManager.normalizeIconKey(appIconVariant),
         themedAppIconEnabled =
             LauncherIconManager.normalizeIconStyle(appIconStyle) == LauncherIconManager.ThemedIconStyle,

@@ -14,6 +14,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
         AppSettings
             .newBuilder()
             .setAppTheme("system")
+            .setUiPersona("simple")
             .setRipdpiMode("vpn")
             .setDnsIp(defaultDns.dnsIp)
             .setDnsMode(defaultDns.mode)

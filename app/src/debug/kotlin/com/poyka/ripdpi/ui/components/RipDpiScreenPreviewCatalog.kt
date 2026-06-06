@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsScreen
 import com.poyka.ripdpi.ui.screens.home.HomeScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreen
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreenActions
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -222,6 +223,7 @@ private fun settingsPreviewActions(): SettingsScreenActions =
         onRepairPermission = {},
         onOpenVpnPermissionDialog = {},
         onThemeSelected = {},
+        onPersonaSelected = {},
         onWebRtcProtectionChanged = {},
         onExcludeRussianAppsChanged = {},
         onFullTunnelModeChanged = {},
@@ -241,18 +243,7 @@ internal fun RipDpiIntroLargeFontPreviewScene() {
     RipDpiTheme(themePreference = "dark") {
         OnboardingScreen(
             uiState = OnboardingUiState(currentPage = 1, totalPages = OnboardingPages.size),
-            onPageChanged = {},
-            onSkip = {},
-            onContinue = {},
-            onModeSelected = {},
-            onDnsSelected = {},
-            onOpenAdvancedDns = {},
-            onRunValidation = {},
-            onFinishKeepingRunning = {},
-            onFinishDisconnected = {},
-            onFinishAnyway = {},
-            onAcceptSuggestedMode = {},
-            onChangeDns = {},
+            actions = OnboardingScreenActions(),
         )
     }
 }

@@ -24,6 +24,7 @@ import com.poyka.ripdpi.proto.AppSettings
 data class SettingsUiState(
     val settings: AppSettings = AppSettingsSerializer.defaultValue,
     val appTheme: String = "system",
+    val uiPersona: String = "simple",
     val appIconVariant: String = LauncherIconManager.DefaultIconKey,
     val themedAppIconEnabled: Boolean = true,
     val ripdpiMode: String = "vpn",

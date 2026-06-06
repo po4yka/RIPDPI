@@ -30,6 +30,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
@@ -50,60 +51,63 @@ internal fun SettingsConnectivitySection(
     actions: SettingsScreenActions,
 ) {
     var showLanguagePicker by remember { mutableStateOf(false) }
-    SettingsSection(title = stringResource(R.string.settings_connectivity_section)) {
-        SettingsRow(
-            title = stringResource(R.string.title_dns_settings),
-            subtitle =
-                stringResource(
-                    if (uiState.isVpn) {
-                        R.string.settings_connectivity_dns_body
-                    } else {
-                        R.string.settings_connectivity_dns_body_proxy
-                    },
-                ),
-            value = uiState.dns.dnsSummary,
-            onClick = actions.onOpenDnsSettings,
-            showDivider = true,
-            testTag = RipDpiTestTags.SettingsDnsSettings,
-        )
-        SettingsRow(
-            title = stringResource(R.string.title_advanced_settings),
-            subtitle = stringResource(R.string.settings_advanced_body),
-            value = stringResource(R.string.settings_manage_action),
-            onClick = actions.onOpenAdvancedSettings,
-            showDivider = true,
-            testTag = RipDpiTestTags.SettingsAdvancedSettings,
-        )
-        SettingsRow(
-            title = stringResource(R.string.title_domain_bypass_list),
-            subtitle = stringResource(R.string.settings_domain_bypass_body),
-            value = stringResource(R.string.settings_manage_action),
-            onClick = actions.onOpenDomainBypass,
-            showDivider = true,
-            testTag = RipDpiTestTags.SettingsDomainBypass,
-        )
-        SettingsRow(
-            title = stringResource(R.string.title_routes),
-            subtitle = stringResource(R.string.settings_routing_rules_body),
-            value = stringResource(R.string.settings_manage_action),
-            onClick = actions.onOpenRoutingRules,
-            showDivider = true,
-            testTag = RipDpiTestTags.SettingsRoutingRules,
-        )
-        SettingsRow(
-            title = stringResource(R.string.title_split_tunnel),
-            subtitle = stringResource(R.string.settings_split_tunnel_body),
-            value = stringResource(R.string.settings_manage_action),
-            onClick = actions.onOpenSplitTunnel,
-            showDivider = true,
-            testTag = RipDpiTestTags.SettingsSplitTunnel,
-        )
-        SettingsRow(
-            title = stringResource(R.string.settings_language_title),
-            subtitle = stringResource(R.string.settings_language_body),
-            value = stringResource(R.string.settings_manage_action),
-            onClick = { showLanguagePicker = true },
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
+        SettingsSection(title = stringResource(R.string.settings_connectivity_section)) {
+            SettingsRow(
+                title = stringResource(R.string.title_dns_settings),
+                subtitle =
+                    stringResource(
+                        if (uiState.isVpn) {
+                            R.string.settings_connectivity_dns_body
+                        } else {
+                            R.string.settings_connectivity_dns_body_proxy
+                        },
+                    ),
+                value = uiState.dns.dnsSummary,
+                onClick = actions.onOpenDnsSettings,
+                showDivider = true,
+                testTag = RipDpiTestTags.SettingsDnsSettings,
+            )
+            SettingsRow(
+                title = stringResource(R.string.settings_language_title),
+                subtitle = stringResource(R.string.settings_language_body),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = { showLanguagePicker = true },
+            )
+        }
+        AdvancedSection(initiallyExpanded = uiState.uiPersona == "advanced") {
+            SettingsRow(
+                title = stringResource(R.string.title_advanced_settings),
+                subtitle = stringResource(R.string.settings_advanced_body),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = actions.onOpenAdvancedSettings,
+                showDivider = true,
+                testTag = RipDpiTestTags.SettingsAdvancedSettings,
+            )
+            SettingsRow(
+                title = stringResource(R.string.title_domain_bypass_list),
+                subtitle = stringResource(R.string.settings_domain_bypass_body),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = actions.onOpenDomainBypass,
+                showDivider = true,
+                testTag = RipDpiTestTags.SettingsDomainBypass,
+            )
+            SettingsRow(
+                title = stringResource(R.string.title_routes),
+                subtitle = stringResource(R.string.settings_routing_rules_body),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = actions.onOpenRoutingRules,
+                showDivider = true,
+                testTag = RipDpiTestTags.SettingsRoutingRules,
+            )
+            SettingsRow(
+                title = stringResource(R.string.title_split_tunnel),
+                subtitle = stringResource(R.string.settings_split_tunnel_body),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = actions.onOpenSplitTunnel,
+                testTag = RipDpiTestTags.SettingsSplitTunnel,
+            )
+        }
     }
     if (showLanguagePicker) {
         LanguagePickerSheet(onDismissRequest = { showLanguagePicker = false })
@@ -331,6 +335,22 @@ internal fun SettingsAppearanceSection(
         )
         HorizontalDivider(color = colors.divider)
         SettingsRow(
+            title = stringResource(R.string.settings_persona_title),
+            subtitle = stringResource(R.string.settings_persona_body),
+            value = stringResource(personaValueRes(uiState.uiPersona)),
+            onClick = {
+                actions.onPersonaSelected(
+                    if (uiState.uiPersona == "advanced") {
+                        "simple"
+                    } else {
+                        "advanced"
+                    },
+                )
+            },
+            showDivider = true,
+            testTag = RipDpiTestTags.SettingsPersona,
+        )
+        SettingsRow(
             title = stringResource(R.string.title_app_customization),
             subtitle = stringResource(R.string.settings_customization_body),
             value = stringResource(R.string.settings_manage_action),
@@ -339,6 +359,13 @@ internal fun SettingsAppearanceSection(
         )
     }
 }
+
+private fun personaValueRes(persona: String): Int =
+    if (persona == "advanced") {
+        R.string.persona_advanced
+    } else {
+        R.string.persona_simple
+    }
 
 @Composable
 internal fun SettingsPermissionsSection(

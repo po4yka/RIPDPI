@@ -21,6 +21,7 @@ internal sealed interface OnboardingPage {
 }
 
 internal enum class SetupPageKind {
+    PersonaSelection,
     ModeSelection,
     DnsSelection,
     ConnectionTest,
@@ -35,6 +36,11 @@ internal val OnboardingPages: List<OnboardingPage> =
             buttonLabelRes = R.string.onboarding_continue,
         ),
         // -- Setup wizard pages --
+        OnboardingPage.Setup(
+            kind = SetupPageKind.PersonaSelection,
+            titleRes = R.string.onboarding_persona_title,
+            buttonLabelRes = R.string.onboarding_setup_next,
+        ),
         OnboardingPage.Setup(
             kind = SetupPageKind.ModeSelection,
             titleRes = R.string.onboarding_setup_mode_title,

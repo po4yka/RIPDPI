@@ -133,6 +133,16 @@ internal class SettingsCustomizationActions(
         }
     }
 
+    fun setUiPersona(persona: String) {
+        val normalized = if (persona == "advanced") "advanced" else "simple"
+        mutations.updateSetting(
+            key = "uiPersona",
+            value = normalized,
+        ) {
+            setUiPersona(normalized)
+        }
+    }
+
     fun setAppIcon(iconKey: String) {
         val normalizedIconKey = LauncherIconManager.normalizeIconKey(iconKey)
         val iconStyle =

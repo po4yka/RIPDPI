@@ -1777,6 +1777,14 @@ Origen: %2$s</string>
     <string name="http_fake_profile_title">Carga útil HTTP falsa</string>
     <string name="language_name_fr">Français</string>
     <string name="logs">Registros</string>
+    <string name="persona_simple">Simple</string>
+    <string name="persona_advanced">Avanzado</string>
+    <string name="settings_persona_title">Persona</string>
+    <string name="settings_persona_body">Elige si las pantallas se abren con controles cotidianos o con controles avanzados.</string>
+    <string name="onboarding_persona_title">Elige tu interfaz</string>
+    <string name="onboarding_persona_body">Puedes cambiar entre Simple y Avanzado más tarde en Ajustes.</string>
+    <string name="onboarding_persona_simple_body">Los controles cotidianos quedan visibles y los detalles expertos colapsados.</string>
+    <string name="onboarding_persona_advanced_body">Abre toda la superficie de operador con diagnósticos, perfiles y controles de bajo nivel.</string>
     <string name="settings_logs_body">Abre el flujo en vivo de registros de la app, el servicio y los diagnósticos.</string>
     <string name="diagnostics_open_logs_body">Abre el flujo en vivo de registros con filtros para servicio, proxy, túnel y diagnósticos.</string>
     <string name="logs_buffer_title">Búfer</string>

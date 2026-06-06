@@ -32,10 +32,12 @@ class OnboardingSettingsCoordinator
         suspend fun saveSelection(
             mode: Mode,
             dnsProviderId: String,
+            persona: String,
         ) {
             appSettingsRepository.update {
                 setRipdpiMode(mode.preferenceValue)
                 setDnsProviderId(dnsProviderId)
+                setUiPersona(normalizePersona(persona))
             }
         }
 
@@ -44,6 +46,9 @@ class OnboardingSettingsCoordinator
                 setOnboardingComplete(true)
                 setRipdpiMode(state.selectedMode.preferenceValue)
                 setDnsProviderId(state.selectedDnsProviderId)
+                setUiPersona(normalizePersona(state.selectedPersona))
             }
         }
     }
+
+private fun normalizePersona(persona: String): String = if (persona == "advanced") "advanced" else "simple"

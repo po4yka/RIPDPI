@@ -138,18 +138,22 @@ fun OnboardingRoute(
     OnboardingScreen(
         uiState = uiState,
         modifier = modifier,
-        onPageChanged = remember(viewModel) { viewModel::setCurrentPage },
-        onSkip = remember(viewModel) { viewModel::skip },
-        onModeSelected = remember(viewModel) { viewModel::selectMode },
-        onDnsSelected = remember(viewModel) { viewModel::selectDnsProvider },
-        onOpenAdvancedDns = onOpenAdvancedDns,
-        onRunValidation = remember(viewModel) { viewModel::runValidation },
-        onFinishKeepingRunning = remember(viewModel) { viewModel::finishKeepingRunning },
-        onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
-        onFinishAnyway = remember(viewModel) { viewModel::finishAnyway },
-        onAcceptSuggestedMode = remember(viewModel) { viewModel::acceptSuggestedMode },
-        onChangeDns = remember(viewModel) { { viewModel.setCurrentPage(OnboardingDnsPageIndex) } },
-        onContinue = remember(viewModel) { viewModel::nextPage },
+        actions =
+            OnboardingScreenActions(
+                onPageChanged = remember(viewModel) { viewModel::setCurrentPage },
+                onSkip = remember(viewModel) { viewModel::skip },
+                onContinue = remember(viewModel) { viewModel::nextPage },
+                onModeSelected = remember(viewModel) { viewModel::selectMode },
+                onPersonaSelected = remember(viewModel) { viewModel::selectPersona },
+                onDnsSelected = remember(viewModel) { viewModel::selectDnsProvider },
+                onOpenAdvancedDns = onOpenAdvancedDns,
+                onRunValidation = remember(viewModel) { viewModel::runValidation },
+                onFinishKeepingRunning = remember(viewModel) { viewModel::finishKeepingRunning },
+                onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
+                onFinishAnyway = remember(viewModel) { viewModel::finishAnyway },
+                onAcceptSuggestedMode = remember(viewModel) { viewModel::acceptSuggestedMode },
+                onChangeDns = remember(viewModel) { { viewModel.setCurrentPage(OnboardingDnsPageIndex) } },
+            ),
     )
 }
 
@@ -175,21 +179,26 @@ internal fun OnboardingEffectsHandler(
     }
 }
 
+internal data class OnboardingScreenActions(
+    val onPageChanged: (Int) -> Unit = {},
+    val onSkip: () -> Unit = {},
+    val onContinue: () -> Unit = {},
+    val onModeSelected: (Mode) -> Unit = {},
+    val onPersonaSelected: (String) -> Unit = {},
+    val onDnsSelected: (String) -> Unit = {},
+    val onOpenAdvancedDns: () -> Unit = {},
+    val onRunValidation: () -> Unit = {},
+    val onFinishKeepingRunning: () -> Unit = {},
+    val onFinishDisconnected: () -> Unit = {},
+    val onFinishAnyway: () -> Unit = {},
+    val onAcceptSuggestedMode: () -> Unit = {},
+    val onChangeDns: () -> Unit = {},
+)
+
 @Composable
-fun OnboardingScreen(
+internal fun OnboardingScreen(
     uiState: OnboardingUiState,
-    onPageChanged: (Int) -> Unit,
-    onSkip: () -> Unit,
-    onContinue: () -> Unit,
-    onModeSelected: (Mode) -> Unit,
-    onDnsSelected: (String) -> Unit,
-    onOpenAdvancedDns: () -> Unit,
-    onRunValidation: () -> Unit,
-    onFinishKeepingRunning: () -> Unit,
-    onFinishDisconnected: () -> Unit,
-    onFinishAnyway: () -> Unit,
-    onAcceptSuggestedMode: () -> Unit,
-    onChangeDns: () -> Unit,
+    actions: OnboardingScreenActions,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -209,7 +218,7 @@ fun OnboardingScreen(
 
     LaunchedEffect(pagerState.settledPage) {
         if (pagerState.settledPage != uiState.currentPage) {
-            onPageChanged(pagerState.settledPage)
+            actions.onPageChanged(pagerState.settledPage)
         }
     }
 
@@ -243,20 +252,14 @@ fun OnboardingScreen(
                     .padding(horizontal = layout.horizontalPadding),
         ) {
             // 1) TOP BAR — status inset; intro-only "Skip setup"
-            OnboardingTopBar(skipVisible = skipVisible, onSkip = onSkip)
+            OnboardingTopBar(skipVisible = skipVisible, onSkip = actions.onSkip)
 
             // 2) CONTENT — weighted; each page renders its own title at the top
             OnboardingPagerContent(
                 pagerState = pagerState,
                 validationBusy = validationBusy,
                 uiState = uiState,
-                onModeSelected = onModeSelected,
-                onDnsSelected = onDnsSelected,
-                onOpenAdvancedDns = onOpenAdvancedDns,
-                onAcceptSuggestedMode = onAcceptSuggestedMode,
-                onChangeDns = onChangeDns,
-                onFinishDisconnected = onFinishDisconnected,
-                onFinishAnyway = onFinishAnyway,
+                actions = actions,
                 modifier = Modifier.weight(1f).fillMaxWidth(),
             )
 
@@ -268,10 +271,10 @@ fun OnboardingScreen(
                 continueLabelRes = currentPage.buttonLabelRes,
                 validationState = validationState,
                 showIdleSkipTest = showIdleSkipTest,
-                onContinue = onContinue,
-                onRunValidation = onRunValidation,
-                onFinishKeepingRunning = onFinishKeepingRunning,
-                onFinishAnyway = onFinishAnyway,
+                onContinue = actions.onContinue,
+                onRunValidation = actions.onRunValidation,
+                onFinishKeepingRunning = actions.onFinishKeepingRunning,
+                onFinishAnyway = actions.onFinishAnyway,
             )
         }
     }
@@ -283,13 +286,7 @@ private fun OnboardingPagerContent(
     pagerState: PagerState,
     validationBusy: Boolean,
     uiState: OnboardingUiState,
-    onModeSelected: (Mode) -> Unit,
-    onDnsSelected: (String) -> Unit,
-    onOpenAdvancedDns: () -> Unit,
-    onAcceptSuggestedMode: () -> Unit,
-    onChangeDns: () -> Unit,
-    onFinishDisconnected: () -> Unit,
-    onFinishAnyway: () -> Unit,
+    actions: OnboardingScreenActions,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier) {
@@ -311,13 +308,14 @@ private fun OnboardingPagerContent(
                     OnboardingSetupPageScene(
                         pageModel = pageModel,
                         uiState = uiState,
-                        onModeSelected = onModeSelected,
-                        onDnsSelected = onDnsSelected,
-                        onOpenAdvancedDns = onOpenAdvancedDns,
-                        onAcceptSuggestedMode = onAcceptSuggestedMode,
-                        onChangeDns = onChangeDns,
-                        onFinishDisconnected = onFinishDisconnected,
-                        onFinishAnyway = onFinishAnyway,
+                        onModeSelected = actions.onModeSelected,
+                        onPersonaSelected = actions.onPersonaSelected,
+                        onDnsSelected = actions.onDnsSelected,
+                        onOpenAdvancedDns = actions.onOpenAdvancedDns,
+                        onAcceptSuggestedMode = actions.onAcceptSuggestedMode,
+                        onChangeDns = actions.onChangeDns,
+                        onFinishDisconnected = actions.onFinishDisconnected,
+                        onFinishAnyway = actions.onFinishAnyway,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -709,6 +707,7 @@ private fun OnboardingSetupPageScene(
     pageModel: OnboardingPage.Setup,
     uiState: OnboardingUiState,
     onModeSelected: (Mode) -> Unit,
+    onPersonaSelected: (String) -> Unit,
     onDnsSelected: (String) -> Unit,
     onOpenAdvancedDns: () -> Unit,
     onAcceptSuggestedMode: () -> Unit,
@@ -744,6 +743,14 @@ private fun OnboardingSetupPageScene(
             )
 
             when (pageModel.kind) {
+                SetupPageKind.PersonaSelection -> {
+                    OnboardingPersonaSelectionContent(
+                        selectedPersona = uiState.selectedPersona,
+                        onPersonaSelected = onPersonaSelected,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
                 SetupPageKind.ModeSelection -> {
                     OnboardingModeSelectionContent(
                         selectedMode = uiState.selectedMode,
@@ -820,6 +827,7 @@ private fun OnboardingSetupHeader(
 /** Optional one-line subtitle shown under a setup step's title. */
 private fun onboardingSetupSubtitleRes(kind: SetupPageKind): Int? =
     when (kind) {
+        SetupPageKind.PersonaSelection -> R.string.onboarding_persona_body
         SetupPageKind.ModeSelection -> R.string.onboarding_setup_mode_subtitle
         SetupPageKind.DnsSelection -> null
         SetupPageKind.ConnectionTest -> null
@@ -860,17 +868,6 @@ private fun OnboardingScreenDarkPreview() {
 private fun OnboardingScreenPreviewBody(uiState: OnboardingUiState) {
     OnboardingScreen(
         uiState = uiState,
-        onPageChanged = {},
-        onSkip = {},
-        onContinue = {},
-        onModeSelected = {},
-        onDnsSelected = {},
-        onOpenAdvancedDns = {},
-        onRunValidation = {},
-        onFinishKeepingRunning = {},
-        onFinishDisconnected = {},
-        onFinishAnyway = {},
-        onAcceptSuggestedMode = {},
-        onChangeDns = {},
+        actions = OnboardingScreenActions(),
     )
 }

@@ -12,6 +12,14 @@
     <string name="settings">设置</string>
     <string name="diagnostics">诊断</string>
     <string name="logs">日志</string>
+    <string name="persona_simple">简单</string>
+    <string name="persona_advanced">高级</string>
+    <string name="settings_persona_title">界面模式</string>
+    <string name="settings_persona_body">选择屏幕默认显示日常控制，还是展开高级操作控制。</string>
+    <string name="onboarding_persona_title">选择界面</string>
+    <string name="onboarding_persona_body">稍后可在设置中切换简单和高级模式。</string>
+    <string name="onboarding_persona_simple_body">日常控制保持可见，专家细节保持折叠。</string>
+    <string name="onboarding_persona_advanced_body">打开包含诊断、配置档和底层控制的完整操作界面。</string>
     <string name="settings_logs_body">打开应用、服务和诊断的实时日志流。</string>
     <string name="diagnostics_open_logs_body">打开带有服务、代理、隧道和诊断过滤器的实时日志流。</string>
     <string name="diagnostics_title">诊断</string>

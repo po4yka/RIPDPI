@@ -177,6 +177,8 @@ class SettingsViewModel
 
         fun setAppTheme(theme: String) = customizationActions.setAppTheme(theme)
 
+        fun setUiPersona(persona: String) = customizationActions.setUiPersona(persona)
+
         fun setAppIcon(iconKey: String) = customizationActions.setAppIcon(iconKey)
 
         fun setThemedAppIconEnabled(enabled: Boolean) = customizationActions.setThemedAppIconEnabled(enabled)

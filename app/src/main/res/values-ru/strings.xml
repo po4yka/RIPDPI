@@ -13,6 +13,14 @@
     <string name="settings">Настройки</string>
     <string name="diagnostics">Диагностика</string>
     <string name="logs">Журналы</string>
+    <string name="persona_simple">Простой</string>
+    <string name="persona_advanced">Расширенный</string>
+    <string name="settings_persona_title">Режим интерфейса</string>
+    <string name="settings_persona_body">Выберите, открывать экраны с обычными элементами или с расширенными операторскими настройками.</string>
+    <string name="onboarding_persona_title">Выберите интерфейс</string>
+    <string name="onboarding_persona_body">Позже можно переключиться между простым и расширенным режимом в настройках.</string>
+    <string name="onboarding_persona_simple_body">Обычные элементы остаются видимыми, а экспертные детали свернуты.</string>
+    <string name="onboarding_persona_advanced_body">Открывает полный операторский интерфейс с диагностикой, профилями и низкоуровневыми настройками.</string>
     <string name="settings_logs_body">Открыть живой поток журналов приложения, сервиса и диагностики.</string>
     <string name="diagnostics_open_logs_body">Открыть живой поток журналов с фильтрами для сервиса, прокси, туннеля и диагностики.</string>
     <string name="diagnostics_title">Диагностика</string>

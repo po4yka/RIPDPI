@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -146,6 +148,39 @@ class SettingsPreferencesScreenTest {
         assertFalse(openedVpnDialog)
     }
 
+    @Test
+    fun simplePersonaCollapsesAdvancedConnectivityRowsUntilExpanded() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(uiPersona = "simple"),
+                    actions = testActions(),
+                    permissionSummary = PermissionSummaryUiState(),
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithTag(RipDpiTestTags.SettingsAdvancedSettings).assertCountEquals(0)
+        val advancedLabel = RuntimeEnvironment.getApplication().getString(R.string.persona_advanced)
+        composeRule.onNodeWithText(advancedLabel).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAdvancedSettings).assertIsDisplayed()
+    }
+
+    @Test
+    fun advancedPersonaExpandsAdvancedConnectivityRows() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsScreen(
+                    uiState = SettingsUiState(uiPersona = "advanced"),
+                    actions = testActions(),
+                    permissionSummary = PermissionSummaryUiState(),
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAdvancedSettings).assertIsDisplayed()
+    }
+
     private fun testActions(
         onShareDebugBundle: () -> Unit = {},
         onRepairPermission: (PermissionKind) -> Unit = {},
@@ -161,6 +196,7 @@ class SettingsPreferencesScreenTest {
             onRepairPermission = onRepairPermission,
             onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
             onThemeSelected = {},
+            onPersonaSelected = {},
             onWebRtcProtectionChanged = {},
             onExcludeRussianAppsChanged = {},
             onFullTunnelModeChanged = {},

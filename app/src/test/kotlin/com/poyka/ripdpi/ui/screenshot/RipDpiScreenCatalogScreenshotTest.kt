@@ -35,6 +35,7 @@ import com.poyka.ripdpi.ui.components.RipDpiVpnPermissionDialogPreviewScene
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -388,18 +389,7 @@ private fun OnboardingScreenPreviewScene(uiState: OnboardingUiState) {
     RipDpiTheme(themePreference = "light") {
         OnboardingScreen(
             uiState = uiState,
-            onPageChanged = {},
-            onSkip = {},
-            onContinue = {},
-            onModeSelected = {},
-            onDnsSelected = {},
-            onOpenAdvancedDns = {},
-            onRunValidation = {},
-            onFinishKeepingRunning = {},
-            onFinishDisconnected = {},
-            onFinishAnyway = {},
-            onAcceptSuggestedMode = {},
-            onChangeDns = {},
+            actions = OnboardingScreenActions(),
         )
     }
 }

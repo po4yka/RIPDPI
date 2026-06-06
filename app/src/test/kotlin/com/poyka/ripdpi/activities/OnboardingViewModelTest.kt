@@ -130,22 +130,6 @@ class OnboardingViewModelTest {
         }
 
     @Test
-    fun `previousPage decrements and clamps at zero`() =
-        runTest {
-            val vm = createViewModel()
-            vm.setCurrentPage(1)
-            vm.uiState.test {
-                assertEquals(1, awaitItem().currentPage)
-
-                vm.previousPage()
-                assertEquals(0, awaitItem().currentPage)
-
-                vm.previousPage()
-                expectNoEvents()
-            }
-        }
-
-    @Test
     fun `selectMode updates selectedMode persists draft and resets validation`() =
         runTest {
             val repository = FakeAppSettingsRepository()

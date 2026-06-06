@@ -12,6 +12,14 @@
     <string name="settings">تنظیمات</string>
     <string name="diagnostics">تشخیص</string>
     <string name="logs">گزارش‌ها</string>
+    <string name="persona_simple">ساده</string>
+    <string name="persona_advanced">پیشرفته</string>
+    <string name="settings_persona_title">شخصیت رابط</string>
+    <string name="settings_persona_body">انتخاب کنید صفحه‌ها با کنترل‌های روزمره یا کنترل‌های پیشرفته باز شوند.</string>
+    <string name="onboarding_persona_title">رابط را انتخاب کنید</string>
+    <string name="onboarding_persona_body">بعداً می‌توانید در تنظیمات بین ساده و پیشرفته جابه‌جا شوید.</string>
+    <string name="onboarding_persona_simple_body">کنترل‌های روزمره پیدا می‌مانند و جزئیات تخصصی جمع می‌شوند.</string>
+    <string name="onboarding_persona_advanced_body">سطح کامل اپراتوری با تشخیص، پروفایل‌ها و کنترل‌های سطح پایین را باز می‌کند.</string>
     <string name="settings_logs_body">جریان زنده گزارش‌های برنامه، سرویس و تشخیص را باز کنید.</string>
     <string name="diagnostics_open_logs_body">جریان زنده گزارش‌ها را با فیلترهای سرویس، پروکسی، تونل و تشخیص باز کنید.</string>
     <string name="diagnostics_title">تشخیص</string>
