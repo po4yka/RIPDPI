@@ -1,0 +1,8 @@
+appId: com.poyka.ripdpi
+---
+# UI-refactor M7 stub: replace the current launch assertion with Status setup-health collapsed/expanded checks and no idle permanent-banner assertion once the Status redesign exists.
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"

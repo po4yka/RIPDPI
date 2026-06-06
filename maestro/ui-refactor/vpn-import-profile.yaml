@@ -1,0 +1,8 @@
+appId: com.poyka.ripdpi
+---
+# UI-refactor M6 stub: replace the current launch assertion with Add server paste/QR/scan import and Profile-list visibility once the Simple VPN surface exists.
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"

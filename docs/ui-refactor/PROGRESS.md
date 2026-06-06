@@ -1,0 +1,11 @@
+# UI Refactor Progress
+
+M0 · orientation-read · verified-by:sed PLAN.md DESIGN.md AGENTS.md app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/{Route.kt,RipDpiNavHost.kt,BottomNavBar.kt} · status:done · notes:Target IA is specified in PLAN.md, while current navigation still exposes top-level Home, Config, Diagnostics, and Settings; current DESIGN.md still uses Home/Config terminology in Screen Recipes and Screen Contracts in this worktree snapshot.
+
+M0 · pixel7-device-check · verified-by:adb devices; adb shell getprop ro.product.model · status:done · notes:Connected device serial 31130DLH2000EG reports model Pixel 7.
+
+M0 · gradle-task-discovery · verified-by:./gradlew tasks --all · status:done · notes:Roborazzi tasks include :app:recordRoborazziGithubDebug, :app:verifyRoborazziGithubDebug, aggregate recordScreenshots, verifyScreenshots, :app:recordRoborazzi, and :app:verifyRoborazzi; connected/instrumented app tasks include :app:connectedGithubDebugAndroidTest, :app:connectedAndroidTest, :app:ciDevicesGroupGithubDebugAndroidTest, :app:connectedCheck, and :app:ciDevicesGroupCheck; no Gradle Maestro task was discovered, so Maestro remains CLI/script driven through maestro and scripts/ci/run-maestro-smoke.sh.
+
+M0 · maestro-stubs · verified-by:maestro/ui-refactor/*.yaml · status:done · notes:Added non-runner UI-refactor flow stubs for M2 navigation/logs, M3/M8 onboarding personas, M4 diagnose apply, M5 local bypass auto re-test, M6 VPN import, and M7 setup health.
+
+M0 · partial-coverage-audit · verified-by:rg over app/src/test app/src/androidTest app/src/test/screenshots maestro journeys and navigation sources · status:done · notes:M2 has partial route graph and existing top-tab/settings/logs Maestro coverage but not the target 4-tab IA; M4 has diagnostics screen and report drilldown coverage but not the Simple funnel/apply flow; M5 has config/start-stop and advanced settings coverage but not Simple Local bypass auto re-test; M6 has profile import/editor route surfaces and complex config flows but not Simple VPN Add server import; M7 has HomeModeCard and Roborazzi Home coverage plus legacy negative-regression tests but not Setup health or lockdown-only behavior; M8 has onboarding and detection screenshots/flows but not persona onboarding or one Visibility scale; M9 has Roborazzi and Maestro infrastructure but not full target parity.

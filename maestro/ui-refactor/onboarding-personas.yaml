@@ -1,0 +1,8 @@
+appId: com.poyka.ripdpi
+---
+# UI-refactor M3/M8 stub: replace the current launch assertion with both Simple and Advanced onboarding persona paths once persona selection is implemented.
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"

@@ -1,0 +1,8 @@
+appId: com.poyka.ripdpi
+---
+# UI-refactor M5 stub: replace the current launch assertion with Local bypass on/off plus Strategy Auto re-test once the Simple Local bypass surface exists.
+- setOrientation: PORTRAIT
+- launchApp:
+    stopApp: true
+- assertVisible:
+    id: "home-screen"
