@@ -238,7 +238,9 @@ class HomeScreenTest {
         assertTrue(diagnosticTop > vpnTop)
 
         composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeStatusCard).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsCard).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeApproachCard).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeHistoryCard).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeStatsGrid).assertDoesNotExist()
     }

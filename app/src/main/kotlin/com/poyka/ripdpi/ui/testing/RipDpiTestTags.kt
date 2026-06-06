@@ -28,6 +28,7 @@ internal object RipDpiTestTags {
     const val HomeConnectionRouteLabel = "home-connection-route-label"
     const val RouteStack = "route-stack"
     const val RouteOpportunityPanel = "route-opportunity-panel"
+    const val HomeStatusCard = "home-status-card"
     const val HomeDiagnosticsCard = "home-diagnostics-card"
     const val HomeDiagnosticsRunAnalysis = "home-diagnostics-run-analysis"
     const val HomeDiagnosticsVerifiedVpn = "home-diagnostics-verified-vpn"
