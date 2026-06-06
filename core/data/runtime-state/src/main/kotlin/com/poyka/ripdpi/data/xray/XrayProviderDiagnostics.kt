@@ -253,19 +253,19 @@ sealed interface XrayConnectionStage {
         fun canTransition(
             from: XrayConnectionStage,
             to: XrayConnectionStage,
-        ): Boolean {
-            if (to is Idle) return true
-            if (to is ProviderFailed) return from !is ProviderFailed
-            return when (from) {
-                is Idle -> to is ValidatingConfig
-                is ValidatingConfig -> to is StartingEngine
-                is StartingEngine -> to is ListenerReady
-                is ListenerReady -> to is ProbingOutbound
-                is ProbingOutbound -> to is Connected
-                is Connected -> false
-                is ProviderFailed -> false
+        ): Boolean =
+            when {
+                to is Idle -> true
+                to is ProviderFailed -> from !is ProviderFailed
+                from is Idle -> to is ValidatingConfig
+                from is ValidatingConfig -> to is StartingEngine
+                from is StartingEngine -> to is ListenerReady
+                from is ListenerReady -> to is ProbingOutbound
+                from is ProbingOutbound -> to is Connected
+                from is Connected -> false
+                from is ProviderFailed -> false
+                else -> false
             }
-        }
 
         /** Derive the Home stage from a provider snapshot. */
         fun fromSnapshot(snapshot: XrayProviderSnapshot): XrayConnectionStage =

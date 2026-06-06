@@ -25,6 +25,9 @@ import java.util.UUID
 object ProxyUriCodec {
     /** Base64 encodes 3 input bytes per 4 output chars, so encoded length is always a multiple of 4. */
     private const val BASE64_GROUP_SIZE = 4
+    private const val MIERU_MTU_MIN = 1280
+    private const val MIERU_MTU_MAX = 1500
+    private const val MIERU_MTU_DEFAULT = 1400
 
     /**
      * Parses [uri] into a [ProxyProfile], or returns `null` when the scheme is
@@ -149,8 +152,8 @@ object ProxyUriCodec {
         }
 
     private fun normalizeMieruMtu(value: String?): Int {
-        val parsed = value?.trim()?.toIntOrNull() ?: return 1400
-        return if (parsed in 1280..1500) parsed else 1400
+        val parsed = value?.trim()?.toIntOrNull() ?: return MIERU_MTU_DEFAULT
+        return if (parsed in MIERU_MTU_MIN..MIERU_MTU_MAX) parsed else MIERU_MTU_DEFAULT
     }
 
     @Suppress("ReturnCount")

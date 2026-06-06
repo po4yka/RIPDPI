@@ -55,25 +55,21 @@ fun detectRelayChainTrustWarning(
  * domain, and the cumulative latency caveat (the hop count).
  */
 fun detectRelayChainTrustWarning(hops: List<RelayTrustDomain>): RelayTrustDomainWarning? {
-    if (hops.size < 2) {
-        return null
-    }
+    val hasEnoughHops = hops.size >= 2
     val sharedJurisdiction = firstSharedTrustDomainValue(hops) { it.jurisdiction }
     val sharedOperator = firstSharedTrustDomainValue(hops) { it.operatorName }
-    val missingEntryTrustDomain = hops.first().hasIncompleteTrustDomain()
-    val missingExitTrustDomain = hops.last().hasIncompleteTrustDomain()
+    val missingEntryTrustDomain = hops.firstOrNull()?.hasIncompleteTrustDomain() == true
+    val missingExitTrustDomain = hops.lastOrNull()?.hasIncompleteTrustDomain() == true
     val anyHopMissingTrustDomain = hops.any { it.hasIncompleteTrustDomain() }
     val hasSharedTrustDomain = sharedJurisdiction != null || sharedOperator != null
-    if (!hasSharedTrustDomain && !anyHopMissingTrustDomain) {
-        return null
-    }
+    val shouldWarn = hasEnoughHops && (hasSharedTrustDomain || anyHopMissingTrustDomain)
     return RelayTrustDomainWarning(
         sharedJurisdiction = sharedJurisdiction,
         sharedOperatorName = sharedOperator,
         missingEntryTrustDomain = missingEntryTrustDomain,
         missingExitTrustDomain = missingExitTrustDomain,
         cumulativeLatencyHops = hops.size,
-    )
+    ).takeIf { shouldWarn }
 }
 
 /**

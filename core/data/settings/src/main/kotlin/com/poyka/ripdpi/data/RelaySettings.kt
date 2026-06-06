@@ -57,29 +57,31 @@ const val DefaultRelayAppsScriptVerifySsl = true
 const val DefaultSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/"
 const val DefaultSnowflakeFrontDomain = "cdn.sstatic.net"
 
+private val RelayKindsWithNativeSettings =
+    setOf(
+        RelayKindVlessReality,
+        RelayKindVless,
+        RelayKindHysteria2,
+        RelayKindChainRelay,
+        RelayKindMasque,
+        RelayKindAnyTls,
+        RelayKindCloudflareTunnel,
+        RelayKindTuicV5,
+        RelayKindShadowTlsV3,
+        RelayKindShadowsocks,
+        RelayKindTrojan,
+        RelayKindNaiveProxy,
+        RelayKindTor,
+        RelayKindGoogleAppsScript,
+        RelayKindSnowflake,
+        RelayKindWebTunnel,
+        RelayKindObfs4,
+        RelayKindMieru,
+        RelayKindSsh,
+    )
+
 fun normalizeRelayKind(value: String): String =
-    when (value.trim().lowercase()) {
-        RelayKindVlessReality -> RelayKindVlessReality
-        RelayKindVless -> RelayKindVless
-        RelayKindHysteria2 -> RelayKindHysteria2
-        RelayKindChainRelay -> RelayKindChainRelay
-        RelayKindMasque -> RelayKindMasque
-        RelayKindAnyTls -> RelayKindAnyTls
-        RelayKindCloudflareTunnel -> RelayKindCloudflareTunnel
-        RelayKindTuicV5 -> RelayKindTuicV5
-        RelayKindShadowTlsV3 -> RelayKindShadowTlsV3
-        RelayKindShadowsocks -> RelayKindShadowsocks
-        RelayKindTrojan -> RelayKindTrojan
-        RelayKindNaiveProxy -> RelayKindNaiveProxy
-        RelayKindTor -> RelayKindTor
-        RelayKindGoogleAppsScript -> RelayKindGoogleAppsScript
-        RelayKindSnowflake -> RelayKindSnowflake
-        RelayKindWebTunnel -> RelayKindWebTunnel
-        RelayKindObfs4 -> RelayKindObfs4
-        RelayKindMieru -> RelayKindMieru
-        RelayKindSsh -> RelayKindSsh
-        else -> RelayKindOff
-    }
+    value.trim().lowercase().takeIf { it in RelayKindsWithNativeSettings } ?: RelayKindOff
 
 /**
  * Normalizes the Mieru transport protocol. The native `ripdpi-mieru` backend
