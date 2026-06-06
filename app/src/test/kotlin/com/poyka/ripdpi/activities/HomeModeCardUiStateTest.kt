@@ -29,8 +29,8 @@ class HomeModeCardUiStateTest {
             listOf(HomeMode.LocalDpiBypass, HomeMode.RemoteVpn, HomeMode.Diagnostic),
             cards.map { it.mode },
         )
-        assertEquals("Local DPI Bypass", cards[0].title)
-        assertEquals("VPN with Remote Server", cards[1].title)
+        assertEquals("Local bypass", cards[0].title)
+        assertEquals("VPN", cards[1].title)
         assertEquals("Diagnostic Scan", cards[2].title)
     }
 

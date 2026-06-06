@@ -66,8 +66,8 @@
     <string name="config_overrides_section">Remplacements</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
-    <string name="config_preset_custom_title">Personnalisé</string>
-    <string name="config_presets_section">Préréglages</string>
+    <string name="config_preset_custom_title">Custom profile</string>
+    <string name="config_presets_section">Starter profiles</string>
     <string name="config_relay_chain_entry_server">Serveur de saut d\'entrée</string>
     <string name="config_relay_chain_exit_public_key">Clé publique du saut de sortie</string>
     <string name="config_relay_cloudflare_tunnel_note">Utilisez ici le nom d\'hôte de votre Cloudflare Tunnel géré par l\'utilisateur. P0 s\'attend à ce que ce nom d\'hôte serve de façade à votre propre origine xHTTP/VLESS ; RIPDPI ne gère pas les jetons cloudflared ni la configuration TryCloudflare.</string>
@@ -358,7 +358,7 @@
     <string name="quic_fake_profile_summary_realistic">Initial réaliste</string>
     <string name="quic_initial_mode_title">Gestion QUIC</string>
     <string name="quic_initial_support_v2_body">Autoriser l\'extraction du nom d\'hôte depuis les paquets QUIC Initial version 2.</string>
-    <string name="ripdpi_desync_method_setting">Méthode de desync</string>
+    <string name="ripdpi_desync_method_setting">Bypass strategy</string>
     <string name="ripdpi_fake_approx_available_title">Approximations factices disponibles</string>
     <string name="ripdpi_fake_approx_example_http">fakedsplit host+1</string>
     <string name="ripdpi_fake_approx_ready_title">Approximations factices prêtes</string>
@@ -536,7 +536,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="blockcheck_no_strategies">Aucune stratégie enregistrée</string>
     <string name="blockcheck_status_format">%1$d/%2$d vérifications</string>
     <string name="config_buffer_helper">Taille du tampon de socket en octets.</string>
-    <string name="config_chain_editor_label">Chaîne de stratégie</string>
+    <string name="config_chain_editor_label">Bypass strategy</string>
     <string name="config_command_line_helper">Appliqué quand les paramètres de ligne de commande sont activés.</string>
     <string name="config_dns_helper">Utilisé pour la route VPN locale.</string>
     <string name="config_editor_title">Ajuster le profil actuel</string>
@@ -546,7 +546,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_overview_title">Configuration</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_split_marker">host</string>
-    <string name="config_preset_proxy_body">Utilisez le chemin du proxy local avec le même réglage de base lorsque le mode VPN n\'est pas souhaité.</string>
+    <string name="config_preset_proxy_body">Starter profile for the local bypass path with the same baseline tuning.</string>
     <string name="config_proxy_helper">Endroit où l\'écouteur du proxy local se lie.</string>
     <string name="config_relay_chain_entry_short_id">ID court du saut d\'entrée</string>
     <string name="config_relay_chain_exit_server">Serveur du saut de sortie</string>
@@ -752,7 +752,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="home_mode_card_diagnostic_status_complete_format">%1$d/%2$d étapes terminées</string>
     <string name="home_mode_card_enable">Activer</string>
     <string name="home_mode_card_status_busy">Occupé</string>
-    <string name="home_mode_remote_vpn">VPN avec serveur distant</string>
+    <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_quality_connecting">Connexion en cours</string>
     <string name="home_remediation_browser_relay_step_enable_relay">Activez le chemin de relais en amont pour votre mode actuel.</string>
     <string name="home_remediation_command_line_step_open_settings">Ouvrez les Paramètres avancés.</string>
@@ -937,7 +937,7 @@ fakeddisorder endhost</string>
         <item quantity="one">, %d échec</item>
         <item quantity="other">, %d échecs</item>
     </plurals>
-    <string name="strategy_config_editor_label">Chaîne de stratégie</string>
+    <string name="strategy_config_editor_label">Bypass strategy</string>
     <string name="strategy_config_import_empty">Le fichier sélectionné est vide.</string>
     <string name="strategy_config_imported_title">Configuration importée</string>
     <string name="strategy_config_lua_function_placeholder">auto-découvert après chargement</string>
@@ -1038,13 +1038,13 @@ fakeddisorder endhost</string>
     <string name="blockcheck_result_detail_format">%1$d/%2$d domaines OK • %3$d ms en moyenne</string>
     <string name="bye_dpi_proxy_ip_setting">Adresse d\'écoute</string>
     <string name="config_cancel">Annuler</string>
-    <string name="config_chain_summary_label">Chaîne de stratégie : %1$s</string>
+    <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
     <string name="config_default_ttl_helper">Laisser vide pour utiliser la valeur par défaut du moteur.</string>
     <string name="config_dns_summary_disabled">Enregistré maintenant et appliqué au prochain démarrage du mode VPN local</string>
     <string name="config_engine_section">Moteur</string>
     <string name="config_error_invalid_proxy_ip">Saisissez une adresse d\'écoute proxy valide.</string>
     <string name="config_fake_tls_size_helper">0 = taille de l\'entrée, positif = octets cibles exacts, négatif = entrée moins N.</string>
-    <string name="config_mode_sections_title">Zone de configuration</string>
+    <string name="config_mode_sections_title">Profile area</string>
     <string name="config_placeholder_chain_dsl">[tcp]
 tlsrec extlen
 hostfake endhost+8 midhost=midsld host=googlevideo.com
@@ -1054,7 +1054,7 @@ split midsld
 fake_burst 3</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_preset_proxy_title">Proxy</string>
+    <string name="config_preset_proxy_title">Local bypass profile</string>
     <string name="config_relay_body">Acheminer le trafic proxifié via un relais local en exécution. Les secrets restent dans le magasin d\'identifiants adossé au keystore.</string>
     <string name="config_relay_chain_entry_sni">Nom de serveur du saut d\'entrée</string>
     <string name="config_relay_chain_exit_short_id">ID court du saut de sortie</string>
@@ -1535,7 +1535,7 @@ Source : %2$s</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_port_helper">La plage acceptée suit la validation actuelle du port de service.</string>
-    <string name="config_preset_recommended_body">Valeurs par défaut équilibrées pour la plupart des réseaux. Conserve le chemin VPN local et un réglage RIPDPI sûr.</string>
+    <string name="config_preset_recommended_body">Starter profile for most networks. Keeps the local VPN path and safe RIPDPI tuning.</string>
     <string name="config_relay_chain_entry_port">Port du saut d\'entrée</string>
     <string name="config_relay_chain_entry_uuid">UUID du saut d\'entrée</string>
     <string name="config_relay_chain_exit_sni">Nom du serveur du saut de sortie</string>
@@ -1944,7 +1944,7 @@ Source : %2$s</string>
     <string name="tcp_flag_card_step_label">Étape principale</string>
     <string name="tcp_flag_orig_set_title">Paquet original : définir les flags</string>
     <string name="title_biometric_prompt">Authentification</string>
-    <string name="title_local_bypass_config">Config de contournement DPI local</string>
+    <string name="title_local_bypass_config">Local bypass config</string>
     <string name="title_strategy_config">Config de stratégie</string>
     <string name="tls_fake_profile_scope_live">Utilisé pour les faux paquets ClientHello HTTPS sur la chaîne actuelle.</string>
     <string name="udp_fake_profile_interaction">Les charges utiles QUIC Initial restent dans la section séparée du profil factice QUIC ci-dessous.</string>
@@ -2027,8 +2027,8 @@ Source : %2$s</string>
     <string name="config_network_section">Réseau</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>
-    <string name="config_preset_custom_body">Réglage manuel pour le DNS, le point de terminaison proxy, les valeurs du moteur et les surcharges optionnelles de ligne de commande.</string>
-    <string name="config_preset_recommended_title">Recommandé</string>
+    <string name="config_preset_custom_body">Profile for manual DNS, proxy endpoint, engine values, and optional command line overrides.</string>
+    <string name="config_preset_recommended_title">Starter profile</string>
     <string name="config_relay_chain_entry_public_key">Clé publique du saut d\'entrée</string>
     <string name="config_relay_chain_exit_port">Port du saut de sortie</string>
     <string name="config_relay_chain_exit_uuid">UUID du saut de sortie</string>
@@ -2255,7 +2255,7 @@ Source : %2$s</string>
     <string name="home_mode_card_diagnostic_empty">Aucune analyse pour le moment</string>
     <string name="home_mode_card_diagnostic_status_stale">Le réseau a changé - relancez le scan</string>
     <string name="home_mode_card_run_scan">Lancer le scan</string>
-    <string name="home_mode_local_dpi_bypass">Contournement DPI local</string>
+    <string name="home_mode_local_dpi_bypass">Local bypass</string>
     <string name="home_permission_issue_with_retry">%1$s Utilisez le bouton de connexion pour poursuivre le flux d\'autorisation.</string>
     <string name="home_quality_offline">Hors ligne</string>
     <string name="home_remediation_browser_relay_title">Préférer un relais avec camouflage de navigateur</string>

@@ -449,8 +449,8 @@
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_preset_proxy_body">在不希望使用 VPN 模式时,使用本地代理路径并采用相同的基线调优。</string>
-    <string name="config_presets_section">预设</string>
+    <string name="config_preset_proxy_body">Starter profile for the local bypass path with the same baseline tuning.</string>
+    <string name="config_presets_section">Starter profiles</string>
     <string name="config_relay_chain_entry_public_key">入口跳板公钥</string>
     <string name="config_relay_chain_entry_uuid">入口跳板 UUID</string>
     <string name="config_relay_chain_exit_short_id">出口跳板 short ID</string>
@@ -632,7 +632,7 @@
     <string name="home_mode_card_diagnostic_status_review_format">查看 %1$d/%2$d 个阶段</string>
     <string name="home_mode_card_enable">启用</string>
     <string name="home_mode_card_status_active">活动</string>
-    <string name="home_mode_local_dpi_bypass">本地 DPI 绕过</string>
+    <string name="home_mode_local_dpi_bypass">Local bypass</string>
     <string name="home_quality_connecting">连接中</string>
     <string name="home_remediation_browser_relay_step_choose_preset">选择浏览器伪装预设,如 NaiveProxy 或 ShadowTLS,然后重新运行分析。</string>
     <string name="home_remediation_browser_relay_title">优先使用浏览器伪装中继</string>
@@ -733,7 +733,7 @@
     <string name="quic_fake_profile_udp_disabled_body">如果希望 RIPDPI 在 fake_burst 步骤中发出假 QUIC Initial 数据包,请启用 UDP desync。</string>
     <string name="quic_initial_section_body">控制 RIPDPI 是否解密 QUIC Initial 数据包,以恢复 SNI 用于 UDP 主机路由、过滤、缓存记录和遥测。</string>
     <string name="quic_initial_support_v2_body">允许从 QUIC 版本 2 Initial 数据包中提取主机名。</string>
-    <string name="ripdpi_desync_method_setting">Desync 方法</string>
+    <string name="ripdpi_desync_method_setting">Bypass strategy</string>
     <string name="ripdpi_fake_approx_available_body">当你希望在 Linux/Android 上获得基于 fake 的重传歧义近似而不使用原始序列重叠时,请添加 fakedsplit 或 fakeddisorder。</string>
     <string name="ripdpi_fake_approx_badge_fakeddisorder">fakeddisorder</string>
     <string name="ripdpi_fake_approx_badge_linux_android">仅 Linux/Android</string>
@@ -844,7 +844,7 @@ fakeddisorder endhost</string>
     <plurals name="stage_passed_count">
         <item quantity="other">%d 项通过</item>
     </plurals>
-    <string name="strategy_config_editor_label">策略链</string>
+    <string name="strategy_config_editor_label">Bypass strategy</string>
     <string name="strategy_config_export_title">导出策略配置</string>
     <string name="strategy_config_import_unreadable">所选文件无法读取。</string>
     <string name="strategy_config_load_action">加载</string>
@@ -974,12 +974,12 @@ fakeddisorder endhost</string>
     <string name="config_error_invalid_marker">请输入有效的标记表达式。</string>
     <string name="config_error_required">此字段为必填项。</string>
     <string name="config_listen_address_summary">本地代理监听器绑定的位置</string>
-    <string name="config_mode_sections_title">配置区域</string>
+    <string name="config_mode_sections_title">Profile area</string>
     <string name="config_overview_title">配置</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_port">1080</string>
     <string name="config_port_helper">可接受范围遵循当前服务端口验证规则。</string>
-    <string name="config_preset_proxy_title">代理</string>
+    <string name="config_preset_proxy_title">Local bypass profile</string>
     <string name="config_proxy_helper">本地代理监听器绑定的位置。</string>
     <string name="config_relay_chain_entry_server">入口跳服务器</string>
     <string name="config_relay_chain_exit_port">出口跳端口</string>
@@ -1474,7 +1474,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="blockcheck_results_title">排序结果</string>
     <string name="bye_dpi_proxy_ip_setting">监听地址</string>
     <string name="config_cancel">取消</string>
-    <string name="config_chain_editor_label">策略链</string>
+    <string name="config_chain_editor_label">Bypass strategy</string>
     <string name="config_command_line_caption">优先使用原始 RIPDPI 标志,而非可视化编辑器。</string>
     <string name="config_desync_method_summary">活动的数据包转换策略</string>
     <string name="config_dns_summary_enabled">在本地 VPN 模式下生效</string>
@@ -1492,8 +1492,8 @@ split midsld
 fake_burst 3</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
-    <string name="config_preset_custom_body">手动调整 DNS、代理端点、引擎参数以及可选的命令行覆盖。</string>
-    <string name="config_preset_recommended_body">适用于大多数网络的平衡默认值。保留本地 VPN 路径和安全的 RIPDPI 调优。</string>
+    <string name="config_preset_custom_body">Profile for manual DNS, proxy endpoint, engine values, and optional command line overrides.</string>
+    <string name="config_preset_recommended_body">Starter profile for most networks. Keeps the local VPN path and safe RIPDPI tuning.</string>
     <string name="config_relay_body">将代理流量通过本地中继运行时路由。密钥保留在 keystore 支持的凭据存储中。</string>
     <string name="config_relay_chain_entry_short_id">入口跳短 ID</string>
     <string name="config_relay_chain_exit_public_key">出口跳公钥</string>
@@ -1681,7 +1681,7 @@ fake_burst 3</string>
     <string name="home_mode_card_diagnostic_status_stale">网络已更改 - 请重新扫描</string>
     <string name="home_mode_card_remote_server_unknown">服务器未配置</string>
     <string name="home_mode_card_status_inactive">未激活</string>
-    <string name="home_mode_remote_vpn">带远程服务器的 VPN</string>
+    <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_quality_good">良好</string>
     <string name="home_remediation_browser_relay_step_open_mode_editor">打开模式编辑器。</string>
     <string name="home_remediation_command_line_step_open_settings">打开高级设置。</string>
@@ -1915,7 +1915,7 @@ fake_burst 3</string>
     <string name="tcp_flag_fake_set_title">Fake 数据包:设置标志位</string>
     <string name="title_advanced_settings">高级设置</string>
     <string name="title_blockcheck">策略探测</string>
-    <string name="title_local_bypass_config">本地 DPI 绕过配置</string>
+    <string name="title_local_bypass_config">Local bypass config</string>
     <string name="title_shared_diagnostic_result">共享诊断</string>
     <string name="tls_fake_profile_interaction">Fake TLS SNI、随机化、Session ID 复制、填充和大小调整将叠加在此基础配置档之上。</string>
     <string name="tls_fake_profile_scope_ready">当 TCP 链添加完整 fake HTTPS 步骤时即可使用。</string>
@@ -2005,7 +2005,7 @@ fake_burst 3</string>
     <string name="blockcheck_run">运行</string>
     <string name="command_line_arguments">命令行参数</string>
     <string name="config_chain_editor_helper_brief">使用 [tcp] 和 [udp] 段,配合数值或语义偏移标记。</string>
-    <string name="config_chain_summary_label">策略链:%1$s</string>
+    <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
     <string name="config_command_line_helper">启用命令行设置时生效。</string>
     <string name="config_dns_disabled_helper">DNS 覆盖仅在本地 VPN 模式下应用。</string>
     <string name="config_edit_current">编辑当前</string>
@@ -2017,8 +2017,8 @@ fake_burst 3</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_split_marker">host</string>
-    <string name="config_preset_custom_title">自定义</string>
-    <string name="config_preset_recommended_title">推荐</string>
+    <string name="config_preset_custom_title">Custom profile</string>
+    <string name="config_preset_recommended_title">Starter profile</string>
     <string name="config_relay_chain_entry_port">入口跳点端口</string>
     <string name="config_relay_chain_entry_sni">入口跳点服务器名称</string>
     <string name="config_relay_chain_exit_server">出口跳点服务器</string>

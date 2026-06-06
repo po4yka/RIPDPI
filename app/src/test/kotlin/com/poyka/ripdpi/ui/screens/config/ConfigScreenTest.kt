@@ -95,7 +95,7 @@ class ConfigScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync)
-            .assertContentDescription("Desync method")
+            .assertContentDescription("Bypass strategy")
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
             .assertContentDescription("DNS settings")

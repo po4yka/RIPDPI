@@ -132,7 +132,7 @@ class AdvancedSettingsComponentsTest {
         composeRule.setContent {
             RipDpiTheme {
                 AdvancedDropdownSetting(
-                    title = "Desync method",
+                    title = "Bypass strategy",
                     value = "fake",
                     options =
                         persistentListOf(

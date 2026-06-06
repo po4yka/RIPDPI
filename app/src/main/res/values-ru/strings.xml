@@ -406,7 +406,7 @@
     <string name="config_overview_title">Конфигурация</string>
     <string name="config_mode_summary">Локальный VPN или прокси-маршрут</string>
     <string name="config_mode_section">Режим</string>
-    <string name="config_presets_section">Пресеты</string>
+    <string name="config_presets_section">Стартовые профили</string>
     <string name="config_summary_section">Текущие значения</string>
     <string name="config_network_section">Сеть</string>
     <string name="config_engine_section">Движок</string>
@@ -415,12 +415,12 @@
     <string name="config_edit_current">Редактировать текущий</string>
     <string name="config_save">Сохранить</string>
     <string name="config_cancel">Отмена</string>
-    <string name="config_preset_recommended_title">Рекомендуемый</string>
-    <string name="config_preset_recommended_body">Сбалансированные настройки по умолчанию для большинства сетей. Сохраняет локальный VPN-маршрут и безопасную настройку RIPDPI.</string>
-    <string name="config_preset_proxy_title">Прокси</string>
-    <string name="config_preset_proxy_body">Использовать локальный прокси-маршрут с теми же базовыми настройками, если режим VPN не нужен.</string>
-    <string name="config_preset_custom_title">Пользовательский</string>
-    <string name="config_preset_custom_body">Ручная настройка DNS, конечной точки прокси, параметров движка и необязательных переопределений командной строки.</string>
+    <string name="config_preset_recommended_title">Стартовый профиль</string>
+    <string name="config_preset_recommended_body">Стартовый профиль для большинства сетей. Сохраняет локальный VPN-маршрут и безопасную настройку RIPDPI.</string>
+    <string name="config_preset_proxy_title">Профиль локального обхода</string>
+    <string name="config_preset_proxy_body">Стартовый профиль для маршрута локального обхода с теми же базовыми настройками.</string>
+    <string name="config_preset_custom_title">Пользовательский профиль</string>
+    <string name="config_preset_custom_body">Профиль для ручной настройки DNS, конечной точки прокси, параметров движка и необязательных переопределений командной строки.</string>
     <string name="config_dns_summary_enabled">Применяется внутри локального режима VPN</string>
     <string name="config_dns_summary_disabled">Сохранено и будет применено при следующей активации локального режима VPN</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
@@ -440,8 +440,8 @@
     <string name="config_buffer_helper">Размер буфера сокета в байтах.</string>
     <string name="config_default_ttl_summary">Переопределение TTL для исходящих пакетов</string>
     <string name="config_default_ttl_helper">Оставьте пустым для использования значения TTL по умолчанию движка.</string>
-    <string name="config_chain_summary_label">Цепочка стратегий: %1$s</string>
-    <string name="config_chain_editor_label">Цепочка стратегий</string>
+    <string name="config_chain_summary_label">Стратегия обхода: %1$s</string>
+    <string name="config_chain_editor_label">Стратегия обхода</string>
     <string name="config_chain_editor_helper">Используйте секции [tcp] и [udp]. Маркеры принимают числовые или семантические смещения. Секция HTTPS ниже позволяет визуально создавать отдельные шаги tlsrec и случайного tlsrandrec, а карточки Hostfake и приближения fake описывают ложные фрагменты с таргетингом на имя хоста и приближения в стиле повторной передачи. Приближения только для Linux/Android доступны как fakedsplit host+1 и fakeddisorder endhost для HTTP или полезных нагрузок, смежных с TLS SNI.</string>
     <string name="config_chain_editor_helper_brief">Используйте секции [tcp] и [udp] с числовыми или семантическими маркерами смещения.</string>
     <string name="config_chain_editor_helper_full">Секция HTTPS ниже позволяет визуально создавать отдельные шаги tlsrec и случайного tlsrandrec, а карточки Hostfake и приближения fake описывают ложные фрагменты с таргетингом на имя хоста и приближения в стиле повторной передачи. Приближения только для Linux/Android доступны как fakedsplit host+1 и fakeddisorder endhost для HTTP или полезных нагрузок, смежных с TLS SNI.</string>
@@ -1082,7 +1082,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_buffer_size_setting">Размер буфера</string>
     <string name="ripdpi_default_ttl_setting">TTL по умолчанию</string>
     <string name="ripdpi_no_domain_setting">Без домена</string>
-    <string name="ripdpi_desync_method_setting">Метод десинхронизации</string>
+    <string name="ripdpi_desync_method_setting">Стратегия обхода</string>
     <string name="ripdpi_fake_ttl_setting">TTL фейковых пакетов</string>
     <string name="adaptive_fake_ttl_selector_title">Адаптивный фейковый TTL</string>
     <string name="adaptive_fake_ttl_selector_body">Выберите, должен ли RIPDPI использовать один фиксированный фейковый TTL или обучаться рабочему TCP фейковому TTL в пределах сохранённого окна в течение текущего сеанса.</string>
@@ -2047,7 +2047,7 @@ fakeddisorder endhost</string>
     <string name="config_error_required">Это поле обязательно.</string>
     <string name="config_error_unsupported">Эта опция не поддерживается в текущей сборке.</string>
     <string name="config_local_bypass_section_body">Настройте локальный путь прокси, DNS и параметры стратегии пакетов на устройстве.</string>
-    <string name="config_mode_sections_title">Область конфигурации</string>
+    <string name="config_mode_sections_title">Область профиля</string>
     <string name="config_relay_body">Направлять прокси-трафик через локальную среду выполнения реле. Секреты остаются в защищённом хранилище, поддерживаемом keystore.</string>
     <string name="config_relay_chain_entry_port">Порт входного узла</string>
     <string name="config_relay_chain_entry_public_key">Публичный ключ входного узла</string>
@@ -2312,8 +2312,8 @@ fakeddisorder endhost</string>
     <string name="home_mode_card_status_busy">Занято</string>
     <string name="home_mode_card_status_inactive">Неактивно</string>
     <string name="home_mode_diagnostic_scan">Диагностическое сканирование</string>
-    <string name="home_mode_local_dpi_bypass">Локальный обход DPI</string>
-    <string name="home_mode_remote_vpn">VPN с удалённым сервером</string>
+    <string name="home_mode_local_dpi_bypass">Локальный обход</string>
+    <string name="home_mode_remote_vpn">VPN</string>
 
     <!-- gap-fill: home_quality_* and home_stat_quality -->
     <string name="home_quality_connecting">Подключение</string>
@@ -2458,7 +2458,7 @@ fakeddisorder endhost</string>
 
     <!-- gap-fill: strategy_config_* -->
     <string name="strategy_config_active_path_label">Активный источник</string>
-    <string name="strategy_config_editor_label">Цепочка стратегий</string>
+    <string name="strategy_config_editor_label">Стратегия обхода</string>
     <string name="strategy_config_entry_body">Просмотрите активную цепочку стратегий, импортируйте локальную конфигурацию, экспортируйте текст или загрузите Lua-скрипт стратегии.</string>
     <string name="strategy_config_entry_title">Конфигурация стратегии</string>
     <string name="strategy_config_export_action">Экспорт</string>
@@ -2517,7 +2517,7 @@ fakeddisorder endhost</string>
 
     <!-- gap-fill: title_* -->
     <string name="title_blockcheck">Зондирование стратегий</string>
-    <string name="title_local_bypass_config">Конфигурация локального обхода DPI</string>
+    <string name="title_local_bypass_config">Конфигурация локального обхода</string>
     <string name="title_shared_diagnostic_result">Общая диагностика</string>
     <string name="title_strategy_config">Конфигурация стратегии</string>
     <string name="title_vpn_config">Конфигурация VPN</string>

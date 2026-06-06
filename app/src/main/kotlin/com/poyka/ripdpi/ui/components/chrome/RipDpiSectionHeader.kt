@@ -57,7 +57,7 @@ private fun RipDpiSectionHeaderLightPreview() {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             RipDpiSectionHeader(title = "Connection")
             Text(
-                text = "VPN with remote server",
+                text = "VPN",
                 style = RipDpiThemeTokens.type.bodyEmphasis,
             )
             RipDpiSectionHeader(title = "Diagnostics")

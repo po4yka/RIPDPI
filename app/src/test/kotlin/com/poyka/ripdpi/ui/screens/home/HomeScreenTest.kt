@@ -600,8 +600,8 @@ class HomeScreenTest {
             mode = mode,
             title =
                 when (mode) {
-                    HomeMode.LocalDpiBypass -> "Local DPI Bypass"
-                    HomeMode.RemoteVpn -> "VPN with Remote Server"
+                    HomeMode.LocalDpiBypass -> "Local bypass"
+                    HomeMode.RemoteVpn -> "VPN"
                     HomeMode.Diagnostic -> "Network Diagnostic"
                 },
             primaryLabel =

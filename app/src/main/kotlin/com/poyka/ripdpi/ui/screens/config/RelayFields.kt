@@ -31,7 +31,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
  * - [RelayFinalmaskTypeFragment]: fragment_packets, fragment_min_bytes, fragment_max_bytes
  * - [RelayFinalmaskTypeNoise]: rand_range
  *
- * The `chain_dsl` text-field in the Engine section is a separate DPI strategy chain DSL
+ * The `chain_dsl` text-field in the Engine section is a separate DPI bypass strategy DSL
  * and does NOT accept finalmask parameters. See docs/architecture/README.md#desync-and-relay-rules.
  */
 @Composable

@@ -476,8 +476,8 @@
     <string name="home_quality_offline">آفلاین</string>
     <string name="home_mode_vpn">VPN محلی</string>
     <string name="home_mode_proxy">پراکسی محلی</string>
-    <string name="home_mode_local_dpi_bypass">دور زدن محلی DPI</string>
-    <string name="home_mode_remote_vpn">VPN با سرور دور</string>
+    <string name="home_mode_local_dpi_bypass">Local bypass</string>
+    <string name="home_mode_remote_vpn">VPN</string>
     <string name="home_mode_diagnostic_scan">پویش تشخیصی</string>
     <string name="home_mode_card_connected_format">متصل %1$s</string>
     <string name="home_mode_card_connecting">در حال شروع...</string>
@@ -498,13 +498,13 @@
     <string name="home_mode_card_configure">پیکربندی</string>
     <string name="home_route_local">روی دستگاه</string>
     <string name="config_overview_title">پیکربندی</string>
-    <string name="title_local_bypass_config">پیکربندی دور زدن محلی DPI</string>
+    <string name="title_local_bypass_config">Local bypass config</string>
     <string name="title_vpn_config">پیکربندی VPN</string>
-    <string name="config_mode_sections_title">منطقهٔ پیکربندی</string>
+    <string name="config_mode_sections_title">Profile area</string>
     <string name="config_local_bypass_section_body">مسیر پراکسی روی دستگاه، DNS و کنترل‌های راهبرد بسته را تنظیم کنید.</string>
     <string name="config_vpn_section_body">تنظیمات مسیر VPN، حمل‌و‌نقل رله و رفتار DNS را تنظیم کنید.</string>
     <string name="config_mode_section">حالت</string>
-    <string name="config_presets_section">پیش‌تنظیم‌ها</string>
+    <string name="config_presets_section">Starter profiles</string>
     <string name="config_summary_section">مقادیر فعلی</string>
     <string name="config_network_section">شبکه</string>
     <string name="config_relay_section">رله</string>
@@ -514,12 +514,12 @@
     <string name="config_edit_current">ویرایش فعلی</string>
     <string name="config_save">ذخیره</string>
     <string name="config_cancel">لغو</string>
-    <string name="config_preset_recommended_title">توصیه‌شده</string>
-    <string name="config_preset_recommended_body">پیش‌فرض‌های متعادل برای اکثر شبکه‌ها. مسیر VPN محلی و تنظیم ایمن RIPDPI را حفظ می‌کند.</string>
-    <string name="config_preset_proxy_title">پراکسی</string>
-    <string name="config_preset_proxy_body">از مسیر پراکسی محلی با همان تنظیم پایه استفاده کنید وقتی حالت VPN مطلوب نیست.</string>
-    <string name="config_preset_custom_title">سفارشی</string>
-    <string name="config_preset_custom_body">تنظیم دستی برای DNS، نقطه پایانی پراکسی، مقادیر موتور و جایگزینی‌های اختیاری خط فرمان.</string>
+    <string name="config_preset_recommended_title">Starter profile</string>
+    <string name="config_preset_recommended_body">Starter profile for most networks. Keeps the local VPN path and safe RIPDPI tuning.</string>
+    <string name="config_preset_proxy_title">Local bypass profile</string>
+    <string name="config_preset_proxy_body">Starter profile for the local bypass path with the same baseline tuning.</string>
+    <string name="config_preset_custom_title">Custom profile</string>
+    <string name="config_preset_custom_body">Profile for manual DNS, proxy endpoint, engine values, and optional command line overrides.</string>
     <string name="config_mode_summary">مسیر مسیریابی VPN محلی یا پراکسی</string>
     <string name="config_dns_summary_enabled">اعمال‌شده درون حالت VPN محلی</string>
     <string name="config_dns_summary_disabled">حالا ذخیره شد و دفعه بعدی که حالت VPN محلی فعال شود اعمال می‌شود</string>
@@ -629,8 +629,8 @@
     <string name="config_max_connections_helper">حد بالای نشست‌های محلی همزمان.</string>
     <string name="config_buffer_helper">اندازهٔ بافر سوکت به بایت.</string>
     <string name="config_default_ttl_helper">برای استفاده از پیش‌فرض موتور، خالی بگذارید.</string>
-    <string name="config_chain_summary_label">زنجیرهٔ راهبرد: %1$s</string>
-    <string name="config_chain_editor_label">زنجیرهٔ راهبرد</string>
+    <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
+    <string name="config_chain_editor_label">Bypass strategy</string>
     <string name="config_chain_editor_helper">از بخش‌های [tcp] و [udp] استفاده کنید. نشانگرها افست‌های عددی یا معنایی را می‌پذیرند. بخش HTTPS زیر می‌تواند به‌صورت بصری مراحل tlsrec تنها و tlsrandrec تصادفی‌شده را بنویسد، در حالی که کارت‌های Hostfake و تقریب fake، تکه‌های fake هدف‌گذاری‌شده با نام میزبان و تقریب‌های سبک بازارسال را توضیح می‌دهند. تقریب‌های فقط لینوکس/اندروید به‌صورت fakedsplit host+1 و fakeddisorder endhost برای بارهای HTTP یا TLS مجاور SNI در دسترس هستند.</string>
     <string name="config_chain_editor_helper_brief">از بخش‌های [tcp] و [udp] با نشانگرهای افست عددی یا معنایی استفاده کنید.</string>
     <string name="config_chain_editor_helper_full">بخش HTTPS زیر می‌تواند به‌صورت بصری مراحل tlsrec تنها و tlsrandrec تصادفی‌شده را بنویسد، در حالی که کارت‌های Hostfake و تقریب fake، تکه‌های fake هدف‌گذاری‌شده با نام میزبان و تقریب‌های سبک بازارسال را توضیح می‌دهند. تقریب‌های فقط لینوکس/اندروید به‌صورت fakedsplit host+1 و fakeddisorder endhost برای بارهای HTTP یا TLS مجاور SNI در دسترس هستند.</string>
@@ -1988,7 +1988,7 @@ fakeddisorder endhost</string>
         <item quantity="one">، %d در انتظار</item>
         <item quantity="other">، %d در انتظار</item>
     </plurals>
-    <string name="strategy_config_editor_label">زنجیره استراتژی</string>
+    <string name="strategy_config_editor_label">Bypass strategy</string>
     <string name="strategy_config_import_empty">فایل انتخاب‌شده خالی است.</string>
     <string name="strategy_config_import_unreadable">فایل انتخاب‌شده قابل خواندن نبود.</string>
     <string name="strategy_config_invalid_title">پیکربندی اعتبارسنجی نشد</string>
@@ -2318,7 +2318,7 @@ fakeddisorder endhost</string>
     <string name="permissions_vpn_title">مجوز VPN محلی</string>
     <string name="qs_tile_label_connected">RIPDPI: متصل</string>
     <string name="qs_tile_subtitle_tap_disconnect">برای قطع، ضربه بزنید</string>
-    <string name="ripdpi_desync_method_setting">روش desync</string>
+    <string name="ripdpi_desync_method_setting">Bypass strategy</string>
     <string name="ripdpi_drop_sack_setting">حذف SACK</string>
     <string name="ripdpi_md5sig_setting">امضای TCP MD5</string>
     <string name="ripdpi_tlsminor_setting">بازنویسی نسخهٔ رکورد TLS</string>
