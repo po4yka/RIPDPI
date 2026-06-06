@@ -28,6 +28,7 @@ import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.proxyimport.ProxyImportRequest
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.PresetCard
@@ -39,6 +40,7 @@ import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -50,12 +52,22 @@ fun ConfigRoute(
     onOpenModeEditor: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
+    onScanServer: () -> Unit,
     modifier: Modifier = Modifier,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     viewModel: ConfigViewModel = hiltViewModel(),
-    onProfileImport: (com.poyka.ripdpi.proxyimport.ProxyImportRequest.Profile) -> Unit = {},
+    clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
+    onProfileImport: (ProxyImportRequest.Profile) -> Unit = {},
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
+    val clipboardImportState = clipboardImportViewModel.uiState.collectAsStateWithLifecycle().value
+    val navigateTo = clipboardImportState.navigateToConfirm
+    if (navigateTo is ProxyImportRequest.Profile) {
+        androidx.compose.runtime.LaunchedEffect(navigateTo) {
+            clipboardImportViewModel.consumeNavigation()
+            onProfileImport(navigateTo)
+        }
+    }
 
     ConfigScreen(
         uiState = uiState,
@@ -81,6 +93,8 @@ fun ConfigRoute(
         },
         onOpenDnsSettings = onOpenDnsSettings,
         onRetestStrategies = onRetestStrategies,
+        onPasteServerLink = clipboardImportViewModel::onImportFromClipboard,
+        onScanServer = onScanServer,
         initialModeSection = initialModeSection,
     )
 }
@@ -94,6 +108,8 @@ fun ConfigScreen(
     onEditCurrent: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
+    onPasteServerLink: () -> Unit,
+    onScanServer: () -> Unit,
     modifier: Modifier = Modifier,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
@@ -173,6 +189,8 @@ fun ConfigScreen(
             onEditCurrent = onEditCurrent,
             onOpenDnsSettings = onOpenDnsSettings,
             onRetestStrategies = onRetestStrategies,
+            onPasteServerLink = onPasteServerLink,
+            onScanServer = onScanServer,
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
@@ -240,6 +258,8 @@ private fun ConfigSelectedModeSection(
     onEditCurrent: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
+    onPasteServerLink: () -> Unit,
+    onScanServer: () -> Unit,
 ) {
     when (section) {
         ConfigModeSection.LocalBypass -> {
@@ -257,8 +277,11 @@ private fun ConfigSelectedModeSection(
         ConfigModeSection.Vpn -> {
             VpnConfigScreen(
                 uiState = uiState,
+                onModeSelected = onModeSelected,
                 onOpenRelaySettings = onEditCurrent,
                 onOpenDnsSettings = onOpenDnsSettings,
+                onPasteServerLink = onPasteServerLink,
+                onScanServer = onScanServer,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSummary),
             )
         }
@@ -346,6 +369,8 @@ private fun ConfigScreenPreview() {
             onEditCurrent = {},
             onOpenDnsSettings = {},
             onRetestStrategies = {},
+            onPasteServerLink = {},
+            onScanServer = {},
             initialModeSection = ConfigModeSection.LocalBypass,
         )
     }
@@ -376,6 +401,8 @@ private fun ConfigScreenDarkPreview() {
             onEditCurrent = {},
             onOpenDnsSettings = {},
             onRetestStrategies = {},
+            onPasteServerLink = {},
+            onScanServer = {},
             initialModeSection = ConfigModeSection.Vpn,
         )
     }

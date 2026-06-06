@@ -68,6 +68,12 @@ internal object RipDpiTestTags {
     const val ConfigLocalBypassListenAddress = "config-local-bypass-listen-address"
     const val ConfigLocalBypassDesync = "config-local-bypass-desync"
     const val ConfigVpnSummary = "config-vpn-summary"
+    const val ConfigVpnSimple = "config-vpn-simple"
+    const val ConfigVpnToggle = "config-vpn-toggle"
+    const val ConfigVpnToggleState = "config-vpn-toggle-state"
+    const val ConfigVpnAddServerPaste = "config-vpn-add-server-paste"
+    const val ConfigVpnAddServerScan = "config-vpn-add-server-scan"
+    const val ConfigVpnProfileList = "config-vpn-profile-list"
     const val ConfigVpnRelay = "config-vpn-relay"
     const val ConfigVpnProtocol = "config-vpn-protocol"
     const val ConfigVpnCredentials = "config-vpn-credentials"
@@ -305,6 +311,7 @@ internal object RipDpiTestTags {
     val configMode: (String) -> String = { modeKey -> "config-mode-${sanitize(modeKey)}" }
 
     val configModeSection: (String) -> String = { sectionKey -> "config-mode-section-${sanitize(sectionKey)}" }
+    val configVpnProfile: (String) -> String = { profileId -> "config-vpn-profile-${sanitize(profileId)}" }
 
     val settingsPermission: (PermissionKind) -> String = { kind -> "settings-permission-${sanitize(kind.name)}" }
 

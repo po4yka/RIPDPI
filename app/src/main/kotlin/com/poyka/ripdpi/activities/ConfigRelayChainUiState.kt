@@ -49,6 +49,15 @@ internal fun buildRelayProfileOptions(
         .asSequence()
         .filter { it.id != chainProfileId }
         .filter { it.isSupportedChainEntryHop() || it.isSupportedChainExitHop() }
+        .toRelayProfileUiStates()
+
+internal fun buildVpnProfileOptions(records: List<RelayProfileRecord>): ImmutableList<RelayProfileUiState> =
+    records
+        .asSequence()
+        .toRelayProfileUiStates()
+
+private fun Sequence<RelayProfileRecord>.toRelayProfileUiStates(): ImmutableList<RelayProfileUiState> =
+    this
         .sortedBy { it.id }
         .map { record ->
             RelayProfileUiState(

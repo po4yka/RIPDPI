@@ -1,8 +1,35 @@
 appId: com.poyka.ripdpi
 ---
-# UI-refactor M6 stub: replace the current launch assertion with Add server paste/QR/scan import and Profile-list visibility once the Simple VPN surface exists.
 - setOrientation: PORTRAIT
 - launchApp:
     stopApp: true
 - assertVisible:
     id: "home-screen"
+- tapOn:
+    id: "bottom-nav-config"
+- tapOn:
+    id: "config-mode-section-vpn"
+- assertVisible:
+    id: "config-vpn-simple"
+- assertVisible:
+    id: "config-vpn-add-server-paste"
+- assertVisible:
+    id: "config-vpn-add-server-scan"
+- openLink: "vless://550e8400-e29b-41d4-a716-446655440000@edge.example.com:443?security=reality&pbk=AbCdEf0123456789AbCdEf0123456789AbCdEf01234&sni=www.cloudflare.com&flow=xtls-rprx-vision#M6%20Reality"
+- assertVisible:
+    text: "Import profile"
+- assertVisible:
+    text: "M6 Reality"
+- tapOn:
+    text: "Add"
+- assertVisible:
+    text: "Added"
+- pressKey: BACK
+- assertVisible:
+    id: "home-screen"
+- tapOn:
+    id: "bottom-nav-config"
+- tapOn:
+    id: "config-mode-section-vpn"
+- assertVisible:
+    id: "config-vpn-profile-default"

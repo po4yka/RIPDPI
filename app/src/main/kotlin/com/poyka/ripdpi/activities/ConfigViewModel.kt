@@ -82,6 +82,7 @@ class ConfigViewModel
                         records = relayProfileRecords,
                         chainProfileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId },
                     )
+                val vpnProfiles = buildVpnProfileOptions(relayProfileRecords)
                 val editingPreset =
                     session.presetId?.let { presetId ->
                         presets.firstOrNull { it.id == presetId }?.copy(draft = draft)
@@ -105,6 +106,7 @@ class ConfigViewModel
                             relayProfiles = relayProfileRecords,
                         ),
                     relayProfiles = relayProfiles,
+                    vpnProfiles = vpnProfiles,
                     relayChainTrustWarning = resolveRelayChainTrustWarning(draft, relayProfiles),
                     relayChainHopStatus = buildRelayChainHopStatus(serviceTelemetry.relayTelemetry),
                     relayPresets =

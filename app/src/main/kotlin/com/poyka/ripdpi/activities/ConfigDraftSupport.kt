@@ -200,6 +200,7 @@ data class ConfigUiState(
     val draft: ConfigDraft = AppSettingsSerializer.defaultValue.toConfigDraft(),
     val validationErrors: ImmutableMap<String, String> = persistentMapOf(),
     val relayProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
+    val vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
     val relayChainTrustWarning: RelayTrustDomainWarning? = null,
     val relayChainHopStatus: RelayChainHopStatusUiState = RelayChainHopStatusUiState(),
     val relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),

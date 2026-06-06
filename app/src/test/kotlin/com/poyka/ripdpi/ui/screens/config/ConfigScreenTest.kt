@@ -15,12 +15,15 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -133,9 +136,13 @@ class ConfigScreenTest {
 
     @Test
     fun `vpn section renders relay protocol credentials and dns rows`() {
-        setConfigScreen(initialModeSection = ConfigModeSection.Vpn)
+        setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSimple).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).assertExists()
         composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnRelay).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertExists()
@@ -151,6 +158,7 @@ class ConfigScreenTest {
             initialModeSection = ConfigModeSection.Vpn,
             onEditCurrent = { relayClicks += 1 },
             onOpenDnsSettings = { dnsClicks += 1 },
+            uiPersona = "advanced",
         )
 
         composeRule
@@ -182,6 +190,8 @@ class ConfigScreenTest {
                     onEditCurrent = {},
                     onOpenDnsSettings = {},
                     onRetestStrategies = {},
+                    onPasteServerLink = {},
+                    onScanServer = {},
                     initialModeSection = ConfigModeSection.LocalBypass,
                 )
             }
@@ -209,36 +219,67 @@ class ConfigScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertDoesNotExist()
     }
 
+    @Test
+    fun `vpn simple add server actions are prominent`() {
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.Vpn,
+            vpnProfiles =
+                persistentListOf(
+                    RelayProfileUiState(
+                        id = "default",
+                        kind = "vless_reality",
+                        kindLabel = "VLESS + Reality",
+                        jurisdiction = "",
+                        operatorName = "",
+                    ),
+                ),
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSimple).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste).assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan).assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.configVpnProfile("default")).assertExists()
+    }
+
     private fun setConfigScreen(
         initialModeSection: ConfigModeSection,
         onModeSelected: (Mode) -> Unit = {},
         onEditCurrent: () -> Unit = {},
         onOpenDnsSettings: () -> Unit = {},
         onRetestStrategies: () -> Unit = {},
+        onPasteServerLink: () -> Unit = {},
+        onScanServer: () -> Unit = {},
         uiPersona: String = "simple",
+        vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
     ) {
         composeRule.setContent {
             RipDpiTheme {
                 ConfigScreen(
-                    uiState = configUiState(uiPersona = uiPersona),
+                    uiState = configUiState(uiPersona = uiPersona, vpnProfiles = vpnProfiles),
                     onModeSelected = onModeSelected,
                     onPresetSelected = {},
                     onEditCurrent = onEditCurrent,
                     onOpenDnsSettings = onOpenDnsSettings,
                     onRetestStrategies = onRetestStrategies,
+                    onPasteServerLink = onPasteServerLink,
+                    onScanServer = onScanServer,
                     initialModeSection = initialModeSection,
                 )
             }
         }
     }
 
-    private fun configUiState(uiPersona: String = "simple"): ConfigUiState {
+    private fun configUiState(
+        uiPersona: String = "simple",
+        vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
+    ): ConfigUiState {
         val draft = AppSettingsSerializer.defaultValue.toConfigDraft()
         return ConfigUiState(
             activeMode = draft.mode,
             uiPersona = uiPersona,
             presets = buildConfigPresets(draft),
             draft = draft,
+            vpnProfiles = vpnProfiles,
         )
     }
 
