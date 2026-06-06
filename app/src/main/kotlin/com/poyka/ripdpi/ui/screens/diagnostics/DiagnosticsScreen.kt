@@ -140,6 +140,7 @@ data class DiagnosticsScreenActions(
     val onRequestVpnPermission: () -> Unit = {},
     val onOpenHistory: () -> Unit = {},
     val onOpenModeEditor: () -> Unit = {},
+    val onApplyRecommendedPath: () -> Unit = {},
     val onOpenOwnedStackBrowser: (String) -> Unit = {},
     val onOpenPcapCaptureList: () -> Unit = {},
     val onOpenPastReplays: () -> Unit = {},
@@ -326,10 +327,12 @@ private fun DiagnosticsScreenPager(
             DiagnosticsSection.Dashboard -> {
                 OverviewSection(
                     overview = uiState.overview,
+                    scan = uiState.scan,
                     live = uiState.live,
                     isActiveScan = uiState.scan.activeProgress != null,
                     onSelectSection = actions.onSelectSection,
                     onRunScan = actions.onRunScan,
+                    onApplyRecommendedPath = actions.onApplyRecommendedPath,
                     onSelectSession = actions.onSelectSession,
                     onOpenHistory = actions.onOpenHistory,
                 )

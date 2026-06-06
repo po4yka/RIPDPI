@@ -23,6 +23,13 @@
     <string name="settings_logs_body">جریان زنده گزارش‌های برنامه، سرویس و تشخیص را باز کنید.</string>
     <string name="diagnostics_open_logs_body">جریان زنده گزارش‌ها را با فیلترهای سرویس، پروکسی، تونل و تشخیص باز کنید.</string>
     <string name="diagnostics_title">تشخیص</string>
+    <string name="diagnostics_simple_funnel_title">بررسی شبکه</string>
+    <string name="diagnostics_simple_funnel_body">یک بررسی اجرا کنید، نتیجه را ببینید و فقط پیشنهادهای با اطمینان بالا را خودکار اعمال کنید.</string>
+    <string name="diagnostics_simple_funnel_verdict_running">در حال بررسی این شبکه…</string>
+    <string name="diagnostics_simple_funnel_memory_format">در این شبکه، %1$s دفعه قبل کار کرد.</string>
+    <string name="diagnostics_simple_funnel_check_action">بررسی شبکه</string>
+    <string name="diagnostics_simple_funnel_apply_action">اعمال مسیر</string>
+    <string name="diagnostics_simple_funnel_review_action">بازبینی گزینه‌ها</string>
     <string name="history_title">تاریخچه</string>
     <string name="diagnostics_overview_section">نمای کلی</string>
     <string name="diagnostics_dashboard_section">داشبورد</string>

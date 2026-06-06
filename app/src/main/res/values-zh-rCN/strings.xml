@@ -23,6 +23,13 @@
     <string name="settings_logs_body">打开应用、服务和诊断的实时日志流。</string>
     <string name="diagnostics_open_logs_body">打开带有服务、代理、隧道和诊断过滤器的实时日志流。</string>
     <string name="diagnostics_title">诊断</string>
+    <string name="diagnostics_simple_funnel_title">网络检查</string>
+    <string name="diagnostics_simple_funnel_body">运行一次检查，查看结论，然后只自动应用高置信度建议。</string>
+    <string name="diagnostics_simple_funnel_verdict_running">正在检查此网络…</string>
+    <string name="diagnostics_simple_funnel_memory_format">在此网络上，%1$s 上次可用。</string>
+    <string name="diagnostics_simple_funnel_check_action">检查网络</string>
+    <string name="diagnostics_simple_funnel_apply_action">应用路径</string>
+    <string name="diagnostics_simple_funnel_review_action">查看选择</string>
     <string name="history_title">历史</string>
     <string name="diagnostics_overview_section">概览</string>
     <string name="diagnostics_dashboard_section">仪表板</string>

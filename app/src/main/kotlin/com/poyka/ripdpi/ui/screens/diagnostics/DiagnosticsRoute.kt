@@ -319,6 +319,7 @@ private fun rememberDiagnosticsScreenActions(
         onRequestVpnPermission = callbacks.onRequestVpnPermission,
         onOpenHistory = callbacks.onOpenHistory,
         onOpenModeEditor = callbacks.onOpenModeEditor,
+        onApplyRecommendedPath = callbacks.onOpenModeEditor,
         onOpenOwnedStackBrowser = callbacks.onOpenOwnedStackBrowser,
         onOpenPcapCaptureList = callbacks.onOpenPcapCaptureList,
         onOpenPastReplays = callbacks.onOpenPastReplays,

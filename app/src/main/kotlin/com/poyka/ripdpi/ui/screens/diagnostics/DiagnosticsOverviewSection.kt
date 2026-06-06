@@ -17,8 +17,10 @@ import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
 import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRememberedNetworkUiModel
+import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -32,6 +34,21 @@ import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+internal enum class DiagnosticsSimpleFunnelAction {
+    Apply,
+    Review,
+    Unavailable,
+}
+
+internal fun DiagnosticsScanUiModel.simpleFunnelAction(isActiveScan: Boolean): DiagnosticsSimpleFunnelAction {
+    if (strategyProbeReport == null || isActiveScan) return DiagnosticsSimpleFunnelAction.Unavailable
+    return if (strategyProbeReport.auditAssessment?.confidence?.level == StrategyProbeAuditConfidenceLevel.HIGH) {
+        DiagnosticsSimpleFunnelAction.Apply
+    } else {
+        DiagnosticsSimpleFunnelAction.Review
+    }
+}
 
 @Composable
 internal fun DiagnosticsSectionSwitcher(
@@ -63,10 +80,12 @@ internal fun DiagnosticsSectionSwitcher(
 @Suppress("LongMethod")
 internal fun OverviewSection(
     overview: DiagnosticsOverviewUiModel,
+    scan: DiagnosticsScanUiModel,
     live: com.poyka.ripdpi.activities.DiagnosticsLiveUiModel,
     isActiveScan: Boolean,
     onSelectSection: (DiagnosticsSection) -> Unit,
     onRunScan: () -> Unit,
+    onApplyRecommendedPath: () -> Unit,
     onSelectSession: (String) -> Unit,
     onOpenHistory: () -> Unit,
 ) {
@@ -88,6 +107,16 @@ internal fun OverviewSection(
                 isActiveScan = isActiveScan,
                 onSelectSection = onSelectSection,
                 onRunScan = onRunScan,
+            )
+        }
+        item {
+            DiagnosticsSimpleFunnelCard(
+                overview = overview,
+                scan = scan,
+                isActiveScan = isActiveScan,
+                onRunScan = onRunScan,
+                onReviewChoices = { onSelectSection(DiagnosticsSection.Scan) },
+                onApplyRecommendedPath = onApplyRecommendedPath,
             )
         }
         if (live.health != DiagnosticsHealth.Idle && live.metrics.isNotEmpty()) {
@@ -177,6 +206,78 @@ internal fun OverviewSection(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticsSimpleFunnelCard(
+    overview: DiagnosticsOverviewUiModel,
+    scan: DiagnosticsScanUiModel,
+    isActiveScan: Boolean,
+    onRunScan: () -> Unit,
+    onReviewChoices: () -> Unit,
+    onApplyRecommendedPath: () -> Unit,
+) {
+    val report = scan.strategyProbeReport
+    val action = scan.simpleFunnelAction(isActiveScan)
+    val hasHighConfidence = action == DiagnosticsSimpleFunnelAction.Apply
+    val currentMemory = overview.rememberedNetworks.firstOrNull { it.isCurrentMatch }
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSimpleFunnel),
+    ) {
+        androidx.compose.material3.Text(
+            text = stringResource(R.string.diagnostics_simple_funnel_title),
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        androidx.compose.material3.Text(
+            text =
+                when {
+                    isActiveScan -> stringResource(R.string.diagnostics_simple_funnel_verdict_running)
+                    report != null -> report.recommendation.headline
+                    else -> overview.headline
+                },
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = RipDpiThemeTokens.colors.foreground,
+        )
+        androidx.compose.material3.Text(
+            text =
+                currentMemory?.let {
+                    stringResource(R.string.diagnostics_simple_funnel_memory_format, it.strategyLabel)
+                } ?: stringResource(R.string.diagnostics_simple_funnel_body),
+            style = RipDpiThemeTokens.type.body,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+            RipDpiButton(
+                text = stringResource(R.string.diagnostics_simple_funnel_check_action),
+                onClick = onRunScan,
+                enabled = !isActiveScan,
+                variant = RipDpiButtonVariant.Primary,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsSimpleCheck),
+            )
+            RipDpiButton(
+                text =
+                    stringResource(
+                        if (hasHighConfidence) {
+                            R.string.diagnostics_simple_funnel_apply_action
+                        } else {
+                            R.string.diagnostics_simple_funnel_review_action
+                        },
+                    ),
+                onClick = if (hasHighConfidence) onApplyRecommendedPath else onReviewChoices,
+                enabled = action != DiagnosticsSimpleFunnelAction.Unavailable,
+                variant = RipDpiButtonVariant.Outline,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsSimpleApply),
+            )
         }
     }
 }

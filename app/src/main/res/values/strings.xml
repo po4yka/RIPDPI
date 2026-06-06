@@ -25,6 +25,13 @@
     <string name="settings_logs_body">Open the live app, service, and diagnostics log stream.</string>
     <string name="diagnostics_open_logs_body">Open the live log stream with filters for service, proxy, tunnel, and diagnostics entries.</string>
     <string name="diagnostics_title">Diagnostics</string>
+    <string name="diagnostics_simple_funnel_title">Network check</string>
+    <string name="diagnostics_simple_funnel_body">Run one check, review the verdict, then apply only high-confidence recommendations automatically.</string>
+    <string name="diagnostics_simple_funnel_verdict_running">Checking this network…</string>
+    <string name="diagnostics_simple_funnel_memory_format">On this network, %1$s worked last time.</string>
+    <string name="diagnostics_simple_funnel_check_action">Check network</string>
+    <string name="diagnostics_simple_funnel_apply_action">Apply path</string>
+    <string name="diagnostics_simple_funnel_review_action">Review choices</string>
     <string name="history_title">History</string>
     <string name="diagnostics_overview_section">Overview</string>
     <string name="diagnostics_dashboard_section">Dashboard</string>

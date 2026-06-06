@@ -25,6 +25,13 @@
     <string name="settings_logs_body">افتح بث السجلات الحي للتطبيق والخدمة والتشخيص.</string>
     <string name="diagnostics_open_logs_body">افتح بث السجلات الحي مع فلاتر للخدمة والوكيل والنفق والتشخيص.</string>
     <string name="diagnostics_title">التشخيصات</string>
+    <string name="diagnostics_simple_funnel_title">فحص الشبكة</string>
+    <string name="diagnostics_simple_funnel_body">شغّل فحصًا واحدًا، راجع النتيجة، ثم طبّق تلقائيًا التوصيات ذات الثقة العالية فقط.</string>
+    <string name="diagnostics_simple_funnel_verdict_running">جارٍ فحص هذه الشبكة…</string>
+    <string name="diagnostics_simple_funnel_memory_format">على هذه الشبكة، نجح %1$s في المرة السابقة.</string>
+    <string name="diagnostics_simple_funnel_check_action">فحص الشبكة</string>
+    <string name="diagnostics_simple_funnel_apply_action">تطبيق المسار</string>
+    <string name="diagnostics_simple_funnel_review_action">مراجعة الخيارات</string>
     <string name="history_title">السجل</string>
     <string name="diagnostics_overview_section">نظرة عامة</string>
     <string name="diagnostics_dashboard_section">لوحة التحكم</string>

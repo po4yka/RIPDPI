@@ -24,6 +24,13 @@
     <string name="settings_logs_body">Открыть живой поток журналов приложения, сервиса и диагностики.</string>
     <string name="diagnostics_open_logs_body">Открыть живой поток журналов с фильтрами для сервиса, прокси, туннеля и диагностики.</string>
     <string name="diagnostics_title">Диагностика</string>
+    <string name="diagnostics_simple_funnel_title">Проверка сети</string>
+    <string name="diagnostics_simple_funnel_body">Запустите одну проверку, посмотрите вердикт, затем автоматически применяйте только рекомендации с высокой уверенностью.</string>
+    <string name="diagnostics_simple_funnel_verdict_running">Проверяем эту сеть…</string>
+    <string name="diagnostics_simple_funnel_memory_format">В этой сети в прошлый раз сработало: %1$s.</string>
+    <string name="diagnostics_simple_funnel_check_action">Проверить сеть</string>
+    <string name="diagnostics_simple_funnel_apply_action">Применить путь</string>
+    <string name="diagnostics_simple_funnel_review_action">Выбрать вручную</string>
     <string name="history_title">История</string>
     <string name="diagnostics_overview_section">Обзор</string>
     <string name="diagnostics_dashboard_section">Панель</string>

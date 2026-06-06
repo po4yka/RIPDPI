@@ -29,6 +29,7 @@ import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationStepUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRememberedNetworkUiModel
 import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
@@ -115,6 +116,7 @@ private fun DiagnosticsScreen(
     onRequestVpnPermission: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenModeEditor: () -> Unit = {},
+    onApplyRecommendedPath: () -> Unit = {},
     rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
 ) {
@@ -160,6 +162,7 @@ private fun DiagnosticsScreen(
                 onRequestVpnPermission = onRequestVpnPermission,
                 onOpenHistory = onOpenHistory,
                 onOpenModeEditor = onOpenModeEditor,
+                onApplyRecommendedPath = onApplyRecommendedPath,
             ),
         rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,
@@ -594,8 +597,110 @@ class DiagnosticsScreenTest {
             }
         }
 
+        composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsOverviewAutomaticProbeCard).assertIsDisplayed()
         composeRule.onNodeWithText("Automatic probe summary").assertIsDisplayed()
+    }
+
+    @Test
+    fun simpleFunnelAppliesHighConfidenceRecommendation() {
+        val tcpCandidateDetail = auditCandidateDetail()
+        val scan =
+            DiagnosticsScanUiModel(
+                strategyProbeReport =
+                    auditReport(
+                        tcpCandidateDetail,
+                        auditAssessment =
+                            auditAssessment(
+                                level = StrategyProbeAuditConfidenceLevel.HIGH,
+                                score = 91,
+                                matrixCoveragePercent = 94,
+                                winnerCoveragePercent = 100,
+                                warnings = emptyList(),
+                            ),
+                    ),
+            )
+
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Dashboard.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Dashboard,
+                            overview =
+                                com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel(
+                                    rememberedNetworks =
+                                        persistentListOf(
+                                            DiagnosticsRememberedNetworkUiModel(
+                                                id = 1,
+                                                title = "Current Wi-Fi",
+                                                subtitle = "Validated automatically",
+                                                status = "Matched",
+                                                statusTone = DiagnosticsTone.Positive,
+                                                source = "memory",
+                                                strategyLabel = "Local bypass",
+                                                isCurrentMatch = true,
+                                            ),
+                                        ),
+                                ),
+                            scan = scan,
+                        ),
+                    pagerState = pagerState,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleFunnel).assertIsDisplayed()
+        composeRule.onNodeWithText("On this network, Local bypass worked last time.").assertIsDisplayed()
+
+        assertEquals(DiagnosticsSimpleFunnelAction.Apply, scan.simpleFunnelAction(isActiveScan = false))
+    }
+
+    @Test
+    fun simpleFunnelReviewsLowConfidenceRecommendation() {
+        val tcpCandidateDetail = auditCandidateDetail()
+        val scan =
+            DiagnosticsScanUiModel(
+                strategyProbeReport =
+                    auditReport(
+                        tcpCandidateDetail,
+                        auditAssessment =
+                            auditAssessment(
+                                level = StrategyProbeAuditConfidenceLevel.LOW,
+                                score = 41,
+                                matrixCoveragePercent = 44,
+                                winnerCoveragePercent = 50,
+                                warnings = listOf("Low winner coverage"),
+                            ),
+                    ),
+            )
+
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Dashboard.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Dashboard,
+                            scan = scan,
+                        ),
+                    pagerState = pagerState,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSimpleFunnel).assertIsDisplayed()
+
+        assertEquals(DiagnosticsSimpleFunnelAction.Review, scan.simpleFunnelAction(isActiveScan = false))
     }
 
     @Test
