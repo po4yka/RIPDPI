@@ -43,6 +43,7 @@ const MAX_ADDRESS_LEN: u64 = 2048;
 /// A loopback Hysteria 2 server. Authenticates any client (the auth token is not
 /// validated — this is a throughput fixture, not an auth check) and echoes the
 /// proxied TCP stream.
+// Drop order: shutdown drops-before join; the Drop body fires the oneshot stop signal (and closes the quinn endpoint) before the accept-loop `JoinHandle` is detached, so the loop observes shutdown on its next poll.
 pub struct Hysteria2Loopback {
     local_addr: SocketAddr,
     endpoint: quinn::Endpoint,

@@ -33,6 +33,7 @@ const COMMAND_CONNECT: u8 = 0x01;
 
 /// A loopback TUIC v5 server. Accepts (and ignores) the client's auth and echoes
 /// the proxied TCP stream.
+// Drop order: shutdown drops-before join; the Drop body fires the oneshot stop signal (and closes the quinn endpoint) before the accept-loop `JoinHandle` is detached, so the loop observes shutdown on its next poll.
 pub struct TuicLoopback {
     local_addr: SocketAddr,
     certificate_pem: String,

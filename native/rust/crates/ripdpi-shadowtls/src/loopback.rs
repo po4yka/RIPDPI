@@ -29,6 +29,7 @@ use crate::hmac::{HMAC_LEN, ShadowTlsHmac};
 /// A loopback ShadowTLS v3 server. Echoes every application-data payload the
 /// client sends, framed with the server-direction HMAC. Authenticates with the
 /// same `password` the client is configured with.
+// Drop order: shutdown drops-before join; the Drop body fires the oneshot stop signal before the accept-loop `JoinHandle` is detached, so the loop observes shutdown on its next poll (fire-and-forget teardown).
 pub struct ShadowTlsLoopback {
     local_addr: SocketAddr,
     shutdown: Option<oneshot::Sender<()>>,

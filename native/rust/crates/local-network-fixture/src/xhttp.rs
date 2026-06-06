@@ -62,6 +62,7 @@ enum SessionHalf {
 type Sessions = Arc<Mutex<HashMap<String, SessionHalf>>>;
 
 /// A loopback xHTTP-over-Reality server that proxies to the VLESS request target.
+// Drop order: shutdown sends before thread join; the Drop body fires the oneshot stop signal before joining the runtime thread, so the server loop observes shutdown and the join does not block.
 pub struct XhttpRealityLoopback {
     address: SocketAddr,
     target_address: SocketAddr,

@@ -75,6 +75,11 @@ impl rustls::client::danger::ServerCertVerifier for AcceptAnyServerCert {
 ///
 /// Drop fires the shutdown signal (same fire-and-forget discipline as
 /// `EchoLoopback`); use [`QuicLoopback::shutdown`] for synchronous teardown.
+///
+/// Drop order: shutdown drops-before join_handle; the `Drop::drop` body takes
+/// `shutdown` via `Option::take` and fires the oneshot (then closes the quinn
+/// endpoint) BEFORE the `join_handle` `JoinHandle` drops and detaches the accept
+/// loop, which then sees the signal on its next `tokio::select!` poll and exits.
 pub struct QuicLoopback {
     local_addr: SocketAddr,
     endpoint: quinn::Endpoint,
