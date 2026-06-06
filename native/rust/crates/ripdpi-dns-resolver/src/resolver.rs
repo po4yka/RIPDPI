@@ -17,7 +17,7 @@ mod dot;
 mod state;
 mod tcp;
 
-use state::ResolverInner;
+use state::{ResolverInner, ResolverTlsVerifiers};
 
 #[derive(Debug, Clone)]
 pub struct EncryptedDnsResolver {
@@ -73,7 +73,45 @@ impl EncryptedDnsResolver {
         tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
         connect_hooks: EncryptedDnsConnectHooks,
     ) -> Result<Self, EncryptedDnsError> {
-        Self::with_health(endpoint, transport, DEFAULT_TIMEOUT, Vec::new(), None, tls_verifier, connect_hooks)
+        Self::with_health(
+            endpoint,
+            transport,
+            DEFAULT_TIMEOUT,
+            Vec::new(),
+            None,
+            ResolverTlsVerifiers { tls_verifier, dot_pin_verifier: None },
+            connect_hooks,
+        )
+    }
+
+    pub fn with_pinned_tls_verifier(
+        endpoint: EncryptedDnsEndpoint,
+        transport: EncryptedDnsTransport,
+        tls_verifier: Arc<dyn ServerCertVerifier>,
+    ) -> Result<Self, EncryptedDnsError> {
+        Self::with_pinned_tls_verifier_and_connect_hooks(
+            endpoint,
+            transport,
+            tls_verifier,
+            EncryptedDnsConnectHooks::default(),
+        )
+    }
+
+    pub fn with_pinned_tls_verifier_and_connect_hooks(
+        endpoint: EncryptedDnsEndpoint,
+        transport: EncryptedDnsTransport,
+        tls_verifier: Arc<dyn ServerCertVerifier>,
+        connect_hooks: EncryptedDnsConnectHooks,
+    ) -> Result<Self, EncryptedDnsError> {
+        Self::with_health(
+            endpoint,
+            transport,
+            DEFAULT_TIMEOUT,
+            Vec::new(),
+            None,
+            ResolverTlsVerifiers { tls_verifier: Some(tls_verifier.clone()), dot_pin_verifier: Some(tls_verifier) },
+            connect_hooks,
+        )
     }
 
     #[doc(hidden)]
@@ -100,7 +138,7 @@ impl EncryptedDnsResolver {
         tls_roots: Vec<CertificateDer<'static>>,
         connect_hooks: EncryptedDnsConnectHooks,
     ) -> Result<Self, EncryptedDnsError> {
-        Self::with_health(endpoint, transport, timeout, tls_roots, None, None, connect_hooks)
+        Self::with_health(endpoint, transport, timeout, tls_roots, None, ResolverTlsVerifiers::default(), connect_hooks)
     }
 
     pub(crate) fn with_health(
@@ -109,7 +147,7 @@ impl EncryptedDnsResolver {
         timeout: Duration,
         tls_roots: Vec<CertificateDer<'static>>,
         health: Option<crate::health::HealthRegistry>,
-        tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+        tls_verifiers: ResolverTlsVerifiers,
         connect_hooks: EncryptedDnsConnectHooks,
     ) -> Result<Self, EncryptedDnsError> {
         Self::with_health_in_scope(
@@ -119,7 +157,7 @@ impl EncryptedDnsResolver {
             tls_roots,
             health,
             ResolverNetworkScope::global(),
-            tls_verifier,
+            tls_verifiers,
             connect_hooks,
         )
     }
@@ -131,7 +169,7 @@ impl EncryptedDnsResolver {
         tls_roots: Vec<CertificateDer<'static>>,
         health: Option<crate::health::HealthRegistry>,
         network_scope: ResolverNetworkScope,
-        tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+        tls_verifiers: ResolverTlsVerifiers,
         connect_hooks: EncryptedDnsConnectHooks,
     ) -> Result<Self, EncryptedDnsError> {
         Ok(Self {
@@ -142,10 +180,31 @@ impl EncryptedDnsResolver {
                 tls_roots,
                 health,
                 network_scope,
-                tls_verifier,
+                tls_verifiers,
                 connect_hooks,
             )?),
         })
+    }
+
+    pub(crate) fn with_health_in_scope_default_tls(
+        endpoint: EncryptedDnsEndpoint,
+        transport: EncryptedDnsTransport,
+        timeout: Duration,
+        tls_roots: Vec<CertificateDer<'static>>,
+        health: Option<crate::health::HealthRegistry>,
+        network_scope: ResolverNetworkScope,
+        connect_hooks: EncryptedDnsConnectHooks,
+    ) -> Result<Self, EncryptedDnsError> {
+        Self::with_health_in_scope(
+            endpoint,
+            transport,
+            timeout,
+            tls_roots,
+            health,
+            network_scope,
+            ResolverTlsVerifiers::default(),
+            connect_hooks,
+        )
     }
 
     #[cfg(test)]

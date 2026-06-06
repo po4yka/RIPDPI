@@ -144,14 +144,13 @@ fn instantiate_resolver(
     health: HealthRegistry,
     network_scope: ResolverNetworkScope,
 ) -> Result<EncryptedDnsResolver, EncryptedDnsError> {
-    EncryptedDnsResolver::with_health_in_scope(
+    EncryptedDnsResolver::with_health_in_scope_default_tls(
         endpoint,
         transport,
         timeout,
         tls_roots,
         Some(health),
         network_scope,
-        None,
         EncryptedDnsConnectHooks::default(),
     )
 }

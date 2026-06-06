@@ -84,6 +84,27 @@ fn write_length_prefixed_frame(writer: &mut impl Write, body: &[u8]) -> io::Resu
     writer.flush()
 }
 
+fn dot_fixture_endpoint(port: u16) -> EncryptedDnsEndpoint {
+    EncryptedDnsEndpoint {
+        protocol: EncryptedDnsProtocol::Dot,
+        resolver_id: Some("fixture".to_string()),
+        host: "fixture.test".to_string(),
+        port,
+        tls_server_name: Some("fixture.test".to_string()),
+        bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+        doh_url: None,
+        dnscrypt_provider_name: None,
+        dnscrypt_public_key: None,
+        odoh: None,
+    }
+}
+
+fn spki_sha256(certificate_der: &CertificateDer<'_>) -> [u8; 32] {
+    let certificate = boring::x509::X509::from_der(certificate_der.as_ref()).expect("certificate parses");
+    let spki = certificate.public_key().and_then(|key| key.public_key_to_der()).expect("SPKI serializes");
+    sha256_array(&spki)
+}
+
 fn build_response(query: &[u8], answer_ip: Ipv4Addr) -> Vec<u8> {
     let request = Message::from_vec(query).expect("query parses");
     let mut response = Message::response(request.metadata.id, OpCode::Query);
@@ -400,6 +421,99 @@ fn dot_exchange_supports_direct_and_tls_validation() {
     let response = resolver.exchange_blocking(&query).expect("DoT response");
     let answers = extract_ip_answers(&response).expect("answers parse");
     assert_eq!(answers, vec![answer_ip.to_string()]);
+    server.join().expect("server thread completes");
+}
+
+#[test]
+fn dot_pinned_spki_accepts_matching_leaf_when_system_roots_do_not() {
+    let query = build_query("fixture.test");
+    let answer_ip = Ipv4Addr::new(198, 18, 0, 31);
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+    let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
+    let server_config = Arc::new(
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der.clone()], key_der)
+            .expect("server config"),
+    );
+    let server_query = query.clone();
+    let server_response = build_response(&query, answer_ip);
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept");
+        serve_dot(stream, server_config, &server_query, &server_response);
+    });
+    let verifier = Arc::new(TlsPinVerifier::from_spki_sha256([spki_sha256(&certificate_der)]));
+
+    let resolver = EncryptedDnsResolver::with_pinned_tls_verifier(
+        dot_fixture_endpoint(port),
+        EncryptedDnsTransport::Direct,
+        verifier,
+    )
+    .expect("resolver builds");
+
+    let response = resolver.exchange_blocking(&query).expect("DoT response");
+    let answers = extract_ip_answers(&response).expect("answers parse");
+    assert_eq!(answers, vec![answer_ip.to_string()]);
+    server.join().expect("server thread completes");
+}
+
+#[test]
+fn dot_skip_without_pin_fails_closed() {
+    let query = build_query("fixture.test");
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    drop(listener);
+
+    let resolver = EncryptedDnsResolver::with_tls_verifier(
+        dot_fixture_endpoint(port),
+        EncryptedDnsTransport::Direct,
+        Some(Arc::new(TlsPinVerifier::from_spki_sha256(std::iter::empty::<[u8; 32]>()))),
+    )
+    .expect("resolver builds");
+
+    let error = resolver.exchange_blocking(&query).expect_err("DoT skip without explicit pin must fail closed");
+    assert!(
+        error.to_string().contains("requires a pinned SPKI hash or pinned certificate"),
+        "unexpected error: {error}",
+    );
+}
+
+#[test]
+fn dot_wrong_spki_pin_is_rejected() {
+    let query = build_query("fixture.test");
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+    let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
+    let server_config = Arc::new(
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der], key_der)
+            .expect("server config"),
+    );
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept");
+        tolerate_dot_handshake_failure(stream, server_config);
+    });
+    let verifier = Arc::new(TlsPinVerifier::from_spki_sha256([[7_u8; 32]]));
+
+    let resolver = EncryptedDnsResolver::with_pinned_tls_verifier(
+        dot_fixture_endpoint(port),
+        EncryptedDnsTransport::Direct,
+        verifier,
+    )
+    .expect("resolver builds");
+
+    let error = resolver.exchange_blocking(&query).expect_err("wrong DoT pin must reject the server");
+    assert!(error.to_string().contains("DoT TLS handshake"), "unexpected error: {error}");
     server.join().expect("server thread completes");
 }
 
@@ -1055,6 +1169,16 @@ fn serve_dot(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[u8]
     let query = read_length_prefixed_frame(&mut tls_stream).expect("read DoT query");
     assert_eq!(query, expected_query);
     write_length_prefixed_frame(&mut tls_stream, response_body).expect("write DoT response");
+}
+
+fn tolerate_dot_handshake_failure(stream: TcpStream, config: Arc<ServerConfig>) {
+    let connection = ServerConnection::new(config).expect("server connection");
+    let mut tls_stream = StreamOwned::new(connection, stream);
+    while tls_stream.conn.is_handshaking() {
+        if tls_stream.conn.complete_io(&mut tls_stream.sock).is_err() {
+            return;
+        }
+    }
 }
 
 fn serve_dot_sequence(

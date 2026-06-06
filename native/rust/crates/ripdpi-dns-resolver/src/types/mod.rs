@@ -4,6 +4,7 @@ mod error;
 mod exchange;
 mod hooks;
 mod oracle;
+mod tls_pin;
 
 pub(crate) use cache::DnsCryptCachedCertificate;
 #[allow(unused_imports)]
@@ -19,3 +20,4 @@ pub use hooks::{
     DnsTcpStream, DotTlsConnectorBuilder, EncryptedDnsConnectHooks,
 };
 pub use oracle::{ResolverNetworkScope, ResolverOracleObservation};
+pub use tls_pin::{TlsPinVerifier, sha256_array};

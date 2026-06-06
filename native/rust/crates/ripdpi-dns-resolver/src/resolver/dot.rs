@@ -1,5 +1,6 @@
-use boring::ssl::{SslConnector, SslConnectorBuilder, SslMethod, SslVerifyMode};
-use boring::x509::X509;
+use boring::ssl::SslConnectorBuilder;
+use boring::x509::{X509, X509StoreContextRef};
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use tokio::time::timeout;
 
 use super::EncryptedDnsResolver;
@@ -53,13 +54,14 @@ impl EncryptedDnsResolver {
     }
 
     async fn connect_dot_session(&self) -> Result<DotTlsStream, EncryptedDnsError> {
+        if self.inner.dot_unpinned_custom_verifier_requested {
+            return Err(EncryptedDnsError::Tls(
+                "DoT custom TLS verifier requires a pinned SPKI hash or pinned certificate".to_string(),
+            ));
+        }
         let tcp_stream = self.connect_plain_tcp().await?;
         let tls_name = self.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| self.inner.endpoint.host.clone());
-        let verify = !self.inner.dot_skip_verify;
         let mut builder = build_dot_connector_builder(&self.inner.connect_hooks)?;
-        if !verify {
-            builder.set_verify(SslVerifyMode::NONE);
-        }
         for root_der in &self.inner.dot_extra_roots {
             let x509 = X509::from_der(root_der.as_ref())
                 .map_err(|e| EncryptedDnsError::Tls(format!("DoT extra root cert: {e}")))?;
@@ -67,6 +69,9 @@ impl EncryptedDnsResolver {
                 .cert_store_mut()
                 .add_cert(x509)
                 .map_err(|e| EncryptedDnsError::Tls(format!("DoT add root cert: {e}")))?;
+        }
+        if let Some(verifier) = &self.inner.dot_pin_verifier {
+            configure_dot_pin_callback(&mut builder, tls_name.clone(), verifier.clone())?;
         }
         let connector = builder.build();
         let config_ssl =
@@ -84,7 +89,47 @@ fn build_dot_connector_builder(hooks: &EncryptedDnsConnectHooks) -> Result<SslCo
         return factory().map_err(|error| EncryptedDnsError::Tls(format!("DoT TLS builder: {error}")));
     }
 
-    let builder = SslConnector::builder(SslMethod::tls())
+    let builder = ripdpi_tls_profiles::configure_builder("chrome_stable")
         .map_err(|error| EncryptedDnsError::Tls(format!("DoT TLS builder: {error}")))?;
     Ok(builder)
+}
+
+fn configure_dot_pin_callback(
+    builder: &mut SslConnectorBuilder,
+    tls_name: String,
+    verifier: std::sync::Arc<dyn rustls::client::danger::ServerCertVerifier>,
+) -> Result<(), EncryptedDnsError> {
+    let server_name = ServerName::try_from(tls_name.clone())
+        .map_err(|error| EncryptedDnsError::Tls(format!("DoT TLS server name {tls_name}: {error}")))?;
+    builder.set_cert_verify_callback(move |context| match context.verify_cert() {
+        Ok(true) => true,
+        Ok(false) | Err(_) => dot_pin_verifier_accepts(context, &verifier, &server_name),
+    });
+    Ok(())
+}
+
+fn dot_pin_verifier_accepts(
+    context: &mut X509StoreContextRef,
+    verifier: &std::sync::Arc<dyn rustls::client::danger::ServerCertVerifier>,
+    server_name: &ServerName<'static>,
+) -> bool {
+    let Some(end_entity) = context.cert().and_then(|cert| cert.to_der().ok()).map(CertificateDer::from) else {
+        return false;
+    };
+    let intermediates = context
+        .untrusted()
+        .map(|chain| {
+            chain
+                .iter()
+                .skip(1)
+                .filter_map(|certificate| certificate.to_der().ok().map(CertificateDer::from))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    if verifier.verify_server_cert(&end_entity, &intermediates, server_name, &[], UnixTime::now()).is_ok() {
+        context.set_error(Ok(()));
+        true
+    } else {
+        false
+    }
 }
