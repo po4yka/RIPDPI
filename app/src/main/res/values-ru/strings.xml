@@ -300,6 +300,9 @@
     <string name="home_network_condition_no_connectivity_body">В этой сети нет рабочего маршрута. Проверьте подключение и попробуйте снова.</string>
     <string name="home_permission_issue_with_retry">%1$s Используйте кнопку подключения для продолжения запроса разрешений.</string>
     <string name="home_permission_issue_with_settings">%1$s Откройте Настройки или воспользуйтесь кнопкой ниже для восстановления доступа.</string>
+    <string name="home_setup_health_title">Состояние настройки</string>
+    <string name="home_setup_health_collapsed_format">Требуют внимания: %1$d</string>
+    <string name="home_setup_health_expanded">Проверьте пункты настройки и действия восстановления.</string>
     <string name="home_connection_button_connecting">Подключение\u2026</string>
     <string name="home_overview_title">Обзор</string>
     <string name="home_approach_title">Метод оптимизации</string>

@@ -277,6 +277,9 @@
     <string name="home_mode_card_status_active">Activo</string>
     <string name="home_mode_proxy">Proxy local</string>
     <string name="home_permission_issue_with_settings">%1$s Abre Ajustes o usa el botón de abajo para reparar el acceso.</string>
+    <string name="home_setup_health_title">Estado de configuración</string>
+    <string name="home_setup_health_collapsed_format">Elementos que necesitan atención: %1$d</string>
+    <string name="home_setup_health_expanded">Revisa los elementos de configuración y las acciones de recuperación.</string>
     <string name="home_remediation_browser_relay_step_choose_preset">Elige un preajuste de camuflaje de navegador como NaiveProxy o ShadowTLS y vuelve a ejecutar el análisis.</string>
     <string name="home_remediation_command_line_step_disable_setting">Desactiva Usar ajustes de línea de comandos.</string>
     <string name="home_remediation_no_actionable_step_rerun">Prueba otro análisis completo en la misma red si las condiciones cambiaron.</string>

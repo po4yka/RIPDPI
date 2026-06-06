@@ -8,7 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -24,6 +28,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationMetric
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationStrip
@@ -38,6 +44,7 @@ import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.resolveDegradationTone
@@ -100,117 +107,13 @@ fun HomeScreen(
             )
         }
 
-        uiState.permissionSummary.issue?.let { issue ->
-            WarningBanner(
-                title = issue.title,
-                message =
-                    when (issue.recovery) {
-                        PermissionRecovery.OpenSettings,
-                        PermissionRecovery.OpenBatteryOptimizationSettings,
-                        -> stringResource(R.string.home_permission_issue_with_settings, issue.message)
-
-                        PermissionRecovery.ShowVpnPermissionDialog,
-                        PermissionRecovery.RetryPrompt,
-                        -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
-                    },
-                tone = WarningBannerTone.Restricted,
-                testTag = RipDpiTestTags.HomePermissionIssueBanner,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .then(
-                            when (issue.recovery) {
-                                PermissionRecovery.OpenBatteryOptimizationSettings -> {
-                                    Modifier.ripDpiClickable(
-                                        role = Role.Button,
-                                        onClick = { onRepairPermission(PermissionKind.BatteryOptimization) },
-                                    )
-                                }
-
-                                PermissionRecovery.ShowVpnPermissionDialog -> {
-                                    Modifier.ripDpiClickable(
-                                        role = Role.Button,
-                                        onClick = onOpenVpnPermissionDialog,
-                                    )
-                                }
-
-                                else -> {
-                                    Modifier
-                                }
-                            },
-                        ),
-            )
-        } ?: run {
-            val warning = uiState.permissionSummary.recommendedIssue
-            val guidance = uiState.permissionSummary.backgroundGuidance
-            if (warning != null) {
-                val combinedMessage =
-                    if (guidance != null) {
-                        "${warning.message} ${guidance.message}"
-                    } else {
-                        warning.message
-                    }
-                WarningBanner(
-                    title = warning.title,
-                    message = combinedMessage,
-                    tone = WarningBannerTone.Warning,
-                    testTag = RipDpiTestTags.HomePermissionRecommendationBanner,
-                    onDismiss = {
-                        onDismissBatteryBanner()
-                        if (guidance != null) onDismissBackgroundGuidance()
-                    },
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .then(
-                                if (warning.kind == PermissionKind.BatteryOptimization) {
-                                    Modifier.ripDpiClickable(
-                                        role = Role.Button,
-                                        onClick = { onRepairPermission(PermissionKind.BatteryOptimization) },
-                                    )
-                                } else {
-                                    Modifier
-                                },
-                            ),
-                )
-            } else if (guidance != null) {
-                WarningBanner(
-                    title = guidance.title,
-                    message = guidance.message,
-                    tone = WarningBannerTone.Info,
-                    modifier = Modifier.fillMaxWidth(),
-                    testTag = RipDpiTestTags.HomeBackgroundGuidanceBanner,
-                    onDismiss = onDismissBackgroundGuidance,
-                )
-            }
-        }
-
-        if (uiState.hardKillSwitch.visible) {
-            WarningBanner(
-                title = uiState.hardKillSwitch.label,
-                message = uiState.hardKillSwitch.summary,
-                tone =
-                    if (uiState.hardKillSwitch.warning) {
-                        WarningBannerTone.Warning
-                    } else {
-                        WarningBannerTone.Info
-                    },
-                testTag = RipDpiTestTags.HomeHardKillSwitchBanner,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .then(
-                            if (uiState.hardKillSwitch.warning) {
-                                Modifier.ripDpiClickable(
-                                    role = Role.Button,
-                                    onClick = { onRepairPermission(PermissionKind.VpnLockdown) },
-                                )
-                            } else {
-                                Modifier
-                            },
-                        ),
-            )
-        }
+        HomeSetupHealthRow(
+            uiState = uiState,
+            onRepairPermission = onRepairPermission,
+            onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
+            onDismissBatteryBanner = onDismissBatteryBanner,
+            onDismissBackgroundGuidance = onDismissBackgroundGuidance,
+        )
 
         HomeNetworkConditionBanner(
             condition = uiState.networkCondition,
@@ -245,6 +148,164 @@ fun HomeScreen(
             onDismissVerificationSheet = onDismissVerificationSheet,
         )
     }
+}
+
+private data class HomeSetupHealthItem(
+    val title: String,
+    val message: String,
+    val actionLabel: String?,
+    val onClick: (() -> Unit)?,
+)
+
+@Composable
+private fun HomeSetupHealthRow(
+    uiState: MainUiState,
+    onRepairPermission: (PermissionKind) -> Unit,
+    onOpenVpnPermissionDialog: () -> Unit,
+    onDismissBatteryBanner: () -> Unit,
+    onDismissBackgroundGuidance: () -> Unit,
+) {
+    val items =
+        buildHomeSetupHealthItems(
+            uiState = uiState,
+            onRepairPermission = onRepairPermission,
+            onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
+            onDismissBatteryBanner = onDismissBatteryBanner,
+            onDismissBackgroundGuidance = onDismissBackgroundGuidance,
+        )
+    if (items.isEmpty()) return
+
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    RipDpiCard {
+        SettingsRow(
+            title = stringResource(R.string.home_setup_health_title),
+            subtitle =
+                stringResource(
+                    if (expanded) {
+                        R.string.home_setup_health_expanded
+                    } else {
+                        R.string.home_setup_health_collapsed_format
+                    },
+                    items.size,
+                ),
+            value =
+                stringResource(
+                    if (expanded) {
+                        R.string.semantic_action_collapse
+                    } else {
+                        R.string.settings_permission_action_review
+                    },
+                ),
+            onClick = { expanded = !expanded },
+            leadingIcon = RipDpiIcons.Settings,
+            showChevron = true,
+            testTag = RipDpiTestTags.HomeSetupHealthRow,
+        )
+        if (expanded) {
+            Column(
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthDetails),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+            ) {
+                items.forEach { item ->
+                    SettingsRow(
+                        title = item.title,
+                        subtitle = item.message,
+                        value = item.actionLabel,
+                        onClick = item.onClick,
+                        leadingIcon = RipDpiIcons.Info,
+                        showDivider = true,
+                        testTag = RipDpiTestTags.HomeSetupHealthAction,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun buildHomeSetupHealthItems(
+    uiState: MainUiState,
+    onRepairPermission: (PermissionKind) -> Unit,
+    onOpenVpnPermissionDialog: () -> Unit,
+    onDismissBatteryBanner: () -> Unit,
+    onDismissBackgroundGuidance: () -> Unit,
+): List<HomeSetupHealthItem> {
+    val items = mutableListOf<HomeSetupHealthItem>()
+    uiState.permissionSummary.issue?.let { issue ->
+        items +=
+            HomeSetupHealthItem(
+                title = issue.title,
+                message =
+                    when (issue.recovery) {
+                        PermissionRecovery.OpenSettings,
+                        PermissionRecovery.OpenBatteryOptimizationSettings,
+                        -> stringResource(R.string.home_permission_issue_with_settings, issue.message)
+
+                        PermissionRecovery.ShowVpnPermissionDialog,
+                        PermissionRecovery.RetryPrompt,
+                        -> stringResource(R.string.home_permission_issue_with_retry, issue.message)
+                    },
+                actionLabel = issue.actionLabel,
+                onClick =
+                    when (issue.recovery) {
+                        PermissionRecovery.OpenBatteryOptimizationSettings -> {
+                            { onRepairPermission(PermissionKind.BatteryOptimization) }
+                        }
+
+                        PermissionRecovery.ShowVpnPermissionDialog,
+                        PermissionRecovery.RetryPrompt,
+                        -> {
+                            onOpenVpnPermissionDialog
+                        }
+
+                        PermissionRecovery.OpenSettings -> {
+                            { onRepairPermission(issue.kind) }
+                        }
+                    },
+            )
+    } ?: run {
+        uiState.permissionSummary.recommendedIssue?.let { warning ->
+            items +=
+                HomeSetupHealthItem(
+                    title = warning.title,
+                    message = warning.message,
+                    actionLabel = warning.actionLabel,
+                    onClick =
+                        if (warning.kind == PermissionKind.BatteryOptimization) {
+                            {
+                                onDismissBatteryBanner()
+                                onRepairPermission(PermissionKind.BatteryOptimization)
+                            }
+                        } else {
+                            { onDismissBatteryBanner() }
+                        },
+                )
+        }
+        uiState.permissionSummary.backgroundGuidance?.let { guidance ->
+            items +=
+                HomeSetupHealthItem(
+                    title = guidance.title,
+                    message = guidance.message,
+                    actionLabel = stringResource(R.string.settings_permission_action_review),
+                    onClick = onDismissBackgroundGuidance,
+                )
+        }
+    }
+    if (uiState.vpnCard.isActive && uiState.hardKillSwitch.visible) {
+        items +=
+            HomeSetupHealthItem(
+                title = uiState.hardKillSwitch.label,
+                message = uiState.hardKillSwitch.summary,
+                actionLabel = uiState.hardKillSwitch.actionLabel,
+                onClick =
+                    if (uiState.hardKillSwitch.warning) {
+                        { onRepairPermission(PermissionKind.VpnLockdown) }
+                    } else {
+                        null
+                    },
+            )
+    }
+    return items
 }
 
 @Composable

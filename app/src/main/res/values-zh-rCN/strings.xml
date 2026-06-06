@@ -329,6 +329,9 @@
     <string name="home_network_condition_no_connectivity_body">此网络没有可用路由。请检查你的连接并重试。</string>
     <string name="home_permission_issue_with_retry">%1$s 使用连接按钮继续权限流程。</string>
     <string name="home_permission_issue_with_settings">%1$s 打开设置或使用下方按钮以修复访问权限。</string>
+    <string name="home_setup_health_title">设置健康</string>
+    <string name="home_setup_health_collapsed_format">需要注意的项目：%1$d</string>
+    <string name="home_setup_health_expanded">检查设置项目和恢复操作。</string>
     <string name="home_connection_button_connecting">连接中…</string>
     <string name="home_connection_actuator_open">打开</string>
     <string name="home_connection_actuator_secure">安全</string>

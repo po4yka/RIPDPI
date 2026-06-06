@@ -326,6 +326,9 @@
     <string name="home_network_condition_no_connectivity_body">لا يوجد مسار عمل لهذه الشبكة. تحقق من اتصالك وحاول مجددًا.</string>
     <string name="home_permission_issue_with_retry">%1$s استخدم زر الاتصال لمتابعة منح الإذن.</string>
     <string name="home_permission_issue_with_settings">%1$s افتح الإعدادات أو استخدم الزر أدناه لإصلاح الوصول.</string>
+    <string name="home_setup_health_title">صحة الإعداد</string>
+    <string name="home_setup_health_collapsed_format">عناصر تحتاج إلى انتباه: %1$d</string>
+    <string name="home_setup_health_expanded">راجع عناصر الإعداد وإجراءات الاسترداد.</string>
     <string name="home_connection_button_connecting">جارٍ الاتصال\u2026</string>
     <string name="home_connection_actuator_open">مفتوح</string>
     <string name="home_connection_actuator_secure">آمن</string>

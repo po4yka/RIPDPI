@@ -52,13 +52,14 @@ class HomeScreenTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `hard kill switch banner surfaces Android lockdown state and opens vpn settings`() {
+    fun `lockdown setup health only appears when vpn is active and opens vpn settings`() {
         var repairedKind: PermissionKind? = null
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
                     uiState =
                         MainUiState(
+                            modeCards = modeCards(activeMode = HomeMode.RemoteVpn),
                             hardKillSwitch =
                                 HardKillSwitchUiState(
                                     status = AndroidHardKillSwitchStatus.NOT_ENABLED,
@@ -78,12 +79,48 @@ class HomeScreenTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeHardKillSwitchBanner)
+            .onAllNodesWithTag(RipDpiTestTags.HomeHardKillSwitchBanner)
+            .assertCountEquals(0)
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
             .assertIsDisplayed()
+            .assertHasClickAction()
+            .performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
             .assertHasClickAction()
             .performClick()
 
         assertEquals(PermissionKind.VpnLockdown, repairedKind)
+    }
+
+    @Test
+    fun `lockdown setup health is hidden while vpn is inactive`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            hardKillSwitch =
+                                HardKillSwitchUiState(
+                                    status = AndroidHardKillSwitchStatus.NOT_ENABLED,
+                                    label = "System lockdown not enabled",
+                                    summary = "Android is not blocking traffic outside the VPN.",
+                                    actionLabel = "Open VPN settings",
+                                    visible = true,
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeHardKillSwitchBanner).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeSetupHealthRow).assertCountEquals(0)
     }
 
     @Test
@@ -124,7 +161,7 @@ class HomeScreenTest {
     }
 
     @Test
-    fun backgroundGuidanceMergedIntoBatteryRecommendationBanner() {
+    fun backgroundGuidanceAndBatteryRecommendationUseSetupHealthRow() {
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
@@ -139,16 +176,22 @@ class HomeScreenTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomePermissionRecommendationBanner)
-            .assertIsDisplayed()
-            .assertHasClickAction()
+            .onAllNodesWithTag(RipDpiTestTags.HomePermissionRecommendationBanner)
+            .assertCountEquals(0)
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeBackgroundGuidanceBanner)
-            .assertDoesNotExist()
+            .onAllNodesWithTag(RipDpiTestTags.HomeBackgroundGuidanceBanner)
+            .assertCountEquals(0)
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
+            .assertIsDisplayed()
+            .performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthDetails)
+            .assertIsDisplayed()
     }
 
     @Test
-    fun `battery recommendation banner shows dismiss button`() {
+    fun `setup health has no warning banner dismiss button`() {
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
@@ -165,15 +208,18 @@ class HomeScreenTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomePermissionRecommendationBanner)
-            .assertIsDisplayed()
+            .onAllNodesWithTag(RipDpiTestTags.HomePermissionRecommendationBanner)
+            .assertCountEquals(0)
         composeRule
             .onAllNodesWithTag(RipDpiTestTags.WarningBannerDismiss)
-            .assertCountEquals(1)
+            .assertCountEquals(0)
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
+            .assertIsDisplayed()
     }
 
     @Test
-    fun `clicking dismiss on battery banner invokes callback`() {
+    fun `clicking battery setup health action invokes callback`() {
         var dismissed = false
         composeRule.setContent {
             RipDpiTheme {
@@ -205,7 +251,10 @@ class HomeScreenTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.WarningBannerDismiss)
+            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
+            .performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
             .performClick()
         assertTrue("Expected battery dismiss callback to fire", dismissed)
     }
@@ -237,16 +286,16 @@ class HomeScreenTest {
         assertTrue(vpnTop > bypassTop)
         assertTrue(diagnosticTop > vpnTop)
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeStatusCard).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsCard).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeApproachCard).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeHistoryCard).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeStatsGrid).assertDoesNotExist()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeConnectionButton).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeStatusCard).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsCard).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeApproachCard).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeHistoryCard).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeStatsGrid).assertCountEquals(0)
     }
 
     @Test
-    fun `permission warning remains above mode cards`() {
+    fun `setup health remains above mode cards`() {
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
@@ -262,7 +311,7 @@ class HomeScreenTest {
 
         val warningBottom =
             composeRule
-                .onNodeWithTag(RipDpiTestTags.HomePermissionRecommendationBanner)
+                .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
                 .fetchSemanticsNode()
                 .boundsInRoot
                 .bottom
@@ -428,8 +477,8 @@ class HomeScreenTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
-            .assertDoesNotExist()
+            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .assertCountEquals(0)
     }
 
     @Test
