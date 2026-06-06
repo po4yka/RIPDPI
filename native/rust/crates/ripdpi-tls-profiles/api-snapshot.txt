@@ -214,6 +214,12 @@ pub ripdpi_tls_profiles::ProfileTemplateMetadata::grease_style: &'static str
 pub ripdpi_tls_profiles::ProfileTemplateMetadata::key_share_profile: &'static str
 pub ripdpi_tls_profiles::ProfileTemplateMetadata::record_choreography: &'static str
 pub ripdpi_tls_profiles::ProfileTemplateMetadata::supported_groups_profile: &'static str
+pub struct ripdpi_tls_profiles::RotatingProfileSelector
+impl ripdpi_tls_profiles::RotatingProfileSelector
+pub fn ripdpi_tls_profiles::RotatingProfileSelector::new(&[&str]) -> core::result::Result<Self, ripdpi_tls_profiles::Error>
+pub fn ripdpi_tls_profiles::RotatingProfileSelector::pool(&self) -> &[&'static str]
+pub fn ripdpi_tls_profiles::RotatingProfileSelector::select(&self, &str, u64) -> &'static str
+pub fn ripdpi_tls_profiles::RotatingProfileSelector::with_default_pool() -> Self
 pub struct ripdpi_tls_profiles::TlsTemplateFirstFlightPlan
 pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::ech_bootstrap_policy: &'static str
 pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::ech_bootstrap_resolver_id: core::option::Option<&'static str>
@@ -235,6 +241,7 @@ pub fn ripdpi_tls_profiles::configure_builder(&str) -> core::result::Result<bori
 pub fn ripdpi_tls_profiles::configure_ech(&mut boring::ssl::connector::ConnectConfiguration, &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchFacadeError>
 pub fn ripdpi_tls_profiles::configure_rustls_ech(rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVersions>, &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVerifier>, ripdpi_tls_profiles::ech::EchFacadeError>
 pub fn ripdpi_tls_profiles::extract_boring_ech_rejection<S>(&boring::ssl::MidHandshakeSslStream<S>) -> core::option::Option<ripdpi_tls_profiles::ech::EchRejectedHandshake>
+pub fn ripdpi_tls_profiles::fingerprint_rotation_count() -> u64
 pub fn ripdpi_tls_profiles::plan_first_flight(&str, &[u8]) -> core::option::Option<ripdpi_tls_profiles::TlsTemplateFirstFlightPlan>
 pub fn ripdpi_tls_profiles::planned_record_payload_boundaries(&str, &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
 pub fn ripdpi_tls_profiles::planned_record_payload_lengths(&str, &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
