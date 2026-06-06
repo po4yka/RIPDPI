@@ -56,7 +56,7 @@ jobs:
           RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleFdroidRelease -Pripdpi.enableAbiSplits=false -Pripdpi.nativeAbiParallelism=1
+        run: ./gradlew assembleFdroidRelease -Pripdpi.nativeAbiParallelism=1
 
       - name: Build GitHub release APK
         env:
@@ -65,7 +65,17 @@ jobs:
           RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleGithubRelease -Pripdpi.enableAbiSplits=false -Pripdpi.nativeAbiParallelism=1
+        run: ./gradlew assembleGithubRelease -Pripdpi.nativeAbiParallelism=1
+
+      - name: Normalize F-Droid release APK names
+        run: |
+          scripts/ci/generate_update_metadata.py \
+            --apk-glob "app/build/outputs/apk/fdroid/release/*.apk" \
+            --output-metadata "app/build/outputs/apk/fdroid/release/output-metadata.json" \
+            --gradle-properties "gradle.properties" \
+            --package-name "com.poyka.ripdpi" \
+            --artifact-prefix "app-fdroid-release" \
+            --size-report "fdroid-apk-size-report.md"
 
       - name: Generate GitHub updater metadata
         run: |
@@ -74,8 +84,11 @@ jobs:
             --output-metadata "app/build/outputs/apk/github/release/output-metadata.json" \
             --gradle-properties "gradle.properties" \
             --package-name "com.poyka.ripdpi" \
+            --artifact-prefix "app-github-release" \
             --update-json "update.json" \
-            --sha256sums "SHA256SUMS"
+            --sha256sums "SHA256SUMS" \
+            --size-report "github-apk-size-report.md" \
+            --max-abi-apk-size-mib 140
 
       - name: Generate Rust SBOM
         run: |
@@ -107,7 +120,6 @@ jobs:
           sha256sum \
             app/build/outputs/bundle/playRelease/*.aab \
             app/build/outputs/apk/fdroid/release/*.apk \
-            app/build/outputs/apk/github/release/*.apk \
             update.json \
             rust-bom.json \
             android-bom.json \
@@ -125,6 +137,8 @@ jobs:
             rust-bom.json
             android-bom.json
             SHA256SUMS
+            github-apk-size-report.md
+            fdroid-apk-size-report.md
 
       - name: Upload Play release AAB
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -154,6 +168,8 @@ jobs:
           path: |
             update.json
             SHA256SUMS
+            github-apk-size-report.md
+            fdroid-apk-size-report.md
           retention-days: 90
 
       - name: Upload release retrace inputs
@@ -185,6 +201,8 @@ jobs:
             rust-bom.json
             android-bom.json
             SHA256SUMS
+            github-apk-size-report.md
+            fdroid-apk-size-report.md
           generate_release_notes: true
 
       - name: Upload SBOMs and checksums
@@ -195,4 +213,6 @@ jobs:
             rust-bom.json
             android-bom.json
             SHA256SUMS
+            github-apk-size-report.md
+            fdroid-apk-size-report.md
           retention-days: 90

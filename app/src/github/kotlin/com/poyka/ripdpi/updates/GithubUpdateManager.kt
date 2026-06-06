@@ -69,22 +69,26 @@ class GithubUpdateManager
                     if (validationFailure != null) {
                         return@withContext UpdateCheckResult.Failed(validationFailure)
                     }
-                    if (metadata.versionCode <= BuildConfig.VERSION_CODE.toLong()) {
+                    val selectedArtifact =
+                        metadata.selectArtifact(Build.SUPPORTED_ABIS)
+                            ?: return@withContext UpdateCheckResult.Failed(UpdateFailureReason.InvalidMetadata)
+                    if (selectedArtifact.versionCode <= BuildConfig.VERSION_CODE.toLong()) {
                         latestPlan = null
                         return@withContext UpdateCheckResult.NoUpdate
                     }
                     val apkAsset =
-                        release.assets.firstOrNull { it.name == metadata.apkName }
+                        release.assets.firstOrNull { it.name == selectedArtifact.apkName }
                             ?: return@withContext UpdateCheckResult.Failed(UpdateFailureReason.InvalidRepositoryAsset)
                     if (!apkAsset.isAllowedReleaseAsset(owner, repo)) {
                         return@withContext UpdateCheckResult.Failed(UpdateFailureReason.InvalidRepositoryAsset)
                     }
-                    val enrichedMetadata =
-                        metadata.copy(sizeBytes = metadata.sizeBytes ?: apkAsset.size)
+                    val enrichedArtifact =
+                        selectedArtifact.copy(sizeBytes = selectedArtifact.sizeBytes ?: apkAsset.size)
                     val plan =
                         GithubUpdatePlan(
-                            update = enrichedMetadata.toAvailableUpdate(),
-                            metadata = enrichedMetadata,
+                            update = metadata.toAvailableUpdate(enrichedArtifact),
+                            metadata = metadata,
+                            artifact = enrichedArtifact,
                             apkAsset = apkAsset,
                         )
                     latestPlan = plan
@@ -108,7 +112,7 @@ class GithubUpdateManager
                         return@withContext UpdateInstallResult.PermissionRequired(unknownSourcesIntent())
                     }
                     val apkFile = downloadApk(plan)
-                    val validationFailure = validateDownloadedApk(plan.metadata, apkFile)
+                    val validationFailure = validateDownloadedApk(plan.metadata, plan.artifact, apkFile)
                     if (validationFailure != null) {
                         apkFile.delete()
                         return@withContext UpdateInstallResult.Failed(validationFailure)
@@ -167,15 +171,14 @@ class GithubUpdateManager
             when {
                 !metadata.isStructurallyValid() -> UpdateFailureReason.InvalidMetadata
                 metadata.packageName != BuildConfig.APPLICATION_ID -> UpdateFailureReason.InvalidPackageName
-                metadata.versionCode <= BuildConfig.VERSION_CODE.toLong() -> UpdateFailureReason.InvalidVersionCode
                 metadata.minSdk != null && Build.VERSION.SDK_INT < metadata.minSdk -> UpdateFailureReason.UnsupportedSdk
                 else -> null
             }
 
         private fun downloadApk(plan: GithubUpdatePlan): File {
             val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
-            val finalFile = File(updatesDir, plan.metadata.apkName)
-            val tempFile = File(updatesDir, "${plan.metadata.apkName}.tmp")
+            val finalFile = File(updatesDir, plan.artifact.apkName)
+            val tempFile = File(updatesDir, "${plan.artifact.apkName}.tmp")
             tempFile.delete()
 
             val request =
@@ -202,9 +205,10 @@ class GithubUpdateManager
 
         private fun validateDownloadedApk(
             metadata: GithubUpdateMetadata,
+            artifact: GithubUpdateArtifact,
             apkFile: File,
         ): UpdateFailureReason? {
-            if (metadata.sha256.lowercase(Locale.US) != apkFile.sha256()) {
+            if (artifact.sha256.lowercase(Locale.US) != apkFile.sha256()) {
                 return UpdateFailureReason.ChecksumMismatch
             }
             val packageInfo =
@@ -216,7 +220,10 @@ class GithubUpdateManager
             ) {
                 return UpdateFailureReason.InvalidPackageName
             }
-            if (packageInfo.longVersionCodeCompat <= BuildConfig.VERSION_CODE.toLong()) {
+            if (
+                packageInfo.longVersionCodeCompat != artifact.versionCode ||
+                packageInfo.longVersionCodeCompat <= BuildConfig.VERSION_CODE.toLong()
+            ) {
                 return UpdateFailureReason.InvalidVersionCode
             }
             metadata.minSdk?.let { minSdk ->
