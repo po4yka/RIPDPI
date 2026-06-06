@@ -94,6 +94,7 @@ class ConfigViewModel
 
                 ConfigUiState(
                     activeMode = currentDraft.mode,
+                    uiPersona = settings.uiPersona.ifBlank { "simple" },
                     presets = presets,
                     editingPreset = editingPreset,
                     draft = draft,

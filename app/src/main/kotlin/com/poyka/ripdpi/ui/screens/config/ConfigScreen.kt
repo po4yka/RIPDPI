@@ -49,6 +49,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 fun ConfigRoute(
     onOpenModeEditor: () -> Unit,
     onOpenDnsSettings: () -> Unit,
+    onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     viewModel: ConfigViewModel = hiltViewModel(),
@@ -79,6 +80,7 @@ fun ConfigRoute(
             onOpenModeEditor()
         },
         onOpenDnsSettings = onOpenDnsSettings,
+        onRetestStrategies = onRetestStrategies,
         initialModeSection = initialModeSection,
     )
 }
@@ -91,6 +93,7 @@ fun ConfigScreen(
     onPresetSelected: (ConfigPreset) -> Unit,
     onEditCurrent: () -> Unit,
     onOpenDnsSettings: () -> Unit,
+    onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
@@ -166,8 +169,10 @@ fun ConfigScreen(
             section = selectedModeSection,
             uiState = uiState,
             desyncSummary = desyncSummary,
+            onModeSelected = onModeSelected,
             onEditCurrent = onEditCurrent,
             onOpenDnsSettings = onOpenDnsSettings,
+            onRetestStrategies = onRetestStrategies,
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
@@ -231,16 +236,20 @@ private fun ConfigSelectedModeSection(
     section: ConfigModeSection,
     uiState: ConfigUiState,
     desyncSummary: String,
+    onModeSelected: (Mode) -> Unit,
     onEditCurrent: () -> Unit,
     onOpenDnsSettings: () -> Unit,
+    onRetestStrategies: () -> Unit,
 ) {
     when (section) {
         ConfigModeSection.LocalBypass -> {
             LocalBypassConfigScreen(
                 uiState = uiState,
                 desyncSummary = desyncSummary,
+                onModeSelected = onModeSelected,
                 onOpenDesyncSettings = onEditCurrent,
                 onOpenDnsSettings = onOpenDnsSettings,
+                onRetestStrategies = onRetestStrategies,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassSummary),
             )
         }
@@ -336,6 +345,7 @@ private fun ConfigScreenPreview() {
             onPresetSelected = {},
             onEditCurrent = {},
             onOpenDnsSettings = {},
+            onRetestStrategies = {},
             initialModeSection = ConfigModeSection.LocalBypass,
         )
     }
@@ -365,6 +375,7 @@ private fun ConfigScreenDarkPreview() {
             onPresetSelected = {},
             onEditCurrent = {},
             onOpenDnsSettings = {},
+            onRetestStrategies = {},
             initialModeSection = ConfigModeSection.Vpn,
         )
     }

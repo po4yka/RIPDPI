@@ -498,6 +498,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             ConfigRoute(
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+                onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
                 initialModeSection = ConfigModeSection.LocalBypass,
                 viewModel = configViewModel,
                 onProfileImport = { request -> navController.navigateProfileImport(request) },
@@ -509,6 +510,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             ConfigRoute(
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+                onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
                 initialModeSection = ConfigModeSection.LocalBypass,
                 viewModel = configViewModel,
                 onProfileImport = { request -> navController.navigateProfileImport(request) },
@@ -520,6 +522,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             ConfigRoute(
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+                onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
                 initialModeSection = ConfigModeSection.Vpn,
                 viewModel = configViewModel,
                 onProfileImport = { request -> navController.navigateProfileImport(request) },

@@ -105,6 +105,7 @@ internal fun RipDpiConfigPreviewScene() {
             onPresetSelected = {},
             onEditCurrent = {},
             onOpenDnsSettings = {},
+            onRetestStrategies = {},
         )
     }
 }

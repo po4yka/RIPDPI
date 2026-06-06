@@ -9,8 +9,11 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
@@ -64,9 +67,10 @@ class ConfigScreenTest {
 
     @Test
     fun `local bypass section renders mode listen dns and desync rows`() {
-        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
+        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass, uiPersona = "advanced")
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSimple).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassMode).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
@@ -74,9 +78,34 @@ class ConfigScreenTest {
     }
 
     @Test
+    fun `simple local bypass shows auto strategy retest and precedence note`() {
+        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSimple).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassStrategyAuto).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassPrecedenceNote).assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassRetest)
+            .assertHasClickAction()
+    }
+
+    @Test
+    fun `simple local bypass toggle targets the opposite traffic path`() {
+        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassToggle)
+            .assertHasClickAction()
+
+        assertEquals(Mode.Proxy, localBypassToggleTarget(localBypassEnabled = false))
+        assertEquals(Mode.VPN, localBypassToggleTarget(localBypassEnabled = true))
+    }
+
+    @Test
     fun `local bypass desync and dns rows expose actions`() {
         setConfigScreen(
             initialModeSection = ConfigModeSection.LocalBypass,
+            uiPersona = "advanced",
         )
 
         composeRule
@@ -91,6 +120,7 @@ class ConfigScreenTest {
     fun `local bypass action rows expose accessibility labels`() {
         setConfigScreen(
             initialModeSection = ConfigModeSection.LocalBypass,
+            uiPersona = "advanced",
         )
 
         composeRule
@@ -106,6 +136,7 @@ class ConfigScreenTest {
         setConfigScreen(initialModeSection = ConfigModeSection.Vpn)
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
+        composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnRelay).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnCredentials).assertExists()
@@ -150,6 +181,7 @@ class ConfigScreenTest {
                     onPresetSelected = {},
                     onEditCurrent = {},
                     onOpenDnsSettings = {},
+                    onRetestStrategies = {},
                     initialModeSection = ConfigModeSection.LocalBypass,
                 )
             }
@@ -182,25 +214,29 @@ class ConfigScreenTest {
         onModeSelected: (Mode) -> Unit = {},
         onEditCurrent: () -> Unit = {},
         onOpenDnsSettings: () -> Unit = {},
+        onRetestStrategies: () -> Unit = {},
+        uiPersona: String = "simple",
     ) {
         composeRule.setContent {
             RipDpiTheme {
                 ConfigScreen(
-                    uiState = configUiState(),
+                    uiState = configUiState(uiPersona = uiPersona),
                     onModeSelected = onModeSelected,
                     onPresetSelected = {},
                     onEditCurrent = onEditCurrent,
                     onOpenDnsSettings = onOpenDnsSettings,
+                    onRetestStrategies = onRetestStrategies,
                     initialModeSection = initialModeSection,
                 )
             }
         }
     }
 
-    private fun configUiState(): ConfigUiState {
+    private fun configUiState(uiPersona: String = "simple"): ConfigUiState {
         val draft = AppSettingsSerializer.defaultValue.toConfigDraft()
         return ConfigUiState(
             activeMode = draft.mode,
+            uiPersona = uiPersona,
             presets = buildConfigPresets(draft),
             draft = draft,
         )
