@@ -1,8 +1,17 @@
 appId: com.poyka.ripdpi
 ---
-# UI-refactor M4 stub: replace the current launch assertion with run check -> verdict -> apply -> path enabled once the Simple Diagnose funnel exists.
 - setOrientation: PORTRAIT
 - launchApp:
     stopApp: true
 - assertVisible:
     id: "home-screen"
+- tapOn:
+    id: "bottom-nav-diagnostics"
+- assertVisible:
+    id: "diagnostics-screen"
+- assertVisible:
+    id: "diagnostics-simple-funnel"
+- assertVisible:
+    id: "diagnostics-simple-check"
+- assertVisible:
+    id: "diagnostics-simple-apply"

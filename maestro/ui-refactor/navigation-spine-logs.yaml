@@ -1,8 +1,43 @@
 appId: com.poyka.ripdpi
 ---
-# UI-refactor M2 stub: replace the current launch assertion with 4-tab Status/Diagnose/Connection/Settings traversal and Logs reachability from Diagnose Advanced and Settings.
 - setOrientation: PORTRAIT
 - launchApp:
     stopApp: true
 - assertVisible:
     id: "home-screen"
+- assertVisible:
+    id: "bottom-nav-home"
+- tapOn:
+    id: "bottom-nav-config"
+- assertVisible:
+    id: "config-screen"
+- tapOn:
+    id: "bottom-nav-diagnostics"
+- assertVisible:
+    id: "diagnostics-screen"
+- tapOn:
+    id: "diagnostics-section-tools"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-open-logs"
+    direction: DOWN
+    centerElement: true
+- tapOn: "Manage"
+- assertVisible:
+    id: "logs-screen"
+- pressKey: BACK
+- assertVisible:
+    id: "diagnostics-screen"
+- tapOn:
+    id: "bottom-nav-settings"
+- assertVisible:
+    id: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-logs"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "settings-logs"
+- assertVisible:
+    id: "logs-screen"
