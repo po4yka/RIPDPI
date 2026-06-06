@@ -2534,7 +2534,7 @@ Source: %2$s</string>
     <string name="detection_permission_rationale">Android labels these as location permissions because Wi-Fi and cellular identity can imply where you are. RIPDPI does not use them for tracking; checks use them only to distinguish network behavior, raw identifiers are not stored, and diagnostics exports redact sensitive identifiers.</string>
     <string name="detection_permission_settings">Permissions were denied. Open settings only if you want detection checks to read Wi-Fi or cellular identity; raw identifiers are not persisted and diagnostics exports redact them.</string>
     <string name="detection_permission_open_settings">Open Settings</string>
-    <string name="detection_stealth_score">Stealth Score</string>
+    <string name="detection_stealth_score">Visibility</string>
     <string name="detection_auto_tune_title">Recommended Fixes</string>
     <string name="detection_auto_tune_apply">Apply All Fixes</string>
     <string name="detection_privacy_mode">Privacy mode</string>

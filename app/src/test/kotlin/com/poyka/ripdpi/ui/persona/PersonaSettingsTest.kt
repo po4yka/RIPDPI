@@ -32,5 +32,7 @@ class PersonaSettingsTest {
         val setupKinds = OnboardingPages.mapNotNull { page -> page as? OnboardingPage.Setup }.map { it.kind }
 
         assertTrue(setupKinds.indexOf(SetupPageKind.PersonaSelection) < setupKinds.indexOf(SetupPageKind.ModeSelection))
+        assertTrue(setupKinds.indexOf(SetupPageKind.ModeSelection) < setupKinds.indexOf(SetupPageKind.ConnectionTest))
+        assertEquals(-1, setupKinds.indexOf(SetupPageKind.DnsSelection))
     }
 }

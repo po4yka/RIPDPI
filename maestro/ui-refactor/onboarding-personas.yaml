@@ -1,8 +1,49 @@
 appId: com.poyka.ripdpi
 ---
-# UI-refactor M3/M8 stub: replace the current launch assertion with both Simple and Advanced onboarding persona paths once persona selection is implemented.
 - setOrientation: PORTRAIT
 - launchApp:
+    clearState: true
     stopApp: true
+- assertVisible:
+    id: "onboarding-screen"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible:
+    id: "onboarding-persona-simple"
+- tapOn:
+    id: "onboarding-persona-simple"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible:
+    id: "onboarding-mode-vpn"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible:
+    id: "onboarding-validate-action"
+- tapOn:
+    id: "onboarding-skip"
+- assertVisible:
+    id: "home-screen"
+- launchApp:
+    clearState: true
+    stopApp: true
+- assertVisible:
+    id: "onboarding-screen"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible:
+    id: "onboarding-persona-advanced"
+- tapOn:
+    id: "onboarding-persona-advanced"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible:
+    id: "onboarding-mode-vpn"
+- tapOn:
+    id: "onboarding-continue"
+- assertVisible:
+    id: "onboarding-validate-action"
+- tapOn:
+    id: "onboarding-skip"
 - assertVisible:
     id: "home-screen"

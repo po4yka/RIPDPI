@@ -1624,7 +1624,7 @@ fake_burst 3</string>
     <string name="detection_resistance_summary_off">关闭</string>
     <string name="detection_resistance_summary_tls">TLS 握手配置档</string>
     <string name="detection_score_improved">评分已提升</string>
-    <string name="detection_stealth_score">隐蔽性评分</string>
+    <string name="detection_stealth_score">可见性</string>
     <string name="diagnostics_autolearn_host_blocked">检测到被屏蔽的主机</string>
     <string name="diagnostics_autolearn_penalized_format">已惩罚 %1$d 个</string>
     <string name="diagnostics_autolearn_store_reset">重置已存储的主机</string>

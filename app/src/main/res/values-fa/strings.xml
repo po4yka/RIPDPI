@@ -1341,7 +1341,7 @@ fakeddisorder endhost</string>
     <string name="detection_resistance_summary_quic">انتقال QUIC</string>
     <string name="detection_resistance_tls_fingerprint_title">نمایه اثرانگشت TLS</string>
     <string name="detection_status_detected">شناسایی شد</string>
-    <string name="detection_stealth_score">امتیاز پنهان‌کاری</string>
+    <string name="detection_stealth_score">قابلیت مشاهده</string>
     <string name="diagnostics_autolearn_blocked_format">%1$d مسدودشده</string>
     <string name="diagnostics_autolearn_none_yet">هنوز هیچ‌کدام</string>
     <string name="diagnostics_autolearn_penalized">مسیر ناموفق جریمه‌شده</string>

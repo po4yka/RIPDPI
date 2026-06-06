@@ -2378,7 +2378,7 @@ fakeddisorder endhost</string>
     <string name="detection_permission_rationale">يُصنّف Android هذه الأذونات ضمن أذونات الموقع لأن هوية Wi-Fi والشبكة الخلوية قد تدل على موقعك. لا تستخدم RIPDPI هذه البيانات للتتبع؛ تستخدمها الفحوصات فقط لتمييز سلوك الشبكة، ولا تُخزَّن المعرّفات الخام، وتُخفي صادرات التشخيص المعرّفات الحساسة.</string>
     <string name="detection_permission_settings">تم رفض الأذونات. افتح الإعدادات فقط إذا أردت أن تقرأ فحوصات الكشف هوية Wi-Fi أو الشبكة الخلوية؛ لا تُحفظ المعرّفات الخام وتُخفيها صادرات التشخيص.</string>
     <string name="detection_permission_open_settings">فتح الإعدادات</string>
-    <string name="detection_stealth_score">نقاط التخفي</string>
+    <string name="detection_stealth_score">مستوى الظهور</string>
     <string name="detection_auto_tune_title">الإصلاحات الموصى بها</string>
     <string name="detection_auto_tune_apply">تطبيق جميع الإصلاحات</string>
     <string name="detection_privacy_mode">وضع الخصوصية</string>

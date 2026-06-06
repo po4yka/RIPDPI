@@ -47,11 +47,6 @@ internal val OnboardingPages: List<OnboardingPage> =
             buttonLabelRes = R.string.onboarding_setup_next,
         ),
         OnboardingPage.Setup(
-            kind = SetupPageKind.DnsSelection,
-            titleRes = R.string.onboarding_setup_dns_title,
-            buttonLabelRes = R.string.onboarding_setup_next,
-        ),
-        OnboardingPage.Setup(
             kind = SetupPageKind.ConnectionTest,
             titleRes = R.string.onboarding_setup_validate_title,
             buttonLabelRes = R.string.onboarding_setup_finish,
@@ -59,7 +54,3 @@ internal val OnboardingPages: List<OnboardingPage> =
     )
 
 internal const val OnboardingInfoPageCount = 1
-
-/** Index of the DNS-selection page in [OnboardingPages]; used by the failed-validation "Change DNS" action. */
-internal val OnboardingDnsPageIndex: Int =
-    OnboardingPages.indexOfFirst { it is OnboardingPage.Setup && it.kind == SetupPageKind.DnsSelection }

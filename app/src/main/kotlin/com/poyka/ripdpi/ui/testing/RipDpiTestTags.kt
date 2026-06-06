@@ -295,6 +295,7 @@ internal object RipDpiTestTags {
     const val DetectionRunCheck = "detection_run_check"
     const val DetectionStopCheck = "detection_stop_check"
     const val DetectionVerdict = "detection_verdict"
+    const val DetectionVisibilityScale = "detection_visibility_scale"
     const val DetectionCopy = "detection_copy"
     const val DetectionShare = "detection_share"
     const val DetectionApplyFixes = "detection_apply_fixes"

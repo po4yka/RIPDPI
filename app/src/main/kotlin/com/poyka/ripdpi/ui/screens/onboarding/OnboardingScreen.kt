@@ -152,7 +152,7 @@ fun OnboardingRoute(
                 onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
                 onFinishAnyway = remember(viewModel) { viewModel::finishAnyway },
                 onAcceptSuggestedMode = remember(viewModel) { viewModel::acceptSuggestedMode },
-                onChangeDns = remember(viewModel) { { viewModel.setCurrentPage(OnboardingDnsPageIndex) } },
+                onChangeDns = onOpenAdvancedDns,
             ),
     )
 }

@@ -2152,7 +2152,7 @@ Source : %2$s</string>
     <string name="detection_resistance_summary_entropy_value">Popcount %1$d, Shannon %2$d</string>
     <string name="detection_resistance_summary_quic_low_port">Lier des ports source bas</string>
     <string name="detection_score_degraded">Score dégradé</string>
-    <string name="detection_stealth_score">Score de furtivité</string>
+    <string name="detection_stealth_score">Visibilité</string>
     <string name="diagnostics_action_in_path">Lancer un scan en ligne</string>
     <string name="diagnostics_approaches_profiles">Profils</string>
     <string name="diagnostics_attention_section">Liste de surveillance</string>

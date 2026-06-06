@@ -2152,7 +2152,7 @@ Origen: %2$s</string>
     <string name="detection_resistance_summary_entropy_value">Popcount %1$d, Shannon %2$d</string>
     <string name="detection_resistance_summary_quic_low_port">Vincular puertos de origen bajos</string>
     <string name="detection_score_degraded">Puntuación degradada</string>
-    <string name="detection_stealth_score">Puntuación de sigilo</string>
+    <string name="detection_stealth_score">Visibilidad</string>
     <string name="diagnostics_action_in_path">Ejecutar escaneo en ruta</string>
     <string name="diagnostics_approaches_profiles">Perfiles</string>
     <string name="diagnostics_attention_section">Lista de vigilancia</string>

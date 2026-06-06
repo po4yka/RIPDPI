@@ -1970,7 +1970,7 @@ fakeddisorder endhost</string>
     <string name="detection_permission_rationale">Android относит эти разрешения к местоположению, потому что идентификаторы Wi-Fi и сотовой сети могут указывать, где вы находитесь. RIPDPI не использует их для отслеживания; проверки используют их только для различения поведения сети, сырые идентификаторы не сохраняются, а экспорт диагностики их редактирует.</string>
     <string name="detection_permission_settings">Разрешения были отклонены. Откройте настройки только если хотите, чтобы проверки читали идентификаторы Wi-Fi или сотовой сети; сырые идентификаторы не сохраняются, а экспорт диагностики их редактирует.</string>
     <string name="detection_permission_open_settings">Открыть настройки</string>
-    <string name="detection_stealth_score">Оценка скрытности</string>
+    <string name="detection_stealth_score">Видимость</string>
     <string name="detection_auto_tune_title">Рекомендуемые исправления</string>
     <string name="detection_auto_tune_apply">Применить все исправления</string>
     <string name="detection_privacy_mode">Режим приватности</string>

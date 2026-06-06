@@ -70,13 +70,13 @@ class OnboardingScreenTest {
     fun `setup pages do not show a top skip action`() {
         renderOnboarding(uiState = OnboardingUiState(currentPage = OnboardingInfoPageCount))
 
-        // The mode step relies on safe defaults + the bottom CTA; no top "Use recommended"/skip.
+        // Setup steps rely on safe defaults + the bottom CTA; no top "Use recommended"/skip.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
         composeRule.onAllNodesWithText("Use recommended").assertCountEquals(0)
     }
 
     @Test
-    fun `dns setup presents the curated onboarding subset and advanced affordance`() {
+    fun `advanced dns recovery presents the curated subset and settings affordance`() {
         composeRule.setContent {
             RipDpiTheme {
                 Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -124,7 +124,7 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `advanced dns affordance opens advanced settings`() {
+    fun `advanced dns recovery affordance opens advanced settings`() {
         var opened = false
         composeRule.setContent {
             RipDpiTheme {
