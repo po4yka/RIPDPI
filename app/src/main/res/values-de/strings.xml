@@ -726,7 +726,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="history_connection_remembered_policy_section">Gespeicherte Richtlinie</string>
     <string name="history_connections_section">Verbindungen</string>
     <string name="history_events_empty_title">Noch keine Verlaufsereignisse</string>
-    <string name="home">Startseite</string>
+    <string name="home">Status</string>
     <string name="home_connection_actuator_action_wait">Sichere Leitung wird aufgebaut</string>
     <string name="home_connection_actuator_state_fault">Sichere Leitung Fehler bei %1$s</string>
     <string name="home_connection_stage_handshake">Handshake</string>
@@ -1777,6 +1777,8 @@ Quelle: %2$s</string>
     <string name="http_fake_profile_title">HTTP-Fake-Payload</string>
     <string name="language_name_fr">Français</string>
     <string name="logs">Logs</string>
+    <string name="settings_logs_body">Öffnet den Live-Protokollstrom für App, Dienst und Diagnose.</string>
+    <string name="diagnostics_open_logs_body">Öffnet den Live-Protokollstrom mit Filtern für Dienst, Proxy, Tunnel und Diagnose.</string>
     <string name="logs_buffer_title">Puffer</string>
     <string name="logs_entries_count">%1$d Einträge</string>
     <string name="logs_filters_section">Filter</string>
@@ -2016,7 +2018,7 @@ Quelle: %2$s</string>
     <string name="blockcheck_dns_warning">Der DNS-Vergleich hat für mindestens eine Domain ein Manipulationssignal markiert.</string>
     <string name="blockcheck_export">Exportieren</string>
     <string name="blockcheck_run">Ausführen</string>
-    <string name="config">Konfiguration</string>
+    <string name="config">Verbindung</string>
     <string name="config_chain_editor_helper_brief">Verwenden Sie die Abschnitte [tcp] und [udp] mit numerischen oder semantischen Offset-Markern.</string>
     <string name="config_cli_banner_title">Kommandozeilen-Überschreibungen aktiviert</string>
     <string name="config_desync_method_summary">Aktive Paket-Transformationsstrategie</string>

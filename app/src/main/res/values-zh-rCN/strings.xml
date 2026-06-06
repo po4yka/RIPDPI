@@ -7,11 +7,13 @@
     <string name="vpn_disconnected">已断开</string>
     <string name="proxy_start">启动</string>
     <string name="proxy_stop">停止</string>
-    <string name="home">主页</string>
-    <string name="config">配置</string>
+    <string name="home">状态</string>
+    <string name="config">连接</string>
     <string name="settings">设置</string>
     <string name="diagnostics">诊断</string>
     <string name="logs">日志</string>
+    <string name="settings_logs_body">打开应用、服务和诊断的实时日志流。</string>
+    <string name="diagnostics_open_logs_body">打开带有服务、代理、隧道和诊断过滤器的实时日志流。</string>
     <string name="diagnostics_title">诊断</string>
     <string name="history_title">历史</string>
     <string name="diagnostics_overview_section">概览</string>

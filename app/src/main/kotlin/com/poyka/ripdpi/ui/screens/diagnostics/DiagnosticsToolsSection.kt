@@ -95,6 +95,7 @@ internal data class DiagnosticsShareActions(
     val onShareArchive: (String?) -> Unit,
     val onSaveArchive: (String?) -> Unit,
     val onSaveLogs: () -> Unit,
+    val onOpenLogs: () -> Unit = {},
 )
 
 internal data class DiagnosticsToolsNavActions(
@@ -146,6 +147,7 @@ internal fun ToolsSection(
             onShareArchive = shareActions.onShareArchive,
             onSaveArchive = shareActions.onSaveArchive,
             onSaveLogs = shareActions.onSaveLogs,
+            onOpenLogs = shareActions.onOpenLogs,
         )
         dpiToolItems(
             dpiTools = dpiTools,
@@ -203,6 +205,7 @@ private fun LazyListScope.shareItems(
     onShareArchive: (String?) -> Unit,
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
+    onOpenLogs: () -> Unit,
 ) {
     item {
         DiagnosticsPreviewCard(
@@ -260,6 +263,17 @@ private fun LazyListScope.shareItems(
             onClick = onSaveLogs,
             iconTint = RipDpiThemeTokens.colors.warning,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSaveLogs),
+            variant = RipDpiButtonVariant.Outline,
+        )
+    }
+    item {
+        ShareActionCard(
+            title = stringResource(R.string.logs),
+            body = stringResource(R.string.diagnostics_open_logs_body),
+            buttonLabel = stringResource(R.string.settings_manage_action),
+            onClick = onOpenLogs,
+            iconTint = RipDpiThemeTokens.colors.info,
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsOpenLogs),
             variant = RipDpiButtonVariant.Outline,
         )
     }

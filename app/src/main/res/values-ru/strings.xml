@@ -8,11 +8,13 @@
     <string name="vpn_disconnected">Отключено</string>
     <string name="proxy_start">Запустить</string>
     <string name="proxy_stop">Остановить</string>
-    <string name="home">Главная</string>
-    <string name="config">Конфигурация</string>
+    <string name="home">Статус</string>
+    <string name="config">Подключение</string>
     <string name="settings">Настройки</string>
     <string name="diagnostics">Диагностика</string>
     <string name="logs">Журналы</string>
+    <string name="settings_logs_body">Открыть живой поток журналов приложения, сервиса и диагностики.</string>
+    <string name="diagnostics_open_logs_body">Открыть живой поток журналов с фильтрами для сервиса, прокси, туннеля и диагностики.</string>
     <string name="diagnostics_title">Диагностика</string>
     <string name="history_title">История</string>
     <string name="diagnostics_overview_section">Обзор</string>

@@ -140,7 +140,11 @@ fun RipDpiNavHost(
     val selectedTopLevel =
         currentDestination?.let { destination ->
             Route.topLevel.firstOrNull { destination.matchesRoute(it) }
-                ?: if (currentStableRoute in configSubRouteStableKeys) Route.Config else null
+                ?: when (currentStableRoute) {
+                    in configSubRouteStableKeys -> Route.Config
+                    Route.Logs.stableRoute -> Route.Diagnostics()
+                    else -> null
+                }
         }
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
@@ -469,6 +473,7 @@ private fun diagnosticsRouteCallbacks(
         onSaveArchive = actions.onSaveDiagnosticsArchive,
         onShareSummary = actions.onShareDiagnosticsSummary,
         onSaveLogs = actions.onSaveLogs,
+        onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
         onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
         onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
@@ -574,6 +579,7 @@ private fun SettingsHomeRoute(
         onOpenRoutingRules = { navController.navigate(Route.Routes) },
         onOpenSplitTunnel = { navController.navigate(Route.SplitTunnel) },
         onOpenBackupRestore = { navController.navigate(Route.BackupRestore) },
+        onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
         onShareDebugBundle = actions.onShareDebugBundle,
         permissionSummary = mainUiState.permissionSummary,
         onRepairPermission = actions.onRepairPermission,

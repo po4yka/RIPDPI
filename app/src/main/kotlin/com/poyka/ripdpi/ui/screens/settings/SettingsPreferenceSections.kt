@@ -403,6 +403,14 @@ internal fun SettingsSupportSection(
             testTag = RipDpiTestTags.SettingsSupportBundle,
         )
         SettingsRow(
+            title = stringResource(R.string.logs),
+            subtitle = stringResource(R.string.settings_logs_body),
+            value = stringResource(R.string.settings_manage_action),
+            onClick = actions.onOpenLogs,
+            showDivider = true,
+            testTag = RipDpiTestTags.SettingsLogs,
+        )
+        SettingsRow(
             title = stringResource(R.string.title_detection_check),
             subtitle = stringResource(R.string.detection_check_subtitle),
             onClick = actions.onOpenDetectionCheck,

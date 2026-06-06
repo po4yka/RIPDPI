@@ -7,11 +7,13 @@
     <string name="vpn_disconnected">قطع‌شده</string>
     <string name="proxy_start">شروع</string>
     <string name="proxy_stop">توقف</string>
-    <string name="home">خانه</string>
-    <string name="config">پیکربندی</string>
+    <string name="home">وضعیت</string>
+    <string name="config">اتصال</string>
     <string name="settings">تنظیمات</string>
     <string name="diagnostics">تشخیص</string>
     <string name="logs">گزارش‌ها</string>
+    <string name="settings_logs_body">جریان زنده گزارش‌های برنامه، سرویس و تشخیص را باز کنید.</string>
+    <string name="diagnostics_open_logs_body">جریان زنده گزارش‌ها را با فیلترهای سرویس، پروکسی، تونل و تشخیص باز کنید.</string>
     <string name="diagnostics_title">تشخیص</string>
     <string name="history_title">تاریخچه</string>
     <string name="diagnostics_overview_section">نمای کلی</string>

@@ -133,6 +133,7 @@ data class DiagnosticsScreenActions(
     val onShareArchive: (String?) -> Unit = {},
     val onSaveArchive: (String?) -> Unit = {},
     val onSaveLogs: () -> Unit = {},
+    val onOpenLogs: () -> Unit = {},
     val onOpenAdvancedSettings: () -> Unit = {},
     val onOpenDnsSettings: () -> Unit = {},
     val onOpenDetectionCheck: () -> Unit = {},
@@ -408,6 +409,7 @@ private fun DiagnosticsScreenActions.toDiagnosticsShareActions(): DiagnosticsSha
         onShareArchive = onShareArchive,
         onSaveArchive = onSaveArchive,
         onSaveLogs = onSaveLogs,
+        onOpenLogs = onOpenLogs,
     )
 
 private fun DiagnosticsScreenActions.toDiagnosticsDpiToolActions(): DiagnosticsDpiToolActions =

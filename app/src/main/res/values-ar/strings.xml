@@ -9,11 +9,13 @@
     <string name="vpn_disconnected">غير متصل</string>
     <string name="proxy_start">بدء</string>
     <string name="proxy_stop">إيقاف</string>
-    <string name="home">الرئيسية</string>
-    <string name="config">الإعداد</string>
+    <string name="home">الحالة</string>
+    <string name="config">الاتصال</string>
     <string name="settings">الإعدادات</string>
-    <string name="diagnostics">التشخيصات</string>
+    <string name="diagnostics">التشخيص</string>
     <string name="logs">السجلات</string>
+    <string name="settings_logs_body">افتح بث السجلات الحي للتطبيق والخدمة والتشخيص.</string>
+    <string name="diagnostics_open_logs_body">افتح بث السجلات الحي مع فلاتر للخدمة والوكيل والنفق والتشخيص.</string>
     <string name="diagnostics_title">التشخيصات</string>
     <string name="history_title">السجل</string>
     <string name="diagnostics_overview_section">نظرة عامة</string>

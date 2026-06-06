@@ -15,6 +15,14 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
+    fun `top level route titles describe target information architecture`() {
+        assertEquals(com.poyka.ripdpi.R.string.home, Route.Home.titleRes)
+        assertEquals(com.poyka.ripdpi.R.string.config, Route.Config.titleRes)
+        assertEquals(com.poyka.ripdpi.R.string.diagnostics, Route.Diagnostics().titleRes)
+        assertEquals(com.poyka.ripdpi.R.string.settings, Route.Settings.titleRes)
+    }
+
+    @Test
     fun `top level route helper only matches bottom navigation destinations`() {
         assertTrue(Route.Home.stableRoute.isTopLevelRoute())
         assertTrue(Route.Settings.stableRoute.isTopLevelRoute())
@@ -82,9 +90,10 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
-    fun `logs route stays off the bottom navigation`() {
+    fun `logs route resolves as diagnose-owned utility destination`() {
         assertTrue(Route.all.contains(Route.Logs))
         assertFalse(Route.topLevel.contains(Route.Logs))
+        assertEquals(Route.Logs, Route.fromStableRoute(Route.Logs.stableRoute))
     }
 
     @Test

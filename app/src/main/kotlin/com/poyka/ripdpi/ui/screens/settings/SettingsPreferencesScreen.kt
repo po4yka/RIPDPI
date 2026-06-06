@@ -50,6 +50,7 @@ fun SettingsRoute(
     onOpenRoutingRules: () -> Unit = {},
     onOpenSplitTunnel: () -> Unit = {},
     onOpenBackupRestore: () -> Unit = {},
+    onOpenLogs: () -> Unit = {},
     onDismissBackgroundGuidance: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -83,6 +84,7 @@ fun SettingsRoute(
                 onOpenRoutingRules = onOpenRoutingRules,
                 onOpenSplitTunnel = onOpenSplitTunnel,
                 onOpenBackupRestore = onOpenBackupRestore,
+                onOpenLogs = onOpenLogs,
                 onShareDebugBundle = onShareDebugBundle,
                 onRepairPermission = onRepairPermission,
                 onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
@@ -162,6 +164,7 @@ internal data class SettingsScreenActions(
     val onOpenRoutingRules: () -> Unit = {},
     val onOpenSplitTunnel: () -> Unit = {},
     val onOpenBackupRestore: () -> Unit = {},
+    val onOpenLogs: () -> Unit = {},
     val onShareDebugBundle: () -> Unit,
     val onRepairPermission: (PermissionKind) -> Unit,
     val onOpenVpnPermissionDialog: () -> Unit,
@@ -212,6 +215,7 @@ private fun previewActions(): SettingsScreenActions =
         onBiometricChanged = {},
         onSaveBackupPin = {},
         onOpenBackupRestore = {},
+        onOpenLogs = {},
     )
 
 @Preview(showBackground = true)
