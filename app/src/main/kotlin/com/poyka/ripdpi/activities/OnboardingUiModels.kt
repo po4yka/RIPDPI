@@ -2,11 +2,10 @@ package com.poyka.ripdpi.activities
 
 import android.content.Intent
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.canonicalDefaultDnsProviderDefinition
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingDnsSystemId
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 
 private val DefaultOnboardingPageCount = OnboardingPages.size
-private val DefaultOnboardingDnsProviderId = canonicalDefaultDnsProviderDefinition().providerId
 
 enum class OnboardingValidationRecoveryKind {
     RETRY,
@@ -58,7 +57,7 @@ data class OnboardingUiState(
     val totalPages: Int = DefaultOnboardingPageCount,
     val selectedMode: Mode = Mode.VPN,
     val selectedPersona: String = "simple",
-    val selectedDnsProviderId: String = DefaultOnboardingDnsProviderId,
+    val selectedDnsProviderId: String = OnboardingDnsSystemId,
     val validationState: OnboardingValidationState = OnboardingValidationState.Idle,
     val canFinishAnyway: Boolean = true,
     val canFinishKeepingRunning: Boolean = false,

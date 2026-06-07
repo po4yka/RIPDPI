@@ -29,13 +29,13 @@ internal data class OnboardingDnsOption(
     /** [OnboardingDnsSystemId] or a [com.poyka.ripdpi.data.BuiltInDnsProviders] provider id. */
     val providerId: String,
     @StringRes val descriptionRes: Int,
-    /** Recommended badge for the default option; null for the rest. */
+    /** Optional badge for an option; null when no provider should be auto-recommended. */
     @StringRes val badgeRes: Int? = null,
 )
 
 /**
- * Curated onboarding order: System default, AdGuard (Recommended / default), Cloudflare, Quad9,
- * Mullvad. Cloudflare uses the canonical [DnsProviderCloudflare] id (1.1.1.1, DoH host
+ * Curated onboarding order: System default, AdGuard, Cloudflare, Quad9, Mullvad.
+ * Cloudflare uses the canonical [DnsProviderCloudflare] id (1.1.1.1, DoH host
  * `cloudflare-dns.com`) — NOT the bare-IP `cloudflare_ip` variant.
  */
 internal val OnboardingDnsOptions: List<OnboardingDnsOption> =
@@ -47,7 +47,6 @@ internal val OnboardingDnsOptions: List<OnboardingDnsOption> =
         OnboardingDnsOption(
             providerId = DnsProviderAdGuard,
             descriptionRes = R.string.onboarding_setup_dns_adguard_body,
-            badgeRes = R.string.onboarding_badge_recommended,
         ),
         OnboardingDnsOption(
             providerId = DnsProviderCloudflare,

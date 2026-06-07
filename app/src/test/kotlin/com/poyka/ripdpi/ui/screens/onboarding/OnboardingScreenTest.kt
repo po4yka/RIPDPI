@@ -117,6 +117,7 @@ class OnboardingScreenTest {
         composeRule.onNodeWithText("Quad9").assertExists()
         composeRule.onNodeWithText("Mullvad DNS").assertExists()
         composeRule.onAllNodesWithText("Cloudflare (IP)").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Recommended").assertCountEquals(0)
 
         // Advanced DNS settings affordance is present.
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingAdvancedDns).assertExists()
