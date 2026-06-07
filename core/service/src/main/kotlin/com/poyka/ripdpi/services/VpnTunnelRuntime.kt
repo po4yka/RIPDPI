@@ -55,12 +55,14 @@ internal class VpnTunnelRuntime(
         val settings = appSettingsRepository.snapshot()
         val dnsPlan = vpnTunnelDnsPlan(activeDns, forceTunnelDns)
         val ipv6 = settings.ipv6Enable
+        val tunnelNetworkParameters = vpnHost.currentTunnelNetworkParameters()
         val config =
             RipDpiVpnService.buildTun2SocksConfig(
                 dnsPlan = dnsPlan,
                 overrideReason = overrideReason,
                 localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = ipv6,
+                tunnelMtu = tunnelNetworkParameters.tunnelMtu,
                 logContext = logContext,
                 encryptedDnsTlsRootsPem = settings.encryptedDnsTlsRootsPem.takeIf { it.isNotBlank() },
                 strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },

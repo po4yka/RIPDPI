@@ -1142,6 +1142,7 @@ internal class TestVpnServiceHost(
     val stopRequests = mutableListOf<Int?>()
     var underlyingNetworkSyncs: Int = 0
     var builderSession: VpnTunnelSession? = TestVpnTunnelSession()
+    var tunnelNetworkParameters: VpnTunnelNetworkParameters = VpnTunnelNetworkParameters()
 
     override fun updateNotification(
         tunnelStats: TunnelStats,
@@ -1157,6 +1158,8 @@ internal class TestVpnServiceHost(
     override fun syncUnderlyingNetworksFromActiveNetwork() {
         underlyingNetworkSyncs += 1
     }
+
+    override fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters = tunnelNetworkParameters
 
     override suspend fun createTunnelBuilder(
         dns: String,

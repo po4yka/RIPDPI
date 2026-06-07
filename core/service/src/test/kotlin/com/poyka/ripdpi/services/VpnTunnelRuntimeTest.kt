@@ -58,6 +58,32 @@ class VpnTunnelRuntimeTest {
         }
 
     @Test
+    fun startPassesAdaptiveTunnelMtuToNativeConfig() =
+        runTest {
+            val host =
+                TestVpnServiceHost(backgroundScope).apply {
+                    tunnelNetworkParameters = VpnTunnelNetworkParameters(tunnelMtu = 1_320, metered = true)
+                }
+            val bridge = TestTun2SocksBridge()
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = host,
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(bridge),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                )
+
+            runtime.start(
+                activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
+
+            assertEquals(1_320, bridge.startedConfig?.tunnelMtu)
+        }
+
+    @Test
     fun secondStartIncrementsRecoveryRetryCount() =
         runTest {
             val events = mutableListOf<String>()

@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import android.net.LinkProperties
+import android.net.NetworkCapabilities
 import android.os.Build
 import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.data.ActiveDnsSettings
@@ -11,6 +13,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,6 +35,47 @@ class RipDpiVpnServiceConfigTest {
                 username = VpnLocalProxyUsername,
                 password = TestLocalProxyAuth,
             )
+    }
+
+    @Test
+    fun tunnelNetworkPolicyClampsLowLinkMtuToIpv6SafeFloor() {
+        val linkProperties = LinkProperties().apply { mtu = 1_260 }
+
+        val parameters =
+            VpnTunnelNetworkPolicy.parameters(
+                linkProperties = linkProperties,
+                capabilities = NetworkCapabilities(),
+            )
+
+        assertEquals(1_280, parameters.tunnelMtu)
+    }
+
+    @Test
+    fun tunnelNetworkPolicyFallsBackToDefaultWhenLinkMtuIsUnknown() {
+        val parameters =
+            VpnTunnelNetworkPolicy.parameters(
+                linkProperties = null,
+                capabilities = NetworkCapabilities(),
+            )
+
+        assertEquals(defaultTun2SocksTunnelMtu, parameters.tunnelMtu)
+    }
+
+    @Test
+    fun tunnelNetworkPolicyMirrorsMeteredCapability() {
+        val unmetered =
+            VpnTunnelNetworkPolicy.parameters(
+                linkProperties = null,
+                capabilities = networkCapabilitiesWith(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
+            )
+        val metered =
+            VpnTunnelNetworkPolicy.parameters(
+                linkProperties = null,
+                capabilities = NetworkCapabilities(),
+            )
+
+        assertFalse(unmetered.metered)
+        assertTrue(metered.metered)
     }
 
     @Test
@@ -243,4 +287,12 @@ class RipDpiVpnServiceConfigTest {
                     odohConfigsTtlSecs = 86_400L,
                 ),
         )
+
+    private fun networkCapabilitiesWith(capability: Int): NetworkCapabilities =
+        NetworkCapabilities().also { capabilities ->
+            NetworkCapabilities::class
+                .java
+                .getDeclaredMethod("addCapability", Int::class.javaPrimitiveType)
+                .invoke(capabilities, capability)
+        }
 }

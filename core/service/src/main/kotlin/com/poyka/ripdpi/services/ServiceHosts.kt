@@ -31,6 +31,8 @@ interface VpnTunnelBuilderHost {
         ipv6: Boolean,
         httpProxyPort: Int? = null,
     ): VpnTunnelBuilder
+
+    fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters = VpnTunnelNetworkParameters()
 }
 
 internal interface VpnServiceHost :

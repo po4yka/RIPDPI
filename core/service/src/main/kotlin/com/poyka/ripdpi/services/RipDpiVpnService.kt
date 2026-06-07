@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
 import android.net.IpPrefix
 import android.os.Build
 import androidx.lifecycle.lifecycleScope
@@ -52,6 +53,8 @@ class RipDpiVpnService :
     private lateinit var shellDelegate: ServiceShellDelegate
     private lateinit var notificationController: VpnForegroundNotificationController
     private lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
+    private val connectivityManager: ConnectivityManager
+        get() = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
     override val serviceScope = lifecycleScope
 
@@ -127,9 +130,10 @@ class RipDpiVpnService :
         httpProxyPort: Int? = null,
     ): Builder {
         Logger.v { "DNS configured" }
+        val tunnelNetworkParameters = currentTunnelNetworkParameters()
         val builder = Builder()
         builder.setSession("RIPDPI")
-        builder.setMtu(defaultTun2SocksTunnelMtu)
+        builder.setMtu(tunnelNetworkParameters.tunnelMtu)
         builder.setConfigureIntent(
             PendingIntent.getActivity(
                 this,
@@ -145,7 +149,7 @@ class RipDpiVpnService :
             builder.addDnsServer(dns)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            builder.setMetered(false)
+            builder.setMetered(tunnelNetworkParameters.metered)
             if (httpProxyPort != null) {
                 builder.setHttpProxy(buildHttpProxyInfo(httpProxyPort))
             }
@@ -179,6 +183,14 @@ class RipDpiVpnService :
         applyDhtMitigation(builder)
         refreshHardKillSwitchState()
         return builder
+    }
+
+    @android.annotation.SuppressLint("MissingPermission")
+    override fun currentTunnelNetworkParameters(): VpnTunnelNetworkParameters {
+        val network = connectivityManager.activeNetwork
+        val linkProperties = network?.let(connectivityManager::getLinkProperties)
+        val capabilities = network?.let(connectivityManager::getNetworkCapabilities)
+        return VpnTunnelNetworkPolicy.parameters(linkProperties, capabilities)
     }
 
     private fun refreshHardKillSwitchState() {
@@ -231,6 +243,7 @@ class RipDpiVpnService :
             overrideReason: String?,
             localProxyEndpoint: LocalProxyEndpoint,
             ipv6Enabled: Boolean,
+            tunnelMtu: Int = defaultTun2SocksTunnelMtu,
             logContext: RipDpiLogContext? = null,
             encryptedDnsTlsRootsPem: String? = null,
             strategyChainYaml: String? = null,
@@ -240,7 +253,7 @@ class RipDpiVpnService :
             val tunnelDns = dnsPlan.resolverDns
             val mapDnsEnabled = dnsPlan.mapDnsEnabled
             return Tun2SocksConfig(
-                tunnelMtu = defaultTun2SocksTunnelMtu,
+                tunnelMtu = tunnelMtu,
                 tunnelIpv4 = TUNNEL_IPV4_CIDR,
                 tunnelIpv6 = if (ipv6Enabled) TUNNEL_IPV6_CIDR else null,
                 socks5Address = localProxyEndpoint.host,
