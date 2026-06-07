@@ -976,7 +976,7 @@ class MainViewModelTest {
             advanceUntilIdle()
 
             assertEquals(listOf("home-run"), compositeRunService.startedRunIds)
-            assertTrue(viewModel.uiState.value.homeDiagnostics.analysisAction.busy)
+            assertTrue(viewModel.homeDiagnosticsUiState.value.analysisAction.busy)
             collector.cancel()
         }
 
@@ -1015,11 +1015,11 @@ class MainViewModelTest {
             )
             advanceUntilIdle()
 
-            assertTrue(viewModel.uiState.value.homeDiagnostics.verifiedVpnAction.enabled)
-            assertNull(viewModel.uiState.value.homeDiagnostics.remediationLadder)
+            assertTrue(viewModel.homeDiagnosticsUiState.value.verifiedVpnAction.enabled)
+            assertNull(viewModel.homeDiagnosticsUiState.value.remediationLadder)
             assertEquals(
                 "home-run",
-                viewModel.uiState.value.homeDiagnostics.analysisSheet
+                viewModel.homeDiagnosticsUiState.value.analysisSheet
                     ?.runId,
             )
 
@@ -1074,7 +1074,7 @@ class MainViewModelTest {
                     ),
             )
             advanceUntilIdle()
-            assertTrue(viewModel.uiState.value.homeDiagnostics.verifiedVpnAction.enabled)
+            assertTrue(viewModel.homeDiagnosticsUiState.value.verifiedVpnAction.enabled)
 
             homeWorkflowService.currentFingerprint = "fp-2"
             serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
@@ -1082,14 +1082,14 @@ class MainViewModelTest {
             serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
             advanceUntilIdle()
 
-            assertFalse(viewModel.uiState.value.homeDiagnostics.verifiedVpnAction.enabled)
+            assertFalse(viewModel.homeDiagnosticsUiState.value.verifiedVpnAction.enabled)
             assertTrue(
-                viewModel.uiState.value.homeDiagnostics.latestAudit
+                viewModel.homeDiagnosticsUiState.value.latestAudit
                     ?.stale == true,
             )
             assertEquals(
                 DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS,
-                viewModel.uiState.value.homeDiagnostics.remediationLadder
+                viewModel.homeDiagnosticsUiState.value.remediationLadder
                     ?.primaryAction
                     ?.kind,
             )
@@ -1114,7 +1114,7 @@ class MainViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            val ladder = viewModel.uiState.value.homeDiagnostics.remediationLadder
+            val ladder = viewModel.homeDiagnosticsUiState.value.remediationLadder
             assertNotNull(ladder)
             assertEquals(
                 DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS,
@@ -1155,16 +1155,16 @@ class MainViewModelTest {
             )
             advanceUntilIdle()
 
-            assertFalse(viewModel.uiState.value.homeDiagnostics.verifiedVpnAction.enabled)
+            assertFalse(viewModel.homeDiagnosticsUiState.value.verifiedVpnAction.enabled)
             assertEquals(
                 DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
-                viewModel.uiState.value.homeDiagnostics.remediationLadder
+                viewModel.homeDiagnosticsUiState.value.remediationLadder
                     ?.primaryAction
                     ?.kind,
             )
             assertEquals(
                 DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
-                viewModel.uiState.value.homeDiagnostics.analysisSheet
+                viewModel.homeDiagnosticsUiState.value.analysisSheet
                     ?.remediationLadder
                     ?.primaryAction
                     ?.kind,
@@ -1214,7 +1214,7 @@ class MainViewModelTest {
 
             assertEquals(
                 DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
-                viewModel.uiState.value.homeDiagnostics.remediationLadder
+                viewModel.homeDiagnosticsUiState.value.remediationLadder
                     ?.primaryAction
                     ?.kind,
             )
@@ -1227,18 +1227,18 @@ class MainViewModelTest {
             runCurrent()
 
             assertFalse(
-                viewModel.uiState.value.homeDiagnostics.latestAudit
+                viewModel.homeDiagnosticsUiState.value.latestAudit
                     ?.stale == true,
             )
             assertEquals(
                 DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
-                viewModel.uiState.value.homeDiagnostics.remediationLadder
+                viewModel.homeDiagnosticsUiState.value.remediationLadder
                     ?.primaryAction
                     ?.kind,
             )
             assertEquals(
                 "https://example.org:443/",
-                viewModel.uiState.value.homeDiagnostics.remediationLadder
+                viewModel.homeDiagnosticsUiState.value.remediationLadder
                     ?.primaryAction
                     ?.targetUrl,
             )

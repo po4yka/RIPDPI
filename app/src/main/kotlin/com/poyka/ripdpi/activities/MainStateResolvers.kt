@@ -67,7 +67,6 @@ internal fun resolvePrimaryConnectionAction(
 
 internal fun buildMainUiState(
     inputs: MainUiInputs,
-    homeDiagnostics: HomeDiagnosticsRuntimeState,
     stringResolver: StringResolver,
     approachSummary: HomeApproachSummaryUiState?,
 ): MainUiState {
@@ -96,14 +95,7 @@ internal fun buildMainUiState(
             connectionState = effectiveConnectionState,
             stringResolver = stringResolver,
         )
-    val homeDiagnosticsUiState =
-        buildHomeDiagnosticsUiState(
-            settings = settings,
-            appStatus = status,
-            connectionState = effectiveConnectionState,
-            runtime = homeDiagnostics,
-            stringResolver = stringResolver,
-        )
+    val homeDiagnosticsUiState = HomeDiagnosticsUiState()
     val connectionActuator =
         buildMainConnectionActuator(
             inputs = inputs,

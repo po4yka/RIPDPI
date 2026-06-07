@@ -177,7 +177,7 @@ private fun isRemoteVpnMode(
     relayEnabled: Boolean,
 ): Boolean = mode == Mode.VPN && relayEnabled
 
-private fun buildDiagnosticCard(
+internal fun buildDiagnosticCard(
     homeDiagnostics: HomeDiagnosticsUiState,
     stringResolver: StringResolver,
 ): HomeModeCardUiState {

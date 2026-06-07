@@ -20,8 +20,8 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
+import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsVerificationSheetUiState
-import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.DiagnosticsRemediationLadderCard
@@ -38,7 +38,7 @@ private const val sheetStageContainerAlpha = 0.06f
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun HomeDiagnosticsBottomSheetHost(
-    uiState: MainUiState,
+    homeDiagnostics: HomeDiagnosticsUiState,
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
@@ -48,7 +48,7 @@ internal fun HomeDiagnosticsBottomSheetHost(
     onDismissAnalysisSheet: () -> Unit,
     onDismissVerificationSheet: () -> Unit,
 ) {
-    uiState.homeDiagnostics.analysisSheet?.let { sheet ->
+    homeDiagnostics.analysisSheet?.let { sheet ->
         RemediationBottomSheet(
             sheet = sheet,
             onOpenDiagnostics = onOpenDiagnostics,
@@ -61,7 +61,7 @@ internal fun HomeDiagnosticsBottomSheetHost(
         )
     }
 
-    uiState.homeDiagnostics.verificationSheet?.let { sheet ->
+    homeDiagnostics.verificationSheet?.let { sheet ->
         VerificationBottomSheet(
             sheet = sheet,
             onOpenDiagnostics = onOpenDiagnostics,

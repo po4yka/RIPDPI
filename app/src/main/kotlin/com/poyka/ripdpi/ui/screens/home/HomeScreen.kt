@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
+import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
@@ -55,6 +56,8 @@ import kotlin.time.Duration.Companion.ZERO
 @Composable
 fun HomeScreen(
     uiState: MainUiState,
+    homeDiagnostics: HomeDiagnosticsUiState = uiState.homeDiagnostics,
+    diagnosticCard: HomeModeCardUiState = uiState.diagnosticCard,
     onToggleConnection: () -> Unit,
     onBypassToggle: (Boolean) -> Unit = { onToggleConnection() },
     onVpnToggle: (Boolean) -> Unit = { onToggleConnection() },
@@ -127,6 +130,8 @@ fun HomeScreen(
 
         HomeModeCardList(
             uiState = uiState,
+            homeDiagnostics = homeDiagnostics,
+            diagnosticCard = diagnosticCard,
             onBypassToggle = onBypassToggle,
             onVpnToggle = onVpnToggle,
             onDiagnosticRun = onDiagnosticRun,
@@ -137,7 +142,7 @@ fun HomeScreen(
         )
 
         HomeDiagnosticsBottomSheetHost(
-            uiState = uiState,
+            homeDiagnostics = homeDiagnostics,
             onOpenDiagnostics = onOpenDiagnostics,
             onOpenHistory = onOpenHistory,
             onOpenAdvancedSettings = onOpenAdvancedSettings,
@@ -311,6 +316,8 @@ private fun buildHomeSetupHealthItems(
 @Composable
 private fun HomeModeCardList(
     uiState: MainUiState,
+    homeDiagnostics: HomeDiagnosticsUiState,
+    diagnosticCard: HomeModeCardUiState,
     onBypassToggle: (Boolean) -> Unit,
     onVpnToggle: (Boolean) -> Unit,
     onDiagnosticRun: () -> Unit,
@@ -336,19 +343,19 @@ private fun HomeModeCardList(
             onCardClick = onVpnCardClick,
         )
         HomeModeCard(
-            uiState = uiState.diagnosticCard,
+            uiState = diagnosticCard,
             onPrimaryAction = onDiagnosticRun,
             onConfigure = onDiagnosticCardClick,
             onCardClick = onDiagnosticCardClick,
         )
-        if (uiState.homeDiagnostics.pcapToggleVisible) {
+        if (homeDiagnostics.pcapToggleVisible) {
             RipDpiSwitch(
-                checked = uiState.homeDiagnostics.pcapRecordingRequested,
+                checked = homeDiagnostics.pcapRecordingRequested,
                 onCheckedChange = { onTogglePcapRecording() },
                 modifier = Modifier.fillMaxWidth(),
                 label = stringResource(R.string.home_diagnostics_pcap_toggle),
                 helperText = stringResource(R.string.home_diagnostics_pcap_helper),
-                enabled = uiState.homeDiagnostics.analysisAction.enabled,
+                enabled = homeDiagnostics.analysisAction.enabled,
                 testTag = RipDpiTestTags.HomeDiagnosticsPcapToggle,
             )
         }

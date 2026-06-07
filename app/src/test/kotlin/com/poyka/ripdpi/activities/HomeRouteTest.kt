@@ -64,9 +64,9 @@ class HomeRouteTest {
         }
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            viewModel.uiState.value.homeDiagnostics.pcapToggleVisible
+            viewModel.homeDiagnosticsUiState.value.pcapToggleVisible
         }
-        assertFalse(viewModel.uiState.value.homeDiagnostics.pcapRecordingRequested)
+        assertFalse(viewModel.homeDiagnosticsUiState.value.pcapRecordingRequested)
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
@@ -74,10 +74,10 @@ class HomeRouteTest {
             .assertIsDisplayed()
             .performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            viewModel.uiState.value.homeDiagnostics.pcapRecordingRequested
+            viewModel.homeDiagnosticsUiState.value.pcapRecordingRequested
         }
 
-        assertTrue(viewModel.uiState.value.homeDiagnostics.pcapRecordingRequested)
+        assertTrue(viewModel.homeDiagnosticsUiState.value.pcapRecordingRequested)
     }
 
     private fun createViewModel(appSettingsRepository: AppSettingsRepository): MainViewModel {

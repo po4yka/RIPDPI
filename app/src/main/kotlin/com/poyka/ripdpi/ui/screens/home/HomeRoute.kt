@@ -20,8 +20,12 @@ fun HomeRoute(
     viewModel: MainViewModel,
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
+    val homeDiagnostics = viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle().value
+    val homeDiagnosticCard = viewModel.homeDiagnosticCard.collectAsStateWithLifecycle().value
     HomeScreen(
         uiState = uiState,
+        homeDiagnostics = homeDiagnostics,
+        diagnosticCard = homeDiagnosticCard,
         modifier = modifier,
         onToggleConnection = remember(viewModel) { { viewModel.onPrimaryConnectionAction() } },
         onBypassToggle = remember(viewModel) { { enabled -> viewModel.onToggleLocalBypass(enabled) } },

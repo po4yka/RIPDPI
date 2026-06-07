@@ -1,41 +1,17 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Intent
-import android.os.Build
-import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.ConnectionQualitySnapshot
-import com.poyka.ripdpi.data.DirectModeReasonCode
-import com.poyka.ripdpi.data.DirectModeVerdictResult
-import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.data.StrategyPackRuntimeState
-import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
-import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
-import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
-import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
-import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
-import com.poyka.ripdpi.diagnostics.crash.CrashReport
 import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
 import com.poyka.ripdpi.permissions.PermissionAction
-import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
-import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
-import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,285 +19,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.ZERO
-
-enum class ConnectionState {
-    Disconnected,
-    Connecting,
-    Connected,
-    Error,
-}
-
-sealed interface MainEffect {
-    data class RequestPermission(
-        val kind: PermissionKind,
-        val payload: Intent? = null,
-    ) : MainEffect
-
-    data class OpenAppSettings(
-        val intent: Intent,
-    ) : MainEffect
-
-    data object ShowVpnPermissionDialog : MainEffect
-
-    data class ShowError(
-        val message: String,
-    ) : MainEffect
-
-    data class ShareDiagnosticsArchive(
-        val absolutePath: String,
-        val fileName: String,
-    ) : MainEffect
-
-    data object RelockRequested : MainEffect
-}
-
-@Immutable
-data class HomeDiagnosticsActionUiState(
-    val label: String = "",
-    val supportingText: String = "",
-    val enabled: Boolean = false,
-    val busy: Boolean = false,
-)
-
-@Immutable
-data class HomeDiagnosticsLatestAuditUiState(
-    val headline: String,
-    val summary: String,
-    val recommendationSummary: String? = null,
-    val ownedStackLaunchUrl: String? = null,
-    val completedStageCount: Int = 0,
-    val failedStageCount: Int = 0,
-    val totalStageCount: Int = 0,
-    val stale: Boolean = false,
-    val actionable: Boolean = false,
-    val directModeResult: DirectModeVerdictResult? = null,
-    val directModeReasonCode: DirectModeReasonCode? = null,
-    val directTransportClass: DirectTransportClass? = null,
-    val transportRemediationEvidence: TransportRemediationEvidence = TransportRemediationEvidence(),
-)
-
-enum class AnalysisStageStatus {
-    PENDING,
-    RUNNING,
-    COMPLETED,
-    FAILED,
-}
-
-@Immutable
-data class AnalysisStageUiState(
-    val status: AnalysisStageStatus,
-    val progress: Float = 0f,
-)
-
-@Immutable
-data class AnalysisProgressUiState(
-    val stages: ImmutableList<AnalysisStageUiState>,
-    val activeStageIndex: Int?,
-)
-
-@Immutable
-data class HomeDiagnosticsStageUiState(
-    val label: String,
-    val headline: String,
-    val summary: String,
-    val failed: Boolean = false,
-    val skipped: Boolean = false,
-    val recommendationContributor: Boolean = false,
-)
-
-@Immutable
-data class HomeAnalysisLabeledRow(
-    val label: String,
-    val value: String,
-)
-
-@Immutable
-data class HomeDiagnosticsAnalysisSheetUiState(
-    val runId: String,
-    val headline: String,
-    val summary: String,
-    val confidenceSummary: String? = null,
-    val coverageSummary: String? = null,
-    val recommendationSummary: String? = null,
-    val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
-    val capabilityEvidence: List<DiagnosticsCapabilityEvidenceUiModel> = emptyList(),
-    val stageSummaries: List<HomeDiagnosticsStageUiState> = emptyList(),
-    val completedStageCount: Int = 0,
-    val failedStageCount: Int = 0,
-    val shareBusy: Boolean = false,
-    val detectionVerdict: String? = null,
-    val detectionFindings: List<String> = emptyList(),
-    val installedVpnDetectorCount: Int? = null,
-    val installedVpnDetectorTopApps: List<String> = emptyList(),
-    val pcapRecordingRequested: Boolean = false,
-    val remediationLadder: DiagnosticsRemediationLadderUiModel? = null,
-    val actionableHeadline: String? = null,
-    val actionableNextSteps: List<String> = emptyList(),
-    val networkCharacterRows: List<HomeAnalysisLabeledRow> = emptyList(),
-    val networkCharacterNotes: List<String> = emptyList(),
-    val strategyEffectivenessRows: List<HomeAnalysisLabeledRow> = emptyList(),
-    val routingSanitySummary: String? = null,
-    val routingSanityFindings: List<HomeAnalysisLabeledRow> = emptyList(),
-    val regressionDeltaSummary: String? = null,
-    val regressionDeltaFailures: List<String> = emptyList(),
-    val regressionDeltaRecoveries: List<String> = emptyList(),
-    val bufferbloatSummary: String? = null,
-    val dnsCharacterizationSummary: String? = null,
-    val dnsCharacterizationNotes: List<String> = emptyList(),
-)
-
-@Immutable
-data class HomeDiagnosticsVerificationSheetUiState(
-    val sessionId: String,
-    val success: Boolean,
-    val headline: String,
-    val summary: String,
-    val detail: String? = null,
-)
-
-@Immutable
-data class HomeDiagnosticsUiState(
-    val analysisAction: HomeDiagnosticsActionUiState = HomeDiagnosticsActionUiState(),
-    val verifiedVpnAction: HomeDiagnosticsActionUiState = HomeDiagnosticsActionUiState(),
-    val latestAudit: HomeDiagnosticsLatestAuditUiState? = null,
-    val remediationLadder: DiagnosticsRemediationLadderUiModel? = null,
-    val analysisProgress: AnalysisProgressUiState? = null,
-    val quickScanBusy: Boolean = false,
-    val analysisSheet: HomeDiagnosticsAnalysisSheetUiState? = null,
-    val verificationSheet: HomeDiagnosticsVerificationSheetUiState? = null,
-    val pcapRecordingRequested: Boolean = false,
-    val pcapToggleVisible: Boolean = false,
-)
-
-@Stable
-data class MainUiState(
-    val settingsLoaded: Boolean = false,
-    val appStatus: AppStatus = AppStatus.Halted,
-    val activeMode: Mode = Mode.VPN,
-    val configuredMode: Mode = Mode.VPN,
-    val proxyIp: String = "127.0.0.1",
-    val proxyPort: String = "1080",
-    val theme: String = "system",
-    val connectionState: ConnectionState = ConnectionState.Disconnected,
-    val connectionActuator: HomeConnectionActuatorUiState = HomeConnectionActuatorUiState(),
-    val connectionDuration: Duration = ZERO,
-    val dataTransferred: Long = 0L,
-    val errorMessage: String? = null,
-    val permissionSummary: PermissionSummaryUiState = PermissionSummaryUiState(),
-    val hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
-    val approachSummary: HomeApproachSummaryUiState? = null,
-    val homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
-    val modeCards: ImmutableList<HomeModeCardUiState> = DefaultHomeModeCards,
-    val controlPlaneHealthSummary: ControlPlaneHealthSummaryUiModel? = null,
-    val connectionQuality: ConnectionQualitySnapshot? = null,
-    val networkCondition: com.poyka.ripdpi.services.network.NetworkCondition =
-        com.poyka.ripdpi.services.network.NetworkCondition.Normal,
-) {
-    val localBypassCard: HomeModeCardUiState
-        get() =
-            modeCards.firstOrNull { it.mode == HomeMode.LocalDpiBypass } ?: HomeModeCardUiState(
-                mode = HomeMode.LocalDpiBypass,
-            )
-
-    val vpnCard: HomeModeCardUiState
-        get() =
-            modeCards.firstOrNull { it.mode == HomeMode.RemoteVpn } ?: HomeModeCardUiState(
-                mode = HomeMode.RemoteVpn,
-            )
-
-    val diagnosticCard: HomeModeCardUiState
-        get() =
-            modeCards.firstOrNull { it.mode == HomeMode.Diagnostic } ?: HomeModeCardUiState(
-                mode = HomeMode.Diagnostic,
-            )
-
-    val isConnected: Boolean
-        get() = connectionState == ConnectionState.Connected
-
-    val isConnecting: Boolean
-        get() = connectionState == ConnectionState.Connecting
-}
-
-internal fun shouldStopLocalBypassToggle(state: MainUiState): Boolean =
-    state.appStatus == AppStatus.Running &&
-        (state.activeMode == Mode.Proxy || state.localBypassCard.isActive)
-
-@Immutable
-data class HomeApproachSummaryUiState(
-    val title: String,
-    val verification: String,
-    val successRate: String,
-    val supportingText: String,
-)
-
-internal data class ConnectionRuntimeState(
-    val connectionState: ConnectionState = ConnectionState.Disconnected,
-    val errorMessage: String? = null,
-    val connectingStartedAtMs: Long? = null,
-    val connectionStartedAtMs: Long? = null,
-    val baselineTransferredBytes: Long = 0L,
-    val dataTransferred: Long = 0L,
-    val connectionDuration: Duration = ZERO,
-)
-
-internal data class PermissionRuntimeState(
-    val snapshot: com.poyka.ripdpi.permissions.PermissionSnapshot =
-        com.poyka.ripdpi.permissions
-            .PermissionSnapshot(),
-    val issue: PermissionIssueUiState? = null,
-)
-
-internal data class MainUiInputs(
-    val settings: AppSettings,
-    val statusAndMode: Pair<AppStatus, Mode>,
-    val runtime: ConnectionRuntimeState,
-    val telemetry: ServiceTelemetrySnapshot,
-    val permissions: PermissionRuntimeState,
-    val hardKillSwitch: AndroidHardKillSwitchSnapshot,
-    val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
-    val hostPackCatalog: HostPackCatalogUiState,
-    val strategyPackRuntimeState: StrategyPackRuntimeState,
-)
-
-internal data class MainUiInputsBase(
-    val settings: AppSettings,
-    val statusAndMode: Pair<AppStatus, Mode>,
-    val runtime: ConnectionRuntimeState,
-    val telemetry: ServiceTelemetrySnapshot,
-    val permissions: PermissionRuntimeState,
-    val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
-)
-
-internal fun calculateTransferredBytes(
-    totalBytes: Long,
-    baselineBytes: Long,
-): Long = (totalBytes - baselineBytes).coerceAtLeast(0L)
-
-internal fun shouldPollConnectionMetrics(connectionState: ConnectionState): Boolean =
-    connectionState == ConnectionState.Connected
-
-@Immutable
-data class MainStartupState(
-    val isReady: Boolean = false,
-    val theme: String = "system",
-    val startDestination: Route = Route.Home,
-)
-
-internal fun resolveStartupDestination(settings: AppSettings): Route =
-    when {
-        !settings.onboardingComplete -> Route.Onboarding
-        settings.biometricEnabled -> Route.BiometricPrompt
-        else -> Route.Home
-    }
 
 @HiltViewModel
 class MainViewModel
@@ -338,7 +39,6 @@ class MainViewModel
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
         private val permissionState = MutableStateFlow(PermissionRuntimeState())
-        private val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
         private val _effects =
             MutableSharedFlow<MainEffect>(
                 extraBufferCapacity = 1,
@@ -347,8 +47,6 @@ class MainViewModel
 
         val effects: SharedFlow<MainEffect> = _effects.asSharedFlow()
 
-        private val _pendingCrashReport = MutableStateFlow<CrashReport?>(null)
-        val pendingCrashReport: StateFlow<CrashReport?> = _pendingCrashReport.asStateFlow()
         private val strategyConfigActions =
             MainStrategyConfigApplyActions(
                 scope = viewModelScope,
@@ -369,16 +67,18 @@ class MainViewModel
                 effects = _effects,
                 currentUiState = { uiState.value },
             )
-        val crashReports =
-            MainCrashReportActions(
-                coordinator = mainLifecycleDependencies.crashReportCoordinator,
+        private val lifecycleOwner =
+            MainLifecycleStateOwner(
                 scope = viewModelScope,
-                pendingCrashReport = _pendingCrashReport,
+                settings = appSettingsRepository.settings,
+                settingsState = settingsState,
+                permissionState = permissionState,
+                dependencies = mainLifecycleDependencies,
+                effects = _effects,
             )
-        val appLock =
-            MainAppLockActions(
-                coordinator = mainLifecycleDependencies.appLockLifecycleCoordinator,
-            )
+        val pendingCrashReport = lifecycleOwner.pendingCrashReport
+        val crashReports = lifecycleOwner.crashReports
+        val appLock = lifecycleOwner.appLock
 
         private val connectionActions: MainConnectionActions by lazy {
             MainConnectionActions(
@@ -401,7 +101,7 @@ class MainViewModel
                 stringResolver = stringResolver,
                 permissionState = permissionState,
                 onStartMode = { mode -> connectionActions.startMode(mode) },
-                onRunHomeAnalysis = { homeDiagnosticsActions.runFullAnalysis() },
+                onRunHomeAnalysis = { homeDiagnostics.actions.runFullAnalysis() },
                 onShowPermissionIssue = { issue ->
                     permissionState.update { it.copy(issue = issue) }
                     connectionActions.showPermissionIssue(issue)
@@ -410,20 +110,15 @@ class MainViewModel
             )
         }
 
-        private val homeDiagnosticsActions: MainHomeDiagnosticsActions by lazy {
-            MainHomeDiagnosticsActions(
-                mutations = mutations,
-                diagnosticsTimelineSource = mainDiagnosticsDependencies.diagnosticsTimelineSource,
-                diagnosticsScanController = mainDiagnosticsDependencies.diagnosticsScanController,
-                diagnosticsShareService = mainDiagnosticsDependencies.diagnosticsShareService,
-                diagnosticsHomeWorkflowService = mainDiagnosticsDependencies.homeDiagnosticsServices.workflowService,
-                diagnosticsHomeCompositeRunService =
-                    mainDiagnosticsDependencies.homeDiagnosticsServices.compositeRunService,
+        private val homeDiagnostics: HomeDiagnosticsStateOwner by lazy {
+            HomeDiagnosticsStateOwner(
+                scope = viewModelScope,
+                settingsState = settingsState,
                 serviceStateStore = mainServiceDependencies.serviceStateStore,
-                latestDirectModeOutcomeStore = mainDiagnosticsDependencies.latestDirectModeOutcomeStore,
-                runtimeState = runtimeState,
+                connectionRuntimeState = runtimeState,
                 permissionState = permissionState,
-                homeDiagnosticsState = homeDiagnosticsState,
+                mutations = mutations,
+                diagnosticsDependencies = mainDiagnosticsDependencies,
                 stringResolver = stringResolver,
                 requestVpnStart = {
                     permissionActions.resolvePermissionAction(PermissionAction.StartVpnMode)
@@ -431,82 +126,21 @@ class MainViewModel
             )
         }
 
-        val startupState: StateFlow<MainStartupState> =
-            appSettingsRepository.settings
-                .map { settings ->
-                    MainStartupState(
-                        isReady = true,
-                        theme = settings.appTheme.ifEmpty { "system" },
-                        startDestination = resolveStartupDestination(settings),
-                    )
-                }.stateIn(
-                    scope = viewModelScope,
-                    started = SharingStarted.WhileSubscribed(5_000),
-                    initialValue = MainStartupState(),
-                )
-
+        val startupState: StateFlow<MainStartupState> = lifecycleOwner.startupState
+        val homeDiagnosticsUiState: StateFlow<HomeDiagnosticsUiState> = homeDiagnostics.uiState
+        val homeDiagnosticCard: StateFlow<HomeModeCardUiState> = homeDiagnostics.diagnosticCard
         val uiState: StateFlow<MainUiState> =
-            combine(
-                settingsState,
-                mainServiceDependencies.serviceStateStore.status,
-                runtimeState,
-                permissionState,
-                mainDiagnosticsDependencies.diagnosticsTimelineSource.approachStats,
-            ) { settings, statusAndMode, runtime, permissions, approachStats ->
-                MainUiInputsBase(
-                    settings = settings,
-                    statusAndMode = statusAndMode,
-                    runtime = runtime,
-                    telemetry = mainServiceDependencies.serviceStateStore.telemetry.value,
-                    permissions = permissions,
-                    approachStats = approachStats,
-                )
-            }.combine(
-                mainServiceDependencies.hardKillSwitchStateStore.snapshot,
-            ) { base, hardKillSwitch ->
-                base to hardKillSwitch
-            }.combine(
-                mainControlPlaneDependencies.hostPackCatalogUiStateStore.state,
-            ) { (base, hardKillSwitch), hostPackCatalog ->
-                Triple(base, hardKillSwitch, hostPackCatalog)
-            }.combine(
-                mainServiceDependencies.serviceStateStore.telemetry,
-            ) { (base, hardKillSwitch, hostPackCatalog), telemetry ->
-                Triple(base.copy(telemetry = telemetry), hardKillSwitch, hostPackCatalog)
-            }.combine(
-                mainControlPlaneDependencies.strategyPackStateStore.state,
-            ) { (base, hardKillSwitch, hostPackCatalog), strategyPackRuntimeState ->
-                MainUiInputs(
-                    settings = base.settings,
-                    statusAndMode = base.statusAndMode,
-                    runtime = base.runtime,
-                    telemetry = base.telemetry,
-                    permissions = base.permissions,
-                    hardKillSwitch = hardKillSwitch,
-                    approachStats = base.approachStats,
-                    hostPackCatalog = hostPackCatalog,
-                    strategyPackRuntimeState = strategyPackRuntimeState,
-                )
-            }.combine(homeDiagnosticsState) { inputs, homeDiagnostics ->
-                val settings = inputs.settings
-                val (status, activeMode) = inputs.statusAndMode
-                val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
-                buildMainUiState(
-                    inputs = inputs,
-                    homeDiagnostics = homeDiagnostics,
-                    stringResolver = stringResolver,
-                    approachSummary =
-                        connectionActions.buildApproachSummary(
-                            settings = settings,
-                            activeMode = if (status == AppStatus.Running) activeMode else configuredMode,
-                            approachStats = inputs.approachStats,
-                        ),
-                )
-            }.stateIn(
+            MainUiStateOwner(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = MainUiState(),
-            )
+                settingsState = settingsState,
+                serviceDependencies = mainServiceDependencies,
+                diagnosticsDependencies = mainDiagnosticsDependencies,
+                controlPlaneDependencies = mainControlPlaneDependencies,
+                runtimeState = runtimeState,
+                permissionState = permissionState,
+                stringResolver = stringResolver,
+                buildApproachSummary = connectionActions::buildApproachSummary,
+            ).uiState
 
         fun initialize() {
             if (initialized) {
@@ -515,22 +149,11 @@ class MainViewModel
             initialized = true
             permissionActions.refreshPermissionSnapshot()
             connectionActions.initialize()
-            homeDiagnosticsActions.initialize()
+            homeDiagnostics.initialize()
             viewModelScope.launch {
                 mainControlPlaneDependencies.hostPackCatalogUiStateCoordinator.ensureLoaded()
             }
-            mainLifecycleDependencies.appLockLifecycleCoordinator.start(
-                isBiometricEnabled = { settingsState.value.biometricEnabled },
-            ) {
-                _effects.tryEmit(MainEffect.RelockRequested)
-            }
-            mainLifecycleDependencies.startupSideEffectsCoordinator.start(
-                scope = viewModelScope,
-                batteryOptimizationStatus = permissionState.map { it.snapshot.batteryOptimization },
-                isBatteryBannerDismissed = { settingsState.value.batteryBannerDismissed },
-            ) { report ->
-                _pendingCrashReport.value = report
-            }
+            lifecycleOwner.initialize()
         }
 
         fun onPrimaryConnectionAction() {
@@ -602,23 +225,23 @@ class MainViewModel
 
         fun onRunHomeFullAnalysis() = permissionActions.resolvePermissionAction(PermissionAction.RunHomeAnalysis)
 
-        fun onRunHomeQuickAnalysis() = homeDiagnosticsActions.runQuickAnalysis()
+        fun onRunHomeQuickAnalysis() = homeDiagnostics.actions.runQuickAnalysis()
 
-        fun onStartVerifiedVpn() = homeDiagnosticsActions.startVerifiedVpn()
+        fun onStartVerifiedVpn() = homeDiagnostics.actions.startVerifiedVpn()
 
-        fun onToggleHomePcapRecording() = homeDiagnosticsActions.togglePcapRecording()
+        fun onToggleHomePcapRecording() = homeDiagnostics.actions.togglePcapRecording()
 
         fun applySavedStrategyConfig(): StrategyConfigApplyResult = strategyConfigActions.applySavedStrategyConfig()
 
         val onShareHomeAnalysis: () -> Unit = {
-            homeDiagnosticsActions.shareLatestHomeAnalysis()
+            homeDiagnostics.actions.shareLatestHomeAnalysis()
         }
 
         val dismissHomeAnalysisSheet: () -> Unit = {
-            homeDiagnosticsActions.dismissAnalysisSheet()
+            homeDiagnostics.actions.dismissAnalysisSheet()
         }
 
         val dismissHomeVerificationSheet: () -> Unit = {
-            homeDiagnosticsActions.dismissVerificationSheet()
+            homeDiagnostics.actions.dismissVerificationSheet()
         }
     }
