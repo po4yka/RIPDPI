@@ -297,7 +297,11 @@ def _extract_xml(raw: str) -> str:
         start = raw.find("<hierarchy")
     if start == -1:
         return raw.strip()
-    return raw[start:].strip()
+    xml = raw[start:].strip()
+    end = xml.rfind("</hierarchy>")
+    if end == -1:
+        return xml
+    return xml[: end + len("</hierarchy>")]
 
 
 def adb_scroll_to(element_id: str, device: str | None, max_swipes: int = 10) -> bool:
