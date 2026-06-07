@@ -139,6 +139,7 @@ fun HomeScreen(
             onBypassCardClick = onBypassCardClick,
             onVpnCardClick = onVpnCardClick,
             onDiagnosticCardClick = onDiagnosticCardClick,
+            onOpenModeEditor = onOpenModeEditor,
             onTogglePcapRecording = onTogglePcapRecording,
         )
 
@@ -352,6 +353,7 @@ private fun HomeModeCardList(
     onBypassCardClick: () -> Unit,
     onVpnCardClick: () -> Unit,
     onDiagnosticCardClick: () -> Unit,
+    onOpenModeEditor: () -> Unit,
     onTogglePcapRecording: () -> Unit,
 ) {
     Column(
