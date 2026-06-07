@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.ProcessGlobalStrategyEngineBindings
 import com.poyka.ripdpi.core.StrategyEngineBindings
-import com.poyka.ripdpi.core.StrategyEngineNativeBindings
 
 interface StrategyConfigRuntime {
     fun validateLuaScript(path: String): String?
@@ -16,7 +16,7 @@ interface StrategyConfigRuntime {
 }
 
 class NativeStrategyConfigRuntime(
-    private val bindings: StrategyEngineBindings = StrategyEngineNativeBindings(),
+    private val bindings: StrategyEngineBindings = ProcessGlobalStrategyEngineBindings(),
 ) : StrategyConfigRuntime {
     override fun validateLuaScript(path: String): String? = bindings.luaValidateScript(path)
 

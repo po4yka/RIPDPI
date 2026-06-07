@@ -2,7 +2,7 @@ package com.poyka.ripdpi.jni
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.poyka.ripdpi.core.StrategyEngineNativeBindings
+import com.poyka.ripdpi.core.ProcessGlobalStrategyEngineBindings
 import com.poyka.ripdpi.lua.LuaAssetManager
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -17,7 +17,7 @@ class StrategyEngineJniInstrumentedTest {
     fun luaLoadScriptLoadsBundledZapretScriptsAfterExtraction() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val luaDir = LuaAssetManager.ensureExtracted(context).toFile()
-        val bindings = StrategyEngineNativeBindings()
+        val bindings = ProcessGlobalStrategyEngineBindings()
 
         assertNull(bindings.luaValidateScript(File(luaDir, "zapret-lib.lua").absolutePath))
         assertNull(bindings.luaLoadScript(File(luaDir, "zapret-lib.lua").absolutePath))
@@ -31,7 +31,7 @@ class StrategyEngineJniInstrumentedTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val missingPath = File(context.filesDir, "lua/missing.lua").absolutePath
 
-        assertNotNull(StrategyEngineNativeBindings().luaLoadScript(missingPath))
+        assertNotNull(ProcessGlobalStrategyEngineBindings().luaLoadScript(missingPath))
     }
 
     @Test
@@ -57,11 +57,11 @@ class StrategyEngineJniInstrumentedTest {
                     ext_type: destopts
             """.trimIndent()
 
-        assertNull(StrategyEngineNativeBindings().validateStrategyConfigText(yaml))
+        assertNull(ProcessGlobalStrategyEngineBindings().validateStrategyConfigText(yaml))
     }
 
     @Test
     fun strategyConfigValidationRejectsInvalidYaml() {
-        assertNotNull(StrategyEngineNativeBindings().validateStrategyConfigText("version: ["))
+        assertNotNull(ProcessGlobalStrategyEngineBindings().validateStrategyConfigText("version: ["))
     }
 }

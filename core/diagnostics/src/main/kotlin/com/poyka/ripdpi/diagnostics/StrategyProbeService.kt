@@ -2,8 +2,8 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.ProcessGlobalStrategyEngineBindings
 import com.poyka.ripdpi.core.StrategyEngineBindings
-import com.poyka.ripdpi.core.StrategyEngineNativeBindings
 import com.poyka.ripdpi.core.StrategyProbeResultDto
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.setRawStrategyChainDsl
@@ -734,7 +734,7 @@ abstract class StrategyProbeModule {
     companion object {
         @Provides
         @Singleton
-        fun provideStrategyEngineBindings(): StrategyEngineBindings = StrategyEngineNativeBindings()
+        fun provideStrategyEngineBindings(): StrategyEngineBindings = ProcessGlobalStrategyEngineBindings()
 
         @Provides
         @Singleton
