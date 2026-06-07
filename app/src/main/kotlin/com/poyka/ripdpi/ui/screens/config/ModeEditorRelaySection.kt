@@ -3,7 +3,10 @@ package com.poyka.ripdpi.ui.screens.config
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11,11 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldRelayCredentials
 import com.poyka.ripdpi.activities.ConfigFieldRelayLocalSocksPort
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.activities.RelayPresetUiState
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -36,7 +41,12 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+private const val relayChipColumns = 2
+private val relayProtocolChipHeight = 64.dp
 
 @Composable
 internal fun ModeEditorRelaySection(
@@ -143,27 +153,13 @@ private fun ModeEditorRelayPresetChips(
         return
     }
 
-    val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
-
-    Text(
-        text = stringResource(R.string.config_relay_presets_title),
-        style = RipDpiThemeTokens.type.caption,
-        color = colors.mutedForeground,
+    RelayChipSection(
+        sectionKey = "recommended",
+        title = stringResource(R.string.config_relay_protocol_section_recommended),
+        chips = uiState.relayPresets.toRelayPresetChips(),
+        selectedKind = draft.relayPresetId,
+        onRelayKindChanged = actions.onRelayPresetSelected,
     )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        uiState.relayPresets.forEach { preset ->
-            RelayKindChip(
-                selectedKind = draft.relayPresetId,
-                kind = preset.id,
-                label = preset.title,
-                onRelayKindChanged = actions.onRelayPresetSelected,
-            )
-        }
-    }
 }
 
 @Composable
@@ -171,66 +167,141 @@ private fun ModeEditorRelayKindChips(
     draft: ConfigDraft,
     actions: ModeEditorActions,
 ) {
-    val spacing = RipDpiThemeTokens.spacing
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        RelayKindChip(
-            draft.relayKind,
-            RelayKindVlessReality,
-            R.string.config_relay_kind_vless,
-            actions.onRelayKindChanged,
+    relayProtocolSections().forEach { section ->
+        RelayChipSection(
+            sectionKey = section.key,
+            title = stringResource(section.titleRes),
+            chips = section.chips,
+            selectedKind = draft.relayKind,
+            onRelayKindChanged = actions.onRelayKindChanged,
         )
-        RelayKindChip(
-            draft.relayKind,
-            RelayKindHysteria2,
-            R.string.config_relay_kind_hysteria2,
-            actions.onRelayKindChanged,
-        )
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        RelayKindChip(
-            draft.relayKind,
-            RelayKindCloudflareTunnel,
-            R.string.config_relay_kind_cloudflare_tunnel,
-            actions.onRelayKindChanged,
-        )
-        RelayKindChip(draft.relayKind, RelayKindNaiveProxy, "NaiveProxy", actions.onRelayKindChanged)
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        RelayKindChip(
-            draft.relayKind,
-            RelayKindChainRelay,
-            R.string.config_relay_kind_chain,
-            actions.onRelayKindChanged,
-        )
-        RelayKindChip(draft.relayKind, RelayKindMasque, R.string.config_relay_kind_masque, actions.onRelayKindChanged)
-        RelayKindChip(draft.relayKind, RelayKindTuicV5, "TUIC v5", actions.onRelayKindChanged)
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        RelayKindChip(draft.relayKind, RelayKindShadowTlsV3, "ShadowTLS v3", actions.onRelayKindChanged)
-        RelayKindChip(draft.relayKind, RelayKindSnowflake, "Snowflake", actions.onRelayKindChanged)
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        RelayKindChip(draft.relayKind, RelayKindWebTunnel, "WebTunnel", actions.onRelayKindChanged)
-        RelayKindChip(draft.relayKind, RelayKindObfs4, "obfs4", actions.onRelayKindChanged)
-        RelayKindChip(draft.relayKind, RelayKindTor, "Tor", actions.onRelayKindChanged)
     }
 }
+
+@Composable
+private fun RelayChipSection(
+    sectionKey: String,
+    title: String,
+    chips: List<RelayChipOption>,
+    selectedKind: String,
+    onRelayKindChanged: (String) -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(
+        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.modeEditorRelaySection(sectionKey)),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        Text(
+            text = title,
+            style = RipDpiThemeTokens.type.caption,
+            color = colors.mutedForeground,
+        )
+        chips.chunked(relayChipColumns).forEach { rowChips ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                rowChips.forEach { chip ->
+                    RelayChipOption(
+                        chip = chip,
+                        selectedKind = selectedKind,
+                        onRelayKindChanged = onRelayKindChanged,
+                    )
+                }
+                repeat(relayChipColumns - rowChips.size) {
+                    Spacer(modifier = Modifier.weight(1f).height(relayProtocolChipHeight))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.RelayChipOption(
+    chip: RelayChipOption,
+    selectedKind: String,
+    onRelayKindChanged: (String) -> Unit,
+) {
+    val chipModifier =
+        Modifier
+            .height(relayProtocolChipHeight)
+            .ripDpiTestTag(RipDpiTestTags.modeEditorRelayChip(chip.kind))
+    if (chip.labelRes != null) {
+        RelayKindChip(
+            selectedKind = selectedKind,
+            kind = chip.kind,
+            labelRes = chip.labelRes,
+            onRelayKindChanged = onRelayKindChanged,
+            modifier = chipModifier,
+        )
+    } else {
+        RelayKindChip(
+            selectedKind = selectedKind,
+            kind = chip.kind,
+            label = chip.label.orEmpty(),
+            onRelayKindChanged = onRelayKindChanged,
+            modifier = chipModifier,
+        )
+    }
+}
+
+private data class RelayChipSectionModel(
+    val key: String,
+    val titleRes: Int,
+    val chips: List<RelayChipOption>,
+)
+
+private data class RelayChipOption(
+    val kind: String,
+    val labelRes: Int? = null,
+    val label: String? = null,
+)
+
+private fun List<RelayPresetUiState>.toRelayPresetChips(): List<RelayChipOption> =
+    map { preset -> RelayChipOption(kind = preset.id, label = preset.title) }
+
+private fun relayProtocolSections(): List<RelayChipSectionModel> =
+    listOf(
+        RelayChipSectionModel(
+            key = "tls-transports",
+            titleRes = R.string.config_relay_protocol_section_tls,
+            chips =
+                listOf(
+                    RelayChipOption(RelayKindVlessReality, labelRes = R.string.config_relay_kind_vless),
+                    RelayChipOption(RelayKindCloudflareTunnel, labelRes = R.string.config_relay_kind_cloudflare_tunnel),
+                    RelayChipOption(RelayKindNaiveProxy, label = "NaiveProxy"),
+                    RelayChipOption(RelayKindShadowTlsV3, label = "ShadowTLS v3"),
+                ),
+        ),
+        RelayChipSectionModel(
+            key = "quic-transports",
+            titleRes = R.string.config_relay_protocol_section_quic,
+            chips =
+                listOf(
+                    RelayChipOption(RelayKindHysteria2, labelRes = R.string.config_relay_kind_hysteria2),
+                    RelayChipOption(RelayKindMasque, labelRes = R.string.config_relay_kind_masque),
+                    RelayChipOption(RelayKindTuicV5, label = "TUIC v5"),
+                    RelayChipOption(RelayKindChainRelay, labelRes = R.string.config_relay_kind_chain),
+                ),
+        ),
+        RelayChipSectionModel(
+            key = "pt-relays",
+            titleRes = R.string.config_relay_protocol_section_pt,
+            chips =
+                listOf(
+                    RelayChipOption(RelayKindSnowflake, label = "Snowflake"),
+                    RelayChipOption(RelayKindWebTunnel, label = "WebTunnel"),
+                    RelayChipOption(RelayKindObfs4, label = "obfs4"),
+                ),
+        ),
+        RelayChipSectionModel(
+            key = "tor",
+            titleRes = R.string.config_relay_protocol_section_tor,
+            chips = listOf(RelayChipOption(RelayKindTor, label = "Tor")),
+        ),
+    )
 
 @Composable
 private fun ModeEditorRelayUdpToggle(

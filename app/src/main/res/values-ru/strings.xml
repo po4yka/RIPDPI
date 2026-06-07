@@ -2155,6 +2155,11 @@ fakeddisorder endhost</string>
     <string name="config_relay_masque_token">Токен авторизации MASQUE</string>
     <string name="config_relay_masque_url">URL MASQUE</string>
     <string name="config_relay_presets_title">Пресеты реле</string>
+    <string name="config_relay_protocol_section_recommended">Recommended</string>
+    <string name="config_relay_protocol_section_tls">TLS transports</string>
+    <string name="config_relay_protocol_section_quic">QUIC transports</string>
+    <string name="config_relay_protocol_section_pt">PT relays</string>
+    <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_profile_id_helper">Используется для привязки защищённых учётных данных к сохранённому профилю реле.</string>
     <string name="config_relay_profile_id">ID профиля</string>
     <string name="config_relay_reality_public_key">Публичный ключ Reality</string>

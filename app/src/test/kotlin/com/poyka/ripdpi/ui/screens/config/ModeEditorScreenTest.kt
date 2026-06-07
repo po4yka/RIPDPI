@@ -5,8 +5,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -17,12 +20,28 @@ import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigPreset
 import com.poyka.ripdpi.activities.ConfigPresetKind
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.activities.RelayPresetUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindObfs4
+import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTor
+import com.poyka.ripdpi.data.RelayKindTuicV5
+import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -92,9 +111,75 @@ class ModeEditorScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true).assertIsNotEnabled()
     }
 
+    @Test
+    fun relayProtocolGridUsesLabeledSectionsAndUniformChipHeights() {
+        val presetIds =
+            listOf(
+                "ru-mobile-tuic",
+                "ru-mobile-shadowtls",
+                "ru-mobile-naiveproxy",
+                "ru-mobile-relay",
+            )
+        val protocolKinds =
+            listOf(
+                RelayKindVlessReality,
+                RelayKindCloudflareTunnel,
+                RelayKindNaiveProxy,
+                RelayKindShadowTlsV3,
+                RelayKindHysteria2,
+                RelayKindMasque,
+                RelayKindTuicV5,
+                RelayKindChainRelay,
+                RelayKindSnowflake,
+                RelayKindWebTunnel,
+                RelayKindObfs4,
+                RelayKindTor,
+            )
+        setScreen(
+            initialDraft = defaultDraft().copy(relayEnabled = true),
+            relayPresets =
+                persistentListOf(
+                    RelayPresetUiState(id = presetIds[0], title = "Russian mobile TUIC", selected = false),
+                    RelayPresetUiState(id = presetIds[1], title = "Russian mobile ShadowTLS", selected = false),
+                    RelayPresetUiState(id = presetIds[2], title = "Russian mobile NaiveProxy", selected = false),
+                    RelayPresetUiState(id = presetIds[3], title = "Russian mobile relay", selected = false),
+                ),
+        )
+
+        mapOf(
+            "recommended" to "Recommended",
+            "tls-transports" to "TLS transports",
+            "quic-transports" to "QUIC transports",
+            "pt-relays" to "PT relays",
+        ).forEach { (section, label) ->
+            composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelaySection(section)).performScrollTo().assertExists()
+            composeRule.onNodeWithText(label).assertExists()
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelaySection("tor")).performScrollTo().assertExists()
+        composeRule.onAllNodesWithText("Tor").assertCountEquals(2)
+
+        val chipTags = (presetIds + protocolKinds).map { kind -> RipDpiTestTags.modeEditorRelayChip(kind) }
+        chipTags.forEach { tag ->
+            composeRule.onAllNodesWithTag(tag).assertCountEquals(1)
+        }
+        val chipHeights =
+            chipTags.map { tag ->
+                composeRule.onNodeWithTag(tag).performScrollTo()
+                composeRule.waitForIdle()
+                composeRule
+                    .onNodeWithTag(tag)
+                    .fetchSemanticsNode()
+                    .boundsInRoot
+                    .height
+            }
+        val expectedHeight = chipHeights.first()
+        chipHeights.forEach { height -> assertEquals(expectedHeight, height, 0.5f) }
+    }
+
     private fun setScreen(
         initialDraft: ConfigDraft = defaultDraft(),
         stateful: Boolean = false,
+        relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -112,6 +197,7 @@ class ModeEditorScreenTest {
                                     draft = screenDraft,
                                 ),
                             draft = screenDraft,
+                            relayPresets = relayPresets,
                         ),
                     snackbarHostState = SnackbarHostState(),
                     actions =

@@ -608,6 +608,11 @@
     <string name="config_relay_vless_transport">حمل‌و‌نقل VLESS</string>
     <string name="config_relay_cloudflare_tunnel_note">از نام میزبان Cloudflare Tunnel مدیریت‌شده توسط کاربر خود اینجا استفاده کنید. P0 انتظار دارد که آن نام میزبان جلوی منشأ xHTTP/VLESS خود شما باشد؛ RIPDPI توکن‌های cloudflared یا راه‌اندازی TryCloudflare را مدیریت نمی‌کند.</string>
     <string name="config_relay_presets_title">پیش‌تنظیم‌های رله</string>
+    <string name="config_relay_protocol_section_recommended">Recommended</string>
+    <string name="config_relay_protocol_section_tls">TLS transports</string>
+    <string name="config_relay_protocol_section_quic">QUIC transports</string>
+    <string name="config_relay_protocol_section_pt">PT relays</string>
+    <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_xhttp_path">مسیر xHTTP</string>
     <string name="config_relay_xhttp_host">جایگزینی میزبان xHTTP</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>

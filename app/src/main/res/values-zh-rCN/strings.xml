@@ -2089,6 +2089,11 @@ fake_burst 3</string>
     <string name="config_relay_masque_pkcs12_dialog_title">导入 PKCS#12 身份</string>
     <string name="config_relay_masque_privacy_pass_invalid_provider">Privacy Pass 已禁用,因为配置的提供者 URL 无效。</string>
     <string name="config_relay_presets_title">中继预设</string>
+    <string name="config_relay_protocol_section_recommended">Recommended</string>
+    <string name="config_relay_protocol_section_tls">TLS transports</string>
+    <string name="config_relay_protocol_section_quic">QUIC transports</string>
+    <string name="config_relay_protocol_section_pt">PT relays</string>
+    <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_reality_short_id">Reality short ID</string>
     <string name="config_relay_server">中继服务器</string>
     <string name="config_relay_xhttp_path">xHTTP 路径</string>

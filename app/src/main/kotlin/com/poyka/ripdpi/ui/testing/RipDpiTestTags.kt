@@ -457,6 +457,10 @@ internal object RipDpiTestTags {
 
     fun homeModeConfigureAction(mode: String): String = "home-mode-configure-${sanitize(mode)}"
 
+    val modeEditorRelaySection: (String) -> String = { section -> "mode-editor-relay-section-${sanitize(section)}" }
+
+    val modeEditorRelayChip: (String) -> String = { kind -> "mode-editor-relay-chip-${sanitize(kind)}" }
+
     fun routeProfile(routeId: String): String = "route-profile-${sanitize(routeId)}"
 
     fun routeCapability(kind: String): String = "route-capability-${sanitize(kind)}"
