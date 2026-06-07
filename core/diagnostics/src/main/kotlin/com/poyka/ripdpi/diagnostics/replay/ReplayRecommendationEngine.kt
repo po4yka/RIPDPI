@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.replay
 
 import android.content.Context
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -71,7 +72,7 @@ class ReplayRecommendationEngine internal constructor(
  * code never calls this directly — it goes through the engine.
  */
 internal object ReplayRecommendationCatalogParser {
-    private val JSON = Json { ignoreUnknownKeys = true }
+    private val JSON = RipDpiJson
 
     fun parse(json: String): ReplayRecommendationCatalog =
         JSON.decodeFromString(ReplayRecommendationCatalog.serializer(), json)

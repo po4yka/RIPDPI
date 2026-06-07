@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeFailureKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeRankingAccumulator
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeService
+import com.poyka.ripdpi.serialization.RipDpiPrettyDefaultsJson
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.persistentListOf
@@ -23,7 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -204,7 +204,7 @@ class NativeBlockcheckStrategyReloader : BlockcheckStrategyReloader {
     override fun reloadConfig(): String? = runtime.reloadConfig()
 }
 
-private val BlockcheckReportJson = Json { prettyPrint = true }
+private val BlockcheckReportJson = RipDpiPrettyDefaultsJson
 
 fun encodeBlockcheckReport(state: BlockcheckUiState): String {
     val payload =

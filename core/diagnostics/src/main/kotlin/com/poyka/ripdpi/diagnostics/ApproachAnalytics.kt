@@ -38,6 +38,7 @@ import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import com.poyka.ripdpi.utility.shellSplit
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
@@ -145,7 +146,7 @@ data class BypassApproachDetail(
     val recentFailureNotes: List<String> = emptyList(),
 )
 
-private val strategyJson = Json { encodeDefaults = true }
+private val strategyJson = RipDpiEncodeDefaultsJson
 
 private fun hasCommandLineRawFakePayload(args: String): Boolean {
     val tokens = shellSplit(args)

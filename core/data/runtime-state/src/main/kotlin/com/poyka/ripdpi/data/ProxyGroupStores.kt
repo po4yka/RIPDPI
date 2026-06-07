@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import android.content.Context
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -329,7 +330,7 @@ class SharedPreferencesProxyGroupRepository
         @ApplicationContext context: Context,
     ) : ProxyGroupRepository {
         private val preferences = context.getSharedPreferences(GroupsPrefsName, Context.MODE_PRIVATE)
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
         private val listSerializer = ListSerializer(ProxyGroup.serializer())
         private val state = MutableStateFlow(readGroups())
 

@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -30,7 +31,7 @@ interface RipDpiProxyRuntime {
 
 internal const val defaultProxyReadyTimeoutMs = 5_000L
 private const val readyLogPollInterval = 20L
-private val geoDatabaseVersionsJson = Json { ignoreUnknownKeys = true }
+private val geoDatabaseVersionsJson = RipDpiJson
 
 /**
  * Thin JNI binding surface over the embedded SOCKS-proxy native session in
@@ -281,7 +282,7 @@ class RipDpiProxy(
         private const val READY_POLL_INTERVAL_MS = 50L
     }
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = RipDpiJson
     private val reservations = HandleReservation()
 
     @Volatile private var handle = 0L

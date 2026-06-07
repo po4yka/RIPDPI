@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import android.content.Context
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -19,7 +20,7 @@ const val WarpAmneziaPresetCustom = "custom"
 // Backward-compatible aliases for older persisted values.
 const val WarpAmneziaPresetBalanced = WarpAmneziaPresetQuicImitation
 const val WarpAmneziaPresetAggressive = WarpAmneziaPresetTlsImitation
-private val warpPayloadGenCatalogJson = Json { ignoreUnknownKeys = true }
+private val warpPayloadGenCatalogJson = RipDpiJson
 
 @Serializable
 internal data class WarpPayloadGenCatalogPayload(

@@ -7,6 +7,8 @@ import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
 import com.poyka.ripdpi.data.PreferredEdgeIpVersionV6
 import com.poyka.ripdpi.data.normalizePreferredEdgeCandidates
+import com.poyka.ripdpi.serialization.RipDpiContractJson
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -55,11 +57,7 @@ class DefaultNetworkEdgePreferenceStore
         private val clock: DiagnosticsHistoryClock,
     ) : NetworkEdgePreferenceStore {
         private val json =
-            Json {
-                encodeDefaults = true
-                explicitNulls = false
-                ignoreUnknownKeys = true
-            }
+            RipDpiContractJson
 
         override suspend fun getPreferredEdges(
             fingerprintHash: String,
@@ -202,16 +200,12 @@ class DefaultNetworkEdgePreferenceStore
 
 private val ListSerializer = kotlinx.serialization.builtins.ListSerializer(PreferredEdgeCandidate.serializer())
 
-fun NetworkEdgePreferenceEntity.decodeEdges(
-    json: Json = Json { ignoreUnknownKeys = true },
-): List<PreferredEdgeCandidate> =
+fun NetworkEdgePreferenceEntity.decodeEdges(json: Json = RipDpiJson): List<PreferredEdgeCandidate> =
     runCatching {
         json.decodeFromString(ListSerializer, edgesJson)
     }.onFailure { Logger.w(it) { "Failed to decode preferred edge candidates" } }.getOrNull().orEmpty()
 
-fun NetworkEdgePreferenceEntity.decodeSummary(
-    json: Json = Json { ignoreUnknownKeys = true },
-): NetworkFingerprintSummary? =
+fun NetworkEdgePreferenceEntity.decodeSummary(json: Json = RipDpiJson): NetworkFingerprintSummary? =
     runCatching {
         json.decodeFromString(NetworkFingerprintSummary.serializer(), summaryJson)
     }.onFailure { Logger.w(it) { "Failed to decode network fingerprint summary" } }.getOrNull()

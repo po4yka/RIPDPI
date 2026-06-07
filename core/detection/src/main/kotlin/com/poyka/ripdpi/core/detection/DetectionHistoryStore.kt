@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core.detection
 import android.content.Context
 import androidx.core.content.edit
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -48,7 +49,7 @@ class DetectionHistoryStore
         private val dispatchers: AppCoroutineDispatchers,
     ) : DetectionHistoryRepository {
         private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
 
         override suspend fun save(entry: DetectionHistoryEntry) =
             withContext(dispatchers.io) {

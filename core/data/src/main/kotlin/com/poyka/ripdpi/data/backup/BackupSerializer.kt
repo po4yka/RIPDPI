@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.backup
 
+import com.poyka.ripdpi.serialization.RipDpiBackupJson
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
@@ -18,14 +19,7 @@ import java.io.OutputStream
  */
 object BackupSerializer {
     private val json =
-        Json {
-            // Mirror the private exporter configuration so the wire format is identical
-            // to what [BackupImporter.import] expects on the way back in.
-            ignoreUnknownKeys = true
-            encodeDefaults = true
-            prettyPrint = true
-            prettyPrintIndent = "  "
-        }
+        RipDpiBackupJson
 
     /**
      * Encodes [document] to a JSON string. Convenience for tests and small payloads;

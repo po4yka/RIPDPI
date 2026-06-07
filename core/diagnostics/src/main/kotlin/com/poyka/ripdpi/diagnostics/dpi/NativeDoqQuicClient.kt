@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -34,7 +35,7 @@ class NativeDoqQuicClient
     ) : DoqQuicClient {
         constructor() : this(NativeDoqQuicClientNativeBindings())
 
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
 
         override suspend fun exchange(
             endpoint: String,

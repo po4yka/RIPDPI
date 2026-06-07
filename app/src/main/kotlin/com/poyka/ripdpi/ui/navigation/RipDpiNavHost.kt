@@ -34,6 +34,7 @@ import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.serialization.RipDpiJson
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileRoute
 import com.poyka.ripdpi.ui.screens.awg.AmneziaWgProfileRoute
@@ -796,7 +797,7 @@ private fun NavHostController.navigateProfileImport(request: com.poyka.ripdpi.pr
     }
 }
 
-private val importProfileJson = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+private val importProfileJson = RipDpiJson
 
 internal fun decodeImportedProfile(profileJson: String): com.poyka.ripdpi.data.ProxyProfile? =
     profileJson

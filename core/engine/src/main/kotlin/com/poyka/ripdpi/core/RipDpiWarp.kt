@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
@@ -210,7 +211,7 @@ class RipDpiWarpNativeBindings
         private external fun jniProbeEndpoint(requestJson: String): String?
     }
 
-private val warpJson = Json { ignoreUnknownKeys = true }
+private val warpJson = RipDpiJson
 
 @Serializable
 private data class WarpRuntimeNativeConfig(

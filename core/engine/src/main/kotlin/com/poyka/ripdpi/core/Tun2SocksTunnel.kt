@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.lifetime.HandleReservation
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -177,10 +178,7 @@ class Tun2SocksTunnel(
     private val nativeBindings: Tun2SocksBindings,
 ) {
     private val json =
-        Json {
-            ignoreUnknownKeys = true
-            encodeDefaults = true
-        }
+        RipDpiEncodeDefaultsJson
     private val reservations = HandleReservation()
     private var handle = 0L
 

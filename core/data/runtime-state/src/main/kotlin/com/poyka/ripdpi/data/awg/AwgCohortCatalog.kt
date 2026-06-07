@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data.awg
 
 import android.content.Context
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
+import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -52,17 +53,11 @@ private val REQUIRED_PRESET_KEYS =
     )
 
 private val awgCohortCatalogJson =
-    Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-    }
+    RipDpiLenientJson
 
 /** Strict reader used only by [AwgCohortCatalog.strictValidate]; rejects unknown keys. */
 private val awgCohortStrictJson =
-    Json {
-        ignoreUnknownKeys = false
-        isLenient = false
-    }
+    Json.Default
 
 /**
  * One AmneziaWG obfuscation cohort preset, mirroring a row of the deployer's

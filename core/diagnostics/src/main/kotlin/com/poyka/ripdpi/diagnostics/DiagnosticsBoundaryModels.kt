@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -369,11 +370,7 @@ data class DiagnosticConnectionDetail(
 )
 
 private val compatibilityJson =
-    Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-        explicitNulls = false
-    }
+    RipDpiContractJson
 
 private fun <T> Json.decodeOrNull(
     serializer: kotlinx.serialization.KSerializer<T>,

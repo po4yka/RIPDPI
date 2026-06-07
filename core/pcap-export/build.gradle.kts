@@ -13,6 +13,7 @@ extensions.configure<LibraryExtension> {
 }
 
 dependencies {
+    implementation(project(":core:data:model"))
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)

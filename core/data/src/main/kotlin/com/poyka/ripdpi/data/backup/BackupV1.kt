@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.data.rules.RuleTypeConverters
+import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -244,10 +245,7 @@ object BackupAllowlist {
 // ---------------------------------------------------------------------------
 
 private val backupJson =
-    Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
+    RipDpiEncodeDefaultsJson
 
 /**
  * Produces a [BackupV1] document from the supplied data.

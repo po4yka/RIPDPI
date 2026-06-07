@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import android.util.Base64
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -96,4 +97,4 @@ private data class CdnEchSnapshotPayload(
         get() = ok && !empty && fetchedAtUnixMs > 0L && !configBase64.isNullOrBlank()
 }
 
-private val nativeBridgeJson = Json { ignoreUnknownKeys = true }
+private val nativeBridgeJson = RipDpiJson

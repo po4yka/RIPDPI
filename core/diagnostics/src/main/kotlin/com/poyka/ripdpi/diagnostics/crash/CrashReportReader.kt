@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.crash
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -10,7 +11,7 @@ import java.io.File
 class CrashReportReader(
     private val filesDir: File,
 ) {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = RipDpiJson
 
     private val crashFile: File
         get() = File(filesDir, "${CrashReportWriter.CRASH_DIR_NAME}/${CrashReportWriter.CRASH_FILE_NAME}")

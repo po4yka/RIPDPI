@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import com.poyka.ripdpi.jni.PcapBridge
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -96,7 +97,7 @@ class PcapController
             const val DEFAULT_MAX_FILE_BYTES: Long = 16L * 1024L * 1024L
             const val DEFAULT_MAX_FILES: Int = 4
 
-            private val JSON = Json { ignoreUnknownKeys = true }
+            private val JSON = RipDpiJson
 
             private fun decodeMetadataList(json: String?): List<PcapCaptureMetadata> {
                 if (json == null) return emptyList()

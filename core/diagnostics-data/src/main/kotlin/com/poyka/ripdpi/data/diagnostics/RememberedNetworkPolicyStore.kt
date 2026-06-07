@@ -11,6 +11,8 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.data.RememberedNetworkPolicySuppressionDurationMs
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.toActiveDnsSettings
+import com.poyka.ripdpi.serialization.RipDpiContractJson
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -70,11 +72,7 @@ class DefaultRememberedNetworkPolicyStore
         private val clock: DiagnosticsHistoryClock,
     ) : RememberedNetworkPolicyStore {
         private val json =
-            Json {
-                encodeDefaults = true
-                explicitNulls = false
-                ignoreUnknownKeys = true
-            }
+            RipDpiContractJson
 
         override fun observePolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
             recordStore.observeRememberedNetworkPolicies(limit)
@@ -286,17 +284,13 @@ fun RememberedNetworkPolicyEntity.decodedSource(): RememberedNetworkPolicySource
 
 fun RememberedNetworkPolicyEntity.decodeSummary(
     json: Json =
-        Json {
-            ignoreUnknownKeys = true
-        },
+        RipDpiJson,
 ): NetworkFingerprintSummary? =
     runCatching {
         json.decodeFromString(NetworkFingerprintSummary.serializer(), summaryJson)
     }.onFailure { Logger.w(it) { "Failed to decode network fingerprint summary" } }.getOrNull()
 
-fun RememberedNetworkPolicyEntity.toPolicyJson(
-    json: Json = Json { ignoreUnknownKeys = true },
-): RememberedNetworkPolicyJson? {
+fun RememberedNetworkPolicyEntity.toPolicyJson(json: Json = RipDpiJson): RememberedNetworkPolicyJson? {
     val summary = decodeSummary(json) ?: return null
     val dnsPolicy =
         vpnDnsPolicyJson

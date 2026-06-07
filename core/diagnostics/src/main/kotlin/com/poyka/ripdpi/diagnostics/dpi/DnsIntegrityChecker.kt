@@ -3,6 +3,7 @@ package com.poyka.ripdpi.diagnostics.dpi
 import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapResult
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -380,7 +381,7 @@ class DohJsonAddressProbe(
     private val client: OkHttpClient = defaultDnsHttpClient(),
     private val endpoints: List<String> = DefaultDohJsonEndpoints,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val json: Json = Json { ignoreUnknownKeys = true },
+    private val json: Json = RipDpiJson,
 ) : BootstrapFilterableDnsAddressProbe {
     override suspend fun resolveA(domain: String): Set<String> = resolveA(domain, emptySet())
 

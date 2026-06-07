@@ -12,6 +12,7 @@ import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -20,7 +21,6 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okio.buffer
@@ -42,7 +42,7 @@ class GithubUpdateManager
         private val owner = BuildConfig.GITHUB_UPDATE_OWNER
         private val repo = BuildConfig.GITHUB_UPDATE_REPO
         private val client = defaultClient()
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
 
         @Volatile
         private var latestPlan: GithubUpdatePlan? = null

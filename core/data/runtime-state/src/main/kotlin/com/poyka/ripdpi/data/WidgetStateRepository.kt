@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -35,7 +36,7 @@ class DefaultWidgetStateRepository
     constructor(
         @ApplicationContext private val context: Context,
     ) : WidgetStateRepository {
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
 
         override suspend fun write(snapshot: WidgetSnapshot) {
             context.widgetDataStore.edit { prefs ->

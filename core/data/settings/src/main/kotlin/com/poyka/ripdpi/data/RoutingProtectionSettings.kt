@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -118,10 +119,7 @@ data class AppRoutingPolicyPreset(
 }
 
 private val appRoutingPolicyJson =
-    Json {
-        ignoreUnknownKeys = true
-        explicitNulls = false
-    }
+    RipDpiJson
 
 fun appRoutingPolicyCatalogFromJson(payload: String): AppRoutingPolicyCatalog =
     appRoutingPolicyJson.decodeFromString(payload)

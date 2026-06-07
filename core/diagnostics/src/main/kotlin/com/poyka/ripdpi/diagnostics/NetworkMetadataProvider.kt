@@ -16,6 +16,7 @@ import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -55,9 +56,7 @@ class HttpPublicIpInfoResolver
         }
 
         private val lenientJson =
-            Json {
-                ignoreUnknownKeys = true
-            }
+            RipDpiJson
 
         override suspend fun resolve(): PublicIpInfo? =
             withContext(Dispatchers.IO) {

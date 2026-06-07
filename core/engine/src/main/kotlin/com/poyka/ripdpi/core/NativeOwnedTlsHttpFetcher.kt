@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -76,7 +77,7 @@ class DefaultNativeOwnedTlsHttpFetcher
     constructor(
         private val bindings: NativeOwnedTlsHttpFetcherBindings,
     ) : NativeOwnedTlsHttpFetcher {
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
 
         override suspend fun execute(request: NativeOwnedTlsHttpRequest): NativeOwnedTlsHttpResult =
             withContext(Dispatchers.IO) {

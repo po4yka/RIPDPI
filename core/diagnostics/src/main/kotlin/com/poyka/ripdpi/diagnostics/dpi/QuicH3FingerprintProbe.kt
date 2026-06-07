@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -283,7 +284,7 @@ class NativeQuicInitialPacketBindings : QuicInitialPacketNativeBindings {
 
 internal class NativeQuicInitialPacketFactory(
     private val bindings: QuicInitialPacketNativeBindings = NativeQuicInitialPacketBindings(),
-    private val json: Json = Json { ignoreUnknownKeys = true },
+    private val json: Json = RipDpiJson,
 ) {
     fun createOrNull(
         fingerprint: QuicFingerprint,

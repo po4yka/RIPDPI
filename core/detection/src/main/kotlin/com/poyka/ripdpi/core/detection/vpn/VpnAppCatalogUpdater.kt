@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.detection.vpn
 
 import android.content.Context
 import com.poyka.ripdpi.core.detection.VpnAppKind
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -18,7 +19,7 @@ data class RemoteVpnAppEntry(
 object VpnAppCatalogUpdater {
     private const val PREFS_NAME = "vpn_catalog_updates"
     private const val KEY_EXTRA_ENTRIES = "extra_entries"
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = RipDpiJson
 
     fun loadExtraEntries(context: Context): List<VpnAppSignature> {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

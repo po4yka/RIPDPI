@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.assets
 
+import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -22,7 +23,4 @@ fun parseGithubLatestReleaseTag(json: String): String? =
 private fun kotlinx.serialization.json.JsonPrimitive.contentOrNullSafe(): String? = runCatching { content }.getOrNull()
 
 private val githubReleaseJson =
-    Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-    }
+    RipDpiLenientJson

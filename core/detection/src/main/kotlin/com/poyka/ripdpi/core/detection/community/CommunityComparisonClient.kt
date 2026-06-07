@@ -4,6 +4,7 @@ package com.poyka.ripdpi.core.detection.community
 
 import com.poyka.ripdpi.core.detection.DetectionHistoryRepository
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -18,7 +19,7 @@ class CommunityComparisonClient internal constructor(
 ) {
     constructor(dispatchers: AppCoroutineDispatchers) : this(defaultClient(), dispatchers)
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = RipDpiJson
 
     suspend fun fetchStats(githubUrl: String): Result<CommunityStats> =
         withContext(dispatchers.io) {

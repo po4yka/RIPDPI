@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.serialization.RipDpiContractJson
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -33,11 +35,7 @@ class DefaultNetworkDnsPathPreferenceStore
         private val clock: DiagnosticsHistoryClock,
     ) : NetworkDnsPathPreferenceStore {
         private val json =
-            Json {
-                encodeDefaults = true
-                explicitNulls = false
-                ignoreUnknownKeys = true
-            }
+            RipDpiContractJson
 
         override suspend fun getPreferredPath(fingerprintHash: String): EncryptedDnsPathCandidate? =
             recordStore
@@ -70,16 +68,12 @@ class DefaultNetworkDnsPathPreferenceStore
         }
     }
 
-fun NetworkDnsPathPreferenceEntity.decodePath(
-    json: Json = Json { ignoreUnknownKeys = true },
-): EncryptedDnsPathCandidate? =
+fun NetworkDnsPathPreferenceEntity.decodePath(json: Json = RipDpiJson): EncryptedDnsPathCandidate? =
     runCatching {
         json.decodeFromString(EncryptedDnsPathCandidate.serializer(), pathJson)
     }.onFailure { Logger.w(it) { "Failed to decode DNS path candidate" } }.getOrNull()
 
-fun NetworkDnsPathPreferenceEntity.decodeSummary(
-    json: Json = Json { ignoreUnknownKeys = true },
-): NetworkFingerprintSummary? =
+fun NetworkDnsPathPreferenceEntity.decodeSummary(json: Json = RipDpiJson): NetworkFingerprintSummary? =
     runCatching {
         json.decodeFromString(NetworkFingerprintSummary.serializer(), summaryJson)
     }.onFailure { Logger.w(it) { "Failed to decode network fingerprint summary" } }.getOrNull()

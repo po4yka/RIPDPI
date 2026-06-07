@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -83,9 +84,7 @@ data class DnsProviderCatalog(
 }
 
 private val dnsProviderCatalogJson =
-    Json {
-        ignoreUnknownKeys = true
-    }
+    RipDpiJson
 
 fun dnsProviderCatalogFromJson(payload: String): DnsProviderCatalog = dnsProviderCatalogJson.decodeFromString(payload)
 

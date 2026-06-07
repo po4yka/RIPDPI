@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data.subscription
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
+import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -57,10 +58,7 @@ sealed interface SingBoxRouteRulesParseResult {
  */
 object SingBoxRouteRulesParser {
     private val json =
-        Json {
-            ignoreUnknownKeys = true
-            isLenient = true
-        }
+        RipDpiLenientJson
 
     /**
      * Parses [payload] and extracts its per-app routing rules. The rules in a

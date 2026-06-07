@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import android.content.Context
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -28,7 +29,7 @@ private const val NaivePresetAcceptedScore = 50
 private const val NaivePresetFallbackScore = 3
 private const val DefaultRussianPresetScore = 2
 private const val GenericPresetScore = 1
-private val relayPresetCatalogJson = Json { ignoreUnknownKeys = true }
+private val relayPresetCatalogJson = RipDpiJson
 
 @Serializable
 internal data class RelayPresetCatalogPayload(

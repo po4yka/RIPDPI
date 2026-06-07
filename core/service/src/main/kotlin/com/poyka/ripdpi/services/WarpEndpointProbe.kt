@@ -10,11 +10,11 @@ import com.poyka.ripdpi.core.WarpEndpointProbeNativeResult
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpEndpointCacheEntry
+import com.poyka.ripdpi.serialization.RipDpiNoExplicitNullsJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
@@ -166,9 +166,6 @@ class DefaultWarpEndpointProbe
 
         private companion object {
             val WarpProbeJson =
-                Json {
-                    ignoreUnknownKeys = true
-                    explicitNulls = false
-                }
+                RipDpiNoExplicitNullsJson
         }
     }

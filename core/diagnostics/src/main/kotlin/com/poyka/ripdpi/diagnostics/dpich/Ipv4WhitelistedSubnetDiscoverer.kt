@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import com.poyka.ripdpi.serialization.RipDpiPrettyDefaultsJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -177,7 +178,7 @@ class Ipv4WhitelistedSubnetDiscoverer(
 
 class SubnetsCache(
     private val file: File,
-    private val json: Json = Json { prettyPrint = true },
+    private val json: Json = RipDpiPrettyDefaultsJson,
 ) {
     fun load(): List<CachedWhitelistSubnet> =
         if (!file.exists()) {

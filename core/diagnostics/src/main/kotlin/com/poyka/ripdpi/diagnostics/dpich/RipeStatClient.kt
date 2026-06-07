@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -12,7 +13,7 @@ import java.io.IOException
 
 class RipeStatClient(
     private val httpClient: OkHttpClient = OkHttpClient(),
-    private val json: Json = Json { ignoreUnknownKeys = true },
+    private val json: Json = RipDpiJson,
     private val retryDelayMs: Long = DefaultRetryDelayMs,
 ) : RipeStatPrefixSource {
     override suspend fun announcedPrefixes(asn: Int): List<String> {

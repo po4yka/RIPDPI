@@ -8,7 +8,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.data.ProxyProfile
-import kotlinx.serialization.json.Json
+import com.poyka.ripdpi.serialization.RipDpiJson
 
 /**
  * Trampoline activity for inbound proxy share links and subscription deep links.
@@ -25,7 +25,7 @@ import kotlinx.serialization.json.Json
  * input surfaces a typed [Toast] and finishes without forwarding — never a crash.
  */
 class ImportHandlerActivity : Activity() {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = RipDpiJson
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

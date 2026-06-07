@@ -6,13 +6,12 @@ import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.json.Json
 import java.util.Locale
 
 internal val RuntimeHistoryJson =
-    Json {
-        ignoreUnknownKeys = true
-    }
+    RipDpiJson
 
 internal data class RuntimeSessionSeed(
     val approach: StoredApproachSnapshot,

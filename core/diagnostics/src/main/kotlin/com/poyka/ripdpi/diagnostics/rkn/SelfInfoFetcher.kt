@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.rkn
 
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,9 +39,7 @@ class SelfInfoFetcher(
     private val config: SelfInfoConfig = SelfInfoConfig(),
 ) {
     private val json =
-        Json {
-            ignoreUnknownKeys = true
-        }
+        RipDpiJson
 
     suspend fun fetch(
         enabled: Boolean,

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -112,6 +113,4 @@ class ProcessGlobalStrategyEngineBindings(
 private val strategyEngineProcessGlobalMutationMutex = Mutex()
 
 private val StrategyProbeResultJson =
-    Json {
-        encodeDefaults = true
-    }
+    RipDpiEncodeDefaultsJson

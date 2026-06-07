@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -211,7 +212,7 @@ class SharedPreferencesRelayProfileStore
         @ApplicationContext context: Context,
     ) : RelayProfileStore {
         private val preferences = context.getSharedPreferences(ProfilePrefsName, Context.MODE_PRIVATE)
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
 
         override suspend fun load(profileId: String): RelayProfileRecord? {
             val stored =
@@ -275,7 +276,7 @@ class KeystoreRelayCredentialStore
     constructor(
         @ApplicationContext context: Context,
     ) : RelayCredentialStore {
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
         private val blobStore =
             KeystoreEncryptedPreferences(
                 preferences = context.getSharedPreferences(CredentialsPrefsName, Context.MODE_PRIVATE),

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.GeositeCatalog
 import com.poyka.ripdpi.proto.GeositeDomain
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -103,9 +104,7 @@ private val curatedHostPackDefinitions =
     )
 
 private val hostPackCatalogJson =
-    Json {
-        ignoreUnknownKeys = true
-    }
+    RipDpiJson
 
 fun hostPackCatalogFromJson(payload: String): HostPackCatalog = hostPackCatalogJson.decodeFromString(payload)
 

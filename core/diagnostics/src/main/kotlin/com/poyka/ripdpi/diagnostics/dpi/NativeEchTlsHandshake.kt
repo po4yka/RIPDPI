@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.core.NativeEchTlsHandshakeBridge
+import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -23,10 +24,7 @@ class NativeEchTlsHandshake(
     private val bindings: NativeEchTlsHandshakeBindings = NativeEchTlsHandshakeNativeBindings(),
 ) : EchTlsHandshake {
     private val json =
-        Json {
-            ignoreUnknownKeys = true
-            encodeDefaults = true
-        }
+        RipDpiEncodeDefaultsJson
 
     override suspend fun connect(
         target: String,

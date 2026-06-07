@@ -13,14 +13,12 @@ import com.poyka.ripdpi.core.codec.SessionOverrideCodec
 import com.poyka.ripdpi.core.codec.WarpSectionCodec
 import com.poyka.ripdpi.core.codec.WsTunnelSectionCodec
 import com.poyka.ripdpi.core.codec.decodeEnvironmentKind
+import com.poyka.ripdpi.serialization.RipDpiNativeProxyJson
 import kotlinx.serialization.json.Json
 
 internal object RipDpiProxyJsonCodec {
     private val json =
-        Json {
-            classDiscriminator = "kind"
-            encodeDefaults = true
-        }
+        RipDpiNativeProxyJson
 
     fun encodeCommandLinePreferences(
         args: List<String>,

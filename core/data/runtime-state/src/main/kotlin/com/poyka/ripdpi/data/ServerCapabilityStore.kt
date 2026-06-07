@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import android.content.Context
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -295,11 +296,7 @@ class SharedPreferencesServerCapabilityStore
     ) : ServerCapabilityStore {
         private val preferences = context.getSharedPreferences(ServerCapabilityPrefsName, Context.MODE_PRIVATE)
         private val json =
-            Json {
-                encodeDefaults = true
-                explicitNulls = false
-                ignoreUnknownKeys = true
-            }
+            RipDpiContractJson
 
         override suspend fun relayCapabilitiesForFingerprint(fingerprintHash: String): List<ServerCapabilityRecord> =
             capabilitiesForPrefix(

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.serialization.RipDpiPrettyTolerantJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -237,10 +238,7 @@ data class StrategyPackCandidateArmValidation(
 )
 
 private val strategyPackJson =
-    Json {
-        ignoreUnknownKeys = true
-        prettyPrint = true
-    }
+    RipDpiPrettyTolerantJson
 
 fun normalizeStrategyPackChannel(value: String): String =
     when (value.trim().lowercase()) {

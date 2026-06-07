@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsHighlight
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryDocument
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummarySection
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -24,7 +25,7 @@ class DiagnosticsSummaryProjector
             const val WarningPreviewLimit = 3
             const val DiagnosisHighlightLimit = 3
             val probeDetailListSerializer = ListSerializer(ProbeDetail.serializer())
-            val probeDetailJson = Json { ignoreUnknownKeys = true }
+            val probeDetailJson = RipDpiJson
         }
 
         fun project(

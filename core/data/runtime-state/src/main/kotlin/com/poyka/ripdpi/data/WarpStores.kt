@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -124,7 +125,7 @@ class SharedPreferencesWarpProfileStore
         @ApplicationContext context: Context,
     ) : WarpProfileStore {
         private val preferences = context.getSharedPreferences(ProfilePrefsName, Context.MODE_PRIVATE)
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
 
         override suspend fun load(profileId: String): WarpProfile? =
             preferences.getString(prefKey(profileId), null)?.let {
@@ -195,7 +196,7 @@ class KeystoreWarpCredentialStore
     constructor(
         @ApplicationContext context: Context,
     ) : WarpCredentialStore {
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
         private val blobStore =
             KeystoreEncryptedPreferences(
                 preferences = context.getSharedPreferences(CredentialsPrefsName, Context.MODE_PRIVATE),
@@ -282,7 +283,7 @@ class SharedPreferencesWarpEndpointStore
         @ApplicationContext context: Context,
     ) : WarpEndpointStore {
         private val preferences = context.getSharedPreferences(EndpointPrefsName, Context.MODE_PRIVATE)
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
 
         override suspend fun load(
             profileId: String,

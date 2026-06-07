@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -20,11 +21,7 @@ fun ProbeResult.withDerivedProbeRetryCount(): ProbeResult =
     copy(probeRetryCount = probeRetryCount ?: deriveProbeRetryCount(details))
 
 private val modelsCompatibilityJson =
-    Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-        explicitNulls = false
-    }
+    RipDpiContractJson
 
 internal fun decodeProbeDetailsCompat(payload: String): List<ProbeDetail> =
     runCatching {

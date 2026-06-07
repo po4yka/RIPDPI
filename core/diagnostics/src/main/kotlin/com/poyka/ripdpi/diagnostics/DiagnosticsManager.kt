@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.memory.NativeMemoryProbe
 import com.poyka.ripdpi.diagnostics.profiling.DefaultMemoryProfilingRegistrar
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader
+import com.poyka.ripdpi.serialization.RipDpiPrettyContractJson
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -448,13 +449,7 @@ abstract class DiagnosticsManagerModule {
         @Provides
         @Singleton
         @Named("diagnosticsJson")
-        fun provideDiagnosticsJson(): Json =
-            Json {
-                ignoreUnknownKeys = true
-                prettyPrint = true
-                encodeDefaults = true
-                explicitNulls = false
-            }
+        fun provideDiagnosticsJson(): Json = RipDpiPrettyContractJson
 
         @Provides
         @Singleton

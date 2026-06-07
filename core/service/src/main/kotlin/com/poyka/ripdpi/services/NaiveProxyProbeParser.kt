@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 /**
  * Parsed `RIPDPI-PROBE` line emitted by the native NaiveProxy helper
@@ -30,10 +30,7 @@ object NaiveProxyProbeParser {
     private const val MARKER = "RIPDPI-PROBE "
 
     private val json =
-        Json {
-            ignoreUnknownKeys = true
-            isLenient = false
-        }
+        RipDpiJson
 
     /**
      * Parse a single line from the NaiveProxy helper's `--probe`

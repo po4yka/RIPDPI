@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -54,10 +55,7 @@ data class NativeBridgeErrorPayload(
         // namingStrategy override. `ignoreUnknownKeys` is the
         // forward-compat guarantee.
         private val json: Json =
-            Json {
-                ignoreUnknownKeys = true
-                isLenient = false
-            }
+            RipDpiJson
 
         /**
          * Recover a typed payload from an exception message, log line, or

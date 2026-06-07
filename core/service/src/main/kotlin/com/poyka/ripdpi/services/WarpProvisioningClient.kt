@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.WarpCredentials
 import com.poyka.ripdpi.data.WarpEndpointCacheEntry
 import dagger.Binds
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
@@ -404,14 +403,6 @@ internal abstract class WarpProvisioningClientModule {
     @Binds
     @Singleton
     abstract fun bindWarpProvisioningClient(client: DefaultWarpProvisioningClient): WarpProvisioningClient
-}
-
-@Module
-@InstallIn(SingletonComponent::class)
-internal object WarpProvisioningNetworkModule {
-    @Provides
-    @Singleton
-    fun provideWarpProvisioningJson(): Json = Json { ignoreUnknownKeys = true }
 }
 
 // TODO(cloudflare-removal): WarpRegistrationBaseUrl is a Cloudflare-only endpoint (primary).

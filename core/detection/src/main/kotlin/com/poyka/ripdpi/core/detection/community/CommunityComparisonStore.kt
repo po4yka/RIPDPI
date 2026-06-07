@@ -4,6 +4,7 @@ package com.poyka.ripdpi.core.detection.community
 
 import android.content.Context
 import androidx.core.content.edit
+import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -17,7 +18,7 @@ class CommunityComparisonStore
         @ApplicationContext context: Context,
     ) {
         private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        private val json = Json { ignoreUnknownKeys = true }
+        private val json = RipDpiJson
 
         fun getCachedStats(): CommunityStats? {
             val raw = prefs.getString(KEY_CACHED_STATS, null) ?: return null

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
+import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -127,10 +128,7 @@ object SingBoxSubscriptionParser {
 
 /** Permissive JSON reader shared by the sing-box parser and its outbound mappers. */
 private val singBoxJson =
-    Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-    }
+    RipDpiLenientJson
 
 /** The only `ripdpi.schema_version` value this parser understands. */
 private const val RipdpiSchemaVersion = 1
