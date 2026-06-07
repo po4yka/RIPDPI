@@ -678,6 +678,7 @@
     <string name="config_buffer_helper">اندازهٔ بافر سوکت به بایت.</string>
     <string name="config_default_ttl_helper">برای استفاده از پیش‌فرض موتور، خالی بگذارید.</string>
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
+    <string name="config_chain_cli_override_note">CLI overrides chain</string>
     <string name="config_chain_editor_label">Bypass strategy</string>
     <string name="config_chain_editor_helper">از بخش‌های [tcp] و [udp] استفاده کنید. نشانگرها افست‌های عددی یا معنایی را می‌پذیرند. بخش HTTPS زیر می‌تواند به‌صورت بصری مراحل tlsrec تنها و tlsrandrec تصادفی‌شده را بنویسد، در حالی که کارت‌های Hostfake و تقریب fake، تکه‌های fake هدف‌گذاری‌شده با نام میزبان و تقریب‌های سبک بازارسال را توضیح می‌دهند. تقریب‌های فقط لینوکس/اندروید به‌صورت fakedsplit host+1 و fakeddisorder endhost برای بارهای HTTP یا TLS مجاور SNI در دسترس هستند.</string>
     <string name="config_chain_editor_helper_brief">از بخش‌های [tcp] و [udp] با نشانگرهای افست عددی یا معنایی استفاده کنید.</string>

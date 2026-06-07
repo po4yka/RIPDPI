@@ -692,6 +692,7 @@
     <string name="config_buffer_helper">Socket buffer size in bytes.</string>
     <string name="config_default_ttl_helper">Leave empty to use the engine default.</string>
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
+    <string name="config_chain_cli_override_note">CLI overrides chain</string>
     <string name="config_chain_editor_label">Bypass strategy</string>
     <string name="config_chain_editor_helper">Use [tcp] and [udp] sections. Markers accept numeric or semantic offsets. The HTTPS section below can author single tlsrec and randomized tlsrandrec steps visually, while the Hostfake and fake approximation cards explain hostname-targeted fake chunks and retransmission-style approximations. Linux/Android-only approximations are available as fakedsplit host+1 and fakeddisorder endhost for HTTP or TLS SNI-adjacent payloads.</string>
     <string name="config_chain_editor_helper_brief">Use [tcp] and [udp] sections with numeric or semantic offset markers.</string>

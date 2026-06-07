@@ -2054,6 +2054,7 @@ fake_burst 3</string>
     <string name="command_line_arguments">命令行参数</string>
     <string name="config_chain_editor_helper_brief">使用 [tcp] 和 [udp] 段,配合数值或语义偏移标记。</string>
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
+    <string name="config_chain_cli_override_note">CLI overrides chain</string>
     <string name="config_command_line_helper">启用命令行设置时生效。</string>
     <string name="config_dns_disabled_helper">DNS 覆盖仅在本地 VPN 模式下应用。</string>
     <string name="config_edit_current">编辑当前</string>

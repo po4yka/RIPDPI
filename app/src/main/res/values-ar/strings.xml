@@ -674,6 +674,7 @@
     <string name="config_buffer_helper">حجم مخزن المقبس بالبايت.</string>
     <string name="config_default_ttl_helper">اتركه فارغاً لاستخدام الإعداد الافتراضي للمحرك.</string>
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
+    <string name="config_chain_cli_override_note">CLI overrides chain</string>
     <string name="config_chain_editor_label">Bypass strategy</string>
     <string name="config_chain_editor_helper">استخدم أقساماً [tcp] و[udp]. تقبل العلامات إزاحات عددية أو دلالية. يمكن لقسم HTTPS أدناه تأليف خطوات tlsrec فردية وtlsrandrec عشوائية بصرياً، بينما تشرح بطاقات Hostfake والتقريب الوهمي القطع الوهمية المستهدفة بالمضيف وتقريبات أسلوب إعادة الإرسال. تقريبات Linux/Android فقط متاحة كـ fakedsplit host+1 وfakeddisorder endhost لحمولات HTTP أو TLS SNI المجاورة.</string>
     <string name="config_chain_editor_helper_brief">استخدم أقساماً [tcp] و[udp] مع علامات إزاحة عددية أو دلالية.</string>

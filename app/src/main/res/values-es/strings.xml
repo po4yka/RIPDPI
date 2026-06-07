@@ -1049,6 +1049,7 @@ fakeddisorder endhost</string>
     <string name="bye_dpi_proxy_ip_setting">Dirección de escucha</string>
     <string name="config_cancel">Cancelar</string>
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
+    <string name="config_chain_cli_override_note">CLI overrides chain</string>
     <string name="config_default_ttl_helper">Deja vacío para usar el valor por defecto del motor.</string>
     <string name="config_dns_summary_disabled">Guardado ahora y aplicado la próxima vez que el modo VPN local esté activo</string>
     <string name="config_engine_section">Motor</string>

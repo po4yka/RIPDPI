@@ -287,7 +287,6 @@ private fun ModeEditorEngineFields(
     uiState: ConfigUiState,
     actions: ModeEditorActions,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
@@ -321,28 +320,7 @@ private fun ModeEditorEngineFields(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 ),
         )
-        Text(
-            text = stringResource(R.string.config_chain_summary_label, draft.chainSummary),
-            style = RipDpiThemeTokens.type.caption,
-            color = colors.mutedForeground,
-        )
-        RipDpiConfigTextField(
-            value = draft.chainDsl,
-            onValueChange = actions.onChainDslChanged,
-            decoration =
-                RipDpiTextFieldDecoration(
-                    label = stringResource(R.string.config_chain_editor_label),
-                    placeholder = stringResource(R.string.config_placeholder_chain_dsl),
-                    helperText = stringResource(R.string.config_chain_editor_helper),
-                    errorText = validationMessage(uiState.validationErrors[ConfigFieldStrategyChain]),
-                    testTag = RipDpiTestTags.ModeEditorChainDsl,
-                ),
-            multiline = true,
-            behavior =
-                RipDpiTextFieldBehavior(
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-                ),
-        )
+        ModeEditorChainFields(draft = draft, uiState = uiState, actions = actions)
         RipDpiTextField(
             value = draft.defaultTtl,
             onValueChange = actions.onDefaultTtlChanged,
@@ -360,6 +338,47 @@ private fun ModeEditorEngineFields(
                 ),
         )
     }
+}
+
+@Composable
+private fun ModeEditorChainFields(
+    draft: ConfigDraft,
+    uiState: ConfigUiState,
+    actions: ModeEditorActions,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val chainOverridden = draft.useCommandLineSettings
+
+    Text(
+        text = stringResource(R.string.config_chain_summary_label, draft.chainSummary),
+        style = RipDpiThemeTokens.type.caption,
+        color = colors.mutedForeground,
+    )
+    if (chainOverridden) {
+        Text(
+            text = stringResource(R.string.config_chain_cli_override_note),
+            style = RipDpiThemeTokens.type.caption,
+            color = colors.mutedForeground,
+        )
+    }
+    RipDpiConfigTextField(
+        value = draft.chainDsl,
+        onValueChange = actions.onChainDslChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_chain_editor_label),
+                placeholder = stringResource(R.string.config_placeholder_chain_dsl),
+                helperText = stringResource(R.string.config_chain_editor_helper),
+                errorText = validationMessage(uiState.validationErrors[ConfigFieldStrategyChain]),
+                testTag = RipDpiTestTags.ModeEditorChainDsl,
+            ),
+        multiline = true,
+        behavior =
+            RipDpiTextFieldBehavior(
+                enabled = !chainOverridden,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+            ),
+    )
 }
 
 @Composable

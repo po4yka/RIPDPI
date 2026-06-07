@@ -1049,6 +1049,7 @@ fakeddisorder endhost</string>
     <string name="bye_dpi_proxy_ip_setting">Listen-Adresse</string>
     <string name="config_cancel">Abbrechen</string>
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
+    <string name="config_chain_cli_override_note">CLI overrides chain</string>
     <string name="config_default_ttl_helper">Leer lassen, um den Engine-Standard zu verwenden.</string>
     <string name="config_dns_summary_disabled">Jetzt gespeichert und beim nächsten aktiven lokalen VPN-Modus angewendet</string>
     <string name="config_engine_section">Engine</string>

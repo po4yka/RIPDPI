@@ -1,11 +1,19 @@
 package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextClearance
+import androidx.compose.ui.test.performTextInput
+import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigPreset
 import com.poyka.ripdpi.activities.ConfigPresetKind
 import com.poyka.ripdpi.activities.ConfigUiState
@@ -57,32 +65,75 @@ class ModeEditorScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorCommandLineArgs, useUnmergedTree = true).assertExists()
     }
 
-    private fun setScreen() {
-        val draft =
-            AppSettingsSerializer.defaultValue.toConfigDraft().copy(
-                mode = Mode.VPN,
-                proxyIp = "127.0.0.1",
-                proxyPort = "1080",
-                maxConnections = "512",
-                bufferSize = "16384",
-                chainDsl = "[tcp]\nsplit midsld",
-                defaultTtl = "8",
-                commandLineArgs = "--fake --ttl 8",
-            )
+    @Test
+    fun chainTextAndSummaryUseSameBackingValue() {
+        setScreen(stateful = true)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorAdvanced).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("Bypass strategy: tcp: split(midsld)").assertExists()
+
+        val chainField = composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true)
+        chainField.performTextClearance()
+        chainField.performTextInput("[tcp]\nfake host")
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Bypass strategy: tcp: fake(host)").assertExists()
+    }
+
+    @Test
+    fun commandLineOverrideMarksChainSourceOverridden() {
+        setScreen(initialDraft = defaultDraft().copy(useCommandLineSettings = true))
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorAdvanced).performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("CLI overrides chain").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true).assertIsNotEnabled()
+    }
+
+    private fun setScreen(
+        initialDraft: ConfigDraft = defaultDraft(),
+        stateful: Boolean = false,
+    ) {
         composeRule.setContent {
             RipDpiTheme {
+                var draft by remember { mutableStateOf(initialDraft) }
+                val screenDraft = if (stateful) draft else initialDraft
                 ModeEditorScreen(
                     uiState =
                         ConfigUiState(
-                            activeMode = draft.mode,
-                            presets = buildConfigPresets(draft),
-                            editingPreset = ConfigPreset(id = "custom", kind = ConfigPresetKind.Custom, draft = draft),
-                            draft = draft,
+                            activeMode = screenDraft.mode,
+                            presets = buildConfigPresets(screenDraft),
+                            editingPreset =
+                                ConfigPreset(
+                                    id = "custom",
+                                    kind = ConfigPresetKind.Custom,
+                                    draft = screenDraft,
+                                ),
+                            draft = screenDraft,
                         ),
                     snackbarHostState = SnackbarHostState(),
-                    actions = NoOpModeEditorActions,
+                    actions =
+                        if (stateful) {
+                            NoOpModeEditorActions.copy(onChainDslChanged = { draft = draft.withChainDsl(it) })
+                        } else {
+                            NoOpModeEditorActions
+                        },
                 )
             }
         }
     }
+
+    private fun defaultDraft(): ConfigDraft =
+        AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+            mode = Mode.VPN,
+            proxyIp = "127.0.0.1",
+            proxyPort = "1080",
+            maxConnections = "512",
+            bufferSize = "16384",
+            chainDsl = "[tcp]\nsplit midsld",
+            defaultTtl = "8",
+            commandLineArgs = "--fake --ttl 8",
+        )
 }

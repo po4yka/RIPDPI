@@ -461,6 +461,7 @@
     <string name="config_default_ttl_summary">Переопределение TTL для исходящих пакетов</string>
     <string name="config_default_ttl_helper">Оставьте пустым для использования значения TTL по умолчанию движка.</string>
     <string name="config_chain_summary_label">Стратегия обхода: %1$s</string>
+    <string name="config_chain_cli_override_note">CLI overrides chain</string>
     <string name="config_chain_editor_label">Стратегия обхода</string>
     <string name="config_chain_editor_helper">Используйте секции [tcp] и [udp]. Маркеры принимают числовые или семантические смещения. Секция HTTPS ниже позволяет визуально создавать отдельные шаги tlsrec и случайного tlsrandrec, а карточки Hostfake и приближения fake описывают ложные фрагменты с таргетингом на имя хоста и приближения в стиле повторной передачи. Приближения только для Linux/Android доступны как fakedsplit host+1 и fakeddisorder endhost для HTTP или полезных нагрузок, смежных с TLS SNI.</string>
     <string name="config_chain_editor_helper_brief">Используйте секции [tcp] и [udp] с числовыми или семантическими маркерами смещения.</string>
