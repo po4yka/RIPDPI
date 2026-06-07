@@ -98,6 +98,7 @@ internal object RipDpiTestTags {
     const val ModeEditorValidationSnackbar = "mode-editor-validation-snackbar"
 
     const val SettingsDnsSettings = "settings-dns-settings"
+    const val SettingsAdvancedSection = "settings-advanced-section"
     const val SettingsAdvancedSettings = "settings-advanced-settings"
     const val SettingsWebRtcProtection = "settings-webrtc-protection"
     const val SettingsStartOnBoot = "settings-start-on-boot"
