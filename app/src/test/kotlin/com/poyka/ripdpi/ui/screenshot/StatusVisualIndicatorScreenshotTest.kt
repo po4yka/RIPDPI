@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.core.detection.BypassResult
+import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.ui.screens.detection.StatusVisualPreviewRow
@@ -75,7 +78,7 @@ class StatusVisualIndicatorScreenshotTest {
                             .padding(24.dp),
                 ) {
                     VerdictScoreCard(
-                        verdict = Verdict.DETECTED,
+                        result = detectedResult(),
                         score = 32,
                         label = "Exposed",
                         colorVisionMode = mode,
@@ -84,4 +87,29 @@ class StatusVisualIndicatorScreenshotTest {
             }
         }
     }
+
+    private fun detectedResult(): DetectionCheckResult =
+        DetectionCheckResult(
+            geoIp = detectedCategory("GeoIP"),
+            directSigns = detectedCategory("Direct"),
+            indirectSigns = detectedCategory("Indirect"),
+            locationSignals = detectedCategory("Location"),
+            bypassResult =
+                BypassResult(
+                    proxyEndpoint = null,
+                    directIp = null,
+                    proxyIp = null,
+                    xrayApiScanResult = null,
+                    findings = emptyList(),
+                    detected = true,
+                ),
+            verdict = Verdict.DETECTED,
+        )
+
+    private fun detectedCategory(name: String): CategoryResult =
+        CategoryResult(
+            name = name,
+            detected = true,
+            findings = emptyList(),
+        )
 }

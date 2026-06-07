@@ -49,7 +49,7 @@ class DetectionScreenSemanticsTest {
     }
 
     @Test
-    fun detectionCheckScreenShowsVisibilityScale() {
+    fun detectionCheckScreenShowsConditionalStealthMetric() {
         val result = cleanDetectionResult()
         composeRule.setContent {
             RipDpiTheme {
@@ -73,8 +73,38 @@ class DetectionScreenSemanticsTest {
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.DetectionVisibilityScale, useUnmergedTree = true).fetchSemanticsNode()
-        composeRule.onNodeWithText("Visibility").fetchSemanticsNode()
+        composeRule.onNodeWithText("No detection across 5 probes").fetchSemanticsNode()
+        composeRule.onNodeWithText("Where masking applied, stealth").fetchSemanticsNode()
         composeRule.onAllNodesWithText("Stealth Score").assertCountEquals(0)
+    }
+
+    @Test
+    fun detectionCheckScreenShowsDetectionOutcomeBeforeStealthScore() {
+        val result = detectedResult()
+        composeRule.setContent {
+            RipDpiTheme {
+                DetectionCheckScreen(
+                    uiState =
+                        DetectionCheckUiState(
+                            result = result,
+                            stealthScore = 77,
+                            stealthLabel = "Good",
+                        ),
+                    onStart = {},
+                    onStop = {},
+                    onBack = {},
+                    onDismissOnboarding = {},
+                    onApplyFixes = {},
+                    onPrivacyModeChange = {},
+                    onReloadCommunityStats = {},
+                    onRequestPermissions = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Detected by 5/5 probes").fetchSemanticsNode()
+        composeRule.onNodeWithText("77/100").fetchSemanticsNode()
+        composeRule.onAllNodesWithText("100% detected").assertCountEquals(0)
     }
 
     @Test
@@ -109,10 +139,35 @@ class DetectionScreenSemanticsTest {
             verdict = Verdict.NOT_DETECTED,
         )
 
+    private fun detectedResult(): DetectionCheckResult =
+        DetectionCheckResult(
+            geoIp = detectedCategory("GeoIP"),
+            directSigns = detectedCategory("Direct"),
+            indirectSigns = detectedCategory("Indirect"),
+            locationSignals = detectedCategory("Location"),
+            bypassResult =
+                BypassResult(
+                    proxyEndpoint = null,
+                    directIp = null,
+                    proxyIp = null,
+                    xrayApiScanResult = null,
+                    findings = emptyList(),
+                    detected = true,
+                ),
+            verdict = Verdict.DETECTED,
+        )
+
     private fun emptyCategory(name: String): CategoryResult =
         CategoryResult(
             name = name,
             detected = false,
+            findings = emptyList(),
+        )
+
+    private fun detectedCategory(name: String): CategoryResult =
+        CategoryResult(
+            name = name,
+            detected = true,
             findings = emptyList(),
         )
 }

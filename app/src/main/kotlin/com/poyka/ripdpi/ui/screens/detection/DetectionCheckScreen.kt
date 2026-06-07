@@ -808,7 +808,7 @@ private fun DetectionNarrativeSummary(
     var verdictTapCount by rememberSaveable(result.verdict) { mutableStateOf(0) }
     val verdictNarrative = narrative ?: result.verdictNarrative
     VerdictScoreCard(
-        verdict = result.verdict,
+        result = result,
         score = stealthScore,
         label = stealthLabel,
         explanation = result.verdictExplanation,

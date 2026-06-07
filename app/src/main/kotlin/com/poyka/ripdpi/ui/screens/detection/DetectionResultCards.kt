@@ -63,6 +63,11 @@ private data class CategoryEntry(
     val icon: ImageVector,
 )
 
+private data class DetectionProbeSummary(
+    val detected: Int,
+    val total: Int,
+)
+
 @Composable
 internal fun StageProgressCard(progress: DetectionProgress) {
     val colors = RipDpiThemeTokens.colors
@@ -94,7 +99,7 @@ internal fun StageProgressCard(progress: DetectionProgress) {
 
 @Composable
 internal fun VerdictScoreCard(
-    verdict: Verdict,
+    result: DetectionCheckResult,
     score: Int?,
     label: String?,
     explanation: VerdictExplanation? = null,
@@ -102,6 +107,7 @@ internal fun VerdictScoreCard(
     colorVisionMode: DetectionColorVisionMode = DetectionColorVisionMode.OFF,
     onHeroTap: (() -> Unit)? = null,
 ) {
+    val verdict = result.verdict
     val (verdictLabel, indicatorTone) =
         when (verdict) {
             Verdict.NOT_DETECTED -> {
@@ -139,12 +145,19 @@ internal fun VerdictScoreCard(
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
-        VerdictStealthScore(score = score, label = label)
+        VerdictOutcomeHierarchy(
+            verdict = verdict,
+            probeSummary = result.probeSummary(),
+            score = score,
+            label = label,
+        )
     }
 }
 
 @Composable
-private fun VerdictStealthScore(
+private fun VerdictOutcomeHierarchy(
+    verdict: Verdict,
+    probeSummary: DetectionProbeSummary,
     score: Int?,
     label: String?,
 ) {
@@ -161,6 +174,11 @@ private fun VerdictStealthScore(
         animationSpec = motion.emphasizedTween(),
         label = "score",
     )
+    Text(
+        text = probeSummary.headline(verdict),
+        style = type.bodyEmphasis,
+        color = colors.foreground,
+    )
     if (score != null) {
         Row(
             modifier =
@@ -172,11 +190,11 @@ private fun VerdictStealthScore(
         ) {
             Column {
                 Text(
-                    text = stringResource(R.string.detection_stealth_score),
+                    text = "Where masking applied, stealth",
                     style = type.caption,
                     color = colors.mutedForeground,
                 )
-                Text(text = "$animatedScore", style = type.screenTitle, color = scoreColor)
+                Text(text = "$animatedScore/100", style = type.screenTitle, color = scoreColor)
             }
             label?.let { Text(text = it, style = type.bodyEmphasis, color = scoreColor) }
         }
@@ -188,6 +206,36 @@ private fun VerdictStealthScore(
         )
     }
 }
+
+private fun DetectionCheckResult.probeSummary(): DetectionProbeSummary {
+    val probes =
+        buildList {
+            add(bypassResult.detected)
+            add(geoIp.detected)
+            add(directSigns.detected)
+            add(indirectSigns.detected)
+            add(locationSignals.detected)
+            dnsLeak?.let { add(it.detected) }
+            webRtcLeak?.let { add(it.detected) }
+            tlsFingerprint?.let { add(it.detected) }
+            timingAnalysis?.let { add(it.detected) }
+            icmpSpoofing?.category?.let { add(it.detected) }
+            ipComparison?.category?.let { add(it.detected) }
+            rttTriangulation?.category?.let { add(it.detected) }
+            cdnPulling?.category?.let { add(it.detected) }
+            nativeSigns?.category?.let { add(it.detected) }
+            callTransport?.category?.let { add(it.detected) }
+            ipConsensus?.toCategoryResult()?.let { add(it.detected) }
+        }
+    return DetectionProbeSummary(detected = probes.count { it }, total = probes.size)
+}
+
+private fun DetectionProbeSummary.headline(verdict: Verdict): String =
+    when (verdict) {
+        Verdict.DETECTED -> "Detected by $detected/$total probes"
+        Verdict.NEEDS_REVIEW -> "Needs review after $detected/$total probes"
+        Verdict.NOT_DETECTED -> "No detection across $total probes"
+    }
 
 private const val ScoreStrongThreshold = 70
 private const val ScoreReviewThreshold = 40
