@@ -1100,11 +1100,12 @@ fake_burst 3</string>
     <string name="config_vpn_credentials_summary">Référence de profil utilisée pour le matériel d\'identifiants sécurisé</string>
     <string name="config_vpn_section_body">Réglez les paramètres du chemin VPN, le transport de relais et le comportement DNS.</string>
     <string name="config_vpn_simple_title">VPN</string>
-    <string name="config_vpn_simple_body">Ajoutez un lien serveur et RIPDPI déduira le protocole depuis l’URI.</string>
+    <string name="config_vpn_simple_body">Ajoutez un lien de profil et RIPDPI déduira le protocole depuis l’URI.</string>
     <string name="config_vpn_toggle_title">Chemin VPN</string>
     <string name="config_vpn_toggle_body">Basculez le chemin de trafic actif entre contournement local et VPN.</string>
     <string name="config_vpn_turn_on">Activer le VPN</string>
     <string name="config_vpn_turn_off">Désactiver le VPN</string>
+    <string name="config_vpn_add_profile_title">Ajouter un profil</string>
     <string name="config_vpn_add_server_paste">Coller le lien</string>
     <string name="config_vpn_add_server_scan">Scanner QR</string>
     <string name="config_vpn_profiles_title">Serveurs</string>

@@ -541,11 +541,12 @@
     <string name="config_local_bypass_retest_strategies">آزمون دوباره راهبردها</string>
     <string name="config_vpn_section_body">تنظیمات مسیر VPN، حمل‌و‌نقل رله و رفتار DNS را تنظیم کنید.</string>
     <string name="config_vpn_simple_title">VPN</string>
-    <string name="config_vpn_simple_body">پیوند سرور را اضافه کنید تا RIPDPI پروتکل را از URI تشخیص دهد.</string>
+    <string name="config_vpn_simple_body">پیوند پروفایل را اضافه کنید تا RIPDPI پروتکل را از URI تشخیص دهد.</string>
     <string name="config_vpn_toggle_title">مسیر VPN</string>
     <string name="config_vpn_toggle_body">مسیر فعال ترافیک را بین عبور محلی و VPN تغییر دهید.</string>
     <string name="config_vpn_turn_on">روشن کردن VPN</string>
     <string name="config_vpn_turn_off">خاموش کردن VPN</string>
+    <string name="config_vpn_add_profile_title">افزودن پروفایل</string>
     <string name="config_vpn_add_server_paste">چسباندن پیوند</string>
     <string name="config_vpn_add_server_scan">اسکن QR</string>
     <string name="config_vpn_profiles_title">سرورها</string>

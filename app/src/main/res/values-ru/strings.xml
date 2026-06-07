@@ -2193,11 +2193,12 @@ fakeddisorder endhost</string>
     <string name="config_vpn_relay_server_summary">Конечная точка удалённого сервера, используемая профилем реле</string>
     <string name="config_vpn_section_body">Настройте параметры пути VPN, транспорт реле и поведение DNS.</string>
     <string name="config_vpn_simple_title">VPN</string>
-    <string name="config_vpn_simple_body">Добавьте ссылку сервера, а RIPDPI определит протокол по URI.</string>
+    <string name="config_vpn_simple_body">Добавьте ссылку профиля, а RIPDPI определит протокол по URI.</string>
     <string name="config_vpn_toggle_title">Путь VPN</string>
     <string name="config_vpn_toggle_body">Переключайте активный путь трафика между локальным обходом и VPN.</string>
     <string name="config_vpn_turn_on">Включить VPN</string>
     <string name="config_vpn_turn_off">Выключить VPN</string>
+    <string name="config_vpn_add_profile_title">Добавить профиль</string>
     <string name="config_vpn_add_server_paste">Вставить ссылку</string>
     <string name="config_vpn_add_server_scan">Сканировать QR</string>
     <string name="config_vpn_profiles_title">Серверы</string>

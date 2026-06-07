@@ -1100,11 +1100,12 @@ fake_burst 3</string>
     <string name="config_vpn_credentials_summary">Profilreferenz für sicheres Anmeldeinformationsmaterial</string>
     <string name="config_vpn_section_body">VPN-Pfadeinstellungen, Relay-Transport und DNS-Verhalten anpassen.</string>
     <string name="config_vpn_simple_title">VPN</string>
-    <string name="config_vpn_simple_body">Fügen Sie einen Server-Link hinzu; RIPDPI erkennt das Protokoll aus der URI.</string>
+    <string name="config_vpn_simple_body">Fügen Sie einen Profil-Link hinzu; RIPDPI erkennt das Protokoll aus der URI.</string>
     <string name="config_vpn_toggle_title">VPN-Pfad</string>
     <string name="config_vpn_toggle_body">Wechseln Sie den aktiven Datenpfad zwischen lokalem Bypass und VPN.</string>
     <string name="config_vpn_turn_on">VPN einschalten</string>
     <string name="config_vpn_turn_off">VPN ausschalten</string>
+    <string name="config_vpn_add_profile_title">Profil hinzufügen</string>
     <string name="config_vpn_add_server_paste">Link einfügen</string>
     <string name="config_vpn_add_server_scan">QR scannen</string>
     <string name="config_vpn_profiles_title">Server</string>

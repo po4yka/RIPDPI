@@ -179,6 +179,11 @@ private fun VpnSimpleActions(
             variant = RipDpiButtonVariant.Primary,
             leadingIcon = RipDpiIcons.Vpn,
         )
+        Text(
+            text = stringResource(R.string.config_vpn_add_profile_title),
+            style = RipDpiThemeTokens.type.caption,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),

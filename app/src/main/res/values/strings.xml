@@ -550,11 +550,12 @@
     <string name="config_local_bypass_retest_strategies">Re-test strategies</string>
     <string name="config_vpn_section_body">Tune VPN path settings, relay transport, and DNS behavior.</string>
     <string name="config_vpn_simple_title">VPN</string>
-    <string name="config_vpn_simple_body">Add a server link and let RIPDPI infer the protocol from the URI.</string>
+    <string name="config_vpn_simple_body">Add a profile link and let RIPDPI infer the protocol from the URI.</string>
     <string name="config_vpn_toggle_title">VPN path</string>
     <string name="config_vpn_toggle_body">Switch the active traffic path between local bypass and VPN.</string>
     <string name="config_vpn_turn_on">Turn on VPN</string>
     <string name="config_vpn_turn_off">Turn off VPN</string>
+    <string name="config_vpn_add_profile_title">Add profile</string>
     <string name="config_vpn_add_server_paste">Paste link</string>
     <string name="config_vpn_add_server_scan">Scan QR</string>
     <string name="config_vpn_profiles_title">Servers</string>

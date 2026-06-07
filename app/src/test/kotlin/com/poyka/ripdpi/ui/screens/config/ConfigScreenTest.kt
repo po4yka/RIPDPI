@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -221,8 +222,12 @@ class ConfigScreenTest {
 
     @Test
     fun `vpn simple add server actions are prominent`() {
+        var pasteClicks = 0
+        var scanClicks = 0
         setConfigScreen(
             initialModeSection = ConfigModeSection.Vpn,
+            onPasteServerLink = { pasteClicks += 1 },
+            onScanServer = { scanClicks += 1 },
             vpnProfiles =
                 persistentListOf(
                     RelayProfileUiState(
@@ -236,9 +241,22 @@ class ConfigScreenTest {
         )
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSimple).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste).assertHasClickAction()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan).assertHasClickAction()
+        composeRule.onNodeWithText("Add profile").assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste)
+            .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan)
+            .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.configVpnProfile("default")).assertExists()
+        composeRule.runOnIdle {
+            assertEquals("paste action should use the existing clipboard import callback", 1, pasteClicks)
+            assertEquals("scan action should use the existing QR scanner callback", 1, scanClicks)
+        }
     }
 
     private fun setConfigScreen(
