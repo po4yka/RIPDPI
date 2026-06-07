@@ -26,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -43,6 +44,7 @@ fun RipDpiAccordion(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    headerTestTag: String? = null,
     body: @Composable () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -66,6 +68,7 @@ fun RipDpiAccordion(
                 Modifier
                     .fillMaxWidth()
                     .ripDpiClickable(enabled = true) { onExpandedChange(!expanded) }
+                    .then(headerTestTag?.let { Modifier.ripDpiTestTag(it) } ?: Modifier)
                     .padding(
                         horizontal = RipDpiThemeTokens.spacing.lg,
                         vertical = RipDpiThemeTokens.spacing.md,

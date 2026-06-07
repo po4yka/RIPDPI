@@ -36,6 +36,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
@@ -128,8 +129,7 @@ internal fun ModeEditorBody(
             ModeEditorModeSection(draft = draft, actions = actions)
             ModeEditorNetworkSection(draft = draft, uiState = uiState, actions = actions)
             ModeEditorRelaySection(draft = draft, uiState = uiState, actions = actions)
-            ModeEditorEngineSection(draft = draft, uiState = uiState, actions = actions)
-            ModeEditorOverridesSection(draft = draft, actions = actions)
+            ModeEditorAdvancedSection(draft = draft, uiState = uiState, actions = actions)
         }
     }
 }
@@ -252,7 +252,37 @@ private fun ModeEditorNetworkSection(
 }
 
 @Composable
+private fun ModeEditorAdvancedSection(
+    draft: ConfigDraft,
+    uiState: ConfigUiState,
+    actions: ModeEditorActions,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    AdvancedSection(testTag = RipDpiTestTags.ModeEditorAdvanced) {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.lg)) {
+            ModeEditorEngineSection(draft = draft, uiState = uiState, actions = actions)
+            ModeEditorOverridesSection(draft = draft, actions = actions)
+        }
+    }
+}
+
+@Composable
 private fun ModeEditorEngineSection(
+    draft: ConfigDraft,
+    uiState: ConfigUiState,
+    actions: ModeEditorActions,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        SettingsCategoryHeader(title = stringResource(R.string.config_engine_section))
+        ModeEditorEngineFields(draft = draft, uiState = uiState, actions = actions)
+    }
+}
+
+@Composable
+private fun ModeEditorEngineFields(
     draft: ConfigDraft,
     uiState: ConfigUiState,
     actions: ModeEditorActions,
@@ -261,77 +291,74 @@ private fun ModeEditorEngineSection(
     val spacing = RipDpiThemeTokens.spacing
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-        SettingsCategoryHeader(title = stringResource(R.string.config_engine_section))
-        RipDpiCard {
-            RipDpiTextField(
-                value = draft.maxConnections,
-                onValueChange = actions.onMaxConnectionsChanged,
-                decoration =
-                    RipDpiTextFieldDecoration(
-                        label = stringResource(R.string.ripdpi_max_connections_setting),
-                        helperText = stringResource(R.string.config_max_connections_helper),
-                        errorText = validationMessage(uiState.validationErrors[ConfigFieldMaxConnections]),
-                        testTag = RipDpiTestTags.ModeEditorMaxConnections,
-                    ),
-                behavior =
-                    RipDpiTextFieldBehavior(
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    ),
-            )
-            RipDpiTextField(
-                value = draft.bufferSize,
-                onValueChange = actions.onBufferSizeChanged,
-                decoration =
-                    RipDpiTextFieldDecoration(
-                        label = stringResource(R.string.ripdpi_buffer_size_setting),
-                        helperText = stringResource(R.string.config_buffer_helper),
-                        errorText = validationMessage(uiState.validationErrors[ConfigFieldBufferSize]),
-                        testTag = RipDpiTestTags.ModeEditorBufferSize,
-                    ),
-                behavior =
-                    RipDpiTextFieldBehavior(
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    ),
-            )
-            Text(
-                text = stringResource(R.string.config_chain_summary_label, draft.chainSummary),
-                style = RipDpiThemeTokens.type.caption,
-                color = colors.mutedForeground,
-            )
-            RipDpiConfigTextField(
-                value = draft.chainDsl,
-                onValueChange = actions.onChainDslChanged,
-                decoration =
-                    RipDpiTextFieldDecoration(
-                        label = stringResource(R.string.config_chain_editor_label),
-                        placeholder = stringResource(R.string.config_placeholder_chain_dsl),
-                        helperText = stringResource(R.string.config_chain_editor_helper),
-                        errorText = validationMessage(uiState.validationErrors[ConfigFieldStrategyChain]),
-                        testTag = RipDpiTestTags.ModeEditorChainDsl,
-                    ),
-                multiline = true,
-                behavior =
-                    RipDpiTextFieldBehavior(
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-                    ),
-            )
-            RipDpiTextField(
-                value = draft.defaultTtl,
-                onValueChange = actions.onDefaultTtlChanged,
-                decoration =
-                    RipDpiTextFieldDecoration(
-                        label = stringResource(R.string.ripdpi_default_ttl_setting),
-                        placeholder = stringResource(R.string.config_placeholder_default_ttl),
-                        helperText = stringResource(R.string.config_default_ttl_helper),
-                        errorText = validationMessage(uiState.validationErrors[ConfigFieldDefaultTtl]),
-                        testTag = RipDpiTestTags.ModeEditorDefaultTtl,
-                    ),
-                behavior =
-                    RipDpiTextFieldBehavior(
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    ),
-            )
-        }
+        RipDpiTextField(
+            value = draft.maxConnections,
+            onValueChange = actions.onMaxConnectionsChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.ripdpi_max_connections_setting),
+                    helperText = stringResource(R.string.config_max_connections_helper),
+                    errorText = validationMessage(uiState.validationErrors[ConfigFieldMaxConnections]),
+                    testTag = RipDpiTestTags.ModeEditorMaxConnections,
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                ),
+        )
+        RipDpiTextField(
+            value = draft.bufferSize,
+            onValueChange = actions.onBufferSizeChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.ripdpi_buffer_size_setting),
+                    helperText = stringResource(R.string.config_buffer_helper),
+                    errorText = validationMessage(uiState.validationErrors[ConfigFieldBufferSize]),
+                    testTag = RipDpiTestTags.ModeEditorBufferSize,
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                ),
+        )
+        Text(
+            text = stringResource(R.string.config_chain_summary_label, draft.chainSummary),
+            style = RipDpiThemeTokens.type.caption,
+            color = colors.mutedForeground,
+        )
+        RipDpiConfigTextField(
+            value = draft.chainDsl,
+            onValueChange = actions.onChainDslChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.config_chain_editor_label),
+                    placeholder = stringResource(R.string.config_placeholder_chain_dsl),
+                    helperText = stringResource(R.string.config_chain_editor_helper),
+                    errorText = validationMessage(uiState.validationErrors[ConfigFieldStrategyChain]),
+                    testTag = RipDpiTestTags.ModeEditorChainDsl,
+                ),
+            multiline = true,
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+                ),
+        )
+        RipDpiTextField(
+            value = draft.defaultTtl,
+            onValueChange = actions.onDefaultTtlChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.ripdpi_default_ttl_setting),
+                    placeholder = stringResource(R.string.config_placeholder_default_ttl),
+                    helperText = stringResource(R.string.config_default_ttl_helper),
+                    errorText = validationMessage(uiState.validationErrors[ConfigFieldDefaultTtl]),
+                    testTag = RipDpiTestTags.ModeEditorDefaultTtl,
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                ),
+        )
     }
 }
 
@@ -340,11 +367,23 @@ private fun ModeEditorOverridesSection(
     draft: ConfigDraft,
     actions: ModeEditorActions,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         SettingsCategoryHeader(title = stringResource(R.string.config_overrides_section))
+        ModeEditorOverrideFields(draft = draft, actions = actions)
+    }
+}
+
+@Composable
+private fun ModeEditorOverrideFields(
+    draft: ConfigDraft,
+    actions: ModeEditorActions,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         if (draft.useCommandLineSettings) {
             WarningBanner(
                 title = stringResource(R.string.config_cli_banner_title),
@@ -352,45 +391,43 @@ private fun ModeEditorOverridesSection(
                 tone = WarningBannerTone.Restricted,
             )
         }
-        RipDpiCard {
-            Text(
-                text = stringResource(R.string.use_command_line_settings),
-                style = RipDpiThemeTokens.type.body,
-                color = colors.foreground,
-            )
-            Box(
+        Text(
+            text = stringResource(R.string.use_command_line_settings),
+            style = RipDpiThemeTokens.type.body,
+            color = colors.foreground,
+        )
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.config_command_line_caption),
-                        style = RipDpiThemeTokens.type.caption,
-                        color = colors.mutedForeground,
-                        modifier = Modifier.weight(1f),
-                    )
-                    RipDpiSwitch(
-                        checked = draft.useCommandLineSettings,
-                        onCheckedChange = actions.onCommandLineEnabledChanged,
-                        accessibilityLabel = stringResource(R.string.use_command_line_settings),
-                        testTag = RipDpiTestTags.ModeEditorCommandLineToggle,
-                    )
-                }
+                Text(
+                    text = stringResource(R.string.config_command_line_caption),
+                    style = RipDpiThemeTokens.type.caption,
+                    color = colors.mutedForeground,
+                    modifier = Modifier.weight(1f),
+                )
+                RipDpiSwitch(
+                    checked = draft.useCommandLineSettings,
+                    onCheckedChange = actions.onCommandLineEnabledChanged,
+                    accessibilityLabel = stringResource(R.string.use_command_line_settings),
+                    testTag = RipDpiTestTags.ModeEditorCommandLineToggle,
+                )
             }
-            RipDpiConfigTextField(
-                value = draft.commandLineArgs,
-                onValueChange = actions.onCommandLineArgsChanged,
-                decoration =
-                    RipDpiTextFieldDecoration(
-                        label = stringResource(R.string.command_line_arguments),
-                        placeholder = stringResource(R.string.config_placeholder_command_line),
-                        helperText = stringResource(R.string.config_command_line_helper),
-                        testTag = RipDpiTestTags.ModeEditorCommandLineArgs,
-                    ),
-            )
         }
+        RipDpiConfigTextField(
+            value = draft.commandLineArgs,
+            onValueChange = actions.onCommandLineArgsChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.command_line_arguments),
+                    placeholder = stringResource(R.string.config_placeholder_command_line),
+                    helperText = stringResource(R.string.config_command_line_helper),
+                    testTag = RipDpiTestTags.ModeEditorCommandLineArgs,
+                ),
+        )
     }
 }

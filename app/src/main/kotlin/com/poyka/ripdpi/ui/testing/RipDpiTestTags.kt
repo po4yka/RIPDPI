@@ -91,6 +91,7 @@ internal object RipDpiTestTags {
     const val ModeEditorBufferSize = "mode-editor-buffer-size"
     const val ModeEditorChainDsl = "mode-editor-chain-dsl"
     const val ModeEditorDefaultTtl = "mode-editor-default-ttl"
+    const val ModeEditorAdvanced = "mode-editor-advanced"
     const val ModeEditorCommandLineToggle = "mode-editor-command-line-toggle"
     const val ModeEditorCommandLineArgs = "mode-editor-command-line-args"
     const val ModeEditorValidationSnackbar = "mode-editor-validation-snackbar"

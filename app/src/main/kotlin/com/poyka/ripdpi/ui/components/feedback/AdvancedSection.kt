@@ -13,6 +13,7 @@ import com.poyka.ripdpi.R
 fun AdvancedSection(
     modifier: Modifier = Modifier,
     initiallyExpanded: Boolean = false,
+    testTag: String? = null,
     content: @Composable () -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
@@ -21,6 +22,7 @@ fun AdvancedSection(
         expanded = expanded,
         onExpandedChange = { expanded = it },
         modifier = modifier,
+        headerTestTag = testTag,
         body = content,
     )
 }
