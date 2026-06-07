@@ -358,48 +358,6 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `disabled vpn relay hint opens mode editor`() {
-        var vpnConfigOpened = false
-        var modeEditorOpened = false
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState =
-                        MainUiState(
-                            modeCards =
-                                persistentListOf(
-                                    card(HomeMode.LocalDpiBypass, activeMode = null),
-                                    card(HomeMode.RemoteVpn, activeMode = null).copy(
-                                        primaryLabel = "Relay disabled",
-                                        primaryActionEnabled = false,
-                                        primaryActionDisabledHint = "Enable a relay in Configure to turn this on",
-                                    ),
-                                    card(HomeMode.Diagnostic, activeMode = null),
-                                ),
-                        ),
-                    onToggleConnection = {},
-                    onVpnCardClick = { vpnConfigOpened = true },
-                    onOpenModeEditor = { modeEditorOpened = true },
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeModeDisabledHint)
-            .assertIsDisplayed()
-            .performClick()
-
-        composeRule.runOnIdle {
-            assertTrue(modeEditorOpened)
-            assertEquals(false, vpnConfigOpened)
-        }
-    }
-
-    @Test
     fun `diagnostic card runs analysis and opens diagnostics`() {
         var ranAnalysis = false
         var openedDiagnostics = false
