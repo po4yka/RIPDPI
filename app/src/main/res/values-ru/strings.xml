@@ -2946,7 +2946,7 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_rec_generic_fallback">Проба не удалась · попробуйте другую стратегию</string>
     <string name="vpn_replay_save_to_archive">Сохранить в архив диагностики</string>
     <string name="vpn_replay_history_title">Прошлые повторы</string>
-    <string name="vpn_replay_history_empty">Пока нет повторов · запустите повтор с экрана ошибки</string>
+    <string name="vpn_replay_history_empty">Пока нет повторов</string>
     <string name="vpn_replay_history_row_format">%1$s · %2$d событий</string>
     <string name="vpn_replay_history_verdict_success">Успех</string>
     <string name="vpn_replay_history_verdict_failure">Сбой</string>

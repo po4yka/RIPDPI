@@ -1,20 +1,29 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
 import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 
@@ -23,25 +32,77 @@ import kotlinx.collections.immutable.ImmutableList
  * runs. Token-only consumer: no MaterialTheme.* reads, no
  * literal Color() / .dp values, all tokens come from RipDpiThemeTokens.
  *
- * Empty state shows a hint pointing the user at the Replay Failure
- * screen. Each row surfaces domain + strategy + verdict (colored) +
+ * Empty state points the user at a fresh Diagnostics scan. Each row surfaces domain + strategy + verdict (colored) +
  * recommendation key + step count.
  */
 @Composable
-fun ReplayHistoryScreen(replays: ImmutableList<ReplayProbeResult>) {
+fun ReplayHistoryScreen(
+    replays: ImmutableList<ReplayProbeResult>,
+    onRunScan: () -> Unit,
+) {
     val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
-    val colors = RipDpiThemeTokens.colors
     if (replays.isEmpty()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(spacing.lg)) {
-            Text(
-                text = stringResource(R.string.vpn_replay_history_empty),
-                style = type.body,
-                color = colors.mutedForeground,
+        Box(modifier = Modifier.fillMaxWidth().padding(spacing.lg)) {
+            ReplayHistoryEmptyState(
+                onRunScan = onRunScan,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ReplayHistoryEmptyState),
             )
         }
         return
     }
+    ReplayHistoryList(replays = replays)
+}
+
+@Composable
+private fun ReplayHistoryEmptyState(
+    onRunScan: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+
+    RipDpiCard(modifier = modifier) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+            horizontalAlignment = Alignment.Start,
+        ) {
+            Icon(
+                imageVector = RipDpiIcons.NetworkCheck,
+                contentDescription = null,
+                tint = colors.mutedForeground,
+                modifier = Modifier.size(RipDpiIconSizes.Large),
+            )
+            Text(
+                text = stringResource(R.string.vpn_replay_history_empty),
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.history_diagnostics_empty_body),
+                style = type.body,
+                color = colors.mutedForeground,
+            )
+            RipDpiButton(
+                text = stringResource(R.string.diagnostics_overview_run_scan_action),
+                onClick = onRunScan,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = spacing.xs)
+                        .ripDpiTestTag(RipDpiTestTags.ReplayHistoryRunScanAction),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReplayHistoryList(replays: ImmutableList<ReplayProbeResult>) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+
     Column(
         modifier = Modifier.fillMaxWidth().padding(spacing.lg),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),

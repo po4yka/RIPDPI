@@ -2827,7 +2827,7 @@ Source : %2$s</string>
     <string name="vpn_replay_rec_generic_fallback">La sonde a échoué · essayez une autre stratégie</string>
     <string name="vpn_replay_save_to_archive">Enregistrer dans l\'archive de diagnostic</string>
     <string name="vpn_replay_history_title">Rejeux passés</string>
-    <string name="vpn_replay_history_empty">Aucun rejeu pour le moment · lancez-en un depuis l\'écran d\'erreur</string>
+    <string name="vpn_replay_history_empty">Aucun rejeu pour le moment</string>
     <string name="vpn_replay_history_row_format">%1$s · %2$d événements</string>
     <string name="vpn_replay_history_verdict_success">Succès</string>
     <string name="vpn_replay_history_verdict_failure">Échec</string>

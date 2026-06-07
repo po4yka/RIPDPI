@@ -2828,7 +2828,7 @@ fake_burst 3</string>
     <string name="vpn_replay_rec_generic_fallback">探测失败 · 试试其他策略</string>
     <string name="vpn_replay_save_to_archive">保存到诊断存档</string>
     <string name="vpn_replay_history_title">过往重放</string>
-    <string name="vpn_replay_history_empty">暂无重放 · 从故障页面运行一次</string>
+    <string name="vpn_replay_history_empty">暂无重放</string>
     <string name="vpn_replay_history_row_format">%1$s · %2$d 个事件</string>
     <string name="vpn_replay_history_verdict_success">成功</string>
     <string name="vpn_replay_history_verdict_failure">失败</string>

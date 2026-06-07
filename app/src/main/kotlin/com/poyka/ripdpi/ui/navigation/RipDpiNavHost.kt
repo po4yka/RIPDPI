@@ -673,7 +673,9 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
         )
     }
     composable<Route.ReplayHistory> {
-        ReplayHistoryRoute()
+        ReplayHistoryRoute(
+            onRunScan = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
+        )
     }
     composable<Route.OwnedStackBrowser> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.OwnedStackBrowser>()

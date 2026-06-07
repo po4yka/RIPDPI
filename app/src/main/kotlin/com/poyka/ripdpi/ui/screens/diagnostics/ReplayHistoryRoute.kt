@@ -13,8 +13,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
  * on [com.poyka.ripdpi.diagnostics.replay.ReplayResultStore].
  */
 @Composable
-fun ReplayHistoryRoute(viewModel: ReplayHistoryViewModel = hiltViewModel()) {
+fun ReplayHistoryRoute(
+    onRunScan: () -> Unit,
+    viewModel: ReplayHistoryViewModel = hiltViewModel(),
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.refresh() }
-    ReplayHistoryScreen(replays = state)
+    ReplayHistoryScreen(replays = state, onRunScan = onRunScan)
 }

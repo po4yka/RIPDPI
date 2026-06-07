@@ -2832,7 +2832,7 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_rec_generic_fallback">کاوش ناموفق بود · یک راهبرد دیگر امتحان کنید</string>
     <string name="vpn_replay_save_to_archive">ذخیره در بایگانی عیب‌یابی</string>
     <string name="vpn_replay_history_title">بازپخش‌های قبلی</string>
-    <string name="vpn_replay_history_empty">هنوز بازپخشی وجود ندارد · از صفحه خطا یک بازپخش اجرا کنید</string>
+    <string name="vpn_replay_history_empty">هنوز بازپخشی وجود ندارد</string>
     <string name="vpn_replay_history_row_format">%1$s · %2$d رویداد</string>
     <string name="vpn_replay_history_verdict_success">موفق</string>
     <string name="vpn_replay_history_verdict_failure">ناموفق</string>

@@ -2827,7 +2827,7 @@ Origen: %2$s</string>
     <string name="vpn_replay_rec_generic_fallback">La prueba falló · prueba otra estrategia</string>
     <string name="vpn_replay_save_to_archive">Guardar en archivo de diagnóstico</string>
     <string name="vpn_replay_history_title">Reintentos anteriores</string>
-    <string name="vpn_replay_history_empty">Aún no hay reintentos · ejecute uno desde la pantalla de error</string>
+    <string name="vpn_replay_history_empty">Aún no hay reintentos</string>
     <string name="vpn_replay_history_row_format">%1$s · %2$d eventos</string>
     <string name="vpn_replay_history_verdict_success">Éxito</string>
     <string name="vpn_replay_history_verdict_failure">Fallo</string>

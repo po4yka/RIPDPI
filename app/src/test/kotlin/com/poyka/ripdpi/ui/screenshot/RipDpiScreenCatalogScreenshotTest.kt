@@ -32,11 +32,13 @@ import com.poyka.ripdpi.ui.components.RipDpiSettingsDarkPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsMediumPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiStrategyConfigPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiVpnPermissionDialogPreviewScene
+import com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -256,6 +258,18 @@ class RipDpiScreenCatalogScreenshotTest {
     fun historyScreen() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
             RipDpiHistoryPreviewScene()
+        }
+    }
+
+    @Test
+    fun replayHistoryEmptyScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+            RipDpiTheme {
+                ReplayHistoryScreen(
+                    replays = persistentListOf(),
+                    onRunScan = {},
+                )
+            }
         }
     }
 

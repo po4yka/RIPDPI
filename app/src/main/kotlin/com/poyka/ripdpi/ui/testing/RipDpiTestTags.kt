@@ -204,6 +204,8 @@ internal object RipDpiTestTags {
 
     const val DiagnosticsTopHistoryAction = "diagnostics-top-history-action"
     const val DiagnosticsOverviewHistoryAction = "diagnostics-overview-history-action"
+    const val ReplayHistoryEmptyState = "replay-history-empty-state"
+    const val ReplayHistoryRunScanAction = "replay-history-run-scan-action"
     const val DiagnosticsOverviewAutomaticProbeCard = "diagnostics-overview-automatic-probe-card"
     const val DiagnosticsOverviewHero = "diagnostics-overview-hero"
     const val DiagnosticsSimpleFunnel = "diagnostics-simple-funnel"

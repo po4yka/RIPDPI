@@ -2827,7 +2827,7 @@ Quelle: %2$s</string>
     <string name="vpn_replay_rec_generic_fallback">Probe fehlgeschlagen · versuche eine andere Strategie</string>
     <string name="vpn_replay_save_to_archive">In Diagnose-Archiv speichern</string>
     <string name="vpn_replay_history_title">Frühere Wiederholungen</string>
-    <string name="vpn_replay_history_empty">Noch keine Wiederholungen · starte eine von der Fehlerseite</string>
+    <string name="vpn_replay_history_empty">Noch keine Wiederholungen</string>
     <string name="vpn_replay_history_row_format">%1$s · %2$d Ereignisse</string>
     <string name="vpn_replay_history_verdict_success">Erfolg</string>
     <string name="vpn_replay_history_verdict_failure">Fehler</string>

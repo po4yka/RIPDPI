@@ -2981,7 +2981,7 @@ Source: %2$s</string>
     <string name="vpn_replay_rec_generic_fallback">Probe failed · try a different strategy</string>
     <string name="vpn_replay_save_to_archive">Save to diagnostics archive</string>
     <string name="vpn_replay_history_title">Past replays</string>
-    <string name="vpn_replay_history_empty">No past replays yet · run a replay from a failure screen</string>
+    <string name="vpn_replay_history_empty">No past replays yet</string>
     <string name="vpn_replay_history_row_format">%1$s · %2$d events</string>
     <string name="vpn_replay_history_verdict_success">Success</string>
     <string name="vpn_replay_history_verdict_failure">Failure</string>
