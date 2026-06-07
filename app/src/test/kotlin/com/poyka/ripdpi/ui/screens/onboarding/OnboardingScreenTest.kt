@@ -254,7 +254,7 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `successful validation renders finish and disconnect actions`() {
+    fun `successful validation renders one disconnected finish action`() {
         renderOnboarding(
             OnboardingUiState(
                 currentPage = OnboardingPages.lastIndex,
@@ -262,10 +262,11 @@ class OnboardingScreenTest {
             ),
         )
 
-        // Footer CTA = "Finish" (keep running); content secondary = finish disconnected.
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishDisconnected).assertExists()
+        // Footer CTA is the single setup-completion action and states the disconnected outcome.
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishDisconnected).assertCountEquals(1)
+        composeRule.onNodeWithText("Finish disconnected").assertExists()
         composeRule.onNodeWithText("Setup complete").assertExists()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertCountEquals(0)
         // No "finish without testing" once the test succeeded.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertCountEquals(0)
     }

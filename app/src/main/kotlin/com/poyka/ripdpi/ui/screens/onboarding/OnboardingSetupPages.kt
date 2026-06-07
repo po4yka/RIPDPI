@@ -195,7 +195,6 @@ internal fun OnboardingModeValidationContent(
     uiState: OnboardingUiState,
     onAcceptSuggestedMode: () -> Unit,
     onChangeDns: () -> Unit,
-    onFinishDisconnected: () -> Unit,
     onFinishAnyway: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -220,7 +219,6 @@ internal fun OnboardingModeValidationContent(
             state = state,
             onAcceptSuggestedMode = onAcceptSuggestedMode,
             onChangeDns = onChangeDns,
-            onFinishDisconnected = onFinishDisconnected,
             onFinishAnyway = onFinishAnyway,
         )
     }
@@ -437,22 +435,11 @@ private fun OnboardingValidationContentActions(
     state: OnboardingValidationState,
     onAcceptSuggestedMode: () -> Unit,
     onChangeDns: () -> Unit,
-    onFinishDisconnected: () -> Unit,
     onFinishAnyway: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     when (state) {
-        is OnboardingValidationState.Success -> {
-            RipDpiButton(
-                text = stringResource(R.string.onboarding_validation_finish_disconnected),
-                onClick = onFinishDisconnected,
-                variant = RipDpiButtonVariant.Outline,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
-            )
-        }
+        is OnboardingValidationState.Success -> {}
 
         is OnboardingValidationState.Failed -> {
             Column(

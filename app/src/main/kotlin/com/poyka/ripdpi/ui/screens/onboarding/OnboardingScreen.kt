@@ -148,7 +148,6 @@ fun OnboardingRoute(
                 onDnsSelected = remember(viewModel) { viewModel::selectDnsProvider },
                 onOpenAdvancedDns = onOpenAdvancedDns,
                 onRunValidation = remember(viewModel) { viewModel::runValidation },
-                onFinishKeepingRunning = remember(viewModel) { viewModel::finishKeepingRunning },
                 onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
                 onFinishAnyway = remember(viewModel) { viewModel::finishAnyway },
                 onAcceptSuggestedMode = remember(viewModel) { viewModel::acceptSuggestedMode },
@@ -188,7 +187,6 @@ internal data class OnboardingScreenActions(
     val onDnsSelected: (String) -> Unit = {},
     val onOpenAdvancedDns: () -> Unit = {},
     val onRunValidation: () -> Unit = {},
-    val onFinishKeepingRunning: () -> Unit = {},
     val onFinishDisconnected: () -> Unit = {},
     val onFinishAnyway: () -> Unit = {},
     val onAcceptSuggestedMode: () -> Unit = {},
@@ -273,7 +271,7 @@ internal fun OnboardingScreen(
                 showIdleSkipTest = showIdleSkipTest,
                 onContinue = actions.onContinue,
                 onRunValidation = actions.onRunValidation,
-                onFinishKeepingRunning = actions.onFinishKeepingRunning,
+                onFinishDisconnected = actions.onFinishDisconnected,
                 onFinishAnyway = actions.onFinishAnyway,
             )
         }
@@ -314,7 +312,6 @@ private fun OnboardingPagerContent(
                         onOpenAdvancedDns = actions.onOpenAdvancedDns,
                         onAcceptSuggestedMode = actions.onAcceptSuggestedMode,
                         onChangeDns = actions.onChangeDns,
-                        onFinishDisconnected = actions.onFinishDisconnected,
                         onFinishAnyway = actions.onFinishAnyway,
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -375,7 +372,7 @@ private fun OnboardingBottomBar(
     showIdleSkipTest: Boolean,
     onContinue: () -> Unit,
     onRunValidation: () -> Unit,
-    onFinishKeepingRunning: () -> Unit,
+    onFinishDisconnected: () -> Unit,
     onFinishAnyway: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -408,7 +405,7 @@ private fun OnboardingBottomBar(
             validationState = validationState,
             onContinue = onContinue,
             onRunValidation = onRunValidation,
-            onFinishKeepingRunning = onFinishKeepingRunning,
+            onFinishDisconnected = onFinishDisconnected,
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -436,7 +433,7 @@ private fun OnboardingBottomBar(
 /**
  * State-driven footer primary CTA. Identical full-width pattern across all 4 pages.
  * On pages 0–2 it is the page's Continue/Next action; on the ConnectionTest page it is driven by
- * [validationState] (Start test / Testing… disabled / Finish / Retry).
+ * [validationState] (Start test / Testing… disabled / Finish disconnected / Retry).
  */
 @Composable
 private fun OnboardingFooterCta(
@@ -445,7 +442,7 @@ private fun OnboardingFooterCta(
     validationState: OnboardingValidationState,
     onContinue: () -> Unit,
     onRunValidation: () -> Unit,
-    onFinishKeepingRunning: () -> Unit,
+    onFinishDisconnected: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!isLastPage) {
@@ -461,9 +458,9 @@ private fun OnboardingFooterCta(
     when (validationState) {
         is OnboardingValidationState.Success -> {
             RipDpiButton(
-                text = stringResource(R.string.onboarding_setup_finish),
-                onClick = onFinishKeepingRunning,
-                modifier = modifier.ripDpiTestTag(RipDpiTestTags.OnboardingFinishKeepRunning),
+                text = stringResource(R.string.onboarding_validation_finish_disconnected),
+                onClick = onFinishDisconnected,
+                modifier = modifier.ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
             )
         }
 
@@ -712,7 +709,6 @@ private fun OnboardingSetupPageScene(
     onOpenAdvancedDns: () -> Unit,
     onAcceptSuggestedMode: () -> Unit,
     onChangeDns: () -> Unit,
-    onFinishDisconnected: () -> Unit,
     onFinishAnyway: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -773,7 +769,6 @@ private fun OnboardingSetupPageScene(
                         uiState = uiState,
                         onAcceptSuggestedMode = onAcceptSuggestedMode,
                         onChangeDns = onChangeDns,
-                        onFinishDisconnected = onFinishDisconnected,
                         onFinishAnyway = onFinishAnyway,
                         modifier = Modifier.fillMaxWidth(),
                     )
