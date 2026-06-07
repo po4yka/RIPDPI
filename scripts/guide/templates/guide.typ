@@ -89,6 +89,93 @@
 #outline(title: none, indent: 0pt)
 
 // ---------------------------------------------------------------------------
+// Audit summary
+// ---------------------------------------------------------------------------
+
+#pagebreak()
+
+#place(top + left, dx: -20mm, dy: -10mm,
+  rect(width: 250mm, height: 14mm, fill: theme.primary),
+)
+#v(-2mm)
+#text(fill: white, weight: "bold", size: 14pt)[#h(0mm) UI Audit Summary]
+#v(10mm)
+
+#let audit = data.at("audit", default: (:))
+#let audit-total = audit.at("total", default: 0)
+#let audit-reachable = audit.at("reachable", default: 0)
+#let audit-failed = audit.at("failed", default: 0)
+
+#grid(
+  columns: (1fr, 1fr, 1fr),
+  gutter: 6mm,
+  box(fill: rgb("#E8F5E9"), radius: 4pt, inset: 8pt)[
+    #text(fill: theme.muted, size: 9pt)[Screens]
+    #linebreak()
+    #text(fill: theme.primary, weight: "bold", size: 20pt)[#audit-total]
+  ],
+  box(fill: rgb("#E8F5E9"), radius: 4pt, inset: 8pt)[
+    #text(fill: theme.muted, size: 9pt)[Reachable]
+    #linebreak()
+    #text(fill: theme.primary, weight: "bold", size: 20pt)[#audit-reachable]
+  ],
+  box(fill: rgb("#FFF3E0"), radius: 4pt, inset: 8pt)[
+    #text(fill: theme.muted, size: 9pt)[Needs review]
+    #linebreak()
+    #text(fill: theme.accent, weight: "bold", size: 20pt)[#audit-failed]
+  ],
+)
+
+#v(6mm)
+
+#for page in audit.at("pages", default: ()) {
+  let ok = page.at("reachable", default: false)
+  let status-color = if ok { theme.primary } else { theme.accent }
+  block(
+    width: 100%,
+    below: 4pt,
+    fill: if ok { rgb("#F6FBF6") } else { rgb("#FFF8F0") },
+    stroke: 0.5pt + luma(220),
+    radius: 4pt,
+    inset: 7pt,
+    {
+      text(fill: status-color, weight: "bold", size: 10pt)[#if ok { "REACHABLE" } else { "CHECK" }]
+      h(4pt)
+      text(weight: "bold")[#page.page_id]
+      h(4pt)
+      text(fill: theme.muted, size: 9pt)[route: #page.route, root: #page.expected_root]
+      linebreak()
+      text(fill: theme.muted, size: 9pt)[nodes: #page.node_count, clickable: #page.clickable_count, scrollable: #page.scrollable_count]
+      if page.at("missing_elements", default: ()).len() > 0 {
+        linebreak()
+        text(fill: theme.accent, size: 9pt)[missing: #page.missing_elements.join(", ")]
+      }
+      if page.at("error", default: none) != none {
+        linebreak()
+        text(fill: theme.accent, size: 9pt)[error: #page.error]
+      }
+    },
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Mermaid user flow
+// ---------------------------------------------------------------------------
+
+#pagebreak()
+
+#place(top + left, dx: -20mm, dy: -10mm,
+  rect(width: 250mm, height: 14mm, fill: theme.primary),
+)
+#v(-2mm)
+#text(fill: white, weight: "bold", size: 14pt)[#h(0mm) #data.at("flow_title", default: "Current user flow")]
+#v(10mm)
+
+#text(fill: theme.muted, size: 10pt)[Mermaid source is also written to #data.mermaid.path.]
+#v(4mm)
+#raw(data.mermaid.code, lang: "mermaid")
+
+// ---------------------------------------------------------------------------
 // Content pages
 // ---------------------------------------------------------------------------
 

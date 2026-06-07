@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 import yaml
 
@@ -95,6 +96,11 @@ class PageSpec:
     route: str
     description: str = ""
     scroll_to: str | None = None
+    expected_root: str | None = None
+    required_elements: list[str] = field(default_factory=list)
+    flow_from: str | None = None
+    flow_label: str = ""
+    state: str = ""
     annotations: list[Annotation] = field(default_factory=list)
     # Per-page preset overrides (None = use defaults)
     permission_preset: str | None = None
@@ -109,6 +115,7 @@ class GuideSpec:
     pages: list[PageSpec]
     subtitle: str = ""
     theme: Theme = field(default_factory=Theme)
+    flow_title: str = "Current user flow"
     # Defaults
     permission_preset: str = "granted"
     service_preset: str = "idle"
@@ -158,6 +165,11 @@ def load_spec(path: Path) -> GuideSpec:
                 route=p["route"],
                 description=p.get("description", "").strip(),
                 scroll_to=p.get("scroll_to"),
+                expected_root=p.get("expected_root"),
+                required_elements=list(p.get("required_elements", [])),
+                flow_from=p.get("flow_from"),
+                flow_label=p.get("flow_label", ""),
+                state=p.get("state", ""),
                 annotations=annotations,
                 permission_preset=p.get("permission_preset"),
                 service_preset=p.get("service_preset"),
@@ -177,6 +189,7 @@ def load_spec(path: Path) -> GuideSpec:
         pages=pages,
         subtitle=raw.get("subtitle", ""),
         theme=theme,
+        flow_title=raw.get("flow_title", "Current user flow"),
         permission_preset=defaults.get("permission_preset", "granted"),
         service_preset=defaults.get("service_preset", "idle"),
         data_preset=defaults.get("data_preset", "settings_ready"),
@@ -268,6 +281,23 @@ def adb_screenshot(output_path: Path, device: str | None) -> Path:
     png_bytes = _run_adb_bytes(device, ["exec-out", "screencap", "-p"])
     output_path.write_bytes(png_bytes)
     return output_path
+
+
+def adb_dump_ui(output_path: Path, device: str | None) -> str:
+    """Dump the current UiAutomator tree and return the XML content."""
+    result = _run_adb(device, ["exec-out", "uiautomator", "dump", "/dev/tty"])
+    xml = _extract_xml(result.stdout)
+    output_path.write_text(xml, encoding="utf-8")
+    return xml
+
+
+def _extract_xml(raw: str) -> str:
+    start = raw.find("<?xml")
+    if start == -1:
+        start = raw.find("<hierarchy")
+    if start == -1:
+        return raw.strip()
+    return raw[start:].strip()
 
 
 def adb_scroll_to(element_id: str, device: str | None, max_swipes: int = 10) -> bool:
@@ -380,6 +410,14 @@ def frame_screenshot(screenshot_path: Path, output_path: Path) -> bool:
     return True
 
 
+def optimize_screenshot(path: Path) -> None:
+    """Losslessly rewrite PNG screenshots with maximum compression."""
+    from PIL import Image
+
+    with Image.open(path) as image:
+        image.save(path, "PNG", optimize=True, compress_level=9)
+
+
 # ---------------------------------------------------------------------------
 # PNG dimensions
 # ---------------------------------------------------------------------------
@@ -393,6 +431,172 @@ def _png_dimensions(path: Path) -> tuple[int, int]:
         raise ValueError(f"Not a PNG file: {path}")
     width, height = struct.unpack(">II", header[16:24])
     return width, height
+
+
+# ---------------------------------------------------------------------------
+# UI audit metadata
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PageCaptureResult:
+    page_id: str
+    route: str
+    expected_root: str
+    reachable: bool
+    missing_elements: list[str]
+    node_count: int
+    clickable_count: int
+    enabled_count: int
+    scrollable_count: int
+    text_samples: list[str]
+    ui_dump: str | None = None
+    error: str | None = None
+
+
+def expected_root_for(page: PageSpec) -> str:
+    return page.expected_root or f"{page.route}-screen"
+
+
+def _node_matches(node: ElementTree.Element, selector: str) -> bool:
+    values = [
+        node.attrib.get("resource-id", ""),
+        node.attrib.get("content-desc", ""),
+        node.attrib.get("text", ""),
+    ]
+    return any(value == selector or value.endswith(f":id/{selector}") for value in values)
+
+
+def analyze_ui_tree(page: PageSpec, ui_xml: str, ui_dump_path: Path) -> PageCaptureResult:
+    expected_root = expected_root_for(page)
+    try:
+        root = ElementTree.fromstring(ui_xml)
+    except ElementTree.ParseError as exc:
+        return PageCaptureResult(
+            page_id=page.id,
+            route=page.route,
+            expected_root=expected_root,
+            reachable=False,
+            missing_elements=[expected_root] + page.required_elements,
+            node_count=0,
+            clickable_count=0,
+            enabled_count=0,
+            scrollable_count=0,
+            text_samples=[],
+            ui_dump=str(ui_dump_path),
+            error=f"Invalid UI XML: {exc}",
+        )
+
+    nodes = list(root.iter("node"))
+    missing = []
+    for selector in [expected_root] + page.required_elements:
+        if not any(_node_matches(node, selector) for node in nodes):
+            missing.append(selector)
+
+    text_samples: list[str] = []
+    for node in nodes:
+        text = node.attrib.get("text") or node.attrib.get("content-desc") or ""
+        text = text.strip()
+        if text and text not in text_samples:
+            text_samples.append(text)
+        if len(text_samples) >= 8:
+            break
+
+    return PageCaptureResult(
+        page_id=page.id,
+        route=page.route,
+        expected_root=expected_root,
+        reachable=expected_root not in missing,
+        missing_elements=missing,
+        node_count=len(nodes),
+        clickable_count=sum(1 for node in nodes if node.attrib.get("clickable") == "true"),
+        enabled_count=sum(1 for node in nodes if node.attrib.get("enabled") == "true"),
+        scrollable_count=sum(1 for node in nodes if node.attrib.get("scrollable") == "true"),
+        text_samples=text_samples,
+        ui_dump=str(ui_dump_path),
+    )
+
+
+def _mermaid_id(page_id: str) -> str:
+    return "".join(ch if ch.isalnum() else "_" for ch in page_id)
+
+
+def _mermaid_label(page: PageSpec) -> str:
+    state = f"\\n{page.state}" if page.state else ""
+    return f"{page.title}\\n{page.route}{state}"
+
+
+def generate_mermaid(spec: GuideSpec) -> str:
+    lines = ["flowchart TD"]
+    for page in spec.pages:
+        lines.append(f'  {_mermaid_id(page.id)}["{_mermaid_label(page)}"]')
+    for index, page in enumerate(spec.pages):
+        if page.flow_from:
+            parent = page.flow_from
+        elif index > 0:
+            parent = spec.pages[index - 1].id
+        else:
+            parent = ""
+        if parent:
+            label = f'|{page.flow_label}|' if page.flow_label else ""
+            lines.append(f"  {_mermaid_id(parent)} -->{label} {_mermaid_id(page.id)}")
+    return "\n".join(lines) + "\n"
+
+
+def write_mermaid(spec: GuideSpec, output_path: Path) -> str:
+    mermaid = generate_mermaid(spec)
+    output_path.write_text(mermaid, encoding="utf-8")
+    return mermaid
+
+
+def _result_to_dict(result: PageCaptureResult) -> dict[str, Any]:
+    return {
+        "page_id": result.page_id,
+        "route": result.route,
+        "expected_root": result.expected_root,
+        "reachable": result.reachable,
+        "missing_elements": result.missing_elements,
+        "node_count": result.node_count,
+        "clickable_count": result.clickable_count,
+        "enabled_count": result.enabled_count,
+        "scrollable_count": result.scrollable_count,
+        "text_samples": result.text_samples,
+        "ui_dump": result.ui_dump,
+        "error": result.error,
+    }
+
+
+def load_cached_audit_results(audit_json: Path) -> list[PageCaptureResult]:
+    if not audit_json.exists():
+        return []
+    raw = json.loads(audit_json.read_text(encoding="utf-8"))
+    results = []
+    for item in raw.get("pages", []):
+        results.append(
+            PageCaptureResult(
+                page_id=item["page_id"],
+                route=item["route"],
+                expected_root=item["expected_root"],
+                reachable=bool(item["reachable"]),
+                missing_elements=list(item.get("missing_elements", [])),
+                node_count=int(item.get("node_count", 0)),
+                clickable_count=int(item.get("clickable_count", 0)),
+                enabled_count=int(item.get("enabled_count", 0)),
+                scrollable_count=int(item.get("scrollable_count", 0)),
+                text_samples=list(item.get("text_samples", [])),
+                ui_dump=item.get("ui_dump"),
+                error=item.get("error"),
+            )
+        )
+    return results
+
+
+def write_audit_results(results: list[PageCaptureResult], output_path: Path) -> None:
+    data = {
+        "generated_date": date.today().isoformat(),
+        "pages": [_result_to_dict(result) for result in results],
+    }
+    output_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -419,6 +623,9 @@ def write_guide_data(
     screenshots_dir: Path,
     output_json: Path,
     root: Path,
+    audit_results: list[PageCaptureResult],
+    mermaid_path: Path,
+    mermaid_code: str,
 ) -> list[str]:
     """Write guide-data.json for Typst. Returns list of missing page IDs."""
     missing: list[str] = []
@@ -442,12 +649,31 @@ def write_guide_data(
             "pixel_width": px_w,
             "pixel_height": px_h,
             "annotations": [_annotation_to_dict(a) for a in page.annotations],
+            "route": page.route,
+            "state": page.state,
+            "expected_root": expected_root_for(page),
         })
+
+    results_by_page = {result.page_id: result for result in audit_results}
+    audit_pages = [_result_to_dict(results_by_page[page.id]) for page in spec.pages if page.id in results_by_page]
+    reachable_count = sum(1 for result in audit_pages if result["reachable"])
+    failed_count = len(audit_pages) - reachable_count
 
     data = {
         "title": spec.title,
         "subtitle": spec.subtitle,
         "generated_date": date.today().isoformat(),
+        "flow_title": spec.flow_title,
+        "mermaid": {
+            "path": "/" + str(mermaid_path.relative_to(root)),
+            "code": mermaid_code,
+        },
+        "audit": {
+            "total": len(audit_pages),
+            "reachable": reachable_count,
+            "failed": failed_count,
+            "pages": audit_pages,
+        },
         "theme": {
             "primary": _rgb_to_hex(spec.theme.primary),
             "accent": _rgb_to_hex(spec.theme.accent),
@@ -498,9 +724,11 @@ def capture_page(
     page: PageSpec,
     spec: GuideSpec,
     screenshots_dir: Path,
+    ui_dumps_dir: Path,
     device: str | None,
-) -> Path:
+) -> PageCaptureResult:
     output = screenshots_dir / f"{page.id}.png"
+    ui_dump = ui_dumps_dir / f"{page.id}.xml"
     print(f"  Launching route: {page.route}")
     adb_launch_route(page.route, spec, page, device)
     settle = page.settle_ms or spec.settle_ms
@@ -515,7 +743,15 @@ def capture_page(
 
     print(f"  Capturing screenshot -> {output.name}")
     adb_screenshot(output, device)
-    return output
+    optimize_screenshot(output)
+    print(f"  Capturing UI tree -> {ui_dump.name}")
+    ui_xml = adb_dump_ui(ui_dump, device)
+    result = analyze_ui_tree(page, ui_xml, ui_dump)
+    if result.reachable:
+        print(f"  Reachable: {result.expected_root}")
+    else:
+        print(f"  WARNING: Missing selectors: {', '.join(result.missing_elements)}")
+    return result
 
 
 def main() -> None:
@@ -587,9 +823,15 @@ def main() -> None:
     root = Path(__file__).resolve().parent.parent.parent
     build_dir = args.output.resolve().parent
     screenshots_dir = build_dir / "screenshots"
+    ui_dumps_dir = build_dir / "ui-dumps"
     screenshots_dir.mkdir(parents=True, exist_ok=True)
+    ui_dumps_dir.mkdir(parents=True, exist_ok=True)
+    audit_json = build_dir / "ui-audit.json"
+    mermaid_path = build_dir / "user-flow.mmd"
+    mermaid_code = write_mermaid(spec, mermaid_path)
 
     emulator_proc = None
+    audit_results: list[PageCaptureResult] = []
 
     # Phase 1: Capture screenshots
     if not args.skip_capture:
@@ -618,19 +860,38 @@ def main() -> None:
             for page in spec.pages:
                 print(f"[{page.id}] Capturing...")
                 try:
-                    capture_page(page, spec, screenshots_dir, args.device)
+                    audit_results.append(capture_page(page, spec, screenshots_dir, ui_dumps_dir, args.device))
                 except subprocess.CalledProcessError as e:
                     print(f"  ERROR: ADB command failed: {e.cmd}")
                     print(f"  stderr: {e.stderr}")
                     print(f"  Skipping page '{page.id}'")
+                    audit_results.append(
+                        PageCaptureResult(
+                            page_id=page.id,
+                            route=page.route,
+                            expected_root=expected_root_for(page),
+                            reachable=False,
+                            missing_elements=[expected_root_for(page)] + page.required_elements,
+                            node_count=0,
+                            clickable_count=0,
+                            enabled_count=0,
+                            scrollable_count=0,
+                            text_samples=[],
+                            error=f"ADB command failed: {e.cmd}",
+                        )
+                    )
         finally:
             print("Disabling demo mode...")
             try:
                 teardown_demo_mode(args.device)
             except subprocess.CalledProcessError:
                 pass  # Best-effort cleanup
+        write_audit_results(audit_results, audit_json)
     else:
         print("Skipping capture (using cached screenshots)")
+        audit_results = load_cached_audit_results(audit_json)
+        if not audit_results:
+            print(f"WARNING: No cached audit metadata found at {audit_json}")
 
     # Phase 1.5: Device frame compositing
     if not args.no_frame:
@@ -664,7 +925,7 @@ def main() -> None:
     # Phase 2: Write JSON data for Typst
     data_json = build_dir / "guide-data.json"
     print("Writing guide data...")
-    missing = write_guide_data(spec, screenshots_dir, data_json, root)
+    missing = write_guide_data(spec, screenshots_dir, data_json, root, audit_results, mermaid_path, mermaid_code)
     for page_id in missing:
         print(f"[{page_id}] WARNING: Screenshot not found, skipping")
 

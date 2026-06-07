@@ -62,6 +62,19 @@ pytest tests/ -v
 
 In CI (and to reproduce it locally) run `bash scripts/ci/run-appium-smoke.sh`, which prepares the environment before invoking pytest — mirroring the `run-maestro-smoke.sh` wrapper above.
 
+## UI/UX PDF Audit
+
+The guide generator can also produce a route/state UI audit PDF from a connected phone. The audit spec at [`scripts/guide/specs/ui-ux-audit.yaml`](../../scripts/guide/specs/ui-ux-audit.yaml) launches each route through the debug automation contract, captures optimized screenshots, saves a UiAutomator XML dump per page, checks the expected screen root and required selectors, writes `ui-audit.json`, writes Mermaid flow source to `user-flow.mmd`, and renders those artifacts into the final Typst PDF.
+
+```bash
+./gradlew :app:installGithubDebug
+SERIAL="$(adb devices | awk '/device$/{print $1; exit}')"
+python3 -m pip install -r scripts/guide/requirements.txt
+python3 scripts/guide/generate_guide.py --spec scripts/guide/specs/ui-ux-audit.yaml --device "$SERIAL" --output build/guide/ripdpi-ui-ux-audit.pdf
+```
+
+Use `--pages home_idle,settings,advanced_settings_top` for a focused pass, `--no-frame` for faster local iteration, or `--skip-capture` to rebuild the PDF from cached screenshots and audit metadata.
+
 ## Debug Network Probe
 
 Debug builds also expose a machine-readable network probe receiver for lab and device smoke checks. Prefer the wrapper scripts because they choose the current host profile, DNS port, package name, and output path:
