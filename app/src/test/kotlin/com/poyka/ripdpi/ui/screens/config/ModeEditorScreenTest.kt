@@ -37,6 +37,7 @@ import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.ImmutableList
@@ -174,6 +175,29 @@ class ModeEditorScreenTest {
             }
         val expectedHeight = chipHeights.first()
         chipHeights.forEach { height -> assertEquals(expectedHeight, height, 0.5f) }
+    }
+
+    @Test
+    fun relayFinalmaskOptionsRenderInlineHelp() {
+        setScreen(
+            initialDraft =
+                defaultDraft().copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindVlessReality,
+                    relayVlessTransport = RelayVlessTransportXhttp,
+                ),
+        )
+
+        listOf(
+            "Do not wrap the xHTTP TCP stream.",
+            "Send configured header/trailer bytes, plus optional random bytes, once before the real payload.",
+            "Encode each payload byte as four seeded entropy-hint bytes; the peer decodes them back to " +
+                "the original stream.",
+            "Split each payload write into the configured number of TCP frames when the size fits the byte range.",
+            "Send one random byte prelude from the configured range before the real payload.",
+        ).forEach { helpText ->
+            composeRule.onNodeWithText(helpText).performScrollTo().assertExists()
+        }
     }
 
     private fun setScreen(

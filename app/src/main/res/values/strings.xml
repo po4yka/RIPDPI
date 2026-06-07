@@ -627,6 +627,17 @@
     <string name="config_relay_protocol_section_quic">QUIC transports</string>
     <string name="config_relay_protocol_section_pt">PT relays</string>
     <string name="config_relay_protocol_section_tor">Tor</string>
+    <string name="config_relay_finalmask_title">Finalmask</string>
+    <string name="config_relay_finalmask_off">Off</string>
+    <string name="config_relay_finalmask_off_help">Do not wrap the xHTTP TCP stream.</string>
+    <string name="config_relay_finalmask_header">Header</string>
+    <string name="config_relay_finalmask_header_help">Send configured header/trailer bytes, plus optional random bytes, once before the real payload.</string>
+    <string name="config_relay_finalmask_sudoku">Sudoku</string>
+    <string name="config_relay_finalmask_sudoku_help">Encode each payload byte as four seeded entropy-hint bytes; the peer decodes them back to the original stream.</string>
+    <string name="config_relay_finalmask_fragment">Fragment</string>
+    <string name="config_relay_finalmask_fragment_help">Split each payload write into the configured number of TCP frames when the size fits the byte range.</string>
+    <string name="config_relay_finalmask_noise">Noise</string>
+    <string name="config_relay_finalmask_noise_help">Send one random byte prelude from the configured range before the real payload.</string>
     <string name="config_relay_xhttp_path">xHTTP path</string>
     <string name="config_relay_xhttp_host">xHTTP host override</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>
