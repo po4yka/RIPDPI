@@ -14,6 +14,8 @@ use crate::util::{
     find_headers_end,
 };
 
+const TELEGRAM_UPLOAD_HOST: &str = "telegram.org";
+
 pub(crate) struct TelegramTransferResult {
     pub(crate) status: String,
     pub(crate) avg_bps: u64,
@@ -54,6 +56,43 @@ fn update_peak_bps(peak_bps: &mut u64, sample_bytes: usize, sample_ms: u64) {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TelegramTlsVerifierMode {
+    DefaultRoots,
+    DomainFrontedNoVerify,
+}
+
+impl TelegramTlsVerifierMode {
+    fn verify_certificates(self) -> bool {
+        matches!(self, Self::DefaultRoots)
+    }
+
+    fn custom_verifier(self) -> Option<Arc<dyn rustls::client::danger::ServerCertVerifier>> {
+        match self {
+            Self::DefaultRoots => None,
+            Self::DomainFrontedNoVerify => Some(Arc::new(NoCertificateVerification)),
+        }
+    }
+}
+
+fn verifier_mode_for_target(target: &TargetAddress, tls_name: &str) -> TelegramTlsVerifierMode {
+    match target {
+        TargetAddress::Ip(_) if !tls_name.is_empty() => TelegramTlsVerifierMode::DomainFrontedNoVerify,
+        TargetAddress::Ip(_) | TargetAddress::Host(_) => TelegramTlsVerifierMode::DefaultRoots,
+    }
+}
+
+fn upload_target_address(upload_target: &str) -> TargetAddress {
+    upload_target.parse::<IpAddr>().map_or_else(|_| TargetAddress::Host(upload_target.to_string()), TargetAddress::Ip)
+}
+
+fn upload_tls_host(target: &TargetAddress) -> String {
+    match target {
+        TargetAddress::Host(host) => host.clone(),
+        TargetAddress::Ip(_) => TELEGRAM_UPLOAD_HOST.to_string(),
+    }
+}
+
 pub(crate) fn telegram_download_probe(
     target: &TelegramTarget,
     transport: &TransportConfig,
@@ -64,28 +103,28 @@ pub(crate) fn telegram_download_probe(
     };
     let path = extract_path_from_url(&target.media_url);
 
-    // Diagnostic probe: explicitly skip certificate verification to detect
-    // censorship-induced TLS interception (MITM middleboxes).
-    let no_verify: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(NoCertificateVerification);
+    let target_address = TargetAddress::Host(host.clone());
+    let verifier_mode = verifier_mode_for_target(&target_address, &host);
+    let tls_verifier = verifier_mode.custom_verifier();
     let stream_result = match key_log {
         Some(key_log) => open_probe_stream_with_key_log(
-            &TargetAddress::Host(host.clone()),
+            &target_address,
             443,
             transport,
             Some(&host),
-            false,
+            verifier_mode.verify_certificates(),
             TlsClientProfile::Auto,
-            Some(&no_verify),
+            tls_verifier.as_ref(),
             Some(key_log),
         ),
         None => open_probe_stream(
-            &TargetAddress::Host(host.clone()),
+            &target_address,
             443,
             transport,
             Some(&host),
-            false,
+            verifier_mode.verify_certificates(),
             TlsClientProfile::Auto,
-            Some(&no_verify),
+            tls_verifier.as_ref(),
         ),
     };
     let mut stream = match stream_result {
@@ -184,33 +223,29 @@ pub(crate) fn telegram_upload_probe(
     transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> TelegramTransferResult {
-    let upload_ip: IpAddr = match target.upload_ip.parse() {
-        Ok(ip) => ip,
-        Err(err) => return TelegramTransferResult::blocked(err.to_string()),
-    };
-
-    // Diagnostic probe: explicitly skip certificate verification to detect
-    // censorship-induced TLS interception (MITM middleboxes).
-    let no_verify: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(NoCertificateVerification);
+    let target_address = upload_target_address(&target.upload_ip);
+    let upload_host = upload_tls_host(&target_address);
+    let verifier_mode = verifier_mode_for_target(&target_address, &upload_host);
+    let tls_verifier = verifier_mode.custom_verifier();
     let stream_result = match key_log {
         Some(key_log) => open_probe_stream_with_key_log(
-            &TargetAddress::Ip(upload_ip),
+            &target_address,
             target.upload_port,
             transport,
-            Some("telegram.org"),
-            false,
+            Some(&upload_host),
+            verifier_mode.verify_certificates(),
             TlsClientProfile::Auto,
-            Some(&no_verify),
+            tls_verifier.as_ref(),
             Some(key_log),
         ),
         None => open_probe_stream(
-            &TargetAddress::Ip(upload_ip),
+            &target_address,
             target.upload_port,
             transport,
-            Some("telegram.org"),
-            false,
+            Some(&upload_host),
+            verifier_mode.verify_certificates(),
             TlsClientProfile::Auto,
-            Some(&no_verify),
+            tls_verifier.as_ref(),
         ),
     };
     let mut stream = match stream_result {
@@ -220,7 +255,7 @@ pub(crate) fn telegram_upload_probe(
 
     let content_length = target.upload_size_bytes;
     let header = format!(
-        "POST /upload HTTP/1.1\r\nHost: telegram.org\r\nContent-Length: {content_length}\r\n\
+        "POST /upload HTTP/1.1\r\nHost: {upload_host}\r\nContent-Length: {content_length}\r\n\
          Content-Type: application/octet-stream\r\nConnection: close\r\n\r\n"
     );
     if let Err(err) = stream.write_all(header.as_bytes()).and_then(|_| stream.flush()) {
@@ -289,4 +324,33 @@ pub(crate) fn telegram_upload_probe(
         "blocked"
     };
     TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upload_host_target_uses_default_tls_verification() {
+        let target = upload_target_address("api.telegram.org");
+
+        assert_eq!(target, TargetAddress::Host("api.telegram.org".to_string()));
+        assert_eq!(upload_tls_host(&target), "api.telegram.org");
+        let mode = verifier_mode_for_target(&target, &upload_tls_host(&target));
+        assert_eq!(mode, TelegramTlsVerifierMode::DefaultRoots);
+        assert!(mode.verify_certificates());
+        assert!(mode.custom_verifier().is_none());
+    }
+
+    #[test]
+    fn upload_ip_target_is_explicit_domain_fronting_no_verify() {
+        let target = upload_target_address("149.154.167.99");
+
+        assert_eq!(target, TargetAddress::Ip("149.154.167.99".parse().unwrap()));
+        assert_eq!(upload_tls_host(&target), TELEGRAM_UPLOAD_HOST);
+        let mode = verifier_mode_for_target(&target, &upload_tls_host(&target));
+        assert_eq!(mode, TelegramTlsVerifierMode::DomainFrontedNoVerify);
+        assert!(!mode.verify_certificates());
+        assert!(mode.custom_verifier().is_some());
+    }
 }
