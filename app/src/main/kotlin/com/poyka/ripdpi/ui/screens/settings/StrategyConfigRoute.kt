@@ -191,6 +191,9 @@ private suspend fun saveStrategyConfigFromRoute(
 
 @Composable
 private fun SecureStrategyConfigWindowEffect(context: Context) {
+    if (System.getProperty("ripdpi.staticMotion").toBoolean()) {
+        return
+    }
     val window = (context as? Activity)?.window
     DisposableEffect(Unit) {
         window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)

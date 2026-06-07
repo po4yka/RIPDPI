@@ -24,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import struct
 import subprocess
@@ -72,6 +73,11 @@ SKIN_NAME = "pixel_9_pro_xl"
 # Layout from SDK skin: screen placed at (57, 56) in a 1466x3101 frame
 FRAME_SCREEN_OFFSET = (57, 56)
 FRAME_SCREEN_SIZE = (1344, 2992)
+CAPTURE_THEMES = ("dark", "light")
+THEME_LABELS = {
+    "dark": "Dark",
+    "light": "Light",
+}
 
 
 @dataclass
@@ -221,6 +227,52 @@ def _run_adb_bytes(device: str | None, args: list[str]) -> bytes:
     return result.stdout
 
 
+def _run_adb_best_effort(device: str | None, args: list[str]) -> subprocess.CompletedProcess[str]:
+    cmd = _adb_cmd(device) + args
+    return subprocess.run(cmd, capture_output=True, text=True, check=False)
+
+
+def grant_runtime_permissions(device: str | None) -> None:
+    """Pre-grant runtime permissions that can otherwise cover captures with system dialogs."""
+    package = "com.poyka.ripdpi"
+    permissions = [
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+    ]
+    for permission in permissions:
+        _run_adb_best_effort(device, ["shell", "pm", "grant", package, permission])
+    appops = {
+        "CAMERA": "allow",
+        "POST_NOTIFICATION": "allow",
+        "COARSE_LOCATION": "allow",
+    }
+    for op, mode in appops.items():
+        _run_adb_best_effort(device, ["shell", "appops", "set", package, op, mode])
+
+
+def dismiss_runtime_permission_dialogs(device: str | None, max_attempts: int = 3) -> None:
+    """Drain Android permission dialogs that may already be visible on the device."""
+    allow_texts = (
+        "While using the app",
+        "Only this time",
+        "Allow",
+        "Разрешить",
+    )
+    for _ in range(max_attempts):
+        result = _run_adb_best_effort(device, ["exec-out", "uiautomator", "dump", "/dev/tty"])
+        xml = _extract_xml(result.stdout)
+        if not any(text in xml for text in allow_texts):
+            return
+        if "While using the app" in xml:
+            _run_adb_best_effort(device, ["shell", "input", "tap", "540", "1160"])
+        elif "Only this time" in xml:
+            _run_adb_best_effort(device, ["shell", "input", "tap", "540", "1290"])
+        else:
+            _run_adb_best_effort(device, ["shell", "input", "tap", "540", "1160"])
+        time.sleep(0.5)
+
+
 def setup_demo_mode(device: str | None) -> None:
     """Enable Android demo mode for a clean, consistent status bar."""
     _run_adb(device, ["shell", "settings", "put", "global", "sysui_demo_allowed", "1"])
@@ -258,11 +310,15 @@ def adb_launch_route(
     spec: GuideSpec,
     page: PageSpec,
     device: str | None,
+    theme: str | None = None,
 ) -> None:
     perm = page.permission_preset or spec.permission_preset
     svc = page.service_preset or spec.service_preset
     data = page.data_preset or spec.data_preset
 
+    _run_adb(device, ["shell", "am", "force-stop", "com.poyka.ripdpi"])
+    grant_runtime_permissions(device)
+    dismiss_runtime_permission_dialogs(device)
     args = [
         "shell", "am", "start", "-n", ACTIVITY,
         "--ez", f"{AUTOMATION_PREFIX}.ENABLED", "true",
@@ -273,6 +329,8 @@ def adb_launch_route(
         "--es", f"{AUTOMATION_PREFIX}.SERVICE_PRESET", svc,
         "--es", f"{AUTOMATION_PREFIX}.DATA_PRESET", data,
     ]
+    if theme:
+        args += ["--es", f"{AUTOMATION_PREFIX}.THEME", theme]
     _run_adb(device, args)
 
 
@@ -302,6 +360,64 @@ def _extract_xml(raw: str) -> str:
     if end == -1:
         return xml
     return xml[: end + len("</hierarchy>")]
+
+
+def wait_for_ui_tree(
+    page: PageSpec,
+    ui_dump_path: Path,
+    device: str | None,
+    timeout_ms: int,
+) -> tuple[str, PageCaptureResult]:
+    """Wait until UiAutomator exposes the expected page selectors."""
+    deadline = time.monotonic() + (timeout_ms / 1000.0)
+    last_xml = ""
+    last_result: PageCaptureResult | None = None
+
+    while True:
+        last_xml = adb_dump_ui(ui_dump_path, device)
+        last_result = analyze_ui_tree(page, last_xml, ui_dump_path)
+        if last_result.reachable:
+            return last_xml, last_result
+        if time.monotonic() >= deadline:
+            return last_xml, last_result
+        time.sleep(0.25)
+
+
+def screenshot_has_app_content(path: Path) -> bool:
+    """Return false for early captures that contain only system bars and a blank app surface."""
+    from PIL import Image
+
+    with Image.open(path) as image:
+        rgb = image.convert("RGB")
+        width, height = rgb.size
+        # Ignore status/navigation bars and focus on the app content area.
+        crop = rgb.crop((0, int(height * 0.12), width, int(height * 0.90)))
+        pixels = crop.getdata()
+        non_dark = 0
+        varied_colors: set[tuple[int, int, int]] = set()
+        for red, green, blue in pixels:
+            if max(red, green, blue) > 42:
+                non_dark += 1
+                if len(varied_colors) < 128:
+                    varied_colors.add((red // 16, green // 16, blue // 16))
+            if non_dark > 2500 and len(varied_colors) > 1:
+                return True
+        return False
+
+
+def capture_screenshot_when_ready(
+    output_path: Path,
+    device: str | None,
+    max_attempts: int = 8,
+) -> bool:
+    """Capture after Compose has drawn real app content."""
+    for attempt in range(max_attempts):
+        adb_screenshot(output_path, device)
+        if screenshot_has_app_content(output_path):
+            return True
+        if attempt < max_attempts - 1:
+            time.sleep(0.35)
+    return False
 
 
 def adb_scroll_to(element_id: str, device: str | None, max_swipes: int = 10) -> bool:
@@ -395,19 +511,23 @@ def frame_screenshot(screenshot_path: Path, output_path: Path) -> bool:
 
     # Load assets
     frame_bg = Image.open(skin_dir / "back.webp").convert("RGBA")
-    screen_mask = Image.open(skin_dir / "mask.webp").convert("L")
+    foreground_mask = Image.open(skin_dir / "mask.webp").convert("RGBA")
     screenshot = Image.open(screenshot_path).convert("RGBA")
 
     # Resize screenshot to match expected screen size if needed
     if screenshot.size != tuple(FRAME_SCREEN_SIZE):
         screenshot = screenshot.resize(FRAME_SCREEN_SIZE, Image.LANCZOS)
 
-    # Apply rounded-corner mask to screenshot
-    screenshot.putalpha(screen_mask)
+    # SDK skin masks are foreground cutouts: alpha is transparent where the screen
+    # belongs and opaque around hardware/rounded-corner chrome.
+    cutout_alpha = foreground_mask.getchannel("A")
+    screen_alpha = cutout_alpha.point(lambda value: 255 - value)
+    screenshot.putalpha(screen_alpha)
 
     # Composite: start with frame background, paste masked screenshot at offset
     result = frame_bg.copy()
     result.paste(screenshot, FRAME_SCREEN_OFFSET, mask=screenshot)
+    result.alpha_composite(foreground_mask, FRAME_SCREEN_OFFSET)
 
     # Save as PNG (lossless)
     result.save(output_path, "PNG")
@@ -553,6 +673,204 @@ def write_mermaid(spec: GuideSpec, output_path: Path) -> str:
     return mermaid
 
 
+def _svg_text_lines(text: str, max_chars: int) -> list[str]:
+    lines: list[str] = []
+    for raw_line in text.split("\n"):
+        words = raw_line.split()
+        current = ""
+        for word in words:
+            candidate = word if not current else f"{current} {word}"
+            if len(candidate) <= max_chars:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+        if current:
+            lines.append(current)
+    return lines or [text]
+
+
+def _page_parent(spec: GuideSpec, page: PageSpec, index: int) -> str:
+    return page.flow_from or (spec.pages[index - 1].id if index > 0 else "")
+
+
+def _flow_sections(spec: GuideSpec) -> list[tuple[str, str, list[str]]]:
+    return [
+        (
+            "Start, Home, and Config",
+            "Onboarding, home states, configuration entry points, and strategy setup.",
+            [
+                "onboarding",
+                "home_idle",
+                "home_vpn_missing",
+                "home_connected_proxy",
+                "home_connected_vpn",
+                "config",
+                "local_bypass_config",
+                "vpn_config",
+                "mode_editor",
+                "strategy_config",
+                "strategy_import",
+                "dns_settings",
+            ],
+        ),
+        (
+            "Diagnostics",
+            "Diagnostics hub, scans, history, logs, shared reports, and packet captures.",
+            [
+                "diagnostics",
+                "scanner",
+                "detection_check",
+                "blockcheck",
+                "history",
+                "logs",
+                "shared_diagnostic_result",
+                "pcap_capture_list",
+            ],
+        ),
+        (
+            "Settings",
+            "Settings hub, advanced preferences, privacy, customization, backup, and routing.",
+            [
+                "settings",
+                "advanced_settings_top",
+                "advanced_settings_activation",
+                "detection_settings",
+                "split_tunnel",
+                "domain_bypass_list",
+                "app_customization",
+                "data_transparency",
+                "backup_restore",
+                "about",
+                "biometric_prompt",
+                "routes",
+                "rule_editor",
+            ],
+        ),
+        (
+            "Profiles and Imports",
+            "Profile variants and import/edit surfaces.",
+            [
+                "profile_variants",
+                "anytls_profile",
+                "amneziawg_profile",
+                "xray_import",
+            ],
+        ),
+    ]
+
+
+def _render_flow_svg(
+    title: str,
+    subtitle: str,
+    pages: list[PageSpec],
+    edges: list[tuple[str, str, str]],
+    output_path: Path,
+) -> Path:
+    columns = 1 if len(pages) <= 4 else 2
+    node_w = 520
+    node_h = 112
+    x_gap = 88
+    y_gap = 28
+    margin = 56
+    title_h = 76
+    width = margin * 2 + columns * node_w + (columns - 1) * x_gap
+    rows = (len(pages) + columns - 1) // columns
+    height = margin * 2 + title_h + rows * node_h + (rows - 1) * y_gap
+
+    positions: dict[str, tuple[int, int]] = {}
+    for index, page in enumerate(pages):
+        row = index // columns
+        col = index % columns
+        x = margin + col * (node_w + x_gap)
+        y = margin + title_h + row * (node_h + y_gap)
+        positions[page.id] = (x, y)
+
+    def esc(value: str) -> str:
+        return html.escape(value, quote=True)
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+        "<defs>",
+        '<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">',
+        '<path d="M 0 0 L 10 5 L 0 10 z" fill="#111111"/>',
+        "</marker>",
+        "</defs>",
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+        f'<text x="{margin}" y="{margin + 24}" font-family="Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#111111">{esc(title)}</text>',
+        f'<text x="{margin}" y="{margin + 54}" font-family="Helvetica, Arial, sans-serif" font-size="17" fill="#6f6f6f">{esc(subtitle)}</text>',
+    ]
+
+    parent_by_child = {child: (parent, label) for parent, child, label in edges}
+
+    for index, page in enumerate(pages):
+        x, y = positions[page.id]
+        title_lines = _svg_text_lines(page.title, 28)[:2]
+        route_lines = _svg_text_lines(page.route, 38)[:1]
+        state = page.state
+        parts.append(f'<rect x="{x}" y="{y}" width="{node_w}" height="{node_h}" rx="12" fill="#f7f7f7" stroke="#d9d9d9" stroke-width="2"/>')
+        parts.append(f'<circle cx="{x + 28}" cy="{y + 28}" r="16" fill="#111111"/>')
+        parts.append(f'<text x="{x + 28}" y="{y + 34}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#ffffff">{index + 1}</text>')
+        ty = y + 28
+        for line in title_lines:
+            parts.append(f'<text x="{x + 58}" y="{ty}" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="700" fill="#111111">{esc(line)}</text>')
+            ty += 23
+        for line in route_lines:
+            parts.append(f'<text x="{x + 58}" y="{ty}" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#6f6f6f">{esc(line)}</text>')
+            ty += 18
+        if page.id in parent_by_child:
+            parent, label = parent_by_child[page.id]
+            source = f"from {parent}"
+            if label:
+                source = f"{source} · {label}"
+            parts.append(f'<text x="{x + 58}" y="{y + node_h - 34}" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#6f6f6f">{esc(source)}</text>')
+        if state:
+            parts.append(f'<text x="{x + 58}" y="{y + node_h - 14}" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#6f6f6f">{esc(state)}</text>')
+
+    parts.append("</svg>")
+    output_path.write_text("\n".join(parts), encoding="utf-8")
+    return output_path
+
+
+def write_flow_svgs(spec: GuideSpec, output_dir: Path, root: Path) -> list[dict[str, str]]:
+    pages_by_id = {page.id: page for page in spec.pages}
+    index_by_id = {page.id: index for index, page in enumerate(spec.pages)}
+    rendered: list[dict[str, str]] = []
+
+    for section_index, (title, subtitle, ids) in enumerate(_flow_sections(spec), start=1):
+        section_pages = [pages_by_id[page_id] for page_id in ids if page_id in pages_by_id]
+        section_ids = {page.id for page in section_pages}
+        section_edges: list[tuple[str, str, str]] = []
+        for page in section_pages:
+            parent = _page_parent(spec, page, index_by_id[page.id])
+            if parent in section_ids:
+                section_edges.append((parent, page.id, page.flow_label))
+        output_path = output_dir / f"user-flow-{section_index}.svg"
+        _render_flow_svg(title, subtitle, section_pages, section_edges, output_path)
+        rendered.append(
+            {
+                "title": title,
+                "subtitle": subtitle,
+                "path": "/" + str(output_path.relative_to(root)),
+            }
+        )
+    return rendered
+
+
+def write_flow_svg(spec: GuideSpec, output_path: Path) -> Path:
+    """Render a readable single-section SVG for tests and standalone use."""
+    section_pages = spec.pages[: min(len(spec.pages), 12)]
+    section_ids = {page.id for page in section_pages}
+    index_by_id = {page.id: index for index, page in enumerate(spec.pages)}
+    edges = []
+    for page in section_pages:
+        parent = _page_parent(spec, page, index_by_id[page.id])
+        if parent in section_ids:
+            edges.append((parent, page.id, page.flow_label))
+    return _render_flow_svg(spec.flow_title, f"{len(section_pages)} screens and states", section_pages, edges, output_path)
+
+
 def _result_to_dict(result: PageCaptureResult) -> dict[str, Any]:
     return {
         "page_id": result.page_id,
@@ -624,34 +942,50 @@ def _annotation_to_dict(ann: Annotation) -> dict[str, Any]:
 
 def write_guide_data(
     spec: GuideSpec,
-    screenshots_dir: Path,
+    screenshot_dirs: dict[str, Path],
     output_json: Path,
     root: Path,
     audit_results: list[PageCaptureResult],
     mermaid_path: Path,
     mermaid_code: str,
+    flow_svg_path: Path,
+    flow_svgs: list[dict[str, str]],
 ) -> list[str]:
     """Write guide-data.json for Typst. Returns list of missing page IDs."""
     missing: list[str] = []
     pages_data: list[dict[str, Any]] = []
 
     for page in spec.pages:
-        screenshot = screenshots_dir / f"{page.id}.png"
-        if not screenshot.exists():
+        screenshots: list[dict[str, Any]] = []
+        for theme_name, theme_dir in screenshot_dirs.items():
+            screenshot = theme_dir / f"{page.id}.png"
+            if not screenshot.exists():
+                continue
+
+            px_w, px_h = _png_dimensions(screenshot)
+            rel_screenshot = "/" + str(screenshot.relative_to(root))
+            screenshots.append({
+                "theme": theme_name,
+                "label": THEME_LABELS.get(theme_name, theme_name.title()),
+                "path": rel_screenshot,
+                "pixel_width": px_w,
+                "pixel_height": px_h,
+            })
+
+        if not screenshots:
             missing.append(page.id)
             continue
 
-        px_w, px_h = _png_dimensions(screenshot)
-        # Path relative to Typst --root, prefixed with / for root resolution
-        rel_screenshot = "/" + str(screenshot.relative_to(root))
+        primary = screenshots[0]
 
         pages_data.append({
             "id": page.id,
             "title": page.title,
             "description": page.description,
-            "screenshot": rel_screenshot,
-            "pixel_width": px_w,
-            "pixel_height": px_h,
+            "screenshot": primary["path"],
+            "screenshots": screenshots,
+            "pixel_width": primary["pixel_width"],
+            "pixel_height": primary["pixel_height"],
             "annotations": [_annotation_to_dict(a) for a in page.annotations],
             "route": page.route,
             "state": page.state,
@@ -671,6 +1005,8 @@ def write_guide_data(
         "mermaid": {
             "path": "/" + str(mermaid_path.relative_to(root)),
             "code": mermaid_code,
+            "svg": "/" + str(flow_svg_path.relative_to(root)),
+            "sections": flow_svgs,
         },
         "audit": {
             "total": len(audit_pages),
@@ -730,11 +1066,13 @@ def capture_page(
     screenshots_dir: Path,
     ui_dumps_dir: Path,
     device: str | None,
+    theme: str | None = None,
 ) -> PageCaptureResult:
     output = screenshots_dir / f"{page.id}.png"
     ui_dump = ui_dumps_dir / f"{page.id}.xml"
-    print(f"  Launching route: {page.route}")
-    adb_launch_route(page.route, spec, page, device)
+    theme_suffix = f" ({theme})" if theme else ""
+    print(f"  Launching route: {page.route}{theme_suffix}")
+    adb_launch_route(page.route, spec, page, device, theme)
     settle = page.settle_ms or spec.settle_ms
     time.sleep(settle / 1000.0)
 
@@ -745,12 +1083,14 @@ def capture_page(
             print(f"  WARNING: Element '{page.scroll_to}' not found after scrolling")
         time.sleep(0.5)
 
+    print(f"  Waiting for UI tree -> {ui_dump.name}")
+    _, result = wait_for_ui_tree(page, ui_dump, device, max(settle, 5000))
+    dismiss_runtime_permission_dialogs(device)
     print(f"  Capturing screenshot -> {output.name}")
-    adb_screenshot(output, device)
+    has_content = capture_screenshot_when_ready(output, device)
+    if not has_content:
+        print("  WARNING: Screenshot appears blank after retries")
     optimize_screenshot(output)
-    print(f"  Capturing UI tree -> {ui_dump.name}")
-    ui_xml = adb_dump_ui(ui_dump, device)
-    result = analyze_ui_tree(page, ui_xml, ui_dump)
     if result.reachable:
         print(f"  Reachable: {result.expected_root}")
     else:
@@ -828,11 +1168,20 @@ def main() -> None:
     build_dir = args.output.resolve().parent
     screenshots_dir = build_dir / "screenshots"
     ui_dumps_dir = build_dir / "ui-dumps"
-    screenshots_dir.mkdir(parents=True, exist_ok=True)
-    ui_dumps_dir.mkdir(parents=True, exist_ok=True)
+    screenshot_dirs = {theme: screenshots_dir / theme for theme in CAPTURE_THEMES}
+    ui_dump_dirs = {theme: ui_dumps_dir / theme for theme in CAPTURE_THEMES}
+    if args.skip_capture and not any((screenshots_dir / theme).exists() for theme in CAPTURE_THEMES):
+        screenshot_dirs = {"dark": screenshots_dir}
+        ui_dump_dirs = {"dark": ui_dumps_dir}
+    for directory in screenshot_dirs.values():
+        directory.mkdir(parents=True, exist_ok=True)
+    for directory in ui_dump_dirs.values():
+        directory.mkdir(parents=True, exist_ok=True)
     audit_json = build_dir / "ui-audit.json"
     mermaid_path = build_dir / "user-flow.mmd"
     mermaid_code = write_mermaid(spec, mermaid_path)
+    flow_svg_path = write_flow_svg(spec, build_dir / "user-flow.svg")
+    flow_svgs = write_flow_svgs(spec, build_dir, root)
 
     emulator_proc = None
     audit_results: list[PageCaptureResult] = []
@@ -859,31 +1208,45 @@ def main() -> None:
         # Enable demo mode for clean status bar
         print("Enabling demo mode (clean status bar)...")
         setup_demo_mode(args.device)
+        print("Granting runtime permissions...")
+        grant_runtime_permissions(args.device)
+        dismiss_runtime_permission_dialogs(args.device)
 
         try:
             for page in spec.pages:
                 print(f"[{page.id}] Capturing...")
-                try:
-                    audit_results.append(capture_page(page, spec, screenshots_dir, ui_dumps_dir, args.device))
-                except subprocess.CalledProcessError as e:
-                    print(f"  ERROR: ADB command failed: {e.cmd}")
-                    print(f"  stderr: {e.stderr}")
-                    print(f"  Skipping page '{page.id}'")
-                    audit_results.append(
-                        PageCaptureResult(
-                            page_id=page.id,
-                            route=page.route,
-                            expected_root=expected_root_for(page),
-                            reachable=False,
-                            missing_elements=[expected_root_for(page)] + page.required_elements,
-                            node_count=0,
-                            clickable_count=0,
-                            enabled_count=0,
-                            scrollable_count=0,
-                            text_samples=[],
-                            error=f"ADB command failed: {e.cmd}",
+                page_result: PageCaptureResult | None = None
+                for theme in CAPTURE_THEMES:
+                    try:
+                        result = capture_page(
+                            page,
+                            spec,
+                            screenshot_dirs[theme],
+                            ui_dump_dirs[theme],
+                            args.device,
+                            theme,
                         )
-                    )
+                        if page_result is None:
+                            page_result = result
+                    except subprocess.CalledProcessError as e:
+                        print(f"  ERROR: ADB command failed: {e.cmd}")
+                        print(f"  stderr: {e.stderr}")
+                        if page_result is None:
+                            page_result = PageCaptureResult(
+                                page_id=page.id,
+                                route=page.route,
+                                expected_root=expected_root_for(page),
+                                reachable=False,
+                                missing_elements=[expected_root_for(page)] + page.required_elements,
+                                node_count=0,
+                                clickable_count=0,
+                                enabled_count=0,
+                                scrollable_count=0,
+                                text_samples=[],
+                                error=f"ADB command failed: {e.cmd}",
+                            )
+                if page_result is not None:
+                    audit_results.append(page_result)
         finally:
             print("Disabling demo mode...")
             try:
@@ -901,25 +1264,29 @@ def main() -> None:
     if not args.no_frame:
         print("Framing screenshots with Pixel device mockup...")
         framed_dir = build_dir / "framed"
-        framed_dir.mkdir(parents=True, exist_ok=True)
+        framed_dirs = {theme: framed_dir / theme for theme in screenshot_dirs}
+        for directory in framed_dirs.values():
+            directory.mkdir(parents=True, exist_ok=True)
         framed_any = False
 
-        for page in spec.pages:
-            raw = screenshots_dir / f"{page.id}.png"
-            if not raw.exists():
-                continue
-            framed = framed_dir / f"{page.id}.png"
-            if frame_screenshot(raw, framed):
-                framed_any = True
-                print(f"  [{page.id}] Framed")
-            else:
-                # Fallback: copy original if skin not found
-                import shutil
-                shutil.copy2(raw, framed)
-                print(f"  [{page.id}] Skin not found, using original")
+        for theme, source_dir in screenshot_dirs.items():
+            target_dir = framed_dirs[theme]
+            for page in spec.pages:
+                raw = source_dir / f"{page.id}.png"
+                if not raw.exists():
+                    continue
+                framed = target_dir / f"{page.id}.png"
+                if frame_screenshot(raw, framed):
+                    framed_any = True
+                    print(f"  [{page.id}] {theme} framed")
+                else:
+                    # Fallback: copy original if skin not found
+                    import shutil
+                    shutil.copy2(raw, framed)
+                    print(f"  [{page.id}] {theme} skin not found, using original")
 
         if framed_any:
-            screenshots_dir = framed_dir  # Point Typst at framed screenshots
+            screenshot_dirs = framed_dirs  # Point Typst at framed screenshots
             print(f"Using framed screenshots from {framed_dir.name}/")
         elif not args.skip_capture:
             print("WARNING: No device frame skin found, using raw screenshots")
@@ -929,7 +1296,7 @@ def main() -> None:
     # Phase 2: Write JSON data for Typst
     data_json = build_dir / "guide-data.json"
     print("Writing guide data...")
-    missing = write_guide_data(spec, screenshots_dir, data_json, root, audit_results, mermaid_path, mermaid_code)
+    missing = write_guide_data(spec, screenshot_dirs, data_json, root, audit_results, mermaid_path, mermaid_code, flow_svg_path, flow_svgs)
     for page_id in missing:
         print(f"[{page_id}] WARNING: Screenshot not found, skipping")
 

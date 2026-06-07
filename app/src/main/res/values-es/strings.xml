@@ -1286,6 +1286,7 @@ fake_burst 3</string>
     <string name="home_mode_card_connected_format">Conectado %1$s</string>
     <string name="home_mode_card_diagnostic_status_review">Revisar última auditoría</string>
     <string name="home_mode_card_remote_relay_disabled">Relay desactivado</string>
+    <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
     <string name="home_mode_card_status_inactive">Inactivo</string>
     <string name="home_mode_vpn">VPN local</string>
     <string name="home_quality_excellent">Excelente</string>

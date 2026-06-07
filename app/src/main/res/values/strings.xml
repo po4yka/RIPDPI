@@ -511,6 +511,7 @@
     <string name="home_mode_card_connected_format">Connected %1$s</string>
     <string name="home_mode_card_connecting">Starting...</string>
     <string name="home_mode_card_remote_relay_disabled">Relay disabled</string>
+    <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
     <string name="home_mode_card_remote_server_unknown">Server not configured</string>
     <string name="home_mode_card_diagnostic_empty">No analysis yet</string>
     <string name="home_mode_card_status_active">Active</string>

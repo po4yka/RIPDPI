@@ -369,6 +369,7 @@ private fun HomeModeCardList(
             onPrimaryAction = { onVpnToggle(!uiState.vpnCard.isActive) },
             onConfigure = onVpnCardClick,
             onCardClick = onVpnCardClick,
+            onDisabledHintClick = onOpenModeEditor,
         )
         HomeModeCard(
             uiState = diagnosticCard,

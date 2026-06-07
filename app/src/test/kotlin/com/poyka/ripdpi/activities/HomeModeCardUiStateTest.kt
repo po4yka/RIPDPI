@@ -99,6 +99,7 @@ class HomeModeCardUiStateTest {
         val remoteVpn = cards.single { it.mode == HomeMode.RemoteVpn }
         assertEquals("Relay disabled", remoteVpn.primaryLabel)
         assertFalse(remoteVpn.primaryActionEnabled)
+        assertEquals("Enable a relay in Configure to turn this on", remoteVpn.primaryActionDisabledHint)
     }
 
     @Test
@@ -274,13 +275,15 @@ class HomeModeCardUiStateTest {
         connectionDuration: Duration = ZERO,
         homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
     ) = buildHomeModeCards(
-        settings = settings,
-        activeMode = activeMode,
-        configuredMode = configuredMode,
-        connectionState = connectionState,
-        connectionDuration = connectionDuration,
-        homeDiagnostics = homeDiagnostics,
-        stringResolver = stringResolver,
+        HomeModeCardsInput(
+            settings = settings,
+            activeMode = activeMode,
+            configuredMode = configuredMode,
+            connectionState = connectionState,
+            connectionDuration = connectionDuration,
+            homeDiagnostics = homeDiagnostics,
+            stringResolver = stringResolver,
+        ),
     )
 
     private class ResourceStringResolver : StringResolver {

@@ -12,8 +12,9 @@
 #let annotation-label(label-text, color) = {
   if label-text == "" or label-text == none { return }
   box(
-    fill: color.transparentize(18%),
-    radius: 6pt,
+    fill: rgb("#111111"),
+    stroke: 0.6pt + white,
+    radius: 4pt,
     inset: (x: 6pt, y: 3pt),
     text(fill: white, size: 8pt, weight: "medium")[#label-text],
   )

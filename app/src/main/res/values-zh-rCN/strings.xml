@@ -1175,6 +1175,7 @@ fakeddisorder endhost</string>
     <string name="home_mode_card_diagnostic_empty">暂无分析</string>
     <string name="home_mode_card_diagnostic_status_review">查看最新审计</string>
     <string name="home_mode_card_remote_relay_disabled">中继已禁用</string>
+    <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
     <string name="home_mode_card_status_busy">繁忙</string>
     <string name="home_mode_proxy">本地代理</string>
     <string name="home_quality_excellent">极佳</string>

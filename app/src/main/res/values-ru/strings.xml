@@ -2355,6 +2355,7 @@ fakeddisorder endhost</string>
     <string name="home_mode_card_disable">Отключить</string>
     <string name="home_mode_card_enable">Включить</string>
     <string name="home_mode_card_remote_relay_disabled">Реле отключено</string>
+    <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
     <string name="home_mode_card_remote_server_unknown">Сервер не настроен</string>
     <string name="home_mode_card_run_scan">Запустить сканирование</string>
     <string name="home_mode_card_status_active">Активно</string>

@@ -3,11 +3,14 @@ package com.poyka.ripdpi.ui.screens.home
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
@@ -66,6 +69,43 @@ class HomeModeCardTest {
     }
 
     @Test
+    fun `disabled vpn action renders relay hint and routes hint click`() {
+        var hintCalls = 0
+        var configureCalls = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeModeCard(
+                    uiState =
+                        card(
+                            mode = HomeMode.RemoteVpn,
+                            primaryLabel = "Relay disabled",
+                            primaryActionEnabled = false,
+                            primaryActionDisabledHint = "Enable a relay in Configure to turn this on",
+                        ),
+                    onPrimaryAction = {},
+                    onConfigure = { configureCalls++ },
+                    onDisabledHintClick = { hintCalls++ },
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name))
+            .assertIsNotEnabled()
+        composeRule
+            .onNodeWithText("Enable a relay in Configure to turn this on")
+            .assertIsDisplayed()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.HomeModeDisabledHint)
+            .performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(1, hintCalls)
+            assertEquals(0, configureCalls)
+        }
+    }
+
+    @Test
     fun `tapping card body calls card action without calling configure action`() {
         var cardCalls = 0
         var configureCalls = 0
@@ -96,7 +136,9 @@ class HomeModeCardTest {
         mode: HomeMode = HomeMode.LocalDpiBypass,
         active: Boolean = false,
         loading: Boolean = false,
+        primaryLabel: String? = null,
         primaryActionEnabled: Boolean = true,
+        primaryActionDisabledHint: String = "",
     ): HomeModeCardUiState =
         HomeModeCardUiState(
             mode = mode,
@@ -107,11 +149,12 @@ class HomeModeCardTest {
                     HomeMode.Diagnostic -> "Diagnostic Scan"
                 },
             primaryLabel =
-                when (mode) {
-                    HomeMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
-                    HomeMode.RemoteVpn -> "relay.example"
-                    HomeMode.Diagnostic -> "No analysis yet"
-                },
+                primaryLabel
+                    ?: when (mode) {
+                        HomeMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
+                        HomeMode.RemoteVpn -> "relay.example"
+                        HomeMode.Diagnostic -> "No analysis yet"
+                    },
             statusLine =
                 when {
                     loading -> "Busy"
@@ -126,6 +169,7 @@ class HomeModeCardTest {
                 },
             configureLabel = "Configure",
             primaryActionEnabled = primaryActionEnabled,
+            primaryActionDisabledHint = primaryActionDisabledHint,
             isActive = active,
             isLoading = loading,
         )

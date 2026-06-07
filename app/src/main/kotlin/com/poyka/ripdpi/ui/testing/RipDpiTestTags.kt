@@ -56,6 +56,7 @@ internal object RipDpiTestTags {
     const val HomeSetupHealthRow = "home-setup-health-row"
     const val HomeSetupHealthDetails = "home-setup-health-details"
     const val HomeSetupHealthAction = "home-setup-health-action"
+    const val HomeModeDisabledHint = "home-mode-disabled-hint"
     const val HomeNetworkConditionBanner = "home-network-condition-banner"
 
     const val ConfigEditCurrentButton = "config-edit-current"

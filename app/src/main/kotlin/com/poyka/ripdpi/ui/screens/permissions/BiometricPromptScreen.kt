@@ -148,6 +148,9 @@ fun BiometricPromptRoute(
 
 @Composable
 private fun SecureWindowEffect(context: android.content.Context) {
+    if (System.getProperty("ripdpi.staticMotion").toBoolean()) {
+        return
+    }
     val window = (context as? android.app.Activity)?.window
     DisposableEffect(Unit) {
         window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)

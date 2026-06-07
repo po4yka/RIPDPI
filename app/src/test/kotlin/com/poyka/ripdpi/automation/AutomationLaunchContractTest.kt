@@ -19,6 +19,7 @@ class AutomationLaunchContractTest {
                         AutomationLaunchContract.PermissionPreset to AutomationPermissionPreset.Granted.wireValue,
                         AutomationLaunchContract.ServicePreset to AutomationServicePreset.Idle.wireValue,
                         AutomationLaunchContract.DataPreset to AutomationDataPreset.CleanHome.wireValue,
+                        AutomationLaunchContract.Theme to AutomationThemePreset.Light.wireValue,
                     ),
                 intentArgs =
                     mapOf(
@@ -28,6 +29,7 @@ class AutomationLaunchContractTest {
                         AutomationLaunchContract.PermissionPreset to AutomationPermissionPreset.VpnMissing.wireValue,
                         AutomationLaunchContract.ServicePreset to AutomationServicePreset.ConnectedVpn.wireValue,
                         AutomationLaunchContract.DataPreset to AutomationDataPreset.BiometricLocked.wireValue,
+                        AutomationLaunchContract.Theme to AutomationThemePreset.Dark.wireValue,
                     ),
             )
 
@@ -39,6 +41,7 @@ class AutomationLaunchContractTest {
                 permissionPreset = AutomationPermissionPreset.VpnMissing,
                 servicePreset = AutomationServicePreset.ConnectedVpn,
                 dataPreset = AutomationDataPreset.BiometricLocked,
+                themePreset = AutomationThemePreset.Dark,
             ),
             config,
         )
@@ -55,6 +58,7 @@ class AutomationLaunchContractTest {
                         AutomationLaunchContract.PermissionPreset to "invalid_permission",
                         AutomationLaunchContract.ServicePreset to "invalid_service",
                         AutomationLaunchContract.DataPreset to "invalid_data",
+                        AutomationLaunchContract.Theme to "invalid_theme",
                     ),
             )
 
@@ -63,6 +67,7 @@ class AutomationLaunchContractTest {
         assertEquals(AutomationPermissionPreset.Granted, config.permissionPreset)
         assertEquals(AutomationServicePreset.Idle, config.servicePreset)
         assertEquals(AutomationDataPreset.CleanHome, config.dataPreset)
+        assertEquals(AutomationThemePreset.System, config.themePreset)
     }
 
     @Test

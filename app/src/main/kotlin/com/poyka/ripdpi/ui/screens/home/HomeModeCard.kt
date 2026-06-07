@@ -34,6 +34,7 @@ fun HomeModeCard(
     onConfigure: () -> Unit,
     modifier: Modifier = Modifier,
     onCardClick: (() -> Unit)? = null,
+    onDisabledHintClick: (() -> Unit)? = null,
 ) {
     val primaryEnabled = uiState.primaryActionEnabled && !uiState.isLoading
     val statusLabel = homeModeStatusLabel(uiState)
@@ -64,6 +65,7 @@ fun HomeModeCard(
             primaryEnabled = primaryEnabled,
             onPrimaryAction = onPrimaryAction,
             onConfigure = onConfigure,
+            onDisabledHintClick = onDisabledHintClick,
         )
     }
 }
@@ -164,31 +166,59 @@ private fun HomeModeCardActions(
     primaryEnabled: Boolean,
     onPrimaryAction: () -> Unit,
     onConfigure: () -> Unit,
+    onDisabledHintClick: (() -> Unit)?,
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
-        RipDpiButton(
-            text = primaryActionLabel,
-            onClick = onPrimaryAction,
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
-            enabled = primaryEnabled,
-            loading = uiState.isLoading,
-        )
-        RipDpiButton(
-            text = configureLabel,
-            onClick = onConfigure,
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .ripDpiTestTag(RipDpiTestTags.homeModeConfigureAction(uiState.mode.name)),
-            variant = RipDpiButtonVariant.Outline,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        ) {
+            RipDpiButton(
+                text = primaryActionLabel,
+                onClick = onPrimaryAction,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
+                enabled = primaryEnabled,
+                loading = uiState.isLoading,
+            )
+            RipDpiButton(
+                text = configureLabel,
+                onClick = onConfigure,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.homeModeConfigureAction(uiState.mode.name)),
+                variant = RipDpiButtonVariant.Outline,
+            )
+        }
+        HomeModeDisabledHint(
+            hint = uiState.primaryActionDisabledHint.takeIf { !primaryEnabled },
+            onClick = onDisabledHintClick ?: onConfigure,
         )
     }
+}
+
+@Composable
+private fun HomeModeDisabledHint(
+    hint: String?,
+    onClick: () -> Unit,
+) {
+    if (hint.isNullOrBlank()) return
+
+    Text(
+        text = hint,
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+        modifier =
+            Modifier
+                .ripDpiTestTag(RipDpiTestTags.HomeModeDisabledHint)
+                .ripDpiClickable(role = Role.Button, onClick = onClick),
+    )
 }
 
 @Composable

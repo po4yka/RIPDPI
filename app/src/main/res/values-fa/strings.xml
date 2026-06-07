@@ -502,6 +502,7 @@
     <string name="home_mode_card_connected_format">متصل %1$s</string>
     <string name="home_mode_card_connecting">در حال شروع...</string>
     <string name="home_mode_card_remote_relay_disabled">رله غیرفعال</string>
+    <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
     <string name="home_mode_card_remote_server_unknown">سرور پیکربندی نشده</string>
     <string name="home_mode_card_diagnostic_empty">هنوز هیچ تحلیلی نیست</string>
     <string name="home_mode_card_status_active">فعال</string>

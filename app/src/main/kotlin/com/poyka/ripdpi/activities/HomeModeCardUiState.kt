@@ -28,6 +28,7 @@ data class HomeModeCardUiState(
     val primaryActionLabel: String = "",
     val configureLabel: String = "",
     val primaryActionEnabled: Boolean = !isLoading,
+    val primaryActionDisabledHint: String = "",
 )
 
 internal val DefaultHomeModeCards: ImmutableList<HomeModeCardUiState> =
@@ -35,40 +36,47 @@ internal val DefaultHomeModeCards: ImmutableList<HomeModeCardUiState> =
         .map { mode -> HomeModeCardUiState(mode = mode) }
         .toImmutableList()
 
-@Suppress("LongParameterList")
-internal fun buildHomeModeCards(
-    settings: AppSettings,
-    activeMode: Mode,
-    configuredMode: Mode,
-    connectionState: ConnectionState,
-    connectionDuration: Duration,
-    homeDiagnostics: HomeDiagnosticsUiState,
-    stringResolver: StringResolver,
-): ImmutableList<HomeModeCardUiState> {
-    val draft = settings.toConfigDraft()
-    return persistentListOf(
+internal data class HomeModeCardsInput(
+    val settings: AppSettings,
+    val activeMode: Mode,
+    val configuredMode: Mode,
+    val connectionState: ConnectionState,
+    val connectionDuration: Duration,
+    val homeDiagnostics: HomeDiagnosticsUiState,
+    val stringResolver: StringResolver,
+)
+
+internal fun buildHomeModeCards(input: HomeModeCardsInput): ImmutableList<HomeModeCardUiState> {
+    val draft = input.settings.toConfigDraft()
+    return buildHomeModeCards(input, draft)
+}
+
+private fun buildHomeModeCards(
+    input: HomeModeCardsInput,
+    draft: ConfigDraft,
+): ImmutableList<HomeModeCardUiState> =
+    persistentListOf(
         buildLocalBypassCard(
             draft = draft,
-            activeMode = activeMode,
-            configuredMode = configuredMode,
-            connectionState = connectionState,
-            connectionDuration = connectionDuration,
-            stringResolver = stringResolver,
+            activeMode = input.activeMode,
+            configuredMode = input.configuredMode,
+            connectionState = input.connectionState,
+            connectionDuration = input.connectionDuration,
+            stringResolver = input.stringResolver,
         ),
         buildRemoteVpnCard(
             draft = draft,
-            activeMode = activeMode,
-            configuredMode = configuredMode,
-            connectionState = connectionState,
-            connectionDuration = connectionDuration,
-            stringResolver = stringResolver,
+            activeMode = input.activeMode,
+            configuredMode = input.configuredMode,
+            connectionState = input.connectionState,
+            connectionDuration = input.connectionDuration,
+            stringResolver = input.stringResolver,
         ),
         buildDiagnosticCard(
-            homeDiagnostics = homeDiagnostics,
-            stringResolver = stringResolver,
+            homeDiagnostics = input.homeDiagnostics,
+            stringResolver = input.stringResolver,
         ),
     )
-}
 
 private fun buildLocalBypassCard(
     draft: ConfigDraft,
@@ -122,17 +130,11 @@ private fun buildRemoteVpnCard(
     connectionDuration: Duration,
     stringResolver: StringResolver,
 ): HomeModeCardUiState {
-    val serverLabel = draft.relayServer.ifBlank { draft.relayServerName }.ifBlank { null }
     val relaySummary = draft.relaySummary
     return HomeModeCardUiState(
         mode = HomeMode.RemoteVpn,
         title = stringResolver.getString(R.string.home_mode_remote_vpn),
-        primaryLabel =
-            when {
-                !draft.relayEnabled -> stringResolver.getString(R.string.home_mode_card_remote_relay_disabled)
-                serverLabel != null -> serverLabel
-                else -> stringResolver.getString(R.string.home_mode_card_remote_server_unknown)
-            },
+        primaryLabel = remoteVpnPrimaryLabel(draft, stringResolver),
         secondaryLabel =
             modeStatusLabel(
                 connectionState = connectionState,
@@ -164,8 +166,31 @@ private fun buildRemoteVpnCard(
             connectionState == ConnectionState.Connecting &&
                 isRemoteVpnMode(mode = configuredMode, relayEnabled = draft.relayEnabled),
         primaryActionEnabled = draft.relayEnabled,
+        primaryActionDisabledHint = remoteVpnDisabledHint(draft, stringResolver),
     )
 }
+
+private fun remoteVpnPrimaryLabel(
+    draft: ConfigDraft,
+    stringResolver: StringResolver,
+): String {
+    val serverLabel = draft.relayServer.ifBlank { draft.relayServerName }.ifBlank { null }
+    return when {
+        !draft.relayEnabled -> stringResolver.getString(R.string.home_mode_card_remote_relay_disabled)
+        serverLabel != null -> serverLabel
+        else -> stringResolver.getString(R.string.home_mode_card_remote_server_unknown)
+    }
+}
+
+private fun remoteVpnDisabledHint(
+    draft: ConfigDraft,
+    stringResolver: StringResolver,
+): String =
+    if (draft.relayEnabled) {
+        ""
+    } else {
+        stringResolver.getString(R.string.home_mode_card_remote_relay_disabled_hint)
+    }
 
 private fun isLocalBypassMode(
     mode: Mode,

@@ -275,7 +275,8 @@ class DebugAutomationController
         private fun buildSeedSettings(config: AutomationLaunchConfig): AppSettings =
             AppSettingsSerializer.defaultValue
                 .toBuilder()
-                .setOnboardingComplete(true)
+                .setAppTheme(config.themePreset.wireValue)
+                .setOnboardingComplete(config.dataPreset != AutomationDataPreset.CleanHome)
                 .setBiometricEnabled(false)
                 .setBackupPin("")
                 .apply {
@@ -582,6 +583,12 @@ class DebugAutomationController
                                 source.getStringExtra(AutomationLaunchContract.DataPreset),
                             )
                         }
+                        if (source.hasExtra(AutomationLaunchContract.Theme)) {
+                            put(
+                                AutomationLaunchContract.Theme,
+                                source.getStringExtra(AutomationLaunchContract.Theme),
+                            )
+                        }
                         source.data?.let { deepLink ->
                             deepLink.getQueryParameter(AutomationLaunchContract.LaunchParamEnabled)?.let {
                                 put(AutomationLaunchContract.Enabled, it)
@@ -603,6 +610,9 @@ class DebugAutomationController
                             }
                             deepLink.getQueryParameter(AutomationLaunchContract.LaunchParamDataPreset)?.let {
                                 put(AutomationLaunchContract.DataPreset, it)
+                            }
+                            deepLink.getQueryParameter(AutomationLaunchContract.LaunchParamTheme)?.let {
+                                put(AutomationLaunchContract.Theme, it)
                             }
                         }
                     }

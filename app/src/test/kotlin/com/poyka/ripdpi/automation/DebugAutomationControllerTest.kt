@@ -44,6 +44,7 @@ class DebugAutomationControllerTest {
                     disableMotion = true,
                     dataPreset = AutomationDataPreset.SettingsReady,
                     servicePreset = AutomationServicePreset.ConnectedProxy,
+                    themePreset = AutomationThemePreset.Dark,
                 ),
             )
 
@@ -51,6 +52,7 @@ class DebugAutomationControllerTest {
             assertTrue(settings.onboardingComplete)
             assertFalse(settings.biometricEnabled)
             assertEquals("cloudflare", settings.dnsProviderId)
+            assertEquals("dark", settings.appTheme)
             assertTrue(settings.webrtcProtectionEnabled)
             assertEquals(AppStatus.Running to Mode.Proxy, serviceStateStore.status.value)
             assertEquals("true", System.getProperty("ripdpi.staticMotion"))
@@ -154,6 +156,21 @@ class DebugAutomationControllerTest {
         }
 
     @Test
+    fun `clean home preset keeps onboarding reachable`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val controller = newController(repository)
+
+            controller.prepareLaunch(
+                automationIntent(
+                    dataPreset = AutomationDataPreset.CleanHome,
+                ),
+            )
+
+            assertFalse(repository.snapshot().onboardingComplete)
+        }
+
+    @Test
     fun `fake start and stop mutate service state when preset is not live`() {
         val serviceStateStore = FakeServiceStateStore()
         val controller = newController(serviceStateStore = serviceStateStore)
@@ -194,6 +211,7 @@ class DebugAutomationControllerTest {
         permissionPreset: AutomationPermissionPreset = AutomationPermissionPreset.Granted,
         servicePreset: AutomationServicePreset = AutomationServicePreset.Idle,
         dataPreset: AutomationDataPreset = AutomationDataPreset.CleanHome,
+        themePreset: AutomationThemePreset = AutomationThemePreset.System,
     ): Intent =
         Intent().apply {
             putExtra(AutomationLaunchContract.Enabled, true)
@@ -202,6 +220,7 @@ class DebugAutomationControllerTest {
             putExtra(AutomationLaunchContract.PermissionPreset, permissionPreset.wireValue)
             putExtra(AutomationLaunchContract.ServicePreset, servicePreset.wireValue)
             putExtra(AutomationLaunchContract.DataPreset, dataPreset.wireValue)
+            putExtra(AutomationLaunchContract.Theme, themePreset.wireValue)
         }
 
     private fun newController(

@@ -21,6 +21,7 @@ object AutomationLaunchContract {
     const val LaunchParamPermissionPreset = "permission_preset"
     const val LaunchParamServicePreset = "service_preset"
     const val LaunchParamDataPreset = "data_preset"
+    const val LaunchParamTheme = "theme"
     const val Enabled = "com.poyka.ripdpi.automation.ENABLED"
     const val ResetState = "com.poyka.ripdpi.automation.RESET_STATE"
     const val StartRoute = "com.poyka.ripdpi.automation.START_ROUTE"
@@ -28,6 +29,7 @@ object AutomationLaunchContract {
     const val PermissionPreset = "com.poyka.ripdpi.automation.PERMISSION_PRESET"
     const val ServicePreset = "com.poyka.ripdpi.automation.SERVICE_PRESET"
     const val DataPreset = "com.poyka.ripdpi.automation.DATA_PRESET"
+    const val Theme = "com.poyka.ripdpi.automation.THEME"
 }
 
 enum class AutomationPermissionPreset(
@@ -74,6 +76,19 @@ enum class AutomationDataPreset(
     }
 }
 
+enum class AutomationThemePreset(
+    val wireValue: String,
+) {
+    System("system"),
+    Light("light"),
+    Dark("dark"),
+    ;
+
+    companion object {
+        fun fromWireValue(value: String?): AutomationThemePreset? = entries.firstOrNull { it.wireValue == value }
+    }
+}
+
 data class AutomationLaunchConfig(
     val enabled: Boolean = false,
     val resetState: Boolean = false,
@@ -82,6 +97,7 @@ data class AutomationLaunchConfig(
     val permissionPreset: AutomationPermissionPreset = AutomationPermissionPreset.Granted,
     val servicePreset: AutomationServicePreset = AutomationServicePreset.Idle,
     val dataPreset: AutomationDataPreset = AutomationDataPreset.CleanHome,
+    val themePreset: AutomationThemePreset = AutomationThemePreset.System,
 )
 
 internal fun resolveAutomationLaunchConfig(
@@ -142,6 +158,14 @@ internal fun resolveAutomationLaunchConfig(
                     key = AutomationLaunchContract.DataPreset,
                 ),
             ) ?: AutomationDataPreset.CleanHome,
+        themePreset =
+            AutomationThemePreset.fromWireValue(
+                readString(
+                    intentArgs = intentArgs,
+                    instrumentationArgs = instrumentationArgs,
+                    key = AutomationLaunchContract.Theme,
+                ),
+            ) ?: AutomationThemePreset.System,
     )
 }
 

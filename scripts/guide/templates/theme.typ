@@ -22,7 +22,8 @@
     width: size * 2,
     height: size * 2,
     radius: size,
-    fill: color,
+    fill: rgb("#111111"),
+    stroke: 0.8pt + rgb("#D9D9D9"),
     align(center + horizon, text(fill: white, weight: "bold", size: size * 0.9)[#number]),
   )
 }
@@ -31,12 +32,12 @@
 #let header-strip(title, step-num, theme) = {
   block(
     width: 100%,
-    height: 14mm,
+    height: 12mm,
     fill: theme.primary,
-    inset: (left: 10mm, right: 10mm),
+    inset: (left: 8mm, right: 8mm),
     {
       set align(left + horizon)
-      box(inset: (right: 6pt), step-badge(step-num, theme.accent, size: 5.5pt))
+      box(inset: (right: 6pt), step-badge(step-num, theme.primary, size: 5pt))
       text(fill: white, weight: "bold", size: 14pt)[#title]
     },
   )
@@ -46,12 +47,12 @@
 #let callout-box(prefix, body, theme) = {
   block(
     width: 100%,
-    fill: rgb("#FFF3E0"),
-    stroke: (left: 3pt + theme.accent, rest: none),
+    fill: rgb("#F7F7F7"),
+    stroke: (left: 3pt + theme.primary, rest: 0.5pt + rgb("#E5E5E5")),
     radius: (right: 4pt),
     inset: 10pt,
     {
-      text(fill: theme.accent, weight: "bold", size: 10pt)[#prefix:]
+      text(fill: theme.primary, weight: "bold", size: 10pt)[#prefix:]
       linebreak()
       text(fill: theme.text, size: 10pt)[#body]
     },

@@ -10,6 +10,10 @@
 
 #let data = json(sys.inputs.at("data-path"))
 #let theme = resolve-theme(data.theme)
+#let audit = data.at("audit", default: (:))
+#let audit-total = audit.at("total", default: 0)
+#let audit-reachable = audit.at("reachable", default: 0)
+#let audit-failed = audit.at("failed", default: 0)
 
 // ---------------------------------------------------------------------------
 // Document settings
@@ -19,7 +23,7 @@
 
 #set page(
   paper: "a4",
-  margin: (top: 10mm, bottom: 20mm, left: 20mm, right: 20mm),
+  margin: (top: 12mm, bottom: 16mm, left: 16mm, right: 16mm),
 )
 
 #set text(
@@ -51,26 +55,74 @@
 // Title page
 // ---------------------------------------------------------------------------
 
-// Green header bar
-#place(top + left, dx: -20mm, dy: -10mm,
-  rect(width: 250mm, height: 50mm, fill: theme.primary),
+#place(top + left, dx: -16mm, dy: -12mm,
+  rect(width: 230mm, height: 64mm, fill: theme.primary),
 )
 
-#v(6mm)
-#align(center, text(fill: white, weight: "bold", size: 32pt)[#data.title])
+#v(8mm)
+#align(left, text(fill: white, weight: "bold", size: 30pt)[#data.title])
 
 #if data.at("subtitle", default: "") != "" {
   v(2mm)
-  align(center, text(fill: white, size: 14pt)[#data.subtitle])
+  align(left, text(fill: rgb("#D9D9D9"), size: 13pt)[#data.subtitle])
 }
 
-#v(10mm)
+#v(18mm)
 
-// Accent line
-#line(start: (0mm, 0mm), end: (170mm, 0mm), stroke: 1pt + theme.accent)
+#line(start: (0mm, 0mm), end: (178mm, 0mm), stroke: 1pt + rgb("#111111"))
 
 #v(6mm)
-#align(center, text(fill: theme.muted, size: 12pt)[Generated #data.generated_date])
+#align(left, text(fill: theme.muted, size: 11pt)[Generated #data.generated_date])
+
+#v(8mm)
+
+#grid(
+  columns: (1fr, 1fr, 1fr),
+  gutter: 5mm,
+  box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 9pt)[
+    #text(fill: theme.muted, size: 9pt)[Captured screens]
+    #linebreak()
+    #text(fill: theme.text, weight: "bold", size: 22pt)[#audit-total]
+  ],
+  box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 9pt)[
+    #text(fill: theme.muted, size: 9pt)[Reachable states]
+    #linebreak()
+    #text(fill: theme.text, weight: "bold", size: 22pt)[#audit-reachable]
+  ],
+  box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 9pt)[
+    #text(fill: theme.muted, size: 9pt)[Review flags]
+    #linebreak()
+    #text(fill: theme.text, weight: "bold", size: 22pt)[#audit-failed]
+  ],
+)
+
+#v(6mm)
+
+#grid(
+  columns: (0.95fr, 1.05fr),
+  gutter: 8mm,
+  [
+    #text(weight: "bold", size: 13pt)[Audit package]
+    #v(3mm)
+    #text(fill: theme.text, size: 10.5pt)[This report combines Pixel 7 screenshots, accessibility-tree reachability checks, route/state metadata, and the generated Mermaid user-flow source for the current RIPDPI UI.]
+    #v(5mm)
+    #text(fill: theme.muted, size: 9pt)[Scope]
+    #v(2mm)
+    #text(fill: theme.text, size: 10pt)[Onboarding, home connection states, configuration, diagnostics, settings, route/profile editors, and security-gated surfaces.]
+  ],
+  {
+    let cover-page = if data.pages.len() > 0 { data.pages.first() } else { none }
+    if cover-page != none {
+      box(
+        width: 64mm,
+        stroke: 0.6pt + rgb("#D9D9D9"),
+        inset: 0pt,
+        clip: true,
+        image(cover-page.screenshot, width: 100%),
+      )
+    }
+  },
+)
 
 // ---------------------------------------------------------------------------
 // Table of contents
@@ -79,10 +131,10 @@
 #pagebreak()
 
 // TOC header
-#place(top + left, dx: -20mm, dy: -10mm,
-  rect(width: 250mm, height: 14mm, fill: theme.primary),
+#place(top + left, dx: -16mm, dy: -12mm,
+  rect(width: 230mm, height: 13mm, fill: theme.primary),
 )
-#v(-2mm)
+#v(-3mm)
 #text(fill: white, weight: "bold", size: 14pt)[#h(0mm) Contents]
 #v(10mm)
 
@@ -94,35 +146,30 @@
 
 #pagebreak()
 
-#place(top + left, dx: -20mm, dy: -10mm,
-  rect(width: 250mm, height: 14mm, fill: theme.primary),
+#place(top + left, dx: -16mm, dy: -12mm,
+  rect(width: 230mm, height: 13mm, fill: theme.primary),
 )
-#v(-2mm)
+#v(-3mm)
 #text(fill: white, weight: "bold", size: 14pt)[#h(0mm) UI Audit Summary]
 #v(10mm)
-
-#let audit = data.at("audit", default: (:))
-#let audit-total = audit.at("total", default: 0)
-#let audit-reachable = audit.at("reachable", default: 0)
-#let audit-failed = audit.at("failed", default: 0)
 
 #grid(
   columns: (1fr, 1fr, 1fr),
   gutter: 6mm,
-  box(fill: rgb("#E8F5E9"), radius: 4pt, inset: 8pt)[
+  box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 8pt)[
     #text(fill: theme.muted, size: 9pt)[Screens]
     #linebreak()
-    #text(fill: theme.primary, weight: "bold", size: 20pt)[#audit-total]
+    #text(fill: theme.text, weight: "bold", size: 20pt)[#audit-total]
   ],
-  box(fill: rgb("#E8F5E9"), radius: 4pt, inset: 8pt)[
+  box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 8pt)[
     #text(fill: theme.muted, size: 9pt)[Reachable]
     #linebreak()
-    #text(fill: theme.primary, weight: "bold", size: 20pt)[#audit-reachable]
+    #text(fill: theme.text, weight: "bold", size: 20pt)[#audit-reachable]
   ],
-  box(fill: rgb("#FFF3E0"), radius: 4pt, inset: 8pt)[
+  box(fill: rgb("#F7F7F7"), stroke: 0.6pt + rgb("#D9D9D9"), radius: 3pt, inset: 8pt)[
     #text(fill: theme.muted, size: 9pt)[Needs review]
     #linebreak()
-    #text(fill: theme.accent, weight: "bold", size: 20pt)[#audit-failed]
+    #text(fill: theme.text, weight: "bold", size: 20pt)[#audit-failed]
   ],
 )
 
@@ -130,13 +177,13 @@
 
 #for page in audit.at("pages", default: ()) {
   let ok = page.at("reachable", default: false)
-  let status-color = if ok { theme.primary } else { theme.accent }
+  let status-color = if ok { theme.text } else { theme.muted }
   block(
     width: 100%,
     below: 4pt,
-    fill: if ok { rgb("#F6FBF6") } else { rgb("#FFF8F0") },
-    stroke: 0.5pt + luma(220),
-    radius: 4pt,
+    fill: if ok { rgb("#FFFFFF") } else { rgb("#F7F7F7") },
+    stroke: 0.5pt + rgb("#D9D9D9"),
+    radius: 3pt,
     inset: 7pt,
     {
       text(fill: status-color, weight: "bold", size: 10pt)[#if ok { "REACHABLE" } else { "CHECK" }]
@@ -148,11 +195,11 @@
       text(fill: theme.muted, size: 9pt)[nodes: #page.node_count, clickable: #page.clickable_count, scrollable: #page.scrollable_count]
       if page.at("missing_elements", default: ()).len() > 0 {
         linebreak()
-        text(fill: theme.accent, size: 9pt)[missing: #page.missing_elements.join(", ")]
+        text(fill: theme.muted, size: 9pt)[missing: #page.missing_elements.join(", ")]
       }
       if page.at("error", default: none) != none {
         linebreak()
-        text(fill: theme.accent, size: 9pt)[error: #page.error]
+        text(fill: theme.muted, size: 9pt)[error: #page.error]
       }
     },
   )
@@ -164,22 +211,79 @@
 
 #pagebreak()
 
-#place(top + left, dx: -20mm, dy: -10mm,
-  rect(width: 250mm, height: 14mm, fill: theme.primary),
+#place(top + left, dx: -16mm, dy: -12mm,
+  rect(width: 230mm, height: 13mm, fill: theme.primary),
 )
-#v(-2mm)
+#v(-3mm)
 #text(fill: white, weight: "bold", size: 14pt)[#h(0mm) #data.at("flow_title", default: "Current user flow")]
 #v(10mm)
 
-#text(fill: theme.muted, size: 10pt)[Mermaid source is also written to #data.mermaid.path.]
-#v(4mm)
-#raw(data.mermaid.code, lang: "mermaid")
+#text(fill: theme.muted, size: 10pt)[Rendered from the generated Mermaid source at #data.mermaid.path.]
+#v(5mm)
+#for (idx, section) in data.mermaid.at("sections", default: ()).enumerate() {
+  if idx > 0 {
+    pagebreak()
+    place(top + left, dx: -16mm, dy: -12mm,
+      rect(width: 230mm, height: 13mm, fill: theme.primary),
+    )
+    v(-3mm)
+    text(fill: white, weight: "bold", size: 14pt)[#h(0mm) #data.at("flow_title", default: "Current user flow")]
+    v(10mm)
+  }
+  text(weight: "bold", size: 13pt)[#section.title]
+  linebreak()
+  text(fill: theme.muted, size: 9pt)[#section.subtitle]
+  v(3mm)
+  box(
+    width: 100%,
+    stroke: 0.6pt + rgb("#D9D9D9"),
+    inset: 0pt,
+    clip: true,
+    image(section.path, width: 100%, height: 185mm, fit: "contain"),
+  )
+  v(7mm)
+}
 
 // ---------------------------------------------------------------------------
 // Content pages
 // ---------------------------------------------------------------------------
 
-#let display-width = 170mm // A4 minus margins
+#let display-width = 178mm // A4 minus margins
+#let paired-shot-width = 84mm
+
+#let render-screenshot-shot(page, shot, shot-width, theme) = {
+  let screenshot-path = shot.path
+  let px-w = shot.pixel_width
+  let px-h = shot.pixel_height
+  let display-height = shot-width * (px-h / px-w)
+  let max-img-height = 185mm
+  let (final-w, final-h) = if display-height > max-img-height {
+    (max-img-height * (px-w / px-h), max-img-height)
+  } else {
+    (shot-width, display-height)
+  }
+  align(center, [
+    #text(fill: theme.muted, size: 9pt, weight: "bold")[#shot.label]
+    #v(2mm)
+    #box(width: final-w, height: final-h, {
+      place(
+        box(
+          width: final-w,
+          height: final-h,
+          stroke: 0.6pt + rgb("#CFCFCF"),
+          clip: true,
+          {
+            image(screenshot-path, width: 100%, height: 100%)
+            let annotations = page.at("annotations", default: ())
+            for (i, ann) in annotations.enumerate() {
+              draw-annotation(ann, i + 1, theme.primary, final-w, final-h)
+            }
+          },
+        ),
+      )
+    })
+  ])
+}
 
 #for (idx, page) in data.pages.enumerate() {
   pagebreak()
@@ -194,45 +298,18 @@
 
   v(4mm)
 
-  // Screenshot with annotation overlays
-  let screenshot-path = page.screenshot
-  let px-w = page.pixel_width
-  let px-h = page.pixel_height
-  let display-height = display-width * (px-h / px-w)
-
-  // Clamp height to leave room for description
-  let max-img-height = 195mm
-  let (final-w, final-h) = if display-height > max-img-height {
-    (max-img-height * (px-w / px-h), max-img-height)
-  } else {
-    (display-width, display-height)
+  // Theme comparison screenshots with annotation overlays
+  let screenshots = page.at("screenshots", default: ())
+  if screenshots.len() >= 2 {
+    grid(
+      columns: (1fr, 1fr),
+      gutter: 6mm,
+      render-screenshot-shot(page, screenshots.at(0), paired-shot-width, theme),
+      render-screenshot-shot(page, screenshots.at(1), paired-shot-width, theme),
+    )
+  } else if screenshots.len() == 1 {
+    align(center, render-screenshot-shot(page, screenshots.at(0), display-width, theme))
   }
-
-  align(center, {
-    // Outer container with room for shadow
-    box(width: final-w + 3pt, height: final-h + 3pt, {
-      // Shadow layer (offset behind)
-      place(dx: 3pt, dy: 3pt,
-        rect(width: final-w, height: final-h, fill: luma(210), radius: 1pt),
-      )
-      // Image with border and annotation overlays
-      place(
-        box(
-          width: final-w,
-          height: final-h,
-          stroke: 0.5pt + luma(200),
-          clip: true,
-          {
-            image(screenshot-path, width: 100%, height: 100%)
-            let annotations = page.at("annotations", default: ())
-            for (i, ann) in annotations.enumerate() {
-              draw-annotation(ann, i + 1, theme.accent, final-w, final-h)
-            }
-          },
-        ),
-      )
-    })
-  })
 
   v(4mm)
 

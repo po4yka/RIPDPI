@@ -147,13 +147,15 @@ private fun buildMainModeCards(
     homeDiagnostics: HomeDiagnosticsUiState,
     stringResolver: StringResolver,
 ) = buildHomeModeCards(
-    settings = inputs.settings,
-    activeMode = inputs.statusAndMode.second,
-    configuredMode = configuredMode,
-    connectionState = connectionState,
-    connectionDuration = inputs.runtime.connectionDuration,
-    homeDiagnostics = homeDiagnostics,
-    stringResolver = stringResolver,
+    HomeModeCardsInput(
+        settings = inputs.settings,
+        activeMode = inputs.statusAndMode.second,
+        configuredMode = configuredMode,
+        connectionState = connectionState,
+        connectionDuration = inputs.runtime.connectionDuration,
+        homeDiagnostics = homeDiagnostics,
+        stringResolver = stringResolver,
+    ),
 )
 
 private fun buildMainConnectionActuator(

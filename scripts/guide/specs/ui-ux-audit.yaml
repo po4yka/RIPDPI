@@ -3,8 +3,11 @@ subtitle: "Reachability, state coverage, and settings accessibility"
 flow_title: "Current app user flow"
 
 theme:
-  primary: "#1B5E20"
-  accent: "#E65100"
+  primary: "#111111"
+  accent: "#F2F2F2"
+  text: "#111111"
+  muted: "#6F6F6F"
+  background: "#FFFFFF"
 
 defaults:
   permission_preset: "granted"
@@ -44,7 +47,7 @@ pages:
     required_elements: ["home-permission-issue-banner"]
     state: "permission repair"
     description: |
-      Missing VPN permission should produce an actionable repair banner without hiding the home status surface.
+      Missing VPN permission state with a repair banner shown on the home status surface.
 
   - id: home_connected_proxy
     title: "Home Connected Proxy"
@@ -56,7 +59,7 @@ pages:
     required_elements: ["home-connection-button", "home-connection-route-label"]
     state: "connected proxy"
     description: |
-      Connected proxy state should keep the stop action and route context easy to find.
+      Connected proxy state with the stop action and route context on the home surface.
 
   - id: home_connected_vpn
     title: "Home Connected VPN"
@@ -68,7 +71,7 @@ pages:
     required_elements: ["home-connection-button", "home-connection-route-label"]
     state: "connected VPN"
     description: |
-      Connected VPN state should clearly communicate tunnel status and keep the stop action reachable.
+      Connected VPN state with tunnel status and the connection stop action visible.
 
   - id: config
     title: "Config"
@@ -89,7 +92,7 @@ pages:
     expected_root: "config/local_bypass-screen"
     state: "local proxy"
     description: |
-      Local bypass profile controls should remain reachable from the configuration hub.
+      Local bypass profile configuration state reached from the configuration hub.
 
   - id: vpn_config
     title: "VPN Config"
@@ -99,7 +102,7 @@ pages:
     expected_root: "config/vpn-screen"
     state: "VPN profile"
     description: |
-      VPN profile controls should expose the settings needed before starting a tunnel.
+      VPN profile configuration state for tunnel setup.
 
   - id: mode_editor
     title: "Mode Editor"
@@ -109,7 +112,7 @@ pages:
     expected_root: "mode_editor-screen"
     state: "edit mode"
     description: |
-      Mode editor should expose editable network parameters, validation, and save affordances.
+      Mode editor state with editable network parameters, validation surfaces, and save controls.
 
   - id: strategy_config
     title: "Strategy Config"
@@ -119,7 +122,7 @@ pages:
     expected_root: "strategy_config-screen"
     state: "strategy settings"
     description: |
-      Strategy configuration should make DPI bypass parameters understandable and recoverable.
+      Strategy configuration state with DPI bypass parameters and recovery controls.
 
   - id: strategy_import
     title: "Strategy Import"
@@ -129,7 +132,7 @@ pages:
     expected_root: "strategy_import-screen"
     state: "import"
     description: |
-      Strategy import should provide a clear path for bringing existing configuration into the app.
+      Strategy import state for bringing existing configuration into the app.
 
   - id: dns_settings
     title: "DNS Settings"
@@ -139,7 +142,7 @@ pages:
     expected_root: "dns_settings-screen"
     state: "resolver settings"
     description: |
-      DNS settings should expose resolver selection and custom provider inputs without burying save controls.
+      DNS settings state with resolver selection, custom provider inputs, and save controls.
 
   - id: advanced_settings_top
     title: "Advanced Settings"
@@ -150,7 +153,7 @@ pages:
     required_elements: ["advanced-section-desync"]
     state: "top"
     description: |
-      Advanced settings should group risky controls clearly and keep section labels scannable.
+      Advanced settings top state with grouped advanced controls and section labels.
 
   - id: advanced_settings_activation
     title: "Activation Window"
@@ -162,7 +165,7 @@ pages:
     required_elements: ["advanced-section-activation-window"]
     state: "scrolled"
     description: |
-      Scheduled activation controls should be reachable by scrolling and should expose editable from/to controls.
+      Advanced settings scrolled state around the scheduled activation controls.
 
   - id: detection_settings
     title: "Detection Settings"
@@ -172,7 +175,7 @@ pages:
     expected_root: "detection_settings-screen"
     state: "probe settings"
     description: |
-      Detection settings should expose scan-related resolver and routing preferences.
+      Detection settings state with scan-related resolver and routing preferences.
 
   - id: split_tunnel
     title: "Split Tunnel"
@@ -182,7 +185,7 @@ pages:
     expected_root: "split_tunnel-screen"
     state: "app routing"
     description: |
-      Split tunnel controls should make included and excluded app routing understandable.
+      Split tunnel state with included and excluded app routing controls.
 
   - id: domain_bypass_list
     title: "Domain Bypass List"
@@ -192,7 +195,7 @@ pages:
     expected_root: "domain_bypass_list-screen"
     state: "domain rules"
     description: |
-      Domain bypass management should expose list actions and empty states clearly.
+      Domain bypass management state with list actions and domain-rule content.
 
   - id: diagnostics
     title: "Diagnostics"
@@ -204,7 +207,7 @@ pages:
     required_elements: ["diagnostics-top-history-action"]
     state: "demo data"
     description: |
-      Diagnostics should expose scan controls, recent reports, and history access without requiring a live network run.
+      Diagnostics state seeded with demo data, scan controls, recent reports, and history access.
 
   - id: scanner
     title: "Scanner"
@@ -215,7 +218,7 @@ pages:
     expected_root: "scanner-screen"
     state: "scan entry"
     description: |
-      Scanner entry should communicate what will run and how to cancel or inspect results.
+      Scanner entry state with camera preview and import-from-image action.
 
   - id: detection_check
     title: "Detection Check"
@@ -226,7 +229,7 @@ pages:
     expected_root: "detection_check-screen"
     state: "analysis"
     description: |
-      Detection check should surface verdicts and uncertainty without overstating confidence.
+      Detection check state with analysis output and status details.
 
   - id: blockcheck
     title: "Blockcheck"
@@ -237,7 +240,7 @@ pages:
     expected_root: "blockcheck-screen"
     state: "check"
     description: |
-      Blockcheck should make test state, results, and retry actions visible.
+      Blockcheck state with test status, results, and retry actions.
 
   - id: history
     title: "History"
@@ -248,7 +251,7 @@ pages:
     expected_root: "history-screen"
     state: "seeded"
     description: |
-      History should expose search and filters for prior diagnostics and service events.
+      History state seeded with prior diagnostics and service events.
 
   - id: logs
     title: "Logs"
@@ -260,7 +263,7 @@ pages:
     required_elements: ["logs-save", "logs-clear"]
     state: "seeded"
     description: |
-      Logs should make export, clear, filter, and empty states accessible.
+      Logs state with export, clear, filter, and log-content controls.
 
   - id: shared_diagnostic_result
     title: "Shared Diagnostic Result"
@@ -271,7 +274,7 @@ pages:
     expected_root: "shared_diagnostic_result-screen"
     state: "report demo"
     description: |
-      Shared diagnostic result should be readable as a standalone report state.
+      Shared diagnostic result state rendered as a standalone report.
 
   - id: pcap_capture_list
     title: "PCAP Captures"
@@ -282,7 +285,7 @@ pages:
     expected_root: "pcap_capture_list-screen"
     state: "capture list"
     description: |
-      PCAP capture list should show available captures and the empty state without confusing diagnostics history.
+      PCAP capture list state with capture entries or empty-state content.
 
   - id: settings
     title: "Settings"
@@ -293,7 +296,7 @@ pages:
     required_elements: ["settings-dns-settings", "settings-advanced-settings", "settings-data-transparency", "settings-about"]
     state: "main"
     description: |
-      Settings should make every secondary settings surface discoverable and tappable.
+      Settings hub with secondary settings surfaces and navigation entries.
 
   - id: app_customization
     title: "App Customization"
@@ -303,7 +306,7 @@ pages:
     expected_root: "app_customization-screen"
     state: "appearance"
     description: |
-      App customization should expose theme and visual preference controls without hidden dependencies.
+      App customization state with theme and visual preference controls.
 
   - id: data_transparency
     title: "Data Transparency"
@@ -313,7 +316,7 @@ pages:
     expected_root: "data_transparency-screen"
     state: "privacy"
     description: |
-      Data transparency should explain local-only data handling and export implications in a scannable way.
+      Data transparency state with local-data handling and export information.
 
   - id: backup_restore
     title: "Backup And Restore"
@@ -323,7 +326,7 @@ pages:
     expected_root: "backup_restore-screen"
     state: "backup"
     description: |
-      Backup and restore should make import/export actions and risk copy easy to understand.
+      Backup and restore state with import/export actions and related risk copy.
 
   - id: about
     title: "About"
@@ -333,7 +336,7 @@ pages:
     expected_root: "about-screen"
     state: "about"
     description: |
-      About should expose version, distribution, and support links.
+      About state with version, distribution, and support links.
 
   - id: biometric_prompt
     title: "Biometric Prompt"
@@ -344,7 +347,7 @@ pages:
     expected_root: "biometric_prompt-screen"
     state: "locked with PIN"
     description: |
-      Biometric lock should offer a clear fallback path when biometric auth is unavailable.
+      Biometric lock state with PIN fallback content.
 
   - id: routes
     title: "Routes"
@@ -354,7 +357,7 @@ pages:
     expected_root: "routes-screen"
     state: "routing"
     description: |
-      Routes should expose route management and rule editing entry points.
+      Routes state with route management and rule editing entry points.
 
   - id: rule_editor
     title: "Rule Editor"
@@ -364,7 +367,7 @@ pages:
     expected_root: "rule_editor-screen"
     state: "rule edit"
     description: |
-      Rule editor should make match fields, validation, and save state clear.
+      Rule editor state with match fields, validation, and save controls.
 
   - id: profile_variants
     title: "Profile Variants"
@@ -374,7 +377,7 @@ pages:
     expected_root: "profile_variants-screen"
     state: "variants"
     description: |
-      Profile variants should support comparison and selection without losing the active profile context.
+      Profile variants state with profile comparison and selection content.
 
   - id: anytls_profile
     title: "AnyTLS Profile"
@@ -384,7 +387,7 @@ pages:
     expected_root: "profile/anytls-screen"
     state: "relay profile"
     description: |
-      AnyTLS profile settings should expose required transport fields and validation.
+      AnyTLS profile settings state with transport fields and validation content.
 
   - id: amneziawg_profile
     title: "AmneziaWG Profile"
@@ -394,7 +397,7 @@ pages:
     expected_root: "profile/amneziawg-screen"
     state: "VPN profile"
     description: |
-      AmneziaWG profile settings should expose endpoint, keys, and obfuscation details clearly.
+      AmneziaWG profile settings state with endpoint, key, and obfuscation fields.
 
   - id: xray_import
     title: "Xray Import"
@@ -404,4 +407,4 @@ pages:
     expected_root: "xray/import-screen"
     state: "import"
     description: |
-      Xray import should present paste/parse feedback and confirmation paths.
+      Xray import state with paste, parse feedback, and confirmation content.
