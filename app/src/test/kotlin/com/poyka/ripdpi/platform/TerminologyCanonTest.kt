@@ -24,6 +24,10 @@ class TerminologyCanonTest {
             listOf(
                 "Desync method",
                 "Strategy chain",
+                "on-device packet strategies",
+                "packet strategy controls",
+                "Active packet transformation strategy",
+                "CLI overrides chain",
                 "VPN with Remote Server",
                 "Local DPI Bypass",
                 "LOCAL DPI BYPASS",

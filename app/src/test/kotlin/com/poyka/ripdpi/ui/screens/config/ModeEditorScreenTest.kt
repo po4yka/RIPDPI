@@ -108,7 +108,7 @@ class ModeEditorScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorAdvanced).performScrollTo().performClick()
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText("CLI overrides chain").assertExists()
+        composeRule.onNodeWithText("CLI overrides bypass strategy").assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true).assertIsNotEnabled()
     }
 
