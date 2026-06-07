@@ -1319,6 +1319,7 @@ Source : %2$s</string>
     <string name="http_fake_profile_body">Charge utile de base pour les faux paquets HTTP. Elle ne modifie que la forme crédible de la requête, pas le comportement du transport.</string>
     <string name="http_fake_profile_scope_ready">Prêt lorsque la chaîne TCP ajoute une étape fake complète pour le trafic HTTP.</string>
     <string name="language_name_fa">فارسی</string>
+    <string name="language_name_ar">العربية</string>
     <string name="language_picker_sheet_title">Choisir la langue</string>
     <string name="logs_auto_scroll_title">Défilement automatique vers les plus récents</string>
     <string name="logs_empty_title">Aucun journal pour l\'instant</string>

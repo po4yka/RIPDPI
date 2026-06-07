@@ -1319,6 +1319,7 @@ Quelle: %2$s</string>
     <string name="http_fake_profile_body">Basis-Nutzlast für HTTP-Fake-Pakete. Sie ändert nur die glaubwürdige Anfrageform, nicht das Transportverhalten.</string>
     <string name="http_fake_profile_scope_ready">Bereit, sobald die TCP-Chain einen vollständigen Fake-Schritt für HTTP-Verkehr hinzufügt.</string>
     <string name="language_name_fa">فارسی</string>
+    <string name="language_name_ar">العربية</string>
     <string name="language_picker_sheet_title">Sprache wählen</string>
     <string name="logs_auto_scroll_title">Automatisch zum Neuesten scrollen</string>
     <string name="logs_empty_title">Noch keine Logs</string>

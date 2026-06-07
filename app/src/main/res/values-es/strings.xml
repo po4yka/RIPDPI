@@ -1319,6 +1319,7 @@ Origen: %2$s</string>
     <string name="http_fake_profile_body">Payload base para paquetes fake HTTP. Solo cambia la forma creíble de la petición, no el comportamiento del transporte.</string>
     <string name="http_fake_profile_scope_ready">Listo cuando la cadena TCP añada un paso fake completo para tráfico HTTP.</string>
     <string name="language_name_fa">فارسی</string>
+    <string name="language_name_ar">العربية</string>
     <string name="language_picker_sheet_title">Elegir idioma</string>
     <string name="logs_auto_scroll_title">Auto-desplazar a lo más reciente</string>
     <string name="logs_empty_title">Aún no hay registros</string>
