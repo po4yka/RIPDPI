@@ -10,6 +10,28 @@ fn seqovl_step(pos: i64) -> TcpChainStep {
 }
 
 #[test]
+fn plan_tcp_rejects_send_offset_beyond_payload_len() {
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, payload.len() as i64))];
+
+    assert!(plan_tcp(&group, payload, 7, 64, tcp_context(payload)).is_err());
+}
+
+#[test]
+fn plan_tcp_rejects_send_offset_before_cursor() {
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::Split, split_expr(8)),
+        TcpChainStep::new(TcpChainStepKind::Split, split_expr(4)),
+    ];
+
+    assert!(plan_tcp(&group, payload, 7, 64, tcp_context(payload)).is_err());
+}
+
+#[test]
 fn tcp_segment_hint_budget_uses_fallback_order() {
     assert_eq!(
         TcpSegmentHint { snd_mss: Some(96), advmss: Some(120), pmtu: Some(1500), ip_header_overhead: 40 }

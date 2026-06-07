@@ -15,7 +15,7 @@ pub(super) fn resolve_send_step_offset(
     rng: &mut OracleRng,
     context: ActivationContext,
 ) -> Result<Option<i64>, DesyncError> {
-    let Some(mut pos) = resolve_offset(
+    let Some(pos) = resolve_offset(
         step.offset(),
         tampered,
         tampered.len(),
@@ -30,11 +30,9 @@ pub(super) fn resolve_send_step_offset(
         }
         return Err(DesyncError);
     };
-    if pos < 0 || pos < lp {
+    let payload_len = tampered.len() as i64;
+    if pos < 0 || pos < lp || pos > payload_len {
         return Err(DesyncError);
-    }
-    if pos > tampered.len() as i64 {
-        pos = tampered.len() as i64;
     }
     Ok(Some(pos))
 }
