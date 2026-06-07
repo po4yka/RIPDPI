@@ -155,11 +155,14 @@ fn high_popcount_client_hello() -> Vec<u8> {
 /// step whose split offset is past the payload end, so the whole fake decoy is
 /// emitted. `entropy_mode` is the only varying knob.
 fn fake_step_group(entropy_mode: EntropyMode) -> DesyncGroup {
+    use ripdpi_config::OffsetBase;
+
     let mut group = test_group();
     group.actions.fake_tls_source = ripdpi_config::FakePacketSource::CapturedClientHello;
     group.actions.entropy_mode = entropy_mode;
     group.actions.entropy_padding_target_permil = Some(3400);
-    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(1 << 20))];
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))];
     group
 }
 

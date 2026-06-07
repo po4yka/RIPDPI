@@ -17,6 +17,9 @@ cargo fmt --manifest-path "$workspace_manifest" --all --check
 echo "==> clippy"
 cargo clippy --manifest-path "$workspace_manifest" --workspace --all-targets -- -D warnings
 
+echo "==> REALITY BoringSSL hook vector guard"
+python3 "$repo_root/scripts/ci/check_reality_boring_vector.py"
+
 echo "==> cross-target check (Android ABIs)"
 if ! android_sdk_root="$(resolve_android_sdk_root)"; then
   echo "  Android SDK not found — skipping Android cross-target checks"
@@ -65,6 +68,11 @@ else
     unset MACOSX_DEPLOYMENT_TARGET IPHONEOS_DEPLOYMENT_TARGET TVOS_DEPLOYMENT_TARGET WATCHOS_DEPLOYMENT_TARGET XROS_DEPLOYMENT_TARGET
     unset ARCHFLAGS RC_ARCHS CMAKE_OSX_ARCHITECTURES CMAKE_OSX_SYSROOT
     unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
+    previous_boring_cpplib="${BORING_BSSL_RUST_CPPLIB-}"
+    previous_boring_cpplib_was_set=0
+    if [[ -v BORING_BSSL_RUST_CPPLIB ]]; then
+      previous_boring_cpplib_was_set=1
+    fi
     export BORING_BSSL_RUST_CPPLIB="${BORING_BSSL_RUST_CPPLIB:-c++_static}"
     compiler_wrapper_dir="$(create_android_compiler_wrapper_dir "$repo_root/native/rust/target/android-compiler-wrappers/native-checks")"
 
@@ -100,6 +108,12 @@ else
       RUSTC_WRAPPER="" cargo check --manifest-path "$workspace_manifest" --workspace \
         --exclude ripdpi-io-uring --target "$target" --locked
     done
+
+    if [[ "$previous_boring_cpplib_was_set" -eq 1 ]]; then
+      export BORING_BSSL_RUST_CPPLIB="$previous_boring_cpplib"
+    else
+      unset BORING_BSSL_RUST_CPPLIB
+    fi
   fi
 fi
 

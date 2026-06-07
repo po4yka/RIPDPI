@@ -33,6 +33,8 @@ use std::ffi::c_int;
 use std::os::raw::c_void;
 use std::panic::AssertUnwindSafe;
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(test)]
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::reality_seal::{SESSION_ID_LEN, SESSION_ID_OFFSET, seal_session_id};
@@ -154,6 +156,22 @@ pub(crate) struct RealityCallbackState {
     /// Inspected by [`RealityHookGuard::was_successful`] after the
     /// handshake completes so callers can surface a clean error.
     pub failed: AtomicBool,
+    #[cfg(test)]
+    pub fixed_now_secs: Option<u32>,
+    #[cfg(test)]
+    pub trace: Option<Arc<Mutex<RealityHookTrace>>>,
+}
+
+#[cfg(test)]
+#[derive(Clone, Debug, Default)]
+pub(crate) struct RealityHookTrace {
+    pub priv_key: [u8; 32],
+    pub client_random: [u8; 32],
+    pub raw_hello_before: Vec<u8>,
+    pub raw_hello_after: Vec<u8>,
+    pub sealed_session_id: [u8; SESSION_ID_LEN],
+    pub now_secs: u32,
+    pub callback_count: usize,
 }
 
 pub(crate) struct RealityHookGuard {
@@ -230,7 +248,44 @@ pub(crate) unsafe fn install_reality_client_hello_hook(
     server_pubkey: [u8; 32],
     short_id: Vec<u8>,
 ) -> RealityHookGuard {
-    let state = Box::new(RealityCallbackState { server_pubkey, short_id, failed: AtomicBool::new(false) });
+    let state = Box::new(RealityCallbackState {
+        server_pubkey,
+        short_id,
+        failed: AtomicBool::new(false),
+        #[cfg(test)]
+        fixed_now_secs: None,
+        #[cfg(test)]
+        trace: None,
+    });
+    // SAFETY: caller of this unsafe function supplied a valid `ssl` and upholds
+    // the same guard-lifetime contract required by the shared installer.
+    unsafe { install_reality_client_hello_hook_with_state(ssl, state) }
+}
+
+#[cfg(test)]
+unsafe fn install_reality_client_hello_hook_for_test(
+    ssl: *mut SslHandle,
+    server_pubkey: [u8; 32],
+    short_id: Vec<u8>,
+    fixed_now_secs: u32,
+    trace: Arc<Mutex<RealityHookTrace>>,
+) -> RealityHookGuard {
+    let state = Box::new(RealityCallbackState {
+        server_pubkey,
+        short_id,
+        failed: AtomicBool::new(false),
+        fixed_now_secs: Some(fixed_now_secs),
+        trace: Some(trace),
+    });
+    // SAFETY: caller of this test-only unsafe function supplied a valid `ssl`
+    // and keeps the returned guard alive across the handshake attempt.
+    unsafe { install_reality_client_hello_hook_with_state(ssl, state) }
+}
+
+unsafe fn install_reality_client_hello_hook_with_state(
+    ssl: *mut SslHandle,
+    state: Box<RealityCallbackState>,
+) -> RealityHookGuard {
     let state_ptr = Box::into_raw(state);
     // SAFETY: caller upholds the contract that `ssl` is a valid SSL pointer.
     let ctx = unsafe { SSL_get_SSL_CTX(ssl.cast_const()) };
@@ -294,6 +349,14 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
         return 0;
     }
 
+    #[cfg(test)]
+    let raw_hello_before = state.trace.as_ref().map(|_| msg_slice.to_vec());
+
+    #[cfg(test)]
+    let now = state
+        .fixed_now_secs
+        .unwrap_or_else(|| SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as u32));
+    #[cfg(not(test))]
     let now = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs() as u32);
 
     let Ok(sealed) = seal_session_id(&priv_key, &state.server_pubkey, &client_random, &state.short_id, msg_slice, now)
@@ -304,27 +367,57 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
         return 0;
     };
 
+    msg_slice[SESSION_ID_OFFSET..SESSION_ID_OFFSET + SESSION_ID_LEN].copy_from_slice(&sealed);
+    #[cfg(test)]
+    if let (Some(trace), Some(raw_hello_before)) = (&state.trace, raw_hello_before) {
+        let mut trace = trace.lock().expect("reality hook trace lock");
+        trace.priv_key = priv_key;
+        trace.client_random = client_random;
+        trace.raw_hello_before = raw_hello_before;
+        trace.raw_hello_after = msg_slice.to_vec();
+        trace.sealed_session_id = sealed;
+        trace.now_secs = now;
+        trace.callback_count += 1;
+    }
+
     // Best-effort wipe of the priv_key local before returning.
     priv_key.fill(0);
-
-    msg_slice[SESSION_ID_OFFSET..SESSION_ID_OFFSET + SESSION_ID_LEN].copy_from_slice(&sealed);
     1
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::reality_seal::{build_session_id_plaintext, derive_auth_key};
+    use boring::ssl::{SslConnector, SslMethod, SslVerifyMode};
+    use foreign_types_shared::ForeignType;
+    use ring::aead::{AES_256_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
+    use std::io::Read;
+    use std::net::{Shutdown, TcpListener, TcpStream};
+    use std::thread;
+    use std::time::Duration;
+    use x25519_dalek::{PublicKey, StaticSecret};
+
+    const BORING_HOOK_VECTOR: &str = include_str!("../tests/reality_hook_vector.json");
+    const REALITY_HOOK_FIXED_NOW_SECS: u32 = 1_700_000_000;
+    const REALITY_HOOK_SHORT_ID: &[u8] = &[0xAB, 0xCD];
+
+    fn test_state(server_pubkey: [u8; 32], short_id: Vec<u8>) -> Box<RealityCallbackState> {
+        Box::new(RealityCallbackState {
+            server_pubkey,
+            short_id,
+            failed: AtomicBool::new(false),
+            fixed_now_secs: None,
+            trace: None,
+        })
+    }
 
     /// The guard freezes its state pointer to null on drop; this
     /// test exercises the drop path by leaking and reclaiming a
     /// state object directly (no BoringSSL involvement).
     #[test]
     fn guard_reclaims_box_on_drop() {
-        let state = Box::new(RealityCallbackState {
-            server_pubkey: [0u8; 32],
-            short_id: vec![0xAA],
-            failed: AtomicBool::new(false),
-        });
+        let state = test_state([0u8; 32], vec![0xAA]);
         let raw = Box::into_raw(state);
         let guard = RealityHookGuard { state_ptr: raw };
         assert!(guard.was_successful());
@@ -336,11 +429,7 @@ mod tests {
     /// `was_successful` reflects the latched failure flag.
     #[test]
     fn guard_reports_failure_after_state_flag_set() {
-        let state = Box::new(RealityCallbackState {
-            server_pubkey: [0u8; 32],
-            short_id: vec![],
-            failed: AtomicBool::new(false),
-        });
+        let state = test_state([0u8; 32], vec![]);
         let raw = Box::into_raw(state);
         // SAFETY: pointer is alive for the duration of this test
         // (the guard drops it at end).
@@ -363,11 +452,7 @@ mod tests {
     /// rejected without writing past the buffer.
     #[test]
     fn callback_inner_rejects_short_msg() {
-        let state = Box::new(RealityCallbackState {
-            server_pubkey: [0u8; 32],
-            short_id: vec![],
-            failed: AtomicBool::new(false),
-        });
+        let state = test_state([0u8; 32], vec![]);
         let raw = Box::into_raw(state);
         let mut msg = vec![0u8; SESSION_ID_OFFSET + SESSION_ID_LEN - 1];
         let ret = reality_client_hello_cb_inner(
@@ -389,11 +474,7 @@ mod tests {
     /// Miri detects use-after-free if the null guard is missing.
     #[test]
     fn guard_drop_nulls_state_pointer() {
-        let state = Box::new(RealityCallbackState {
-            server_pubkey: [0u8; 32],
-            short_id: vec![],
-            failed: AtomicBool::new(false),
-        });
+        let state = test_state([0u8; 32], vec![]);
         let raw = Box::into_raw(state);
         let mut guard = RealityHookGuard { state_ptr: raw };
         // Take a copy of the address for post-drop comparison only;
@@ -425,16 +506,8 @@ mod tests {
     /// Miri catches any double-free.
     #[test]
     fn two_concurrent_guards_drop_independently() {
-        let state_a = Box::new(RealityCallbackState {
-            server_pubkey: [1u8; 32],
-            short_id: vec![0x01],
-            failed: AtomicBool::new(false),
-        });
-        let state_b = Box::new(RealityCallbackState {
-            server_pubkey: [2u8; 32],
-            short_id: vec![0x02],
-            failed: AtomicBool::new(false),
-        });
+        let state_a = test_state([1u8; 32], vec![0x01]);
+        let state_b = test_state([2u8; 32], vec![0x02]);
         let guard_a = RealityHookGuard { state_ptr: Box::into_raw(state_a) };
         let guard_b = RealityHookGuard { state_ptr: Box::into_raw(state_b) };
         // Different pointers.
@@ -453,11 +526,7 @@ mod tests {
     /// discipline that would catch a regression to `Cell<bool>`.
     #[test]
     fn callback_failure_flag_ordering_holds_across_drop() {
-        let state = Box::new(RealityCallbackState {
-            server_pubkey: [0u8; 32],
-            short_id: vec![],
-            failed: AtomicBool::new(false),
-        });
+        let state = test_state([0u8; 32], vec![]);
         let raw = Box::into_raw(state);
         // Set the failure flag via Release write (matches the
         // catch_unwind panic branch in reality_client_hello_cb).
@@ -469,6 +538,60 @@ mod tests {
         assert!(!guard.was_successful(), "Release/Acquire ordering must propagate failure flag");
         // Guard drops normally — Box::from_raw reclaims; Miri
         // validates no leak.
+    }
+
+    #[test]
+    fn live_boringssl_client_hello_hook_seals_with_extracted_x25519_key_share() {
+        assert!(BORING_HOOK_VECTOR.contains("\"boring\": \"=5.1.0\""));
+        assert!(BORING_HOOK_VECTOR.contains("\"tokio-boring\": \"=5.0.0\""));
+        assert!(BORING_HOOK_VECTOR.contains("\"fixedNowSecs\": 1700000000"));
+        assert!(BORING_HOOK_VECTOR.contains("\"shortIdHex\": \"abcd\""));
+
+        let server_pubkey = server_pub_from_seed(0x22);
+        let trace = Arc::new(Mutex::new(RealityHookTrace::default()));
+        let captured_record = capture_reality_client_hello(server_pubkey, trace.clone());
+        let trace = trace.lock().expect("reality hook trace lock").clone();
+
+        assert_eq!(trace.callback_count, 1, "expected one ClientHello callback in the no-HRR capture path");
+        assert_eq!(captured_record[0], 0x16, "expected TLS handshake record");
+        assert_eq!(captured_record[5], 0x01, "expected ClientHello handshake payload");
+        assert_eq!(
+            &captured_record[5..],
+            trace.raw_hello_after.as_slice(),
+            "wire ClientHello must carry hook mutation"
+        );
+        assert_eq!(trace.raw_hello_before[0], 0x01, "hook trace stores the raw ClientHello handshake message");
+        assert_ne!(
+            trace.raw_hello_before[SESSION_ID_OFFSET..SESSION_ID_OFFSET + SESSION_ID_LEN],
+            trace.raw_hello_after[SESSION_ID_OFFSET..SESSION_ID_OFFSET + SESSION_ID_LEN],
+            "hook must rewrite BoringSSL's original session_id bytes"
+        );
+        assert_eq!(
+            trace.raw_hello_after[SESSION_ID_OFFSET..SESSION_ID_OFFSET + SESSION_ID_LEN],
+            trace.sealed_session_id,
+            "trace sealed bytes must be the bytes written into session_id"
+        );
+
+        let expected = seal_session_id(
+            &trace.priv_key,
+            &server_pubkey,
+            &trace.client_random,
+            REALITY_HOOK_SHORT_ID,
+            &trace.raw_hello_before,
+            REALITY_HOOK_FIXED_NOW_SECS,
+        )
+        .expect("seal from extracted key_share private key");
+        assert_eq!(
+            trace.sealed_session_id, expected,
+            "hook must seal with the private key extracted from BoringSSL's live X25519 key_share"
+        );
+
+        let plaintext = open_reality_session_id(&trace, server_pubkey);
+        assert_eq!(
+            plaintext,
+            build_session_id_plaintext(REALITY_HOOK_SHORT_ID, REALITY_HOOK_FIXED_NOW_SECS),
+            "full REALITY seal round-trip must recover the fixed vector plaintext"
+        );
     }
 
     /// Stress test: repeated install/drop cycles must not leak the
@@ -485,11 +608,7 @@ mod tests {
     fn repeated_install_drop_cycles_do_not_leak() {
         const CYCLES: usize = 64;
         for _ in 0..CYCLES {
-            let state = Box::new(RealityCallbackState {
-                server_pubkey: [0xAB; 32],
-                short_id: vec![0xCD, 0xEF],
-                failed: AtomicBool::new(false),
-            });
+            let state = test_state([0xAB; 32], vec![0xCD, 0xEF]);
             let raw = Box::into_raw(state);
             let guard = RealityHookGuard { state_ptr: raw };
             // Synthesize a successful-handshake observation each
@@ -500,5 +619,67 @@ mod tests {
             drop(guard);
             // Box::from_raw inside Drop reclaims — no leak.
         }
+    }
+
+    fn capture_reality_client_hello(server_pubkey: [u8; 32], trace: Arc<Mutex<RealityHookTrace>>) -> Vec<u8> {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback listener");
+        let addr = listener.local_addr().expect("listener addr");
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().expect("accept client");
+            socket.set_read_timeout(Some(Duration::from_secs(5))).expect("server read timeout");
+            let mut header = [0u8; 5];
+            socket.read_exact(&mut header).expect("read TLS record header");
+            let payload_len = u16::from_be_bytes([header[3], header[4]]) as usize;
+            let mut payload = vec![0u8; payload_len];
+            socket.read_exact(&mut payload).expect("read TLS record payload");
+            let _ = socket.shutdown(Shutdown::Both);
+            [header.to_vec(), payload].concat()
+        });
+
+        let mut builder = SslConnector::builder(SslMethod::tls()).expect("connector builder");
+        builder.set_verify(SslVerifyMode::NONE);
+        let config = builder.build().configure().expect("connector configure");
+        let ssl = config.into_ssl("reality-hook-vector.test").expect("ssl");
+        let ssl_handle = ssl.as_ptr().cast::<SslHandle>();
+        // SAFETY: `ssl_handle` comes from a live boring `Ssl`; the guard is held until after
+        // `SslStream::connect` returns and the stream is dropped.
+        let guard = unsafe {
+            install_reality_client_hello_hook_for_test(
+                ssl_handle,
+                server_pubkey,
+                REALITY_HOOK_SHORT_ID.to_vec(),
+                REALITY_HOOK_FIXED_NOW_SECS,
+                trace,
+            )
+        };
+
+        let stream = TcpStream::connect(addr).expect("connect loopback");
+        stream.set_read_timeout(Some(Duration::from_secs(5))).expect("client read timeout");
+        stream.set_write_timeout(Some(Duration::from_secs(5))).expect("client write timeout");
+        let mut tls = boring::ssl::SslStream::new(ssl, stream).expect("ssl stream");
+        let _ = tls.connect();
+        assert!(guard.was_successful(), "Reality hook should complete before fixture closes the socket");
+        drop(tls);
+        drop(guard);
+
+        server.join().expect("server join")
+    }
+
+    fn open_reality_session_id(trace: &RealityHookTrace, server_pubkey: [u8; 32]) -> [u8; 16] {
+        let auth_key = derive_auth_key(&trace.priv_key, &server_pubkey, &trace.client_random);
+        let unbound = UnboundKey::new(&AES_256_GCM, &auth_key).expect("AES-256-GCM key");
+        let key = LessSafeKey::new(unbound);
+        let nonce_bytes: [u8; 12] = trace.client_random[20..32].try_into().expect("nonce slice");
+        let nonce = Nonce::assume_unique_for_key(nonce_bytes);
+        let mut aad = trace.raw_hello_before.clone();
+        aad[SESSION_ID_OFFSET..SESSION_ID_OFFSET + SESSION_ID_LEN].fill(0);
+        let mut in_out = trace.sealed_session_id.to_vec();
+        let plaintext = key.open_in_place(nonce, Aad::from(aad.as_slice()), &mut in_out).expect("open REALITY seal");
+        plaintext.try_into().expect("REALITY plaintext length")
+    }
+
+    fn server_pub_from_seed(seed: u8) -> [u8; 32] {
+        let secret = StaticSecret::from([seed; 32]);
+        *PublicKey::from(&secret).as_bytes()
     }
 }
