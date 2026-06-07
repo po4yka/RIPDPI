@@ -35,8 +35,14 @@ pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
 }
 
 pub fn create_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
-    RuntimeState::validate_runtime_requirements(config)?;
+    validate_proxy_config(config)?;
     build_listener(config)
+}
+
+pub fn validate_proxy_config(config: &RuntimeConfig) -> io::Result<()> {
+    RuntimeState::validate_runtime_requirements(config)?;
+    let _ = RuntimeState::listener_bind_addr(config);
+    Ok(())
 }
 
 pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> io::Result<()> {
@@ -53,13 +59,14 @@ pub fn run_proxy_with_embedded_control(
 
 #[cfg(all(test, not(feature = "loom")))]
 mod tests {
+    use super::create_listener;
     use super::state::ClientSlotGuard;
     use crate::runtime::desync::DesyncSendRequest;
     use crate::runtime::routing::{advance_route_for_failure, select_route};
     use crate::runtime::state::RuntimeState;
     use crate::sync::{Arc, AtomicUsize};
     use ripdpi_proxy_runtime_adapter::model::config::{
-        DETECT_CONNECT, DETECT_HTTP_LOCAT, DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind,
+        DETECT_CONNECT, DETECT_HTTP_LOCAT, DesyncGroup, OffsetExpr, RuntimeConfig, TcpChainStep, TcpChainStepKind,
     };
     use ripdpi_proxy_runtime_adapter::model::session::{
         OutboundProgress, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_CONN, S_VER5, encode_http_connect_reply,
@@ -68,10 +75,38 @@ mod tests {
     use ripdpi_proxy_runtime_adapter::protocol_payload::{DEFAULT_FAKE_TLS, IS_HTTPS};
     use std::io::Read;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
+    #[cfg(unix)]
+    use std::os::fd::AsRawFd;
     use std::sync::atomic::Ordering;
     use std::thread;
 
     use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
+
+    #[cfg(unix)]
+    #[test]
+    fn create_listener_sets_reuseaddr_on_bound_socket() {
+        let mut config = RuntimeConfig::default();
+        config.network.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+        config.network.listen.listen_port = 0;
+
+        let listener = create_listener(&config).expect("create listener");
+        let mut reuseaddr = 0i32;
+        let mut len = std::mem::size_of_val(&reuseaddr) as libc::socklen_t;
+        // SAFETY: getsockopt is called with a live listener fd, SOL_SOCKET/SO_REUSEADDR,
+        // and a correctly sized i32 output buffer plus its socklen_t length.
+        let result = unsafe {
+            libc::getsockopt(
+                listener.as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_REUSEADDR,
+                (&mut reuseaddr as *mut i32).cast(),
+                &mut len,
+            )
+        };
+
+        assert_eq!(result, 0, "getsockopt(SO_REUSEADDR) failed: {}", std::io::Error::last_os_error());
+        assert_ne!(reuseaddr, 0, "listener must set SO_REUSEADDR before bind");
+    }
 
     #[test]
     fn client_slot_guard_enforces_limit_and_releases_slot() {

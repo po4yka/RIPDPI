@@ -17,5 +17,5 @@ pub use exit_ip_cap::{DEFAULT_EXIT_IP_SESSION_CAP, ExitIpSessionCaps, ExitIpSess
 pub use process::{ProcessGuard, ProcessSettings, prepare_embedded, process_settings};
 pub use runtime::{
     RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, create_listener, load_geo_database_versions, load_geoip_metadata,
-    run_proxy, run_proxy_with_embedded_control, run_proxy_with_listener,
+    run_proxy, run_proxy_with_embedded_control, run_proxy_with_listener, validate_proxy_config,
 };

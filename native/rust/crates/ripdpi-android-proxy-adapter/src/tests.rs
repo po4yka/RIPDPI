@@ -46,6 +46,36 @@ fn open_proxy_listener_records_telemetry_when_bind_fails() {
 }
 
 #[test]
+fn jni_create_does_not_probe_bind_listener_port() {
+    let busy = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind busy listener");
+    let busy_port = busy.local_addr().expect("busy listener addr").port();
+    let mut config = test_ui_config();
+    config.listen.port = i32::from(busy_port);
+    let json = serde_json::to_string(&ProxyConfigPayload::Ui {
+        strategy_preset: None,
+        config,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: None,
+        schema_version: 1,
+    })
+    .expect("proxy config json");
+
+    let handle = with_env(|env| {
+        let handle = jni_create(env, &json);
+        assert_no_exception(env);
+        handle
+    });
+    assert_ne!(handle, 0, "create should validate config without binding the busy listener port");
+
+    with_env(|env| {
+        jni_destroy(env, handle);
+        assert_no_exception(env);
+    });
+    drop(busy);
+}
+
+#[test]
 fn rejects_invalid_handle() {
     assert!(to_handle(0).is_none());
     assert!(to_handle(-1).is_none());

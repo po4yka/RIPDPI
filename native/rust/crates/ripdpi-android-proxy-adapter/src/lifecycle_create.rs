@@ -56,11 +56,11 @@ pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
     };
     let config = envelope.config;
 
-    if let Err(err) = ripdpi_proxy_runtime::create_listener(&config) {
+    if let Err(err) = ripdpi_proxy_runtime::validate_proxy_config(&config) {
         let detail = err.to_string();
         JniProxyError::Io(err).throw_with_payload(
             env,
-            &proxy_error("create_listener_probe_failed", detail)
+            &proxy_error("create_runtime_validation_failed", detail)
                 .with_cause_class("java.io.IOException")
                 .retryable(true),
         );
