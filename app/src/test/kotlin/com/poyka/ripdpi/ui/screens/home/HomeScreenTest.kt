@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -188,6 +189,8 @@ class HomeScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeSetupHealthDetails)
             .assertIsDisplayed()
+        composeRule.onNodeWithText("Review →").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Review the Doze exemption.").assertCountEquals(0)
     }
 
     @Test
@@ -250,11 +253,13 @@ class HomeScreenTest {
             }
         }
 
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
-            .performClick()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeSetupHealthRow).assertCountEquals(0)
+        composeRule.onNodeWithText("Battery optimization").assertIsDisplayed()
+        composeRule.onNodeWithText("Review →").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Review the Doze exemption.").assertCountEquals(0)
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
+            .assertIsDisplayed()
             .performClick()
         assertTrue("Expected battery dismiss callback to fire", dismissed)
     }

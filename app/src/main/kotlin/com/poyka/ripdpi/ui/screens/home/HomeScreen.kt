@@ -31,6 +31,7 @@ import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationMetric
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationStrip
@@ -160,6 +161,7 @@ private data class HomeSetupHealthItem(
     val message: String,
     val actionLabel: String?,
     val onClick: (() -> Unit)?,
+    val compact: Boolean = false,
 )
 
 @Composable
@@ -179,6 +181,14 @@ private fun HomeSetupHealthRow(
             onDismissBackgroundGuidance = onDismissBackgroundGuidance,
         )
     if (items.isEmpty()) return
+
+    if (items.size == 1 && items.single().compact) {
+        val item = items.single()
+        RipDpiCard {
+            HomeSetupHealthActionRow(item = item, showDivider = false)
+        }
+        return
+    }
 
     var expanded by rememberSaveable { mutableStateOf(false) }
     RipDpiCard {
@@ -212,19 +222,35 @@ private fun HomeSetupHealthRow(
                 verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
             ) {
                 items.forEach { item ->
-                    SettingsRow(
-                        title = item.title,
-                        subtitle = item.message,
-                        value = item.actionLabel,
-                        onClick = item.onClick,
-                        leadingIcon = RipDpiIcons.Info,
-                        showDivider = true,
-                        testTag = RipDpiTestTags.HomeSetupHealthAction,
-                    )
+                    HomeSetupHealthActionRow(item = item, showDivider = true)
                 }
             }
         }
     }
+}
+
+@Composable
+private fun HomeSetupHealthActionRow(
+    item: HomeSetupHealthItem,
+    showDivider: Boolean,
+) {
+    SettingsRow(
+        title = item.title,
+        subtitle = item.message.takeUnless { item.compact },
+        value =
+            item.actionLabel?.let { label ->
+                if (item.compact) {
+                    "$label →"
+                } else {
+                    label
+                }
+            },
+        onClick = item.onClick,
+        leadingIcon = RipDpiIcons.Info,
+        showDivider = showDivider,
+        variant = if (item.compact) SettingsRowVariant.Tonal else SettingsRowVariant.Default,
+        testTag = RipDpiTestTags.HomeSetupHealthAction,
+    )
 }
 
 @Composable
@@ -267,6 +293,7 @@ private fun buildHomeSetupHealthItems(
                             { onRepairPermission(issue.kind) }
                         }
                     },
+                compact = issue.kind == PermissionKind.BatteryOptimization,
             )
     } ?: run {
         uiState.permissionSummary.recommendedIssue?.let { warning ->
@@ -284,6 +311,7 @@ private fun buildHomeSetupHealthItems(
                         } else {
                             { onDismissBatteryBanner() }
                         },
+                    compact = warning.kind == PermissionKind.BatteryOptimization,
                 )
         }
         uiState.permissionSummary.backgroundGuidance?.let { guidance ->
