@@ -101,4 +101,113 @@ class RipDpiNavHostLogicTest {
         assertTrue(Route.all.contains(Route.OwnedStackBrowser()))
         assertFalse(Route.topLevel.contains(Route.OwnedStackBrowser()))
     }
+
+    @Test
+    fun `every registered route has a reachable navigation mechanism`() {
+        val missing = Route.all.map(Route::stableRoute).filterNot(ReachableRouteMechanisms::containsKey)
+
+        val logsMechanisms = ReachableRouteMechanisms.getValue(Route.Logs.stableRoute)
+
+        assertEquals(emptyList<String>(), missing)
+        assertTrue(logsMechanisms.contains(ReachabilityMechanism.ParentCallback))
+    }
+
+    @Test
+    fun `removed diagnostic spec card routes stay out of runtime navigation`() {
+        val removedRoutes =
+            listOf(
+                "handshake_timeline",
+                "throughput_graph",
+                "latency_graph",
+                "state_machine",
+                "oom_recovery",
+                "strategy_ab",
+                "strategy_import",
+                "profile_variants",
+                "replay_failure",
+            )
+
+        removedRoutes.forEach { stableRoute ->
+            assertEquals(null, Route.fromStableRoute(stableRoute))
+        }
+    }
 }
+
+private enum class ReachabilityMechanism {
+    StartDestination,
+    TopLevelNavigation,
+    InAppNavigate,
+    ParentCallback,
+    DeepLink,
+    ImportIntent,
+    LaunchRequest,
+}
+
+private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
+    mapOf(
+        Route.Onboarding.stableRoute to setOf(ReachabilityMechanism.StartDestination),
+        Route.Home.stableRoute to
+            setOf(
+                ReachabilityMechanism.StartDestination,
+                ReachabilityMechanism.TopLevelNavigation,
+                ReachabilityMechanism.DeepLink,
+            ),
+        Route.Config.stableRoute to
+            setOf(
+                ReachabilityMechanism.TopLevelNavigation,
+                ReachabilityMechanism.DeepLink,
+            ),
+        Route.LocalBypassConfig.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.VpnConfig.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.Settings.stableRoute to
+            setOf(
+                ReachabilityMechanism.TopLevelNavigation,
+                ReachabilityMechanism.DeepLink,
+            ),
+        Route.BackupRestore.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.Diagnostics().stableRoute to
+            setOf(
+                ReachabilityMechanism.TopLevelNavigation,
+                ReachabilityMechanism.InAppNavigate,
+                ReachabilityMechanism.DeepLink,
+            ),
+        Route.History.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.Logs.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.ModeEditor.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.DnsSettings.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.AdvancedSettings.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.StrategyConfig.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.DomainBypassList.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.AssetProvider.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.SplitTunnel.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.Routes.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.RuleEditor().stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.Blockcheck.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.BiometricPrompt.stableRoute to
+            setOf(
+                ReachabilityMechanism.StartDestination,
+                ReachabilityMechanism.LaunchRequest,
+            ),
+        Route.AppCustomization.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.About.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.DataTransparency.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.DetectionCheck.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.DetectionSettings.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.PcapViewer.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.PcapCaptureList.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.ReplayHistory.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.SharedDiagnosticResult().stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
+        Route.OwnedStackBrowser().stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.ProfileImportConfirm().stableRoute to
+            setOf(
+                ReachabilityMechanism.ParentCallback,
+                ReachabilityMechanism.ImportIntent,
+            ),
+        Route.SubscriptionImportConfirm().stableRoute to setOf(ReachabilityMechanism.ImportIntent),
+        Route.QrScanner.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.AmneziaWgProfile.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
+        Route.XrayImport.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
+        Route.AnyTlsProfile.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
+        Route.MieruProfile.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
+        Route.SshProfile.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
+    )

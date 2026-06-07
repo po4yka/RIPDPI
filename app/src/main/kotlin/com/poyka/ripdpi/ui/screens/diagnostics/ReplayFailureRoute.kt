@@ -9,11 +9,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 
 /**
- * Default replay target used until typed navigation arguments
- * (`Route.ReplayFailure(domain, strategyId)`) land. Production callers
- * should drive [ReplayFailureViewModel.start] from real diagnostics
- * context — this default exists so the developer-reachable nav entry
- * demonstrates the wiring end-to-end.
+ * Default replay target for preview/test callers. Production callers should drive
+ * [ReplayFailureViewModel.start] from real diagnostics context.
  */
 private const val DefaultReplayDomain = "www.youtube.com"
 private const val DefaultReplayStrategyId = "default"

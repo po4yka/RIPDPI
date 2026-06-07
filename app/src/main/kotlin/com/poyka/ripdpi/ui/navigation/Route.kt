@@ -238,72 +238,9 @@ sealed class Route {
     }
 
     @Serializable
-    data object ReplayFailure : Route() {
-        override val stableRoute = "replay_failure"
-        override val titleRes = R.string.title_replay_failure
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
     data object ReplayHistory : Route() {
         override val stableRoute = "replay_history"
         override val titleRes = R.string.title_replay_history
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
-    data object HandshakeTimeline : Route() {
-        override val stableRoute = "handshake_timeline"
-        override val titleRes = R.string.title_handshake_timeline
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
-    data object ThroughputGraph : Route() {
-        override val stableRoute = "throughput_graph"
-        override val titleRes = R.string.title_throughput_graph
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
-    data object LatencyGraph : Route() {
-        override val stableRoute = "latency_graph"
-        override val titleRes = R.string.title_latency_graph
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
-    data object StateMachine : Route() {
-        override val stableRoute = "state_machine"
-        override val titleRes = R.string.title_state_machine
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
-    data object OomRecovery : Route() {
-        override val stableRoute = "oom_recovery"
-        override val titleRes = R.string.title_oom_recovery
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
-    data object StrategyAb : Route() {
-        override val stableRoute = "strategy_ab"
-        override val titleRes = R.string.title_strategy_ab
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
-    data object StrategyImport : Route() {
-        override val stableRoute = "strategy_import"
-        override val titleRes = R.string.title_strategy_import
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
-    data object ProfileVariants : Route() {
-        override val stableRoute = "profile_variants"
-        override val titleRes = R.string.title_profile_variants
         override val icon: ImageVector? = null
     }
 
@@ -442,16 +379,7 @@ sealed class Route {
                     DetectionSettings,
                     PcapViewer,
                     PcapCaptureList,
-                    ReplayFailure,
                     ReplayHistory,
-                    HandshakeTimeline,
-                    ThroughputGraph,
-                    LatencyGraph,
-                    StateMachine,
-                    OomRecovery,
-                    StrategyAb,
-                    StrategyImport,
-                    ProfileVariants,
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),

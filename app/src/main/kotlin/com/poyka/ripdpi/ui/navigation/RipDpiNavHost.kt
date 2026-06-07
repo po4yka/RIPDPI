@@ -49,18 +49,9 @@ import com.poyka.ripdpi.ui.screens.detection.DetectionCheckRoute
 import com.poyka.ripdpi.ui.screens.detection.DetectionSettingsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRouteCallbacks
-import com.poyka.ripdpi.ui.screens.diagnostics.HandshakeTimelineRoute
-import com.poyka.ripdpi.ui.screens.diagnostics.LatencyGraphRoute
-import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.PcapCaptureListRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.PcapViewerRoute
-import com.poyka.ripdpi.ui.screens.diagnostics.ProfileVariantsRoute
-import com.poyka.ripdpi.ui.screens.diagnostics.ReplayFailureRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryRoute
-import com.poyka.ripdpi.ui.screens.diagnostics.StateMachineRoute
-import com.poyka.ripdpi.ui.screens.diagnostics.StrategyAbRoute
-import com.poyka.ripdpi.ui.screens.diagnostics.StrategyImportRoute
-import com.poyka.ripdpi.ui.screens.diagnostics.ThroughputGraphRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
@@ -677,40 +668,12 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
     composable<Route.PcapCaptureList> {
         PcapCaptureListRoute(
             onCaptureSelected = { _ ->
-                // PcapReader exists in :core:pcap-export; this route still needs
-                // selected-capture state and reader-record -> PcapPacket mapping.
+                navController.navigate(Route.PcapViewer) { launchSingleTop = true }
             },
         )
     }
-    composable<Route.ReplayFailure> {
-        ReplayFailureRoute(onBack = { navController.popBackStack() })
-    }
     composable<Route.ReplayHistory> {
         ReplayHistoryRoute()
-    }
-    composable<Route.HandshakeTimeline> {
-        HandshakeTimelineRoute()
-    }
-    composable<Route.ThroughputGraph> {
-        ThroughputGraphRoute()
-    }
-    composable<Route.LatencyGraph> {
-        LatencyGraphRoute()
-    }
-    composable<Route.StateMachine> {
-        StateMachineRoute()
-    }
-    composable<Route.OomRecovery> {
-        OomRecoveryRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.StrategyAb> {
-        StrategyAbRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.StrategyImport> {
-        StrategyImportRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.ProfileVariants> {
-        ProfileVariantsRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.OwnedStackBrowser> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.OwnedStackBrowser>()
@@ -876,21 +839,26 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.ModeEditor.stableRoute to { hasRoute<Route.ModeEditor>() },
         Route.DnsSettings.stableRoute to { hasRoute<Route.DnsSettings>() },
         Route.AdvancedSettings.stableRoute to { hasRoute<Route.AdvancedSettings>() },
+        Route.StrategyConfig.stableRoute to { hasRoute<Route.StrategyConfig>() },
+        Route.DomainBypassList.stableRoute to { hasRoute<Route.DomainBypassList>() },
+        Route.AssetProvider.stableRoute to { hasRoute<Route.AssetProvider>() },
+        Route.SplitTunnel.stableRoute to { hasRoute<Route.SplitTunnel>() },
+        Route.Routes.stableRoute to { hasRoute<Route.Routes>() },
+        Route.RuleEditor().stableRoute to { hasRoute<Route.RuleEditor>() },
+        Route.Blockcheck.stableRoute to { hasRoute<Route.Blockcheck>() },
         Route.BiometricPrompt.stableRoute to { hasRoute<Route.BiometricPrompt>() },
         Route.AppCustomization.stableRoute to { hasRoute<Route.AppCustomization>() },
         Route.About.stableRoute to { hasRoute<Route.About>() },
         Route.DataTransparency.stableRoute to { hasRoute<Route.DataTransparency>() },
         Route.DetectionCheck.stableRoute to { hasRoute<Route.DetectionCheck>() },
         Route.DetectionSettings.stableRoute to { hasRoute<Route.DetectionSettings>() },
+        Route.PcapViewer.stableRoute to { hasRoute<Route.PcapViewer>() },
+        Route.PcapCaptureList.stableRoute to { hasRoute<Route.PcapCaptureList>() },
+        Route.ReplayHistory.stableRoute to { hasRoute<Route.ReplayHistory>() },
         Route.OwnedStackBrowser().stableRoute to { hasRoute<Route.OwnedStackBrowser>() },
         Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
         Route.ProfileImportConfirm().stableRoute to { hasRoute<Route.ProfileImportConfirm>() },
         Route.SubscriptionImportConfirm().stableRoute to { hasRoute<Route.SubscriptionImportConfirm>() },
-        Route.StateMachine.stableRoute to { hasRoute<Route.StateMachine>() },
-        Route.OomRecovery.stableRoute to { hasRoute<Route.OomRecovery>() },
-        Route.StrategyAb.stableRoute to { hasRoute<Route.StrategyAb>() },
-        Route.StrategyImport.stableRoute to { hasRoute<Route.StrategyImport>() },
-        Route.ProfileVariants.stableRoute to { hasRoute<Route.ProfileVariants>() },
         Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
         Route.AmneziaWgProfile.stableRoute to { hasRoute<Route.AmneziaWgProfile>() },
         Route.XrayImport.stableRoute to { hasRoute<Route.XrayImport>() },
