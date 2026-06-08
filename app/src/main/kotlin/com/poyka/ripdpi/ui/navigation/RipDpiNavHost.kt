@@ -62,6 +62,7 @@ import com.poyka.ripdpi.ui.screens.mieru.MieruProfileRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmRoute
+import com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmRoute
 import com.poyka.ripdpi.ui.screens.routes.RoutesRoute
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorRoute
@@ -515,6 +516,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
                 initialModeSection = ConfigModeSection.LocalBypass,
                 viewModel = configViewModel,
                 onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
             )
         }
         composable<Route.LocalBypassConfig> {
@@ -529,6 +531,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
                 initialModeSection = ConfigModeSection.LocalBypass,
                 viewModel = configViewModel,
                 onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
             )
         }
         composable<Route.VpnConfig> {
@@ -543,6 +546,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
                 initialModeSection = ConfigModeSection.Vpn,
                 viewModel = configViewModel,
                 onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
             )
         }
         composable<Route.ModeEditor> {
@@ -743,6 +747,13 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
             onImported = { navController.navigateHome() },
         )
     }
+    composable<Route.ProfileShare> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.ProfileShare>()
+        ProfileShareRoute(
+            profileId = route.profileId,
+            onBack = { navController.popBackStack() },
+        )
+    }
     composable<Route.QrScanner> {
         QrScannerRoute(
             onBack = { navController.popBackStack() },
@@ -862,6 +873,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.History.stableRoute to { hasRoute<Route.History>() },
         Route.Logs.stableRoute to { hasRoute<Route.Logs>() },
         Route.ConnectionHealth.stableRoute to { hasRoute<Route.ConnectionHealth>() },
+        Route.SubscriptionFailover.stableRoute to { hasRoute<Route.SubscriptionFailover>() },
         Route.StrategyTuner.stableRoute to { hasRoute<Route.StrategyTuner>() },
         Route.ModeEditor.stableRoute to { hasRoute<Route.ModeEditor>() },
         Route.DnsSettings.stableRoute to { hasRoute<Route.DnsSettings>() },
@@ -886,6 +898,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
         Route.ProfileImportConfirm().stableRoute to { hasRoute<Route.ProfileImportConfirm>() },
         Route.SubscriptionImportConfirm().stableRoute to { hasRoute<Route.SubscriptionImportConfirm>() },
+        Route.ProfileShare().stableRoute to { hasRoute<Route.ProfileShare>() },
         Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
         Route.AmneziaWgProfile.stableRoute to { hasRoute<Route.AmneziaWgProfile>() },
         Route.XrayImport.stableRoute to { hasRoute<Route.XrayImport>() },

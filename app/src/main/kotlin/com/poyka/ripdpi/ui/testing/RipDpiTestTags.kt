@@ -79,6 +79,16 @@ internal object RipDpiTestTags {
     const val ConfigVpnAddServerPaste = "config-vpn-add-server-paste"
     const val ConfigVpnAddServerScan = "config-vpn-add-server-scan"
     const val ConfigVpnProfileList = "config-vpn-profile-list"
+    const val ProfileShareQrCard = "profile-share-qr-card"
+    const val ProfileShareQrImage = "profile-share-qr-image"
+    const val ProfileShareLinkCard = "profile-share-link-card"
+    const val ProfileShareLinkField = "profile-share-link-field"
+    const val ProfileShareCopyLink = "profile-share-copy-link"
+    const val ProfileShareShareLink = "profile-share-share-link"
+    const val ProfileShareSheetCard = "profile-share-sheet-card"
+    const val ProfileShareSheetText = "profile-share-sheet-text"
+    const val ProfileShareCopySheet = "profile-share-copy-sheet"
+    const val ProfileShareShareSheet = "profile-share-share-sheet"
     const val ConfigVpnRelay = "config-vpn-relay"
     const val ConfigVpnProtocol = "config-vpn-protocol"
     const val ConfigVpnCredentials = "config-vpn-credentials"
@@ -336,6 +346,7 @@ internal object RipDpiTestTags {
 
     val configModeSection: (String) -> String = { sectionKey -> "config-mode-section-${sanitize(sectionKey)}" }
     val configVpnProfile: (String) -> String = { profileId -> "config-vpn-profile-${sanitize(profileId)}" }
+    val configVpnProfileShare: (String) -> String = { profileId -> "config-vpn-profile-share-${sanitize(profileId)}" }
 
     val settingsPermission: (PermissionKind) -> String = { kind -> "settings-permission-${sanitize(kind.name)}" }
 

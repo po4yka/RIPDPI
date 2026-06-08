@@ -59,6 +59,7 @@ fun ConfigRoute(
     viewModel: ConfigViewModel = hiltViewModel(),
     clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
     onProfileImport: (ProxyImportRequest.Profile) -> Unit = {},
+    onProfileShare: (String) -> Unit = {},
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
     val clipboardImportState = clipboardImportViewModel.uiState.collectAsStateWithLifecycle().value
@@ -97,6 +98,7 @@ fun ConfigRoute(
         onRetestStrategies = onRetestStrategies,
         onPasteServerLink = clipboardImportViewModel::onImportFromClipboard,
         onScanServer = onScanServer,
+        onProfileShare = onProfileShare,
         initialModeSection = initialModeSection,
     )
 }
@@ -112,6 +114,7 @@ fun ConfigScreen(
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
+    onProfileShare: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     route: Route = Route.Config,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
@@ -189,6 +192,7 @@ fun ConfigScreen(
             onRetestStrategies = onRetestStrategies,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
+            onProfileShare = onProfileShare,
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
@@ -258,6 +262,7 @@ private fun ConfigSelectedModeSection(
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
+    onProfileShare: (String) -> Unit,
 ) {
     when (section) {
         ConfigModeSection.LocalBypass -> {
@@ -280,6 +285,7 @@ private fun ConfigSelectedModeSection(
                 onOpenDnsSettings = onOpenDnsSettings,
                 onPasteServerLink = onPasteServerLink,
                 onScanServer = onScanServer,
+                onProfileShare = onProfileShare,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSummary),
             )
         }

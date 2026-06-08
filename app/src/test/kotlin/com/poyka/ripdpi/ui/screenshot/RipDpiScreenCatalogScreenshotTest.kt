@@ -40,6 +40,8 @@ import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
+import com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareScreen
+import com.poyka.ripdpi.ui.screens.proxyimport.previewProfileShareUiState
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverScreen
 import com.poyka.ripdpi.ui.screens.subscription.previewSubscriptionFailoverUiState
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerScreen
@@ -198,6 +200,22 @@ class RipDpiScreenCatalogScreenshotTest {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
             RipDpiTheme {
                 SubscriptionFailoverScreen(uiState = previewSubscriptionFailoverUiState(), onBack = {})
+            }
+        }
+    }
+
+    @Test
+    fun profileShareScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 1400) {
+            RipDpiTheme {
+                ProfileShareScreen(
+                    uiState = previewProfileShareUiState(),
+                    onBack = {},
+                    onCopyLink = {},
+                    onShareLink = {},
+                    onCopySheet = {},
+                    onShareSheet = {},
+                )
             }
         }
     }

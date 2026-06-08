@@ -324,6 +324,20 @@ sealed class Route {
     }
 
     @Serializable
+    data class ProfileShare(
+        val profileId: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "profile/share"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.profile_share_title
+
+        @kotlinx.serialization.Transient
+        override val icon: ImageVector? = RipDpiIcons.Share
+    }
+
+    @Serializable
     data object QrScanner : Route() {
         override val stableRoute = "scanner"
         override val titleRes = R.string.scanner_title
@@ -408,6 +422,7 @@ sealed class Route {
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),
                     SubscriptionImportConfirm(),
+                    ProfileShare(),
                     QrScanner,
                     AmneziaWgProfile,
                     XrayImport,
