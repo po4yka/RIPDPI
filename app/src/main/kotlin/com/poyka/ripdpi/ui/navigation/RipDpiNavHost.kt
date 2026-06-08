@@ -75,6 +75,7 @@ import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import com.poyka.ripdpi.ui.screens.ssh.SshProfileRoute
+import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverRoute
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerRoute
 import com.poyka.ripdpi.ui.screens.xray.XrayProfileImportRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
@@ -447,6 +448,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     composable<Route.ConnectionHealth> {
         ConnectionHealthRoute(onBack = { navController.popBackStack() })
     }
+    addSubscriptionFailoverRoute(navController)
     composable<Route.StrategyTuner> {
         StrategyTunerRoute(onBack = { navController.popBackStack() })
     }
@@ -460,6 +462,12 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                 }
             },
         )
+    }
+}
+
+private fun NavGraphBuilder.addSubscriptionFailoverRoute(navController: NavHostController) {
+    composable<Route.SubscriptionFailover> {
+        SubscriptionFailoverRoute(onBack = { navController.popBackStack() })
     }
 }
 
@@ -587,6 +595,7 @@ private fun SettingsHomeRoute(
         onOpenAbout = { navController.navigate(Route.About) },
         onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
+        onOpenSubscriptionFailover = { navController.navigate(Route.SubscriptionFailover) },
         onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
         onOpenRoutingRules = { navController.navigate(Route.Routes) },
         onOpenSplitTunnel = { navController.navigate(Route.SplitTunnel) },

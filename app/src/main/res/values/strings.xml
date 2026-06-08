@@ -23,9 +23,11 @@
     <string name="onboarding_persona_simple_body">Everyday controls stay visible while expert details stay collapsed.</string>
     <string name="onboarding_persona_advanced_body">Open the full operator surface with diagnostics, profiles, and low-level controls.</string>
     <string name="settings_logs_body">Open the live app, service, and diagnostics log stream.</string>
+    <string name="settings_subscription_failover_body">See which subscription server is active and recent automatic switchovers.</string>
     <string name="diagnostics_open_logs_body">Open the live log stream with filters for service, proxy, tunnel, and diagnostics entries.</string>
     <string name="diagnostics_title">Diagnostics</string>
     <string name="title_connection_health">Connection health</string>
+    <string name="title_subscription_failover">Subscription servers</string>
     <string name="connection_health_open_action">Open connection health</string>
     <string name="connection_health_summary_title">Does the current strategy punch through?</string>
     <string name="connection_health_quality_format">Live proxy quality: %1$d%% loss, p50 %2$d ms.</string>
@@ -33,6 +35,11 @@
     <string name="connection_health_quality_waiting">Waiting for live proxy quality samples.</string>
     <string name="connection_health_empty_title">Waiting for classified traffic</string>
     <string name="connection_health_empty_body">Rates appear after RIPDPI sees VK, YouTube, Telegram, or generic TLS destinations in the active session.</string>
+    <string name="subscription_failover_summary_title">Live server status</string>
+    <string name="subscription_failover_timeline_title">Recent switchovers</string>
+    <string name="subscription_failover_timeline_empty">No automatic switchovers have been observed in the current session.</string>
+    <string name="subscription_failover_empty_title">No subscription servers observed</string>
+    <string name="subscription_failover_empty_body">Add or import a subscription server, then start RIPDPI to see live health and switchovers here.</string>
     <string name="connection_health_destination_vk">VK</string>
     <string name="connection_health_destination_youtube">YouTube</string>
     <string name="connection_health_destination_telegram">Telegram</string>

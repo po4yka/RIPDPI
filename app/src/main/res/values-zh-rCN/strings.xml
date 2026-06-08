@@ -21,9 +21,11 @@
     <string name="onboarding_persona_simple_body">日常控制保持可见，专家细节保持折叠。</string>
     <string name="onboarding_persona_advanced_body">打开包含诊断、配置档和底层控制的完整操作界面。</string>
     <string name="settings_logs_body">打开应用、服务和诊断的实时日志流。</string>
+    <string name="settings_subscription_failover_body">See which subscription server is active and recent automatic switchovers.</string>
     <string name="diagnostics_open_logs_body">打开带有服务、代理、隧道和诊断过滤器的实时日志流。</string>
     <string name="diagnostics_title">诊断</string>
     <string name="title_connection_health">连接健康</string>
+    <string name="title_subscription_failover">Subscription servers</string>
     <string name="connection_health_open_action">打开连接健康</string>
     <string name="connection_health_summary_title">当前策略现在能穿透吗？</string>
     <string name="connection_health_quality_format">代理质量：%1$d%% 丢失，p50 %2$d ms。</string>
@@ -31,6 +33,11 @@
     <string name="connection_health_quality_waiting">等待实时代理质量样本。</string>
     <string name="connection_health_empty_title">等待已分类流量</string>
     <string name="connection_health_empty_body">活动会话中出现 VK、YouTube、Telegram 或通用 TLS 目标后会显示比率。</string>
+    <string name="subscription_failover_summary_title">Live server status</string>
+    <string name="subscription_failover_timeline_title">Recent switchovers</string>
+    <string name="subscription_failover_timeline_empty">No automatic switchovers have been observed in the current session.</string>
+    <string name="subscription_failover_empty_title">No subscription servers observed</string>
+    <string name="subscription_failover_empty_body">Add or import a subscription server, then start RIPDPI to see live health and switchovers here.</string>
     <string name="connection_health_destination_vk">VK</string>
     <string name="connection_health_destination_youtube">YouTube</string>
     <string name="connection_health_destination_telegram">Telegram</string>

@@ -108,6 +108,7 @@ internal object RipDpiTestTags {
     const val ModeEditorValidationSnackbar = "mode-editor-validation-snackbar"
 
     const val SettingsDnsSettings = "settings-dns-settings"
+    const val SettingsAdvancedConnectivity = "settings-advanced-connectivity"
     const val SettingsAdvancedSettings = "settings-advanced-settings"
     const val SettingsWebRtcProtection = "settings-webrtc-protection"
     const val SettingsStartOnBoot = "settings-start-on-boot"
@@ -127,6 +128,7 @@ internal object RipDpiTestTags {
     const val SettingsBackgroundGuidanceBanner = "settings-background-guidance-banner"
     const val SettingsSupportBundle = "settings-support-bundle"
     const val SettingsLogs = "settings-logs"
+    const val SettingsSubscriptionFailover = "settings-subscription-failover"
     const val SettingsDataTransparency = "settings-data-transparency"
     const val SettingsAbout = "settings-about"
     const val SettingsStrategyConfig = "settings-strategy-config"

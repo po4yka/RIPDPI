@@ -21,9 +21,11 @@
     <string name="onboarding_persona_simple_body">کنترل‌های روزمره پیدا می‌مانند و جزئیات تخصصی جمع می‌شوند.</string>
     <string name="onboarding_persona_advanced_body">سطح کامل اپراتوری با تشخیص، پروفایل‌ها و کنترل‌های سطح پایین را باز می‌کند.</string>
     <string name="settings_logs_body">جریان زنده گزارش‌های برنامه، سرویس و تشخیص را باز کنید.</string>
+    <string name="settings_subscription_failover_body">See which subscription server is active and recent automatic switchovers.</string>
     <string name="diagnostics_open_logs_body">جریان زنده گزارش‌ها را با فیلترهای سرویس، پروکسی، تونل و تشخیص باز کنید.</string>
     <string name="diagnostics_title">تشخیص</string>
     <string name="title_connection_health">سلامت اتصال</string>
+    <string name="title_subscription_failover">Subscription servers</string>
     <string name="connection_health_open_action">باز کردن سلامت اتصال</string>
     <string name="connection_health_summary_title">آیا راهبرد فعلی اکنون عبور می‌کند؟</string>
     <string name="connection_health_quality_format">کیفیت پروکسی: %1$d%% افت، p50 %2$d ms.</string>
@@ -31,6 +33,11 @@
     <string name="connection_health_quality_waiting">در انتظار نمونه‌های زنده کیفیت پروکسی.</string>
     <string name="connection_health_empty_title">در انتظار ترافیک دسته‌بندی‌شده</string>
     <string name="connection_health_empty_body">نرخ‌ها پس از دیدن مقصدهای VK، YouTube، Telegram یا TLS عمومی در نشست فعال نمایش داده می‌شوند.</string>
+    <string name="subscription_failover_summary_title">Live server status</string>
+    <string name="subscription_failover_timeline_title">Recent switchovers</string>
+    <string name="subscription_failover_timeline_empty">No automatic switchovers have been observed in the current session.</string>
+    <string name="subscription_failover_empty_title">No subscription servers observed</string>
+    <string name="subscription_failover_empty_body">Add or import a subscription server, then start RIPDPI to see live health and switchovers here.</string>
     <string name="connection_health_destination_vk">VK</string>
     <string name="connection_health_destination_youtube">YouTube</string>
     <string name="connection_health_destination_telegram">Telegram</string>
