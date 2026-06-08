@@ -103,6 +103,7 @@ private fun homeRouteServiceDependencies(): MainServiceDependencies =
         serviceController = FakeServiceController(),
         trafficStatsReader = FakeTrafficStatsReader(),
         hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
+        privacyThreatStateStore = FakePrivacyThreatStateStore(),
     )
 
 private fun homeRoutePermissionDependencies(): MainPermissionDependencies =

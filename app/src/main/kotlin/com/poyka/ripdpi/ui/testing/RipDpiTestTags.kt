@@ -119,6 +119,7 @@ internal object RipDpiTestTags {
     const val SettingsSupportBundle = "settings-support-bundle"
     const val SettingsLogs = "settings-logs"
     const val SettingsDataTransparency = "settings-data-transparency"
+    const val SettingsPrivacyThreatModel = "settings-privacy-threat-model"
     const val SettingsAbout = "settings-about"
     const val SettingsStrategyConfig = "settings-strategy-config"
     const val SettingsBlockcheck = "settings-blockcheck"
@@ -312,6 +313,11 @@ internal object RipDpiTestTags {
     const val HostPackApplyConfirm = "host-pack-apply-confirm"
     const val HostPackTargetDropdown = "host-pack-target-dropdown"
     const val HostPackApplyModeDropdown = "host-pack-apply-mode-dropdown"
+
+    const val PrivacyThreatKillSwitch = "privacy-threat-kill-switch"
+    const val PrivacyThreatDnsLeak = "privacy-threat-dns-leak"
+    const val PrivacyThreatIpv6Leak = "privacy-threat-ipv6-leak"
+    const val PrivacyThreatDeviceEgress = "privacy-threat-device-egress"
 
     val screen: (Route) -> String = { route -> "${route.stableRoute}-screen" }
 

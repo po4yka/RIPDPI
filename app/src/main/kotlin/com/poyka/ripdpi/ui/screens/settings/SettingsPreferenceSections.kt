@@ -167,6 +167,14 @@ internal fun SettingsSecuritySection(
             )
         }
         RipDpiCard {
+            SettingsRow(
+                title = stringResource(R.string.title_privacy_threat_model),
+                subtitle = stringResource(R.string.settings_privacy_threat_model_body),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = actions.onOpenPrivacyThreatModel,
+                showDivider = true,
+                testTag = RipDpiTestTags.SettingsPrivacyThreatModel,
+            )
             SecurityToggleRows(
                 uiState = uiState,
                 actions = actions,

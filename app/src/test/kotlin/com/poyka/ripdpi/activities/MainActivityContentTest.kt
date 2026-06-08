@@ -261,6 +261,7 @@ class MainActivityContentTest {
                     serviceController = serviceController,
                     trafficStatsReader = FakeTrafficStatsReader(),
                     hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
+                    privacyThreatStateStore = FakePrivacyThreatStateStore(),
                 ),
             mainPermissionDependencies =
                 MainPermissionDependencies(

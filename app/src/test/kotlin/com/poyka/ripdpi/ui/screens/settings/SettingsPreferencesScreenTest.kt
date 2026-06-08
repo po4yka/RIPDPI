@@ -192,6 +192,7 @@ class SettingsPreferencesScreenTest {
             onOpenCustomization = {},
             onOpenAbout = {},
             onOpenDataTransparency = {},
+            onOpenPrivacyThreatModel = {},
             onShareDebugBundle = onShareDebugBundle,
             onRepairPermission = onRepairPermission,
             onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,

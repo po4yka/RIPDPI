@@ -38,7 +38,10 @@ internal sealed interface Ipv6LeakCheckResult {
  * Link-local (fe80::/10) and ULA (fc00::/7) addresses are private and never
  * considered leaks regardless of the network path.
  */
-internal class Ipv6LeakDetector {
+internal class Ipv6LeakDetector(
+    private val privacyThreatStateStore: PrivacyThreatStateStore? = null,
+    private val clockMillis: () -> Long = { System.currentTimeMillis() },
+) {
     private val observations = mutableListOf<Ipv6TrafficObservation>()
 
     /** Records a new traffic observation for later inspection. */
@@ -53,12 +56,21 @@ internal class Ipv6LeakDetector {
      *         observed on the default network while the VPN was active;
      *         [Ipv6LeakCheckResult.Clean] otherwise.
      */
-    fun check(observation: Ipv6TrafficObservation): Ipv6LeakCheckResult =
-        if (isLeaked(observation)) {
-            Ipv6LeakCheckResult.Leaked(sourceAddress = observation.sourceAddress)
-        } else {
-            Ipv6LeakCheckResult.Clean
-        }
+    fun check(observation: Ipv6TrafficObservation): Ipv6LeakCheckResult {
+        val result =
+            if (isLeaked(observation)) {
+                Ipv6LeakCheckResult.Leaked(sourceAddress = observation.sourceAddress)
+            } else {
+                Ipv6LeakCheckResult.Clean
+            }
+        privacyThreatStateStore?.updateIpv6Leak(
+            PrivacyThreatLeakResultMapper.ipv6(
+                result = result,
+                nowMillis = clockMillis(),
+            ),
+        )
+        return result
+    }
 
     private fun isLeaked(observation: Ipv6TrafficObservation): Boolean =
         observation.vpnActive &&

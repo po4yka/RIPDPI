@@ -110,4 +110,38 @@ class DnsLeakDetectorTest {
         val result = d.check(obs("yandex.ru", resolver = "8.8.8.8", viaDefault = true))
         assertTrue(result is DnsLeakCheckResult.Leaked)
     }
+
+    @Test
+    fun `check publishes DNS leak indicator state`() {
+        val store = InMemoryPrivacyThreatStateStore()
+        val d =
+            DnsLeakDetector(
+                policy = policy,
+                privacyThreatStateStore = store,
+                clockMillis = { 42L },
+            )
+
+        d.check(obs("google.com", resolver = "8.8.8.8", viaDefault = true))
+
+        assertEquals(PrivacyLeakIndicatorStatus.LEAK_DETECTED, store.snapshot.value.dnsLeak.status)
+        assertEquals("google.com -> 8.8.8.8", store.snapshot.value.dnsLeak.detail)
+        assertEquals(42L, store.snapshot.value.dnsLeak.updatedAtMillis)
+    }
+
+    @Test
+    fun `clean DNS check publishes clear indicator state`() {
+        val store = InMemoryPrivacyThreatStateStore()
+        val d =
+            DnsLeakDetector(
+                policy = policy,
+                privacyThreatStateStore = store,
+                clockMillis = { 43L },
+            )
+
+        d.check(obs("google.com", resolver = "198.18.0.53", viaDefault = false))
+
+        assertEquals(PrivacyLeakIndicatorStatus.CLEAR, store.snapshot.value.dnsLeak.status)
+        assertEquals(null, store.snapshot.value.dnsLeak.detail)
+        assertEquals(43L, store.snapshot.value.dnsLeak.updatedAtMillis)
+    }
 }

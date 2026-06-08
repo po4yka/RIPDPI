@@ -217,6 +217,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object PrivacyThreatModel : Route() {
+        override val stableRoute = "privacy_threat_model"
+        override val titleRes = R.string.title_privacy_threat_model
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object DetectionCheck : Route() {
         override val stableRoute = "detection_check"
         override val titleRes = R.string.title_detection_check
@@ -383,6 +390,7 @@ sealed class Route {
                     AppCustomization,
                     About,
                     DataTransparency,
+                    PrivacyThreatModel,
                     DetectionCheck,
                     DetectionSettings,
                     PcapViewer,

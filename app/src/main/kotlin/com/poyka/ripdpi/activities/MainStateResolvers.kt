@@ -105,6 +105,14 @@ internal fun buildMainUiState(
             hardKillSwitch = hardKillSwitch,
             stringResolver = stringResolver,
         )
+    val privacyThreat =
+        buildMainPrivacyThreat(
+            inputs = inputs,
+            configuredMode = configuredMode,
+            connectionState = effectiveConnectionState,
+            hardKillSwitch = hardKillSwitch,
+            stringResolver = stringResolver,
+        )
     val modeCards =
         buildMainModeCards(
             inputs = inputs,
@@ -128,6 +136,7 @@ internal fun buildMainUiState(
         errorMessage = runtime.errorMessage,
         permissionSummary = permissionSummary,
         hardKillSwitch = hardKillSwitch,
+        privacyThreat = privacyThreat,
         approachSummary = approachSummary,
         homeDiagnostics = homeDiagnosticsUiState,
         modeCards = modeCards,
@@ -139,6 +148,23 @@ internal fun buildMainUiState(
         connectionQuality = resolveConnectionQuality(inputs.telemetry.tunnelTelemetry),
     )
 }
+
+private fun buildMainPrivacyThreat(
+    inputs: MainUiInputs,
+    configuredMode: Mode,
+    connectionState: ConnectionState,
+    hardKillSwitch: HardKillSwitchUiState,
+    stringResolver: StringResolver,
+): PrivacyThreatUiState =
+    buildPrivacyThreatUiState(
+        snapshot = inputs.privacyThreat,
+        hardKillSwitch = hardKillSwitch,
+        activeMode = inputs.statusAndMode.second,
+        configuredMode = configuredMode,
+        appStatus = inputs.statusAndMode.first,
+        connectionState = connectionState,
+        stringResolver = stringResolver,
+    )
 
 private fun buildMainModeCards(
     inputs: MainUiInputs,

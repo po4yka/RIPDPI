@@ -218,6 +218,7 @@ private fun settingsPreviewActions(): SettingsScreenActions =
         onOpenCustomization = {},
         onOpenAbout = {},
         onOpenDataTransparency = {},
+        onOpenPrivacyThreatModel = {},
         onOpenDetectionCheck = {},
         onShareDebugBundle = {},
         onRepairPermission = {},

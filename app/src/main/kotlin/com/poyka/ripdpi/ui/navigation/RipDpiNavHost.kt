@@ -72,6 +72,7 @@ import com.poyka.ripdpi.ui.screens.settings.AssetProviderRoute
 import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
+import com.poyka.ripdpi.ui.screens.settings.PrivacyThreatModelRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
@@ -574,6 +575,7 @@ private fun SettingsHomeRoute(
         onOpenCustomization = { navController.navigate(Route.AppCustomization) },
         onOpenAbout = { navController.navigate(Route.About) },
         onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
+        onOpenPrivacyThreatModel = { navController.navigate(Route.PrivacyThreatModel) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
         onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
         onOpenRoutingRules = { navController.navigate(Route.Routes) },
@@ -630,6 +632,13 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     }
     composable<Route.AssetProvider> {
         AssetProviderRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.PrivacyThreatModel> {
+        val privacyThreatUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
+        PrivacyThreatModelRoute(
+            uiState = privacyThreatUiState.privacyThreat,
+            onBack = { navController.popBackStack() },
+        )
     }
     composable<Route.BackupRestore> {
         BackupRestoreRoute(onBack = { navController.popBackStack() })

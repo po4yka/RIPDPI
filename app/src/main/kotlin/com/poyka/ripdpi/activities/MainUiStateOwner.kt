@@ -46,25 +46,30 @@ internal class MainUiStateOwner(
         ) { base, hardKillSwitch ->
             base to hardKillSwitch
         }.combine(
+            serviceDependencies.privacyThreatStateStore.snapshot,
+        ) { (base, hardKillSwitch), privacyThreat ->
+            Triple(base, hardKillSwitch, privacyThreat)
+        }.combine(
             controlPlaneDependencies.hostPackCatalogUiStateStore.state,
-        ) { (base, hardKillSwitch), hostPackCatalog ->
-            Triple(base, hardKillSwitch, hostPackCatalog)
+        ) { (base, hardKillSwitch, privacyThreat), hostPackCatalog ->
+            MainUiStateOwnerIntermediate(base, hardKillSwitch, privacyThreat, hostPackCatalog)
         }.combine(
             serviceDependencies.serviceStateStore.telemetry,
-        ) { (base, hardKillSwitch, hostPackCatalog), telemetry ->
-            Triple(base.copy(telemetry = telemetry), hardKillSwitch, hostPackCatalog)
+        ) { intermediate, telemetry ->
+            intermediate.copy(base = intermediate.base.copy(telemetry = telemetry))
         }.combine(
             controlPlaneDependencies.strategyPackStateStore.state,
-        ) { (base, hardKillSwitch, hostPackCatalog), strategyPackRuntimeState ->
+        ) { intermediate, strategyPackRuntimeState ->
             MainUiInputs(
-                settings = base.settings,
-                statusAndMode = base.statusAndMode,
-                runtime = base.runtime,
-                telemetry = base.telemetry,
-                permissions = base.permissions,
-                hardKillSwitch = hardKillSwitch,
-                approachStats = base.approachStats,
-                hostPackCatalog = hostPackCatalog,
+                settings = intermediate.base.settings,
+                statusAndMode = intermediate.base.statusAndMode,
+                runtime = intermediate.base.runtime,
+                telemetry = intermediate.base.telemetry,
+                permissions = intermediate.base.permissions,
+                hardKillSwitch = intermediate.hardKillSwitch,
+                privacyThreat = intermediate.privacyThreat,
+                approachStats = intermediate.base.approachStats,
+                hostPackCatalog = intermediate.hostPackCatalog,
                 strategyPackRuntimeState = strategyPackRuntimeState,
             )
         }.map { inputs ->
@@ -87,3 +92,10 @@ internal class MainUiStateOwner(
             initialValue = MainUiState(),
         )
 }
+
+private data class MainUiStateOwnerIntermediate(
+    val base: MainUiInputsBase,
+    val hardKillSwitch: com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot,
+    val privacyThreat: com.poyka.ripdpi.services.PrivacyThreatSnapshot,
+    val hostPackCatalog: HostPackCatalogUiState,
+)
