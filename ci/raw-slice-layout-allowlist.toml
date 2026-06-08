@@ -109,11 +109,11 @@ review_date = "2026-11-17"
 [[entries]]
 file = "native/rust/crates/ripdpi-vless/src/reality_hook.rs"
 pattern = "from_raw_parts_mut"
-line = 336
+line = 281
 reason = "Constructs `&mut [u8]` view over a buffer BoringSSL passes through a callback."
 soundness_argument = """
 Pointer = `msg` -- raw `*mut u8` argument from a BoringSSL TLS
-callback. BoringSSL contract (documented inline at lines 330-335)
+callback. BoringSSL contract (documented inline at lines 274-280)
 guarantees `msg` points to a mutable buffer of at least `msg_len`
 bytes, valid for the duration of the callback.
 
@@ -123,7 +123,7 @@ Initialization = the buffer is BoringSSL-owned; on entry the buffer
 is either initialized (verifying client hello) or being written
 (server side); the callback is single-shot per buffer.
 
-Length overflow = `msg_len` is validated at line 321 to be >= the
+Length overflow = `msg_len` is validated at line 267 to be >= the
 minimum TLS record header size; the caller (BoringSSL) holds the
 allocation size.
 
