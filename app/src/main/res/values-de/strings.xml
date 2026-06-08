@@ -2854,6 +2854,7 @@ Quelle: %2$s</string>
     <string name="vpn_pcap_viewer_col_src">QUELLE</string>
     <string name="vpn_pcap_viewer_col_dst">ZIEL</string>
     <string name="vpn_pcap_viewer_col_summary">ÜBERSICHT</string>
+    <string name="vpn_pcap_viewer_desync_annotation_title">DESYNC-AKTION</string>
     <string name="vpn_pcap_viewer_hex_label">HEX-DUMP</string>
     <string name="vpn_confirm_disconnect_title">Jetzt trennen?</string>
     <string name="vpn_confirm_disconnect_session_format">Aktive Sitzung · %1$s</string>

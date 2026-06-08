@@ -2973,6 +2973,7 @@ fakeddisorder endhost</string>
     <string name="vpn_pcap_viewer_col_src">ИСТ.</string>
     <string name="vpn_pcap_viewer_col_dst">НАЗН.</string>
     <string name="vpn_pcap_viewer_col_summary">СВОДКА</string>
+    <string name="vpn_pcap_viewer_desync_annotation_title">ДЕЙСТВИЕ DESYNC</string>
     <string name="vpn_pcap_viewer_hex_label">HEX-ДАМП</string>
     <string name="vpn_confirm_disconnect_title">Отключиться сейчас?</string>
     <string name="vpn_confirm_disconnect_session_format">Активный сеанс · %1$s</string>

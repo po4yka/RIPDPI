@@ -3008,6 +3008,7 @@ Source: %2$s</string>
     <string name="vpn_pcap_viewer_col_src">SRC</string>
     <string name="vpn_pcap_viewer_col_dst">DST</string>
     <string name="vpn_pcap_viewer_col_summary">SUMMARY</string>
+    <string name="vpn_pcap_viewer_desync_annotation_title">DESYNC ACTION</string>
     <string name="vpn_pcap_viewer_hex_label">HEX DUMP</string>
     <string name="vpn_confirm_disconnect_title">Disconnect now?</string>
     <string name="vpn_confirm_disconnect_session_format">Active session · %1$s</string>

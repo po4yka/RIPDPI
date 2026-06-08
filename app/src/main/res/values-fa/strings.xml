@@ -2859,6 +2859,7 @@ fakeddisorder endhost</string>
     <string name="vpn_pcap_viewer_col_src">مبدأ</string>
     <string name="vpn_pcap_viewer_col_dst">مقصد</string>
     <string name="vpn_pcap_viewer_col_summary">خلاصه</string>
+    <string name="vpn_pcap_viewer_desync_annotation_title">اقدام DESYNC</string>
     <string name="vpn_pcap_viewer_hex_label">HEX</string>
     <string name="vpn_confirm_disconnect_title">اکنون قطع شود؟</string>
     <string name="vpn_confirm_disconnect_session_format">نشست فعال · %1$s</string>

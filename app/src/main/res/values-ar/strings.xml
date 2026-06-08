@@ -2764,6 +2764,7 @@ fakeddisorder endhost</string>
     <string name="vpn_pcap_viewer_col_src">المصدر</string>
     <string name="vpn_pcap_viewer_col_dst">الوجهة</string>
     <string name="vpn_pcap_viewer_col_summary">ملخص</string>
+    <string name="vpn_pcap_viewer_desync_annotation_title">إجراء DESYNC</string>
     <string name="vpn_pcap_viewer_hex_label">تفريغ HEX</string>
     <string name="vpn_confirm_disconnect_title">قطع الاتصال الآن؟</string>
     <string name="vpn_confirm_disconnect_session_format">جلسة نشطة · %1$s</string>

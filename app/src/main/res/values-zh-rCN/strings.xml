@@ -2855,6 +2855,7 @@ fake_burst 3</string>
     <string name="vpn_pcap_viewer_col_src">源</string>
     <string name="vpn_pcap_viewer_col_dst">目的</string>
     <string name="vpn_pcap_viewer_col_summary">摘要</string>
+    <string name="vpn_pcap_viewer_desync_annotation_title">DESYNC 动作</string>
     <string name="vpn_pcap_viewer_hex_label">十六进制</string>
     <string name="vpn_confirm_disconnect_title">立即断开？</string>
     <string name="vpn_confirm_disconnect_session_format">当前会话 · %1$s</string>

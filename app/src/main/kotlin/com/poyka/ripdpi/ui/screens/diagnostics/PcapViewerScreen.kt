@@ -51,6 +51,10 @@ data class PcapPacket(
     val protocol: PcapPacketProtocol,
     val summary: String,
     val hexDump: String,
+    val capturedAtMicros: Long? = null,
+    val tcpSequence: Long? = null,
+    val payloadLength: Int = 0,
+    val desyncAnnotations: ImmutableList<PcapDesyncAnnotation> = persistentListOf(),
 )
 
 private const val WeightNo = 0.7f
@@ -60,6 +64,7 @@ private const val WeightDst = 1.3f
 private const val WeightSummary = 1.5f
 private const val SelectedRowAlpha = 0.2f
 private const val ProtocolBadgeAlpha = 0.2f
+private const val AnnotationBadgeAlpha = 0.16f
 
 @Composable
 fun PcapViewerScreen(
@@ -164,6 +169,9 @@ private fun PcapPacketItem(
         PcapPacketRow(packet = packet, isSelected = packet.index == selectedIndex, onClick = onSelect)
         if (packet.index == selectedIndex) {
             RipDpiCard(variant = RipDpiCardVariant.Tonal, paddingValues = PaddingValues(spacing.md)) {
+                if (packet.desyncAnnotations.isNotEmpty()) {
+                    PcapPacketAnnotationDetails(packet.desyncAnnotations)
+                }
                 Text(
                     text = stringResource(R.string.vpn_pcap_viewer_hex_label),
                     style = type.smallLabel,
@@ -257,6 +265,59 @@ private fun PcapPacketRow(
             )
         }
     }
+    if (packet.desyncAnnotations.isNotEmpty()) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = spacing.sm, top = spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            packet.desyncAnnotations.forEach { annotation ->
+                PcapDesyncAnnotationBadge(annotation)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PcapDesyncAnnotationBadge(annotation: PcapDesyncAnnotation) {
+    val colors = RipDpiThemeTokens.colors
+    val shapes = RipDpiThemeTokens.shapes
+    val spacing = RipDpiThemeTokens.spacing
+    Surface(
+        shape = shapes.sm,
+        color = colors.accent.copy(alpha = AnnotationBadgeAlpha),
+        contentColor = colors.accent,
+    ) {
+        Text(
+            text = annotation.summaryLabel(),
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = colors.accent,
+            modifier = Modifier.padding(horizontal = spacing.xs),
+        )
+    }
+}
+
+@Composable
+private fun PcapPacketAnnotationDetails(annotations: ImmutableList<PcapDesyncAnnotation>) {
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+        Text(
+            text = stringResource(R.string.vpn_pcap_viewer_desync_annotation_title),
+            style = type.smallLabel,
+            color = colors.mutedForeground,
+        )
+        annotations.forEach { annotation ->
+            Text(
+                text = annotation.detailLabel(),
+                style = type.monoSmall,
+                color = colors.foreground,
+            )
+        }
+    }
 }
 
 private fun protocolColor(
@@ -278,6 +339,33 @@ private fun protocolLabel(protocol: PcapPacketProtocol): String =
         PcapPacketProtocol.Other -> "OTH"
     }
 
+private fun PcapDesyncAnnotation.summaryLabel(): String =
+    when (kind) {
+        PcapDesyncActionKind.Split -> "split@${splitPoint ?: "?"}"
+        PcapDesyncActionKind.FakePacket -> "fake TTL=${ttl ?: "?"}"
+        PcapDesyncActionKind.SeqOverlap -> "seqovl"
+        PcapDesyncActionKind.Disorder -> "disorder"
+    }
+
+private fun PcapDesyncAnnotation.detailLabel(): String =
+    when (kind) {
+        PcapDesyncActionKind.Split -> {
+            "plan #$planActionIndex: split point ${splitPoint ?: "unknown"}"
+        }
+
+        PcapDesyncActionKind.FakePacket -> {
+            "plan #$planActionIndex: fake packet with TTL=${ttl ?: "unknown"}"
+        }
+
+        PcapDesyncActionKind.SeqOverlap -> {
+            "plan #$planActionIndex: seqovl ${sequenceStart ?: "?"}-${sequenceEnd ?: "?"}"
+        }
+
+        PcapDesyncActionKind.Disorder -> {
+            "plan #$planActionIndex: disorder segment ${sequenceStart ?: "?"}-${sequenceEnd ?: "?"}"
+        }
+    }
+
 private val sampleHexDump =
     """
     0000  45 00 02 1c 1a 2b 40 00  40 06 7c 35 0a 00 00 02
@@ -296,6 +384,8 @@ private val samplePackets =
             protocol = PcapPacketProtocol.Tcp,
             summary = "SYN",
             hexDump = sampleHexDump,
+            capturedAtMicros = 423,
+            tcpSequence = 0,
         ),
         PcapPacket(
             index = 2,
@@ -314,6 +404,9 @@ private val samplePackets =
             protocol = PcapPacketProtocol.Tls,
             summary = "ClientHello · SNI=youtube.com",
             hexDump = sampleHexDump,
+            capturedAtMicros = 14_902,
+            tcpSequence = 1,
+            payloadLength = 517,
         ),
         PcapPacket(
             index = 4,
@@ -332,6 +425,7 @@ private val samplePackets =
             protocol = PcapPacketProtocol.Udp,
             summary = "DNS A youtube.com",
             hexDump = sampleHexDump,
+            capturedAtMicros = 41_002,
         ),
         PcapPacket(
             index = 6,
@@ -342,6 +436,43 @@ private val samplePackets =
             summary = "DNS reply 142.250.x.x",
             hexDump = sampleHexDump,
         ),
+    ).withSampleDesyncAnnotations()
+
+internal fun ImmutableList<PcapPacket>.withSampleDesyncAnnotations(): ImmutableList<PcapPacket> =
+    annotatePcapPackets(
+        packets = this,
+        planActions =
+            listOf(
+                PcapDesyncPlanAction(
+                    planActionIndex = 1,
+                    kind = PcapDesyncActionKind.Split,
+                    packetIndex = 3,
+                    timestampMicros = 14_900,
+                    sequenceStart = 1,
+                    sequenceEnd = 258,
+                    splitPoint = 257,
+                ),
+                PcapDesyncPlanAction(
+                    planActionIndex = 2,
+                    kind = PcapDesyncActionKind.FakePacket,
+                    timestampMicros = 15_050,
+                    sequenceStart = 258,
+                    sequenceEnd = 517,
+                    ttl = 8,
+                ),
+                PcapDesyncPlanAction(
+                    planActionIndex = 3,
+                    kind = PcapDesyncActionKind.SeqOverlap,
+                    sequenceStart = 300,
+                    sequenceEnd = 360,
+                ),
+                PcapDesyncPlanAction(
+                    planActionIndex = 4,
+                    kind = PcapDesyncActionKind.Disorder,
+                    sequenceStart = 430,
+                    sequenceEnd = 517,
+                ),
+            ),
     )
 
 @Preview(showBackground = true)
