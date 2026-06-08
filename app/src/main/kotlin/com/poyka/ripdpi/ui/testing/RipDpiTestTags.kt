@@ -24,8 +24,8 @@ internal object RipDpiTestTags {
     const val VpnPermissionDialogDismiss = "vpn-permission-dialog-dismiss"
     const val MainErrorSnackbar = "main-error-snackbar"
 
-    const val HomeConnectionButton = "home-connection-button"
-    const val HomeConnectionRouteLabel = "home-connection-route-label"
+    const val ConnectionActuatorButton = "connection-actuator-button"
+    const val ConnectionActuatorRouteLabel = "connection-actuator-route-label"
     const val RouteStack = "route-stack"
     const val RouteOpportunityPanel = "route-opportunity-panel"
     const val HomeStatusCard = "home-status-card"
@@ -98,7 +98,6 @@ internal object RipDpiTestTags {
     const val ModeEditorValidationSnackbar = "mode-editor-validation-snackbar"
 
     const val SettingsDnsSettings = "settings-dns-settings"
-    const val SettingsAdvancedSection = "settings-advanced-section"
     const val SettingsAdvancedSettings = "settings-advanced-settings"
     const val SettingsWebRtcProtection = "settings-webrtc-protection"
     const val SettingsStartOnBoot = "settings-start-on-boot"
@@ -268,6 +267,8 @@ internal object RipDpiTestTags {
     const val DiagnosticsSessionsStateContent = "diagnostics-sessions-state-content"
     const val DiagnosticsEventsStateEmpty = "diagnostics-events-state-empty"
     const val DiagnosticsEventsStateContent = "diagnostics-events-state-content"
+    const val StaticStrategyImportScreen = "strategy_import-screen"
+    const val StaticProfileVariantsScreen = "profile_variants-screen"
 
     const val LogsScreen = "logs-screen"
     const val LogsAutoScroll = "logs-auto-scroll"

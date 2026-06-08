@@ -54,6 +54,7 @@ fun ConfigRoute(
     onRetestStrategies: () -> Unit,
     onScanServer: () -> Unit,
     modifier: Modifier = Modifier,
+    route: Route = Route.Config,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     viewModel: ConfigViewModel = hiltViewModel(),
     clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
@@ -72,6 +73,7 @@ fun ConfigRoute(
     ConfigScreen(
         uiState = uiState,
         modifier = modifier,
+        route = route,
         topBarActions = { ConfigImportMenu(onProfileImport = onProfileImport) },
         onModeSelected = remember(viewModel) { viewModel::selectMode },
         onPresetSelected = { preset ->
@@ -111,6 +113,7 @@ fun ConfigScreen(
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
     modifier: Modifier = Modifier,
+    route: Route = Route.Config,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
 ) {
@@ -125,7 +128,7 @@ fun ConfigScreen(
     RipDpiContentScreenScaffold(
         modifier =
             modifier
-                .ripDpiTestTag(RipDpiTestTags.screen(Route.Config))
+                .ripDpiTestTag(RipDpiTestTags.screen(route))
                 .fillMaxSize()
                 .background(colors.background),
         title = stringResource(R.string.config),

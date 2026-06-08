@@ -291,7 +291,7 @@ class HomeScreenTest {
         assertTrue(vpnTop > bypassTop)
         assertTrue(diagnosticTop > vpnTop)
 
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeConnectionButton).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorButton).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeStatusCard).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsCard).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeApproachCard).assertCountEquals(0)

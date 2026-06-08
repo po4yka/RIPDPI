@@ -13,6 +13,9 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.pcap.PcapCaptureMetadata
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 
@@ -29,12 +32,19 @@ private const val BytesPerKilobyte = 1024L
 fun PcapCaptureListScreen(
     captures: ImmutableList<PcapCaptureMetadata>,
     onCaptureSelected: (PcapCaptureMetadata) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
     if (captures.isEmpty()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(spacing.lg)) {
+        Column(
+            modifier =
+                modifier
+                    .ripDpiTestTag(RipDpiTestTags.screen(Route.PcapCaptureList))
+                    .fillMaxWidth()
+                    .padding(spacing.lg),
+        ) {
             Text(
                 text = stringResource(R.string.vpn_pcap_capture_list_empty),
                 style = type.body,
@@ -44,7 +54,11 @@ fun PcapCaptureListScreen(
         return
     }
     Column(
-        modifier = Modifier.fillMaxWidth().padding(spacing.lg),
+        modifier =
+            modifier
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.PcapCaptureList))
+                .fillMaxWidth()
+                .padding(spacing.lg),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         captures.forEach { capture ->

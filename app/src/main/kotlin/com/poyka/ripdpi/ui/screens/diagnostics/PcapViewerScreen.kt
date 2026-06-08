@@ -32,6 +32,9 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
+import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -74,7 +77,7 @@ fun PcapViewerScreen(
     val listState = rememberLazyListState()
 
     RipDpiScreenScaffold(
-        modifier = modifier,
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.PcapViewer)),
         topBar = {
             RipDpiTopAppBar(
                 title = stringResource(R.string.title_pcap_viewer),

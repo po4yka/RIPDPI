@@ -75,10 +75,7 @@ internal fun SettingsConnectivitySection(
                 onClick = { showLanguagePicker = true },
             )
         }
-        AdvancedSection(
-            initiallyExpanded = uiState.uiPersona == "advanced",
-            testTag = RipDpiTestTags.SettingsAdvancedSection,
-        ) {
+        AdvancedSection(initiallyExpanded = uiState.uiPersona == "advanced") {
             SettingsRow(
                 title = stringResource(R.string.title_advanced_settings),
                 subtitle = stringResource(R.string.settings_advanced_body),
