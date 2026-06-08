@@ -1269,6 +1269,10 @@ app:diagnostics_share_archive_body
 app:diagnostics_share_archive_chooser
 app:diagnostics_share_archive_line
 app:diagnostics_share_archive_title
+app:diagnostics_setup_bundle_action
+app:diagnostics_setup_bundle_body
+app:diagnostics_setup_bundle_cover_note
+app:diagnostics_setup_bundle_title
 app:diagnostics_share_metric_app
 app:diagnostics_share_metric_mode
 app:diagnostics_share_metric_network

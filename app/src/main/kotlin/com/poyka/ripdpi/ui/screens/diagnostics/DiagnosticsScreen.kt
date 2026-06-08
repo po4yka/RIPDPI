@@ -131,6 +131,7 @@ data class DiagnosticsScreenActions(
     val onEventAutoScroll: (Boolean) -> Unit = {},
     val onShareSummary: (String?) -> Unit = {},
     val onShareArchive: (String?) -> Unit = {},
+    val onShareSetupBundle: () -> Unit = {},
     val onSaveArchive: (String?) -> Unit = {},
     val onSaveLogs: () -> Unit = {},
     val onOpenLogs: () -> Unit = {},
@@ -410,6 +411,7 @@ private fun DiagnosticsScreenActions.toDiagnosticsShareActions(): DiagnosticsSha
     DiagnosticsShareActions(
         onShareSummary = onShareSummary,
         onShareArchive = onShareArchive,
+        onShareSetupBundle = onShareSetupBundle,
         onSaveArchive = onSaveArchive,
         onSaveLogs = onSaveLogs,
         onOpenLogs = onOpenLogs,

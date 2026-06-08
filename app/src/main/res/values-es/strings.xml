@@ -1250,6 +1250,10 @@ fake_burst 3</string>
     <string name="diagnostics_section_wifi">Wi-Fi</string>
     <string name="diagnostics_sensitive_profile_consent_title">Revisar diagnósticos sensibles</string>
     <string name="diagnostics_share_archive_chooser">Compartir archivo de diagnóstico</string>
+    <string name="diagnostics_setup_bundle_title">Send anonymized setup bundle</string>
+    <string name="diagnostics_setup_bundle_body">Create the redacted diagnostics ZIP for the person who helped set this up. The share note says the bundle is anonymized as described in Data Transparency.</string>
+    <string name="diagnostics_setup_bundle_action">Send bundle</string>
+    <string name="diagnostics_setup_bundle_cover_note">RIPDPI anonymized diagnostic bundle. This ZIP was created explicitly from the app and uses the redacted diagnostics export described in Data Transparency. Please send it only to the person helping with this setup.</string>
     <string name="diagnostics_share_metric_network">Red</string>
     <string name="diagnostics_share_summary_body">Crea un informe de incidencia conciso a partir de la sesión de diagnóstico más reciente o seleccionada y envíalo a través de la hoja de compartir de Android.</string>
     <string name="diagnostics_snackbar_dns_recommendation_generic">Las respuestas DNS se vieron distintas en esta red. Abre los ajustes de DNS y prueba un resolver seguro.</string>

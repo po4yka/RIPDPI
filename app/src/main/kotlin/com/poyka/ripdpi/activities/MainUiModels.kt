@@ -44,6 +44,7 @@ sealed interface MainEffect {
     data class ShareDiagnosticsArchive(
         val absolutePath: String,
         val fileName: String,
+        val coverNote: DiagnosticsArchiveCoverNote? = null,
     ) : MainEffect
 
     data object RelockRequested : MainEffect

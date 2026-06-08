@@ -28,6 +28,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
 import com.poyka.ripdpi.activities.ConfigViewModel
+import com.poyka.ripdpi.activities.DiagnosticsArchiveCoverNote
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.activities.MainUiState
@@ -97,7 +98,7 @@ data class RipDpiNavHostActions(
     val onSaveLogs: () -> Unit = {},
     val onShareDebugBundle: () -> Unit = {},
     val onSaveDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
-    val onShareDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
+    val onShareDiagnosticsArchive: (String, String, DiagnosticsArchiveCoverNote?) -> Unit = { _, _, _ -> },
     val onShareDiagnosticsSummary: (String, String) -> Unit = { _, _ -> },
     val onRepairPermission: (PermissionKind) -> Unit = {},
 )

@@ -260,6 +260,7 @@ internal object RipDpiTestTags {
     const val DiagnosticsEventsSearch = "diagnostics-events-search"
     const val DiagnosticsEventsAutoScroll = "diagnostics-events-auto-scroll"
     const val DiagnosticsShareArchive = "diagnostics-share-archive"
+    const val DiagnosticsShareSetupBundle = "diagnostics-share-setup-bundle"
     const val DiagnosticsSaveArchive = "diagnostics-save-archive"
     const val DiagnosticsSaveLogs = "diagnostics-save-logs"
     const val DiagnosticsOpenLogs = "diagnostics-open-logs"

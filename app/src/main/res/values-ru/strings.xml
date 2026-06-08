@@ -273,6 +273,10 @@
     <string name="diagnostics_share_archive_body">Создайте ZIP с выбранной сессией, матрицей стратегий, недавней телеметрией, конфигурацией времени выполнения, происхождением архива, заметками о полноте, хэшами целостности, app-scoped снимком logcat и последними PCAP-файлами только если расширенный захват пакетов был включён. Сводка и манифест остаются отредактированными; отправка происходит через лист обмена Android после выбора получателя.</string>
     <string name="diagnostics_share_archive_action">Поделиться архивом</string>
     <string name="diagnostics_share_archive_chooser">Поделиться архивом диагностики</string>
+    <string name="diagnostics_setup_bundle_title">Send anonymized setup bundle</string>
+    <string name="diagnostics_setup_bundle_body">Create the redacted diagnostics ZIP for the person who helped set this up. The share note says the bundle is anonymized as described in Data Transparency.</string>
+    <string name="diagnostics_setup_bundle_action">Send bundle</string>
+    <string name="diagnostics_setup_bundle_cover_note">RIPDPI anonymized diagnostic bundle. This ZIP was created explicitly from the app and uses the redacted diagnostics export described in Data Transparency. Please send it only to the person helping with this setup.</string>
     <string name="diagnostics_save_archive_title">Сохранить архив диагностики</string>
     <string name="diagnostics_save_archive_body">Сохранить %1$s локально. Архив содержит необработанные данные отчёта, конфигурацию времени выполнения, происхождение, полноту, метаданные целостности, app-scoped logcat при наличии и PCAP-файлы после явного включения, если они есть. Сводка и манифест скрывают поля сетевой идентификации; удалите сохранённый файл из выбранного места, когда он больше не нужен.</string>
     <string name="diagnostics_save_archive_action">Сохранить архив</string>

@@ -299,6 +299,10 @@
     <string name="diagnostics_share_archive_body">إنشاء ملف ZIP يتضمن الجلسة المحددة ومصفوفة الاستراتيجية والقياسات الأخيرة وتهيئة التشغيل وسند الأرشيف وملاحظات الاكتمال وتجزئات السلامة ولقطة logcat المقيدة بالتطبيق وملفات PCAP الأخيرة عند تفعيل التقاط الحزم المتقدم فقط. تبقى ملفات الملخص والبيان مخفية؛ تتم المشاركة عبر قائمة المشاركة في Android بعد اختيار الوجهة.</string>
     <string name="diagnostics_share_archive_action">مشاركة الأرشيف</string>
     <string name="diagnostics_share_archive_chooser">مشاركة أرشيف التشخيصات</string>
+    <string name="diagnostics_setup_bundle_title">Send anonymized setup bundle</string>
+    <string name="diagnostics_setup_bundle_body">Create the redacted diagnostics ZIP for the person who helped set this up. The share note says the bundle is anonymized as described in Data Transparency.</string>
+    <string name="diagnostics_setup_bundle_action">Send bundle</string>
+    <string name="diagnostics_setup_bundle_cover_note">RIPDPI anonymized diagnostic bundle. This ZIP was created explicitly from the app and uses the redacted diagnostics export described in Data Transparency. Please send it only to the person helping with this setup.</string>
     <string name="diagnostics_save_archive_title">حفظ أرشيف التشخيصات</string>
     <string name="diagnostics_save_archive_body">حفظ %1$s محليًا. يحتفظ الأرشيف ببيانات التقرير الخام وتهيئة التشغيل وسند الأرشيف والاكتمال وبيانات السلامة و logcat المقيد بالتطبيق عند توفره وملفات PCAP إن وُجدت. تُخفي ملفات الملخص والبيان حقول هوية الشبكة؛ احذف الملف المحفوظ من موقعك المختار متى انتهت حاجتك إليه.</string>
     <string name="diagnostics_save_archive_action">حفظ الأرشيف</string>

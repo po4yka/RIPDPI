@@ -93,6 +93,7 @@ internal data class DiagnosticsDpiToolActions(
 internal data class DiagnosticsShareActions(
     val onShareSummary: (String?) -> Unit,
     val onShareArchive: (String?) -> Unit,
+    val onShareSetupBundle: () -> Unit = {},
     val onSaveArchive: (String?) -> Unit,
     val onSaveLogs: () -> Unit,
     val onOpenLogs: () -> Unit = {},
@@ -145,6 +146,7 @@ internal fun ToolsSection(
             share = share,
             onShareSummary = shareActions.onShareSummary,
             onShareArchive = shareActions.onShareArchive,
+            onShareSetupBundle = shareActions.onShareSetupBundle,
             onSaveArchive = shareActions.onSaveArchive,
             onSaveLogs = shareActions.onSaveLogs,
             onOpenLogs = shareActions.onOpenLogs,
@@ -203,6 +205,7 @@ private fun LazyListScope.shareItems(
     share: DiagnosticsShareUiModel,
     onShareSummary: (String?) -> Unit,
     onShareArchive: (String?) -> Unit,
+    onShareSetupBundle: () -> Unit,
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
     onOpenLogs: () -> Unit,
@@ -216,6 +219,7 @@ private fun LazyListScope.shareItems(
             archiveStateTone = share.archiveStateTone,
         )
     }
+    setupBundleItem(share, onShareSetupBundle)
     item {
         ShareActionCard(
             title = stringResource(R.string.diagnostics_share_archive_title),
@@ -275,6 +279,24 @@ private fun LazyListScope.shareItems(
             iconTint = RipDpiThemeTokens.colors.info,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsOpenLogs),
             variant = RipDpiButtonVariant.Outline,
+        )
+    }
+}
+
+private fun LazyListScope.setupBundleItem(
+    share: DiagnosticsShareUiModel,
+    onShareSetupBundle: () -> Unit,
+) {
+    item {
+        ShareActionCard(
+            title = stringResource(R.string.diagnostics_setup_bundle_title),
+            body = stringResource(R.string.diagnostics_setup_bundle_body),
+            buttonLabel = stringResource(R.string.diagnostics_setup_bundle_action),
+            onClick = onShareSetupBundle,
+            iconTint = RipDpiThemeTokens.colors.foreground,
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsShareSetupBundle),
+            variant = RipDpiButtonVariant.Primary,
+            enabled = !share.isArchiveBusy,
         )
     }
 }

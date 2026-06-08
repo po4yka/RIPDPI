@@ -2882,6 +2882,16 @@ class DiagnosticsViewModelTest {
             assertEquals("session-1", manager.lastArchiveSessionId)
             assertEquals("SAVE_ARCHIVE", manager.lastArchiveReason)
             assertEquals("/tmp/archive-session-1.zip", saveArchive.absolutePath)
+
+            val setupBundleEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
+            viewModel.shareSetupBundle()
+            advanceUntilIdle()
+
+            val setupBundle = setupBundleEffect.await() as DiagnosticsEffect.ShareArchiveRequested
+            assertEquals(null, manager.lastArchiveSessionId)
+            assertEquals("SHARE_SETUP_BUNDLE", manager.lastArchiveReason)
+            assertEquals("/tmp/archive-all.zip", setupBundle.absolutePath)
+            assertEquals(DiagnosticsArchiveCoverNote.SetupHelper, setupBundle.coverNote)
             collector.cancel()
         }
 

@@ -361,6 +361,32 @@ class DeveloperAnalyticsAllowListTest {
             assertAllowList(archive.absolutePath)
         }
 
+    @Test
+    fun `developer analytics excludes undisclosed fields from setup bundle`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session =
+                diagnosticsSession(
+                    id = "session-da-setup-bundle",
+                    profileId = "default",
+                    pathMode = ScanPathMode.IN_PATH.name,
+                    summary = "Setup bundle session",
+                ).copy(serviceMode = "vpn")
+            stores.sessionsState.value = listOf(session)
+            val exporter = createExporter(stores, violatingSource())
+
+            val archive =
+                exporter.createArchive(
+                    DiagnosticsArchiveRequest(
+                        requestedSessionId = null,
+                        reason = DiagnosticsArchiveReason.SHARE_SETUP_BUNDLE,
+                        requestedAt = 205L,
+                    ),
+                )
+
+            assertAllowList(archive.absolutePath)
+        }
+
     private suspend fun seedCompositeStores(stores: FakeDiagnosticsHistoryStores) {
         val auditSession =
             diagnosticsSession(

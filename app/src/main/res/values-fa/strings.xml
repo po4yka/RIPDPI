@@ -303,6 +303,10 @@
     <string name="diagnostics_share_archive_body">Build a ZIP with the focused session, strategy matrix, recent telemetry, runtime configuration, archive provenance, completeness notes, integrity hashes, app-scoped logcat snapshot, and recent PCAP files only when advanced packet capture was enabled. Summary and manifest files stay redacted; sharing happens through the Android share sheet after you choose a target.</string>
     <string name="diagnostics_share_archive_action">اشتراک‌گذاری بایگانی</string>
     <string name="diagnostics_share_archive_chooser">اشتراک‌گذاری بایگانی تشخیص</string>
+    <string name="diagnostics_setup_bundle_title">Send anonymized setup bundle</string>
+    <string name="diagnostics_setup_bundle_body">Create the redacted diagnostics ZIP for the person who helped set this up. The share note says the bundle is anonymized as described in Data Transparency.</string>
+    <string name="diagnostics_setup_bundle_action">Send bundle</string>
+    <string name="diagnostics_setup_bundle_cover_note">RIPDPI anonymized diagnostic bundle. This ZIP was created explicitly from the app and uses the redacted diagnostics export described in Data Transparency. Please send it only to the person helping with this setup.</string>
     <string name="diagnostics_save_archive_title">ذخیرهٔ بایگانی تشخیص</string>
     <string name="diagnostics_save_archive_body">Save %1$s locally. The archive keeps raw report data, runtime configuration, provenance, completeness, integrity metadata, app-scoped logcat when available, and opted-in PCAP files if present. Summary and manifest files redact network identity fields; delete the saved file from your chosen location when you no longer need it.</string>
     <string name="diagnostics_save_archive_action">ذخیرهٔ بایگانی</string>

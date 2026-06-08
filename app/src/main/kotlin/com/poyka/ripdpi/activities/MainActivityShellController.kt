@@ -140,6 +140,7 @@ internal class MainActivityShellController(
                 requestShareDiagnosticsArchive(
                     filePath = effect.absolutePath,
                     fileName = effect.fileName,
+                    coverNote = effect.coverNote,
                 )
             }
 
@@ -208,6 +209,10 @@ internal fun MainActivityShellController.requestShareDebugBundle() {
     emitHostCommand(MainActivityHostCommand.ShareDebugBundle)
 }
 
+internal fun MainActivityShellController.requestShareSetupDiagnosticBundle() {
+    emitHostCommand(MainActivityHostCommand.ShareSetupDiagnosticBundle)
+}
+
 internal fun MainActivityShellController.requestSaveDiagnosticsArchive(
     filePath: String,
     fileName: String,
@@ -223,11 +228,13 @@ internal fun MainActivityShellController.requestSaveDiagnosticsArchive(
 internal fun MainActivityShellController.requestShareDiagnosticsArchive(
     filePath: String,
     fileName: String,
+    coverNote: DiagnosticsArchiveCoverNote? = null,
 ) {
     emitHostCommand(
         MainActivityHostCommand.ShareDiagnosticsArchive(
             filePath = filePath,
             fileName = fileName,
+            coverNote = coverNote,
         ),
     )
 }

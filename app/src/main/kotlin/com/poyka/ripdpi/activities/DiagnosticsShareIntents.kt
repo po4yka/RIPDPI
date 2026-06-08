@@ -17,10 +17,14 @@ internal object DiagnosticsShareIntents {
     fun createArchiveShareIntent(
         archiveUri: Uri,
         fileName: String,
+        coverNote: String? = null,
     ): Intent =
         Intent(Intent.ACTION_SEND).apply {
             type = "application/zip"
             putExtra(Intent.EXTRA_SUBJECT, fileName)
+            coverNote
+                ?.takeIf(String::isNotBlank)
+                ?.let { note -> putExtra(Intent.EXTRA_TEXT, note) }
             putExtra(Intent.EXTRA_STREAM, archiveUri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }

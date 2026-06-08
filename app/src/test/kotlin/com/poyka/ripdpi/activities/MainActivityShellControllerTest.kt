@@ -95,6 +95,9 @@ class MainActivityShellControllerTest {
                 controller.requestShareDebugBundle()
                 assertEquals(MainActivityHostCommand.ShareDebugBundle, awaitItem())
 
+                controller.requestShareSetupDiagnosticBundle()
+                assertEquals(MainActivityHostCommand.ShareSetupDiagnosticBundle, awaitItem())
+
                 controller.requestSaveDiagnosticsArchive("/tmp/archive.zip", "archive.zip")
                 assertEquals(
                     MainActivityHostCommand.SaveDiagnosticsArchive(
@@ -109,6 +112,20 @@ class MainActivityShellControllerTest {
                     MainActivityHostCommand.ShareDiagnosticsArchive(
                         filePath = "/tmp/share.zip",
                         fileName = "share.zip",
+                    ),
+                    awaitItem(),
+                )
+
+                controller.requestShareDiagnosticsArchive(
+                    filePath = "/tmp/setup.zip",
+                    fileName = "setup.zip",
+                    coverNote = DiagnosticsArchiveCoverNote.SetupHelper,
+                )
+                assertEquals(
+                    MainActivityHostCommand.ShareDiagnosticsArchive(
+                        filePath = "/tmp/setup.zip",
+                        fileName = "setup.zip",
+                        coverNote = DiagnosticsArchiveCoverNote.SetupHelper,
                     ),
                     awaitItem(),
                 )

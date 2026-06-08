@@ -27,6 +27,22 @@ class DiagnosticsShareIntentsTest {
     }
 
     @Test
+    fun `archive share intent can include setup bundle cover note`() {
+        val uri = Uri.parse("content://com.poyka.ripdpi.diagnostics.fileprovider/diagnostics/setup.zip")
+
+        val intent =
+            DiagnosticsShareIntents.createArchiveShareIntent(
+                archiveUri = uri,
+                fileName = "setup.zip",
+                coverNote = "Anonymized bundle for setup helper.",
+            )
+
+        assertEquals("setup.zip", intent.getStringExtra(Intent.EXTRA_SUBJECT))
+        assertEquals("Anonymized bundle for setup helper.", intent.getStringExtra(Intent.EXTRA_TEXT))
+        assertEquals(uri, IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
+    }
+
+    @Test
     fun `summary share intent uses plain text payload`() {
         val intent = DiagnosticsShareIntents.createSummaryShareIntent("Summary", "Body")
 

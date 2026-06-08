@@ -288,7 +288,7 @@ class DiagnosticsArchiveSessionSelector
             primarySession: ScanSessionEntity?,
         ): DiagnosticsArchiveSessionSelectionStatus =
             when {
-                request.reason == DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE -> {
+                request.reason in SupportBundleReasons -> {
                     DiagnosticsArchiveSessionSelectionStatus.SUPPORT_BUNDLE
                 }
 
@@ -308,4 +308,12 @@ class DiagnosticsArchiveSessionSelector
                     DiagnosticsArchiveSessionSelectionStatus.LATEST_LIVE_STATE
                 }
             }
+
+        private companion object {
+            val SupportBundleReasons =
+                setOf(
+                    DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE,
+                    DiagnosticsArchiveReason.SHARE_SETUP_BUNDLE,
+                )
+        }
     }
