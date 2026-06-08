@@ -21,10 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.disabled
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
@@ -33,7 +30,6 @@ import com.poyka.ripdpi.activities.ConfigFieldDefaultTtl
 import com.poyka.ripdpi.activities.ConfigFieldMaxConnections
 import com.poyka.ripdpi.activities.ConfigFieldProxyIp
 import com.poyka.ripdpi.activities.ConfigFieldProxyPort
-import com.poyka.ripdpi.activities.ConfigFieldStrategyChain
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -349,56 +345,8 @@ private fun ModeEditorChainFields(
     uiState: ConfigUiState,
     actions: ModeEditorActions,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val chainOverridden = draft.useCommandLineSettings
-
-    Column(
-        modifier =
-            Modifier
-                .ripDpiTestTag(RipDpiTestTags.ModeEditorChainVisual)
-                .alpha(if (chainOverridden) ChainOverriddenAlpha else 1f)
-                .then(
-                    if (chainOverridden) {
-                        Modifier.semantics { disabled() }
-                    } else {
-                        Modifier
-                    },
-                ),
-    ) {
-        Text(
-            text = stringResource(R.string.config_chain_summary_label, draft.chainSummary),
-            style = RipDpiThemeTokens.type.caption,
-            color = colors.mutedForeground,
-        )
-    }
-    if (chainOverridden) {
-        Text(
-            text = stringResource(R.string.config_chain_cli_override_note),
-            style = RipDpiThemeTokens.type.caption,
-            color = colors.mutedForeground,
-        )
-    }
-    RipDpiConfigTextField(
-        value = draft.chainDsl,
-        onValueChange = actions.onChainDslChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(R.string.config_chain_editor_label),
-                placeholder = stringResource(R.string.config_placeholder_chain_dsl),
-                helperText = stringResource(R.string.config_chain_editor_helper),
-                errorText = validationMessage(uiState.validationErrors[ConfigFieldStrategyChain]),
-                testTag = RipDpiTestTags.ModeEditorChainDsl,
-            ),
-        multiline = true,
-        behavior =
-            RipDpiTextFieldBehavior(
-                enabled = !chainOverridden,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
-            ),
-    )
+    ModeEditorChainBlockEditor(draft = draft, uiState = uiState, actions = actions)
 }
-
-private const val ChainOverriddenAlpha = 0.55f
 
 @Composable
 private fun ModeEditorOverridesSection(

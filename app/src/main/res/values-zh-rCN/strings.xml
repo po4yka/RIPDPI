@@ -2116,6 +2116,14 @@ fake_burst 3</string>
     <string name="config_command_line_helper">启用命令行设置时生效。</string>
     <string name="config_dns_disabled_helper">DNS 覆盖仅在本地 VPN 模式下应用。</string>
     <string name="config_edit_current">编辑配置档</string>
+    <string name="config_chain_block_valid">Chain validates against the strategy registry model.</string>
+    <string name="config_chain_block_invalid">Invalid chain: %1$s</string>
+    <string name="config_chain_block_invalid_body">Open the raw DSL view to repair syntax or ordering before block editing resumes.</string>
+    <string name="config_chain_raw_show">Show raw DSL</string>
+    <string name="config_chain_raw_hide">Hide raw DSL</string>
+    <string name="config_chain_move_up">Move block up</string>
+    <string name="config_chain_move_down">Move block down</string>
+    <string name="config_chain_remove_block">Remove block</string>
     <string name="config_error_invalid_chain">请输入有效的绕过策略 DSL。</string>
     <string name="config_error_invalid_proxy_ip">请输入有效的代理监听地址。</string>
     <string name="config_fake_offset_marker_helper">接受数值或语义偏移,如 0、host+1、endhost-2 或 endhost+1。此处不支持自适应 auto(…) 标记。</string>

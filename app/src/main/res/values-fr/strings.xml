@@ -1606,6 +1606,14 @@ Source : %2$s</string>
     <string name="config_cli_banner_body">Les arguments ci-dessous ont priorité sur les contrôles visuels de cet écran.</string>
     <string name="config_default_ttl_summary">Remplacement de la durée de vie pour les paquets sortants</string>
     <string name="config_dns_summary_enabled">Appliqué en mode VPN local</string>
+    <string name="config_chain_block_valid">Chain validates against the strategy registry model.</string>
+    <string name="config_chain_block_invalid">Invalid chain: %1$s</string>
+    <string name="config_chain_block_invalid_body">Open the raw DSL view to repair syntax or ordering before block editing resumes.</string>
+    <string name="config_chain_raw_show">Show raw DSL</string>
+    <string name="config_chain_raw_hide">Hide raw DSL</string>
+    <string name="config_chain_move_up">Move block up</string>
+    <string name="config_chain_move_down">Move block down</string>
+    <string name="config_chain_remove_block">Remove block</string>
     <string name="config_error_invalid_chain">Saisissez un DSL de stratégie de contournement valide.</string>
     <string name="config_error_out_of_range">La valeur est hors de la plage autorisée.</string>
     <string name="config_listen_address_summary">Où l\'écouteur du proxy local se lie</string>

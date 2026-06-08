@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.components
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.ConnectionState
@@ -31,6 +34,8 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.screens.config.ConfigScreen
+import com.poyka.ripdpi.ui.screens.config.ModeEditorChainBlockEditor
+import com.poyka.ripdpi.ui.screens.config.NoOpModeEditorActions
 import com.poyka.ripdpi.ui.screens.customization.AboutScreen
 import com.poyka.ripdpi.ui.screens.customization.AppCustomizationScreen
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsScreen
@@ -49,6 +54,7 @@ import com.poyka.ripdpi.ui.screens.settings.StrategyConfigSource
 import com.poyka.ripdpi.ui.screens.settings.TlsPreludeModeDisabled
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
 
 // -- Home state variants --------------------------------------------------------
@@ -555,6 +561,25 @@ internal fun RipDpiModeEditorPreviewScene() {
                 draft = draft,
             ),
     )
+}
+
+@Composable
+internal fun RipDpiModeEditorInvalidChainPreviewScene() {
+    val draft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(chainDsl = "[tcp]\nsplit host\ntlsrec sniext+1")
+    RipDpiTheme(themePreference = "light") {
+        Column(
+            modifier =
+                androidx.compose.ui.Modifier
+                    .fillMaxWidth()
+                    .padding(RipDpiThemeTokens.layout.horizontalPadding),
+        ) {
+            ModeEditorChainBlockEditor(
+                draft = draft,
+                uiState = ConfigUiState(activeMode = Mode.VPN, presets = buildConfigPresets(draft), draft = draft),
+                actions = NoOpModeEditorActions,
+            )
+        }
+    }
 }
 
 // -- Home high contrast ---------------------------------------------------------

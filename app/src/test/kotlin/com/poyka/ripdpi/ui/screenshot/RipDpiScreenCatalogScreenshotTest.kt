@@ -27,6 +27,7 @@ import com.poyka.ripdpi.ui.components.RipDpiHomeHighContrastPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiIntroLargeFontPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiLogsEmptyDarkPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiLogsPreviewScene
+import com.poyka.ripdpi.ui.components.RipDpiModeEditorInvalidChainPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiModeEditorPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsDarkPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsMediumPreviewScene
@@ -343,6 +344,13 @@ class RipDpiScreenCatalogScreenshotTest {
     fun modeEditorScreen() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 1200) {
             RipDpiModeEditorPreviewScene()
+        }
+    }
+
+    @Test
+    fun modeEditorInvalidChainScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 720) {
+            RipDpiModeEditorInvalidChainPreviewScene()
         }
     }
 
