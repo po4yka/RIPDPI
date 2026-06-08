@@ -54,6 +54,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.PcapViewerRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
+import com.poyka.ripdpi.ui.screens.health.ConnectionHealthRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
@@ -406,6 +407,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                 }
             },
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
+            onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
             onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
             onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
             onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
@@ -441,6 +443,9 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             onShareSupportBundle = actions.onShareDebugBundle,
         )
     }
+    composable<Route.ConnectionHealth> {
+        ConnectionHealthRoute(onBack = { navController.popBackStack() })
+    }
     composable<Route.BiometricPrompt> {
         BiometricPromptRoute(
             onAuthenticated = {
@@ -466,6 +471,7 @@ private fun diagnosticsRouteCallbacks(
         onShareSummary = actions.onShareDiagnosticsSummary,
         onSaveLogs = actions.onSaveLogs,
         onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
+        onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
         onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
         onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },

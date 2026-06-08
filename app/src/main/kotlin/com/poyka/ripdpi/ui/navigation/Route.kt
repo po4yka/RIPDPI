@@ -105,6 +105,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object ConnectionHealth : Route() {
+        override val stableRoute = "connection_health"
+        override val titleRes = R.string.title_connection_health
+        override val icon: ImageVector? = RipDpiIcons.NetworkCheck
+    }
+
+    @Serializable
     data object ModeEditor : Route() {
         override val stableRoute = "mode_editor"
         override val titleRes = R.string.title_mode_editor
@@ -359,6 +366,7 @@ sealed class Route {
                     Diagnostics(),
                     History,
                     Logs,
+                    ConnectionHealth,
                     Settings,
                     BackupRestore,
                     ModeEditor,

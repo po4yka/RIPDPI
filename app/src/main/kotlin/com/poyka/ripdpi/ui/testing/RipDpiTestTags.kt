@@ -44,6 +44,7 @@ internal object RipDpiTestTags {
     const val HomeDiagnosticsRemediationAction = "home-diagnostics-remediation-action"
     const val HomeControlPlaneHealthCard = "home-control-plane-health-card"
     const val HomeControlPlaneHealthAction = "home-control-plane-health-action"
+    const val HomeConnectionHealthAction = "home-connection-health-action"
     const val HomeApproachCard = "home-approach-card"
     const val HomeHistoryCard = "home-history-card"
     const val HomeStatsGrid = "home-stats-grid"
@@ -204,6 +205,7 @@ internal object RipDpiTestTags {
     const val BiometricPromptPinField = "biometric-prompt-pin-field"
 
     const val DiagnosticsTopHistoryAction = "diagnostics-top-history-action"
+    const val DiagnosticsConnectionHealthAction = "diagnostics-connection-health-action"
     const val DiagnosticsOverviewHistoryAction = "diagnostics-overview-history-action"
     const val ReplayHistoryEmptyState = "replay-history-empty-state"
     const val ReplayHistoryRunScanAction = "replay-history-run-scan-action"

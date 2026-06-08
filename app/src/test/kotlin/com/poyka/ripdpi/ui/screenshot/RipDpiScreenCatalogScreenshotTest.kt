@@ -33,6 +33,8 @@ import com.poyka.ripdpi.ui.components.RipDpiSettingsMediumPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiStrategyConfigPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiVpnPermissionDialogPreviewScene
 import com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryScreen
+import com.poyka.ripdpi.ui.screens.health.ConnectionHealthScreen
+import com.poyka.ripdpi.ui.screens.health.previewConnectionHealthUiState
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
@@ -174,6 +176,15 @@ class RipDpiScreenCatalogScreenshotTest {
     fun diagnosticsShareScreen() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
             RipDpiDiagnosticsSharePreviewScene()
+        }
+    }
+
+    @Test
+    fun connectionHealthScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
+            RipDpiTheme {
+                ConnectionHealthScreen(uiState = previewConnectionHealthUiState(), onBack = {})
+            }
         }
     }
 
