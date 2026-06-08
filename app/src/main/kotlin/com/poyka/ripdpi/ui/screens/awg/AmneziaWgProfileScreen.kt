@@ -27,9 +27,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
-import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
@@ -82,7 +80,7 @@ internal fun AmneziaWgProfileScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
         navigationContentDescription = stringResource(R.string.navigation_back),
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AmneziaWgProfile)),
+        modifier = modifier,
     ) {
         InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
         PeerSection(uiState, onFieldChanged, onRevealPresharedKey)

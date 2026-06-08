@@ -284,14 +284,14 @@ class HomeScreenTest {
                 .onAllNodesWithTag(RipDpiTestTags.homeModeCard(mode.name))
                 .assertCountEquals(1)
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.homeModeCard(HomeMode.Diagnostic.name)).performScrollTo()
+
         val bypassTop = cardTop(HomeMode.LocalDpiBypass)
         val vpnTop = cardTop(HomeMode.RemoteVpn)
         val diagnosticTop = cardTop(HomeMode.Diagnostic)
         assertTrue(vpnTop > bypassTop)
         assertTrue(diagnosticTop > vpnTop)
 
-        composeRule.onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorButton).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeConnectionButton).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeStatusCard).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsCard).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeApproachCard).assertCountEquals(0)
@@ -346,10 +346,10 @@ class HomeScreenTest {
             }
         }
 
-        clickHomeNode(RipDpiTestTags.homeModePrimaryAction(HomeMode.LocalDpiBypass.name))
-        clickHomeNode(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name))
-        clickHomeNode(RipDpiTestTags.homeModeConfigureAction(HomeMode.LocalDpiBypass.name))
-        clickHomeNode(RipDpiTestTags.homeModeCardBody(HomeMode.RemoteVpn.name))
+        composeRule.onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.LocalDpiBypass.name)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.homeModeConfigureAction(HomeMode.LocalDpiBypass.name)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.homeModeCardBody(HomeMode.RemoteVpn.name)).performClick()
 
         assertEquals(false, bypassEnabled)
         assertEquals(true, vpnEnabled)
@@ -616,10 +616,6 @@ class HomeScreenTest {
             .fetchSemanticsNode()
             .boundsInRoot
             .top
-
-    private fun clickHomeNode(tag: String) {
-        composeRule.onNodeWithTag(tag).performScrollTo().performClick()
-    }
 
     private fun uiStateWithBothBanners(): MainUiState =
         MainUiState(

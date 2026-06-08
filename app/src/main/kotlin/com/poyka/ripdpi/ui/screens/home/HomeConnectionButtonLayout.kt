@@ -73,7 +73,7 @@ internal fun HomeConnectionButtonLayout(
         Column(
             modifier =
                 Modifier
-                    .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorButton)
+                    .ripDpiTestTag(RipDpiTestTags.HomeConnectionButton)
                     .semantics(mergeDescendants = true) {
                         contentDescription = label
                         this.stateDescription = stateDescription

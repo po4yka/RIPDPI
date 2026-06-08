@@ -105,27 +105,6 @@ sealed class Route {
     }
 
     @Serializable
-    data object ConnectionHealth : Route() {
-        override val stableRoute = "connection_health"
-        override val titleRes = R.string.title_connection_health
-        override val icon: ImageVector? = RipDpiIcons.NetworkCheck
-    }
-
-    @Serializable
-    data object SubscriptionFailover : Route() {
-        override val stableRoute = "subscription_failover"
-        override val titleRes = R.string.title_subscription_failover
-        override val icon: ImageVector? = RipDpiIcons.NetworkCheck
-    }
-
-    @Serializable
-    data object StrategyTuner : Route() {
-        override val stableRoute = "strategy_tuner"
-        override val titleRes = R.string.title_strategy_tuner
-        override val icon: ImageVector? = RipDpiIcons.Advanced
-    }
-
-    @Serializable
     data object ModeEditor : Route() {
         override val stableRoute = "mode_editor"
         override val titleRes = R.string.title_mode_editor
@@ -324,20 +303,6 @@ sealed class Route {
     }
 
     @Serializable
-    data class ProfileShare(
-        val profileId: String = "",
-    ) : Route() {
-        @kotlinx.serialization.Transient
-        override val stableRoute = "profile/share"
-
-        @kotlinx.serialization.Transient
-        override val titleRes = R.string.profile_share_title
-
-        @kotlinx.serialization.Transient
-        override val icon: ImageVector? = RipDpiIcons.Share
-    }
-
-    @Serializable
     data object QrScanner : Route() {
         override val stableRoute = "scanner"
         override val titleRes = R.string.scanner_title
@@ -394,9 +359,6 @@ sealed class Route {
                     Diagnostics(),
                     History,
                     Logs,
-                    ConnectionHealth,
-                    SubscriptionFailover,
-                    StrategyTuner,
                     Settings,
                     BackupRestore,
                     ModeEditor,
@@ -422,7 +384,6 @@ sealed class Route {
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),
                     SubscriptionImportConfirm(),
-                    ProfileShare(),
                     QrScanner,
                     AmneziaWgProfile,
                     XrayImport,

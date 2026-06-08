@@ -62,7 +62,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen()
 
         scrollToKey("advanced_desync")
-        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("bypass_strategy")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("desync")).assertExists()
     }
 
     @Test

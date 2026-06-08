@@ -32,10 +32,10 @@ pages:
     flow_from: "onboarding"
     flow_label: "finish setup"
     expected_root: "home-screen"
-    required_elements: ["home-mode-card-vpn", "home-mode-card-proxy", "home-mode-primary-vpn", "bottom-nav-config", "bottom-nav-diagnostics", "bottom-nav-settings"]
+    required_elements: ["home-connection-button", "home-connection-route-label", "bottom-nav-config", "bottom-nav-diagnostics", "bottom-nav-settings"]
     state: "idle"
     description: |
-      Primary status surface with per-mode connection cards and bottom navigation.
+      Primary status surface with the connection actuator, selected route label, and bottom navigation.
 
   - id: home_vpn_missing
     title: "Home Permission Banner"
@@ -56,10 +56,10 @@ pages:
     flow_label: "proxy connected"
     service_preset: "connected_proxy"
     expected_root: "home-screen"
-    required_elements: ["home-mode-card-proxy", "home-mode-primary-proxy"]
+    required_elements: ["home-connection-button", "home-connection-route-label"]
     state: "connected proxy"
     description: |
-      Connected proxy state with the per-mode stop action and route context on the home surface.
+      Connected proxy state with the stop action and route context on the home surface.
 
   - id: home_connected_vpn
     title: "Home Connected VPN"
@@ -68,10 +68,10 @@ pages:
     flow_label: "VPN connected"
     service_preset: "connected_vpn"
     expected_root: "home-screen"
-    required_elements: ["home-mode-card-vpn", "home-mode-primary-vpn"]
+    required_elements: ["home-connection-button", "home-connection-route-label"]
     state: "connected VPN"
     description: |
-      Connected VPN state with tunnel status and the per-mode stop action visible.
+      Connected VPN state with tunnel status and the connection stop action visible.
 
   - id: config
     title: "Config"
@@ -150,7 +150,7 @@ pages:
     flow_from: "settings"
     flow_label: "advanced"
     expected_root: "advanced_settings-screen"
-    required_elements: ["advanced-section-bypass-strategy"]
+    required_elements: ["advanced-section-desync"]
     state: "top"
     description: |
       Advanced settings top state with grouped advanced controls and section labels.

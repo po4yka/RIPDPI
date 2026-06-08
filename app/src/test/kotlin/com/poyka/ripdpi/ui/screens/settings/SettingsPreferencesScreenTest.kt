@@ -161,13 +161,8 @@ class SettingsPreferencesScreenTest {
         }
 
         composeRule.onAllNodesWithTag(RipDpiTestTags.SettingsAdvancedSettings).assertCountEquals(0)
-        composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasTestTag(RipDpiTestTags.SettingsAdvancedConnectivity))
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAdvancedConnectivity).performClick()
-        composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasTestTag(RipDpiTestTags.SettingsAdvancedSettings))
+        val advancedLabel = RuntimeEnvironment.getApplication().getString(R.string.persona_advanced)
+        composeRule.onNodeWithText(advancedLabel).performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsAdvancedSettings).assertIsDisplayed()
     }
 
@@ -183,9 +178,6 @@ class SettingsPreferencesScreenTest {
             }
         }
 
-        composeRule
-            .onNode(hasScrollToNodeAction())
-            .performScrollToNode(hasTestTag(RipDpiTestTags.SettingsAdvancedSettings))
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsAdvancedSettings).assertIsDisplayed()
     }
 

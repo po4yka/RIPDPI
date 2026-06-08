@@ -1,15 +1,10 @@
 package com.poyka.ripdpi.ui.screenshot
 
-import com.poyka.ripdpi.core.detection.BlockLayer
-import com.poyka.ripdpi.core.detection.BlockLayerDiagnosis
-import com.poyka.ripdpi.core.detection.BypassStrategyClass
-import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeFailureKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRunState
 import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckScreen
-import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckSiteDiagnosis
 import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Test
@@ -55,14 +50,6 @@ class BlockcheckScreenScreenshotTest {
                         ),
                         rankedResult("quic_disabled", "Disable QUIC", successes = 0, total = 1, latencyMs = 0),
                     ),
-                diagnoses =
-                    listOf(
-                        diagnosis(
-                            domain = "youtube.com",
-                            layer = BlockLayer.DNS_POISONING,
-                            bypassClass = BypassStrategyClass.ENCRYPTED_DNS,
-                        ),
-                    ),
                 totalExpectedResults = 12,
                 message = "Testing youtube.com",
             ),
@@ -93,16 +80,6 @@ class BlockcheckScreenScreenshotTest {
                         rankedResult("fake_split", "Fake split", successes = 1, total = 1, latencyMs = 170),
                         rankedResult("plain", "Plain", successes = 0, total = 1, latencyMs = 0),
                     ),
-                diagnoses =
-                    listOf(
-                        diagnosis(
-                            domain = "youtube.com",
-                            layer = BlockLayer.SNI_BASED_RESET,
-                            bypassClass = BypassStrategyClass.TLS_RECORD_SPLIT,
-                        ),
-                    ),
-                recommendedStrategyId = "tlsrec_split_host",
-                recommendedStrategyLabel = "TLS record split",
                 totalExpectedResults = 4,
                 message = "Probe complete",
             ),
@@ -120,7 +97,6 @@ private fun captureBlockcheckScreen(state: BlockcheckUiState) {
                 onRun = {},
                 onCancel = {},
                 onApplyBest = {},
-                onApplyRecommended = {},
                 onExport = {},
             )
         }
@@ -160,20 +136,4 @@ private fun rankedResult(
         successRate = successes.toDouble() / total.toDouble(),
         averageLatencyMs = latencyMs,
         dnsTamperedCount = 0,
-    )
-
-private fun diagnosis(
-    domain: String,
-    layer: BlockLayer,
-    bypassClass: BypassStrategyClass,
-): BlockcheckSiteDiagnosis =
-    BlockcheckSiteDiagnosis(
-        domain = domain,
-        diagnosis =
-            BlockLayerDiagnosis(
-                layer = layer,
-                bypassClass = bypassClass,
-                confidence = EvidenceConfidence.HIGH,
-                reasonCode = "screenshot",
-            ),
     )

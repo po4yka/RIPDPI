@@ -4,8 +4,8 @@ appId: com.poyka.ripdpi
 - assertVisible:
     id: "home-screen"
 - assertVisible:
-    id: "home-mode-card-vpn"
+    id: "home-connection-button"
 - assertVisible:
-    id: "home-mode-primary-vpn"
+    id: "home-connection-route-label"
 - assertVisible:
     id: "route-stack"

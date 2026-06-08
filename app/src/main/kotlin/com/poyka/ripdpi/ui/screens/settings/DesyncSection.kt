@@ -104,7 +104,7 @@ internal fun LazyListScope.desyncSection(
 
         AdvancedSettingsSection(
             title = stringResource(R.string.ripdpi_desync),
-            testTag = RipDpiTestTags.advancedSection("bypass_strategy"),
+            testTag = RipDpiTestTags.advancedSection("desync"),
         ) {
             DesyncSettingsCard(model)
         }

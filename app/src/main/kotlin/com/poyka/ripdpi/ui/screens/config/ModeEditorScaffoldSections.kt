@@ -30,6 +30,7 @@ import com.poyka.ripdpi.activities.ConfigFieldDefaultTtl
 import com.poyka.ripdpi.activities.ConfigFieldMaxConnections
 import com.poyka.ripdpi.activities.ConfigFieldProxyIp
 import com.poyka.ripdpi.activities.ConfigFieldProxyPort
+import com.poyka.ripdpi.activities.ConfigFieldStrategyChain
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -345,7 +346,39 @@ private fun ModeEditorChainFields(
     uiState: ConfigUiState,
     actions: ModeEditorActions,
 ) {
-    ModeEditorChainBlockEditor(draft = draft, uiState = uiState, actions = actions)
+    val colors = RipDpiThemeTokens.colors
+    val chainOverridden = draft.useCommandLineSettings
+
+    Text(
+        text = stringResource(R.string.config_chain_summary_label, draft.chainSummary),
+        style = RipDpiThemeTokens.type.caption,
+        color = colors.mutedForeground,
+    )
+    if (chainOverridden) {
+        Text(
+            text = stringResource(R.string.config_chain_cli_override_note),
+            style = RipDpiThemeTokens.type.caption,
+            color = colors.mutedForeground,
+        )
+    }
+    RipDpiConfigTextField(
+        value = draft.chainDsl,
+        onValueChange = actions.onChainDslChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_chain_editor_label),
+                placeholder = stringResource(R.string.config_placeholder_chain_dsl),
+                helperText = stringResource(R.string.config_chain_editor_helper),
+                errorText = validationMessage(uiState.validationErrors[ConfigFieldStrategyChain]),
+                testTag = RipDpiTestTags.ModeEditorChainDsl,
+            ),
+        multiline = true,
+        behavior =
+            RipDpiTextFieldBehavior(
+                enabled = !chainOverridden,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
+            ),
+    )
 }
 
 @Composable

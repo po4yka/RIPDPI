@@ -36,8 +36,6 @@ import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionProgress
 import com.poyka.ripdpi.core.detection.DetectionStage
 import com.poyka.ripdpi.core.detection.ExposureStatus
-import com.poyka.ripdpi.core.detection.ExposureVerdict
-import com.poyka.ripdpi.core.detection.ExposureVerdictBuilder
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.StealthScore
@@ -102,7 +100,6 @@ internal fun StageProgressCard(progress: DetectionProgress) {
 @Composable
 internal fun VerdictScoreCard(
     result: DetectionCheckResult,
-    exposureVerdict: ExposureVerdict? = null,
     score: Int?,
     label: String?,
     explanation: VerdictExplanation? = null,
@@ -149,9 +146,7 @@ internal fun VerdictScoreCard(
             )
         }
         VerdictOutcomeHierarchy(
-            exposureVerdict =
-                exposureVerdict
-                    ?: score?.let { ExposureVerdictBuilder.build(result, it) },
+            verdict = verdict,
             probeSummary = result.probeSummary(),
             score = score,
             label = label,
@@ -161,7 +156,7 @@ internal fun VerdictScoreCard(
 
 @Composable
 private fun VerdictOutcomeHierarchy(
-    exposureVerdict: ExposureVerdict?,
+    verdict: Verdict,
     probeSummary: DetectionProbeSummary,
     score: Int?,
     label: String?,
@@ -180,26 +175,9 @@ private fun VerdictOutcomeHierarchy(
         label = "score",
     )
     Text(
-        text = exposureVerdict?.headline ?: probeSummary.fallbackHeadline(),
+        text = probeSummary.headline(verdict),
         style = type.bodyEmphasis,
         color = colors.foreground,
-    )
-    exposureVerdict?.let {
-        Text(
-            text = "Reason: ${it.reason}",
-            style = type.caption,
-            color = colors.mutedForeground,
-        )
-        Text(
-            text = "What to adjust: ${it.adjustmentHint}",
-            style = type.caption,
-            color = colors.mutedForeground,
-        )
-    }
-    Text(
-        text = probeSummary.summary(),
-        style = type.caption,
-        color = colors.mutedForeground,
     )
     if (score != null) {
         Row(
@@ -252,13 +230,11 @@ private fun DetectionCheckResult.probeSummary(): DetectionProbeSummary {
     return DetectionProbeSummary(detected = probes.count { it }, total = probes.size)
 }
 
-private fun DetectionProbeSummary.summary(): String = "Probe outcome: $detected/$total signals exposed"
-
-private fun DetectionProbeSummary.fallbackHeadline(): String =
-    if (detected == 0) {
-        "You look like ordinary HTTPS traffic"
-    } else {
-        "Your traffic is distinguishable by detection probe"
+private fun DetectionProbeSummary.headline(verdict: Verdict): String =
+    when (verdict) {
+        Verdict.DETECTED -> "Detected by $detected/$total probes"
+        Verdict.NEEDS_REVIEW -> "Needs review after $detected/$total probes"
+        Verdict.NOT_DETECTED -> "No detection across $total probes"
     }
 
 private const val ScoreStrongThreshold = 70

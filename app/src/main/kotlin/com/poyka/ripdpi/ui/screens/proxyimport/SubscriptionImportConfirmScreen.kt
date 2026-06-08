@@ -15,9 +15,6 @@ import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
-import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 
 /**
@@ -72,7 +69,7 @@ internal fun SubscriptionImportConfirmScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
         navigationContentDescription = stringResource(R.string.navigation_back),
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.SubscriptionImportConfirm())),
+        modifier = modifier,
     ) {
         if (uiState.bootstrap) {
             WarningBanner(

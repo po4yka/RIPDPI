@@ -2,7 +2,7 @@ package com.poyka.ripdpi.ui.screens.proxyimport
 
 import androidx.lifecycle.ViewModel
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.uri.ProxyUriCodec
+import com.poyka.ripdpi.proxyimport.ProxyProfileUriEncoder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +29,7 @@ data class ProfileShareUiState(
  * Backing [ViewModel] for QR + plain-URI share of a saved profile.
  *
  * Generation is fully offline (no network round-trip) — the share URI is the canonical
- * per-protocol scheme produced by [ProxyUriCodec], and the QR matrix is encoded
+ * per-protocol scheme produced by [ProxyProfileUriEncoder], and the QR matrix is encoded
  * locally by [com.poyka.ripdpi.proxyimport.QrCodeEncoder].
  *
  * The first thing every share session shows is a secrets-redaction warning: the QR and
@@ -78,7 +78,7 @@ class ProfileShareViewModel
             val current = _uiState.value
             if (!current.warningVisible || !current.warningAcknowledgeEnabled) return
             val profile = current.profile ?: return
-            val uri = ProxyUriCodec.encodeOrNull(profile)
+            val uri = ProxyProfileUriEncoder.encodeOrNull(profile)
             _uiState.value =
                 current.copy(
                     warningVisible = false,

@@ -73,19 +73,11 @@ internal fun SettingsConnectivitySection(
                 subtitle = stringResource(R.string.settings_language_body),
                 value = stringResource(R.string.settings_manage_action),
                 onClick = { showLanguagePicker = true },
-                showDivider = true,
-            )
-            SettingsRow(
-                title = stringResource(R.string.title_subscription_failover),
-                subtitle = stringResource(R.string.settings_subscription_failover_body),
-                value = stringResource(R.string.settings_manage_action),
-                onClick = actions.onOpenSubscriptionFailover,
-                testTag = RipDpiTestTags.SettingsSubscriptionFailover,
             )
         }
         AdvancedSection(
             initiallyExpanded = uiState.uiPersona == "advanced",
-            testTag = RipDpiTestTags.SettingsAdvancedConnectivity,
+            testTag = RipDpiTestTags.SettingsAdvancedSection,
         ) {
             SettingsRow(
                 title = stringResource(R.string.title_advanced_settings),

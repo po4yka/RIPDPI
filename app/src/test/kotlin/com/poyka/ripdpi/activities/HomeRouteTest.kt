@@ -52,7 +52,6 @@ class HomeRouteTest {
                 HomeRoute(
                     onOpenDiagnostics = {},
                     onOpenHistory = {},
-                    onOpenConnectionHealth = {},
                     onOpenAdvancedSettings = {},
                     onOpenModeEditor = {},
                     onOpenOwnedStackBrowser = {},

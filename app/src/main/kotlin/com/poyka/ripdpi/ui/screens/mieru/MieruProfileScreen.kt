@@ -19,9 +19,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
-import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import kotlinx.collections.immutable.toImmutableList
 
@@ -66,7 +63,7 @@ internal fun MieruProfileScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
         navigationContentDescription = stringResource(R.string.navigation_back),
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.MieruProfile)),
+        modifier = modifier,
     ) {
         EndpointSection(uiState.editor, onFieldChanged)
         CredentialsSection(uiState.editor, onFieldChanged)

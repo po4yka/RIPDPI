@@ -134,8 +134,6 @@ data class DiagnosticsScreenActions(
     val onSaveArchive: (String?) -> Unit = {},
     val onSaveLogs: () -> Unit = {},
     val onOpenLogs: () -> Unit = {},
-    val onOpenConnectionHealth: () -> Unit = {},
-    val onOpenStrategyTuner: () -> Unit = {},
     val onOpenAdvancedSettings: () -> Unit = {},
     val onOpenDnsSettings: () -> Unit = {},
     val onOpenDetectionCheck: () -> Unit = {},
@@ -237,7 +235,22 @@ private fun DiagnosticsScreenFrame(
                 .background(colors.background),
         snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
         topBar = {
-            DiagnosticsTopBar(actions = actions, onToggleDebugInfo = onToggleDebugInfo)
+            RipDpiTopAppBar(
+                title = stringResource(R.string.diagnostics_title),
+                modifier =
+                    Modifier.combinedClickable(
+                        onClick = {},
+                        onLongClick = onToggleDebugInfo,
+                    ),
+                actions = {
+                    RipDpiIconButton(
+                        icon = RipDpiIcons.Logs,
+                        contentDescription = stringResource(R.string.history_open_action),
+                        onClick = actions.onOpenHistory,
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsTopHistoryAction),
+                    )
+                },
+            )
         },
     ) { innerPadding ->
         Box(
@@ -288,41 +301,6 @@ private fun DiagnosticsScreenFrame(
             }
         }
     }
-}
-
-@Composable
-private fun DiagnosticsTopBar(
-    actions: DiagnosticsScreenActions,
-    onToggleDebugInfo: () -> Unit,
-) {
-    RipDpiTopAppBar(
-        title = stringResource(R.string.diagnostics_title),
-        modifier =
-            Modifier.combinedClickable(
-                onClick = {},
-                onLongClick = onToggleDebugInfo,
-            ),
-        actions = {
-            RipDpiIconButton(
-                icon = RipDpiIcons.NetworkCheck,
-                contentDescription = stringResource(R.string.connection_health_open_action),
-                onClick = actions.onOpenConnectionHealth,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsConnectionHealthAction),
-            )
-            RipDpiIconButton(
-                icon = RipDpiIcons.Advanced,
-                contentDescription = stringResource(R.string.strategy_tuner_open_action),
-                onClick = actions.onOpenStrategyTuner,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyTunerAction),
-            )
-            RipDpiIconButton(
-                icon = RipDpiIcons.Logs,
-                contentDescription = stringResource(R.string.history_open_action),
-                onClick = actions.onOpenHistory,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsTopHistoryAction),
-            )
-        },
-    )
 }
 
 @Composable

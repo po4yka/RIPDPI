@@ -21,9 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.core.detection.BlockLayer
-import com.poyka.ripdpi.core.detection.BypassStrategyClass
-import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -60,7 +57,6 @@ fun BlockcheckRoute(
         onRun = viewModel::startProbe,
         onCancel = viewModel::cancelProbe,
         onApplyBest = viewModel::applyBestStrategy,
-        onApplyRecommended = viewModel::applyRecommendedStrategy,
         onExport = {
             val report = viewModel.exportReport()
             val intent =
@@ -82,7 +78,6 @@ internal fun BlockcheckScreen(
     onRun: () -> Unit,
     onCancel: () -> Unit,
     onApplyBest: () -> Unit,
-    onApplyRecommended: () -> Unit,
     onExport: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -131,7 +126,6 @@ internal fun BlockcheckScreen(
                 )
             }
         }
-        BlockcheckDiagnosisCard(state = state, onApplyRecommended = onApplyRecommended)
         BlockcheckResultsCard(state = state)
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm), modifier = Modifier.fillMaxWidth()) {
             RipDpiButton(
@@ -148,69 +142,6 @@ internal fun BlockcheckScreen(
                 modifier = Modifier.weight(1f),
             )
         }
-    }
-}
-
-@Composable
-private fun BlockcheckDiagnosisCard(
-    state: BlockcheckUiState,
-    onApplyRecommended: () -> Unit,
-) {
-    val primary = state.primaryDiagnosis
-    val spacing = RipDpiThemeTokens.spacing
-    RipDpiCard {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Text(
-                text = stringResource(R.string.blockcheck_diagnosis_title),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            if (primary == null) {
-                Text(
-                    text = stringResource(R.string.blockcheck_diagnosis_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                )
-            } else {
-                state.diagnoses.forEach { diagnosis ->
-                    BlockcheckDiagnosisRow(diagnosis)
-                }
-                RipDpiButton(
-                    text =
-                        state.recommendedStrategyLabel?.let { strategy ->
-                            stringResource(R.string.blockcheck_try_recommended_strategy_format, strategy)
-                        } ?: stringResource(R.string.blockcheck_try_recommended_strategy),
-                    onClick = onApplyRecommended,
-                    enabled = state.recommendedStrategyId != null && !state.isRunning,
-                    variant = RipDpiButtonVariant.Secondary,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun BlockcheckDiagnosisRow(diagnosis: BlockcheckSiteDiagnosis) {
-    Column {
-        Text(
-            text =
-                stringResource(
-                    R.string.blockcheck_diagnosis_layer_format,
-                    diagnosis.domain,
-                    diagnosis.diagnosis.layer.label(),
-                ),
-            style = MaterialTheme.typography.bodyLarge,
-        )
-        Text(
-            text =
-                stringResource(
-                    R.string.blockcheck_diagnosis_strategy_format,
-                    diagnosis.diagnosis.bypassClass.label(),
-                    diagnosis.diagnosis.confidence.label(),
-                ),
-            style = MaterialTheme.typography.bodySmall,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
     }
 }
 
@@ -242,35 +173,6 @@ private fun BlockcheckHeader(
         )
     }
 }
-
-@Composable
-private fun BlockLayer.label(): String =
-    when (this) {
-        BlockLayer.DNS_POISONING -> stringResource(R.string.blockcheck_layer_dns_poisoning)
-        BlockLayer.SNI_BASED_RESET -> stringResource(R.string.blockcheck_layer_sni_reset)
-        BlockLayer.IP_BLOCK -> stringResource(R.string.blockcheck_layer_ip_block)
-        BlockLayer.TLS_HANDSHAKE_INTERFERENCE -> stringResource(R.string.blockcheck_layer_tls_handshake)
-        BlockLayer.HTTP_BLOCKPAGE -> stringResource(R.string.blockcheck_layer_http_blockpage)
-        BlockLayer.UNKNOWN -> stringResource(R.string.blockcheck_layer_unknown)
-    }
-
-@Composable
-private fun BypassStrategyClass.label(): String =
-    when (this) {
-        BypassStrategyClass.ENCRYPTED_DNS -> stringResource(R.string.blockcheck_bypass_encrypted_dns)
-        BypassStrategyClass.TLS_RECORD_SPLIT -> stringResource(R.string.blockcheck_bypass_tls_record_split)
-        BypassStrategyClass.FAKE_PACKET_TTL -> stringResource(R.string.blockcheck_bypass_fake_packet_ttl)
-        BypassStrategyClass.HOST_HEADER_SPLIT -> stringResource(R.string.blockcheck_bypass_host_header_split)
-        BypassStrategyClass.STRATEGY_PROBE_WINNER -> stringResource(R.string.blockcheck_bypass_strategy_probe_winner)
-    }
-
-@Composable
-private fun EvidenceConfidence.label(): String =
-    when (this) {
-        EvidenceConfidence.LOW -> stringResource(R.string.blockcheck_confidence_low)
-        EvidenceConfidence.MEDIUM -> stringResource(R.string.blockcheck_confidence_medium)
-        EvidenceConfidence.HIGH -> stringResource(R.string.blockcheck_confidence_high)
-    }
 
 @Composable
 private fun BlockcheckResultsCard(state: BlockcheckUiState) {

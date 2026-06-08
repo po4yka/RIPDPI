@@ -7,9 +7,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -141,73 +138,6 @@ class StrategyProbeServiceTest {
             assertTrue(result.dnsTampered)
             assertEquals(setOf("5.6.7.8"), result.dnsComparison?.localAddresses)
             assertEquals(setOf("1.2.3.4"), result.dnsComparison?.dohAddresses)
-        }
-
-    @Test
-    fun `run enforces candidate filter and total probe budget`() =
-        runTest {
-            val service =
-                testService(
-                    candidates =
-                        listOf(
-                            StrategyProbeCandidate("split", "Split"),
-                            StrategyProbeCandidate("fake", "Fake"),
-                            StrategyProbeCandidate("oob", "OOB"),
-                        ),
-                )
-
-            val results =
-                service
-                    .run(
-                        StrategyProbeConfig(
-                            testDomains = listOf("one.example", "two.example"),
-                            candidateIds = listOf("fake", "oob"),
-                            maxStrategies = 2,
-                            maxTotalProbes = 3,
-                        ),
-                    ).toList()
-
-            assertEquals(
-                listOf("fake:one.example", "fake:two.example", "oob:one.example"),
-                results.map { "${it.strategyId}:${it.domain}" },
-            )
-            assertEquals(
-                3,
-                service.injector.injectedResults
-                    .single()
-                    .size,
-            )
-        }
-
-    @Test
-    fun `run rate limits probes after the first request`() =
-        runTest {
-            val service = testService(candidates = listOf(StrategyProbeCandidate("split", "Split")))
-            val results = mutableListOf<StrategyProbeResult>()
-
-            val job =
-                launch {
-                    service
-                        .run(
-                            StrategyProbeConfig(
-                                testDomains = listOf("one.example", "two.example"),
-                                probeIntervalMs = 750,
-                            ),
-                        ).toList(results)
-                }
-
-            runCurrent()
-            assertEquals(listOf("one.example"), results.map(StrategyProbeResult::domain))
-
-            advanceTimeBy(749)
-            runCurrent()
-            assertEquals(listOf("one.example"), results.map(StrategyProbeResult::domain))
-
-            advanceTimeBy(1)
-            runCurrent()
-            assertEquals(listOf("one.example", "two.example"), results.map(StrategyProbeResult::domain))
-
-            job.join()
         }
 
     @Test

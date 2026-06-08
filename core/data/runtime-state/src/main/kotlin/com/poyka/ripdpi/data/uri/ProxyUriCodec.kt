@@ -2,7 +2,6 @@ package com.poyka.ripdpi.data.uri
 
 import com.poyka.ripdpi.data.ProxyProfile
 import java.net.URI
-import java.net.URLEncoder
 import java.util.Base64
 import java.util.UUID
 
@@ -54,112 +53,6 @@ object ProxyUriCodec {
             }
         }.getOrNull()
     }
-
-    /**
-     * Encodes [profile] into a canonical share URI accepted by [parse]. Throws
-     * [IllegalArgumentException] when [profile] has no URI representation.
-     */
-    fun encode(profile: ProxyProfile): String =
-        encodeOrNull(profile)
-            ?: throw IllegalArgumentException("Profile cannot be expressed as a share URI")
-
-    /**
-     * Encodes [profile] into a canonical share URI accepted by [parse], or returns
-     * `null` for opaque raw configs that are not already URI-shaped.
-     */
-    fun encodeOrNull(profile: ProxyProfile): String? =
-        when (profile) {
-            is ProxyProfile.Vless -> {
-                userInfoUri("vless", profile.uuid, profile.server, profile.serverPort, profile.displayName)
-            }
-
-            is ProxyProfile.VlessReality -> {
-                encodeVlessReality(profile)
-            }
-
-            is ProxyProfile.Trojan -> {
-                userInfoUri("trojan", profile.password, profile.server, profile.serverPort, profile.displayName)
-            }
-
-            is ProxyProfile.Hysteria2 -> {
-                userInfoUri("hysteria2", profile.password, profile.server, profile.serverPort, profile.displayName)
-            }
-
-            is ProxyProfile.AnyTls -> {
-                encodeAnyTls(profile)
-            }
-
-            is ProxyProfile.Mieru -> {
-                encodeMieru(profile)
-            }
-
-            is ProxyProfile.Shadowsocks -> {
-                encodeShadowsocks(profile)
-            }
-
-            is ProxyProfile.RawConfig -> {
-                profile.config.takeIf { it.contains("://") }
-            }
-        }
-
-    private fun userInfoUri(
-        scheme: String,
-        userInfo: String,
-        host: String,
-        port: Int,
-        displayName: String,
-    ): String = "$scheme://$userInfo@$host:$port#${encodeFragment(displayName)}"
-
-    private fun encodeVlessReality(profile: ProxyProfile.VlessReality): String {
-        val params =
-            buildList {
-                add("security=reality")
-                add("pbk=${encodeQueryValue(profile.realityPublicKey)}")
-                if (profile.realityShortId.isNotEmpty()) add("sid=${encodeQueryValue(profile.realityShortId)}")
-                add("sni=${encodeQueryValue(profile.serverName)}")
-                add("flow=${encodeQueryValue(profile.flow)}")
-                profile.fingerprint?.let { add("fp=${encodeQueryValue(it)}") }
-                if (profile.xhttpPath != null || profile.xhttpHost != null) {
-                    add("type=xhttp")
-                    profile.xhttpPath?.let { add("path=${encodeQueryValue(it)}") }
-                    profile.xhttpHost?.let { add("host=${encodeQueryValue(it)}") }
-                }
-            }.joinToString("&")
-        return "vless://${profile.uuid}@${profile.server}:${profile.serverPort}" +
-            "?$params#${encodeFragment(profile.displayName)}"
-    }
-
-    private fun encodeMieru(profile: ProxyProfile.Mieru): String {
-        val params =
-            buildList {
-                add("protocol=${encodeQueryValue(profile.protocol)}")
-                add("mux=${encodeQueryValue(profile.multiplexing)}")
-                add("mtu=${profile.mtu}")
-            }.joinToString("&")
-        return "mieru://${encodeQueryValue(profile.username)}:${encodeQueryValue(profile.password)}" +
-            "@${profile.server}:${profile.serverPort}?$params#${encodeFragment(profile.displayName)}"
-    }
-
-    private fun encodeAnyTls(profile: ProxyProfile.AnyTls): String {
-        val params = "?sni=${encodeQueryValue(profile.serverName)}"
-        return "anytls://${profile.password}@${profile.server}:${profile.serverPort}$params#${encodeFragment(
-            profile.displayName,
-        )}"
-    }
-
-    private fun encodeShadowsocks(profile: ProxyProfile.Shadowsocks): String {
-        val userInfo = "${profile.method}:${profile.password}"
-        val encoded =
-            Base64
-                .getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(userInfo.toByteArray(Charsets.UTF_8))
-        return "ss://$encoded@${profile.server}:${profile.serverPort}#${encodeFragment(profile.displayName)}"
-    }
-
-    private fun encodeQueryValue(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
-
-    private fun encodeFragment(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
     @Suppress("ReturnCount")
     private fun parseVless(uri: String): ProxyProfile? {

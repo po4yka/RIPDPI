@@ -290,7 +290,7 @@ private fun ActuatorRail(
             Text(
                 modifier =
                     Modifier
-                        .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRouteLabel)
+                        .ripDpiTestTag(RipDpiTestTags.HomeConnectionRouteLabel)
                         .padding(horizontal = spacing.md),
                 text = state.routeLabel,
                 style = type.smallLabel,

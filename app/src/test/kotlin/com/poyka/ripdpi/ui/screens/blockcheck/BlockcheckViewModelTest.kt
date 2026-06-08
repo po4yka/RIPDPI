@@ -1,9 +1,5 @@
 package com.poyka.ripdpi.ui.screens.blockcheck
 
-import com.poyka.ripdpi.core.detection.BlockLayer
-import com.poyka.ripdpi.core.detection.BlockLayerDiagnosis
-import com.poyka.ripdpi.core.detection.BypassStrategyClass
-import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
@@ -171,94 +167,11 @@ class BlockcheckViewModelTest {
         }
 
     @Test
-    fun `startProbe maps diagnosis to matching recommended strategy class`() =
-        runTest {
-            val viewModel =
-                testViewModel(
-                    results =
-                        listOf(
-                            result("split", success = false, latencyMs = 300),
-                            result("tlsrec_split", success = true, latencyMs = 90),
-                        ),
-                    diagnosisRunner =
-                        FakeBlockcheckDiagnosisRunner(
-                            listOf(
-                                diagnosis(
-                                    domain = "youtube.com",
-                                    layer = BlockLayer.SNI_BASED_RESET,
-                                    bypassClass = BypassStrategyClass.TLS_RECORD_SPLIT,
-                                ),
-                            ),
-                        ),
-                    candidateProvider =
-                        FakeStrategyProbeCandidateProvider(
-                            listOf(
-                                StrategyProbeCandidate("fake", "Fake packet", "[tcp]\nfake auto(host)"),
-                                StrategyProbeCandidate("tlsrec_split", "TLS record split", "[tcp]\ntlsrec split"),
-                            ),
-                        ),
-                )
-
-            viewModel.startProbe()
-            advanceUntilIdle()
-
-            val state = viewModel.uiState.value
-            assertEquals(BlockLayer.SNI_BASED_RESET, state.primaryDiagnosis?.diagnosis?.layer)
-            assertEquals(BypassStrategyClass.TLS_RECORD_SPLIT, state.primaryDiagnosis?.diagnosis?.bypassClass)
-            assertEquals("tlsrec_split", state.recommendedStrategyId)
-            assertEquals("TLS record split", state.recommendedStrategyLabel)
-        }
-
-    @Test
-    fun `applyRecommendedStrategy writes matching class strategy`() =
-        runTest {
-            val repository = FakeAppSettingsRepository()
-            val reloader = FakeBlockcheckStrategyReloader()
-            val viewModel =
-                testViewModel(
-                    repository = repository,
-                    reloader = reloader,
-                    results = listOf(result("fake", success = true, latencyMs = 90)),
-                    diagnosisRunner =
-                        FakeBlockcheckDiagnosisRunner(
-                            listOf(
-                                diagnosis(
-                                    domain = "youtube.com",
-                                    layer = BlockLayer.IP_BLOCK,
-                                    bypassClass = BypassStrategyClass.FAKE_PACKET_TTL,
-                                ),
-                            ),
-                        ),
-                )
-
-            viewModel.startProbe()
-            advanceUntilIdle()
-            viewModel.applyRecommendedStrategy()
-            advanceUntilIdle()
-
-            val appliedStep =
-                repository
-                    .snapshot()
-                    .effectiveTcpChainSteps()
-                    .single()
-            assertEquals(TcpChainStepKind.Fake, appliedStep.kind)
-            assertEquals(1, reloader.reloadCount)
-        }
-
-    @Test
     fun `exportReport includes raw results and ranked summary`() {
         val report =
             encodeBlockcheckReport(
                 BlockcheckUiState(
                     runState = BlockcheckRunState.Complete,
-                    diagnoses =
-                        listOf(
-                            diagnosis(
-                                domain = "youtube.com",
-                                layer = BlockLayer.DNS_POISONING,
-                                bypassClass = BypassStrategyClass.ENCRYPTED_DNS,
-                            ),
-                        ),
                     results = listOf(result("fake", success = true, latencyMs = 90)),
                     rankedStrategies =
                         listOf(
@@ -277,8 +190,6 @@ class BlockcheckViewModelTest {
 
         assertTrue(report.contains("\"strategy_id\": \"fake\""))
         assertTrue(report.contains("\"ranked_strategies\""))
-        assertTrue(report.contains("\"layer\": \"dns_poisoning\""))
-        assertTrue(report.contains("\"bypass_class\": \"encrypted_dns\""))
     }
 
     private fun testViewModel(
@@ -286,7 +197,6 @@ class BlockcheckViewModelTest {
         reloader: FakeBlockcheckStrategyReloader = FakeBlockcheckStrategyReloader(),
         probeService: StrategyProbeService? = null,
         candidateProvider: StrategyProbeCandidateProvider = FakeStrategyProbeCandidateProvider(),
-        diagnosisRunner: BlockcheckDiagnosisRunner = FakeBlockcheckDiagnosisRunner(),
         results: List<StrategyProbeResult>,
     ): BlockcheckViewModel {
         val viewModel =
@@ -294,17 +204,10 @@ class BlockcheckViewModelTest {
                 probeService = probeService ?: FakeStrategyProbeService(results),
                 candidateProvider = candidateProvider,
                 appSettingsRepository = repository,
-                diagnosisRunner = diagnosisRunner,
             )
         viewModel.strategyReloader = reloader
         return viewModel
     }
-}
-
-private class FakeBlockcheckDiagnosisRunner(
-    private val diagnoses: List<BlockcheckSiteDiagnosis> = emptyList(),
-) : BlockcheckDiagnosisRunner {
-    override suspend fun diagnose(domains: List<String>): List<BlockcheckSiteDiagnosis> = diagnoses
 }
 
 private class FakeStrategyProbeService(
@@ -334,22 +237,6 @@ private fun defaultCandidates(): List<StrategyProbeCandidate> =
     listOf(
         StrategyProbeCandidate("split", "Split", "[tcp]\nsplit auto(balanced)"),
         StrategyProbeCandidate("fake", "Fake packet", "[tcp]\nfake auto(host)"),
-    )
-
-private fun diagnosis(
-    domain: String,
-    layer: BlockLayer,
-    bypassClass: BypassStrategyClass,
-): BlockcheckSiteDiagnosis =
-    BlockcheckSiteDiagnosis(
-        domain = domain,
-        diagnosis =
-            BlockLayerDiagnosis(
-                layer = layer,
-                bypassClass = bypassClass,
-                confidence = EvidenceConfidence.HIGH,
-                reasonCode = "test",
-            ),
     )
 
 private class FakeAppSettingsRepository : AppSettingsRepository {

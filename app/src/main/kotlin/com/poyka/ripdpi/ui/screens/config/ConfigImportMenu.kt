@@ -26,7 +26,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
- * Profile top-bar overflow menu carrying the explicit "Import from clipboard"
+ * Configuration top-bar overflow menu carrying the explicit "Import from clipboard"
  * action.
  *
  * Privacy contract: the clipboard is read **only** when the user taps the menu item — the

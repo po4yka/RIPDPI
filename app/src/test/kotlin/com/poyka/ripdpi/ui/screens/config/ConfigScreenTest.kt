@@ -252,7 +252,7 @@ class ConfigScreenTest {
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.configVpnProfileShare("default")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.configVpnProfile("default")).assertExists()
         composeRule.runOnIdle {
             assertEquals("paste action should use the existing clipboard import callback", 1, pasteClicks)
             assertEquals("scan action should use the existing QR scanner callback", 1, scanClicks)

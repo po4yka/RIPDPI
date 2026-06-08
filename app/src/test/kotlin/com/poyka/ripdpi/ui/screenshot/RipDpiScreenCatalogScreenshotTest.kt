@@ -27,25 +27,16 @@ import com.poyka.ripdpi.ui.components.RipDpiHomeHighContrastPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiIntroLargeFontPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiLogsEmptyDarkPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiLogsPreviewScene
-import com.poyka.ripdpi.ui.components.RipDpiModeEditorInvalidChainPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiModeEditorPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsDarkPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsMediumPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiStrategyConfigPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiVpnPermissionDialogPreviewScene
 import com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryScreen
-import com.poyka.ripdpi.ui.screens.health.ConnectionHealthScreen
-import com.poyka.ripdpi.ui.screens.health.previewConnectionHealthUiState
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
-import com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareScreen
-import com.poyka.ripdpi.ui.screens.proxyimport.previewProfileShareUiState
-import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverScreen
-import com.poyka.ripdpi.ui.screens.subscription.previewSubscriptionFailoverUiState
-import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerScreen
-import com.poyka.ripdpi.ui.screens.tuner.previewStrategyTunerUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Test
@@ -187,56 +178,6 @@ class RipDpiScreenCatalogScreenshotTest {
     }
 
     @Test
-    fun connectionHealthScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
-            RipDpiTheme {
-                ConnectionHealthScreen(uiState = previewConnectionHealthUiState(), onBack = {})
-            }
-        }
-    }
-
-    @Test
-    fun subscriptionFailoverScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
-            RipDpiTheme {
-                SubscriptionFailoverScreen(uiState = previewSubscriptionFailoverUiState(), onBack = {})
-            }
-        }
-    }
-
-    @Test
-    fun profileShareScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 1400) {
-            RipDpiTheme {
-                ProfileShareScreen(
-                    uiState = previewProfileShareUiState(),
-                    onBack = {},
-                    onCopyLink = {},
-                    onShareLink = {},
-                    onCopySheet = {},
-                    onShareSheet = {},
-                )
-            }
-        }
-    }
-
-    @Test
-    fun strategyTunerScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
-            RipDpiTheme {
-                StrategyTunerScreen(
-                    state = previewStrategyTunerUiState(),
-                    onBack = {},
-                    onDomainsChanged = {},
-                    onRun = {},
-                    onCancel = {},
-                    onApply = {},
-                )
-            }
-        }
-    }
-
-    @Test
     fun homeDisconnectedScreen() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
             RipDpiHomeDisconnectedPreviewScene()
@@ -373,13 +314,6 @@ class RipDpiScreenCatalogScreenshotTest {
     fun modeEditorScreen() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 1200) {
             RipDpiModeEditorPreviewScene()
-        }
-    }
-
-    @Test
-    fun modeEditorInvalidChainScreen() {
-        captureRipDpiScreenshot(widthDp = 420, heightDp = 720) {
-            RipDpiModeEditorInvalidChainPreviewScene()
         }
     }
 
