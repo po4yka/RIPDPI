@@ -8,6 +8,9 @@ import androidx.compose.ui.test.onNodeWithText
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
+import com.poyka.ripdpi.core.detection.EvidenceConfidence
+import com.poyka.ripdpi.core.detection.EvidenceItem
+import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.ui.navigation.Route
@@ -73,7 +76,17 @@ class DetectionScreenSemanticsTest {
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.DetectionVisibilityScale, useUnmergedTree = true).fetchSemanticsNode()
-        composeRule.onNodeWithText("No detection across 5 probes").fetchSemanticsNode()
+        composeRule.onNodeWithText("You look like ordinary HTTPS traffic").fetchSemanticsNode()
+        val cleanReason =
+            "Reason: Detection probes did not expose bypass, VPN, IP, DNS, TLS, " +
+                "timing, or native observability signals."
+        val cleanHint = "What to adjust: Keep the current profile and rerun after changing networks or profiles."
+        composeRule
+            .onNodeWithText(cleanReason)
+            .fetchSemanticsNode()
+        composeRule
+            .onNodeWithText(cleanHint)
+            .fetchSemanticsNode()
         composeRule.onNodeWithText("Where masking applied, stealth").fetchSemanticsNode()
         composeRule.onAllNodesWithText("Stealth Score").assertCountEquals(0)
     }
@@ -102,9 +115,18 @@ class DetectionScreenSemanticsTest {
             }
         }
 
-        composeRule.onNodeWithText("Detected by 5/5 probes").fetchSemanticsNode()
+        composeRule.onNodeWithText("Your traffic is distinguishable by Android VPN binding").fetchSemanticsNode()
+        val vpnReason = "Reason: Android network capabilities expose VPN routing to local observers."
+        val vpnHint = "What to adjust: Review VPN mode, per-app routing, and active VPN ownership before retesting."
+        composeRule
+            .onNodeWithText(vpnReason)
+            .fetchSemanticsNode()
+        composeRule
+            .onNodeWithText(vpnHint)
+            .fetchSemanticsNode()
         composeRule.onNodeWithText("77/100").fetchSemanticsNode()
         composeRule.onAllNodesWithText("100% detected").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Detected by 5/5 probes").assertCountEquals(0)
     }
 
     @Test
@@ -141,10 +163,10 @@ class DetectionScreenSemanticsTest {
 
     private fun detectedResult(): DetectionCheckResult =
         DetectionCheckResult(
-            geoIp = detectedCategory("GeoIP"),
+            geoIp = emptyCategory("GeoIP"),
             directSigns = detectedCategory("Direct"),
-            indirectSigns = detectedCategory("Indirect"),
-            locationSignals = detectedCategory("Location"),
+            indirectSigns = emptyCategory("Indirect"),
+            locationSignals = emptyCategory("Location"),
             bypassResult =
                 BypassResult(
                     proxyEndpoint = null,
@@ -152,7 +174,7 @@ class DetectionScreenSemanticsTest {
                     proxyIp = null,
                     xrayApiScanResult = null,
                     findings = emptyList(),
-                    detected = true,
+                    detected = false,
                 ),
             verdict = Verdict.DETECTED,
         )
@@ -169,5 +191,18 @@ class DetectionScreenSemanticsTest {
             name = name,
             detected = true,
             findings = emptyList(),
+            evidence =
+                if (name == "Direct") {
+                    listOf(
+                        EvidenceItem(
+                            source = EvidenceSource.NETWORK_CAPABILITIES,
+                            detected = true,
+                            confidence = EvidenceConfidence.HIGH,
+                            description = "TRANSPORT_VPN",
+                        ),
+                    )
+                } else {
+                    emptyList()
+                },
         )
 }
