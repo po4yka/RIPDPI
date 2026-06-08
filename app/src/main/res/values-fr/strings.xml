@@ -66,8 +66,8 @@
     <string name="config_overrides_section">Remplacements</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
-    <string name="config_preset_custom_title">Custom profile</string>
-    <string name="config_presets_section">Starter profiles</string>
+    <string name="config_preset_custom_title">Profil manuel</string>
+    <string name="config_presets_section">Profils</string>
     <string name="config_relay_chain_entry_server">Serveur de saut d\'entrée</string>
     <string name="config_relay_chain_exit_public_key">Clé publique du saut de sortie</string>
     <string name="config_relay_cloudflare_tunnel_note">Utilisez ici le nom d\'hôte de votre Cloudflare Tunnel géré par l\'utilisateur. P0 s\'attend à ce que ce nom d\'hôte serve de façade à votre propre origine xHTTP/VLESS ; RIPDPI ne gère pas les jetons cloudflared ni la configuration TryCloudflare.</string>
@@ -542,14 +542,14 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_chain_editor_label">Bypass strategy</string>
     <string name="config_command_line_helper">Appliqué quand les paramètres de ligne de commande sont activés.</string>
     <string name="config_dns_helper">Utilisé pour la route VPN locale.</string>
-    <string name="config_editor_title">Ajuster le profil actuel</string>
+    <string name="config_editor_title">Modifier le profil</string>
     <string name="config_error_invalid_port">Saisissez un port TCP valide.</string>
     <string name="config_fake_offset_marker_helper">Accepte des décalages numériques ou sémantiques comme 0, host+1, endhost-2 ou endhost+1. Les marqueurs adaptatifs auto(…) ne sont pas pris en charge ici.</string>
     <string name="config_mode_section">Mode</string>
-    <string name="config_overview_title">Configuration</string>
+    <string name="config_overview_title">Profil</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_split_marker">host</string>
-    <string name="config_preset_proxy_body">Starter profile for the local bypass path with the same baseline tuning.</string>
+    <string name="config_preset_proxy_body">Profil pour le mode Local bypass avec le même réglage de base.</string>
     <string name="config_proxy_helper">Endroit où l\'écouteur du proxy local se lie.</string>
     <string name="config_relay_chain_entry_short_id">ID court du saut d\'entrée</string>
     <string name="config_relay_chain_exit_server">Serveur du saut de sortie</string>
@@ -1071,7 +1071,7 @@ fakeddisorder endhost</string>
     <string name="config_engine_section">Moteur</string>
     <string name="config_error_invalid_proxy_ip">Saisissez une adresse d\'écoute proxy valide.</string>
     <string name="config_fake_tls_size_helper">0 = taille de l\'entrée, positif = octets cibles exacts, négatif = entrée moins N.</string>
-    <string name="config_mode_sections_title">Profile area</string>
+    <string name="config_mode_sections_title">Détails du mode</string>
     <string name="config_placeholder_chain_dsl">[tcp]
 tlsrec extlen
 hostfake endhost+8 midhost=midsld host=googlevideo.com
@@ -1081,7 +1081,7 @@ split midsld
 fake_burst 3</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_preset_proxy_title">Local bypass profile</string>
+    <string name="config_preset_proxy_title">Profil Local bypass</string>
     <string name="config_relay_body">Acheminer le trafic proxifié via un relais local en exécution. Les secrets restent dans le magasin d\'identifiants adossé au keystore.</string>
     <string name="config_relay_chain_entry_sni">Nom de serveur du saut d\'entrée</string>
     <string name="config_relay_chain_exit_short_id">ID court du saut de sortie</string>
@@ -1577,7 +1577,7 @@ Source : %2$s</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_port_helper">La plage acceptée suit la validation actuelle du port de service.</string>
-    <string name="config_preset_recommended_body">Starter profile for most networks. Keeps the local VPN path and safe RIPDPI tuning.</string>
+    <string name="config_preset_recommended_body">Profil recommandé pour la plupart des réseaux. Conserve le chemin VPN local et un réglage RIPDPI sûr.</string>
     <string name="config_relay_chain_entry_port">Port du saut d\'entrée</string>
     <string name="config_relay_chain_entry_uuid">UUID du saut d\'entrée</string>
     <string name="config_relay_chain_exit_sni">Nom du serveur du saut de sortie</string>
@@ -2072,7 +2072,7 @@ Source : %2$s</string>
     <string name="config_chain_editor_helper_brief">Utilisez des sections [tcp] et [udp] avec des marqueurs de décalage numériques ou sémantiques.</string>
     <string name="config_cli_banner_title">Surcharges de ligne de commande activées</string>
     <string name="config_desync_method_summary">Stratégie de contournement active</string>
-    <string name="config_edit_current">Modifier l\'actuel</string>
+    <string name="config_edit_current">Modifier le profil</string>
     <string name="config_error_invalid_dns">Saisissez une adresse DNS non locale valide.</string>
     <string name="config_error_required">Ce champ est obligatoire.</string>
     <string name="config_local_bypass_section_body">Ajustez le chemin du proxy sur l\'appareil, le DNS et les commandes de stratégie de contournement.</string>
@@ -2095,8 +2095,8 @@ Source : %2$s</string>
     <string name="config_network_section">Réseau</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>
-    <string name="config_preset_custom_body">Profile for manual DNS, proxy endpoint, engine values, and optional command line overrides.</string>
-    <string name="config_preset_recommended_title">Starter profile</string>
+    <string name="config_preset_custom_body">Profil pour DNS manuel, endpoint proxy, valeurs moteur et remplacements optionnels en ligne de commande.</string>
+    <string name="config_preset_recommended_title">Profil recommandé</string>
     <string name="config_relay_chain_entry_public_key">Clé publique du saut d\'entrée</string>
     <string name="config_relay_chain_exit_port">Port du saut de sortie</string>
     <string name="config_relay_chain_exit_uuid">UUID du saut de sortie</string>
@@ -2519,7 +2519,7 @@ Source : %2$s</string>
     <string name="tcp_flag_card_title">Fabrication de drapeaux TCP</string>
     <string name="theme_settings">Thème</string>
     <string name="title_blockcheck">Sonde de stratégie</string>
-    <string name="title_mode_editor">Éditeur de mode</string>
+    <string name="title_mode_editor">Éditeur de profil</string>
     <string name="title_vpn_config">Config VPN</string>
     <string name="tls_fake_profile_scope_off">Le stratégie de contournement HTTPS est désactivé, donc ce ClientHello de base reste inactif.</string>
     <string name="udp_fake_profile_interaction_quic_override">Le trafic QUIC Initial utilise le profil factice QUIC ci-dessous, tandis que ce profil couvre le reste du trafic UDP fake_burst générique.</string>

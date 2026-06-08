@@ -145,11 +145,6 @@ fun ConfigScreen(
 
         RipDpiCard {
             Text(
-                text = stringResource(R.string.config_overview_title),
-                style = type.sectionTitle,
-                color = colors.mutedForeground,
-            )
-            Text(
                 text = stringResource(titleResForPreset(selectedPreset.kind)),
                 style = type.screenTitle,
                 color = colors.foreground,
@@ -338,6 +333,10 @@ internal fun modeLabelRes(mode: Mode): Int =
         Mode.Proxy -> R.string.home_mode_proxy
     }
 
+/**
+ * Config UI terminology is intentionally two-level:
+ * Profile = a named saved configuration; Mode = the bypass path inside that profile.
+ */
 enum class ConfigModeSection(
     val stableKey: String,
 ) {

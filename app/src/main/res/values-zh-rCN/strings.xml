@@ -469,8 +469,8 @@
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_preset_proxy_body">Starter profile for the local bypass path with the same baseline tuning.</string>
-    <string name="config_presets_section">Starter profiles</string>
+    <string name="config_preset_proxy_body">用于 Local bypass 模式的配置档，采用相同的基础调校。</string>
+    <string name="config_presets_section">配置档</string>
     <string name="config_relay_chain_entry_public_key">入口跳板公钥</string>
     <string name="config_relay_chain_entry_uuid">入口跳板 UUID</string>
     <string name="config_relay_chain_exit_short_id">出口跳板 short ID</string>
@@ -990,16 +990,16 @@ fakeddisorder endhost</string>
     <string name="config_cli_banner_title">命令行覆盖已启用</string>
     <string name="config_default_ttl_summary">出站数据包的 TTL 覆盖值</string>
     <string name="config_dns_summary_disabled">现在保存,下次本地 VPN 模式激活时应用</string>
-    <string name="config_editor_title">调整当前配置</string>
+    <string name="config_editor_title">编辑配置档</string>
     <string name="config_error_invalid_marker">请输入有效的标记表达式。</string>
     <string name="config_error_required">此字段为必填项。</string>
     <string name="config_listen_address_summary">本地代理监听器绑定的位置</string>
-    <string name="config_mode_sections_title">Profile area</string>
-    <string name="config_overview_title">配置</string>
+    <string name="config_mode_sections_title">模式详情</string>
+    <string name="config_overview_title">配置档</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_port">1080</string>
     <string name="config_port_helper">可接受范围遵循当前服务端口验证规则。</string>
-    <string name="config_preset_proxy_title">Local bypass profile</string>
+    <string name="config_preset_proxy_title">Local bypass 配置档</string>
     <string name="config_proxy_helper">本地代理监听器绑定的位置。</string>
     <string name="config_relay_chain_entry_server">入口跳服务器</string>
     <string name="config_relay_chain_exit_port">出口跳端口</string>
@@ -1529,8 +1529,8 @@ split midsld
 fake_burst 3</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
-    <string name="config_preset_custom_body">Profile for manual DNS, proxy endpoint, engine values, and optional command line overrides.</string>
-    <string name="config_preset_recommended_body">Starter profile for most networks. Keeps the local VPN path and safe RIPDPI tuning.</string>
+    <string name="config_preset_custom_body">用于手动 DNS、代理端点、引擎数值和可选命令行覆盖的配置档。</string>
+    <string name="config_preset_recommended_body">适用于大多数网络的推荐配置档。保留本地 VPN 路径和安全的 RIPDPI 调校。</string>
     <string name="config_relay_body">将代理流量通过本地中继运行时路由。密钥保留在 keystore 支持的凭据存储中。</string>
     <string name="config_relay_chain_entry_short_id">入口跳短 ID</string>
     <string name="config_relay_chain_exit_public_key">出口跳公钥</string>
@@ -2059,7 +2059,7 @@ fake_burst 3</string>
     <string name="config_chain_cli_override_note">CLI overrides bypass strategy</string>
     <string name="config_command_line_helper">启用命令行设置时生效。</string>
     <string name="config_dns_disabled_helper">DNS 覆盖仅在本地 VPN 模式下应用。</string>
-    <string name="config_edit_current">编辑当前</string>
+    <string name="config_edit_current">编辑配置档</string>
     <string name="config_error_invalid_chain">请输入有效的绕过策略 DSL。</string>
     <string name="config_error_invalid_proxy_ip">请输入有效的代理监听地址。</string>
     <string name="config_fake_offset_marker_helper">接受数值或语义偏移,如 0、host+1、endhost-2 或 endhost+1。此处不支持自适应 auto(…) 标记。</string>
@@ -2068,8 +2068,8 @@ fake_burst 3</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_split_marker">host</string>
-    <string name="config_preset_custom_title">Custom profile</string>
-    <string name="config_preset_recommended_title">Starter profile</string>
+    <string name="config_preset_custom_title">手动配置档</string>
+    <string name="config_preset_recommended_title">推荐配置档</string>
     <string name="config_relay_chain_entry_port">入口跳点端口</string>
     <string name="config_relay_chain_entry_sni">入口跳点服务器名称</string>
     <string name="config_relay_chain_exit_server">出口跳点服务器</string>
@@ -2502,7 +2502,7 @@ fake_burst 3</string>
     <string name="tcp_flag_orig_clear_title">原始数据包:清除标志</string>
     <string name="title_app_customization">应用自定义</string>
     <string name="title_data_transparency">数据透明度</string>
-    <string name="title_mode_editor">模式编辑器</string>
+    <string name="title_mode_editor">配置档编辑器</string>
     <string name="title_strategy_config">策略配置</string>
     <string name="tls_fake_profile_scope_hostfake">当前 HTTPS 流量使用 hostfake 分块,而非完整伪 ClientHello。</string>
     <string name="tls_fake_profile_title">TLS 伪载荷</string>
