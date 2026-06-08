@@ -75,6 +75,7 @@ import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import com.poyka.ripdpi.ui.screens.ssh.SshProfileRoute
+import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerRoute
 import com.poyka.ripdpi.ui.screens.xray.XrayProfileImportRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -446,6 +447,9 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     composable<Route.ConnectionHealth> {
         ConnectionHealthRoute(onBack = { navController.popBackStack() })
     }
+    composable<Route.StrategyTuner> {
+        StrategyTunerRoute(onBack = { navController.popBackStack() })
+    }
     composable<Route.BiometricPrompt> {
         BiometricPromptRoute(
             onAuthenticated = {
@@ -472,6 +476,7 @@ private fun diagnosticsRouteCallbacks(
         onSaveLogs = actions.onSaveLogs,
         onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
         onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
+        onOpenStrategyTuner = { navController.navigate(Route.StrategyTuner) { launchSingleTop = true } },
         onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
         onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
@@ -847,6 +852,8 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.Onboarding.stableRoute to { hasRoute<Route.Onboarding>() },
         Route.History.stableRoute to { hasRoute<Route.History>() },
         Route.Logs.stableRoute to { hasRoute<Route.Logs>() },
+        Route.ConnectionHealth.stableRoute to { hasRoute<Route.ConnectionHealth>() },
+        Route.StrategyTuner.stableRoute to { hasRoute<Route.StrategyTuner>() },
         Route.ModeEditor.stableRoute to { hasRoute<Route.ModeEditor>() },
         Route.DnsSettings.stableRoute to { hasRoute<Route.DnsSettings>() },
         Route.AdvancedSettings.stableRoute to { hasRoute<Route.AdvancedSettings>() },

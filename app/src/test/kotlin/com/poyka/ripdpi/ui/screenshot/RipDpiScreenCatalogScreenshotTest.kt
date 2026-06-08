@@ -39,6 +39,8 @@ import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
+import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerScreen
+import com.poyka.ripdpi.ui.screens.tuner.previewStrategyTunerUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Test
@@ -184,6 +186,22 @@ class RipDpiScreenCatalogScreenshotTest {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
             RipDpiTheme {
                 ConnectionHealthScreen(uiState = previewConnectionHealthUiState(), onBack = {})
+            }
+        }
+    }
+
+    @Test
+    fun strategyTunerScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
+            RipDpiTheme {
+                StrategyTunerScreen(
+                    state = previewStrategyTunerUiState(),
+                    onBack = {},
+                    onDomainsChanged = {},
+                    onRun = {},
+                    onCancel = {},
+                    onApply = {},
+                )
             }
         }
     }

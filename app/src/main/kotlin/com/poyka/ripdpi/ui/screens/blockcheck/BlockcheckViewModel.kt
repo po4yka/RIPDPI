@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeFailureKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeRankingAccumulator
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeService
+import com.poyka.ripdpi.diagnostics.toStrategyActivationYaml
 import com.poyka.ripdpi.serialization.RipDpiPrettyDefaultsJson
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -142,7 +143,7 @@ class BlockcheckViewModel
                     return@launch
                 }
                 appSettingsRepository.update {
-                    strategyChainYaml = candidate.toActivationYaml()
+                    strategyChainYaml = candidate.toStrategyActivationYaml()
                     candidate.configDsl?.let(::setRawStrategyChainDsl)
                 }
                 val reloadError =
@@ -245,36 +246,5 @@ private fun encodeRankedStrategy(result: RankedStrategyProbeResult): JsonObject 
             "dns_tampered_count" to JsonPrimitive(result.dnsTamperedCount),
         ),
     )
-
-private fun StrategyProbeCandidate.toActivationYaml(): String =
-    if (id.startsWith(LuaStrategyIdPrefix)) {
-        luaActivationYaml()
-    } else {
-        """
-        strategies:
-          - id: "$id"
-            label: "$label"
-        """.trimIndent()
-    }
-
-private const val LuaStrategyIdPrefix = "lua:"
-
-private fun StrategyProbeCandidate.luaActivationYaml(): String {
-    val function = id.removePrefix(LuaStrategyIdPrefix)
-    return (
-        listOf(
-            "version: 1",
-            "strategies:",
-            "  - id: \"${id.yamlQuote()}\"",
-            "    steps:",
-            "      - type: lua",
-            "        function: \"${function.yamlQuote()}\"",
-            "        script_paths:",
-        ) +
-            luaScriptPaths.map { path -> "          - \"${path.yamlQuote()}\"" }
-    ).joinToString(separator = "\n")
-}
-
-private fun String.yamlQuote(): String = replace("\\", "\\\\").replace("\"", "\\\"")
 
 private fun Throwable.userMessage(): String = localizedMessage ?: javaClass.simpleName

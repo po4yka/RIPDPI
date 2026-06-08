@@ -17,6 +17,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
@@ -70,6 +71,9 @@ data class StrategyProbeConfig(
     val testDomains: List<String> = DefaultProbeDomains,
     val timeoutMs: Long = DefaultProbeTimeoutMs,
     val maxStrategies: Int = Int.MAX_VALUE,
+    val maxTotalProbes: Int = Int.MAX_VALUE,
+    val probeIntervalMs: Long = 0L,
+    val candidateIds: List<String> = emptyList(),
     val proxyHost: String = DefaultProbeProxyHost,
     val proxyPort: Int = DefaultProbeProxyPort,
 )
@@ -201,9 +205,16 @@ class DefaultStrategyProbeService
                 val snapshot = activator.capture()
                 val emittedResults = mutableListOf<StrategyProbeResult>()
                 try {
-                    val candidates = candidateProvider.listCandidates().normalized(config.maxStrategies)
+                    val candidates =
+                        candidateProvider
+                            .listCandidates()
+                            .filteredBy(config.candidateIds)
+                            .normalized(config.maxStrategies)
                     val domains = config.testDomains.normalizedDomains()
                     val endpoint = StrategyProbeEndpoint(config.proxyHost, config.proxyPort)
+                    val maxTotalProbes = config.maxTotalProbes.coerceAtLeast(0)
+                    var probeCount = 0
+                    var firstProbe = true
 
                     for (candidate in candidates) {
                         currentCoroutineContext().ensureActiveForProbe()
@@ -211,6 +222,13 @@ class DefaultStrategyProbeService
 
                         for (domain in domains) {
                             currentCoroutineContext().ensureActiveForProbe()
+                            if (probeCount >= maxTotalProbes) {
+                                break
+                            }
+                            if (!firstProbe) {
+                                delay(config.probeIntervalMs.coerceAtLeast(0L))
+                            }
+                            firstProbe = false
                             val dnsComparison = dnsComparator.compare(domain)
                             val result =
                                 transport
@@ -223,7 +241,11 @@ class DefaultStrategyProbeService
                                         ),
                                     ).toProbeResult(candidate, domain, dnsComparison)
                             emittedResults += result
+                            probeCount += 1
                             emit(result)
+                        }
+                        if (probeCount >= maxTotalProbes) {
+                            break
                         }
                     }
                     resultInjector.inject(emittedResults)
@@ -280,7 +302,7 @@ class SettingsStrategyProbeActivator
 
         override suspend fun activate(candidate: StrategyProbeCandidate) {
             appSettingsRepository.update {
-                strategyChainYaml = candidate.toActivationYaml()
+                strategyChainYaml = candidate.toStrategyActivationYaml()
                 candidate.configDsl?.let(::setRawStrategyChainDsl)
             }
         }
@@ -639,6 +661,14 @@ private fun List<StrategyProbeCandidate>.normalized(maxStrategies: Int): List<St
         .take(maxStrategies.coerceAtLeast(0))
         .toList()
 
+private fun List<StrategyProbeCandidate>.filteredBy(candidateIds: List<String>): List<StrategyProbeCandidate> {
+    val allowedIds = candidateIds.mapTo(linkedSetOf()) { it.trim() }.filter(String::isNotEmpty)
+    if (allowedIds.isEmpty()) {
+        return this
+    }
+    return filter { it.id in allowedIds }
+}
+
 private fun List<String>.normalizedDomains(): List<String> =
     asSequence()
         .map { it.trim() }
@@ -656,7 +686,7 @@ private fun builtInStrategyProbeCandidates(): List<StrategyProbeCandidate> =
         StrategyProbeCandidate("udp_fake_burst", "UDP fake burst", "[udp]\nfake_burst 3"),
     )
 
-private fun StrategyProbeCandidate.toActivationYaml(): String =
+fun StrategyProbeCandidate.toStrategyActivationYaml(): String =
     if (id.startsWith(LuaStrategyIdPrefix)) {
         luaActivationYaml()
     } else {

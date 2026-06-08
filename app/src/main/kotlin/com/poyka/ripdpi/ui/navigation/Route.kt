@@ -112,6 +112,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object StrategyTuner : Route() {
+        override val stableRoute = "strategy_tuner"
+        override val titleRes = R.string.title_strategy_tuner
+        override val icon: ImageVector? = RipDpiIcons.Advanced
+    }
+
+    @Serializable
     data object ModeEditor : Route() {
         override val stableRoute = "mode_editor"
         override val titleRes = R.string.title_mode_editor
@@ -367,6 +374,7 @@ sealed class Route {
                     History,
                     Logs,
                     ConnectionHealth,
+                    StrategyTuner,
                     Settings,
                     BackupRestore,
                     ModeEditor,

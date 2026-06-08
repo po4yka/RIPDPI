@@ -135,6 +135,7 @@ data class DiagnosticsScreenActions(
     val onSaveLogs: () -> Unit = {},
     val onOpenLogs: () -> Unit = {},
     val onOpenConnectionHealth: () -> Unit = {},
+    val onOpenStrategyTuner: () -> Unit = {},
     val onOpenAdvancedSettings: () -> Unit = {},
     val onOpenDnsSettings: () -> Unit = {},
     val onOpenDetectionCheck: () -> Unit = {},
@@ -307,6 +308,12 @@ private fun DiagnosticsTopBar(
                 contentDescription = stringResource(R.string.connection_health_open_action),
                 onClick = actions.onOpenConnectionHealth,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsConnectionHealthAction),
+            )
+            RipDpiIconButton(
+                icon = RipDpiIcons.Advanced,
+                contentDescription = stringResource(R.string.strategy_tuner_open_action),
+                onClick = actions.onOpenStrategyTuner,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyTunerAction),
             )
             RipDpiIconButton(
                 icon = RipDpiIcons.Logs,
