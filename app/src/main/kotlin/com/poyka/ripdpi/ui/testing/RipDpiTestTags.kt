@@ -90,6 +90,7 @@ internal object RipDpiTestTags {
     const val ModeEditorProxyPort = "mode-editor-proxy-port"
     const val ModeEditorMaxConnections = "mode-editor-max-connections"
     const val ModeEditorBufferSize = "mode-editor-buffer-size"
+    const val ModeEditorChainVisual = "mode-editor-chain-visual"
     const val ModeEditorChainDsl = "mode-editor-chain-dsl"
     const val ModeEditorDefaultTtl = "mode-editor-default-ttl"
     const val ModeEditorAdvanced = "mode-editor-advanced"

@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -38,6 +39,7 @@ import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.ImmutableList
@@ -87,11 +89,16 @@ class ModeEditorScreenTest {
 
     @Test
     fun chainTextAndSummaryUseSameBackingValue() {
-        setScreen(stateful = true)
+        var observedDraft = defaultDraft()
+        setScreen(
+            stateful = true,
+            onStatefulDraftChanged = { observedDraft = it },
+        )
 
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorAdvanced).performScrollTo().performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Bypass strategy: tcp: split(midsld)").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainVisual).assertIsEnabled()
 
         val chainField = composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true)
         chainField.performTextClearance()
@@ -99,6 +106,19 @@ class ModeEditorScreenTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Bypass strategy: tcp: fake(host)").assertExists()
+        composeRule.runOnIdle {
+            assertEquals("fake", observedDraft.desyncMethod)
+            assertEquals("tcp: fake(host)", observedDraft.chainSummary)
+        }
+    }
+
+    @Test
+    fun visualChainEditsRewriteRawChainText() {
+        val chains = parseStrategyChainDsl("[tcp]\nfake host\n[udp]\nfake_burst 3").getOrThrow()
+        val draft = defaultDraft().withStrategyChain(chains.tcpSteps, chains.udpSteps)
+
+        assertEquals("[tcp]\nfake host\n\n[udp]\nfake_burst 3", draft.chainDsl)
+        assertEquals("tcp: fake(host) | udp: fake_burst(3)", draft.chainSummary)
     }
 
     @Test
@@ -109,6 +129,7 @@ class ModeEditorScreenTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("CLI overrides bypass strategy").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainVisual).assertIsNotEnabled()
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true).assertIsNotEnabled()
     }
 
@@ -204,6 +225,7 @@ class ModeEditorScreenTest {
         initialDraft: ConfigDraft = defaultDraft(),
         stateful: Boolean = false,
         relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
+        onStatefulDraftChanged: (ConfigDraft) -> Unit = {},
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -226,7 +248,13 @@ class ModeEditorScreenTest {
                     snackbarHostState = SnackbarHostState(),
                     actions =
                         if (stateful) {
-                            NoOpModeEditorActions.copy(onChainDslChanged = { draft = draft.withChainDsl(it) })
+                            NoOpModeEditorActions.copy(
+                                onChainDslChanged = {
+                                    val updatedDraft = draft.withChainDsl(it)
+                                    draft = updatedDraft
+                                    onStatefulDraftChanged(updatedDraft)
+                                },
+                            )
                         } else {
                             NoOpModeEditorActions
                         },

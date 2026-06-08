@@ -21,7 +21,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
@@ -349,11 +352,25 @@ private fun ModeEditorChainFields(
     val colors = RipDpiThemeTokens.colors
     val chainOverridden = draft.useCommandLineSettings
 
-    Text(
-        text = stringResource(R.string.config_chain_summary_label, draft.chainSummary),
-        style = RipDpiThemeTokens.type.caption,
-        color = colors.mutedForeground,
-    )
+    Column(
+        modifier =
+            Modifier
+                .ripDpiTestTag(RipDpiTestTags.ModeEditorChainVisual)
+                .alpha(if (chainOverridden) ChainOverriddenAlpha else 1f)
+                .then(
+                    if (chainOverridden) {
+                        Modifier.semantics { disabled() }
+                    } else {
+                        Modifier
+                    },
+                ),
+    ) {
+        Text(
+            text = stringResource(R.string.config_chain_summary_label, draft.chainSummary),
+            style = RipDpiThemeTokens.type.caption,
+            color = colors.mutedForeground,
+        )
+    }
     if (chainOverridden) {
         Text(
             text = stringResource(R.string.config_chain_cli_override_note),
@@ -380,6 +397,8 @@ private fun ModeEditorChainFields(
             ),
     )
 }
+
+private const val ChainOverriddenAlpha = 0.55f
 
 @Composable
 private fun ModeEditorOverridesSection(
