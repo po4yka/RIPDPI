@@ -122,6 +122,7 @@ internal object RipDpiTestTags {
     const val SettingsAbout = "settings-about"
     const val SettingsStrategyConfig = "settings-strategy-config"
     const val SettingsBlockcheck = "settings-blockcheck"
+    const val SettingsProfilePreflight = "settings-profile-preflight"
     const val SettingsDomainBypass = "settings-domain-bypass"
     const val DomainBypassEditor = "domain-bypass-editor"
     const val SettingsAssetProvider = "settings-asset-provider"

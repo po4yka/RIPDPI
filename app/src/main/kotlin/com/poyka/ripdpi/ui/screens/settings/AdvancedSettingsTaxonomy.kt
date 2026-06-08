@@ -33,6 +33,7 @@ internal data class AdvancedSettingsActions(
     val onBack: () -> Unit,
     val onOpenStrategyConfig: () -> Unit,
     val onOpenBlockcheck: () -> Unit,
+    val onOpenProfilePreflight: () -> Unit,
     val onOpenAssetProvider: () -> Unit,
     val onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     val onTextConfirmed: (AdvancedTextSetting, String) -> Unit,

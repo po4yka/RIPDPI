@@ -182,6 +182,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object ProfilePreflight : Route() {
+        override val stableRoute = "profile/preflight"
+        override val titleRes = R.string.title_profile_preflight
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object BiometricPrompt : Route() {
         override val stableRoute = "biometric_prompt"
         override val titleRes = R.string.title_biometric_prompt
@@ -371,6 +378,7 @@ sealed class Route {
                     Routes,
                     RuleEditor(),
                     Blockcheck,
+                    ProfilePreflight,
                     BiometricPrompt,
                     AppCustomization,
                     About,

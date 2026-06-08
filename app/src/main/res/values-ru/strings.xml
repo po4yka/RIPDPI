@@ -2056,6 +2056,22 @@ fakeddisorder endhost</string>
     <string name="blockcheck_entry_body">Запустите зондирование стратегий, просмотрите ранжированные результаты и примените самую сильную стратегию для этой сети.</string>
     <string name="blockcheck_entry_title">Зондирование стратегий</string>
     <string name="blockcheck_export_title">Экспорт отчёта зондирования стратегий</string>
+    <string name="profile_preflight_entry_title">Profile preflight</string>
+    <string name="profile_preflight_entry_body">Run a bounded in-path check against the active profile and share the redacted pass/fail verdict.</string>
+    <string name="profile_preflight_active_profile">Active profile</string>
+    <string name="profile_preflight_body">Runs the current diagnostics profile through the active in-path connection before you rely on it.</string>
+    <string name="profile_preflight_verdict_title">Verdict</string>
+    <string name="profile_preflight_idle_summary">No preflight has run yet.</string>
+    <string name="profile_preflight_session_format">Session %1$s</string>
+    <string name="profile_preflight_run">Run preflight</string>
+    <string name="profile_preflight_running">Running</string>
+    <string name="profile_preflight_share">Share verdict</string>
+    <string name="profile_preflight_share_title">Share profile preflight verdict</string>
+    <string name="profile_preflight_state_idle">Ready</string>
+    <string name="profile_preflight_state_running">Running</string>
+    <string name="profile_preflight_state_passed">Pass</string>
+    <string name="profile_preflight_state_failed">Fail</string>
+    <string name="profile_preflight_state_error">Error</string>
     <string name="blockcheck_export">Экспорт</string>
     <string name="blockcheck_no_strategies">Стратегии не зарегистрированы</string>
     <string name="blockcheck_result_detail_format">%1$d/%2$d доменов OK • в среднем %3$d мс</string>
@@ -2584,6 +2600,7 @@ fakeddisorder endhost</string>
 
     <!-- gap-fill: title_* -->
     <string name="title_blockcheck">Зондирование стратегий</string>
+    <string name="title_profile_preflight">Profile preflight</string>
     <string name="title_local_bypass_config">Конфигурация локального обхода</string>
     <string name="title_shared_diagnostic_result">Общая диагностика</string>
     <string name="title_strategy_config">Конфигурация стратегии</string>

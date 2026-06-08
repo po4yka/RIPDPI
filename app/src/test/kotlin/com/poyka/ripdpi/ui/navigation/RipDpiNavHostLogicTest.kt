@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.navigation
 
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -113,6 +114,16 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
+    fun `every registered route has the canonical screen root tag`() {
+        val expectedRootTags = Route.all.associate { route -> route.stableRoute to "${route.stableRoute}-screen" }
+
+        assertEquals(
+            expectedRootTags,
+            Route.all.associate { route -> route.stableRoute to RipDpiTestTags.screen(route) },
+        )
+    }
+
+    @Test
     fun `removed diagnostic spec card routes stay out of runtime navigation`() {
         val removedRoutes =
             listOf(
@@ -183,6 +194,7 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
         Route.Routes.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.RuleEditor().stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.Blockcheck.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.ProfilePreflight.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.BiometricPrompt.stableRoute to
             setOf(
                 ReachabilityMechanism.StartDestination,

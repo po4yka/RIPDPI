@@ -60,6 +60,7 @@ import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.mieru.MieruProfileRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
+import com.poyka.ripdpi.ui.screens.preflight.ProfilePreflightRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmRoute
 import com.poyka.ripdpi.ui.screens.routes.RoutesRoute
@@ -603,6 +604,7 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
             onBack = { navController.popBackStack() },
             onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
             onOpenBlockcheck = { navController.navigate(Route.Blockcheck) },
+            onOpenProfilePreflight = { navController.navigate(Route.ProfilePreflight) },
             onOpenAssetProvider = { navController.navigate(Route.AssetProvider) },
             viewModel = settingsViewModel,
         )
@@ -618,6 +620,9 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     }
     composable<Route.Blockcheck> {
         BlockcheckRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.ProfilePreflight> {
+        ProfilePreflightRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.DomainBypassList> {
         DomainBypassListRoute(onBack = { navController.popBackStack() })
