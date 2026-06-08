@@ -9,6 +9,7 @@ import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
 import androidx.core.content.ContextCompat
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -100,13 +101,13 @@ class DefaultNetworkHandoverMonitor
                     }
 
                 runCatching {
-                    if (hasNetworkStatePermission()) {
-                        connectivityManager.registerDefaultNetworkCallback(callback)
-                    } else {
-                        error("android.permission.ACCESS_NETWORK_STATE is required to observe network handover events")
+                    check(hasNetworkStatePermission()) {
+                        "android.permission.ACCESS_NETWORK_STATE is required to observe network handover events"
                     }
-                }.onFailure {
-                    close(it)
+                    connectivityManager.registerDefaultNetworkCallback(callback)
+                }.onFailure { error ->
+                    Logger.w(error) { "Network handover monitor disabled" }
+                    close()
                 }
 
                 awaitClose {

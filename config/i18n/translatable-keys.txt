@@ -1868,6 +1868,15 @@ app:mieru_section_transport
 app:mieru_section_transport_body
 app:mode_setting
 app:navigation_back
+app:network_auto_profiles_bind_current
+app:network_auto_profiles_bound_profile
+app:network_auto_profiles_current_network
+app:network_auto_profiles_current_profile
+app:network_auto_profiles_empty
+app:network_auto_profiles_network_unavailable
+app:network_auto_profiles_refresh
+app:network_auto_profiles_remove
+app:network_auto_profiles_saved_bindings
 app:network_strategy_memory_clear_action
 app:network_strategy_memory_count_summary
 app:network_strategy_memory_enabled_body
@@ -2623,6 +2632,7 @@ app:settings_logs_body
 app:settings_manage_action
 app:settings_mixed_inbound_body
 app:settings_mixed_inbound_title
+app:settings_network_auto_profiles_body
 app:settings_permission_action_allow
 app:settings_permission_action_open_settings
 app:settings_permission_action_open_vpn_settings
@@ -2875,6 +2885,7 @@ app:title_handshake_timeline
 app:title_latency_graph
 app:title_local_bypass_config
 app:title_mode_editor
+app:title_network_auto_profiles
 app:title_onboarding
 app:title_oom_recovery
 app:title_owned_stack_browser

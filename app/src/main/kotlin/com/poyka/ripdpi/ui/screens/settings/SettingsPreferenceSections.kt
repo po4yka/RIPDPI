@@ -175,6 +175,14 @@ internal fun SettingsSecuritySection(
                 showDivider = true,
                 testTag = RipDpiTestTags.SettingsPrivacyThreatModel,
             )
+            SettingsRow(
+                title = stringResource(R.string.title_network_auto_profiles),
+                subtitle = stringResource(R.string.settings_network_auto_profiles_body),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = actions.onOpenNetworkAutoProfiles,
+                showDivider = true,
+                testTag = RipDpiTestTags.SettingsNetworkAutoProfiles,
+            )
             SecurityToggleRows(
                 uiState = uiState,
                 actions = actions,

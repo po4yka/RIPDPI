@@ -224,6 +224,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object NetworkAutoProfiles : Route() {
+        override val stableRoute = "network_auto_profiles"
+        override val titleRes = R.string.title_network_auto_profiles
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object DetectionCheck : Route() {
         override val stableRoute = "detection_check"
         override val titleRes = R.string.title_detection_check
@@ -391,6 +398,7 @@ sealed class Route {
                     About,
                     DataTransparency,
                     PrivacyThreatModel,
+                    NetworkAutoProfiles,
                     DetectionCheck,
                     DetectionSettings,
                     PcapViewer,

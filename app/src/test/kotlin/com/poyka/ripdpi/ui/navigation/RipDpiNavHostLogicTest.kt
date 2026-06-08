@@ -204,6 +204,7 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
         Route.About.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.DataTransparency.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.PrivacyThreatModel.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.NetworkAutoProfiles.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.DetectionCheck.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.DetectionSettings.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.PcapViewer.stableRoute to setOf(ReachabilityMechanism.ParentCallback),

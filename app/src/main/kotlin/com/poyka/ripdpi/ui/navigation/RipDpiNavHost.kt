@@ -72,6 +72,7 @@ import com.poyka.ripdpi.ui.screens.settings.AssetProviderRoute
 import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
+import com.poyka.ripdpi.ui.screens.settings.NetworkAutoProfilesRoute
 import com.poyka.ripdpi.ui.screens.settings.PrivacyThreatModelRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
@@ -576,6 +577,7 @@ private fun SettingsHomeRoute(
         onOpenAbout = { navController.navigate(Route.About) },
         onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
         onOpenPrivacyThreatModel = { navController.navigate(Route.PrivacyThreatModel) },
+        onOpenNetworkAutoProfiles = { navController.navigate(Route.NetworkAutoProfiles) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
         onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
         onOpenRoutingRules = { navController.navigate(Route.Routes) },
@@ -639,6 +641,9 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
             uiState = privacyThreatUiState.privacyThreat,
             onBack = { navController.popBackStack() },
         )
+    }
+    composable<Route.NetworkAutoProfiles> {
+        NetworkAutoProfilesRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.BackupRestore> {
         BackupRestoreRoute(onBack = { navController.popBackStack() })
@@ -868,6 +873,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.About.stableRoute to { hasRoute<Route.About>() },
         Route.DataTransparency.stableRoute to { hasRoute<Route.DataTransparency>() },
         Route.DetectionCheck.stableRoute to { hasRoute<Route.DetectionCheck>() },
+        Route.NetworkAutoProfiles.stableRoute to { hasRoute<Route.NetworkAutoProfiles>() },
         Route.DetectionSettings.stableRoute to { hasRoute<Route.DetectionSettings>() },
         Route.PcapViewer.stableRoute to { hasRoute<Route.PcapViewer>() },
         Route.PcapCaptureList.stableRoute to { hasRoute<Route.PcapCaptureList>() },

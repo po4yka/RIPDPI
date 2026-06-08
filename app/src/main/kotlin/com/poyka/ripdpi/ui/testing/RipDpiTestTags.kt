@@ -120,6 +120,7 @@ internal object RipDpiTestTags {
     const val SettingsLogs = "settings-logs"
     const val SettingsDataTransparency = "settings-data-transparency"
     const val SettingsPrivacyThreatModel = "settings-privacy-threat-model"
+    const val SettingsNetworkAutoProfiles = "settings-network-auto-profiles"
     const val SettingsAbout = "settings-about"
     const val SettingsStrategyConfig = "settings-strategy-config"
     const val SettingsBlockcheck = "settings-blockcheck"
@@ -164,6 +165,9 @@ internal object RipDpiTestTags {
     const val StrategyConfigEditor = "strategy-config-editor"
     const val StrategyConfigLuaPath = "strategy-config-lua-path"
     const val StrategyConfigLuaFunction = "strategy-config-lua-function"
+    const val NetworkAutoProfilesCurrent = "network-auto-profiles-current"
+    const val NetworkAutoProfilesBindCurrent = "network-auto-profiles-bind-current"
+    const val NetworkAutoProfilesBindingList = "network-auto-profiles-binding-list"
 
     const val DnsPlainAddress = "dns-plain-address"
     const val DnsPlainSave = "dns-plain-save"
