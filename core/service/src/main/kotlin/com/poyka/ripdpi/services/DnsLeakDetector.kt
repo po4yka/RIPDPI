@@ -42,8 +42,6 @@ internal sealed interface DnsLeakCheckResult {
  */
 internal class DnsLeakDetector(
     private val policy: SplitStrictDnsPolicy,
-    private val privacyThreatStateStore: PrivacyThreatStateStore? = null,
-    private val clockMillis: () -> Long = { System.currentTimeMillis() },
 ) {
     private val dispatcher = DnsInterceptorDispatcher(policy)
     private val observations = mutableListOf<DnsQueryObservation>()
@@ -60,28 +58,16 @@ internal class DnsLeakDetector(
      *         resolved via the default network; [DnsLeakCheckResult.Clean] otherwise.
      */
     fun check(observation: DnsQueryObservation): DnsLeakCheckResult {
-        if (!observation.viaDefaultNetwork) return publish(DnsLeakCheckResult.Clean)
+        if (!observation.viaDefaultNetwork) return DnsLeakCheckResult.Clean
         val dispatch = dispatcher.dispatch(observation.domain)
         return if (dispatch.plane == DnsResolverPlane.DIRECT) {
-            publish(DnsLeakCheckResult.Clean)
+            DnsLeakCheckResult.Clean
         } else {
-            publish(
-                DnsLeakCheckResult.Leaked(
-                    domain = observation.domain,
-                    resolverAddress = observation.resolverAddress,
-                ),
+            DnsLeakCheckResult.Leaked(
+                domain = observation.domain,
+                resolverAddress = observation.resolverAddress,
             )
         }
-    }
-
-    private fun publish(result: DnsLeakCheckResult): DnsLeakCheckResult {
-        privacyThreatStateStore?.updateDnsLeak(
-            PrivacyThreatLeakResultMapper.dns(
-                result = result,
-                nowMillis = clockMillis(),
-            ),
-        )
-        return result
     }
 
     /**

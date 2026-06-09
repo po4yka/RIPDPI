@@ -46,7 +46,6 @@ enum class DiagnosticsArchiveReason {
     SHARE_ARCHIVE,
     SAVE_ARCHIVE,
     SHARE_DEBUG_BUNDLE,
-    SHARE_SETUP_BUNDLE,
     SHARE_HOME_ANALYSIS,
 }
 

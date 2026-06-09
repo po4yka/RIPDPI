@@ -140,36 +140,4 @@ class Ipv6LeakDetectorTest {
         d.record(obs("2001:db8::1", viaDefaultNetwork = true, vpnActive = true))
         assertTrue(d.hasLeak())
     }
-
-    @Test
-    fun checkPublishesIpv6LeakIndicatorState() {
-        val store = InMemoryPrivacyThreatStateStore()
-        val d =
-            Ipv6LeakDetector(
-                privacyThreatStateStore = store,
-                clockMillis = { 44L },
-            )
-
-        d.check(obs("2001:db8::1", viaDefaultNetwork = true, vpnActive = true))
-
-        assertEquals(PrivacyLeakIndicatorStatus.LEAK_DETECTED, store.snapshot.value.ipv6Leak.status)
-        assertEquals("2001:db8::1", store.snapshot.value.ipv6Leak.detail)
-        assertEquals(44L, store.snapshot.value.ipv6Leak.updatedAtMillis)
-    }
-
-    @Test
-    fun cleanCheckPublishesIpv6ClearIndicatorState() {
-        val store = InMemoryPrivacyThreatStateStore()
-        val d =
-            Ipv6LeakDetector(
-                privacyThreatStateStore = store,
-                clockMillis = { 45L },
-            )
-
-        d.check(obs("fd00::1", viaDefaultNetwork = true, vpnActive = true))
-
-        assertEquals(PrivacyLeakIndicatorStatus.CLEAR, store.snapshot.value.ipv6Leak.status)
-        assertEquals(null, store.snapshot.value.ipv6Leak.detail)
-        assertEquals(45L, store.snapshot.value.ipv6Leak.updatedAtMillis)
-    }
 }

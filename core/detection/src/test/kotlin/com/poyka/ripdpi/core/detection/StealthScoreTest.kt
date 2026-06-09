@@ -136,4 +136,41 @@ class StealthScoreTest {
         assertEquals(0.5f, StealthScore.normalizedProgress(50), 0.01f)
         assertEquals(0f, StealthScore.normalizedProgress(0), 0.01f)
     }
+
+    @Test
+    fun `exposure verdict names ordinary HTTPS when probes are clean`() {
+        val verdict = ExposureVerdictBuilder.build(cleanResult(), stealthScore = 100)
+
+        assertEquals("You look like ordinary HTTPS traffic", verdict.headline)
+        assertEquals("ordinary HTTPS baseline", verdict.dominantSignal)
+        assertTrue(verdict.reason.contains("Detection probes did not expose"))
+    }
+
+    @Test
+    fun `exposure verdict prioritizes detection outcome over good stealth score`() {
+        val result =
+            cleanResult().copy(
+                bypassResult =
+                    emptyBypass().copy(
+                        evidence =
+                            listOf(
+                                EvidenceItem(
+                                    source = EvidenceSource.XRAY_API,
+                                    detected = true,
+                                    confidence = EvidenceConfidence.HIGH,
+                                    description = "Xray API endpoint reachable",
+                                ),
+                            ),
+                        detected = true,
+                    ),
+                verdict = Verdict.DETECTED,
+            )
+
+        val verdict = ExposureVerdictBuilder.build(result, stealthScore = 95)
+
+        assertEquals("Your traffic is distinguishable by Xray API access", verdict.headline)
+        assertEquals("Xray API access", verdict.dominantSignal)
+        assertTrue(verdict.reason.contains("local API"))
+        assertTrue(verdict.adjustmentHint.contains("Restrict local API"))
+    }
 }

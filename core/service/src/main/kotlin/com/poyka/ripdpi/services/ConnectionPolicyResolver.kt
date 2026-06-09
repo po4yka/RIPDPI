@@ -74,35 +74,7 @@ class DefaultConnectionPolicyResolver
         private val startupDnsProbe: VpnStartupDnsProbe,
         private val rootHelperManager: RootHelperManager,
         private val environmentDetector: EnvironmentDetector,
-        private val networkAutoProfileApplicator: NetworkAutoProfileApplicator,
     ) : ConnectionPolicyResolver {
-        constructor(
-            context: Context,
-            appSettingsRepository: AppSettingsRepository,
-            networkFingerprintProvider: NetworkFingerprintProvider,
-            networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
-            networkEdgePreferenceStore: NetworkEdgePreferenceStore,
-            serverCapabilityStore: ServerCapabilityStore,
-            antiCorrelationRoutingPolicy: AntiCorrelationRoutingPolicy,
-            rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-            startupDnsProbe: VpnStartupDnsProbe,
-            rootHelperManager: RootHelperManager,
-            environmentDetector: EnvironmentDetector,
-        ) : this(
-            context = context,
-            appSettingsRepository = appSettingsRepository,
-            networkFingerprintProvider = networkFingerprintProvider,
-            networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
-            networkEdgePreferenceStore = networkEdgePreferenceStore,
-            serverCapabilityStore = serverCapabilityStore,
-            antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy,
-            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-            startupDnsProbe = startupDnsProbe,
-            rootHelperManager = rootHelperManager,
-            environmentDetector = environmentDetector,
-            networkAutoProfileApplicator = NoOpNetworkAutoProfileApplicator,
-        )
-
         private val dnsSelector =
             ConnectionPolicyDnsSelector(
                 networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
@@ -147,16 +119,10 @@ class DefaultConnectionPolicyResolver
             resolverOverride: TemporaryResolverOverride?,
             fingerprint: NetworkFingerprint?,
         ): BaselineConnectionPolicy {
-            val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
-            val baselineSettings = appSettingsRepository.snapshot()
-            val settings =
-                networkAutoProfileApplicator
-                    .apply(
-                        settings = baselineSettings,
-                        fingerprint = fingerprintSnapshot,
-                    ).settings
+            val settings = appSettingsRepository.snapshot()
             rootHelperManager.syncRootMode(context, settings.toSettingsSections().root)
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
+            val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
             val networkScopeKey = fingerprintSnapshot?.scopeKey()
             val directPathCapabilities = runtimeContextAssembler.directPathCapabilities(networkScopeKey)
             val baselineVpnDnsSelection =

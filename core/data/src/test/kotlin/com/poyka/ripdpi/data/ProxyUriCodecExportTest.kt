@@ -1,6 +1,5 @@
-package com.poyka.ripdpi.proxyimport
+package com.poyka.ripdpi.data
 
-import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -8,12 +7,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Pure-logic tests for [ProxyProfileUriEncoder]: the offline encoder that turns a saved
- * [ProxyProfile] back into a canonical per-protocol share URI. The encoder is the inverse
- * of [ProxyUriCodec]; round-tripping a profile through encode -> parse must preserve the
- * endpoint identity. No `sn://` universal scheme is ever emitted.
+ * Export-side codec tests. The encoder lives beside [ProxyUriCodec.parse] so generated
+ * links stay exactly in the formats the existing import path accepts.
  */
-class ProxyProfileUriEncoderTest {
+class ProxyUriCodecExportTest {
     @Test
     fun `vless profile encodes to a canonical vless uri`() {
         val profile =
@@ -26,7 +23,7 @@ class ProxyProfileUriEncoderTest {
                 uuid = "11111111-2222-3333-4444-555555555555",
             )
 
-        val uri = ProxyProfileUriEncoder.encode(profile)
+        val uri = ProxyUriCodec.encode(profile)
 
         assertTrue(uri.startsWith("vless://"))
         assertTrue(uri.contains("11111111-2222-3333-4444-555555555555@example.com:443"))
@@ -44,13 +41,42 @@ class ProxyProfileUriEncoderTest {
                 uuid = "abc-uuid",
             )
 
-        val parsed = ProxyUriCodec.parse(ProxyProfileUriEncoder.encode(profile))
+        val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
 
         assertTrue(parsed is ProxyProfile.Vless)
         parsed as ProxyProfile.Vless
         assertEquals("edge.example.com", parsed.server)
         assertEquals(8443, parsed.serverPort)
         assertEquals("abc-uuid", parsed.uuid)
+    }
+
+    @Test
+    fun `vless reality xhttp profile round-trips through the shared codec`() {
+        val profile =
+            ProxyProfile.VlessReality(
+                id = "p1",
+                displayName = "Reality XHTTP",
+                groupId = "g1",
+                server = "edge.example.com",
+                serverPort = 443,
+                uuid = "11111111-2222-3333-4444-555555555555",
+                realityPublicKey = "public-key",
+                realityShortId = "ab12",
+                serverName = "front.example.com",
+                flow = "xtls-rprx-vision",
+                fingerprint = "chrome",
+                xhttpPath = "/x",
+                xhttpHost = "cdn.example.com",
+            )
+
+        val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
+
+        assertTrue(parsed is ProxyProfile.VlessReality)
+        parsed as ProxyProfile.VlessReality
+        assertEquals("edge.example.com", parsed.server)
+        assertEquals("public-key", parsed.realityPublicKey)
+        assertEquals("/x", parsed.xhttpPath)
+        assertEquals("cdn.example.com", parsed.xhttpHost)
     }
 
     @Test
@@ -66,7 +92,7 @@ class ProxyProfileUriEncoderTest {
                 password = "s3cret",
             )
 
-        val parsed = ProxyUriCodec.parse(ProxyProfileUriEncoder.encode(profile))
+        val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
 
         assertTrue(parsed is ProxyProfile.Shadowsocks)
         parsed as ProxyProfile.Shadowsocks
@@ -88,7 +114,7 @@ class ProxyProfileUriEncoderTest {
                 password = "trojan-pass-fixture",
             )
 
-        val parsed = ProxyUriCodec.parse(ProxyProfileUriEncoder.encode(profile))
+        val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
 
         assertTrue(parsed is ProxyProfile.Trojan)
         parsed as ProxyProfile.Trojan
@@ -108,7 +134,7 @@ class ProxyProfileUriEncoderTest {
                 password = "hy2-pass-fixture",
             )
 
-        val uri = ProxyProfileUriEncoder.encode(profile)
+        val uri = ProxyUriCodec.encode(profile)
 
         assertTrue(uri.startsWith("hysteria2://"))
         val parsed = ProxyUriCodec.parse(uri)
@@ -116,7 +142,28 @@ class ProxyProfileUriEncoderTest {
     }
 
     @Test
-    fun `mieru profile encodes to a standard uri that round-trips to Mieru`() {
+    fun `anytls profile encodes and round-trips`() {
+        val profile =
+            ProxyProfile.AnyTls(
+                id = "p1",
+                displayName = "AnyTLS",
+                groupId = "g1",
+                server = "any.example.com",
+                serverPort = 443,
+                serverName = "front.example.com",
+                password = "any-pass-fixture",
+            )
+
+        val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
+
+        assertTrue(parsed is ProxyProfile.AnyTls)
+        parsed as ProxyProfile.AnyTls
+        assertEquals("front.example.com", parsed.serverName)
+        assertEquals("any-pass-fixture", parsed.password)
+    }
+
+    @Test
+    fun `mieru profile encodes to a uri that round-trips to Mieru`() {
         val profile =
             ProxyProfile.Mieru(
                 id = "p1",
@@ -131,10 +178,8 @@ class ProxyProfileUriEncoderTest {
                 mtu = 1380,
             )
 
-        val uri = ProxyProfileUriEncoder.encode(profile)
+        val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
 
-        assertTrue(uri.startsWith("mieru://"))
-        val parsed = ProxyUriCodec.parse(uri)
         assertTrue("expected Mieru, got ${parsed?.javaClass?.simpleName}", parsed is ProxyProfile.Mieru)
         parsed as ProxyProfile.Mieru
         assertEquals("m.example.com", parsed.server)
@@ -148,8 +193,6 @@ class ProxyProfileUriEncoderTest {
 
     @Test
     fun `mieru password with special characters round-trips via percent-encoding`() {
-        // The password contains URI-significant characters (':', '@', '/', '?',
-        // '#', '&', '%', ' ') to prove userinfo percent-encoding both ways.
         val specialPassword = "p@ss:w/ord?#&% fixture"
         val profile =
             ProxyProfile.Mieru(
@@ -162,14 +205,12 @@ class ProxyProfileUriEncoderTest {
                 password = specialPassword,
             )
 
-        val uri = ProxyProfileUriEncoder.encode(profile)
-        val parsed = ProxyUriCodec.parse(uri)
+        val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
 
         assertTrue("expected Mieru, got ${parsed?.javaClass?.simpleName}", parsed is ProxyProfile.Mieru)
         parsed as ProxyProfile.Mieru
         assertEquals("user name+fixture", parsed.username)
         assertEquals(specialPassword, parsed.password)
-        // Absent query overrides default to the canonical Mieru values.
         assertEquals("tcp", parsed.protocol)
         assertEquals("middle", parsed.multiplexing)
         assertEquals(1400, parsed.mtu)
@@ -187,9 +228,8 @@ class ProxyProfileUriEncoderTest {
                 uuid = "uuid",
             )
 
-        val uri = ProxyProfileUriEncoder.encode(profile)
+        val uri = ProxyUriCodec.encode(profile)
 
-        // The space and '#' must be percent-encoded so the fragment stays a single token.
         assertTrue(uri.contains("#"))
         assertTrue(uri.substringAfterLast('#').contains("%"))
         val parsed = ProxyUriCodec.parse(uri)
@@ -207,7 +247,7 @@ class ProxyProfileUriEncoderTest {
                 config = rawUri,
             )
 
-        assertEquals(rawUri, ProxyProfileUriEncoder.encode(profile))
+        assertEquals(rawUri, ProxyUriCodec.encode(profile))
     }
 
     @Test
@@ -220,6 +260,6 @@ class ProxyProfileUriEncoderTest {
                 config = "{\"outbounds\":[]}",
             )
 
-        assertNull(ProxyProfileUriEncoder.encodeOrNull(profile))
+        assertNull(ProxyUriCodec.encodeOrNull(profile))
     }
 }
