@@ -95,3 +95,7 @@ detekt-baseline.xml
 # verified by scripts/native/verify-libxray-artifacts.sh. See
 # docs/native/libxray-packaging.md and gradle/libs.versions.toml pins.
 native/xray/artifacts/
+
+# Local design-review captures and reports (screenshots, PDFs, helper scripts).
+# Throwaway agent/review artifacts — never committed.
+design-review/
