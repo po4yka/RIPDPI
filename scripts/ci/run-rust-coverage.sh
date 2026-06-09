@@ -50,11 +50,10 @@ SKIP_PATTERNS=(
     --skip 'runtime::tests::window_clamp'
 )
 
-# This host UDP readiness test is timing-sensitive under cargo-llvm-cov
-# instrumentation and workspace load. It remains covered by the normal
-# workspace test lane, where it runs without coverage instrumentation.
+# These tests are timing-sensitive under cargo-llvm-cov instrumentation and workspace load. They remain covered by the normal workspace test lane, where they run without coverage instrumentation.
 COVERAGE_ONLY_SKIP_PATTERNS=(
     --skip 'runtime::udp::tests::udp_upstream_poll_returns_only_ready_flow_keys'
+    --skip 'tests::monitor_session_full_matrix_strategy_probe_reports_audit_assessment'
 )
 
 # Nightly coverage includes ignored tests for additional low-cost coverage, but
