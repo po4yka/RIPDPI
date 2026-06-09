@@ -12,6 +12,10 @@ ignore = [
     #   2. rsa 0.10.0-rc.18 via russh 0.61.1 (ripdpi-ssh SSH outbound engine); SSH publickey auth signs the session identifier (a transcript hash the client did not choose), not attacker-chosen plaintext, so the Marvin timing sidechannel is not practically exploitable here.
     # No safe upgrade exists on either path.
     { id = "RUSTSEC-2023-0071", reason = "rsa enters via Arti 0.43.0 -> ssh-key-fork-arti (rsa 0.9.10) and via russh 0.61.1 (rsa 0.10.0-rc.18). RIPDPI uses Arti only as a Tor client backend; the russh SSH publickey auth path signs the session identifier (not attacker-chosen plaintext), so the Marvin timing sidechannel is not practically exploitable. No safe upgrade exists on either path." },
+    # proc-macro-error2 2.0.1 -- unmaintained but pulled transitively through
+    # Arti 0.43.0 -> tor-dircommon -> getset; compile-time proc-macro only, no
+    # runtime path in RIPDPI. Track upstream removal in #145.
+    { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 enters only through Arti 0.43.0 -> tor-dircommon -> getset as a compile-time proc-macro; there is no runtime code path in RIPDPI and no newer Arti release removes it yet. Tracking removal in https://github.com/po4yka/RIPDPI/issues/145." },
 ]
 
 [licenses]

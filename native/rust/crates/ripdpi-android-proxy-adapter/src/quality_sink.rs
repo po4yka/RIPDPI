@@ -54,6 +54,14 @@ pub(crate) fn quality_window() -> Arc<QualityWindow> {
     QUALITY_WINDOW.clone()
 }
 
+pub(crate) fn serialize_proxy_telemetry<T: serde::Serialize>(snapshot: &T) -> serde_json::Result<String> {
+    let mut value = serde_json::to_value(snapshot)?;
+    if let Some(quality) = quality_window().snapshot() {
+        value["connectionQuality"] = serde_json::to_value(quality)?;
+    }
+    serde_json::to_string(&value)
+}
+
 /// `RuntimeTelemetrySink` that converts upstream-connect events from
 /// `ripdpi-proxy-runtime` into [`QualitySample`]s in the process-wide
 /// [`QualityWindow`].
@@ -335,6 +343,7 @@ impl RuntimeTelemetrySink for CompositeProxyTelemetrySink {
 mod tests {
     use super::*;
     use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
+    use serde_json::Value;
     use std::net::{IpAddr, Ipv4Addr};
 
     fn test_observer() -> ProxyTelemetryObserver {
@@ -406,5 +415,19 @@ mod tests {
         let a = quality_window();
         let b = quality_window();
         assert!(Arc::ptr_eq(&a, &b), "quality_window() must return the shared static handle");
+    }
+
+    #[test]
+    fn proxy_telemetry_serialization_projects_quality_window() {
+        quality_window().reset();
+        quality_window().record(QualitySample { rtt_ms: 42, succeeded: true, loss_pct: 0.0 });
+
+        let json = serialize_proxy_telemetry(&serde_json::json!({"source": "proxy"})).expect("serialize telemetry");
+        let value: Value = serde_json::from_str(&json).expect("valid json");
+
+        assert_eq!(value["connectionQuality"]["transportKind"], "tcp_proxy");
+        assert_eq!(value["connectionQuality"]["sampleCount"], 1);
+        assert_eq!(value["connectionQuality"]["rttP50Ms"], 42);
+        quality_window().reset();
     }
 }

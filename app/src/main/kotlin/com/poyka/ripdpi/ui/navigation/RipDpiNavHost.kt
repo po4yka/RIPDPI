@@ -399,28 +399,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             onOpenAdvancedDns = { navController.navigate(Route.DnsSettings) },
         )
     }
-    composable<Route.Home>(
-        deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://connect" }),
-    ) {
-        HomeRoute(
-            onOpenDiagnostics = {
-                onDiagnosticsInitialSectionChanged(DiagnosticsSection.Scan)
-                navController.navigate(Route.Diagnostics()) {
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            },
-            onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
-            onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
-            onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
-            onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
-            onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
-            onOpenLocalBypassConfig = { navController.navigateConfigSubRoute(Route.LocalBypassConfig) },
-            onOpenVpnConfig = { navController.navigateConfigSubRoute(Route.VpnConfig) },
-            onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
-            viewModel = mainViewModel,
-        )
-    }
+    addHomeRoute(navController, mainViewModel, onDiagnosticsInitialSectionChanged)
     composable<Route.Diagnostics>(
         deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://diagnostics" }),
     ) { backStackEntry ->
@@ -468,6 +447,35 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                     launchSingleTop = true
                 }
             },
+        )
+    }
+}
+
+private fun NavGraphBuilder.addHomeRoute(
+    navController: NavHostController,
+    mainViewModel: MainViewModel,
+    onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
+) {
+    composable<Route.Home>(
+        deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://connect" }),
+    ) {
+        HomeRoute(
+            onOpenDiagnostics = {
+                onDiagnosticsInitialSectionChanged(DiagnosticsSection.Scan)
+                navController.navigate(Route.Diagnostics()) {
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            },
+            onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
+            onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
+            onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
+            onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+            onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
+            onOpenLocalBypassConfig = { navController.navigateConfigSubRoute(Route.LocalBypassConfig) },
+            onOpenVpnConfig = { navController.navigateConfigSubRoute(Route.VpnConfig) },
+            onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
+            viewModel = mainViewModel,
         )
     }
 }

@@ -266,6 +266,7 @@ fn blocked_host_store_is_scoped_by_network_scope_key() {
     let mut policy_a = RuntimePolicy::load(&config_a);
     policy_a.note_block_signal(&config_a, "alpha.example", BlockSignal::TcpReset, Some("rkn"), true);
     policy_a.note_block_signal(&config_a, "alpha.example", BlockSignal::TcpReset, Some("rkn"), true);
+    policy_a.flush_host_store(&config_a);
 
     let mut config_b = autolearn_config(1, 32);
     config_b.host_autolearn.store_path = Some(path);
@@ -275,6 +276,7 @@ fn blocked_host_store_is_scoped_by_network_scope_key() {
     assert_eq!(policy_b.autolearn_state(&config_b).blocked_host_count, 0);
     policy_b.note_block_signal(&config_b, "beta.example", BlockSignal::TcpReset, None, true);
     policy_b.note_block_signal(&config_b, "beta.example", BlockSignal::TcpReset, None, true);
+    policy_b.flush_host_store(&config_b);
 
     let mut reloaded_a = RuntimePolicy::load(&config_a);
     assert_eq!(reloaded_a.autolearn_state(&config_a).blocked_host_count, 1);
