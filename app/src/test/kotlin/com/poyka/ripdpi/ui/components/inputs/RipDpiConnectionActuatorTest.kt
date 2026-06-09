@@ -40,7 +40,7 @@ class RipDpiConnectionActuatorTest {
         setActuator(state = actuatorState(HomeConnectionActuatorStatus.Open), onActivate = { activations++ })
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeConnectionButton)
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .assertHasClickAction()
             .performSemanticsAction(SemanticsActions.OnClick)
 
@@ -55,7 +55,7 @@ class RipDpiConnectionActuatorTest {
         setActuator(state = actuatorState(HomeConnectionActuatorStatus.Open), onActivate = { activated = true })
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeConnectionButton)
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .performTouchInput { swipeRight() }
 
         composeRule.runOnIdle {
@@ -69,7 +69,7 @@ class RipDpiConnectionActuatorTest {
         setActuator(state = actuatorState(HomeConnectionActuatorStatus.Locked), onDeactivate = { deactivated = true })
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeConnectionButton)
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .performTouchInput { swipeLeft() }
 
         composeRule.runOnIdle {
@@ -88,10 +88,10 @@ class RipDpiConnectionActuatorTest {
         )
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeConnectionButton)
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .performTouchInput { swipeRight() }
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeConnectionButton)
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .performTouchInput { swipeLeft() }
 
         composeRule.runOnIdle {
@@ -104,7 +104,7 @@ class RipDpiConnectionActuatorTest {
     fun `route label and all stage tags are visible`() {
         setActuator(state = actuatorState(HomeConnectionActuatorStatus.Degraded))
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionRouteLabel).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorRouteLabel).assertIsDisplayed()
         HomeConnectionActuatorStage.entries.forEach { stage ->
             composeRule
                 .onNodeWithTag(RipDpiTestTags.homeConnectionStage(stage.stableKey))
@@ -123,7 +123,7 @@ class RipDpiConnectionActuatorTest {
                     state = state,
                     onActivate = onActivate,
                     onDeactivate = onDeactivate,
-                    testTag = RipDpiTestTags.HomeConnectionButton,
+                    testTag = RipDpiTestTags.ConnectionActuatorButton,
                 )
             }
         }

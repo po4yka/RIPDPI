@@ -24,8 +24,8 @@ internal object RipDpiTestTags {
     const val VpnPermissionDialogDismiss = "vpn-permission-dialog-dismiss"
     const val MainErrorSnackbar = "main-error-snackbar"
 
-    const val HomeConnectionButton = "home-connection-button"
-    const val HomeConnectionRouteLabel = "home-connection-route-label"
+    const val ConnectionActuatorButton = "connection-actuator-button"
+    const val ConnectionActuatorRouteLabel = "connection-actuator-route-label"
     const val RouteStack = "route-stack"
     const val RouteOpportunityPanel = "route-opportunity-panel"
     const val HomeStatusCard = "home-status-card"
@@ -44,6 +44,7 @@ internal object RipDpiTestTags {
     const val HomeDiagnosticsRemediationAction = "home-diagnostics-remediation-action"
     const val HomeControlPlaneHealthCard = "home-control-plane-health-card"
     const val HomeControlPlaneHealthAction = "home-control-plane-health-action"
+    const val HomeConnectionHealthAction = "home-connection-health-action"
     const val HomeApproachCard = "home-approach-card"
     const val HomeHistoryCard = "home-history-card"
     const val HomeStatsGrid = "home-stats-grid"
@@ -78,6 +79,16 @@ internal object RipDpiTestTags {
     const val ConfigVpnAddServerPaste = "config-vpn-add-server-paste"
     const val ConfigVpnAddServerScan = "config-vpn-add-server-scan"
     const val ConfigVpnProfileList = "config-vpn-profile-list"
+    const val ProfileShareQrCard = "profile-share-qr-card"
+    const val ProfileShareQrImage = "profile-share-qr-image"
+    const val ProfileShareLinkCard = "profile-share-link-card"
+    const val ProfileShareLinkField = "profile-share-link-field"
+    const val ProfileShareCopyLink = "profile-share-copy-link"
+    const val ProfileShareShareLink = "profile-share-share-link"
+    const val ProfileShareSheetCard = "profile-share-sheet-card"
+    const val ProfileShareSheetText = "profile-share-sheet-text"
+    const val ProfileShareCopySheet = "profile-share-copy-sheet"
+    const val ProfileShareShareSheet = "profile-share-share-sheet"
     const val ConfigVpnRelay = "config-vpn-relay"
     const val ConfigVpnProtocol = "config-vpn-protocol"
     const val ConfigVpnCredentials = "config-vpn-credentials"
@@ -90,6 +101,15 @@ internal object RipDpiTestTags {
     const val ModeEditorProxyPort = "mode-editor-proxy-port"
     const val ModeEditorMaxConnections = "mode-editor-max-connections"
     const val ModeEditorBufferSize = "mode-editor-buffer-size"
+    const val ModeEditorChainVisual = "mode-editor-chain-visual"
+    const val ModeEditorChainBlockList = "mode-editor-chain-block-list"
+    const val ModeEditorChainBlockPrefix = "mode-editor-chain-block-"
+    const val ModeEditorChainAddPrefix = "mode-editor-chain-add-"
+    const val ModeEditorChainMoveUpPrefix = "mode-editor-chain-move-up-"
+    const val ModeEditorChainMoveDownPrefix = "mode-editor-chain-move-down-"
+    const val ModeEditorChainRemovePrefix = "mode-editor-chain-remove-"
+    const val ModeEditorChainRawToggle = "mode-editor-chain-raw-toggle"
+    const val ModeEditorChainValidation = "mode-editor-chain-validation"
     const val ModeEditorChainDsl = "mode-editor-chain-dsl"
     const val ModeEditorDefaultTtl = "mode-editor-default-ttl"
     const val ModeEditorAdvanced = "mode-editor-advanced"
@@ -98,7 +118,7 @@ internal object RipDpiTestTags {
     const val ModeEditorValidationSnackbar = "mode-editor-validation-snackbar"
 
     const val SettingsDnsSettings = "settings-dns-settings"
-    const val SettingsAdvancedSection = "settings-advanced-section"
+    const val SettingsAdvancedConnectivity = "settings-advanced-connectivity"
     const val SettingsAdvancedSettings = "settings-advanced-settings"
     const val SettingsWebRtcProtection = "settings-webrtc-protection"
     const val SettingsStartOnBoot = "settings-start-on-boot"
@@ -118,13 +138,11 @@ internal object RipDpiTestTags {
     const val SettingsBackgroundGuidanceBanner = "settings-background-guidance-banner"
     const val SettingsSupportBundle = "settings-support-bundle"
     const val SettingsLogs = "settings-logs"
+    const val SettingsSubscriptionFailover = "settings-subscription-failover"
     const val SettingsDataTransparency = "settings-data-transparency"
-    const val SettingsPrivacyThreatModel = "settings-privacy-threat-model"
-    const val SettingsNetworkAutoProfiles = "settings-network-auto-profiles"
     const val SettingsAbout = "settings-about"
     const val SettingsStrategyConfig = "settings-strategy-config"
     const val SettingsBlockcheck = "settings-blockcheck"
-    const val SettingsProfilePreflight = "settings-profile-preflight"
     const val SettingsDomainBypass = "settings-domain-bypass"
     const val DomainBypassEditor = "domain-bypass-editor"
     const val SettingsAssetProvider = "settings-asset-provider"
@@ -165,9 +183,6 @@ internal object RipDpiTestTags {
     const val StrategyConfigEditor = "strategy-config-editor"
     const val StrategyConfigLuaPath = "strategy-config-lua-path"
     const val StrategyConfigLuaFunction = "strategy-config-lua-function"
-    const val NetworkAutoProfilesCurrent = "network-auto-profiles-current"
-    const val NetworkAutoProfilesBindCurrent = "network-auto-profiles-bind-current"
-    const val NetworkAutoProfilesBindingList = "network-auto-profiles-binding-list"
 
     const val DnsPlainAddress = "dns-plain-address"
     const val DnsPlainSave = "dns-plain-save"
@@ -210,6 +225,8 @@ internal object RipDpiTestTags {
     const val BiometricPromptPinField = "biometric-prompt-pin-field"
 
     const val DiagnosticsTopHistoryAction = "diagnostics-top-history-action"
+    const val DiagnosticsConnectionHealthAction = "diagnostics-connection-health-action"
+    const val DiagnosticsStrategyTunerAction = "diagnostics-strategy-tuner-action"
     const val DiagnosticsOverviewHistoryAction = "diagnostics-overview-history-action"
     const val ReplayHistoryEmptyState = "replay-history-empty-state"
     const val ReplayHistoryRunScanAction = "replay-history-run-scan-action"
@@ -265,7 +282,6 @@ internal object RipDpiTestTags {
     const val DiagnosticsEventsSearch = "diagnostics-events-search"
     const val DiagnosticsEventsAutoScroll = "diagnostics-events-auto-scroll"
     const val DiagnosticsShareArchive = "diagnostics-share-archive"
-    const val DiagnosticsShareSetupBundle = "diagnostics-share-setup-bundle"
     const val DiagnosticsSaveArchive = "diagnostics-save-archive"
     const val DiagnosticsSaveLogs = "diagnostics-save-logs"
     const val DiagnosticsOpenLogs = "diagnostics-open-logs"
@@ -275,6 +291,8 @@ internal object RipDpiTestTags {
     const val DiagnosticsSessionsStateContent = "diagnostics-sessions-state-content"
     const val DiagnosticsEventsStateEmpty = "diagnostics-events-state-empty"
     const val DiagnosticsEventsStateContent = "diagnostics-events-state-content"
+    const val StaticStrategyImportScreen = "strategy_import-screen"
+    const val StaticProfileVariantsScreen = "profile_variants-screen"
 
     const val LogsScreen = "logs-screen"
     const val LogsAutoScroll = "logs-auto-scroll"
@@ -318,11 +336,6 @@ internal object RipDpiTestTags {
     const val HostPackTargetDropdown = "host-pack-target-dropdown"
     const val HostPackApplyModeDropdown = "host-pack-apply-mode-dropdown"
 
-    const val PrivacyThreatKillSwitch = "privacy-threat-kill-switch"
-    const val PrivacyThreatDnsLeak = "privacy-threat-dns-leak"
-    const val PrivacyThreatIpv6Leak = "privacy-threat-ipv6-leak"
-    const val PrivacyThreatDeviceEgress = "privacy-threat-device-egress"
-
     val screen: (Route) -> String = { route -> "${route.stableRoute}-screen" }
 
     val bottomNav: (Route) -> String = { route -> "bottom-nav-${route.stableRoute}" }
@@ -333,6 +346,7 @@ internal object RipDpiTestTags {
 
     val configModeSection: (String) -> String = { sectionKey -> "config-mode-section-${sanitize(sectionKey)}" }
     val configVpnProfile: (String) -> String = { profileId -> "config-vpn-profile-${sanitize(profileId)}" }
+    val configVpnProfileShare: (String) -> String = { profileId -> "config-vpn-profile-share-${sanitize(profileId)}" }
 
     val settingsPermission: (PermissionKind) -> String = { kind -> "settings-permission-${sanitize(kind.name)}" }
 

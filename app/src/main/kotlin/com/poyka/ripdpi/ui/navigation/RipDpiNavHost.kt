@@ -28,7 +28,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
 import com.poyka.ripdpi.activities.ConfigViewModel
-import com.poyka.ripdpi.activities.DiagnosticsArchiveCoverNote
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.activities.MainUiState
@@ -55,14 +54,15 @@ import com.poyka.ripdpi.ui.screens.diagnostics.PcapViewerRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.ReplayHistoryRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.share.SharedResultRenderRoute
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsRoute
+import com.poyka.ripdpi.ui.screens.health.ConnectionHealthRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.mieru.MieruProfileRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
-import com.poyka.ripdpi.ui.screens.preflight.ProfilePreflightRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmRoute
+import com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareRoute
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmRoute
 import com.poyka.ripdpi.ui.screens.routes.RoutesRoute
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorRoute
@@ -72,12 +72,13 @@ import com.poyka.ripdpi.ui.screens.settings.AssetProviderRoute
 import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
-import com.poyka.ripdpi.ui.screens.settings.NetworkAutoProfilesRoute
-import com.poyka.ripdpi.ui.screens.settings.PrivacyThreatModelRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import com.poyka.ripdpi.ui.screens.ssh.SshProfileRoute
+import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverRoute
+import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerRoute
+import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerTopBarAction
 import com.poyka.ripdpi.ui.screens.xray.XrayProfileImportRoute
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -100,7 +101,7 @@ data class RipDpiNavHostActions(
     val onSaveLogs: () -> Unit = {},
     val onShareDebugBundle: () -> Unit = {},
     val onSaveDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
-    val onShareDiagnosticsArchive: (String, String, DiagnosticsArchiveCoverNote?) -> Unit = { _, _, _ -> },
+    val onShareDiagnosticsArchive: (String, String) -> Unit = { _, _ -> },
     val onShareDiagnosticsSummary: (String, String) -> Unit = { _, _ -> },
     val onRepairPermission: (PermissionKind) -> Unit = {},
 )
@@ -410,6 +411,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                 }
             },
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
+            onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
             onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
             onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
             onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
@@ -434,6 +436,11 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                 ),
             initialSection = diagnosticsInitialSection ?: DiagnosticsSection.Scan.takeIf { route.autoStartScan },
             viewModel = diagnosticsViewModel,
+            topBarExtraActions = {
+                StrategyTunerTopBarAction(
+                    onOpen = { navController.navigate(Route.StrategyTuner) { launchSingleTop = true } },
+                )
+            },
         )
     }
     composable<Route.History> {
@@ -445,6 +452,13 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             onShareSupportBundle = actions.onShareDebugBundle,
         )
     }
+    composable<Route.ConnectionHealth> {
+        ConnectionHealthRoute(onBack = { navController.popBackStack() })
+    }
+    addSubscriptionFailoverRoute(navController)
+    composable<Route.StrategyTuner> {
+        StrategyTunerRoute(onBack = { navController.popBackStack() })
+    }
     composable<Route.BiometricPrompt> {
         BiometricPromptRoute(
             onAuthenticated = {
@@ -455,6 +469,12 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                 }
             },
         )
+    }
+}
+
+private fun NavGraphBuilder.addSubscriptionFailoverRoute(navController: NavHostController) {
+    composable<Route.SubscriptionFailover> {
+        SubscriptionFailoverRoute(onBack = { navController.popBackStack() })
     }
 }
 
@@ -470,6 +490,7 @@ private fun diagnosticsRouteCallbacks(
         onShareSummary = actions.onShareDiagnosticsSummary,
         onSaveLogs = actions.onSaveLogs,
         onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
+        onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
         onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
         onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
@@ -496,9 +517,11 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
                 onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
                 onScanServer = { navController.navigate(Route.QrScanner) },
+                route = Route.Config,
                 initialModeSection = ConfigModeSection.LocalBypass,
                 viewModel = configViewModel,
                 onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
             )
         }
         composable<Route.LocalBypassConfig> {
@@ -509,9 +532,11 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
                 onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
                 onScanServer = { navController.navigate(Route.QrScanner) },
+                route = Route.LocalBypassConfig,
                 initialModeSection = ConfigModeSection.LocalBypass,
                 viewModel = configViewModel,
                 onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
             )
         }
         composable<Route.VpnConfig> {
@@ -522,9 +547,11 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
                 onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
                 onScanServer = { navController.navigate(Route.QrScanner) },
+                route = Route.VpnConfig,
                 initialModeSection = ConfigModeSection.Vpn,
                 viewModel = configViewModel,
                 onProfileImport = { request -> navController.navigateProfileImport(request) },
+                onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
             )
         }
         composable<Route.ModeEditor> {
@@ -576,9 +603,8 @@ private fun SettingsHomeRoute(
         onOpenCustomization = { navController.navigate(Route.AppCustomization) },
         onOpenAbout = { navController.navigate(Route.About) },
         onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
-        onOpenPrivacyThreatModel = { navController.navigate(Route.PrivacyThreatModel) },
-        onOpenNetworkAutoProfiles = { navController.navigate(Route.NetworkAutoProfiles) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
+        onOpenSubscriptionFailover = { navController.navigate(Route.SubscriptionFailover) },
         onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
         onOpenRoutingRules = { navController.navigate(Route.Routes) },
         onOpenSplitTunnel = { navController.navigate(Route.SplitTunnel) },
@@ -609,7 +635,6 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
             onBack = { navController.popBackStack() },
             onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
             onOpenBlockcheck = { navController.navigate(Route.Blockcheck) },
-            onOpenProfilePreflight = { navController.navigate(Route.ProfilePreflight) },
             onOpenAssetProvider = { navController.navigate(Route.AssetProvider) },
             viewModel = settingsViewModel,
         )
@@ -626,24 +651,11 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     composable<Route.Blockcheck> {
         BlockcheckRoute(onBack = { navController.popBackStack() })
     }
-    composable<Route.ProfilePreflight> {
-        ProfilePreflightRoute(onBack = { navController.popBackStack() })
-    }
     composable<Route.DomainBypassList> {
         DomainBypassListRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.AssetProvider> {
         AssetProviderRoute(onBack = { navController.popBackStack() })
-    }
-    composable<Route.PrivacyThreatModel> {
-        val privacyThreatUiState by mainViewModel.uiState.collectAsStateWithLifecycle()
-        PrivacyThreatModelRoute(
-            uiState = privacyThreatUiState.privacyThreat,
-            onBack = { navController.popBackStack() },
-        )
-    }
-    composable<Route.NetworkAutoProfiles> {
-        NetworkAutoProfilesRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.BackupRestore> {
         BackupRestoreRoute(onBack = { navController.popBackStack() })
@@ -738,6 +750,13 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
             bootstrap = route.bootstrap,
             onBack = { navController.popBackStack() },
             onImported = { navController.navigateHome() },
+        )
+    }
+    composable<Route.ProfileShare> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.ProfileShare>()
+        ProfileShareRoute(
+            profileId = route.profileId,
+            onBack = { navController.popBackStack() },
         )
     }
     composable<Route.QrScanner> {
@@ -858,6 +877,9 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.Onboarding.stableRoute to { hasRoute<Route.Onboarding>() },
         Route.History.stableRoute to { hasRoute<Route.History>() },
         Route.Logs.stableRoute to { hasRoute<Route.Logs>() },
+        Route.ConnectionHealth.stableRoute to { hasRoute<Route.ConnectionHealth>() },
+        Route.SubscriptionFailover.stableRoute to { hasRoute<Route.SubscriptionFailover>() },
+        Route.StrategyTuner.stableRoute to { hasRoute<Route.StrategyTuner>() },
         Route.ModeEditor.stableRoute to { hasRoute<Route.ModeEditor>() },
         Route.DnsSettings.stableRoute to { hasRoute<Route.DnsSettings>() },
         Route.AdvancedSettings.stableRoute to { hasRoute<Route.AdvancedSettings>() },
@@ -873,7 +895,6 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.About.stableRoute to { hasRoute<Route.About>() },
         Route.DataTransparency.stableRoute to { hasRoute<Route.DataTransparency>() },
         Route.DetectionCheck.stableRoute to { hasRoute<Route.DetectionCheck>() },
-        Route.NetworkAutoProfiles.stableRoute to { hasRoute<Route.NetworkAutoProfiles>() },
         Route.DetectionSettings.stableRoute to { hasRoute<Route.DetectionSettings>() },
         Route.PcapViewer.stableRoute to { hasRoute<Route.PcapViewer>() },
         Route.PcapCaptureList.stableRoute to { hasRoute<Route.PcapCaptureList>() },
@@ -882,6 +903,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
         Route.ProfileImportConfirm().stableRoute to { hasRoute<Route.ProfileImportConfirm>() },
         Route.SubscriptionImportConfirm().stableRoute to { hasRoute<Route.SubscriptionImportConfirm>() },
+        Route.ProfileShare().stableRoute to { hasRoute<Route.ProfileShare>() },
         Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
         Route.AmneziaWgProfile.stableRoute to { hasRoute<Route.AmneziaWgProfile>() },
         Route.XrayImport.stableRoute to { hasRoute<Route.XrayImport>() },

@@ -54,9 +54,6 @@ import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
-import com.poyka.ripdpi.services.PrivacyLeakIndicatorSnapshot
-import com.poyka.ripdpi.services.PrivacyThreatSnapshot
-import com.poyka.ripdpi.services.PrivacyThreatStateStore
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.flow.Flow
@@ -221,26 +218,6 @@ class FakeAndroidHardKillSwitchStateStore(
     override val snapshot: StateFlow<AndroidHardKillSwitchSnapshot> = _snapshot.asStateFlow()
 
     override fun update(snapshot: AndroidHardKillSwitchSnapshot) {
-        _snapshot.value = snapshot
-    }
-}
-
-class FakePrivacyThreatStateStore(
-    initialSnapshot: PrivacyThreatSnapshot = PrivacyThreatSnapshot(),
-) : PrivacyThreatStateStore {
-    private val _snapshot = MutableStateFlow(initialSnapshot)
-
-    override val snapshot: StateFlow<PrivacyThreatSnapshot> = _snapshot.asStateFlow()
-
-    override fun updateDnsLeak(indicator: PrivacyLeakIndicatorSnapshot) {
-        _snapshot.value = _snapshot.value.copy(dnsLeak = indicator)
-    }
-
-    override fun updateIpv6Leak(indicator: PrivacyLeakIndicatorSnapshot) {
-        _snapshot.value = _snapshot.value.copy(ipv6Leak = indicator)
-    }
-
-    override fun update(snapshot: PrivacyThreatSnapshot) {
         _snapshot.value = snapshot
     }
 }

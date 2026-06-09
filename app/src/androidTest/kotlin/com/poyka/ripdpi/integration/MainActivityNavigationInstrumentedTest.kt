@@ -369,7 +369,6 @@ class MainActivityNavigationInstrumentedTest {
         composeRule.tapBottomNav(Route.Settings)
         composeRule.assertScreenVisible(Route.Settings)
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAdvancedSection).performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsAdvancedSettings).performClick()
         composeRule.assertScreenVisible(Route.AdvancedSettings)
     }

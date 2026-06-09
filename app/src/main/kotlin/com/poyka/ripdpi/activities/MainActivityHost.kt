@@ -53,8 +53,6 @@ internal sealed interface MainActivityHostCommand {
 
     data object ShareDebugBundle : MainActivityHostCommand
 
-    data object ShareSetupDiagnosticBundle : MainActivityHostCommand
-
     data class SaveDiagnosticsArchive(
         val filePath: String,
         val fileName: String,
@@ -63,17 +61,12 @@ internal sealed interface MainActivityHostCommand {
     data class ShareDiagnosticsArchive(
         val filePath: String,
         val fileName: String,
-        val coverNote: DiagnosticsArchiveCoverNote? = null,
     ) : MainActivityHostCommand
 
     data class ShareDiagnosticsSummary(
         val title: String,
         val body: String,
     ) : MainActivityHostCommand
-}
-
-enum class DiagnosticsArchiveCoverNote {
-    SetupHelper,
 }
 
 internal interface MainActivityHost {
@@ -195,10 +188,6 @@ internal class DefaultMainActivityHost
                     shareDebugBundle()
                 }
 
-                MainActivityHostCommand.ShareSetupDiagnosticBundle -> {
-                    shareSetupDiagnosticBundle()
-                }
-
                 is MainActivityHostCommand.SaveDiagnosticsArchive -> {
                     pendingDiagnosticsArchive =
                         PendingDiagnosticsArchive(
@@ -215,11 +204,7 @@ internal class DefaultMainActivityHost
                 }
 
                 is MainActivityHostCommand.ShareDiagnosticsArchive -> {
-                    shareDiagnosticsArchive(
-                        filePath = command.filePath,
-                        fileName = command.fileName,
-                        coverNote = command.coverNote?.text(activity),
-                    )
+                    shareDiagnosticsArchive(command.filePath, command.fileName)
                 }
 
                 is MainActivityHostCommand.ShareDiagnosticsSummary -> {
@@ -283,36 +268,19 @@ internal class DefaultMainActivityHost
         }
 
         private fun shareDebugBundle() {
-            shareSupportBundle(
-                reason = DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE,
-                coverNote = null,
-            )
-        }
-
-        private fun shareSetupDiagnosticBundle() {
-            shareSupportBundle(
-                reason = DiagnosticsArchiveReason.SHARE_SETUP_BUNDLE,
-                coverNote = activity.getString(R.string.diagnostics_setup_bundle_cover_note),
-            )
-        }
-
-        private fun shareSupportBundle(
-            reason: DiagnosticsArchiveReason,
-            coverNote: String?,
-        ) {
             activity.lifecycleScope.launch {
                 runCatching {
                     withContext(Dispatchers.IO) {
                         diagnosticsShareService.createArchive(
                             DiagnosticsArchiveRequest(
                                 requestedSessionId = null,
-                                reason = reason,
+                                reason = DiagnosticsArchiveReason.SHARE_DEBUG_BUNDLE,
                                 requestedAt = System.currentTimeMillis(),
                             ),
                         )
                     }
                 }.onSuccess { archive ->
-                    shareDiagnosticsArchive(archive.absolutePath, archive.fileName, coverNote)
+                    shareDiagnosticsArchive(archive.absolutePath, archive.fileName)
                 }.onFailure { error ->
                     Logger.e(error) { "Failed to prepare support bundle" }
                     Toast.makeText(activity, R.string.debug_bundle_failed, Toast.LENGTH_SHORT).show()
@@ -323,7 +291,6 @@ internal class DefaultMainActivityHost
         private fun shareDiagnosticsArchive(
             filePath: String,
             fileName: String,
-            coverNote: String? = null,
         ) {
             runCatching {
                 val archiveUri =
@@ -336,7 +303,6 @@ internal class DefaultMainActivityHost
                     DiagnosticsShareIntents.createArchiveShareIntent(
                         archiveUri = archiveUri,
                         fileName = fileName,
-                        coverNote = coverNote,
                     )
                 activity.startActivity(
                     Intent.createChooser(
@@ -354,11 +320,6 @@ internal class DefaultMainActivityHost
             val filePath: String,
             val fileName: String,
         )
-    }
-
-private fun DiagnosticsArchiveCoverNote.text(activity: AppCompatActivity): String =
-    when (this) {
-        DiagnosticsArchiveCoverNote.SetupHelper -> activity.getString(R.string.diagnostics_setup_bundle_cover_note)
     }
 
 internal fun copyDiagnosticsArchive(

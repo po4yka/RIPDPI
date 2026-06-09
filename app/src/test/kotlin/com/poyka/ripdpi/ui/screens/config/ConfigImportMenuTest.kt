@@ -19,7 +19,7 @@ import org.robolectric.annotation.GraphicsMode
 
 /**
  * Robolectric UI tests for [ConfigImportMenu]: the explicit "Import from clipboard"
- * overflow-menu action on the Configuration screen.
+ * overflow-menu action on the Profile screen.
  *
  * The decisive privacy assertion is that merely rendering the menu does not read the
  * clipboard — the read happens only when the user taps the menu item.

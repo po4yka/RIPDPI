@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
+import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.services.SharedPriorsRefreshWorker
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
@@ -34,7 +35,7 @@ class AppStartupInitializer
         private val diagnosticsBootstrapperProvider: Provider<DiagnosticsBootstrapper>,
         private val detectionObservationStarter: DetectionObservationStarter,
         private val strategyPackService: StrategyPackService,
-        private val startupRegistrations: AppStartupRegistrations,
+        private val dnsPathPreferenceInvalidator: DnsPathPreferenceInvalidator,
         private val cdnEchSeedFromCache: CdnEchSeedFromCache,
         private val proxyGroupRepository: ProxyGroupRepository,
         private val bootSessionRecorder: BootSessionRecorder,
@@ -98,11 +99,7 @@ class AppStartupInitializer
                 }
             val dnsPathInvalidatorRegistration =
                 runSubsystem(AppStartupSubsystem.DnsPathInvalidatorRegistration) {
-                    startupRegistrations.registerDnsPathInvalidator()
-                }
-            val networkAutoProfileRegistration =
-                runSubsystem(AppStartupSubsystem.NetworkAutoProfileRegistration) {
-                    startupRegistrations.registerNetworkAutoProfiles()
+                    dnsPathPreferenceInvalidator.register()
                 }
             val sharedPriorsWorkerEnqueue =
                 runSubsystem(AppStartupSubsystem.SharedPriorsRefreshWorkerEnqueue) {
@@ -130,7 +127,6 @@ class AppStartupInitializer
                 strategyPackInitialization = strategyPackInitialization,
                 diagnosticsBootstrap = diagnosticsBootstrap,
                 dnsPathInvalidatorRegistration = dnsPathInvalidatorRegistration,
-                networkAutoProfileRegistration = networkAutoProfileRegistration,
                 sharedPriorsWorkerEnqueue = sharedPriorsWorkerEnqueue,
                 cdnEchSeed = cdnEchSeed,
                 cdnEchWorkerEnqueue = cdnEchWorkerEnqueue,
@@ -172,7 +168,6 @@ internal data class AppStartupReport(
     val strategyPackInitialization: AppStartupSubsystemResult,
     val diagnosticsBootstrap: AppStartupSubsystemResult,
     val dnsPathInvalidatorRegistration: AppStartupSubsystemResult,
-    val networkAutoProfileRegistration: AppStartupSubsystemResult,
     val sharedPriorsWorkerEnqueue: AppStartupSubsystemResult,
     val cdnEchSeed: AppStartupSubsystemResult,
     val cdnEchWorkerEnqueue: AppStartupSubsystemResult,
@@ -187,7 +182,6 @@ internal data class AppStartupReport(
                 strategyPackInitialization,
                 diagnosticsBootstrap,
                 dnsPathInvalidatorRegistration,
-                networkAutoProfileRegistration,
                 sharedPriorsWorkerEnqueue,
                 cdnEchSeed,
                 cdnEchWorkerEnqueue,
@@ -221,7 +215,6 @@ internal enum class AppStartupSubsystem(
     StrategyPackInitialization("strategy_pack_initialization"),
     DiagnosticsBootstrap("diagnostics_bootstrap"),
     DnsPathInvalidatorRegistration("dns_path_invalidator_registration"),
-    NetworkAutoProfileRegistration("network_auto_profile_registration"),
     SharedPriorsRefreshWorkerEnqueue("shared_priors_refresh_worker_enqueue"),
     CdnEchSeedFromCache("cdn_ech_seed_from_cache"),
     CdnEchRefreshWorkerEnqueue("cdn_ech_refresh_worker_enqueue"),

@@ -20,10 +20,7 @@ internal fun LazyListScope.advancedSettingsPrimarySections(
     )
     strategyConfigSection(onOpenStrategyConfig = actions.onOpenStrategyConfig)
     assetProviderSection(onOpenAssetProvider = actions.onOpenAssetProvider)
-    blockcheckSection(
-        onOpenBlockcheck = actions.onOpenBlockcheck,
-        onOpenProfilePreflight = actions.onOpenProfilePreflight,
-    )
+    blockcheckSection(onOpenBlockcheck = actions.onOpenBlockcheck)
     commandLineOverridesSection(
         uiState = uiState,
         onToggleChanged = actions.onToggleChanged,

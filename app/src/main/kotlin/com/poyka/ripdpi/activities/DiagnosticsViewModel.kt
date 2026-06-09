@@ -307,8 +307,6 @@ class DiagnosticsViewModel
 
         fun shareArchive(sessionId: String? = null) = shareActions.shareArchive(sessionId)
 
-        fun shareSetupBundle() = shareActions.shareSetupBundle()
-
         fun saveArchive(sessionId: String? = null) = shareActions.saveArchive(sessionId)
 
         fun togglePcapRecording() {

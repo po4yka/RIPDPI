@@ -111,24 +111,13 @@ internal fun LazyListScope.assetProviderSection(onOpenAssetProvider: () -> Unit)
     }
 }
 
-internal fun LazyListScope.blockcheckSection(
-    onOpenBlockcheck: () -> Unit,
-    onOpenProfilePreflight: () -> Unit,
-) {
+internal fun LazyListScope.blockcheckSection(onOpenBlockcheck: () -> Unit) {
     item(key = "advanced_blockcheck") {
         AdvancedSettingsSection(
             title = stringResource(R.string.blockcheck_section_title),
             testTag = RipDpiTestTags.advancedSection("blockcheck"),
         ) {
             RipDpiCard {
-                SettingsRow(
-                    title = stringResource(R.string.profile_preflight_entry_title),
-                    subtitle = stringResource(R.string.profile_preflight_entry_body),
-                    onClick = onOpenProfilePreflight,
-                    leadingIcon = RipDpiIcons.NetworkCheck,
-                    showChevron = true,
-                    testTag = RipDpiTestTags.SettingsProfilePreflight,
-                )
                 SettingsRow(
                     title = stringResource(R.string.blockcheck_entry_title),
                     subtitle = stringResource(R.string.blockcheck_entry_body),

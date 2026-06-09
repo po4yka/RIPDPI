@@ -20,6 +20,7 @@ import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
 import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
@@ -39,10 +40,17 @@ import kotlinx.collections.immutable.ImmutableList
 fun ReplayHistoryScreen(
     replays: ImmutableList<ReplayProbeResult>,
     onRunScan: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     if (replays.isEmpty()) {
-        Box(modifier = Modifier.fillMaxWidth().padding(spacing.lg)) {
+        Box(
+            modifier =
+                modifier
+                    .ripDpiTestTag(RipDpiTestTags.screen(Route.ReplayHistory))
+                    .fillMaxWidth()
+                    .padding(spacing.lg),
+        ) {
             ReplayHistoryEmptyState(
                 onRunScan = onRunScan,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ReplayHistoryEmptyState),
@@ -50,7 +58,10 @@ fun ReplayHistoryScreen(
         }
         return
     }
-    ReplayHistoryList(replays = replays)
+    ReplayHistoryList(
+        replays = replays,
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.ReplayHistory)),
+    )
 }
 
 @Composable
@@ -98,13 +109,16 @@ private fun ReplayHistoryEmptyState(
 }
 
 @Composable
-private fun ReplayHistoryList(replays: ImmutableList<ReplayProbeResult>) {
+private fun ReplayHistoryList(
+    replays: ImmutableList<ReplayProbeResult>,
+    modifier: Modifier = Modifier,
+) {
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(spacing.lg),
+        modifier = modifier.fillMaxWidth().padding(spacing.lg),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         replays.asReversed().forEach { result ->

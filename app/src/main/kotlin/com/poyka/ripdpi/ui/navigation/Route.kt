@@ -105,6 +105,27 @@ sealed class Route {
     }
 
     @Serializable
+    data object ConnectionHealth : Route() {
+        override val stableRoute = "connection_health"
+        override val titleRes = R.string.title_connection_health
+        override val icon: ImageVector? = RipDpiIcons.NetworkCheck
+    }
+
+    @Serializable
+    data object SubscriptionFailover : Route() {
+        override val stableRoute = "subscription_failover"
+        override val titleRes = R.string.title_subscription_failover
+        override val icon: ImageVector? = RipDpiIcons.NetworkCheck
+    }
+
+    @Serializable
+    data object StrategyTuner : Route() {
+        override val stableRoute = "strategy_tuner"
+        override val titleRes = R.string.title_strategy_tuner
+        override val icon: ImageVector? = RipDpiIcons.Advanced
+    }
+
+    @Serializable
     data object ModeEditor : Route() {
         override val stableRoute = "mode_editor"
         override val titleRes = R.string.title_mode_editor
@@ -182,13 +203,6 @@ sealed class Route {
     }
 
     @Serializable
-    data object ProfilePreflight : Route() {
-        override val stableRoute = "profile/preflight"
-        override val titleRes = R.string.title_profile_preflight
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
     data object BiometricPrompt : Route() {
         override val stableRoute = "biometric_prompt"
         override val titleRes = R.string.title_biometric_prompt
@@ -213,20 +227,6 @@ sealed class Route {
     data object DataTransparency : Route() {
         override val stableRoute = "data_transparency"
         override val titleRes = R.string.title_data_transparency
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
-    data object PrivacyThreatModel : Route() {
-        override val stableRoute = "privacy_threat_model"
-        override val titleRes = R.string.title_privacy_threat_model
-        override val icon: ImageVector? = null
-    }
-
-    @Serializable
-    data object NetworkAutoProfiles : Route() {
-        override val stableRoute = "network_auto_profiles"
-        override val titleRes = R.string.title_network_auto_profiles
         override val icon: ImageVector? = null
     }
 
@@ -324,6 +324,20 @@ sealed class Route {
     }
 
     @Serializable
+    data class ProfileShare(
+        val profileId: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "profile/share"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.profile_share_title
+
+        @kotlinx.serialization.Transient
+        override val icon: ImageVector? = RipDpiIcons.Share
+    }
+
+    @Serializable
     data object QrScanner : Route() {
         override val stableRoute = "scanner"
         override val titleRes = R.string.scanner_title
@@ -380,6 +394,9 @@ sealed class Route {
                     Diagnostics(),
                     History,
                     Logs,
+                    ConnectionHealth,
+                    SubscriptionFailover,
+                    StrategyTuner,
                     Settings,
                     BackupRestore,
                     ModeEditor,
@@ -392,13 +409,10 @@ sealed class Route {
                     Routes,
                     RuleEditor(),
                     Blockcheck,
-                    ProfilePreflight,
                     BiometricPrompt,
                     AppCustomization,
                     About,
                     DataTransparency,
-                    PrivacyThreatModel,
-                    NetworkAutoProfiles,
                     DetectionCheck,
                     DetectionSettings,
                     PcapViewer,
@@ -408,6 +422,7 @@ sealed class Route {
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),
                     SubscriptionImportConfirm(),
+                    ProfileShare(),
                     QrScanner,
                     AmneziaWgProfile,
                     XrayImport,

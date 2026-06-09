@@ -957,7 +957,6 @@ sealed interface DiagnosticsEffect {
     data class ShareArchiveRequested(
         val absolutePath: String,
         val fileName: String,
-        val coverNote: DiagnosticsArchiveCoverNote? = null,
     ) : DiagnosticsEffect
 
     data class SaveArchiveRequested(

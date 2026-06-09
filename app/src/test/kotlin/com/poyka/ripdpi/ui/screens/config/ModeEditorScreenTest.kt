@@ -6,7 +6,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -81,24 +83,74 @@ class ModeEditorScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorMaxConnections, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorBufferSize, useUnmergedTree = true).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorDefaultTtl, useUnmergedTree = true).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainBlockList, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorCommandLineArgs, useUnmergedTree = true).assertExists()
     }
 
     @Test
-    fun chainTextAndSummaryUseSameBackingValue() {
-        setScreen(stateful = true)
+    fun rawToggleRoundTripsChainTextWithoutRewritingBlocks() {
+        var observedDraft = defaultDraft()
+        setScreen(
+            stateful = true,
+            onStatefulDraftChanged = { observedDraft = it },
+        )
 
         composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorAdvanced).performScrollTo().performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("Bypass strategy: tcp: split(midsld)").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainVisual).assertIsEnabled()
 
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainRawToggle).performScrollTo().performClick()
+        composeRule.waitForIdle()
         val chainField = composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true)
+        chainField.assertTextContains("[tcp]\nsplit midsld")
         chainField.performTextClearance()
         chainField.performTextInput("[tcp]\nfake host")
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("Bypass strategy: tcp: fake(host)").assertExists()
+        composeRule.runOnIdle {
+            assertEquals("fake", observedDraft.desyncMethod)
+            assertEquals("tcp: fake(host)", observedDraft.chainSummary)
+        }
+    }
+
+    @Test
+    fun blockEditsRewriteRawChainTextThroughSingleSource() {
+        var observedDraft = defaultDraft()
+        setScreen(
+            stateful = true,
+            onStatefulDraftChanged = { observedDraft = it },
+        )
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorAdvanced).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag(chainAddTag("fake")).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag(chainMoveUpTag("tcp", 1)).performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        composeRule.runOnIdle {
+            assertEquals("[tcp]\nfake host\nsplit midsld", observedDraft.chainDsl)
+            assertEquals("tcp: fake(host) -> split(midsld)", observedDraft.chainSummary)
+        }
+    }
+
+    @Test
+    fun invalidRawChainIsFlaggedAndKeepsRawEditorVisible() {
+        setScreen(initialDraft = defaultDraft().copy(chainDsl = "[tcp]\nsplit host\ntlsrec sniext+1"))
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorAdvanced).performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ModeEditorChainValidation)
+            .assertTextContains("Invalid chain", substring = true)
+        composeRule
+            .onNodeWithText("Open the raw DSL view to repair syntax or ordering before block editing resumes.")
+            .assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true).assertExists()
     }
 
     @Test
@@ -109,7 +161,9 @@ class ModeEditorScreenTest {
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText("CLI overrides bypass strategy").assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainVisual).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainRawToggle, useUnmergedTree = true).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.ModeEditorChainDsl, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
@@ -204,6 +258,7 @@ class ModeEditorScreenTest {
         initialDraft: ConfigDraft = defaultDraft(),
         stateful: Boolean = false,
         relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
+        onStatefulDraftChanged: (ConfigDraft) -> Unit = {},
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -226,7 +281,13 @@ class ModeEditorScreenTest {
                     snackbarHostState = SnackbarHostState(),
                     actions =
                         if (stateful) {
-                            NoOpModeEditorActions.copy(onChainDslChanged = { draft = draft.withChainDsl(it) })
+                            NoOpModeEditorActions.copy(
+                                onChainDslChanged = {
+                                    val updatedDraft = draft.withChainDsl(it)
+                                    draft = updatedDraft
+                                    onStatefulDraftChanged(updatedDraft)
+                                },
+                            )
                         } else {
                             NoOpModeEditorActions
                         },
@@ -246,4 +307,11 @@ class ModeEditorScreenTest {
             defaultTtl = "8",
             commandLineArgs = "--fake --ttl 8",
         )
+
+    private fun chainAddTag(stepId: String): String = RipDpiTestTags.ModeEditorChainAddPrefix + stepId
+
+    private fun chainMoveUpTag(
+        section: String,
+        index: Int,
+    ): String = RipDpiTestTags.ModeEditorChainMoveUpPrefix + section + "-" + index
 }

@@ -43,6 +43,7 @@ internal fun VpnConfigScreen(
     onOpenDnsSettings: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
+    onProfileShare: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("VpnConfigScreen")
@@ -59,6 +60,7 @@ internal fun VpnConfigScreen(
             onModeSelected = onModeSelected,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
+            onProfileShare = onProfileShare,
         )
         AdvancedSection(initiallyExpanded = uiState.uiPersona == "advanced") {
             VpnAdvancedRows(
@@ -76,6 +78,7 @@ private fun VpnSimpleCard(
     onModeSelected: (Mode) -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
+    onProfileShare: (String) -> Unit,
 ) {
     val vpnEnabled = uiState.activeMode == Mode.VPN
 
@@ -111,12 +114,15 @@ private fun VpnSimpleCard(
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
         )
-        VpnProfileList(uiState = uiState)
+        VpnProfileList(uiState = uiState, onProfileShare = onProfileShare)
     }
 }
 
 @Composable
-private fun VpnProfileList(uiState: ConfigUiState) {
+private fun VpnProfileList(
+    uiState: ConfigUiState,
+    onProfileShare: (String) -> Unit,
+) {
     if (uiState.vpnProfiles.isEmpty()) {
         SettingsRow(
             title = stringResource(R.string.config_vpn_profiles_title),
@@ -135,8 +141,10 @@ private fun VpnProfileList(uiState: ConfigUiState) {
             subtitle = profile.trustLabel,
             value = profile.kindLabel,
             leadingIcon = RipDpiIcons.Public,
+            onClick = { onProfileShare(profile.id) },
+            showChevron = true,
             showDivider = true,
-            testTag = RipDpiTestTags.configVpnProfile(profile.id),
+            testTag = RipDpiTestTags.configVpnProfileShare(profile.id),
         )
         if (index == VpnProfilePreviewLimit - 1 && uiState.vpnProfiles.size > VpnProfilePreviewLimit) {
             Text(

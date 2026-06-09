@@ -61,7 +61,7 @@ internal fun MainActivityContent(
                         actions =
                             RipDpiNavHostActions(
                                 onSaveLogs = controller::requestSaveLogs,
-                                onShareDebugBundle = controller::requestShareSetupDiagnosticBundle,
+                                onShareDebugBundle = controller::requestShareDebugBundle,
                                 onSaveDiagnosticsArchive = controller::requestSaveDiagnosticsArchive,
                                 onShareDiagnosticsArchive = controller::requestShareDiagnosticsArchive,
                                 onShareDiagnosticsSummary = controller::requestShareDiagnosticsSummary,

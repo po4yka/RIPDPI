@@ -36,9 +36,6 @@ import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
-import com.poyka.ripdpi.services.PrivacyLeakIndicatorSnapshot
-import com.poyka.ripdpi.services.PrivacyLeakIndicatorStatus
-import com.poyka.ripdpi.services.PrivacyThreatSnapshot
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.collections.immutable.persistentListOf
@@ -276,80 +273,6 @@ class MainViewModelTest {
             state.actionLabel,
         )
     }
-
-    @Test
-    fun `privacy threat reducer identifies VPN lockdown egress`() {
-        val stringResolver = FakeStringResolver()
-        val hardKillSwitch =
-            buildHardKillSwitchUiState(
-                snapshot =
-                    AndroidHardKillSwitchSnapshot(
-                        status = AndroidHardKillSwitchStatus.ENABLED,
-                        alwaysOn = true,
-                        lockdown = true,
-                    ),
-                configuredMode = Mode.VPN,
-                activeMode = Mode.VPN,
-                appStatus = AppStatus.Running,
-                connectionState = ConnectionState.Connected,
-                stringResolver = stringResolver,
-            )
-
-        val state =
-            buildPrivacyThreatUiState(
-                snapshot = PrivacyThreatSnapshot(),
-                hardKillSwitch = hardKillSwitch,
-                activeMode = Mode.VPN,
-                configuredMode = Mode.VPN,
-                appStatus = AppStatus.Running,
-                connectionState = ConnectionState.Connected,
-                stringResolver = stringResolver,
-            )
-
-        assertEquals(
-            stringResolver.getString(R.string.privacy_threat_egress_vpn_lockdown_label),
-            state.deviceEgress.statusLabel,
-        )
-        assertEquals(PrivacyThreatTone.SECURE, state.deviceEgress.tone)
-    }
-
-    @Test
-    fun `view model exposes privacy threat leak indicators`() =
-        runTest {
-            val privacyThreatStateStore = FakePrivacyThreatStateStore()
-            val viewModel = createViewModel(privacyThreatStateStore = privacyThreatStateStore)
-            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            advanceUntilIdle()
-
-            privacyThreatStateStore.update(
-                PrivacyThreatSnapshot(
-                    dnsLeak =
-                        PrivacyLeakIndicatorSnapshot(
-                            status = PrivacyLeakIndicatorStatus.LEAK_DETECTED,
-                            detail = "example.org -> 8.8.8.8",
-                            updatedAtMillis = 7L,
-                        ),
-                    ipv6Leak =
-                        PrivacyLeakIndicatorSnapshot(
-                            status = PrivacyLeakIndicatorStatus.CLEAR,
-                            updatedAtMillis = 8L,
-                        ),
-                ),
-            )
-            advanceUntilIdle()
-
-            assertEquals(
-                PrivacyLeakIndicatorStatus.LEAK_DETECTED,
-                viewModel.uiState.value.privacyThreat.dnsLeak.status,
-            )
-            assertEquals(
-                PrivacyLeakIndicatorStatus.CLEAR,
-                viewModel.uiState.value.privacyThreat.ipv6Leak.status,
-            )
-            assertEquals(PrivacyThreatTone.CRITICAL, viewModel.uiState.value.privacyThreat.dnsLeak.tone)
-            assertEquals(PrivacyThreatTone.SECURE, viewModel.uiState.value.privacyThreat.ipv6Leak.tone)
-            collector.cancel()
-        }
 
     @Test
     fun `connection actuator localizes error to tunnel by default`() {
@@ -1422,7 +1345,6 @@ class MainViewModelTest {
             ),
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         serviceController: FakeServiceController = FakeServiceController(),
-        privacyThreatStateStore: FakePrivacyThreatStateStore = FakePrivacyThreatStateStore(),
         permissionStatusProvider: FakePermissionStatusProvider = FakePermissionStatusProvider(),
         diagnosticsTimelineSource: FakeMainDiagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource(),
         diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
@@ -1452,7 +1374,6 @@ class MainViewModelTest {
                     serviceController = serviceController,
                     trafficStatsReader = FakeTrafficStatsReader(),
                     hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
-                    privacyThreatStateStore = privacyThreatStateStore,
                 ),
             mainPermissionDependencies =
                 MainPermissionDependencies(

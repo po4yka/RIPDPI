@@ -6,7 +6,7 @@ import kotlinx.collections.immutable.persistentListOf
 
 @Composable
 fun PcapViewerRoute(onBack: () -> Unit) {
-    val demoPackets = remember { demoPcapPackets() }
+    val demoPackets = remember { demoPcapPackets().withSampleDesyncAnnotations() }
     PcapViewerScreen(
         fileName = "ripdpi-demo-capture.pcap",
         packetCount = demoPackets.size,
@@ -50,6 +50,8 @@ private fun demoPcapPackets() =
             protocol = PcapPacketProtocol.Tcp,
             summary = "SYN · seq=0 win=65535",
             hexDump = "bc a4 01 bb 00 00 00 00 00 00 00 00 a0 02 ff ff\n74 8e 00 00 02 04 05 b4 04 02 08 0a",
+            capturedAtMicros = 41_932,
+            tcpSequence = 0,
         ),
         PcapPacket(
             index = 4,
@@ -71,6 +73,9 @@ private fun demoPcapPackets() =
                 "16 03 01 02 05 01 00 02 01 03 03 5a 4d a3 11 9e\n" +
                     "4b 23 c8 90 7f 88 d2 a4 03 7e 88 ad 0c 71 11 14\n" +
                     "bc 5e 35 6f 18 c3 87 b3",
+            capturedAtMicros = 85_003,
+            tcpSequence = 1,
+            payloadLength = 517,
         ),
         PcapPacket(
             index = 6,

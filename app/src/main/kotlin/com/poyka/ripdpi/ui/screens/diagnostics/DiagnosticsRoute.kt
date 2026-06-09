@@ -14,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.activities.DiagnosticsAllowlistSniToolUiModel
-import com.poyka.ripdpi.activities.DiagnosticsArchiveCoverNote
 import com.poyka.ripdpi.activities.DiagnosticsByohCompatibilityToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsCidrWhitelistToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeToolUiModel
@@ -46,6 +45,7 @@ fun DiagnosticsRoute(
     modifier: Modifier = Modifier,
     initialSection: DiagnosticsSection? = null,
     viewModel: DiagnosticsViewModel = hiltViewModel(),
+    topBarExtraActions: @Composable () -> Unit = {},
 ) {
     LaunchedEffect(viewModel) {
         viewModel.initialize()
@@ -70,6 +70,7 @@ fun DiagnosticsRoute(
         pluggableTransportTool = toolsState.pluggableTransport,
         rootModeEnabled = toolsState.rootModeEnabled,
         pcapRecording = toolsState.pcapRecording,
+        topBarExtraActions = topBarExtraActions,
         modifier = modifier,
     )
 }
@@ -199,7 +200,7 @@ private suspend fun handleDiagnosticsEffect(
         }
 
         is DiagnosticsEffect.ShareArchiveRequested -> {
-            callbacks.onShareArchive(effect.absolutePath, effect.fileName, effect.coverNote)
+            callbacks.onShareArchive(effect.absolutePath, effect.fileName)
         }
 
         is DiagnosticsEffect.ShareSummaryRequested -> {
@@ -311,10 +312,10 @@ private fun rememberDiagnosticsScreenActions(
         onEventAutoScroll = remember(viewModel) { viewModel::setEventAutoScroll },
         onShareSummary = remember(viewModel) { viewModel::shareSummary },
         onShareArchive = remember(viewModel) { viewModel::shareArchive },
-        onShareSetupBundle = remember(viewModel) { viewModel::shareSetupBundle },
         onSaveArchive = remember(viewModel) { viewModel::saveArchive },
         onSaveLogs = callbacks.onSaveLogs,
         onOpenLogs = callbacks.onOpenLogs,
+        onOpenConnectionHealth = callbacks.onOpenConnectionHealth,
         onOpenAdvancedSettings = callbacks.onOpenAdvancedSettings,
         onOpenDnsSettings = callbacks.onOpenDnsSettings,
         onOpenDetectionCheck = callbacks.onOpenDetectionCheck,
@@ -376,11 +377,12 @@ private data class DiagnosticsAdvancedDpiTools(
 )
 
 data class DiagnosticsRouteCallbacks(
-    val onShareArchive: (String, String, DiagnosticsArchiveCoverNote?) -> Unit = { _, _, _ -> },
+    val onShareArchive: (String, String) -> Unit = { _, _ -> },
     val onSaveArchive: (String, String) -> Unit = { _, _ -> },
     val onShareSummary: (String, String) -> Unit = { _, _ -> },
     val onSaveLogs: () -> Unit = {},
     val onOpenLogs: () -> Unit = {},
+    val onOpenConnectionHealth: () -> Unit = {},
     val onOpenAdvancedSettings: () -> Unit = {},
     val onOpenDnsSettings: () -> Unit = {},
     val onOpenDetectionCheck: () -> Unit = {},

@@ -18,7 +18,7 @@ import org.junit.Test
  * Generation is offline. The first invocation must show a secrets-redaction warning that
  * cannot be skipped for 5 seconds and cannot be permanently suppressed — every share
  * session re-shows it. The share URI is the canonical per-protocol scheme produced by
- * [com.poyka.ripdpi.proxyimport.ProxyProfileUriEncoder].
+ * [com.poyka.ripdpi.data.uri.ProxyUriCodec].
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileShareViewModelTest {

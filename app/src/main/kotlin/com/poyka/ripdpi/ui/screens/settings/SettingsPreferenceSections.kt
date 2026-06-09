@@ -73,11 +73,19 @@ internal fun SettingsConnectivitySection(
                 subtitle = stringResource(R.string.settings_language_body),
                 value = stringResource(R.string.settings_manage_action),
                 onClick = { showLanguagePicker = true },
+                showDivider = true,
+            )
+            SettingsRow(
+                title = stringResource(R.string.title_subscription_failover),
+                subtitle = stringResource(R.string.settings_subscription_failover_body),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = actions.onOpenSubscriptionFailover,
+                testTag = RipDpiTestTags.SettingsSubscriptionFailover,
             )
         }
         AdvancedSection(
             initiallyExpanded = uiState.uiPersona == "advanced",
-            testTag = RipDpiTestTags.SettingsAdvancedSection,
+            testTag = RipDpiTestTags.SettingsAdvancedConnectivity,
         ) {
             SettingsRow(
                 title = stringResource(R.string.title_advanced_settings),
@@ -167,22 +175,6 @@ internal fun SettingsSecuritySection(
             )
         }
         RipDpiCard {
-            SettingsRow(
-                title = stringResource(R.string.title_privacy_threat_model),
-                subtitle = stringResource(R.string.settings_privacy_threat_model_body),
-                value = stringResource(R.string.settings_manage_action),
-                onClick = actions.onOpenPrivacyThreatModel,
-                showDivider = true,
-                testTag = RipDpiTestTags.SettingsPrivacyThreatModel,
-            )
-            SettingsRow(
-                title = stringResource(R.string.title_network_auto_profiles),
-                subtitle = stringResource(R.string.settings_network_auto_profiles_body),
-                value = stringResource(R.string.settings_manage_action),
-                onClick = actions.onOpenNetworkAutoProfiles,
-                showDivider = true,
-                testTag = RipDpiTestTags.SettingsNetworkAutoProfiles,
-            )
             SecurityToggleRows(
                 uiState = uiState,
                 actions = actions,

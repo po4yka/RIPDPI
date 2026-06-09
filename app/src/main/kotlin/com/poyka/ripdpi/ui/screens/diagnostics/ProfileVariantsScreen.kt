@@ -23,6 +23,8 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -112,7 +114,7 @@ fun ProfileVariantsScreen(
 ) {
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.profile_variants_title),
-        modifier = modifier,
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.StaticProfileVariantsScreen),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
     ) {

@@ -131,10 +131,10 @@ data class DiagnosticsScreenActions(
     val onEventAutoScroll: (Boolean) -> Unit = {},
     val onShareSummary: (String?) -> Unit = {},
     val onShareArchive: (String?) -> Unit = {},
-    val onShareSetupBundle: () -> Unit = {},
     val onSaveArchive: (String?) -> Unit = {},
     val onSaveLogs: () -> Unit = {},
     val onOpenLogs: () -> Unit = {},
+    val onOpenConnectionHealth: () -> Unit = {},
     val onOpenAdvancedSettings: () -> Unit = {},
     val onOpenDnsSettings: () -> Unit = {},
     val onOpenDetectionCheck: () -> Unit = {},
@@ -185,6 +185,7 @@ fun DiagnosticsScreen(
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
     rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
+    topBarExtraActions: @Composable () -> Unit = {},
 ) {
     TrackRecomposition("DiagnosticsScreen")
     var showDebugInfo by rememberSaveable { mutableStateOf(false) }
@@ -202,6 +203,7 @@ fun DiagnosticsScreen(
         pluggableTransportTool = pluggableTransportTool,
         rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,
+        topBarExtraActions = topBarExtraActions,
         modifier = modifier,
     )
     DiagnosticsScreenDialogs(uiState = uiState, actions = actions)
@@ -222,6 +224,7 @@ private fun DiagnosticsScreenFrame(
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
     rootModeEnabled: Boolean,
     pcapRecording: Boolean,
+    topBarExtraActions: @Composable () -> Unit,
     modifier: Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -236,21 +239,10 @@ private fun DiagnosticsScreenFrame(
                 .background(colors.background),
         snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
         topBar = {
-            RipDpiTopAppBar(
-                title = stringResource(R.string.diagnostics_title),
-                modifier =
-                    Modifier.combinedClickable(
-                        onClick = {},
-                        onLongClick = onToggleDebugInfo,
-                    ),
-                actions = {
-                    RipDpiIconButton(
-                        icon = RipDpiIcons.Logs,
-                        contentDescription = stringResource(R.string.history_open_action),
-                        onClick = actions.onOpenHistory,
-                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsTopHistoryAction),
-                    )
-                },
+            DiagnosticsTopBar(
+                actions = actions,
+                onToggleDebugInfo = onToggleDebugInfo,
+                topBarExtraActions = topBarExtraActions,
             )
         },
     ) { innerPadding ->
@@ -302,6 +294,37 @@ private fun DiagnosticsScreenFrame(
             }
         }
     }
+}
+
+@Composable
+private fun DiagnosticsTopBar(
+    actions: DiagnosticsScreenActions,
+    onToggleDebugInfo: () -> Unit,
+    topBarExtraActions: @Composable () -> Unit,
+) {
+    RipDpiTopAppBar(
+        title = stringResource(R.string.diagnostics_title),
+        modifier =
+            Modifier.combinedClickable(
+                onClick = {},
+                onLongClick = onToggleDebugInfo,
+            ),
+        actions = {
+            RipDpiIconButton(
+                icon = RipDpiIcons.NetworkCheck,
+                contentDescription = stringResource(R.string.connection_health_open_action),
+                onClick = actions.onOpenConnectionHealth,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsConnectionHealthAction),
+            )
+            topBarExtraActions()
+            RipDpiIconButton(
+                icon = RipDpiIcons.Logs,
+                contentDescription = stringResource(R.string.history_open_action),
+                onClick = actions.onOpenHistory,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsTopHistoryAction),
+            )
+        },
+    )
 }
 
 @Composable
@@ -411,7 +434,6 @@ private fun DiagnosticsScreenActions.toDiagnosticsShareActions(): DiagnosticsSha
     DiagnosticsShareActions(
         onShareSummary = onShareSummary,
         onShareArchive = onShareArchive,
-        onShareSetupBundle = onShareSetupBundle,
         onSaveArchive = onSaveArchive,
         onSaveLogs = onSaveLogs,
         onOpenLogs = onOpenLogs,

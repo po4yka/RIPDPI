@@ -1779,7 +1779,7 @@ class DiagnosticsScreenTest {
     }
 
     private fun swipeToolsUntilTextVisible(text: String) {
-        repeat(6) {
+        repeat(4) {
             runCatching {
                 composeRule.onNodeWithText(text, substring = true).assertIsDisplayed()
                 return
@@ -1929,11 +1929,8 @@ class DiagnosticsScreenTest {
     fun shareArchiveCopyDisclosesLogcatPcapAndExplicitSharing() {
         setToolsScreen()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsShareArchive).performScrollTo()
-        composeRule.onNodeWithText("app-scoped logcat snapshot", substring = true).assertIsDisplayed()
-        composeRule
-            .onNodeWithText("Android share sheet after you choose a target", substring = true)
-            .assertIsDisplayed()
+        swipeToolsUntilTextVisible("app-scoped logcat snapshot")
+        swipeToolsUntilTextVisible("Android share sheet after you choose a target")
     }
 
     @Test

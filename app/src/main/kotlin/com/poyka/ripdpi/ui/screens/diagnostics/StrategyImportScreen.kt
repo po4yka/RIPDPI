@@ -24,6 +24,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -91,7 +93,7 @@ fun StrategyImportScreen(
 ) {
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.strategy_import_title),
-        modifier = modifier,
+        modifier = modifier.ripDpiTestTag(RipDpiTestTags.StaticStrategyImportScreen),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
     ) {

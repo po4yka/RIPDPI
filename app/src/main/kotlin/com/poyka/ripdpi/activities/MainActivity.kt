@@ -228,7 +228,6 @@ internal fun hostCommandFailurePermissionResult(
         is MainActivityHostCommand.OpenIntent,
         MainActivityHostCommand.SaveLogs,
         MainActivityHostCommand.ShareDebugBundle,
-        MainActivityHostCommand.ShareSetupDiagnosticBundle,
         is MainActivityHostCommand.SaveDiagnosticsArchive,
         is MainActivityHostCommand.ShareDiagnosticsArchive,
         is MainActivityHostCommand.ShareDiagnosticsSummary,

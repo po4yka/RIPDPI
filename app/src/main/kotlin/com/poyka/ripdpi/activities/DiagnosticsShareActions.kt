@@ -50,34 +50,6 @@ internal class DiagnosticsShareActions(
         }
     }
 
-    fun shareSetupBundle() {
-        mutations.launch {
-            runArchiveAction(
-                sessionId = null,
-                busyMessage = "Preparing anonymized bundle for sharing",
-                successMessage = "Anonymized bundle ready to share",
-                failureMessage = "Failed to prepare anonymized bundle",
-            ) {
-                val archive =
-                    diagnosticsShareService.createArchive(
-                        DiagnosticsArchiveRequest(
-                            requestedSessionId = null,
-                            reason = DiagnosticsArchiveReason.SHARE_SETUP_BUNDLE,
-                            requestedAt = System.currentTimeMillis(),
-                        ),
-                    )
-                emit(
-                    DiagnosticsEffect.ShareArchiveRequested(
-                        absolutePath = archive.absolutePath,
-                        fileName = archive.fileName,
-                        coverNote = DiagnosticsArchiveCoverNote.SetupHelper,
-                    ),
-                )
-                archive
-            }
-        }
-    }
-
     fun saveArchive(sessionId: String?) {
         mutations.launch {
             runArchiveAction(

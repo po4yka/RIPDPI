@@ -165,7 +165,6 @@ private fun previewAdvancedSettingsActions(): AdvancedSettingsActions =
         onBack = {},
         onOpenStrategyConfig = {},
         onOpenBlockcheck = {},
-        onOpenProfilePreflight = {},
         onOpenAssetProvider = {},
         onToggleChanged = { _, _ -> },
         onTextConfirmed = { _, _ -> },

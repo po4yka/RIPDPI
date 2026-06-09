@@ -13,7 +13,6 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
-import com.poyka.ripdpi.services.PrivacyThreatSnapshot
 import com.poyka.ripdpi.ui.navigation.Route
 import kotlinx.collections.immutable.ImmutableList
 import kotlin.time.Duration
@@ -45,7 +44,6 @@ sealed interface MainEffect {
     data class ShareDiagnosticsArchive(
         val absolutePath: String,
         val fileName: String,
-        val coverNote: DiagnosticsArchiveCoverNote? = null,
     ) : MainEffect
 
     data object RelockRequested : MainEffect
@@ -67,7 +65,6 @@ data class MainUiState(
     val errorMessage: String? = null,
     val permissionSummary: PermissionSummaryUiState = PermissionSummaryUiState(),
     val hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
-    val privacyThreat: PrivacyThreatUiState = PrivacyThreatUiState(),
     val approachSummary: HomeApproachSummaryUiState? = null,
     val homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
     val modeCards: ImmutableList<HomeModeCardUiState> = DefaultHomeModeCards,
@@ -137,7 +134,6 @@ internal data class MainUiInputs(
     val telemetry: ServiceTelemetrySnapshot,
     val permissions: PermissionRuntimeState,
     val hardKillSwitch: AndroidHardKillSwitchSnapshot,
-    val privacyThreat: PrivacyThreatSnapshot,
     val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
     val hostPackCatalog: HostPackCatalogUiState,
     val strategyPackRuntimeState: StrategyPackRuntimeState,

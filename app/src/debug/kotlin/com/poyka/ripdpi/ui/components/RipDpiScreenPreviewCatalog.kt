@@ -34,6 +34,7 @@ import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreen
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreenActions
+import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerTopBarAction
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -218,7 +219,6 @@ private fun settingsPreviewActions(): SettingsScreenActions =
         onOpenCustomization = {},
         onOpenAbout = {},
         onOpenDataTransparency = {},
-        onOpenPrivacyThreatModel = {},
         onOpenDetectionCheck = {},
         onShareDebugBundle = {},
         onRepairPermission = {},
@@ -320,6 +320,7 @@ private fun DiagnosticsPreviewSceneImpl(
         uiState = uiState,
         pagerState = pagerState,
         snackbarHostState = remember { SnackbarHostState() },
+        topBarExtraActions = { StrategyTunerTopBarAction(onOpen = {}) },
     )
 }
 

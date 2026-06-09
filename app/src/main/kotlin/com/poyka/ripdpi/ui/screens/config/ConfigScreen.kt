@@ -54,10 +54,12 @@ fun ConfigRoute(
     onRetestStrategies: () -> Unit,
     onScanServer: () -> Unit,
     modifier: Modifier = Modifier,
+    route: Route = Route.Config,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     viewModel: ConfigViewModel = hiltViewModel(),
     clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
     onProfileImport: (ProxyImportRequest.Profile) -> Unit = {},
+    onProfileShare: (String) -> Unit = {},
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
     val clipboardImportState = clipboardImportViewModel.uiState.collectAsStateWithLifecycle().value
@@ -72,6 +74,7 @@ fun ConfigRoute(
     ConfigScreen(
         uiState = uiState,
         modifier = modifier,
+        route = route,
         topBarActions = { ConfigImportMenu(onProfileImport = onProfileImport) },
         onModeSelected = remember(viewModel) { viewModel::selectMode },
         onPresetSelected = { preset ->
@@ -95,6 +98,7 @@ fun ConfigRoute(
         onRetestStrategies = onRetestStrategies,
         onPasteServerLink = clipboardImportViewModel::onImportFromClipboard,
         onScanServer = onScanServer,
+        onProfileShare = onProfileShare,
         initialModeSection = initialModeSection,
     )
 }
@@ -110,7 +114,9 @@ fun ConfigScreen(
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
+    onProfileShare: (String) -> Unit = {},
     modifier: Modifier = Modifier,
+    route: Route = Route.Config,
     initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
 ) {
@@ -125,7 +131,7 @@ fun ConfigScreen(
     RipDpiContentScreenScaffold(
         modifier =
             modifier
-                .ripDpiTestTag(RipDpiTestTags.screen(Route.Config))
+                .ripDpiTestTag(RipDpiTestTags.screen(route))
                 .fillMaxSize()
                 .background(colors.background),
         title = stringResource(R.string.config),
@@ -141,11 +147,6 @@ fun ConfigScreen(
         }
 
         RipDpiCard {
-            Text(
-                text = stringResource(R.string.config_overview_title),
-                style = type.sectionTitle,
-                color = colors.mutedForeground,
-            )
             Text(
                 text = stringResource(titleResForPreset(selectedPreset.kind)),
                 style = type.screenTitle,
@@ -191,6 +192,7 @@ fun ConfigScreen(
             onRetestStrategies = onRetestStrategies,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
+            onProfileShare = onProfileShare,
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
@@ -260,6 +262,7 @@ private fun ConfigSelectedModeSection(
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
+    onProfileShare: (String) -> Unit,
 ) {
     when (section) {
         ConfigModeSection.LocalBypass -> {
@@ -282,6 +285,7 @@ private fun ConfigSelectedModeSection(
                 onOpenDnsSettings = onOpenDnsSettings,
                 onPasteServerLink = onPasteServerLink,
                 onScanServer = onScanServer,
+                onProfileShare = onProfileShare,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSummary),
             )
         }
@@ -335,6 +339,10 @@ internal fun modeLabelRes(mode: Mode): Int =
         Mode.Proxy -> R.string.home_mode_proxy
     }
 
+/**
+ * Config UI terminology is intentionally two-level:
+ * Profile = a named saved configuration; Mode = the bypass path inside that profile.
+ */
 enum class ConfigModeSection(
     val stableKey: String,
 ) {

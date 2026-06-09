@@ -104,23 +104,20 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
-    fun `every registered route has a reachable navigation mechanism`() {
-        val missing = Route.all.map(Route::stableRoute).filterNot(ReachableRouteMechanisms::containsKey)
+    fun `every registered route has a reachable navigation mechanism and root tag`() {
+        val registeredRoutes = Route.all.map(Route::stableRoute)
+        val missingReachability = registeredRoutes.filterNot(ReachableRouteMechanisms::containsKey)
+        val missingRootTags = registeredRoutes.filterNot(ExpectedRootScreenTags::containsKey)
 
         val logsMechanisms = ReachableRouteMechanisms.getValue(Route.Logs.stableRoute)
 
-        assertEquals(emptyList<String>(), missing)
+        assertEquals(emptyList<String>(), missingReachability)
+        assertEquals(emptyList<String>(), missingRootTags)
+        Route.all.forEach { route ->
+            assertEquals("${route.stableRoute}-screen", ExpectedRootScreenTags.getValue(route.stableRoute))
+            assertEquals(ExpectedRootScreenTags.getValue(route.stableRoute), RipDpiTestTags.screen(route))
+        }
         assertTrue(logsMechanisms.contains(ReachabilityMechanism.ParentCallback))
-    }
-
-    @Test
-    fun `every registered route has the canonical screen root tag`() {
-        val expectedRootTags = Route.all.associate { route -> route.stableRoute to "${route.stableRoute}-screen" }
-
-        assertEquals(
-            expectedRootTags,
-            Route.all.associate { route -> route.stableRoute to RipDpiTestTags.screen(route) },
-        )
     }
 
     @Test
@@ -154,6 +151,53 @@ private enum class ReachabilityMechanism {
     LaunchRequest,
 }
 
+private val ExpectedRootScreenTags: Map<String, String> =
+    mapOf(
+        Route.Onboarding.stableRoute to "onboarding-screen",
+        Route.Home.stableRoute to "home-screen",
+        Route.Config.stableRoute to "config-screen",
+        Route.LocalBypassConfig.stableRoute to "config/local_bypass-screen",
+        Route.VpnConfig.stableRoute to "config/vpn-screen",
+        Route.Settings.stableRoute to "settings-screen",
+        Route.BackupRestore.stableRoute to "backup_restore-screen",
+        Route.Diagnostics().stableRoute to "diagnostics-screen",
+        Route.History.stableRoute to "history-screen",
+        Route.Logs.stableRoute to "logs-screen",
+        Route.ConnectionHealth.stableRoute to "connection_health-screen",
+        Route.SubscriptionFailover.stableRoute to "subscription_failover-screen",
+        Route.StrategyTuner.stableRoute to "strategy_tuner-screen",
+        Route.ModeEditor.stableRoute to "mode_editor-screen",
+        Route.DnsSettings.stableRoute to "dns_settings-screen",
+        Route.AdvancedSettings.stableRoute to "advanced_settings-screen",
+        Route.StrategyConfig.stableRoute to "strategy_config-screen",
+        Route.DomainBypassList.stableRoute to "domain_bypass_list-screen",
+        Route.AssetProvider.stableRoute to "asset_provider-screen",
+        Route.SplitTunnel.stableRoute to "split_tunnel-screen",
+        Route.Routes.stableRoute to "routes-screen",
+        Route.RuleEditor().stableRoute to "rule_editor-screen",
+        Route.Blockcheck.stableRoute to "blockcheck-screen",
+        Route.BiometricPrompt.stableRoute to "biometric_prompt-screen",
+        Route.AppCustomization.stableRoute to "app_customization-screen",
+        Route.About.stableRoute to "about-screen",
+        Route.DataTransparency.stableRoute to "data_transparency-screen",
+        Route.DetectionCheck.stableRoute to "detection_check-screen",
+        Route.DetectionSettings.stableRoute to "detection_settings-screen",
+        Route.PcapViewer.stableRoute to "pcap_viewer-screen",
+        Route.PcapCaptureList.stableRoute to "pcap_capture_list-screen",
+        Route.ReplayHistory.stableRoute to "replay_history-screen",
+        Route.SharedDiagnosticResult().stableRoute to "shared_diagnostic_result-screen",
+        Route.OwnedStackBrowser().stableRoute to "owned_stack_browser-screen",
+        Route.ProfileImportConfirm().stableRoute to "import/profile_confirm-screen",
+        Route.SubscriptionImportConfirm().stableRoute to "import/subscription_confirm-screen",
+        Route.ProfileShare().stableRoute to "profile/share-screen",
+        Route.QrScanner.stableRoute to "scanner-screen",
+        Route.AmneziaWgProfile.stableRoute to "profile/amneziawg-screen",
+        Route.XrayImport.stableRoute to "xray/import-screen",
+        Route.AnyTlsProfile.stableRoute to "profile/anytls-screen",
+        Route.MieruProfile.stableRoute to "profile/mieru-screen",
+        Route.SshProfile.stableRoute to "profile/ssh-screen",
+    )
+
 private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
     mapOf(
         Route.Onboarding.stableRoute to setOf(ReachabilityMechanism.StartDestination),
@@ -184,6 +228,9 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
             ),
         Route.History.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.Logs.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.ConnectionHealth.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.SubscriptionFailover.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
+        Route.StrategyTuner.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.ModeEditor.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.DnsSettings.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.AdvancedSettings.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
@@ -194,7 +241,6 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
         Route.Routes.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.RuleEditor().stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.Blockcheck.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
-        Route.ProfilePreflight.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.BiometricPrompt.stableRoute to
             setOf(
                 ReachabilityMechanism.StartDestination,
@@ -203,8 +249,6 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
         Route.AppCustomization.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.About.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.DataTransparency.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
-        Route.PrivacyThreatModel.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
-        Route.NetworkAutoProfiles.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.DetectionCheck.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.DetectionSettings.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.PcapViewer.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
@@ -218,6 +262,7 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
                 ReachabilityMechanism.ImportIntent,
             ),
         Route.SubscriptionImportConfirm().stableRoute to setOf(ReachabilityMechanism.ImportIntent),
+        Route.ProfileShare().stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.QrScanner.stableRoute to setOf(ReachabilityMechanism.InAppNavigate),
         Route.AmneziaWgProfile.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
         Route.XrayImport.stableRoute to setOf(ReachabilityMechanism.LaunchRequest),

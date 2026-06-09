@@ -7,12 +7,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.CdnEchPersistedCache
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.NetworkAutoProfileBinding
-import com.poyka.ripdpi.data.NetworkAutoProfileBindingStore
 import com.poyka.ripdpi.data.NetworkFingerprint
-import com.poyka.ripdpi.data.NetworkFingerprintProvider
-import com.poyka.ripdpi.data.NetworkHandoverEvent
-import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.PersistedEchEntry
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
@@ -30,8 +25,6 @@ import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.services.FlowAppAttributionStore
 import com.poyka.ripdpi.services.FlowAttribution
-import com.poyka.ripdpi.services.NetworkAutoProfileBindingApplier
-import com.poyka.ripdpi.services.NetworkAutoProfileBindingObserver
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.testsupport.FakeServiceStateStore
@@ -39,12 +32,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
@@ -87,7 +76,6 @@ class AppStartupInitializerTest {
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.strategyPackInitialization.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.diagnosticsBootstrap.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.dnsPathInvalidatorRegistration.status)
-            assertEquals(AppStartupSubsystemStatus.Succeeded, report.networkAutoProfileRegistration.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.sharedPriorsWorkerEnqueue.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchSeed.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchWorkerEnqueue.status)
@@ -101,7 +89,6 @@ class AppStartupInitializerTest {
                     "compatibility_reset=succeeded, " +
                     "strategy_pack_initialization=succeeded, diagnostics_bootstrap=succeeded, " +
                     "dns_path_invalidator_registration=succeeded, " +
-                    "network_auto_profile_registration=succeeded, " +
                     "shared_priors_refresh_worker_enqueue=succeeded, " +
                     "cdn_ech_seed_from_cache=succeeded, cdn_ech_refresh_worker_enqueue=succeeded, " +
                     "subscription_auto_update_worker_enqueue=succeeded, " +
@@ -482,11 +469,7 @@ class AppStartupInitializerTest {
             diagnosticsBootstrapperProvider = constantProvider(diagnosticsBootstrapper),
             detectionObservationStarter = detectionObservationStarter,
             strategyPackService = strategyPackService,
-            startupRegistrations =
-                AppStartupRegistrations(
-                    dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
-                    networkAutoProfileBindingObserver = noOpNetworkAutoProfileBindingObserver(scope),
-                ),
+            dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
             cdnEchSeedFromCache = CdnEchSeedFromCache(EmptyCdnEchPersistedCache),
             proxyGroupRepository = proxyGroupRepository,
             bootSessionRecorder = bootSessionRecorder,
@@ -504,18 +487,6 @@ class AppStartupInitializerTest {
             applicationScope = scope,
         )
 }
-
-private fun noOpNetworkAutoProfileBindingObserver(scope: CoroutineScope): NetworkAutoProfileBindingObserver =
-    NetworkAutoProfileBindingObserver(
-        networkHandoverMonitor = NoOpNetworkHandoverMonitor,
-        bindingApplier =
-            NetworkAutoProfileBindingApplier(
-                appSettingsRepository = NoOpAppSettingsRepository,
-                networkFingerprintProvider = NoOpNetworkFingerprintProvider,
-                bindingStore = EmptyNetworkAutoProfileBindingStore,
-            ),
-        applicationScope = scope,
-    )
 
 private object NoOpLastExitInspector : LastExitInspector {
     override suspend fun recordRecentMemoryLimiterExits() = Unit
@@ -687,28 +658,6 @@ private object NoOpAppSettingsRepository : AppSettingsRepository {
     override suspend fun update(transform: AppSettings.Builder.() -> Unit) = Unit
 
     override suspend fun replace(settings: AppSettings) = Unit
-}
-
-private object NoOpNetworkFingerprintProvider : NetworkFingerprintProvider {
-    override fun capture(): NetworkFingerprint? = null
-}
-
-private object NoOpNetworkHandoverMonitor : NetworkHandoverMonitor {
-    override val events: SharedFlow<NetworkHandoverEvent> = MutableSharedFlow()
-}
-
-private object EmptyNetworkAutoProfileBindingStore : NetworkAutoProfileBindingStore {
-    override fun bindings(): Flow<List<NetworkAutoProfileBinding>> = flowOf(emptyList())
-
-    override suspend fun list(): List<NetworkAutoProfileBinding> = emptyList()
-
-    override suspend fun find(fingerprintHash: String): NetworkAutoProfileBinding? = null
-
-    override suspend fun upsert(binding: NetworkAutoProfileBinding) = Unit
-
-    override suspend fun delete(id: String) = Unit
-
-    override suspend fun clear() = Unit
 }
 
 private object NoOpBootSessionStateStore : BootSessionStateStore {
