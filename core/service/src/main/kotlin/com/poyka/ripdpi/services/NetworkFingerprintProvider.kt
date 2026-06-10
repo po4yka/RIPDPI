@@ -37,7 +37,17 @@ internal data class CapturedWifiIdentity(
     val ssid: String? = null,
     val bssid: String? = null,
     val gatewayIpv4: Int? = null,
-)
+) {
+    // Privacy: the raw SSID/BSSID/gateway are forbidden in any log, crash report, or
+    // serialized artifact (.claude/rules/network-fingerprint-privacy.md). They live here
+    // only as a short-lived intermediate before the scope hash is computed. A redacting
+    // toString() prevents a stray debug log or crash-reporter toString() from leaking them.
+    override fun toString(): String =
+        "CapturedWifiIdentity(" +
+            "ssid=${if (ssid == null) "null" else "redacted"}, " +
+            "bssid=${if (bssid == null) "null" else "redacted"}, " +
+            "gatewayIpv4=${if (gatewayIpv4 == null) "null" else "redacted"})"
+}
 
 internal data class CapturedCellularIdentity(
     val networkOperator: String? = null,

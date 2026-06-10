@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import android.telephony.TelephonyManager
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -99,5 +100,31 @@ class NetworkFingerprintMapperTest {
         assertNull(result.wifi)
         assertNull(result.cellular)
         assertTrue(result.dnsServers.isEmpty())
+    }
+
+    @Test
+    fun `CapturedWifiIdentity toString redacts raw ssid bssid and gateway`() {
+        val rawSsid = "Cafe Wifi"
+        val rawBssid = "aa:bb:cc:dd:ee:ff"
+        val rendered =
+            CapturedWifiIdentity(
+                ssid = "\"$rawSsid\"",
+                bssid = rawBssid,
+                gatewayIpv4 = 0x0101A8C0,
+            ).toString()
+
+        assertFalse(rendered.contains(rawSsid, ignoreCase = true))
+        assertFalse(rendered.contains(rawBssid, ignoreCase = true))
+        assertFalse(rendered.contains("192.168.1.1"))
+        assertTrue(rendered.contains("redacted"))
+    }
+
+    @Test
+    fun `CapturedWifiIdentity toString preserves null vs present distinction`() {
+        val rendered = CapturedWifiIdentity(ssid = null, bssid = null, gatewayIpv4 = null).toString()
+
+        assertTrue(rendered.contains("ssid=null"))
+        assertTrue(rendered.contains("bssid=null"))
+        assertFalse(rendered.contains("redacted"))
     }
 }

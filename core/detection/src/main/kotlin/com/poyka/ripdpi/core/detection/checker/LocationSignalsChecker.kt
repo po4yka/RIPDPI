@@ -235,10 +235,13 @@ object LocationSignalsChecker {
 
         if (!snapshot.locationPermissionGranted) {
             findings.add(Finding("BSSID: permission not granted"))
-        } else if (snapshot.bssid == null || snapshot.bssid == PLACEHOLDER_BSSID) {
+        } else if (!snapshot.bssid.isUsableBssid()) {
             findings.add(Finding("BSSID: unavailable"))
         } else {
-            findings.add(Finding("BSSID: ${snapshot.bssid}"))
+            // Privacy: never interpolate the raw BSSID into a Finding string — only a
+            // presence flag. The raw value is forbidden in any persisted/serialized
+            // artifact per .claude/rules/network-fingerprint-privacy.md.
+            findings.add(Finding("BSSID: present"))
         }
 
         if (snapshot.locationPermissionGranted) {
@@ -525,6 +528,8 @@ object LocationSignalsChecker {
         if (normalized == PLACEHOLDER_BSSID) return null
         return normalized.takeIf { MAC_ADDRESS_REGEX.matches(it) }
     }
+
+    private fun String?.isUsableBssid(): Boolean = this != null && this != PLACEHOLDER_BSSID
 
     private fun Int.toValidLong(): Long? = toLong().takeIf { it in 0 until Int.MAX_VALUE.toLong() }
 

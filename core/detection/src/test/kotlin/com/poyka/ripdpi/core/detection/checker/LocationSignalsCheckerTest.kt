@@ -174,6 +174,51 @@ class LocationSignalsCheckerTest {
     }
 
     @Test
+    fun `raw BSSID never appears in a Finding string`() {
+        val rawBssid = "aa:bb:cc:dd:ee:ff"
+        val result =
+            LocationSignalsChecker.evaluate(
+                LocationSnapshot(
+                    networkMcc = "250",
+                    networkCountryIso = "ru",
+                    networkOperatorName = "MTS",
+                    simMcc = "250",
+                    simCountryIso = "ru",
+                    isRoaming = false,
+                    bssid = rawBssid,
+                    phonePermissionGranted = true,
+                    locationPermissionGranted = true,
+                ),
+            )
+
+        // No Finding may contain the raw BSSID substring under any encoding.
+        assertFalse(result.findings.any { it.description.contains(rawBssid, ignoreCase = true) })
+        // A usable BSSID is reported as a presence flag only.
+        assertTrue(result.findings.any { it.description == "BSSID: present" })
+    }
+
+    @Test
+    fun `placeholder BSSID is reported as unavailable not present`() {
+        val result =
+            LocationSignalsChecker.evaluate(
+                LocationSnapshot(
+                    networkMcc = "250",
+                    networkCountryIso = "ru",
+                    networkOperatorName = "MTS",
+                    simMcc = "250",
+                    simCountryIso = "ru",
+                    isRoaming = false,
+                    bssid = "02:00:00:00:00:00",
+                    phonePermissionGranted = true,
+                    locationPermissionGranted = true,
+                ),
+            )
+
+        assertTrue(result.findings.any { it.description == "BSSID: unavailable" })
+        assertFalse(result.findings.any { it.description == "BSSID: present" })
+    }
+
+    @Test
     fun `beacondb country mismatch is separate finding`() {
         val result =
             LocationSignalsChecker.evaluate(
