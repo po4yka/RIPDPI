@@ -22,6 +22,13 @@ use crate::telemetry::{RelayTelemetry, TcpConnectObservation};
 
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
+/// Bounded grace window for draining in-flight SOCKS5 sessions on shutdown.
+/// Matches the 5 s used by `ripdpi-tunnel-core`'s UDP-association shutdown so
+/// the relay's stop path has the same deterministic upper bound. After the
+/// shutdown token is cancelled sessions normally unwind in well under this; the
+/// timeout only caps a pathological stuck session.
+const SESSION_DRAIN_GRACE: Duration = Duration::from_secs(5);
+
 pub struct RelayRuntime {
     config: ResolvedRelayRuntimeConfig,
     state: RuntimeState,
@@ -78,6 +85,15 @@ impl RelayRuntime {
         self.state.notify_ready();
 
         run_accept_loop(Arc::clone(&self), backend, listener, ACCEPT_POLL_INTERVAL).await;
+
+        // The accept loop exited because `stop()` set `stop_requested` and
+        // cancelled the shutdown token. Drain in-flight sessions within a
+        // bounded window so shutdown is deterministic and no session leaks its
+        // upstream connection until the runtime is dropped.
+        let drained = self.state.drain_sessions(SESSION_DRAIN_GRACE).await;
+        if !drained {
+            self.state.record_error("relay session drain exceeded grace window".to_string());
+        }
 
         self.state.set_running(false);
         emit_runtime_stopped();

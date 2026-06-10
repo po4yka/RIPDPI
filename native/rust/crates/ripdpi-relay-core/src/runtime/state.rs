@@ -3,6 +3,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use arc_swap::ArcSwapOption;
+use tokio_util::sync::CancellationToken;
+use tokio_util::task::TaskTracker;
 
 use crate::backend::RelayBackend;
 use crate::telemetry::TcpConnectObservation;
@@ -19,6 +21,14 @@ pub(super) struct RuntimeState {
     last_handshake_error: ArcSwapOption<String>,
     quality_observer: Mutex<Option<Arc<dyn Fn(TcpConnectObservation) + Send + Sync>>>,
     readiness_observer: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
+    /// Parent cancellation token. `request_stop` cancels it so every in-flight
+    /// SOCKS5 session — racing its `child_token().cancelled()` future against
+    /// the session work — wakes promptly and unwinds instead of leaking its
+    /// upstream connection and fds until the process exits.
+    shutdown_token: CancellationToken,
+    /// Tracks every spawned session task so [`RuntimeState::drain_sessions`]
+    /// can join them within a bounded grace window on shutdown.
+    session_tracker: TaskTracker,
 }
 
 impl RuntimeState {
@@ -35,15 +45,45 @@ impl RuntimeState {
             last_handshake_error: ArcSwapOption::empty(),
             quality_observer: Mutex::new(None),
             readiness_observer: Mutex::new(None),
+            shutdown_token: CancellationToken::new(),
+            session_tracker: TaskTracker::new(),
         }
     }
 
     pub(super) fn request_stop(&self) {
         self.stop_requested.store(true, Ordering::SeqCst);
+        // Wake every in-flight session so it unwinds instead of leaking its
+        // upstream connection until the runtime is dropped.
+        self.shutdown_token.cancel();
     }
 
     pub(super) fn stop_requested(&self) -> bool {
         self.stop_requested.load(Ordering::SeqCst)
+    }
+
+    /// A child of the runtime-level shutdown token, handed to each spawned
+    /// session so it observes `request_stop` and cancels its work.
+    pub(super) fn session_cancel_token(&self) -> CancellationToken {
+        self.shutdown_token.child_token()
+    }
+
+    /// A cheap (`Arc`-backed) clone of the session tracker, used by
+    /// `spawn_socks_session` to register each session task. Cloning before the
+    /// spawn avoids moving `&self`'s owner into the spawned future.
+    pub(super) fn clone_tracker(&self) -> TaskTracker {
+        self.session_tracker.clone()
+    }
+
+    /// Close the tracker (so no new tasks register) and join all in-flight
+    /// sessions, bounded by `grace`. Returns `true` when every session drained
+    /// within the window, `false` if the timeout elapsed first. Idempotent:
+    /// re-closing an already-closed tracker is a no-op.
+    ///
+    /// cancel-safe: the only `.await` is `timeout(grace, wait())`; cancelling
+    /// it merely abandons the wait — the tracker and its tasks are unaffected.
+    pub(super) async fn drain_sessions(&self, grace: std::time::Duration) -> bool {
+        self.session_tracker.close();
+        tokio::time::timeout(grace, self.session_tracker.wait()).await.is_ok()
     }
 
     pub(super) fn set_running(&self, running: bool) {

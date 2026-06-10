@@ -15,6 +15,7 @@ ripdpi-masque = { workspace = true }
 ripdpi-xhttp = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+tokio-util = { workspace = true, features = ["rt"] }
 tracing = { workspace = true }
 url = { workspace = true }
 
