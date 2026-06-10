@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-06-05
+updated: 2026-06-10
 source_wiki_pages:
   - "wireguard-rtk-south-amneziawg-bypass"
 linked_task: null
@@ -41,7 +41,7 @@ Community-tested working parameters at RTK South: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H
 - [~] Cohort profile import populates Jc/Jmin/Jmax/S/H/I from server-provided YAML or subscription URL.
 - [ ] Smoke test against synthetic AWG endpoint with RTK South parameters succeeds.
 - [ ] Probabilistic-retry logic implemented (max 4 attempts, configurable per-cohort).
-- [ ] Dedup confirmed in PR description: distinct from `add-wireguard-over-websocket-transport-amneziawg-disguise`.
+- [x] Dedup confirmed: distinct from `add-wireguard-over-websocket-transport-amneziawg-disguise` — this task wires AmneziaWG packet-signature randomization (Jc/Jmin/Jmax/H/S/I) into the existing `ripdpi-warp-core` WG kernel; the other adds a WG-over-WebSocket *tunnel* disguise. Different layers.
 
 ## Risks / open questions
 

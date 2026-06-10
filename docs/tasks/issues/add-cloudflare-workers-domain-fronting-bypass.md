@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 ## Summary
@@ -32,6 +32,7 @@ RIPDPI already has `ripdpi-cloudflare-origin` and Cloudflare-direct MASQUE; this
 
 ## Risks / open questions
 
+- **Reconcile direction with `epic-remove-cloudflare-from-critical-path` before starting.** That epic removes Cloudflare as a *mandatory* bootstrap/delivery dependency; this task adds Cloudflare Workers as an *optional, operator-supplied* fronting transport. They are compatible only if this stays strictly opt-in and never becomes a default critical-path hop. Confirm that framing in the PR; if it cannot stay optional, drop this task.
 - Cloudflare Workers free tier has request and CPU-time limits; document operator-side cost expectations.
 - A worker that proxies arbitrary bytes is a TOS edge case; the reference script should be narrow (WS upgrade + framed relay, no open-relay).
 

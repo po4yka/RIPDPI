@@ -5,11 +5,11 @@ status: backlog
 area: transport
 priority: medium
 owner: unassigned
-parent: null
+parent: epic-transport-obfuscation-research
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-06-05
+updated: 2026-06-10
 source_wiki_pages:
   - "dns-morph-bootstrap"
 linked_task: null

@@ -5,11 +5,11 @@ status: doing
 area: testing
 priority: medium
 owner: unassigned
-parent: null
+parent: epic-protocol-conformance-tests
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 ## Summary

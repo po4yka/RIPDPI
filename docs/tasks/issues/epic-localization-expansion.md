@@ -9,12 +9,12 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 ## Goal
 
-Reach realistic language coverage for the target user base. Today RIPDPI registers seven app locales (`en`, `ru`, `es`, `de`, `fr`, `fa`, `zh-CN`) and ships string resource directories for the six non-English mirrors (`ru`, `es`, `de`, `fr`, `fa`, `zh-CN`); there is no `values-ar` directory. The remaining work is to keep those locales sustainable, add Arabic if still justified by users, and land a translation pipeline that sustains updates.
+Reach realistic language coverage for the target user base. Today RIPDPI registers eight app locales (`en`, `ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-CN`) and ships string resource directories for the seven non-English mirrors (`ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-CN`); `values-ar` has landed with full translatable-string coverage. The remaining work is to keep those locales sustainable, add Arabic if still justified by users, and land a translation pipeline that sustains updates.
 
 ## Why now
 
@@ -23,7 +23,7 @@ Most of the actual bypass-client user base outside Russia includes Persian-, Chi
 ## Key decisions
 
 - **Pick a self-hosted pipeline (Weblate) over a SaaS (Crowdin)** to avoid coupling release cadence to an external service that could be geofenced or priced-out. Defer final decision to the pipeline task but bias toward self-hosted.
-- **Current registered locale set:** en, ru, es, de, fr, fa, zh-CN. Arabic remains the only first-wave geography from the original expansion note that has not landed.
+- **Current registered locale set:** en, ru, es, de, fr, fa, ar, zh-CN — all eight first-wave geographies have landed (Persian and Arabic included, with RTL goldens). Remaining scope is sustaining the pipeline, not adding locales.
 - **Do not machine-translate and ship.** All strings go through a human translator before merging. MT pre-translations are acceptable as a starting point for translators, not a shipping state.
 - **String freeze N weeks before release.** Translators need a stable source.
 - **Drop strings that aren't translator-safe** (e.g., protocol names, acronyms, technical keys) via the standard Android `translatable="false"` marker.
@@ -43,9 +43,9 @@ Most of the actual bypass-client user base outside Russia includes Persian-, Chi
 
 ## Child tasks
 
-- [[Select and set up translation pipeline for RIPDPI]]
-- [[add-zh-cn-translation-and-initial-human-review|Review landed zh-CN translation and initial human sign-off]]
-- [[add-fa-ar-de-es-fr-translations-and-rtl-screenshot-tests|Review landed fa de es fr translations and finish Arabic RTL coverage]]
+- [[add-zh-cn-translation-and-initial-human-review|Review landed zh-CN translation and initial human sign-off]] — the one remaining open child (at `review`; only the `HardcodedText` lint-rule criterion is outstanding).
+
+The two former wikilinked children (`Select and set up translation pipeline`, `Review landed fa/de/es/fr + Arabic RTL`) never had task files and their work has effectively landed — the pipeline is documented in `docs/localization.md`, and fa/de/es/fr/ar all ship with blessed RTL/locale goldens. They are dropped as separate trackable items; this epic closes when the zh-CN child does.
 
 ## Dependencies
 

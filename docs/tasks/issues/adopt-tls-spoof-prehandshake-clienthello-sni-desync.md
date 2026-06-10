@@ -5,11 +5,11 @@ status: backlog
 area: rust-native
 priority: medium
 owner: unassigned
-parent: null
+parent: epic-tls-handshake-hardening
 blocks: []
 blocked_by: []
 created: 2026-05-30
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 - [ ] #task Adopt tls_spoof pre-handshake ClientHello SNI desync for whitelist bypass #repo/RIPDPI #area/rust-native #status/backlog 🔼

@@ -1,7 +1,7 @@
 ---
 title: Add Xray provider regression matrix
 type: task
-status: blocked
+status: doing
 area: outbound
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 ## Summary

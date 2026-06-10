@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 ## Goal
@@ -47,6 +47,10 @@ New cross-cutting hardening epic derived from the client-problem analysis. It co
 - Harden DoH POST resolver client (closed task)
 - Add authoritative DNS leak-test harness (closed task)
 - Add Android VPN leak-test instrumentation matrix (closed task)
+- Add tun2socks UID validation to close SO_BINDTODEVICE escape — `add-tun2socks-uid-validation-against-so-bindtodevice-bypass` (backlog)
+- Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS — `adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion` (backlog)
+- Adopt process-based per-package routing via VpnService.Builder app filters — `adopt-process-based-per-package-routing-via-xray-tun-routeonly` (doing)
+- Spike FakeIP mode compatibility on Android — `spike-fakeip-mode-compatibility-on-android` (backlog)
 
 ## Milestones
 

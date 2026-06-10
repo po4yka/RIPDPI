@@ -5,11 +5,11 @@ status: backlog
 area: rust-native
 priority: medium
 owner: unassigned
-parent: null
+parent: epic-transport-obfuscation-research
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 ## Summary

@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 ## Summary
@@ -24,8 +24,9 @@ EAimTY/tuic v4 and v5 differ on the wire (auth, packet framing). Some deployed s
 
 - [x] A short ADR under `docs/architecture/` documents the chosen policy: "v5 only with deprecation", "v4 fallback on negotiation failure", or "explicit user-selected version". **DONE 2026-05-15:** decision is **v5 only**; see `docs/architecture/tuic-v4-policy.md`. Remaining acceptance criteria below cover the classifier wiring + tests.
 - [x] (2026-05-16, TDD) If "v5 only", the failure classifier maps v4-server responses to a distinct `TuicVersionUnsupported` class with remediation text. **DONE:** `FailureClass::TuicVersionUnsupported` variant added to `ripdpi-failure-classifier::types` with `as_str() -> "tuic_version_unsupported"`. `ripdpi-tuic::classify_failure_payload` maps non-v5 leading bytes to `TuicFailureKind::VersionUnsupported`; runtime mapping inside handshake failure handling remains a follow-up.
-- [ ] If "fallback", the client attempts v5 first and falls back to v4 only on a recognizable rejection signature; both paths are covered by unit tests.
-- [ ] If "user-selected", the config exposes `tuic_version: 4 | 5` and refuses unknown values.
+- [ ] ~~If "fallback", the client attempts v5 first and falls back to v4...~~ **N/A — v5-only per `docs/architecture/tuic-v4-policy.md`.**
+- [ ] ~~If "user-selected", the config exposes `tuic_version: 4 | 5`...~~ **N/A — v5-only per the ADR.**
+- [ ] **Wire `classify_failure_payload` into the runtime.** `ripdpi-tuic::classify_failure_payload` and `FailureClass::TuicVersionUnsupported` exist but have zero runtime callers (the variant is never constructed at runtime; `response_triggers.rs` maps it to `0`). Call the classifier from the `ripdpi-tuic` client handshake-failure path and propagate `TuicVersionUnsupported` into service telemetry so a v4 server produces the user-actionable diagnostic the Definition of done requires. This is the actual remaining work.
 
 ## Definition of done
 

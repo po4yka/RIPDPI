@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 > **2026-06-01 — scope reduced per [ADR 0004](../../adr/0004-protocol-support-policy.md).** VMess, Trojan-Go, and Hysteria v1 are **dropped from this epic and removed from the codebase** — they were never-completed stubs that carried no traffic, and RIPDPI maintains support only for current/actual protocols. The remaining open backlog is **SSH** and **Mieru** only (not-yet-implemented compatibility work, explicitly *not* legacy). Their child tasks are deleted.
@@ -42,8 +42,8 @@ Subscription import is only useful if imported protocols can execute. SSH and Mi
 - [x] Each protocol has a profile-edit screen with schema-backed validation. (`SshProfileScreen.kt`, `MieruProfileScreen.kt`, `AnyTlsProfileScreen.kt` under `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/`.)
 - [ ] Each protocol can be parsed from its standard URI scheme into a valid RIPDPI profile and round-tripped back to URI. (No `ssh://` codec case in `app/src/main`; only a doc-comment reference in `ImportHandlerActivity.kt`.)
 - [ ] Strategy-pack metadata includes per-protocol compatibility hints (e.g. Trojan inside xHTTP, SSH direct vs SSH-over-TLS). (`core/service/src/main/assets/strategy-packs/catalog.json` contains zero `ssh`/`mieru` entries.)
-- [~] Relay supervisor can start and stop each protocol cleanly; shutdown joins bounded handler work (same invariant as existing protocols). (SSH wired into relay-core: `transport_descriptor.rs:147 kind_id:"ssh"`, `backend.rs:56 RelayBackend::Ssh`; Mieru has no relay backend.)
-- [~] Secrets (passwords, UUIDs, private keys) are redacted in logs, diagnostics, and crash reports, not only at export time. (SSH redacts secrets in `Debug`; Mieru path is a stub so unverified end-to-end.)
+- [~] Relay supervisor can start and stop each protocol cleanly; shutdown joins bounded handler work (same invariant as existing protocols). (SSH wired into relay-core: `transport_descriptor.rs:147 kind_id:"ssh"`, `backend.rs RelayBackend::Ssh`; Mieru TCP carrier wired via `MieruSessionFactory` with a `RelayBackend::Mieru` variant — UDP carrier + multiplexing deferred.)
+- [~] Secrets (passwords, UUIDs, private keys) are redacted in logs, diagnostics, and crash reports, not only at export time. (SSH redacts secrets in `Debug`; Mieru redacts password in `config.rs` `Debug` — end-to-end redaction across the live relay path still to be confirmed.)
 
 ## Child tasks
 
@@ -72,4 +72,5 @@ Subscription import is only useful if imported protocols can execute. SSH and Mi
 ## Work log
 
 - 2026-06-05: SSH crate fully implemented (ripdpi-ssh, SshProfileScreen.kt, relay adapter in ripdpi-relay-tls-transports/src/ssh.rs, secrets redacted in Debug); Mieru crate is stubbed (connect() returns MieruError::Unimplemented, no real handshake); SSH has no ssh:// case in ProxyUriCodec.parse() or ProxyProfileUriEncoder.encode(); strategy-pack catalog.json contains no SSH or Mieru compatibility hints; AnyTLS crate and profile screen are complete.
-- 2026-06-05: Epic re-audited; status STAYS `doing`. Child rollup: all 3 child tasks (SSH, Mieru, AnyTLS) are `doing`, none done/dropped. Source-verified ship-definition: ripdpi-ssh client.rs is 438 real lines + tests and wired into relay-core (transport_descriptor.rs:147 kind_id:"ssh", backend.rs:56 RelayBackend::Ssh); ripdpi-mieru/src/client.rs connect() returns MieruError::Unimplemented (stub, no relay backend). Profile screens exist for all three (ui/screens/ssh|mieru|anytls). No ssh:// URI codec case exists in app/src/main (only a doc comment in ImportHandlerActivity.kt). strategy-packs/catalog.json has no ssh/mieru hints (grep -c = 0). Marked criteria [x] screens, [~] crates/supervisor/secrets, [ ] URI + strategy-hints.
+- 2026-06-05: Epic re-audited; status STAYS `doing`. Child rollup: all 3 child tasks (SSH, Mieru, AnyTLS) are `doing`, none done/dropped. Source-verified ship-definition: ripdpi-ssh client.rs is 438 real lines + tests and wired into relay-core (transport_descriptor.rs:147 kind_id:"ssh", backend.rs RelayBackend::Ssh); ripdpi-mieru/src/client.rs connect() returns MieruError::Unimplemented (stub, no relay backend). Profile screens exist for all three (ui/screens/ssh|mieru|anytls). No ssh:// URI codec case exists in app/src/main (only a doc comment in ImportHandlerActivity.kt). strategy-packs/catalog.json has no ssh/mieru hints (grep -c = 0). Marked criteria [x] screens, [~] crates/supervisor/secrets, [ ] URI + strategy-hints.
+- 2026-06-10: Corrected stale Mieru ship-definition text. The Mieru TCP carrier is no longer a stub — it is implemented (XChaCha20-Poly1305 time-rotated keys, open-session handshake, segment framing, in-tunnel SOCKS5) and wired into the relay via `MieruSessionFactory` / `RelayBackend::Mieru` (see the Mieru child task's third 2026-06-05 log entry). Still open across the epic: `ssh://`/`mieru://` URI round-trip parity for SSH, per-protocol strategy-pack hints, upstream/live-server interop vectors, and Mieru UDP carrier + multiplexing.

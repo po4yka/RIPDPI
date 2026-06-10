@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 ## Summary
@@ -33,7 +33,7 @@ Xray must behave like the existing managed proxy/relay runtimes: no ambiguous "r
 - [x] Xray version and basic provider state flow into service telemetry without exposing profile secrets. — `pollTelemetry()` emits a `NativeRuntimeSnapshot` with version+state and a secret-free assertion test.
 - [x] Unit or service tests cover startup failure, invalid config, late stop, and crash/exit mapping. — 14 tests in `RipDpiXrayRuntimeTest` (green offline in `:core:engine-api`).
 
-> All five criteria are verified against `FakeXrayNativeBridge`, which replays the full observable native contract. The criteria are met at the adapter/contract level. The real gomobile-backed `XrayNativeBridgeLibXrayImpl` (`RunXrayFromJSON` / `StopXray` / `XrayVersion`) has NOT executed here — the libXray AAR is absent from the offline toolchain — so end-to-end behavior against a real Xray process REMAINS OPEN (blocked on gomobile/libXray build, not on missing code). Status held at `backlog` until that path runs.
+> All five criteria are verified against `FakeXrayNativeBridge`, which replays the full observable native contract. The criteria are met at the adapter/contract level. The real gomobile-backed `XrayNativeBridgeLibXrayImpl` (`RunXrayFromJSON` / `StopXray` / `XrayVersion`) has NOT executed here — the libXray AAR is absent from the offline toolchain — so end-to-end behavior against a real Xray process REMAINS OPEN (blocked on gomobile/libXray build, not on missing code). That gomobile/libXray build is the sole remaining gate; frontmatter `status: blocked` reflects it.
 
 ## Progress
 

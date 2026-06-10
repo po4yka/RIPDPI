@@ -5,11 +5,11 @@ status: backlog
 area: transport
 priority: medium
 owner: unassigned
-parent: null
+parent: epic-transport-obfuscation-research
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-06-05
+updated: 2026-06-10
 source_wiki_pages:
   - "rkn-protocol-class-blocking-shift-dec-2025"
 linked_task: null
@@ -19,7 +19,7 @@ linked_task: null
 
 RKN shifted in Dec 2025 to protocol-class fingerprint blocks (SOCKS5, VLESS, L2TP) without enumerating operators. Open question: which additional unannounced protocol-class signatures have landed, and do dpi-checkers / DPI Detector / rkn-block-checker tools detect them? This directly determines which protocols RIPDPI can still rely on as primary transports.
 
-Child task of `epic-direct-mode-transport-policy-and-verdicts` (existing).
+Child task of `epic-transport-obfuscation-research` (the former `epic-direct-mode-transport-policy-and-verdicts` was removed).
 
 ## Proposed change
 
@@ -46,8 +46,9 @@ Diagnostic investigation, not a feature build:
 
 - rkn-protocol-class-blocking-shift-dec-2025 — wiki concept page
 - rkn-block-checker-methodology — diagnostic tool
-- Parent epic: `epic-direct-mode-transport-policy-and-verdicts` (dangling — epic removed)
+- Parent epic: `epic-transport-obfuscation-research` (reassigned 2026-06-10; former `epic-direct-mode-transport-policy-and-verdicts` was removed)
 - Linked deploy task: `investigate-rkn-unannounced-protocol-class-signatures-deploy`
+- Gating dependency: cannot progress without sustained access to ≥3 RU ISP vantages (external, not a repo-side task) — see Risks.
 
 ## Work log
 

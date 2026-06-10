@@ -1,7 +1,7 @@
 ---
 title: Operate Phase-16 real-provider SIM runner
 type: task
-status: backlog
+status: doing
 area: testing
 priority: high
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-25
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 ## Summary

@@ -5,12 +5,12 @@ status: doing
 area: testing
 priority: low
 owner: unassigned
-parent: null
+parent: epic-protocol-conformance-tests
 status_detail: partial — xHTTP single-stream done; mux test blocked on unimplemented VLESS wire-mux
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-06-05
+updated: 2026-06-10
 ---
 
 ## Summary
@@ -24,7 +24,11 @@ Per-crate tests do not catch interaction bugs between transport layers: an xHTTP
 ## Acceptance criteria
 
 - [x] VLESS-over-xHTTP-over-Reality, single stream — `cross_stack_vless_over_xhttp_over_reality_single_stream` in `ripdpi-relay-core` drives the real xHTTP/Reality backend against `XhttpRealityLoopback` (Reality TLS + HTTP/2 stream-up + VLESS-in-body), two round-trips asserting bidirectional integrity, in the standard CI lane.
-- [ ] VLESS-over-Reality with mux, two concurrent streams — **blocked**: VLESS wire-mux (`VlessMuxConfig` sing-mux/yamux) is config/parse-only; `VlessRealityClient::connect`/`connect_over` never multiplex, so two concurrent streams over one Reality connection cannot be exercised until VLESS wire-mux framing is implemented in the datapath.
+- [ ] VLESS-over-Reality with mux, two concurrent streams — **blocked** on the VLESS wire-mux datapath. `VlessMuxConfig` (sing-mux/yamux) is config/parse-only; `VlessRealityClient::connect`/`connect_over` never multiplex. This criterion **absorbs the former `add-vless-mux-conformance-tests-against-xray-core` task (merged 2026-06-10)** and additionally requires:
+  - [ ] At least eight golden mux frame payloads under `contract-fixtures/vless/<upstream-tag>/mux/` (currently 1), each round-tripped encode/decode by `mux::tests`.
+  - [ ] A multi-stream interleave test exercising at least three concurrent streams.
+  - [ ] A deliberate framing-bit change in `ripdpi-vless/src/mux.rs` fails a named golden test.
+  Until VLESS wire-mux framing lands in the datapath, none of these can be exercised.
 - [x] Each landed test asserts payload integrity in both directions.
 - [x] Landed test runs in the standard CI lane.
 
@@ -35,7 +39,7 @@ Per-crate tests do not catch interaction bugs between transport layers: an xHTTP
 ## Links
 
 - [[audit-vless-chained-connect-over-relay-end-to-end-tests]]
-- [[add-vless-mux-conformance-tests-against-xray-core]]
+- `add-vless-mux-conformance-tests-against-xray-core` — merged into criterion 2 of this task (2026-06-10); file deleted.
 
 ## Work log
 
