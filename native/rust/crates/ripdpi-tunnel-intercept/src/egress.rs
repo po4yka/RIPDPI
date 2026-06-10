@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io;
+use std::path::Path;
 
 #[cfg(test)]
 use std::net::SocketAddr;
@@ -61,8 +62,20 @@ pub struct TunEgressInterceptor<I> {
 }
 
 impl<I: TunPacketInjector> TunEgressInterceptor<I> {
+    /// Builds an interceptor from inline strategy YAML, resolving `lua` step
+    /// `script_paths` relative to the current directory.
     pub fn new(strategy_yaml: Option<&str>, injector: I) -> Self {
-        let rules = strategy_yaml.map(parse_rules).unwrap_or_default();
+        Self::new_with_base_dir(strategy_yaml, Path::new("."), injector)
+    }
+
+    /// Builds an interceptor, jailing `lua` step `script_paths` to `base_dir`.
+    ///
+    /// `base_dir` is the trust anchor the Lua engine is confined to: a
+    /// `script_paths` entry that canonicalizes outside it (absolute path or
+    /// `../` escape) is rejected. File-backed callers pass the directory of
+    /// the strategy file; inline-YAML callers pass `.`.
+    pub fn new_with_base_dir(strategy_yaml: Option<&str>, base_dir: &Path, injector: I) -> Self {
+        let rules = strategy_yaml.map(|yaml| parse_rules(yaml, base_dir)).unwrap_or_default();
         Self { rules, injector }
     }
 
@@ -92,9 +105,11 @@ impl<I: TunPacketInjector + Send> TunEgressPacketHandler for TunEgressIntercepto
     }
 }
 
-fn parse_rules(strategy_yaml: &str) -> Vec<EgressRule> {
-    match ripdpi_strategy_config::parse_yaml_str(strategy_yaml, ".") {
-        Ok(config) => config.strategies.iter().flat_map(rules_for_strategy).collect(),
+fn parse_rules(strategy_yaml: &str, base_dir: &Path) -> Vec<EgressRule> {
+    match ripdpi_strategy_config::parse_yaml_str(strategy_yaml, base_dir) {
+        Ok(config) => {
+            config.strategies.iter().flat_map(|strategy| rules_for_strategy(strategy, &config.base_dir)).collect()
+        }
         Err(error) => {
             warn!("failed to parse strategy YAML for TUN egress interception: {error}");
             Vec::new()
@@ -102,12 +117,12 @@ fn parse_rules(strategy_yaml: &str) -> Vec<EgressRule> {
     }
 }
 
-fn rules_for_strategy(strategy: &LoadedStrategy) -> Vec<EgressRule> {
+fn rules_for_strategy(strategy: &LoadedStrategy, base_dir: &Path) -> Vec<EgressRule> {
     strategy
         .steps
         .iter()
         .filter_map(|step| {
-            EgressRuleAction::from_step(step)
+            EgressRuleAction::from_step(step, base_dir)
                 .map(|action| EgressRule { matcher: PacketMatcher::from_strategy(strategy), action })
         })
         .collect()
@@ -159,16 +174,17 @@ impl EgressAction {
 }
 
 impl EgressRuleAction {
-    fn from_step(step: &StrategyStep) -> Option<Self> {
+    fn from_step(step: &StrategyStep, base_dir: &Path) -> Option<Self> {
         if step.kind == StepType::Lua {
-            return Self::lua_strategy(step);
+            return Self::lua_strategy(step, base_dir);
         }
         EgressAction::from_step(step).map(Self::Direct)
     }
 
-    fn lua_strategy(step: &StrategyStep) -> Option<Self> {
+    fn lua_strategy(step: &StrategyStep, base_dir: &Path) -> Option<Self> {
         let config = LoadedStrategyConfig {
             version: 1,
+            base_dir: base_dir.to_path_buf(),
             strategies: vec![LoadedStrategy {
                 id: step.function.clone().unwrap_or_else(|| "lua".to_owned()),
                 matcher: StrategyMatch::default(),
@@ -626,12 +642,12 @@ strategies:
 "#,
             script.display()
         );
-        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
 
         assert!(interceptor.handle_packet(&packet));
         assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"lua-raw");
         assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
-        let _ = std::fs::remove_file(script);
     }
 
     #[test]
@@ -660,12 +676,12 @@ strategies:
 "#,
             script.display()
         );
-        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
 
         assert!(!interceptor.handle_packet(&packet));
         assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"lua-sidecar");
         assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
-        let _ = std::fs::remove_file(script);
     }
 
     #[test]
@@ -696,13 +712,13 @@ strategies:
 "#,
             script.display()
         );
-        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
 
         assert!(interceptor.handle_packet(&packet));
         assert_eq!(interceptor.injector.packets.len(), 1);
         assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"lua-drop-raw");
         assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
-        let _ = std::fs::remove_file(script);
     }
 
     #[test]
@@ -741,13 +757,13 @@ strategies:
 "#,
             script.display()
         );
-        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
 
         assert!(interceptor.handle_packet(&packet));
         assert_eq!(interceptor.injector.packets[0][8], 9);
         assert_eq!(packet_payload(&interceptor.injector.packets[0]), payload);
         assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
-        let _ = std::fs::remove_file(script);
     }
 
     #[test]
@@ -810,13 +826,13 @@ strategies:
 "#,
             script.display()
         );
-        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
 
         assert!(interceptor.handle_packet(&packet));
         assert_eq!(packet_payload(&interceptor.injector.packets[0]), &payload[..expected_host]);
         assert_eq!(packet_payload(&interceptor.injector.packets[1]), &payload[expected_host..]);
         assert_ne!(expected_host, layout.info.tls_info.host_start, "test must catch client-hello coordinate reuse");
-        let _ = std::fs::remove_file(script);
     }
 
     #[test]
@@ -847,7 +863,8 @@ strategies:
 "#,
             script.display()
         );
-        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
 
         assert!(interceptor.handle_packet(&packet));
 
@@ -855,7 +872,6 @@ strategies:
         let udp_len_offset = IPV4_MIN_HEADER_LEN + 4;
         assert_eq!(u16::from_be_bytes([injected[udp_len_offset], injected[udp_len_offset + 1]]), 15);
         assert!(packet_destination(injected).is_some());
-        let _ = std::fs::remove_file(script);
     }
 
     #[test]
@@ -883,14 +899,14 @@ strategies:
 "#,
             script.display()
         );
-        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+        let mut interceptor =
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
 
         assert!(interceptor.handle_packet(&packet));
         assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"ab");
         assert_eq!(packet_payload(&interceptor.injector.packets[1]), b"cdef");
         assert!(packet_destination(&interceptor.injector.packets[0]).is_some());
         assert!(packet_destination(&interceptor.injector.packets[1]).is_some());
-        let _ = std::fs::remove_file(script);
     }
 
     #[derive(Default)]
@@ -913,10 +929,41 @@ strategies:
         }
     }
 
-    fn write_lua_script(name: &str, contents: &str) -> std::path::PathBuf {
-        let path = std::env::temp_dir().join(format!("{name}-{}.lua", std::process::id()));
-        std::fs::write(&path, contents).expect("write Lua script");
-        path
+    /// A Lua script written into a per-test jail directory. The embedded
+    /// [`Display`] form is the **relative** filename, so YAML `script_paths`
+    /// stay inside the jail the egress interceptor is built with (see
+    /// [`TunEgressInterceptor::new_with_base_dir`]). The temp directory is
+    /// removed on drop.
+    struct LuaScriptFixture {
+        dir: std::path::PathBuf,
+        filename: String,
+    }
+
+    impl LuaScriptFixture {
+        fn dir(&self) -> &Path {
+            &self.dir
+        }
+
+        /// The relative `script_paths` entry to embed in YAML — a bare
+        /// filename inside [`dir`](Self::dir), kept relative so the jail
+        /// resolves it inside the base directory.
+        fn display(&self) -> &str {
+            &self.filename
+        }
+    }
+
+    impl Drop for LuaScriptFixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    fn write_lua_script(name: &str, contents: &str) -> LuaScriptFixture {
+        let dir = std::env::temp_dir().join(format!("{name}-{}-{:?}", std::process::id(), std::thread::current().id()));
+        std::fs::create_dir_all(&dir).expect("create Lua script dir");
+        let filename = "candidate.lua".to_owned();
+        std::fs::write(dir.join(&filename), contents).expect("write Lua script");
+        LuaScriptFixture { dir, filename }
     }
 
     fn expected_quic_marker_start(layout: &QuicInitialLayout, crypto_offset: usize) -> usize {

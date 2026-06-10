@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use android_support::ffi_boundary;
@@ -6,11 +6,23 @@ use jni::objects::{JObject, JObjectArray, JString};
 use jni::sys::{jobjectArray, jstring};
 use jni::{Env, EnvUnowned, Outcome};
 use ripdpi_strategy_lua::{LuaError, LuaStrategyEngine};
-use std::sync::LazyLock;
+use std::sync::{LazyLock, OnceLock};
 
 static LUA_ENGINE: LazyLock<Result<Mutex<LuaStrategyEngine>, String>> =
     LazyLock::new(|| LuaStrategyEngine::new().map(Mutex::new).map_err(|error| error.to_string()));
 static LOADED_SCRIPT_PATHS: LazyLock<Mutex<Vec<PathBuf>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+
+/// Trust-on-first-use jail directory for the JNI `luaLoadScript` surface.
+///
+/// `luaLoadScript` receives a user-typed absolute path from the app's advanced
+/// Lua field; in the legitimate flow the first load at startup is the bundled
+/// `<filesDir>/lua/…` script extracted by `LuaAssetManager`. The canonical
+/// parent of that first script is locked here, and every subsequent JNI load
+/// must canonicalize to a file inside it — closing cross-directory path escape
+/// (absolute or `../`) after the first local load. Genuinely untrusted
+/// *imported* configs do not reach this path; they go through the registry,
+/// which jails the VM to the config's own base directory via `new_jailed`.
+static LUA_JNI_SCRIPT_JAIL: OnceLock<PathBuf> = OnceLock::new();
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaLoadScript(
@@ -20,8 +32,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_l
 ) -> jstring {
     ffi_boundary(core::ptr::null_mut(), move || {
         nullable_error_entry(env, path, |path| {
-            engine()?.load_script_registering_globals(&path)?;
-            remember_loaded_path(path)?;
+            let canonical = jail_jni_script_path(&path)?;
+            engine()?.load_script_registering_globals(&canonical)?;
+            remember_loaded_path(canonical)?;
             Ok(())
         })
     })
@@ -193,12 +206,77 @@ fn reload_loaded_scripts() -> Result<(), LuaBridgeError> {
     Ok(())
 }
 
+/// Confines a JNI `luaLoadScript` path to the trust-on-first-use jail dir.
+///
+/// The target is canonicalized first (resolving symlinks and `..`); the
+/// canonical parent of the *first* load is locked as the jail base, and every
+/// later load must canonicalize to a file inside it. A path that escapes the
+/// locked directory — an absolute path elsewhere or a `../` traversal — is
+/// rejected before the engine reads the file.
+fn jail_jni_script_path(path: &Path) -> Result<PathBuf, LuaBridgeError> {
+    let canonical = std::fs::canonicalize(path)
+        .map_err(|source| LuaBridgeError::ScriptRead { path: path.to_path_buf(), source })?;
+    let parent =
+        canonical.parent().ok_or_else(|| LuaBridgeError::ScriptPathEscape { path: path.to_path_buf() })?.to_path_buf();
+    let base = LUA_JNI_SCRIPT_JAIL.get_or_init(|| parent);
+    enforce_jni_jail(base, path, &canonical)
+}
+
+/// Pure jail check: the canonicalized `target` must live inside the locked
+/// `base` directory, otherwise the original `requested` path is rejected as an
+/// escape. Split out from [`jail_jni_script_path`] so the containment rule is
+/// unit-testable without touching the process-global [`LUA_JNI_SCRIPT_JAIL`].
+fn enforce_jni_jail(base: &Path, requested: &Path, target: &Path) -> Result<PathBuf, LuaBridgeError> {
+    if target.starts_with(base) {
+        Ok(target.to_path_buf())
+    } else {
+        Err(LuaBridgeError::ScriptPathEscape { path: requested.to_path_buf() })
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 enum LuaBridgeError {
     #[error("Lua engine initialization failed: {0}")]
     Initialization(String),
     #[error("{0} lock poisoned")]
     LockPoisoned(&'static str),
+    #[error("Lua script path {path} could not be read: {source}")]
+    ScriptRead { path: PathBuf, source: std::io::Error },
+    #[error("Lua script path {path} escapes the locked script directory")]
+    ScriptPathEscape { path: PathBuf },
     #[error(transparent)]
     Lua(#[from] LuaError),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LuaBridgeError, enforce_jni_jail};
+    use std::path::Path;
+
+    #[test]
+    fn accepts_a_target_inside_the_locked_base() {
+        let base = Path::new("/data/user/0/com.poyka.ripdpi/files/lua");
+        let target = base.join("zapret-antidpi.lua");
+        let resolved = enforce_jni_jail(base, &target, &target).expect("in-jail path is accepted");
+        assert_eq!(resolved, target);
+    }
+
+    #[test]
+    fn rejects_an_absolute_target_outside_the_locked_base() {
+        let base = Path::new("/data/user/0/com.poyka.ripdpi/files/lua");
+        let requested = Path::new("/etc/passwd");
+        let error = enforce_jni_jail(base, requested, requested).expect_err("out-of-jail path is rejected");
+        assert!(matches!(error, LuaBridgeError::ScriptPathEscape { .. }));
+    }
+
+    #[test]
+    fn rejects_a_sibling_directory_that_shares_a_prefix() {
+        // `..._lua-evil` must not be accepted just because it shares a string
+        // prefix with the `..._lua` jail; `starts_with` matches path
+        // components, not raw substrings.
+        let base = Path::new("/data/user/0/com.poyka.ripdpi/files/lua");
+        let requested = Path::new("/data/user/0/com.poyka.ripdpi/files/lua-evil/x.lua");
+        let error = enforce_jni_jail(base, requested, requested).expect_err("sibling-prefix path is rejected");
+        assert!(matches!(error, LuaBridgeError::ScriptPathEscape { .. }));
+    }
 }

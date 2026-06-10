@@ -205,8 +205,10 @@ end
 "#,
     )
     .expect("write Lua script");
-    let yaml = format!(
-        r#"
+    // The registry jails the Lua VM to the config's base directory, so
+    // `script_paths` must be relative to that base; parse with `dir` as the
+    // base and reference the script by its bare filename.
+    let yaml = r#"
 version: 1
 strategies:
   - id: lua-candidate
@@ -214,11 +216,9 @@ strategies:
       - type: lua
         function: candidate
         script_paths:
-          - "{}"
-"#,
-        script_path.display()
-    );
-    let config = parse_yaml_str(&yaml, ".").expect("YAML config should parse");
+          - "candidate.lua"
+"#;
+    let config = parse_yaml_str(yaml, &dir).expect("YAML config should parse");
     let registry = StrategyRegistry::from_loaded_config(&config).expect("config should materialize");
     let dissect = Dissect::default();
     let conn = ConnectionState::default();

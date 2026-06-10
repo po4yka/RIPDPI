@@ -19,7 +19,7 @@
 
 use std::fmt;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 
 use serde::de::{self, Visitor};
@@ -38,11 +38,19 @@ pub enum StrategyConfigError {
     ConfigRead { path: PathBuf, source: std::io::Error },
     #[error("strategy config metadata for {path} could not be read: {source}")]
     Metadata { path: PathBuf, source: std::io::Error },
+    #[error("host list reference {reference} escapes the strategy-config base directory")]
+    HostListPathEscape { reference: String },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LoadedStrategyConfig {
     pub version: u32,
+    /// Directory the config was loaded from. This is the trust anchor that
+    /// confines both `@file` host-list references and `lua` step
+    /// `script_paths`: an imported (potentially untrusted) config may only
+    /// reach files inside this directory. Always populated by the parse
+    /// entry points; `.` for in-memory `parse_*_str` callers that pass it.
+    pub base_dir: PathBuf,
     pub strategies: Vec<LoadedStrategy>,
 }
 
@@ -348,15 +356,15 @@ fn load_raw(raw: RawConfig, base_dir: &Path) -> Result<LoadedStrategyConfig, Str
             })
         })
         .collect::<Result<Vec<_>, StrategyConfigError>>()?;
-    Ok(LoadedStrategyConfig { version: raw.version, strategies })
+    Ok(LoadedStrategyConfig { version: raw.version, base_dir: base_dir.to_path_buf(), strategies })
 }
 
 fn resolve_hosts(hosts: HostSpec, base_dir: &Path) -> Result<Vec<String>, StrategyConfigError> {
     match hosts {
         HostSpec::Inline(hosts) => Ok(hosts),
         HostSpec::Reference(reference) if reference.starts_with('@') => {
-            let raw_path = Path::new(&reference[1..]);
-            let path = if raw_path.is_absolute() { raw_path.to_path_buf() } else { base_dir.join(raw_path) };
+            let raw = &reference[1..];
+            let path = jail_host_list_path(raw, base_dir, &reference)?;
             let contents = fs::read_to_string(&path)
                 .map_err(|source| StrategyConfigError::HostListRead { path: path.clone(), source })?;
             Ok(contents
@@ -368,6 +376,36 @@ fn resolve_hosts(hosts: HostSpec, base_dir: &Path) -> Result<Vec<String>, Strate
         }
         HostSpec::Reference(host) => Ok(vec![host]),
         HostSpec::Empty => Ok(Vec::new()),
+    }
+}
+
+/// Confines an `@file` host-list reference to the strategy-config base dir.
+///
+/// A strategy config may be imported from an untrusted source, so an `@file`
+/// reference must not be allowed to read arbitrary files. Absolute paths and any
+/// `..` traversal are rejected outright; otherwise the reference is resolved
+/// relative to `base_dir`. When the target file exists it is canonicalized and
+/// asserted to stay within the canonicalized base dir (defends against symlink
+/// escapes); when it does not yet exist the lexical join is returned so the
+/// caller surfaces the original [`HostListRead`](StrategyConfigError::HostListRead)
+/// not-found error.
+fn jail_host_list_path(raw: &str, base_dir: &Path, reference: &str) -> Result<PathBuf, StrategyConfigError> {
+    let raw_path = Path::new(raw);
+    if raw_path.is_absolute() || raw_path.components().any(|component| component == Component::ParentDir) {
+        return Err(StrategyConfigError::HostListPathEscape { reference: reference.to_owned() });
+    }
+    let joined = base_dir.join(raw_path);
+    match (fs::canonicalize(&joined), fs::canonicalize(base_dir)) {
+        (Ok(canonical_target), Ok(canonical_base)) => {
+            if canonical_target.starts_with(&canonical_base) {
+                Ok(canonical_target)
+            } else {
+                Err(StrategyConfigError::HostListPathEscape { reference: reference.to_owned() })
+            }
+        }
+        // Target (or base) is not yet on disk: fall through with the lexical
+        // join, which is already free of `..`/absolute escapes checked above.
+        _ => Ok(joined),
     }
 }
 

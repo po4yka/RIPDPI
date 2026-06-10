@@ -35,6 +35,8 @@ pub mod fixed_config;
 
 pub use fixed_config::{CandidateArm, CandidateArmViolation, FIXED_CONFIG_PROTOCOL_AMNEZIAWG, FixedConfigProtocols};
 
+use std::path::Path;
+
 use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_strategy_config::{LoadedStrategyConfig, OnFail as ConfigOnFail, StrategyStep};
 use ripdpi_strategy_trait::{
@@ -152,7 +154,7 @@ impl StrategyRegistry {
         for strategy in &config.strategies {
             let on_fail = on_fail_from_config(strategy.on_fail);
             for step in &strategy.steps {
-                let resolved = build_step_strategy(step)?;
+                let resolved = build_step_strategy(step, &config.base_dir)?;
                 self.register_with_policy(resolved, on_fail);
             }
         }
@@ -336,10 +338,15 @@ fn build_registered_strategy(
 }
 
 /// Materializes the strategy a parsed config step resolves to.
-fn build_step_strategy(step: &StrategyStep) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
+///
+/// `base_dir` is the strategy config's trust anchor: `lua` step `script_paths`
+/// are confined to it (see [`configured_lua_strategy_from_step`]). An imported,
+/// potentially untrusted config can therefore only reach Lua scripts inside the
+/// directory the config itself was loaded from.
+fn build_step_strategy(step: &StrategyStep, base_dir: &Path) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
     let id = step.kind.registry_id();
     if id == "lua" {
-        return configured_lua_strategy_from_step(step);
+        return configured_lua_strategy_from_step(step, base_dir);
     }
     let registration = step_registration(id).ok_or_else(|| StrategyRegistryError::UnknownType(id.to_owned()))?;
     Ok(build_registered_strategy(registration, &params_from_step(step)))
@@ -410,7 +417,10 @@ fn on_fail_from_config(on_fail: ConfigOnFail) -> OnFail {
 }
 
 #[cfg(feature = "lua-strategies")]
-fn configured_lua_strategy_from_step(step: &StrategyStep) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
+fn configured_lua_strategy_from_step(
+    step: &StrategyStep,
+    base_dir: &Path,
+) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
     let function = step.function.as_deref().map(str::trim).filter(|value| !value.is_empty()).ok_or_else(|| {
         StrategyRegistryError::Lua { function: "<missing>".to_owned(), error: "missing Lua function name".to_owned() }
     })?;
@@ -421,7 +431,10 @@ fn configured_lua_strategy_from_step(step: &StrategyStep) -> Result<Box<dyn Desy
         });
     }
 
-    let engine = ripdpi_strategy_lua::LuaStrategyEngine::new()
+    // Jail the VM to the config's base directory so an imported config's
+    // `script_paths` cannot read absolute or `../`-escaped files. The engine
+    // rejects any path that canonicalizes outside `base_dir`.
+    let engine = ripdpi_strategy_lua::LuaStrategyEngine::new_jailed(base_dir)
         .map_err(|error| StrategyRegistryError::Lua { function: function.to_owned(), error: error.to_string() })?;
     for path in &step.script_paths {
         let path = path.trim();
@@ -441,7 +454,10 @@ fn configured_lua_strategy_from_step(step: &StrategyStep) -> Result<Box<dyn Desy
 }
 
 #[cfg(not(feature = "lua-strategies"))]
-fn configured_lua_strategy_from_step(step: &StrategyStep) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
+fn configured_lua_strategy_from_step(
+    step: &StrategyStep,
+    _base_dir: &Path,
+) -> Result<Box<dyn DesyncStrategy>, StrategyRegistryError> {
     let function = step.function.as_deref().unwrap_or("<missing>");
     Err(StrategyRegistryError::Lua {
         function: function.to_owned(),

@@ -5,7 +5,12 @@ version.workspace = true
 license.workspace = true
 
 [features]
-default = []
+# `lua-strategies` is on by default so the sandboxed VM (and its security
+# regression tests) build and run under the crate's default test command.
+# Downstream crates that must stay Lua-free depend on this crate as `optional`
+# with `default-features = false` and opt in via their own `lua-strategies`
+# feature (see `ripdpi-strategy-registry`, `ripdpi-android`).
+default = ["lua-strategies"]
 lua-strategies = ["dep:mlua"]
 
 [dependencies]
