@@ -31,8 +31,7 @@ pub(in crate::runtime) fn connect_target_with_route(
     loop {
         let attempt_targets =
             preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
-        let _ =
-            note_direct_path_transport_attempt(state, host.as_deref(), &attempt_targets, RuntimeTransportProtocol::Tcp);
+        note_direct_path_transport_attempt(state, host.as_deref(), &attempt_targets, RuntimeTransportProtocol::Tcp)?;
         match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, true) {
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {
@@ -56,13 +55,13 @@ pub(in crate::runtime) fn connect_target_with_route(
                 }
                 note_block_signal_for_failure(state, host.as_deref(), &failure, err.tcp_total_retransmissions);
                 if retries > state.max_route_retries() {
-                    let _ = note_direct_path_all_ips_failed(state, host.as_deref(), &attempt_targets);
+                    note_direct_path_all_ips_failed(state, host.as_deref(), &attempt_targets)?;
                     return Err(err.into_io_error());
                 }
                 emit_failure_classified(state, target, &failure, host.as_deref());
                 let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure)?;
                 let Some(next) = next else {
-                    let _ = note_direct_path_all_ips_failed(state, host.as_deref(), &attempt_targets);
+                    note_direct_path_all_ips_failed(state, host.as_deref(), &attempt_targets)?;
                     return Err(err.into_io_error());
                 };
                 route = next;
