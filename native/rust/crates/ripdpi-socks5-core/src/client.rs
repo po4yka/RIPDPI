@@ -186,6 +186,19 @@ where
         let user_bytes = username.as_bytes();
         let pass_bytes = password.as_bytes();
 
+        // The username/password sub-negotiation (RFC 1929) encodes each length
+        // as a single byte (ULEN/PLEN). A credential longer than 255 bytes
+        // would silently truncate the `as u8` cast, desynchronizing the auth
+        // frame and producing a spurious "auth rejected" the caller cannot
+        // distinguish from a real failure. Reject it explicitly instead — this
+        // matches the bounds check already enforced in `client::outbound`.
+        if user_bytes.len() > 255 {
+            return Err(SocksError::ArgumentInputError("username exceeds 255 bytes (SOCKS5 RFC 1929 ULEN limit)"));
+        }
+        if pass_bytes.len() > 255 {
+            return Err(SocksError::ArgumentInputError("password exceeds 255 bytes (SOCKS5 RFC 1929 PLEN limit)"));
+        }
+
         let mut packet: Vec<u8> = vec![1, user_bytes.len() as u8];
         packet.extend(user_bytes);
         packet.push(pass_bytes.len() as u8);
@@ -570,5 +583,103 @@ where
 
     fn poll_shutdown(mut self: Pin<&mut Self>, context: &mut std::task::Context) -> Poll<io::Result<()>> {
         Pin::new(&mut self.socket).poll_shutdown(context)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::DuplexStream;
+
+    /// Build a `Socks5Stream` over an in-memory duplex socket without running
+    /// the SOCKS handshake, so a single sub-negotiation method can be exercised
+    /// in isolation. Returns the stream and the peer half (server side).
+    fn duplex_stream() -> (Socks5Stream<DuplexStream>, DuplexStream) {
+        let (client, server) = tokio::io::duplex(1024);
+        let stream = Socks5Stream { socket: client, target_addr: None, config: Config::default() };
+        (stream, server)
+    }
+
+    fn password_methods(username: &str, password: &str) -> Vec<AuthenticationMethod> {
+        vec![
+            AuthenticationMethod::None,
+            AuthenticationMethod::Password { username: username.to_owned(), password: password.to_owned() },
+        ]
+    }
+
+    /// A 256-byte username must be rejected with a clean error rather than
+    /// silently truncating the ULEN byte and desynchronizing the auth frame.
+    #[tokio::test]
+    async fn use_password_auth_rejects_oversized_username() {
+        let (mut stream, _server) = duplex_stream();
+        let methods = password_methods(&"u".repeat(256), "secret");
+
+        let result = stream.use_password_auth(methods).await;
+
+        match result {
+            Err(SocksError::ArgumentInputError(msg)) => assert!(msg.contains("username")),
+            other => panic!("expected ArgumentInputError for oversized username, got {other:?}"),
+        }
+    }
+
+    /// A 256-byte password must be rejected the same way (PLEN limit).
+    #[tokio::test]
+    async fn use_password_auth_rejects_oversized_password() {
+        let (mut stream, _server) = duplex_stream();
+        let methods = password_methods("user", &"p".repeat(256));
+
+        let result = stream.use_password_auth(methods).await;
+
+        match result {
+            Err(SocksError::ArgumentInputError(msg)) => assert!(msg.contains("password")),
+            other => panic!("expected ArgumentInputError for oversized password, got {other:?}"),
+        }
+    }
+
+    /// The rejection must happen *before* anything is written to the socket,
+    /// otherwise a truncated/partial auth frame would already be on the wire.
+    /// We assert the server half observes zero bytes from the failed attempt.
+    #[tokio::test]
+    async fn oversized_credential_writes_no_bytes() {
+        let (mut stream, mut server) = duplex_stream();
+        let methods = password_methods(&"u".repeat(300), "secret");
+
+        let result = stream.use_password_auth(methods).await;
+        assert!(matches!(result, Err(SocksError::ArgumentInputError(_))));
+
+        // Drop the client side so the server read returns EOF promptly rather
+        // than blocking. No bytes should have been written.
+        drop(stream);
+        let mut buf = [0u8; 16];
+        let n = server.read(&mut buf).await.expect("server read");
+        assert_eq!(n, 0, "no auth bytes should be written when credentials are rejected");
+    }
+
+    /// A 255-byte credential is exactly at the limit and must still be encoded
+    /// (the length check is `> 255`, not `>= 255`). We can't complete the auth
+    /// without a cooperating server, so we just confirm the frame is written
+    /// with the correct ULEN/PLEN bytes by reading the client's output.
+    #[tokio::test]
+    async fn max_length_credential_encodes_full_frame() {
+        let (mut stream, mut server) = duplex_stream();
+        let username = "u".repeat(255);
+        let methods = password_methods(&username, "p");
+
+        // Spawn the auth attempt; it will write the frame then block on the
+        // server reply, which we read and answer with a success code.
+        let handle = tokio::spawn(async move { stream.use_password_auth(methods).await });
+
+        // Frame layout: [0x01, ULEN(255), username(255), PLEN(1), password(1)]
+        let mut frame = vec![0u8; 1 + 1 + 255 + 1 + 1];
+        server.read_exact(&mut frame).await.expect("read auth frame");
+        assert_eq!(frame[0], 0x01, "auth sub-negotiation version");
+        assert_eq!(frame[1], 255, "ULEN must encode the full 255-byte username, not a truncated value");
+        assert_eq!(&frame[2..257], username.as_bytes());
+        assert_eq!(frame[257], 1, "PLEN");
+
+        // Reply with success so the spawned task completes cleanly.
+        server.write_all(&[consts::SOCKS5_VERSION, consts::SOCKS5_REPLY_SUCCEEDED]).await.expect("write reply");
+        let result = handle.await.expect("join");
+        assert!(result.is_ok(), "max-length credential should authenticate, got {result:?}");
     }
 }
