@@ -56,12 +56,13 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | diagnostics | [Add network-security-config with opportunistic domainEncryption](issues/add-network-security-config-with-opportunistic-domainencryption.md) | — |
 | medium | outbound | [Surface Xray diagnostics and telemetry](issues/surface-xray-diagnostics-and-telemetry.md) | epic-xray-provider-mode |
 
-## Todo (10)
+## Todo (11)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
 | high | android | [Redact raw BSSID from detection Finding strings and CapturedWifiIdentity](issues/redact-raw-bssid-in-detection-findings.md) | epic-june-2026-audit-remediation |
 | high | relay | [Fix ripdpi-relay-core session leak on RelayRuntime::stop()](issues/fix-relay-core-session-leak-on-shutdown.md) | epic-june-2026-audit-remediation |
+| high | rust-native | [Sandbox the Lua strategy-config VM and jail script paths](issues/sandbox-lua-strategy-config-vm-and-jail-script-paths.md) | — |
 | medium | android | [Harden JNI callbacks: daemon thread-attach, nullable array returns, drop runBlocking](issues/harden-jni-callback-thread-attach-and-null-sentinels.md) | epic-june-2026-audit-remediation |
 | medium | diagnostics | [Recover from runner-thread panic in monitor-engine coordinator instead of killing the scan](issues/recover-monitor-coordinator-worker-panic.md) | epic-june-2026-audit-remediation |
 | medium | proxy | [Fix SOCKS4 reply panic and legacy SOCKS5 credential truncation in ripdpi-socks5-core](issues/fix-socks5-core-panic-and-credential-truncation.md) | epic-june-2026-audit-remediation |
@@ -71,7 +72,7 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | rust-native | [Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast](issues/centralize-unsafe-javavm-from-raw-and-signal-cast.md) | epic-june-2026-audit-remediation |
 | medium | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | epic-protocol-conformance-tests |
 
-## Backlog (22)
+## Backlog (23)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -92,6 +93,7 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | transport | [Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22)](issues/wire-hysteria-realm-stun-nat-traversal.md) | — |
 | medium | ui | [Decompose BlockcheckViewModel, DetectionCheckViewModel, BackupRestoreViewModel](issues/decompose-god-viewmodels-blockcheck-detection-backup.md) | epic-june-2026-audit-remediation |
 | medium | ui | [Key session-scoped LaunchedEffect refreshes on the session id, not Unit](issues/fix-launchedeffect-unit-session-keyed-refresh.md) | epic-june-2026-audit-remediation |
+| medium | vpn | [Verify no leak/black-hole window between TUN establish() and native relay readiness](issues/verify-no-leak-window-between-tun-establish-and-relay-ready.md) | — |
 | low | relay | [Guard RelayBackend manual match arms against silently-omitted QUIC variants](issues/guard-relaybackend-quic-snapshot-exhaustiveness.md) | epic-june-2026-audit-remediation |
 | low | rust-native | [Add upstream HTTP and SOCKS5 proxy override for diagnostic probes](issues/add-upstream-http-and-socks5-proxy-override-for-diagnostic-probes.md) | — |
 | low | rust-native | [Reduce pub surface of monitor-engine/config and add golden contracts for high-fan-in crates](issues/reduce-pub-surface-monitor-engine-and-config.md) | epic-june-2026-audit-remediation |
