@@ -124,7 +124,7 @@ pub fn has_raw_socket_caps() -> bool {
 /// Only IPv4 connections are supported; IPv6 returns `Unsupported`.
 #[cfg(target_os = "linux")]
 pub fn send_spoof_segment(stream: &TcpStream, forged_hello: &[u8], method: SpoofMethod) -> io::Result<()> {
-    use std::net::{IpAddr, SocketAddr};
+    use std::net::SocketAddr;
 
     use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 

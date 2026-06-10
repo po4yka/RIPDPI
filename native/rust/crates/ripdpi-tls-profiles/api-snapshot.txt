@@ -230,10 +230,15 @@ pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::grease_style: &'static str
 pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::record_choreography: ripdpi_tls_profiles::RecordChoreography
 pub ripdpi_tls_profiles::TlsTemplateFirstFlightPlan::record_payload_boundaries: alloc::vec::Vec<usize>
 pub const ripdpi_tls_profiles::AVAILABLE_PROFILES: &[&str]
+pub const ripdpi_tls_profiles::ROTATING_PROFILE_MARKER: &str
+pub const ripdpi_tls_profiles::SECP256R1_GROUP_ID: u16
+pub const ripdpi_tls_profiles::X25519MLKEM768_GROUP_ID: u16
+pub const ripdpi_tls_profiles::X25519_GROUP_ID: u16
 pub trait ripdpi_tls_profiles::EchPublicNameVerifier
 pub fn ripdpi_tls_profiles::EchPublicNameVerifier::verify_ech_public_name(&self, &str) -> bool
 pub trait ripdpi_tls_profiles::OutboundEchResolver
 pub fn ripdpi_tls_profiles::OutboundEchResolver::resolve_https_ech_config_list(&self, &ripdpi_tls_profiles::ech::EchLookupRequest<'_>) -> core::result::Result<ripdpi_tls_profiles::ech::EchLookupOutcome, ripdpi_tls_profiles::ech::EchFacadeError>
+pub fn ripdpi_tls_profiles::apply_kem_groups(&mut boring::ssl::connector::SslConnectorBuilder, &[alloc::string::String]) -> core::result::Result<(), ripdpi_tls_profiles::Error>
 pub fn ripdpi_tls_profiles::apply_record_choreography(&str, &[u8]) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_tls_profiles::build_connector(&str, bool) -> core::result::Result<boring::ssl::connector::SslConnector, ripdpi_tls_profiles::Error>
 pub fn ripdpi_tls_profiles::configure_boring_ech(&mut boring::ssl::connector::ConnectConfiguration, core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>
@@ -242,15 +247,20 @@ pub fn ripdpi_tls_profiles::configure_ech(&mut boring::ssl::connector::ConnectCo
 pub fn ripdpi_tls_profiles::configure_rustls_ech(rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVersions>, &ripdpi_tls_profiles::ech::EchSetup) -> core::result::Result<rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVerifier>, ripdpi_tls_profiles::ech::EchFacadeError>
 pub fn ripdpi_tls_profiles::extract_boring_ech_rejection<S>(&boring::ssl::MidHandshakeSslStream<S>) -> core::option::Option<ripdpi_tls_profiles::ech::EchRejectedHandshake>
 pub fn ripdpi_tls_profiles::fingerprint_rotation_count() -> u64
+pub fn ripdpi_tls_profiles::is_rotating_profile(&str) -> bool
+pub fn ripdpi_tls_profiles::normalize_kem_groups(&[alloc::string::String]) -> core::result::Result<alloc::string::String, ripdpi_tls_profiles::Error>
+pub fn ripdpi_tls_profiles::note_pq_kem_negotiation(core::option::Option<u16>)
 pub fn ripdpi_tls_profiles::plan_first_flight(&str, &[u8]) -> core::option::Option<ripdpi_tls_profiles::TlsTemplateFirstFlightPlan>
 pub fn ripdpi_tls_profiles::planned_record_payload_boundaries(&str, &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
 pub fn ripdpi_tls_profiles::planned_record_payload_lengths(&str, &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>
+pub fn ripdpi_tls_profiles::pq_kem_negotiated_count() -> u64
 pub fn ripdpi_tls_profiles::prepare_ech_retry(&ripdpi_tls_profiles::ech::EchRejectedHandshake, &impl ripdpi_tls_profiles::ech::EchPublicNameVerifier, &mut ripdpi_tls_profiles::ech::EchRetryState) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
 pub fn ripdpi_tls_profiles::profile_catalog() -> &'static ripdpi_tls_profiles::ProfileCatalog
 pub fn ripdpi_tls_profiles::profile_catalog_version() -> &'static str
 pub fn ripdpi_tls_profiles::profile_metadata(&str) -> ripdpi_tls_profiles::ProfileMetadata
 pub fn ripdpi_tls_profiles::reality_ech_parity(&ripdpi_tls_profiles::ProfileConfig, &str, ripdpi_tls_profiles::CoverEchEvidence) -> ripdpi_tls_profiles::RealityEchParity
 pub fn ripdpi_tls_profiles::require_ech_backend_support(ripdpi_tls_profiles::ech::OutboundEchBackend, core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>
+pub fn ripdpi_tls_profiles::resolve_connection_profile(&str, &str) -> &'static str
 pub fn ripdpi_tls_profiles::resolve_outbound_ech(&ripdpi_tls_profiles::ech::EchLookupRequest<'_>, ripdpi_tls_profiles::ech::EchPolicy, &impl ripdpi_tls_profiles::ech::OutboundEchResolver) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
 pub fn ripdpi_tls_profiles::select_profile_for_connection(bool, &str, &str, u64, &[alloc::string::String]) -> &'static str
 pub fn ripdpi_tls_profiles::select_rotated_profile(&str, u64, &[alloc::string::String]) -> &'static str
