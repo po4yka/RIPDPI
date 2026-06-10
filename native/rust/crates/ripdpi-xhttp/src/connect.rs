@@ -10,6 +10,11 @@ use crate::config::XhttpMode;
 use crate::finalmask;
 use crate::pool::PooledConnection;
 
+// NOT cancel-safe: dropping this future mid-flight may abandon a partially
+// established TCP/TLS/H2 connection without returning it to the pool; the caller
+// must treat a cancelled connect as "no connection" and retry from scratch.
+// (PQ-KEM telemetry only fires after a fully-completed handshake, so a cancelled
+// connect never miscounts.)
 pub(crate) async fn create_connection(
     mode: &XhttpMode,
     max_concurrent_streams: usize,
@@ -34,8 +39,17 @@ pub(crate) async fn create_connection(
             // above inherits rotation through `connect_reality_tls_over`.)
             let profile_name =
                 ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &config.server_name);
-            let connector = ripdpi_tls_profiles::build_connector(profile_name, true)
+            // Equivalent to `build_connector(profile_name, true)` (cert
+            // verification stays ON — `configure_builder` does not disable it),
+            // but split so an optional post-quantum KEM group override can be
+            // applied AFTER profile resolution and BEFORE `.build()`.
+            let mut builder = ripdpi_tls_profiles::configure_builder(profile_name)
                 .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
+            if let Some(kem_groups) = config.kem_groups.as_deref() {
+                ripdpi_tls_profiles::apply_kem_groups(&mut builder, kem_groups)
+                    .map_err(|error| io::Error::other(format!("TLS KEM groups: {error}")))?;
+            }
+            let connector = builder.build();
             let mut ssl = connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
             ripdpi_tls_profiles::configure_boring_ech(&mut ssl, config.ech_config.as_ref())
                 .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP ECH: {error}")))?;
@@ -48,6 +62,10 @@ pub(crate) async fn create_connection(
                 }
                 io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP TLS handshake: {error}"))
             })?;
+            // PQ-KEM negotiation telemetry: increments `tls.pq_kem_negotiated`
+            // iff the negotiated group is the hybrid X25519MLKEM768.
+            // Privacy-safe (no authority / SNI / IP in the event).
+            ripdpi_tls_profiles::note_pq_kem_negotiation(tls.ssl().curve());
             TokioIo::new(tls)
         }
     };

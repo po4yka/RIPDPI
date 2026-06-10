@@ -9,6 +9,7 @@ pub mod ech;
 mod edge;
 mod firefox;
 mod invariants;
+mod pq_kem;
 mod profile;
 mod reality_ech;
 mod record_choreography;
@@ -27,6 +28,10 @@ pub use ech::{
     EchPolicy, EchPublicNameVerifier, EchRejectedHandshake, EchRetryState, EchSetup, OutboundEchBackend,
     OutboundEchConfig, OutboundEchResolver, configure_boring_ech, configure_ech, configure_rustls_ech,
     extract_boring_ech_rejection, prepare_ech_retry, require_ech_backend_support, resolve_outbound_ech,
+};
+pub use pq_kem::{
+    SECP256R1_GROUP_ID, X25519_GROUP_ID, X25519MLKEM768_GROUP_ID, apply_kem_groups, normalize_kem_groups,
+    note_pq_kem_negotiation, pq_kem_negotiated_count,
 };
 pub use profile::{
     AVAILABLE_PROFILES, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata, ProfileParityTargets,

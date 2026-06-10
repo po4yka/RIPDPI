@@ -36,6 +36,10 @@ where
     connect_reality_tls_inner(transport, config).await
 }
 
+// NOT cancel-safe: if this future is dropped mid-handshake the partial TLS
+// handshake state and the in-flight `tls_stream` are discarded; the caller must
+// restart the connection from scratch rather than resume. (Telemetry only fires
+// after a fully-completed handshake, so a cancelled handshake never miscounts.)
 async fn connect_reality_tls_inner<S>(stream: S, config: &VlessRealityConfig) -> io::Result<SslStream<S>>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -54,6 +58,14 @@ where
         ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &config.server_name);
     let mut builder = ripdpi_tls_profiles::configure_builder(profile_name)
         .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
+
+    // Optional post-quantum KEM group override: replace the profile's static
+    // curve list with the configured ordered group list (applied AFTER profile
+    // resolution, BEFORE `.build()`).
+    if let Some(kem_groups) = config.kem_groups.as_deref() {
+        ripdpi_tls_profiles::apply_kem_groups(&mut builder, kem_groups)
+            .map_err(|error| io::Error::other(format!("TLS KEM groups: {error}")))?;
+    }
 
     // Reality uses its own auth model — disable standard cert
     // verification; the server will present a fake cert that we
@@ -124,6 +136,11 @@ where
         return Err(io::Error::other("Reality client_hello_cb reported failure (no X25519 key share or seal error)"));
     }
     drop(hook_guard);
+
+    // PQ-KEM negotiation telemetry: increments `tls.pq_kem_negotiated` iff the
+    // negotiated group is the hybrid X25519MLKEM768. Privacy-safe (no authority
+    // / SNI / IP in the event).
+    ripdpi_tls_profiles::note_pq_kem_negotiation(tls_stream.ssl().curve());
 
     tracing::debug!("Reality TLS handshake completed to {}", config.server_name);
     Ok(tls_stream)

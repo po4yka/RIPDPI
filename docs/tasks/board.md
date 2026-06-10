@@ -6,7 +6,7 @@ hand-edit it; regenerate it from the issue frontmatter (see `README.md` § Regen
 
 _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`dropped` files are deleted)._
 
-## Doing (23)
+## Doing (22)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -27,7 +27,6 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | medium | outbound | [Add Xray provider regression matrix](issues/add-xray-provider-regression-matrix.md) | epic-xray-provider-mode |
 | medium | outbound | [Finish AnyTLS profile editor and compatibility gaps](issues/add-anytls-outbound-client-crate-and-profile-editor.md) | epic-extended-outbound-protocol-support |
 | medium | routing | [Adopt process-based per-package routing via Xray TUN routeOnly](issues/adopt-process-based-per-package-routing-via-xray-tun-routeonly.md) | epic-fail-closed-android-vpn-policy-engine |
-| medium | rust-native | [Add post-quantum hybrid KEM (X25519MLKEM768) for outbound TLS handshakes](issues/add-post-quantum-hybrid-kem-x25519mlkem768-for-tls-handshakes.md) | epic-tls-handshake-hardening |
 | medium | rust-native | [Add TUIC v4 fallback or explicit version detection](issues/add-tuic-v4-fallback-or-version-detection.md) | — |
 | medium | service | [Wire NaiveProxy helper probe into manager startup](issues/wire-naiveproxy-probe-into-manager-startup.md) | — |
 | medium | testing | [Add Criterion throughput benchmarks for each transport](issues/add-protocol-throughput-benchmarks-for-each-transport.md) | epic-protocol-conformance-tests |

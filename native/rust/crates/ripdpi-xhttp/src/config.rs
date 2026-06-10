@@ -126,6 +126,11 @@ pub struct XhttpTlsConfig {
     pub protocol_mode: XhttpProtocolMode,
     /// Optional ECH config for owned xHTTP TLS outbounds.
     pub ech_config: Option<OutboundEchConfig>,
+    /// Optional ordered post-quantum KEM group override (e.g.
+    /// `["X25519MLKEM768", "X25519", "P256"]`). When `Some`, it replaces the
+    /// profile's static curve list before the connector is built. `None`
+    /// (default) keeps the profile's curve template.
+    pub kem_groups: Option<Vec<String>>,
 }
 
 impl XhttpTlsConfig {
@@ -153,7 +158,18 @@ impl XhttpTlsConfig {
             flow: VlessFlow::default(),
             protocol_mode: XhttpProtocolMode::default(),
             ech_config: None,
+            kem_groups: None,
         })
+    }
+
+    /// Override the post-quantum KEM group order for this connection (builder
+    /// style). When set, the ordered list (e.g.
+    /// `["X25519MLKEM768", "X25519", "P256"]`) replaces the profile's curve
+    /// template before the connector is built.
+    #[must_use]
+    pub fn with_kem_groups(mut self, kem_groups: Vec<String>) -> Self {
+        self.kem_groups = Some(kem_groups);
+        self
     }
 
     /// Replace the flow selection (builder style). The default is
