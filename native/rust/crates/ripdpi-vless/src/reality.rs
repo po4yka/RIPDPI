@@ -43,7 +43,16 @@ where
     // 1. Build a fresh SSL connector for this connection. Each
     //    Reality connect gets its own SSL_CTX so the
     //    `client_hello_cb` slot on the CTX is single-use.
-    let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
+    //
+    //    Resolve the fingerprint profile ONCE per connection: when the configured
+    //    profile is the `rotating` marker, this draws a fresh uTLS fingerprint
+    //    from the rotation pool (per-connection JA3/JA4 rotation); otherwise it is
+    //    the configured profile. The same resolved name MUST feed both the
+    //    connector build and the ECH-parity decision below, so a rotated
+    //    connection's ClientHello is internally consistent.
+    let profile_name =
+        ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &config.server_name);
+    let mut builder = ripdpi_tls_profiles::configure_builder(profile_name)
         .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
 
     // Reality uses its own auth model — disable standard cert
@@ -65,7 +74,7 @@ where
     // baseline. The real-ECH facade (`configure_ech` / `resolve_outbound_ech`
     // / `prepare_ech_retry`) is intentionally NOT used on the REALITY path.
     match ripdpi_tls_profiles::reality_ech_parity(
-        ripdpi_tls_profiles::selected_profile_config(&config.tls_fingerprint_profile),
+        ripdpi_tls_profiles::selected_profile_config(profile_name),
         &config.server_name,
         ripdpi_tls_profiles::CoverEchEvidence::Unknown,
     ) {

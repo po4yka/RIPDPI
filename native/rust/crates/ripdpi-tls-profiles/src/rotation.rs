@@ -1,3 +1,4 @@
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use sha2::{Digest, Sha256};
@@ -157,6 +158,50 @@ pub fn select_profile_for_connection(
     select_rotated_profile(domain, session_seed, allowed_profiles)
 }
 
+/// Reserved `tls_fingerprint_profile` value that activates per-connection uTLS
+/// fingerprint rotation (`Profile::Rotating`). When an outbound's configured
+/// profile equals this marker, [`resolve_connection_profile`] draws a fresh
+/// fingerprint from the process-global default rotation pool for every
+/// connection instead of mimicking one fixed browser.
+pub const ROTATING_PROFILE_MARKER: &str = "rotating";
+
+/// Process-global selector over the default one-per-family pool, built lazily so
+/// the rotation surface costs nothing until a profile opts in.
+static DEFAULT_SELECTOR: OnceLock<RotatingProfileSelector> = OnceLock::new();
+
+/// Monotonic per-connection seed so adjacent outbound connections rotate to a
+/// fresh (but deterministic-per-seed) fingerprint. Wrapping on overflow is
+/// harmless — the seed only needs to vary between connections.
+static ROTATION_CONNECTION_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// Whether `name` requests per-connection rotation rather than a fixed profile.
+#[must_use]
+pub fn is_rotating_profile(name: &str) -> bool {
+    name == ROTATING_PROFILE_MARKER
+}
+
+/// Resolve the concrete `'static` profile name an outbound TLS connection should
+/// mimic when connecting to `authority`.
+///
+/// If `requested` is [`ROTATING_PROFILE_MARKER`], a fresh fingerprint is drawn
+/// from the default rotation pool keyed by `authority` and a monotonic
+/// per-connection seed, incrementing the `tls.fingerprint_rotation_active`
+/// counter once. Otherwise the requested name is canonicalised via
+/// [`profile::lookup_profile`] (unknown names keep the historical
+/// default-profile fallback). The returned name is suitable for
+/// [`crate::configure_builder`], [`crate::build_connector`], and
+/// [`crate::selected_profile_config`].
+#[must_use]
+pub fn resolve_connection_profile(requested: &str, authority: &str) -> &'static str {
+    if is_rotating_profile(requested) {
+        let selector = DEFAULT_SELECTOR.get_or_init(RotatingProfileSelector::with_default_pool);
+        let seed = ROTATION_CONNECTION_SEQ.fetch_add(1, Ordering::Relaxed);
+        selector.select(authority, seed)
+    } else {
+        profile::lookup_profile(requested).name
+    }
+}
+
 fn weighted_pick(candidates: &[(&str, u32)], hash: u64) -> &'static str {
     let total: u32 = candidates.iter().map(|(_, weight)| weight).sum();
     if total == 0 {
@@ -184,7 +229,10 @@ fn stable_rotation_hash(authority: &str, session_seed: u64, profile_set_id: &str
 mod selector_tests {
     use std::collections::{HashMap, HashSet};
 
-    use super::{RotatingProfileSelector, fingerprint_rotation_count};
+    use super::{
+        DEFAULT_ROTATION_POOL, ROTATING_PROFILE_MARKER, RotatingProfileSelector, fingerprint_rotation_count,
+        is_rotating_profile, resolve_connection_profile,
+    };
 
     #[test]
     fn new_rejects_empty_and_unknown_pools() {
@@ -244,5 +292,33 @@ mod selector_tests {
             let _ = selector.select("c.example", seed);
         }
         assert_eq!(fingerprint_rotation_count() - before, 10);
+    }
+
+    #[test]
+    fn resolve_connection_profile_passes_through_fixed_names() {
+        assert!(is_rotating_profile(ROTATING_PROFILE_MARKER));
+        assert!(!is_rotating_profile("firefox_stable"));
+        // A fixed profile name resolves to itself.
+        assert_eq!(resolve_connection_profile("firefox_stable", "x.example"), "firefox_stable");
+        // Unknown names keep the historical default-profile fallback (chrome_stable).
+        assert_eq!(resolve_connection_profile("unknown_profile_xyz", "x.example"), "chrome_stable");
+    }
+
+    #[test]
+    fn resolve_connection_profile_rotates_and_counts_for_the_marker() {
+        // nextest process-per-test isolation: this process's counter is ours alone.
+        let before = fingerprint_rotation_count();
+        let resolved: Vec<&str> =
+            (0..100).map(|_| resolve_connection_profile(ROTATING_PROFILE_MARKER, "rot.example")).collect();
+        // Never leaks the marker; every resolution is a real pool profile.
+        for name in &resolved {
+            assert_ne!(*name, ROTATING_PROFILE_MARKER);
+            assert!(DEFAULT_ROTATION_POOL.contains(name), "resolved {name} is not in the rotation pool");
+        }
+        // The marker actually rotates the fingerprint across connections.
+        let distinct: HashSet<&str> = resolved.iter().copied().collect();
+        assert!(distinct.len() >= 2, "marker did not rotate across connections: {distinct:?}");
+        // Each rotated resolve bumps the pull-model telemetry counter exactly once.
+        assert_eq!(fingerprint_rotation_count() - before, 100);
     }
 }

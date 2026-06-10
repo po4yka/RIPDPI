@@ -38,8 +38,8 @@ pub use record_choreography::{
     planned_record_payload_boundaries, planned_record_payload_lengths, selected_record_choreography,
 };
 pub use rotation::{
-    RotatingProfileSelector, fingerprint_rotation_count, select_profile_for_connection, select_rotated_profile,
-    select_rotated_profile_with_set,
+    ROTATING_PROFILE_MARKER, RotatingProfileSelector, fingerprint_rotation_count, is_rotating_profile,
+    resolve_connection_profile, select_profile_for_connection, select_rotated_profile, select_rotated_profile_with_set,
 };
 
 #[derive(Debug, Error)]

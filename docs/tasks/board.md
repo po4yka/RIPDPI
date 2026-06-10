@@ -6,7 +6,7 @@ hand-edit it; regenerate it from the issue frontmatter (see `README.md` § Regen
 
 _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`dropped` files are deleted)._
 
-## Doing (24)
+## Doing (23)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -16,7 +16,6 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | high | epic | [Epic - June 2026 full-project audit remediation](issues/epic-june-2026-audit-remediation.md) | — |
 | high | epic | [Epic - TLS/QUIC handshake hardening](issues/epic-tls-handshake-hardening.md) | — |
 | high | outbound | [Bridge TUN traffic through Xray local inbound](issues/bridge-tun-traffic-through-xray-local-inbound.md) | epic-xray-provider-mode |
-| high | rust-native | [Add uTLS per-connection TLS-fingerprint rotation for outbound TLS handshakes](issues/add-utls-per-connection-tls-fingerprint-rotation.md) | epic-tls-handshake-hardening |
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | — |
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | — |
 | high | transport | [Enforce per-exit-IP concurrent-TLS-connection cap (~12, RU home-ISP policing)](issues/enforce-per-exit-ip-concurrent-tls-cap.md) | — |

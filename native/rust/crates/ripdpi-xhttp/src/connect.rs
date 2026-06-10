@@ -28,7 +28,13 @@ pub(crate) async fn create_connection(
                 connect_tcp_stream(&config.server, config.port, config.bind_ip).await?,
                 &config.finalmask,
             )?;
-            let connector = ripdpi_tls_profiles::build_connector(&config.tls_fingerprint_profile, true)
+            // Resolve the fingerprint profile per connection: the `rotating`
+            // marker draws a fresh uTLS fingerprint from the rotation pool,
+            // otherwise the configured profile is used as-is. (The Reality branch
+            // above inherits rotation through `connect_reality_tls_over`.)
+            let profile_name =
+                ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &config.server_name);
+            let connector = ripdpi_tls_profiles::build_connector(profile_name, true)
                 .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
             let mut ssl = connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
             ripdpi_tls_profiles::configure_boring_ech(&mut ssl, config.ech_config.as_ref())

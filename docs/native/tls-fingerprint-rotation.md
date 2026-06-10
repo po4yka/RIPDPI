@@ -58,6 +58,39 @@ name. Selection is:
 The resolved profile name is then passed to `configure_builder` /
 `build_connector` exactly like a static profile.
 
+## Enabling per-connection rotation
+
+Rotation is opt-in per outbound, activated by setting the outbound's
+`tls_fingerprint_profile` to the reserved marker value `"rotating"`
+(`ripdpi_tls_profiles::ROTATING_PROFILE_MARKER`) instead of a concrete profile
+name. At connect time the transport calls
+
+```rust
+let profile_name = ripdpi_tls_profiles::resolve_connection_profile(
+    &config.tls_fingerprint_profile, // "rotating" → rotate; else pass-through
+    &config.server_name,             // authority, keys the deterministic hash
+);
+```
+
+`resolve_connection_profile` draws a fresh fingerprint from the default pool for
+each connection (using a process-global selector and a monotonic per-connection
+seed) when the marker is set, and otherwise canonicalises the configured profile
+name unchanged. A single resolved name then feeds **both** the connector build
+and any downstream profile-dependent decision (e.g. the REALITY ECH-parity
+choice), so a rotated connection's ClientHello stays internally consistent.
+
+Transports that honour the marker:
+
+| Outbound        | Path                                               |
+| --------------- | -------------------------------------------------- |
+| VLESS + REALITY | `ripdpi-vless` `reality::connect_reality_tls_inner` |
+| xHTTP (TLS)     | `ripdpi-xhttp` `connect::create_connection`        |
+| xHTTP (REALITY) | inherits rotation via the VLESS path above          |
+
+ShadowTLS and AnyTLS do **not** consume `ripdpi-tls-profiles` (they carry their
+own TLS layer), so the marker is a no-op there; rotation for those transports is
+out of scope for this contract.
+
 ## Telemetry
 
 Each rotated selection increments the `tls.fingerprint_rotation_active`
@@ -68,12 +101,13 @@ chosen profile name (never any credential or destination identifier).
 ## Integration status
 
 - **Done:** `RotatingProfileSelector` + default pool, deterministic
-  per-connection selection, uniformity/freshness/counter tests, and the
-  `tls.fingerprint_rotation_active` counter.
-- **Pending:** an authentic iOS 18 Safari profile (above); wiring a `"rotating"`
-  profile option through the VLESS / xHTTP / ShadowTLS outbound configs so the
-  selector is consulted per connection at those call sites; and surfacing the
-  counter through the Android telemetry ring.
+  per-connection selection, uniformity/freshness/counter tests, the
+  `tls.fingerprint_rotation_active` counter, and the `"rotating"` marker wired
+  through the VLESS+REALITY and xHTTP outbound call sites via
+  `resolve_connection_profile` (xHTTP-over-REALITY inherits it).
+- **Pending:** an authentic iOS 18 Safari profile (above); and surfacing the
+  `tls.fingerprint_rotation_active` counter through the Android telemetry ring
+  (the counter exists and increments; only the ring export is outstanding).
 
 [JA3]: https://github.com/salesforce/ja3
 [JA4]: https://github.com/FoxIO-LLC/ja4
