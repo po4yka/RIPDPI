@@ -88,7 +88,11 @@ impl ExitIpSessionLimiter {
     pub fn try_acquire(&self, exit_ip: IpAddr, transport: &str) -> Option<ExitIpSessionGuard> {
         let cap = self.caps.cap_for(transport);
         let key = (exit_ip, transport.to_owned());
-        let mut counts = self.counts.lock().expect("exit-ip session counts mutex poisoned");
+        // Advisory cap accounting (see module doc): a poisoned counter is
+        // recovered rather than propagated/panicked. The count may be slightly
+        // inconsistent after a panicking holder, which is acceptable for
+        // throughput shaping that is not a security boundary.
+        let mut counts = self.counts.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let active = counts.entry(key.clone()).or_insert(0);
         if *active >= cap {
             return None;
@@ -97,11 +101,25 @@ impl ExitIpSessionLimiter {
         Some(ExitIpSessionGuard { counts: Arc::clone(&self.counts), key })
     }
 
+    /// Poison the shared counts mutex (test-only) so the poison-recovery paths
+    /// can be exercised without `unsafe` or a real concurrent panic race.
+    #[cfg(all(test, not(feature = "loom")))]
+    fn poison_for_test(&self) {
+        let counts = Arc::clone(&self.counts);
+        // A thread that panics while holding the lock leaves the mutex poisoned.
+        let _ = std::thread::spawn(move || {
+            let _held = counts.lock().expect("lock to poison");
+            panic!("intentional poison");
+        })
+        .join();
+    }
+
     /// Current number of in-flight sessions for `(exit_ip, transport)`.
     #[must_use]
     pub fn active(&self, exit_ip: IpAddr, transport: &str) -> usize {
         let key = (exit_ip, transport.to_owned());
-        self.counts.lock().expect("exit-ip session counts mutex poisoned").get(&key).copied().unwrap_or(0)
+        // Advisory read: recover a poisoned counter instead of panicking.
+        self.counts.lock().unwrap_or_else(std::sync::PoisonError::into_inner).get(&key).copied().unwrap_or(0)
     }
 }
 
@@ -114,7 +132,12 @@ pub struct ExitIpSessionGuard {
 
 impl Drop for ExitIpSessionGuard {
     fn drop(&mut self) {
-        let mut counts = self.counts.lock().expect("exit-ip session counts mutex poisoned");
+        // NEVER panic in Drop: a panic during unwinding aborts the process on
+        // stable Rust. The cap is advisory throughput shaping, not a security
+        // boundary (see module doc), so a poisoned counter on release is
+        // recovered via `into_inner` rather than panicked. A poisoned counter
+        // may be slightly inconsistent; the decrement below is best-effort.
+        let mut counts = self.counts.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(active) = counts.get_mut(&self.key) {
             *active = active.saturating_sub(1);
             if *active == 0 {
@@ -166,6 +189,22 @@ mod tests {
         drop(guard);
         assert_eq!(limiter.active(ip(1), "vless"), 0);
         assert!(limiter.try_acquire(ip(1), "vless").is_some(), "slot freed after drop");
+    }
+
+    #[test]
+    fn guard_drops_cleanly_when_mutex_is_poisoned() {
+        // Reproduces the panic-in-Drop bug: a poisoned counts mutex must not
+        // cause `ExitIpSessionGuard::drop` to panic (which would abort the
+        // process during unwinding). The cap is advisory, so the poison is
+        // recovered rather than propagated.
+        let limiter = ExitIpSessionLimiter::new(ExitIpSessionCaps::new(2));
+        let guard = limiter.try_acquire(ip(1), "vless").expect("first slot");
+        limiter.poison_for_test();
+        // Dropping the guard over a poisoned mutex must not panic/abort.
+        drop(guard);
+        // The recovery paths in `active` / `try_acquire` must also not panic.
+        let _ = limiter.active(ip(1), "vless");
+        let _second = limiter.try_acquire(ip(1), "vless").expect("slot after poison recovery");
     }
 
     #[test]
