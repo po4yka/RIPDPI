@@ -1,7 +1,13 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
-use super::{publish_cancelled_run, ExecutionPlan, ExecutionRuntime, ExecutionStageId, StrategyExecutionPlan};
+use super::coordinator::ExecutionCoordinator;
+use super::recording::{CollectedStageOutcome, CollectedStep};
+use super::stage::ExecutionStageRunner;
+use super::{
+    publish_cancelled_run, ExecutionPlan, ExecutionRuntime, ExecutionStageId, RunnerArtifacts, RunnerOutcome,
+    StrategyExecutionPlan,
+};
 use crate::candidates::build_strategy_probe_suite;
 use crate::transport::direct_transport;
 use crate::types::{
@@ -140,6 +146,97 @@ fn candidate_summary(
         skipped: false,
         domain_outcomes: Vec::new(),
     }
+}
+
+/// A fake stage runner used to drive `ExecutionCoordinator::run` in tests.
+///
+/// `run_collecting` either records a single healthy step or panics, depending
+/// on `panics`, so we can exercise the panic-recovery path in the parallel
+/// connectivity group without booting any real network probe.
+struct FakeStageRunner {
+    stage: ExecutionStageId,
+    panics: bool,
+}
+
+impl ExecutionStageRunner for FakeStageRunner {
+    fn id(&self) -> ExecutionStageId {
+        self.stage.clone()
+    }
+
+    fn phase(&self) -> &'static str {
+        "fake"
+    }
+
+    fn total_steps(&self, _plan: &ExecutionPlan) -> usize {
+        1
+    }
+
+    fn run_collecting(
+        &self,
+        _plan: &ExecutionPlan,
+        _cancel: &AtomicBool,
+        _tls_verifier: Option<&Arc<dyn rustls::client::danger::ServerCertVerifier>>,
+    ) -> CollectedStageOutcome {
+        assert!(!self.panics, "fake {:?} runner deliberate panic", self.stage);
+        let probe = ProbeResult {
+            probe_type: format!("{:?}_fake", self.stage),
+            target: format!("{:?} target", self.stage),
+            outcome: "ok".to_string(),
+            details: Vec::new(),
+        };
+        let artifacts =
+            RunnerArtifacts::from_results(vec![probe], "fake", "info", format!("{:?} ok", self.stage));
+        CollectedStageOutcome::Completed(vec![CollectedStep {
+            phase: "fake",
+            message: format!("{:?} ok", self.stage),
+            latest_probe_target: Some(format!("{:?} target", self.stage)),
+            latest_probe_outcome: Some("ok".to_string()),
+            artifacts,
+        }])
+    }
+}
+
+fn connectivity_parallel_plan() -> ExecutionPlan {
+    let mut plan = test_plan();
+    plan.request.kind = ScanKind::Connectivity;
+    plan.stage_order = vec![ExecutionStageId::Dns, ExecutionStageId::Tcp, ExecutionStageId::Quic];
+    plan
+}
+
+#[test]
+fn parallel_runner_panic_is_isolated_and_scan_completes_with_siblings() {
+    // One of the three parallel connectivity runners panics. The scan must NOT
+    // abort: the surviving runners' results are merged and the panicked runner
+    // is surfaced as a failed step so it stays diagnosable in the report.
+    let shared = Arc::new(Mutex::new(SharedState::default()));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut runtime = ExecutionRuntime::new(shared, cancel);
+    let plan = connectivity_parallel_plan();
+
+    let coordinator = ExecutionCoordinator::new(vec![
+        Box::new(FakeStageRunner { stage: ExecutionStageId::Dns, panics: false }),
+        Box::new(FakeStageRunner { stage: ExecutionStageId::Tcp, panics: true }),
+        Box::new(FakeStageRunner { stage: ExecutionStageId::Quic, panics: false }),
+    ]);
+
+    // Silence the deliberate panic backtrace noise from the runner thread.
+    let prev_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let outcome = coordinator.run(&plan, &mut runtime, None);
+    std::panic::set_hook(prev_hook);
+
+    // The scan completed rather than being cancelled by the panic.
+    assert!(matches!(outcome, RunnerOutcome::Completed));
+
+    // Both healthy runners' results are present.
+    let outcomes: Vec<&str> = runtime.results.iter().map(|r| r.outcome.as_str()).collect();
+    assert_eq!(outcomes.iter().filter(|o| **o == "ok").count(), 2, "both healthy runners recorded");
+
+    // The panicked runner is surfaced as a failed step keyed to its stage.
+    let panicked: Vec<&ProbeResult> =
+        runtime.results.iter().filter(|r| r.outcome == "runner_panicked").collect();
+    assert_eq!(panicked.len(), 1, "exactly one runner marked panicked");
+    assert!(panicked[0].probe_type.starts_with("Tcp"), "panicked stage is Tcp: {:?}", panicked[0].probe_type);
 }
 
 #[test]

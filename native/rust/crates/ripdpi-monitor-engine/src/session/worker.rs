@@ -44,8 +44,13 @@ pub(super) fn spawn_scan_worker(
 pub(super) fn join_finished_worker_locked(worker_guard: &mut Option<JoinHandle<()>>) {
     let finished = worker_guard.as_ref().is_some_and(JoinHandle::is_finished);
     if finished {
-        let handle = worker_guard.take().expect("finished worker handle must exist");
-        let _ = handle.join();
+        // The guard above already proved `Some`; take it without a panic path.
+        if let Some(handle) = worker_guard.take() {
+            // The worker body catches its own panics (see `spawn_scan_worker`),
+            // so `join()` here is the cleanup join — ignore any join error
+            // rather than re-propagating it into the lock-holding caller.
+            let _ = handle.join();
+        }
     }
 }
 
