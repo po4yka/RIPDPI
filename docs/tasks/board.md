@@ -36,12 +36,9 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | — |
 | low | testing | [Add cross-stack chain tests (VLESS over xHTTP over Reality)](issues/add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality.md) | epic-protocol-conformance-tests |
 
-## Review (2)
+## Review (0)
 
-| Priority | Area | Task | Parent epic |
-| --- | --- | --- | --- |
-| medium | epic | [Epic - Localization expansion](issues/epic-localization-expansion.md) | — |
-| medium | ui | [Review landed zh-CN translation and initial human sign-off](issues/add-zh-cn-translation-and-initial-human-review.md) | epic-localization-expansion |
+_No tasks in review._
 
 ## Blocked (5)
 

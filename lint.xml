@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <lint>
     <issue id="Interoperability" severity="warning" />
+    <issue id="HardcodedText" severity="error" />
     <issue id="MissingTranslation" severity="error" />
     <issue id="ObsoleteLintCustomCheck" severity="ignore" />
     <issue id="TypographyDashes" severity="ignore" />
