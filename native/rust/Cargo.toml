@@ -108,6 +108,7 @@ members = [
     "crates/ripdpi-naiveproxy",
     "crates/ripdpi-cloudflare-origin",
     "crates/ripdpi-tls-profiles",
+    "crates/ripdpi-tls-spoof",
     "crates/ripdpi-webtunnel",
     "crates/ripdpi-xhttp",
     "crates/ripdpi-trojan",

@@ -6603,6 +6603,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-tls-spoof"
+version = "0.1.0"
+dependencies = [
+ "etherparse",
+ "libc",
+ "ripdpi-packets",
+ "serde",
+ "serde_json",
+ "socket2",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "ripdpi-tor"
 version = "0.1.0"
 dependencies = [

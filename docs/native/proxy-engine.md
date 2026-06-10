@@ -536,6 +536,24 @@ flowchart LR
     R3 --> R4
 ```
 
+#### tls_spoof pre-handshake SNI desync (relay-only)
+
+`ripdpi-tls-spoof` is a relay-side subsystem that defeats SNI-based DPI by injecting a forged *decoy* ClientHello as a corrupted raw TCP segment **before** the real VLESS+Reality / xHTTP handshake. A DPI middlebox on the path parses the decoy segment, records the decoy SNI, and applies its policy to that benign hostname; the real upstream's TCP stack discards the corrupted segment (it never enters the handshake), so the genuine handshake proceeds untouched.
+
+**Mechanism.** The forged ClientHello is a byte-for-byte copy of the real one with **only** the `server_name` host string swapped for the decoy and the dependent length fields fixed (TLS record length, handshake length, extensions-block length, SNI-extension length, ServerNameList length, HostName length). Cipher suites, extension order/count, GREASE, and key shares are preserved verbatim, so JA3/JA4 are unchanged — the surgery reuses `ripdpi-packets`'s ClientHello parser to locate the SNI extension and is unit-tested for both growth and shrink of the decoy hostname. The decoy segment is then corrupted by one of three `SpoofMethod` options so the real server drops it while the DPI box still parses it:
+
+- `wrong_ack` — ACK number outside the peer's accepted window.
+- `wrong_md5` — bogus TCP MD5 Signature option (Kind=19, RFC 2385) the server is not configured to accept (same primitive as `md5sig` above).
+- `wrong_timestamp` — out-of-window TCP timestamp (PAWS, RFC 7323).
+
+**Capability requirement.** Emitting the raw segment needs `CAP_NET_RAW` + `CAP_NET_ADMIN` and the Linux `TCP_REPAIR` facility (to read the live send sequence). The sender lives in this crate's Linux-gated `inject` module: it opens its own `socket2` `SOCK_RAW` / `IPPROTO_RAW` socket with `IP_HDRINCL` and writes the full IPv4+TCP segment built by `segment::build_spoof_segment`. (It is a sibling of, not a caller of, the `ripdpi-desync-runtime` `transport_io::raw_socket` primitives, which are `pub(crate)` to that crate.)
+
+**Why on-device is infeasible / relay-only decision.** A non-rooted Android device cannot grant `CAP_NET_RAW`/`CAP_NET_ADMIN`, so on-device spoofing is impossible. The subsystem therefore runs on the **relay hop**: the on-device client signals its intent over the control channel (`SpoofRequest { destination, decoy_sni, method }`) and the privileged relay performs the injection in front of the upstream handshake.
+
+**Default-off.** `TlsSpoofConfig` defaults to `enabled = false`; `RelaySpoofer::spoof_before_handshake` is a strict no-op unless enabled and the config validates (decoy SNI must be a non-empty DNS hostname, never an IP literal). Telemetry is the pull-model `spoof_active_count()` counter; the per-injection tracing event carries only the static name `tls.spoof_active` — never the decoy SNI, destination, or method (network-fingerprint-privacy).
+
+**Verification posture.** The JA3/JA4-preserving forged ClientHello, config validation, SNI surgery, telemetry counter, and signaling serde are unit-tested on every host (including macOS). The on-wire raw-socket injection — TCP_REPAIR sequence read and the per-method corruption — is Linux-only (`#[cfg(target_os = "linux")]`) and is verified in Linux CI; on non-Linux it is a stub returning `Unsupported`, and the capability probe returns `false`.
+
 ### TCP option manipulation
 
 #### Drop SACK (`drop_sack`)

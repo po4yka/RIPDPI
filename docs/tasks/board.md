@@ -59,7 +59,7 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | rust-native | [Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast](issues/centralize-unsafe-javavm-from-raw-and-signal-cast.md) | epic-june-2026-audit-remediation |
 | medium | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | epic-protocol-conformance-tests |
 
-## Backlog (23)
+## Backlog (22)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -70,7 +70,6 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | routing | [Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS](issues/adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion.md) | epic-fail-closed-android-vpn-policy-engine |
 | medium | rust-native | [Add Cloudflare Workers domain-fronting bypass adapter](issues/add-cloudflare-workers-domain-fronting-bypass.md) | — |
 | medium | rust-native | [Add constant-rate traffic shaping with VoIP camouflage profile](issues/add-constant-rate-traffic-shaping-voip-camouflage.md) | epic-transport-obfuscation-research |
-| medium | rust-native | [Adopt tls_spoof pre-handshake ClientHello SNI desync for whitelist bypass](issues/adopt-tls-spoof-prehandshake-clienthello-sni-desync.md) | epic-tls-handshake-hardening |
 | medium | rust-native | [Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel](issues/introduce-ws-transport-port-to-fix-layer-violations.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Split the 12-method PolicyPort trait into selection and learning sub-traits](issues/split-policyport-trait-selection-learning.md) | epic-june-2026-audit-remediation |
 | medium | testing | [Add Hysteria 2 Salamander obfuscation conformance fixtures](issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md) | epic-protocol-conformance-tests |

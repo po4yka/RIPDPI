@@ -1,0 +1,33 @@
+# Relay-side TLS pre-handshake SNI-desync spoofer.
+#
+# Library is portable (config / ClientHello surgery / telemetry / signaling all
+# build and test on macOS). The optional bin and the raw-socket injection path
+# are Linux-only; the bin's body is `#[cfg(target_os = "linux")]`-guarded so the
+# crate still builds on the dev host.
+[package]
+name = "ripdpi-tls-spoof"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "ripdpi-tls-spoof"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+etherparse = { workspace = true }
+ripdpi-packets = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = { workspace = true }
+socket2 = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
