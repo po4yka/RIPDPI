@@ -6,7 +6,7 @@ use log::LevelFilter;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::set_progress;
-use crate::engine::run_engine_scan;
+use crate::engine::{panic_payload_message, run_engine_scan};
 use crate::types::{ScanProgress, ScanRequest, SharedState};
 use crate::{CandidateRuntimeLauncher, MonitorPlatformBridge};
 
@@ -74,11 +74,7 @@ fn record_panic_progress(
     session_id: String,
     panic_payload: Box<dyn std::any::Any + Send>,
 ) {
-    let msg = panic_payload
-        .downcast_ref::<String>()
-        .map(String::as_str)
-        .or_else(|| panic_payload.downcast_ref::<&str>().copied())
-        .unwrap_or("unknown panic");
+    let msg = panic_payload_message(&*panic_payload);
     set_progress(
         &shared,
         ScanProgress {

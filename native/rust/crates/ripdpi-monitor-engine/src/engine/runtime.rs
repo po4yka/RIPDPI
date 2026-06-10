@@ -1,6 +1,7 @@
 mod artifacts;
 mod cancellation;
 mod coordinator;
+pub(crate) mod panic_recovery;
 mod parallel;
 mod plan;
 mod progress;
