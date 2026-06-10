@@ -16,6 +16,7 @@ use crate::auth::PrivacyPassProviderResponse;
 use crate::config::{MasqueAuthMode, MasqueConfig};
 use crate::h2::{build_h2_connect_udp_request, decode_h2_datagram_capsules, encode_h2_datagram_capsule};
 use crate::h3::decode_udp_payload;
+use crate::migration::{H3FallbackReason, MigrationStatus};
 use crate::request::apply_request_headers;
 use crate::response::{AttemptError, validate_connect_udp_response, validate_proxy_response};
 use crate::url::{
@@ -449,6 +450,73 @@ async fn quic_migration_snapshot_records_http2_fallback_reason() {
         (Some("http2_fallback".to_string()), Some("http3_connect_failed_connect".to_string()),),
         client.quic_migration_snapshot(),
     );
+}
+
+fn fallback_snapshot_test_client() -> MasqueClient {
+    MasqueClient::new(MasqueConfig {
+        url: "https://masque.example/".to_string(),
+        proxy_socket_addr: None,
+        use_http2_fallback: true,
+        auth_mode: Some("bearer".to_string()),
+        auth_token: Some("secret".to_string()),
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    })
+    .expect("client")
+}
+
+/// Drives one [`H3FallbackReason`] through the real telemetry path
+/// (`record_quic_migration_status` -> `quic_migration_snapshot`) and asserts the
+/// snapshot captures the `http2_fallback` status plus the reason's documented
+/// string.
+///
+/// The `match` below has NO wildcard arm: adding a variant to
+/// [`H3FallbackReason`] makes this helper fail to compile until a case is added,
+/// which in turn forces a dedicated per-reason test alongside it. That is the
+/// compile-time gate behind this task's definition of done — a new fallback
+/// reason cannot land without snapshot-capture coverage. The expected string is
+/// recomputed here independently (not by calling `as_string`) so the assertion
+/// is a genuine oracle rather than a tautology.
+async fn assert_snapshot_captures_fallback_reason(reason: &H3FallbackReason) {
+    let expected_reason = match reason {
+        H3FallbackReason::H3ConnectFailedInner { inner } => format!("http3_connect_failed_{inner}"),
+        H3FallbackReason::H3ConnectTimedOut => "http3_connect_timed_out".to_string(),
+        H3FallbackReason::H3ConnectFailed => "http3_connect_failed".to_string(),
+    };
+    assert_eq!(expected_reason, reason.as_string(), "documented reason string drifted from the enum rendering");
+
+    let client = fallback_snapshot_test_client();
+    client.inner.record_quic_migration_status(MigrationStatus::Http2Fallback.as_str(), Some(&reason.as_string())).await;
+
+    assert_eq!(
+        (Some("http2_fallback".to_string()), Some(expected_reason)),
+        client.quic_migration_snapshot(),
+        "snapshot must capture fallback reason {reason:?}",
+    );
+}
+
+#[tokio::test]
+async fn snapshot_captures_h3_connect_failed_inner_reason() {
+    assert_snapshot_captures_fallback_reason(&H3FallbackReason::H3ConnectFailedInner { inner: "connect".to_string() })
+        .await;
+}
+
+#[tokio::test]
+async fn snapshot_captures_h3_connect_timed_out_reason() {
+    assert_snapshot_captures_fallback_reason(&H3FallbackReason::H3ConnectTimedOut).await;
+}
+
+#[tokio::test]
+async fn snapshot_captures_h3_connect_failed_reason() {
+    assert_snapshot_captures_fallback_reason(&H3FallbackReason::H3ConnectFailed).await;
 }
 
 #[tokio::test]

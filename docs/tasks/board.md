@@ -6,7 +6,7 @@ hand-edit it; regenerate it from the issue frontmatter (see `README.md` § Regen
 
 _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`dropped` files are deleted)._
 
-## Doing (25)
+## Doing (24)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -30,7 +30,6 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | medium | routing | [Adopt process-based per-package routing via Xray TUN routeOnly](issues/adopt-process-based-per-package-routing-via-xray-tun-routeonly.md) | epic-fail-closed-android-vpn-policy-engine |
 | medium | rust-native | [Add post-quantum hybrid KEM (X25519MLKEM768) for outbound TLS handshakes](issues/add-post-quantum-hybrid-kem-x25519mlkem768-for-tls-handshakes.md) | epic-tls-handshake-hardening |
 | medium | rust-native | [Add TUIC v4 fallback or explicit version detection](issues/add-tuic-v4-fallback-or-version-detection.md) | — |
-| medium | rust-native | [Validate H3-to-H2 MASQUE fallback telemetry sufficiency](issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md) | epic-tls-handshake-hardening |
 | medium | service | [Wire NaiveProxy helper probe into manager startup](issues/wire-naiveproxy-probe-into-manager-startup.md) | — |
 | medium | testing | [Add Criterion throughput benchmarks for each transport](issues/add-protocol-throughput-benchmarks-for-each-transport.md) | epic-protocol-conformance-tests |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | — |
