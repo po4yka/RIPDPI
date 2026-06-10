@@ -56,18 +56,11 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | diagnostics | [Add network-security-config with opportunistic domainEncryption](issues/add-network-security-config-with-opportunistic-domainencryption.md) | — |
 | medium | outbound | [Surface Xray diagnostics and telemetry](issues/surface-xray-diagnostics-and-telemetry.md) | epic-xray-provider-mode |
 
-## Todo (11)
+## Todo (4)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
-| high | android | [Redact raw BSSID from detection Finding strings and CapturedWifiIdentity](issues/redact-raw-bssid-in-detection-findings.md) | epic-june-2026-audit-remediation |
-| high | relay | [Fix ripdpi-relay-core session leak on RelayRuntime::stop()](issues/fix-relay-core-session-leak-on-shutdown.md) | epic-june-2026-audit-remediation |
-| high | rust-native | [Sandbox the Lua strategy-config VM and jail script paths](issues/sandbox-lua-strategy-config-vm-and-jail-script-paths.md) | — |
 | medium | android | [Harden JNI callbacks: daemon thread-attach, nullable array returns, drop runBlocking](issues/harden-jni-callback-thread-attach-and-null-sentinels.md) | epic-june-2026-audit-remediation |
-| medium | diagnostics | [Recover from runner-thread panic in monitor-engine coordinator instead of killing the scan](issues/recover-monitor-coordinator-worker-panic.md) | epic-june-2026-audit-remediation |
-| medium | proxy | [Fix SOCKS4 reply panic and legacy SOCKS5 credential truncation in ripdpi-socks5-core](issues/fix-socks5-core-panic-and-credential-truncation.md) | epic-june-2026-audit-remediation |
-| medium | proxy | [Restore discarded adaptive-routing feedback in proxy-runtime UDP and retry paths](issues/restore-discarded-adaptive-routing-feedback.md) | epic-june-2026-audit-remediation |
-| medium | proxy | [Stop ExitIpSessionGuard::drop panicking on a poisoned mutex](issues/fix-panic-in-drop-exit-ip-cap-guard.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast](issues/centralize-unsafe-javavm-from-raw-and-signal-cast.md) | epic-june-2026-audit-remediation |
 | medium | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | epic-protocol-conformance-tests |
