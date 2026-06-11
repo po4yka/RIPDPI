@@ -33,7 +33,11 @@ DEPENDENCY_HUB_LIMITS = {
     "ripdpi-proxy-runtime-adapter": (13, 3),
     "ripdpi-diagnostics-runner": (8, 3),
     "ripdpi-runtime-services": (8, 3),
-    "ripdpi-relay-core": (7, 3),
+    # 8 (was 7): relay-core constructs FailureClass::TuicVersionUnsupported on
+    # the TUIC handshake-failure path, requiring a direct edge to the foundational
+    # ripdpi-failure-classifier vocabulary crate (not a protocol backend). See
+    # docs/architecture/tuic-v4-policy.md.
+    "ripdpi-relay-core": (8, 3),
     "ripdpi-tunnel-core": (13, 3),
 }
 

@@ -6221,6 +6221,7 @@ dependencies = [
  "android-support",
  "arc-swap",
  "local-network-fixture",
+ "ripdpi-failure-classifier",
  "ripdpi-hysteria2",
  "ripdpi-masque",
  "ripdpi-relay-mux",

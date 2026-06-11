@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 arc-swap = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
 ripdpi-hysteria2 = { workspace = true }
 ripdpi-relay-mux = { workspace = true }
 ripdpi-relay-tls-transports = { workspace = true }
