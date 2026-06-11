@@ -54,6 +54,10 @@ pre-commit:
       glob: "*.{kt,rs,toml}"
       run: python3 scripts/ci/check_architecture_health.py --staged
 
+    cargo-deny:
+      glob: "native/rust/Cargo*.toml"
+      run: command -v cargo-deny >/dev/null || exit 0; cargo deny --manifest-path native/rust/Cargo.toml check advisories bans licenses sources
+
     rust-clippy:
       glob: "*.rs"
       root: "native/rust/"
