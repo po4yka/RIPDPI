@@ -198,7 +198,7 @@ fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u
         read_shadowsocks_request(&mut client, first_byte, state, resolver)?;
     let host = state.extract_relay_payload_host(&first_request);
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
-    let (upstream, route) = super::routing::connect_target(target, state, payload, false, host)?;
+    let (upstream, route, _cap_guard) = super::routing::connect_target(target, state, payload, false, host)?;
     super::relay::relay(
         client,
         upstream,

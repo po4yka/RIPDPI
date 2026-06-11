@@ -19,7 +19,8 @@ use crate::runtime::types::RuntimeConnectionRoute;
 pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<bool> {
     let target = resolve_probe_target(state, domain)?;
     let payload = RuntimeState::build_probe_client_hello(domain);
-    let (mut upstream, route) = connect_target(target, state, Some(&payload), false, Some(domain.to_owned()))?;
+    let (mut upstream, route, _cap_guard) =
+        connect_target(target, state, Some(&payload), false, Some(domain.to_owned()))?;
 
     let _ = upstream.set_write_timeout(Some(PROBE_TIMEOUT));
     let _ = upstream.set_read_timeout(Some(PROBE_TIMEOUT));

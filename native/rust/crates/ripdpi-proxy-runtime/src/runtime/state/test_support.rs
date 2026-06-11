@@ -86,6 +86,7 @@ impl RuntimeState {
             control: None,
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(NetworkReprobeTracker::new()),
+            exit_ip_session_limiter: ExitIpSessionLimiter::new(ExitIpSessionCaps::default()),
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,

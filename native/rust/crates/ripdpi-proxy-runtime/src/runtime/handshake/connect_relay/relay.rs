@@ -51,6 +51,10 @@ fn relay_upstream(
     upstream_route: UpstreamRoute,
     success_reply_sent: bool,
 ) -> Result<(), ConnectRelayError> {
+    // Hold the per-exit-IP session slot for the entire relay so the cap counts
+    // this connection as in-flight; it is freed when `_cap_guard` drops at the
+    // end of this function, after `relay()` returns.
+    let _cap_guard = upstream_route.cap_guard;
     super::super::super::relay::relay(
         client.try_clone().map_err(|err| ConnectRelayError::new(err, success_reply_sent))?,
         upstream_route.upstream,

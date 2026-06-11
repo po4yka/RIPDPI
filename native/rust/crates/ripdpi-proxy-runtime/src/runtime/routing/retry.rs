@@ -6,6 +6,7 @@ use super::super::state::RuntimeState;
 use super::connect::connect_target_candidates_via_group;
 use super::failure::{advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure};
 use super::policy::{preferred_targets_for_transport, select_route};
+use crate::exit_ip_cap::ExitIpSessionGuard;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 
 pub(in crate::runtime) fn connect_target(
@@ -14,7 +15,7 @@ pub(in crate::runtime) fn connect_target(
     payload: Option<&[u8]>,
     allow_unknown_payload: bool,
     host: Option<String>,
-) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
+) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
     let route = select_route(state, target, payload, host.as_deref(), allow_unknown_payload)?;
     state.note_route_selected(target, route.group_index, host.as_deref(), "initial");
     connect_target_with_route(target, state, route, payload, host)
@@ -26,14 +27,14 @@ pub(in crate::runtime) fn connect_target_with_route(
     mut route: RuntimeConnectionRoute,
     payload: Option<&[u8]>,
     host: Option<String>,
-) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
+) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
     let mut retries: usize = 0;
     loop {
         let attempt_targets =
             preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
         note_direct_path_transport_attempt(state, host.as_deref(), &attempt_targets, RuntimeTransportProtocol::Tcp)?;
-        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, true) {
-            Ok(stream) => return Ok((stream, route)),
+        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, true, true) {
+            Ok((stream, guard)) => return Ok((stream, route, guard)),
             Err(mut err) => {
                 retries += 1;
                 let mut failure = RuntimeState::classify_connect_transport_error(&err.source);
@@ -45,8 +46,9 @@ pub(in crate::runtime) fn connect_target_with_route(
                         route.group_index,
                         payload,
                         false,
+                        true,
                     ) {
-                        Ok(stream) => return Ok((stream, route)),
+                        Ok((stream, guard)) => return Ok((stream, route, guard)),
                         Err(fallback_err) => {
                             err = fallback_err;
                             failure = RuntimeState::classify_connect_transport_error(&err.source);
@@ -111,8 +113,9 @@ fn reconnect_target_with_tfo_mode(
         crate::runtime::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
         let attempt_targets =
             preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
-        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, allow_tfo) {
-            Ok(stream) => return Ok((stream, route)),
+        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, allow_tfo, false)
+        {
+            Ok((stream, _)) => return Ok((stream, route)),
             Err(mut err) => {
                 retries += 1;
                 if retries > state.max_route_retries() {
@@ -127,8 +130,9 @@ fn reconnect_target_with_tfo_mode(
                         route.group_index,
                         payload,
                         false,
+                        false,
                     ) {
-                        Ok(stream) => return Ok((stream, route)),
+                        Ok((stream, _)) => return Ok((stream, route)),
                         Err(fallback_err) => {
                             err = fallback_err;
                             failure = RuntimeState::classify_connect_transport_error(&err.source);
@@ -240,7 +244,7 @@ mod tests {
         let config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
         let state = RuntimeState::test(config);
 
-        let (stream, route) =
+        let (stream, route, _cap_guard) =
             connect_target(target, &state, Some(b"GET / HTTP/1.1\r\n\r\n"), false, Some("example.com".to_string()))
                 .expect("connect succeeds");
 

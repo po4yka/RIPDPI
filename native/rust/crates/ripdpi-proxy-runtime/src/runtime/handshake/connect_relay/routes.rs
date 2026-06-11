@@ -2,12 +2,17 @@ use std::net::{SocketAddr, TcpStream};
 
 use super::super::super::state::RuntimeState;
 use super::ConnectRelayError;
+use crate::exit_ip_cap::ExitIpSessionGuard;
 use crate::runtime::types::RuntimeConnectionRoute;
 
 pub(super) struct UpstreamRoute {
     pub(super) upstream: TcpStream,
     pub(super) route: RuntimeConnectionRoute,
     pub(super) seed_request: Option<Vec<u8>>,
+    /// Per-exit-IP concurrent-session slot held for this connection. Travels
+    /// with `upstream` so RAII keeps the slot reserved for the whole relay
+    /// session and frees it when this struct is dropped after `relay()` returns.
+    pub(super) cap_guard: Option<ExitIpSessionGuard>,
 }
 
 pub(super) fn connect_immediate_route(
@@ -15,9 +20,10 @@ pub(super) fn connect_immediate_route(
     state: &RuntimeState,
     host_hint: Option<String>,
 ) -> Result<UpstreamRoute, ConnectRelayError> {
-    let (upstream, route) = super::super::super::routing::connect_target(target, state, None, false, host_hint)
-        .map_err(|err| ConnectRelayError::new(err, false))?;
-    Ok(UpstreamRoute { upstream, route, seed_request: None })
+    let (upstream, route, cap_guard) =
+        super::super::super::routing::connect_target(target, state, None, false, host_hint)
+            .map_err(|err| ConnectRelayError::new(err, false))?;
+    Ok(UpstreamRoute { upstream, route, seed_request: None, cap_guard })
 }
 
 pub(super) fn connect_delayed_route(
@@ -28,10 +34,10 @@ pub(super) fn connect_delayed_route(
     payload: Vec<u8>,
 ) -> Result<UpstreamRoute, ConnectRelayError> {
     let host = state.extract_relay_payload_host(&payload).or(host_hint);
-    let (upstream, route) =
+    let (upstream, route, cap_guard) =
         super::super::super::routing::connect_target_with_route(target, state, route, Some(&payload), host)
             .map_err(|err| ConnectRelayError::with_seed_request(err, true, Some(payload.clone())))?;
-    Ok(UpstreamRoute { upstream, route, seed_request: Some(payload) })
+    Ok(UpstreamRoute { upstream, route, seed_request: Some(payload), cap_guard })
 }
 
 pub(super) fn connect_ws_seed_route(
@@ -41,8 +47,8 @@ pub(super) fn connect_ws_seed_route(
     seed_request: Vec<u8>,
 ) -> Result<UpstreamRoute, ConnectRelayError> {
     let seed_request = (!seed_request.is_empty()).then_some(seed_request);
-    let (upstream, route) =
+    let (upstream, route, cap_guard) =
         super::super::super::routing::connect_target(target, state, seed_request.as_deref(), true, host_hint)
             .map_err(|err| ConnectRelayError::new(err, true))?;
-    Ok(UpstreamRoute { upstream, route, seed_request })
+    Ok(UpstreamRoute { upstream, route, seed_request, cap_guard })
 }

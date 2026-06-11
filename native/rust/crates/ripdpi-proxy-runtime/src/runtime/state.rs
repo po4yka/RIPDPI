@@ -1,8 +1,13 @@
+use crate::exit_ip_cap::{ExitIpSessionCaps, ExitIpSessionGuard, ExitIpSessionLimiter};
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::collections::BTreeMap;
 use std::io::{self, Read};
-use std::net::{SocketAddr, TcpStream, UdpSocket};
+use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::time::Duration;
+
+/// Transport id used when accounting per-exit-IP concurrent outbound TCP
+/// sessions through [`ExitIpSessionLimiter`].
+const EXIT_SESSION_TRANSPORT_TCP: &str = "tcp";
 
 use super::config::{
     DETECT_CONNECT, DelayedConnectSettings, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings,
@@ -138,6 +143,10 @@ pub(super) struct RuntimeState {
     ttl_unavailable: Arc<AtomicBool>,
     /// Tracks network scope key changes for lightweight re-probing.
     reprobe_tracker: std::sync::Arc<NetworkReprobeTracker>,
+    /// Per-exit-IP concurrent outbound-session admission gate. The limiter is
+    /// `Arc`-backed, so every `RuntimeState` clone shares one session counter —
+    /// required for the cap to be enforced across all worker threads.
+    exit_ip_session_limiter: ExitIpSessionLimiter,
     pcap_hook: Option<super::desync::PcapHook>,
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
@@ -269,10 +278,23 @@ impl RuntimeState {
             control,
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(NetworkReprobeTracker::new()),
+            exit_ip_session_limiter: ExitIpSessionLimiter::new(ExitIpSessionCaps::default()),
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,
         }
+    }
+
+    /// Try to reserve a per-exit-IP concurrent-session slot for an outbound TCP
+    /// connection. Returns a RAII guard (released on drop) or `None` at cap.
+    pub(super) fn try_acquire_exit_session(&self, exit_ip: IpAddr) -> Option<ExitIpSessionGuard> {
+        self.exit_ip_session_limiter.try_acquire(exit_ip, EXIT_SESSION_TRANSPORT_TCP)
+    }
+
+    /// Number of in-flight outbound sessions counted for `exit_ip` (test/diagnostic).
+    #[cfg(all(test, not(feature = "loom")))]
+    pub(super) fn active_exit_sessions(&self, exit_ip: IpAddr) -> usize {
+        self.exit_ip_session_limiter.active(exit_ip, EXIT_SESSION_TRANSPORT_TCP)
     }
 }
 
