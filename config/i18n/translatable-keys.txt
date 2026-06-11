@@ -2738,6 +2738,8 @@ app:split_tunnel_mode_include_body
 app:split_tunnel_mode_label
 app:split_tunnel_mode_off
 app:split_tunnel_mode_off_body
+app:split_tunnel_open_system_settings
+app:split_tunnel_system_managed_body
 app:ssh_editor_title
 app:ssh_field_auth_type
 app:ssh_field_display_name
