@@ -26,12 +26,12 @@ Upstream reference: `anytls/anytls-go`. The current source has `native/rust/crat
 - [x] Relay-core builds an AnyTLS backend, validates it as UDP-capable, and covers TCP plus UDP-over-TCP fixtures.
 - [x] `anytls://`, Clash `anytls`, and Sing-box `anytls` imports map to first-class profiles.
 - [x] Relay native config carries AnyTLS password and root-certificate fields.
-- [ ] Cross-interop against upstream `anytls-go` is verified and recorded.
-- [ ] Fallback-SNI and fallback-server behavior matches upstream spec, or unsupported behavior is rejected explicitly.
+- [ ] Cross-interop against upstream `anytls-go` is verified and recorded. **(deferred: live-server only; offline-infeasible nightly oracle.)**
+- [x] Fallback-SNI and fallback-server behavior matches upstream spec, or unsupported behavior is rejected explicitly. (RIPDPI's client has no server-side TLS fallback; `ProxyUriCodec.parseAnyTls` now explicitly rejects `anytls://` nodes advertising a `fallback`/`fallback_sni` target rather than silently importing them.)
 - [x] `AnyTLSProfileScreen` validates password length, server + port, and server-name (SNI).
-- [ ] Main Mode Editor exposes AnyTLS fields instead of relying only on import/profile records.
-- [ ] Strategy-pack metadata advertises AnyTLS compat hints, especially around QUIC-heavy neighborhoods.
-- [ ] Password is redacted in all diagnostic surfaces.
+- [ ] Main Mode Editor exposes AnyTLS fields instead of relying only on import/profile records. **(deferred: AnyTLS is fully configurable via the dedicated `AnyTlsProfileScreen` + import; exposing it inline is a separate end-to-end "make AnyTLS a selectable+serializable relay kind" feature — kind-chip selector + ConfigDraft fields + draft→native serialization + validation — out of scope for this pass.)**
+- [x] Strategy-pack metadata advertises AnyTLS compat hints, especially around QUIC-heavy neighborhoods. (`StrategyPackProtocolHint` + bundled `catalog.json` `anytls` entry with `quicHeavyNeighborhood: true`, surfaced via `StrategyPackSnapshot.protocolHints` / `hintForProtocol`.)
+- [x] Password is redacted in all diagnostic surfaces. (Rust: hand-written `Debug` for `AnyTlsClientConfig` masks password + root cert. Kotlin: `ProxyProfile.AnyTls.toString` masks the password.)
 
 ## Source references
 
@@ -53,3 +53,4 @@ Upstream reference: `anytls/anytls-go`. The current source has `native/rust/crat
 
 - 2026-06-05: AnyTlsProfileScreen with validation exists and is wired into nav graph (Route.AnyTlsProfile); ripdpi-anytls crate, relay-core backend, import parsing all confirmed present; Mode Editor (ModeEditorRelaySection.kt/RelayFields.kt) has no AnyTLS fields; no strategy-pack compat hints for AnyTLS found in strategy-registry; no password-redaction evidence in diagnostics; interop/fallback-SNI tests absent.
 - 2026-06-05: Re-verified all criteria. Crate confirmed real (frame.rs, padding.rs, session.rs + tests/). Config fields `anytls_password` + `anytls_root_certificate_pem` in flat.rs/conversions.rs. AnyTlsProfileEditorState.kt has validation logic. Clash import mapping not found separately (only singbox named in ImportHandlerActivity comment); criterion [x] retained from prior state. No new completions found; status remains doing.
+- 2026-06-11: Epic pass — closed 3 criteria. Password redaction: hand-written `Debug` for `AnyTlsClientConfig` masks password + root cert (`ripdpi-anytls/src/session.rs`, +tests, commit `f3e77f2`); `ProxyProfile.AnyTls.toString` masks the password (commit `b87e0a85`). Fallback-SNI: `parseAnyTls` explicitly rejects `fallback`/`fallback_sni` nodes (commit `b87e0a85`, +test). Strategy-pack AnyTLS hint: `StrategyPackProtocolHint` modeled + bundled `catalog.json` entry, load-bearing via `hintForProtocol` (commit `d9cb78a8`, +tests). **Deferred:** Mode-Editor inline fields (separate end-to-end editable-relay-kind feature; AnyTLS already editable via its own screen) and live `anytls-go` interop (offline). Status stays `doing`.
