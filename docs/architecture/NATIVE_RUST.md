@@ -80,10 +80,10 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 | L0 | **support / test / dev** | 7 | `feature-contract-harness`, `golden-test-support`, `local-network-fixture`, `native-soak-support`, `quic-mtu-test-util`, `ripdpi-bench`, `ripdpi-cli` |
 | L1 | **protocol / core** | 13 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-tls-spoof`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-ech-dns`, `ripdpi-pcap`, `ripdpi-flow-app-attribution` |
 | L2 | **contracts / config** | 9 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry` |
-| L3 | **domain logic** | 18 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-routing`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
+| L3 | **domain logic** | 17 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
 | L5 | **platform / privileged** | 8 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
-| L6 | **diagnostics / monitor** | 18 | 14 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
+| L6 | **diagnostics / monitor** | 17 | 13 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
 | L7 | **relay transports** | 21 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel`, `ripdpi-mieru`, `ripdpi-ssh` |
 | L8 | **Android / JNI adapters** | 12 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android` |
 
@@ -206,7 +206,6 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-desync-runtime` | Desync execution runtime | Runtime types | `ripdpi-desync`, `ripdpi-session`, `ripdpi-proxy-config`, … | Mid fan-out | Keep |
 | `ripdpi-failure-classifier` | Connection-failure + block-signal classification | `classify_*` fns + types | `ripdpi-packets` | Fan-in 18 — shared by L6 + L4 | Keep — treat API as a contract |
 | `ripdpi-session` | Session state machine + policy store | State-machine API | `ripdpi-packets` | Fan-in 4 | Keep |
-| `ripdpi-routing` | Routing rule engine | Rule API | — (leaf) | No runtime consumer | Prune candidate unless a routing feature wires it |
 | `ripdpi-shared-priors` | Offline-learner signed shared-priors bundles | Parser + verifier API | — (leaf) | Fail-secure parser (see architecture/README) | Keep |
 | `ripdpi-quality` | Rolling-window connection-quality telemetry | Quality-window API | — (leaf) | Consumed by tunnel/relay/warp Android adapters | Keep |
 | `ripdpi-runtime-decision-engine` | Delegating runtime-decision facade over decision ports and services | Decision API | `ripdpi-runtime-decision-ports`, `ripdpi-runtime-services` | Thin facade; keep policy logic centralized here | Keep |
@@ -256,7 +255,6 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-diagnostics-dns` | DNS integrity / tampering probes | Probe API | `ripdpi-diagnostics-transport`, `ripdpi-dns-resolver`, … | Fan-in 7 | Keep |
 | `ripdpi-diagnostics-fat-header` | TCP fat-header probes | Probe API | `ripdpi-diagnostics-{http,tls,transport}` | — | Keep |
 | `ripdpi-diagnostics-http` | HTTP reachability probes | Probe API | `ripdpi-diagnostics-{tls,transport}`, `ripdpi-failure-classifier` | Fan-in 6 | Keep |
-| `ripdpi-diagnostics-net` | Net-probe aggregation | Probe API | `ripdpi-diagnostics-{contracts,dns,fat-header,http,telegram,tls,transport}` | No runtime consumer; dep set mirrors `ripdpi-diagnostics-protocols` | Prune candidate unless a net-probe aggregator plan still needs it |
 | `ripdpi-diagnostics-parsers` | Response parsers (HTTP + DNS packet helpers) | Parser API | `ripdpi-failure-classifier` | No runtime consumer | Prune candidate unless parser extraction is revived |
 | `ripdpi-diagnostics-pcap` | PCAP diagnostic recording | Recorder API | — (leaf) | Used by `ripdpi-android-proxy-adapter` | Keep |
 | `ripdpi-diagnostics-probes` | Probe-task execution | Probe API | `ripdpi-diagnostics-{classification,contracts,http}`, … | — | Keep |
@@ -328,8 +326,7 @@ Every crate **except the 12 L8 crates** must not depend on `jni`,
 > `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`,
 > `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`,
 > `ripdpi-telemetry`, `ripdpi-desync`, `ripdpi-desync-runtime`,
-> `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-routing`,
-> `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`,
+> `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`,
 > `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`,
 > `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`,
 > `ripdpi-strategy-ipv6`,
@@ -340,7 +337,7 @@ Every crate **except the 12 L8 crates** must not depend on `jni`,
 > `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap`, `ripdpi-runtime-platform`,
 > `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`,
 > `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`,
-> `ripdpi-root-helper`, the 14 `ripdpi-diagnostics-*` crates (all except
+> `ripdpi-root-helper`, the 13 `ripdpi-diagnostics-*` crates (all except
 > `-contracts`, which is L2 and also JNI-free), the 4 `ripdpi-monitor-*`
 > crates, and the L7 relay-transport crates.
 
@@ -431,16 +428,15 @@ These are current source-state notes for triage. None block the build.
   is in `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`, and
   `RipDpiRelayNativeLoader` loads `"ripdpi-relay"`.
 - **Library crates with no runtime consumer** — `ripdpi-protocol-detect`,
-  `ripdpi-routing`, `ripdpi-runtime-dns-cache`, `ripdpi-diagnostics-net`, and
-  `ripdpi-diagnostics-parsers` still have no workspace consumer beyond their
-  own crate entry. They remain prune candidates unless a feature or test plan
-  wires them. `ripdpi-protocol-loopback` is also standalone today, but it is the
-  scaffold tracked by `protocol-loopback-harness-design.md`, so it is not part
-  of this prune-candidate set.
+  `ripdpi-runtime-dns-cache`, and `ripdpi-diagnostics-parsers` still have no
+  workspace consumer beyond their own crate entry. They remain prune candidates
+  unless a feature or test plan wires them. `ripdpi-protocol-loopback` is also
+  standalone today, but it is the scaffold tracked by
+  `protocol-loopback-harness-design.md`, so it is not part of this
+  prune-candidate set.
 - **Relay transport crates are wired** — `ripdpi-shadowsocks` and
   `ripdpi-trojan` are consumed by `ripdpi-relay-tls-transports`, which is
   consumed by `ripdpi-relay-core`; they are not prune candidates.
-- **`ripdpi-diagnostics-net`** mirrors `ripdpi-diagnostics-protocols`' dependency set and is currently superseded in practice by `ripdpi-diagnostics-protocols`.
 
 ---
 
