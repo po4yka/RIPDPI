@@ -6,7 +6,7 @@ hand-edit it; regenerate it from the issue frontmatter (see `README.md` § Regen
 
 _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`dropped` files are deleted)._
 
-## Doing (22)
+## Doing (21)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -27,7 +27,6 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | medium | outbound | [Finish AnyTLS profile editor and compatibility gaps](issues/add-anytls-outbound-client-crate-and-profile-editor.md) | epic-extended-outbound-protocol-support |
 | medium | routing | [Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS](issues/adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion.md) | epic-fail-closed-android-vpn-policy-engine |
 | medium | routing | [Adopt process-based per-package routing via Xray TUN routeOnly](issues/adopt-process-based-per-package-routing-via-xray-tun-routeonly.md) | epic-fail-closed-android-vpn-policy-engine |
-| medium | rust-native | [Add TUIC v4 fallback or explicit version detection](issues/add-tuic-v4-fallback-or-version-detection.md) | — |
 | medium | service | [Wire NaiveProxy helper probe into manager startup](issues/wire-naiveproxy-probe-into-manager-startup.md) | — |
 | medium | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | epic-protocol-conformance-tests |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | — |
@@ -69,11 +68,12 @@ RKN on ≥3 RU ISP vantages for the field run._
 | medium | rust-native | [Harden Lua sandbox residuals: JNI jail seed + egress base dir](issues/harden-lua-sandbox-residuals-jni-jail-seed.md) | — |
 | medium | transport | [Per-exit-IP TLS cap with true mux-preference in relay-core backend](issues/per-exit-ip-tls-cap-with-mux-preference-in-relay-core.md) | — |
 
-## Backlog (15)
+## Backlog (16)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | — |
+| low | rust-native | [Wire ShadowTLS version-mismatch into service telemetry](issues/wire-shadowtls-version-mismatch-into-service-telemetry.md) | — |
 | medium | android | [Introduce a VPN-session Hilt scope to reset per-session service state](issues/introduce-vpn-session-hilt-scope.md) | epic-june-2026-audit-remediation |
 | medium | epic | [Epic - Transport obfuscation and censor-signature research](issues/epic-transport-obfuscation-research.md) | — |
 | medium | rust-native | [Add Cloudflare Workers domain-fronting bypass adapter](issues/add-cloudflare-workers-domain-fronting-bypass.md) | — |
