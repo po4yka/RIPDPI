@@ -52,6 +52,12 @@ impl CompletionRegistry {
         }
     }
 
+    /// Number of slots currently tracked (waiting or ready). Test-only accessor.
+    #[cfg(test)]
+    pub(crate) fn slot_count(&self) -> usize {
+        self.slots.lock().map_or(0, |g| g.len())
+    }
+
     /// Deliver a completion. Wakes the waiting task if registered.
     pub(crate) fn complete(&self, token: u64, result: CompletionResult) {
         if let Ok(mut slots) = self.slots.lock() {

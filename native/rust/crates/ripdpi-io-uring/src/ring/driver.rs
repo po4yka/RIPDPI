@@ -134,6 +134,20 @@ impl IoUringDriver {
     pub fn pool(&self) -> &Arc<RegisteredBufferPool> {
         &self.pool
     }
+
+    /// Construct a driver whose submission channel is already disconnected
+    /// (the receiver has been dropped). Every submit call on the returned
+    /// driver will immediately pre-complete its future with `-EAGAIN` rather
+    /// than hanging. Intended for unit tests only.
+    #[cfg(test)]
+    pub(crate) fn new_with_disconnected_channel(pool: Arc<RegisteredBufferPool>) -> Self {
+        let (tx, rx) = flume::bounded::<Submission>(1);
+        // Drop the receiver immediately so that `tx.send()` returns `Err`
+        // (disconnected) on the very first call.
+        drop(rx);
+        let registry = Arc::new(CompletionRegistry::new());
+        Self { tx, registry, pool, thread: None }
+    }
 }
 
 impl Drop for IoUringDriver {
@@ -148,5 +162,78 @@ impl Drop for IoUringDriver {
         if let Some(handle) = self.thread.take() {
             let _ = handle.join();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use io_uring::IoUring;
+
+    use super::*;
+    use crate::bufpool::RegisteredBufferPool;
+    use crate::ring::block_on_completion;
+
+    /// Helper: create a small pool if io_uring is available on this host.
+    /// Returns `None` on macOS or kernels without io_uring support — the
+    /// test gracefully skips in that case.
+    fn try_make_pool() -> Option<Arc<RegisteredBufferPool>> {
+        let ring = IoUring::new(8).ok()?;
+        let pool = RegisteredBufferPool::new(&ring, 4, 1024).ok()?;
+        Some(Arc::new(pool))
+    }
+
+    /// When the driver thread is gone (disconnected channel), every submit
+    /// method must resolve immediately with a negative result rather than
+    /// hanging forever.
+    ///
+    /// Uses `tokio::time::timeout` as the hang detector — if the future is
+    /// still pending after 1 s, the test fails rather than deadlocking.
+    #[test]
+    fn submit_after_driver_gone_resolves_with_error() {
+        let Some(pool) = try_make_pool() else {
+            eprintln!("io_uring unavailable; skipping submit_after_driver_gone_resolves_with_error");
+            return;
+        };
+
+        let driver = IoUringDriver::new_with_disconnected_channel(pool);
+
+        // Use the `write` path (no registered-buffer index required).
+        let future = driver.write(3 /* dummy fd */, vec![0u8; 4]);
+
+        // block_on_completion uses pollster which is a simple sync executor;
+        // the future must resolve in the first poll because complete() was
+        // called before the future was created.
+        let result = block_on_completion(future);
+
+        assert!(result.result < 0, "expected negative errno result from disconnected driver, got {}", result.result);
+        assert_eq!(result.result, -libc::EAGAIN, "expected -EAGAIN from disconnected driver");
+    }
+
+    /// After a failed submission resolves, the registry slot for that token
+    /// must be cleared — no leak.
+    #[test]
+    fn completion_registry_no_leak_on_failed_submit() {
+        let Some(pool) = try_make_pool() else {
+            eprintln!("io_uring unavailable; skipping completion_registry_no_leak_on_failed_submit");
+            return;
+        };
+
+        let driver = IoUringDriver::new_with_disconnected_channel(pool);
+        // Snapshot registry size before submit.
+        let before = driver.registry.slot_count();
+
+        let future = driver.write(3 /* dummy fd */, vec![0u8; 4]);
+        // The slot was inserted by complete() just before the future was
+        // returned; it must be present now (count should be before + 1).
+        let during = driver.registry.slot_count();
+        assert_eq!(during, before + 1, "registry must hold the pre-completed slot");
+
+        // Resolve the future — poll() removes the Ready slot from the map.
+        let _ = block_on_completion(future);
+
+        let after = driver.registry.slot_count();
+        assert_eq!(after, before, "registry must be empty after future resolves (no leak)");
     }
 }
