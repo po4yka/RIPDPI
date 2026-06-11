@@ -21,8 +21,10 @@ pub(crate) async fn handle_client<T>(
 where
     T: SocksTelemetry + ?Sized,
 {
-    read_no_auth_greeting(&mut client).await?;
-    client.write_all(&[0x05, 0x00]).await?;
+    // NOT cancel-safe: reads the method greeting, writes the method selection,
+    // then drives the full SOCKS5 command exchange; cancellation mid-write
+    // leaves the client in an undefined protocol state.
+    negotiate_no_auth(&mut client).await?;
 
     let mut request_header = [0u8; 4];
     client.read_exact(&mut request_header).await?;
@@ -44,9 +46,15 @@ where
     }
 }
 
-async fn read_no_auth_greeting<S>(stream: &mut S) -> io::Result<()>
+/// Reads the SOCKS5 method-selection greeting and performs RFC 1928 method
+/// negotiation. Replies `[0x05, 0x00]` (NO AUTH) when the client offers
+/// method `0x00`; replies `[0x05, 0xFF]` (NO ACCEPTABLE METHODS) and returns
+/// an error otherwise, as required by RFC 1928 §3.
+// NOT cancel-safe: reads the greeting then writes the server's method choice;
+// cancellation between the read and write leaves the client without a reply.
+async fn negotiate_no_auth<S>(stream: &mut S) -> io::Result<()>
 where
-    S: AsyncRead + Unpin,
+    S: AsyncRead + AsyncWrite + Unpin,
 {
     let mut greeting = [0u8; 2];
     stream.read_exact(&mut greeting).await?;
@@ -57,7 +65,16 @@ where
     let method_count = usize::from(greeting[1]);
     let mut methods = vec![0u8; method_count];
     stream.read_exact(&mut methods).await?;
-    Ok(())
+
+    if methods.contains(&0x00) {
+        stream.write_all(&[0x05, 0x00]).await?;
+        Ok(())
+    } else {
+        // RFC 1928 §3: if no offered method is acceptable the server replies
+        // with 0xFF and MUST close the connection.
+        stream.write_all(&[0x05, 0xFF]).await?;
+        Err(io::Error::new(io::ErrorKind::PermissionDenied, "SOCKS5 client offered no acceptable auth method"))
+    }
 }
 
 pub(crate) async fn read_target<S>(stream: &mut S, address_type: u8) -> io::Result<RelayTargetAddr>
@@ -97,4 +114,42 @@ where
         }
     };
     Ok(target)
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::io::duplex;
+
+    use super::negotiate_no_auth;
+
+    #[tokio::test]
+    async fn socks5_accepts_noauth_offer() {
+        // Client offers only NO-AUTH (0x00); server must reply [0x05, 0x00].
+        let (mut client_end, mut server_end) = duplex(64);
+
+        // Write greeting: VER=5, NMETHODS=1, METHOD=0x00
+        tokio::io::AsyncWriteExt::write_all(&mut client_end, &[0x05, 0x01, 0x00]).await.expect("write greeting");
+
+        negotiate_no_auth(&mut server_end).await.expect("NO-AUTH must be accepted");
+
+        let mut reply = [0u8; 2];
+        tokio::io::AsyncReadExt::read_exact(&mut client_end, &mut reply).await.expect("read reply");
+        assert_eq!(reply, [0x05, 0x00], "server must reply with method 0x00 (NO AUTH)");
+    }
+
+    #[tokio::test]
+    async fn socks5_rejects_greeting_without_noauth() {
+        // Client offers only user/pass (0x02); server must reply [0x05, 0xFF] and error.
+        let (mut client_end, mut server_end) = duplex(64);
+
+        // Write greeting: VER=5, NMETHODS=1, METHOD=0x02 (username/password)
+        tokio::io::AsyncWriteExt::write_all(&mut client_end, &[0x05, 0x01, 0x02]).await.expect("write greeting");
+
+        let result = negotiate_no_auth(&mut server_end).await;
+        assert!(result.is_err(), "server must reject greeting without NO-AUTH");
+
+        let mut reply = [0u8; 2];
+        tokio::io::AsyncReadExt::read_exact(&mut client_end, &mut reply).await.expect("read reply");
+        assert_eq!(reply, [0x05, 0xFF], "server must reply with 0xFF (NO ACCEPTABLE METHODS)");
+    }
 }
