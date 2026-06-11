@@ -11,7 +11,7 @@ import java.util.UUID
  * URI into a [ProxyProfile].
  *
  * Supported schemes: `vless://`, `ss://` (SIP002), `trojan://`,
- * `hysteria2://` / `hy2://`, `anytls://`, `tuic://`, `mieru://`. An unrecognised scheme — or a
+ * `hysteria2://` / `hy2://`, `anytls://`, `tuic://`, `mieru://`, `ssh://`. An unrecognised scheme — or a
  * structurally malformed URI of a known scheme — yields `null` so callers can
  * skip the line.
  *
@@ -49,6 +49,7 @@ object ProxyUriCodec {
                 "trojan" -> parseTrojan(trimmed)
                 "hysteria2", "hy2" -> parseHysteria2(trimmed)
                 "anytls" -> parseAnyTls(trimmed)
+                "ssh" -> parseSsh(trimmed)
                 "tuic" -> parseTuic(trimmed)
                 else -> null
             }
@@ -91,6 +92,10 @@ object ProxyUriCodec {
 
             is ProxyProfile.Mieru -> {
                 encodeMieru(profile)
+            }
+
+            is ProxyProfile.Ssh -> {
+                encodeSsh(profile)
             }
 
             is ProxyProfile.Shadowsocks -> {
@@ -138,6 +143,34 @@ object ProxyUriCodec {
             }.joinToString("&")
         return "mieru://${encodeQueryValue(profile.username)}:${encodeQueryValue(profile.password)}" +
             "@${profile.server}:${profile.serverPort}?$params#${encodeFragment(profile.displayName)}"
+    }
+
+    /**
+     * Encodes an SSH profile into the RIPDPI-invented `ssh://` share link. The form is
+     * `ssh://<user>[:<password>]@<host>:<port>?auth=<type>[&key=&passphrase=&fp=&strict=1]#<name>`,
+     * where `<type>` is `password` or `private_key`.
+     *
+     * Password-auth carries the password in the userinfo (mirroring Mieru);
+     * private-key-auth leaves the userinfo password-less and percent-encodes the
+     * multi-line PEM (and optional passphrase) into the query, since a PEM cannot
+     * live in URI userinfo. All secret material is percent-encoded.
+     */
+    private fun encodeSsh(profile: ProxyProfile.Ssh): String {
+        val params =
+            buildList {
+                add("auth=${encodeQueryValue(profile.authType)}")
+                profile.privateKey?.let { add("key=${encodeQueryValue(it)}") }
+                profile.privateKeyPassphrase?.let { add("passphrase=${encodeQueryValue(it)}") }
+                profile.hostKeyFingerprint?.let { add("fp=${encodeQueryValue(it)}") }
+                if (profile.strictHostKey) add("strict=1")
+            }.joinToString("&")
+        val userInfo =
+            if (profile.password != null) {
+                "${encodeQueryValue(profile.username)}:${encodeQueryValue(profile.password)}"
+            } else {
+                encodeQueryValue(profile.username)
+            }
+        return "ssh://$userInfo@${profile.server}:${profile.serverPort}?$params#${encodeFragment(profile.displayName)}"
     }
 
     private fun encodeAnyTls(profile: ProxyProfile.AnyTls): String {
@@ -240,6 +273,54 @@ object ProxyUriCodec {
             mtu = normalizeMieruMtu(queryValue(rawQuery, "mtu")),
         )
     }
+
+    /**
+     * Parses the RIPDPI-invented `ssh://` share link into a [ProxyProfile.Ssh].
+     * See [encodeSsh] for the canonical form. The `auth` query param selects the
+     * auth type; for password-auth the password is in the userinfo, for
+     * private-key-auth the percent-encoded PEM (and optional passphrase) are in
+     * the query. Returns `null` for a structurally invalid node.
+     */
+    @Suppress("ReturnCount")
+    private fun parseSsh(uri: String): ProxyProfile? {
+        val parsed = URI(uri)
+        val rawUserInfo = parsed.rawUserInfo?.takeIf { it.isNotBlank() } ?: return null
+        val separator = rawUserInfo.indexOf(':')
+        val username: String
+        val passwordFromUserInfo: String?
+        if (separator < 0) {
+            username = percentDecode(rawUserInfo).takeIf { it.isNotBlank() } ?: return null
+            passwordFromUserInfo = null
+        } else {
+            username = percentDecode(rawUserInfo.substring(0, separator)).takeIf { it.isNotBlank() } ?: return null
+            passwordFromUserInfo = percentDecode(rawUserInfo.substring(separator + 1)).takeIf { it.isNotBlank() }
+        }
+        val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
+        val port = parsed.port.takeIf { it > 0 } ?: return null
+        val rawQuery = parsed.rawQuery
+        val strict = queryValue(rawQuery, "strict")?.let { it == "1" || it.equals("true", ignoreCase = true) } ?: false
+        return ProxyProfile.Ssh(
+            id = newId(),
+            displayName = displayName(parsed.fragment, host),
+            groupId = "",
+            server = host,
+            serverPort = port,
+            username = username,
+            authType = normalizeSshAuthType(queryValue(rawQuery, "auth")),
+            password = passwordFromUserInfo,
+            privateKey = queryValue(rawQuery, "key"),
+            privateKeyPassphrase = queryValue(rawQuery, "passphrase"),
+            hostKeyFingerprint = queryValue(rawQuery, "fp"),
+            strictHostKey = strict,
+        )
+    }
+
+    /** Maps the `auth` query token to the native ripdpi-ssh selector; defaults to `password`. */
+    private fun normalizeSshAuthType(value: String?): String =
+        when (value?.trim()?.lowercase()) {
+            "private_key", "privatekey", "key" -> "private_key"
+            else -> "password"
+        }
 
     private fun percentDecode(value: String): String =
         runCatching { java.net.URLDecoder.decode(value, "UTF-8") }.getOrDefault(value)
@@ -351,6 +432,16 @@ object ProxyUriCodec {
         val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
         val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
+        // RIPDPI's AnyTLS client has no server-side TLS-fallback support (upstream
+        // anytls-go fallback is a server-only knob). Reject a node that advertises
+        // a fallback target explicitly rather than silently importing a profile that
+        // would behave differently than the share link implies.
+        if (queryValue(parsed.rawQuery, "fallback") != null ||
+            queryValue(parsed.rawQuery, "fallback_sni") != null ||
+            queryValue(parsed.rawQuery, "fallbackSni") != null
+        ) {
+            return null
+        }
         return ProxyProfile.AnyTls(
             id = newId(),
             displayName = displayName(parsed.fragment, host),

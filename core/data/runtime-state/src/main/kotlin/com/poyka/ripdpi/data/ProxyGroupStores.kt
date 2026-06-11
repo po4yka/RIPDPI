@@ -217,7 +217,12 @@ sealed interface ProxyProfile {
         val serverPort: Int,
         val serverName: String,
         val password: String,
-    ) : ProxyProfile
+    ) : ProxyProfile {
+        /** Masks the password so it never reaches a log or diagnostics surface. */
+        override fun toString(): String =
+            "AnyTls(id=$id, displayName=$displayName, groupId=$groupId, server=$server, " +
+                "serverPort=$serverPort, serverName=$serverName, password=<redacted>)"
+    }
 
     /**
      * Mieru outbound. Unlike Trojan-Go, Mieru is actively developed, so it is
@@ -240,6 +245,46 @@ sealed interface ProxyProfile {
         val mtu: Int = 1400,
     ) : ProxyProfile
 
+    /**
+     * SSH outbound (direct-tcpip forwarding). Carries the endpoint, the
+     * [username], the [authType] selector (`password` | `private_key`), and the
+     * auth-type-appropriate secret. [hostKeyFingerprint] pins the expected server
+     * host key (`SHA256:...`); [strictHostKey] disables trust-on-first-use.
+     *
+     * The password, private key, and passphrase are masked in [toString] so they
+     * never reach a log or diagnostics surface; [equals]/[copy] still expose them
+     * for URI round-trip tests. SSH is editor-first, but a synthetic `ssh://`
+     * scheme (RIPDPI-invented) round-trips the full profile for subscription
+     * import — see `ProxyUriCodec`.
+     */
+    @Serializable
+    @SerialName("ssh")
+    data class Ssh(
+        override val id: String,
+        override val displayName: String,
+        override val groupId: String,
+        val server: String,
+        val serverPort: Int,
+        val username: String,
+        /**
+         * `"password"` or `"private_key"` — the native ripdpi-ssh auth
+         * selectors (RelaySshAuthType* in core:data:settings).
+         */
+        val authType: String = "password",
+        val password: String? = null,
+        val privateKey: String? = null,
+        val privateKeyPassphrase: String? = null,
+        val hostKeyFingerprint: String? = null,
+        val strictHostKey: Boolean = false,
+    ) : ProxyProfile {
+        override fun toString(): String =
+            "Ssh(id=$id, displayName=$displayName, groupId=$groupId, server=$server, " +
+                "serverPort=$serverPort, username=$username, authType=$authType, " +
+                "password=${redactedPresence(password)}, privateKey=${redactedPresence(privateKey)}, " +
+                "privateKeyPassphrase=${redactedPresence(privateKeyPassphrase)}, " +
+                "hostKeyFingerprint=$hostKeyFingerprint, strictHostKey=$strictHostKey)"
+    }
+
     @Serializable
     @SerialName("raw-config")
     data class RawConfig(
@@ -249,6 +294,14 @@ sealed interface ProxyProfile {
         val config: String,
     ) : ProxyProfile
 }
+
+/**
+ * Renders a secret's presence without disclosing it: `null` when absent,
+ * `<redacted>` when set. Used by [ProxyProfile.Ssh.toString] so a diagnostics
+ * render still distinguishes a password-auth from a key-auth profile without
+ * leaking the material itself.
+ */
+private fun redactedPresence(secret: String?): String = if (secret == null) "null" else "<redacted>"
 
 /**
  * Schema versioning for persisted [ProxyGroup] payloads.

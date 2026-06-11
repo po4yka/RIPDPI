@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -75,6 +76,45 @@ class ProxyUriCodecTest {
         assertEquals("udp", profile.protocol)
         assertEquals("high", profile.multiplexing)
         assertEquals(1380, profile.mtu)
+    }
+
+    @Test
+    fun `parses ssh password-auth uri into an ssh profile`() {
+        val uri = "ssh://ssh-user:ssh-pass-fixture@vps.example.com:22?auth=password&fp=SHA256:abc&strict=1#Bastion"
+
+        val profile = ProxyUriCodec.parse(uri)
+
+        assertTrue(profile is ProxyProfile.Ssh)
+        profile as ProxyProfile.Ssh
+        assertEquals("vps.example.com", profile.server)
+        assertEquals(22, profile.serverPort)
+        assertEquals("ssh-user", profile.username)
+        assertEquals("password", profile.authType)
+        assertEquals("ssh-pass-fixture", profile.password)
+        assertNull(profile.privateKey)
+        assertEquals("SHA256:abc", profile.hostKeyFingerprint)
+        assertTrue(profile.strictHostKey)
+        assertEquals("Bastion", profile.displayName)
+    }
+
+    @Test
+    fun `parses ssh private-key-auth uri with pem and passphrase in query`() {
+        val pem = "-----BEGIN OPENSSH PRIVATE KEY-----\nLINE1\nLINE2\n-----END OPENSSH PRIVATE KEY-----"
+        val uri =
+            "ssh://ssh-user@vps.example.com:2222?auth=private_key" +
+                "&key=${java.net.URLEncoder.encode(pem, "UTF-8")}" +
+                "&passphrase=${java.net.URLEncoder.encode("pp fixture", "UTF-8")}#Key"
+
+        val profile = ProxyUriCodec.parse(uri)
+
+        assertTrue(profile is ProxyProfile.Ssh)
+        profile as ProxyProfile.Ssh
+        assertEquals("ssh-user", profile.username)
+        assertEquals("private_key", profile.authType)
+        assertNull(profile.password)
+        assertEquals(pem, profile.privateKey)
+        assertEquals("pp fixture", profile.privateKeyPassphrase)
+        assertFalse(profile.strictHostKey)
     }
 
     @Test

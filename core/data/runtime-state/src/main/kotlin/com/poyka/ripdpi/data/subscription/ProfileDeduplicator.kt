@@ -74,6 +74,7 @@ object ProfileDeduplicator {
             is ProxyProfile.Hysteria2 -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
             is ProxyProfile.AnyTls -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
             is ProxyProfile.Mieru -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
+            is ProxyProfile.Ssh -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
             is ProxyProfile.RawConfig -> profile.copy(id = ID_PLACEHOLDER, displayName = NAME_PLACEHOLDER)
         }
 
@@ -90,6 +91,7 @@ object ProfileDeduplicator {
             is ProxyProfile.Hysteria2 -> profile.copy(displayName = displayName)
             is ProxyProfile.AnyTls -> profile.copy(displayName = displayName)
             is ProxyProfile.Mieru -> profile.copy(displayName = displayName)
+            is ProxyProfile.Ssh -> profile.copy(displayName = displayName)
             is ProxyProfile.RawConfig -> profile.copy(displayName = displayName)
         }
 }

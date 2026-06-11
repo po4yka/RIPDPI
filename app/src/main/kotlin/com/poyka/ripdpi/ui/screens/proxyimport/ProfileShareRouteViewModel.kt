@@ -98,5 +98,6 @@ internal fun profileKindLabel(profile: ProxyProfile): String =
         is ProxyProfile.Hysteria2 -> "Hysteria2"
         is ProxyProfile.AnyTls -> "AnyTLS"
         is ProxyProfile.Mieru -> "Mieru"
+        is ProxyProfile.Ssh -> "SSH"
         is ProxyProfile.RawConfig -> "Raw URI"
     }

@@ -217,6 +217,72 @@ class ProxyUriCodecExportTest {
     }
 
     @Test
+    fun `ssh password profile round-trips through the shared codec`() {
+        val profile =
+            ProxyProfile.Ssh(
+                id = "p1",
+                displayName = "Bastion Host",
+                groupId = "g1",
+                server = "vps.example.com",
+                serverPort = 22,
+                username = "ssh-user",
+                authType = "password",
+                password = "ssh-pass-fixture",
+                hostKeyFingerprint = "SHA256:abc123",
+                strictHostKey = true,
+            )
+
+        val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
+
+        assertTrue("expected Ssh, got ${parsed?.javaClass?.simpleName}", parsed is ProxyProfile.Ssh)
+        parsed as ProxyProfile.Ssh
+        assertEquals("vps.example.com", parsed.server)
+        assertEquals(22, parsed.serverPort)
+        assertEquals("ssh-user", parsed.username)
+        assertEquals("password", parsed.authType)
+        assertEquals("ssh-pass-fixture", parsed.password)
+        assertEquals("SHA256:abc123", parsed.hostKeyFingerprint)
+        assertTrue(parsed.strictHostKey)
+    }
+
+    @Test
+    fun `ssh private-key profile round-trips with multi-line pem in the query`() {
+        val pem = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaA\nFIXTURE+key/data\n-----END OPENSSH PRIVATE KEY-----"
+        val profile =
+            ProxyProfile.Ssh(
+                id = "p1",
+                displayName = "Key Auth",
+                groupId = "g1",
+                server = "vps.example.com",
+                serverPort = 2222,
+                username = "ssh user+fixture",
+                authType = "private_key",
+                privateKey = pem,
+                privateKeyPassphrase = "pp:phrase/fixture #1",
+            )
+
+        val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
+
+        assertTrue("expected Ssh, got ${parsed?.javaClass?.simpleName}", parsed is ProxyProfile.Ssh)
+        parsed as ProxyProfile.Ssh
+        assertEquals("ssh user+fixture", parsed.username)
+        assertEquals("private_key", parsed.authType)
+        assertNull(parsed.password)
+        assertEquals(pem, parsed.privateKey)
+        assertEquals("pp:phrase/fixture #1", parsed.privateKeyPassphrase)
+    }
+
+    @Test
+    fun `anytls uri advertising a fallback target is rejected`() {
+        val base = "anytls://any-pass@front.example.com:8443?sni=front.example.com"
+        val withFallback = "$base&fallback=real.example.com:443"
+        val withoutFallback = base
+
+        assertNull("fallback-bearing anytls node must be rejected", ProxyUriCodec.parse(withFallback))
+        assertTrue(ProxyUriCodec.parse(withoutFallback) is ProxyProfile.AnyTls)
+    }
+
+    @Test
     fun `display name is carried as a url-encoded fragment`() {
         val profile =
             ProxyProfile.Vless(
