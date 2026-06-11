@@ -19,7 +19,6 @@ members = [
     "crates/ripdpi-diagnostics-dns",
     "crates/ripdpi-diagnostics-fat-header",
     "crates/ripdpi-diagnostics-http",
-    "crates/ripdpi-diagnostics-net",
     "crates/ripdpi-diagnostics-parsers",
     "crates/ripdpi-diagnostics-pcap",
     "crates/ripdpi-diagnostics-probes",
@@ -140,7 +139,6 @@ ripdpi-diagnostics-contracts = { path = "crates/ripdpi-diagnostics-contracts" }
 ripdpi-diagnostics-dns = { path = "crates/ripdpi-diagnostics-dns" }
 ripdpi-diagnostics-fat-header = { path = "crates/ripdpi-diagnostics-fat-header" }
 ripdpi-diagnostics-http = { path = "crates/ripdpi-diagnostics-http" }
-ripdpi-diagnostics-net = { path = "crates/ripdpi-diagnostics-net" }
 ripdpi-diagnostics-parsers = { path = "crates/ripdpi-diagnostics-parsers" }
 ripdpi-diagnostics-pcap = { path = "crates/ripdpi-diagnostics-pcap" }
 ripdpi-diagnostics-probes = { path = "crates/ripdpi-diagnostics-probes" }
