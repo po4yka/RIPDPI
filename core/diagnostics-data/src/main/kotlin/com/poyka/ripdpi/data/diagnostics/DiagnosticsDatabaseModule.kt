@@ -32,9 +32,11 @@ object DiagnosticsDatabaseModule {
             Room
                 .databaseBuilder(context, DiagnosticsDatabase::class.java, name)
                 .addMigrations(*DiagnosticsDatabaseMigrations.ALL)
+                .fallbackToDestructiveMigrationOnDowngrade(true)
+        // ORDER MATTERS: fallbackToDestructiveMigrationOnDowngrade resets requireMigration=true,
+        // so the destructive-upgrade opt-in must come after it.
         if (allowDestructiveFallback) builder = builder.fallbackToDestructiveMigration(true)
         return builder
-            .fallbackToDestructiveMigrationOnDowngrade(true)
             .addCallback(TtlCleanupCallback)
             .build()
     }
