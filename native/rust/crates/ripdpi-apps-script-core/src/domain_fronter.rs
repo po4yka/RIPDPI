@@ -53,7 +53,7 @@ impl AppsScriptDomainFronter {
             auth_key: config.auth_key.clone(),
             script_ids: config.script_ids.clone(),
             next_script_index: AtomicUsize::new(0),
-            tls_connector: tls::connector(config.verify_ssl),
+            tls_connector: tls::connector(),
         }
     }
 

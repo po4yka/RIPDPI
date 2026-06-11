@@ -21,7 +21,6 @@ pub struct AppsScriptRuntimeConfig {
     pub script_ids: Vec<String>,
     pub sni_hosts: Vec<String>,
     pub auth_key: String,
-    pub verify_ssl: bool,
     pub parallel_relay: bool,
     pub direct_hosts: Vec<String>,
     pub data_dir: PathBuf,
@@ -32,6 +31,13 @@ impl AppsScriptRuntimeConfig {
     pub fn from_json(json: &str) -> io::Result<Self> {
         let raw: RawAppsScriptRuntimeConfig =
             serde_json::from_str(json).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+
+        if raw.verify_ssl == Some(false) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "verify_ssl=false is not supported for Apps Script fronting: the Google front always presents a valid certificate",
+            ));
+        }
 
         let listen_host = raw
             .local_socks_host
@@ -79,7 +85,6 @@ impl AppsScriptRuntimeConfig {
             script_ids,
             sni_hosts,
             auth_key,
-            verify_ssl: raw.verify_ssl.unwrap_or(true),
             parallel_relay: raw.parallel_relay.unwrap_or(false),
             direct_hosts,
             data_dir,
@@ -139,6 +144,7 @@ struct RawAppsScriptRuntimeConfig {
     script_ids: Option<ScriptIdsField>,
     #[serde(default, alias = "sni_hosts", alias = "appsScriptSniHosts")]
     sni_hosts: Option<Vec<String>>,
+    // accepted for validation only; true is the only supported value
     #[serde(default, alias = "verify_ssl", alias = "appsScriptVerifySsl")]
     verify_ssl: Option<bool>,
     #[serde(default, alias = "parallel_relay", alias = "appsScriptParallelRelay")]
@@ -244,5 +250,39 @@ mod tests {
         .expect("config");
 
         assert_eq!(config.script_ids, vec!["deployment-id".to_string()]);
+    }
+
+    #[test]
+    fn verify_ssl_false_rejected() {
+        let err = AppsScriptRuntimeConfig::from_json(
+            r#"{
+                "scriptIds":["abc"],
+                "authKey":"secret",
+                "verify_ssl": false
+            }"#,
+        )
+        .expect_err("verify_ssl=false must be rejected");
+
+        assert!(
+            err.to_string().contains("not supported for Apps Script fronting"),
+            "error message must explain why: {err}"
+        );
+    }
+
+    #[test]
+    fn verify_ssl_alias_false_rejected() {
+        let err = AppsScriptRuntimeConfig::from_json(
+            r#"{
+                "scriptIds":["abc"],
+                "authKey":"secret",
+                "appsScriptVerifySsl": false
+            }"#,
+        )
+        .expect_err("appsScriptVerifySsl=false must be rejected");
+
+        assert!(
+            err.to_string().contains("not supported for Apps Script fronting"),
+            "error message must explain why: {err}"
+        );
     }
 }
