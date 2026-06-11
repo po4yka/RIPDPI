@@ -16,12 +16,12 @@ linked_task: null
 
 ## Motivation
 
-The 2026-06-10 Rust API audit noted `RelayBackend` reached 14 variants (was 12; Mieru and Ssh added). The `dispatch_pooled_backend!` macro was updated correctly, but three manual `match self` blocks — `quic_migration_snapshot()`, `chain_hop_snapshot()`, `open_udp_session()` — remain a maintenance hazard. A future QUIC-capable variant added without updating `quic_migration_snapshot()` would silently return `(None, None)` with **no compile error**, producing a quiet correctness bug rather than a build failure.
+The 2026-06-10 Rust API audit noted `RelayBackend` reached 14 variants (was 12; Mieru and Ssh added). The `dispatch_pooled_backend!` macro was updated correctly. Re-verified 2026-06-11 against `native/rust/crates/ripdpi-relay-core/src/backend.rs`: of the three manual `match self` blocks, `quic_migration_snapshot()` (`backend.rs:85-102`) and `open_udp_session()` (`backend.rs:122-141`) already enumerate all 14 variants with explicit `|`-joined arms and **no** catch-all `_`, so adding a variant fails to compile (non-exhaustive match) — they are already guarded. Only `chain_hop_snapshot()` (`backend.rs:104-108`) has a catch-all `_ => None` arm: a future chain-capable variant added without updating it would silently return `None` with **no compile error**, producing a quiet correctness bug rather than a build failure. That is the remaining hazard.
 
 ## Proposed change
 
-1. Make the manual matches exhaustive-by-construction: remove any catch-all `_ =>` arm in `quic_migration_snapshot` / `chain_hop_snapshot` / `open_udp_session` so adding a variant forces a compile error (`#[deny(unreachable_patterns)]` / non-`_` exhaustive match), OR
-2. Add a compile-time assertion / test that enumerates all variants and asserts each is handled by the QUIC-snapshot path it belongs to.
+1. Remove the catch-all `_ => None` arm in `chain_hop_snapshot` (the only remaining non-exhaustive site) and enumerate every variant explicitly, matching the already-exhaustive `quic_migration_snapshot` / `open_udp_session` pattern, so adding a variant forces a compile error, OR
+2. Add a test that enumerates all variants and asserts each is handled by the snapshot path it belongs to (covering all three sites, including the two already exhaustive).
 
 ## Acceptance criteria
 

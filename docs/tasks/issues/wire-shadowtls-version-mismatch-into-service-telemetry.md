@@ -15,8 +15,10 @@ updated: 2026-06-11
 ## Summary
 
 `FailureClass::ShadowTlsVersionMismatch` exists in `ripdpi-failure-classifier`
-but is **never constructed at runtime** — the exact gap that
-`add-tuic-v4-fallback-or-version-detection` just closed for TUIC. The variant
+but is **never constructed at runtime** — the exact gap that the TUIC
+v4 version-detection work just closed for `FailureClass::TuicVersionUnsupported`
+(shipped in commit `3ead52203`; the task file is deleted per the board's
+done-task convention, git history is the audit trail). The variant
 appears only in the enum definition, its `as_str()`, the
 `response_triggers.rs` `=> 0` arm, a doc comment in `ripdpi-shadowtls/src/lib.rs`,
 and tests. A ShadowTLS v2 server talking to this v3-only client produces a
@@ -70,5 +72,6 @@ framing in `ripdpi-shadowtls/src/handshake.rs`) before writing claims.
 
 ## Links
 
-- [[add-tuic-v4-fallback-or-version-detection]] (the shipped sibling that
-  established the pattern)
+- TUIC v4 version-detection (the shipped sibling that established the pattern):
+  closed task, landed in commits `02292caa2` / `96e32784e` / `3ead52203`; see
+  `docs/architecture/tuic-v4-policy.md` § "Runtime wiring (DONE)".

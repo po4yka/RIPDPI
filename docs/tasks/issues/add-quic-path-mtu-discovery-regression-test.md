@@ -33,7 +33,7 @@ Hysteria 2, TUIC, and MASQUE all run over Quinn. Quinn's PMTUD behaviour is conf
 
 ## Links
 
-- [[add-port-hopping-window-soak-test-for-hysteria2]]
+- Port-hopping window soak test for Hysteria2 — closed task (shipped in commit `d8b962ea4`; git history is the audit trail)
 
 ## Work log
 

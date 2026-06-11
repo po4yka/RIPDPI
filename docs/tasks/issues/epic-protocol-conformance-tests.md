@@ -38,7 +38,7 @@ The conformance tasks were drifting as parentless orphans on the board even thou
 - [[add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality]] — single-stream done; mux criterion (absorbed from the former vless-mux task) **still blocked on the unimplemented VLESS wire-mux datapath** (feature work, not test work). This is the blocker keeping the epic open.
 - [[add-hysteria2-salamander-obfuscation-conformance-fixtures]] — **externally-gated** (2026-06-11): harness shipped + passing; the 8 conformance goldens need real `apernet/hysteria` byte vectors at a pinned tag, unavailable locally and not fabricable. `status: blocked`.
 - [[add-quic-path-mtu-discovery-regression-test]] — **Hysteria 2 + TUIC landed** (2026-06-11): new `quic-mtu-test-util` `MtuDropSocket` + survival tests; MASQUE deferred (needs a quinn/H3 loopback fixture). DoD reframed to PMTUD discovery-observability (a QUIC connection can't be killed by size-based drops).
-- [[add-protocol-throughput-benchmarks-for-each-transport]] — **done** (2026-06-11): 7/7 benches wired; the `protocol-throughput/*` baseline was captured on the CI reference runner and committed, arming the nightly enforced lane.
+- Per-transport throughput benchmarks — **done** (2026-06-11), task closed (no issue file; git history is the audit trail): 7/7 benches wired; the `protocol-throughput/*` baseline was captured on the CI reference runner and committed to `scripts/ci/rust-bench-baseline.json`, arming the nightly enforced lane (see the Ship-definition item below).
 
 ## Ship definition
 

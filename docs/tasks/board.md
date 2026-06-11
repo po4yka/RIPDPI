@@ -58,7 +58,7 @@ RKN on ≥3 RU ISP vantages for the field run._
 | medium | transport | [Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | epic-transport-obfuscation-research |
 | medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | epic-transport-obfuscation-research |
 
-## Todo (5)
+## Todo (6)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -67,13 +67,13 @@ RKN on ≥3 RU ISP vantages for the field run._
 | medium | rust-native | [Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast](issues/centralize-unsafe-javavm-from-raw-and-signal-cast.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Harden Lua sandbox residuals: JNI jail seed + egress base dir](issues/harden-lua-sandbox-residuals-jni-jail-seed.md) | — |
 | medium | transport | [Per-exit-IP TLS cap with true mux-preference in relay-core backend](issues/per-exit-ip-tls-cap-with-mux-preference-in-relay-core.md) | — |
+| low | rust-native | [Wire ShadowTLS version-mismatch into service telemetry](issues/wire-shadowtls-version-mismatch-into-service-telemetry.md) | — |
 
-## Backlog (16)
+## Backlog (15)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | — |
-| low | rust-native | [Wire ShadowTLS version-mismatch into service telemetry](issues/wire-shadowtls-version-mismatch-into-service-telemetry.md) | — |
 | medium | android | [Introduce a VPN-session Hilt scope to reset per-session service state](issues/introduce-vpn-session-hilt-scope.md) | epic-june-2026-audit-remediation |
 | medium | epic | [Epic - Transport obfuscation and censor-signature research](issues/epic-transport-obfuscation-research.md) | — |
 | medium | rust-native | [Add Cloudflare Workers domain-fronting bypass adapter](issues/add-cloudflare-workers-domain-fronting-bypass.md) | — |

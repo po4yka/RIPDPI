@@ -16,16 +16,17 @@ linked_task: null
 
 ## Motivation
 
-The 2026-06-10 architecture audit found two **new** undocumented orphan crates and reconfirmed five known prune candidates still lingering:
+The 2026-06-10 architecture audit flagged diagnostics prune candidates. Re-verified 2026-06-11 against `docs/architecture/NATIVE_RUST.md` and the workspace `Cargo.toml`s — the earlier "undocumented orphan" framing was inaccurate and is corrected here:
 
-- **New orphans (not in `NATIVE_RUST.md`)** — `ripdpi-diagnostics-parsers` and `ripdpi-diagnostics-probes`. Both compile into the workspace, have no runtime consumers, and do not appear in the crate-classification table. They are either dead scaffolding or planned work never wired in. (`ripdpi-diagnostics-probes` is the known empty scaffold; `ripdpi-diagnostics-parsers` is newly noticed.)
+- **`ripdpi-diagnostics-parsers`** — genuine no-runtime-consumer prune candidate. It IS documented (`NATIVE_RUST.md:260`, "Prune candidate unless parser extraction is revived"; also listed at `:435`). The open work is the verdict + metadata, not adding it to the table.
+- **`ripdpi-diagnostics-probes`** — NOT an orphan. It is documented as **Keep** (`NATIVE_RUST.md:262`), has real runtime consumers (`ripdpi-diagnostics-runner`, `feature-contract-harness`), and is non-empty (many probe modules + a 185-line `lib.rs`). Drop it from any prune list. (The earlier "empty scaffold / no consumers / not in NATIVE_RUST.md" claim was wrong.)
 - **Known prune candidates still present** — `ripdpi-routing`, `ripdpi-diagnostics-net`, `ripdpi-runtime-dns-cache` (one consumer: `ripdpi-ws-bootstrap`), `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`.
 
 Each unreferenced crate adds compile time and obscures the live architecture.
 
 ## Proposed change
 
-1. For `ripdpi-diagnostics-parsers` and `ripdpi-diagnostics-probes`: decide per crate — (a) delete if dead, or (b) add to `NATIVE_RUST.md` with an explicit verdict ("scaffold for planned feature X") and, if planned, list under `[workspace.metadata.ripdpi] planned-crates` so the intent is visible.
+1. For `ripdpi-diagnostics-parsers` (the only genuine no-consumer crate of the two): decide — (a) delete if dead, or (b) keep with an explicit verdict ("scaffold for planned feature X") recorded under `[workspace.metadata.ripdpi] planned-crates` so the intent is visible. `ripdpi-diagnostics-probes` needs no action — it is a documented Keep with live consumers.
 2. For the five known prune candidates: either delete, or record under `[workspace.metadata.ripdpi] prune-candidates` in the workspace `Cargo.toml`.
 3. Add a CI rule that fails if a crate not on the prune/planned list gains a new direct dep on a prune-candidate crate (freezes accidental coupling without forcing immediate deletion).
 

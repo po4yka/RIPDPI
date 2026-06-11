@@ -16,7 +16,7 @@ linked_task: null
 
 ## Motivation
 
-The 2026-06-10 async cancel-safety audit found ~9 async fns missing the project-required `# Cancel safety:` rustdoc block, one incorrect cancel-safety claim, one fairness/starvation hazard, and several not-cancel-safe sequences used inside `select!`/timeout drop boundaries. The relay session-leak bug is tracked separately (`fix-relay-core-session-leak-on-shutdown`); this task covers the annotation sweep and the two correctness hazards that are not the leak.
+The 2026-06-10 async cancel-safety audit found ~9 async fns missing the project-required `# Cancel safety:` rustdoc block, one incorrect cancel-safety claim, one fairness/starvation hazard, and several not-cancel-safe sequences used inside `select!`/timeout drop boundaries. The relay session-leak-on-shutdown it was paired with is already resolved in `ripdpi-relay-core::RuntimeState` (shutdown `CancellationToken` + `TaskTracker` + `drain_sessions`, see `runtime/state.rs`); this task covers only the annotation sweep and the two correctness hazards that are not the leak.
 
 Key sites:
 - **Wrong claim** — `ripdpi-relay-core/src/socks/connect.rs:19` `handle_connect`: sends the SOCKS5 success reply (`REP=0x00`) at one `.await`, then starts `copy_bidirectional` at the next. Cancellation between them leaves the client with a confirmed CONNECT and a dead socket. The inline comment claims cancel-safe and is wrong.
@@ -43,7 +43,7 @@ Key sites:
 ## Risks / open questions
 
 - `splice` restructuring to drain-on-cancel is more invasive than documenting it — scope decision: document + verify cancel only fires at GC, defer the drain rewrite unless a test shows observable loss.
-- Coordinate with `fix-relay-core-session-leak-on-shutdown` (the abort point introduced there must respect the `handle_connect` window).
+- The relay shutdown-drain abort points already exist (`RuntimeState::session_cancel_token` child of the shutdown token, raced against session work in `spawn_socks_session`; `drain_sessions` joins in-flight tasks). The cancel-safety annotations must describe those existing boundaries and respect the `handle_connect` window — no new abort point is needed.
 
 ## References
 

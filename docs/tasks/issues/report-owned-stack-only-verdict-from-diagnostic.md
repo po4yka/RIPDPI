@@ -28,7 +28,8 @@ Verified 2026-05-28 against the current diagnostics and policy code:
 - `DirectModePolicySupport` derives `outcome = OWNED_STACK_ONLY` and `DirectModeReasonCode.OWNED_STACK_REQUIRED` from owned-stack-only diagnostic signals.
 - The diagnostics UI now treats `OWNED_STACK_ONLY` as a real outcome and offers a direct action to open the authority in the RIPDPI browser.
 - Session-row projections carry the launch URL and owned-stack-only flag so remediation can be derived from persisted diagnostic output.
-- Remaining work still belongs to the transparent-mode handoff: the pure orchestrator currently reports executed owned-stack arms and pin confirmation, but does not emit a final `OWNED_STACK_ONLY` `OrchestratorResult.verdict`; third-party transparent traffic still needs a structured not-supported result.
+- The orchestrator emits the final verdict: `deriveOrchestratorVerdict` returns `OWNED_STACK_ONLY` (reason `OWNED_STACK_REQUIRED`) when owned-stack succeeds and transparent fails, and `DirectModeOrchestrator.run()` sets `OrchestratorResult.verdict` from it (`OrchestratorTypes.kt:95-115`, `DirectModeOrchestrator.kt:58-69`; verified 2026-06-11). This matches criteria 1–3 below being done.
+- Remaining work is solely the transparent-mode handoff (criterion 4): third-party transparent traffic still needs a structured "not supported in transparent mode" result rather than a silent failure.
 
 ## Acceptance criteria
 

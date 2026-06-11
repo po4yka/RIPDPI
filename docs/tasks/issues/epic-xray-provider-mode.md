@@ -56,7 +56,7 @@ Status as of 2026-05-30 (`done` = every acceptance criterion test-verified; `bac
 - [[Package libXray for Android ABIs]] — backlog (pins/policy/license/verify-script landed; real gomobile ABI build OPEN)
 
 **Runtime path**
-- [[Render validated Xray client configs]] — **done** (renderer, validation gate, redactor, golden tests green offline)
+- Render validated Xray client configs — **done**, closed task (renderer, validation gate, redactor, golden tests green offline; git history is the audit trail)
 - [[Run Xray as managed VPN relay runtime]] — backlog (adapter + lifecycle contract verified vs fake bridge; real libXray run OPEN)
 - [[Bridge TUN traffic through Xray local inbound]] — backlog (orchestration verified offline; device egress smoke OPEN)
 
