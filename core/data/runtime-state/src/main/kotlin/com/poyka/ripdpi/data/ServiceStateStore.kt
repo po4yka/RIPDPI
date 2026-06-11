@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -100,10 +101,18 @@ class DefaultServiceStateStore
             CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
         )
 
+        private val lock = Any()
+
         private val _status = MutableStateFlow(AppStatus.Halted to Mode.VPN)
         override val status: StateFlow<Pair<AppStatus, Mode>> = _status.asStateFlow()
 
-        private val _events = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 8)
+        // DROP_OLDEST: the newest event must always be delivered; older queued events are superseded.
+        private val _events =
+            MutableSharedFlow<ServiceEvent>(
+                replay = 0,
+                extraBufferCapacity = 64,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
         override val events: SharedFlow<ServiceEvent> = _events.asSharedFlow()
 
         private val _telemetry = MutableStateFlow(ServiceTelemetrySnapshot())
@@ -138,85 +147,91 @@ class DefaultServiceStateStore
             status: AppStatus,
             mode: Mode,
         ) {
-            val previousStatus = _status.value.first
-            val now = System.currentTimeMillis()
-            _status.value = status to mode
-            val currentTelemetry = _telemetry.value
-            _telemetry.value =
-                currentTelemetry.copy(
-                    mode = mode,
-                    status = status,
-                    serviceStartedAt =
-                        when {
-                            status == AppStatus.Running && previousStatus != AppStatus.Running -> {
-                                now
-                            }
+            synchronized(lock) {
+                val previousStatus = _status.value.first
+                val now = System.currentTimeMillis()
+                _status.value = status to mode
+                val currentTelemetry = _telemetry.value
+                _telemetry.value =
+                    currentTelemetry.copy(
+                        mode = mode,
+                        status = status,
+                        serviceStartedAt =
+                            when {
+                                status == AppStatus.Running && previousStatus != AppStatus.Running -> {
+                                    now
+                                }
 
-                            status == AppStatus.Running -> {
-                                currentTelemetry.serviceStartedAt
-                            }
+                                status == AppStatus.Running -> {
+                                    currentTelemetry.serviceStartedAt
+                                }
 
-                            else -> {
-                                null
-                            }
-                        },
-                    restartCount =
-                        when {
-                            status == AppStatus.Running && previousStatus != AppStatus.Running -> {
-                                currentTelemetry.restartCount +
-                                    1
-                            }
+                                else -> {
+                                    null
+                                }
+                            },
+                        restartCount =
+                            when {
+                                status == AppStatus.Running && previousStatus != AppStatus.Running -> {
+                                    currentTelemetry.restartCount +
+                                        1
+                                }
 
-                            else -> {
-                                currentTelemetry.restartCount
-                            }
-                        },
-                    updatedAt = now,
-                )
+                                else -> {
+                                    currentTelemetry.restartCount
+                                }
+                            },
+                        updatedAt = now,
+                    )
+            }
         }
 
         override fun emitFailed(
             sender: Sender,
             reason: FailureReason,
         ) {
-            val now = System.currentTimeMillis()
-            val currentTelemetry = _telemetry.value
-            _telemetry.value =
-                currentTelemetry.copy(
-                    runtimeFieldTelemetry =
-                        deriveRuntimeFieldTelemetry(
-                            telemetryNetworkFingerprintHash =
-                                currentTelemetry.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
-                            winningTcpStrategyFamily =
-                                currentTelemetry.runtimeFieldTelemetry.winningTcpStrategyFamily,
-                            winningQuicStrategyFamily =
-                                currentTelemetry.runtimeFieldTelemetry.winningQuicStrategyFamily,
-                            winningDnsStrategyFamily =
-                                currentTelemetry.runtimeFieldTelemetry.winningDnsStrategyFamily,
-                            proxyTelemetry = currentTelemetry.proxyTelemetry,
-                            relayTelemetry = currentTelemetry.relayTelemetry,
-                            warpTelemetry = currentTelemetry.warpTelemetry,
-                            tunnelTelemetry = currentTelemetry.tunnelTelemetry,
-                            tunnelRecoveryRetryCount =
-                                currentTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
-                            failureReason = reason,
-                        ),
-                    lastFailureSender = sender,
-                    lastFailureAt = now,
-                    updatedAt = now,
-                )
+            synchronized(lock) {
+                val now = System.currentTimeMillis()
+                val currentTelemetry = _telemetry.value
+                _telemetry.value =
+                    currentTelemetry.copy(
+                        runtimeFieldTelemetry =
+                            deriveRuntimeFieldTelemetry(
+                                telemetryNetworkFingerprintHash =
+                                    currentTelemetry.runtimeFieldTelemetry.telemetryNetworkFingerprintHash,
+                                winningTcpStrategyFamily =
+                                    currentTelemetry.runtimeFieldTelemetry.winningTcpStrategyFamily,
+                                winningQuicStrategyFamily =
+                                    currentTelemetry.runtimeFieldTelemetry.winningQuicStrategyFamily,
+                                winningDnsStrategyFamily =
+                                    currentTelemetry.runtimeFieldTelemetry.winningDnsStrategyFamily,
+                                proxyTelemetry = currentTelemetry.proxyTelemetry,
+                                relayTelemetry = currentTelemetry.relayTelemetry,
+                                warpTelemetry = currentTelemetry.warpTelemetry,
+                                tunnelTelemetry = currentTelemetry.tunnelTelemetry,
+                                tunnelRecoveryRetryCount =
+                                    currentTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
+                                failureReason = reason,
+                            ),
+                        lastFailureSender = sender,
+                        lastFailureAt = now,
+                        updatedAt = now,
+                    )
+            }
             _events.tryEmit(ServiceEvent.Failed(sender, reason))
         }
 
         override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
-            val currentTelemetry = _telemetry.value
-            _telemetry.value =
-                snapshot.copy(
-                    serviceStartedAt = snapshot.serviceStartedAt ?: currentTelemetry.serviceStartedAt,
-                    restartCount = maxOf(snapshot.restartCount, currentTelemetry.restartCount),
-                    lastFailureSender = snapshot.lastFailureSender ?: currentTelemetry.lastFailureSender,
-                    lastFailureAt = snapshot.lastFailureAt ?: currentTelemetry.lastFailureAt,
-                )
+            synchronized(lock) {
+                val currentTelemetry = _telemetry.value
+                _telemetry.value =
+                    snapshot.copy(
+                        serviceStartedAt = snapshot.serviceStartedAt ?: currentTelemetry.serviceStartedAt,
+                        restartCount = maxOf(snapshot.restartCount, currentTelemetry.restartCount),
+                        lastFailureSender = snapshot.lastFailureSender ?: currentTelemetry.lastFailureSender,
+                        lastFailureAt = snapshot.lastFailureAt ?: currentTelemetry.lastFailureAt,
+                    )
+            }
         }
     }
 
