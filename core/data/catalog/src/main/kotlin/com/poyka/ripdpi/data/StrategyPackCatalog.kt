@@ -69,6 +69,26 @@ data class StrategyPackCatalog(
     // never emit a candidate arm that mutates their params. `amneziawg` is in
     // the default set because its obfuscation params must match the server.
     val fixedConfigProtocols: List<String> = DefaultStrategyPackFixedConfigProtocols,
+    // Per-protocol compatibility hints (advisory metadata for the recommender / UI):
+    // which arms suit a protocol and any neighborhood caveats. Optional and
+    // additive — older clients ignore it via ignoreUnknownKeys, so it carries no
+    // schemaVersion bump (a bump would make them reject the whole catalog).
+    val protocolHints: List<StrategyPackProtocolHint> = emptyList(),
+)
+
+/**
+ * Advisory per-protocol compatibility hint. [protocol] is an outbound protocol id
+ * (e.g. `ssh`, `mieru`, `anytls`); [recommendedArms] lists the strategy arms that
+ * suit it (e.g. `ssh-direct` vs `ssh-over-tls`); [quicHeavyNeighborhood] flags a
+ * protocol to prefer where UDP/QUIC transports are throttled.
+ */
+@Serializable
+data class StrategyPackProtocolHint(
+    val protocol: String,
+    val title: String = "",
+    val recommendedArms: List<String> = emptyList(),
+    val notes: String = "",
+    val quicHeavyNeighborhood: Boolean = false,
 )
 
 @Serializable
@@ -82,6 +102,10 @@ data class StrategyPackSnapshot(
 ) {
     val packs: List<StrategyPackDefinition>
         get() = catalog.packs
+
+    /** Catalog-global per-protocol compatibility hints (advisory). */
+    val protocolHints: List<StrategyPackProtocolHint>
+        get() = catalog.protocolHints
 }
 
 enum class StrategyPackRefreshFailureCode {
@@ -358,6 +382,18 @@ fun StrategyPackCatalog.isFixedConfigProtocol(protocol: String): Boolean {
         return false
     }
     return fixedConfigProtocols.any { it.trim().lowercase() == normalized }
+}
+
+/**
+ * Returns the advisory compatibility hint for [protocol] (case-insensitive,
+ * trim-tolerant), or `null` when the catalog ships no hint for it.
+ */
+fun StrategyPackCatalog.hintForProtocol(protocol: String): StrategyPackProtocolHint? {
+    val normalized = protocol.trim().lowercase()
+    if (normalized.isEmpty()) {
+        return null
+    }
+    return protocolHints.firstOrNull { it.protocol.trim().lowercase() == normalized }
 }
 
 /**

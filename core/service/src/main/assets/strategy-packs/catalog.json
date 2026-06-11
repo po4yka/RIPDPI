@@ -7,6 +7,37 @@
   "minAppVersion": "0.0.4",
   "minNativeVersion": "0.0.4",
   "notes": "Bundled fallback strategy packs for offline compatibility and rollback safety.",
+  "protocolHints": [
+    {
+      "protocol": "ssh",
+      "title": "SSH outbound",
+      "recommendedArms": [
+        "ssh-direct",
+        "ssh-over-tls"
+      ],
+      "notes": "Direct SSH suits self-hosted VPS relays; wrap in TLS (ssh-over-tls) where plain SSH on :22 is throttled.",
+      "quicHeavyNeighborhood": false
+    },
+    {
+      "protocol": "mieru",
+      "title": "Mieru (TCP carrier)",
+      "recommendedArms": [
+        "mieru-tcp"
+      ],
+      "notes": "TCP carrier only; the UDP/KCP carrier and multiplexing are deferred, so prefer mieru-tcp arms.",
+      "quicHeavyNeighborhood": false
+    },
+    {
+      "protocol": "anytls",
+      "title": "AnyTLS",
+      "recommendedArms": [
+        "anytls-direct",
+        "anytls-padding"
+      ],
+      "notes": "Padded TLS session resists size fingerprinting; favored in QUIC-heavy neighborhoods where UDP is throttled.",
+      "quicHeavyNeighborhood": true
+    }
+  ],
   "tlsProfiles": [
     {
       "id": "browser_family_v2",

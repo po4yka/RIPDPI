@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.StrategyPackChannelStable
 import com.poyka.ripdpi.data.StrategyPackManifest
 import com.poyka.ripdpi.data.StrategyPackSignatureAlgorithmSha256WithEcdsa
 import com.poyka.ripdpi.data.StrategyPackSnapshot
+import com.poyka.ripdpi.data.hintForProtocol
 import com.poyka.ripdpi.data.toJson
 import com.poyka.ripdpi.data.toStrategyPackSettingsModel
 import com.poyka.ripdpi.security.AppTrustedSigningKeyResolver
@@ -78,6 +79,13 @@ class AssetStrategyPackRepositoryTest {
                     .first()
                     .id,
             )
+            // The bundled catalog ships per-protocol compatibility hints (load-bearing
+            // through the real repository, not a silently-dropped JSON key).
+            assertEquals(
+                listOf("ssh", "mieru", "anytls"),
+                snapshot.catalog.protocolHints.map { it.protocol },
+            )
+            assertEquals(true, snapshot.catalog.hintForProtocol("anytls")?.quicHeavyNeighborhood)
             assertNull(loadResult.cacheDegradation)
         }
 
