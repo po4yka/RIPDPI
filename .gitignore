@@ -99,3 +99,6 @@ native/xray/artifacts/
 # Local design-review captures and reports (screenshots, PDFs, helper scripts).
 # Throwaway agent/review artifacts — never committed.
 design-review/
+
+# Advisor implementation plans (improve skill output) — local working artifacts
+/plans/
