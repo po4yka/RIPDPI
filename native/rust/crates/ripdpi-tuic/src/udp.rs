@@ -75,23 +75,17 @@ impl UdpSession {
             return Ok(existing);
         }
 
-        // Scan for a free id. The registrations map is bounded because Drop removes entries,
-        // so this loop terminates quickly in the common case.
-        use std::collections::hash_map::Entry;
+        // Scan for a free id via the shared helper (also exercised by unit tests).
         let mut regs = self.client.registrations.lock().await;
-        for _ in 0..MAX_ASSOC_ID_SCAN_ATTEMPTS {
-            let candidate = self.client.next_assoc_id.fetch_add(1, Ordering::SeqCst);
-            if let Entry::Vacant(slot) = regs.entry(candidate) {
-                slot.insert(self.incoming_tx.clone());
-                assoc_ids.insert(address.to_owned(), candidate);
-                return Ok(candidate);
-            }
-        }
-
-        Err(io::Error::new(
-            io::ErrorKind::ResourceBusy,
-            "TUIC UDP association-id space exhausted: too many concurrent sessions",
-        ))
+        let id =
+            allocate_assoc_id(&self.client.next_assoc_id, &mut regs, self.incoming_tx.clone()).ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::ResourceBusy,
+                    "TUIC UDP association-id space exhausted: too many concurrent sessions",
+                )
+            })?;
+        assoc_ids.insert(address.to_owned(), id);
+        Ok(id)
     }
 
     async fn next_packet_id(&self, assoc_id: u16) -> u16 {
@@ -254,9 +248,11 @@ pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
 
 /// Allocate an assoc-id from the given atomic counter, checking `registrations`
 /// for collisions. Returns the allocated id, or `None` if exhausted after
-/// `MAX_ASSOC_ID_SCAN_ATTEMPTS` tries. Extracted for unit testing without a
-/// live QUIC connection.
-#[cfg(test)]
+/// `MAX_ASSOC_ID_SCAN_ATTEMPTS` tries.
+///
+/// This is the single implementation used by both `assoc_id_for` in production
+/// and the unit tests, so a change to the allocation algorithm is automatically
+/// covered by the test suite.
 pub(crate) fn allocate_assoc_id(
     counter: &std::sync::atomic::AtomicU16,
     registrations: &mut HashMap<u16, mpsc::Sender<UdpPacket>>,
