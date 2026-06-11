@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-06-11
 source_wiki_pages: []
 linked_task: null
 ---
@@ -35,15 +35,27 @@ These items were scattered as parentless backlog tasks, making them look like re
 
 ## Child tasks
 
-- [[add-constant-rate-traffic-shaping-voip-camouflage]] — constant-rate shaping profile spike.
-- [[spike-dns-morph-bootstrap-fallback-channel]] — DNS-Morph alternative bootstrap channel.
-- [[investigate-rkn-unannounced-protocol-class-signatures]] — empirical block-rate matrix across transports; gated on ≥3 RU ISP vantages (external).
+- [[add-constant-rate-traffic-shaping-voip-camouflage]] — constant-rate shaping profile spike. **Spike done 2026-06-11 — CONDITIONAL-GO** (forward-only QUIC-datagram pacer; gated on a missing low-power hook; stream-wrapper/bidirectional scope dropped).
+- [[spike-dns-morph-bootstrap-fallback-channel]] — DNS-Morph alternative bootstrap channel. **Spike done 2026-06-11 — EXTERNALLY-GATED** (sound + not a duplicate, but unverifiable without an RU-reachable bridge + an outbound-:53 reachability measurement).
+- [[investigate-rkn-unannounced-protocol-class-signatures]] — empirical block-rate matrix across transports; gated on ≥3 RU ISP vantages (external). **Spike done 2026-06-11 — CONDITIONAL-GO on methodology** (field run stays gated; key finding: no policy type is keyed by transport-crate identity, so lock the `(transport-class, scope-hash)` matrix schema now).
 
 ## Ship definition
 
-- [ ] Each child has produced either a design note or a field-measurement matrix and a go/no-go recommendation.
-- [ ] Any technique that graduates is re-filed as an implementation task under the appropriate transport/TLS epic.
-- [ ] Dropped techniques are recorded with the reason (no silent abandonment).
+- [x] Each child has produced either a design note or a field-measurement matrix and a go/no-go recommendation. — All three design notes + go/no-go verdicts landed 2026-06-11 (in each child's task file). (The RKN child's *field-measurement matrix* itself stays externally gated on ≥3 RU vantages; the design note + methodology is its spike deliverable.)
+- [ ] Any technique that graduates is re-filed as an implementation task under the appropriate transport/TLS epic. — Graduation targets + minimal first slices are recorded in each child; re-filing happens when each gate clears (none is unconditionally ready yet: shaping needs a low-power hook first, DNS-Morph + RKN field run are externally gated).
+- [ ] Dropped techniques are recorded with the reason (no silent abandonment). — None dropped this pass (the Marionette drop on 2026-06-10 stands).
+
+## Status
+
+**2026-06-11 — design-spike pass complete (3/3 children).** Ran three parallel repo-grounded design spikes; no production code merged (per the design-spikes-only scope). Verdicts:
+
+| Child | Verdict | One-line |
+| --- | --- | --- |
+| Constant-rate VoIP-camouflage shaping | **conditional-go** | Real, but only on the QUIC-datagram surface (not the stream wrapper the criteria assumed), gated on a low-power hook that does not exist yet; bidirectional padding needs server cooperation we don't have. |
+| DNS-Morph bootstrap fallback | **externally-gated** | Not a duplicate of `ripdpi-dns-resolver`; trivially buildable; protect already covered — but its whole payoff (a TSPU :53 gap) is unverifiable without an RU-reachable bridge + an in-transit :53 measurement. |
+| RKN protocol-class signatures | **conditional-go (methodology)** | Methodology + policy-hook design are sound; field run stays externally gated on ≥3 RU vantages. Load-bearing finding: no policy type is keyed by transport-crate identity, so the matrix must carry `(transport-class, scope-hash)` keying from day one. |
+
+Frontmatter rollup: traffic-shaping → `backlog` (spike resolved; implementation parked behind its low-power-hook prerequisite — file kept to hold the note); DNS-Morph → `blocked` (externally gated); RKN → `blocked` (field run gated, methodology delivered). The epic stays `backlog` as the holding home for the gated/graduating follow-ups. (No child is `done`/`dropped`, so no task file is deleted — the design notes live in the task files per the spike scope.)
 
 ## Risks / open questions
 

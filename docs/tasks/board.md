@@ -38,13 +38,16 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 
 _No tasks in review._
 
-## Blocked (6)
+## Blocked (8)
 
 _The Xray-provider rows are blocked on the gomobile/libXray AAR toolchain + on-device
 smoke lane; the remaining rows carry their own blocker (see each issue's Work log).
 The ordered unblock steps + the missing CI seam live in
 [docs/native/libxray-unblock-checklist.md](../native/libxray-unblock-checklist.md);
-the offline Kotlin substrate is re-verified green (121 Xray unit tests, 2026-06-11)._
+the offline Kotlin substrate is re-verified green (121 Xray unit tests, 2026-06-11).
+The two transport-obfuscation-research rows below carry design notes + go/no-go (2026-06-11)
+and are externally gated: DNS-Morph on an RU-reachable bridge + an outbound-:53 measurement,
+RKN on ≥3 RU ISP vantages for the field run._
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -54,6 +57,8 @@ the offline Kotlin substrate is re-verified green (121 Xray unit tests, 2026-06-
 | medium | diagnostics | [Add network-security-config with opportunistic domainEncryption](issues/add-network-security-config-with-opportunistic-domainencryption.md) | — |
 | medium | outbound | [Surface Xray diagnostics and telemetry](issues/surface-xray-diagnostics-and-telemetry.md) | epic-xray-provider-mode |
 | medium | testing | [Add Hysteria 2 Salamander obfuscation conformance fixtures](issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md) | epic-protocol-conformance-tests |
+| medium | transport | [Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | epic-transport-obfuscation-research |
+| medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | epic-transport-obfuscation-research |
 
 ## Todo (3)
 
@@ -63,7 +68,7 @@ the offline Kotlin substrate is re-verified green (121 Xray unit tests, 2026-06-
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast](issues/centralize-unsafe-javavm-from-raw-and-signal-cast.md) | epic-june-2026-audit-remediation |
 
-## Backlog (18)
+## Backlog (16)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -75,8 +80,6 @@ the offline Kotlin substrate is re-verified green (121 Xray unit tests, 2026-06-
 | medium | rust-native | [Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel](issues/introduce-ws-transport-port-to-fix-layer-violations.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Split the 12-method PolicyPort trait into selection and learning sub-traits](issues/split-policyport-trait-selection-learning.md) | epic-june-2026-audit-remediation |
 | medium | testing | [Spike CensorLab as offline censor-replay harness](issues/spike-censorlab-as-offline-censor-replay-harness.md) | epic-orchestration-test-posture |
-| medium | transport | [Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | epic-transport-obfuscation-research |
-| medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | epic-transport-obfuscation-research |
 | medium | transport | [Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22)](issues/wire-hysteria-realm-stun-nat-traversal.md) | — |
 | medium | ui | [Decompose BlockcheckViewModel, DetectionCheckViewModel, BackupRestoreViewModel](issues/decompose-god-viewmodels-blockcheck-detection-backup.md) | epic-june-2026-audit-remediation |
 | medium | ui | [Key session-scoped LaunchedEffect refreshes on the session id, not Unit](issues/fix-launchedeffect-unit-session-keyed-refresh.md) | epic-june-2026-audit-remediation |
