@@ -3,6 +3,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::os::fd::AsRawFd;
 
+use android_support::authority_header_value;
 use boring::ssl::SslVersion;
 use bytes::Bytes;
 use http::header::HOST;
@@ -130,7 +131,7 @@ async fn execute_async(request: NativeWarpProvisioningHttpRequest) -> io::Result
         builder = builder.header(name.as_str(), value.as_str());
     }
     if !has_host_header {
-        builder = builder.header(HOST, authority_header_value(&host, port));
+        builder = builder.header(HOST, authority_header_value(&host, port, true));
     }
     let request = builder
         .body(Full::new(body))
@@ -214,10 +215,6 @@ async fn connect_protected_addr(addr: SocketAddr) -> io::Result<TcpStream> {
     .map_err(io::Error::other)??;
     std_stream.set_nonblocking(true)?;
     TcpStream::from_std(std_stream)
-}
-
-fn authority_header_value(host: &str, port: u16) -> String {
-    if port == 443 { host.to_string() } else { format!("{host}:{port}") }
 }
 
 async fn socks5_handshake_no_auth(stream: &mut TcpStream) -> io::Result<()> {

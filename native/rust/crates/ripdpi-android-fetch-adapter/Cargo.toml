@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+android-support = { workspace = true }
 base64 = { workspace = true }
 bytes = { workspace = true }
 http = { workspace = true }

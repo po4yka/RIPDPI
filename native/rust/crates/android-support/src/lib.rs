@@ -2,6 +2,7 @@ mod events;
 mod exceptions;
 mod ffi_boundary;
 mod handles;
+mod http;
 mod logging;
 mod sync;
 mod tracing_layer;
@@ -23,6 +24,7 @@ pub use exceptions::{
 };
 pub use ffi_boundary::ffi_boundary;
 pub use handles::HandleRegistry;
+pub use http::authority_header_value;
 pub use logging::{
     android_log_level_from_debug_verbosity, android_log_level_from_str, clear_android_log_scope_level,
     default_android_log_level, ignore_sigpipe, init_android_logging, install_panic_hook, log_with_level,

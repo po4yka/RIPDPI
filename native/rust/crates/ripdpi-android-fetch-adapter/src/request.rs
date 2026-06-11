@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::io;
 use std::time::Duration;
 
+use android_support::authority_header_value;
 use bytes::Bytes;
 use http::header::{HOST, HeaderName, HeaderValue};
 use http::{Method, Request};
@@ -34,7 +35,16 @@ pub(crate) async fn execute_once(
     match url.scheme() {
         "https" => execute_once_https(method, &endpoint, request, tcp).await,
         "http" => {
-            send_request(method, &endpoint.target_path, &endpoint.host, endpoint.port, request, TokioIo::new(tcp)).await
+            send_request(
+                method,
+                &endpoint.target_path,
+                &endpoint.host,
+                endpoint.port,
+                false,
+                request,
+                TokioIo::new(tcp),
+            )
+            .await
         }
         scheme => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -63,7 +73,7 @@ async fn execute_once_https(
     tcp: TcpStream,
 ) -> io::Result<RawHttpResponse> {
     let tls = connect_tls(&endpoint.host, tcp, request.connect_timeout_ms, &request.tls_profile_id).await?;
-    send_request(method, &endpoint.target_path, &endpoint.host, endpoint.port, request, TokioIo::new(tls)).await
+    send_request(method, &endpoint.target_path, &endpoint.host, endpoint.port, true, request, TokioIo::new(tls)).await
 }
 
 async fn send_request<T>(
@@ -71,6 +81,7 @@ async fn send_request<T>(
     target_path: &str,
     host: &str,
     port: u16,
+    https: bool,
     request: &NativeOwnedTlsHttpRequest,
     io: TokioIo<T>,
 ) -> io::Result<RawHttpResponse>
@@ -85,7 +96,7 @@ where
         let _ = connection.await;
     });
 
-    let http_request = build_request(method, target_path, host, port, &request.headers)?;
+    let http_request = build_request(method, target_path, host, port, https, &request.headers)?;
     let response = timeout(Duration::from_millis(request.read_timeout_ms), sender.send_request(http_request))
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "HTTP request timed out"))?
@@ -104,6 +115,7 @@ fn build_request(
     target_path: &str,
     host: &str,
     port: u16,
+    https: bool,
     headers: &BTreeMap<String, String>,
 ) -> io::Result<Request<Full<Bytes>>> {
     let mut builder = Request::builder().method(method.clone()).uri(target_path);
@@ -119,15 +131,11 @@ fn build_request(
         builder = builder.header(header_name, header_value);
     }
     if !has_host_header {
-        builder = builder.header(HOST, authority_header_value(host, port));
+        builder = builder.header(HOST, authority_header_value(host, port, https));
     }
     builder
         .body(Full::new(Bytes::new()))
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid request body: {error}")))
-}
-
-fn authority_header_value(host: &str, port: u16) -> String {
-    if port == 443 || port == 80 { host.to_string() } else { format!("{host}:{port}") }
 }
 
 fn default_port(scheme: &str) -> u16 {
