@@ -58,6 +58,8 @@ RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它�
 | `webtunnel` | In-repository Rust pluggable-transport helper binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
 | `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
 | `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
+| `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
+| `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
 | `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
 
 Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
@@ -109,7 +111,7 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 
 - **代理模式**：在配置的本地主机端口上运行本地 SOCKS5 代理。
 - **VPN 模式**：通过 `VpnService` 经由本地 TUN-到-SOCKS 桥接路由 Android 设备流量。
-- **配置文件导入**：QR 码扫描与生成，以及通过剪贴板和分享表单导入。剪贴板/分享表单解析使用代理 URI 编解码器，支持 `vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://`、`anytls://` 和 `tuic://`；QR 码扫描目前支持 `vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://` 和 `tuic://`。AmneziaWG 使用独立的 `amneziawg://` 编解码器。Android intent 过滤器还会将 `ssh://` 暴露给导入中转层，但当前代理 URI 编解码器不解析该协议。
+- **配置文件导入**：QR 码扫描与生成，以及通过剪贴板和分享表单导入。剪贴板/分享表单解析使用代理 URI 编解码器，支持 `vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://`、`anytls://`、`tuic://`、`mieru://` 和 `ssh://`；QR 码扫描目前支持 `vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://` 和 `tuic://`。AmneziaWG 使用独立的 `amneziawg://` 编解码器。Android intent 过滤器还会将 `ssh://` 暴露给导入中转层，代理 URI 编解码器可解析并双向编码该协议。
 - **订阅**：支持 base64、Clash / Clash.Meta YAML、sing-box JSON 和 WireGuard-INI 订阅格式，具备后台自动更新、重复配置文件检测、selector/urltest 分组以及多镜像分发。
 - **加密 DNS**：在 VPN 相关路径中支持 DoH、DoT、DNSCrypt 和 DoQ 解析器。
 - **策略控制**：TCP split/disorder/fake 系列、TLS 记录分片和伪造配置文件、QUIC 和 DTLS 握手变种、UDP 长度字段变种、IPv6 扩展头、Lua `rawsend`、每步骤激活过滤器、IPv4 ID 控制以及 OOB 注入。

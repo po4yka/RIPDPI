@@ -58,6 +58,8 @@ Encadena el tráfico del proxy local o de la VPN a través de protocolos de rele
 | `webtunnel` | In-repository Rust pluggable-transport helper binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
 | `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
 | `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
+| `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
+| `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
 | `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
 
 Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
@@ -109,7 +111,7 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 
 - **Modo proxy**: proxy SOCKS5 local en el puerto localhost configurado.
 - **Modo VPN**: enruta el tráfico del dispositivo Android a través de un puente local TUN-a-SOCKS mediante `VpnService`.
-- **Importación de perfiles**: escaneo y generación de QR, más importación desde portapapeles y hoja de compartir. El análisis del portapapeles y la hoja de compartir usa el códec de URI de proxy, que acepta `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://` y `tuic://`; el escaneo de QR funciona actualmente para `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` y `tuic://`. AmneziaWG utiliza el códec separado `amneziawg://`. Los filtros de intent de Android también exponen `ssh://` al trampolín de importación, pero ese esquema no es analizado por el códec de URI de proxy actual.
+- **Importación de perfiles**: escaneo y generación de QR, más importación desde portapapeles y hoja de compartir. El análisis del portapapeles y la hoja de compartir usa el códec de URI de proxy, que acepta `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://` y `ssh://`; el escaneo de QR funciona actualmente para `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` y `tuic://`. AmneziaWG utiliza el códec separado `amneziawg://`. Los filtros de intent de Android también exponen `ssh://` al trampolín de importación, y el códec de URI de proxy lo analiza y lo codifica en ambas direcciones.
 - **Suscripciones**: formatos de suscripción base64, Clash / Clash.Meta YAML, sing-box JSON y WireGuard-INI con actualización automática en segundo plano, detección de perfiles duplicados, grupos selector/urltest y entrega multi-mirror.
 - **DNS cifrado**: soporte de resolutores DoH, DoT, DNSCrypt y DoQ en las rutas relacionadas con VPN.
 - **Controles de estrategia**: familias TCP split/disorder/fake, fragmentación de registros TLS y perfiles falsos, variación de handshake QUIC y DTLS, variación del campo de longitud UDP, cabeceras de extensión IPv6, `rawsend` Lua, filtros de activación por paso, control de IPv4 ID e inyección OOB.

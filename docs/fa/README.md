@@ -60,6 +60,8 @@ RIPDPI یک جعبه‌ابزار اندرویدی برای تشخیص و بهی
 | `webtunnel` | In-repository Rust pluggable-transport helper binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
 | `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
 | `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
+| `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
+| `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
 | `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
 
 Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](../architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](../adr/0001-reality-ech.md) for the GREASE-only policy.
@@ -111,7 +113,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 
 - **حالت پراکسی**: پراکسی SOCKS5 محلی روی پورت localhost پیکربندی‌شده.
 - **حالت VPN**: ترافیک دستگاه اندرویدی را از طریق یک پل TUN-به-SOCKS محلی با استفاده از `VpnService` مسیریابی می‌کند.
-- **وارد کردن پروفایل**: اسکن و تولید QR، به‌علاوهٔ وارد کردن از کلیپ‌بورد و اشتراک‌گذاری. تجزیهٔ کلیپ‌بورد/اشتراک‌گذاری از کدک URI پراکسی استفاده می‌کند که `vless://`، `ss://`، `trojan://`، `hysteria2://`، `hy2://`، `anytls://` و `tuic://` را می‌پذیرد؛ اسکن QR در حال حاضر برای `vless://`، `ss://`، `trojan://`، `hysteria2://`، `hy2://` و `tuic://` موفق است. AmneziaWG از کدک جداگانهٔ `amneziawg://` استفاده می‌کند. فیلترهای intent اندروید همچنین `ssh://` را به trampoline وارد کردن نمایان می‌کنند، اما این طرح توسط کدک URI پراکسی فعلی تجزیه نمی‌شود.
+- **وارد کردن پروفایل**: اسکن و تولید QR، به‌علاوهٔ وارد کردن از کلیپ‌بورد و اشتراک‌گذاری. تجزیهٔ کلیپ‌بورد/اشتراک‌گذاری از کدک URI پراکسی استفاده می‌کند که `vless://`، `ss://`، `trojan://`، `hysteria2://`، `hy2://`، `anytls://`، `tuic://`، `mieru://` و `ssh://` را می‌پذیرد؛ اسکن QR در حال حاضر برای `vless://`، `ss://`، `trojan://`، `hysteria2://`، `hy2://` و `tuic://` موفق است. AmneziaWG از کدک جداگانهٔ `amneziawg://` استفاده می‌کند. فیلترهای intent اندروید همچنین `ssh://` را به trampoline وارد کردن نمایان می‌کنند، و کدک URI پراکسی آن را تجزیه و در هر دو جهت کدگذاری می‌کند.
 - **اشتراک‌ها**: فرمت‌های اشتراک base64، Clash / Clash.Meta YAML، sing-box JSON و WireGuard-INI با به‌روزرسانی خودکار پس‌زمینه، شناسایی پروفایل‌های تکراری، گروه‌های selector/urltest و تحویل چند‌آینه‌ای.
 - **DNS رمزنگاری‌شده**: پشتیبانی از تحلیل‌گرهای DoH، DoT، DNSCrypt و DoQ در مسیرهای مرتبط با VPN.
 - **کنترل‌های راهبرد**: خانوادهٔ split/disorder/fake برای TCP، قطعه‌بندی رکورد TLS و پروفایل‌های ساختگی، تنوع دست‌دهی QUIC و DTLS، تنوع فیلد طول UDP، هدرهای افزونهٔ IPv6، `rawsend` در Lua، فیلترهای فعال‌سازی به ازای هر مرحله، کنترل شناسهٔ IPv4 و تزریق OOB.

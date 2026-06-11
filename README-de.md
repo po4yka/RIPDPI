@@ -58,6 +58,8 @@ Leitet lokalen Proxy- oder VPN-Datenverkehr verschlüsselt über Relay-Protokoll
 | `webtunnel` | In-repository Rust pluggable-transport helper binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
 | `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
 | `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
+| `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
+| `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
 | `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
 
 Snowflake verbleibt absichtlich als externe Go-Binärdatei; siehe die [Entscheidung gegen Snowflake in nativem Rust](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality verwendet kein echtes ECH; siehe [ADR 0001](docs/adr/0001-reality-ech.md) für die ausschließliche GREASE-Richtlinie.
@@ -109,7 +111,7 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 
 - **Proxy-Modus**: lokaler SOCKS5-Proxy auf dem konfigurierten Localhost-Port.
 - **VPN-Modus**: leitet den Android-Datenverkehr des Geräts über eine lokale TUN-zu-SOCKS-Brücke mittels `VpnService` weiter.
-- **Profilimport**: QR-Code-Scan und -Generierung sowie Import über die Zwischenablage und das Teilen-Menü. Das Parsen von Zwischenablage- und Teilen-Menü-Inhalten erfolgt über den Proxy-URI-Codec, der `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://` und `tuic://` akzeptiert; der QR-Scan gelingt derzeit für `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` und `tuic://`. AmneziaWG verwendet den separaten `amneziawg://`-Codec. Android-Intent-Filter legen außerdem `ssh://` am Import-Trampolin offen, dieses Schema wird jedoch vom aktuellen Proxy-URI-Codec nicht geparst.
+- **Profilimport**: QR-Code-Scan und -Generierung sowie Import über die Zwischenablage und das Teilen-Menü. Das Parsen von Zwischenablage- und Teilen-Menü-Inhalten erfolgt über den Proxy-URI-Codec, der `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://` und `ssh://` akzeptiert; der QR-Scan gelingt derzeit für `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` und `tuic://`. AmneziaWG verwendet den separaten `amneziawg://`-Codec. Android-Intent-Filter legen außerdem `ssh://` am Import-Trampolin offen, und der Proxy-URI-Codec parst und kodiert es in beide Richtungen.
 - **Abonnements**: base64-, Clash / Clash.Meta-YAML-, sing-box-JSON- und WireGuard-INI-Abonnementformate mit automatischer Hintergrundaktualisierung, Erkennung doppelter Profile, Selector-/urltest-Gruppen und Multi-Mirror-Auslieferung.
 - **Verschlüsseltes DNS**: Unterstützung für DoH-, DoT-, DNSCrypt- und DoQ-Resolver in VPN-bezogenen Pfaden.
 - **Strategie-Steuerung**: TCP-Familien für Split/Unordnung/Fake, TLS-Record-Fragmentierung und Fake-Profile, QUIC- und DTLS-Handshake-Variation, Variation des UDP-Längenfelds, IPv6-Erweiterungsheader, Lua-`rawsend`, schrittweise Aktivierungsfilter, IPv4-ID-Steuerung und OOB-Einschleusung.

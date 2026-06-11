@@ -58,6 +58,8 @@ RIPDPI — это набор инструментов Android для диагн�
 | `webtunnel` | In-repository Rust pluggable-transport helper binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
 | `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
 | `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
+| `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
+| `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
 | `vless` | Recognized profile/settings compatibility kind; not a relay-core descriptor-backed backend | Import/config compatibility | TCP |
 
 Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
@@ -109,7 +111,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 
 - **Режим прокси**: локальный SOCKS5-прокси на настроенном localhost-порте.
 - **Режим VPN**: маршрутизирует трафик Android-устройства через локальный TUN-to-SOCKS bridge с использованием `VpnService`.
-- **Импорт профилей**: сканирование и генерация QR-кода, а также импорт через буфер обмена и share-sheet. Разбор буфера обмена и share-sheet выполняется через кодек proxy URI, который принимает `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://` и `tuic://`; сканирование QR-кода в настоящее время работает для `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` и `tuic://`. AmneziaWG использует отдельный кодек `amneziawg://`. Фильтры интентов Android также передают `ssh://` в trampoline импорта, однако эта схема не разбирается текущим кодеком proxy URI.
+- **Импорт профилей**: сканирование и генерация QR-кода, а также импорт через буфер обмена и share-sheet. Разбор буфера обмена и share-sheet выполняется через кодек proxy URI, который принимает `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://` и `ssh://`; сканирование QR-кода в настоящее время работает для `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://` и `tuic://`. AmneziaWG использует отдельный кодек `amneziawg://`. Фильтры интентов Android также передают `ssh://` в trampoline импорта, и кодек proxy URI разбирает и кодирует её в обе стороны.
 - **Подписки**: форматы подписок base64, Clash / Clash.Meta YAML, sing-box JSON и WireGuard-INI с фоновым автообновлением, обнаружением дублирующихся профилей, группами selector/urltest и доставкой через несколько зеркал.
 - **Зашифрованный DNS**: поддержка DoH, DoT, DNSCrypt и DoQ-резолверов в путях, связанных с VPN.
 - **Управление стратегиями**: семейства TCP split/disorder/fake, фрагментация TLS-записей и fake-профили, вариация QUIC- и DTLS-handshake, вариация UDP length-field, IPv6 extension headers, Lua `rawsend`, per-step activation filters, контроль IPv4 ID и OOB-инъекция.
