@@ -2,6 +2,8 @@
 
 Current Phase-16 wiring is documented in [`docs/testing.md`](../../../docs/testing.md#phase-16-real-world-confidence-status).
 
+> **Why not CensorLab?** See [`CENSORLAB-EVALUATION.md`](CENSORLAB-EVALUATION.md) (2026-06-11): CensorLab (arXiv:2412.16349) was evaluated as an offline censor-replay harness and **rejected as a dependency** — its NFQUEUE plumbing duplicates this harness while adding a Nix/nightly-Rust/GPL-3.0 toolchain. Three CensorLab ideas (DoH/DoQ classifier, stateful reassembly, ML-censor emulation) are recorded there as prioritised fork-in follow-ups.
+
 v1.1 ships five patterns and a matrix-runner that reports per-cell verdicts (`bypassed` / `blocked` / `degraded` / `inconclusive`) per `(desync_mode_id, pattern_id)` cell:
 
 | pattern_id | description |
