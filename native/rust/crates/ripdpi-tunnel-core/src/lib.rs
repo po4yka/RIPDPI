@@ -14,6 +14,7 @@ pub mod io_loop;
 pub mod sessions;
 pub mod stats;
 pub mod tunnel_api;
+pub mod uid_policy;
 
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 pub use io_loop::IoUringTunContext;
@@ -24,6 +25,7 @@ pub use {
     sessions::{ActiveSessions, SessionEntry},
     stats::{DnsStatsSnapshot, PacketObserver, Stats, TcpConnectObservation},
     tunnel_api::run_tunnel,
+    uid_policy::{FlowUidSource, UidFlowPolicy, Verdict},
 };
 
 /// Serializes the tests that mutate the process-global `VpnService.protect()`
