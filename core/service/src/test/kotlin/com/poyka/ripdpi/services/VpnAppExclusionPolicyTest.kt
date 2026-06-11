@@ -181,6 +181,38 @@ class VpnAppExclusionPolicyTest {
         assertEquals(VpnAppRoutingPlan.Disallow(setOf(OWN_PACKAGE, "com.preset.one")), plan)
     }
 
+    /**
+     * Criterion 4 (policy half): a VPN-detection-positive app on the blocklist routes DIRECT
+     * (present in the `Disallow` set → `addDisallowedApplication` → egress on the underlying
+     * network), while an unrelated app stays TUNNELED (absent from the set → routed through VLESS).
+     * `ru.vk.store` (RuStore), selected but not installed, is dropped by the installed-set filter.
+     *
+     * The remaining half of the criterion — asserting the blocklisted app actually exits with a
+     * non-tunnel IP while the allowed app exits via VLESS — needs a real device and a second egress
+     * path (a JVM/Robolectric host cannot route an `addDisallowedApplication` socket); it is tracked
+     * as device-gated.
+     */
+    @Test
+    fun `blocklisted vpn-detection app routes direct while unrelated app stays tunneled`() {
+        val sber = "ru.sberbankmobile"
+        val ruStore = "ru.vk.store"
+        val chrome = "com.android.chrome"
+
+        val plan =
+            computeAppRoutingPlan(
+                fullTunnelMode = false,
+                splitTunnelMode = SplitTunnelMode.Exclude,
+                splitTunnelPackages = listOf(sber, ruStore),
+                presetExclusions = emptyList(),
+                installedPackages = setOf(sber, chrome),
+                ownPackage = OWN_PACKAGE,
+            )
+
+        // Disallow holds exactly {own, Sber}: Sber routes direct, Chrome stays tunneled (absent),
+        // and not-installed RuStore is dropped by the installed-set filter.
+        assertEquals(VpnAppRoutingPlan.Disallow(setOf(OWN_PACKAGE, sber)), plan)
+    }
+
     private companion object {
         const val OWN_PACKAGE = "com.poyka.ripdpi"
     }
