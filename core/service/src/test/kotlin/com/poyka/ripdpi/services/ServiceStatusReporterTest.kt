@@ -237,6 +237,41 @@ class ServiceStatusReporterTest {
         assertEquals(4L, store.telemetry.value.runtimeFieldTelemetry.tunnelRecoveryRetryCount)
     }
 
+    /**
+     * Test #5: reportStatus reads the telemetry snapshot AFTER applyStatus, not before.
+     *
+     * applyStatus calls setStatus(Running) which increments restartCount inside the store.
+     * The projection then receives currentTelemetry captured post-applyStatus, so
+     * updateTelemetry sees restartCount=1 in the snapshot passed to it. Because
+     * updateTelemetry uses maxOf(snapshot.restartCount, currentTelemetry.restartCount),
+     * the final telemetry must reflect restartCount >= 1.
+     *
+     * With the old ordering (read before applyStatus), currentTelemetry.restartCount was
+     * 0; the projection snapshot also had restartCount=0; maxOf(0,0)=0 — the increment
+     * from setStatus was silently discarded.
+     */
+    @Test
+    fun `telemetry projection uses post-applyStatus snapshot so restartCount is not lost`() {
+        val store = TestServiceStateStore()
+        val reporter = testReporter(store = store, mode = Mode.VPN, sender = Sender.VPN, now = 1L)
+
+        // First call transitions Halted → Running; setStatus increments restartCount to 1.
+        reporter.reportStatus(
+            newStatus = ServiceStatus.Connected,
+            activePolicy = null,
+            consumePendingNetworkHandoverClass = { null },
+            currentNetworkHandoverState = { null },
+            tunnelRecoveryRetryCount = 0L,
+        )
+
+        // restartCount must be 1 — the post-applyStatus snapshot carried it into the projection.
+        assert(store.telemetry.value.restartCount >= 1) {
+            "Expected restartCount >= 1 after first Connected transition, " +
+                "got ${store.telemetry.value.restartCount}. " +
+                "The projection must read telemetry AFTER applyStatus sets it."
+        }
+    }
+
     private fun testReporter(
         store: TestServiceStateStore,
         mode: Mode,

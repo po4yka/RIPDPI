@@ -52,8 +52,8 @@ internal class ServiceStatusReporter(
         tunnelTelemetryStatus: RuntimeTelemetryStatus? = null,
         failureReason: FailureReason? = null,
     ) {
-        val currentTelemetry = serviceStateStore.telemetry.value
         statusPersistence.applyStatus(newStatus, failureReason)
+        val currentTelemetry = serviceStateStore.telemetry.value
         serviceStateStore.updateTelemetry(
             telemetryProjection.statusTelemetry(
                 newStatus = newStatus,
