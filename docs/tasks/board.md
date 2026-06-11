@@ -6,7 +6,7 @@ hand-edit it; regenerate it from the issue frontmatter (see `README.md` § Regen
 
 _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`dropped` files are deleted)._
 
-## Doing (23)
+## Doing (22)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -17,7 +17,6 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | high | outbound | [Bridge TUN traffic through Xray local inbound](issues/bridge-tun-traffic-through-xray-local-inbound.md) | epic-xray-provider-mode |
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | — |
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | — |
-| high | transport | [Enforce per-exit-IP concurrent-TLS-connection cap (~12, RU home-ISP policing)](issues/enforce-per-exit-ip-concurrent-tls-cap.md) | — |
 | high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | epic-fail-closed-android-vpn-policy-engine |
 | medium | diagnostics | [Report OWNED_STACK_ONLY verdict from diagnostic](issues/report-owned-stack-only-verdict-from-diagnostic.md) | — |
 | medium | epic | [Epic - Protocol conformance and regression tests](issues/epic-protocol-conformance-tests.md) | — |
@@ -60,7 +59,7 @@ RKN on ≥3 RU ISP vantages for the field run._
 | medium | transport | [Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | epic-transport-obfuscation-research |
 | medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | epic-transport-obfuscation-research |
 
-## Todo (4)
+## Todo (5)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -68,6 +67,7 @@ RKN on ≥3 RU ISP vantages for the field run._
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast](issues/centralize-unsafe-javavm-from-raw-and-signal-cast.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Harden Lua sandbox residuals: JNI jail seed + egress base dir](issues/harden-lua-sandbox-residuals-jni-jail-seed.md) | — |
+| medium | transport | [Per-exit-IP TLS cap with true mux-preference in relay-core backend](issues/per-exit-ip-tls-cap-with-mux-preference-in-relay-core.md) | — |
 
 ## Backlog (15)
 
