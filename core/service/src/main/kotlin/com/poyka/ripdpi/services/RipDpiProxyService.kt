@@ -25,6 +25,19 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import javax.inject.Provider
 
+internal enum class StickyRestartDecision { ABORT, PROCEED }
+
+internal fun stickyRestartDecision(
+    intentIsNull: Boolean,
+    sdkAtLeastTiramisu: Boolean,
+    notificationsGranted: Boolean,
+): StickyRestartDecision =
+    if (intentIsNull && sdkAtLeastTiramisu && !notificationsGranted) {
+        StickyRestartDecision.ABORT
+    } else {
+        StickyRestartDecision.PROCEED
+    }
+
 /**
  * Proxy-mode foreground `Service` — the Android entry point for proxy mode.
  * Hosts the proxy session component; runtime orchestration is delegated to
@@ -87,9 +100,13 @@ class RipDpiProxyService :
     ): Int {
         super.onStartCommand(intent, flags, startId)
         startForegroundService()
-        if (intent == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
+        if (stickyRestartDecision(
+                intentIsNull = intent == null,
+                sdkAtLeastTiramisu = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
+                notificationsGranted =
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+                        PackageManager.PERMISSION_GRANTED,
+            ) == StickyRestartDecision.ABORT
         ) {
             Logger.w { "Sticky restart aborted: notification permission revoked" }
             stopForeground(STOP_FOREGROUND_REMOVE)
