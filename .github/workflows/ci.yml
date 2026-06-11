@@ -811,6 +811,7 @@ jobs:
           retention-days: 7
 
   rust-network-e2e:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -864,6 +865,7 @@ jobs:
         run: bash scripts/ci/run-rust-relay-interoperability.sh
 
   cli-packet-smoke:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -896,6 +898,7 @@ jobs:
           retention-days: 7
 
   rust-turmoil:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
