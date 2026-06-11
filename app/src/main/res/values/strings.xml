@@ -3248,6 +3248,8 @@ Source: %2$s</string>
     <string name="split_tunnel_edit_apps">Choose apps (%1$d selected)</string>
     <string name="split_tunnel_full_tunnel_title">Full-tunnel mode is on</string>
     <string name="split_tunnel_full_tunnel_body">Full-tunnel mode routes every app through the VPN and ignores split-tunnel settings. Turn it off in Security settings to choose apps.</string>
+    <string name="split_tunnel_system_managed_body">On Android 17 and later, per-app VPN exclusions are managed in system settings and persist across reconnects.</string>
+    <string name="split_tunnel_open_system_settings">Open system settings</string>
     <string name="title_asset_provider">Asset provider</string>
     <string name="asset_provider_section_title">Geo assets</string>
     <string name="asset_provider_entry_title">Geo asset provider</string>

@@ -3091,6 +3091,8 @@ Quelle: %2$s</string>
     <string name="split_tunnel_edit_apps">Apps auswählen (%1$d ausgewählt)</string>
     <string name="split_tunnel_full_tunnel_title">Voll-Tunnel-Modus ist aktiv</string>
     <string name="split_tunnel_full_tunnel_body">Der Voll-Tunnel-Modus leitet alle Apps über das VPN und ignoriert die Split-Tunnel-Einstellungen. Schalte ihn in den Sicherheitseinstellungen aus, um Apps auszuwählen.</string>
+    <string name="split_tunnel_system_managed_body">Ab Android 17 werden App-Ausnahmen für das VPN in den Systemeinstellungen verwaltet und bleiben über Neuverbindungen hinweg erhalten.</string>
+    <string name="split_tunnel_open_system_settings">Systemeinstellungen öffnen</string>
     <string name="title_asset_provider">Datenanbieter</string>
     <string name="asset_provider_section_title">Geo-Daten</string>
     <string name="asset_provider_entry_title">Geo-Datenanbieter</string>

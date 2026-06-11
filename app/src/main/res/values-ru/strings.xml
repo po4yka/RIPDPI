@@ -3210,6 +3210,8 @@ fakeddisorder endhost</string>
     <string name="split_tunnel_edit_apps">Выбрать приложения (выбрано: %1$d)</string>
     <string name="split_tunnel_full_tunnel_title">Включён режим полного туннеля</string>
     <string name="split_tunnel_full_tunnel_body">Режим полного туннеля направляет все приложения через VPN и игнорирует настройки раздельного туннелирования. Отключите его в настройках безопасности, чтобы выбрать приложения.</string>
+    <string name="split_tunnel_system_managed_body">В Android 17 и новее исключения приложений из VPN управляются в системных настройках и сохраняются между переподключениями.</string>
+    <string name="split_tunnel_open_system_settings">Открыть системные настройки</string>
     <string name="title_asset_provider">Поставщик данных</string>
     <string name="asset_provider_section_title">Гео-данные</string>
     <string name="asset_provider_entry_title">Поставщик гео-данных</string>

@@ -2983,6 +2983,8 @@ fakeddisorder endhost</string>
     <string name="split_tunnel_edit_apps">اختيار التطبيقات (%1$d محدد)</string>
     <string name="split_tunnel_full_tunnel_title">وضع النفق الكامل مفعّل</string>
     <string name="split_tunnel_full_tunnel_body">وضع النفق الكامل يُوجِّه جميع التطبيقات عبر VPN ويتجاهل إعدادات النفق المقسّم. أوقفه في إعدادات الأمان لاختيار التطبيقات.</string>
+    <string name="split_tunnel_system_managed_body">في نظام Android 17 والإصدارات الأحدث، تُدار استثناءات تطبيقات VPN من إعدادات النظام وتبقى محفوظة بعد إعادة الاتصال.</string>
+    <string name="split_tunnel_open_system_settings">فتح إعدادات النظام</string>
     <string name="title_asset_provider">موفر الأصول</string>
     <string name="asset_provider_section_title">أصول جغرافية</string>
     <string name="asset_provider_entry_title">موفر الأصول الجغرافية</string>

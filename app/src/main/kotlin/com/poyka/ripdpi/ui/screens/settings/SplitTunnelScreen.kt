@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -39,6 +40,8 @@ internal data class SplitTunnelScreenState(
     val mode: String,
     val selectedCount: Int,
     val fullTunnelMode: Boolean,
+    /** Android 17+: per-app exclusion is delegated to the system screen instead of the in-app editor. */
+    val usesSystemExclusionScreen: Boolean = false,
 )
 
 private val SplitTunnelModeOrder = listOf(SplitTunnelMode.Off, SplitTunnelMode.Exclude, SplitTunnelMode.Include)
@@ -51,6 +54,7 @@ fun SplitTunnelRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val installedApps by viewModel.installedApps.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     SplitTunnelScreen(
         state =
@@ -58,6 +62,7 @@ fun SplitTunnelRoute(
                 mode = uiState.mode,
                 selectedCount = uiState.selectedPackages.size,
                 fullTunnelMode = uiState.fullTunnelMode,
+                usesSystemExclusionScreen = SplitTunnelSystemUiGate.systemScreenAvailable(context),
             ),
         installedApps = installedApps,
         selectedPackages = uiState.selectedPackages,
@@ -97,6 +102,10 @@ internal fun SplitTunnelScreen(
                     tone = WarningBannerTone.Info,
                 )
             }
+        } else if (state.usesSystemExclusionScreen) {
+            item(key = "split_tunnel_system_managed") {
+                SplitTunnelSystemManagedCard()
+            }
         } else {
             item(key = "split_tunnel_editor") {
                 SplitTunnelEditorCard(
@@ -118,6 +127,30 @@ internal fun SplitTunnelScreen(
             },
             onDismiss = { showAppPicker = false },
         )
+    }
+}
+
+@Composable
+private fun SplitTunnelSystemManagedCard() {
+    val context = LocalContext.current
+    RipDpiCard {
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
+            Text(
+                text = stringResource(R.string.split_tunnel_system_managed_body),
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+            RipDpiButton(
+                text = stringResource(R.string.split_tunnel_open_system_settings),
+                onClick = {
+                    runCatching { context.startActivity(SplitTunnelSystemUiGate.createExclusionSettingsIntent()) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                variant = RipDpiButtonVariant.Outline,
+                density = RipDpiControlDensity.Compact,
+                leadingIcon = RipDpiIcons.Config,
+            )
+        }
     }
 }
 

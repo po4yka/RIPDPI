@@ -3091,6 +3091,8 @@ Origen: %2$s</string>
     <string name="split_tunnel_edit_apps">Elegir apps (%1$d seleccionadas)</string>
     <string name="split_tunnel_full_tunnel_title">El modo de túnel completo está activado</string>
     <string name="split_tunnel_full_tunnel_body">El modo de túnel completo enruta todas las apps a través de la VPN e ignora la configuración de túnel dividido. Desactívalo en los ajustes de seguridad para elegir apps.</string>
+    <string name="split_tunnel_system_managed_body">En Android 17 y versiones posteriores, las exclusiones de apps de la VPN se gestionan en los ajustes del sistema y se conservan entre reconexiones.</string>
+    <string name="split_tunnel_open_system_settings">Abrir ajustes del sistema</string>
     <string name="title_asset_provider">Proveedor de datos</string>
     <string name="asset_provider_section_title">Datos geográficos</string>
     <string name="asset_provider_entry_title">Proveedor de datos geográficos</string>

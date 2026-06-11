@@ -3096,6 +3096,8 @@ fakeddisorder endhost</string>
     <string name="split_tunnel_edit_apps">انتخاب برنامه‌ها (%1$d انتخاب‌شده)</string>
     <string name="split_tunnel_full_tunnel_title">حالت تونل کامل روشن است</string>
     <string name="split_tunnel_full_tunnel_body">حالت تونل کامل همه برنامه‌ها را از طریق VPN مسیریابی می‌کند و تنظیمات تونل تفکیک‌شده را نادیده می‌گیرد. برای انتخاب برنامه‌ها، آن را در تنظیمات امنیتی خاموش کنید.</string>
+    <string name="split_tunnel_system_managed_body">در Android 17 و بالاتر، استثناهای برنامه‌ها برای VPN در تنظیمات سیستم مدیریت می‌شوند و پس از اتصال مجدد حفظ می‌گردند.</string>
+    <string name="split_tunnel_open_system_settings">باز کردن تنظیمات سیستم</string>
     <string name="title_asset_provider">ارائه‌دهنده داده</string>
     <string name="asset_provider_section_title">داده‌های جغرافیایی</string>
     <string name="asset_provider_entry_title">ارائه‌دهنده داده جغرافیایی</string>

@@ -3092,6 +3092,8 @@ fake_burst 3</string>
     <string name="split_tunnel_edit_apps">选择应用（已选 %1$d 个）</string>
     <string name="split_tunnel_full_tunnel_title">已开启全局隧道模式</string>
     <string name="split_tunnel_full_tunnel_body">全局隧道模式会将所有应用都通过 VPN 路由，并忽略分应用代理设置。请在安全设置中关闭它以选择应用。</string>
+    <string name="split_tunnel_system_managed_body">在 Android 17 及更高版本中，VPN 的逐应用例外由系统设置管理，并在重新连接后保留。</string>
+    <string name="split_tunnel_open_system_settings">打开系统设置</string>
     <string name="title_asset_provider">资源提供方</string>
     <string name="asset_provider_section_title">地理数据</string>
     <string name="asset_provider_entry_title">地理数据提供方</string>
