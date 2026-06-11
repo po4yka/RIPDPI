@@ -86,5 +86,6 @@ RKN on ≥3 RU ISP vantages for the field run._
 | medium | vpn | [Verify no leak/black-hole window between TUN establish() and native relay readiness](issues/verify-no-leak-window-between-tun-establish-and-relay-ready.md) | — |
 | low | relay | [Guard RelayBackend manual match arms against silently-omitted QUIC variants](issues/guard-relaybackend-quic-snapshot-exhaustiveness.md) | epic-june-2026-audit-remediation |
 | low | rust-native | [Add upstream HTTP and SOCKS5 proxy override for diagnostic probes](issues/add-upstream-http-and-socks5-proxy-override-for-diagnostic-probes.md) | — |
+| low | rust-native | [Unpin russh after rsa advisory fix](issues/unpin-russh-after-rsa-advisory-fix.md) | — |
 | low | rust-native | [Reduce pub surface of monitor-engine/config and add golden contracts for high-fan-in crates](issues/reduce-pub-surface-monitor-engine-and-config.md) | epic-june-2026-audit-remediation |
 | low | rust-native | [Triage undocumented orphan crates and document NATIVE_RUST.md prune candidates](issues/triage-undocumented-orphan-diagnostics-crates.md) | epic-june-2026-audit-remediation |
