@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 
 use tokio::sync::{Mutex, mpsc};
+use tokio::task::JoinHandle;
 
 use crate::config::Config;
 use crate::error::{HysteriaError, Result};
@@ -11,6 +12,19 @@ use crate::migration::QuicMigrationState;
 use crate::tcp::{DuplexStream, build_tcp_request, read_tcp_response};
 use crate::tls_quic::{ClientSocketSpec, authenticate_connection, build_endpoint, build_tls_config};
 use crate::udp::{UdpPacket, UdpSession, dispatch_udp_datagrams};
+
+/// Aborts the contained task when the last owner is dropped.
+///
+/// Wrapped in `Arc` so `HysteriaClient` (which is `Clone`) shares ownership; the
+/// task is aborted exactly once when the last clone drops.
+pub(crate) struct AbortOnDrop(JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        // NEVER panic in Drop.
+        self.0.abort();
+    }
+}
 
 pub async fn connect(config: &Config) -> Result<HysteriaClient> {
     let server_addr = config
@@ -44,16 +58,22 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         migration: Mutex::new(QuicMigrationState::new_not_attempted()),
     });
 
-    if udp_supported {
-        tokio::spawn(dispatch_udp_datagrams(Arc::clone(&inner)));
-    }
+    let dispatch_guard = if udp_supported {
+        let handle = tokio::spawn(dispatch_udp_datagrams(Arc::clone(&inner)));
+        Some(Arc::new(AbortOnDrop(handle)))
+    } else {
+        None
+    };
 
-    Ok(HysteriaClient { inner })
+    Ok(HysteriaClient { inner, _dispatch_guard: dispatch_guard })
 }
 
 #[derive(Clone)]
 pub struct HysteriaClient {
     inner: Arc<ClientInner>,
+    /// Keeps the datagram-dispatch task alive and aborts it when the last
+    /// `HysteriaClient` clone is dropped. `None` when UDP is not supported.
+    _dispatch_guard: Option<Arc<AbortOnDrop>>,
 }
 
 impl HysteriaClient {
