@@ -60,13 +60,14 @@ RKN on ≥3 RU ISP vantages for the field run._
 | medium | transport | [Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | epic-transport-obfuscation-research |
 | medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | epic-transport-obfuscation-research |
 
-## Todo (3)
+## Todo (4)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
 | medium | android | [Harden JNI callbacks: daemon thread-attach, nullable array returns, drop runBlocking](issues/harden-jni-callback-thread-attach-and-null-sentinels.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast](issues/centralize-unsafe-javavm-from-raw-and-signal-cast.md) | epic-june-2026-audit-remediation |
+| medium | rust-native | [Harden Lua sandbox residuals: JNI jail seed + egress base dir](issues/harden-lua-sandbox-residuals-jni-jail-seed.md) | — |
 
 ## Backlog (15)
 
