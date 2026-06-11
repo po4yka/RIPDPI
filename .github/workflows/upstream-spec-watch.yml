@@ -16,7 +16,7 @@ jobs:
   watch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Verify SPEC_VERSION.md format
         run: python3 scripts/ci/verify_spec_versions.py --format-only
@@ -52,7 +52,7 @@ jobs:
           cat drift-report.md
 
       - name: Upload drift report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: upstream-spec-watch-report
           path: drift-report.md
