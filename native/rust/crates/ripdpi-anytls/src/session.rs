@@ -23,7 +23,7 @@ pub enum TargetAddr {
     Domain(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct AnyTlsClientConfig {
     pub server_host: String,
     pub server_port: u16,
@@ -32,6 +32,25 @@ pub struct AnyTlsClientConfig {
     pub tls_fingerprint_profile: String,
     pub root_certificate_pem: Option<String>,
     pub client_name: String,
+}
+
+// Hand-written `Debug` so the AnyTLS password and root-certificate material never
+// surface in logs, diagnostics, or crash reports. Mirrors the redaction pattern in
+// `ripdpi-mieru` (`MieruConfig`) and `ripdpi-ssh` (`SshConfig`). The `Eq`/`PartialEq`
+// derives are retained for test equality; only `Debug` is overridden.
+impl std::fmt::Debug for AnyTlsClientConfig {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("AnyTlsClientConfig")
+            .field("server_host", &self.server_host)
+            .field("server_port", &self.server_port)
+            .field("server_name", &self.server_name)
+            .field("password", &"<redacted>")
+            .field("tls_fingerprint_profile", &self.tls_fingerprint_profile)
+            .field("root_certificate_pem", &self.root_certificate_pem.as_ref().map(|_| "<redacted>"))
+            .field("client_name", &self.client_name)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -548,4 +567,39 @@ fn encode_target(target: &TargetAddr, port: u16) -> Result<Vec<u8>, AnyTlsError>
     }
     bytes.extend_from_slice(&port.to_be_bytes());
     Ok(bytes)
+}
+
+#[cfg(test)]
+mod redaction_tests {
+    use super::AnyTlsClientConfig;
+
+    fn config_with_secrets() -> AnyTlsClientConfig {
+        AnyTlsClientConfig {
+            server_host: "example.com".to_owned(),
+            server_port: 443,
+            server_name: "example.com".to_owned(),
+            password: "super-secret-password".to_owned(),
+            tls_fingerprint_profile: "chrome".to_owned(),
+            root_certificate_pem: Some("-----BEGIN CERTIFICATE-----\nSECRET\n-----END CERTIFICATE-----".to_owned()),
+            client_name: "ripdpi-anytls/0.1.0".to_owned(),
+        }
+    }
+
+    #[test]
+    fn debug_redacts_password_and_root_certificate() {
+        let rendered = format!("{:?}", config_with_secrets());
+        assert!(!rendered.contains("super-secret-password"), "password leaked: {rendered}");
+        assert!(!rendered.contains("BEGIN CERTIFICATE"), "root certificate leaked: {rendered}");
+        assert!(rendered.contains("<redacted>"), "expected redaction marker: {rendered}");
+        // Non-secret fields stay visible for diagnostics.
+        assert!(rendered.contains("example.com"), "server_name should remain visible: {rendered}");
+    }
+
+    #[test]
+    fn debug_omits_certificate_marker_when_absent() {
+        let mut config = config_with_secrets();
+        config.root_certificate_pem = None;
+        let rendered = format!("{config:?}");
+        assert!(rendered.contains("root_certificate_pem: None"), "expected None rendering: {rendered}");
+    }
 }
