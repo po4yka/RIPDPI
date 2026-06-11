@@ -24,17 +24,20 @@ object DiagnosticsDatabaseModule {
         context: Context,
         name: String = "diagnostics.db",
         allowDestructiveFallback: Boolean = false,
-    ): DiagnosticsDatabase =
-        Room
-            .databaseBuilder(
-                context,
-                DiagnosticsDatabase::class.java,
-                name,
-            ).addMigrations(*DiagnosticsDatabaseMigrations.ALL)
-            .apply { if (allowDestructiveFallback) fallbackToDestructiveMigration(true) }
+    ): DiagnosticsDatabase {
+        // Use a local variable to apply migrations without triggering SpreadOperator detekt rule
+        // on a fluent chain. ALL is empty at v5 and grows only when migrations are added.
+        @Suppress("SpreadOperator")
+        var builder =
+            Room
+                .databaseBuilder(context, DiagnosticsDatabase::class.java, name)
+                .addMigrations(*DiagnosticsDatabaseMigrations.ALL)
+        if (allowDestructiveFallback) builder = builder.fallbackToDestructiveMigration(true)
+        return builder
             .fallbackToDestructiveMigrationOnDowngrade(true)
             .addCallback(TtlCleanupCallback)
             .build()
+    }
 
     @Provides
     @Singleton
