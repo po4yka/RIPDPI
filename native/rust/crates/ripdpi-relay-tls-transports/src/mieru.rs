@@ -5,6 +5,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use tokio::sync::Mutex;
 
+use crate::util::to_io_error;
+
 pub use ripdpi_mieru::{MieruConfig, MieruMux, MieruProtocol};
 
 #[derive(Clone)]
@@ -65,8 +67,4 @@ impl RelaySessionFactory for MieruSessionFactory {
         let client = ripdpi_mieru::MieruClient::connect_over(stream, &config, now_unix).await.map_err(to_io_error)?;
         Ok(Arc::new(MieruSession { client: Mutex::new(Some(client)) }))
     }
-}
-
-fn to_io_error(error: impl std::fmt::Display) -> io::Error {
-    io::Error::other(error.to_string())
 }

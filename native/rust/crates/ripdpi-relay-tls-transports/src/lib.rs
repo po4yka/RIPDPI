@@ -7,6 +7,7 @@ mod shadowtls;
 mod ssh;
 mod tor;
 mod trojan;
+mod util;
 
 pub use anytls::{
     AnyTlsClientConfig, AnyTlsSession, AnyTlsSessionFactory, AnyTlsUdpSession, anytls_proxy_target, connect_anytls_tcp,

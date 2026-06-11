@@ -5,6 +5,8 @@ use std::sync::Arc;
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+use crate::util::to_io_error;
+
 pub use ripdpi_anytls::session::AnyTlsClientConfig;
 
 pub trait AnyTlsAsyncIo: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send {}
@@ -151,8 +153,4 @@ fn anytls_authority(addr: ripdpi_anytls::session::TargetAddr, port: u16) -> Stri
         ripdpi_anytls::session::TargetAddr::Ipv6(ip) => SocketAddr::new(IpAddr::V6(ip), port).to_string(),
         ripdpi_anytls::session::TargetAddr::Domain(host) => format!("{host}:{port}"),
     }
-}
-
-fn to_io_error(error: impl std::fmt::Display) -> io::Error {
-    io::Error::other(error.to_string())
 }

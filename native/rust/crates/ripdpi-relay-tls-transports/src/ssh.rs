@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 
+use crate::util::to_io_error;
+
 pub use ripdpi_ssh::{SshAuth, SshChannelStream, SshConfig, SshHostKeyPolicy};
 
 #[derive(Clone)]
@@ -41,8 +43,4 @@ impl RelaySessionFactory for SshSessionFactory {
         let client = ripdpi_ssh::connect(&config).await.map_err(to_io_error)?;
         Ok(Arc::new(SshSession { client }))
     }
-}
-
-fn to_io_error(error: impl std::fmt::Display) -> io::Error {
-    io::Error::other(error.to_string())
 }

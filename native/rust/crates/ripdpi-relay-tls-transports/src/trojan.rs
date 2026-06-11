@@ -5,6 +5,8 @@ use std::sync::Arc;
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
+use crate::util::to_io_error;
+
 pub use ripdpi_trojan::TrojanClientConfig;
 
 pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -113,8 +115,4 @@ fn trojan_authority(addr: ripdpi_trojan::TrojanAddr, port: u16) -> String {
         ripdpi_trojan::TrojanAddr::Ipv6(ip) => SocketAddr::new(IpAddr::V6(ip), port).to_string(),
         ripdpi_trojan::TrojanAddr::Domain(host) => format!("{host}:{port}"),
     }
-}
-
-fn to_io_error(error: impl std::fmt::Display) -> io::Error {
-    io::Error::other(error.to_string())
 }
