@@ -10,8 +10,8 @@ mod enabled {
     use std::sync::{Arc, Mutex};
 
     use mlua::{
-        Function, HookTriggers, Lua, LuaOptions, RegistryKey, StdLib, String as LuaString, Table, Value, Variadic,
-        VmState,
+        ChunkMode, Function, HookTriggers, Lua, LuaOptions, RegistryKey, StdLib, String as LuaString, Table, Value,
+        Variadic, VmState,
     };
     use ripdpi_strategy_trait::{
         DesyncAction, DesyncPlan, DesyncStrategy, FlowId, L7Protocol, MarkerName, RuntimeCapability, StrategyContext,
@@ -135,6 +135,7 @@ mod enabled {
             globals.set("VERDICT_MODIFY", VERDICT_MODIFY).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
             globals.set("VERDICT_DROP", VERDICT_DROP).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
             drop(globals);
+            harden_base_library(&lua)?;
             install_zapret_compat_globals(&lua)?;
             let hook_firings = install_dos_guards(&lua)?;
 
@@ -229,6 +230,7 @@ mod enabled {
         pub fn validate_bytes(name: &str, bytes: &[u8]) -> Result<(), LuaError> {
             let lua = Lua::new_with(strategy_stdlib(), LuaOptions::default())
                 .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+            harden_base_library(&lua)?;
             lua.load(bytes)
                 .set_name(name)
                 .into_function()
@@ -353,6 +355,54 @@ mod enabled {
             }
         }
         Ok(names)
+    }
+
+    /// Removes base-library functions that survive the [`StdLib`] mask and would
+    /// let a loaded script read or execute files outside the path jail.
+    ///
+    /// `mlua` loads `luaopen_base` unconditionally, independently of the
+    /// [`strategy_stdlib`] mask, so `dofile` and `loadfile` remain reachable even
+    /// though `os`/`io`/`package`/`debug` are excluded. Both take a filesystem
+    /// path and execute its contents as Lua, which would bypass the
+    /// base-directory jail enforced by [`LuaStrategyEngine::jail_path`] (an
+    /// in-script `loadfile("/abs/path")` ignores the Rust-side `load_script*`
+    /// confinement entirely). They are therefore set to `nil`.
+    ///
+    /// `load` is retained but replaced with a text-only wrapper: the stock base
+    /// `load` defaults to mode `"bt"` (binary **and** text), so a script could
+    /// run attacker-crafted Lua *bytecode* (`load(string.dump(...))` or a
+    /// bytecode literal embedded in an imported strategy-config). Lua's bytecode
+    /// verifier is not hardened, making this a memory-unsafety escape reachable
+    /// from safe Rust through the C interpreter — exactly the class the jail
+    /// exists to stop. The wrapper forces [`ChunkMode::Text`] and rejects
+    /// non-string chunks, which keeps the bundled pack's
+    /// `load(desync.arg.code, name)` (text source) working while refusing
+    /// bytecode. Lua's `load` contract is preserved: it returns the compiled
+    /// function, or `nil` plus an error message on failure. The optional 3rd
+    /// (`mode`) and 4th (`env`) arguments are ignored — mode is always text and
+    /// no custom environment is honored; no bundled strategy uses either.
+    fn harden_base_library(lua: &Lua) -> Result<(), LuaError> {
+        let globals = lua.globals();
+        for symbol in ["dofile", "loadfile"] {
+            globals.set(symbol, Value::Nil).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+        }
+        let text_only_load = lua
+            .create_function(|lua, (chunk, chunk_name): (Value, Option<LuaString>)| {
+                let Value::String(source) = chunk else {
+                    return Ok((Value::Nil, Some("load: only text string chunks are permitted".to_owned())));
+                };
+                let mut builder = lua.load(source.as_bytes().to_vec()).set_mode(ChunkMode::Text);
+                if let Some(name) = &chunk_name {
+                    builder = builder.set_name(name.to_string_lossy());
+                }
+                match builder.into_function() {
+                    Ok(function) => Ok((Value::Function(function), None)),
+                    Err(error) => Ok((Value::Nil, Some(error.to_string()))),
+                }
+            })
+            .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+        globals.set("load", text_only_load).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+        Ok(())
     }
 
     fn install_zapret_compat_globals(lua: &Lua) -> Result<(), LuaError> {
