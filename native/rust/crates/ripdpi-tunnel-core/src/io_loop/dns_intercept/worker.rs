@@ -75,41 +75,43 @@ pub(in crate::io_loop) fn route_dns_packet(
     payload: &[u8],
     host: Option<String>,
 ) {
-    let request = DnsRequest { src, query: payload.to_vec(), host };
     match (&mapdns_runtime, dns_cache, dns_req_tx.as_ref()) {
-        (Some(_), Some(_), Some(request_tx)) => match request_tx.try_send(request) {
-            Ok(()) => {}
-            Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {
-                if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache) {
-                    send_dns_servfail(
-                        device,
-                        stats,
-                        mapdns,
-                        cache,
-                        request.src,
-                        &request.query,
-                        request.host.as_deref(),
-                        "dns worker queue full",
-                    );
+        (Some(_), Some(_), Some(request_tx)) => {
+            let request = DnsRequest { src, query: payload.to_vec(), host };
+            match request_tx.try_send(request) {
+                Ok(()) => {}
+                Err(tokio::sync::mpsc::error::TrySendError::Full(request)) => {
+                    if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache) {
+                        send_dns_servfail(
+                            device,
+                            stats,
+                            mapdns,
+                            cache,
+                            request.src,
+                            &request.query,
+                            request.host.as_deref(),
+                            "dns worker queue full",
+                        );
+                    }
+                }
+                Err(tokio::sync::mpsc::error::TrySendError::Closed(request)) => {
+                    if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache) {
+                        send_dns_servfail(
+                            device,
+                            stats,
+                            mapdns,
+                            cache,
+                            request.src,
+                            &request.query,
+                            request.host.as_deref(),
+                            "dns worker unavailable",
+                        );
+                    }
+                    *dns_req_tx = None;
+                    *dns_resp_rx = None;
                 }
             }
-            Err(tokio::sync::mpsc::error::TrySendError::Closed(request)) => {
-                if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache) {
-                    send_dns_servfail(
-                        device,
-                        stats,
-                        mapdns,
-                        cache,
-                        request.src,
-                        &request.query,
-                        request.host.as_deref(),
-                        "dns worker unavailable",
-                    );
-                }
-                *dns_req_tx = None;
-                *dns_resp_rx = None;
-            }
-        },
+        }
         (Some(mapdns), Some(cache), None) => {
             send_dns_servfail(
                 device,
@@ -118,7 +120,7 @@ pub(in crate::io_loop) fn route_dns_packet(
                 cache,
                 src,
                 payload,
-                request.host.as_deref(),
+                host.as_deref(),
                 "encrypted DNS resolver is not configured",
             );
         }
