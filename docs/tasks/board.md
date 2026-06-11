@@ -6,7 +6,7 @@ hand-edit it; regenerate it from the issue frontmatter (see `README.md` § Regen
 
 _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`dropped` files are deleted)._
 
-## Doing (21)
+## Doing (23)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -18,6 +18,7 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | — |
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | — |
 | high | transport | [Enforce per-exit-IP concurrent-TLS-connection cap (~12, RU home-ISP policing)](issues/enforce-per-exit-ip-concurrent-tls-cap.md) | — |
+| high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | epic-fail-closed-android-vpn-policy-engine |
 | medium | diagnostics | [Report OWNED_STACK_ONLY verdict from diagnostic](issues/report-owned-stack-only-verdict-from-diagnostic.md) | — |
 | medium | epic | [Epic - Protocol conformance and regression tests](issues/epic-protocol-conformance-tests.md) | — |
 | medium | outbound | [Add Mieru outbound client crate and profile editor](issues/add-mieru-outbound-client-crate-and-profile-editor.md) | epic-extended-outbound-protocol-support |
@@ -25,6 +26,7 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | medium | outbound | [Add Xray profile UX and import flow](issues/add-xray-profile-ux-and-import-flow.md) | epic-xray-provider-mode |
 | medium | outbound | [Add Xray provider regression matrix](issues/add-xray-provider-regression-matrix.md) | epic-xray-provider-mode |
 | medium | outbound | [Finish AnyTLS profile editor and compatibility gaps](issues/add-anytls-outbound-client-crate-and-profile-editor.md) | epic-extended-outbound-protocol-support |
+| medium | routing | [Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS](issues/adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion.md) | epic-fail-closed-android-vpn-policy-engine |
 | medium | routing | [Adopt process-based per-package routing via Xray TUN routeOnly](issues/adopt-process-based-per-package-routing-via-xray-tun-routeonly.md) | epic-fail-closed-android-vpn-policy-engine |
 | medium | rust-native | [Add TUIC v4 fallback or explicit version detection](issues/add-tuic-v4-fallback-or-version-detection.md) | — |
 | medium | service | [Wire NaiveProxy helper probe into manager startup](issues/wire-naiveproxy-probe-into-manager-startup.md) | — |
@@ -58,15 +60,13 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast](issues/centralize-unsafe-javavm-from-raw-and-signal-cast.md) | epic-june-2026-audit-remediation |
 
-## Backlog (21)
+## Backlog (18)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | — |
-| high | vpn | [Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)](issues/add-tun2socks-uid-validation-against-so-bindtodevice-bypass.md) | epic-fail-closed-android-vpn-policy-engine |
 | medium | android | [Introduce a VPN-session Hilt scope to reset per-session service state](issues/introduce-vpn-session-hilt-scope.md) | epic-june-2026-audit-remediation |
 | medium | epic | [Epic - Transport obfuscation and censor-signature research](issues/epic-transport-obfuscation-research.md) | — |
-| medium | routing | [Adopt Android 17 system split-tunnel UI via ACTION_VPN_APP_EXCLUSION_SETTINGS](issues/adopt-android-17-system-split-tunnel-ui-via-action-vpn-app-exclusion.md) | epic-fail-closed-android-vpn-policy-engine |
 | medium | rust-native | [Add Cloudflare Workers domain-fronting bypass adapter](issues/add-cloudflare-workers-domain-fronting-bypass.md) | — |
 | medium | rust-native | [Add constant-rate traffic shaping with VoIP camouflage profile](issues/add-constant-rate-traffic-shaping-voip-camouflage.md) | epic-transport-obfuscation-research |
 | medium | rust-native | [Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel](issues/introduce-ws-transport-port-to-fix-layer-violations.md) | epic-june-2026-audit-remediation |
@@ -82,4 +82,3 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | low | rust-native | [Add upstream HTTP and SOCKS5 proxy override for diagnostic probes](issues/add-upstream-http-and-socks5-proxy-override-for-diagnostic-probes.md) | — |
 | low | rust-native | [Reduce pub surface of monitor-engine/config and add golden contracts for high-fan-in crates](issues/reduce-pub-surface-monitor-engine-and-config.md) | epic-june-2026-audit-remediation |
 | low | rust-native | [Triage undocumented orphan crates and document NATIVE_RUST.md prune candidates](issues/triage-undocumented-orphan-diagnostics-crates.md) | epic-june-2026-audit-remediation |
-| low | vpn | [Spike FakeIP mode compatibility on Android](issues/spike-fakeip-mode-compatibility-on-android.md) | epic-fail-closed-android-vpn-policy-engine |

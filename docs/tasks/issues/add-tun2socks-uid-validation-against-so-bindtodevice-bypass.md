@@ -1,15 +1,16 @@
 ---
 title: "Add tun2socks UID validation to close SO_BINDTODEVICE escape (kernel 5.7+)"
 type: task
-status: backlog
+status: doing
 area: vpn
 priority: high
 owner: unassigned
 parent: epic-fail-closed-android-vpn-policy-engine
+status_detail: decision core shipped + unit-tested (UidFlowPolicy in ripdpi-tunnel-core); smoltcp data-path wiring, the JNI getConnectionOwnerUid source, and the SO_BINDTODEVICE device tests are device-gated (kernel 5.7+)
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-06-05
+updated: 2026-06-11
 source_wiki_pages:
   - "android-so-bindtodevice-vpn-bypass"
 linked_task: null
@@ -36,12 +37,12 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
 
 ## Acceptance criteria
 
-- [ ] PR description confirms current state of `ripdpi-tun-driver` UID validation (present or absent).
-- [ ] If absent: per-packet UID validation implemented in the tun2socks layer.
-- [ ] TCP unauthorized → RST; UDP → drop with port-binding cache; ICMP → configurable toggle.
-- [ ] Integration test: synthetic app uses `SO_BINDTODEVICE=tun0`; without countermeasure, connection succeeds; with countermeasure, RST'd.
-- [ ] Verified on kernel 5.7+ device (Android 12+) and kernel <5.7 device to confirm version gating.
-- [ ] Verify via `adb shell cat /proc/net/tcp` that no leaked connection appears to the remote host post-countermeasure.
+- [x] PR description confirms current state of `ripdpi-tun-driver` UID validation (present or absent). **Absent** — `ripdpi-tun-driver` is TUN open/configure only; `ripdpi-flow-app-attribution` calls `getConnectionOwnerUid` for attribution/learning, not as an enforcement gate. The userspace stack is `smoltcp` in `ripdpi-tunnel-core`, not gVisor/Go.
+- [~] If absent: per-packet UID validation implemented in the tun2socks layer. **Decision core shipped + unit-tested** (`ripdpi_tunnel_core::uid_policy`): `UidFlowPolicy::evaluate(uid, proto)` / `admit(source, …)` returning `Allow`/`ResetTcp`/`DropUdp`, fail-closed by default, plus a `FlowUidSource` port mirroring `AppUidResolver` (off the hot path). The live smoltcp consultation at the admission seams (TCP `io_loop::tcp_accept::admission`, UDP `io_loop::udp_assoc::forwarding::ensure`) and the JNI `getConnectionOwnerUid` source are **device-gated** — an unverified data-plane gate either breaks all traffic or fails open silently.
+- [~] TCP unauthorized → RST; UDP → drop with port-binding cache; ICMP → configurable toggle. **Verdict mapping implemented + tested** (UDP→`DropUdp`, TCP/other→`ResetTcp`). The actual smoltcp `abort()`/RST emission, the UDP drop + 5-tuple/port-binding cache, and the ICMP toggle are the device-gated data-path half.
+- [ ] Integration test: synthetic app uses `SO_BINDTODEVICE=tun0`; without countermeasure, connection succeeds; with countermeasure, RST'd. **DEVICE-GATED** (kernel 5.7+; needs `tun0` + a real socket).
+- [ ] Verified on kernel 5.7+ device (Android 12+) and kernel <5.7 device to confirm version gating. **DEVICE-GATED.**
+- [ ] Verify via `adb shell cat /proc/net/tcp` that no leaked connection appears to the remote host post-countermeasure. **DEVICE-GATED.**
 
 ## Risks / open questions
 
@@ -59,6 +60,7 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
   3. **Version gate:** only arm on kernel ≥ 5.7 (Android 12+/API 31+); below that the escape doesn't apply.
   - **Why not implemented here:** acceptance criteria 4–6 are device-gated (Appium `SO_BINDTODEVICE=tun0` flow, kernel 5.7+ *and* <5.7 device runs, `adb shell cat /proc/net/tcp`); a data-plane gate cannot be verified green without a device, and an unverified RST/drop path either breaks all traffic or fails open silently. Kept `backlog` pending an on-device session.
 - 2026-06-05: Re-audit confirms all 6 acceptance criteria remain unmet. `rg UidFlowPolicy` finds no match in `native/rust/crates/`; `ripdpi-tunnel-core/src/classify.rs` has no UID policy gating; no `SO_BINDTODEVICE` integration test exists under `appium/` or `journeys/` (only doc references). Status unchanged: `backlog`.
+- 2026-06-11: **Shipped the unit-tested decision core.** Added `ripdpi_tunnel_core::uid_policy` — `UidFlowPolicy` (`evaluate`/`admit`, `Allow`/`ResetTcp`/`DropUdp`) + the `FlowUidSource` port mirroring `AppUidResolver`. Fail-closed by default (enforcing blocks unattributable flows; `allowing_unresolved()` opts out); the `Default` is disarmed (passes every flow) so the gate never breaks traffic on an unverified path. 7 unit tests cover the matrix; no UID/IP logged (privacy). The pure module lives at `uid_policy.rs` rather than `classify.rs` because `classify.rs` is a UDP/DNS demux that never sees a TCP SYN — the gate seams are `io_loop::tcp_accept::admission` (TCP) and `io_loop::udp_assoc::forwarding::ensure` (UDP), documented in the module. `cargo nextest` + `clippy -D warnings` + `fmt` clean; pr-reviewer pass: sound. Criteria 4–6 (the `SO_BINDTODEVICE=tun0` flow, kernel 5.7+/<5.7 runs, `/proc/net/tcp`) remain device-gated; status `backlog` → `doing`.
 
 ## References
 
