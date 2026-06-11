@@ -10,7 +10,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-01
-updated: 2026-06-05
+updated: 2026-06-11
 ---
 
 ## Goal
@@ -75,6 +75,36 @@ Honest milestone state:
 - Code/automation landed, operator action pending: no-Cloudflare primary transport, non-Cloudflare subscription delivery, Cloudflare demotion-when-degraded. The code and automation exist (client gating + deploy-side opt-in mirror/frontend), but each requires the operator to provision and enable real non-Cloudflare hosts before it is true in production.
 - Not addressed by this batch: non-Cloudflare DNS bootstrap / tunneled DNS path — tracked separately.
 
+## Operator provisioning checklist (sibling `ripdpi-vpn-deploy`)
+
+The three open milestones are **operator/deploy-side and gated on provisioning real non-Cloudflare hosts** — they are NOT implemented in this (client) repo. The code/automation has landed in `ripdpi-vpn-deploy`; what remains is the operator enabling and provisioning it. The knob names below are real Ansible vars/roles; **do not record live hostnames, tokens, IPs, key material, or ASN-specific endpoints here** (see Notes — store those under `ops/live-infra/`). Documented default ports (e.g. 2083) are fine as defaults, not as a live host's bindings.
+
+> Hash note: the three landed deploy commits were rebased into `main` — `a2d4d06`→`326771c` (16 KiB probe), `79f2f5e`→`be7cd31` (non-CDN XHTTP fallback), `5ab17cf`→`80f27f3` (subscription mirror). Same file sets; audited present at HEAD on 2026-06-11.
+
+### Milestone 1 — no production profile requires Cloudflare for primary transport
+- [ ] **Baseline already non-CF:** confirm `enable_nginx_xhttp: true` (`group_vars/all.yml`) — the P1 **direct** nginx-xhttp host is the non-Cloudflare primary; CF-fronted XHTTP is only the optional `enable_cdn_front` tier. (Commit `79f2f5e`/`be7cd31` adds a *second* direct fallback frontend for CF-outage survival; it is not the primary path itself.)
+- [ ] Enable the opt-in second direct frontend: `nginx_xhttp.fallback_enabled: true` (role `ansible/roles/nginx-xhttp`).
+- [ ] Pick a free public port via `nginx_xhttp_fallback_port` (default `2083`); the role's pre-flight `assert` rejects collisions with `xray_port`/`xray_fallback_port`/`nginx_xhttp_public_port`/`cdn_front.port`.
+- [ ] (If serving a distinct domain) set `nginx_xhttp.fallback_server_name` + `fallback_cert_pem` + `fallback_key_pem`; the firewall opens the port under the same `fallback_enabled` flag. **TLS must terminate directly — no Cloudflare real-IP / Origin-CA in front.**
+- [ ] Host: rides the existing P1 nginx-xhttp host (a second server block on a distinct port); a separate host is not strictly required.
+- [ ] Repoint clients: `make emit-singbox CLIENT=<name>` regenerates the bundle so the XHTTP outbound targets the direct host, not a CF front.
+
+### Milestone 2 — subscription delivery through ≥1 non-Cloudflare endpoint
+- [ ] Turn on the role: `enable_subscription_host: true` (`group_vars/all.yml`).
+- [ ] Enable the mirror: `subscription.mirror.enabled: true` (role `ansible/roles/subscription-host`, `defaults/main.yml`).
+- [ ] Choose `subscription.mirror.backend`: `rsync` (default, rsync-over-ssh) or `restic`.
+  - rsync: set `subscription.mirror.source` (remote spec), `subscription.mirror.rsync_opts` (default `-az --delete`), SSH key secret `subscription.mirror.ssh_key` → `ssh_key_path`.
+  - restic: set `subscription.mirror.restic_repo`, `restic_snapshot_path`, secret `restic_password` → `restic_password_file`.
+- [ ] Cadence: `subscription.mirror.interval` (default `5min`, systemd `vpn-sub-mirror.timer`/`.service`, outbound-only pull).
+- [ ] Provision: a dedicated subscription/delivery host running the role + a reachable build-worker source (the rsync/restic origin). No new public surface; payloads served by the loopback `vpn-bootstrap` service.
+
+### Milestone 3 — Cloudflare XHTTP/HTTPS profiles manual / low-priority when degraded
+- [ ] Keep `enable_cdn_front: false` (baseline in `group_vars/all.yml` + `vpn-fullstack.yml` + `vpn-p1p2.yml`) so no CF outbound is auto-emitted into the client urltest pool.
+- [ ] Client auto-failover is already wired: `scripts/emit-singbox.sh` emits a `urltest` group (tag `auto`, `url: generate_204`, `interval: 5m`, `tolerance: 50`) that passes over a degraded/throttling outbound — **provided the direct non-CDN outbound is in the bundle** (it is when `enable_nginx_xhttp: true`).
+- [ ] Per-cohort repoint on degradation: edit the cohort `group_vars` (`vpn-fullstack.yml` / `vpn-p1p2.yml`) + re-run `make emit-singbox CLIENT=<name>` (see deploy-repo `RUNBOOK-add-fallback.md`).
+- [ ] Wire the degradation signal: enable the per-ASN payload-throttle probe cron by exporting `PAYLOAD_THROTTLE_HOST` (`scripts/install-operator-crons.sh` — opt-in @daily; **off until set**), and pair it with `ansible/roles/watchdog` (`enable_watchdog: true` — already the default; verify it has not been overridden in your host vars) for alert-and-demote.
+- [ ] **Honest scope:** demotion is *signal (probe) + manual `enable_cdn_front` toggle + client-side urltest auto-failover* — there is **no closed-loop auto-disable of CF** in the deploy code. The checklist closes the milestone operationally, not by automation alone.
+
 ## Links
 
 - cloudflare-ru-critical-path-removal-2026-05-01
@@ -88,3 +118,4 @@ Honest milestone state:
 
 - 2026-06-05: DNS milestone verified done via `ad540878e` + `CriticalResolverChain.kt` (Cloudflare excluded from critical chain by default); 3 remaining milestones (non-CF primary transport, non-CF subscription delivery, CF demotion-when-degraded) have code/automation landed but await operator provisioning of real non-Cloudflare hosts; 2 open child tasks (provision non-CF delivery host, Russian ISP payload monitoring probes) remain unresolved; epic stays in doing.
 - 2026-06-05 (re-audit): Source-verified both [x] milestones. DNS exclusion — the "10 tests" claim confirmed (4+3+3=10 `@Test` across `CloudflareDnsNotInCriticalChainTest.kt`, `CloudflareDnsRemovedFromCriticalListTest.kt`, `CloudflareDnsExplicitOnlyTest.kt` under `core/data/settings`); `CriticalResolverChainBuilder.build()` filters `cloudflareProviderIds` (`DnsProviderCloudflare`/`DnsProviderCloudflareIp`) unless `CriticalResolverProfile.CloudflareAllowed`. 16 KB throttling monitoring — deploy-repo commit `a2d4d06` (per-ASN ~16 KiB payload-throttling probe) confirmed present in sibling `~/GitHub/ripdpi-vpn-deploy`, as are `5ab17cf` and `79f2f5e`; client gating `b7b32df5b` confirmed in this repo. The named child items (provision non-CF host, ISP probes) are operator/deploy-side, not task files in this directory. Status unchanged: doing.
+- 2026-06-11 (audit + operator checklist): Re-verified both `[x]` code milestones **still hold in source** and ran the client tests. (1) DNS exclusion — `core/data/settings/.../CriticalResolverChain.kt:28` defines `cloudflareProviderIds = setOf(DnsProviderCloudflare, DnsProviderCloudflareIp)`; `build()` excludes them by default and `filterForCriticalPath` keeps them only when `CriticalResolverProfile.CloudflareAllowed` (lines 40-61); `:core:data:settings:testDebugUnitTest` BUILD SUCCESSFUL with the milestone's **10 tests green** (`CloudflareDnsNotInCriticalChainTest` 4 + `CloudflareDnsRemovedFromCriticalListTest` 3 + `CloudflareDnsExplicitOnlyTest` 3, 0 failures), plus the demotion tests (`CloudflareDegradationClassTest` 3, `selector.CloudflareDegradedExclusionTest` 4) green. No drift. (2) 16 KiB throttling monitoring — sibling-repo probe `a2d4d06` (now `326771c` in deploy `main`) present at HEAD as `scripts/probe-payload-throttle.sh` (executable); it drives a `1024..32768` size ladder with `THRESHOLD=16384` and emits `throttled` only when the small-payload baseline succeeds **and** a ≥16 KiB step shows a completion cliff or RTT spike — genuinely distinct from TLS-handshake success (`blocked`/`unknown` cover plain connectivity failure). The deploy commits are present (`79f2f5e`→`be7cd31`, `5ab17cf`→`80f27f3`). Wrote the **operator provisioning checklist** for the three remaining milestones into this epic (real Ansible knob names, no secrets). No provisioning implemented here (operator/deploy-gated). Status stays `doing` (provisioning pending). Audited the secret-redaction boundary: only knob/var/role names recorded — no live hostnames/tokens/IPs/keys/ASN endpoints.
