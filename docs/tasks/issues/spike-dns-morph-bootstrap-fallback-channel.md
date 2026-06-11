@@ -1,7 +1,7 @@
 ---
 title: "Spike: DNS-Morph bootstrap as fallback bootstrap channel"
 type: task
-status: backlog
+status: blocked
 area: transport
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-transport-obfuscation-research
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-06-10
+updated: 2026-06-11
 source_wiki_pages:
   - "dns-morph-bootstrap"
 linked_task: null
@@ -54,6 +54,42 @@ Stand up DNS-Morph bootstrap as a fallback bootstrap channel in RIPDPI Android:
 - censorship-update-net4people-2026-05-22 — net4people #619 source
 - Linked deploy task: `add-dns-morph-bridge-ansible-role`
 
+## Feasibility note — DNS-Morph bootstrap fallback (2026-06-11)
+
+> **Design spike** per `epic-transport-obfuscation-research` — no production code is merged. The acceptance criteria above describe an imagined `ripdpi-dns-morph` crate and are NOT checked off. This note is the deliverable; the verdict is externally-gated (see Go / No-Go).
+
+### (a) Dedup resolution — DNS-Morph is NOT a duplicate of the DNS crates
+
+Resolves the task's self-declared "LOW dedup confidence" as **confirmed distinct** on a precise boundary:
+
+- **`ripdpi-dns-resolver` is a name→IP resolver, full stop.** Its public surface (`native/rust/crates/ripdpi-dns-resolver/src/lib.rs`) re-exports `EncryptedDnsResolver`, `DohResolverPipeline`, `extract_ip_answers`, `OdohEncryptedQuery`, `HttpsRr`/SVCB parsing — every type answers "what IP is `example.com`" over DoH/DoT/DNSCrypt/DoQ/ODoH. It is `#![forbid(unsafe_code)]` and issues *real, well-formed* queries.
+- **DNS-Morph is a covert byte-pipe that abuses DNS framing** — base32-encoded opaque *handshake bytes* in the QNAME of type-A queries, A+CNAME response demux, selective-repeat-up / stop-and-wait-down reliability. The QNAME is a transport frame, not a hostname; there is no IP-answer semantics.
+- **`ripdpi-ech-dns` / `ripdpi-runtime-dns-cache` / `ripdpi-diagnostics-dns`** are ECH-config retrieval, resolution caching, and DNS diagnostics — all on top of name→IP semantics. A reliability layer over DNS frames has no analogue anywhere.
+
+**Boundary statement (satisfies acceptance criterion "LOW-confidence dedup explicitly resolved"):** DNS-Morph is a handshake-bootstrap *byte channel* that uses DNS message framing as an obfuscation envelope; `ripdpi-dns-resolver` and siblings are *name-resolution* services producing IP/SVCB answers. They share the wire format (UDP/53 + DNS records) but nothing of the semantics, reliability layer, or call site (resolver feeds the connect path; DNS-Morph feeds the bootstrap-orchestrator fallback path). `grep -rliE 'dns.?morph' native/rust/ app/ core/ test-lab/` returns nothing — genuinely greenfield, confirmed not a duplicate. (At graduation, evaluate whether a thin shared DNS message codec is factorable — but the resolver's parsing is answer-oriented, so treat that as a separate refactor decision, not an assumption.)
+
+### (b) Android feasibility
+
+- **4-ABI buildability is the cheapest bar, not the risk.** A pure-Rust client (base32 codec + `UdpSocket` + reliability state machine) is ordinary `tokio`/`std` networking with no native-toolchain blockers.
+- **`VpnService.protect()` on the :53 socket is already solved — no new plumbing.** The reusable helper exists: `ripdpi-ws-tunnel/src/protect.rs` exposes `protect_socket<T: AsRawFd>(&socket, path)`, and `ripdpi-tunnel-core/src/session/protect.rs` shows the dual path (JNI callback via `ripdpi-runtime-platform`, or `ripdpi_privileged_ops::protect_socket`). `ripdpi-dns-resolver/src/resolver/doq.rs` already `UdpSocket::bind(...)`s for DoQ, so the protect-before-use pattern for a UDP/53 socket is established in-tree. A DNS-Morph crate must `protect_socket(&udp_sock, …)` before the first `send_to`, fail-closed on error, per `vpnservice-protect-invariant.md` — inventing no mechanism.
+- **The load-bearing risk is reachability, not the socket.** RU "trusted-DNS" mandates can transparently redirect outbound :53 to TSPU-operated resolvers, which answer *real* hostnames but will not faithfully relay base32-garbage QNAMEs to an arbitrary upstream bridge — they terminate DNS, not forward opaque UDP/53. If :53 is intercepted/rewritten the handshake never reaches the bridge regardless of client correctness. **This is not answerable from the client side** — it needs a measurement from an RU vantage against a live bridge.
+
+### (c) Dependency structure — hard external gate
+
+The task body names a sibling deploy task `add-dns-morph-bridge-ansible-role` that must stand up the bridge reachable from RU-ASN, and states both must ship together. Acceptance compounds it: the criteria require a synthetic bridge in `test-lab/dns/`, which today holds only CoreDNS artifacts (`Corefile.emulator`, `Corefile.device.template`, `zones/`) — **no morph scenario**. So both the production bridge *and* the synthetic test bridge are prerequisites that do not exist; the client cannot be validated without the synthetic bridge, nor justified without the real one plus an RU :53-reachability measurement.
+
+## Go / No-Go (2026-06-11)
+
+**Verdict: EXTERNALLY-GATED.** The technique is sound, the in-tree cost is modest, and it clears the cheap bars (not a duplicate; trivially buildable; protect invariant already satisfiable). But its claimed unique advantage — exploiting a TSPU port-53 policy gap — is precisely what the client *cannot verify on its own*, and a port-53 gap is a known, advertised circumvention vector that TSPU signature-training against high-entropy base32 QNAMEs could close in the near term. Building `ripdpi-dns-morph` now would yield a buildable, protect-correct, but **entirely unverifiable** artifact — the worst kind of speculative surface to carry. Park the note; build nothing.
+
+**What must be true before graduation (in order):**
+1. Sibling deploy task `add-dns-morph-bridge-ansible-role` stands up a bridge with active-probing defense (`dig @bridge www.example.com` returns normal DNS), reachable from an RU-ASN vantage.
+2. A measurement from that vantage proves outbound :53 reaches the bridge with base32 QNAMEs intact under RU "trusted-DNS" routing. **If :53 is transparently terminated, the verdict flips to NO-GO.**
+3. A throwaway synthetic bridge lands in `test-lab/dns/` so the client is CI-exercisable without the production bridge.
+
+**Graduation target.** Re-files under `epic-transport-obfuscation-research`. Minimal first slice once gated conditions clear: a `ripdpi-dns-morph` crate, **upstream-only** (base32 type-A encoder + selective-repeat sender + `protect_socket`-guarded `UdpSocket`) tested against the synthetic bridge for one round-trip; defer A+CNAME downstream demux, orchestrator wiring, and JNI status to later slices. Strictly a *fallback* bootstrap (~3–8 s latency acceptable as fallback, painful as primary), never on the primary connect path.
+
 ## Work log
 
 - 2026-06-05: No implementation started — `ripdpi-dns-morph` crate does not exist, no dns-morph references anywhere in native/rust/crates/, app/, or core/; test-lab/dns/ exists but contains no dns-morph scenario; all acceptance criteria unmet.
+- 2026-06-11 (design spike, externally-gated): Delivered the feasibility note above. Resolved the LOW-confidence dedup (confirmed distinct from `ripdpi-dns-resolver` & siblings — byte-channel vs name-resolution). Confirmed 4-ABI buildability and that the `protect_socket` helper already covers the :53 socket. Central finding: the technique's whole payoff rides on a TSPU :53 gap the client cannot measure, plus a non-existent RU-reachable bridge + synthetic test bridge. No code merged; status → `blocked` (externally-gated) pending bridge stand-up and an RU :53-reachability measurement.
