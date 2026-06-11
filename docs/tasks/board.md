@@ -68,7 +68,7 @@ RKN on ≥3 RU ISP vantages for the field run._
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast](issues/centralize-unsafe-javavm-from-raw-and-signal-cast.md) | epic-june-2026-audit-remediation |
 
-## Backlog (16)
+## Backlog (15)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -79,7 +79,6 @@ RKN on ≥3 RU ISP vantages for the field run._
 | medium | rust-native | [Add constant-rate traffic shaping with VoIP camouflage profile](issues/add-constant-rate-traffic-shaping-voip-camouflage.md) | epic-transport-obfuscation-research |
 | medium | rust-native | [Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel](issues/introduce-ws-transport-port-to-fix-layer-violations.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Split the 12-method PolicyPort trait into selection and learning sub-traits](issues/split-policyport-trait-selection-learning.md) | epic-june-2026-audit-remediation |
-| medium | testing | [Spike CensorLab as offline censor-replay harness](issues/spike-censorlab-as-offline-censor-replay-harness.md) | epic-orchestration-test-posture |
 | medium | transport | [Wire Hysteria Realm STUN-discovered NAT traversal (sing-box v1.14.0-alpha.22)](issues/wire-hysteria-realm-stun-nat-traversal.md) | — |
 | medium | ui | [Decompose BlockcheckViewModel, DetectionCheckViewModel, BackupRestoreViewModel](issues/decompose-god-viewmodels-blockcheck-detection-backup.md) | epic-june-2026-audit-remediation |
 | medium | ui | [Key session-scoped LaunchedEffect refreshes on the session id, not Unit](issues/fix-launchedeffect-unit-session-keyed-refresh.md) | epic-june-2026-audit-remediation |
