@@ -40,6 +40,7 @@ harness = false
 [dev-dependencies]
 criterion = { workspace = true }
 local-network-fixture = { workspace = true }
+quic-mtu-test-util = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-proxy-runtime = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
@@ -56,4 +57,4 @@ ripdpi-vless = { workspace = true }
 ripdpi-webtunnel = { workspace = true }
 ripdpi-xhttp = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "io-util", "macros", "net"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "io-util", "macros", "net", "time"] }

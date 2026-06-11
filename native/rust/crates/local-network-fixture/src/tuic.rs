@@ -46,6 +46,28 @@ impl TuicLoopback {
     /// Start the fixture on `127.0.0.1:0`.
     pub async fn start() -> io::Result<Self> {
         let (endpoint, certificate_pem) = build_server_endpoint()?;
+        Self::spawn(endpoint, certificate_pem)
+    }
+
+    /// Start the fixture on a caller-supplied abstract UDP socket (e.g. a
+    /// `quic-mtu-test-util` `MtuDropSocket` for path-MTU fault injection). The
+    /// socket's bound address becomes the server address — read it back from
+    /// [`Self::local_addr`] / [`Self::port`]; pin the cert via
+    /// [`Self::certificate_pem`] as usual.
+    pub async fn start_with_socket(socket: Arc<dyn quinn::AsyncUdpSocket>) -> io::Result<Self> {
+        let (server_cfg, certificate_pem) = build_server_config()?;
+        let endpoint = quinn::Endpoint::new_with_abstract_socket(
+            quinn::EndpointConfig::default(),
+            Some(server_cfg),
+            socket,
+            Arc::new(quinn::TokioRuntime),
+        )
+        .map_err(io::Error::other)?;
+        Self::spawn(endpoint, certificate_pem)
+    }
+
+    /// Wire a server endpoint into the shutdown-aware accept loop.
+    fn spawn(endpoint: quinn::Endpoint, certificate_pem: String) -> io::Result<Self> {
         let local_addr = endpoint.local_addr()?;
 
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
@@ -105,6 +127,13 @@ impl Drop for TuicLoopback {
 }
 
 fn build_server_endpoint() -> io::Result<(quinn::Endpoint, String)> {
+    let (server_cfg, certificate_pem) = build_server_config()?;
+    let endpoint = quinn::Endpoint::server(server_cfg, (Ipv4Addr::LOCALHOST, 0).into())
+        .map_err(|error| io::Error::other(error.to_string()))?;
+    Ok((endpoint, certificate_pem))
+}
+
+fn build_server_config() -> io::Result<(quinn::ServerConfig, String)> {
     let cert = generate_simple_self_signed(vec!["localhost".to_string()])
         .map_err(|error| io::Error::other(error.to_string()))?;
     let certificate_pem = cert.cert.pem();
@@ -127,9 +156,7 @@ fn build_server_endpoint() -> io::Result<(quinn::Endpoint, String)> {
     transport.max_idle_timeout(Some(Duration::from_secs(30).try_into().expect("valid idle timeout")));
     server_cfg.transport = Arc::new(transport);
 
-    let endpoint = quinn::Endpoint::server(server_cfg, (Ipv4Addr::LOCALHOST, 0).into())
-        .map_err(|error| io::Error::other(error.to_string()))?;
-    Ok((endpoint, certificate_pem))
+    Ok((server_cfg, certificate_pem))
 }
 
 async fn handle_connection(incoming: quinn::Incoming) -> io::Result<()> {

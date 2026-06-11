@@ -4871,6 +4871,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "quic-mtu-test-util"
+version = "0.1.0"
+dependencies = [
+ "quinn",
+ "rcgen",
+ "rustls",
+ "tokio",
+]
+
+[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5480,6 +5490,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "local-network-fixture",
+ "quic-mtu-test-util",
  "ripdpi-config",
  "ripdpi-hysteria2",
  "ripdpi-masque",

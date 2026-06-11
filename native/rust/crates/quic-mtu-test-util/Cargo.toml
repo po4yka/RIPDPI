@@ -1,0 +1,20 @@
+# Test-only QUIC path-MTU fault-injection helper; not shipped in the APK and
+# never published. See `src/lib.rs` for the mechanism.
+[package]
+name = "quic-mtu-test-util"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+quinn = { workspace = true }
+tokio = { workspace = true, features = ["net", "rt"] }
+
+[dev-dependencies]
+rcgen = { workspace = true }
+rustls = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "time", "macros", "io-util", "sync"] }

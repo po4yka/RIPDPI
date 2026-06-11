@@ -54,7 +54,26 @@ pub struct Hysteria2Loopback {
 impl Hysteria2Loopback {
     /// Start the fixture on `127.0.0.1:0`.
     pub async fn start() -> io::Result<Self> {
-        let endpoint = build_server_endpoint()?;
+        Self::spawn(build_server_endpoint()?)
+    }
+
+    /// Start the fixture on a caller-supplied abstract UDP socket (e.g. a
+    /// `quic-mtu-test-util` `MtuDropSocket` for path-MTU fault injection). The
+    /// socket's bound address becomes the server address — read it back from
+    /// [`Self::local_addr`] / [`Self::port`].
+    pub async fn start_with_socket(socket: Arc<dyn quinn::AsyncUdpSocket>) -> io::Result<Self> {
+        let endpoint = quinn::Endpoint::new_with_abstract_socket(
+            quinn::EndpointConfig::default(),
+            Some(build_server_config()?),
+            socket,
+            Arc::new(quinn::TokioRuntime),
+        )
+        .map_err(io::Error::other)?;
+        Self::spawn(endpoint)
+    }
+
+    /// Wire a server endpoint into the shutdown-aware accept loop.
+    fn spawn(endpoint: quinn::Endpoint) -> io::Result<Self> {
         let local_addr = endpoint.local_addr()?;
 
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
@@ -108,6 +127,11 @@ impl Drop for Hysteria2Loopback {
 }
 
 fn build_server_endpoint() -> io::Result<quinn::Endpoint> {
+    quinn::Endpoint::server(build_server_config()?, (Ipv4Addr::LOCALHOST, 0).into())
+        .map_err(|error| io::Error::other(error.to_string()))
+}
+
+fn build_server_config() -> io::Result<quinn::ServerConfig> {
     let cert = generate_simple_self_signed(vec!["localhost".to_string(), "hysteria".to_string()])
         .map_err(|error| io::Error::other(error.to_string()))?;
     let cert_der = rustls::pki_types::CertificateDer::from(cert.cert.der().to_vec());
@@ -129,8 +153,7 @@ fn build_server_endpoint() -> io::Result<quinn::Endpoint> {
     transport.max_idle_timeout(Some(Duration::from_secs(30).try_into().expect("valid idle timeout")));
     server_cfg.transport = Arc::new(transport);
 
-    quinn::Endpoint::server(server_cfg, (Ipv4Addr::LOCALHOST, 0).into())
-        .map_err(|error| io::Error::other(error.to_string()))
+    Ok(server_cfg)
 }
 
 async fn handle_connection(incoming: quinn::Incoming) -> io::Result<()> {
