@@ -62,13 +62,17 @@ class SharedPreferencesSelectorSelectionStore
             groupId: String,
             profileId: String,
         ) {
-            preferences.edit().putString(keyFor(groupId), profileId).apply()
-            flowFor(groupId).value = profileId
+            synchronized(flows) {
+                preferences.edit().putString(keyFor(groupId), profileId).apply()
+                flowFor(groupId).value = profileId
+            }
         }
 
         override fun clearSelection(groupId: String) {
-            preferences.edit().remove(keyFor(groupId)).apply()
-            flowFor(groupId).value = null
+            synchronized(flows) {
+                preferences.edit().remove(keyFor(groupId)).apply()
+                flowFor(groupId).value = null
+            }
         }
 
         /** Clears every persisted selection. Intended for tests and reset flows. */
