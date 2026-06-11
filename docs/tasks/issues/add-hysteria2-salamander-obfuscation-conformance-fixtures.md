@@ -1,15 +1,16 @@
 ---
 title: Add Hysteria 2 Salamander obfuscation conformance fixtures
 type: task
-status: backlog
+status: blocked
 area: testing
 priority: medium
 owner: unassigned
 parent: epic-protocol-conformance-tests
+status_detail: externally-gated — harness shipped; the 8 conformance goldens need real apernet/hysteria byte vectors at a pinned tag, which are not available locally and cannot be fabricated
 blocks: []
 blocked_by: []
 created: 2026-05-15
-updated: 2026-06-10
+updated: 2026-06-11
 ---
 
 ## Summary
@@ -38,3 +39,4 @@ Salamander is XOR-style obfuscation keyed by a server-supplied key. Reference ve
 ## Work log
 
 - 2026-06-05: Fixture harness exists (`salamander::tests::upstream_salamander_fixtures_decode_cleanly`) and one synthetic `.bin` file is present at `contract-fixtures/hysteria2/v2/salamander/746f702d736563726574/hello-zero-salt.bin`; the eight upstream-conformance goldens from apernet/hysteria test vectors are still missing — criteria 1 and 3 remain deferred pending sourcing of real upstream byte vectors.
+- 2026-06-11: **Confirmed externally-gated; harness shipped, no new goldens.** Searched the whole worktree — zero vendored apernet/hysteria test vectors or captured datagrams are available locally, so real conformance goldens cannot be added without fabricating them (which would only test our impl against itself, exactly what the existing synthetic + `salamander_keystream_pinned_for_known_key_and_salt` already do). Verified the harness is sound and passes today (`salamander::tests` — 3 tests green: roundtrip, keystream-pinned, fixture-walker). Status set to `blocked` (externally-gated). Sourcing path: capture vectors from `apernet/hysteria` at a `SPEC_VERSION.md`-pinned tag per `docs/native/upstream-spec-watch-runbook.md`, then drop them under `contract-fixtures/hysteria2/<tag>/salamander/<key-hex>/` (governed by `golden-bless-discipline.md`). Criteria 1 & 3 remain blocked on that external input.

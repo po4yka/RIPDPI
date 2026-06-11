@@ -28,7 +28,7 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 | medium | routing | [Adopt process-based per-package routing via Xray TUN routeOnly](issues/adopt-process-based-per-package-routing-via-xray-tun-routeonly.md) | epic-fail-closed-android-vpn-policy-engine |
 | medium | rust-native | [Add TUIC v4 fallback or explicit version detection](issues/add-tuic-v4-fallback-or-version-detection.md) | — |
 | medium | service | [Wire NaiveProxy helper probe into manager startup](issues/wire-naiveproxy-probe-into-manager-startup.md) | — |
-| medium | testing | [Add Criterion throughput benchmarks for each transport](issues/add-protocol-throughput-benchmarks-for-each-transport.md) | epic-protocol-conformance-tests |
+| medium | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | epic-protocol-conformance-tests |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | — |
 | low | testing | [Add cross-stack chain tests (VLESS over xHTTP over Reality)](issues/add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality.md) | epic-protocol-conformance-tests |
 
@@ -36,7 +36,7 @@ _Statuses: `doing` · `review` · `blocked` · `todo` · `backlog` (`done`/`drop
 
 _No tasks in review._
 
-## Blocked (5)
+## Blocked (6)
 
 _The six Xray-provider rows are blocked on the gomobile/libXray AAR toolchain + on-device
 smoke lane; the remaining rows carry their own blocker (see each issue's Work log)._
@@ -48,17 +48,17 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | high | outbound | [Run Xray as managed VPN relay runtime](issues/run-xray-as-managed-vpn-relay-runtime.md) | epic-xray-provider-mode |
 | medium | diagnostics | [Add network-security-config with opportunistic domainEncryption](issues/add-network-security-config-with-opportunistic-domainencryption.md) | — |
 | medium | outbound | [Surface Xray diagnostics and telemetry](issues/surface-xray-diagnostics-and-telemetry.md) | epic-xray-provider-mode |
+| medium | testing | [Add Hysteria 2 Salamander obfuscation conformance fixtures](issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md) | epic-protocol-conformance-tests |
 
-## Todo (4)
+## Todo (3)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
 | medium | android | [Harden JNI callbacks: daemon thread-attach, nullable array returns, drop runBlocking](issues/harden-jni-callback-thread-attach-and-null-sentinels.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast](issues/centralize-unsafe-javavm-from-raw-and-signal-cast.md) | epic-june-2026-audit-remediation |
-| medium | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | epic-protocol-conformance-tests |
 
-## Backlog (22)
+## Backlog (21)
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
@@ -71,7 +71,6 @@ smoke lane; the remaining rows carry their own blocker (see each issue's Work lo
 | medium | rust-native | [Add constant-rate traffic shaping with VoIP camouflage profile](issues/add-constant-rate-traffic-shaping-voip-camouflage.md) | epic-transport-obfuscation-research |
 | medium | rust-native | [Introduce a WsTransport port to fix L6/L4 -> L7 dependencies on ripdpi-ws-tunnel](issues/introduce-ws-transport-port-to-fix-layer-violations.md) | epic-june-2026-audit-remediation |
 | medium | rust-native | [Split the 12-method PolicyPort trait into selection and learning sub-traits](issues/split-policyport-trait-selection-learning.md) | epic-june-2026-audit-remediation |
-| medium | testing | [Add Hysteria 2 Salamander obfuscation conformance fixtures](issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md) | epic-protocol-conformance-tests |
 | medium | testing | [Spike CensorLab as offline censor-replay harness](issues/spike-censorlab-as-offline-censor-replay-harness.md) | epic-orchestration-test-posture |
 | medium | transport | [Investigate RKN unannounced protocol-class signatures (Dec 2025 shift)](issues/investigate-rkn-unannounced-protocol-class-signatures.md) | epic-transport-obfuscation-research |
 | medium | transport | [Spike: DNS-Morph bootstrap as fallback bootstrap channel](issues/spike-dns-morph-bootstrap-fallback-channel.md) | epic-transport-obfuscation-research |
