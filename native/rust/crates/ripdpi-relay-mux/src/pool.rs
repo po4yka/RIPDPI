@@ -49,7 +49,8 @@ where
     }
 
     pub fn health(&self) -> RelayPoolHealth {
-        let mut state = self.inner.state.lock().expect("relay mux state");
+        // Recover poison: lease accounting is advisory.
+        let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         prune_expired_session(&mut state, self.inner.config.idle_timeout);
         RelayPoolHealth {
             idle_streams: usize::from(
@@ -106,7 +107,8 @@ where
             return permit;
         }
 
-        self.inner.state.lock().expect("relay mux state").backpressure_events += 1;
+        // Recover poison: lease accounting is advisory.
+        self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).backpressure_events += 1;
         self.inner.permits.clone().acquire_owned().await.expect("relay mux semaphore unexpectedly closed")
     }
 
@@ -116,7 +118,8 @@ where
         }
 
         {
-            let mut state = self.inner.state.lock().expect("relay mux state");
+            // Recover poison: lease accounting is advisory.
+            let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             prune_expired_session(&mut state, self.inner.config.idle_timeout);
             if let Some(session) = state.cached_session.as_ref().map(|cached| Arc::clone(&cached.session)) {
                 return Ok(session);
@@ -124,7 +127,8 @@ where
         }
 
         let created = self.inner.factory.create_session().await?;
-        let mut state = self.inner.state.lock().expect("relay mux state");
+        // Recover poison: lease accounting is advisory.
+        let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         prune_expired_session(&mut state, self.inner.config.idle_timeout);
         if let Some(session) = state.cached_session.as_ref().map(|cached| Arc::clone(&cached.session)) {
             return Ok(session);
@@ -134,18 +138,33 @@ where
     }
 
     fn mark_lease_started(&self) {
-        let mut state = self.inner.state.lock().expect("relay mux state");
+        // Recover poison: lease accounting is advisory.
+        let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         prune_expired_session(&mut state, self.inner.config.idle_timeout);
         state.active_leases += 1;
     }
 
     fn finish_failed_open(&self, session: Option<&Arc<F::Session>>) {
-        let mut state = self.inner.state.lock().expect("relay mux state");
+        // Recover poison: lease accounting is advisory.
+        let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if state.active_leases > 0 {
             state.active_leases -= 1;
         }
         if let Some(session) = session {
             invalidate_cached_session(&mut state, session);
         }
+    }
+
+    /// Poison the shared state mutex (test-only) so the poison-recovery paths
+    /// can be exercised without `unsafe` or a real concurrent-panic race.
+    #[cfg(test)]
+    pub(crate) fn poison_for_test(&self) {
+        let state = Arc::clone(&self.inner.state);
+        // A thread that panics while holding the lock leaves the mutex poisoned.
+        let _ = std::thread::spawn(move || {
+            let _held = state.lock().expect("lock to poison");
+            panic!("intentional poison");
+        })
+        .join();
     }
 }

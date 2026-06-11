@@ -35,7 +35,12 @@ where
     S: RelaySession,
 {
     fn drop(&mut self) {
-        let mut state = self.state.lock().expect("relay mux state");
+        // NEVER panic in Drop: a panic during unwinding aborts the process on
+        // stable Rust. Lease accounting is advisory throughput bookkeeping, not a
+        // security boundary, so a poisoned mutex on release is recovered via
+        // `into_inner` rather than panicked. A poisoned counter may be slightly
+        // inconsistent; the decrement below is best-effort.
+        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if state.active_leases > 0 {
             state.active_leases -= 1;
         }

@@ -102,3 +102,28 @@ async fn mux_records_backpressure_when_limit_is_exhausted() {
     drop(first);
     drop(waiter.await.expect("waiter join"));
 }
+
+#[tokio::test]
+async fn lease_guard_drop_does_not_panic_when_mutex_is_poisoned() {
+    // Reproduces the panic-in-Drop bug: a poisoned state mutex must not cause
+    // `LeaseGuard::drop` to panic (which would abort the process during
+    // unwinding on stable Rust). Lease accounting is advisory, so the poison
+    // is recovered via `into_inner` rather than propagated.
+    let mux = RelayMux::new(
+        TestFactory { creations: Arc::new(AtomicUsize::new(0)), reusable: true },
+        RelayPoolConfig::default(),
+    );
+
+    // Acquire a lease so `active_leases` becomes 1.
+    let guard = mux.open_stream("example.com:443").await.expect("stream");
+
+    // Poison the mutex while the guard is still live.
+    mux.poison_for_test();
+
+    // Dropping the guard over a poisoned mutex must not panic/abort.
+    // If `LeaseGuard::drop` still used `.expect(...)` this line would abort.
+    drop(guard);
+
+    // The recovery paths in `health()` must also not panic after poison.
+    let _ = mux.health();
+}
