@@ -30,6 +30,11 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, _context: &BuildContext
     Ok(RelayBackend::Tor(Box::new(backend)))
 }
 
+// NOTE: This variant uses the `Error + Send + Sync + 'static` bound rather than
+// the crate-wide `to_io_error(impl Display)` in builders/common.rs because
+// `io::Error::other(error)` boxes the full error chain, whereas the Display-bound
+// helper calls `.to_string()` and loses it. TorRelayBackend::from_bridge_pt_config
+// returns a boxed error and callers depend on the chain for diagnostics.
 fn to_io_error(error: impl std::error::Error + Send + Sync + 'static) -> io::Error {
     io::Error::other(error)
 }

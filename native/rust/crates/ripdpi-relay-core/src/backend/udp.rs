@@ -2,6 +2,7 @@ use std::io;
 
 use ripdpi_relay_mux::MuxLease;
 
+use crate::backend::builder::builders::to_io_error;
 use crate::protocols::{
     AnyTlsSession, AnyTlsUdpSession, Hysteria2Session, MasqueSession, ShadowsocksSession, ShadowsocksUdpSession,
     TrojanSession, TrojanUdpSession, TuicSession,
@@ -82,8 +83,4 @@ impl RelayUdpSession {
             }
         }
     }
-}
-
-fn to_io_error(error: impl std::fmt::Display) -> io::Error {
-    io::Error::other(error.to_string())
 }

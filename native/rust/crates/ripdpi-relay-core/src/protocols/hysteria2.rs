@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 
+use crate::backend::builder::builders::to_io_error;
 use crate::telemetry::{QuicMigrationTelemetryState, sync_quic_migration_state};
 
 #[derive(Clone)]
@@ -49,8 +50,4 @@ impl RelaySessionFactory for Hysteria2SessionFactory {
         sync_quic_migration_state(&migration, client.quic_migration_snapshot());
         Ok(Arc::new(Hysteria2Session { client, migration }))
     }
-}
-
-fn to_io_error(error: impl std::fmt::Display) -> io::Error {
-    io::Error::other(error.to_string())
 }
