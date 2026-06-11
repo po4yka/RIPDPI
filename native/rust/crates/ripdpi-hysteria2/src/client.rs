@@ -27,6 +27,10 @@ impl Drop for AbortOnDrop {
 }
 
 pub async fn connect(config: &Config) -> Result<HysteriaClient> {
+    if config.insecure {
+        tracing::warn!("hysteria2 session starting with certificate verification DISABLED (insecure=true profile)");
+    }
+
     let server_addr = config
         .server_addr
         .to_socket_addrs()?
