@@ -28,7 +28,7 @@ pub(in crate::io_loop) fn handle_dns_result(
                     Some(upstream.latency_ms),
                 );
                 let raw = build_udp_response(mapdns.intercept_addr, response.src, &result.response);
-                enqueue_tun_packet(device, raw, "dns");
+                enqueue_tun_packet(device, raw);
             }
             Err(err) => {
                 let message = err.to_string();

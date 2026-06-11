@@ -20,7 +20,7 @@ pub(super) fn send_servfail(
     match dns_cache.servfail_response(query) {
         Ok(servfail) => {
             let raw = build_udp_response(mapdns.intercept_addr, dst, &servfail);
-            enqueue_tun_packet(device, raw, "dns-servfail");
+            enqueue_tun_packet(device, raw);
         }
         Err(servfail_err) => debug!("failed to synthesize SERVFAIL after {reason}: {servfail_err}"),
     }

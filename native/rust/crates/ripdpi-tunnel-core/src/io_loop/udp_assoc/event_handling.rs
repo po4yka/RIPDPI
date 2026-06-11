@@ -19,7 +19,7 @@ pub(in crate::io_loop) fn handle_udp_event(
     match event {
         UdpEvent::Packet { src, association_id, raw } => {
             if associations.get(&src).is_some_and(|association| association.id == association_id) {
-                enqueue_tun_packet(device, raw, "udp");
+                enqueue_tun_packet(device, raw);
             }
         }
         UdpEvent::Closed { src, association_id } => {
