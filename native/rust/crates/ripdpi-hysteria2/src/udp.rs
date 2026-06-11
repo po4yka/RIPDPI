@@ -15,6 +15,11 @@ const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
 
+/// Maximum number of wrap-around retry attempts before declaring session-id space exhausted.
+/// u32 has 4 billion values so exhaustion is not a practical concern, but we still check
+/// for wrap collisions to remain correct under adversarial or stress conditions.
+const MAX_SESSION_ID_SCAN_ATTEMPTS: u32 = 1024;
+
 pub struct UdpSession {
     client: Arc<ClientInner>,
     incoming_rx: mpsc::Receiver<UdpPacket>,
@@ -71,23 +76,18 @@ impl UdpSession {
             return Ok(session_id);
         }
 
-        // u32 has 4 billion values; exhaustion is not a practical concern, but we
-        // still check for wrap collisions to be correct.
-        use std::collections::hash_map::Entry;
+        // Allocate via the shared helper (also exercised by unit tests).
         let mut regs = self.client.registrations.lock().await;
-        for _ in 0u32..1024 {
-            let candidate = self.client.next_session_id.fetch_add(1, Ordering::SeqCst);
-            if let Entry::Vacant(slot) = regs.entry(candidate) {
-                slot.insert(self.incoming_tx.clone());
-                session_ids.insert(address.to_string(), candidate);
-                return Ok(candidate);
-            }
-        }
-
-        Err(HysteriaError::Io(io::Error::new(
-            io::ErrorKind::ResourceBusy,
-            "Hysteria2 UDP session-id space exhausted: too many concurrent sessions",
-        )))
+        let id = allocate_session_id(&self.client.next_session_id, &mut regs, self.incoming_tx.clone()).ok_or_else(
+            || {
+                HysteriaError::Io(io::Error::new(
+                    io::ErrorKind::ResourceBusy,
+                    "Hysteria2 UDP session-id space exhausted: too many concurrent sessions",
+                ))
+            },
+        )?;
+        session_ids.insert(address.to_string(), id);
+        Ok(id)
     }
 
     async fn next_packet_id(&self, session_id: u32) -> u16 {
@@ -325,16 +325,18 @@ fn parse_udp_datagram(datagram: &[u8]) -> Result<ParsedDatagram> {
 
 /// Allocate a session-id from the given atomic counter, checking `registrations`
 /// for collisions. Returns the allocated id, or `None` if every candidate within
-/// 1024 attempts is occupied. Extracted for unit testing without a live QUIC
-/// connection.
-#[cfg(test)]
+/// `MAX_SESSION_ID_SCAN_ATTEMPTS` attempts is occupied.
+///
+/// This is the single implementation used by both `session_id_for` in production
+/// and the unit tests, so a change to the allocation algorithm is automatically
+/// covered by the test suite.
 pub(crate) fn allocate_session_id(
     counter: &std::sync::atomic::AtomicU32,
     registrations: &mut HashMap<u32, mpsc::Sender<UdpPacket>>,
     sender: mpsc::Sender<UdpPacket>,
 ) -> Option<u32> {
     use std::collections::hash_map::Entry;
-    for _ in 0u32..1024 {
+    for _ in 0..MAX_SESSION_ID_SCAN_ATTEMPTS {
         let candidate = counter.fetch_add(1, Ordering::SeqCst);
         if let Entry::Vacant(slot) = registrations.entry(candidate) {
             slot.insert(sender);
