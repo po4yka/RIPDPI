@@ -652,7 +652,7 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-lint
+          shared-key: rust-host
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
@@ -697,7 +697,7 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-workspace-tests
+          shared-key: rust-host
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
