@@ -50,6 +50,7 @@ Keep the direct `SetTunFd` path as an explicit follow-up decision, not an accide
 
 - 2026-06-05: All 4 orchestration criteria verified in source (XrayTunnelHandoff, XrayProviderOrchestrator, XrayProtectFdContractTest, XrayDnsLoopRegressionTest, XrayProviderOrchestratorTest, XrayServiceLifecycleMatrixTest all exist in core/engine-api); smoke criterion remains open — docs/contributor/xray-tun-bridge-smoke.md documents the manual lane but CI cannot run it without gomobile/libXray + NDK29 + live server.
 - 2026-06-05: Re-audit confirms source evidence for criteria 1–4: XrayTunnelHandoff.kt (152 lines) and XrayProviderOrchestrator.kt (263 lines) in core/engine-api/src/main; protect-first ordering confirmed in RipDpiXrayRuntime.kt (line 83–84: bridge.registerProtect before Xray opens sockets); all 5 test files present in core/engine-api/src/test. Status changed from `blocked` to `doing` — `blocked_by` was empty, the constraint is a CI/device gap, not a sibling-task dependency; `doing` matches 4/5 criteria verified and one remaining.
+- 2026-06-11 (offline re-verify): `:core:engine-api:testDebugUnitTest` green — `XrayTunnelHandoffTest` (6), `XrayProviderOrchestratorTest` (13), `XrayDnsLoopRegressionTest` (5), `XrayProtectFdContractTest` (4), 0 failures. Criteria 1–4 stay code-complete offline; criterion 5 (device egress smoke) stays OPEN on the gomobile/libXray + NDK29 + device + live-server gate — see `docs/native/libxray-unblock-checklist.md`. Status stays `doing`.
 
 ## Links
 

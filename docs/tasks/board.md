@@ -40,8 +40,11 @@ _No tasks in review._
 
 ## Blocked (6)
 
-_The six Xray-provider rows are blocked on the gomobile/libXray AAR toolchain + on-device
-smoke lane; the remaining rows carry their own blocker (see each issue's Work log)._
+_The Xray-provider rows are blocked on the gomobile/libXray AAR toolchain + on-device
+smoke lane; the remaining rows carry their own blocker (see each issue's Work log).
+The ordered unblock steps + the missing CI seam live in
+[docs/native/libxray-unblock-checklist.md](../native/libxray-unblock-checklist.md);
+the offline Kotlin substrate is re-verified green (121 Xray unit tests, 2026-06-11)._
 
 | Priority | Area | Task | Parent epic |
 | --- | --- | --- | --- |
