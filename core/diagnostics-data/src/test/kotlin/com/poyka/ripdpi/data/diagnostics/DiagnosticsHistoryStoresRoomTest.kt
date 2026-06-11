@@ -642,7 +642,7 @@ class DiagnosticsHistoryStoresRoomTest {
         }
 
     @Test
-    fun `production database builder destructively migrates version 2 diagnostics database`() {
+    fun `production database builder destructively migrates v2 database when allowDestructiveFallback is true`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val databaseName = "diagnostics-legacy-v2-${System.nanoTime()}.db"
         context.deleteDatabase(databaseName)
@@ -652,7 +652,12 @@ class DiagnosticsHistoryStoresRoomTest {
             legacyDb.execSQL("PRAGMA user_version = 2")
         }
 
-        val migratedDb = DiagnosticsDatabaseModule.buildDiagnosticsDatabase(context, databaseName)
+        val migratedDb =
+            DiagnosticsDatabaseModule.buildDiagnosticsDatabase(
+                context,
+                databaseName,
+                allowDestructiveFallback = true,
+            )
         try {
             migratedDb.openHelper.writableDatabase
 
