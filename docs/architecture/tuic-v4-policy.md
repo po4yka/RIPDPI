@@ -1,6 +1,6 @@
 # TUIC v4 Policy — ADR
 
-> Status: **decision recorded; v5-only classifier hooks implemented**. Authored: 2026-05-15, refreshed 2026-05-28 against `ripdpi-tuic` and `ripdpi-failure-classifier`.
+> Status: **decision recorded; v5-only classification AND runtime mapping implemented**. Authored: 2026-05-15, refreshed 2026-06-11 against `ripdpi-tuic`, `ripdpi-relay-core`, and `ripdpi-failure-classifier`.
 
 ## Question
 
@@ -32,10 +32,13 @@
 3. `ripdpi-tuic::classify_failure_payload` maps any non-v5 leading version byte to `TuicFailureKind::VersionUnsupported`.
 4. Unit tests pin the v4 byte path, the v5 pass-through path, and arbitrary non-v5 bytes.
 
-## Remaining Work
+## Runtime wiring (DONE — 2026-06-11)
 
-Map `TuicFailureKind::VersionUnsupported` at runtime wherever TUIC handshake failures are converted into user-facing failure classes.
+The runtime mapping is implemented, wired, and tested:
 
-## Owner
+- `ripdpi-tuic::TuicHandshakeError` + `classify_handshake_failure` (`protocol.rs`) construct `TuicHandshakeError::version_unsupported()` from a QUIC application-close reason whose leading byte is the legacy v4 wire byte (`0x04`), on the `connect` / `tcp_connect` handshake-failure path. The gate is narrow so a v5 server closing with a free-form reason (e.g. bad credentials) is not misread.
+- `ripdpi-relay-core::protocols::tuic::classify_tuic_handshake_error` downcasts the typed error and constructs `FailureClass::TuicVersionUnsupported`, emitting the `tuic_version_unsupported` token + actionable "upgrade to v5" text. Applied at `open_stream`, `open_datagram`, and `create_session`; it flows through the SOCKS `record_handshake_error → last_handshake_error` telemetry to the service diagnostic surface.
 
-Native-transport owner picks up the implementation work.
+Landed in commits `02292caa2` (feat(tuic)), `96e32784e` (feat(relay-core)), `3ead52203` (docs(tasks) close).
+
+A parallel gap remains for `FailureClass::ShadowTlsVersionMismatch`, which has the same never-constructed-at-runtime shape — tracked in `docs/tasks/issues/wire-shadowtls-version-mismatch-into-service-telemetry.md`.

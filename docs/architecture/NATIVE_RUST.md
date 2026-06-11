@@ -12,7 +12,7 @@ and the `native/rust/crates/` tree.
 
 ## Workspace facts
 
-- **112 crates**, all under `native/rust/crates/`. Every directory is a declared
+- **114 crates**, all under `native/rust/crates/`. Every directory is a declared
   `[workspace] members` entry — **no orphan directories, no missing members.**
 - `edition = "2021"`, `version = "0.1.0"`, `license = "MIT"` (workspace-inherited).
 - Build profiles: `release` (thin LTO, `panic = "abort"`, stripped),
@@ -77,8 +77,8 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 
 | # | Layer | Count | Crates |
 |---|-------|-------|--------|
-| L0 | **support / test / dev** | 6 | `feature-contract-harness`, `golden-test-support`, `local-network-fixture`, `native-soak-support`, `ripdpi-bench`, `ripdpi-cli` |
-| L1 | **protocol / core** | 11 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-pcap`, `ripdpi-flow-app-attribution` |
+| L0 | **support / test / dev** | 7 | `feature-contract-harness`, `golden-test-support`, `local-network-fixture`, `native-soak-support`, `quic-mtu-test-util`, `ripdpi-bench`, `ripdpi-cli` |
+| L1 | **protocol / core** | 13 | `ripdpi-packets`, `ripdpi-tls-profiles`, `ripdpi-tls-spoof`, `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`, `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`, `ripdpi-ech-dns`, `ripdpi-pcap`, `ripdpi-flow-app-attribution` |
 | L2 | **contracts / config** | 9 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry` |
 | L3 | **domain logic** | 18 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-routing`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |

@@ -61,8 +61,8 @@ The settings store is Jetpack DataStore — a wire-format change is a
 **persisted-data** change.
 
 - **Never reuse a field number.** Once assigned, a number is permanent. The
-  highest `AppSettings` number in use today is `296`; a new field takes the
-  next free number.
+  highest `AppSettings` number in use today is `409` (`ui_persona`); a new field
+  takes the next free number.
 - **Never reuse a field name.** A name carries semantics into goldens and DSL.
 - **On removal, reserve both.** `AppSettings` already does this — `reserved 15,
   16, 17, 29, 30, 31, 32, 69, 71, 93, 94, 130, 190;` plus the matching
