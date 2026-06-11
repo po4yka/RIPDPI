@@ -99,17 +99,18 @@ where
                 Err(ReplySocks4Error(ReplyError::AddressTypeNotSupported))
             }
             Some(TargetAddr::Domain(domain, port)) => {
+                let domain_bytes = domain.as_bytes();
+                if domain_bytes.len() > MAX_ADDR_LEN - 8 {
+                    return Err(SocksError::ExceededMaxDomainLen(domain_bytes.len()));
+                }
                 packet[2] = (port >> 8) as u8;
                 packet[3] = *port as u8;
                 packet[4..8].copy_from_slice(&[0, 0, 0, 1]);
-                let domain_bytes = domain.as_bytes();
                 let offset = 8 + domain_bytes.len();
                 packet[8..offset].copy_from_slice(domain_bytes);
                 Ok(())
             }
-            _ => {
-                panic!("Unreachable case");
-            }
+            None => Err(SocksError::ArgumentInputError("send_command_request called before target_addr was set")),
         }?;
         self.socket.write_all(&packet).await?;
         Ok(())
@@ -347,4 +348,23 @@ like to help us out, see careers.google.com.\n";
     //
     //     assert_response_body(&response_body);
     // }
+
+    #[tokio::test]
+    async fn socks4_domain_too_long_returns_error() {
+        // A domain longer than MAX_ADDR_LEN - 8 (= 252) bytes previously caused
+        // an index-out-of-bounds panic in `send_command_request`. Verify it now
+        // returns `Err(SocksError::ExceededMaxDomainLen)` without panicking.
+        let long_domain = "a".repeat(300);
+
+        // Use an in-memory duplex stream — no real network required.
+        let (client_half, _server_half) = tokio::io::duplex(1024);
+        let mut stream = Socks4Stream::use_stream(client_half).expect("wrap stream");
+
+        let result = stream.request(Socks4Command::Connect, TargetAddr::Domain(long_domain, 80), false).await;
+
+        assert!(
+            matches!(result, Err(SocksError::ExceededMaxDomainLen(_))),
+            "expected ExceededMaxDomainLen, got {result:?}",
+        );
+    }
 }
