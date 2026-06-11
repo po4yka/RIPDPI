@@ -10,6 +10,8 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -385,27 +387,36 @@ class SharedPreferencesProxyGroupRepository
         private val preferences = context.getSharedPreferences(GroupsPrefsName, Context.MODE_PRIVATE)
         private val json = RipDpiJson
         private val listSerializer = ListSerializer(ProxyGroup.serializer())
+        private val mutex = Mutex()
         private val state = MutableStateFlow(readGroups())
 
         override suspend fun add(group: ProxyGroup) {
-            val next = readGroups().filterNot { it.id == group.id } + group
-            writeGroups(next)
+            mutex.withLock {
+                val next = readGroups().filterNot { it.id == group.id } + group
+                writeGroups(next)
+            }
         }
 
         override suspend fun update(group: ProxyGroup) {
-            val next = readGroups().map { if (it.id == group.id) group else it }
-            writeGroups(next)
+            mutex.withLock {
+                val next = readGroups().map { if (it.id == group.id) group else it }
+                writeGroups(next)
+            }
         }
 
         override suspend fun delete(id: String) {
-            val next = readGroups().filterNot { it.id == id }
-            writeGroups(next)
+            mutex.withLock {
+                val next = readGroups().filterNot { it.id == id }
+                writeGroups(next)
+            }
         }
 
         override suspend fun list(): List<ProxyGroup> = readGroups()
 
         override suspend fun replaceAll(groups: List<ProxyGroup>) {
-            writeGroups(groups)
+            mutex.withLock {
+                writeGroups(groups)
+            }
         }
 
         override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
