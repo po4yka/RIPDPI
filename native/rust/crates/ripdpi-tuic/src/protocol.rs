@@ -85,6 +85,89 @@ pub fn classify_failure_payload(payload: &[u8]) -> TuicFailureKind {
         Some(_) => TuicFailureKind::VersionUnsupported,
     }
 }
+
+/// A TUIC handshake failure that [`classify_failure_payload`] recognised as a
+/// wire-version mismatch. Carried as the inner error of an [`io::Error`] so the
+/// relay layer can downcast it (`error.get_ref().downcast_ref::<TuicHandshakeError>()`)
+/// and map it to `ripdpi-failure-classifier::FailureClass::TuicVersionUnsupported`,
+/// producing a user-actionable "upgrade your TUIC server to v5" diagnostic
+/// instead of a generic protocol error. `ripdpi-tuic` deliberately does not
+/// depend on the failure-classifier crate; the typed error is the seam.
+///
+/// See `docs/architecture/tuic-v4-policy.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TuicHandshakeError {
+    kind: TuicFailureKind,
+}
+
+impl TuicHandshakeError {
+    /// The server replied with a non-v5 wire version during the handshake.
+    #[must_use]
+    pub const fn version_unsupported() -> Self {
+        Self { kind: TuicFailureKind::VersionUnsupported }
+    }
+
+    /// The coarse failure kind this error carries.
+    #[must_use]
+    pub const fn kind(&self) -> TuicFailureKind {
+        self.kind
+    }
+}
+
+impl std::fmt::Display for TuicHandshakeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.kind {
+            TuicFailureKind::VersionUnsupported => f.write_str(
+                "TUIC server speaks an unsupported wire version (this client is v5-only); \
+                 upgrade the server to TUIC v5 — see docs/architecture/tuic-v4-policy.md",
+            ),
+            TuicFailureKind::Other => f.write_str("TUIC handshake failed"),
+        }
+    }
+}
+
+impl std::error::Error for TuicHandshakeError {}
+
+/// EAimTY/tuic v4 wire version byte — the only known wire version prior to v5
+/// (`docs/architecture/tuic-v4-policy.md`). A deployed v4 server rejecting this
+/// v5 client leads its reject frame with this byte.
+const TUIC_LEGACY_V4_WIRE_BYTE: u8 = 0x04;
+
+/// Decide whether an application-close reason observed on the TUIC
+/// handshake-failure path indicates the peer speaks an unsupported wire version.
+///
+/// Pure and unit-testable. Returns `true` ONLY when the reason leads with a
+/// recognised legacy TUIC version byte AND [`classify_failure_payload`] agrees
+/// it is a version mismatch. Crucially it does NOT treat an arbitrary non-v5
+/// close reason as a version mismatch: a correctly-deployed v5 server rejecting
+/// bad credentials closes with a free-form reason (e.g. `"authentication
+/// failed"`, leading byte `0x61`), which must surface as a generic error — not
+/// a misleading "upgrade your server" diagnostic. Only a reason leading with the
+/// v4 wire byte (`0x04`) is read as a version mismatch.
+fn close_reason_indicates_version_mismatch(reason: &[u8]) -> bool {
+    matches!(reason.first(), Some(&byte) if byte == TUIC_LEGACY_V4_WIRE_BYTE)
+        && classify_failure_payload(reason) == TuicFailureKind::VersionUnsupported
+}
+
+/// Inspect a QUIC connection that errored during the TUIC handshake. If the peer
+/// application-closed it with a reason that [`close_reason_indicates_version_mismatch`]
+/// recognises as a legacy-version reject, return a typed [`TuicHandshakeError`]
+/// wrapped in an [`io::Error`]. Otherwise return `fallback` unchanged.
+///
+/// This is the only runtime caller of [`classify_failure_payload`]. It runs only
+/// on the handshake *failure* path (never on a successful relay), and the
+/// legacy-version-byte gate keeps an ordinary v5-server close (auth rejection,
+/// idle, graceful shutdown) from being misread as a version mismatch.
+pub(crate) fn classify_handshake_failure(connection: &quinn::Connection, fallback: io::Error) -> io::Error {
+    let Some(quinn::ConnectionError::ApplicationClosed(close)) = connection.close_reason() else {
+        return fallback;
+    };
+    if close_reason_indicates_version_mismatch(close.reason.as_ref()) {
+        io::Error::other(TuicHandshakeError::version_unsupported())
+    } else {
+        fallback
+    }
+}
 pub(crate) const COMMAND_AUTHENTICATE: u8 = 0x00;
 pub(crate) const COMMAND_CONNECT: u8 = 0x01;
 pub(crate) const COMMAND_PACKET: u8 = 0x02;
@@ -378,5 +461,44 @@ mod protocol_version_tests {
                 "byte {byte:#x} must classify as VersionUnsupported",
             );
         }
+    }
+
+    #[test]
+    fn close_reason_with_v4_wire_byte_is_a_version_mismatch() {
+        assert!(close_reason_indicates_version_mismatch(&[0x04]));
+        assert!(close_reason_indicates_version_mismatch(&[0x04, 0xff, 0x00]));
+    }
+
+    #[test]
+    fn close_reason_from_v5_auth_rejection_is_not_a_version_mismatch() {
+        // A correctly-deployed v5 server rejecting bad credentials closes with a
+        // free-form reason. It must NOT be misread as a version mismatch (the
+        // bug a byte-0 "any non-v5" heuristic would introduce). Regression for
+        // the C1 review finding.
+        assert!(!close_reason_indicates_version_mismatch(b"authentication failed"));
+        assert!(!close_reason_indicates_version_mismatch(b"auth error"));
+        assert!(!close_reason_indicates_version_mismatch(b"shutdown"));
+    }
+
+    #[test]
+    fn close_reason_with_unrecognised_non_v4_bytes_is_not_a_version_mismatch() {
+        // Only the known legacy v4 byte (0x04) gates the diagnostic; other
+        // arbitrary leading bytes are not treated as a recognised version.
+        for byte in [0x00u8, 0x01, 0x02, 0x03, 0x06, 0x7f, 0xff] {
+            assert!(!close_reason_indicates_version_mismatch(&[byte]), "byte {byte:#x} must not gate the diagnostic");
+        }
+    }
+
+    #[test]
+    fn close_reason_v5_byte_or_empty_is_not_a_version_mismatch() {
+        assert!(!close_reason_indicates_version_mismatch(&[TUIC_VERSION]));
+        assert!(!close_reason_indicates_version_mismatch(&[]));
+    }
+
+    #[test]
+    fn tuic_handshake_error_display_is_actionable_and_carries_no_identifiers() {
+        let message = TuicHandshakeError::version_unsupported().to_string();
+        assert!(message.contains("v5"), "diagnostic must recommend the v5 upgrade: {message}");
+        assert_eq!(TuicHandshakeError::version_unsupported().kind(), TuicFailureKind::VersionUnsupported);
     }
 }

@@ -30,6 +30,21 @@ use tokio::task::JoinHandle;
 
 const TUIC_VERSION: u8 = 0x05;
 const COMMAND_CONNECT: u8 = 0x01;
+/// EAimTY/tuic v4 wire byte — the synthetic reject marker used by
+/// [`TuicLoopback::start_rejecting_version`].
+const TUIC_V4_VERSION: u8 = 0x04;
+
+/// How the fixture handles an accepted connection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ServerMode {
+    /// Speak the real TUIC v5 protocol: drain auth, echo the proxied stream.
+    Echo,
+    /// Drain the client's auth stream, then reject with an application-close
+    /// whose reason begins with the v4 wire byte — a stand-in for a deployed
+    /// v4 server rejecting this v5 client. Drives the client's
+    /// version-unsupported handshake-failure path.
+    RejectVersion,
+}
 
 /// A loopback TUIC v5 server. Accepts (and ignores) the client's auth and echoes
 /// the proxied TCP stream.
@@ -46,7 +61,20 @@ impl TuicLoopback {
     /// Start the fixture on `127.0.0.1:0`.
     pub async fn start() -> io::Result<Self> {
         let (endpoint, certificate_pem) = build_server_endpoint()?;
-        Self::spawn(endpoint, certificate_pem)
+        Self::spawn(endpoint, certificate_pem, ServerMode::Echo)
+    }
+
+    /// Start a fixture that completes the QUIC/TLS handshake and drains the
+    /// client's auth stream (so [`TuicClient::connect`] succeeds — v5 auth is
+    /// fire-and-forget), then rejects with an application-close whose reason
+    /// begins with the v4 wire byte. The real client classifies this as a
+    /// version mismatch on its next relay-stream open. Synthetic stand-in for a
+    /// deployed TUIC v4 server; never a production server.
+    ///
+    /// [`TuicClient::connect`]: ripdpi_tuic::TuicClient::connect
+    pub async fn start_rejecting_version() -> io::Result<Self> {
+        let (endpoint, certificate_pem) = build_server_endpoint()?;
+        Self::spawn(endpoint, certificate_pem, ServerMode::RejectVersion)
     }
 
     /// Start the fixture on a caller-supplied abstract UDP socket (e.g. a
@@ -63,11 +91,11 @@ impl TuicLoopback {
             Arc::new(quinn::TokioRuntime),
         )
         .map_err(io::Error::other)?;
-        Self::spawn(endpoint, certificate_pem)
+        Self::spawn(endpoint, certificate_pem, ServerMode::Echo)
     }
 
     /// Wire a server endpoint into the shutdown-aware accept loop.
-    fn spawn(endpoint: quinn::Endpoint, certificate_pem: String) -> io::Result<Self> {
+    fn spawn(endpoint: quinn::Endpoint, certificate_pem: String, mode: ServerMode) -> io::Result<Self> {
         let local_addr = endpoint.local_addr()?;
 
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
@@ -79,7 +107,7 @@ impl TuicLoopback {
                     incoming = accept_endpoint.accept() => {
                         let Some(incoming) = incoming else { break };
                         tokio::spawn(async move {
-                            let _ = handle_connection(incoming).await;
+                            let _ = handle_connection(incoming, mode).await;
                         });
                     }
                 }
@@ -159,8 +187,21 @@ fn build_server_config() -> io::Result<(quinn::ServerConfig, String)> {
     Ok((server_cfg, certificate_pem))
 }
 
-async fn handle_connection(incoming: quinn::Incoming) -> io::Result<()> {
+async fn handle_connection(incoming: quinn::Incoming, mode: ServerMode) -> io::Result<()> {
     let connection = incoming.await.map_err(io::Error::other)?;
+
+    if mode == ServerMode::RejectVersion {
+        // Wait for the client's auth uni-stream so `TuicClient::connect`
+        // completes (v5 auth is fire-and-forget), then reject: application-close
+        // with a reason whose leading byte is the v4 wire byte. The client's
+        // `classify_failure_payload` reads this on its next stream open and
+        // surfaces `TuicFailureKind::VersionUnsupported`.
+        if let Ok(mut uni) = connection.accept_uni().await {
+            let _ = uni.read_to_end(4096).await;
+        }
+        connection.close(u32::from(TUIC_V4_VERSION).into(), &[TUIC_V4_VERSION]);
+        return Ok(());
+    }
 
     // Drain the auth unidirectional stream(s). The client does not await a
     // response, so we just consume the Authenticate command and ignore the

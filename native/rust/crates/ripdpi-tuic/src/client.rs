@@ -14,7 +14,7 @@ use crate::endpoint::{
     ClientSocketSpec, build_endpoint, build_tls_config, establish_connection, resolve_server_addr, validate_config,
 };
 use crate::migration::QuicMigrationState;
-use crate::protocol::{TuicAddress, authenticate_connection};
+use crate::protocol::{TuicAddress, authenticate_connection, classify_handshake_failure};
 use crate::tcp::{DuplexStream, encode_connect_header};
 use crate::udp::{UdpPacket, UdpSession, dispatch_incoming_datagrams};
 
@@ -36,7 +36,12 @@ impl TuicClient {
         let socket_spec = ClientSocketSpec { ipv6: server_addr.is_ipv6(), bind_low_port: config.quic_bind_low_port };
         let (endpoint, current_socket) = build_endpoint(&config, tls_config, socket_spec)?;
         let connection = establish_connection(&endpoint, &config, server_addr).await?;
-        authenticate_connection(&connection, &config).await?;
+        // A v4 server completes QUIC/TLS but rejects this client's v5 auth frame,
+        // surfacing as an application-close. Classify it so the relay layer can
+        // report `TuicVersionUnsupported` instead of a generic protocol error.
+        authenticate_connection(&connection, &config)
+            .await
+            .map_err(|error| classify_handshake_failure(&connection, error))?;
         let max_datagram_size = connection.max_datagram_size();
 
         let inner = Arc::new(ClientInner {
@@ -98,6 +103,15 @@ impl TuicClient {
     }
 
     async fn open_tcp_stream(&self, target: &TuicAddress) -> io::Result<DuplexStream> {
+        // Classify a relay-handshake failure: a v4 server rejects the v5 Connect
+        // command by application-closing the connection, which `open_bi` /
+        // `encode_connect_header` surface as an error here.
+        self.open_tcp_stream_inner(target)
+            .await
+            .map_err(|error| classify_handshake_failure(&self.inner.connection, error))
+    }
+
+    async fn open_tcp_stream_inner(&self, target: &TuicAddress) -> io::Result<DuplexStream> {
         let (mut send, recv) = self.inner.connection.open_bi().await?;
         encode_connect_header(&mut send, target).await?;
         Ok(DuplexStream { send, recv })
