@@ -31,6 +31,19 @@
       "groupName": "github-actions-digests",
       "schedule": ["before 9am on Monday"],
       "automerge": false
+    },
+    {
+      "description": "Batch Rust workspace dep updates weekly; each PR must regenerate Cargo.lock and pass cargo deny",
+      "matchManagers": ["cargo"],
+      "groupName": "rust-deps",
+      "schedule": ["before 9am on Monday"]
+    },
+    {
+      "description": "Never auto-bump deliberately exact-pinned crates (see native/rust/Cargo.toml)",
+      "matchManagers": ["cargo"],
+      "matchPackageNames": ["boring", "tokio-boring", "io-uring", "russh", "odoh-rs", "rand"],
+      "matchCurrentValue": "/^=/",
+      "enabled": false
     }
   ],
   "git-submodules": {
