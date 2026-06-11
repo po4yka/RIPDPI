@@ -438,7 +438,8 @@ mod enabled {
             .map_err(to_load)?;
         globals.set("bitnot", lua.create_function(|_, value: i64| Ok(!value)).map_err(to_load)?).map_err(to_load)?;
         globals
-            .set("getpid", lua.create_function(|_, ()| Ok(i64::from(std::process::id()))).map_err(to_load)?)
+            // zapret-compat shim: real PID withheld from sandboxed strategies.
+            .set("getpid", lua.create_function(|_, ()| Ok(0_i64)).map_err(to_load)?)
             .map_err(to_load)?;
         globals.set("gettid", lua.create_function(|_, ()| Ok(0_i64)).map_err(to_load)?).map_err(to_load)?;
         globals
@@ -700,6 +701,17 @@ mod enabled {
 
             assert_eq!(plan.verdict, StrategyVerdict::Apply);
             assert_eq!(plan.actions, vec![DesyncAction::Write(b"new".to_vec())]);
+        }
+
+        #[test]
+        fn getpid_is_stubbed() {
+            // getpid() must return 0 inside the sandbox — the real process PID
+            // is withheld from untrusted strategy scripts (zapret-compat shim).
+            let engine = LuaStrategyEngine::new().expect("Lua VM should initialize");
+            engine
+                .load_bytes("probe.lua", b"function probe_pid() return getpid() end")
+                .expect("probe script should load");
+            assert_eq!(engine.call_i64("probe_pid").expect("getpid call should succeed"), 0);
         }
     }
 
