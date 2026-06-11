@@ -86,15 +86,16 @@ class RipDpiProxyService :
         startId: Int,
     ): Int {
         super.onStartCommand(intent, flags, startId)
+        startForegroundService()
         if (intent == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
             Logger.w { "Sticky restart aborted: notification permission revoked" }
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf(startId)
             return START_NOT_STICKY
         }
-        startForegroundService()
         return shellDelegate.onStartCommand(intent?.action, startId)
     }
 
