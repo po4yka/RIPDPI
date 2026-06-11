@@ -11,7 +11,6 @@ members = [
     "crates/native-soak-support",
     "crates/quic-mtu-test-util",
     "crates/ripdpi-collections",
-    "crates/ripdpi-routing",
     "crates/ripdpi-proxy-config",
     "crates/ripdpi-diagnostics-candidates",
     "crates/ripdpi-diagnostics-classification",

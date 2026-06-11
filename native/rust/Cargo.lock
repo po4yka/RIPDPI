@@ -5674,19 +5674,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-diagnostics-net"
-version = "0.1.0"
-dependencies = [
- "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-fat-header",
- "ripdpi-diagnostics-http",
- "ripdpi-diagnostics-telegram",
- "ripdpi-diagnostics-tls",
- "ripdpi-diagnostics-transport",
-]
-
-[[package]]
 name = "ripdpi-diagnostics-parsers"
 version = "0.1.0"
 dependencies = [
@@ -6290,15 +6277,6 @@ dependencies = [
  "nix 0.31.3",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "ripdpi-routing"
-version = "0.1.0"
-dependencies = [
- "ipnet",
- "regex",
- "thiserror 2.0.18",
 ]
 
 [[package]]
