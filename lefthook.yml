@@ -71,6 +71,10 @@ pre-commit:
       glob: ".claude/**"
       run: python3 scripts/ci/check_harness_links.py --report-only
 
+    pinact-check:
+      glob: ".github/workflows/*.yml"
+      run: command -v pinact >/dev/null || exit 0; pinact check
+
     rules-drift-check:
       run: bash scripts/ci/check-rules-drift.sh
 
