@@ -8,6 +8,34 @@
     "json-config-parse_command-line-payload": {
       "mean_ns": 18419.93665269647,
       "median_ns": 17461.103733605545
+    },
+    "protocol-throughput/hysteria2_1MiB": {
+      "mean_ns": 3611456.604603689,
+      "median_ns": 3606709.241179873
+    },
+    "protocol-throughput/masque_h2_connect_tcp_1MiB": {
+      "mean_ns": 30224878.176595084,
+      "median_ns": 31488640.226190478
+    },
+    "protocol-throughput/shadowtls_v3_1MiB": {
+      "mean_ns": 8377164.506656622,
+      "median_ns": 8507883.808688387
+    },
+    "protocol-throughput/tuic_1MiB": {
+      "mean_ns": 3590121.5552431853,
+      "median_ns": 3579004.275755495
+    },
+    "protocol-throughput/vless_over_xhttp_reality_1MiB": {
+      "mean_ns": 32744061.41163802,
+      "median_ns": 33399354.981818184
+    },
+    "protocol-throughput/vless_reality_1MiB": {
+      "mean_ns": 62767746.91890675,
+      "median_ns": 62646357.40131579
+    },
+    "protocol-throughput/ws_tunnel_1MiB": {
+      "mean_ns": 7784195.690077128,
+      "median_ns": 3231733.716666667
     }
   }
 }
