@@ -15,6 +15,9 @@ const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
 
+/// Maximum number of wrap-around retry attempts before declaring assoc-id space exhausted.
+const MAX_ASSOC_ID_SCAN_ATTEMPTS: u16 = 1024;
+
 pub struct UdpSession {
     client: Arc<ClientInner>,
     incoming_rx: mpsc::Receiver<UdpPacket>,
@@ -37,7 +40,7 @@ impl UdpSession {
 
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> io::Result<()> {
         let target = TuicAddress::from_authority(address)?;
-        let assoc_id = self.assoc_id_for(address).await;
+        let assoc_id = self.assoc_id_for(address).await?;
         let packet_id = self.next_packet_id(assoc_id).await;
         let migrated = self.client.begin_quic_migration().await?;
         match send_udp_payload(&self.client, assoc_id, packet_id, &target, payload) {
@@ -63,16 +66,32 @@ impl UdpSession {
             .map(|packet| (packet.address, packet.payload))
     }
 
-    async fn assoc_id_for(&self, address: &str) -> u16 {
+    // NOT cancel-safe: holds assoc_ids lock and registrations lock across await points;
+    // dropping the future mid-way leaves the id allocated in assoc_ids but not registered,
+    // or vice versa, resulting in an inconsistent state.
+    async fn assoc_id_for(&self, address: &str) -> io::Result<u16> {
         let mut assoc_ids = self.assoc_ids.lock().await;
         if let Some(existing) = assoc_ids.get(address).copied() {
-            return existing;
+            return Ok(existing);
         }
 
-        let assoc_id = self.client.next_assoc_id.fetch_add(1, Ordering::SeqCst);
-        assoc_ids.insert(address.to_owned(), assoc_id);
-        self.client.registrations.lock().await.insert(assoc_id, self.incoming_tx.clone());
-        assoc_id
+        // Scan for a free id. The registrations map is bounded because Drop removes entries,
+        // so this loop terminates quickly in the common case.
+        use std::collections::hash_map::Entry;
+        let mut regs = self.client.registrations.lock().await;
+        for _ in 0..MAX_ASSOC_ID_SCAN_ATTEMPTS {
+            let candidate = self.client.next_assoc_id.fetch_add(1, Ordering::SeqCst);
+            if let Entry::Vacant(slot) = regs.entry(candidate) {
+                slot.insert(self.incoming_tx.clone());
+                assoc_ids.insert(address.to_owned(), candidate);
+                return Ok(candidate);
+            }
+        }
+
+        Err(io::Error::new(
+            io::ErrorKind::ResourceBusy,
+            "TUIC UDP association-id space exhausted: too many concurrent sessions",
+        ))
     }
 
     async fn next_packet_id(&self, assoc_id: u16) -> u16 {
@@ -85,6 +104,47 @@ impl UdpSession {
 
     pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
         self.client.quic_migration_snapshot()
+    }
+}
+
+impl Drop for UdpSession {
+    fn drop(&mut self) {
+        // NEVER panic in Drop.
+        // Collect the assoc-ids this session registered. assoc_ids is a per-session
+        // Mutex, so try_lock() will always succeed in practice (no other holder once
+        // drop() runs), but we treat the Err path gracefully.
+        let ids: Vec<u16> = match self.assoc_ids.try_lock() {
+            Ok(map) => map.values().copied().collect(),
+            Err(_) => {
+                // Could not acquire; entries will be cleaned up by
+                // dispatch_incoming_datagrams's clear() when the connection closes.
+                return;
+            }
+        };
+        if ids.is_empty() {
+            return;
+        }
+
+        // Fast path: registrations map is uncontended — remove synchronously.
+        if let Ok(mut regs) = self.client.registrations.try_lock() {
+            for id in &ids {
+                regs.remove(id);
+            }
+            return;
+        }
+
+        // Slow path: map is locked (dispatch task holds it briefly while routing a packet).
+        // Spawn a small cleanup task if a tokio runtime is available.
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            let client = Arc::clone(&self.client);
+            handle.spawn(async move {
+                let mut regs = client.registrations.lock().await;
+                for id in ids {
+                    regs.remove(&id);
+                }
+            });
+        }
+        // If no runtime is available, entries die with the connection's clear() call.
     }
 }
 
@@ -102,6 +162,8 @@ struct PartialPacket {
     received: usize,
 }
 
+// NOT cancel-safe: maintains mutable partials map across multiple await points.
+// Cancellation mid-loop can leave reassembly state partially updated.
 pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
     let mut partials: HashMap<(u16, u16), PartialPacket> = HashMap::new();
     let mut last_cleanup = Instant::now();
@@ -190,6 +252,27 @@ pub(crate) async fn dispatch_incoming_datagrams(client: Arc<ClientInner>) {
     client.registrations.lock().await.clear();
 }
 
+/// Allocate an assoc-id from the given atomic counter, checking `registrations`
+/// for collisions. Returns the allocated id, or `None` if exhausted after
+/// `MAX_ASSOC_ID_SCAN_ATTEMPTS` tries. Extracted for unit testing without a
+/// live QUIC connection.
+#[cfg(test)]
+pub(crate) fn allocate_assoc_id(
+    counter: &std::sync::atomic::AtomicU16,
+    registrations: &mut HashMap<u16, mpsc::Sender<UdpPacket>>,
+    sender: mpsc::Sender<UdpPacket>,
+) -> Option<u16> {
+    use std::collections::hash_map::Entry;
+    for _ in 0..MAX_ASSOC_ID_SCAN_ATTEMPTS {
+        let candidate = counter.fetch_add(1, Ordering::SeqCst);
+        if let Entry::Vacant(slot) = registrations.entry(candidate) {
+            slot.insert(sender);
+            return Some(candidate);
+        }
+    }
+    None
+}
+
 fn send_udp_payload(
     client: &ClientInner,
     assoc_id: u16,
@@ -252,4 +335,53 @@ fn send_udp_payload(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::AtomicU16;
+
+    use tokio::sync::mpsc;
+
+    use super::*;
+
+    #[test]
+    fn allocate_assoc_id_returns_free_id_when_space_available() {
+        let counter = AtomicU16::new(0);
+        let (tx, _rx) = mpsc::channel::<UdpPacket>(1);
+        let mut regs: HashMap<u16, mpsc::Sender<UdpPacket>> = HashMap::new();
+        let id = allocate_assoc_id(&counter, &mut regs, tx);
+        assert_eq!(id, Some(0));
+        assert!(regs.contains_key(&0));
+    }
+
+    #[test]
+    fn allocate_assoc_id_skips_occupied_ids() {
+        let counter = AtomicU16::new(0);
+        let (tx0, _rx0) = mpsc::channel::<UdpPacket>(1);
+        let (tx1, _rx1) = mpsc::channel::<UdpPacket>(1);
+        // Pre-fill id 0 so the allocator must skip it.
+        let mut regs: HashMap<u16, mpsc::Sender<UdpPacket>> = HashMap::new();
+        regs.insert(0, tx0);
+        // counter still starts at 0; first candidate (0) is occupied, second (1) is free.
+        let id = allocate_assoc_id(&counter, &mut regs, tx1);
+        assert_eq!(id, Some(1));
+        assert!(regs.contains_key(&1));
+        // Original entry for 0 must still be present and intact.
+        assert!(regs.contains_key(&0));
+    }
+
+    #[test]
+    fn allocate_assoc_id_returns_none_when_space_exhausted() {
+        let counter = AtomicU16::new(0);
+        let mut regs: HashMap<u16, mpsc::Sender<UdpPacket>> = HashMap::new();
+        // Fill MAX_ASSOC_ID_SCAN_ATTEMPTS consecutive ids so every candidate hits.
+        for id in 0..MAX_ASSOC_ID_SCAN_ATTEMPTS {
+            let (tx, _rx) = mpsc::channel::<UdpPacket>(1);
+            regs.insert(id, tx);
+        }
+        let (tx, _rx) = mpsc::channel::<UdpPacket>(1);
+        let result = allocate_assoc_id(&counter, &mut regs, tx);
+        assert!(result.is_none());
+    }
 }

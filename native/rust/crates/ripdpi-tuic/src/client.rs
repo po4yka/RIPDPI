@@ -8,6 +8,7 @@ use rustls::ClientConfig as RustlsClientConfig;
 use rustls::pki_types::CertificateDer;
 use rustls::pki_types::pem::PemObject;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 use crate::config::Config;
 use crate::endpoint::{
@@ -18,9 +19,25 @@ use crate::protocol::{TuicAddress, authenticate_connection, classify_handshake_f
 use crate::tcp::{DuplexStream, encode_connect_header};
 use crate::udp::{UdpPacket, UdpSession, dispatch_incoming_datagrams};
 
+/// Aborts the contained task when the last owner is dropped.
+///
+/// Wrapped in `Arc` so `TuicClient` (which is `Clone`) shares ownership; the
+/// task is aborted exactly once when the last clone drops.
+pub(crate) struct AbortOnDrop(JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        // NEVER panic in Drop.
+        self.0.abort();
+    }
+}
+
 #[derive(Clone)]
 pub struct TuicClient {
     inner: Arc<ClientInner>,
+    /// Keeps the datagram-dispatch task alive and aborts it when the last
+    /// `TuicClient` clone is dropped. `None` when UDP was disabled at connect time.
+    _dispatch_guard: Option<Arc<AbortOnDrop>>,
 }
 
 impl TuicClient {
@@ -62,11 +79,14 @@ impl TuicClient {
             }),
         });
 
-        if config.udp_enabled && max_datagram_size.is_some() {
-            tokio::spawn(dispatch_incoming_datagrams(Arc::clone(&inner)));
-        }
+        let dispatch_guard = if config.udp_enabled && max_datagram_size.is_some() {
+            let handle = tokio::spawn(dispatch_incoming_datagrams(Arc::clone(&inner)));
+            Some(Arc::new(AbortOnDrop(handle)))
+        } else {
+            None
+        };
 
-        Ok(Self { inner })
+        Ok(Self { inner, _dispatch_guard: dispatch_guard })
     }
 
     pub async fn tcp_connect(&self, authority: &str) -> io::Result<DuplexStream> {
