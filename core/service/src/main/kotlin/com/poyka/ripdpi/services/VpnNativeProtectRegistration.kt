@@ -14,22 +14,37 @@ import com.poyka.ripdpi.core.RipDpiWarpNativeBindings
  * a newer session's callback. See `docs/architecture/JNI_CONTRACT.md` §8.
  */
 internal object VpnNativeProtectRegistration {
-    /** Token from the last proxy registration; `0` means no live registration. */
-    @Volatile
-    private var proxyToken: Long = 0L
+    // All access serialized by @Synchronized; tokens must be registered/unregistered as a pair.
 
-    /** Token from the last WARP registration; `0` means no live registration. */
-    @Volatile
+    private var proxyToken: Long = 0L
     private var warpToken: Long = 0L
 
+    /**
+     * Replaceable in tests (same package) to stub out JNI.
+     * Production code leaves these at the defaults pointing to the real statics.
+     */
+    internal var proxyRegister: (VpnService) -> Long = { RipDpiProxyNativeBindings.jniRegisterVpnProtect(it) }
+    internal var warpRegister: (VpnService) -> Long = { RipDpiWarpNativeBindings.jniRegisterVpnProtect(it) }
+    internal var proxyUnregister: (Long) -> Unit = { RipDpiProxyNativeBindings.jniUnregisterVpnProtect(it) }
+    internal var warpUnregister: (Long) -> Unit = { RipDpiWarpNativeBindings.jniUnregisterVpnProtect(it) }
+
+    @Synchronized
     fun register(service: VpnService) {
-        proxyToken = RipDpiProxyNativeBindings.jniRegisterVpnProtect(service)
-        warpToken = RipDpiWarpNativeBindings.jniRegisterVpnProtect(service)
+        if (proxyToken != 0L || warpToken != 0L) {
+            // Double-registration guard: unregister stale tokens before registering anew.
+            proxyUnregister(proxyToken)
+            warpUnregister(warpToken)
+            proxyToken = 0L
+            warpToken = 0L
+        }
+        proxyToken = proxyRegister(service)
+        warpToken = warpRegister(service)
     }
 
+    @Synchronized
     fun unregister() {
-        RipDpiProxyNativeBindings.jniUnregisterVpnProtect(proxyToken)
-        RipDpiWarpNativeBindings.jniUnregisterVpnProtect(warpToken)
+        proxyUnregister(proxyToken)
+        warpUnregister(warpToken)
         proxyToken = 0L
         warpToken = 0L
     }
