@@ -27,7 +27,7 @@
 #
 # As of 2026-05-17 the two highest-leverage call sites (DoQ bootstrap
 # and xHTTP resolver) have been refactored to `tokio::net::lookup_host`.
-# The remaining 8 entries below are vendored SOCKS5/Hysteria2/ShadowTLS
+# The remaining 6 entries below are vendored SOCKS5/ShadowTLS
 # client/server paths that need follow-up review:
 #
 #   - The SOCKS5 SERVER paths (`server/tcp.rs:10`, `server/udp.rs:117`)
@@ -37,29 +37,20 @@
 #     (no actual DNS) -- the latter is the case for `server/udp.rs:117`
 #     where `resolve_dns().await?` precedes the iterator call.
 #
-#   - The SOCKS5 CLIENT paths (`client.rs:420/439/537`,
-#     `socks4/client.rs:168`) run once per outbound connection from
-#     the proxy CLI tooling; blocking briefly here is tolerable but
-#     should be lifted to `lookup_host` opportunistically.
+#   - The SOCKS5 CLIENT paths (`client.rs:420/439/537`) run once per
+#     outbound connection from the proxy CLI tooling; blocking briefly
+#     here is tolerable but should be lifted to `lookup_host`
+#     opportunistically.
 #
-#   - Hysteria2 and ShadowTLS `connect()` (`client.rs`) are
-#     called once per session at session-establishment time before
-#     any per-packet hot path begins; the blocking is acceptable but
-#     should be lifted whenever those crates are touched.
+#   - ShadowTLS `connect()` (`client.rs`) is called once per session at
+#     session-establishment time before any per-packet hot path begins;
+#     the blocking is acceptable but should be lifted whenever that crate
+#     is touched.
 #
 # Each entry below carries `executor_strategy = "review-needed: ..."`
 # to make the follow-up explicit. New blocking-in-async additions are
 # NOT allowed to use the `review-needed` placeholder -- they must
 # either ship the fix or provide a real strategy.
-
-[[entries]]
-file = "native/rust/crates/ripdpi-hysteria2/src/client.rs"
-pattern = "to_socket_addrs"
-line = 18
-executor_strategy = "review-needed: session-establishment path, called once per Hysteria2 client connect; blocking briefly is tolerable here but the canonical fix is to switch to `tokio::net::lookup_host`."
-reason = "Hysteria2 client connect() resolves the configured server address."
-owner = "transport-team"
-review_date = "2026-11-17"
 
 [[entries]]
 file = "native/rust/crates/ripdpi-shadowtls/src/client.rs"
@@ -112,14 +103,5 @@ pattern = "to_socket_addrs"
 line = 117
 executor_strategy = "documented-safe: `target_addr.resolve_dns().await?` precedes this call. `resolve_dns` returns a `TargetAddr` that is already a `SocketAddr` variant; `<TargetAddr as ToSocketAddrs>::to_socket_addrs` then returns `std::option::IntoIter<SocketAddr>` with no syscall. The blocking-in-async lint fires on the syntactic `to_socket_addrs` call; the runtime behaviour is non-blocking."
 reason = "Post-resolve_dns iterator unwrap, not a DNS call."
-owner = "transport-team"
-review_date = "2026-11-17"
-
-[[entries]]
-file = "native/rust/crates/ripdpi-socks5-core/src/socks4/client.rs"
-pattern = "to_socket_addrs"
-line = 168
-executor_strategy = "review-needed: SOCKS4 client (legacy) session-establishment; called once per outbound connection. Switch to `lookup_host` when the crate is next touched."
-reason = "SOCKS4 client resolves the SOCKS server address."
 owner = "transport-team"
 review_date = "2026-11-17"

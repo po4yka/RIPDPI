@@ -10,6 +10,7 @@ mod native_ech;
 mod owned_stack_fingerprint_snapshot_tests;
 mod redirect;
 mod request;
+mod request_builder;
 mod socket_protection;
 #[cfg(test)]
 mod tests;

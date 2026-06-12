@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use std::net::ToSocketAddrs;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU32;
 
+use tokio::net::lookup_host;
 use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinHandle;
 
@@ -31,9 +31,8 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         tracing::warn!("hysteria2 session starting with certificate verification DISABLED (insecure=true profile)");
     }
 
-    let server_addr = config
-        .server_addr
-        .to_socket_addrs()?
+    let server_addr = lookup_host(config.server_addr.as_str())
+        .await?
         .next()
         .ok_or_else(|| HysteriaError::InvalidAddress(config.server_addr.clone()))?;
 

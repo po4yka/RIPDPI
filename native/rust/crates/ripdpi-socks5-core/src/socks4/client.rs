@@ -6,11 +6,10 @@ use crate::{Result, SocksError, SocksError::ReplySocks4Error};
 use anyhow::Context;
 use std::io;
 use std::net::SocketAddr;
-use std::net::ToSocketAddrs;
 use std::pin::Pin;
 use std::task::Poll;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpStream, ToSocketAddrs};
 
 const MAX_ADDR_LEN: usize = 260;
 
@@ -166,7 +165,7 @@ impl Socks4Stream<TcpStream> {
     where
         T: ToSocketAddrs,
     {
-        let socket = TcpStream::connect(socks_server.to_socket_addrs()?.next().context("unreachable")?).await?;
+        let socket = TcpStream::connect(socks_server).await?;
         debug!("Connected @ {}", &socket.peer_addr()?);
 
         // Specify the target, here domain name, dns will be resolved on the server side
