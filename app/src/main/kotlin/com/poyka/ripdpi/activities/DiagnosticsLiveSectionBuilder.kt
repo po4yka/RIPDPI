@@ -36,6 +36,7 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
                 )
             }
                 ?: context.getString(R.string.diagnostics_live_no_telemetry),
+        currentTelemetryTimestampMs = currentTelemetry?.createdAt,
         headline = buildLiveHeadline(health, currentTelemetry, nativeEvents),
         body = buildLiveBody(currentTelemetry, nativeEvents),
         networkLabel = currentTelemetry?.networkType ?: activeConnectionSession?.networkType,

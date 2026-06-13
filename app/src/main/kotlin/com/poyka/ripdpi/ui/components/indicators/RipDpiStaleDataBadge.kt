@@ -60,6 +60,33 @@ fun staleTierFor(age: Duration): RipDpiStaleTier =
         else -> RipDpiStaleTier.Expired
     }
 
+/**
+ * Tier to render for a *live* telemetry panel whose snapshot is [age] old, given
+ * the [activePollInterval] currently driving updates — or `null` when the data is
+ * still fresh (younger than `2 ×` the poll interval) and the badge should be
+ * omitted entirely.
+ *
+ * A healthy poll cycle keeps the snapshot age below one interval, well under the
+ * `2 ×` gate, so no badge ever flashes on a live, updating panel; the badge only
+ * appears once updates visibly stall. The function is pure and monotonic in
+ * [age]: for a fixed age it always returns the same result, so it cannot flicker
+ * at the threshold between recompositions — only a real change in age can flip it.
+ *
+ * The `2 ×` gate (e.g. 2 s at a 1 s poll) is tighter than the [RipDpiStaleTier.Fresh]
+ * window (< 5 s), so [staleTierFor] would otherwise label a just-stalled panel
+ * "Fresh" (a green *updating* pulse) — the opposite of the intended signal. The
+ * Fresh tier is therefore collapsed into [RipDpiStaleTier.Recent]: when this
+ * returns non-null the data is, by construction, no longer fresh.
+ */
+fun liveStaleBadgeTier(
+    age: Duration,
+    activePollInterval: Duration,
+): RipDpiStaleTier? {
+    if (age < activePollInterval * 2) return null
+    val tier = staleTierFor(age)
+    return if (tier == RipDpiStaleTier.Fresh) RipDpiStaleTier.Recent else tier
+}
+
 @Composable
 fun RipDpiStaleDataBadge(
     label: String,

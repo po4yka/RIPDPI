@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,14 +24,28 @@ import com.poyka.ripdpi.activities.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
+import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleDataBadge
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
+import com.poyka.ripdpi.ui.components.indicators.liveStaleBadgeTier
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 private const val liveHighlightsMaxCount = 4
+
+/**
+ * Active foreground telemetry poll cadence, mirroring
+ * `ProxyTelemetryCoordinator.TelemetryPollIntervalMs` (1 s). The live panel is
+ * only meaningfully viewed in the foreground, so this is the "active poll
+ * interval" the stale badge gates against (badge shows past 2× = 2 s).
+ */
+private val LiveTelemetryActivePollInterval = 1.seconds
+private const val StaleBadgeTickMs = 1_000L
 
 private const val HighlightCardHorizontalPaddingDp = 14
 private const val HighlightCardVerticalPaddingDp = 12
@@ -170,14 +186,44 @@ internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
                         style = RipDpiThemeTokens.type.secondaryBody,
                         color = colors.foreground.copy(alpha = 0.82f),
                     )
-                    Text(
-                        text = live.freshnessLabel,
-                        style = RipDpiThemeTokens.type.monoSmall,
-                        color = colors.mutedForeground,
-                    )
+                    FreshnessIndicator(live)
                 }
             }
         }
+    }
+}
+
+/**
+ * Renders the live-telemetry freshness line. While the snapshot is current it is
+ * a plain mono label; once the snapshot is older than 2× the active poll interval
+ * it upgrades to a [RipDpiStaleDataBadge] so a stalled live panel is visually
+ * obvious. Staleness is the *absence* of updates, so it is measured against a
+ * ticking clock ([produceState]) rather than the UI-state emission cadence —
+ * otherwise a panel that stops updating would never reveal that it is stale.
+ */
+@Composable
+private fun FreshnessIndicator(live: DiagnosticsLiveUiModel) {
+    val timestamp = live.currentTelemetryTimestampMs
+    val ageMs by produceState(initialValue = 0L, timestamp) {
+        if (timestamp == null) {
+            value = 0L
+            return@produceState
+        }
+        while (true) {
+            value = (System.currentTimeMillis() - timestamp).coerceAtLeast(0L)
+            delay(StaleBadgeTickMs)
+        }
+    }
+    val tier =
+        timestamp?.let { liveStaleBadgeTier(ageMs.milliseconds, LiveTelemetryActivePollInterval) }
+    if (tier != null) {
+        RipDpiStaleDataBadge(label = live.freshnessLabel, tier = tier)
+    } else {
+        Text(
+            text = live.freshnessLabel,
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
     }
 }
 
