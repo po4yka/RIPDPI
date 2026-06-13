@@ -1184,6 +1184,7 @@ val rustNativeArtifactSpecs =
         "ripdpi-android|libripdpi_android.so|libripdpi.so",
         "ripdpi-relay-android|libripdpi_relay_android.so|libripdpi-relay.so",
         "ripdpi-warp-android|libripdpi_warp_android.so|libripdpi-warp.so",
+        "ripdpi-amneziawg-android|libripdpi_amneziawg_android.so|libripdpi-amneziawg.so",
         "ripdpi-tunnel-android|libripdpi_tunnel_android.so|libripdpi-tunnel.so",
     )
 val rustWorkspaceManifestFile =
