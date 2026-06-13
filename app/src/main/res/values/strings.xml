@@ -3013,8 +3013,6 @@ Source: %2$s</string>
     <string name="ssh_secret_hidden">Hidden — tap reveal to show</string>
     <string name="ssh_reveal_secret_action">Reveal</string>
     <string name="ssh_save_action">Save</string>
-    <string name="ssh_not_functional_title">Not yet functional — connections will fail</string>
-    <string name="ssh_not_functional_body">The SSH relay backend is not yet implemented. Saving a profile is possible but starting a connection will always fail with an error. Do not use for real traffic.</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">Connect Toggle</string>

@@ -2979,8 +2979,6 @@ fakeddisorder endhost</string>
     <string name="ssh_secret_hidden">Скрыто — нажмите «Показать»</string>
     <string name="ssh_reveal_secret_action">Показать</string>
     <string name="ssh_save_action">Сохранить</string>
-    <string name="ssh_not_functional_title">Ещё не работает — соединения завершатся ошибкой</string>
-    <string name="ssh_not_functional_body">Серверная часть SSH-ретранслятора ещё не реализована. Сохранить профиль можно, но запуск соединения всегда завершится ошибкой. Не используйте для реального трафика.</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">Переключатель подключения</string>

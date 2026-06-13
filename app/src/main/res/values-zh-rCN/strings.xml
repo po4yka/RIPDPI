@@ -2861,8 +2861,6 @@ fake_burst 3</string>
     <string name="ssh_secret_hidden">已隐藏 — 点按显示</string>
     <string name="ssh_reveal_secret_action">显示</string>
     <string name="ssh_save_action">保存</string>
-    <string name="ssh_not_functional_title">尚未可用 — 连接将失败</string>
-    <string name="ssh_not_functional_body">SSH 中继后端尚未实现。可以保存配置，但启动连接将始终报错失败。请勿用于真实流量。</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">连接开关</string>

@@ -3266,8 +3266,6 @@ fakeddisorder endhost</string>
     <string name="ssh_secret_hidden">مخفي — انقر على الكشف للعرض</string>
     <string name="ssh_reveal_secret_action">كشف</string>
     <string name="ssh_save_action">حفظ</string>
-    <string name="ssh_not_functional_title">غير وظيفي بعد — ستفشل الاتصالات</string>
-    <string name="ssh_not_functional_body">لم يُنفَّذ بعد الواجهة الخلفية لريلاي SSH. يمكن حفظ ملف التعريف، لكن بدء الاتصال سيفشل دائمًا بخطأ. لا تستخدمه للحركة الحقيقية.</string>
 
     <!-- onboarding refactor additions -->
     <!-- intro chips -->

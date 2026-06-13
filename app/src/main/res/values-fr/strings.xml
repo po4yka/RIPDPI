@@ -2860,8 +2860,6 @@ Source : %2$s</string>
     <string name="ssh_secret_hidden">Masqué — appuyez sur Afficher</string>
     <string name="ssh_reveal_secret_action">Afficher</string>
     <string name="ssh_save_action">Enregistrer</string>
-    <string name="ssh_not_functional_title">Pas encore fonctionnel — les connexions échoueront</string>
-    <string name="ssh_not_functional_body">Le backend du relay SSH n\'est pas encore implémenté. Il est possible d\'enregistrer un profil, mais démarrer une connexion échouera toujours avec une erreur. Ne pas utiliser pour du trafic réel.</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">Bouton de connexion</string>

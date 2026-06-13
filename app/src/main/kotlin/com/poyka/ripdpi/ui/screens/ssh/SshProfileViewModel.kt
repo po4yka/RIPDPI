@@ -1,23 +1,26 @@
 package com.poyka.ripdpi.ui.screens.ssh
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
  * UI state for the SSH profile editor.
  *
- * [editor] is the immutable field/validation snapshot. [saved] flips to `true`
- * once the user commits a complete, valid profile so the host can navigate away.
- * SSH is editor-only (no subscription / URI import path) so the editor produces
- * no `ProxyProfile`; persistence is wired by the host once the engine lands.
+ * [editor] is the immutable field/validation snapshot. [saving] is `true` while the
+ * profile is being persisted and the native relay activated; [saved] flips to `true`
+ * once the active relay has been set so the host can navigate away.
  */
 data class SshProfileUiState(
     val editor: SshProfileEditorState,
+    val saving: Boolean = false,
     val saved: Boolean = false,
 )
 
@@ -27,15 +30,21 @@ data class SshProfileUiState(
  * SSH authenticates either with a password or a private key (the [authType]
  * selector decides which credential is required); the private-key passphrase and
  * the pinned `SHA256:` host-key fingerprint are optional, and a strict-host-key
- * toggle controls whether a host-key mismatch is rejected on connect. The private
- * key and passphrase are persisted via the secure relay-credential store (Android
- * Keystore-backed `EncryptedFile`-equivalent), the same mechanism the WireGuard /
- * AmneziaWG editor uses, and stay hidden behind a biometric reveal.
+ * toggle controls whether a host-key mismatch is rejected on connect.
+ *
+ * On save a complete editor is assembled into a
+ * [com.poyka.ripdpi.data.ProxyProfile.Ssh] and applied as the active native relay
+ * through [RelayProfileActivator] — the same activation path the import-confirmation
+ * surface uses — so the editor leads directly to a working tunnel. The private key
+ * and passphrase are persisted via the secure relay-credential store (Android
+ * Keystore-backed) and stay hidden behind a biometric reveal.
  */
 @HiltViewModel
 class SshProfileViewModel
     @Inject
-    constructor() : ViewModel() {
+    constructor(
+        private val relayActivator: RelayProfileActivator,
+    ) : ViewModel() {
         private val _uiState = MutableStateFlow(SshProfileUiState(editor = SshProfileEditorState.initial()))
         val uiState: StateFlow<SshProfileUiState> = _uiState.asStateFlow()
 
@@ -72,9 +81,18 @@ class SshProfileViewModel
             _uiState.update { it.copy(editor = it.editor.relockSecrets()) }
         }
 
-        /** Commits the editor; a no-op when the required fields do not validate. */
+        /**
+         * Assembles a complete editor into a [com.poyka.ripdpi.data.ProxyProfile.Ssh]
+         * and applies it as the active native relay. A no-op when the required fields do
+         * not validate or a save is already in flight.
+         */
         fun onSave() {
-            if (!_uiState.value.editor.isComplete) return
-            _uiState.update { it.copy(saved = true) }
+            val profile = _uiState.value.editor.toProfile() ?: return
+            if (_uiState.value.saving || _uiState.value.saved) return
+            _uiState.update { it.copy(saving = true) }
+            viewModelScope.launch {
+                relayActivator.activate(profile)
+                _uiState.update { it.copy(saving = false, saved = true) }
+            }
         }
     }

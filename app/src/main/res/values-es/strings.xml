@@ -2860,8 +2860,6 @@ Origen: %2$s</string>
     <string name="ssh_secret_hidden">Oculto: toca «Mostrar» para verlo</string>
     <string name="ssh_reveal_secret_action">Mostrar</string>
     <string name="ssh_save_action">Guardar</string>
-    <string name="ssh_not_functional_title">Aún no funcional — las conexiones fallarán</string>
-    <string name="ssh_not_functional_body">El backend del relay SSH aún no está implementado. Es posible guardar un perfil, pero iniciar una conexión siempre fallará con un error. No usar para tráfico real.</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">Interruptor de conexión</string>

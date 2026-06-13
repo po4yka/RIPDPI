@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.ssh
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -17,8 +18,6 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
-import com.poyka.ripdpi.ui.components.feedback.WarningBanner
-import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
@@ -40,14 +39,14 @@ private val SshAuthTypeDropdownOptions:
 /**
  * SSH profile editor destination.
  *
- * SSH is an editor-only outbound: there is no URI / subscription import path, so
- * this screen is the only way a profile is authored. The editor validates the
- * server and username as non-blank and the port against `1..65535`, exposes an
- * auth-type selector (`password` / `private_key`) that drives which credential is
- * required, an optional private-key passphrase, an optional pinned `SHA256:`
- * host-key fingerprint, and a strict-host-key toggle. The private key and the
- * passphrase are secrets gated behind a biometric reveal, mirroring the AmneziaWG
- * private-key reveal.
+ * The editor validates the server and username as non-blank and the port against
+ * `1..65535`, exposes an auth-type selector (`password` / `private_key`) that
+ * drives which credential is required, an optional private-key passphrase, an
+ * optional pinned `SHA256:` host-key fingerprint, and a strict-host-key toggle.
+ * The private key and the passphrase are secrets gated behind a biometric reveal,
+ * mirroring the AmneziaWG private-key reveal. Saving a complete profile applies it
+ * as the active native relay and navigates back; the same shape can also arrive via
+ * the synthetic `ssh://` URI / subscription import path.
  */
 @Composable
 fun SshProfileRoute(
@@ -58,6 +57,9 @@ fun SshProfileRoute(
     onRequestPassphraseReveal: (() -> Unit)? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(uiState.saved) {
+        if (uiState.saved) onBack()
+    }
     SshProfileScreen(
         uiState = uiState,
         onBack = onBack,
@@ -90,12 +92,6 @@ internal fun SshProfileScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.SshProfile)),
     ) {
-        WarningBanner(
-            title = stringResource(R.string.ssh_not_functional_title),
-            message = stringResource(R.string.ssh_not_functional_body),
-            tone = WarningBannerTone.Error,
-            announce = false,
-        )
         EndpointSection(uiState.editor, onFieldChanged)
         AuthSection(uiState.editor, onFieldChanged, onAuthTypeSelected, onRevealPrivateKey, onRevealPassphrase)
         HostKeySection(uiState.editor, onFieldChanged, onStrictHostKeyChanged)
