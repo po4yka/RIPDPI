@@ -2711,6 +2711,19 @@ fakeddisorder endhost</string>
     <string name="title_shared_diagnostic_result">Общая диагностика</string>
     <string name="title_strategy_config">Конфигурация стратегии</string>
     <string name="title_remembered_networks">Запомненные сети</string>
+    <string name="title_root_mode_strategies">Стратегии root-режима</string>
+    <string name="settings_root_mode_strategies_body">Настройте FakeRST, мульти-беспорядок и фрагментацию IP.</string>
+    <string name="root_mode_strategies_intro_title">Требуется root</string>
+    <string name="root_mode_strategies_intro_body">Эти стратегии десинхронизации вставляют или фрагментируют пакеты ниже VPN-сокета и работают только на устройствах с root и включённым root-режимом.</string>
+    <string name="root_mode_strategies_disabled_title">Root-режим выключен</string>
+    <string name="root_mode_strategies_disabled_body">Включите root-режим, чтобы использовать эти стратегии. На устройствах без root они остаются неактивными и плавно отключаются.</string>
+    <string name="root_mode_strategy_fakerst_title">Fake RST</string>
+    <string name="root_mode_strategy_fakerst_body">Вставляет поддельный сброс TCP, чтобы десинхронизировать отслеживание состояния DPI.</string>
+    <string name="root_mode_strategy_multidisorder_title">Мульти-беспорядок</string>
+    <string name="root_mode_strategy_multidisorder_body">Меняет порядок сразу нескольких сегментов, чтобы нарушить проверку на основе сборки.</string>
+    <string name="root_mode_strategy_ipfrag2_title">Фрагментация IP</string>
+    <string name="root_mode_strategy_ipfrag2_body">Разбивает пакеты на уровне IP, чтобы инспекторы никогда не видели полную полезную нагрузку.</string>
+    <string name="root_mode_strategies_configure_action">Открыть редактор стратегий</string>
     <string name="title_vpn_config">Конфигурация VPN</string>
 
     <!-- gap-fill: warp_* -->

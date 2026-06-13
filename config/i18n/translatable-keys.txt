@@ -2571,6 +2571,17 @@ app:ripdpi_tlsrandrec_max_title
 app:ripdpi_tlsrandrec_min_body
 app:ripdpi_tlsrandrec_min_title
 app:ripdpi_tlsrec_position_setting
+app:root_mode_strategies_configure_action
+app:root_mode_strategies_disabled_body
+app:root_mode_strategies_disabled_title
+app:root_mode_strategies_intro_body
+app:root_mode_strategies_intro_title
+app:root_mode_strategy_fakerst_body
+app:root_mode_strategy_fakerst_title
+app:root_mode_strategy_ipfrag2_body
+app:root_mode_strategy_ipfrag2_title
+app:root_mode_strategy_multidisorder_body
+app:root_mode_strategy_multidisorder_title
 app:routes_add_rule
 app:routes_empty_body
 app:routes_empty_title
@@ -2743,6 +2754,7 @@ app:settings_reset_confirm
 app:settings_reset_dialog_body
 app:settings_reset_dialog_title
 app:settings_reset_title
+app:settings_root_mode_strategies_body
 app:settings_routing_rules_body
 app:settings_security_section
 app:settings_seqovl_unsupported_reason
@@ -2988,6 +3000,7 @@ app:title_profile_variants
 app:title_remembered_networks
 app:title_replay_failure
 app:title_replay_history
+app:title_root_mode_strategies
 app:title_routes
 app:title_rule_editor
 app:title_shared_diagnostic_result

@@ -116,8 +116,18 @@ internal fun SettingsConnectivitySection(
                 subtitle = stringResource(R.string.settings_split_tunnel_body),
                 value = stringResource(R.string.settings_manage_action),
                 onClick = actions.onOpenSplitTunnel,
+                showDivider = uiState.rootModeEnabled,
                 testTag = RipDpiTestTags.SettingsSplitTunnel,
             )
+            if (uiState.rootModeEnabled) {
+                SettingsRow(
+                    title = stringResource(R.string.title_root_mode_strategies),
+                    subtitle = stringResource(R.string.settings_root_mode_strategies_body),
+                    value = stringResource(R.string.settings_manage_action),
+                    onClick = actions.onOpenRootModeStrategies,
+                    testTag = RipDpiTestTags.SettingsRootModeStrategies,
+                )
+            }
         }
     }
     if (showLanguagePicker) {

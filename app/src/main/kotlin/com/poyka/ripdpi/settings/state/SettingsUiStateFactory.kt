@@ -84,6 +84,7 @@ internal fun AppSettings.toUiState(
         diagnosticsExportIncludeHistory = diagnosticsExportIncludeHistory,
         strategyPackAllowRollbackOverride = strategyPackAllowRollbackOverride,
         pcapCaptureEnabled = pcapCaptureEnabled,
+        rootModeEnabled = rootModeEnabled,
         communityApiUrl = communityApiUrl,
         serviceStatus = serviceStatus,
         isVpn = isVpn,
