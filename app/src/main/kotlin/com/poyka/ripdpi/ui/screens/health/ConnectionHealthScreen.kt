@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,6 +20,7 @@ import com.poyka.ripdpi.services.ConnectionHealthDestinationClass
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -139,10 +139,7 @@ private fun ConnectionHealthRow(row: ConnectionHealthRowUiState) {
                 color = colors.foreground,
             )
         }
-        LinearProgressIndicator(
-            progress = { (rate ?: 0) / 100f },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        RipDpiProgressBar(progress = (rate ?: 0) / 100f)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
@@ -270,8 +267,8 @@ private fun PercentileBar(
             style = RipDpiThemeTokens.type.monoSmall,
             color = colors.mutedForeground,
         )
-        LinearProgressIndicator(
-            progress = { fraction },
+        RipDpiProgressBar(
+            progress = fraction,
             modifier = Modifier.weight(1f),
         )
         Text(

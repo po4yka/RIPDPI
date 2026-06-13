@@ -40,12 +40,14 @@ class DiagnosticsBoundarySourcesTest {
         runTest {
             val rememberedStore = CountingRememberedNetworkPolicyStore()
             val dnsPathStore = CountingNetworkDnsPathPreferenceStore()
+            val blockedStore = CountingNetworkDnsBlockedPathStore()
+            val edgeStore = CountingNetworkEdgePreferenceRecordStore()
             val source =
                 DefaultDiagnosticsRememberedPolicySource(
                     rememberedNetworkPolicyStore = rememberedStore,
                     networkDnsPathPreferenceStore = dnsPathStore,
-                    networkDnsBlockedPathStore = CountingNetworkDnsBlockedPathStore(),
-                    networkEdgePreferenceRecordStore = CountingNetworkEdgePreferenceRecordStore(),
+                    networkDnsBlockedPathStore = blockedStore,
+                    networkEdgePreferenceRecordStore = edgeStore,
                     mapper = mapper,
                 )
 
@@ -53,6 +55,8 @@ class DiagnosticsBoundarySourcesTest {
 
             assertEquals(1, rememberedStore.clearCalls)
             assertEquals(1, dnsPathStore.clearCalls)
+            assertEquals(1, blockedStore.clearAllCalls)
+            assertEquals(1, edgeStore.clearNetworkEdgeCalls)
         }
 
     @Test
@@ -417,6 +421,7 @@ private class CountingNetworkDnsBlockedPathStore : com.poyka.ripdpi.data.diagnos
 private class CountingNetworkEdgePreferenceRecordStore :
     com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceRecordStore {
     val deletedFingerprints = mutableListOf<String>()
+    var clearNetworkEdgeCalls = 0
 
     override suspend fun getNetworkEdgePreference(
         fingerprintHash: String,
@@ -432,7 +437,9 @@ private class CountingNetworkEdgePreferenceRecordStore :
         preference: com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceEntity,
     ): Long = 0L
 
-    override suspend fun clearNetworkEdgePreferences() = Unit
+    override suspend fun clearNetworkEdgePreferences() {
+        clearNetworkEdgeCalls += 1
+    }
 
     override suspend fun deleteNetworkEdgePreferencesForFingerprint(fingerprintHash: String) {
         deletedFingerprints += fingerprintHash

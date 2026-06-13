@@ -112,6 +112,10 @@ class DefaultDiagnosticsRememberedPolicySource
         override suspend fun clearAll() {
             rememberedNetworkPolicyStore.clearAll()
             networkDnsPathPreferenceStore.clearAll()
+            // Purge every companion per-network store so "clear all" leaves no orphaned learned
+            // state behind, mirroring the per-entry scoped purge above.
+            networkDnsBlockedPathStore.clearAll()
+            networkEdgePreferenceRecordStore.clearNetworkEdgePreferences()
         }
     }
 
