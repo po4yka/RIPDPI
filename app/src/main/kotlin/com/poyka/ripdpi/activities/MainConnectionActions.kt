@@ -145,8 +145,14 @@ internal class MainConnectionActions(
             serviceStateStore.status.collect { (status, _) ->
                 when (status) {
                     AppStatus.Running -> onConnected()
-                    AppStatus.Reconnecting -> onReconnecting()
+
                     AppStatus.Halted -> onHalted()
+
+                    // Reconnecting is surfaced as a Connecting actuator purely by
+                    // resolveEffectiveConnectionState (single source of truth); no
+                    // runtime-state mutation is needed here, and the terminal
+                    // Running/Halted edge resolves the state.
+                    AppStatus.Reconnecting -> Unit
                 }
                 refreshPermissionSnapshot()
             }
@@ -201,33 +207,6 @@ internal class MainConnectionActions(
             }
         }
         startConnectionMetricsPolling()
-    }
-
-    /**
-     * The store reports [AppStatus.Reconnecting] while a boot/LMK resume is
-     * bringing the service back up. Render it as a passive Connecting state so
-     * the actuator animates "engaging" — but do NOT arm the user-initiated
-     * connect timeout: a slow background resume must not surface a spurious
-     * "connection timed out" error. The transition to Running/Halted will
-     * resolve the state.
-     */
-    private fun onReconnecting() {
-        stopConnectionMetricsPolling()
-        runtimeState.update { current ->
-            if (current.connectionState == ConnectionState.Connecting) {
-                current
-            } else {
-                current.copy(
-                    connectionState = ConnectionState.Connecting,
-                    errorMessage = null,
-                    connectingStartedAtMs = SystemClock.elapsedRealtime(),
-                    connectionStartedAtMs = null,
-                    baselineTransferredBytes = 0L,
-                    dataTransferred = 0L,
-                    connectionDuration = ZERO,
-                )
-            }
-        }
     }
 
     private fun onHalted() {
