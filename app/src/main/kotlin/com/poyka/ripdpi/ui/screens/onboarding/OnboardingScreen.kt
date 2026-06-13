@@ -149,6 +149,7 @@ fun OnboardingRoute(
                 onOpenAdvancedDns = onOpenAdvancedDns,
                 onRunValidation = remember(viewModel) { viewModel::runValidation },
                 onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
+                onFinishKeepRunning = remember(viewModel) { viewModel::finishKeepingRunning },
                 onFinishAnyway = remember(viewModel) { viewModel::finishAnyway },
                 onAcceptSuggestedMode = remember(viewModel) { viewModel::acceptSuggestedMode },
                 onChangeDns = onOpenAdvancedDns,
@@ -188,6 +189,7 @@ internal data class OnboardingScreenActions(
     val onOpenAdvancedDns: () -> Unit = {},
     val onRunValidation: () -> Unit = {},
     val onFinishDisconnected: () -> Unit = {},
+    val onFinishKeepRunning: () -> Unit = {},
     val onFinishAnyway: () -> Unit = {},
     val onAcceptSuggestedMode: () -> Unit = {},
     val onChangeDns: () -> Unit = {},
@@ -272,6 +274,7 @@ internal fun OnboardingScreen(
                 onContinue = actions.onContinue,
                 onRunValidation = actions.onRunValidation,
                 onFinishDisconnected = actions.onFinishDisconnected,
+                onFinishKeepRunning = actions.onFinishKeepRunning,
                 onFinishAnyway = actions.onFinishAnyway,
             )
         }
@@ -373,6 +376,7 @@ private fun OnboardingBottomBar(
     onContinue: () -> Unit,
     onRunValidation: () -> Unit,
     onFinishDisconnected: () -> Unit,
+    onFinishKeepRunning: () -> Unit,
     onFinishAnyway: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -405,12 +409,28 @@ private fun OnboardingBottomBar(
             validationState = validationState,
             onContinue = onContinue,
             onRunValidation = onRunValidation,
-            onFinishDisconnected = onFinishDisconnected,
+            onFinishKeepRunning = onFinishKeepRunning,
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .heightIn(min = introLayout.footerButtonMinHeight),
         )
+        if (validationState is OnboardingValidationState.Success) {
+            TextButton(
+                onClick = onFinishDisconnected,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = introLayout.footerButtonMinHeight)
+                        .ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
+            ) {
+                Text(
+                    text = stringResource(R.string.onboarding_validation_finish_disconnected),
+                    style = type.introAction,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
         if (showIdleSkipTest) {
             TextButton(
                 onClick = onFinishAnyway,
@@ -442,7 +462,7 @@ private fun OnboardingFooterCta(
     validationState: OnboardingValidationState,
     onContinue: () -> Unit,
     onRunValidation: () -> Unit,
-    onFinishDisconnected: () -> Unit,
+    onFinishKeepRunning: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (!isLastPage) {
@@ -458,9 +478,9 @@ private fun OnboardingFooterCta(
     when (validationState) {
         is OnboardingValidationState.Success -> {
             RipDpiButton(
-                text = stringResource(R.string.onboarding_validation_finish_disconnected),
-                onClick = onFinishDisconnected,
-                modifier = modifier.ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
+                text = stringResource(R.string.onboarding_validation_finish_keep_running),
+                onClick = onFinishKeepRunning,
+                modifier = modifier.ripDpiTestTag(RipDpiTestTags.OnboardingFinishKeepRunning),
             )
         }
 
