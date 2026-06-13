@@ -118,11 +118,18 @@ class SharedPreferencesBootSessionStateStore
         override fun wasRunningAtUpdate(): Boolean = preferences.getBoolean(KeyWasRunningAtUpdate, false)
 
         override fun setWasRunningAtUpdate(value: Boolean) {
-            // Durability-critical: this flag gates auto-resume after an LMK kill, and
-            // the kill it must survive gives no chance to flush a deferred write.
-            // commit() forces the write to disk before returning. apply() here would
-            // silently lose the flag and break auto-resume — the exact R3 audit risk.
-            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).commit()
+            // Only the `true` write is durability-critical: it gates auto-resume after
+            // an LMK kill, and the kill it must survive gives no chance to flush a
+            // deferred write, so it commits synchronously (the R3 fix). It is issued
+            // from a background coroutine (BootSessionRecorder), so the blocking write
+            // is off the main thread. The `false` write is the opposite — an explicit
+            // user stop, reached on the MAIN thread via ServiceManager.stop(); a lost
+            // `false` only risks one spurious MY_PACKAGE_REPLACED resume (and the flag
+            // is cleared read-once on every package-replaced run anyway), so it uses
+            // apply() to avoid blocking the UI on disk I/O.
+            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).also { editor ->
+                if (value) editor.commit() else editor.apply()
+            }
         }
 
         private companion object {
