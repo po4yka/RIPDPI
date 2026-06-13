@@ -287,6 +287,15 @@ enforcement = "jni::EnvUnowned::with_env handshake + HandleRegistry lookup"
 owner = "android-ffi"
 review_date = "2026-11-15"
 
+[[entries]]
+file = "native/rust/crates/ripdpi-amneziawg-android/src/lib.rs"
+pattern = 'extern "system" fn'
+reason = "JNI exports for ripdpi-amneziawg-android crate (AmneziaWG session bridge; same shape as ripdpi-warp-android)"
+preconditions = "Invoked from Java; JNIEnv* valid for the call; jlong handles validated via the session registry"
+enforcement = "android_support::ffi_boundary panic containment + jni::EnvUnowned::with_env handshake + registry lookup"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
 # ---------------------------------------------------------------------------
 # `extern "C" fn`: signal handlers and platform callback shims. These are
 # invoked by the OS/runtime, never directly from Rust code.
@@ -428,6 +437,15 @@ owner = "android-ffi"
 review_date = "2026-11-15"
 
 [[entries]]
+file = "native/rust/crates/ripdpi-amneziawg-android/src/vpn_protect.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "JniProtectCallback holds a JavaVM handle plus a JNI Global ref; both are documented thread-safe per JNI spec (AmneziaWG sibling of the ripdpi-warp-android callback)"
+preconditions = "JavaVM is a wrapper around *mut sys::JavaVM (JVM is thread-safe); Global<JObject<'static>> is GC-pinned and safe across threads; `protect()` uses attach_current_thread for every invocation"
+enforcement = "JNI spec contract (NewGlobalRef/DeleteGlobalRef atomic, AttachCurrentThread invocation discipline); compile-fail Send+Sync assert and Copy-ambiguity guard lock the claim"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
 file = "native/rust/crates/ripdpi-android-vpn-protect-adapter/src/protect_callback.rs"
 pattern = "unsafe impl Send/Sync"
 reason = "JniProtectCallback (duplicate of the warp-android impl, same shape and SAFETY argument)"
@@ -467,6 +485,15 @@ review_date = "2026-11-15"
 file = "native/rust/crates/ripdpi-warp-android/src/readiness.rs"
 pattern = "unsafe impl Send/Sync"
 reason = "JniReadinessCallback holds a JavaVM handle plus a JNI Global listener ref for a one-shot WARP lifecycle readiness callback"
+preconditions = "JavaVM is a wrapper around *mut sys::JavaVM (JVM is thread-safe); Global<JObject<'static>> is GC-pinned and safe across threads; `on_ready()` attaches the current thread before invoking Java"
+enforcement = "Private struct fields, one-shot observer registration, JNI GlobalRef liveness, and AttachCurrentThread invocation discipline; no data-plane calls or raw object dereferences occur"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-amneziawg-android/src/readiness.rs"
+pattern = "unsafe impl Send/Sync"
+reason = "JniReadinessCallback holds a JavaVM handle plus a JNI Global listener ref for a one-shot AmneziaWG lifecycle readiness callback"
 preconditions = "JavaVM is a wrapper around *mut sys::JavaVM (JVM is thread-safe); Global<JObject<'static>> is GC-pinned and safe across threads; `on_ready()` attaches the current thread before invoking Java"
 enforcement = "Private struct fields, one-shot observer registration, JNI GlobalRef liveness, and AttachCurrentThread invocation discipline; no data-plane calls or raw object dereferences occur"
 owner = "android-ffi"
@@ -517,6 +544,15 @@ review_date = "2026-11-15"
 file = "native/rust/crates/ripdpi-warp-android/src/vpn_protect.rs"
 pattern = "raw usize handle in public fn"
 reason = "`unregister_entry(token: i64)` consumes the monotonic generation token returned by WARP VPN protect registration; the token is not a pointer"
+preconditions = "Token originates from `ProtectGeneration::token()` or may be forged by Java/test callers; forged, zero, stale, or superseded tokens are accepted as safe no-ops"
+enforcement = "`ProtectGeneration::from_token` wraps the integer and `unregister_protect_callback_if` clears only when the registry generation matches; no raw pointer dereference or unchecked memory access occurs"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-amneziawg-android/src/vpn_protect.rs"
+pattern = "raw usize handle in public fn"
+reason = "`unregister_entry(token: i64)` consumes the monotonic generation token returned by AmneziaWG VPN protect registration; the token is not a pointer"
 preconditions = "Token originates from `ProtectGeneration::token()` or may be forged by Java/test callers; forged, zero, stale, or superseded tokens are accepted as safe no-ops"
 enforcement = "`ProtectGeneration::from_token` wraps the integer and `unregister_protect_callback_if` clears only when the registry generation matches; no raw pointer dereference or unchecked memory access occurs"
 owner = "android-ffi"

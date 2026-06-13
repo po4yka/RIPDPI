@@ -1,0 +1,82 @@
+pub mod android_support
+pub struct android_support::EventRingBuffers
+impl android_support::EventRingBuffers
+pub fn android_support::EventRingBuffers::clear_diagnostics(&self)
+pub fn android_support::EventRingBuffers::clear_proxy(&self)
+pub fn android_support::EventRingBuffers::clear_relay(&self)
+pub fn android_support::EventRingBuffers::clear_tunnel(&self)
+pub fn android_support::EventRingBuffers::clear_warp(&self)
+pub fn android_support::EventRingBuffers::drain_diagnostics(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::EventRingBuffers::drain_proxy(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::EventRingBuffers::drain_relay(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::EventRingBuffers::drain_tunnel(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::EventRingBuffers::drain_warp(&self) -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::EventRingBuffers::new(android_support::RingConfig) -> Self
+impl core::default::Default for android_support::EventRingBuffers
+pub fn android_support::EventRingBuffers::default() -> Self
+pub struct android_support::EventRingLayer
+impl android_support::EventRingLayer
+pub fn android_support::EventRingLayer::global() -> Self
+pub fn android_support::EventRingLayer::new(android_support::EventRingBuffers) -> Self
+impl<S> tracing_subscriber::layer::Layer<S> for android_support::EventRingLayer where S: tracing_core::subscriber::Subscriber + for<'span> tracing_subscriber::registry::LookupSpan<'span>
+pub fn android_support::EventRingLayer::on_event(&self, &tracing_core::event::Event<'_>, tracing_subscriber::layer::context::Context<'_, S>)
+pub struct android_support::HandleRegistry<T>
+impl<T> android_support::HandleRegistry<T>
+pub fn android_support::HandleRegistry<T>::get(&self, u64) -> core::option::Option<alloc::sync::Arc<T>>
+pub fn android_support::HandleRegistry<T>::insert(&self, T) -> u64
+pub fn android_support::HandleRegistry<T>::new() -> Self
+pub fn android_support::HandleRegistry<T>::remove(&self, u64) -> core::option::Option<alloc::sync::Arc<T>>
+impl<T> core::default::Default for android_support::HandleRegistry<T>
+pub fn android_support::HandleRegistry<T>::default() -> Self
+pub struct android_support::NativeEventRecord
+pub android_support::NativeEventRecord::created_at: u64
+pub android_support::NativeEventRecord::diagnostics_session_id: core::option::Option<alloc::string::String>
+pub android_support::NativeEventRecord::fingerprint_hash: core::option::Option<alloc::string::String>
+pub android_support::NativeEventRecord::kind: core::option::Option<alloc::string::String>
+pub android_support::NativeEventRecord::level: alloc::string::String
+pub android_support::NativeEventRecord::message: alloc::string::String
+pub android_support::NativeEventRecord::mode: core::option::Option<alloc::string::String>
+pub android_support::NativeEventRecord::policy_signature: core::option::Option<alloc::string::String>
+pub android_support::NativeEventRecord::runtime_id: core::option::Option<alloc::string::String>
+pub android_support::NativeEventRecord::source: alloc::string::String
+pub android_support::NativeEventRecord::subsystem: core::option::Option<alloc::string::String>
+pub struct android_support::RingConfig
+pub android_support::RingConfig::diagnostics_capacity: usize
+pub android_support::RingConfig::proxy_capacity: usize
+pub android_support::RingConfig::relay_capacity: usize
+pub android_support::RingConfig::tunnel_capacity: usize
+pub android_support::RingConfig::warp_capacity: usize
+impl core::default::Default for android_support::RingConfig
+pub fn android_support::RingConfig::default() -> Self
+pub const android_support::JNI_VERSION: jni_sys::jint
+pub fn android_support::android_log_level_from_debug_verbosity(i32) -> log::LevelFilter
+pub fn android_support::android_log_level_from_str(&str) -> core::option::Option<log::LevelFilter>
+pub fn android_support::authority_header_value(&str, u16, bool) -> alloc::string::String
+pub fn android_support::clear_android_log_scope_level(&str)
+pub fn android_support::clear_diagnostics_events()
+pub fn android_support::clear_proxy_events()
+pub fn android_support::clear_relay_events()
+pub fn android_support::clear_tunnel_events()
+pub fn android_support::clear_warp_events()
+pub fn android_support::default_android_log_level() -> log::LevelFilter
+pub fn android_support::describe_exception(&mut jni::env::EnvUnowned<'_>) -> core::option::Option<alloc::string::String>
+pub fn android_support::drain_diagnostics_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::drain_proxy_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::drain_relay_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::drain_tunnel_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::drain_warp_events() -> alloc::vec::Vec<android_support::NativeEventRecord>
+pub fn android_support::ffi_boundary<T, F>(T, F) -> T where F: core::ops::function::FnOnce() -> T
+pub fn android_support::ignore_sigpipe()
+pub fn android_support::init_android_logging(&'static str)
+pub fn android_support::install_panic_hook()
+pub fn android_support::log_with_level(&str, impl core::convert::AsRef<str>)
+pub fn android_support::sanitize_error_message(&str, &str) -> alloc::string::String
+pub fn android_support::set_android_log_scope_level(impl core::convert::Into<alloc::string::String>, log::LevelFilter)
+pub fn android_support::throw_illegal_argument(&mut jni::env::EnvUnowned<'_>, impl core::convert::AsRef<str>)
+pub fn android_support::throw_illegal_argument_env(&mut jni::env::Env<'_>, impl core::convert::AsRef<str>)
+pub fn android_support::throw_illegal_state(&mut jni::env::EnvUnowned<'_>, impl core::convert::AsRef<str>)
+pub fn android_support::throw_illegal_state_env(&mut jni::env::Env<'_>, impl core::convert::AsRef<str>)
+pub fn android_support::throw_io_exception(&mut jni::env::EnvUnowned<'_>, impl core::convert::AsRef<str>)
+pub fn android_support::throw_io_exception_env(&mut jni::env::Env<'_>, impl core::convert::AsRef<str>)
+pub fn android_support::throw_runtime_exception(&mut jni::env::EnvUnowned<'_>, impl core::convert::AsRef<str>)
+pub fn android_support::throw_runtime_exception_env(&mut jni::env::Env<'_>, impl core::convert::AsRef<str>)
