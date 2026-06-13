@@ -10,5 +10,8 @@ russh = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "rt", "sync"] }
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["net", "rt-multi-thread", "time", "macros", "io-util"] }
+
 [lints]
 workspace = true
