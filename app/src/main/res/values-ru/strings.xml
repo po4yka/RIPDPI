@@ -3486,4 +3486,5 @@ fakeddisorder endhost</string>
     <string name="xray_skip_unsupported_protocol">%1$s не поддерживается нативно.</string>
     <string name="xray_skip_malformed">Некорректный или неполный исходящий узел.</string>
     <string name="xray_skip_single_relay_only">Активирован только первый сервер (один релей одновременно).</string>
+    <string name="xray_import_error_activation_failed">Не удалось активировать импортированный профиль. Повторите попытку.</string>
 </resources>

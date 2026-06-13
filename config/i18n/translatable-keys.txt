@@ -3271,6 +3271,7 @@ app:xray_import_capabilities_body
 app:xray_import_capabilities_title
 app:xray_import_done_action
 app:xray_import_empty_input_error
+app:xray_import_error_activation_failed
 app:xray_import_error_no_supported
 app:xray_import_error_title
 app:xray_import_error_unparseable

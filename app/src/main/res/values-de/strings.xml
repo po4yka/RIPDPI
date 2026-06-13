@@ -3367,4 +3367,5 @@ Quelle: %2$s</string>
     <string name="xray_skip_unsupported_protocol">%1$s wird nicht nativ unterstützt.</string>
     <string name="xray_skip_malformed">Fehlerhafter oder unvollständiger Outbound.</string>
     <string name="xray_skip_single_relay_only">Nur der erste Server wurde aktiviert (jeweils ein Relay).</string>
+    <string name="xray_import_error_activation_failed">Das importierte Profil konnte nicht aktiviert werden. Bitte erneut versuchen.</string>
 </resources>

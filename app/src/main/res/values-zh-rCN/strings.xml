@@ -3368,4 +3368,5 @@ fake_burst 3</string>
     <string name="xray_skip_unsupported_protocol">原生不支持 %1$s。</string>
     <string name="xray_skip_malformed">出站格式错误或不完整。</string>
     <string name="xray_skip_single_relay_only">仅激活了第一个服务器（一次一个中继）。</string>
+    <string name="xray_import_error_activation_failed">无法激活导入的配置，请重试。</string>
 </resources>

@@ -3347,4 +3347,5 @@ fakeddisorder endhost</string>
     <string name="xray_skip_unsupported_protocol">%1$s غير مدعوم محليًا.</string>
     <string name="xray_skip_malformed">وجهة صادرة غير مكتملة أو تالفة.</string>
     <string name="xray_skip_single_relay_only">تم تفعيل الخادم الأول فقط (مرحّل واحد في كل مرة).</string>
+    <string name="xray_import_error_activation_failed">تعذّر تفعيل الملف المستورد. يرجى المحاولة مرة أخرى.</string>
 </resources>

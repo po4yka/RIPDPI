@@ -3367,4 +3367,5 @@ Origen: %2$s</string>
     <string name="xray_skip_unsupported_protocol">%1$s no es compatible de forma nativa.</string>
     <string name="xray_skip_malformed">Saliente incompleto o con formato incorrecto.</string>
     <string name="xray_skip_single_relay_only">Solo se activó el primer servidor (un relé a la vez).</string>
+    <string name="xray_import_error_activation_failed">No se pudo activar el perfil importado. Inténtalo de nuevo.</string>
 </resources>
