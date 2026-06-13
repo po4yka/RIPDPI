@@ -206,6 +206,25 @@ class XrayConfigImportParserTest {
     }
 
     @Test
+    fun `vless reality share link without public key is skipped as malformed`() {
+        // security=reality but no pbk → ProxyUriCodec yields an empty-key VlessReality;
+        // it cannot complete a REALITY handshake, so it must be skipped, not accepted.
+        val result = translate("vless://$uuid@h.example:443?security=reality#node")
+        assertTrue(result.profiles.isEmpty())
+        assertEquals(XraySkipReason.MALFORMED, result.skipped.single().reason)
+    }
+
+    @Test
+    fun `base64 wrapped json config is decoded and translated`() {
+        val config =
+            """{ "outbounds": [ { "protocol": "trojan", "settings": { "servers": [
+              { "address": "t.example", "port": 443, "password": "p" } ] } } ] }"""
+        val payload = Base64.getEncoder().encodeToString(config.toByteArray())
+        val result = translate(payload)
+        assertTrue(result.profiles.single() is ProxyProfile.Trojan)
+    }
+
+    @Test
     fun `malformed json is unparseable`() {
         val result = XrayConfigImportParser.parse("{ not json", groupId)
         assertEquals(

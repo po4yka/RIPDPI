@@ -121,11 +121,12 @@ object XrayConfigImportParser {
     ): XrayConfigImportResult {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return XrayConfigImportResult.Unparseable(XrayUnparseableReason.EMPTY)
-        return if (looksLikeJson(trimmed)) {
-            parseJson(trimmed, groupId)
-        } else {
-            parseLinks(trimmed, groupId)
-        }
+        if (looksLikeJson(trimmed)) return parseJson(trimmed, groupId)
+        // A base64-wrapped xray-core JSON config decodes to JSON — route it to the
+        // JSON path rather than treating it as an (unrecognised) link list.
+        val decoded = decodeBase64Text(trimmed)
+        if (decoded != null && looksLikeJson(decoded.trim())) return parseJson(decoded.trim(), groupId)
+        return parseLinks(trimmed, groupId)
     }
 
     private fun looksLikeJson(text: String): Boolean = text.startsWith("{") || text.startsWith("[")
@@ -359,7 +360,14 @@ object XrayConfigImportParser {
         val profile = ProxyUriCodec.parse(line)
         when (profile) {
             is ProxyProfile.VlessReality -> {
-                profiles += profile.copy(groupId = groupId)
+                // ProxyUriCodec treats `security=reality` with no `pbk` as REALITY but
+                // leaves the public key empty; such a node cannot complete a REALITY
+                // handshake, so skip it rather than activate a relay that fails at connect.
+                if (profile.realityPublicKey.isBlank()) {
+                    skipped += XraySkippedNode(index, "$scheme link", XraySkipReason.MALFORMED, scheme)
+                } else {
+                    profiles += profile.copy(groupId = groupId)
+                }
             }
 
             is ProxyProfile.Trojan -> {
@@ -395,19 +403,34 @@ object XrayConfigImportParser {
      */
     private fun decodeBase64OrPlain(input: String): String {
         if (input.contains("://")) return input.replace("\r\n", "\n").replace('\r', '\n')
+        val decoded = decodeBase64Text(input)
+        return if (decoded != null && decoded.contains("://")) {
+            decoded.replace("\r\n", "\n").replace('\r', '\n')
+        } else {
+            input.replace("\r\n", "\n").replace('\r', '\n')
+        }
+    }
+
+    /**
+     * Best-effort base64 decode of a (possibly whitespace-padded, URL-safe) blob to
+     * text, or null when it does not decode. The caller validates the shape of the
+     * decoded text (link list vs JSON); a successful decode of random input may still
+     * be garbage.
+     */
+    private fun decodeBase64Text(input: String): String? {
         val condensed =
             input
                 .trim()
                 .replace("\n", "")
                 .replace("\r", "")
                 .replace(" ", "")
-        if (condensed.isEmpty()) return input
+        if (condensed.isEmpty()) return null
         val padded = condensed.replace('-', '+').replace('_', '/').let { padBase64(it) }
-        for (decoder in listOf(Base64.getUrlDecoder(), Base64.getMimeDecoder(), Base64.getDecoder())) {
+        for (decoder in listOf(Base64.getMimeDecoder(), Base64.getDecoder())) {
             val decoded = runCatching { String(decoder.decode(padded)) }.getOrNull() ?: continue
-            if (decoded.contains("://")) return decoded.replace("\r\n", "\n").replace('\r', '\n')
+            return decoded
         }
-        return input
+        return null
     }
 
     private fun padBase64(value: String): String {
