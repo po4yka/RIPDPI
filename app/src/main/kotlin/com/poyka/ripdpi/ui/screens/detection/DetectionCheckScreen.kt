@@ -674,13 +674,14 @@ private fun DetectionReportActions(
         performHaptic = performHaptic,
     )
     debugReportText?.let { text ->
+        val diagnosticsClipLabel = stringResource(R.string.clipboard_label_detection_diagnostics)
         RipDpiButton(
             text = "Copy diagnostics",
             onClick = {
                 performHaptic(RipDpiHapticFeedback.Acknowledge)
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(
-                    ClipData.newPlainText(context.getString(R.string.clipboard_label_detection_diagnostics), text),
+                    ClipData.newPlainText(diagnosticsClipLabel, text),
                 )
             },
             modifier = Modifier.fillMaxWidth(),

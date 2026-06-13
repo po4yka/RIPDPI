@@ -73,6 +73,7 @@ fun DomainBypassListRoute(
 
     val compiled = remember(text) { DomainBypassList.compile(text) }
     val moveDialogName = stringResource(R.string.domain_bypass_moved_rule_name)
+    val ripdpiDomainsLabel = stringResource(R.string.clipboard_label_ripdpi_domains)
 
     DomainBypassListScreen(
         state =
@@ -111,7 +112,7 @@ fun DomainBypassListRoute(
         },
         onCopyToClipboard = {
             clipboardManager?.setPrimaryClip(
-                ClipData.newPlainText(context.getString(R.string.clipboard_label_ripdpi_domains), text),
+                ClipData.newPlainText(ripdpiDomainsLabel, text),
             )
             Toast.makeText(context, R.string.domain_bypass_copied, Toast.LENGTH_SHORT).show()
         },

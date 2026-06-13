@@ -28,12 +28,14 @@ fun ProfileShareRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val linkTitle = stringResource(R.string.profile_share_link_title)
     val sheetTitle = stringResource(R.string.profile_share_sheet_title)
+    val profileLinkLabel = stringResource(R.string.clipboard_label_profile_link)
+    val setupSheetLabel = stringResource(R.string.clipboard_label_setup_sheet)
     ProfileShareScreen(
         uiState = uiState,
         onBack = onBack,
-        onCopyLink = { copyText(context, label = context.getString(R.string.clipboard_label_profile_link), text = it) },
+        onCopyLink = { copyText(context, label = profileLinkLabel, text = it) },
         onShareLink = { shareText(context, title = linkTitle, text = it) },
-        onCopySheet = { copyText(context, label = context.getString(R.string.clipboard_label_setup_sheet), text = it) },
+        onCopySheet = { copyText(context, label = setupSheetLabel, text = it) },
         onShareSheet = { shareText(context, title = sheetTitle, text = it) },
         modifier = modifier,
     )

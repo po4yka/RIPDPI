@@ -513,6 +513,7 @@ private fun ProxyToggleSettings(
         testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan),
     )
     if (uiState.proxy.allowLan && uiState.proxy.lanAuthToken.isNotEmpty()) {
+        val lanAuthTokenLabel = stringResource(R.string.clipboard_label_lan_auth_token)
         ProxyLanTokenRow(
             token = uiState.proxy.lanAuthToken,
             enabled = visualEditorEnabled,
@@ -520,7 +521,7 @@ private fun ProxyToggleSettings(
                 val clipboard = context.getSystemService(ClipboardManager::class.java)
                 clipboard?.setPrimaryClip(
                     ClipData.newPlainText(
-                        context.getString(R.string.clipboard_label_lan_auth_token),
+                        lanAuthTokenLabel,
                         uiState.proxy.lanAuthToken,
                     ),
                 )
