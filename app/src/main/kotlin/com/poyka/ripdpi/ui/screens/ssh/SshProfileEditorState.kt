@@ -131,8 +131,8 @@ data class SshProfileEditorState(
      * name falls back to the server when left empty.
      */
     fun toProfile(): ProxyProfile.Ssh? {
-        if (!isComplete) return null
-        val port = SshEditorField.SERVER_PORT.validate(rawText(SshEditorField.SERVER_PORT)) as? Int ?: return null
+        val port = SshEditorField.SERVER_PORT.validate(rawText(SshEditorField.SERVER_PORT)) as? Int
+        if (!isComplete || port == null) return null
         val server = rawText(SshEditorField.SERVER).trim()
         val isKey = authType == RelaySshAuthTypePrivateKey
         return ProxyProfile.Ssh(

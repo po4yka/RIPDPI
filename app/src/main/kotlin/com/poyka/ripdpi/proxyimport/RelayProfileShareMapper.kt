@@ -209,8 +209,7 @@ object RelayProfileShareMapper {
         val privateKey = credentials.sshPrivateKey?.takeIf { it.isNotBlank() }
         // The auth-relevant secret must be present, or the reconstructed profile
         // could never authenticate.
-        if (isKey && privateKey == null) return null
-        if (!isKey && password == null) return null
+        val hasAuthSecret = if (isKey) privateKey != null else password != null
         return ProxyProfile
             .Ssh(
                 id = UUID.randomUUID().toString(),
@@ -225,12 +224,12 @@ object RelayProfileShareMapper {
                 privateKeyPassphrase = credentials.sshPrivateKeyPassphrase?.takeIf { isKey && it.isNotBlank() },
                 hostKeyFingerprint = sshHostKeyFingerprint.ifBlank { null },
                 strictHostKey = sshStrictHostKey,
-            ).takeIf { server.isNotBlank() && serverPort > 0 }
+            ).takeIf { hasAuthSecret && server.isNotBlank() && serverPort > 0 }
     }
-
-    private fun RelayProfileRecord.shareName(): String =
-        listOf(operatorName, jurisdiction)
-            .filter { it.isNotBlank() }
-            .joinToString(" / ")
-            .ifBlank { presetId.ifBlank { id } }
 }
+
+private fun RelayProfileRecord.shareName(): String =
+    listOf(operatorName, jurisdiction)
+        .filter { it.isNotBlank() }
+        .joinToString(" / ")
+        .ifBlank { presetId.ifBlank { id } }

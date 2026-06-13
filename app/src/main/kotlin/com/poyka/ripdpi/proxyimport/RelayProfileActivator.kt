@@ -102,9 +102,7 @@ class RelayProfileActivator
                         setRelaySshStrictHostKey(profile.strictHostKey)
                     }
 
-                    else -> {
-                        Unit
-                    }
+                    else -> {}
                 }
             }
             return true
