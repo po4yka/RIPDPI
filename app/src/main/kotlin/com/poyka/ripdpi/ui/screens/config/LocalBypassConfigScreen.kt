@@ -161,9 +161,9 @@ private fun LocalBypassActionButtons(
 ) {
     val spacing = RipDpiThemeTokens.spacing
 
-    Row(
+    Column(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         RipDpiButton(
             text =
@@ -177,7 +177,7 @@ private fun LocalBypassActionButtons(
             onClick = { onModeSelected(localBypassToggleTarget(localBypassEnabled)) },
             modifier =
                 Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
                     .ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassToggle),
             variant = RipDpiButtonVariant.Primary,
             leadingIcon = RipDpiIcons.NetworkCheck,
@@ -187,7 +187,7 @@ private fun LocalBypassActionButtons(
             onClick = onRetestStrategies,
             modifier =
                 Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
                     .ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassRetest),
             variant = RipDpiButtonVariant.Outline,
             leadingIcon = RipDpiIcons.Refresh,
