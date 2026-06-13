@@ -240,6 +240,11 @@ internal class TestRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
         return policy
     }
 
+    override suspend fun deletePolicy(
+        id: Long,
+        fingerprintHash: String,
+    ): Int = 0
+
     override suspend fun clearAll() = Unit
 }
 
@@ -251,6 +256,10 @@ internal class TestNetworkDnsPathPreferenceStore : NetworkDnsPathPreferenceStore
 
     override suspend fun clearAll() {
         preferences.clear()
+    }
+
+    override suspend fun deleteForFingerprint(fingerprintHash: String) {
+        preferences.remove(fingerprintHash)
     }
 
     override suspend fun rememberPreferredPath(
@@ -294,6 +303,11 @@ internal class TestNetworkDnsBlockedPathStore : com.poyka.ripdpi.data.diagnostic
     override suspend fun clearAll() {
         blocked.clear()
         recorded.clear()
+    }
+
+    override suspend fun clearForFingerprint(fingerprintHash: String) {
+        blocked.remove(fingerprintHash)
+        recorded.removeAll { it.first == fingerprintHash }
     }
 }
 

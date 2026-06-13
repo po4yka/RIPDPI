@@ -61,6 +61,17 @@ interface RememberedNetworkPolicyStore {
         allowSuppression: Boolean = true,
     ): RememberedNetworkPolicyEntity
 
+    /**
+     * Deletes the remembered policy row identified by [id]. Returns the number of remaining
+     * remembered policy rows that still reference [fingerprintHash] (across other modes).
+     * A return value of `0` means the network scope is now fully forgotten and any companion
+     * per-network learned state keyed by the same fingerprint can be safely purged.
+     */
+    suspend fun deletePolicy(
+        id: Long,
+        fingerprintHash: String,
+    ): Int
+
     suspend fun clearAll()
 }
 
@@ -178,6 +189,14 @@ class DefaultRememberedNetworkPolicyStore
                     updatedAt = effectiveFailedAt,
                 ),
             )
+        }
+
+        override suspend fun deletePolicy(
+            id: Long,
+            fingerprintHash: String,
+        ): Int {
+            recordStore.deleteRememberedNetworkPolicy(id)
+            return recordStore.countRememberedNetworkPoliciesForFingerprint(fingerprintHash)
         }
 
         override suspend fun clearAll() {

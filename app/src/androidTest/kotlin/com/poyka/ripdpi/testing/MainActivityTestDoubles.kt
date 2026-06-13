@@ -322,6 +322,8 @@ class StubInstrumentedDiagnosticsHistorySource : DiagnosticsHistorySource {
 class StubInstrumentedDiagnosticsRememberedPolicySource : DiagnosticsRememberedPolicySource {
     override fun observePolicies(limit: Int): Flow<List<DiagnosticsRememberedPolicy>> = MutableStateFlow(emptyList())
 
+    override suspend fun deletePolicy(policy: DiagnosticsRememberedPolicy) = Unit
+
     override suspend fun clearAll() = Unit
 }
 

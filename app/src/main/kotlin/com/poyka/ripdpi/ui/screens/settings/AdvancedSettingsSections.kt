@@ -628,6 +628,7 @@ internal fun LazyListScope.networkStrategyMemorySection(
     visualEditorEnabled: Boolean,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onClearRememberedNetworks: () -> Unit,
+    onOpenRememberedNetworks: () -> Unit,
 ) {
     item(key = "advanced_network_strategy_memory") {
         var showClearDialog by remember { mutableStateOf(false) }
@@ -670,6 +671,15 @@ internal fun LazyListScope.networkStrategyMemorySection(
                     enabled = visualEditorEnabled,
                     showDivider = true,
                     testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NetworkStrategyMemoryEnabled),
+                )
+                SettingsRow(
+                    title = stringResource(R.string.network_strategy_memory_inspect_title),
+                    subtitle = stringResource(R.string.network_strategy_memory_inspect_body),
+                    value = uiState.autolearn.rememberedNetworkCount.toString(),
+                    onClick = onOpenRememberedNetworks,
+                    enabled = uiState.autolearn.rememberedNetworkCount > 0,
+                    showDivider = true,
+                    testTag = RipDpiTestTags.AdvancedInspectRememberedNetworks,
                 )
                 Text(
                     text =

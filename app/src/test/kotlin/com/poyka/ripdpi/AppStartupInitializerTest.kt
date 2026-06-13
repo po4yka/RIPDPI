@@ -701,6 +701,10 @@ private object NoOpNetworkDnsPathPreferenceStore : NetworkDnsPathPreferenceStore
         // no-op
     }
 
+    override suspend fun deleteForFingerprint(fingerprintHash: String) {
+        // no-op
+    }
+
     override suspend fun rememberPreferredPath(
         fingerprint: NetworkFingerprint,
         path: EncryptedDnsPathCandidate,

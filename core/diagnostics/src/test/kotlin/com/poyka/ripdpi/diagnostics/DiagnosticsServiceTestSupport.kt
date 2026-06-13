@@ -363,12 +363,29 @@ internal class FakeDiagnosticsHistoryStores :
         rememberedPoliciesState.value = emptyList()
     }
 
+    override suspend fun deleteRememberedNetworkPolicy(id: Long) {
+        rememberedPoliciesState.value = rememberedPoliciesState.value.filterNot { it.id == id }
+    }
+
+    override suspend fun countRememberedNetworkPoliciesForFingerprint(fingerprintHash: String): Int =
+        rememberedPoliciesState.value.count { it.fingerprintHash == fingerprintHash }
+
     override suspend fun clearNetworkDnsPathPreferences() {
         networkDnsPathPreferencesState.value = emptyList()
     }
 
+    override suspend fun deleteNetworkDnsPathPreferencesForFingerprint(fingerprintHash: String) {
+        networkDnsPathPreferencesState.value =
+            networkDnsPathPreferencesState.value.filterNot { it.fingerprintHash == fingerprintHash }
+    }
+
     override suspend fun clearNetworkEdgePreferences() {
         networkEdgePreferencesState.value = emptyList()
+    }
+
+    override suspend fun deleteNetworkEdgePreferencesForFingerprint(fingerprintHash: String) {
+        networkEdgePreferencesState.value =
+            networkEdgePreferencesState.value.filterNot { it.fingerprintHash == fingerprintHash }
     }
 
     override suspend fun pruneRememberedNetworkPolicies() = Unit

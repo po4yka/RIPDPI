@@ -20,6 +20,8 @@ interface NetworkDnsPathPreferenceStore {
 
     suspend fun clearAll()
 
+    suspend fun deleteForFingerprint(fingerprintHash: String)
+
     suspend fun rememberPreferredPath(
         fingerprint: NetworkFingerprint,
         path: EncryptedDnsPathCandidate,
@@ -44,6 +46,10 @@ class DefaultNetworkDnsPathPreferenceStore
 
         override suspend fun clearAll() {
             recordStore.clearNetworkDnsPathPreferences()
+        }
+
+        override suspend fun deleteForFingerprint(fingerprintHash: String) {
+            recordStore.deleteNetworkDnsPathPreferencesForFingerprint(fingerprintHash)
         }
 
         override suspend fun rememberPreferredPath(

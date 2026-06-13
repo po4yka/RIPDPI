@@ -166,6 +166,7 @@ private fun previewAdvancedSettingsActions(): AdvancedSettingsActions =
         onOpenStrategyConfig = {},
         onOpenBlockcheck = {},
         onOpenAssetProvider = {},
+        onOpenRememberedNetworks = {},
         onToggleChanged = { _, _ -> },
         onTextConfirmed = { _, _ -> },
         onOptionSelected = { _, _ -> },

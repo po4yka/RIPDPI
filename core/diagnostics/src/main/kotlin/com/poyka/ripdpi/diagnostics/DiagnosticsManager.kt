@@ -64,6 +64,13 @@ interface DiagnosticsHistorySource {
 interface DiagnosticsRememberedPolicySource {
     fun observePolicies(limit: Int = 64): Flow<List<DiagnosticsRememberedPolicy>>
 
+    /**
+     * Removes a single remembered policy entry and truly purges any per-network learned state
+     * (DNS path preference, blocked paths, edge preferences) once no other mode still references
+     * the same network scope (fingerprint).
+     */
+    suspend fun deletePolicy(policy: DiagnosticsRememberedPolicy)
+
     suspend fun clearAll()
 }
 

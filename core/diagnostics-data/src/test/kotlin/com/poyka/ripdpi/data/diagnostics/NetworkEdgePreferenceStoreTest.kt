@@ -118,6 +118,10 @@ private class FakeNetworkEdgePreferenceRecordStore : NetworkEdgePreferenceRecord
         preferences.clear()
     }
 
+    override suspend fun deleteNetworkEdgePreferencesForFingerprint(fingerprintHash: String) {
+        preferences.values.removeAll { it.fingerprintHash == fingerprintHash }
+    }
+
     override suspend fun pruneNetworkEdgePreferences() = Unit
 
     fun requireStored(

@@ -34,6 +34,7 @@ internal data class AdvancedSettingsActions(
     val onOpenStrategyConfig: () -> Unit,
     val onOpenBlockcheck: () -> Unit,
     val onOpenAssetProvider: () -> Unit,
+    val onOpenRememberedNetworks: () -> Unit,
     val onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     val onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
     val onOptionSelected: (AdvancedOptionSetting, String) -> Unit,

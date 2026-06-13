@@ -506,6 +506,7 @@ class AdvancedSettingsSectionsTest {
                         visualEditorEnabled = !uiState.enableCmdSettings,
                         onToggleChanged = onToggleChanged,
                         onClearRememberedNetworks = onClearRememberedNetworks,
+                        onOpenRememberedNetworks = {},
                     )
                 }
             }

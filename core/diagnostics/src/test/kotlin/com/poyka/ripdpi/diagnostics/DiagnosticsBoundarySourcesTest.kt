@@ -44,6 +44,8 @@ class DiagnosticsBoundarySourcesTest {
                 DefaultDiagnosticsRememberedPolicySource(
                     rememberedNetworkPolicyStore = rememberedStore,
                     networkDnsPathPreferenceStore = dnsPathStore,
+                    networkDnsBlockedPathStore = CountingNetworkDnsBlockedPathStore(),
+                    networkEdgePreferenceRecordStore = CountingNetworkEdgePreferenceRecordStore(),
                     mapper = mapper,
                 )
 
@@ -51,6 +53,54 @@ class DiagnosticsBoundarySourcesTest {
 
             assertEquals(1, rememberedStore.clearCalls)
             assertEquals(1, dnsPathStore.clearCalls)
+        }
+
+    @Test
+    fun `deletePolicy purges companion per-network state when fingerprint has no remaining policies`() =
+        runTest {
+            val rememberedStore = CountingRememberedNetworkPolicyStore().apply { remainingForFingerprint = 0 }
+            val dnsPathStore = CountingNetworkDnsPathPreferenceStore()
+            val blockedStore = CountingNetworkDnsBlockedPathStore()
+            val edgeStore = CountingNetworkEdgePreferenceRecordStore()
+            val source =
+                DefaultDiagnosticsRememberedPolicySource(
+                    rememberedNetworkPolicyStore = rememberedStore,
+                    networkDnsPathPreferenceStore = dnsPathStore,
+                    networkDnsBlockedPathStore = blockedStore,
+                    networkEdgePreferenceRecordStore = edgeStore,
+                    mapper = mapper,
+                )
+
+            source.deletePolicy(diagnosticsRememberedPolicy(id = 9L, fingerprintHash = "scope-a"))
+
+            assertEquals(listOf(9L), rememberedStore.deletedIds)
+            assertEquals(listOf("scope-a"), dnsPathStore.deletedFingerprints)
+            assertEquals(listOf("scope-a"), blockedStore.clearedFingerprints)
+            assertEquals(listOf("scope-a"), edgeStore.deletedFingerprints)
+        }
+
+    @Test
+    fun `deletePolicy keeps companion state when another mode still references the fingerprint`() =
+        runTest {
+            val rememberedStore = CountingRememberedNetworkPolicyStore().apply { remainingForFingerprint = 1 }
+            val dnsPathStore = CountingNetworkDnsPathPreferenceStore()
+            val blockedStore = CountingNetworkDnsBlockedPathStore()
+            val edgeStore = CountingNetworkEdgePreferenceRecordStore()
+            val source =
+                DefaultDiagnosticsRememberedPolicySource(
+                    rememberedNetworkPolicyStore = rememberedStore,
+                    networkDnsPathPreferenceStore = dnsPathStore,
+                    networkDnsBlockedPathStore = blockedStore,
+                    networkEdgePreferenceRecordStore = edgeStore,
+                    mapper = mapper,
+                )
+
+            source.deletePolicy(diagnosticsRememberedPolicy(id = 9L, fingerprintHash = "scope-a"))
+
+            assertEquals(listOf(9L), rememberedStore.deletedIds)
+            assertEquals(emptyList<String>(), dnsPathStore.deletedFingerprints)
+            assertEquals(emptyList<String>(), blockedStore.clearedFingerprints)
+            assertEquals(emptyList<String>(), edgeStore.deletedFingerprints)
         }
 
     @Test
@@ -77,6 +127,8 @@ class DiagnosticsBoundarySourcesTest {
                 DefaultDiagnosticsRememberedPolicySource(
                     rememberedNetworkPolicyStore = rememberedStore,
                     networkDnsPathPreferenceStore = CountingNetworkDnsPathPreferenceStore(),
+                    networkDnsBlockedPathStore = CountingNetworkDnsBlockedPathStore(),
+                    networkEdgePreferenceRecordStore = CountingNetworkEdgePreferenceRecordStore(),
                     mapper = mapper,
                 )
 
@@ -304,6 +356,17 @@ private class CountingRememberedNetworkPolicyStore : RememberedNetworkPolicyStor
         allowSuppression: Boolean,
     ): RememberedNetworkPolicyEntity = error("unused in test")
 
+    val deletedIds = mutableListOf<Long>()
+    var remainingForFingerprint = 0
+
+    override suspend fun deletePolicy(
+        id: Long,
+        fingerprintHash: String,
+    ): Int {
+        deletedIds += id
+        return remainingForFingerprint
+    }
+
     override suspend fun clearAll() {
         clearCalls += 1
     }
@@ -311,11 +374,16 @@ private class CountingRememberedNetworkPolicyStore : RememberedNetworkPolicyStor
 
 private class CountingNetworkDnsPathPreferenceStore : NetworkDnsPathPreferenceStore {
     var clearCalls = 0
+    val deletedFingerprints = mutableListOf<String>()
 
     override suspend fun getPreferredPath(fingerprintHash: String) = null
 
     override suspend fun clearAll() {
         clearCalls += 1
+    }
+
+    override suspend fun deleteForFingerprint(fingerprintHash: String) {
+        deletedFingerprints += fingerprintHash
     }
 
     override suspend fun rememberPreferredPath(
@@ -324,6 +392,77 @@ private class CountingNetworkDnsPathPreferenceStore : NetworkDnsPathPreferenceSt
         recordedAt: Long?,
     ): NetworkDnsPathPreferenceEntity = error("unused in test")
 }
+
+private class CountingNetworkDnsBlockedPathStore : com.poyka.ripdpi.data.diagnostics.NetworkDnsBlockedPathStore {
+    var clearAllCalls = 0
+    val clearedFingerprints = mutableListOf<String>()
+
+    override suspend fun getBlockedPathKeys(fingerprintHash: String): Set<String> = emptySet()
+
+    override suspend fun recordBlockedPath(
+        fingerprintHash: String,
+        pathKey: String,
+        blockReason: String,
+    ) = Unit
+
+    override suspend fun clearAll() {
+        clearAllCalls += 1
+    }
+
+    override suspend fun clearForFingerprint(fingerprintHash: String) {
+        clearedFingerprints += fingerprintHash
+    }
+}
+
+private class CountingNetworkEdgePreferenceRecordStore :
+    com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceRecordStore {
+    val deletedFingerprints = mutableListOf<String>()
+
+    override suspend fun getNetworkEdgePreference(
+        fingerprintHash: String,
+        host: String,
+        transportKind: String,
+    ): com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceEntity? = null
+
+    override suspend fun getNetworkEdgePreferencesForFingerprint(
+        fingerprintHash: String,
+    ): List<com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceEntity> = emptyList()
+
+    override suspend fun upsertNetworkEdgePreference(
+        preference: com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceEntity,
+    ): Long = 0L
+
+    override suspend fun clearNetworkEdgePreferences() = Unit
+
+    override suspend fun deleteNetworkEdgePreferencesForFingerprint(fingerprintHash: String) {
+        deletedFingerprints += fingerprintHash
+    }
+
+    override suspend fun pruneNetworkEdgePreferences() = Unit
+}
+
+private fun diagnosticsRememberedPolicy(
+    id: Long,
+    fingerprintHash: String,
+): DiagnosticsRememberedPolicy =
+    DiagnosticsRememberedPolicy(
+        id = id,
+        fingerprintHash = fingerprintHash,
+        mode = Mode.VPN.preferenceValue,
+        summary =
+            NetworkFingerprintSummary(
+                transport = "wifi",
+                networkState = "validated",
+                identityKind = "wifi",
+                privateDnsMode = "system",
+                dnsServerCount = 2,
+            ),
+        proxyConfigJson = "{}",
+        source = RememberedNetworkPolicySource.MANUAL_SESSION,
+        status = "validated",
+        firstObservedAt = 1L,
+        updatedAt = 1L,
+    )
 
 private fun activeConnectionPolicy(
     mode: Mode,

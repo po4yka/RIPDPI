@@ -154,6 +154,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object RememberedNetworks : Route() {
+        override val stableRoute = "remembered_networks"
+        override val titleRes = R.string.title_remembered_networks
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object DomainBypassList : Route() {
         override val stableRoute = "domain_bypass_list"
         override val titleRes = R.string.title_domain_bypass_list
@@ -403,6 +410,7 @@ sealed class Route {
                     DnsSettings,
                     AdvancedSettings,
                     StrategyConfig,
+                    RememberedNetworks,
                     DomainBypassList,
                     AssetProvider,
                     SplitTunnel,
