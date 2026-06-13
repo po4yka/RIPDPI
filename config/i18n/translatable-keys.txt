@@ -418,6 +418,10 @@ app:blockcheck_layer_ip_block
 app:blockcheck_layer_sni_reset
 app:blockcheck_layer_tls_handshake
 app:blockcheck_layer_unknown
+app:blockcheck_message_probe_cancelled
+app:blockcheck_message_probe_complete
+app:blockcheck_message_strategy_applied
+app:blockcheck_message_strategy_unregistered
 app:blockcheck_no_strategies
 app:blockcheck_result_detail_format
 app:blockcheck_results_title
@@ -427,6 +431,17 @@ app:blockcheck_status_format
 app:blockcheck_try_recommended_strategy
 app:blockcheck_try_recommended_strategy_format
 app:bye_dpi_proxy_ip_setting
+app:clipboard_label_byoh_compatibility_csv
+app:clipboard_label_compatible_sni
+app:clipboard_label_detection_diagnostics
+app:clipboard_label_detection_markdown_export
+app:clipboard_label_detection_report
+app:clipboard_label_error
+app:clipboard_label_lan_auth_token
+app:clipboard_label_probe_details
+app:clipboard_label_profile_link
+app:clipboard_label_ripdpi_domains
+app:clipboard_label_setup_sheet
 app:command_line_arguments
 app:config
 app:config_badge_active
@@ -1896,6 +1911,8 @@ app:logs_subsystem_service
 app:logs_subsystem_tunnel
 app:logs_subsystems_title
 app:mieru_editor_title
+app:mieru_experimental_body
+app:mieru_experimental_title
 app:mieru_field_display_name
 app:mieru_field_invalid
 app:mieru_field_mtu
@@ -2753,6 +2770,8 @@ app:ssh_field_server_port
 app:ssh_field_strict_host_key
 app:ssh_field_strict_host_key_body
 app:ssh_field_username
+app:ssh_not_functional_body
+app:ssh_not_functional_title
 app:ssh_reveal_secret_action
 app:ssh_save_action
 app:ssh_secret_hidden
@@ -2868,6 +2887,7 @@ app:strategy_tuner_cancel
 app:strategy_tuner_domains_label
 app:strategy_tuner_empty_results
 app:strategy_tuner_leaderboard_title
+app:strategy_tuner_message_strategy_applied
 app:strategy_tuner_open_action
 app:strategy_tuner_rate_format
 app:strategy_tuner_result_detail_format
@@ -3156,6 +3176,7 @@ app:widget_mode_picker_title
 app:widget_mode_proxy
 app:widget_status_connecting
 app:widget_status_halted
+app:widget_status_reconnecting
 app:widget_status_running
 app:widget_status_unknown
 app:widget_telemetry_bytes_down
