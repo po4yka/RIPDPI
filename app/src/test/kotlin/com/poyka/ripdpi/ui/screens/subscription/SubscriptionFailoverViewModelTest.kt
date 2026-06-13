@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.subscription
 
+import android.app.Application
 import app.cash.turbine.test
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
@@ -14,6 +16,7 @@ import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -25,11 +28,24 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class SubscriptionFailoverViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    private class ResourceStringResolver : StringResolver {
+        private val application: Application = RuntimeEnvironment.getApplication()
+
+        override fun getString(
+            resId: Int,
+            vararg formatArgs: Any,
+        ): String = application.getString(resId, *formatArgs)
+    }
 
     @Test
     fun `ui state maps active backup server and seeded failover events`() =
@@ -72,17 +88,18 @@ class SubscriptionFailoverViewModelTest {
                                 relayProfile("02_backup", "backup.example.net"),
                             ),
                         ),
+                    stringResolver = ResourceStringResolver(),
                 )
 
             viewModel.uiState.test {
                 val state = awaitItemUntil { it.hasServers }
                 assertEquals("Server 2: backup.example.net", state.activeServerLabel)
                 assertEquals(
-                    "up",
+                    R.string.subscription_failover_status_up,
                     state.servers
                         .single { it.id == "02_backup" }
                         .status
-                        .label,
+                        .labelRes,
                 )
                 assertTrue(state.summary.contains("server 2/2 up"))
                 assertTrue(state.summary.contains("switched to backup"))

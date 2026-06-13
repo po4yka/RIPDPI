@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -25,17 +27,13 @@ internal fun TorRelayFields(
         onValueChange = actions.onRelayPtBridgeLineChanged,
         decoration =
             RipDpiTextFieldDecoration(
-                label = "Bridge line",
-                helperText =
-                    "Paste an obfs4 bridge line. Tor bootstraps only through this pluggable transport, " +
-                        "never a direct connection.",
+                label = stringResource(R.string.relay_tor_bridge_line_label),
+                helperText = stringResource(R.string.relay_tor_bridge_line_helper),
             ),
     )
     WarningBanner(
-        title = "Tor is slower and anonymized differently",
-        message =
-            "Traffic is relayed through the volunteer Tor network, so expect higher latency than a direct relay. " +
-                "Anonymity is provided by Tor, not by RIPDPI. Tor carries TCP and DNS only; UDP is not supported.",
+        title = stringResource(R.string.relay_tor_warning_title),
+        message = stringResource(R.string.relay_tor_warning_message),
         tone = WarningBannerTone.Info,
     )
 }

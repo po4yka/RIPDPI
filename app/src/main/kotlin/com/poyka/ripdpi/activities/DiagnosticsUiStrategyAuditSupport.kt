@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
+import com.poyka.ripdpi.platform.StringResolver
 
 internal fun buildStrategyProbeSummaryMetrics(report: StrategyProbeReport): List<DiagnosticsMetricUiModel> {
     val candidates = report.tcpCandidates + report.quicCandidates
@@ -28,12 +30,17 @@ internal fun buildStrategyProbeSummaryMetrics(report: StrategyProbeReport): List
     }
 }
 
-internal fun auditConfidenceLabel(level: StrategyProbeAuditConfidenceLevel): String =
-    when (level) {
-        StrategyProbeAuditConfidenceLevel.HIGH -> "High"
-        StrategyProbeAuditConfidenceLevel.MEDIUM -> "Medium"
-        StrategyProbeAuditConfidenceLevel.LOW -> "Low"
-    }
+internal fun auditConfidenceLabel(
+    level: StrategyProbeAuditConfidenceLevel,
+    stringResolver: StringResolver,
+): String =
+    stringResolver.getString(
+        when (level) {
+            StrategyProbeAuditConfidenceLevel.HIGH -> R.string.diagnostics_audit_confidence_high
+            StrategyProbeAuditConfidenceLevel.MEDIUM -> R.string.diagnostics_audit_confidence_medium
+            StrategyProbeAuditConfidenceLevel.LOW -> R.string.diagnostics_audit_confidence_low
+        },
+    )
 
 internal fun auditConfidenceTone(level: StrategyProbeAuditConfidenceLevel): DiagnosticsTone =
     when (level) {
@@ -42,20 +49,28 @@ internal fun auditConfidenceTone(level: StrategyProbeAuditConfidenceLevel): Diag
         StrategyProbeAuditConfidenceLevel.LOW -> DiagnosticsTone.Negative
     }
 
-internal fun auditAssessmentMetrics(assessment: StrategyProbeAuditAssessment): List<DiagnosticsMetricUiModel> =
+internal fun auditAssessmentMetrics(
+    assessment: StrategyProbeAuditAssessment,
+    stringResolver: StringResolver,
+): List<DiagnosticsMetricUiModel> =
     listOf(
         DiagnosticsMetricUiModel(
-            label = "Confidence",
-            value = "${auditConfidenceLabel(assessment.confidence.level)} (${assessment.confidence.score}/100)",
+            label = stringResolver.getString(R.string.diagnostics_audit_confidence_label),
+            value =
+                stringResolver.getString(
+                    R.string.diagnostics_audit_confidence_value,
+                    auditConfidenceLabel(assessment.confidence.level, stringResolver),
+                    assessment.confidence.score,
+                ),
             tone = auditConfidenceTone(assessment.confidence.level),
         ),
         DiagnosticsMetricUiModel(
-            label = "Matrix coverage",
+            label = stringResolver.getString(R.string.diagnostics_audit_matrix_coverage_label),
             value = "${assessment.coverage.matrixCoveragePercent}%",
             tone = coverageTone(assessment.coverage.matrixCoveragePercent, passingPercent = 75),
         ),
         DiagnosticsMetricUiModel(
-            label = "Winner coverage",
+            label = stringResolver.getString(R.string.diagnostics_audit_winner_coverage_label),
             value = "${assessment.coverage.winnerCoveragePercent}%",
             tone = coverageTone(assessment.coverage.winnerCoveragePercent, passingPercent = 50),
         ),

@@ -18,10 +18,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.time.Duration
@@ -137,13 +139,14 @@ fun RipDpiStaleDataBadge(
         } else {
             1f
         }
+    val badgeDescription = stringResource(R.string.cd_stale_data_badge, label, tier.name.lowercase())
     Row(
         modifier =
             modifier
                 .background(tones.container, RoundedCornerShape(percent = 50))
                 .border(width = staleBadgeBorderWidth, color = tones.border, shape = RoundedCornerShape(percent = 50))
                 .padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = staleBadgeVerticalPadding)
-                .semantics { contentDescription = "$label, ${tier.name.lowercase()} data" },
+                .semantics { contentDescription = badgeDescription },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {

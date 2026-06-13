@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,8 +34,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
@@ -197,21 +200,39 @@ fun ConfigScreen(
 
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
             SettingsCategoryHeader(title = stringResource(R.string.config_presets_section))
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                uiState.presets.forEach { preset ->
-                    PresetCard(
-                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configPreset(preset.id)),
-                        title = stringResource(titleResForPreset(preset.kind)),
-                        description = stringResource(descriptionResForPreset(preset.kind)),
-                        badgeText =
-                            if (preset.isSelected) {
-                                stringResource(R.string.config_badge_active)
-                            } else {
-                                null
-                            },
-                        selected = preset.isSelected,
-                        onClick = { onPresetSelected(preset) },
+            if (uiState.isLoading) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.ConfigPresetsLoading),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(spacing.md),
+                ) {
+                    RipDpiSpinner()
+                    RipDpiEmptyStateCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        title = stringResource(R.string.config_presets_loading_title),
+                        body = stringResource(R.string.config_presets_loading_body),
                     )
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                    uiState.presets.forEach { preset ->
+                        PresetCard(
+                            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configPreset(preset.id)),
+                            title = stringResource(titleResForPreset(preset.kind)),
+                            description = stringResource(descriptionResForPreset(preset.kind)),
+                            badgeText =
+                                if (preset.isSelected) {
+                                    stringResource(R.string.config_badge_active)
+                                } else {
+                                    null
+                                },
+                            selected = preset.isSelected,
+                            onClick = { onPresetSelected(preset) },
+                        )
+                    }
                 }
             }
         }
@@ -412,6 +433,30 @@ private fun ConfigScreenDarkPreview() {
             onPasteServerLink = {},
             onScanServer = {},
             initialModeSection = ConfigModeSection.Vpn,
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "ConfigScreen (loading)")
+@Composable
+private fun ConfigScreenLoadingPreview() {
+    RipDpiTheme {
+        ConfigScreen(
+            uiState =
+                ConfigUiState(
+                    activeMode = Mode.VPN,
+                    presets = buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
+                    draft = AppSettingsSerializer.defaultValue.toConfigDraft(),
+                    isLoading = true,
+                ),
+            onModeSelected = {},
+            onPresetSelected = {},
+            onEditCurrent = {},
+            onOpenDnsSettings = {},
+            onRetestStrategies = {},
+            onPasteServerLink = {},
+            onScanServer = {},
+            initialModeSection = ConfigModeSection.LocalBypass,
         )
     }
 }

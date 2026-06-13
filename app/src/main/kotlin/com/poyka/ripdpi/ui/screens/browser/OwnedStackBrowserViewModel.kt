@@ -3,6 +3,8 @@ package com.poyka.ripdpi.ui.screens.browser
 import androidx.core.text.HtmlCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.OwnedStackBrowserBackend
 import com.poyka.ripdpi.services.OwnedStackBrowserPage
 import com.poyka.ripdpi.services.OwnedStackBrowserService
@@ -23,6 +25,7 @@ class OwnedStackBrowserViewModel
     @Inject
     constructor(
         private val browserService: OwnedStackBrowserService,
+        private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val _uiState =
             MutableStateFlow(
@@ -78,7 +81,9 @@ class OwnedStackBrowserViewModel
                     _uiState.update { state ->
                         state.copy(
                             isLoading = false,
-                            errorMessage = error.message ?: "Owned-stack request failed.",
+                            errorMessage =
+                                error.message
+                                    ?: stringResolver.getString(R.string.owned_stack_browser_request_failed),
                         )
                     }
                 }

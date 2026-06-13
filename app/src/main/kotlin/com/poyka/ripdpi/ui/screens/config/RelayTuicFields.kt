@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayCongestionControlCubic
@@ -20,20 +22,20 @@ internal fun TuicRelayFields(
     RipDpiTextField(
         value = draft.relayTuicUuid,
         onValueChange = actions.onRelayTuicUuidChanged,
-        decoration = RipDpiTextFieldDecoration(label = "TUIC UUID"),
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_tuic_uuid)),
     )
     RipDpiTextField(
         value = draft.relayTuicPassword,
         onValueChange = actions.onRelayTuicPasswordChanged,
-        decoration = RipDpiTextFieldDecoration(label = "TUIC password"),
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_tuic_password)),
     )
     RipDpiSwitch(
         checked = draft.relayTuicZeroRtt,
         onCheckedChange = actions.onRelayTuicZeroRttChanged,
-        label = "Enable 0-RTT",
+        label = stringResource(R.string.config_relay_tuic_zero_rtt),
     )
     Text(
-        text = "Congestion control",
+        text = stringResource(R.string.config_relay_tuic_congestion_control),
         style = RipDpiThemeTokens.type.caption,
         color = RipDpiThemeTokens.colors.mutedForeground,
     )
@@ -41,13 +43,13 @@ internal fun TuicRelayFields(
         RelayKindChip(
             selectedKind = draft.relayTuicCongestionControl,
             kind = RelayCongestionControlBbr,
-            label = "BBR",
+            labelRes = R.string.config_relay_tuic_congestion_bbr,
             onRelayKindChanged = actions.onRelayTuicCongestionControlChanged,
         )
         RelayKindChip(
             selectedKind = draft.relayTuicCongestionControl,
             kind = RelayCongestionControlCubic,
-            label = "CUBIC",
+            labelRes = R.string.config_relay_tuic_congestion_cubic,
             onRelayKindChanged = actions.onRelayTuicCongestionControlChanged,
         )
     }

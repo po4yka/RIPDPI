@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
@@ -38,6 +39,7 @@ import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
 import com.poyka.ripdpi.diagnostics.dpi.TelegramSpeedTest
 import com.poyka.ripdpi.diagnostics.dpi.TelegramTestVerdict
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -71,6 +73,7 @@ internal class DiagnosticsDpiSuiteController(
     private val diagnosticsFiles: DiagnosticsFiles,
     private val tlsKeylogRunFinalizer: TlsKeylogRunFinalizer,
     private val echTlsHandshake: EchTlsHandshake,
+    private val stringResolver: StringResolver,
 ) {
     private val _tool = MutableStateFlow(DiagnosticsDpiSuiteToolUiModel())
     val tool: StateFlow<DiagnosticsDpiSuiteToolUiModel> = _tool.asStateFlow()
@@ -307,7 +310,7 @@ internal class DiagnosticsDpiSuiteController(
             }
 
             is DpiSuiteEvent.ProbeCompleted -> {
-                rows.upsert(event.result.toDpiSuiteProbeRowUiModel())
+                rows.upsert(event.result.toDpiSuiteProbeRowUiModel(stringResolver))
                 _tool.value = _tool.value.copy(rows = rows.toPersistentList())
             }
 
@@ -377,24 +380,28 @@ private fun DpiSuiteEvent.ProbeProgress.progressRow(): DiagnosticsDpiSuiteProbeR
         tone = DiagnosticsTone.Info,
     )
 
-internal fun DpiSuiteProbeResult.toDpiSuiteProbeRowUiModel(): DiagnosticsDpiSuiteProbeRowUiModel =
+internal fun DpiSuiteProbeResult.toDpiSuiteProbeRowUiModel(
+    stringResolver: StringResolver,
+): DiagnosticsDpiSuiteProbeRowUiModel =
     DiagnosticsDpiSuiteProbeRowUiModel(
         kind = kind,
         label = kind.displayLabel(),
         status = statusLabel(),
         detail = detailLabel(),
         tone = tone(),
-        detailRows = detailRows(),
+        detailRows = detailRows(stringResolver),
     )
 
-private fun DpiSuiteProbeResult.detailRows(): ImmutableList<DiagnosticsDpiSuiteProbeDetailUiModel> =
+private fun DpiSuiteProbeResult.detailRows(
+    stringResolver: StringResolver,
+): ImmutableList<DiagnosticsDpiSuiteProbeDetailUiModel> =
     when (this) {
         is DpiSuiteProbeResult.DomainReachability -> {
-            results.mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsDetailRows()
+            results.mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsDetailRows(stringResolver)
         }
 
         is DpiSuiteProbeResult.Tcp16 -> {
-            results.mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsDetailRows()
+            results.mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsDetailRows(stringResolver)
         }
 
         is DpiSuiteProbeResult.QuicH3 -> {
@@ -410,15 +417,18 @@ private fun DpiSuiteProbeResult.detailRows(): ImmutableList<DiagnosticsDpiSuiteP
         }
     }
 
-private fun List<DiagnosticsTlsClientState>.toDiagnosticsTlsDetailRows():
-    ImmutableList<DiagnosticsDpiSuiteProbeDetailUiModel> {
+private fun List<DiagnosticsTlsClientState>.toDiagnosticsTlsDetailRows(
+    stringResolver: StringResolver,
+): ImmutableList<DiagnosticsDpiSuiteProbeDetailUiModel> {
     val state = firstOrNull() ?: return persistentListOf()
     val mode =
-        when {
-            state.nativeOwnedTlsAvailable -> "Native owned TLS"
-            state.fallbackActive -> "Android template fallback"
-            else -> "Default TLS"
-        }
+        stringResolver.getString(
+            when {
+                state.nativeOwnedTlsAvailable -> R.string.diagnostics_tls_mode_native_owned
+                state.fallbackActive -> R.string.diagnostics_tls_mode_android_fallback
+                else -> R.string.diagnostics_tls_mode_default
+            },
+        )
     val tone =
         when {
             state.fallbackActive -> DiagnosticsTone.Warning
@@ -429,7 +439,7 @@ private fun List<DiagnosticsTlsClientState>.toDiagnosticsTlsDetailRows():
         state.profileId?.let { profile ->
             add(
                 DiagnosticsDpiSuiteProbeDetailUiModel(
-                    label = "TLS profile",
+                    label = stringResolver.getString(R.string.diagnostics_tls_metric_profile),
                     detail = profile,
                     tone = DiagnosticsTone.Info,
                 ),
@@ -437,7 +447,7 @@ private fun List<DiagnosticsTlsClientState>.toDiagnosticsTlsDetailRows():
         }
         add(
             DiagnosticsDpiSuiteProbeDetailUiModel(
-                label = "TLS mode",
+                label = stringResolver.getString(R.string.diagnostics_tls_metric_mode),
                 detail = mode,
                 tone = tone,
             ),

@@ -8,6 +8,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsDpiSuiteProbeDetailUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDpiSuiteState
 import com.poyka.ripdpi.activities.DiagnosticsDpiSuiteToolUiModel
@@ -45,7 +47,7 @@ internal fun DpiProbeSuiteCard(
             tone = statusTone(tool.state.tone()),
         )
         Text(
-            text = "DPI-CH Comprehensive",
+            text = stringResource(R.string.diagnostics_dpi_suite_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -62,14 +64,19 @@ internal fun DpiProbeSuiteCard(
             onValueChange = onCustomDomainsChange,
             decoration =
                 RipDpiTextFieldDecoration(
-                    label = "Custom domains",
+                    label = stringResource(R.string.diagnostics_dpi_suite_custom_domains_label),
                     placeholder = "vk.com, youtube.com",
                 ),
             behavior = RipDpiTextFieldBehavior(enabled = !running),
         )
         DpiProbeSuiteConcurrencyRow(tool = tool, running = running, onConcurrencyDelta = onConcurrencyDelta)
         RipDpiButton(
-            text = if (running) "Cancel suite" else "Run suite",
+            text =
+                if (running) {
+                    stringResource(R.string.diagnostics_dpi_suite_cancel)
+                } else {
+                    stringResource(R.string.diagnostics_dpi_suite_run)
+                },
             enabled = tool.selectedKinds.isNotEmpty(),
             onClick = if (running) onCancel else onRun,
             variant = if (running) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
@@ -156,7 +163,7 @@ private fun DpiProbeSuiteConcurrencyRow(
             modifier = Modifier.weight(1f),
         )
         Text(
-            text = "Concurrency ${tool.concurrency}",
+            text = stringResource(R.string.diagnostics_dpi_suite_concurrency, tool.concurrency),
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.foreground,
             modifier = Modifier.weight(2f),
@@ -171,17 +178,20 @@ private fun DpiProbeSuiteConcurrencyRow(
     }
 }
 
+@Composable
 private fun DpiProbeKind.label(): String =
-    when (this) {
-        DpiProbeKind.DNS_INTEGRITY -> "DNS integrity"
-        DpiProbeKind.DNS_AVAILABILITY -> "DNS availability"
-        DpiProbeKind.DOMAIN_REACHABILITY -> "Domain reachability"
-        DpiProbeKind.TCP16 -> "TCP16 fat header"
-        DpiProbeKind.WHITELIST_SNI -> "SNI compatibility"
-        DpiProbeKind.TELEGRAM -> "Telegram"
-        DpiProbeKind.QUIC_H3 -> "QUIC/H3 fingerprint"
-        DpiProbeKind.ECH_READINESS -> "ECH readiness"
-    }
+    stringResource(
+        when (this) {
+            DpiProbeKind.DNS_INTEGRITY -> R.string.diagnostics_tool_dns_integrity_title
+            DpiProbeKind.DNS_AVAILABILITY -> R.string.diagnostics_tool_dns_availability_title
+            DpiProbeKind.DOMAIN_REACHABILITY -> R.string.diagnostics_tool_domain_reachability_title
+            DpiProbeKind.TCP16 -> R.string.diagnostics_dpi_probe_kind_tcp16
+            DpiProbeKind.WHITELIST_SNI -> R.string.diagnostics_tool_sni_compatibility_title
+            DpiProbeKind.TELEGRAM -> R.string.connection_health_destination_telegram
+            DpiProbeKind.QUIC_H3 -> R.string.diagnostics_dpi_probe_kind_quic_h3
+            DpiProbeKind.ECH_READINESS -> R.string.diagnostics_dpi_probe_kind_ech
+        },
+    )
 
 private fun DiagnosticsDpiSuiteState.tone(): DiagnosticsTone =
     when (this) {

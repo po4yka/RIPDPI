@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -303,13 +304,21 @@ private fun ModeEditorTcpBlock(
     onRemove: () -> Unit,
 ) {
     val descriptor = descriptorForTcp(step.kind)
+    val detailRes =
+        if (step.kind.isTlsPrelude) {
+            R.string.config_chain_step_detail_tls_prelude
+        } else {
+            R.string.config_chain_step_detail_tcp_send
+        }
     ModeEditorChainBlock(
         section = "tcp",
         index = index,
         count = count,
         descriptor = descriptor,
         value = step.marker,
-        detail = if (step.kind.isTlsPrelude) "TLS prelude" else "TCP send step",
+        detail =
+            androidx.compose.ui.res
+                .stringResource(detailRes),
         enabled = enabled,
         onMove = onMove,
         onRemove = onRemove,
@@ -332,7 +341,9 @@ private fun ModeEditorUdpBlock(
         count = count,
         descriptor = descriptor,
         value = if (step.kind == UdpChainStepKind.IpFrag2Udp) "${step.splitBytes} bytes" else "${step.count} packets",
-        detail = "UDP/QUIC step",
+        detail =
+            androidx.compose.ui.res
+                .stringResource(R.string.config_chain_step_detail_udp_quic),
         enabled = enabled,
         onMove = onMove,
         onRemove = onRemove,
@@ -367,8 +378,20 @@ private fun ModeEditorChainBlock(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-            Text(text = descriptor.label, style = RipDpiThemeTokens.type.bodyEmphasis, color = colors.foreground)
-            Text(text = descriptor.explanation, style = RipDpiThemeTokens.type.caption, color = colors.mutedForeground)
+            Text(
+                text =
+                    androidx.compose.ui.res
+                        .stringResource(descriptor.labelRes),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text =
+                    androidx.compose.ui.res
+                        .stringResource(descriptor.explanationRes),
+                style = RipDpiThemeTokens.type.caption,
+                color = colors.mutedForeground,
+            )
             Text(
                 text = "$detail - registry:${descriptor.registryId} - $value",
                 style = RipDpiThemeTokens.type.monoValue,
@@ -420,7 +443,9 @@ private fun ModeEditorAddBlockButton(
     onClick: () -> Unit,
 ) {
     RipDpiButton(
-        text = descriptor.addLabel,
+        text =
+            androidx.compose.ui.res
+                .stringResource(descriptor.addLabelRes),
         onClick = onClick,
         enabled = enabled,
         variant = RipDpiButtonVariant.Secondary,
@@ -528,9 +553,9 @@ private fun <T> List<T>.move(
 
 private data class ChainStepDescriptor(
     val id: String,
-    val label: String,
-    val addLabel: String,
-    val explanation: String,
+    @StringRes val labelRes: Int,
+    @StringRes val addLabelRes: Int,
+    @StringRes val explanationRes: Int,
     val registryId: String = id,
 )
 
@@ -538,36 +563,36 @@ private val TcpSplitDescriptor =
     ChainStepDescriptor(
         id = "split",
         registryId = "split",
-        label = "Split",
-        addLabel = "Add split",
-        explanation = "Splits the first payload at the selected Host/SNI marker.",
+        labelRes = R.string.config_chain_step_split_label,
+        addLabelRes = R.string.config_chain_step_split_add,
+        explanationRes = R.string.config_chain_step_split_explanation,
     )
 
 private val TcpFakeDescriptor =
     ChainStepDescriptor(
         id = "fake",
         registryId = "fake",
-        label = "Fake packet",
-        addLabel = "Add fake",
-        explanation = "Injects a fake low-TTL packet before the real payload.",
+        labelRes = R.string.config_chain_step_fake_label,
+        addLabelRes = R.string.config_chain_step_fake_add,
+        explanationRes = R.string.config_chain_step_fake_explanation,
     )
 
 private val TcpTlsRecDescriptor =
     ChainStepDescriptor(
         id = "tlsrec",
         registryId = "tls_rec",
-        label = "TLS record split",
-        addLabel = "Add tlsrec",
-        explanation = "Fragments the TLS record before TCP send steps run.",
+        labelRes = R.string.config_chain_step_tlsrec_label,
+        addLabelRes = R.string.config_chain_step_tlsrec_add,
+        explanationRes = R.string.config_chain_step_tlsrec_explanation,
     )
 
 private val UdpFakeBurstDescriptor =
     ChainStepDescriptor(
         id = "fake_burst",
         registryId = "udplen",
-        label = "QUIC fake burst",
-        addLabel = "Add UDP fake",
-        explanation = "Sends fake QUIC Initial packets before the real datagram.",
+        labelRes = R.string.config_chain_step_fake_burst_label,
+        addLabelRes = R.string.config_chain_step_fake_burst_add,
+        explanationRes = R.string.config_chain_step_fake_burst_explanation,
     )
 
 private val TcpChainDescriptors =
@@ -579,97 +604,97 @@ private val TcpChainDescriptors =
             ChainStepDescriptor(
                 id = "tlsrandrec",
                 registryId = "tls_rand_rec",
-                label = "Random TLS records",
-                addLabel = "Add tlsrandrec",
-                explanation = "Randomizes TLS record fragments before TCP send steps.",
+                labelRes = R.string.config_chain_step_tlsrandrec_label,
+                addLabelRes = R.string.config_chain_step_tlsrandrec_add,
+                explanationRes = R.string.config_chain_step_tlsrandrec_explanation,
             ),
         TcpChainStepKind.SynData to
             ChainStepDescriptor(
                 id = "syndata",
                 registryId = "split",
-                label = "SYN data",
-                addLabel = "Add syndata",
-                explanation = "Places initial data on the SYN path when supported.",
+                labelRes = R.string.config_chain_step_syndata_label,
+                addLabelRes = R.string.config_chain_step_syndata_add,
+                explanationRes = R.string.config_chain_step_syndata_explanation,
             ),
         TcpChainStepKind.SeqOverlap to
             ChainStepDescriptor(
                 id = "seqovl",
                 registryId = "seq_overlap",
-                label = "Sequence overlap",
-                addLabel = "Add seqovl",
-                explanation = "Overlaps TCP sequence bytes to confuse reassembly.",
+                labelRes = R.string.config_chain_step_seqovl_label,
+                addLabelRes = R.string.config_chain_step_seqovl_add,
+                explanationRes = R.string.config_chain_step_seqovl_explanation,
             ),
         TcpChainStepKind.Disorder to
             ChainStepDescriptor(
                 id = "disorder",
                 registryId = "disorder",
-                label = "Disorder",
-                addLabel = "Add disorder",
-                explanation = "Sends an early low-TTL segment before the real ordering.",
+                labelRes = R.string.config_chain_step_disorder_label,
+                addLabelRes = R.string.config_chain_step_disorder_add,
+                explanationRes = R.string.config_chain_step_disorder_explanation,
             ),
         TcpChainStepKind.MultiDisorder to
             ChainStepDescriptor(
                 id = "multidisorder",
                 registryId = "multi_disorder",
-                label = "Multi-disorder",
-                addLabel = "Add multidisorder",
-                explanation = "Uses multiple disorder markers as a dedicated send family.",
+                labelRes = R.string.config_chain_step_multidisorder_label,
+                addLabelRes = R.string.config_chain_step_multidisorder_add,
+                explanationRes = R.string.config_chain_step_multidisorder_explanation,
             ),
         TcpChainStepKind.FakeSplit to
             ChainStepDescriptor(
                 id = "fakedsplit",
                 registryId = "fake",
-                label = "Fake split",
-                addLabel = "Add fakedsplit",
-                explanation = "Combines split delivery with a fake second fragment.",
+                labelRes = R.string.config_chain_step_fakedsplit_label,
+                addLabelRes = R.string.config_chain_step_fakedsplit_add,
+                explanationRes = R.string.config_chain_step_fakedsplit_explanation,
             ),
         TcpChainStepKind.FakeDisorder to
             ChainStepDescriptor(
                 id = "fakeddisorder",
                 registryId = "fake",
-                label = "Fake disorder",
-                addLabel = "Add fakeddisorder",
-                explanation = "Combines disorder delivery with a fake fragment.",
+                labelRes = R.string.config_chain_step_fakeddisorder_label,
+                addLabelRes = R.string.config_chain_step_fakeddisorder_add,
+                explanationRes = R.string.config_chain_step_fakeddisorder_explanation,
             ),
         TcpChainStepKind.HostFake to
             ChainStepDescriptor(
                 id = "hostfake",
                 registryId = "fake",
-                label = "Host fake",
-                addLabel = "Add hostfake",
-                explanation = "Targets the Host/SNI region with a fake hostname.",
+                labelRes = R.string.config_chain_step_hostfake_label,
+                addLabelRes = R.string.config_chain_step_hostfake_add,
+                explanationRes = R.string.config_chain_step_hostfake_explanation,
             ),
         TcpChainStepKind.FakeRst to
             ChainStepDescriptor(
                 id = "fakerst",
                 registryId = "fake_rst",
-                label = "Fake RST",
-                addLabel = "Add fakerst",
-                explanation = "Injects a fake reset packet for middlebox state poisoning.",
+                labelRes = R.string.config_chain_step_fakerst_label,
+                addLabelRes = R.string.config_chain_step_fakerst_add,
+                explanationRes = R.string.config_chain_step_fakerst_explanation,
             ),
         TcpChainStepKind.Oob to
             ChainStepDescriptor(
                 id = "oob",
                 registryId = "oob",
-                label = "Out-of-band",
-                addLabel = "Add oob",
-                explanation = "Sends the selected byte through TCP urgent data.",
+                labelRes = R.string.config_chain_step_oob_label,
+                addLabelRes = R.string.config_chain_step_oob_add,
+                explanationRes = R.string.config_chain_step_oob_explanation,
             ),
         TcpChainStepKind.Disoob to
             ChainStepDescriptor(
                 id = "disoob",
                 registryId = "oob",
-                label = "Disorder OOB",
-                addLabel = "Add disoob",
-                explanation = "Combines low-TTL disorder with urgent data.",
+                labelRes = R.string.config_chain_step_disoob_label,
+                addLabelRes = R.string.config_chain_step_disoob_add,
+                explanationRes = R.string.config_chain_step_disoob_explanation,
             ),
         TcpChainStepKind.IpFrag2 to
             ChainStepDescriptor(
                 id = "ipfrag2",
                 registryId = "ip_frag",
-                label = "IP fragmentation",
-                addLabel = "Add ipfrag2",
-                explanation = "Fragments the TCP payload at the IP layer.",
+                labelRes = R.string.config_chain_step_ipfrag2_label,
+                addLabelRes = R.string.config_chain_step_ipfrag2_add,
+                explanationRes = R.string.config_chain_step_ipfrag2_explanation,
             ),
     )
 
@@ -680,81 +705,81 @@ private val UdpChainDescriptors =
             ChainStepDescriptor(
                 id = "dummy_prepend",
                 registryId = "udplen",
-                label = "Dummy prepend",
-                addLabel = "Add dummy",
-                explanation = "Prepends non-QUIC dummy datagrams.",
+                labelRes = R.string.config_chain_step_dummy_prepend_label,
+                addLabelRes = R.string.config_chain_step_dummy_prepend_add,
+                explanationRes = R.string.config_chain_step_dummy_prepend_explanation,
             ),
         UdpChainStepKind.QuicSniSplit to
             ChainStepDescriptor(
                 id = "quic_sni_split",
                 registryId = "udplen",
-                label = "QUIC SNI split",
-                addLabel = "Add SNI split",
-                explanation = "Splits the QUIC Initial SNI view.",
+                labelRes = R.string.config_chain_step_quic_sni_split_label,
+                addLabelRes = R.string.config_chain_step_quic_sni_split_add,
+                explanationRes = R.string.config_chain_step_quic_sni_split_explanation,
             ),
         UdpChainStepKind.QuicFakeVersion to
             ChainStepDescriptor(
                 id = "quic_fake_version",
                 registryId = "udplen",
-                label = "QUIC fake version",
-                addLabel = "Add fake version",
-                explanation = "Poisons QUIC version detection.",
+                labelRes = R.string.config_chain_step_quic_fake_version_label,
+                addLabelRes = R.string.config_chain_step_quic_fake_version_add,
+                explanationRes = R.string.config_chain_step_quic_fake_version_explanation,
             ),
         UdpChainStepKind.QuicCryptoSplit to
             ChainStepDescriptor(
                 id = "quic_crypto_split",
                 registryId = "udplen",
-                label = "QUIC crypto split",
-                addLabel = "Add crypto split",
-                explanation = "Splits QUIC crypto frame parsing.",
+                labelRes = R.string.config_chain_step_quic_crypto_split_label,
+                addLabelRes = R.string.config_chain_step_quic_crypto_split_add,
+                explanationRes = R.string.config_chain_step_quic_crypto_split_explanation,
             ),
         UdpChainStepKind.QuicPaddingLadder to
             ChainStepDescriptor(
                 id = "quic_padding_ladder",
                 registryId = "udplen",
-                label = "QUIC padding ladder",
-                addLabel = "Add padding",
-                explanation = "Varies Initial packet padding sizes.",
+                labelRes = R.string.config_chain_step_quic_padding_ladder_label,
+                addLabelRes = R.string.config_chain_step_quic_padding_ladder_add,
+                explanationRes = R.string.config_chain_step_quic_padding_ladder_explanation,
             ),
         UdpChainStepKind.QuicCidChurn to
             ChainStepDescriptor(
                 id = "quic_cid_churn",
                 registryId = "udplen",
-                label = "QUIC CID churn",
-                addLabel = "Add CID churn",
-                explanation = "Varies QUIC connection IDs across decoys.",
+                labelRes = R.string.config_chain_step_quic_cid_churn_label,
+                addLabelRes = R.string.config_chain_step_quic_cid_churn_add,
+                explanationRes = R.string.config_chain_step_quic_cid_churn_explanation,
             ),
         UdpChainStepKind.QuicPacketNumberGap to
             ChainStepDescriptor(
                 id = "quic_packet_number_gap",
                 registryId = "udplen",
-                label = "QUIC PN gap",
-                addLabel = "Add PN gap",
-                explanation = "Creates packet-number gaps in decoy traffic.",
+                labelRes = R.string.config_chain_step_quic_pn_gap_label,
+                addLabelRes = R.string.config_chain_step_quic_pn_gap_add,
+                explanationRes = R.string.config_chain_step_quic_pn_gap_explanation,
             ),
         UdpChainStepKind.QuicVersionNegotiationDecoy to
             ChainStepDescriptor(
                 id = "quic_version_negotiation_decoy",
                 registryId = "udplen",
-                label = "Version negotiation decoy",
-                addLabel = "Add VN decoy",
-                explanation = "Adds QUIC version-negotiation decoys.",
+                labelRes = R.string.config_chain_step_quic_vn_decoy_label,
+                addLabelRes = R.string.config_chain_step_quic_vn_decoy_add,
+                explanationRes = R.string.config_chain_step_quic_vn_decoy_explanation,
             ),
         UdpChainStepKind.QuicMultiInitialRealistic to
             ChainStepDescriptor(
                 id = "quic_multi_initial_realistic",
                 registryId = "udplen",
-                label = "Multi Initial",
-                addLabel = "Add multi Initial",
-                explanation = "Sends realistic alternate QUIC Initial packets.",
+                labelRes = R.string.config_chain_step_quic_multi_initial_label,
+                addLabelRes = R.string.config_chain_step_quic_multi_initial_add,
+                explanationRes = R.string.config_chain_step_quic_multi_initial_explanation,
             ),
         UdpChainStepKind.IpFrag2Udp to
             ChainStepDescriptor(
                 id = "ipfrag2_udp",
                 registryId = "ip_frag",
-                label = "UDP IP fragmentation",
-                addLabel = "Add UDP ipfrag2",
-                explanation = "Fragments the UDP datagram at the IP layer.",
+                labelRes = R.string.config_chain_step_ipfrag2_udp_label,
+                addLabelRes = R.string.config_chain_step_ipfrag2_udp_add,
+                explanationRes = R.string.config_chain_step_ipfrag2_udp_explanation,
             ),
     )
 

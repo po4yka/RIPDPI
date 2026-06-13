@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer
 import com.poyka.ripdpi.diagnostics.dpich.WhitelistedSubnetResult
 import com.poyka.ripdpi.diagnostics.dpich.toWhitelistedSubnetCsv
+import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -15,6 +17,7 @@ internal class DiagnosticsIpv4WhitelistController(
     private val scope: CoroutineScope,
     private val discoverer: Ipv4WhitelistedSubnetDiscoverer,
     private val shareCsv: (String) -> Unit,
+    private val stringResolver: StringResolver,
 ) {
     private val _tool = MutableStateFlow(DiagnosticsIpv4WhitelistToolUiModel())
     val tool: StateFlow<DiagnosticsIpv4WhitelistToolUiModel> = _tool.asStateFlow()
@@ -26,7 +29,7 @@ internal class DiagnosticsIpv4WhitelistController(
         _tool.value =
             DiagnosticsIpv4WhitelistToolUiModel(
                 state = DiagnosticsIpv4WhitelistState.Running,
-                summary = "Fetching announced IPv4 prefixes...",
+                summary = stringResolver.getString(R.string.diagnostics_ipv4_whitelist_fetching),
             )
         scope.launch {
             val cachedProviders = mutableSetOf<String>()
@@ -38,16 +41,21 @@ internal class DiagnosticsIpv4WhitelistController(
                     _tool.value =
                         DiagnosticsIpv4WhitelistToolUiModel(
                             state = DiagnosticsIpv4WhitelistState.Running,
-                            summary = "Cached ${progress.cachedCidrs.size} /24 ranges for ${progress.provider}.",
+                            summary =
+                                stringResolver.getString(
+                                    R.string.diagnostics_ipv4_whitelist_cached_provider,
+                                    progress.cachedCidrs.size,
+                                    progress.provider,
+                                ),
                             metrics =
                                 listOf(
                                     DiagnosticsMetricUiModel(
-                                        "providers",
+                                        stringResolver.getString(R.string.diagnostics_ipv4_whitelist_metric_providers),
                                         cachedProviders.size.toString(),
                                         DiagnosticsTone.Info,
                                     ),
                                     DiagnosticsMetricUiModel(
-                                        "cached /24",
+                                        stringResolver.getString(R.string.diagnostics_ipv4_whitelist_metric_cached_24),
                                         cachedCidrs.toString(),
                                         DiagnosticsTone.Info,
                                     ),
@@ -58,16 +66,20 @@ internal class DiagnosticsIpv4WhitelistController(
                 _tool.value =
                     DiagnosticsIpv4WhitelistToolUiModel(
                         state = DiagnosticsIpv4WhitelistState.Complete,
-                        summary = "Cached $cachedCidrs candidate /24 ranges.",
+                        summary =
+                            stringResolver.getString(
+                                R.string.diagnostics_ipv4_whitelist_cached_complete,
+                                cachedCidrs,
+                            ),
                         metrics =
                             listOf(
                                 DiagnosticsMetricUiModel(
-                                    "providers",
+                                    stringResolver.getString(R.string.diagnostics_ipv4_whitelist_metric_providers),
                                     cachedProviders.size.toString(),
                                     DiagnosticsTone.Positive,
                                 ),
                                 DiagnosticsMetricUiModel(
-                                    "cached /24",
+                                    stringResolver.getString(R.string.diagnostics_ipv4_whitelist_metric_cached_24),
                                     cachedCidrs.toString(),
                                     DiagnosticsTone.Positive,
                                 ),
@@ -75,7 +87,7 @@ internal class DiagnosticsIpv4WhitelistController(
                     )
             }.onFailure { error ->
                 if (error is CancellationException) throw error
-                fail("Subnet cache failed.", error)
+                fail(stringResolver.getString(R.string.diagnostics_ipv4_whitelist_cache_failed), error)
             }
         }
     }
@@ -87,7 +99,7 @@ internal class DiagnosticsIpv4WhitelistController(
         _tool.value =
             _tool.value.copy(
                 state = DiagnosticsIpv4WhitelistState.Running,
-                summary = "Sampling cached subnets...",
+                summary = stringResolver.getString(R.string.diagnostics_ipv4_whitelist_sampling),
                 errorMessage = null,
             )
         scope.launch {
@@ -97,15 +109,21 @@ internal class DiagnosticsIpv4WhitelistController(
                     results += progress.result
                     _tool.value =
                         results.toIpv4WhitelistUiModel(
+                            stringResolver = stringResolver,
                             state = DiagnosticsIpv4WhitelistState.Running,
-                            summary = "Checked ${progress.checkedCount}/${progress.totalCount} cached subnets.",
+                            summary =
+                                stringResolver.getString(
+                                    R.string.diagnostics_ipv4_whitelist_checked_progress,
+                                    progress.checkedCount,
+                                    progress.totalCount,
+                                ),
                         )
                 }
             }.onSuccess {
-                _tool.value = results.toIpv4WhitelistUiModel()
+                _tool.value = results.toIpv4WhitelistUiModel(stringResolver)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
-                fail("Subnet check failed.", error)
+                fail(stringResolver.getString(R.string.diagnostics_ipv4_whitelist_check_failed), error)
             }
         }
     }
@@ -131,8 +149,10 @@ internal class DiagnosticsIpv4WhitelistController(
 }
 
 internal fun List<WhitelistedSubnetResult>.toIpv4WhitelistUiModel(
+    stringResolver: StringResolver,
     state: DiagnosticsIpv4WhitelistState = DiagnosticsIpv4WhitelistState.Complete,
-    summary: String = "Checked $size cached subnets.",
+    summary: String =
+        stringResolver.getString(R.string.diagnostics_ipv4_whitelist_checked_complete, size),
 ): DiagnosticsIpv4WhitelistToolUiModel {
     val whitelisted = count(WhitelistedSubnetResult::whitelisted)
     return DiagnosticsIpv4WhitelistToolUiModel(
@@ -140,20 +160,35 @@ internal fun List<WhitelistedSubnetResult>.toIpv4WhitelistUiModel(
         summary = summary,
         metrics =
             listOf(
-                DiagnosticsMetricUiModel("checked", size.toString(), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("whitelisted", whitelisted.toString(), countTone(whitelisted)),
+                DiagnosticsMetricUiModel(
+                    stringResolver.getString(R.string.diagnostics_ipv4_whitelist_metric_checked),
+                    size.toString(),
+                    DiagnosticsTone.Info,
+                ),
+                DiagnosticsMetricUiModel(
+                    stringResolver.getString(R.string.diagnostics_ipv4_whitelist_metric_whitelisted),
+                    whitelisted.toString(),
+                    countTone(whitelisted),
+                ),
             ).toPersistentList(),
-        rows = map(WhitelistedSubnetResult::toUiModel).toPersistentList(),
+        rows = map { it.toUiModel(stringResolver) }.toPersistentList(),
         csv = toWhitelistedSubnetCsv(),
     )
 }
 
-private fun WhitelistedSubnetResult.toUiModel(): DiagnosticsIpv4WhitelistSubnetUiModel =
+private fun WhitelistedSubnetResult.toUiModel(stringResolver: StringResolver): DiagnosticsIpv4WhitelistSubnetUiModel =
     DiagnosticsIpv4WhitelistSubnetUiModel(
         provider = provider,
         cidr = cidr,
         alive = "$aliveCount/$aliveSampled",
-        verdict = if (whitelisted) "whitelisted" else "regular",
+        verdict =
+            stringResolver.getString(
+                if (whitelisted) {
+                    R.string.diagnostics_ipv4_whitelist_verdict_whitelisted
+                } else {
+                    R.string.diagnostics_ipv4_whitelist_verdict_regular
+                },
+            ),
         tone = if (whitelisted) DiagnosticsTone.Positive else DiagnosticsTone.Neutral,
     )
 

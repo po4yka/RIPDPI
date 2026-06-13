@@ -144,7 +144,7 @@ internal fun VerdictScoreCard(
         )
         explanation?.let {
             Text(
-                text = "${it.ruleApplied}: ${it.summary}",
+                text = stringResource(R.string.detection_verdict_explanation_format, it.ruleApplied, it.summary),
                 style = RipDpiThemeTokens.type.caption,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
@@ -187,18 +187,18 @@ private fun VerdictOutcomeHierarchy(
     )
     exposureVerdict?.let {
         Text(
-            text = "Reason: ${it.reason}",
+            text = stringResource(R.string.detection_verdict_reason_format, it.reason),
             style = type.caption,
             color = colors.mutedForeground,
         )
         Text(
-            text = "What to adjust: ${it.adjustmentHint}",
+            text = stringResource(R.string.detection_verdict_adjust_format, it.adjustmentHint),
             style = type.caption,
             color = colors.mutedForeground,
         )
     }
     Text(
-        text = probeSummary.summary(),
+        text = stringResource(R.string.detection_probe_outcome_format, probeSummary.detected, probeSummary.total),
         style = type.caption,
         color = colors.mutedForeground,
     )
@@ -213,11 +213,15 @@ private fun VerdictOutcomeHierarchy(
         ) {
             Column {
                 Text(
-                    text = "Where masking applied, stealth",
+                    text = stringResource(R.string.detection_stealth_score_label),
                     style = type.caption,
                     color = colors.mutedForeground,
                 )
-                Text(text = "$animatedScore/100", style = type.screenTitle, color = scoreColor)
+                Text(
+                    text = stringResource(R.string.detection_stealth_score_value, animatedScore),
+                    style = type.screenTitle,
+                    color = scoreColor,
+                )
             }
             label?.let { Text(text = it, style = type.bodyEmphasis, color = scoreColor) }
         }
@@ -253,13 +257,12 @@ private fun DetectionCheckResult.probeSummary(): DetectionProbeSummary {
     return DetectionProbeSummary(detected = probes.count { it }, total = probes.size)
 }
 
-private fun DetectionProbeSummary.summary(): String = "Probe outcome: $detected/$total signals exposed"
-
+@Composable
 private fun DetectionProbeSummary.fallbackHeadline(): String =
     if (detected == 0) {
-        "You look like ordinary HTTPS traffic"
+        stringResource(R.string.detection_headline_ordinary_https)
     } else {
-        "Your traffic is distinguishable by detection probe"
+        stringResource(R.string.detection_headline_distinguishable)
     }
 
 private const val ScoreStrongThreshold = 70
@@ -319,7 +322,7 @@ internal fun VerdictNarrativeCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "VERDICT NARRATIVE",
+                text = stringResource(R.string.detection_verdict_narrative_title),
                 style = type.sectionTitle,
                 color = colors.mutedForeground,
             )
@@ -329,7 +332,7 @@ internal fun VerdictNarrativeCard(
             )
         }
         Text(
-            text = "What was discovered",
+            text = stringResource(R.string.detection_narrative_discovered_heading),
             style = type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -350,7 +353,7 @@ internal fun VerdictNarrativeCard(
             }
         }
         Text(
-            text = "Why this verdict",
+            text = stringResource(R.string.detection_narrative_reason_heading),
             style = type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -598,25 +601,25 @@ private fun MutableList<CategoryEntry>.addAdvancedCategoryEntries(result: Detect
     )
     addOptionalCategory(
         result.cdnPulling?.category,
-        "CDN pulling",
+        stringResource(R.string.detection_check_category_cdn_pulling),
         "cdn_pulling",
         RipDpiIcons.Public,
     )
     addOptionalCategory(
         result.callTransport?.category,
-        "Call transport",
+        stringResource(R.string.detection_check_category_call_transport),
         "call_transport",
         RipDpiIcons.Videocam,
     )
     addOptionalCategory(
         result.ipConsensus?.toCategoryResult(),
-        "IP consensus",
+        stringResource(R.string.detection_check_category_ip_consensus),
         "ip_consensus",
         RipDpiIcons.Public,
     )
     addOptionalCategory(
         result.nativeSigns?.category,
-        "Native signs",
+        stringResource(R.string.detection_check_category_native_signs),
         "native_signs",
         RipDpiIcons.NetworkCheck,
     )
@@ -767,13 +770,14 @@ private fun FindingRow(
     }
 }
 
+@Composable
 private fun ExposureStatus.displayLabel(): String =
     when (this) {
-        ExposureStatus.REMOTE_ENDPOINT_DISCOVERED -> "Remote endpoint"
-        ExposureStatus.PUBLIC_IP_ONLY -> "Public IP"
-        ExposureStatus.LOCAL_PROXY_OR_API_ONLY -> "Local proxy/API"
-        ExposureStatus.TECHNICAL_SIGNAL_ONLY -> "Technical signal"
-        ExposureStatus.INSUFFICIENT_DATA -> "Insufficient data"
+        ExposureStatus.REMOTE_ENDPOINT_DISCOVERED -> stringResource(R.string.detection_exposure_remote_endpoint)
+        ExposureStatus.PUBLIC_IP_ONLY -> stringResource(R.string.detection_exposure_public_ip)
+        ExposureStatus.LOCAL_PROXY_OR_API_ONLY -> stringResource(R.string.detection_exposure_local_proxy_api)
+        ExposureStatus.TECHNICAL_SIGNAL_ONLY -> stringResource(R.string.detection_exposure_technical_signal)
+        ExposureStatus.INSUFFICIENT_DATA -> stringResource(R.string.detection_exposure_insufficient_data)
     }
 
 private fun ExposureStatus.indicatorTone(): StatusIndicatorTone =

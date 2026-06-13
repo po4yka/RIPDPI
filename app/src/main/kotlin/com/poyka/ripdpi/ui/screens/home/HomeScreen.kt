@@ -433,19 +433,19 @@ private fun HomeDegradationStrip(
         persistentListOf(
             RipDpiDegradationMetric(
                 label = stringResource(R.string.vpn_quality_metric_loss),
-                value = "%.1f%%".format(quality.lossPct),
+                value = stringResource(R.string.home_quality_metric_loss_format, quality.lossPct),
                 delta = "",
                 deltaIsBad = false,
             ),
             RipDpiDegradationMetric(
                 label = stringResource(R.string.vpn_quality_metric_rtt_p50),
-                value = "${quality.rttP50Ms} ms",
+                value = stringResource(R.string.home_quality_metric_ms_format, quality.rttP50Ms),
                 delta = "",
                 deltaIsBad = false,
             ),
             RipDpiDegradationMetric(
                 label = stringResource(R.string.vpn_quality_metric_jitter),
-                value = "${quality.jitterMs} ms",
+                value = stringResource(R.string.home_quality_metric_ms_format, quality.jitterMs),
                 delta = "",
                 deltaIsBad = false,
             ),

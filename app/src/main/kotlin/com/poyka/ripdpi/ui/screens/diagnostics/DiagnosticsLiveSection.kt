@@ -133,7 +133,7 @@ internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val heroTone = liveHeroTone(live.health)
-    val liveBadgeText = live.networkLabel ?: live.modeLabel ?: "Standby"
+    val liveBadgeText = live.networkLabel ?: live.modeLabel ?: stringResource(R.string.diagnostics_live_standby)
     RipDpiMetricSurface(
         tone = heroTone,
         modifier = Modifier.fillMaxWidth(),

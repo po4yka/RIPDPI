@@ -192,7 +192,10 @@ internal class MainHomeDiagnosticsActions(
                                     DiagnosticsHomeVerificationOutcome(
                                         sessionId = sessionId,
                                         success = false,
-                                        headline = "VPN verification was incomplete",
+                                        headline =
+                                            stringResolver.getString(
+                                                R.string.home_diagnostics_verification_incomplete,
+                                            ),
                                         summary = session.summary,
                                     )
                                 }
@@ -237,7 +240,10 @@ internal class MainHomeDiagnosticsActions(
                                         DiagnosticsHomeVerificationOutcome(
                                             sessionId = "",
                                             success = false,
-                                            headline = "VPN failed to start",
+                                            headline =
+                                                stringResolver.getString(
+                                                    R.string.home_diagnostics_vpn_failed_to_start,
+                                                ),
                                             summary =
                                                 mutations.currentUiState().errorMessage
                                                     ?: stringResolver.getString(R.string.connection_timed_out),
@@ -279,7 +285,7 @@ internal class MainHomeDiagnosticsActions(
             DiagnosticsHomeVerificationOutcome(
                 sessionId = "",
                 success = false,
-                headline = "VPN permission is required",
+                headline = stringResolver.getString(R.string.home_diagnostics_vpn_permission_required_headline),
                 summary = stringResolver.getString(R.string.home_diagnostics_permission_required),
             )
         } else {
@@ -542,7 +548,7 @@ internal class MainHomeDiagnosticsActions(
                                 DiagnosticsHomeVerificationOutcome(
                                     sessionId = "",
                                     success = false,
-                                    headline = "VPN verification is busy",
+                                    headline = stringResolver.getString(R.string.home_diagnostics_verification_busy),
                                     summary = stringResolver.getString(R.string.diagnostics_error_hidden_probe_running),
                                 ),
                         )
@@ -558,7 +564,7 @@ internal class MainHomeDiagnosticsActions(
                         DiagnosticsHomeVerificationOutcome(
                             sessionId = "",
                             success = false,
-                            headline = "VPN verification could not start",
+                            headline = stringResolver.getString(R.string.home_diagnostics_verification_could_not_start),
                             summary = stringResolver.getString(R.string.home_diagnostics_verification_failed),
                         ),
                 )

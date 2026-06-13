@@ -199,6 +199,15 @@ class FakeStringResolver : StringResolver {
         }
 }
 
+class ResourceStringResolver : StringResolver {
+    private val application: android.app.Application = org.robolectric.RuntimeEnvironment.getApplication()
+
+    override fun getString(
+        resId: Int,
+        vararg formatArgs: Any,
+    ): String = application.getString(resId, *formatArgs)
+}
+
 class FakeTrafficStatsReader(
     var transferredBytes: Long = 0L,
 ) : TrafficStatsReader {

@@ -253,8 +253,8 @@ private fun DnsBaselineBadge(status: DnsBaselineStatus) {
     RipDpiMetricPill(
         text =
             when (status) {
-                DnsBaselineStatus.CLEAN -> "DNS: Clean"
-                DnsBaselineStatus.TAMPERED -> "DNS: Tampered (DoH fallback)"
+                DnsBaselineStatus.CLEAN -> stringResource(R.string.diagnostics_scan_dns_baseline_clean)
+                DnsBaselineStatus.TAMPERED -> stringResource(R.string.diagnostics_scan_dns_baseline_tampered)
             },
         tone = metricTone(tone),
         shape = RipDpiThemeTokens.shapes.full,
@@ -269,7 +269,7 @@ private fun DnsBaselineBadge(status: DnsBaselineStatus) {
 @Composable
 private fun DpiFailureClassBadge(failureClass: DpiFailureClass) {
     RipDpiMetricPill(
-        text = "DPI: ${failureClass.displayLabel}",
+        text = stringResource(R.string.diagnostics_scan_dpi_failure_label, failureClass.displayLabel),
         tone = RipDpiMetricTone.Negative,
         shape = RipDpiThemeTokens.shapes.full,
         paddingValues =
@@ -294,7 +294,14 @@ private fun NetworkContextRow(context: ScanNetworkContextUiModel) {
             NetworkContextChip(text = resolver, tone = RipDpiMetricTone.Info)
         }
         NetworkContextChip(
-            text = if (context.validated) "Validated" else "Not validated",
+            text =
+                stringResource(
+                    if (context.validated) {
+                        R.string.diagnostics_status_validated
+                    } else {
+                        R.string.diagnostics_scan_network_not_validated
+                    },
+                ),
             tone = if (context.validated) RipDpiMetricTone.Positive else RipDpiMetricTone.Neutral,
         )
     }
@@ -486,13 +493,15 @@ internal fun DiagnosticsProfileCard(
             buildString {
                 append(description)
                 if (profile.manualOnly) {
-                    append(" Manual run only.")
+                    append(" ")
+                    append(stringResource(R.string.diagnostics_profile_manual_run_only))
                 }
                 if (profile.requiresExplicitConsent) {
                     append(" ${stringResource(R.string.diagnostics_profile_explicit_consent_required)}")
                 }
                 if (profile.packRefs.isNotEmpty()) {
-                    append(" ${profile.packRefs.size} curated packs included.")
+                    append(" ")
+                    append(stringResource(R.string.diagnostics_profile_curated_packs_included, profile.packRefs.size))
                 }
             },
         badgeText =
@@ -523,7 +532,13 @@ internal fun ResolverRecommendationCard(
     ) {
         StatusIndicator(
             label =
-                if (recommendation.appliedTemporarily) "Temporary DNS override active" else "Encrypted DNS recommended",
+                stringResource(
+                    if (recommendation.appliedTemporarily) {
+                        R.string.diagnostics_resolver_override_active
+                    } else {
+                        R.string.diagnostics_resolver_encrypted_recommended
+                    },
+                ),
             tone =
                 if (recommendation.appliedTemporarily) StatusIndicatorTone.Active else StatusIndicatorTone.Warning,
         )
@@ -548,7 +563,7 @@ internal fun ResolverRecommendationCard(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             RipDpiButton(
-                text = "Keep for this session",
+                text = stringResource(R.string.diagnostics_resolver_keep_session),
                 onClick = onKeepForSession,
                 variant = RipDpiButtonVariant.Secondary,
                 modifier =
@@ -558,7 +573,7 @@ internal fun ResolverRecommendationCard(
             )
             if (recommendation.persistable) {
                 RipDpiButton(
-                    text = "Save as DNS setting",
+                    text = stringResource(R.string.diagnostics_resolver_save_setting),
                     onClick = onSaveAsSetting,
                     variant = RipDpiButtonVariant.Primary,
                     modifier =

@@ -17,11 +17,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -123,10 +125,10 @@ private fun RipDpiQrCodeSpecs(metadata: RipDpiQrCodeMetadata) {
     val spacing = RipDpiThemeTokens.spacing
     val pairs =
         listOf(
-            "VERSION" to metadata.versionLabel,
-            "PAYLOAD" to metadata.payloadLabel,
-            "SCHEMA" to metadata.schemaLabel,
-            "ECC" to metadata.eccLabel,
+            stringResource(R.string.qr_share_spec_version) to metadata.versionLabel,
+            stringResource(R.string.qr_share_spec_payload) to metadata.payloadLabel,
+            stringResource(R.string.qr_share_spec_schema) to metadata.schemaLabel,
+            stringResource(R.string.qr_share_spec_ecc) to metadata.eccLabel,
         )
     Column(
         modifier = Modifier.fillMaxWidth(),

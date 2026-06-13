@@ -21,7 +21,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -29,12 +28,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiClickable
@@ -274,7 +275,7 @@ fun RipDpiRouteStackDiagram(
         RipDpiThemeTokens.surfaces.resolve(
             RipDpiThemeTokens.surfaceRoles.routes.stack,
         )
-    val description = remember(state) { state.accessibilityDescription() }
+    val description = state.accessibilityDescription()
 
     Row(
         modifier =
@@ -405,7 +406,7 @@ private fun RouteStateBadge(
     state: RipDpiRouteAvailabilityState,
     active: Boolean,
 ) {
-    val label = if (active) "Active" else state.label()
+    val label = if (active) stringResource(R.string.route_state_active) else state.label()
     val style =
         RipDpiThemeTokens.state.route.resolve(
             if (active) RipDpiRouteAvailabilityStateRole.Active else state.toThemeRole(),
@@ -520,31 +521,39 @@ private fun RipDpiRouteAvailabilityState.toThemeRole(): RipDpiRouteAvailabilityS
         RipDpiRouteAvailabilityState.Failed -> RipDpiRouteAvailabilityStateRole.Failed
     }
 
+@Composable
 private fun RipDpiRouteAvailabilityState.label(): String =
-    when (this) {
-        RipDpiRouteAvailabilityState.Available -> "Available"
-        RipDpiRouteAvailabilityState.Selected -> "Selected"
-        RipDpiRouteAvailabilityState.Configured -> "Configured"
-        RipDpiRouteAvailabilityState.NeedsSetup -> "Setup"
-        RipDpiRouteAvailabilityState.Restricted -> "Restricted"
-        RipDpiRouteAvailabilityState.Active -> "Active"
-        RipDpiRouteAvailabilityState.Degraded -> "Degraded"
-        RipDpiRouteAvailabilityState.Failed -> "Failed"
-    }
+    stringResource(
+        when (this) {
+            RipDpiRouteAvailabilityState.Available -> R.string.route_state_available
+            RipDpiRouteAvailabilityState.Selected -> R.string.route_state_selected
+            RipDpiRouteAvailabilityState.Configured -> R.string.route_state_configured
+            RipDpiRouteAvailabilityState.NeedsSetup -> R.string.route_state_needs_setup
+            RipDpiRouteAvailabilityState.Restricted -> R.string.route_state_restricted
+            RipDpiRouteAvailabilityState.Active -> R.string.route_state_active
+            RipDpiRouteAvailabilityState.Degraded -> R.string.route_state_degraded
+            RipDpiRouteAvailabilityState.Failed -> R.string.route_state_failed
+        },
+    )
 
+@Composable
 private fun RipDpiRouteStackUiState.accessibilityDescription(): String {
+    val statusFailed = stringResource(R.string.route_stack_status_failed)
+    val statusWarning = stringResource(R.string.route_stack_status_warning)
+    val statusActive = stringResource(R.string.route_stack_status_active)
     val parts =
         nodes.map { node ->
             val status =
                 when (node.id) {
-                    failedNodeId -> "failed"
-                    warningNodeId -> "warning"
-                    activeNodeId -> "active"
+                    failedNodeId -> statusFailed
+                    warningNodeId -> statusWarning
+                    activeNodeId -> statusActive
                     else -> node.state.label().lowercase()
                 }
             "${node.label} $status"
         }
-    return "Secure route stack: ${parts.joinToString(" to ")}"
+    val separator = stringResource(R.string.route_stack_node_separator)
+    return stringResource(R.string.route_stack_accessibility, parts.joinToString(separator))
 }
 
 private val RouteGlyphSize = 40.dp

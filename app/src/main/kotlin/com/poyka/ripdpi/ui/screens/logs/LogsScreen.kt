@@ -202,6 +202,7 @@ private fun LogsStreamSection(
             context.getSystemService(ClipboardManager::class.java)
         }
     val performHaptic = rememberRipDpiHapticPerformer()
+    val clipLabel = stringResource(R.string.clipboard_label_log_entry)
     val isAtLiveEdge by remember(listState) {
         derivedStateOf {
             val lastVisibleItemIndex =
@@ -236,7 +237,7 @@ private fun LogsStreamSection(
                 onCopyEntry = { entry ->
                     clipboardManager?.setPrimaryClip(
                         ClipData.newPlainText(
-                            "log",
+                            clipLabel,
                             "${entry.timestamp} [${entry.subsystem.name}] ${entry.message}",
                         ),
                     )

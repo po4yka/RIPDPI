@@ -49,7 +49,7 @@ internal fun ByohCompatibilityCard(
             tone = statusTone(tool.state.tone()),
         )
         Text(
-            text = "Bring-your-own-host compatibility",
+            text = stringResource(R.string.diagnostics_byoh_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -68,7 +68,7 @@ internal fun ByohCompatibilityCard(
             onValueChange = onDstIpChange,
             decoration =
                 RipDpiTextFieldDecoration(
-                    label = "Destination IP",
+                    label = stringResource(R.string.diagnostics_byoh_destination_ip_label),
                     placeholder = "203.0.113.10",
                 ),
             behavior = RipDpiTextFieldBehavior(enabled = tool.state != DiagnosticsByohCompatibilityState.Running),
@@ -78,7 +78,7 @@ internal fun ByohCompatibilityCard(
             onValueChange = onUrlPathChange,
             decoration =
                 RipDpiTextFieldDecoration(
-                    label = "URL path",
+                    label = stringResource(R.string.diagnostics_byoh_url_path_label),
                     placeholder = "/1MB.bin",
                 ),
             behavior = RipDpiTextFieldBehavior(enabled = tool.state != DiagnosticsByohCompatibilityState.Running),
@@ -87,7 +87,7 @@ internal fun ByohCompatibilityCard(
             checked = tool.useSyntheticFixture,
             onCheckedChange = onSyntheticFixtureEnabledChange,
             enabled = tool.state != DiagnosticsByohCompatibilityState.Running,
-            label = "Synthetic fixture",
+            label = stringResource(R.string.diagnostics_byoh_synthetic_fixture_label),
         )
         MetricsRow(metrics = tool.metrics)
         ByohCompatibilityRows(rows = tool.rows)
@@ -95,9 +95,9 @@ internal fun ByohCompatibilityCard(
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsByohCompatibilityState.Running) {
-                    "Checking..."
+                    stringResource(R.string.diagnostics_tool_checking)
                 } else {
-                    "Run host compatibility"
+                    stringResource(R.string.diagnostics_byoh_run)
                 },
             enabled = tool.state != DiagnosticsByohCompatibilityState.Running && tool.dstIp.isNotBlank(),
             onClick = onRun,
@@ -136,7 +136,7 @@ private fun ByohCopyCsvButton(
     if (csvExport.isNotBlank()) {
         val csvLabel = stringResource(R.string.clipboard_label_byoh_compatibility_csv)
         RipDpiButton(
-            text = "Copy CSV",
+            text = stringResource(R.string.diagnostics_byoh_copy_csv),
             onClick = {
                 clipboardManager?.setPrimaryClip(
                     ClipData.newPlainText(csvLabel, csvExport),

@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,7 +49,7 @@ private const val GlyphScale = 0.58f
 fun RipDpiBrandBadge(
     size: RipDpiBrandBadgeSize = RipDpiBrandBadgeSize.AppBarCompact,
     modifier: Modifier = Modifier,
-    contentDescriptionText: String = "RIPDPI",
+    contentDescriptionText: String = stringResource(R.string.brand_badge_content_description),
 ) {
     val container = RipDpiThemeTokens.colors.foreground
     val glyphTint = RipDpiThemeTokens.colors.background

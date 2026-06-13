@@ -18,6 +18,7 @@ import org.robolectric.RuntimeEnvironment
 @RunWith(RobolectricTestRunner::class)
 class DiagnosticsUiStrategyPresentersTest {
     private val support = DiagnosticsUiFactorySupport(RuntimeEnvironment.getApplication())
+    private val stringResolver = ResourceStringResolver()
 
     @Test
     fun `strategy report summary mapper owns high level report metrics`() {
@@ -61,16 +62,18 @@ class DiagnosticsUiStrategyPresentersTest {
     fun `resolver recommendation presenter owns resolver fields`() {
         val uiModel =
             ResolverRecommendationPresenter().toUiModel(
-                ResolverRecommendation(
-                    triggerOutcome = "dns_timeout",
-                    selectedResolverId = "adguard",
-                    selectedProtocol = "doh",
-                    selectedEndpoint = "https://dns.example/dns-query",
-                    selectedBootstrapIps = listOf("94.140.14.14"),
-                    rationale = "Encrypted resolver recovered the path.",
-                    appliedTemporarily = true,
-                    persistable = true,
-                ),
+                recommendation =
+                    ResolverRecommendation(
+                        triggerOutcome = "dns_timeout",
+                        selectedResolverId = "adguard",
+                        selectedProtocol = "doh",
+                        selectedEndpoint = "https://dns.example/dns-query",
+                        selectedBootstrapIps = listOf("94.140.14.14"),
+                        rationale = "Encrypted resolver recovered the path.",
+                        appliedTemporarily = true,
+                        persistable = true,
+                    ),
+                stringResolver = stringResolver,
             )
 
         assertEquals("Switch DNS to Adguard", uiModel.headline)

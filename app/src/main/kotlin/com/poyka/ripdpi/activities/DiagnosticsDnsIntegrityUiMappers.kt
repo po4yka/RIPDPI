@@ -1,15 +1,17 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DoqProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.DoqVerdict
 import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapResult
+import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.collections.immutable.toPersistentList
 import java.util.Locale
 
-internal fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel {
+internal fun DnsIntegrityResult.toUiModel(stringResolver: StringResolver): DiagnosticsDnsIntegrityToolUiModel {
     val flagged = domains.count { result -> result.verdict != DnsIntegrityVerdict.DNS_OK }
     val doqFlagged = doqResults.count { result -> result.verdict != DoqVerdict.DOQ_OK }
     val bootstrapFlagged = dohBootstrapResults.count { result -> result.verdict != BootstrapVerdict.OK }
@@ -18,52 +20,44 @@ internal fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel 
         state = DiagnosticsDnsIntegrityState.Complete,
         summary =
             if (flagged == 0 && doqFlagged == 0 && bootstrapFlagged == 0) {
-                "No DNS substitution detected across $checked bundled domains."
+                stringResolver.getString(R.string.diagnostics_dns_integrity_complete_clean, checked)
             } else {
-                "$flagged of $checked domains, $doqFlagged DoQ checks, " +
-                    "and $bootstrapFlagged DoH bootstrap checks showed DNS integrity warnings."
+                stringResolver.getString(
+                    R.string.diagnostics_dns_integrity_complete_flagged,
+                    flagged,
+                    checked,
+                    doqFlagged,
+                    bootstrapFlagged,
+                )
             },
         metrics =
-            buildList {
-                add(DiagnosticsMetricUiModel("checked", checked.toString(), DiagnosticsTone.Info))
-                add(DiagnosticsMetricUiModel("flagged", flagged.toString(), countTone(flagged)))
-                add(DiagnosticsMetricUiModel("stub IPs", stubIps.size.toString(), DiagnosticsTone.Neutral))
-                add(DiagnosticsMetricUiModel("DoH blocked", dohBlocked.toString(), countTone(dohBlocked)))
-                if (doqResults.isNotEmpty()) {
-                    add(DiagnosticsMetricUiModel("DoQ checks", doqResults.size.toString(), DiagnosticsTone.Info))
-                    add(DiagnosticsMetricUiModel("DoQ flagged", doqFlagged.toString(), countTone(doqFlagged)))
-                }
-                if (dohBootstrapResults.isNotEmpty()) {
-                    add(
-                        DiagnosticsMetricUiModel(
-                            "DoH bootstrap",
-                            dohBootstrapResults.size.toString(),
-                            DiagnosticsTone.Info,
-                        ),
-                    )
-                    add(
-                        DiagnosticsMetricUiModel(
-                            "bootstrap flagged",
-                            bootstrapFlagged.toString(),
-                            countTone(bootstrapFlagged),
-                        ),
-                    )
-                }
-            }.toPersistentList(),
+            buildDnsIntegrityMetrics(
+                stringResolver,
+                checked,
+                flagged,
+                doqFlagged,
+                bootstrapFlagged,
+            ),
         rows =
             domains
                 .map { result ->
                     DiagnosticsDnsIntegrityDomainUiModel(
                         domain = result.domain,
                         verdict = result.verdict.displayLabel(),
-                        udpAnswer = result.udpRecords.joinToString().ifBlank { "timeout" },
-                        dohAnswer = result.dohIps.joinToString().ifBlank { "unavailable" },
+                        udpAnswer =
+                            result.udpRecords.joinToString().ifBlank {
+                                stringResolver.getString(R.string.diagnostics_value_timeout)
+                            },
+                        dohAnswer =
+                            result.dohIps.joinToString().ifBlank {
+                                stringResolver.getString(R.string.diagnostics_value_unavailable)
+                            },
                         tone = result.verdict.tone(),
                     )
                 }.toPersistentList(),
         doqRows =
             doqResults
-                .map(DoqProbeResult::toUiModel)
+                .map { it.toUiModel(stringResolver) }
                 .toPersistentList(),
         dohBootstrapRows =
             dohBootstrapResults
@@ -71,6 +65,75 @@ internal fun DnsIntegrityResult.toUiModel(): DiagnosticsDnsIntegrityToolUiModel 
                 .toPersistentList(),
     )
 }
+
+private fun DnsIntegrityResult.buildDnsIntegrityMetrics(
+    stringResolver: StringResolver,
+    checked: Int,
+    flagged: Int,
+    doqFlagged: Int,
+    bootstrapFlagged: Int,
+) = buildList {
+    add(
+        DiagnosticsMetricUiModel(
+            stringResolver.getString(R.string.diagnostics_dns_integrity_metric_checked),
+            checked.toString(),
+            DiagnosticsTone.Info,
+        ),
+    )
+    add(
+        DiagnosticsMetricUiModel(
+            stringResolver.getString(R.string.diagnostics_dns_integrity_metric_flagged),
+            flagged.toString(),
+            countTone(flagged),
+        ),
+    )
+    add(
+        DiagnosticsMetricUiModel(
+            stringResolver.getString(R.string.diagnostics_dns_integrity_metric_stub_ips),
+            stubIps.size.toString(),
+            DiagnosticsTone.Neutral,
+        ),
+    )
+    add(
+        DiagnosticsMetricUiModel(
+            stringResolver.getString(R.string.diagnostics_dns_integrity_metric_doh_blocked),
+            dohBlocked.toString(),
+            countTone(dohBlocked),
+        ),
+    )
+    if (doqResults.isNotEmpty()) {
+        add(
+            DiagnosticsMetricUiModel(
+                stringResolver.getString(R.string.diagnostics_dns_integrity_metric_doq_checks),
+                doqResults.size.toString(),
+                DiagnosticsTone.Info,
+            ),
+        )
+        add(
+            DiagnosticsMetricUiModel(
+                stringResolver.getString(R.string.diagnostics_dns_integrity_metric_doq_flagged),
+                doqFlagged.toString(),
+                countTone(doqFlagged),
+            ),
+        )
+    }
+    if (dohBootstrapResults.isNotEmpty()) {
+        add(
+            DiagnosticsMetricUiModel(
+                stringResolver.getString(R.string.diagnostics_dns_integrity_metric_doh_bootstrap),
+                dohBootstrapResults.size.toString(),
+                DiagnosticsTone.Info,
+            ),
+        )
+        add(
+            DiagnosticsMetricUiModel(
+                stringResolver.getString(R.string.diagnostics_dns_integrity_metric_bootstrap_flagged),
+                bootstrapFlagged.toString(),
+                countTone(bootstrapFlagged),
+            ),
+        )
+    }
+}.toPersistentList()
 
 private fun DohBootstrapResult.toUiModel(): DiagnosticsDohBootstrapUiModel =
     DiagnosticsDohBootstrapUiModel(
@@ -81,14 +144,20 @@ private fun DohBootstrapResult.toUiModel(): DiagnosticsDohBootstrapUiModel =
         tone = verdict.tone(),
     )
 
-private fun DoqProbeResult.toUiModel(): DiagnosticsDnsIntegrityDoqUiModel =
+private fun DoqProbeResult.toUiModel(stringResolver: StringResolver): DiagnosticsDnsIntegrityDoqUiModel =
     DiagnosticsDnsIntegrityDoqUiModel(
         provider = provider,
         domain = domain,
         verdict = verdict.displayLabel(),
         endpoint = endpoint,
-        resolvedIps = resolvedIps.joinToString().ifBlank { "unavailable" },
-        detail = errorDetail ?: latencyMs?.let { "$it ms" } ?: "complete",
+        resolvedIps =
+            resolvedIps.joinToString().ifBlank {
+                stringResolver.getString(R.string.diagnostics_value_unavailable)
+            },
+        detail =
+            errorDetail
+                ?: latencyMs?.let { "$it ms" }
+                ?: stringResolver.getString(R.string.diagnostics_value_complete),
         tone = verdict.tone(),
     )
 

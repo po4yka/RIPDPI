@@ -200,20 +200,20 @@ private fun CdnPullingConfirmationDialog(
 ) {
     RipDpiDialog(
         onDismissRequest = onDismissRequest,
-        title = "Enable CDN pulling",
+        title = stringResource(R.string.detection_settings_enable_cdn_title),
         dismissAction =
             RipDpiDialogAction(
-                label = "Cancel",
+                label = stringResource(R.string.detection_settings_cancel),
                 onClick = onDismissRequest,
             ),
         confirmAction =
             RipDpiDialogAction(
-                label = "Enable",
+                label = stringResource(R.string.detection_settings_enable),
                 onClick = onConfirm,
             ),
         visuals =
             RipDpiDialogVisuals(
-                message = "This sends active test requests to selected public targets.",
+                message = stringResource(R.string.detection_settings_enable_cdn_message),
             ),
     )
 }
@@ -227,10 +227,10 @@ private fun DetectionNetworkSettingsSection(
     onCallTransportProbeChange: (Boolean) -> Unit,
     onRttTriangulationChange: (Boolean) -> Unit,
 ) {
-    SettingsSection(title = "Network probes") {
+    SettingsSection(title = stringResource(R.string.detection_settings_section_network_probes)) {
         SettingsRow(
-            title = "Network requests",
-            subtitle = "Master switch for active network checks",
+            title = stringResource(R.string.detection_settings_network_requests_title),
+            subtitle = stringResource(R.string.detection_settings_network_requests_subtitle),
             checked = state.networkRequestsEnabled,
             onCheckedChange = onNetworkRequestsChange,
         )
@@ -238,29 +238,29 @@ private fun DetectionNetworkSettingsSection(
             state = state,
         ) {
             SettingsRow(
-                title = "CDN pulling",
-                subtitle = "Trace CDN edge and TLS interception signals",
+                title = stringResource(R.string.detection_settings_cdn_pulling_title),
+                subtitle = stringResource(R.string.detection_settings_cdn_pulling_subtitle),
                 checked = state.cdnPullingEnabled,
                 enabled = state.networkDependentEnabled,
                 onCheckedChange = onCdnPullingChange,
             )
             SettingsRow(
-                title = "Meduza cohort",
-                subtitle = "Include the Meduza target set",
+                title = stringResource(R.string.detection_settings_meduza_cohort_title),
+                subtitle = stringResource(R.string.detection_settings_meduza_cohort_subtitle),
                 checked = state.cdnPullingMeduzaEnabled,
                 enabled = state.networkDependentEnabled && state.cdnPullingEnabled,
                 onCheckedChange = onCdnPullingMeduzaChange,
             )
             SettingsRow(
-                title = "Call transport probe",
-                subtitle = "Probe MTProto and STUN through a detected proxy",
+                title = stringResource(R.string.detection_settings_call_transport_title),
+                subtitle = stringResource(R.string.detection_settings_call_transport_subtitle),
                 checked = state.callTransportProbeEnabled,
                 enabled = state.networkDependentEnabled,
                 onCheckedChange = onCallTransportProbeChange,
             )
             SettingsRow(
-                title = "RTT triangulation",
-                subtitle = "Compare latency from multiple endpoints",
+                title = stringResource(R.string.detection_settings_rtt_triangulation_title),
+                subtitle = stringResource(R.string.detection_settings_rtt_triangulation_subtitle),
                 checked = state.rttTriangulationEnabled,
                 enabled = state.networkDependentEnabled,
                 onCheckedChange = onRttTriangulationChange,
@@ -279,28 +279,28 @@ private fun DetectionSplitTunnelSettingsSection(
     onCustomPortStartChange: (String) -> Unit,
     onCustomPortEndChange: (String) -> Unit,
 ) {
-    SettingsSection(title = "Split tunnel") {
+    SettingsSection(title = stringResource(R.string.detection_settings_section_split_tunnel)) {
         SettingsRow(
-            title = "Proxy scan",
-            subtitle = "Search localhost proxy endpoints",
+            title = stringResource(R.string.detection_settings_proxy_scan_title),
+            subtitle = stringResource(R.string.detection_settings_proxy_scan_subtitle),
             checked = state.proxyScanEnabled,
             onCheckedChange = onProxyScanChange,
         )
         SettingsRow(
-            title = "Xray API scan",
-            subtitle = "Search localhost gRPC control ports",
+            title = stringResource(R.string.detection_settings_xray_api_scan_title),
+            subtitle = stringResource(R.string.detection_settings_xray_api_scan_subtitle),
             checked = state.xrayApiScanEnabled,
             onCheckedChange = onXrayApiScanChange,
         )
         ChipSelector(
-            title = "TUN probe mode",
+            title = stringResource(R.string.detection_settings_tun_probe_mode_title),
             entries = DetectionTunProbeMode.entries,
             selected = state.tunProbeMode,
             label = DetectionTunProbeMode::displayName,
             onSelect = onTunProbeModeChange,
         )
         ChipSelector(
-            title = "Port range",
+            title = stringResource(R.string.detection_settings_port_range_title),
             entries = DetectionPortRangeMode.entries,
             selected = state.portRangeMode,
             label = DetectionPortRangeMode::displayName,
@@ -312,13 +312,13 @@ private fun DetectionSplitTunnelSettingsSection(
                 horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
             ) {
                 PortTextField(
-                    label = "Start",
+                    label = stringResource(R.string.detection_settings_port_start_label),
                     value = state.customPortStart.toString(),
                     onValueChange = onCustomPortStartChange,
                     modifier = Modifier.weight(1f),
                 )
                 PortTextField(
-                    label = "End",
+                    label = stringResource(R.string.detection_settings_port_end_label),
                     value = state.customPortEnd.toString(),
                     onValueChange = onCustomPortEndChange,
                     modifier = Modifier.weight(1f),
@@ -326,8 +326,9 @@ private fun DetectionSplitTunnelSettingsSection(
             }
         }
         SettingsRow(
-            title = "Port count",
-            value = state.selectedPortCount?.toString() ?: "popular set",
+            title = stringResource(R.string.detection_settings_port_count_title),
+            value =
+                state.selectedPortCount?.toString() ?: stringResource(R.string.detection_settings_port_count_popular),
         )
     }
 }
@@ -342,9 +343,9 @@ private fun DetectionDnsSettingsSection(
     onDnsDohBootstrapIpsChange: (String) -> Unit,
     onDnsRouteThroughProxyChange: (Boolean) -> Unit,
 ) {
-    SettingsSection(title = "DNS resolver") {
+    SettingsSection(title = stringResource(R.string.detection_settings_section_dns_resolver)) {
         ChipSelector(
-            title = "Mode",
+            title = stringResource(R.string.detection_settings_dns_mode_title),
             entries = DetectionDnsResolverMode.entries,
             selected = state.dnsResolverMode,
             label = DetectionDnsResolverMode::displayName,
@@ -357,14 +358,20 @@ private fun DetectionDnsSettingsSection(
         RipDpiTextField(
             value = state.dnsDirectServers,
             onValueChange = onDnsDirectServersChange,
-            decoration = RipDpiTextFieldDecoration(label = "Direct servers"),
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.detection_settings_dns_direct_servers_label),
+                ),
             behavior = RipDpiTextFieldBehavior(enabled = state.dnsFieldsEditable),
             modifier = Modifier.fillMaxWidth(),
         )
         RipDpiTextField(
             value = state.dnsDohUrl,
             onValueChange = onDnsDohUrlChange,
-            decoration = RipDpiTextFieldDecoration(label = "DoH URL"),
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.detection_settings_dns_doh_url_label),
+                ),
             behavior =
                 RipDpiTextFieldBehavior(
                     enabled = state.dnsFieldsEditable,
@@ -375,7 +382,10 @@ private fun DetectionDnsSettingsSection(
         RipDpiTextField(
             value = state.dnsDohBootstrapIps,
             onValueChange = onDnsDohBootstrapIpsChange,
-            decoration = RipDpiTextFieldDecoration(label = "DoH bootstrap IPs"),
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.detection_settings_dns_doh_bootstrap_label),
+                ),
             behavior = RipDpiTextFieldBehavior(enabled = state.dnsFieldsEditable),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -449,10 +459,10 @@ private fun DetectionDiagnosticProbeSettingsSection(
     onDiagnosticRandomHostnamesChange: (Boolean) -> Unit,
     onTlsKeylogPathChange: (String) -> Unit,
 ) {
-    SettingsSection(title = "Diagnostic probes") {
+    SettingsSection(title = stringResource(R.string.detection_settings_section_diagnostic_probes)) {
         SettingsRow(
-            title = "Use random hostnames in diagnostic probes",
-            subtitle = "Avoid fixed test-domain allowlists by sending fresh Host/SNI values.",
+            title = stringResource(R.string.detection_settings_random_hostnames_title),
+            subtitle = stringResource(R.string.detection_settings_random_hostnames_subtitle),
             checked = state.diagnosticRandomHostnamesEnabled,
             enabled = state.networkDependentEnabled,
             onCheckedChange = onDiagnosticRandomHostnamesChange,
@@ -461,7 +471,10 @@ private fun DetectionDiagnosticProbeSettingsSection(
             RipDpiTextField(
                 value = state.tlsKeylogPath,
                 onValueChange = onTlsKeylogPathChange,
-                decoration = RipDpiTextFieldDecoration(label = "TLS keylog path"),
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.detection_settings_tls_keylog_path_label),
+                    ),
                 behavior =
                     RipDpiTextFieldBehavior(
                         enabled = !state.privacyModeEnabled,
@@ -471,7 +484,7 @@ private fun DetectionDiagnosticProbeSettingsSection(
             )
             if (state.privacyModeEnabled) {
                 Text(
-                    text = "Privacy mode suppresses TLS key logging.",
+                    text = stringResource(R.string.detection_settings_tls_keylog_privacy_note),
                     style = RipDpiThemeTokens.type.caption,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
@@ -487,21 +500,20 @@ private fun DetectionPrivacyAppearanceSection(
     onDebugModeChange: (Boolean) -> Unit,
     onColorVisionModeChange: (com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode) -> Unit,
 ) {
-    SettingsSection(title = "Privacy and status") {
+    SettingsSection(title = stringResource(R.string.detection_settings_section_privacy_status)) {
         SettingsRow(
-            title = "Privacy mode",
-            subtitle =
-                "Masks exported addresses and disables PT reachability checks that contact brokers and obfs4 bridges.",
+            title = stringResource(R.string.detection_privacy_mode),
+            subtitle = stringResource(R.string.detection_settings_privacy_mode_subtitle),
             checked = state.privacyModeEnabled,
             onCheckedChange = onPrivacyModeChange,
         )
         SettingsRow(
-            title = "Debug diagnostics",
+            title = stringResource(R.string.detection_debug_diagnostics_label),
             checked = state.debugModeEnabled,
             onCheckedChange = onDebugModeChange,
         )
         ChipSelector(
-            title = "Status visuals",
+            title = stringResource(R.string.detection_status_visuals_title),
             entries = com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode.entries,
             selected = state.colorVisionMode,
             label = com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode::displayName,
@@ -510,7 +522,7 @@ private fun DetectionPrivacyAppearanceSection(
         StatusVisualPreviewRow(mode = state.colorVisionMode)
         if (state.protanopiaVariantUnlocked) {
             Text(
-                text = "Protanopia variant unlocked",
+                text = stringResource(R.string.detection_settings_protanopia_unlocked),
                 style = RipDpiThemeTokens.type.caption,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )

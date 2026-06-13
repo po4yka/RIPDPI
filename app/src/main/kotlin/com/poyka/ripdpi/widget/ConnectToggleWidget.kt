@@ -98,7 +98,7 @@ private fun ConnectToggleContent(
         ) {
             if (size.height >= 180.dp) {
                 Text(
-                    text = "RIPDPI",
+                    text = context.getString(R.string.app_name),
                     style =
                         TextStyle(
                             color = GlanceTheme.colors.onSurface,

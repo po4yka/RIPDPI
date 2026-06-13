@@ -126,7 +126,14 @@ internal fun CollapsibleSection(
             }
             Icon(
                 imageVector = RipDpiIcons.KeyboardArrowDown,
-                contentDescription = if (expanded) "Collapse" else "Expand",
+                contentDescription =
+                    if (expanded) {
+                        stringResource(
+                            R.string.cd_collapse,
+                        )
+                    } else {
+                        stringResource(R.string.cd_expand)
+                    },
                 tint = colors.mutedForeground,
                 modifier = Modifier.rotate(rotationAngle),
             )

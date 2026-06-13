@@ -43,7 +43,7 @@ internal fun TelegramResultCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Telegram",
+                text = stringResource(R.string.connection_health_destination_telegram),
                 style = RipDpiThemeTokens.type.screenTitle,
                 color = colors.foreground,
             )

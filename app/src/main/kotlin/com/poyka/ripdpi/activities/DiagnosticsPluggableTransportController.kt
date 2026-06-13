@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpich.MeekReachabilityProbe
@@ -7,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.dpich.Obfs4ReachabilityProbe
 import com.poyka.ripdpi.diagnostics.dpich.PluggableTransportReachabilityProbe
 import com.poyka.ripdpi.diagnostics.dpich.loadMeekFrontUrls
 import com.poyka.ripdpi.diagnostics.dpich.loadObfs4BridgeEndpoints
+import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +22,7 @@ internal class DiagnosticsPluggableTransportController(
     private val scope: CoroutineScope,
     appSettingsRepository: AppSettingsRepository,
     private val assetLoader: DpiAssetLoader,
+    private val stringResolver: StringResolver,
 ) {
     private val _tool = MutableStateFlow(DiagnosticsPluggableTransportToolUiModel())
     val tool: StateFlow<DiagnosticsPluggableTransportToolUiModel> = _tool.asStateFlow()
@@ -47,7 +50,7 @@ internal class DiagnosticsPluggableTransportController(
                             },
                         summary =
                             if (settings.detectionCheckPrivacyModeEnabled) {
-                                PtPrivacyDisabledSummary
+                                stringResolver.getString(R.string.diagnostics_pt_privacy_disabled)
                             } else {
                                 current.summary
                             },
@@ -65,7 +68,7 @@ internal class DiagnosticsPluggableTransportController(
             _tool.value =
                 current.copy(
                     state = DiagnosticsPluggableTransportState.Disabled,
-                    summary = PtPrivacyDisabledSummary,
+                    summary = stringResolver.getString(R.string.diagnostics_pt_privacy_disabled),
                     errorMessage = null,
                 )
             return
@@ -73,20 +76,20 @@ internal class DiagnosticsPluggableTransportController(
         _tool.value =
             DiagnosticsPluggableTransportToolUiModel(
                 state = DiagnosticsPluggableTransportState.Running,
-                summary = "Checking PT endpoint reachability...",
+                summary = stringResolver.getString(R.string.diagnostics_pt_running),
                 privacyModeEnabled = false,
             )
         scope.launch {
             runCatching {
                 loadProbe().run()
             }.onSuccess { result ->
-                _tool.value = result.toUiModel(privacyModeEnabled = false)
+                _tool.value = result.toUiModel(privacyModeEnabled = false, stringResolver = stringResolver)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 _tool.value =
                     DiagnosticsPluggableTransportToolUiModel(
                         state = DiagnosticsPluggableTransportState.Failed,
-                        summary = "PT reachability check failed.",
+                        summary = stringResolver.getString(R.string.diagnostics_pt_failed),
                         errorMessage = error.message ?: error.javaClass.simpleName,
                     )
             }
@@ -100,9 +103,4 @@ internal class DiagnosticsPluggableTransportController(
                 meekProbe = MeekReachabilityProbe(fronts = assetLoader.loadMeekFrontUrls()),
             )
         }
-
-    private companion object {
-        private const val PtPrivacyDisabledSummary =
-            "Privacy Mode is enabled. Disable Privacy Mode to run PT endpoint reachability checks."
-    }
 }

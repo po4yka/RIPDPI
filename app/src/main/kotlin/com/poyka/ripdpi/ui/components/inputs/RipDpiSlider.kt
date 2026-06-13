@@ -13,9 +13,11 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -42,6 +44,7 @@ fun RipDpiSlider(
     valueFormatter: (Float) -> String = { "%.2f".format(it) },
 ) {
     val colors = RipDpiThemeTokens.colors
+    val sliderDescription = label ?: stringResource(R.string.cd_slider)
     Column(modifier = modifier) {
         if (label != null) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -57,7 +60,7 @@ fun RipDpiSlider(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .semantics { contentDescription = label ?: "Slider" },
+                    .semantics { contentDescription = sliderDescription },
             colors =
                 SliderDefaults.colors(
                     thumbColor = colors.foreground,

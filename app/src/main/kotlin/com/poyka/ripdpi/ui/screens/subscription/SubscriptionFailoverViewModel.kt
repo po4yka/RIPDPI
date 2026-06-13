@@ -1,12 +1,15 @@
 package com.poyka.ripdpi.ui.screens.subscription
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.platform.StringResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,9 +23,9 @@ import java.util.Locale
 import javax.inject.Inject
 
 data class SubscriptionFailoverUiState(
-    val summary: String = "No subscription servers observed yet",
-    val lastCheck: String = "last check unknown",
-    val activeServerLabel: String = "No active server",
+    val summary: String = "",
+    val lastCheck: String = "",
+    val activeServerLabel: String = "",
     val servers: List<SubscriptionServerUiState> = emptyList(),
     val events: List<SubscriptionFailoverEventUiState> = emptyList(),
 ) {
@@ -40,12 +43,12 @@ data class SubscriptionServerUiState(
 )
 
 enum class SubscriptionServerStatus(
-    val label: String,
+    @StringRes val labelRes: Int,
 ) {
-    Up("up"),
-    Checking("checking"),
-    Down("down"),
-    Unknown("unknown"),
+    Up(R.string.subscription_failover_status_up),
+    Checking(R.string.subscription_failover_status_checking),
+    Down(R.string.subscription_failover_status_down),
+    Unknown(R.string.subscription_failover_status_unknown),
 }
 
 data class SubscriptionFailoverEventUiState(
@@ -59,6 +62,7 @@ class SubscriptionFailoverViewModel
     constructor(
         serviceStateStore: ServiceStateStore,
         private val relayProfileStore: RelayProfileStore,
+        private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val profiles = MutableStateFlow<List<RelayProfileRecord>>(emptyList())
 
@@ -68,11 +72,12 @@ class SubscriptionFailoverViewModel
                     profiles = relayProfiles,
                     snapshot = telemetry.relayTelemetry,
                     nowMillis = System.currentTimeMillis(),
+                    strings = stringResolver,
                 )
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = SubscriptionFailoverUiState(),
+                initialValue = SubscriptionFailoverMapper.emptyUiState(stringResolver),
             )
 
         init {
@@ -83,14 +88,22 @@ class SubscriptionFailoverViewModel
     }
 
 internal object SubscriptionFailoverMapper {
+    fun emptyUiState(strings: StringResolver): SubscriptionFailoverUiState =
+        SubscriptionFailoverUiState(
+            summary = strings.getString(R.string.subscription_failover_no_servers),
+            lastCheck = strings.getString(R.string.subscription_failover_last_check_unknown),
+            activeServerLabel = strings.getString(R.string.subscription_failover_no_active_server),
+        )
+
     fun toUiState(
         profiles: List<RelayProfileRecord>,
         snapshot: NativeRuntimeSnapshot,
         nowMillis: Long,
+        strings: StringResolver,
     ): SubscriptionFailoverUiState {
         val orderedProfiles = profiles.sortedBy { it.id }
         if (orderedProfiles.isEmpty()) {
-            return SubscriptionFailoverUiState()
+            return emptyUiState(strings)
         }
         val activeIndex =
             orderedProfiles
@@ -105,17 +118,31 @@ internal object SubscriptionFailoverMapper {
             lastCheckLabel(
                 capturedAt = capturedAt,
                 nowMillis = nowMillis,
+                strings = strings,
             )
-        val events = failoverEvents(snapshot, activeProfile, activeIndex)
-        val recentEvent = events.firstOrNull()?.message ?: "no switchovers observed"
+        val events = failoverEvents(snapshot, activeProfile, activeIndex, strings)
+        val recentEvent =
+            events.firstOrNull()?.message
+                ?: strings.getString(R.string.subscription_failover_no_switchovers)
         val activePosition = activeIndex + 1
         val summary =
-            "server $activePosition/${orderedProfiles.size} ${activeStatus.label} · " +
-                "$recentEvent · $lastCheck"
+            strings.getString(
+                R.string.subscription_failover_summary_format,
+                activePosition,
+                orderedProfiles.size,
+                strings.getString(activeStatus.labelRes),
+                recentEvent,
+                lastCheck,
+            )
         return SubscriptionFailoverUiState(
             summary = summary,
             lastCheck = lastCheck,
-            activeServerLabel = "Server $activePosition: ${activeProfile.displayLabel()}",
+            activeServerLabel =
+                strings.getString(
+                    R.string.subscription_failover_active_server_label,
+                    activePosition,
+                    activeProfile.displayLabel(),
+                ),
             servers =
                 orderedProfiles.mapIndexed { index, profile ->
                     val isActive = index == activeIndex
@@ -124,6 +151,7 @@ internal object SubscriptionFailoverMapper {
                         total = orderedProfiles.size,
                         status = if (isActive) activeStatus else SubscriptionServerStatus.Unknown,
                         isActive = isActive,
+                        strings = strings,
                     )
                 },
             events = events,
@@ -135,18 +163,20 @@ internal object SubscriptionFailoverMapper {
         total: Int,
         status: SubscriptionServerStatus,
         isActive: Boolean,
+        strings: StringResolver,
     ): SubscriptionServerUiState =
         SubscriptionServerUiState(
             id = id,
             name = displayLabel(),
             endpoint = "$server:$serverPort",
             status = status,
-            positionLabel = "server ${index + 1}/$total",
+            positionLabel =
+                strings.getString(R.string.subscription_failover_position_label, index + 1, total),
             detail =
                 if (isActive) {
-                    "current server"
+                    strings.getString(R.string.subscription_failover_detail_current_server)
                 } else {
-                    "available if the app switches"
+                    strings.getString(R.string.subscription_failover_detail_available_on_switch)
                 },
         )
 
@@ -167,13 +197,14 @@ internal object SubscriptionFailoverMapper {
         snapshot: NativeRuntimeSnapshot,
         activeProfile: RelayProfileRecord,
         activeIndex: Int,
+        strings: StringResolver,
     ): List<SubscriptionFailoverEventUiState> =
         buildList {
             if (activeIndex > 0) {
                 add(
                     SubscriptionFailoverEventUiState(
-                        message = "switched to backup",
-                        timeLabel = timeLabel(snapshot.capturedAt),
+                        message = strings.getString(R.string.subscription_failover_event_switched_to_backup),
+                        timeLabel = timeLabel(snapshot.capturedAt, strings),
                     ),
                 )
             }
@@ -184,8 +215,8 @@ internal object SubscriptionFailoverMapper {
             if (isUsingFallback) {
                 add(
                     SubscriptionFailoverEventUiState(
-                        message = fallbackMessage(snapshot, activeProfile),
-                        timeLabel = timeLabel(snapshot.capturedAt),
+                        message = fallbackMessage(snapshot, activeProfile, strings),
+                        timeLabel = timeLabel(snapshot.capturedAt, strings),
                     ),
                 )
             }
@@ -195,8 +226,11 @@ internal object SubscriptionFailoverMapper {
                 .take(MaxNativeEvents)
                 .mapTo(this) { event ->
                     SubscriptionFailoverEventUiState(
-                        message = event.message.ifBlank { "server switch recorded" },
-                        timeLabel = timeLabel(event.createdAt),
+                        message =
+                            event.message.ifBlank {
+                                strings.getString(R.string.subscription_failover_event_switch_recorded)
+                            },
+                        timeLabel = timeLabel(event.createdAt, strings),
                     )
                 }
         }.distinctBy { it.message to it.timeLabel }
@@ -212,12 +246,16 @@ internal object SubscriptionFailoverMapper {
     private fun fallbackMessage(
         snapshot: NativeRuntimeSnapshot,
         activeProfile: RelayProfileRecord,
+        strings: StringResolver,
     ): String {
         val reason = snapshot.resolverFallbackReason ?: snapshot.lastRetryReason ?: snapshot.lastFallbackAction
         return if (reason.isNullOrBlank()) {
-            "using backup path for ${activeProfile.displayLabel()}"
+            strings.getString(
+                R.string.subscription_failover_using_backup_path_for,
+                activeProfile.displayLabel(),
+            )
         } else {
-            "using backup path: $reason"
+            strings.getString(R.string.subscription_failover_using_backup_path_reason, reason)
         }
     }
 
@@ -230,21 +268,41 @@ internal object SubscriptionFailoverMapper {
     private fun lastCheckLabel(
         capturedAt: Long?,
         nowMillis: Long,
+        strings: StringResolver,
     ): String {
-        if (capturedAt == null || capturedAt <= 0L) return "last check unknown"
+        if (capturedAt == null || capturedAt <= 0L) {
+            return strings.getString(R.string.subscription_failover_last_check_unknown)
+        }
         val deltaSeconds =
             ((nowMillis - capturedAt).coerceAtLeast(0L) / MillisPerSecond)
                 .coerceAtLeast(0L)
         return when {
-            deltaSeconds < SecondsPerMinute -> "last check ${deltaSeconds}s ago"
-            deltaSeconds < SecondsPerHour -> "last check ${deltaSeconds / SecondsPerMinute}m ago"
-            else -> "last check at ${timeLabel(capturedAt)}"
+            deltaSeconds < SecondsPerMinute -> {
+                strings.getString(R.string.subscription_failover_last_check_seconds_ago, deltaSeconds)
+            }
+
+            deltaSeconds < SecondsPerHour -> {
+                strings.getString(
+                    R.string.subscription_failover_last_check_minutes_ago,
+                    deltaSeconds / SecondsPerMinute,
+                )
+            }
+
+            else -> {
+                strings.getString(
+                    R.string.subscription_failover_last_check_at,
+                    timeLabel(capturedAt, strings),
+                )
+            }
         }
     }
 
-    private fun timeLabel(epochMillis: Long): String =
+    private fun timeLabel(
+        epochMillis: Long,
+        strings: StringResolver,
+    ): String =
         if (epochMillis <= 0L) {
-            "time unknown"
+            strings.getString(R.string.subscription_failover_time_unknown)
         } else {
             SimpleDateFormat("HH:mm", Locale.US).format(Date(epochMillis))
         }

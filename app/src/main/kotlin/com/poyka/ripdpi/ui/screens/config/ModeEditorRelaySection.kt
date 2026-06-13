@@ -271,8 +271,8 @@ private fun relayProtocolSections(): List<RelayChipSectionModel> =
                 listOf(
                     RelayChipOption(RelayKindVlessReality, labelRes = R.string.config_relay_kind_vless),
                     RelayChipOption(RelayKindCloudflareTunnel, labelRes = R.string.config_relay_kind_cloudflare_tunnel),
-                    RelayChipOption(RelayKindNaiveProxy, label = "NaiveProxy"),
-                    RelayChipOption(RelayKindShadowTlsV3, label = "ShadowTLS v3"),
+                    RelayChipOption(RelayKindNaiveProxy, labelRes = R.string.relay_kind_naiveproxy_label),
+                    RelayChipOption(RelayKindShadowTlsV3, labelRes = R.string.relay_kind_shadowtls_v3_label),
                 ),
         ),
         RelayChipSectionModel(
@@ -282,7 +282,7 @@ private fun relayProtocolSections(): List<RelayChipSectionModel> =
                 listOf(
                     RelayChipOption(RelayKindHysteria2, labelRes = R.string.config_relay_kind_hysteria2),
                     RelayChipOption(RelayKindMasque, labelRes = R.string.config_relay_kind_masque),
-                    RelayChipOption(RelayKindTuicV5, label = "TUIC v5"),
+                    RelayChipOption(RelayKindTuicV5, labelRes = R.string.relay_kind_tuic_v5_label),
                     RelayChipOption(RelayKindChainRelay, labelRes = R.string.config_relay_kind_chain),
                 ),
         ),
@@ -291,15 +291,15 @@ private fun relayProtocolSections(): List<RelayChipSectionModel> =
             titleRes = R.string.config_relay_protocol_section_pt,
             chips =
                 listOf(
-                    RelayChipOption(RelayKindSnowflake, label = "Snowflake"),
-                    RelayChipOption(RelayKindWebTunnel, label = "WebTunnel"),
-                    RelayChipOption(RelayKindObfs4, label = "obfs4"),
+                    RelayChipOption(RelayKindSnowflake, labelRes = R.string.relay_kind_snowflake_label),
+                    RelayChipOption(RelayKindWebTunnel, labelRes = R.string.relay_kind_webtunnel_label),
+                    RelayChipOption(RelayKindObfs4, labelRes = R.string.relay_kind_obfs4_label),
                 ),
         ),
         RelayChipSectionModel(
             key = "tor",
             titleRes = R.string.config_relay_protocol_section_tor,
-            chips = listOf(RelayChipOption(RelayKindTor, label = "Tor")),
+            chips = listOf(RelayChipOption(RelayKindTor, labelRes = R.string.config_relay_protocol_section_tor)),
         ),
     )
 

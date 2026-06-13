@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.tuner
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.FakeStringResolver
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -31,7 +32,7 @@ class StrategyTunerViewModelTest {
                             StrategyTunerEvent.Complete,
                         ),
                 )
-            val viewModel = StrategyTunerViewModel(runner)
+            val viewModel = StrategyTunerViewModel(runner, FakeStringResolver())
 
             viewModel.updateDomainsText("one.example\ntwo.example\nthree.example")
             viewModel.start()
@@ -56,7 +57,7 @@ class StrategyTunerViewModelTest {
                             StrategyTunerEvent.Complete,
                         ),
                 )
-            val viewModel = StrategyTunerViewModel(runner)
+            val viewModel = StrategyTunerViewModel(runner, FakeStringResolver())
 
             viewModel.start()
             advanceUntilIdle()

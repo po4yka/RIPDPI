@@ -324,49 +324,51 @@ private fun RelayChainTrustWarning(uiState: ConfigUiState) {
     val warning = uiState.relayChainTrustWarning ?: return
     val shared =
         listOfNotNull(
-            warning.sharedJurisdiction?.let { "jurisdiction $it" },
-            warning.sharedOperatorName?.let { "operator $it" },
-        ).joinToString(" and ")
-    val missing = warning.missingTrustDomainMessage()
+            warning.sharedJurisdiction?.let { stringResource(R.string.config_relay_chain_shared_jurisdiction, it) },
+            warning.sharedOperatorName?.let { stringResource(R.string.config_relay_chain_shared_operator, it) },
+        ).joinToString(stringResource(R.string.config_relay_chain_shared_join))
+    val missing = missingTrustDomainMessage(warning)
     if (shared.isBlank()) {
         WarningBanner(
-            title = "Missing trust metadata",
+            title = stringResource(R.string.relay_chain_missing_trust_title),
             message = missing,
             tone = WarningBannerTone.Warning,
         )
         return
     }
     WarningBanner(
-        title = "Shared trust domain",
+        title = stringResource(R.string.relay_chain_shared_trust_title),
         message = sharedTrustDomainMessage(shared, missing),
         tone = WarningBannerTone.Warning,
     )
 }
 
+@Composable
 private fun sharedTrustDomainMessage(
     shared: String,
     missing: String,
 ): String =
     listOf(
-        "Entry and exit share $shared. Use different jurisdictions and operators to reduce correlation risk.",
+        stringResource(R.string.config_relay_chain_shared_trust_body, shared),
         missing,
     ).filter(String::isNotBlank).joinToString(" ")
 
-private fun RelayTrustDomainWarning.missingTrustDomainMessage(): String =
+@Composable
+private fun missingTrustDomainMessage(warning: RelayTrustDomainWarning): String =
     buildList {
-        if (missingEntryTrustDomain) {
-            add("Entry hop is missing jurisdiction or operator metadata.")
+        if (warning.missingEntryTrustDomain) {
+            add(stringResource(R.string.config_relay_chain_missing_entry_trust))
         }
-        if (missingExitTrustDomain) {
-            add("Exit hop is missing jurisdiction or operator metadata.")
+        if (warning.missingExitTrustDomain) {
+            add(stringResource(R.string.config_relay_chain_missing_exit_trust))
         }
     }.joinToString(" ")
 
 @Composable
 private fun chainValidationMessage(errorKey: String?): String? =
     when (errorKey) {
-        "required" -> "Select both entry and exit profiles."
-        "unsupported_entry" -> "Selected entry profile cannot be used as a chain entry."
-        "unsupported_exit" -> "Selected exit profile cannot be used as a chain exit."
+        "required" -> stringResource(R.string.config_relay_chain_error_required)
+        "unsupported_entry" -> stringResource(R.string.config_relay_chain_error_unsupported_entry)
+        "unsupported_exit" -> stringResource(R.string.config_relay_chain_error_unsupported_exit)
         else -> validationMessage(errorKey)
     }

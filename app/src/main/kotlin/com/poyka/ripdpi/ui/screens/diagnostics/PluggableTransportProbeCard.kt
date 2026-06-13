@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsPluggableTransportState
 import com.poyka.ripdpi.activities.DiagnosticsPluggableTransportToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
@@ -29,7 +31,7 @@ internal fun PluggableTransportProbeCard(
             tone = statusTone(tool.state.tone()),
         )
         androidx.compose.material3.Text(
-            text = "Pluggable transport reachability",
+            text = stringResource(R.string.diagnostics_pt_reachability_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -59,9 +61,9 @@ internal fun PluggableTransportProbeCard(
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsPluggableTransportState.Running) {
-                    "Checking..."
+                    stringResource(R.string.diagnostics_tool_checking)
                 } else {
-                    "Run PT reachability"
+                    stringResource(R.string.diagnostics_pt_reachability_run)
                 },
             enabled = tool.state != DiagnosticsPluggableTransportState.Running && !tool.privacyModeEnabled,
             onClick = onRun,

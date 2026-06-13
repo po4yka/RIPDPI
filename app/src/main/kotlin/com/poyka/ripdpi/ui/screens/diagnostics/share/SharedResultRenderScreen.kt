@@ -11,6 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.dpich.AliveState
 import com.poyka.ripdpi.diagnostics.dpich.DiagnosticShareLinkCodec
 import com.poyka.ripdpi.diagnostics.dpich.DiagnosticShareLinkMaxFragmentChars
@@ -114,7 +116,7 @@ internal fun SharedResultRenderScreen(
     modifier: Modifier = Modifier,
 ) {
     RipDpiContentScreenScaffold(
-        title = "Shared diagnostic",
+        title = stringResource(R.string.shared_diagnostic_screen_title),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.SharedDiagnosticResult())),
@@ -132,7 +134,7 @@ private fun SharedResultPayload(payload: ShareLinkPayload) {
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         RipDpiCard {
             RipDpiPanelHeader(
-                title = "Result snapshot",
+                title = stringResource(R.string.shared_diagnostic_result_snapshot_title),
                 supporting = SharedResultRenderFormatter.snapshotBanner(payload),
             )
             Row(
@@ -142,16 +144,17 @@ private fun SharedResultPayload(payload: ShareLinkPayload) {
             ) {
                 Text(
                     text =
-                        "Bundle ${
+                        stringResource(
+                            R.string.shared_diagnostic_bundle_label,
                             payload.commitHash
                                 .toString(CommitHashRadix)
-                                .padStart(CommitHashMinWidth, CommitHashPadChar)
-                        }",
+                                .padStart(CommitHashMinWidth, CommitHashPadChar),
+                        ),
                     style = RipDpiThemeTokens.type.smallLabel,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
                 Text(
-                    text = "${payload.items.size} endpoints",
+                    text = stringResource(R.string.shared_diagnostic_endpoints_count, payload.items.size),
                     style = RipDpiThemeTokens.type.smallLabel,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
@@ -179,12 +182,12 @@ private fun SharedResultRow(
     ) {
         Column {
             Text(
-                text = "Endpoint ${index + 1}",
+                text = stringResource(R.string.shared_diagnostic_endpoint_label, index + 1),
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = RipDpiThemeTokens.colors.foreground,
             )
             Text(
-                text = "Alive: ${item.alive.displayLabel()}",
+                text = stringResource(R.string.shared_diagnostic_alive_prefix, item.alive.displayLabel()),
                 style = RipDpiThemeTokens.type.smallLabel,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
@@ -200,36 +203,42 @@ private fun SharedResultRow(
 private fun SharedResultError(error: Throwable) {
     RipDpiCard {
         RipDpiPanelHeader(
-            title = "Cannot open shared diagnostic",
+            title = stringResource(R.string.shared_diagnostic_open_error_title),
             supporting =
                 when (error) {
                     is ShareLinkDecodeError -> error.message.orEmpty()
-                    else -> "The shared diagnostic link is not valid."
+                    else -> stringResource(R.string.shared_diagnostic_invalid_link_message)
                 },
         )
         Text(
-            text = "Ask the sender to share a fresh link.",
+            text = stringResource(R.string.shared_diagnostic_ask_fresh_link),
             style = MaterialTheme.typography.bodyMedium,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
     }
 }
 
+@Composable
 private fun AliveState.displayLabel(): String =
-    when (this) {
-        AliveState.NO -> "No"
-        AliveState.YES -> "Yes"
-        AliveState.UNKNOWN -> "Unknown"
-    }
+    stringResource(
+        when (this) {
+            AliveState.NO -> R.string.shared_diagnostic_alive_no
+            AliveState.YES -> R.string.shared_diagnostic_alive_yes
+            AliveState.UNKNOWN -> R.string.diagnostics_field_unknown
+        },
+    )
 
+@Composable
 private fun DpiState.displayLabel(): String =
-    when (this) {
-        DpiState.NOT_DETECTED -> "Not detected"
-        DpiState.DETECTED -> "Detected"
-        DpiState.PROBABLY -> "Probably"
-        DpiState.POSSIBLE -> "Possible"
-        DpiState.UNLIKELY -> "Unlikely"
-    }
+    stringResource(
+        when (this) {
+            DpiState.NOT_DETECTED -> R.string.shared_diagnostic_dpi_not_detected
+            DpiState.DETECTED -> R.string.detection_check_verdict_detected
+            DpiState.PROBABLY -> R.string.shared_diagnostic_dpi_probably
+            DpiState.POSSIBLE -> R.string.shared_diagnostic_dpi_possible
+            DpiState.UNLIKELY -> R.string.shared_diagnostic_dpi_unlikely
+        },
+    )
 
 private fun DpiState.statusTone(): StatusIndicatorTone =
     when (this) {

@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.diagnostics.buildStrategyProbeCandidateDetails
 import com.poyka.ripdpi.ui.diagnostics.buildStrategyProbeReportPresentation
 import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeFamilies
@@ -41,19 +43,40 @@ internal class AuditAssessmentPresenter {
 }
 
 internal class ResolverRecommendationPresenter {
-    fun toUiModel(recommendation: ResolverRecommendation): DiagnosticsResolverRecommendationUiModel =
+    fun toUiModel(
+        recommendation: ResolverRecommendation,
+        stringResolver: StringResolver,
+    ): DiagnosticsResolverRecommendationUiModel =
         DiagnosticsResolverRecommendationUiModel(
-            headline = "Switch DNS to ${recommendation.selectedResolverId.replaceFirstChar { it.uppercase() }}",
+            headline =
+                stringResolver.getString(
+                    R.string.diagnostics_resolver_switch_dns,
+                    recommendation.selectedResolverId.replaceFirstChar { it.uppercase() },
+                ),
             rationale = recommendation.rationale,
             fields =
                 listOf(
-                    DiagnosticsFieldUiModel("Trigger", recommendation.triggerOutcome),
-                    DiagnosticsFieldUiModel("Resolver", recommendation.selectedResolverId),
-                    DiagnosticsFieldUiModel("Protocol", recommendation.selectedProtocol.uppercase()),
-                    DiagnosticsFieldUiModel("Endpoint", recommendation.selectedEndpoint),
                     DiagnosticsFieldUiModel(
-                        "Bootstrap",
-                        recommendation.selectedBootstrapIps.joinToString().ifBlank { "None" },
+                        stringResolver.getString(R.string.diagnostics_resolver_field_trigger),
+                        recommendation.triggerOutcome,
+                    ),
+                    DiagnosticsFieldUiModel(
+                        stringResolver.getString(R.string.diagnostics_resolver_field_resolver),
+                        recommendation.selectedResolverId,
+                    ),
+                    DiagnosticsFieldUiModel(
+                        stringResolver.getString(R.string.diagnostics_resolver_field_protocol),
+                        recommendation.selectedProtocol.uppercase(),
+                    ),
+                    DiagnosticsFieldUiModel(
+                        stringResolver.getString(R.string.diagnostics_resolver_field_endpoint),
+                        recommendation.selectedEndpoint,
+                    ),
+                    DiagnosticsFieldUiModel(
+                        stringResolver.getString(R.string.diagnostics_resolver_field_bootstrap),
+                        recommendation.selectedBootstrapIps.joinToString().ifBlank {
+                            stringResolver.getString(R.string.diagnostics_value_none)
+                        },
                     ),
                 ),
             appliedTemporarily = recommendation.appliedTemporarily,
@@ -64,4 +87,4 @@ internal class ResolverRecommendationPresenter {
 internal fun DiagnosticsUiFactorySupport.toResolverRecommendationUiModel(
     recommendation: ResolverRecommendation,
 ): DiagnosticsResolverRecommendationUiModel =
-    ResolverRecommendationPresenter().toUiModel(recommendation = recommendation)
+    ResolverRecommendationPresenter().toUiModel(recommendation = recommendation, stringResolver = context)

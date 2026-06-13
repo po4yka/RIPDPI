@@ -13,9 +13,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -70,14 +72,18 @@ fun RipDpiCidrInput(
     value: RipDpiCidrValue,
     onValueChange: (RipDpiCidrValue) -> Unit,
     modifier: Modifier = Modifier,
-    label: String = "CIDR",
+    label: String = stringResource(R.string.cidr_input_label),
 ) {
     val colors = RipDpiThemeTokens.colors
     val maxPrefix = maxPrefixFor(value.family)
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
         Text(label, style = RipDpiThemeTokens.type.secondaryBody.copy(color = colors.mutedForeground))
         RipDpiSegmentedButton(
-            options = listOf("IPv4", "IPv6"),
+            options =
+                listOf(
+                    stringResource(R.string.cidr_input_family_ipv4),
+                    stringResource(R.string.cidr_input_family_ipv6),
+                ),
             selectedIndex = if (value.family == RipDpiCidrFamily.Ipv4) 0 else 1,
             onSelect = { idx ->
                 val newFamily = if (idx == 0) RipDpiCidrFamily.Ipv4 else RipDpiCidrFamily.Ipv6
@@ -114,9 +120,9 @@ fun RipDpiCidrInput(
         if (!value.isValid()) {
             val hint =
                 if (value.family == RipDpiCidrFamily.Ipv4) {
-                    "Invalid CIDR — expected dotted-quad/0..32"
+                    stringResource(R.string.cidr_input_invalid_ipv4)
                 } else {
-                    "Invalid CIDR — expected hex-colon/0..128"
+                    stringResource(R.string.cidr_input_invalid_ipv6)
                 }
             Text(
                 hint,

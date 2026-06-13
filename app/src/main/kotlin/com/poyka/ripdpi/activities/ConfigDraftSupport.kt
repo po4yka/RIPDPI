@@ -218,6 +218,7 @@ data class ConfigUiState(
     val relayPresetSuggestion: RelayPresetSuggestionUiState? = null,
     val supportsMasquePrivacyPass: Boolean = false,
     val masquePrivacyPassBuildStatus: MasquePrivacyPassBuildStatus = MasquePrivacyPassBuildStatus.MissingProviderUrl,
+    val isLoading: Boolean = false,
 )
 
 data class RelayPresetUiState(

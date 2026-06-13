@@ -3,20 +3,9 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
-import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
-import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
-import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
-import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshake
-import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
-import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetector
-import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
-import com.poyka.ripdpi.diagnostics.dpich.Ipv4WhitelistedSubnetDiscoverer
-import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
-import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
-import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
 import com.poyka.ripdpi.platform.StringResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
@@ -29,23 +18,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
-
-internal class DiagnosticsProbeDependencies
-    @Inject
-    constructor(
-        val dnsIntegrityChecker: DnsIntegrityChecker,
-        val dnsAvailabilitySurvey: DnsAvailabilitySurvey,
-        val domainReachabilityScanner: DomainReachabilityScanner,
-        val tcp16FatHeaderProbe: Tcp16FatHeaderProbe,
-        val httpCompressionProber: HttpCompressionProber,
-        val cidrWhitelistDetector: CidrWhitelistDetector,
-        val ipv4WhitelistedSubnetDiscoverer: Ipv4WhitelistedSubnetDiscoverer,
-        val rknLayeredProbePipeline: RknLayeredProbePipeline,
-        val selfInfoFetcher: SelfInfoFetcher,
-        val assetLoader: DpiAssetLoader,
-        val tlsKeylogRunFinalizer: TlsKeylogRunFinalizer,
-        val echTlsHandshake: EchTlsHandshake,
-    )
 
 @Suppress("TooManyFunctions")
 @HiltViewModel
@@ -90,11 +62,13 @@ class DiagnosticsViewModel
                 rknLayeredProbePipeline = probeDependencies.rknLayeredProbePipeline,
                 selfInfoFetcher = probeDependencies.selfInfoFetcher,
                 assetLoader = probeDependencies.assetLoader,
+                stringResolver = stringResolver,
             )
         private val cidrWhitelistController =
             DiagnosticsCidrWhitelistController(
                 scope = viewModelScope,
                 detector = probeDependencies.cidrWhitelistDetector,
+                stringResolver = stringResolver,
             )
         private val ipv4WhitelistController =
             DiagnosticsIpv4WhitelistController(
@@ -103,11 +77,12 @@ class DiagnosticsViewModel
                 shareCsv = { csv ->
                     _effects.tryEmit(
                         DiagnosticsEffect.ShareSummaryRequested(
-                            title = "IPv4 whitelist subnets.csv",
+                            title = stringResolver.getString(R.string.diagnostics_ipv4_whitelist_csv_title),
                             body = csv,
                         ),
                     )
                 },
+                stringResolver = stringResolver,
             )
         private val dpiSuiteController =
             DiagnosticsDpiSuiteController(
@@ -121,12 +96,14 @@ class DiagnosticsViewModel
                 diagnosticsFiles = diagnosticsFiles,
                 tlsKeylogRunFinalizer = probeDependencies.tlsKeylogRunFinalizer,
                 echTlsHandshake = probeDependencies.echTlsHandshake,
+                stringResolver = stringResolver,
             )
         private val pluggableTransportController =
             DiagnosticsPluggableTransportController(
                 scope = viewModelScope,
                 appSettingsRepository = appSettingsRepository,
                 assetLoader = probeDependencies.assetLoader,
+                stringResolver = stringResolver,
             )
 
         val uiState: StateFlow<DiagnosticsUiState> =

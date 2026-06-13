@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsRknSelfInfoUiModel
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -19,27 +21,27 @@ internal fun SelfInfoCard(info: DiagnosticsRknSelfInfoUiModel) {
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
         Text(
-            text = "Network context",
+            text = stringResource(R.string.diagnostics_rkn_self_info_network_context),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
         SettingsRow(
-            title = "IP",
+            title = stringResource(R.string.rkn_self_info_ip),
             value = info.maskedIp,
             monospaceValue = true,
         )
         SettingsRow(
-            title = "ISP",
+            title = stringResource(R.string.rkn_self_info_isp),
             value = info.provider,
         )
         info.location?.let { location ->
             SettingsRow(
-                title = "Location",
+                title = stringResource(R.string.rkn_self_info_location),
                 value = location,
             )
         }
         SettingsRow(
-            title = "Source",
+            title = stringResource(R.string.rkn_self_info_source),
             value = info.source,
         )
     }

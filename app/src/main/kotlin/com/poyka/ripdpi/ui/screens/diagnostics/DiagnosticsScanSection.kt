@@ -271,7 +271,12 @@ internal fun ScanSection(
                     }
                 RipDpiCard {
                     SettingsCategoryHeader(
-                        title = "$sectionTitle (${scan.latestResults.size})",
+                        title =
+                            stringResource(
+                                R.string.diagnostics_results_section_count,
+                                sectionTitle,
+                                scan.latestResults.size,
+                            ),
                     )
                     scan.latestResults.forEach { probe ->
                         if (probe.probeType == "telegram_availability") {

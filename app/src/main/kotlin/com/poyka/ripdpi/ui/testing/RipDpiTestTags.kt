@@ -61,6 +61,7 @@ internal object RipDpiTestTags {
     const val HomeNetworkConditionBanner = "home-network-condition-banner"
 
     const val ConfigEditCurrentButton = "config-edit-current"
+    const val ConfigPresetsLoading = "config-presets-loading"
     const val ConfigDnsSettings = "config-dns-settings"
     const val ConfigLocalBypassSummary = "config-local-bypass-summary"
     const val ConfigLocalBypassSimple = "config-local-bypass-simple"
