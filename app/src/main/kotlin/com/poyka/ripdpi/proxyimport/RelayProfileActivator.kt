@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
+import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import javax.inject.Inject
@@ -161,12 +162,16 @@ class RelayProfileActivator
                 }
 
                 is ProxyProfile.Ssh -> {
+                    // Persist only the auth-relevant secret so a profile carrying
+                    // both never leaks the unused credential into the Keystore,
+                    // regardless of which caller built it.
+                    val isKey = profile.authType == RelaySshAuthTypePrivateKey
                     RelayCredentialRecord(
                         profileId = profileId,
                         sshUsername = profile.username,
-                        sshPassword = profile.password,
-                        sshPrivateKey = profile.privateKey,
-                        sshPrivateKeyPassphrase = profile.privateKeyPassphrase,
+                        sshPassword = profile.password?.takeIf { !isKey },
+                        sshPrivateKey = profile.privateKey?.takeIf { isKey },
+                        sshPrivateKeyPassphrase = profile.privateKeyPassphrase?.takeIf { isKey },
                     )
                 }
 
