@@ -387,14 +387,14 @@ private fun LogsOverviewCard(
             style = RipDpiThemeTokens.type.body,
             color = colors.mutedForeground,
         )
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             RipDpiButton(
                 text = stringResource(R.string.settings_support_debug_bundle_title),
                 onClick = onShareSupportBundle,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxWidth(),
                 variant = RipDpiButtonVariant.Primary,
             )
             RipDpiButton(
@@ -402,7 +402,7 @@ private fun LogsOverviewCard(
                 onClick = onSaveLogs,
                 modifier =
                     Modifier
-                        .weight(1f)
+                        .fillMaxWidth()
                         .ripDpiTestTag(RipDpiTestTags.LogsSave),
                 variant = RipDpiButtonVariant.Outline,
             )
