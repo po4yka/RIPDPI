@@ -27,7 +27,12 @@ fun ReplayFailureRoute(
         // timestampLabel.isEmpty() guards against re-entry on
         // configuration changes where the VM (and its in-flight state)
         // is retained but the composition is recreated.
-        if (state.timestampLabel.isEmpty()) {
+        // Read directly from the StateFlow value rather than from the
+        // snapshot-delegated `state` delegate: snapshot-state reads
+        // inside a coroutine body are unobserved and may be stale.
+        if (viewModel.uiState.value.timestampLabel
+                .isEmpty()
+        ) {
             viewModel.start(
                 domain = DefaultReplayDomain,
                 strategyId = DefaultReplayStrategyId,
