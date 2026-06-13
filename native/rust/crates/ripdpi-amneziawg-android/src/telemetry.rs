@@ -14,7 +14,8 @@ use crate::registry;
 /// Additive forward marker -- consumers do not branch on it yet.
 const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 
-const IDLE_TELEMETRY_JSON: &str = "{\"source\":\"amneziawg\",\"schemaVersion\":1,\"state\":\"idle\",\"capturedAt\":0}";
+const IDLE_TELEMETRY_JSON: &str =
+    "{\"source\":\"amneziawg\",\"schemaVersion\":1,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -53,6 +54,7 @@ mod tests {
         AmneziaWgTelemetry {
             source: "amneziawg",
             state: "running".to_string(),
+            health: "running".to_string(),
             active_sessions: 1,
             total_sessions: 2,
             listener_address: Some("127.0.0.1:11090".to_string()),

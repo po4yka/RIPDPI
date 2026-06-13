@@ -907,6 +907,77 @@ mod tests {
         }
     }
 
+    /// A WireGuard preshared key (PSK) mixes into the Noise key schedule. This
+    /// drives a full handshake with a matching PSK on both peers, through the
+    /// active AmneziaWG codec, and asserts an inner packet round-trips -- proving
+    /// the generic-profile PSK plumbing (`WireGuardTunnelParams::preshared_key`)
+    /// is wired into `Tunn` correctly, not silently dropped.
+    #[test]
+    fn preshared_key_handshake_completes_through_codec() {
+        use boringtun::noise::{Tunn, TunnResult};
+        use boringtun::x25519::{PublicKey, StaticSecret};
+
+        let client_secret = StaticSecret::from([3u8; 32]);
+        let server_secret = StaticSecret::from([5u8; 32]);
+        let client_public = PublicKey::from(&client_secret);
+        let server_public = PublicKey::from(&server_secret);
+        // Matching 32-byte PSK on both peers (arg 3 of Tunn::new).
+        let psk = [0x5Au8; 32];
+
+        let mut client = Tunn::new(client_secret, server_public, Some(psk), None, 0, None);
+        let mut server = Tunn::new(server_secret, client_public, Some(psk), None, 1, None);
+
+        let params = AwgParams::from_config(
+            &cfg(0, 0, 0, [0x20_00_00_01, 0x20_00_00_02, 0x20_00_00_03, 0x20_00_00_04], [0; 4]),
+            &no_special(),
+        )
+        .unwrap();
+        let codec = AwgWireCodec::new(params);
+        let through = |codec: &AwgWireCodec, packet: &[u8]| -> Vec<u8> {
+            let encoded = codec.encode(packet);
+            let (wg_type, tail) = codec.decode(&encoded).expect("codec round trip");
+            std::iter::once(wg_type).chain(tail.iter().copied()).collect()
+        };
+
+        let mut buf = [0u8; 2048];
+        let init = match client.encapsulate(&[], &mut buf) {
+            TunnResult::WriteToNetwork(p) => p.to_vec(),
+            other => panic!("expected init, got {other:?}"),
+        };
+        let dec_init = through(&codec, &init);
+        let mut buf2 = [0u8; 2048];
+        let response = match server.decapsulate(None, &dec_init, &mut buf2) {
+            TunnResult::WriteToNetwork(p) => p.to_vec(),
+            other => panic!("expected response (PSK accepted), got {other:?}"),
+        };
+        let dec_resp = through(&codec, &response);
+        let mut buf3 = [0u8; 2048];
+        match client.decapsulate(None, &dec_resp, &mut buf3) {
+            TunnResult::WriteToNetwork(_) | TunnResult::Done => {}
+            other => panic!("PSK handshake did not complete: {other:?}"),
+        }
+
+        let mut ip_packet = vec![0u8; 20];
+        ip_packet[0] = 0x45;
+        let total_len = (ip_packet.len() as u16).to_be_bytes();
+        ip_packet[2] = total_len[0];
+        ip_packet[3] = total_len[1];
+        ip_packet[9] = 17;
+        let mut buf4 = [0u8; 2048];
+        let data = match client.encapsulate(&ip_packet, &mut buf4) {
+            TunnResult::WriteToNetwork(p) => p.to_vec(),
+            other => panic!("expected transport data, got {other:?}"),
+        };
+        let dec_data = through(&codec, &data);
+        let mut buf5 = [0u8; 2048];
+        match server.decapsulate(None, &dec_data, &mut buf5) {
+            TunnResult::WriteToTunnelV4(plaintext, _) => {
+                assert_eq!(plaintext, &ip_packet[..], "PSK-derived transport keys agree and the packet round-trips");
+            }
+            other => panic!("server could not recover the inner packet under PSK: {other:?}"),
+        }
+    }
+
     #[test]
     fn headers_and_padding_combine_round_trip_for_all_types() {
         let headers = [0xC0_FF_EE_01, 0xC0_FF_EE_02, 0xC0_FF_EE_03, 0xC0_FF_EE_04];

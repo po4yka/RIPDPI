@@ -28,6 +28,15 @@ unsafe impl Send for JniReadinessCallback {}
 // `on_ready()` only attaches the current thread to invoke one void method.
 unsafe impl Sync for JniReadinessCallback {}
 
+// Compile-fail regression: any future field change that breaks the Send/Sync
+// claim above fails to compile here (mirrors the guard in `vpn_protect.rs`).
+const _: fn() = || {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<JniReadinessCallback>();
+    assert_sync::<JniReadinessCallback>();
+};
+
 impl JniReadinessCallback {
     fn on_ready(&self) {
         let result: Result<(), jni::errors::Error> = self.vm.attach_current_thread(|env| -> jni::errors::Result<()> {

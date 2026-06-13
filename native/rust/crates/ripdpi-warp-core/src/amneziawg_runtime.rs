@@ -124,6 +124,12 @@ pub struct AmneziaWgObfuscation {
 impl AmneziaWgObfuscation {
     /// `true` when at least one obfuscation knob is set. When false the tunnel
     /// is wire-identical to upstream WireGuard (the codec runs in passthrough).
+    ///
+    /// `jmin`/`jmax` are deliberately NOT consulted: junk packets are only
+    /// emitted when `jc > 0` (see [`crate::amneziawg::AwgParams::build_junk_packets`]
+    /// and `is_passthrough`), so a config with only `jmin`/`jmax` set is inert.
+    /// Do not add them here -- doing so would flip otherwise-passthrough tunnels
+    /// into "active" and build a codec for nothing.
     fn is_active(&self) -> bool {
         self.jc != 0
             || self.s1 != 0
@@ -166,6 +172,10 @@ impl AmneziaWgObfuscation {
 pub struct AmneziaWgTelemetry {
     pub source: &'static str,
     pub state: String,
+    /// Mirrors `state` (`running`/`idle`); kept distinct for parity with
+    /// `WarpTelemetry` and the Kotlin `NativeRuntimeSnapshot.health` field, so a
+    /// running tunnel does not surface the snapshot's default `health = "idle"`.
+    pub health: String,
     pub active_sessions: u64,
     pub total_sessions: u64,
     pub listener_address: Option<String>,
@@ -236,9 +246,11 @@ impl AmneziaWgRuntime {
 
     pub fn telemetry(&self) -> AmneziaWgTelemetry {
         let running = self.running.load(Ordering::SeqCst);
+        let state = if running { "running" } else { "idle" };
         AmneziaWgTelemetry {
             source: TELEMETRY_SOURCE,
-            state: if running { "running".to_string() } else { "idle".to_string() },
+            state: state.to_string(),
+            health: state.to_string(),
             active_sessions: self.active_sessions.load(Ordering::SeqCst),
             total_sessions: self.total_sessions.load(Ordering::SeqCst),
             listener_address: self.listener_address.lock().expect("listener address").clone(),
