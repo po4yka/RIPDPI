@@ -53,7 +53,8 @@ fun DiagnosticsRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val toolsStateFlow = remember(viewModel) { viewModel.toolsRouteStateFlow() }
     val toolsState by toolsStateFlow.collectAsStateWithLifecycle(DiagnosticsToolsRouteState())
-    val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
+    val pagerState =
+        rememberPagerState(initialPage = uiState.selectedSection.ordinal) { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
 
     DiagnosticsRoutePagerSync(uiState.selectedSection, pagerState, viewModel)
