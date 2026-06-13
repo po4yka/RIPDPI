@@ -2715,6 +2715,7 @@ fakeddisorder endhost</string>
     <string name="widget_status_running">يعمل</string>
     <string name="widget_status_halted">متوقف</string>
     <string name="widget_status_connecting">جارٍ الاتصال</string>
+    <string name="widget_status_reconnecting">إعادة الاتصال</string>
     <string name="widget_status_unknown">غير معروف</string>
     <string name="widget_telemetry_uptime">وقت التشغيل</string>
     <string name="widget_telemetry_bytes_up">صاعد</string>

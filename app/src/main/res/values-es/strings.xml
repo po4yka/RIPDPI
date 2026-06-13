@@ -2807,6 +2807,7 @@ Origen: %2$s</string>
     <string name="widget_status_running">Activo</string>
     <string name="widget_status_halted">Detenido</string>
     <string name="widget_status_connecting">Conectando</string>
+    <string name="widget_status_reconnecting">Reconectando</string>
     <string name="widget_status_unknown">Desconocido</string>
     <string name="widget_telemetry_uptime">Tiempo activo</string>
     <string name="widget_telemetry_bytes_up">Subida</string>

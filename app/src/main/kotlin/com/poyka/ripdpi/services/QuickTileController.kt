@@ -103,7 +103,10 @@ internal class QuickTileController(
                 }
             }
 
-            AppStatus.Running -> {
+            // Reconnecting is an in-flight resume: a tile tap stops it, same as Running.
+            AppStatus.Reconnecting,
+            AppStatus.Running,
+            -> {
                 serviceController.stop()
             }
         }

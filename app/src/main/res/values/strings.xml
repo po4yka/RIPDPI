@@ -2960,6 +2960,7 @@ Source: %2$s</string>
     <string name="widget_status_running">Running</string>
     <string name="widget_status_halted">Halted</string>
     <string name="widget_status_connecting">Connecting</string>
+    <string name="widget_status_reconnecting">Reconnecting</string>
     <string name="widget_status_unknown">Unknown</string>
     <string name="widget_telemetry_uptime">Uptime</string>
     <string name="widget_telemetry_bytes_up">Up</string>

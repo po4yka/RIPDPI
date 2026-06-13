@@ -2807,6 +2807,7 @@ Source : %2$s</string>
     <string name="widget_status_running">Actif</string>
     <string name="widget_status_halted">Arrêté</string>
     <string name="widget_status_connecting">Connexion en cours</string>
+    <string name="widget_status_reconnecting">Reconnexion</string>
     <string name="widget_status_unknown">Inconnu</string>
     <string name="widget_telemetry_uptime">Durée active</string>
     <string name="widget_telemetry_bytes_up">Envoi</string>

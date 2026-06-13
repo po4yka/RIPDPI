@@ -2926,6 +2926,7 @@ fakeddisorder endhost</string>
     <string name="widget_status_running">Работает</string>
     <string name="widget_status_halted">Остановлен</string>
     <string name="widget_status_connecting">Подключение</string>
+    <string name="widget_status_reconnecting">Переподключение</string>
     <string name="widget_status_unknown">Неизвестно</string>
     <string name="widget_telemetry_uptime">Время работы</string>
     <string name="widget_telemetry_bytes_up">Отправлено</string>

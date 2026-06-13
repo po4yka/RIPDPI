@@ -2807,6 +2807,7 @@ Quelle: %2$s</string>
     <string name="widget_status_running">Aktiv</string>
     <string name="widget_status_halted">Gestoppt</string>
     <string name="widget_status_connecting">Verbinde</string>
+    <string name="widget_status_reconnecting">Verbinde erneut</string>
     <string name="widget_status_unknown">Unbekannt</string>
     <string name="widget_telemetry_uptime">Laufzeit</string>
     <string name="widget_telemetry_bytes_up">Hoch</string>

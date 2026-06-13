@@ -2808,6 +2808,7 @@ fake_burst 3</string>
     <string name="widget_status_running">运行中</string>
     <string name="widget_status_halted">已停止</string>
     <string name="widget_status_connecting">连接中</string>
+    <string name="widget_status_reconnecting">正在重新连接</string>
     <string name="widget_status_unknown">未知</string>
     <string name="widget_telemetry_uptime">运行时间</string>
     <string name="widget_telemetry_bytes_up">上传</string>

@@ -12,6 +12,8 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
@@ -112,6 +114,13 @@ class RipDpiProxyService :
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf(startId)
             return START_NOT_STICKY
+        }
+        // A null action is a START_STICKY re-delivery after a process kill (LMK /
+        // memory limiter) — and we are past the abort guard, so the restart will
+        // proceed. Publish Reconnecting so the UI shows the bring-up window instead
+        // of Halted; Running/Halted resolves it once the runtime settles.
+        if (intent?.action == null) {
+            serviceStateStore.setStatus(AppStatus.Reconnecting, Mode.Proxy)
         }
         return shellDelegate.onStartCommand(intent?.action, startId)
     }

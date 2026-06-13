@@ -2812,6 +2812,7 @@ fakeddisorder endhost</string>
     <string name="widget_status_running">در حال اجرا</string>
     <string name="widget_status_halted">متوقف</string>
     <string name="widget_status_connecting">در حال اتصال</string>
+    <string name="widget_status_reconnecting">در حال اتصال مجدد</string>
     <string name="widget_status_unknown">نامعلوم</string>
     <string name="widget_telemetry_uptime">زمان فعالیت</string>
     <string name="widget_telemetry_bytes_up">آپلود</string>
