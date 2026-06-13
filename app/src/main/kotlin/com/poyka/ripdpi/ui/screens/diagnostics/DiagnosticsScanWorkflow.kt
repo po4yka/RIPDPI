@@ -494,16 +494,16 @@ private fun WorkflowActionRow(
         )
         return
     }
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(spacing),
+        verticalArrangement = Arrangement.spacedBy(spacing),
     ) {
         RipDpiButton(
             text = presentation.rawActionLabel,
             onClick = onRunRawScan,
             modifier =
                 Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
                     .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
             enabled = scan.runRawEnabled,
         )
@@ -512,7 +512,7 @@ private fun WorkflowActionRow(
             onClick = onRunInPathScan,
             modifier =
                 Modifier
-                    .weight(1f)
+                    .fillMaxWidth()
                     .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunInPathAction),
             variant = RipDpiButtonVariant.Outline,
             enabled = scan.runInPathEnabled,
