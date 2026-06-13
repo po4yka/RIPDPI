@@ -254,7 +254,7 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `successful validation renders one disconnected finish action`() {
+    fun `successful validation renders keep-running and disconnected finish actions`() {
         renderOnboarding(
             OnboardingUiState(
                 currentPage = OnboardingPages.lastIndex,
@@ -262,11 +262,12 @@ class OnboardingScreenTest {
             ),
         )
 
-        // Footer CTA is the single setup-completion action and states the disconnected outcome.
+        // Primary CTA keeps the validated tunnel; a secondary action finishes disconnected.
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertCountEquals(1)
+        composeRule.onNodeWithText("Finish and keep running").assertExists()
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishDisconnected).assertCountEquals(1)
         composeRule.onNodeWithText("Finish disconnected").assertExists()
         composeRule.onNodeWithText("Setup complete").assertExists()
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertCountEquals(0)
         // No "finish without testing" once the test succeeded.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertCountEquals(0)
     }

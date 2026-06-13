@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.tuner
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -64,7 +65,7 @@ class StrategyTunerViewModelTest {
 
             assertEquals(listOf("tls"), runner.appliedStrategyIds)
             assertEquals("tls", viewModel.uiState.value.appliedStrategyId)
-            assertEquals("Strategy applied", viewModel.uiState.value.message)
+            assertEquals(R.string.strategy_tuner_message_strategy_applied, viewModel.uiState.value.messageRes)
         }
 }
 

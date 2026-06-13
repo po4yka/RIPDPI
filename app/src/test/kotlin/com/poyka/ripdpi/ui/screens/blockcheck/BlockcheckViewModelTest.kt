@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.blockcheck
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.BlockLayer
 import com.poyka.ripdpi.core.detection.BlockLayerDiagnosis
 import com.poyka.ripdpi.core.detection.BypassStrategyClass
@@ -167,7 +168,7 @@ class BlockcheckViewModelTest {
                     .single()
             assertEquals(TcpChainStepKind.Fake, appliedStep.kind)
             assertEquals(1, reloader.reloadCount)
-            assertEquals("Strategy applied", viewModel.uiState.value.message)
+            assertEquals(R.string.blockcheck_message_strategy_applied, viewModel.uiState.value.messageRes)
         }
 
     @Test
