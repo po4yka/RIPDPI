@@ -59,19 +59,25 @@ class ProfileImportConfirmViewModel
             if (_uiState.value.importing || _uiState.value.imported) return
             _uiState.update { it.copy(importing = true) }
             viewModelScope.launch {
-                val groupId = UUID.randomUUID().toString()
-                repository.add(
-                    ProxyGroup(
-                        id = groupId,
-                        name = profile.displayName,
-                        type = ProxyGroupType.BASIC,
-                        order = nextOrder(),
-                        isSelector = false,
-                        subscription = null,
-                    ),
-                )
-                relayActivator.activate(profile)
-                _uiState.update { it.copy(importing = false, imported = true) }
+                try {
+                    val groupId = UUID.randomUUID().toString()
+                    repository.add(
+                        ProxyGroup(
+                            id = groupId,
+                            name = profile.displayName,
+                            type = ProxyGroupType.BASIC,
+                            order = nextOrder(),
+                            isSelector = false,
+                            subscription = null,
+                        ),
+                    )
+                    relayActivator.activate(profile)
+                    _uiState.update { it.copy(imported = true) }
+                } finally {
+                    // Reset the in-flight flag even if persistence/activation
+                    // throws so the import action can be retried.
+                    _uiState.update { it.copy(importing = false) }
+                }
             }
         }
 

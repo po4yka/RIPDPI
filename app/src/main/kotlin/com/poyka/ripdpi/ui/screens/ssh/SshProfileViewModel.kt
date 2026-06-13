@@ -91,8 +91,15 @@ class SshProfileViewModel
             if (_uiState.value.saving || _uiState.value.saved) return
             _uiState.update { it.copy(saving = true) }
             viewModelScope.launch {
-                relayActivator.activate(profile)
-                _uiState.update { it.copy(saving = false, saved = true) }
+                try {
+                    relayActivator.activate(profile)
+                    _uiState.update { it.copy(saved = true) }
+                } finally {
+                    // Reset the in-flight flag even if activation throws (e.g. a
+                    // Keystore write failure) so the editor stays usable and the
+                    // user can retry rather than being stranded on a disabled Save.
+                    _uiState.update { it.copy(saving = false) }
+                }
             }
         }
     }
