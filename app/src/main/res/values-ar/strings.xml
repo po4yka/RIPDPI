@@ -3176,6 +3176,8 @@ fakeddisorder endhost</string>
     <string name="mieru_field_mtu">MTU</string>
     <string name="mieru_field_invalid">القيمة غير صالحة لهذا الحقل.</string>
     <string name="mieru_save_action">حفظ</string>
+    <string name="mieru_experimental_title">تجريبي — غير مُتحقَّق منه مع خوادم حقيقية</string>
+    <string name="mieru_experimental_body">لم يُختبر دعم Mieru مع خادم Mieru حقيقي. قد تفشل الاتصالات. أبلغ عن المشكلات لمساعدتنا في التحقق من هذا الريلاي.</string>
     <string name="ssh_editor_title">ملف تعريف SSH</string>
     <string name="ssh_section_endpoint">نقطة الاتصال</string>
     <string name="ssh_section_auth">المصادقة</string>
@@ -3197,6 +3199,8 @@ fakeddisorder endhost</string>
     <string name="ssh_secret_hidden">مخفي — انقر على الكشف للعرض</string>
     <string name="ssh_reveal_secret_action">كشف</string>
     <string name="ssh_save_action">حفظ</string>
+    <string name="ssh_not_functional_title">غير وظيفي بعد — ستفشل الاتصالات</string>
+    <string name="ssh_not_functional_body">لم يُنفَّذ بعد الواجهة الخلفية لريلاي SSH. يمكن حفظ ملف التعريف، لكن بدء الاتصال سيفشل دائمًا بخطأ. لا تستخدمه للحركة الحقيقية.</string>
 
     <!-- onboarding refactor additions -->
     <!-- intro chips -->
@@ -3246,4 +3250,24 @@ fakeddisorder endhost</string>
     <string name="onboarding_test_row_state_active">قيد التنفيذ</string>
     <string name="onboarding_test_row_state_done">تمَّ</string>
     <string name="onboarding_test_row_state_failed">فشل</string>
+
+    <!-- ViewModel status messages -->
+    <string name="blockcheck_message_probe_cancelled">تم إلغاء الفحص</string>
+    <string name="blockcheck_message_probe_complete">اكتمل الفحص</string>
+    <string name="blockcheck_message_strategy_applied">تم تطبيق الاستراتيجية</string>
+    <string name="blockcheck_message_strategy_unregistered">لم تعد الاستراتيجية مسجَّلة</string>
+    <string name="strategy_tuner_message_strategy_applied">تم تطبيق الاستراتيجية</string>
+
+    <!-- Clipboard labels -->
+    <string name="clipboard_label_ripdpi_domains">نطاقات RIPDPI</string>
+    <string name="clipboard_label_error">خطأ</string>
+    <string name="clipboard_label_lan_auth_token">رمز مصادقة LAN</string>
+    <string name="clipboard_label_probe_details">تفاصيل الفحص</string>
+    <string name="clipboard_label_byoh_compatibility_csv">CSV توافق BYOH</string>
+    <string name="clipboard_label_compatible_sni">SNI متوافق</string>
+    <string name="clipboard_label_detection_diagnostics">تشخيصات الكشف</string>
+    <string name="clipboard_label_detection_report">تقرير الكشف</string>
+    <string name="clipboard_label_detection_markdown_export">تصدير Markdown للكشف</string>
+    <string name="clipboard_label_profile_link">رابط ملف تعريف RIPDPI</string>
+    <string name="clipboard_label_setup_sheet">ورقة إعداد RIPDPI</string>
 </resources>

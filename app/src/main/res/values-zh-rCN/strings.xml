@@ -2771,6 +2771,8 @@ fake_burst 3</string>
     <string name="mieru_field_mtu">MTU</string>
     <string name="mieru_field_invalid">此字段的值无效。</string>
     <string name="mieru_save_action">保存</string>
+    <string name="mieru_experimental_title">实验性 — 未经真实服务器验证</string>
+    <string name="mieru_experimental_body">Mieru 支持尚未在真实 Mieru 服务器上测试。连接可能失败。请报告问题以帮助我们验证此中继。</string>
 
     <string name="ssh_editor_title">SSH 配置</string>
     <string name="ssh_section_endpoint">端点</string>
@@ -2793,6 +2795,8 @@ fake_burst 3</string>
     <string name="ssh_secret_hidden">已隐藏 — 点按显示</string>
     <string name="ssh_reveal_secret_action">显示</string>
     <string name="ssh_save_action">保存</string>
+    <string name="ssh_not_functional_title">尚未可用 — 连接将失败</string>
+    <string name="ssh_not_functional_body">SSH 中继后端尚未实现。可以保存配置，但启动连接将始终报错失败。请勿用于真实流量。</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">连接开关</string>
@@ -3267,4 +3271,24 @@ fake_burst 3</string>
     <string name="onboarding_test_row_state_active">进行中</string>
     <string name="onboarding_test_row_state_done">已完成</string>
     <string name="onboarding_test_row_state_failed">失败</string>
+
+    <!-- ViewModel status messages -->
+    <string name="blockcheck_message_probe_cancelled">探测已取消</string>
+    <string name="blockcheck_message_probe_complete">探测已完成</string>
+    <string name="blockcheck_message_strategy_applied">策略已应用</string>
+    <string name="blockcheck_message_strategy_unregistered">策略已不再注册</string>
+    <string name="strategy_tuner_message_strategy_applied">策略已应用</string>
+
+    <!-- Clipboard labels -->
+    <string name="clipboard_label_ripdpi_domains">RIPDPI 域名</string>
+    <string name="clipboard_label_error">错误</string>
+    <string name="clipboard_label_lan_auth_token">LAN 认证令牌</string>
+    <string name="clipboard_label_probe_details">探测详情</string>
+    <string name="clipboard_label_byoh_compatibility_csv">BYOH 兼容性 CSV</string>
+    <string name="clipboard_label_compatible_sni">兼容的 SNI</string>
+    <string name="clipboard_label_detection_diagnostics">检测诊断</string>
+    <string name="clipboard_label_detection_report">检测报告</string>
+    <string name="clipboard_label_detection_markdown_export">检测 Markdown 导出</string>
+    <string name="clipboard_label_profile_link">RIPDPI 配置链接</string>
+    <string name="clipboard_label_setup_sheet">RIPDPI 设置说明</string>
 </resources>

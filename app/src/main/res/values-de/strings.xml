@@ -2770,6 +2770,8 @@ Quelle: %2$s</string>
     <string name="mieru_field_mtu">MTU</string>
     <string name="mieru_field_invalid">Kein gültiger Wert für dieses Feld.</string>
     <string name="mieru_save_action">Speichern</string>
+    <string name="mieru_experimental_title">Experimentell — nicht mit echten Servern getestet</string>
+    <string name="mieru_experimental_body">Die Mieru-Unterstützung wurde nicht mit einem echten Mieru-Server getestet. Verbindungen können fehlschlagen. Bitte Probleme melden, um die Überprüfung dieses Relays zu unterstützen.</string>
 
     <string name="ssh_editor_title">SSH-Profil</string>
     <string name="ssh_section_endpoint">Endpunkt</string>
@@ -2792,6 +2794,8 @@ Quelle: %2$s</string>
     <string name="ssh_secret_hidden">Verborgen – zum Anzeigen tippen</string>
     <string name="ssh_reveal_secret_action">Anzeigen</string>
     <string name="ssh_save_action">Speichern</string>
+    <string name="ssh_not_functional_title">Noch nicht funktionsfähig — Verbindungen schlagen fehl</string>
+    <string name="ssh_not_functional_body">Das SSH-Relay-Backend ist noch nicht implementiert. Ein Profil kann gespeichert werden, aber der Verbindungsaufbau schlägt stets mit einem Fehler fehl. Nicht für echten Datenverkehr verwenden.</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">Verbindungsschalter</string>
@@ -3266,4 +3270,24 @@ Quelle: %2$s</string>
     <string name="onboarding_test_row_state_active">Läuft</string>
     <string name="onboarding_test_row_state_done">Fertig</string>
     <string name="onboarding_test_row_state_failed">Fehlgeschlagen</string>
+
+    <!-- ViewModel status messages -->
+    <string name="blockcheck_message_probe_cancelled">Prüfung abgebrochen</string>
+    <string name="blockcheck_message_probe_complete">Prüfung abgeschlossen</string>
+    <string name="blockcheck_message_strategy_applied">Strategie angewendet</string>
+    <string name="blockcheck_message_strategy_unregistered">Strategie ist nicht mehr registriert</string>
+    <string name="strategy_tuner_message_strategy_applied">Strategie angewendet</string>
+
+    <!-- Clipboard labels -->
+    <string name="clipboard_label_ripdpi_domains">RIPDPI-Domains</string>
+    <string name="clipboard_label_error">Fehler</string>
+    <string name="clipboard_label_lan_auth_token">LAN-Authentifizierungstoken</string>
+    <string name="clipboard_label_probe_details">Prüfdetails</string>
+    <string name="clipboard_label_byoh_compatibility_csv">BYOH-Kompatibilitäts-CSV</string>
+    <string name="clipboard_label_compatible_sni">Kompatibler SNI</string>
+    <string name="clipboard_label_detection_diagnostics">Erkennungsdiagnose</string>
+    <string name="clipboard_label_detection_report">Erkennungsbericht</string>
+    <string name="clipboard_label_detection_markdown_export">Erkennungs-Markdown-Export</string>
+    <string name="clipboard_label_profile_link">RIPDPI-Profillink</string>
+    <string name="clipboard_label_setup_sheet">RIPDPI-Einrichtungsblatt</string>
 </resources>

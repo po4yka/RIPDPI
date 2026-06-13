@@ -2923,6 +2923,8 @@ Source: %2$s</string>
     <string name="mieru_field_mtu">MTU</string>
     <string name="mieru_field_invalid">Not a valid value for this field.</string>
     <string name="mieru_save_action">Save</string>
+    <string name="mieru_experimental_title">Experimental — unverified against live servers</string>
+    <string name="mieru_experimental_body">Mieru support has not been tested against a real Mieru server. Connections may fail. Report issues to help us verify this relay.</string>
 
     <string name="ssh_editor_title">SSH profile</string>
     <string name="ssh_section_endpoint">Endpoint</string>
@@ -2945,6 +2947,8 @@ Source: %2$s</string>
     <string name="ssh_secret_hidden">Hidden — tap reveal to show</string>
     <string name="ssh_reveal_secret_action">Reveal</string>
     <string name="ssh_save_action">Save</string>
+    <string name="ssh_not_functional_title">Not yet functional — connections will fail</string>
+    <string name="ssh_not_functional_body">The SSH relay backend is not yet implemented. Saving a profile is possible but starting a connection will always fail with an error. Do not use for real traffic.</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">Connect Toggle</string>
@@ -3375,4 +3379,24 @@ Source: %2$s</string>
     <string name="xray_import_capabilities_body">This connection provides:</string>
     <string name="xray_import_finish_action">Use this mode</string>
     <string name="xray_import_done_action">Done</string>
+
+    <!-- ViewModel status messages -->
+    <string name="blockcheck_message_probe_cancelled">Probe cancelled</string>
+    <string name="blockcheck_message_probe_complete">Probe complete</string>
+    <string name="blockcheck_message_strategy_applied">Strategy applied</string>
+    <string name="blockcheck_message_strategy_unregistered">Strategy is no longer registered</string>
+    <string name="strategy_tuner_message_strategy_applied">Strategy applied</string>
+
+    <!-- Clipboard labels -->
+    <string name="clipboard_label_ripdpi_domains">RIPDPI domains</string>
+    <string name="clipboard_label_error">Error</string>
+    <string name="clipboard_label_lan_auth_token">LAN auth token</string>
+    <string name="clipboard_label_probe_details">Probe details</string>
+    <string name="clipboard_label_byoh_compatibility_csv">BYOH compatibility CSV</string>
+    <string name="clipboard_label_compatible_sni">Compatible SNI</string>
+    <string name="clipboard_label_detection_diagnostics">Detection Diagnostics</string>
+    <string name="clipboard_label_detection_report">Detection Report</string>
+    <string name="clipboard_label_detection_markdown_export">Detection Markdown Export</string>
+    <string name="clipboard_label_profile_link">RIPDPI profile link</string>
+    <string name="clipboard_label_setup_sheet">RIPDPI setup sheet</string>
 </resources>

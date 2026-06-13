@@ -2889,6 +2889,8 @@ fakeddisorder endhost</string>
     <string name="mieru_field_mtu">MTU</string>
     <string name="mieru_field_invalid">Недопустимое значение для этого поля.</string>
     <string name="mieru_save_action">Сохранить</string>
+    <string name="mieru_experimental_title">Экспериментально — не проверено на реальных серверах</string>
+    <string name="mieru_experimental_body">Поддержка Mieru не тестировалась с настоящим сервером Mieru. Соединения могут не работать. Сообщайте об ошибках, чтобы помочь нам проверить этот ретранслятор.</string>
 
     <string name="ssh_editor_title">Профиль SSH</string>
     <string name="ssh_section_endpoint">Адрес</string>
@@ -2911,6 +2913,8 @@ fakeddisorder endhost</string>
     <string name="ssh_secret_hidden">Скрыто — нажмите «Показать»</string>
     <string name="ssh_reveal_secret_action">Показать</string>
     <string name="ssh_save_action">Сохранить</string>
+    <string name="ssh_not_functional_title">Ещё не работает — соединения завершатся ошибкой</string>
+    <string name="ssh_not_functional_body">Серверная часть SSH-ретранслятора ещё не реализована. Сохранить профиль можно, но запуск соединения всегда завершится ошибкой. Не используйте для реального трафика.</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">Переключатель подключения</string>
@@ -3385,4 +3389,24 @@ fakeddisorder endhost</string>
     <string name="onboarding_test_row_state_active">Выполняется</string>
     <string name="onboarding_test_row_state_done">Готово</string>
     <string name="onboarding_test_row_state_failed">Ошибка</string>
+
+    <!-- ViewModel status messages -->
+    <string name="blockcheck_message_probe_cancelled">Проверка отменена</string>
+    <string name="blockcheck_message_probe_complete">Проверка завершена</string>
+    <string name="blockcheck_message_strategy_applied">Стратегия применена</string>
+    <string name="blockcheck_message_strategy_unregistered">Стратегия больше не зарегистрирована</string>
+    <string name="strategy_tuner_message_strategy_applied">Стратегия применена</string>
+
+    <!-- Clipboard labels -->
+    <string name="clipboard_label_ripdpi_domains">Домены RIPDPI</string>
+    <string name="clipboard_label_error">Ошибка</string>
+    <string name="clipboard_label_lan_auth_token">Токен аутентификации LAN</string>
+    <string name="clipboard_label_probe_details">Детали проверки</string>
+    <string name="clipboard_label_byoh_compatibility_csv">CSV совместимости BYOH</string>
+    <string name="clipboard_label_compatible_sni">Совместимый SNI</string>
+    <string name="clipboard_label_detection_diagnostics">Диагностика обнаружения</string>
+    <string name="clipboard_label_detection_report">Отчёт об обнаружении</string>
+    <string name="clipboard_label_detection_markdown_export">Экспорт обнаружения в Markdown</string>
+    <string name="clipboard_label_profile_link">Ссылка на профиль RIPDPI</string>
+    <string name="clipboard_label_setup_sheet">Памятка по настройке RIPDPI</string>
 </resources>

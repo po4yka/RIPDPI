@@ -2770,6 +2770,8 @@ Source : %2$s</string>
     <string name="mieru_field_mtu">MTU</string>
     <string name="mieru_field_invalid">Valeur non valide pour ce champ.</string>
     <string name="mieru_save_action">Enregistrer</string>
+    <string name="mieru_experimental_title">Expérimental — non vérifié avec des serveurs réels</string>
+    <string name="mieru_experimental_body">La prise en charge de Mieru n\'a pas été testée avec un vrai serveur Mieru. Les connexions peuvent échouer. Signalez les problèmes pour nous aider à vérifier ce relais.</string>
 
     <string name="ssh_editor_title">Profil SSH</string>
     <string name="ssh_section_endpoint">Point de connexion</string>
@@ -2792,6 +2794,8 @@ Source : %2$s</string>
     <string name="ssh_secret_hidden">Masqué — appuyez sur Afficher</string>
     <string name="ssh_reveal_secret_action">Afficher</string>
     <string name="ssh_save_action">Enregistrer</string>
+    <string name="ssh_not_functional_title">Pas encore fonctionnel — les connexions échoueront</string>
+    <string name="ssh_not_functional_body">Le backend du relay SSH n\'est pas encore implémenté. Il est possible d\'enregistrer un profil, mais démarrer une connexion échouera toujours avec une erreur. Ne pas utiliser pour du trafic réel.</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">Bouton de connexion</string>
@@ -3266,4 +3270,24 @@ Source : %2$s</string>
     <string name="onboarding_test_row_state_active">En cours</string>
     <string name="onboarding_test_row_state_done">Terminé</string>
     <string name="onboarding_test_row_state_failed">Échec</string>
+
+    <!-- ViewModel status messages -->
+    <string name="blockcheck_message_probe_cancelled">Sonde annulée</string>
+    <string name="blockcheck_message_probe_complete">Sonde terminée</string>
+    <string name="blockcheck_message_strategy_applied">Stratégie appliquée</string>
+    <string name="blockcheck_message_strategy_unregistered">La stratégie n\'est plus enregistrée</string>
+    <string name="strategy_tuner_message_strategy_applied">Stratégie appliquée</string>
+
+    <!-- Clipboard labels -->
+    <string name="clipboard_label_ripdpi_domains">Domaines RIPDPI</string>
+    <string name="clipboard_label_error">Erreur</string>
+    <string name="clipboard_label_lan_auth_token">Jeton d\'authentification LAN</string>
+    <string name="clipboard_label_probe_details">Détails de la sonde</string>
+    <string name="clipboard_label_byoh_compatibility_csv">CSV de compatibilité BYOH</string>
+    <string name="clipboard_label_compatible_sni">SNI compatible</string>
+    <string name="clipboard_label_detection_diagnostics">Diagnostics de détection</string>
+    <string name="clipboard_label_detection_report">Rapport de détection</string>
+    <string name="clipboard_label_detection_markdown_export">Export Markdown de détection</string>
+    <string name="clipboard_label_profile_link">Lien de profil RIPDPI</string>
+    <string name="clipboard_label_setup_sheet">Fiche de configuration RIPDPI</string>
 </resources>

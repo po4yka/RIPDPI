@@ -2775,6 +2775,8 @@ fakeddisorder endhost</string>
     <string name="mieru_field_mtu">MTU</string>
     <string name="mieru_field_invalid">مقدار نامعتبر برای این فیلد.</string>
     <string name="mieru_save_action">ذخیره</string>
+    <string name="mieru_experimental_title">آزمایشی — تأییدنشده با سرورهای واقعی</string>
+    <string name="mieru_experimental_body">پشتیبانی از Mieru با سرور واقعی Mieru آزمایش نشده است. ممکن است اتصالات ناموفق باشند. برای کمک به تأیید این رله، مشکلات را گزارش دهید.</string>
 
     <string name="ssh_editor_title">نمایه SSH</string>
     <string name="ssh_section_endpoint">نقطه اتصال</string>
@@ -2797,6 +2799,8 @@ fakeddisorder endhost</string>
     <string name="ssh_secret_hidden">پنهان — برای نمایش ضربه بزنید</string>
     <string name="ssh_reveal_secret_action">نمایش</string>
     <string name="ssh_save_action">ذخیره</string>
+    <string name="ssh_not_functional_title">هنوز کارآمد نیست — اتصالات ناموفق خواهند بود</string>
+    <string name="ssh_not_functional_body">پشتیبان رله SSH هنوز پیاده‌سازی نشده است. ذخیره یک نمایه ممکن است، اما شروع اتصال همیشه با خطا مواجه می‌شود. برای ترافیک واقعی استفاده نکنید.</string>
 
     <!-- App widget strings -->
     <string name="widget_description_connect_toggle">کلید اتصال</string>
@@ -3271,4 +3275,24 @@ fakeddisorder endhost</string>
     <string name="onboarding_test_row_state_active">در حال انجام</string>
     <string name="onboarding_test_row_state_done">انجام شد</string>
     <string name="onboarding_test_row_state_failed">ناموفق</string>
+
+    <!-- ViewModel status messages -->
+    <string name="blockcheck_message_probe_cancelled">بررسی لغو شد</string>
+    <string name="blockcheck_message_probe_complete">بررسی کامل شد</string>
+    <string name="blockcheck_message_strategy_applied">استراتژی اعمال شد</string>
+    <string name="blockcheck_message_strategy_unregistered">استراتژی دیگر ثبت نشده است</string>
+    <string name="strategy_tuner_message_strategy_applied">استراتژی اعمال شد</string>
+
+    <!-- Clipboard labels -->
+    <string name="clipboard_label_ripdpi_domains">دامنه‌های RIPDPI</string>
+    <string name="clipboard_label_error">خطا</string>
+    <string name="clipboard_label_lan_auth_token">توکن احراز هویت LAN</string>
+    <string name="clipboard_label_probe_details">جزئیات بررسی</string>
+    <string name="clipboard_label_byoh_compatibility_csv">CSV سازگاری BYOH</string>
+    <string name="clipboard_label_compatible_sni">SNI سازگار</string>
+    <string name="clipboard_label_detection_diagnostics">تشخیص عیوب شناسایی</string>
+    <string name="clipboard_label_detection_report">گزارش شناسایی</string>
+    <string name="clipboard_label_detection_markdown_export">خروجی Markdown شناسایی</string>
+    <string name="clipboard_label_profile_link">پیوند نمایه RIPDPI</string>
+    <string name="clipboard_label_setup_sheet">راهنمای راه‌اندازی RIPDPI</string>
 </resources>
