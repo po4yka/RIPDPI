@@ -2,19 +2,18 @@ package com.poyka.ripdpi.ui.screens.proxyimport
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.RelayCredentialStore
-import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 /** UI state for the single-profile import-confirmation screen. */
@@ -29,31 +28,18 @@ data class ProfileImportConfirmUiState(
  *
  * This is the import-confirmation surface, not a full editor: it shows the parsed
  * [ProxyProfile] and an "Add" action that persists it into a [ProxyGroupType.BASIC]
- * group and activates it as the native relay via [NativeRelayProfileActivator]. The
- * handler activity navigates here after parsing a `vless://` / `ss://` / `trojan://`
+ * group via [ProxyGroupRepository] and, for relay-activatable kinds, applies it as
+ * the active native relay through [RelayProfileActivator]. The handler activity
+ * navigates here after parsing a `vless://` / `ss://` / `trojan://` / `ssh://`
  * style share link.
- *
- * The store/settings dependencies are kept on the constructor (rather than injecting
- * [NativeRelayProfileActivator] directly) so the existing unit tests can drive the
- * activation with their fakes; the activator is the single source of the
- * profile→relay mapping shared with the Xray import flow.
  */
 @HiltViewModel
 class ProfileImportConfirmViewModel
     @Inject
     constructor(
-        repository: ProxyGroupRepository,
-        relayProfileStore: RelayProfileStore,
-        relayCredentialStore: RelayCredentialStore,
-        settingsRepository: AppSettingsRepository,
+        private val repository: ProxyGroupRepository,
+        private val relayActivator: RelayProfileActivator,
     ) : ViewModel() {
-        private val activator =
-            NativeRelayProfileActivator(
-                repository = repository,
-                relayProfileStore = relayProfileStore,
-                relayCredentialStore = relayCredentialStore,
-                settingsRepository = settingsRepository,
-            )
         private val _uiState = MutableStateFlow(ProfileImportConfirmUiState())
         val uiState: StateFlow<ProfileImportConfirmUiState> = _uiState.asStateFlow()
 
@@ -64,25 +50,30 @@ class ProfileImportConfirmViewModel
 
         /**
          * Persists the parsed profile into a new single-profile group and activates it
-         * as the native relay. No-op when there is no profile to import or an import is
-         * already in flight.
+         * as the native relay (when the kind is relay-activatable). The group is stamped
+         * with the generated id so it is attributable. No-op when there is no profile to
+         * import or an import is already in flight.
          */
         fun confirm() {
             val profile = _uiState.value.profile ?: return
             if (_uiState.value.importing || _uiState.value.imported) return
             _uiState.update { it.copy(importing = true) }
             viewModelScope.launch {
-                val result = runCatching { activator.activate(profile) }
-                result.fold(
-                    onSuccess = { _uiState.update { it.copy(importing = false, imported = true) } },
-                    onFailure = { error ->
-                        // Don't swallow structured-concurrency cancellation.
-                        if (error is CancellationException) throw error
-                        // Store/settings I/O failed: clear the spinner so the user can retry
-                        // rather than crashing the scope or wedging on a stuck spinner.
-                        _uiState.update { it.copy(importing = false) }
-                    },
+                val groupId = UUID.randomUUID().toString()
+                repository.add(
+                    ProxyGroup(
+                        id = groupId,
+                        name = profile.displayName,
+                        type = ProxyGroupType.BASIC,
+                        order = nextOrder(),
+                        isSelector = false,
+                        subscription = null,
+                    ),
                 )
+                relayActivator.activate(profile)
+                _uiState.update { it.copy(importing = false, imported = true) }
             }
         }
+
+        private suspend fun nextOrder(): Int = repository.list().size
     }

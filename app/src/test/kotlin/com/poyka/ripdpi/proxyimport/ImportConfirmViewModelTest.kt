@@ -11,10 +11,12 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindShadowsocks
+import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.SubscriptionKind
@@ -60,9 +62,12 @@ class ImportConfirmViewModelTest {
             val viewModel =
                 ProfileImportConfirmViewModel(
                     repository = repository,
-                    relayProfileStore = FakeRelayProfileStore(),
-                    relayCredentialStore = FakeRelayCredentialStore(),
-                    settingsRepository = FakeAppSettingsRepository(),
+                    relayActivator =
+                        RelayProfileActivator(
+                            FakeRelayProfileStore(),
+                            FakeRelayCredentialStore(),
+                            FakeAppSettingsRepository(),
+                        ),
                 )
 
             viewModel.setProfile(profile)
@@ -95,9 +100,8 @@ class ImportConfirmViewModelTest {
             val viewModel =
                 ProfileImportConfirmViewModel(
                     repository = repository,
-                    relayProfileStore = relayProfileStore,
-                    relayCredentialStore = relayCredentialStore,
-                    settingsRepository = settingsRepository,
+                    relayActivator =
+                        RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
                 )
 
             viewModel.setProfile(profile)
@@ -137,9 +141,8 @@ class ImportConfirmViewModelTest {
             val viewModel =
                 ProfileImportConfirmViewModel(
                     repository = repository,
-                    relayProfileStore = relayProfileStore,
-                    relayCredentialStore = relayCredentialStore,
-                    settingsRepository = settingsRepository,
+                    relayActivator =
+                        RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
                 )
 
             viewModel.setProfile(profile)
@@ -179,9 +182,8 @@ class ImportConfirmViewModelTest {
             val viewModel =
                 ProfileImportConfirmViewModel(
                     repository = repository,
-                    relayProfileStore = relayProfileStore,
-                    relayCredentialStore = relayCredentialStore,
-                    settingsRepository = settingsRepository,
+                    relayActivator =
+                        RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
                 )
 
             viewModel.setProfile(profile)
@@ -225,9 +227,8 @@ class ImportConfirmViewModelTest {
             val viewModel =
                 ProfileImportConfirmViewModel(
                     repository = repository,
-                    relayProfileStore = relayProfileStore,
-                    relayCredentialStore = relayCredentialStore,
-                    settingsRepository = settingsRepository,
+                    relayActivator =
+                        RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
                 )
 
             viewModel.setProfile(profile)
@@ -282,9 +283,8 @@ class ImportConfirmViewModelTest {
             val viewModel =
                 ProfileImportConfirmViewModel(
                     repository = repository,
-                    relayProfileStore = relayProfileStore,
-                    relayCredentialStore = relayCredentialStore,
-                    settingsRepository = settingsRepository,
+                    relayActivator =
+                        RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
                 )
 
             viewModel.setProfile(profile)
@@ -306,6 +306,62 @@ class ImportConfirmViewModelTest {
             assertEquals("/tunnel", relayProfile?.xhttpPath)
             assertEquals("cdn.example.com", relayProfile?.xhttpHost)
             assertEquals("dddddddd-dddd-dddd-dddd-dddddddddddd", relayCredentials?.vlessUuid)
+        }
+
+    @Test
+    fun `confirming an ssh password profile import activates the native relay with udp disabled`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val sshPassword = relayImportCredentialFixture("ssh")
+            val profile =
+                ProxyProfile.Ssh(
+                    id = "ssh-node",
+                    displayName = "SSH",
+                    groupId = "",
+                    server = "ssh.example",
+                    serverPort = 22,
+                    username = "alice",
+                    authType = RelaySshAuthTypePassword,
+                    password = sshPassword,
+                    hostKeyFingerprint = "SHA256:n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg",
+                    strictHostKey = true,
+                )
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    repository = repository,
+                    relayActivator =
+                        RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+
+            viewModel.setProfile(profile)
+            viewModel.confirm()
+            advanceUntilIdle()
+
+            val settings = settingsRepository.snapshot()
+            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
+            val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
+            assertEquals(RelayKindSsh, settings.relayKind)
+            assertTrue(settings.relayEnabled)
+            assertEquals("ssh.example", settings.relayServer)
+            assertEquals(22, settings.relayServerPort)
+            // SSH carries only a direct-tcpip TCP channel.
+            assertEquals(false, settings.relayUdpEnabled)
+            assertEquals(RelaySshAuthTypePassword, settings.relaySshAuthType)
+            assertEquals(
+                "SHA256:n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg",
+                settings.relaySshHostKeyFingerprint,
+            )
+            assertTrue(settings.relaySshStrictHostKey)
+            assertEquals(RelayKindSsh, relayProfile?.kind)
+            assertEquals("ssh.example", relayProfile?.server)
+            assertEquals(false, relayProfile?.udpEnabled)
+            assertEquals(RelaySshAuthTypePassword, relayProfile?.sshAuthType)
+            assertTrue(relayProfile?.sshStrictHostKey == true)
+            assertEquals("alice", relayCredentials?.sshUsername)
+            assertEquals(sshPassword, relayCredentials?.sshPassword)
         }
 
     @Test
