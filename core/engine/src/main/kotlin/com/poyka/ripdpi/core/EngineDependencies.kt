@@ -72,6 +72,19 @@ class DefaultRipDpiWarpFactory
         override fun create(): RipDpiWarpRuntime = RipDpiWarp(nativeBindings)
     }
 
+interface RipDpiAmneziaWgFactory {
+    fun create(): RipDpiAmneziaWgRuntime
+}
+
+@Singleton
+class DefaultRipDpiAmneziaWgFactory
+    @Inject
+    constructor(
+        private val nativeBindings: RipDpiAmneziaWgBindings,
+    ) : RipDpiAmneziaWgFactory {
+        override fun create(): RipDpiAmneziaWgRuntime = RipDpiAmneziaWg(nativeBindings)
+    }
+
 interface RipDpiRelayFactory {
     fun create(): RipDpiRelayRuntime
 }
@@ -191,6 +204,22 @@ abstract class RipDpiWarpFactoryModule {
     @Binds
     @Singleton
     abstract fun bindRipDpiWarpFactory(factory: DefaultRipDpiWarpFactory): RipDpiWarpFactory
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RipDpiAmneziaWgBindingsModule {
+    @Binds
+    @Singleton
+    abstract fun bindRipDpiAmneziaWgBindings(bindings: RipDpiAmneziaWgNativeBindings): RipDpiAmneziaWgBindings
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class RipDpiAmneziaWgFactoryModule {
+    @Binds
+    @Singleton
+    abstract fun bindRipDpiAmneziaWgFactory(factory: DefaultRipDpiAmneziaWgFactory): RipDpiAmneziaWgFactory
 }
 
 @Module
