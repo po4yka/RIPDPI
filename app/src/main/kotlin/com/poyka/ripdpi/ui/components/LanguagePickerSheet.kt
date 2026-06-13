@@ -23,7 +23,10 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LanguagePickerSheet(onDismissRequest: () -> Unit) {
+fun LanguagePickerSheet(
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val tags = remember(context) { LocalesConfig.parse(context) }
     val current = remember { AppCompatDelegate.getApplicationLocales().toLanguageTags() }
@@ -31,6 +34,7 @@ fun LanguagePickerSheet(onDismissRequest: () -> Unit) {
     RipDpiBottomSheet(
         onDismissRequest = onDismissRequest,
         title = stringResource(R.string.language_picker_sheet_title),
+        modifier = modifier,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             tags.forEach { tag ->
