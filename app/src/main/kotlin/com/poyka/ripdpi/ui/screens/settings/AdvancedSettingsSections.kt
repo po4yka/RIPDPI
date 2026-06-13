@@ -452,6 +452,7 @@ private fun ProxyToggleSettings(
 ) {
     var showAllowLanWarning by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
+    val lanAuthTokenLabel = stringResource(R.string.clipboard_label_lan_auth_token)
 
     if (showAllowLanWarning) {
         ProxyAllowLanWarningDialog(
