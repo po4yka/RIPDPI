@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -111,9 +112,11 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
         )
         snapshot.fieldGroups.forEachIndexed { groupIndex, group ->
             val visibleFields =
-                group.fields.filter {
-                    it.value.isNotBlank() &&
-                        !it.value.equals("Unknown", ignoreCase = true)
+                remember(group) {
+                    group.fields.filter {
+                        it.value.isNotBlank() &&
+                            !it.value.equals("Unknown", ignoreCase = true)
+                    }
                 }
             if (visibleFields.isEmpty()) return@forEachIndexed
             if (groupIndex > 0) {
@@ -124,12 +127,14 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
             }
             RipDpiTelemetryRows(
                 entries =
-                    visibleFields.map { field ->
-                        RipDpiTelemetryEntry(
-                            label = field.label,
-                            value = field.value,
-                            monospaceValue = field.value.length > MonospaceThresholdChars,
-                        )
+                    remember(visibleFields) {
+                        visibleFields.map { field ->
+                            RipDpiTelemetryEntry(
+                                label = field.label,
+                                value = field.value,
+                                monospaceValue = field.value.length > MonospaceThresholdChars,
+                            )
+                        }
                     },
             )
         }
@@ -138,18 +143,23 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
 
 @Composable
 internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
-    val visibleFields = group.fields.filter { it.value.isNotBlank() && !it.value.equals("Unknown", ignoreCase = true) }
+    val visibleFields =
+        remember(group) {
+            group.fields.filter { it.value.isNotBlank() && !it.value.equals("Unknown", ignoreCase = true) }
+        }
     if (visibleFields.isEmpty()) return
     RipDpiCard {
         RipDpiScreenSectionHeader(title = group.title)
         RipDpiTelemetryRows(
             entries =
-                visibleFields.map { field ->
-                    RipDpiTelemetryEntry(
-                        label = field.label,
-                        value = field.value,
-                        monospaceValue = field.value.length > 18,
-                    )
+                remember(visibleFields) {
+                    visibleFields.map { field ->
+                        RipDpiTelemetryEntry(
+                            label = field.label,
+                            value = field.value,
+                            monospaceValue = field.value.length > MonospaceThresholdChars,
+                        )
+                    }
                 },
         )
     }

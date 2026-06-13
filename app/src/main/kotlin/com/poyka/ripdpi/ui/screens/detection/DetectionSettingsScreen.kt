@@ -41,7 +41,13 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+
+private val DnsCatalogDropdownOptions: ImmutableList<RipDpiDropdownOption<String>> =
+    DetectionDnsPreset.catalogPresets
+        .map { preset -> RipDpiDropdownOption(value = preset.wireValue, label = preset.displayName) }
+        .toImmutableList()
 
 @Composable
 internal fun DetectionSettingsRoute(
@@ -393,19 +399,13 @@ private fun DnsProviderPicker(
     selected: DetectionDnsPreset,
     onSelect: (DetectionDnsPreset) -> Unit,
 ) {
-    val presets = DetectionDnsPreset.catalogPresets
-    val options =
-        presets
-            .map { preset ->
-                RipDpiDropdownOption(value = preset.wireValue, label = preset.displayName)
-            }.toImmutableList()
     val caption = dnsProviderFlagsCaption(selected)
     Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
         RipDpiDropdown(
-            options = options,
+            options = DnsCatalogDropdownOptions,
             selectedValue = selected.wireValue,
             onValueSelected = { wireValue ->
-                presets.firstOrNull { it.wireValue == wireValue }?.let(onSelect)
+                DetectionDnsPreset.catalogPresets.firstOrNull { it.wireValue == wireValue }?.let(onSelect)
             },
             label = stringResource(R.string.detection_dns_provider_label),
             modifier = Modifier.fillMaxWidth(),
