@@ -4,7 +4,9 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.Mode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -72,6 +74,30 @@ class BootSessionStateStoreTest {
             BootSessionPointer(profileId = "survivor", mode = Mode.VPN),
             afterReboot.lastSession(),
         )
+    }
+
+    @Test
+    fun `wasRunningAtUpdate defaults to false and round-trips`() {
+        assertFalse(store.wasRunningAtUpdate())
+
+        store.setWasRunningAtUpdate(true)
+        assertTrue(store.wasRunningAtUpdate())
+
+        store.setWasRunningAtUpdate(false)
+        assertFalse(store.wasRunningAtUpdate())
+    }
+
+    @Test
+    fun `wasRunningAtUpdate survives into a fresh store instance over the same prefs`() {
+        // The flag gates auto-resume after an LMK kill, which gives no chance to flush
+        // a deferred write — so the store commits (fsync) rather than apply()ing. This
+        // locks the durability contract: a flag set in one session must be visible to
+        // the fresh post-kill process reading the same device-protected prefs file.
+        store.setWasRunningAtUpdate(true)
+
+        val afterKill = SharedPreferencesBootSessionStateStore(prefs)
+
+        assertTrue(afterKill.wasRunningAtUpdate())
     }
 
     @Test

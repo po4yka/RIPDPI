@@ -95,11 +95,16 @@ class SharedPreferencesBootSessionStateStore
             profileId: String,
             mode: Mode,
         ) {
+            // commit() (synchronous, fsync-backed), NOT apply(): an LMK SIGKILL can
+            // arrive at any moment with no Drop, flushing nothing. apply() only
+            // schedules the disk write, so the pointer could be lost before it lands
+            // and the boot receiver would have nothing to resume. See
+            // `.claude/rules/android-vpn-lifecycle.md` (state-persistence rule).
             preferences
                 .edit()
                 .putString(KeyProfileId, profileId)
                 .putString(KeyMode, mode.preferenceValue)
-                .apply()
+                .commit()
         }
 
         override fun clear() {
@@ -107,13 +112,17 @@ class SharedPreferencesBootSessionStateStore
                 .edit()
                 .remove(KeyProfileId)
                 .remove(KeyMode)
-                .apply()
+                .commit()
         }
 
         override fun wasRunningAtUpdate(): Boolean = preferences.getBoolean(KeyWasRunningAtUpdate, false)
 
         override fun setWasRunningAtUpdate(value: Boolean) {
-            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).apply()
+            // Durability-critical: this flag gates auto-resume after an LMK kill, and
+            // the kill it must survive gives no chance to flush a deferred write.
+            // commit() forces the write to disk before returning. apply() here would
+            // silently lose the flag and break auto-resume — the exact R3 audit risk.
+            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).commit()
         }
 
         private companion object {
