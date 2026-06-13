@@ -122,8 +122,8 @@ Rules, all of which **hold today** in `Cargo.toml`:
    (`ripdpi-android-telemetry-adapter` is the one L8 crate without it), and
    `android-support` is consumed by L8 crates *only*. Every other crate must
    stay JNI-free — see [§5](#5-crates-that-must-stay-androidjni-free).
-3. **`cdylib` is L8-exclusive.** Exactly four crates set
-   `crate-type = ["cdylib"]`; all four are L8 artifact roots. No other crate
+3. **`cdylib` is L8-exclusive.** Exactly five crates set
+   `crate-type = ["cdylib"]`; all five are L8 artifact roots. No other crate
    may become a `cdylib`.
 4. **Platform ports, not platform impls.** `ripdpi-runtime-platform` and
    `ripdpi-native-protect` define platform capability/protection ports. Core

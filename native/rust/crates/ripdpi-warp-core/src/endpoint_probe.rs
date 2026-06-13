@@ -127,7 +127,9 @@ fn bind_probe_socket(endpoint: SocketAddr, platform: &WarpPlatform) -> std::io::
     };
     let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
     socket.bind(&bind_addr.into())?;
-    protect_socket_if_configured(&socket, platform);
+    // Fail-closed: a protect rejection drops the probe socket here rather than
+    // probing through an unprotected socket (vpnservice-protect-invariant).
+    protect_socket_if_configured(&socket, platform)?;
     socket.set_nonblocking(true)?;
     UdpSocket::from_std(socket.into())
 }

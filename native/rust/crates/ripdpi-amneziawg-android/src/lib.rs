@@ -30,8 +30,10 @@
 //!
 //! See `docs/architecture/JNI_CONTRACT.md` §4, §6, §7, §8, §10.
 
+#![deny(unsafe_op_in_unsafe_fn)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]
+#![warn(clippy::missing_safety_doc)]
 
 mod lifecycle;
 mod readiness;

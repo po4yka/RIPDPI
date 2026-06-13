@@ -13,7 +13,10 @@ pub(super) fn bind_tunnel_socket(endpoint: SocketAddr, platform: &WarpPlatform) 
     };
     let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
     socket.bind(&bind_addr.into())?;
-    protect_socket_if_configured(&socket, platform);
+    // Fail-closed: a protect rejection drops `socket` here (closing the fd) and
+    // fails tunnel construction rather than letting an unprotected WireGuard
+    // socket loop back into the TUN (vpnservice-protect-invariant).
+    protect_socket_if_configured(&socket, platform)?;
     socket.set_nonblocking(true)?;
     Ok(UdpSocket::from_std(socket.into())?)
 }
