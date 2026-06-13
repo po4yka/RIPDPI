@@ -67,7 +67,7 @@ pub async fn probe_endpoint_with_platform(
     let peer_public_key =
         decode_key(&request.peer_public_key).map_err(|_| WarpProbeError::InvalidKey("peer public key"))?;
     let reserved = reserved_bytes_from_client_id(request.client_id.as_deref());
-    let amnezia = build_awg_codec(&request.amnezia);
+    let amnezia = build_awg_codec(&request.amnezia, &["", "", "", "", ""]);
     let mut peer = Box::new(Tunn::new(
         boringtun::x25519::StaticSecret::from(private_key),
         boringtun::x25519::PublicKey::from(peer_public_key),

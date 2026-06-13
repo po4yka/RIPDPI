@@ -17,23 +17,54 @@ use crate::virtual_iface::{Bus, Event};
 
 /// Build the AmneziaWG wire codec for a tunnel from its config.
 ///
-/// The native WARP runtime config does not carry the AWG 2.0 `I1..I5`
-/// special-junk hex strings, so they are passed empty here; the handshake
-/// prelude still emits the `Jc` random junk packets. An invalid config (e.g. inverted
-/// junk range, colliding headers) is logged and treated as disabled rather
-/// than failing tunnel construction -- a malformed obfuscation knob must
-/// not take the whole WARP runtime down.
-pub(crate) fn build_awg_codec(cfg: &WarpAmneziaConfig) -> Option<AwgWireCodec> {
+/// `special_junk_hex` carries the AWG 2.0 `I1..I5` fixed special-junk frames
+/// (hex strings); the native WARP runtime passes them empty (`&["", ..]`),
+/// while a generic AmneziaWG profile may supply them. An invalid config
+/// (e.g. inverted junk range, colliding headers, malformed `I*` hex) is
+/// logged and treated as disabled rather than failing tunnel construction --
+/// a malformed obfuscation knob must not take the whole runtime down.
+pub(crate) fn build_awg_codec(cfg: &WarpAmneziaConfig, special_junk_hex: &[&str]) -> Option<AwgWireCodec> {
     if !cfg.enabled {
         return None;
     }
-    match AwgParams::from_config(cfg, &["", "", "", "", ""]) {
+    match AwgParams::from_config(cfg, special_junk_hex) {
         Ok(params) => Some(AwgWireCodec::new(params)),
         Err(error) => {
             tracing::warn!("invalid AmneziaWG config, obfuscation disabled: {error}");
             None
         }
     }
+}
+
+/// Construction parameters for a [`WireGuardTunnel`].
+///
+/// Bundled into a struct (rather than positional arguments) because a generic
+/// AmneziaWG profile needs more knobs than WARP -- a preshared key, a
+/// configurable persistent-keepalive interval, and the AWG 2.0 `I1..I5`
+/// special-junk frames -- and a 10-argument constructor trips
+/// `clippy::too_many_arguments`.
+pub(crate) struct WireGuardTunnelParams<'a> {
+    /// Base64-encoded Curve25519 interface private key.
+    pub private_key: &'a str,
+    /// Base64-encoded Curve25519 peer (server) public key.
+    pub peer_public_key: &'a str,
+    /// Optional base64-encoded 32-byte WireGuard preshared key (PSK). WARP
+    /// does not use one; a generic AmneziaWG peer may.
+    pub preshared_key: Option<&'a str>,
+    /// Persistent-keepalive interval in seconds. WARP pins `Some(25)`; a
+    /// generic profile maps its (nullable) `PersistentKeepalive` field here.
+    pub persistent_keepalive: Option<u16>,
+    /// Resolved UDP endpoint of the peer.
+    pub endpoint: SocketAddr,
+    /// The 3 WireGuard reserved bytes (WARP derives them from the Cloudflare
+    /// client id; generic profiles pass `[0; 3]`).
+    pub reserved: [u8; 3],
+    /// Local interface IPv4 used to classify inbound tunnel packets.
+    pub source_peer_ip: IpAddr,
+    /// AmneziaWG `Jc/Jmin/Jmax/H1..H4/S1..S4` obfuscation knobs.
+    pub amnezia_cfg: &'a WarpAmneziaConfig,
+    /// AmneziaWG 2.0 `I1..I5` special-junk frames (hex). Empty strings = unset.
+    pub special_junk_hex: [&'a str; 5],
 }
 
 pub(crate) struct WireGuardTunnel {
@@ -46,27 +77,34 @@ pub(crate) struct WireGuardTunnel {
 }
 
 impl WireGuardTunnel {
-    pub(crate) async fn new(
-        private_key: &str,
-        peer_public_key: &str,
-        endpoint: SocketAddr,
-        reserved: [u8; 3],
-        source_peer_ip: IpAddr,
-        amnezia_cfg: &WarpAmneziaConfig,
-        platform: &WarpPlatform,
-    ) -> anyhow::Result<Self> {
-        let private_key = decode_key(private_key).context("invalid WARP private key")?;
-        let peer_public_key = decode_key(peer_public_key).context("invalid WARP peer public key")?;
+    pub(crate) async fn new(params: WireGuardTunnelParams<'_>, platform: &WarpPlatform) -> anyhow::Result<Self> {
+        let WireGuardTunnelParams {
+            private_key,
+            peer_public_key,
+            preshared_key,
+            persistent_keepalive,
+            endpoint,
+            reserved,
+            source_peer_ip,
+            amnezia_cfg,
+            special_junk_hex,
+        } = params;
+        let private_key = decode_key(private_key).context("invalid WireGuard private key")?;
+        let peer_public_key = decode_key(peer_public_key).context("invalid WireGuard peer public key")?;
+        let preshared_key = match preshared_key.filter(|value| !value.is_empty()) {
+            Some(value) => Some(decode_key(value).context("invalid WireGuard preshared key")?),
+            None => None,
+        };
         let peer = Box::new(Tunn::new(
             boringtun::x25519::StaticSecret::from(private_key),
             boringtun::x25519::PublicKey::from(peer_public_key),
-            None,
-            Some(25),
+            preshared_key,
+            persistent_keepalive,
             0,
             None,
         ));
         let udp = bind_tunnel_socket(endpoint, platform)?;
-        let amnezia = build_awg_codec(amnezia_cfg);
+        let amnezia = build_awg_codec(amnezia_cfg, &special_junk_hex);
         Ok(Self { peer: tokio::sync::Mutex::new(peer), udp, endpoint, source_peer_ip, reserved, amnezia })
     }
 
