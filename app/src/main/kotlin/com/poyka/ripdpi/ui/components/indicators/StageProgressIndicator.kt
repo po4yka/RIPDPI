@@ -85,11 +85,12 @@ private fun StageProgressSegments(
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
+    val spacing = RipDpiThemeTokens.spacing
     val segmentShape = RipDpiThemeTokens.shapes.xs
     val animSpec = motion.stateTween<Color>()
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
         repeat(totalCount) { index ->
             val animatedColor by animateColorAsState(

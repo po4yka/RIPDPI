@@ -49,7 +49,8 @@ fun RipDpiAccordion(
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
-    val shape = RoundedCornerShape(RipDpiThemeTokens.spacing.md)
+    val spacing = RipDpiThemeTokens.spacing
+    val shape = RoundedCornerShape(spacing.md)
     val chevronAngle by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = motion.stateTween(),
@@ -81,7 +82,7 @@ fun RipDpiAccordion(
                 imageVector = RipDpiIcons.KeyboardArrowDown,
                 contentDescription = if (expanded) "Collapse" else "Expand",
                 tint = colors.mutedForeground,
-                modifier = Modifier.size(20.dp).rotate(chevronAngle),
+                modifier = Modifier.size(spacing.xl).rotate(chevronAngle),
             )
         }
         AnimatedVisibility(visible = expanded) {
