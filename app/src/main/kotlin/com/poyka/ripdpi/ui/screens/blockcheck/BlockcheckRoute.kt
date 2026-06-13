@@ -48,10 +48,9 @@ fun BlockcheckRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val exportSubject = stringResource(R.string.title_blockcheck)
     val exportTitle = stringResource(R.string.blockcheck_export_title)
-    LaunchedEffect(state.message) {
-        state.message?.let { message ->
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-        }
+    LaunchedEffect(state.message, state.messageRes) {
+        val resolved = state.messageRes?.let { context.getString(it) } ?: state.message
+        resolved?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     }
     BlockcheckScreen(
         state = state,

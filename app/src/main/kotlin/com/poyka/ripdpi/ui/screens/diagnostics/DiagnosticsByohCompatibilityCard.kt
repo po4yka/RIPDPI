@@ -10,6 +10,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsByohCompatibilityState
 import com.poyka.ripdpi.activities.DiagnosticsByohCompatibilityToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsByohDomainUiModel
@@ -132,11 +134,12 @@ private fun ByohCopyCsvButton(
     clipboardManager: ClipboardManager?,
 ) {
     if (csvExport.isNotBlank()) {
+        val csvLabel = stringResource(R.string.clipboard_label_byoh_compatibility_csv)
         RipDpiButton(
             text = "Copy CSV",
             onClick = {
                 clipboardManager?.setPrimaryClip(
-                    ClipData.newPlainText("BYOH compatibility CSV", csvExport),
+                    ClipData.newPlainText(csvLabel, csvExport),
                 )
             },
             variant = RipDpiButtonVariant.Outline,

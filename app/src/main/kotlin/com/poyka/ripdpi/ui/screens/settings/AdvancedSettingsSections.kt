@@ -518,7 +518,12 @@ private fun ProxyToggleSettings(
             enabled = visualEditorEnabled,
             onCopy = {
                 val clipboard = context.getSystemService(ClipboardManager::class.java)
-                clipboard?.setPrimaryClip(ClipData.newPlainText("lan_auth_token", uiState.proxy.lanAuthToken))
+                clipboard?.setPrimaryClip(
+                    ClipData.newPlainText(
+                        context.getString(R.string.clipboard_label_lan_auth_token),
+                        uiState.proxy.lanAuthToken,
+                    ),
+                )
             },
         )
     }

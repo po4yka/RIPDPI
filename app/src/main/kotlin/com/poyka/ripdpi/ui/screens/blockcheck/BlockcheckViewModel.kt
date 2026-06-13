@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.ui.screens.blockcheck
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.BlockLayer
 import com.poyka.ripdpi.core.detection.BlockLayerDiagnosis
 import com.poyka.ripdpi.core.detection.BlockLayerDiagnosisMapper
@@ -79,6 +81,7 @@ data class BlockcheckUiState(
     val totalExpectedResults: Int = 0,
     val noStrategiesRegistered: Boolean = false,
     val message: String? = null,
+    @StringRes val messageRes: Int? = null,
 ) {
     val isRunning: Boolean = runState == BlockcheckRunState.Running
     val dnsTamperDetected: Boolean =
@@ -157,7 +160,7 @@ class BlockcheckViewModel
             mutableUiState.update { state ->
                 state.copy(
                     runState = if (state.results.isEmpty()) BlockcheckRunState.Idle else BlockcheckRunState.Complete,
-                    message = "Probe cancelled",
+                    messageRes = R.string.blockcheck_message_probe_cancelled,
                 )
             }
         }
@@ -176,7 +179,7 @@ class BlockcheckViewModel
             viewModelScope.launch {
                 val candidate = lastCandidates.firstOrNull { it.id == strategyId }
                 if (candidate == null) {
-                    mutableUiState.update { it.copy(message = "Strategy is no longer registered") }
+                    mutableUiState.update { it.copy(messageRes = R.string.blockcheck_message_strategy_unregistered) }
                     return@launch
                 }
                 appSettingsRepository.update {
@@ -187,7 +190,8 @@ class BlockcheckViewModel
                     (strategyReloader ?: NativeBlockcheckStrategyReloader()).reloadConfig()
                 mutableUiState.update { state ->
                     state.copy(
-                        message = reloadError ?: "Strategy applied",
+                        message = reloadError,
+                        messageRes = if (reloadError == null) R.string.blockcheck_message_strategy_applied else null,
                         runState = if (reloadError == null) state.runState else BlockcheckRunState.Error,
                     )
                 }
@@ -275,7 +279,7 @@ class BlockcheckViewModel
                     }
                 state.copy(
                     runState = BlockcheckRunState.Complete,
-                    message = "Probe complete",
+                    messageRes = R.string.blockcheck_message_probe_complete,
                     diagnoses = diagnoses,
                     recommendedStrategyId =
                         diagnoses

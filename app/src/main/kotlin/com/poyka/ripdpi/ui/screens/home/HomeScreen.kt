@@ -99,13 +99,14 @@ fun HomeScreen(
     ) {
         if (uiState.connectionState == ConnectionState.Error && uiState.errorMessage != null) {
             val errorMessage = uiState.errorMessage
+            val errorClipboardLabel = stringResource(R.string.clipboard_label_error)
             WarningBanner(
                 title = stringResource(R.string.home_status_error_title),
                 message = errorMessage,
                 tone = WarningBannerTone.Error,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
-                    clipboardManager?.setPrimaryClip(ClipData.newPlainText("error", errorMessage))
+                    clipboardManager?.setPrimaryClip(ClipData.newPlainText(errorClipboardLabel, errorMessage))
                     performHaptic(RipDpiHapticFeedback.Acknowledge)
                 },
                 testTag = RipDpiTestTags.HomeErrorBanner,

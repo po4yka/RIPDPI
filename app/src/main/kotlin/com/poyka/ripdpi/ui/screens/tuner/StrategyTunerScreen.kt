@@ -93,7 +93,8 @@ fun StrategyTunerScreen(
         if (state.isRunning) {
             LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
         }
-        state.message?.let { message ->
+        val resolvedMessage = state.messageRes?.let { stringResource(it) } ?: state.message
+        resolvedMessage?.let { message ->
             RipDpiCard(variant = RipDpiCardVariant.Tonal) {
                 Text(
                     text = message,

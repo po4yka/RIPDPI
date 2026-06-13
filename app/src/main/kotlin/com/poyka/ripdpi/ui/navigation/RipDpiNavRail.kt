@@ -98,7 +98,7 @@ private fun BrandBadge() {
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_launcher_foreground_ripdpi_clean),
-            contentDescription = "RIPDPI",
+            contentDescription = stringResource(R.string.app_name),
             tint = colors.background,
             modifier = Modifier.size(24.dp),
         )

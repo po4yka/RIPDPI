@@ -228,6 +228,7 @@ internal fun DiagnosticsBottomSheetHost(
                     monospaceValue = true,
                 )
             }
+            val probeCopyLabel = stringResource(R.string.clipboard_label_probe_details)
             RipDpiButton(
                 text = stringResource(R.string.diagnostics_probe_copy_action),
                 onClick = {
@@ -242,7 +243,9 @@ internal fun DiagnosticsBottomSheetHost(
                                 appendLine("${detail.label}: ${detail.value}")
                             }
                         }
-                    clipboardManager?.setPrimaryClip(ClipData.newPlainText("probe", text.trimEnd()))
+                    clipboardManager?.setPrimaryClip(
+                        ClipData.newPlainText(probeCopyLabel, text.trimEnd()),
+                    )
                     performHaptic(RipDpiHapticFeedback.Acknowledge)
                 },
                 variant = RipDpiButtonVariant.Outline,

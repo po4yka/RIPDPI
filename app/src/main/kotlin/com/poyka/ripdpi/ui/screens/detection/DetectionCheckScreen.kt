@@ -679,7 +679,9 @@ private fun DetectionReportActions(
             onClick = {
                 performHaptic(RipDpiHapticFeedback.Acknowledge)
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("Detection Diagnostics", text))
+                clipboard.setPrimaryClip(
+                    ClipData.newPlainText(context.getString(R.string.clipboard_label_detection_diagnostics), text),
+                )
             },
             modifier = Modifier.fillMaxWidth(),
             variant = RipDpiButtonVariant.Outline,
@@ -700,7 +702,9 @@ private fun DetectionCopyReportButton(
             performHaptic(RipDpiHapticFeedback.Acknowledge)
             reportText?.let { text ->
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("Detection Report", text))
+                clipboard.setPrimaryClip(
+                    ClipData.newPlainText(context.getString(R.string.clipboard_label_detection_report), text),
+                )
             }
         },
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.DetectionCopy),
@@ -768,7 +772,12 @@ private fun DetectionExportFormatDialog(
                             format = DetectionExportFormat.MARKDOWN,
                         )
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Detection Markdown Export", text))
+                    clipboard.setPrimaryClip(
+                        ClipData.newPlainText(
+                            context.getString(R.string.clipboard_label_detection_markdown_export),
+                            text,
+                        ),
+                    )
                     onDismiss()
                 },
                 modifier = Modifier.fillMaxWidth(),

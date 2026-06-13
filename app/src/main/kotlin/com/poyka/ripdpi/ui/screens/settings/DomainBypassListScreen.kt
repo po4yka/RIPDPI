@@ -110,7 +110,9 @@ fun DomainBypassListRoute(
             }
         },
         onCopyToClipboard = {
-            clipboardManager?.setPrimaryClip(ClipData.newPlainText("RIPDPI domains", text))
+            clipboardManager?.setPrimaryClip(
+                ClipData.newPlainText(context.getString(R.string.clipboard_label_ripdpi_domains), text),
+            )
             Toast.makeText(context, R.string.domain_bypass_copied, Toast.LENGTH_SHORT).show()
         },
         onMoveToRuleEditor = {

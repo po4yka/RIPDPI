@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.ui.screens.tuner
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.setRawStrategyChainDsl
 import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
@@ -69,6 +71,7 @@ data class StrategyTunerUiState(
     val budget: StrategyTunerBudget = StrategyTunerBudget(),
     val totalExpectedResults: Int = 0,
     val message: String? = null,
+    @StringRes val messageRes: Int? = null,
     val appliedStrategyId: String? = null,
 ) {
     val isRunning: Boolean = runState == StrategyTunerRunState.Running
@@ -199,7 +202,8 @@ class StrategyTunerViewModel
                 mutableUiState.update {
                     it.copy(
                         runState = if (error == null) it.runState else StrategyTunerRunState.Error,
-                        message = error ?: "Strategy applied",
+                        message = error,
+                        messageRes = if (error == null) R.string.strategy_tuner_message_strategy_applied else null,
                         appliedStrategyId = if (error == null) strategyId else it.appliedStrategyId,
                     )
                 }

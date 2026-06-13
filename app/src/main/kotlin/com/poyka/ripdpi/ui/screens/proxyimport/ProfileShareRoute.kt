@@ -31,9 +31,9 @@ fun ProfileShareRoute(
     ProfileShareScreen(
         uiState = uiState,
         onBack = onBack,
-        onCopyLink = { copyText(context, label = "RIPDPI profile link", text = it) },
+        onCopyLink = { copyText(context, label = context.getString(R.string.clipboard_label_profile_link), text = it) },
         onShareLink = { shareText(context, title = linkTitle, text = it) },
-        onCopySheet = { copyText(context, label = "RIPDPI setup sheet", text = it) },
+        onCopySheet = { copyText(context, label = context.getString(R.string.clipboard_label_setup_sheet), text = it) },
         onShareSheet = { shareText(context, title = sheetTitle, text = it) },
         modifier = modifier,
     )

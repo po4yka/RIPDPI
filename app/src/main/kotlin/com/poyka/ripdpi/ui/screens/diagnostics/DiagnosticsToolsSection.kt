@@ -520,6 +520,7 @@ private fun CompatibleSniValues(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
+    val compatibleSniLabel = stringResource(R.string.clipboard_label_compatible_sni)
     if (compatibleSnis.isEmpty()) {
         androidx.compose.material3.Text(
             text = "No compatible entries found.",
@@ -539,7 +540,7 @@ private fun CompatibleSniValues(
                     text = sni.label,
                     onClick = {
                         clipboardManager?.setPrimaryClip(
-                            ClipData.newPlainText("Compatible SNI", sni.value),
+                            ClipData.newPlainText(compatibleSniLabel, sni.value),
                         )
                     },
                 )
