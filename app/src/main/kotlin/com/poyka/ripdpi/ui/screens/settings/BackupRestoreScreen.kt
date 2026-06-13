@@ -56,6 +56,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -79,8 +80,6 @@ fun BackupRestoreRoute(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val restoreEffect by viewModel.restoreEffects.collectAsStateWithLifecycle()
-    val resetEffect by viewModel.resetEffects.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Export wiring (launcher + effect + variant sheet) lives in its own composable
@@ -98,9 +97,8 @@ fun BackupRestoreRoute(
         }
 
     BackupRestoreEffectHandler(
-        effect = restoreEffect,
+        flow = viewModel.restoreEffects,
         snackbarHostState = snackbarHostState,
-        onConsume = viewModel::consumeRestoreEffect,
         onRestart = {
             // Restart the process so every DataStore / Room observer reinitializes
             // against the freshly-restored state — the reference-implementation pattern.
@@ -109,8 +107,7 @@ fun BackupRestoreRoute(
     )
 
     BackupResetEffectHandler(
-        effect = resetEffect,
-        onConsume = viewModel::consumeResetEffect,
+        flow = viewModel.resetEffects,
         onRestart = {
             // Restart so the freshly-wiped stores reinitialize and the app lands on
             // onboarding (no profiles / groups / settings to resume into).
@@ -166,7 +163,6 @@ private fun rememberBackupExportController(
     snackbarHostState: SnackbarHostState,
 ): () -> Unit {
     val context = LocalContext.current
-    val effect by viewModel.effects.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
     val biometricAuthManager = remember { BiometricAuthManager() }
 
@@ -186,7 +182,6 @@ private fun rememberBackupExportController(
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BackupMimeType)) { uri ->
             val variant = pendingVariant
             if (uri == null || variant == null) {
-                viewModel.consumeEffect()
                 pendingVariant = null
                 return@rememberLauncherForActivityResult
             }
@@ -242,9 +237,8 @@ private fun rememberBackupExportController(
     }
 
     BackupExportEffectHandler(
-        effect = effect,
+        flow = viewModel.effects,
         snackbarHostState = snackbarHostState,
-        onConsume = viewModel::consumeEffect,
         onShare = { lastWrittenUri?.let { uri -> shareBackup(context, uri) } },
     )
 
@@ -276,8 +270,6 @@ private fun rememberBackupShareController(
     snackbarHostState: SnackbarHostState,
 ): () -> Unit {
     val context = LocalContext.current
-    val shareEffect by viewModel.shareEffects.collectAsStateWithLifecycle()
-
     // The temp cache file backing the in-flight share; deleted on the activity result.
     var pendingShareFile by remember { mutableStateOf<java.io.File?>(null) }
     var showReminder by rememberSaveable { mutableStateOf(false) }
@@ -302,9 +294,8 @@ private fun rememberBackupShareController(
     val chooserTitle = stringResource(R.string.backup_share_redacted_action)
 
     BackupShareEffectHandler(
-        effect = shareEffect,
+        flow = viewModel.shareEffects,
         snackbarHostState = snackbarHostState,
-        onConsume = viewModel::consumeShareEffect,
         onReady = {
             val file = pendingShareFile
             if (file == null) {
@@ -352,60 +343,51 @@ private fun rememberBackupShareController(
 
 @Composable
 private fun BackupRestoreEffectHandler(
-    effect: BackupRestoreEffect?,
+    flow: SharedFlow<BackupRestoreEffect>,
     snackbarHostState: SnackbarHostState,
-    onConsume: () -> Unit,
     onRestart: () -> Unit,
 ) {
     val restoredMessage = stringResource(R.string.backup_restore_success)
-    val unsupportedMessage =
-        (effect as? BackupRestoreEffect.UnsupportedVersion)?.let {
-            stringResource(R.string.backup_restore_unsupported_version, it.found, it.supported)
-        }
     val malformedMessage = stringResource(R.string.backup_restore_malformed)
     val nothingSelectedMessage = stringResource(R.string.backup_restore_nothing_selected)
-    androidx.compose.runtime.LaunchedEffect(effect) {
-        when (val current = effect) {
-            BackupRestoreEffect.Restored -> {
-                // Surface the message, then restart. The snackbar is best-effort —
-                // the rebirth may pre-empt it, which is acceptable.
-                snackbarHostState.showRipDpiSnackbar(
-                    message = restoredMessage,
-                    tone = RipDpiSnackbarTone.Info,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
-                )
-                onConsume()
-                onRestart()
-            }
+    val unsupportedVersionTemplate = stringResource(R.string.backup_restore_unsupported_version)
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        flow.collect { effect ->
+            when (effect) {
+                BackupRestoreEffect.Restored -> {
+                    // Surface the message, then restart. The snackbar is best-effort —
+                    // the rebirth may pre-empt it, which is acceptable.
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = restoredMessage,
+                        tone = RipDpiSnackbarTone.Info,
+                        testTag = RipDpiTestTags.BackupExportSnackbar,
+                    )
+                    onRestart()
+                }
 
-            is BackupRestoreEffect.UnsupportedVersion -> {
-                snackbarHostState.showRipDpiSnackbar(
-                    message = unsupportedMessage.orEmpty(),
-                    tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
-                )
-                onConsume()
-            }
+                is BackupRestoreEffect.UnsupportedVersion -> {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = String.format(unsupportedVersionTemplate, effect.found, effect.supported),
+                        tone = RipDpiSnackbarTone.Error,
+                        testTag = RipDpiTestTags.BackupExportSnackbar,
+                    )
+                }
 
-            BackupRestoreEffect.Malformed -> {
-                snackbarHostState.showRipDpiSnackbar(
-                    message = malformedMessage,
-                    tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
-                )
-                onConsume()
-            }
+                BackupRestoreEffect.Malformed -> {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = malformedMessage,
+                        tone = RipDpiSnackbarTone.Error,
+                        testTag = RipDpiTestTags.BackupExportSnackbar,
+                    )
+                }
 
-            BackupRestoreEffect.NothingSelected -> {
-                snackbarHostState.showRipDpiSnackbar(
-                    message = nothingSelectedMessage,
-                    tone = RipDpiSnackbarTone.Warning,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
-                )
-                onConsume()
-            }
-
-            null -> {
+                BackupRestoreEffect.NothingSelected -> {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = nothingSelectedMessage,
+                        tone = RipDpiSnackbarTone.Warning,
+                        testTag = RipDpiTestTags.BackupExportSnackbar,
+                    )
+                }
             }
         }
     }
@@ -413,18 +395,15 @@ private fun BackupRestoreEffectHandler(
 
 @Composable
 private fun BackupResetEffectHandler(
-    effect: com.poyka.ripdpi.backup.BackupResetEffect?,
-    onConsume: () -> Unit,
+    flow: SharedFlow<com.poyka.ripdpi.backup.BackupResetEffect>,
     onRestart: () -> Unit,
 ) {
-    androidx.compose.runtime.LaunchedEffect(effect) {
-        when (effect) {
-            com.poyka.ripdpi.backup.BackupResetEffect.Wiped -> {
-                onConsume()
-                onRestart()
-            }
-
-            null -> {
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        flow.collect { effect ->
+            when (effect) {
+                com.poyka.ripdpi.backup.BackupResetEffect.Wiped -> {
+                    onRestart()
+                }
             }
         }
     }
@@ -582,31 +561,27 @@ private fun launchShareIntent(
 
 @Composable
 private fun BackupShareEffectHandler(
-    effect: com.poyka.ripdpi.backup.BackupShareEffect?,
+    flow: SharedFlow<com.poyka.ripdpi.backup.BackupShareEffect>,
     snackbarHostState: SnackbarHostState,
-    onConsume: () -> Unit,
     onReady: () -> Unit,
     onFailed: () -> Unit,
 ) {
     val failedMessage = stringResource(R.string.backup_export_failed)
-    androidx.compose.runtime.LaunchedEffect(effect) {
-        when (effect) {
-            com.poyka.ripdpi.backup.BackupShareEffect.Ready -> {
-                onReady()
-                onConsume()
-            }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        flow.collect { effect ->
+            when (effect) {
+                com.poyka.ripdpi.backup.BackupShareEffect.Ready -> {
+                    onReady()
+                }
 
-            com.poyka.ripdpi.backup.BackupShareEffect.Failed -> {
-                onFailed()
-                snackbarHostState.showRipDpiSnackbar(
-                    message = failedMessage,
-                    tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
-                )
-                onConsume()
-            }
-
-            null -> {
+                com.poyka.ripdpi.backup.BackupShareEffect.Failed -> {
+                    onFailed()
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = failedMessage,
+                        tone = RipDpiSnackbarTone.Error,
+                        testTag = RipDpiTestTags.BackupExportSnackbar,
+                    )
+                }
             }
         }
     }
@@ -641,54 +616,47 @@ private fun BackupShareReminderDialog(
 
 @Composable
 private fun BackupExportEffectHandler(
-    effect: BackupExportEffect?,
+    flow: SharedFlow<BackupExportEffect>,
     snackbarHostState: SnackbarHostState,
-    onConsume: () -> Unit,
     onShare: () -> Unit,
 ) {
-    val successMessage =
-        (effect as? BackupExportEffect.Success)?.let {
-            stringResource(R.string.backup_export_success, formatBytes(it.byteCount))
-        }
+    val exportSuccessTemplate = stringResource(R.string.backup_export_success)
     val shareActionLabel = stringResource(R.string.backup_export_share_action)
     val failedMessage = stringResource(R.string.backup_export_failed)
-    androidx.compose.runtime.LaunchedEffect(effect) {
-        when (val current = effect) {
-            is BackupExportEffect.Success -> {
-                val message = successMessage.orEmpty()
-                if (current.offerShare) {
-                    val result =
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        flow.collect { effect ->
+            when (effect) {
+                is BackupExportEffect.Success -> {
+                    val message = String.format(exportSuccessTemplate, formatBytes(effect.byteCount))
+                    if (effect.offerShare) {
+                        val result =
+                            snackbarHostState.showRipDpiSnackbar(
+                                message = message,
+                                tone = RipDpiSnackbarTone.Info,
+                                actionLabel = shareActionLabel,
+                                testTag = RipDpiTestTags.BackupExportSnackbar,
+                            )
+                        if (result == SnackbarResult.ActionPerformed) onShare()
+                    } else {
                         snackbarHostState.showRipDpiSnackbar(
                             message = message,
                             tone = RipDpiSnackbarTone.Info,
-                            actionLabel = shareActionLabel,
                             testTag = RipDpiTestTags.BackupExportSnackbar,
                         )
-                    if (result == SnackbarResult.ActionPerformed) onShare()
-                } else {
+                    }
+                }
+
+                BackupExportEffect.WriteFailed -> {
                     snackbarHostState.showRipDpiSnackbar(
-                        message = message,
-                        tone = RipDpiSnackbarTone.Info,
+                        message = failedMessage,
+                        tone = RipDpiSnackbarTone.Error,
                         testTag = RipDpiTestTags.BackupExportSnackbar,
                     )
                 }
-                onConsume()
-            }
 
-            BackupExportEffect.WriteFailed -> {
-                snackbarHostState.showRipDpiSnackbar(
-                    message = failedMessage,
-                    tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
-                )
-                onConsume()
-            }
-
-            BackupExportEffect.Cancelled -> {
-                onConsume()
-            }
-
-            null -> {
+                BackupExportEffect.Cancelled -> {
+                    // No feedback for a cancelled picker; the snackbar stays silent.
+                }
             }
         }
     }

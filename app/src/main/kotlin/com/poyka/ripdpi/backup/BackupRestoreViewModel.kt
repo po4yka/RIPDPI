@@ -12,8 +12,12 @@ import com.poyka.ripdpi.data.backup.RestoreResult
 import com.poyka.ripdpi.data.backup.RestoreSelection
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -152,17 +156,27 @@ class BackupRestoreViewModel
             )
         val uiState: StateFlow<BackupRestoreUiState> = _uiState.asStateFlow()
 
-        private val _effects = MutableStateFlow<BackupExportEffect?>(null)
-        val effects: StateFlow<BackupExportEffect?> = _effects.asStateFlow()
+        private val _effects =
+            MutableSharedFlow<BackupExportEffect>(
+                extraBufferCapacity = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
+        val effects: SharedFlow<BackupExportEffect> = _effects.asSharedFlow()
 
-        private val _restoreEffects = MutableStateFlow<BackupRestoreEffect?>(null)
-        val restoreEffects: StateFlow<BackupRestoreEffect?> = _restoreEffects.asStateFlow()
+        private val _restoreEffects =
+            MutableSharedFlow<BackupRestoreEffect>(
+                extraBufferCapacity = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
+        val restoreEffects: SharedFlow<BackupRestoreEffect> = _restoreEffects.asSharedFlow()
 
-        private val _shareEffects = MutableStateFlow<BackupShareEffect?>(null)
-        val shareEffects: StateFlow<BackupShareEffect?> = _shareEffects.asStateFlow()
+        private val _shareEffects =
+            MutableSharedFlow<BackupShareEffect>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+        val shareEffects: SharedFlow<BackupShareEffect> = _shareEffects.asSharedFlow()
 
-        private val _resetEffects = MutableStateFlow<BackupResetEffect?>(null)
-        val resetEffects: StateFlow<BackupResetEffect?> = _resetEffects.asStateFlow()
+        private val _resetEffects =
+            MutableSharedFlow<BackupResetEffect>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+        val resetEffects: SharedFlow<BackupResetEffect> = _resetEffects.asSharedFlow()
 
         /** Re-evaluates the MDM suppression knob (called on screen resume). */
         fun refreshPolicy() {
@@ -188,7 +202,7 @@ class BackupRestoreViewModel
                 val output = openOutput()
                 if (output == null) {
                     _uiState.update { it.copy(exporting = false) }
-                    _effects.value = BackupExportEffect.Cancelled
+                    _effects.tryEmit(BackupExportEffect.Cancelled)
                     return@launch
                 }
                 val result =
@@ -200,7 +214,7 @@ class BackupRestoreViewModel
                         )
                     }
                 _uiState.update { it.copy(exporting = false) }
-                _effects.value =
+                _effects.tryEmit(
                     when (result) {
                         is BackupExportResult.Success -> {
                             BackupExportEffect.Success(
@@ -214,13 +228,9 @@ class BackupRestoreViewModel
                             onWriteFailed()
                             BackupExportEffect.WriteFailed
                         }
-                    }
+                    },
+                )
             }
-        }
-
-        /** Clears the last one-shot export effect after the screen has consumed it. */
-        fun consumeEffect() {
-            _effects.value = null
         }
 
         /**
@@ -240,7 +250,7 @@ class BackupRestoreViewModel
                 val output = openOutput()
                 if (output == null) {
                     _uiState.update { it.copy(sharing = false) }
-                    _shareEffects.value = BackupShareEffect.Failed
+                    _shareEffects.tryEmit(BackupShareEffect.Failed)
                     return@launch
                 }
                 val result =
@@ -252,17 +262,13 @@ class BackupRestoreViewModel
                         )
                     }
                 _uiState.update { it.copy(sharing = false) }
-                _shareEffects.value =
+                _shareEffects.tryEmit(
                     when (result) {
                         is BackupExportResult.Success -> BackupShareEffect.Ready
                         is BackupExportResult.WriteFailed -> BackupShareEffect.Failed
-                    }
+                    },
+                )
             }
-        }
-
-        /** Clears the last one-shot share effect after the screen has consumed it. */
-        fun consumeShareEffect() {
-            _shareEffects.value = null
         }
 
         /**
@@ -322,13 +328,14 @@ class BackupRestoreViewModel
 
                     is BackupPreviewResult.UnsupportedVersion -> {
                         _uiState.update { it.copy(importing = false) }
-                        _restoreEffects.value =
-                            BackupRestoreEffect.UnsupportedVersion(result.found, result.supported)
+                        _restoreEffects.tryEmit(
+                            BackupRestoreEffect.UnsupportedVersion(result.found, result.supported),
+                        )
                     }
 
                     is BackupPreviewResult.Malformed -> {
                         _uiState.update { it.copy(importing = false) }
-                        _restoreEffects.value = BackupRestoreEffect.Malformed
+                        _restoreEffects.tryEmit(BackupRestoreEffect.Malformed)
                     }
                 }
             }
@@ -367,7 +374,7 @@ class BackupRestoreViewModel
                 }
 
                 !preview.selection.any -> {
-                    _restoreEffects.value = BackupRestoreEffect.NothingSelected
+                    _restoreEffects.tryEmit(BackupRestoreEffect.NothingSelected)
                 }
 
                 else -> {
@@ -378,7 +385,7 @@ class BackupRestoreViewModel
                                 restoreUseCase.restore(preview.json, preview.selection)
                             }
                         _uiState.update { it.copy(restoring = false, importPreview = null) }
-                        _restoreEffects.value =
+                        _restoreEffects.tryEmit(
                             when (result) {
                                 is RestoreResult.Success -> {
                                     BackupRestoreEffect.Restored
@@ -395,15 +402,11 @@ class BackupRestoreViewModel
                                 RestoreResult.NothingSelected -> {
                                     BackupRestoreEffect.NothingSelected
                                 }
-                            }
+                            },
+                        )
                     }
                 }
             }
-        }
-
-        /** Clears the last one-shot restore effect after the screen has consumed it. */
-        fun consumeRestoreEffect() {
-            _restoreEffects.value = null
         }
 
         // -- Reset all settings ---------------------------------------------------
@@ -438,12 +441,7 @@ class BackupRestoreViewModel
                 _uiState.update {
                     it.copy(resetting = false, resetDialogVisible = false, resetConfirmationInput = "")
                 }
-                _resetEffects.value = BackupResetEffect.Wiped
+                _resetEffects.tryEmit(BackupResetEffect.Wiped)
             }
-        }
-
-        /** Clears the last one-shot reset effect after the screen has consumed it. */
-        fun consumeResetEffect() {
-            _resetEffects.value = null
         }
     }
