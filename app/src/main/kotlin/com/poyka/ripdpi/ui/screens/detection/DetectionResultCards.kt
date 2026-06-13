@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -464,7 +465,14 @@ internal fun DetectionCategoryCards(
     privacyModeEnabled: Boolean,
     colorVisionMode: DetectionColorVisionMode,
 ) {
-    var expandedCategories by rememberSaveable { mutableStateOf(emptySet<String>()) }
+    val expandedCategoriesSaver =
+        listSaver<Set<String>, String>(
+            save = { it.toList() },
+            restore = { it.toSet() },
+        )
+    var expandedCategories by rememberSaveable(stateSaver = expandedCategoriesSaver) {
+        mutableStateOf(emptySet())
+    }
     val categories = detectionCategoryEntries(result)
 
     CollapsibleCard(
