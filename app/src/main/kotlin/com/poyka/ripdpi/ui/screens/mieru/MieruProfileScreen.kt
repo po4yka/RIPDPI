@@ -13,6 +13,8 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
+import com.poyka.ripdpi.ui.components.feedback.WarningBanner
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -23,7 +25,16 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+
+private val MieruProtocolDropdownOptions:
+    ImmutableList<com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption<String>> =
+    MieruProtocolOptions.map { RipDpiDropdownOption(value = it, label = it) }.toImmutableList()
+
+private val MieruMultiplexingDropdownOptions:
+    ImmutableList<com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption<String>> =
+    MieruMultiplexingOptions.map { RipDpiDropdownOption(value = it, label = it) }.toImmutableList()
 
 /**
  * Mieru profile editor destination.
@@ -68,6 +79,12 @@ internal fun MieruProfileScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.MieruProfile)),
     ) {
+        WarningBanner(
+            title = stringResource(R.string.mieru_experimental_title),
+            message = stringResource(R.string.mieru_experimental_body),
+            tone = WarningBannerTone.Warning,
+            announce = false,
+        )
         EndpointSection(uiState.editor, onFieldChanged)
         CredentialsSection(uiState.editor, onFieldChanged)
         TransportSection(uiState.editor, onFieldChanged, onProtocolSelected, onMultiplexingSelected)
@@ -130,19 +147,13 @@ private fun TransportSection(
             supporting = stringResource(R.string.mieru_section_transport_body),
         )
         RipDpiDropdown(
-            options =
-                MieruProtocolOptions
-                    .map { RipDpiDropdownOption(value = it, label = it) }
-                    .toImmutableList(),
+            options = MieruProtocolDropdownOptions,
             selectedValue = editor.protocol,
             onValueSelected = onProtocolSelected,
             label = stringResource(R.string.mieru_field_protocol),
         )
         RipDpiDropdown(
-            options =
-                MieruMultiplexingOptions
-                    .map { RipDpiDropdownOption(value = it, label = it) }
-                    .toImmutableList(),
+            options = MieruMultiplexingDropdownOptions,
             selectedValue = editor.multiplexing,
             onValueSelected = onMultiplexingSelected,
             label = stringResource(R.string.mieru_field_multiplexing),

@@ -17,6 +17,8 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
+import com.poyka.ripdpi.ui.components.feedback.WarningBanner
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
@@ -28,7 +30,12 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+
+private val SshAuthTypeDropdownOptions:
+    ImmutableList<com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption<String>> =
+    SshAuthTypeOptions.map { RipDpiDropdownOption(value = it, label = it) }.toImmutableList()
 
 /**
  * SSH profile editor destination.
@@ -83,6 +90,12 @@ internal fun SshProfileScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.SshProfile)),
     ) {
+        WarningBanner(
+            title = stringResource(R.string.ssh_not_functional_title),
+            message = stringResource(R.string.ssh_not_functional_body),
+            tone = WarningBannerTone.Error,
+            announce = false,
+        )
         EndpointSection(uiState.editor, onFieldChanged)
         AuthSection(uiState.editor, onFieldChanged, onAuthTypeSelected, onRevealPrivateKey, onRevealPassphrase)
         HostKeySection(uiState.editor, onFieldChanged, onStrictHostKeyChanged)
@@ -129,10 +142,7 @@ private fun AuthSection(
             supporting = stringResource(R.string.ssh_section_auth_body),
         )
         RipDpiDropdown(
-            options =
-                SshAuthTypeOptions
-                    .map { RipDpiDropdownOption(value = it, label = it) }
-                    .toImmutableList(),
+            options = SshAuthTypeDropdownOptions,
             selectedValue = editor.authType,
             onValueSelected = onAuthTypeSelected,
             label = stringResource(R.string.ssh_field_auth_type),
