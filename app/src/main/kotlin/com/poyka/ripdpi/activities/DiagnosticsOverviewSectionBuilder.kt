@@ -28,7 +28,7 @@ internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
     DiagnosticsOverviewUiModel(
         health = health,
         headline = overviewHeadline(health, progress, latestSession, selectedProfile),
-        body = overviewBody(health, latestSnapshot, currentTelemetry),
+        body = overviewBody(health, latestSession, latestSnapshot, currentTelemetry),
         activeProfile = selectedProfile,
         recentAutomaticProbe = recentAutomaticProbe,
         latestSnapshot = latestSnapshot,
@@ -77,10 +77,17 @@ private fun DiagnosticsUiFactorySupport.overviewHeadline(
 
 private fun DiagnosticsUiFactorySupport.overviewBody(
     health: DiagnosticsHealth,
+    latestSession: DiagnosticScanSession?,
     latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
     telemetry: DiagnosticTelemetrySample?,
-): String =
-    when (health) {
+): String {
+    // No scan session yet: keep the body consistent with the "no diagnostics
+    // captured yet" headline instead of surfacing a health-derived warning that
+    // contradicts it (passive events alone can flip health to Attention).
+    if (latestSession == null) {
+        return context.getString(R.string.diagnostics_body_idle)
+    }
+    return when (health) {
         DiagnosticsHealth.Healthy -> {
             context.getString(R.string.diagnostics_body_healthy)
         }
@@ -97,3 +104,4 @@ private fun DiagnosticsUiFactorySupport.overviewBody(
             latestSnapshot?.subtitle ?: telemetry?.connectionState ?: context.getString(R.string.diagnostics_body_idle)
         }
     }
+}
