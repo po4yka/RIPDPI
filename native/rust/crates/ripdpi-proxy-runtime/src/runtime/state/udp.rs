@@ -8,8 +8,12 @@ impl RuntimeState {
     ) -> Option<(SocketAddr, &'a [u8])> {
         runtime_parse_socks5_udp_packet(&self.udp_packet_parser, packet, resolve_name)
     }
+    #[allow(dead_code)]
     pub(in crate::runtime) fn encode_socks5_udp_packet(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
         encode_socks5_udp_packet(target, payload)
+    }
+    pub(in crate::runtime) fn encode_socks5_udp_packet_into(out: &mut Vec<u8>, target: SocketAddr, payload: &[u8]) {
+        encode_socks5_udp_packet_into(out, target, payload);
     }
     pub(in crate::runtime) fn classify_udp_payload(&self, payload: &[u8]) -> UdpPayloadInfo {
         runtime_classify_udp_payload(&self.udp_payload_classifier, payload)

@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 
-use super::encode_socks5_udp_packet;
+use super::encode_socks5_udp_packet_into;
 use super::feedback::note_udp_first_response_success;
 use super::flow::UdpFlowActivationState;
 use super::migration::maybe_rebind_udp_source_port;
@@ -19,6 +19,7 @@ pub(super) fn pump_udp_upstream_responses(
     state: &RuntimeState,
     client_relay: &UdpSocket,
     upstream_buffer: &mut [u8],
+    encode_buffer: &mut Vec<u8>,
     flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
     protect_path: Option<&str>,
 ) -> io::Result<bool> {
@@ -47,8 +48,8 @@ pub(super) fn pump_udp_upstream_responses(
                 entry.session.observe_upstream_response(response);
                 note_udp_first_response_success(state, entry)?;
                 maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
-                let packet = encode_socks5_udp_packet(entry.logical_target, response);
-                client_relay.send_to(&packet, client_addr)?;
+                encode_socks5_udp_packet_into(encode_buffer, entry.logical_target, response);
+                client_relay.send_to(encode_buffer, client_addr)?;
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
             Err(err) if udp_platform::is_connection_refused(&err) => {}
