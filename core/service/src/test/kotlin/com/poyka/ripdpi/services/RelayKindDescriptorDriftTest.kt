@@ -120,6 +120,7 @@ class RelayKindDescriptorDriftTest {
                 "shadowsocks" to listOf(true, true, false, true),
                 "tor" to listOf(true, false, true, false),
                 "naiveproxy" to listOf(true, false, false, true),
+                "ssh" to listOf(true, false, false, false),
             )
         rustPinned.forEach { (kindId, caps) ->
             val descriptor = relayKindDescriptor(kindId) ?: error("missing Kotlin descriptor for $kindId")

@@ -6,11 +6,13 @@ import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindShadowsocks
+import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelaySecurityLayerReality
+import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import java.util.UUID
@@ -44,6 +46,7 @@ object RelayProfileShareMapper {
             RelayKindAnyTls -> toAnyTls(credentials)
             RelayKindShadowsocks -> toShadowsocks(credentials)
             RelayKindMieru -> toMieru(credentials)
+            RelayKindSsh -> toSsh(credentials)
             else -> null
         }
 
@@ -198,6 +201,32 @@ object RelayProfileShareMapper {
                         ).takeIf { server.isNotBlank() && serverPort > 0 }
                 }
             }
+
+    private fun RelayProfileRecord.toSsh(credentials: RelayCredentialRecord?): ProxyProfile? {
+        val username = credentials?.sshUsername?.takeIf { it.isNotBlank() } ?: return null
+        val isKey = sshAuthType == RelaySshAuthTypePrivateKey
+        val password = credentials.sshPassword?.takeIf { it.isNotBlank() }
+        val privateKey = credentials.sshPrivateKey?.takeIf { it.isNotBlank() }
+        // The auth-relevant secret must be present, or the reconstructed profile
+        // could never authenticate.
+        if (isKey && privateKey == null) return null
+        if (!isKey && password == null) return null
+        return ProxyProfile
+            .Ssh(
+                id = UUID.randomUUID().toString(),
+                displayName = shareName(),
+                groupId = "",
+                server = server,
+                serverPort = serverPort,
+                username = username,
+                authType = sshAuthType,
+                password = if (isKey) null else password,
+                privateKey = if (isKey) privateKey else null,
+                privateKeyPassphrase = credentials.sshPrivateKeyPassphrase?.takeIf { isKey && it.isNotBlank() },
+                hostKeyFingerprint = sshHostKeyFingerprint.ifBlank { null },
+                strictHostKey = sshStrictHostKey,
+            ).takeIf { server.isNotBlank() && serverPort > 0 }
+    }
 
     private fun RelayProfileRecord.shareName(): String =
         listOf(operatorName, jurisdiction)
