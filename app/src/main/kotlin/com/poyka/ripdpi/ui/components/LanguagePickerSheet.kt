@@ -20,6 +20,7 @@ import androidx.core.os.LocaleListCompat
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.LocalesConfig
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +30,20 @@ fun LanguagePickerSheet(
 ) {
     val context = LocalContext.current
     val tags = remember(context) { LocalesConfig.parse(context) }
-    val current = remember { AppCompatDelegate.getApplicationLocales().toLanguageTags() }
+    // Resolve the language that is actually in effect. getApplicationLocales() is
+    // empty until the user sets a per-app override, so without this fallback the
+    // currently-active (system) language would show no selection at all.
+    val currentTag =
+        remember(tags) {
+            val applied = AppCompatDelegate.getApplicationLocales()
+            val effective = if (applied.isEmpty) LocaleListCompat.getAdjustedDefault() else applied
+            val locale = effective.get(0)
+            tags.firstOrNull { tag ->
+                val offered = Locale.forLanguageTag(tag)
+                offered.language == locale?.language &&
+                    (offered.country.isEmpty() || offered.country.equals(locale.country, ignoreCase = true))
+            } ?: tags.firstOrNull { it.equals("en", ignoreCase = true) }
+        }
 
     RipDpiBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -40,7 +54,7 @@ fun LanguagePickerSheet(
             tags.forEach { tag ->
                 LanguageRow(
                     tag = tag,
-                    selected = tag.equals(current, ignoreCase = true),
+                    selected = tag == currentTag,
                     onSelected = {
                         AppCompatDelegate.setApplicationLocales(
                             LocaleListCompat.forLanguageTags(tag),
