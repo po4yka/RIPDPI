@@ -23,13 +23,16 @@ import org.junit.Test
  */
 class ServiceStateStoreWidgetResetTest {
     @Test
-    fun `constructing the store projects a Halted widget snapshot for a fresh process`() {
-        val widget = RecordingWidgetStateRepository()
+    fun `constructing the store reconciles a stale active widget snapshot back to Halted`() {
+        // Model a process that was killed (LMK / crash) mid-session: the DataStore
+        // still holds an active snapshot from the dead process.
+        val widget = RecordingWidgetStateRepository(seed = WidgetSnapshot(status = AppStatus.Running, mode = Mode.VPN))
 
         DefaultServiceStateStore(widget, NoopWidgetNotifier, unconfinedScope())
 
         // The init combine emits its initial (Halted, idle) pair the instant it is
-        // collected, overwriting whatever a prior (killed) process persisted.
+        // collected, so the fresh process's first write overwrites the stale Running
+        // value — the widget can never come back up showing the dead session as active.
         assertTrue("expected the store to write an initial widget snapshot", widget.writes.isNotEmpty())
         assertEquals(AppStatus.Halted, widget.writes.first().status)
     }
@@ -48,9 +51,11 @@ class ServiceStateStoreWidgetResetTest {
 
     private fun unconfinedScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
 
-    private class RecordingWidgetStateRepository : WidgetStateRepository {
+    private class RecordingWidgetStateRepository(
+        seed: WidgetSnapshot = WidgetSnapshot(),
+    ) : WidgetStateRepository {
         val writes = mutableListOf<WidgetSnapshot>()
-        private val state = MutableStateFlow(WidgetSnapshot())
+        private val state = MutableStateFlow(seed)
 
         override suspend fun write(snapshot: WidgetSnapshot) {
             writes += snapshot
