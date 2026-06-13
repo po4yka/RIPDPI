@@ -5,6 +5,10 @@ use thiserror::Error;
 /// Errors surfaced by the SSH outbound engine.
 #[derive(Debug, Error)]
 pub enum SshError {
+    /// The host is empty. SSH always dials a named host, so a blank host is
+    /// rejected before any I/O.
+    #[error("SSH host must not be empty")]
+    EmptyHost,
     /// The server port is outside the valid `1..=65535` range.
     #[error("SSH server port must be in 1..=65535")]
     InvalidPort,
