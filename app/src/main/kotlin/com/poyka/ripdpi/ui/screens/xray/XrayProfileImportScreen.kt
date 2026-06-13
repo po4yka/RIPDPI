@@ -19,6 +19,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.subscription.XraySkipReason
+import com.poyka.ripdpi.data.subscription.XraySkippedNode
 import com.poyka.ripdpi.data.xray.XrayCapability
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -109,6 +111,7 @@ internal fun XrayProfileImportScreen(
                 visible = uiState.acceptedConfigReady,
                 capabilities = uiState.capabilities,
             )
+            XraySkippedNodesCard(skipped = uiState.skipped)
         }
 
         RipDpiButton(
@@ -221,6 +224,45 @@ private fun XrayCapabilitiesCard(
         }
     }
 }
+
+/**
+ * Surfaces the outbounds that could not be translated to a native relay, each
+ * with a localized per-node reason — matching the subscription-import skip
+ * behaviour so nothing is silently dropped.
+ */
+@Composable
+private fun XraySkippedNodesCard(skipped: List<XraySkippedNode>) {
+    if (skipped.isEmpty()) return
+    // Build the per-node lines in a plain loop (a composable context) so each
+    // reason string can be resolved with stringResource; a joinToString lambda
+    // would not be a composable scope.
+    val lines = StringBuilder()
+    for ((index, node) in skipped.withIndex()) {
+        if (index > 0) lines.append('\n')
+        lines.append(node.label).append(" — ").append(skipReasonText(node.reason, node.detail))
+    }
+    WarningBanner(
+        title = stringResource(R.string.xray_import_skipped_title),
+        message = lines.toString(),
+        tone = WarningBannerTone.Warning,
+        testTag = "xray_import_skipped",
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun skipReasonText(
+    reason: XraySkipReason,
+    detail: String?,
+): String =
+    when (reason) {
+        XraySkipReason.VMESS_REMOVED -> stringResource(R.string.xray_skip_vmess_removed)
+        XraySkipReason.VLESS_REQUIRES_REALITY -> stringResource(R.string.xray_skip_vless_requires_reality)
+        XraySkipReason.NON_PROXY_OUTBOUND -> stringResource(R.string.xray_skip_non_proxy, detail.orEmpty())
+        XraySkipReason.UNSUPPORTED_PROTOCOL -> stringResource(R.string.xray_skip_unsupported_protocol, detail.orEmpty())
+        XraySkipReason.MALFORMED -> stringResource(R.string.xray_skip_malformed)
+        XraySkipReason.SINGLE_RELAY_ONLY -> stringResource(R.string.xray_skip_single_relay_only)
+    }
 
 /**
  * Resolves a capability / option string-resource *key name* (declared in the
