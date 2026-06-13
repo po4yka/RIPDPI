@@ -67,7 +67,11 @@ internal fun resolvePrimaryConnectionAction(
             when (appStatus) {
                 AppStatus.Halted -> MainPrimaryConnectionAction.START_CONFIGURED_MODE
 
-                // Reconnecting is an in-flight resume: offer STOP so the user can abort it.
+                // Grouped with Running for exhaustiveness / as a defensive default.
+                // Not reached while appStatus == Reconnecting in practice:
+                // resolveEffectiveConnectionState maps Reconnecting to Connecting
+                // (-> NONE) above, so the button shows the same wait state as any
+                // connect-in-progress; aborting goes through the stop sinks.
                 AppStatus.Reconnecting,
                 AppStatus.Running,
                 -> MainPrimaryConnectionAction.STOP
