@@ -45,7 +45,7 @@ internal class HomeDiagnosticsStateOwner(
             )
         }.stateIn(
             scope = scope,
-            started = SharingStarted.Eagerly,
+            started = SharingStarted.WhileSubscribed(5_000),
             initialValue = HomeDiagnosticsUiState(),
         )
 
@@ -58,7 +58,7 @@ internal class HomeDiagnosticsStateOwner(
                 )
             }.stateIn(
                 scope = scope,
-                started = SharingStarted.Eagerly,
+                started = SharingStarted.WhileSubscribed(5_000),
                 initialValue =
                     buildDiagnosticCard(
                         homeDiagnostics = HomeDiagnosticsUiState(),
