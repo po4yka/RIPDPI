@@ -117,9 +117,12 @@ class RipDpiProxyService :
         }
         // A null action is a START_STICKY re-delivery after a process kill (LMK /
         // memory limiter) — and we are past the abort guard, so the restart will
-        // proceed. Publish Reconnecting so the UI shows the bring-up window instead
-        // of Halted; Running/Halted resolves it once the runtime settles.
-        if (intent?.action == null) {
+        // proceed. Publish Reconnecting ONLY from a Halted baseline (a genuinely
+        // fresh process): a null re-delivery to a still-Running service must not be
+        // demoted to Reconnecting, since the follow-up start is rejected as
+        // already-running and would never restore Running, leaving it stuck.
+        // Running/Halted resolves it once the runtime settles.
+        if (intent?.action == null && serviceStateStore.status.value.first == AppStatus.Halted) {
             serviceStateStore.setStatus(AppStatus.Reconnecting, Mode.Proxy)
         }
         return shellDelegate.onStartCommand(intent?.action, startId)

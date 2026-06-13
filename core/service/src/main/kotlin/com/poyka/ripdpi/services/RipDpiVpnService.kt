@@ -90,11 +90,15 @@ class RipDpiVpnService :
         notificationController.startForeground(this)
         refreshHardKillSwitchState()
         // A null action is Android re-delivering a START_STICKY intent after the
-        // process was killed (LMK / memory limiter). The store was just reset to
-        // Halted on the fresh process; publish Reconnecting so the UI shows the
-        // bring-up window instead of Halted. Overwritten by Running on connect,
+        // process was killed (LMK / memory limiter). Publish Reconnecting ONLY from
+        // a Halted baseline — i.e. a genuinely fresh process whose store re-init'd to
+        // Halted. Guarding on Halted is load-bearing: a null re-delivery to a process
+        // whose service is still Running must not demote it to Reconnecting (which
+        // would also wipe serviceStartedAt), because the runtime start that follows
+        // is then rejected as already-running and would never restore Running —
+        // leaving the status stuck. Reconnecting is overwritten by Running on connect
         // or Halted if the resume fails.
-        if (intent?.action == null) {
+        if (intent?.action == null && serviceStateStore.status.value.first == AppStatus.Halted) {
             serviceStateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
         }
         return shellDelegate.onStartCommand(intent?.action, startId)
