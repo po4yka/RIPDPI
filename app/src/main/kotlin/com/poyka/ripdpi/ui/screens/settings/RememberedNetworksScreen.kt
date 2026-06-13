@@ -71,52 +71,30 @@ internal fun RememberedNetworksScreen(
     var pendingDelete by remember { mutableStateOf<RememberedNetworkUiModel?>(null) }
 
     if (showClearDialog) {
-        RipDpiDialog(
-            onDismissRequest = { showClearDialog = false },
+        RememberedNetworksConfirmDialog(
             title = stringResource(R.string.remembered_networks_clear_confirm_title),
-            dismissAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.remembered_networks_clear_confirm_dismiss),
-                    onClick = { showClearDialog = false },
-                ),
-            confirmAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.remembered_networks_clear_confirm_confirm),
-                    onClick = {
-                        showClearDialog = false
-                        onClearAll()
-                    },
-                ),
-            visuals =
-                RipDpiDialogVisuals(
-                    message = stringResource(R.string.remembered_networks_clear_confirm_body),
-                    tone = RipDpiDialogTone.Destructive,
-                ),
+            message = stringResource(R.string.remembered_networks_clear_confirm_body),
+            confirmLabel = stringResource(R.string.remembered_networks_clear_confirm_confirm),
+            dismissLabel = stringResource(R.string.remembered_networks_clear_confirm_dismiss),
+            onDismiss = { showClearDialog = false },
+            onConfirm = {
+                showClearDialog = false
+                onClearAll()
+            },
         )
     }
 
     pendingDelete?.let { entry ->
-        RipDpiDialog(
-            onDismissRequest = { pendingDelete = null },
+        RememberedNetworksConfirmDialog(
             title = stringResource(R.string.remembered_networks_delete_confirm_title),
-            dismissAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.remembered_networks_delete_confirm_dismiss),
-                    onClick = { pendingDelete = null },
-                ),
-            confirmAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.remembered_networks_delete_confirm_confirm),
-                    onClick = {
-                        pendingDelete = null
-                        onDeleteEntry(entry)
-                    },
-                ),
-            visuals =
-                RipDpiDialogVisuals(
-                    message = stringResource(R.string.remembered_networks_delete_confirm_body),
-                    tone = RipDpiDialogTone.Destructive,
-                ),
+            message = stringResource(R.string.remembered_networks_delete_confirm_body),
+            confirmLabel = stringResource(R.string.remembered_networks_delete_confirm_confirm),
+            dismissLabel = stringResource(R.string.remembered_networks_delete_confirm_dismiss),
+            onDismiss = { pendingDelete = null },
+            onConfirm = {
+                pendingDelete = null
+                onDeleteEntry(entry)
+            },
         )
     }
 
@@ -160,6 +138,24 @@ internal fun RememberedNetworksScreen(
             }
         }
     }
+}
+
+@Composable
+private fun RememberedNetworksConfirmDialog(
+    title: String,
+    message: String,
+    confirmLabel: String,
+    dismissLabel: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = title,
+        dismissAction = RipDpiDialogAction(label = dismissLabel, onClick = onDismiss),
+        confirmAction = RipDpiDialogAction(label = confirmLabel, onClick = onConfirm),
+        visuals = RipDpiDialogVisuals(message = message, tone = RipDpiDialogTone.Destructive),
+    )
 }
 
 @Composable
@@ -214,7 +210,6 @@ private fun RememberedNetworksHeader(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RememberedNetworkCard(
     entry: RememberedNetworkUiModel,
@@ -222,48 +217,11 @@ private fun RememberedNetworkCard(
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    val spacing = RipDpiThemeTokens.spacing
 
-    RipDpiCard(
-        modifier =
-            Modifier.ripDpiTestTag(RipDpiTestTags.rememberedNetworkCard(entry.id)),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(spacing.xs),
-                ) {
-                    Text(
-                        text = rememberedTransportLabel(entry.transportKey),
-                        style = type.bodyEmphasis,
-                        color = colors.foreground,
-                    )
-                    Text(
-                        text = stringResource(R.string.remembered_networks_scope_label, entry.scopeKeyShort),
-                        style = type.monoSmall,
-                        color = colors.mutedForeground,
-                    )
-                }
-                RememberedNetworkStatusChip(entry.statusTone)
-            }
-
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-                RememberedNetworkMetaText(rememberedModeLabel(entry.modeKey))
-                RememberedNetworkMetaText(rememberedValidationLabel(entry.validationKey))
-                RememberedNetworkMetaText(
-                    stringResource(R.string.remembered_networks_dns_servers, entry.dnsServerCount),
-                )
-                if (entry.privateDnsMode.isNotBlank()) {
-                    RememberedNetworkMetaText(
-                        stringResource(R.string.remembered_networks_private_dns_label, entry.privateDnsMode),
-                    )
-                }
-            }
-
+    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.rememberedNetworkCard(entry.id))) {
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+            RememberedNetworkCardHeader(entry)
+            RememberedNetworkMetaFlow(entry)
             val strategy = rememberedStrategyLabel(entry)
             if (strategy != null) {
                 Text(
@@ -272,42 +230,94 @@ private fun RememberedNetworkCard(
                     color = colors.mutedForeground,
                 )
             }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text =
-                        stringResource(
-                            R.string.remembered_networks_outcomes,
-                            entry.successCount,
-                            entry.failureCount,
-                        ),
-                    style = type.caption,
-                    color = colors.mutedForeground,
-                )
-                Text(
-                    text = stringResource(R.string.remembered_networks_updated, entry.updatedLabel),
-                    style = type.caption,
-                    color = colors.mutedForeground,
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                RipDpiButton(
-                    text = stringResource(R.string.remembered_networks_delete_action),
-                    onClick = onDelete,
-                    variant = RipDpiButtonVariant.Outline,
-                    density = RipDpiControlDensity.Compact,
-                    trailingIcon = RipDpiIcons.Delete,
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.rememberedNetworkDelete(entry.id)),
-                )
-            }
+            RememberedNetworkCardFooter(entry = entry, onDelete = onDelete)
         }
+    }
+}
+
+@Composable
+private fun RememberedNetworkCardHeader(entry: RememberedNetworkUiModel) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+        ) {
+            Text(
+                text = rememberedTransportLabel(entry.transportKey),
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.remembered_networks_scope_label, entry.scopeKeyShort),
+                style = type.monoSmall,
+                color = colors.mutedForeground,
+            )
+        }
+        RememberedNetworkStatusChip(entry.statusTone)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RememberedNetworkMetaFlow(entry: RememberedNetworkUiModel) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+        RememberedNetworkMetaText(rememberedModeLabel(entry.modeKey))
+        RememberedNetworkMetaText(rememberedValidationLabel(entry.validationKey))
+        RememberedNetworkMetaText(
+            stringResource(R.string.remembered_networks_dns_servers, entry.dnsServerCount),
+        )
+        if (entry.privateDnsMode.isNotBlank()) {
+            RememberedNetworkMetaText(
+                stringResource(R.string.remembered_networks_private_dns_label, entry.privateDnsMode),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RememberedNetworkCardFooter(
+    entry: RememberedNetworkUiModel,
+    onDelete: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text =
+                stringResource(
+                    R.string.remembered_networks_outcomes,
+                    entry.successCount,
+                    entry.failureCount,
+                ),
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+        Text(
+            text = stringResource(R.string.remembered_networks_updated, entry.updatedLabel),
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        RipDpiButton(
+            text = stringResource(R.string.remembered_networks_delete_action),
+            onClick = onDelete,
+            variant = RipDpiButtonVariant.Outline,
+            density = RipDpiControlDensity.Compact,
+            trailingIcon = RipDpiIcons.Delete,
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.rememberedNetworkDelete(entry.id)),
+        )
     }
 }
 

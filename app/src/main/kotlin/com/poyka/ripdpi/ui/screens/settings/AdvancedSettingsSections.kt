@@ -634,27 +634,12 @@ internal fun LazyListScope.networkStrategyMemorySection(
         var showClearDialog by remember { mutableStateOf(false) }
 
         if (showClearDialog) {
-            RipDpiDialog(
-                onDismissRequest = { showClearDialog = false },
-                title = stringResource(R.string.confirm_clear_remembered_networks_title),
-                dismissAction =
-                    RipDpiDialogAction(
-                        label = stringResource(R.string.confirm_clear_remembered_networks_dismiss),
-                        onClick = { showClearDialog = false },
-                    ),
-                confirmAction =
-                    RipDpiDialogAction(
-                        label = stringResource(R.string.confirm_clear_remembered_networks_confirm),
-                        onClick = {
-                            showClearDialog = false
-                            onClearRememberedNetworks()
-                        },
-                    ),
-                visuals =
-                    RipDpiDialogVisuals(
-                        message = stringResource(R.string.confirm_clear_remembered_networks_body),
-                        tone = RipDpiDialogTone.Destructive,
-                    ),
+            ClearRememberedNetworksDialog(
+                onDismiss = { showClearDialog = false },
+                onConfirm = {
+                    showClearDialog = false
+                    onClearRememberedNetworks()
+                },
             )
         }
 
@@ -711,6 +696,32 @@ internal fun LazyListScope.networkStrategyMemorySection(
             }
         }
     }
+}
+
+@Composable
+private fun ClearRememberedNetworksDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.confirm_clear_remembered_networks_title),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_clear_remembered_networks_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_clear_remembered_networks_confirm),
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.confirm_clear_remembered_networks_body),
+                tone = RipDpiDialogTone.Destructive,
+            ),
+    )
 }
 
 internal fun LazyListScope.wsTunnelSection(

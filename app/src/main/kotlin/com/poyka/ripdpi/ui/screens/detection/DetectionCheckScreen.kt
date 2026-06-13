@@ -645,6 +645,7 @@ private fun DetectionReportActions(
 ) {
     val context = LocalContext.current
     val spacing = RipDpiThemeTokens.spacing
+    val diagnosticsClipLabel = stringResource(R.string.clipboard_label_detection_diagnostics)
     var exportDialogVisible by rememberSaveable { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
