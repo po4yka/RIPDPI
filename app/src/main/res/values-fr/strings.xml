@@ -3357,4 +3357,14 @@ Source : %2$s</string>
     <string name="clipboard_label_detection_markdown_export">Export Markdown de détection</string>
     <string name="clipboard_label_profile_link">Lien de profil RIPDPI</string>
     <string name="clipboard_label_setup_sheet">Fiche de configuration RIPDPI</string>
+    <!-- Xray import: per-node skip reasons and errors for native translation. -->
+    <string name="xray_import_skipped_title">Nœuds ignorés</string>
+    <string name="xray_import_error_no_supported">Aucun sortant de cette configuration Xray ne peut s\'exécuter nativement.</string>
+    <string name="xray_import_error_unparseable">Configuration Xray ou lien non valide.</string>
+    <string name="xray_skip_vmess_removed">VMess n\'est pas pris en charge.</string>
+    <string name="xray_skip_vless_requires_reality">Le VLESS simple n\'est pas pris en charge ; REALITY est requis.</string>
+    <string name="xray_skip_non_proxy">Sortant utilitaire (%1$s) — rien à importer.</string>
+    <string name="xray_skip_unsupported_protocol">%1$s n\'est pas pris en charge nativement.</string>
+    <string name="xray_skip_malformed">Sortant incomplet ou mal formé.</string>
+    <string name="xray_skip_single_relay_only">Seul le premier serveur a été activé (un relais à la fois).</string>
 </resources>

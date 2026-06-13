@@ -3476,4 +3476,14 @@ fakeddisorder endhost</string>
     <string name="clipboard_label_detection_markdown_export">Экспорт обнаружения в Markdown</string>
     <string name="clipboard_label_profile_link">Ссылка на профиль RIPDPI</string>
     <string name="clipboard_label_setup_sheet">Памятка по настройке RIPDPI</string>
+    <!-- Xray import: per-node skip reasons and errors for native translation. -->
+    <string name="xray_import_skipped_title">Пропущенные узлы</string>
+    <string name="xray_import_error_no_supported">Ни один исходящий узел этой конфигурации Xray не может работать нативно.</string>
+    <string name="xray_import_error_unparseable">Недействительная конфигурация Xray или ссылка.</string>
+    <string name="xray_skip_vmess_removed">VMess не поддерживается.</string>
+    <string name="xray_skip_vless_requires_reality">Обычный VLESS не поддерживается; требуется REALITY.</string>
+    <string name="xray_skip_non_proxy">Служебный исходящий узел (%1$s) — импортировать нечего.</string>
+    <string name="xray_skip_unsupported_protocol">%1$s не поддерживается нативно.</string>
+    <string name="xray_skip_malformed">Некорректный или неполный исходящий узел.</string>
+    <string name="xray_skip_single_relay_only">Активирован только первый сервер (один релей одновременно).</string>
 </resources>

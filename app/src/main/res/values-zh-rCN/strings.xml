@@ -3358,4 +3358,14 @@ fake_burst 3</string>
     <string name="clipboard_label_detection_markdown_export">检测 Markdown 导出</string>
     <string name="clipboard_label_profile_link">RIPDPI 配置链接</string>
     <string name="clipboard_label_setup_sheet">RIPDPI 设置说明</string>
+    <!-- Xray import: per-node skip reasons and errors for native translation. -->
+    <string name="xray_import_skipped_title">已跳过的节点</string>
+    <string name="xray_import_error_no_supported">此 Xray 配置中没有可原生运行的出站。</string>
+    <string name="xray_import_error_unparseable">不是有效的 Xray 配置或分享链接。</string>
+    <string name="xray_skip_vmess_removed">不支持 VMess。</string>
+    <string name="xray_skip_vless_requires_reality">不支持普通 VLESS；需要 REALITY。</string>
+    <string name="xray_skip_non_proxy">工具类出站 (%1$s)——无可导入内容。</string>
+    <string name="xray_skip_unsupported_protocol">原生不支持 %1$s。</string>
+    <string name="xray_skip_malformed">出站格式错误或不完整。</string>
+    <string name="xray_skip_single_relay_only">仅激活了第一个服务器（一次一个中继）。</string>
 </resources>

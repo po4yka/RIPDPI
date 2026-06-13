@@ -3357,4 +3357,14 @@ Quelle: %2$s</string>
     <string name="clipboard_label_detection_markdown_export">Erkennungs-Markdown-Export</string>
     <string name="clipboard_label_profile_link">RIPDPI-Profillink</string>
     <string name="clipboard_label_setup_sheet">RIPDPI-Einrichtungsblatt</string>
+    <!-- Xray import: per-node skip reasons and errors for native translation. -->
+    <string name="xray_import_skipped_title">Übersprungene Knoten</string>
+    <string name="xray_import_error_no_supported">Kein Outbound dieser Xray-Konfiguration kann nativ ausgeführt werden.</string>
+    <string name="xray_import_error_unparseable">Keine gültige Xray-Konfiguration oder Freigabelink.</string>
+    <string name="xray_skip_vmess_removed">VMess wird nicht unterstützt.</string>
+    <string name="xray_skip_vless_requires_reality">Einfaches VLESS wird nicht unterstützt; REALITY ist erforderlich.</string>
+    <string name="xray_skip_non_proxy">Hilfs-Outbound (%1$s) – nichts zu importieren.</string>
+    <string name="xray_skip_unsupported_protocol">%1$s wird nicht nativ unterstützt.</string>
+    <string name="xray_skip_malformed">Fehlerhafter oder unvollständiger Outbound.</string>
+    <string name="xray_skip_single_relay_only">Nur der erste Server wurde aktiviert (jeweils ein Relay).</string>
 </resources>

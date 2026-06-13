@@ -3362,4 +3362,14 @@ fakeddisorder endhost</string>
     <string name="clipboard_label_detection_markdown_export">خروجی Markdown شناسایی</string>
     <string name="clipboard_label_profile_link">پیوند نمایه RIPDPI</string>
     <string name="clipboard_label_setup_sheet">راهنمای راه‌اندازی RIPDPI</string>
+    <!-- Xray import: per-node skip reasons and errors for native translation. -->
+    <string name="xray_import_skipped_title">گره‌های رد شده</string>
+    <string name="xray_import_error_no_supported">هیچ خروجی‌ای در این پیکربندی Xray به‌صورت بومی اجرا نمی‌شود.</string>
+    <string name="xray_import_error_unparseable">پیکربندی Xray یا پیوند معتبر نیست.</string>
+    <string name="xray_skip_vmess_removed">VMess پشتیبانی نمی‌شود.</string>
+    <string name="xray_skip_vless_requires_reality">VLESS ساده پشتیبانی نمی‌شود؛ REALITY لازم است.</string>
+    <string name="xray_skip_non_proxy">خروجی کمکی (%1$s) — چیزی برای وارد کردن نیست.</string>
+    <string name="xray_skip_unsupported_protocol">%1$s به‌صورت بومی پشتیبانی نمی‌شود.</string>
+    <string name="xray_skip_malformed">خروجی ناقص یا نامعتبر.</string>
+    <string name="xray_skip_single_relay_only">فقط اولین سرور فعال شد (هر بار یک رله).</string>
 </resources>
