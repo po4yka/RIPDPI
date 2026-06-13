@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayProfileStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,8 +72,17 @@ class ProfileImportConfirmViewModel
             if (_uiState.value.importing || _uiState.value.imported) return
             _uiState.update { it.copy(importing = true) }
             viewModelScope.launch {
-                activator.activate(profile)
-                _uiState.update { it.copy(importing = false, imported = true) }
+                val result = runCatching { activator.activate(profile) }
+                result.fold(
+                    onSuccess = { _uiState.update { it.copy(importing = false, imported = true) } },
+                    onFailure = { error ->
+                        // Don't swallow structured-concurrency cancellation.
+                        if (error is CancellationException) throw error
+                        // Store/settings I/O failed: clear the spinner so the user can retry
+                        // rather than crashing the scope or wedging on a stuck spinner.
+                        _uiState.update { it.copy(importing = false) }
+                    },
+                )
             }
         }
     }

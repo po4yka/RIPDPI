@@ -89,6 +89,9 @@ class DefaultXrayProfilePersistence
         override val unparseableMessage: String
             get() = stringResolver.getString(R.string.xray_import_error_unparseable)
 
+        override val persistFailedMessage: String
+            get() = stringResolver.getString(R.string.xray_import_error_activation_failed)
+
         override suspend fun persist(
             option: XrayServiceModeOption,
             profiles: List<ProxyProfile>,

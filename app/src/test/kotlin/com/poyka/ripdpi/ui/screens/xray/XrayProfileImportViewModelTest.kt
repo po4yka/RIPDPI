@@ -29,6 +29,7 @@ class XrayProfileImportViewModelTest {
         override val emptyInputMessage: String = "empty"
         override val noSupportedNodesMessage: String = "no-supported"
         override val unparseableMessage: String = "unparseable"
+        override val persistFailedMessage: String = "activation-failed"
         var persisted: Pair<XrayServiceModeOption, List<ProxyProfile>>? = null
 
         override suspend fun persist(
@@ -36,6 +37,23 @@ class XrayProfileImportViewModelTest {
             profiles: List<ProxyProfile>,
         ) {
             persisted = option to profiles
+        }
+    }
+
+    /** Persistence that throws on the first call, then succeeds — exercises the retry path. */
+    private class FlakyPersistence : XrayProfilePersistence {
+        override val emptyInputMessage: String = "empty"
+        override val noSupportedNodesMessage: String = "no-supported"
+        override val unparseableMessage: String = "unparseable"
+        override val persistFailedMessage: String = "activation-failed"
+        var attempts: Int = 0
+
+        override suspend fun persist(
+            option: XrayServiceModeOption,
+            profiles: List<ProxyProfile>,
+        ) {
+            attempts += 1
+            if (attempts == 1) error("store write failed")
         }
     }
 
@@ -157,6 +175,30 @@ class XrayProfileImportViewModelTest {
         assertTrue(state.skipped.any { it.reason == XraySkipReason.SINGLE_RELAY_ONLY })
         assertTrue(state.skipped.any { it.reason == XraySkipReason.VLESS_REQUIRES_REALITY })
     }
+
+    @Test
+    fun persistFailureSurfacesErrorResetsGuardAndAllowsRetry() =
+        runTest {
+            val persistence = FlakyPersistence()
+            val vm = XrayProfileImportViewModel(persistence)
+            vm.selectOption(XrayServiceModeOption.XrayVpn)
+            vm.onRawInputChange(
+                "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=h#n",
+            )
+            vm.validate()
+
+            // First confirm: persist throws → error surfaced, not imported, no crash.
+            vm.confirm()
+            advanceUntilIdle()
+            assertFalse(vm.uiState.value.imported)
+            assertEquals("activation-failed", vm.uiState.value.errorMessage)
+
+            // The in-flight guard was reset, so a retry can proceed and succeed.
+            vm.confirm()
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.imported)
+            assertEquals(2, persistence.attempts)
+        }
 
     @Test
     fun nativeOptionFinishesWithoutProfile() =

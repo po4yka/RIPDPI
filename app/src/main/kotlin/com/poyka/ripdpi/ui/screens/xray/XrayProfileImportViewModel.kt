@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.subscription.XraySkippedNode
 import com.poyka.ripdpi.data.xray.XrayCapability
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -201,8 +202,18 @@ class XrayProfileImportViewModel
             if (!state.canFinish || state.imported || importInFlight) return
             importInFlight = true
             viewModelScope.launch {
-                persistence.persist(state.selectedOption, translatedProfiles)
-                _uiState.update { it.copy(imported = true) }
+                val result = runCatching { persistence.persist(state.selectedOption, translatedProfiles) }
+                importInFlight = false
+                result.fold(
+                    onSuccess = { _uiState.update { it.copy(imported = true) } },
+                    onFailure = { error ->
+                        // Don't swallow structured-concurrency cancellation.
+                        if (error is CancellationException) throw error
+                        // Activation failed (store/settings I/O): surface a retryable error
+                        // instead of crashing the scope or wedging on a dead Finish button.
+                        _uiState.update { it.copy(errorMessage = persistence.persistFailedMessage) }
+                    },
+                )
             }
         }
 
@@ -232,6 +243,9 @@ interface XrayProfilePersistence {
 
     /** Localized message shown when the input is neither an Xray config nor a share link. */
     val unparseableMessage: String
+
+    /** Localized message shown when activating the translated relay profile fails. */
+    val persistFailedMessage: String
 
     /**
      * Persists the chosen provider [option] and activates the first supported
