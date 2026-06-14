@@ -1,7 +1,7 @@
 ---
 title: "Annotate and harden async cancel-safety in relay-core and tunnel-core"
 type: task
-status: todo
+status: in-review
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-june-2026-audit-remediation
 blocks: []
 blocked_by: []
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-06-14
 source_wiki_pages: []
 linked_task: null
 ---
@@ -33,12 +33,46 @@ Key sites:
 
 ## Acceptance criteria
 
-- [ ] PR confirms current state at each cited site.
-- [ ] `handle_connect` no longer sends a success reply that a cancel can orphan (restructured or documented + protected); inline comment corrected.
-- [ ] `handle_udp_associate` `select!` is `biased;` with `control_closed` first.
-- [ ] Every async fn listed carries a `# Cancel safety:` rustdoc block.
-- [ ] `async-cancel-safety` sub-agent re-run reports no un-annotated `.await` site in the two crates.
-- [ ] `cargo nextest run -p ripdpi-relay-core -p ripdpi-tunnel-core --locked` green; clippy clean.
+- [x] PR confirms current state at each cited site. (Verified at HEAD `d3bdbf1b6`; line numbers drifted from the 2026-06-10 audit and were re-located.)
+- [x] `handle_connect` no longer sends a success reply that a cancel can orphan (restructured + protected); inline comment corrected.
+- [x] `handle_udp_associate` `select!` is `biased;` with the teardown arms first.
+- [x] Every async fn listed carries a `# Cancel safety:` rustdoc block.
+- [x] `async-cancel-safety` sub-agent re-run reports no un-annotated `.await` site in the two crates. (Plus an independent adversarial re-audit: 4/4 safety claims HOLD, 0 refuted.)
+- [x] `cargo nextest run -p ripdpi-relay-core -p ripdpi-tunnel-core --locked` green (295 passed, 1 ignored env-flaky QUIC e2e); clippy `-D warnings` clean; rustfmt clean.
+
+## Implementation notes (2026-06-14)
+
+The orphan fix could not be local to `connect.rs`: the cancellation that orphaned
+the client was the outer drop-on-cancel `select!` in `runtime/session.rs`, which
+dropped the whole `handle_client` future at any `.await` — including the window
+between `write_reply(0x00)` and `copy_bidirectional`. Fix:
+
+1. **Thread the session `CancellationToken` into the handlers.** `runtime/session.rs`
+   now awaits `handle_client(..., cancel)` directly (the drop-on-cancel `select!`
+   is removed). `handle_client` owns cancellation: it races `cancel` around the
+   pre-reply negotiation (abandon-by-drop is safe — no reply written) and passes
+   the token to both sub-handlers.
+2. **`handle_connect`** dials upstream under a `cancel` race (pre-reply, drop-safe),
+   then writes the success reply and enters `select! { cancel.cancelled() =>
+   graceful client.shutdown(), copy_bidirectional }`. No externally-observable
+   drop point sits between the reply and the relay, so a confirmed `CONNECT`
+   always implies the relay started; on shutdown the client sees a graceful FIN.
+3. **`handle_udp_associate`** loop `select!` is now `biased;` with `cancel.cancelled()`
+   as **arm 0** and control-EOF as **arm 1**. Deviation from the original "control_closed
+   as arm 0" wording: because the outer drop-on-cancel was removed, this loop is the
+   sole place shutdown is observed for the UDP path, so `cancel` must lead. Both
+   teardown arms precede the recv arms, fully closing the starvation hazard.
+4. **`splice`/`run_with_proxy`** (tunnel-core): buffer-loss-on-cancel hazard is
+   DOCUMENTED only, per the scope decision — `cancel` fires only at session
+   GC/teardown, never mid-stream; the drain rewrite stays deferred.
+5. **New regression test** `relay_runtime_stop_drains_pre_reply_sessions_within_grace_window`
+   (`src/tests/shutdown_drain.rs`): a slowloris client that never sends the greeting
+   still drains within the grace window, locking the pre-reply cancellation path the
+   redesign introduced.
+
+`tokio-util` already provides `CancellationToken` at HEAD; no `Cargo.toml`/lock
+change. The only handler callers are `runtime/session.rs` and `socks/auth.rs`, so
+the signature change is contained.
 
 ## Risks / open questions
 
