@@ -1,7 +1,7 @@
 ---
 title: "Decompose BlockcheckViewModel, DetectionCheckViewModel, BackupRestoreViewModel"
 type: task
-status: backlog
+status: done
 area: ui
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-june-2026-audit-remediation
 blocks: []
 blocked_by: []
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-06-14
 source_wiki_pages: []
 linked_task: null
 ---
@@ -33,10 +33,34 @@ These are high-churn, hard-to-test classes. The fix pattern is already proven in
 
 ## Acceptance criteria
 
-- [ ] Each of the three VMs drops below a reasonable size threshold (target < ~250 lines) with single-responsibility collaborators extracted.
-- [ ] Extracted use-cases/repositories are unit-tested in isolation (the point of the split).
-- [ ] No behavior change in the three screens — existing Roborazzi goldens unchanged (no bless).
-- [ ] `./gradlew :app:testDebugUnitTest --locked` and `staticAnalysis` green; detekt baseline NOT extended.
+- [x] Each of the three VMs drops below a reasonable size threshold (target < ~250 lines) with single-responsibility collaborators extracted.
+- [x] Extracted use-cases/repositories are unit-tested in isolation (the point of the split).
+- [x] No behavior change in the three screens — existing Roborazzi goldens unchanged (no bless).
+- [x] `:app:testGithubDebugUnitTest` and `staticAnalysis` green; detekt baseline NOT extended.
+
+## Resolution (2026-06-14)
+
+Done on `worktree-decompose-godvms`, one atomic commit per VM, each gated by a
+`kotlin-design-auditor` adversarial-review pass (all PASS, no required fixes).
+
+| ViewModel | Before | After (file / class body) | Collaborators extracted |
+| --- | --- | --- | --- |
+| `BlockcheckViewModel` | 526 | 231 / ~116 | `BlockcheckProbeOrchestrator` (use-case), `BlockcheckRecommendationRepository` (repo), `BlockcheckReport` |
+| `DetectionCheckViewModel` | 510 | 144 / ~88 | `DetectionRunCoordinator`, `DetectionResultPresenter` (pure), `DetectionAuxStateOwner`, `DetectionPermissionStateOwner`, `DetectionCheckStateReducer` |
+| `BackupRestoreViewModel` | 447 | 180 / ~158 | `BackupExportCoordinator`, `BackupImportCoordinator`, `BackupResetCoordinator`, `BackupRestoreUiModels` |
+
+Notes:
+- Pure refactor — public ViewModel surfaces, effect mechanisms (Blockcheck/Detection
+  StateFlow-only; Backup four `MutableSharedFlow` channels with `tryEmit` + buffer-1/
+  DROP_OLDEST), and Hilt graphs preserved. Compose layers untouched; screenshot goldens
+  unchanged (no bless). No baseline extended.
+- New isolated collaborator unit tests: Blockcheck 20, Detection ~30, Backup 38.
+- Build task is flavored: `:app:testGithubDebugUnitTest` (the original `:app:testDebugUnitTest`
+  does not exist; `--locked` is a cargo flag, not gradle).
+- Minor honest caveat (Blockcheck): a transient `Idle`+diagnoses snapshot is now folded into
+  the clean `Running` snapshot — a conflated-StateFlow transient no UI observes.
+- `introduce-vpn-session-hilt-scope`: not needed — every collaborator is ViewModel-lived,
+  none belong to a VPN-session lifetime.
 
 ## Risks / open questions
 
