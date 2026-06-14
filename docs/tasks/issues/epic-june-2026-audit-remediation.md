@@ -61,11 +61,34 @@ Child tasks (this epic is `parent:` for each):
   *LocationSignalsCheckerTest` → BUILD SUCCESSFUL.
 
 **Medium — Rust correctness**
-- `fix-panic-in-drop-exit-ip-cap-guard`
-- `fix-socks5-core-panic-and-credential-truncation`
-- `restore-discarded-adaptive-routing-feedback`
+- ✅ `fix-panic-in-drop-exit-ip-cap-guard` — **Verified resolved at HEAD 2026-06-14 (no change needed).**
+  `ripdpi-proxy-runtime/src/exit_ip_cap.rs` `Drop` is panic-free: locks via
+  `unwrap_or_else(std::sync::PoisonError::into_inner)` and decrements with `saturating_sub(1)`;
+  test `guard_drops_cleanly_when_mutex_is_poisoned` covers it. `cargo nextest -p
+  ripdpi-proxy-runtime --locked`: 233/233.
+- ✅ `fix-socks5-core-panic-and-credential-truncation` — **Verified resolved at HEAD 2026-06-14
+  (no change needed; landed in f23d15f3c / da297e25c).** `socks4::ReplyError::as_u8` returns
+  `Option<u8>` (no `panic!`/unreachable on the parse path); SOCKS4 domain length is bounds-checked
+  (→ typed error, no buffer-overflow panic); SOCKS5 `use_password_auth` rejects >255-byte
+  credentials instead of truncating. Tests: `domain_too_long_returns_error`,
+  `use_password_auth_rejects_oversized_username`/`_password`, `oversized_credential_writes_no_bytes`.
+  `cargo nextest -p ripdpi-socks5-core --locked`: 27/27.
+- ✅ `restore-discarded-adaptive-routing-feedback` — **Landed 2026-06-14.** The TLS branch of
+  `record_failure_feedback` (`ripdpi-proxy-runtime/.../routing/failure/feedback.rs`) was the last
+  feedback call still discarding its result with `let _ =`; switched to `?` for parity with its
+  sibling calls and the UDP-path fix. Honest scope: the wrapper is infallible, so the signal
+  already reached the direct-path learner — this is error-propagation consistency **plus** the
+  regression-lock test `tls_post_client_hello_failure_drives_learner_state` (asserts a TLS
+  post-client-hello failure → TCP success emits `TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK`), the
+  parity coverage the routing/failure module lacked vs the UDP path. `cargo nextest -p
+  ripdpi-proxy-runtime --locked`: 233/233; `clippy -D warnings`: clean.
 - `annotate-and-harden-async-cancel-safety`
-- `recover-monitor-coordinator-worker-panic`
+- ✅ `recover-monitor-coordinator-worker-panic` — **Verified resolved at HEAD 2026-06-14 (no change
+  needed).** `ripdpi-monitor-engine/src/engine/runtime/panic_recovery.rs` classifies a worker's
+  `thread::Result` `Err` into a `Panicked` outcome and `handle_panicked_runner` builds synthetic
+  recorded steps so one worker panic is contained + diagnosable rather than killing the scan; test
+  `parallel_runner_panic_is_isolated_and_scan_completes_with_siblings`. `cargo nextest -p
+  ripdpi-monitor-engine --locked`: 156/156.
 
 **Medium — JNI / unsafe**
 - `harden-jni-callback-thread-attach-and-null-sentinels`
