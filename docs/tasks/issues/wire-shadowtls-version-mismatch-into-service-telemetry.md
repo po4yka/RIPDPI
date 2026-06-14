@@ -87,9 +87,15 @@ token); this closed the ADR's "Remaining Work": runtime construction.
    adversarial review surfaced.
 5. **Tests:** real-client-vs-v2-reject-loopback (`ShadowTlsV2RejectLoopback`) →
    typed version mismatch; bad-password negative; relay-core token-mapping +
-   pass-through unit tests. `cargo nextest -p ripdpi-shadowtls -p ripdpi-relay-core
+   pass-through unit tests. **End-to-end** (post-review): the fixture is exposed
+   under the `test-server` feature, and relay-core drives the real
+   `RelayBackend::ShadowTls` *and* a `ChainRelay` shadowtls entry hop against it,
+   asserting `connect_tcp` surfaces the `shadowtls_version_mismatch` token — the
+   value `last_handshake_error` records (covers the direct + chain telemetry
+   paths). `cargo nextest -p ripdpi-shadowtls -p ripdpi-relay-core
    -p ripdpi-relay-tls-transports -p ripdpi-failure-classifier --locked`: green;
-   clippy `-D warnings` clean (incl. the `test-server` feature).
+   clippy `-D warnings` clean (incl. the `test-server` feature). The detection is
+   a best-effort heuristic (see ADR § "Detection is best-effort, not exhaustive").
 
 ## Definition of done
 

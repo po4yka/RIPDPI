@@ -13,10 +13,12 @@ mod tests;
 
 pub use client::ShadowTlsClient;
 pub use config::Config;
-/// Dev-only loopback test server (enabled by the `test-server` feature). Never
-/// part of the production relay path.
+/// Dev-only loopback test servers (enabled by the `test-server` feature). Never
+/// part of the production relay path. `ShadowTlsLoopback` is a conforming v3
+/// server; `ShadowTlsV2RejectLoopback` emulates a v2 server to drive downstream
+/// crates' version-mismatch integration tests.
 #[cfg(feature = "test-server")]
-pub use loopback::ShadowTlsLoopback;
+pub use loopback::{ShadowTlsLoopback, ShadowTlsV2RejectLoopback};
 pub use stream::ShadowTlsStream;
 
 /// Coarse classification of a failed ShadowTLS handshake payload.
