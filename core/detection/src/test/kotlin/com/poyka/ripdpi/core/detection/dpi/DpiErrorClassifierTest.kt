@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.detection.dpi
 
 import okhttp3.Call
 import okhttp3.Callback
+import okhttp3.EventListener
 import okhttp3.Request
 import okhttp3.Response
 import okio.Timeout
@@ -218,5 +219,8 @@ class OkHttpProbeEventListenerTest {
             type: Class<T>,
             computeIfAbsent: () -> T,
         ): T = computeIfAbsent()
+
+        // okhttp 5.4.0 added Call.addEventListener; this stub never dispatches events.
+        override fun addEventListener(eventListener: EventListener) = Unit
     }
 }
