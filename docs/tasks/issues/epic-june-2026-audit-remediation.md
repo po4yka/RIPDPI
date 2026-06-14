@@ -40,7 +40,15 @@ Child tasks (this epic is `parent:` for each):
 **Medium — Rust correctness**
 - `fix-panic-in-drop-exit-ip-cap-guard`
 - `fix-socks5-core-panic-and-credential-truncation`
-- `restore-discarded-adaptive-routing-feedback`
+- ✅ `restore-discarded-adaptive-routing-feedback` — **Landed 2026-06-14.** The TLS branch of
+  `record_failure_feedback` (`ripdpi-proxy-runtime/.../routing/failure/feedback.rs`) was the last
+  feedback call still discarding its result with `let _ =`; switched to `?` for parity with its
+  sibling calls and the UDP-path fix. Honest scope: the wrapper is infallible, so the signal
+  already reached the direct-path learner — this is error-propagation consistency **plus** the
+  regression-lock test `tls_post_client_hello_failure_drives_learner_state` (asserts a TLS
+  post-client-hello failure → TCP success emits `TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK`), the
+  parity coverage the routing/failure module lacked vs the UDP path. `cargo nextest -p
+  ripdpi-proxy-runtime --locked`: 233/233; `clippy -D warnings`: clean.
 - `annotate-and-harden-async-cancel-safety`
 - `recover-monitor-coordinator-worker-panic`
 
