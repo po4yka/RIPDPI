@@ -1,7 +1,7 @@
 use std::io;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
+use ripdpi_network_time::NetworkTimeProvider;
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use tokio::sync::Mutex;
 
@@ -59,12 +59,13 @@ impl RelaySessionFactory for MieruSessionFactory {
         // Mieru RelayKind is covered by the relay protect chain before shipping
         // live traffic.
         let stream = tokio::net::TcpStream::connect((config.server.as_str(), config.port)).await?;
-        // Mieru's replay clock should come from a network-time source; the device
-        // wall clock is used here as the integration boundary (acceptable while
-        // NTP-synced; a >4 min skew fails the handshake). See ripdpi-mieru docs.
-        let now_unix =
-            i64::try_from(SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())).unwrap_or(i64::MAX);
-        let client = ripdpi_mieru::MieruClient::connect_over(stream, &config, now_unix).await.map_err(to_io_error)?;
+        // Mieru's replay clock comes from the shared network-time provider, never
+        // a direct device-clock read. Uncalibrated it falls back to the device
+        // clock (first-contact residual; documented in ripdpi-network-time); once
+        // any session calibrates the provider from a server's wire timestamp,
+        // subsequent handshakes use network time even if the device clock is wrong.
+        let time = NetworkTimeProvider::shared();
+        let client = ripdpi_mieru::MieruClient::connect_over(stream, &config, time).await.map_err(to_io_error)?;
         Ok(Arc::new(MieruSession { client: Mutex::new(Some(client)) }))
     }
 }

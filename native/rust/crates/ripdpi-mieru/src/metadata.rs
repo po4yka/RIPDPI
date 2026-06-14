@@ -68,6 +68,16 @@ fn minute_timestamp(unix_secs: i64) -> u32 {
     minutes
 }
 
+/// Recover an estimated Unix-seconds timestamp from any decrypted metadata
+/// header (bytes 2..6, the minute-granularity timestamp common to both the data
+/// and session layouts). Used to calibrate the network-time provider from a
+/// server segment. The estimate adds 30 s (mid-minute) to centre the ±60 s
+/// quantisation introduced by minute granularity.
+pub(crate) fn timestamp_estimate_unix(meta: &[u8; METADATA_LEN]) -> i64 {
+    let minutes = u32::from_be_bytes([meta[2], meta[3], meta[4], meta[5]]);
+    i64::from(minutes) * 60 + 30
+}
+
 /// Metadata for data / ack segments (`dataAckStruct`, types 6..=9). Offsets per
 /// `PROTOCOL.md` §2.
 #[derive(Debug, Clone, PartialEq, Eq)]
