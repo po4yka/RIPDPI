@@ -109,14 +109,27 @@ impl RelayBackend {
     }
 
     pub(crate) async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        dispatch_pooled_backend!(
+        let result = dispatch_pooled_backend!(
             self,
             backend => backend.connect_tcp(target).await,
             unsupported => {
                 let Self::Unsupported { kind } = self else { unreachable!("macro must only route Unsupported here") };
                 Err(Self::unsupported_error(kind))
             }
-        )
+        );
+        // Turn a ShadowTLS v2-server reject into the
+        // `FailureClass::ShadowTlsVersionMismatch` token + actionable diagnostic
+        // so service telemetry shows "upgrade your ShadowTLS server to v3" instead
+        // of a generic TLS handshake error. Applied to the direct ShadowTLS backend
+        // and to chain relays (whose entry/exit hop may be ShadowTLS) — the mapper
+        // is a no-op for every error that does not carry the typed
+        // `ShadowTlsHandshakeError`, so covering `ChainRelay` is safe.
+        match self {
+            Self::ShadowTls(_) | Self::ChainRelay { .. } => {
+                result.map_err(crate::protocols::classify_shadowtls_handshake_error)
+            }
+            _ => result,
+        }
     }
 
     pub(crate) async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
