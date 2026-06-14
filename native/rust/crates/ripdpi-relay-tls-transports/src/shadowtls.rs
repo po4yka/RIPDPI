@@ -38,11 +38,23 @@ pub async fn connect_shadowtls_tcp(
     target: &str,
 ) -> io::Result<Box<dyn ripdpi_vless::AsyncIo>> {
     let client = ripdpi_shadowtls::ShadowTlsClient::new(factory.client_config.clone());
-    let transport = client
-        .connect(&factory.outer_server, factory.outer_server_port)
-        .await
-        .map_err(|error| io::Error::new(error.kind(), format!("shadowtls connect: {error}")))?;
+    let transport =
+        client.connect(&factory.outer_server, factory.outer_server_port).await.map_err(wrap_shadowtls_connect_error)?;
     connect_inner_vless(transport, &factory.inner, target).await
+}
+
+/// Wrap a ShadowTLS connect error with a diagnostic prefix — but preserve a
+/// typed [`ripdpi_shadowtls::ShadowTlsHandshakeError`] unchanged. The relay layer
+/// downcasts that typed error to `FailureClass::ShadowTlsVersionMismatch`;
+/// re-wrapping it into a fresh string `io::Error` here would erase the typed
+/// inner and the version-mismatch diagnostic would never reach service telemetry.
+fn wrap_shadowtls_connect_error(error: io::Error) -> io::Error {
+    if let Some(inner) = error.get_ref()
+        && inner.is::<ripdpi_shadowtls::ShadowTlsHandshakeError>()
+    {
+        return error;
+    }
+    io::Error::new(error.kind(), format!("shadowtls connect: {error}"))
 }
 
 pub async fn connect_shadowtls_tcp_over<S>(
@@ -54,10 +66,7 @@ where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let client = ripdpi_shadowtls::ShadowTlsClient::new(factory.client_config.clone());
-    let shadowtls_transport = client
-        .connect_over(transport)
-        .await
-        .map_err(|error| io::Error::new(error.kind(), format!("shadowtls connect: {error}")))?;
+    let shadowtls_transport = client.connect_over(transport).await.map_err(wrap_shadowtls_connect_error)?;
     connect_inner_vless(shadowtls_transport, &factory.inner, target).await
 }
 

@@ -1,6 +1,7 @@
 mod chain;
 mod hysteria2;
 mod masque;
+mod shadowtls;
 mod tor;
 mod tuic;
 mod vless;
@@ -14,6 +15,7 @@ pub(crate) use ripdpi_relay_tls_transports::{
     ShadowsocksSession, ShadowsocksSessionFactory, ShadowsocksUdpSession, SshSessionFactory, TrojanSession,
     TrojanSessionFactory, TrojanUdpSession,
 };
+pub(crate) use shadowtls::classify_shadowtls_handshake_error;
 pub(crate) use tor::{TorBridgePtRelayConfig, TorPluggableTransportConfig, TorRelayBackend};
 pub(crate) use tuic::{TuicSession, TuicSessionFactory};
 pub(crate) use vless::VlessRealitySessionFactory;

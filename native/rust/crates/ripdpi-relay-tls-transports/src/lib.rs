@@ -14,6 +14,10 @@ pub use anytls::{
     connect_anytls_tcp_over,
 };
 pub use mieru::{MieruConfig, MieruMux, MieruProtocol, MieruSession, MieruSessionFactory};
+/// Re-exported so `ripdpi-relay-core` can downcast/classify the ShadowTLS
+/// version-mismatch handshake error into `FailureClass::ShadowTlsVersionMismatch`
+/// without taking a direct dependency on `ripdpi-shadowtls`.
+pub use ripdpi_shadowtls::{ShadowTlsFailureKind, ShadowTlsHandshakeError};
 pub use shadowsocks::{
     ShadowsocksSession, ShadowsocksSessionFactory, ShadowsocksUdpSession, connect_shadowsocks_tcp,
     connect_shadowsocks_tcp_over, shadowsocks_proxy_target,
