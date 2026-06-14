@@ -2834,8 +2834,6 @@ app:ssh_field_server_port
 app:ssh_field_strict_host_key
 app:ssh_field_strict_host_key_body
 app:ssh_field_username
-app:ssh_not_functional_body
-app:ssh_not_functional_title
 app:ssh_reveal_secret_action
 app:ssh_save_action
 app:ssh_secret_hidden
