@@ -91,6 +91,124 @@ impl Drop for ShadowTlsLoopback {
     }
 }
 
+/// A loopback server that emulates a **ShadowTLS v2** peer well enough to drive
+/// the v3-only client's version-mismatch detection. It relays a valid TLS 1.3
+/// ServerHello (so `parse_validated_server_hello` passes, exactly as a real v2
+/// server proxying to a cover site would), then — instead of v3's
+/// HMAC-authenticated application-data switch — sends a raw TLS handshake record
+/// (`0x16 0x03 0x03 ..`). The v3 client reads that record at the switch point and
+/// classifies it as `ShadowTlsFailureKind::VersionMismatch`. See
+/// `docs/architecture/shadowtls-version-policy.md`.
+///
+/// Test-only: this fixture exists for this crate's version-mismatch tests, not
+/// for the `test-server` feature consumers, so it is gated on `cfg(test)`.
+#[cfg(test)]
+pub struct ShadowTlsV2RejectLoopback {
+    local_addr: SocketAddr,
+    shutdown: Option<oneshot::Sender<()>>,
+    join: Option<JoinHandle<()>>,
+}
+
+#[cfg(test)]
+impl ShadowTlsV2RejectLoopback {
+    /// Start a loopback that always answers like a v2 server.
+    ///
+    /// # Errors
+    /// Returns an error if the loopback TCP listener cannot bind.
+    pub async fn start() -> io::Result<Self> {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
+        let local_addr = listener.local_addr()?;
+        let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
+        let join = tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = &mut shutdown_rx => break,
+                    accept = listener.accept() => {
+                        let Ok((stream, _peer)) = accept else { break };
+                        let _ = stream.set_nodelay(true);
+                        tokio::spawn(async move {
+                            let _ = handle_v2_reject_connection(stream).await;
+                        });
+                    }
+                }
+            }
+        });
+        Ok(Self { local_addr, shutdown: Some(shutdown_tx), join: Some(join) })
+    }
+
+    /// The loopback address the server is listening on.
+    #[must_use]
+    pub fn local_addr(&self) -> SocketAddr {
+        self.local_addr
+    }
+
+    /// Stop the accept loop and wait for it to terminate.
+    pub async fn shutdown(mut self) {
+        if let Some(tx) = self.shutdown.take() {
+            let _ = tx.send(());
+        }
+        if let Some(join) = self.join.take() {
+            let _ = join.await;
+        }
+    }
+}
+
+#[cfg(test)]
+impl Drop for ShadowTlsV2RejectLoopback {
+    fn drop(&mut self) {
+        if let Some(tx) = self.shutdown.take() {
+            let _ = tx.send(());
+        }
+    }
+}
+
+#[cfg(test)]
+async fn handle_v2_reject_connection(mut stream: TcpStream) -> io::Result<()> {
+    use std::io::Cursor;
+
+    use tokio::io::AsyncWriteExt;
+
+    // 1-3. Relay a valid ServerHello (mirrors `handle_connection` steps 1-3) so
+    //      the client's `parse_validated_server_hello` succeeds — a v2 server
+    //      proxying to a real cover site produces a genuine ServerHello too.
+    let client_hello = read_tls_frame(&mut stream).await?;
+    let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
+        .map_err(|e| io::Error::other(e.to_string()))?;
+    let cert_der = rustls::pki_types::CertificateDer::from(cert.cert.der().to_vec());
+    let key_der = rustls::pki_types::PrivatePkcs8KeyDer::from(cert.signing_key.serialize_der());
+    let server_config = rustls::ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .map_err(|e| io::Error::other(e.to_string()))?
+        .with_no_client_auth()
+        .with_single_cert(vec![cert_der], key_der.into())
+        .map_err(|e| io::Error::other(e.to_string()))?;
+    let mut server_conn =
+        rustls::ServerConnection::new(Arc::new(server_config)).map_err(|e| io::Error::other(e.to_string()))?;
+    server_conn.read_tls(&mut Cursor::new(&client_hello))?;
+    server_conn.process_new_packets().map_err(|e| io::Error::other(e.to_string()))?;
+    let mut server_flight = Vec::new();
+    server_conn.write_tls(&mut server_flight)?;
+    if server_flight.len() < TLS_HEADER_LEN {
+        return Err(io::Error::other("rustls server produced no ServerHello record"));
+    }
+    let record_len = TLS_HEADER_LEN + usize::from(u16::from_be_bytes([server_flight[3], server_flight[4]]));
+    let server_hello =
+        server_flight.get(..record_len).ok_or_else(|| io::Error::other("truncated ServerHello record"))?;
+    stream.write_all(server_hello).await?;
+
+    // 4. v2 framing: instead of v3's HMAC-authenticated application-data switch,
+    //    send a raw TLS handshake record (`0x16 0x03 0x03 ..`). This is the
+    //    `ShadowTlsFailureKind::VersionMismatch` signature the v3 client detects.
+    const V2_HANDSHAKE_RECORD: &[u8] = &[0x16, 0x03, 0x03, 0x00, 0x04, 0xde, 0xad, 0xbe, 0xef];
+    stream.write_all(V2_HANDSHAKE_RECORD).await?;
+    stream.flush().await?;
+
+    // Hold the connection open so the client's read of the v2 record succeeds
+    // before the peer half-closes (a close here could surface as EOF instead).
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    Ok(())
+}
+
 async fn handle_connection(mut stream: TcpStream, password: &str) -> io::Result<()> {
     use std::io::Cursor;
 
@@ -184,8 +302,8 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpStream;
 
-    use super::ShadowTlsLoopback;
-    use crate::{Config, ShadowTlsClient};
+    use super::{ShadowTlsLoopback, ShadowTlsV2RejectLoopback};
+    use crate::{Config, ShadowTlsClient, ShadowTlsFailureKind, ShadowTlsHandshakeError};
 
     fn config(password: &str) -> Config {
         Config {
@@ -298,6 +416,59 @@ mod tests {
         let client = ShadowTlsClient::new(config("client-password"));
         let result = client.connect_over(tcp).await;
         assert!(result.is_err(), "handshake must fail when the password does not match");
+
+        server.shutdown().await;
+    }
+
+    /// Runtime path (positive): the real v3 client against a v2-emulating server
+    /// must surface a typed `ShadowTlsHandshakeError` version mismatch — not a
+    /// generic TLS handshake error — so the relay layer can map it to
+    /// `FailureClass::ShadowTlsVersionMismatch`.
+    #[tokio::test]
+    async fn shadowtls_v2_server_reject_surfaces_typed_version_mismatch() {
+        let server = ShadowTlsV2RejectLoopback::start().await.expect("start v2-reject loopback");
+        let tcp = TcpStream::connect(server.local_addr()).await.expect("tcp connect");
+
+        let client = ShadowTlsClient::new(config("any-password"));
+        let Err(error) = client.connect_over(tcp).await else {
+            panic!("a v2 server must fail this v3-only client");
+        };
+
+        let handshake = error
+            .get_ref()
+            .and_then(|inner| inner.downcast_ref::<ShadowTlsHandshakeError>())
+            .unwrap_or_else(|| panic!("a v2 reject must surface a typed ShadowTlsHandshakeError, got: {error}"));
+        assert_eq!(
+            handshake.kind(),
+            ShadowTlsFailureKind::VersionMismatch,
+            "the v2 framing signal must classify as a version mismatch",
+        );
+
+        server.shutdown().await;
+    }
+
+    /// Runtime path (negative / false-positive guard): a v3 server rejecting a
+    /// bad password sends the HMAC application-data switch (record type 0x17),
+    /// whose HMAC fails to verify — an auth-class failure. It must NOT be
+    /// misclassified as a version mismatch.
+    #[tokio::test]
+    async fn shadowtls_bad_password_is_not_classified_as_version_mismatch() {
+        let server = ShadowTlsLoopback::start("server-password".to_string()).await.expect("start loopback");
+        let tcp = TcpStream::connect(server.local_addr()).await.expect("tcp connect");
+
+        let client = ShadowTlsClient::new(config("client-password"));
+        let Err(error) = client.connect_over(tcp).await else {
+            panic!("bad password must fail the handshake");
+        };
+
+        let is_version_mismatch = error
+            .get_ref()
+            .and_then(|inner| inner.downcast_ref::<ShadowTlsHandshakeError>())
+            .is_some_and(|handshake| handshake.kind() == ShadowTlsFailureKind::VersionMismatch);
+        assert!(
+            !is_version_mismatch,
+            "an auth (bad-password) failure must not be misclassified as a version mismatch, got: {error}",
+        );
 
         server.shutdown().await;
     }
