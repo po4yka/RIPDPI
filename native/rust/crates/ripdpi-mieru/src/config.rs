@@ -73,6 +73,33 @@ impl MieruMux {
             Self::High => "high",
         }
     }
+
+    /// Whether this level reuses one carrier connection for many relayed streams.
+    /// `Off` opens a fresh carrier per stream (no reuse).
+    #[must_use]
+    pub fn is_multiplexed(self) -> bool {
+        !matches!(self, Self::Off)
+    }
+
+    /// Maximum number of concurrent logical streams carried over a single
+    /// multiplexed carrier connection at this level.
+    ///
+    /// Upstream `enfein/mieru` scales the *number of carrier connections* with
+    /// the multiplexing level; RIPDPI's relay pool caches one carrier per
+    /// backend, so the level instead maps to a per-carrier concurrent-stream
+    /// ceiling. The wire multiplexing itself (one AEAD direction shared by many
+    /// `session_id`-tagged sub-sessions) is faithful to upstream; these ceilings
+    /// are RIPDPI policy. Beyond the ceiling, `open_stream` applies backpressure
+    /// until a slot frees.
+    #[must_use]
+    pub fn max_concurrent_streams(self) -> usize {
+        match self {
+            Self::Off => 1,
+            Self::Low => 8,
+            Self::Middle => 32,
+            Self::High => 128,
+        }
+    }
 }
 
 /// A validated Mieru outbound configuration.
@@ -215,6 +242,18 @@ mod tests {
             MieruError::UnsupportedMultiplexing(token) => assert_eq!(token, "extreme"),
             other => panic!("expected UnsupportedMultiplexing, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn mux_levels_map_to_reuse_and_concurrency() {
+        assert!(!MieruMux::Off.is_multiplexed());
+        assert_eq!(MieruMux::Off.max_concurrent_streams(), 1);
+        for level in [MieruMux::Low, MieruMux::Middle, MieruMux::High] {
+            assert!(level.is_multiplexed(), "{level:?} must reuse the carrier");
+        }
+        // Higher levels admit strictly more concurrent streams per carrier.
+        assert!(MieruMux::Low.max_concurrent_streams() < MieruMux::Middle.max_concurrent_streams());
+        assert!(MieruMux::Middle.max_concurrent_streams() < MieruMux::High.max_concurrent_streams());
     }
 
     #[test]

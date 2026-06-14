@@ -78,6 +78,13 @@ pub(crate) fn timestamp_estimate_unix(meta: &[u8; METADATA_LEN]) -> i64 {
     i64::from(minutes) * 60 + 30
 }
 
+/// The session id (bytes 6..10) carried by every segment, in both the data and
+/// session layouts. Used by the connection multiplexer to route an inbound
+/// segment to the owning sub-session.
+pub(crate) fn session_id_of(meta: &[u8; METADATA_LEN]) -> u32 {
+    u32::from_be_bytes([meta[6], meta[7], meta[8], meta[9]])
+}
+
 /// Metadata for data / ack segments (`dataAckStruct`, types 6..=9). Offsets per
 /// `PROTOCOL.md` §2.
 #[derive(Debug, Clone, PartialEq, Eq)]

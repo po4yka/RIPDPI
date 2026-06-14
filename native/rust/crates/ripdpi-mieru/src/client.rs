@@ -3,8 +3,9 @@
 //! The client runs the Mieru session over a caller-supplied, **already
 //! protected** transport (the relay layer owns the `VpnService.protect()` dial,
 //! per `PROTOCOL.md` §6) and exposes a tunnelled target as a plain
-//! [`DuplexStream`]. One stream per session (multiplexing-`off` semantics); the
-//! `multiplexing` knob is accepted but session reuse is not yet implemented.
+//! [`DuplexStream`]. This is the multiplexing-`off` path: one stream per session.
+//! The multiplexed paths (`low`/`middle`/`high`) live in [`crate::MieruMuxConnection`]
+//! (see `mux.rs` and `PROTOCOL.md` §7), where many sub-sessions share one carrier.
 
 use std::sync::Arc;
 

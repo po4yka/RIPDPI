@@ -14,11 +14,18 @@ pub struct MieruSessionFactory {
     pub config: ripdpi_mieru::MieruConfig,
 }
 
-/// One Mieru session over one (protected) TCP connection. Mieru is
-/// non-reusable in this build (one relayed stream per session), so the client
-/// is consumed by the first `open_stream`.
+/// A Mieru relay session. With multiplexing `off` it is one client over one
+/// (protected) TCP carrier, consumed by the first `open_stream` (non-reusable).
+/// With multiplexing `low`/`middle`/`high` it is a reusable carrier that the
+/// relay pool drives with many `open_stream` calls, each a sub-session
+/// multiplexed onto the shared connection.
 pub struct MieruSession {
-    client: Mutex<Option<ripdpi_mieru::MieruClient>>,
+    inner: MieruSessionInner,
+}
+
+enum MieruSessionInner {
+    OneShot(Box<Mutex<Option<ripdpi_mieru::MieruClient>>>),
+    Mux(ripdpi_mieru::MieruMuxConnection),
 }
 
 impl RelaySession for MieruSession {
@@ -27,13 +34,17 @@ impl RelaySession for MieruSession {
     type Error = io::Error;
 
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
-        let client = self
-            .client
-            .lock()
-            .await
-            .take()
-            .ok_or_else(|| io::Error::other("Mieru session already consumed (one stream per session)"))?;
-        client.tcp_connect(target).await.map_err(to_io_error)
+        match &self.inner {
+            MieruSessionInner::OneShot(client) => {
+                let client = client
+                    .lock()
+                    .await
+                    .take()
+                    .ok_or_else(|| io::Error::other("Mieru session already consumed (one stream per session)"))?;
+                client.tcp_connect(target).await.map_err(to_io_error)
+            }
+            MieruSessionInner::Mux(conn) => conn.open_stream(target).await.map_err(to_io_error),
+        }
     }
 
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
@@ -46,7 +57,9 @@ impl RelaySessionFactory for MieruSessionFactory {
     type Error = io::Error;
 
     fn capabilities(&self) -> RelayCapabilities {
-        RelayCapabilities { tcp: true, udp: false, reusable: false }
+        // Multiplexed levels reuse one carrier across many relayed streams; `off`
+        // keeps the one-stream-per-carrier posture.
+        RelayCapabilities { tcp: true, udp: false, reusable: self.config.multiplexing.is_multiplexed() }
     }
 
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
@@ -65,7 +78,14 @@ impl RelaySessionFactory for MieruSessionFactory {
         // any session calibrates the provider from a server's wire timestamp,
         // subsequent handshakes use network time even if the device clock is wrong.
         let time = NetworkTimeProvider::shared();
-        let client = ripdpi_mieru::MieruClient::connect_over(stream, &config, time).await.map_err(to_io_error)?;
-        Ok(Arc::new(MieruSession { client: Mutex::new(Some(client)) }))
+        let inner = if config.multiplexing.is_multiplexed() {
+            let conn =
+                ripdpi_mieru::MieruMuxConnection::connect_over(stream, &config, time).await.map_err(to_io_error)?;
+            MieruSessionInner::Mux(conn)
+        } else {
+            let client = ripdpi_mieru::MieruClient::connect_over(stream, &config, time).await.map_err(to_io_error)?;
+            MieruSessionInner::OneShot(Box::new(Mutex::new(Some(client))))
+        };
+        Ok(Arc::new(MieruSession { inner }))
     }
 }
