@@ -10,19 +10,19 @@ class DetectionCheckPreferences
     @Inject
     constructor(
         @ApplicationContext context: Context,
-    ) {
+    ) : DetectionCheckPreferenceStore {
         private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-        fun wasOnboardingShown(): Boolean = prefs.getBoolean(PREF_ONBOARDING_SHOWN, false)
+        override fun wasOnboardingShown(): Boolean = prefs.getBoolean(PREF_ONBOARDING_SHOWN, false)
 
-        fun markOnboardingShown() {
+        override fun markOnboardingShown() {
             prefs.edit().putBoolean(PREF_ONBOARDING_SHOWN, true).apply()
         }
 
-        fun wasPermissionRequested(permission: String): Boolean =
+        override fun wasPermissionRequested(permission: String): Boolean =
             prefs.getBoolean(permissionRequestedKey(permission), false)
 
-        fun markPermissionsRequested(permissions: Array<String>) {
+        override fun markPermissionsRequested(permissions: Array<String>) {
             val editor = prefs.edit()
             for (permission in permissions) {
                 editor.putBoolean(permissionRequestedKey(permission), true)
