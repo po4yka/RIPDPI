@@ -11,12 +11,14 @@
 #
 # Regen procedure:
 #   Build libripdpi.so for a known-good commit, then run:
-#     nm --defined-only --extern-only <lib> \
+#     nm --dynamic --defined-only --extern-only <lib> \
 #       | awk '{print $NF}' \
 #       | grep -E '^(Java_|JNI_)' \
 #       | LC_ALL=C sort \
 #       > native/rust/crates/ripdpi-android/jni-symbols.baseline
 #   Commit the updated baseline alongside the source change.
+#   NOTE: --dynamic reads the .dynsym table, so this works on the optimized
+#   (stripped) release .so too; the regular symbol table is empty there.
 
 set -euo pipefail
 
@@ -53,7 +55,10 @@ fi
 ACTUAL="$(mktemp)"
 trap 'rm -f "${ACTUAL}"' EXIT
 
-"${NM_CMD}" --defined-only --extern-only "${LIB}" \
+# --dynamic reads the .dynsym table: the JNI exports the JVM resolves via dlsym.
+# This is what actually ships and survives symbol stripping in the optimized
+# (release / android-jni) .so, whose regular symbol table is empty.
+"${NM_CMD}" --dynamic --defined-only --extern-only "${LIB}" \
     | awk '{print $NF}' \
     | grep -E '^(Java_|JNI_)' \
     | LC_ALL=C sort \
@@ -69,7 +74,7 @@ else
     echo "  actual   : extracted from ${LIB}"
     echo ""
     echo "If this change is intentional, regenerate the baseline:"
-    echo "  nm --defined-only --extern-only <lib> \\"
+    echo "  nm --dynamic --defined-only --extern-only <lib> \\"
     echo "    | awk '{print \$NF}' \\"
     echo "    | grep -E '^(Java_|JNI_)' \\"
     echo "    | LC_ALL=C sort \\"
