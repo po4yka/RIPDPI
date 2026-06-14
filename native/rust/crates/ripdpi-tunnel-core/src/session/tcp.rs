@@ -42,6 +42,13 @@ impl TcpSession {
     /// - Issues a SOCKS5 CONNECT request to `target`.
     /// - Bidirectionally splices `local` ↔ proxy until EOF on both sides or
     ///   until `cancel` is signalled (in which case the function returns `Ok(())`).
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe at the `cancel`-token boundary it exposes (see
+    /// [`Self::run_with_proxy`]); it forwards to `run_with_connector`. Dropping
+    /// the returned future outright (rather than signalling `cancel`) inherits
+    /// the underlying [`splice`] buffer-loss caveat documented there.
     pub async fn run<L>(&self, local: &mut L, cancel: CancellationToken) -> io::Result<()>
     where
         L: AsyncRead + AsyncWrite + Unpin,
@@ -49,6 +56,14 @@ impl TcpSession {
         self.run_with_connector(local, cancel, TcpStream::connect).await
     }
 
+    /// # Cancel safety
+    ///
+    /// Cancel-safe at the `cancel`-token boundary. Connecting to the proxy and
+    /// the SOCKS5 handshake/CONNECT run *before* the `cancel`-aware splice in
+    /// [`Self::run_with_proxy`]; abandoning the future by drop during connect or
+    /// handshake leaves only a half-open proxy socket that the drop closes — no
+    /// local-visible state. Signalling `cancel` after CONNECT is the intended
+    /// teardown path.
     async fn run_with_connector<L, C, F, P>(
         &self,
         local: &mut L,
@@ -67,6 +82,21 @@ impl TcpSession {
         self.run_with_proxy(local, cancel, &mut proxy).await
     }
 
+    /// # Cancel safety
+    ///
+    /// Cancel-safe at the `cancel` boundary, with one documented buffer-loss
+    /// caveat. The SOCKS5 handshake + CONNECT run to completion *before* the
+    /// relay loop (a torn handshake cannot leak into the splice). The relay is a
+    /// `select!` of [`splice`] against `cancel.cancelled()`: a `cancel` win drops
+    /// the in-flight `splice` future and returns `Ok(())`.
+    ///
+    /// Dropping `splice` mid-copy discards any bytes that `tokio::io::copy` has
+    /// read into its internal buffer but not yet written, and skips the EOF
+    /// half-close shutdown. This is bounded: `cancel` is the session token, fired
+    /// only at session GC/teardown (`SessionRegistry` reaping an idle or closed
+    /// session), never mid-stream on a live transfer — so a still-flowing session
+    /// is not torn here. The drain rewrite is deferred until a test demonstrates
+    /// observable loss; see the task `annotate-and-harden-async-cancel-safety`.
     async fn run_with_proxy<L, P>(&self, local: &mut L, cancel: CancellationToken, proxy: &mut P) -> io::Result<()>
     where
         L: AsyncRead + AsyncWrite + Unpin,
@@ -133,6 +163,17 @@ impl TcpSession {
 /// When one read side returns EOF, the opposite write side is shut down (half-close),
 /// matching RFC 1928 §6 session semantics.  The function returns only when both
 /// directions have finished.
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe. Each direction is a `tokio::io::copy` that buffers up to one
+/// read chunk internally; if this future is dropped mid-copy (e.g. the
+/// `select!` in [`TcpSession::run_with_proxy`] takes its `cancel` arm), bytes
+/// already read into that buffer but not yet written are lost, and the EOF
+/// half-close `shutdown` is skipped. Callers that must not lose in-flight bytes
+/// MUST drive `splice` to completion rather than dropping it; the only in-tree
+/// caller only drops it at session GC/teardown, where the loss is acceptable
+/// (see [`TcpSession::run_with_proxy`]).
 pub async fn splice<L, P>(local: &mut L, proxy: &mut P) -> io::Result<(u64, u64)>
 where
     L: AsyncRead + AsyncWrite + Unpin,

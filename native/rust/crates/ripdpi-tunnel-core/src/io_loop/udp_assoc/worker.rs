@@ -13,6 +13,19 @@ use super::association_state::{UdpAssociation, now_millis};
 use super::event_handling::UdpEvent;
 use spawn::spawn_udp_worker;
 
+/// Build a UDP association: open the SOCKS5 UDP session and spawn its pump
+/// worker.
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe. It awaits [`UdpSession::connect`] (itself a non-cancel-safe
+/// multi-step SOCKS5 setup) and then spawns the worker. Dropping this future
+/// before it returns leaves the half-built session to its `Drop` (fds close)
+/// and never registers an association, so no caller-visible association is
+/// created from a torn setup. Its caller in `io_loop` awaits it to completion on
+/// the association-setup path and does not place it under a `select!`/`timeout`;
+/// the long-lived cancellation point is the spawned worker's own loop, which
+/// honors `cancel`.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn create_udp_association(
     proxy_addr: SocketAddr,

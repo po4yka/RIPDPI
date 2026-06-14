@@ -14,6 +14,15 @@ use super::TargetAddr;
 /// - IPv4:   `[0x05, 0x01, 0x00, 0x01, a, b, c, d, ph, pl]`
 /// - IPv6:   `[0x05, 0x01, 0x00, 0x04, <16 bytes>, ph, pl]`
 /// - Domain: `[0x05, 0x01, 0x00, 0x03, len, <domain bytes>, ph, pl]`
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe. It writes the CONNECT request then reads the reply header
+/// and bound-address fields; dropping the future between the write and the full
+/// read leaves the proxy stream mid-CONNECT (partially consumed reply), which a
+/// subsequent reuse would mis-parse. The only caller, `TcpSession::run_with_proxy`,
+/// awaits it to completion *before* entering the `cancel`-aware splice `select!`,
+/// so it is never cancelled mid-exchange. Do not call it inside a `select!`/`timeout`.
 pub async fn connect<S>(stream: &mut S, target: &TargetAddr) -> io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,

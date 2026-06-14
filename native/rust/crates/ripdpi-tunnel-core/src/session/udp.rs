@@ -38,6 +38,17 @@ impl UdpSession {
     /// fallback when no JNI protect callback is registered (`None` on the
     /// Android callback path and in tests). See
     /// `.claude/rules/vpnservice-protect-invariant.md`.
+    ///
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe. The association is a multi-step sequence — connect the
+    /// control TCP socket, SOCKS5 handshake, `ASSOCIATE`, then bind/connect the
+    /// relay UDP socket — with no rollback. Dropping the future partway leaves a
+    /// half-built association (e.g. a control connection past handshake but with
+    /// no usable relay socket); the dropped values close their fds, but the proxy
+    /// may briefly see a torn `ASSOCIATE`. The only caller, `create_udp_association`,
+    /// awaits it to completion before the association is registered or used, so it
+    /// is never cancelled mid-setup. Do not call it inside a `select!`/`timeout`.
     pub async fn connect(proxy_addr: SocketAddr, auth: Auth, protect_path: Option<&str>) -> io::Result<Self> {
         // Control connection: create the socket, protect it, *then* connect.
         let ctrl_socket = match proxy_addr {
@@ -73,6 +84,13 @@ impl UdpSession {
     }
 
     /// Send a UDP datagram through the established SOCKS5 relay.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe. The single `.await` is one `UdpSocket::send`, which is
+    /// message-atomic: it either queues the whole datagram or none of it. A
+    /// cancel before completion sends nothing and leaves no partial datagram and
+    /// no torn relay state. The frame is built synchronously before the await.
     pub async fn send_to(&self, dst: SocketAddr, payload: &[u8]) -> io::Result<()> {
         let frame = encode_udp_frame(dst, payload);
         let _ = self.udp.send(&frame).await?;
@@ -85,6 +103,16 @@ impl UdpSession {
     ///
     /// Returns `Ok(Some((payload, from)))` on success, `Ok(None)` if
     /// cancelled or timed out, `Err` on I/O failure.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe. The `recv` arm is one message-atomic `UdpSocket::recv`
+    /// followed by a synchronous decode (no `.await` between consuming the
+    /// datagram and returning it), so dropping this future never consumes-then-
+    /// loses a datagram. The `cancel`/`timeout` arms are pure timers. The
+    /// internal `select!` is intentionally unbiased: recv, timeout, and cancel
+    /// are mutually exclusive single-shot outcomes with no teardown arm to
+    /// protect from starvation.
     pub async fn recv_from(&self, cancel: CancellationToken) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
         let mut buf = vec![0u8; 65535];
 
@@ -107,6 +135,13 @@ impl UdpSession {
     }
 
     /// Convenience helper: send one datagram and wait for one reply.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe. It is the message-atomic [`Self::send_to`] followed by the
+    /// `cancel`/timeout-aware [`Self::recv_from`]; a cancel before the send
+    /// transmits nothing, and a cancel during the wait is handled by `recv_from`
+    /// returning `Ok(None)`. No partial datagram or torn relay state results.
     pub async fn relay_once(
         &self,
         dst: SocketAddr,
