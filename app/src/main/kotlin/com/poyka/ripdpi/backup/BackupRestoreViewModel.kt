@@ -2,16 +2,10 @@ package com.poyka.ripdpi.backup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.poyka.ripdpi.data.backup.BackupExportResult
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
-import com.poyka.ripdpi.data.backup.BackupPreview
-import com.poyka.ripdpi.data.backup.BackupPreviewResult
 import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.BackupVariant
-import com.poyka.ripdpi.data.backup.RestoreResult
-import com.poyka.ripdpi.data.backup.RestoreSelection
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,135 +14,21 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.OutputStream
 import javax.inject.Inject
 import javax.inject.Named
 
-/**
- * One-shot effect surfaced after an export attempt; the screen renders it as a
- * snackbar and (for SHARE only) an optional follow-up share action, then clears it.
- */
-sealed interface BackupExportEffect {
-    /**
-     * Export succeeded. [byteCount] is the number of JSON bytes written; [offerShare]
-     * is `true` only for [BackupVariant.SHARE] (FULL backups are never offered an
-     * inline share, to avoid spraying credentials through a share sheet).
-     */
-    data class Success(
-        val variant: BackupVariant,
-        val byteCount: Long,
-        val offerShare: Boolean,
-    ) : BackupExportEffect
-
-    /** The destination write failed. The screen also deletes any partial file. */
-    data object WriteFailed : BackupExportEffect
-
-    /** The user cancelled the SAF picker (or document creation returned no Uri). */
-    data object Cancelled : BackupExportEffect
-}
-
-/**
- * One-shot effect surfaced after a "share redacted backup" attempt. The screen
- * launches the share sheet on [Ready] and cleans up the temp cache file on every
- * terminal outcome.
- */
-sealed interface BackupShareEffect {
-    /** A fresh SHARE backup was written to the cache file and is ready to share. */
-    data object Ready : BackupShareEffect
-
-    /** Writing the temp SHARE backup failed; nothing is shared. */
-    data object Failed : BackupShareEffect
-}
-
-/**
- * One-shot effect surfaced after an import / restore attempt.
- */
-sealed interface BackupRestoreEffect {
-    /**
-     * The restore committed. The screen restarts the process (ProcessPhoenix) so
-     * all DataStore / Room observers reinitialize against the restored state.
-     */
-    data object Restored : BackupRestoreEffect
-
-    /** The chosen file's schema version is newer than this app supports. */
-    data class UnsupportedVersion(
-        val found: Int,
-        val supported: Int,
-    ) : BackupRestoreEffect
-
-    /** The file was malformed, unreadable, or failed an integrity check. */
-    data object Malformed : BackupRestoreEffect
-
-    /** The user picked a file but selected no categories to restore. */
-    data object NothingSelected : BackupRestoreEffect
-}
-
-/**
- * One-shot effect surfaced after a confirmed "reset all settings" wipe completes.
- */
-sealed interface BackupResetEffect {
-    /**
-     * The wipe committed. The screen restarts the process (ProcessPhoenix) so the
-     * app comes back up clean, at onboarding.
-     */
-    data object Wiped : BackupResetEffect
-}
-
-/**
- * The stable, non-localized token the user must type to confirm a destructive reset.
- * It is deliberately NOT translated: a fixed token is unambiguous across locales and
- * keeps the typed-confirmation gate testable.
- */
-const val ResetConfirmationToken: String = "RESET"
-
-/**
- * Live preview of a chosen backup file, shown BEFORE any write. Carries the parsed
- * JSON so the subsequent restore re-uses the exact bytes the user previewed.
- */
-data class BackupImportPreview(
-    val json: String,
-    val preview: BackupPreview,
-    val selection: RestoreSelection,
-)
-
-/** Immutable render state for the Backup & Restore screen. */
-data class BackupRestoreUiState(
-    val exporting: Boolean = false,
-    val exportDisabledByPolicy: Boolean = false,
-    val importing: Boolean = false,
-    val restoring: Boolean = false,
-    /** True while a fresh SHARE backup is being written to the cache for sharing. */
-    val sharing: Boolean = false,
-    /** Non-null while the import-preview sheet is visible. */
-    val importPreview: BackupImportPreview? = null,
-    /** True while the typed-confirmation reset dialog is visible. */
-    val resetDialogVisible: Boolean = false,
-    /** The text the user has typed into the reset-confirmation field so far. */
-    val resetConfirmationInput: String = "",
-    /** True while the wipe is in flight (dialog buttons disabled). */
-    val resetting: Boolean = false,
-) {
-    /**
-     * `true` once the user has typed the exact, case-sensitive confirmation token.
-     * The reset confirm action stays disabled until this flips to `true`.
-     */
-    val resetConfirmationMatches: Boolean
-        get() = resetConfirmationInput == ResetConfirmationToken
-}
-
 @HiltViewModel
 class BackupRestoreViewModel
     @Inject
     constructor(
-        private val exportUseCase: BackupExportUseCase,
-        private val restoreUseCase: BackupRestoreUseCase,
+        exportUseCase: BackupExportUseCase,
+        restoreUseCase: BackupRestoreUseCase,
         private val exportPolicy: BackupExportPolicy,
         private val shareReminderPreferences: BackupShareReminderPreferences,
-        private val resetAllSettingsUseCase: ResetAllSettingsUseCase,
-        @param:Named("appVersionName") private val appVersion: String,
+        resetAllSettingsUseCase: ResetAllSettingsUseCase,
+        @param:Named("appVersionName") appVersion: String,
     ) : ViewModel() {
         private val _uiState =
             MutableStateFlow(
@@ -178,6 +58,36 @@ class BackupRestoreViewModel
             MutableSharedFlow<BackupResetEffect>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
         val resetEffects: SharedFlow<BackupResetEffect> = _resetEffects.asSharedFlow()
 
+        private val exportCoordinator =
+            BackupExportCoordinator(
+                scope = viewModelScope,
+                exportUseCase = exportUseCase,
+                appVersion = appVersion,
+                exportDisabledByPolicy = { _uiState.value.exportDisabledByPolicy },
+                currentState = _uiState::value,
+                updateState = _uiState::update,
+                emitExportEffect = _effects::tryEmit,
+                emitShareEffect = _shareEffects::tryEmit,
+            )
+
+        private val importCoordinator =
+            BackupImportCoordinator(
+                scope = viewModelScope,
+                restoreUseCase = restoreUseCase,
+                currentState = _uiState::value,
+                updateState = _uiState::update,
+                emitRestoreEffect = _restoreEffects::tryEmit,
+            )
+
+        private val resetCoordinator =
+            BackupResetCoordinator(
+                scope = viewModelScope,
+                resetAllSettingsUseCase = resetAllSettingsUseCase,
+                currentState = _uiState::value,
+                updateState = _uiState::update,
+                emitResetEffect = _resetEffects::tryEmit,
+            )
+
         /** Re-evaluates the MDM suppression knob (called on screen resume). */
         fun refreshPolicy() {
             _uiState.update { it.copy(exportDisabledByPolicy = exportPolicy.isExportDisabledByPolicy()) }
@@ -195,43 +105,7 @@ class BackupRestoreViewModel
             variant: BackupVariant,
             openOutput: () -> OutputStream?,
             onWriteFailed: () -> Unit,
-        ) {
-            if (_uiState.value.exporting || _uiState.value.exportDisabledByPolicy) return
-            _uiState.update { it.copy(exporting = true) }
-            viewModelScope.launch {
-                val output = openOutput()
-                if (output == null) {
-                    _uiState.update { it.copy(exporting = false) }
-                    _effects.tryEmit(BackupExportEffect.Cancelled)
-                    return@launch
-                }
-                val result =
-                    output.use { stream ->
-                        exportUseCase.export(
-                            variant = variant,
-                            output = stream,
-                            appVersion = appVersion,
-                        )
-                    }
-                _uiState.update { it.copy(exporting = false) }
-                _effects.tryEmit(
-                    when (result) {
-                        is BackupExportResult.Success -> {
-                            BackupExportEffect.Success(
-                                variant = result.variant,
-                                byteCount = result.byteCount,
-                                offerShare = result.variant == BackupVariant.SHARE,
-                            )
-                        }
-
-                        is BackupExportResult.WriteFailed -> {
-                            onWriteFailed()
-                            BackupExportEffect.WriteFailed
-                        }
-                    },
-                )
-            }
-        }
+        ) = exportCoordinator.export(variant, openOutput, onWriteFailed)
 
         /**
          * Writes a FRESH [BackupVariant.SHARE] backup into the stream produced by
@@ -243,33 +117,7 @@ class BackupRestoreViewModel
          * on a write failure [BackupShareEffect.Failed] is emitted and the screen
          * deletes the (possibly partial) temp file. The stream is always closed here.
          */
-        fun prepareShareBackup(openOutput: () -> OutputStream?) {
-            if (_uiState.value.sharing || _uiState.value.exportDisabledByPolicy) return
-            _uiState.update { it.copy(sharing = true) }
-            viewModelScope.launch {
-                val output = openOutput()
-                if (output == null) {
-                    _uiState.update { it.copy(sharing = false) }
-                    _shareEffects.tryEmit(BackupShareEffect.Failed)
-                    return@launch
-                }
-                val result =
-                    output.use { stream ->
-                        exportUseCase.export(
-                            variant = BackupVariant.SHARE,
-                            output = stream,
-                            appVersion = appVersion,
-                        )
-                    }
-                _uiState.update { it.copy(sharing = false) }
-                _shareEffects.tryEmit(
-                    when (result) {
-                        is BackupExportResult.Success -> BackupShareEffect.Ready
-                        is BackupExportResult.WriteFailed -> BackupShareEffect.Failed
-                    },
-                )
-            }
-        }
+        fun prepareShareBackup(openOutput: () -> OutputStream?) = exportCoordinator.prepareShareBackup(openOutput)
 
         /**
          * Returns `true` when the one-time "SHARE is redacted but not zero-knowledge"
@@ -290,75 +138,17 @@ class BackupRestoreViewModel
          * [openInput] returns the SAF source stream (or `null` if cancelled). The
          * stream is fully read and closed here.
          */
-        fun openImport(openInput: () -> InputStream?) {
-            if (_uiState.value.importing || _uiState.value.restoring) return
-            _uiState.update { it.copy(importing = true) }
-            viewModelScope.launch {
-                val json =
-                    withContext(Dispatchers.IO) {
-                        runCatching { openInput()?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
-                    }
-                if (json == null) {
-                    // Cancelled picker or unreadable stream: no preview, no effect noise.
-                    _uiState.update { it.copy(importing = false) }
-                    return@launch
-                }
-                when (val result = withContext(Dispatchers.Default) { restoreUseCase.preview(json) }) {
-                    is BackupPreviewResult.Ready -> {
-                        _uiState.update {
-                            it.copy(
-                                importing = false,
-                                importPreview =
-                                    BackupImportPreview(
-                                        json = json,
-                                        preview = result.preview,
-                                        // Default: restore only the categories that
-                                        // actually carry content; never silently flip
-                                        // an empty category on.
-                                        selection =
-                                            RestoreSelection(
-                                                profilesAndGroups = result.preview.canRestoreProfilesAndGroups,
-                                                routes = result.preview.ruleCount > 0,
-                                                settings = result.preview.settingCount > 0,
-                                            ),
-                                    ),
-                            )
-                        }
-                    }
-
-                    is BackupPreviewResult.UnsupportedVersion -> {
-                        _uiState.update { it.copy(importing = false) }
-                        _restoreEffects.tryEmit(
-                            BackupRestoreEffect.UnsupportedVersion(result.found, result.supported),
-                        )
-                    }
-
-                    is BackupPreviewResult.Malformed -> {
-                        _uiState.update { it.copy(importing = false) }
-                        _restoreEffects.tryEmit(BackupRestoreEffect.Malformed)
-                    }
-                }
-            }
-        }
+        fun openImport(openInput: () -> InputStream?) = importCoordinator.openImport(openInput)
 
         /** Toggles one restore category in the active preview. */
-        fun setProfilesAndGroupsSelected(selected: Boolean) = updateSelection { it.copy(profilesAndGroups = selected) }
+        fun setProfilesAndGroupsSelected(selected: Boolean) = importCoordinator.setProfilesAndGroupsSelected(selected)
 
-        fun setRoutesSelected(selected: Boolean) = updateSelection { it.copy(routes = selected) }
+        fun setRoutesSelected(selected: Boolean) = importCoordinator.setRoutesSelected(selected)
 
-        fun setSettingsSelected(selected: Boolean) = updateSelection { it.copy(settings = selected) }
-
-        private fun updateSelection(transform: (RestoreSelection) -> RestoreSelection) {
-            _uiState.update { state ->
-                val preview = state.importPreview ?: return@update state
-                state.copy(importPreview = preview.copy(selection = transform(preview.selection)))
-            }
-        }
+        fun setSettingsSelected(selected: Boolean) = importCoordinator.setSettingsSelected(selected)
 
         /** Dismisses the import-preview sheet without restoring. */
-        fun cancelImport() {
-            _uiState.update { it.copy(importPreview = null) }
-        }
+        fun cancelImport() = importCoordinator.cancelImport()
 
         /**
          * Applies the staged restore for the active preview's selection. On success
@@ -366,48 +156,7 @@ class BackupRestoreViewModel
          * the process. Malformed JSON or a newer schema aborts without touching live
          * data (the use case re-validates from the same bytes).
          */
-        fun confirmRestore() {
-            val state = _uiState.value
-            val preview = state.importPreview
-            when {
-                preview == null || state.restoring -> {
-                }
-
-                !preview.selection.any -> {
-                    _restoreEffects.tryEmit(BackupRestoreEffect.NothingSelected)
-                }
-
-                else -> {
-                    _uiState.update { it.copy(restoring = true) }
-                    viewModelScope.launch {
-                        val result =
-                            withContext(Dispatchers.Default) {
-                                restoreUseCase.restore(preview.json, preview.selection)
-                            }
-                        _uiState.update { it.copy(restoring = false, importPreview = null) }
-                        _restoreEffects.tryEmit(
-                            when (result) {
-                                is RestoreResult.Success -> {
-                                    BackupRestoreEffect.Restored
-                                }
-
-                                is RestoreResult.UnsupportedVersion -> {
-                                    BackupRestoreEffect.UnsupportedVersion(result.found, result.supported)
-                                }
-
-                                is RestoreResult.Aborted -> {
-                                    BackupRestoreEffect.Malformed
-                                }
-
-                                RestoreResult.NothingSelected -> {
-                                    BackupRestoreEffect.NothingSelected
-                                }
-                            },
-                        )
-                    }
-                }
-            }
-        }
+        fun confirmRestore() = importCoordinator.confirmRestore()
 
         // -- Reset all settings ---------------------------------------------------
 
@@ -416,15 +165,10 @@ class BackupRestoreViewModel
          * typed input. Hiding it has NO side effect on any store: cancellation up to
          * the confirm step is completely free of consequences. Ignored mid-wipe.
          */
-        fun setResetDialogVisible(visible: Boolean) {
-            if (_uiState.value.resetting) return
-            _uiState.update { it.copy(resetDialogVisible = visible, resetConfirmationInput = "") }
-        }
+        fun setResetDialogVisible(visible: Boolean) = resetCoordinator.setResetDialogVisible(visible)
 
         /** Updates the typed confirmation token as the user types. */
-        fun onResetConfirmationInputChange(input: String) {
-            _uiState.update { it.copy(resetConfirmationInput = input) }
-        }
+        fun onResetConfirmationInputChange(input: String) = resetCoordinator.onResetConfirmationInputChange(input)
 
         /**
          * Performs the wipe — but ONLY if the typed token matches exactly. Records
@@ -432,16 +176,5 @@ class BackupRestoreViewModel
          * every user store and emits [BackupResetEffect.Wiped] so the screen restarts
          * the process. A mismatched token is a no-op.
          */
-        fun confirmReset() {
-            val state = _uiState.value
-            if (state.resetting || !state.resetConfirmationMatches) return
-            _uiState.update { it.copy(resetting = true) }
-            viewModelScope.launch {
-                withContext(Dispatchers.Default) { resetAllSettingsUseCase.reset() }
-                _uiState.update {
-                    it.copy(resetting = false, resetDialogVisible = false, resetConfirmationInput = "")
-                }
-                _resetEffects.tryEmit(BackupResetEffect.Wiped)
-            }
-        }
+        fun confirmReset() = resetCoordinator.confirmReset()
     }
