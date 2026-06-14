@@ -21,11 +21,13 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex as StdMutex, PoisonError};
+use std::time::Duration;
 
 use ring::rand::{SecureRandom, SystemRandom};
 use ripdpi_network_time::NetworkTimeProvider;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream};
 use tokio::sync::{Mutex, Semaphore, mpsc};
+use tokio::time::timeout;
 
 use crate::config::{MieruConfig, MieruProtocol};
 use crate::error::{MieruError, Result};
@@ -39,23 +41,29 @@ const BRIDGE_BUF: usize = 64 * 1024;
 const PUMP_BUF: usize = 32 * 1024;
 /// Per-sub-session inbound mailbox depth (decapsulated fragments).
 const MAILBOX_DEPTH: usize = 64;
+/// Upper bound on the open-session + in-tunnel SOCKS5 handshake. A wedged or
+/// half-broken (write-ok, no-response) carrier must not hang `open_stream`
+/// forever — especially since a multiplexed carrier is reused for every stream.
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
 type DemuxTable = Arc<StdMutex<HashMap<u32, mpsc::Sender<Vec<u8>>>>>;
 
 /// The single serialized outbound half of the carrier: one AEAD encryptor and
 /// the carrier write half. Every sub-session funnels its segments through here
 /// under a [`tokio::sync::Mutex`], guaranteeing the per-direction nonce is never
-/// reused.
+/// reused. `time` stamps each segment's metadata timestamp with the *current*
+/// network time (not a value frozen at carrier open), so a long-lived carrier's
+/// segments stay fresh against a server that enforces per-segment timestamps.
 struct MuxWriter {
     enc: Encryptor,
     writer: Box<dyn AsyncWrite + Unpin + Send>,
-    now_unix: i64,
+    time: Arc<NetworkTimeProvider>,
 }
 
 impl MuxWriter {
     async fn send_open(&mut self, session_id: u32, seq: &mut u32) -> Result<()> {
         let (_, suffix) = self.enc.next_padding()?;
-        let now = self.now_unix;
+        let now = self.time.now_unix();
         let this_seq = next(seq);
         self.enc
             .write_segment(
@@ -80,7 +88,7 @@ impl MuxWriter {
 
     async fn send_close(&mut self, session_id: u32, seq: &mut u32) -> Result<()> {
         let (_, suffix) = self.enc.next_padding()?;
-        let now = self.now_unix;
+        let now = self.time.now_unix();
         let this_seq = next(seq);
         self.enc
             .write_segment(
@@ -107,7 +115,7 @@ impl MuxWriter {
         for chunk in bytes.chunks(MAX_PDU) {
             let blob = encapsulate(chunk)?;
             let (prefix, suffix) = self.enc.next_padding()?;
-            let now = self.now_unix;
+            let now = self.time.now_unix();
             let this_seq = next(seq);
             let payload_len =
                 u16::try_from(blob.len()).map_err(|_| MieruError::Protocol("fragment too large".to_owned()))?;
@@ -205,7 +213,12 @@ pub struct MieruMuxConnection {
 
 impl Drop for MieruMuxConnection {
     fn drop(&mut self) {
+        // Abort the reader (releases the carrier read half) AND drop every mailbox
+        // sender: aborting skips run_reader's own end-of-loop cleanup, so without
+        // this clear, inbound pumps parked on a still-registered mailbox would
+        // leak until runtime shutdown. Clearing EOFs their receivers so they end.
         self.reader_task.abort();
+        self.table.lock().unwrap_or_else(PoisonError::into_inner).clear();
     }
 }
 
@@ -223,13 +236,12 @@ impl MieruMuxConnection {
         if config.protocol == MieruProtocol::Udp {
             return Err(MieruError::UdpUnsupported);
         }
-        let now_unix = time.now_unix();
-        let key = crate::cipher::derive_key(config.password.as_bytes(), config.username.as_bytes(), now_unix, 0);
+        let key = crate::cipher::derive_key(config.password.as_bytes(), config.username.as_bytes(), time.now_unix(), 0);
         let (read_half, write_half) = tokio::io::split(transport);
         let enc = Encryptor::new(key, config.username.as_bytes().to_vec());
         let dec = Decryptor::new(key);
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
-        let writer = Arc::new(Mutex::new(MuxWriter { enc, writer: Box::new(write_half), now_unix }));
+        let writer = Arc::new(Mutex::new(MuxWriter { enc, writer: Box::new(write_half), time: Arc::clone(&time) }));
         let limit = Arc::new(Semaphore::new(config.multiplexing.max_concurrent_streams()));
         let reader_task = tokio::spawn(run_reader(dec, Box::new(read_half), Arc::clone(&table), time));
         Ok(Self { writer, table, limit, rng: SystemRandom::new(), reader_task })
@@ -249,33 +261,41 @@ impl MieruMuxConnection {
         let mut reader = MuxReader::new(rx);
         let mut seq: u32 = 0;
 
-        // Open-session handshake + in-tunnel SOCKS5 connect over this sub-session.
-        let handshake = async {
+        // Open-session handshake + in-tunnel SOCKS5 connect, time-bounded so a
+        // wedged or half-broken carrier cannot hang the caller indefinitely.
+        let handshake = match timeout(HANDSHAKE_TIMEOUT, async {
             {
                 let mut w = self.writer.lock().await;
                 w.send_open(session_id, &mut seq).await?;
             }
             mux_socks5_connect(&self.writer, &mut reader, &mut seq, session_id, target).await
-        }
-        .await;
+        })
+        .await
+        {
+            Ok(result) => result,
+            Err(_elapsed) => Err(MieruError::Protocol("Mieru sub-session handshake timed out".to_owned())),
+        };
         if let Err(error) = handshake {
+            // Best-effort: tell the server to drop the half-opened session so it
+            // does not leak server-side, then release this sub-session's mailbox.
+            {
+                let mut w = self.writer.lock().await;
+                let _ = w.send_close(session_id, &mut seq).await;
+            }
             self.deregister_session(session_id);
             return Err(error);
         }
 
         let (caller, engine) = tokio::io::duplex(BRIDGE_BUF);
         let (mut engine_read, mut engine_write) = tokio::io::split(engine);
-        // The permit is released only once BOTH pumps finish (the stream is fully
-        // closed), so the concurrent-stream ceiling reflects live streams.
-        let permit = Arc::new(permit);
 
-        // Outbound: caller writes -> data segments (serialized through the shared
-        // writer so the nonce stays monotonic). Half-closing the write direction
-        // sends a close-session but must NOT tear down the mailbox: inbound data
-        // (e.g. an HTTP response to a request body that is already complete) may
-        // still be arriving. The mailbox is removed by the inbound pump.
+        // The outbound pump OWNS the concurrency permit. It ends when the caller
+        // closes its write half or drops the stream (engine_read EOF), which fires
+        // reliably on caller teardown — so a slot is never leaked even if the
+        // server never sends a close response. (With `tokio::io::duplex` the
+        // inbound pump cannot observe a silent caller drop without a write, so it
+        // must NOT gate the permit; it only cleans up the mailbox.)
         let writer_out = Arc::clone(&self.writer);
-        let permit_out = Arc::clone(&permit);
         tokio::spawn(async move {
             let mut buf = vec![0u8; PUMP_BUF];
             let mut seq = seq;
@@ -294,15 +314,13 @@ impl MieruMuxConnection {
                 let mut w = writer_out.lock().await;
                 let _ = w.send_close(session_id, &mut seq).await;
             }
-            drop(permit_out);
+            drop(permit);
         });
 
         // Inbound: this sub-session's mailbox -> caller reads. Ends when the
-        // carrier closes the mailbox (server close / carrier death) or the caller
-        // drops its read half; either way the sub-session is finished, so the
-        // mailbox is deregistered here.
+        // carrier closes the mailbox (server close, carrier death, or `Drop`
+        // clearing the table) or a caller-side write error; deregisters on exit.
         let table_in = Arc::clone(&self.table);
-        let permit_in = Arc::clone(&permit);
         tokio::spawn(async move {
             let mut buf = vec![0u8; PUMP_BUF];
             loop {
@@ -312,7 +330,6 @@ impl MieruMuxConnection {
                 }
             }
             deregister(&table_in, session_id);
-            drop(permit_in);
         });
 
         Ok(caller)
@@ -613,6 +630,12 @@ mod tests {
         // Many sequential streams over one carrier: the server decrypts every
         // segment with a single lockstep Decryptor, so a reused/desynced nonce
         // would surface as a decrypt error (Err from the server) and fail here.
+        //
+        // 12 rounds exceeds the Low ceiling of 8 concurrent streams: each stream's
+        // permit must be released when its outbound side closes, otherwise the 9th
+        // open would block on the semaphore forever (this is the regression test
+        // for the half-idle permit leak — the test server never sends a close
+        // response, so the permit cannot depend on the inbound pump ending).
         let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
         let (client_side, server_side) = tokio::io::duplex(1 << 16);
         let server = tokio::spawn(run_mux_server(server_side, key, USERNAME.as_bytes().to_vec()));
@@ -620,7 +643,7 @@ mod tests {
         let time = Arc::new(NetworkTimeProvider::fixed(NOW));
         let conn = MieruMuxConnection::connect_over(client_side, &config(MieruMux::Low), time).await.expect("carrier");
 
-        for round in 0u8..6 {
+        for round in 0u8..12 {
             let stream = conn.open_stream("reuse.example:80").await.expect("open");
             let (mut read_half, mut write_half) = tokio::io::split(stream);
             let payload = vec![round; 4096];
@@ -634,6 +657,31 @@ mod tests {
 
         // Dropping the connection aborts the reader task, releasing the carrier
         // read half so the server observes EOF and shuts down cleanly.
+        drop(conn);
+        let _ = server.await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn open_stream_times_out_on_a_silent_carrier() {
+        // A carrier whose peer reads but never replies: the in-tunnel SOCKS5
+        // handshake can never complete, so open_stream must time out instead of
+        // hanging forever. Paused time auto-advances to fire the timeout instantly.
+        let (client_side, server_side) = tokio::io::duplex(1 << 16);
+        let server = tokio::spawn(async move {
+            let (mut read_half, _write_half) = tokio::io::split(server_side);
+            let mut buf = [0u8; 4096];
+            while read_half.read(&mut buf).await.is_ok_and(|n| n > 0) {}
+        });
+
+        let time = Arc::new(NetworkTimeProvider::fixed(NOW));
+        let conn =
+            MieruMuxConnection::connect_over(client_side, &config(MieruMux::Low), time).await.expect("carrier open");
+        let result = conn.open_stream("nowhere.example:443").await;
+        assert!(
+            matches!(result, Err(MieruError::Protocol(_))),
+            "a silent carrier must make open_stream time out, got {result:?}"
+        );
+
         drop(conn);
         let _ = server.await;
     }
