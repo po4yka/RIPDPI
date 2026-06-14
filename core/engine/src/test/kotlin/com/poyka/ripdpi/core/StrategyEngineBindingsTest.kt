@@ -24,7 +24,7 @@ class StrategyEngineBindingsTest {
                 strategies = arrayOf("split_host", "pass"),
             )
 
-        assertEquals("missing script", bindings.luaLoadScript("/missing.lua"))
+        assertEquals("missing script", bindings.luaLoadScript("/files/lua", "/missing.lua"))
         assertNull(bindings.luaValidateScript("/valid.lua"))
         assertNull(bindings.validateStrategyConfigText("version: 1\nstrategies: []"))
         assertNull(bindings.luaReloadConfig())
@@ -65,7 +65,10 @@ private class FakeStrategyEngineBindings(
     private val validateResult: String?,
     private val strategies: Array<String>,
 ) : StrategyEngineBindings {
-    override fun luaLoadScript(path: String): String? = loadResult
+    override fun luaLoadScript(
+        baseDir: String,
+        path: String,
+    ): String? = loadResult
 
     override fun luaReloadConfig(): String? = null
 
@@ -89,7 +92,10 @@ private class BlockingReloadBindings : StrategyEngineBindings {
 
     private val inFlight = AtomicInteger(0)
 
-    override fun luaLoadScript(path: String): String? = null
+    override fun luaLoadScript(
+        baseDir: String,
+        path: String,
+    ): String? = null
 
     override fun luaReloadConfig(): String? {
         if (inFlight.incrementAndGet() > 1) {

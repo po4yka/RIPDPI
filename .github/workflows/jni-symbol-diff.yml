@@ -33,7 +33,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
 
       - name: Install Android NDK
         run: |
@@ -49,6 +49,19 @@ jobs:
             native/rust/target
           key: jni-sym-${{ runner.os }}-${{ hashFiles('native/rust/Cargo.lock') }}
           restore-keys: jni-sym-${{ runner.os }}-
+
+      # Materialize the pinned rust-toolchain.toml channel + its components
+      # (clippy/rust-src/rust-analyzer/rustfmt) once, serially, before the
+      # parallel per-ABI cargo builds below. Without this, each ABI's cargo
+      # invocation triggers rustup to auto-install the toolchain concurrently
+      # and they race on ~/.rustup/downloads/*.partial ("could not rename ...
+      # No such file or directory"). ~/.rustup is not cached, so this is
+      # deterministic, not flaky.
+      - name: Pre-install pinned Rust toolchain
+        working-directory: native/rust
+        run: |
+          rustup show
+          cargo --version
 
       - name: Build native library (arm64-v8a release)
         run: ./gradlew :core:engine:buildRustNativeLibs
