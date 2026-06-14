@@ -2,25 +2,16 @@ package com.poyka.ripdpi.ui.screens.blockcheck
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.BlockLayer
-import com.poyka.ripdpi.core.detection.BlockLayerDiagnosis
 import com.poyka.ripdpi.core.detection.BypassStrategyClass
-import com.poyka.ripdpi.core.detection.EvidenceConfidence
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider
-import com.poyka.ripdpi.diagnostics.StrategyProbeConfig
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeService
 import com.poyka.ripdpi.diagnostics.summarizeStrategyProbeResults
-import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -289,109 +280,30 @@ class BlockcheckViewModelTest {
         candidateProvider: StrategyProbeCandidateProvider = FakeStrategyProbeCandidateProvider(),
         diagnosisRunner: BlockcheckDiagnosisRunner = FakeBlockcheckDiagnosisRunner(),
         results: List<StrategyProbeResult>,
-    ): BlockcheckViewModel {
-        val viewModel =
-            BlockcheckViewModel(
-                probeService = probeService ?: FakeStrategyProbeService(results),
-                candidateProvider = candidateProvider,
-                appSettingsRepository = repository,
-                diagnosisRunner = diagnosisRunner,
-            )
-        viewModel.strategyReloader = reloader
-        return viewModel
-    }
+    ): BlockcheckViewModel =
+        BlockcheckViewModel(
+            orchestrator =
+                BlockcheckProbeOrchestrator(
+                    probeService = probeService ?: FakeStrategyProbeService(results),
+                    candidateProvider = candidateProvider,
+                    diagnosisRunner = diagnosisRunner,
+                ),
+            recommendationRepository =
+                DefaultBlockcheckRecommendationRepository(
+                    appSettingsRepository = repository,
+                    reloader = reloader,
+                ),
+        )
 }
-
-private class FakeBlockcheckDiagnosisRunner(
-    private val diagnoses: List<BlockcheckSiteDiagnosis> = emptyList(),
-) : BlockcheckDiagnosisRunner {
-    override suspend fun diagnose(domains: List<String>): List<BlockcheckSiteDiagnosis> = diagnoses
-}
-
-private class FakeStrategyProbeService(
-    private val results: List<StrategyProbeResult>,
-) : StrategyProbeService {
-    override fun run(config: StrategyProbeConfig): Flow<StrategyProbeResult> =
-        flow {
-            results.forEach { emit(it) }
-        }
-}
-
-private class StreamingStrategyProbeService : StrategyProbeService {
-    private val results = MutableSharedFlow<StrategyProbeResult>(extraBufferCapacity = 8)
-
-    override fun run(config: StrategyProbeConfig): Flow<StrategyProbeResult> = results
-
-    fun emit(result: StrategyProbeResult): Boolean = results.tryEmit(result)
-}
-
-private class FakeStrategyProbeCandidateProvider(
-    private val candidates: List<StrategyProbeCandidate> = defaultCandidates(),
-) : StrategyProbeCandidateProvider {
-    override suspend fun listCandidates(): List<StrategyProbeCandidate> = candidates
-}
-
-private fun defaultCandidates(): List<StrategyProbeCandidate> =
-    listOf(
-        StrategyProbeCandidate("split", "Split", "[tcp]\nsplit auto(balanced)"),
-        StrategyProbeCandidate("fake", "Fake packet", "[tcp]\nfake auto(host)"),
-    )
 
 private fun diagnosis(
     domain: String,
     layer: BlockLayer,
     bypassClass: BypassStrategyClass,
-): BlockcheckSiteDiagnosis =
-    BlockcheckSiteDiagnosis(
-        domain = domain,
-        diagnosis =
-            BlockLayerDiagnosis(
-                layer = layer,
-                bypassClass = bypassClass,
-                confidence = EvidenceConfidence.HIGH,
-                reasonCode = "test",
-            ),
-    )
-
-private class FakeAppSettingsRepository : AppSettingsRepository {
-    private val state = MutableStateFlow(AppSettings.getDefaultInstance())
-
-    override val settings: Flow<AppSettings> = state
-
-    override suspend fun snapshot(): AppSettings = state.value
-
-    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value =
-            state
-                .value
-                .toBuilder()
-                .apply(transform)
-                .build()
-    }
-
-    override suspend fun replace(settings: AppSettings) {
-        state.value = settings
-    }
-}
-
-private class FakeBlockcheckStrategyReloader : BlockcheckStrategyReloader {
-    var reloadCount = 0
-
-    override fun reloadConfig(): String? {
-        reloadCount += 1
-        return null
-    }
-}
+): BlockcheckSiteDiagnosis = blockcheckDiagnosis(domain = domain, layer = layer, bypassClass = bypassClass)
 
 private fun result(
     strategyId: String,
     success: Boolean,
     latencyMs: Long,
-): StrategyProbeResult =
-    StrategyProbeResult(
-        strategyId = strategyId,
-        strategyLabel = if (strategyId == "fake") "Fake packet" else "Split",
-        domain = "youtube.com",
-        success = success,
-        latencyMs = latencyMs,
-    )
+): StrategyProbeResult = blockcheckProbeResult(strategyId = strategyId, success = success, latencyMs = latencyMs)
