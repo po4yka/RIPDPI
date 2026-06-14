@@ -16,14 +16,15 @@ class DetectionCheckPlatform
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
-    ) {
-        val packageName: String
+    ) : DetectionPermissionChecker,
+        DetectionProbeRunner {
+        override val packageName: String
             get() = context.packageName
 
-        fun isPermissionGranted(permission: String): Boolean =
+        override fun isPermissionGranted(permission: String): Boolean =
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
-        suspend fun runDetectionCheck(
+        override suspend fun runDetectionCheck(
             runner: DetectionCheckRunner,
             config: DetectionRunnerConfig,
             onProgress: (DetectionProgress) -> Unit,
