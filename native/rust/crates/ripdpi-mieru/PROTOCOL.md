@@ -158,6 +158,27 @@ backpressure. The wire multiplexing (`sessionID`-tagged sub-sessions over one AE
 direction) is faithful to upstream; the ceilings are RIPDPI policy. `off` keeps
 the legacy one-stream-per-carrier path (non-reusable).
 
+**Known limitations (loopback tier; adversarially reviewed):**
+
+- *Head-of-line blocking.* One reader task drains the carrier; if a sub-session's
+  consumer stalls, its bounded mailbox fills and the shared reader blocks, pausing
+  inbound delivery for all co-multiplexed sub-sessions until it drains. This
+  couples streams the wire model treats as independent. It is a liveness property,
+  not a correctness/isolation one (no mis-delivery). Credit-based per-session flow
+  control is the follow-up if HoL latency becomes a problem.
+- *Segment timestamp staleness.* The carrier captures `now_unix` once at open and
+  stamps every segment's metadata timestamp with it (matching the per-carrier-
+  direction model; the replay key is likewise derived once at handshake). On a
+  long-lived carrier these timestamps do not advance — a metadata-freshness, not a
+  key-derivation, consideration.
+- *`sessionID` reuse on close.* A `closeSession*` is routed to whatever mailbox
+  currently holds that random `u32` id. If an id were re-rolled for a new
+  sub-session in the window after the old one was retired, a delayed close could
+  truncate the new one (spurious EOF). Accidental probability is ~2⁻³² per open;
+  an adversarial server could target it, but a relay server can already truncate
+  any stream by dropping bytes, so this grants no new capability. A per-session
+  generation tag would close it (the wire has no generation field today).
+
 ## 8. Verification tier
 
 - **Primitive vectors** (`cipher.rs`, `metadata.rs`, `segment.rs`): deterministic
