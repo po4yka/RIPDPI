@@ -1,13 +1,12 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 @Serializable
 data class StrategyProbeResultDto(
@@ -72,10 +71,15 @@ class StrategyEngineNativeBindings internal constructor() : StrategyEngineBindin
  *
  * The Rust Lua engine is process-global, and changing it to a per-session
  * handle would require native signature changes. This wrapper therefore
- * serializes mutating calls through a shared Kotlin [Mutex]: [luaLoadScript],
- * [luaReloadConfig], and [injectProbeResults] can never enter native mutation
- * concurrently, even when callers use separate wrapper instances. Read-only
- * listing and validation calls are forwarded without taking the mutation lock.
+ * serializes mutating calls through a process-global [ReentrantLock]:
+ * [luaLoadScript], [luaReloadConfig], and [injectProbeResults] can never enter
+ * native mutation concurrently, even when callers use separate wrapper
+ * instances. Read-only listing and validation calls are forwarded without
+ * taking the mutation lock.
+ *
+ * The lock is a plain JVM lock rather than a coroutine `Mutex` so these
+ * non-suspend binding methods acquire it directly, without a `runBlocking`
+ * that would park an IO-dispatcher thread for the lock duration.
  */
 class ProcessGlobalStrategyEngineBindings(
     private val delegate: StrategyEngineBindings = StrategyEngineNativeBindings(),
@@ -105,14 +109,12 @@ class ProcessGlobalStrategyEngineBindings(
         }
 
     private fun <T> withProcessGlobalLuaMutationLock(block: () -> T): T =
-        runBlocking {
-            strategyEngineProcessGlobalMutationMutex.withLock {
-                block()
-            }
+        strategyEngineProcessGlobalMutationLock.withLock {
+            block()
         }
 }
 
-private val strategyEngineProcessGlobalMutationMutex = Mutex()
+private val strategyEngineProcessGlobalMutationLock = ReentrantLock()
 
 private val StrategyProbeResultJson =
     RipDpiEncodeDefaultsJson
