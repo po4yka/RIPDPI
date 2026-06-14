@@ -24,9 +24,11 @@ interface StrategyEngineBindings {
 
     fun luaReloadConfig(): String?
 
-    fun luaListStrategies(): Array<String>
+    // Nullable: a contained native panic marshals to null. Consumers coalesce so
+    // a non-null Kotlin array is never assumed at the JNI boundary (see Gap 2).
+    fun luaListStrategies(): Array<String>?
 
-    fun luaLoadedScriptPaths(): Array<String>
+    fun luaLoadedScriptPaths(): Array<String>?
 
     fun luaValidateScript(path: String): String?
 
@@ -51,9 +53,9 @@ class StrategyEngineNativeBindings internal constructor() : StrategyEngineBindin
 
     external override fun luaReloadConfig(): String?
 
-    external override fun luaListStrategies(): Array<String>
+    external override fun luaListStrategies(): Array<String>?
 
-    external override fun luaLoadedScriptPaths(): Array<String>
+    external override fun luaLoadedScriptPaths(): Array<String>?
 
     external override fun luaValidateScript(path: String): String?
 
@@ -88,9 +90,9 @@ class ProcessGlobalStrategyEngineBindings(
             delegate.luaReloadConfig()
         }
 
-    override fun luaListStrategies(): Array<String> = delegate.luaListStrategies()
+    override fun luaListStrategies(): Array<String>? = delegate.luaListStrategies()
 
-    override fun luaLoadedScriptPaths(): Array<String> = delegate.luaLoadedScriptPaths()
+    override fun luaLoadedScriptPaths(): Array<String>? = delegate.luaLoadedScriptPaths()
 
     override fun luaValidateScript(path: String): String? = delegate.luaValidateScript(path)
 

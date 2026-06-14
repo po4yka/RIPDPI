@@ -23,7 +23,7 @@ class StrategyEngineJniInstrumentedTest {
         assertNull(bindings.luaLoadScript(File(luaDir, "zapret-lib.lua").absolutePath))
         assertNull(bindings.luaLoadScript(File(luaDir, "zapret-antidpi.lua").absolutePath))
 
-        assertTrue(bindings.luaListStrategies().contains("multisplit"))
+        assertTrue(bindings.luaListStrategies().orEmpty().contains("multisplit"))
     }
 
     @Test

@@ -122,7 +122,10 @@ class Tun2SocksNativeBindings
             jniStop(handle)
         }
 
-        override fun getStats(handle: Long): LongArray = jniGetStats(handle)
+        // A contained native panic marshals to a null jlongArray; coalesce so callers
+        // (TunnelStats.fromNative) never see null and NPE. fromNative treats an empty
+        // array as all-zero stats.
+        override fun getStats(handle: Long): LongArray = jniGetStats(handle) ?: LongArray(0)
 
         override fun getTelemetry(handle: Long): String? = jniGetTelemetry(handle)
 
@@ -145,7 +148,7 @@ class Tun2SocksNativeBindings
 
         private external fun jniStop(handle: Long)
 
-        private external fun jniGetStats(handle: Long): LongArray
+        private external fun jniGetStats(handle: Long): LongArray?
 
         private external fun jniGetTelemetry(handle: Long): String?
 
