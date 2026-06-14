@@ -62,6 +62,51 @@ pub fn classify_failure_payload(payload: &[u8]) -> ShadowTlsFailureKind {
     }
 }
 
+/// A ShadowTLS handshake failure that [`classify_failure_payload`] recognised as
+/// a v2/v3 wire-version mismatch. Carried as the inner error of an [`io::Error`]
+/// (`io::Error::other`) so the relay layer can downcast it
+/// (`error.get_ref().downcast_ref::<ShadowTlsHandshakeError>()`) and map it to
+/// `ripdpi-failure-classifier::FailureClass::ShadowTlsVersionMismatch`, producing
+/// a user-actionable "upgrade your ShadowTLS server to v3" diagnostic instead of
+/// a generic TLS handshake error. `ripdpi-shadowtls` deliberately does not depend
+/// on the failure-classifier crate; the typed error is the seam.
+///
+/// Mirrors `ripdpi_tuic::TuicHandshakeError`. See
+/// `docs/architecture/shadowtls-version-policy.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShadowTlsHandshakeError {
+    kind: ShadowTlsFailureKind,
+}
+
+impl ShadowTlsHandshakeError {
+    /// The server presented v2 framing during the handshake (a raw TLS record
+    /// where this v3-only client expects the HMAC-authenticated switch frame).
+    #[must_use]
+    pub const fn version_mismatch() -> Self {
+        Self { kind: ShadowTlsFailureKind::VersionMismatch }
+    }
+
+    /// The coarse failure kind this error carries.
+    #[must_use]
+    pub const fn kind(&self) -> ShadowTlsFailureKind {
+        self.kind
+    }
+}
+
+impl std::fmt::Display for ShadowTlsHandshakeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.kind {
+            ShadowTlsFailureKind::VersionMismatch => f.write_str(
+                "ShadowTLS server speaks v2 framing (this client is v3-only); \
+                 upgrade the server to ShadowTLS v3 — see docs/architecture/shadowtls-version-policy.md",
+            ),
+            ShadowTlsFailureKind::Other => f.write_str("ShadowTLS handshake failed"),
+        }
+    }
+}
+
+impl std::error::Error for ShadowTlsHandshakeError {}
+
 #[cfg(test)]
 mod classify_failure_tests {
     use super::*;

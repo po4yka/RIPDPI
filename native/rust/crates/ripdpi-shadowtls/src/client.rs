@@ -11,6 +11,7 @@ use crate::frames::{TLS_ALERT, TLS_APPLICATION_DATA, read_tls_frame, verify_hand
 use crate::handshake::{build_rustls_config, modify_client_hello, parse_validated_server_hello, read_client_hello};
 use crate::hmac::ShadowTlsHmac;
 use crate::stream::ShadowTlsStream;
+use crate::{ShadowTlsFailureKind, ShadowTlsHandshakeError, classify_failure_payload};
 
 #[derive(Debug, Clone)]
 pub struct ShadowTlsClient {
@@ -119,6 +120,18 @@ where
                 ));
             }
             Some(_) => {
+                // Version-mismatch seam: at this switch point a v3 server sends the
+                // HMAC-authenticated TLS_APPLICATION_DATA (0x17) frame. A raw TLS
+                // handshake record (0x16 0x03 ..) here means the server did not
+                // perform v3's immediate post-ServerHello switch — a v2-framing
+                // signal. The ServerHello is also 0x16 0x03 but is read and
+                // validated BEFORE this loop, never here. A bad-password v3 reject
+                // instead sends a 0x17 frame whose HMAC fails `verify_handshake_frame`
+                // above, classifying as `Other` and never reaching this branch as a
+                // version mismatch — so auth failures are not false-positived.
+                if classify_failure_payload(&frame) == ShadowTlsFailureKind::VersionMismatch {
+                    return Err(io::Error::other(ShadowTlsHandshakeError::version_mismatch()));
+                }
                 client_conn.read_tls(&mut std::io::Cursor::new(frame.as_slice()))?;
                 client_conn.process_new_packets().map_err(|error| {
                     io::Error::new(io::ErrorKind::InvalidData, format!("shadowtls process handshake frame: {error}"))
