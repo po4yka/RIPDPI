@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.subscription.XrayConfigImportParser
 import com.poyka.ripdpi.data.subscription.XrayConfigImportResult
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -58,7 +59,10 @@ class XrayImportNativeActivationTest {
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
             val activator =
-                NativeRelayProfileActivator(repository, relayProfileStore, relayCredentialStore, settingsRepository)
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
 
             val config =
                 """
@@ -97,7 +101,10 @@ class XrayImportNativeActivationTest {
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
             val activator =
-                NativeRelayProfileActivator(repository, relayProfileStore, relayCredentialStore, settingsRepository)
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
 
             val config =
                 """
