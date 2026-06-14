@@ -22,7 +22,7 @@ class NativeStrategyConfigRuntime(
 
     override fun loadLuaScript(path: String): String? = bindings.luaLoadScript(path)
 
-    override fun listLuaStrategies(): Array<String> = bindings.luaListStrategies()
+    override fun listLuaStrategies(): Array<String> = bindings.luaListStrategies() ?: emptyArray()
 
     override fun validateStrategyConfigText(configText: String): String? =
         bindings.validateStrategyConfigText(configText)

@@ -268,12 +268,12 @@ class DefaultStrategyProbeCandidateProvider
 
         private fun luaStrategyProbeCandidates(): List<StrategyProbeCandidate> =
             runCatching {
-                val scriptPaths = bindings.luaLoadedScriptPaths().map(String::trim).filter(String::isNotEmpty)
+                val scriptPaths =
+                    (bindings.luaLoadedScriptPaths() ?: emptyArray()).map(String::trim).filter(String::isNotEmpty)
                 if (scriptPaths.isEmpty()) {
                     return@runCatching emptyList()
                 }
-                bindings
-                    .luaListStrategies()
+                (bindings.luaListStrategies() ?: emptyArray())
                     .asSequence()
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
