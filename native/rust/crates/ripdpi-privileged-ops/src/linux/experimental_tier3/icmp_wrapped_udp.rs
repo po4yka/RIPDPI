@@ -26,6 +26,14 @@ pub fn recv_icmp_wrapped_udp(
     let deadline = Instant::now() + filter.timeout();
     let mut buf = [MaybeUninit::<u8>::uninit(); 8192];
 
+    // Layout identity relied on by the `buf.as_ptr().cast::<u8>()` read below:
+    // `MaybeUninit<u8>` is guaranteed by `core` to share `u8`'s size and
+    // alignment, so the pointer cast is sound (not merely a same-size coincidence).
+    const _: () = {
+        assert!(core::mem::size_of::<MaybeUninit<u8>>() == core::mem::size_of::<u8>());
+        assert!(core::mem::align_of::<MaybeUninit<u8>>() == core::mem::align_of::<u8>());
+    };
+
     loop {
         let now = Instant::now();
         if now >= deadline {
@@ -47,7 +55,11 @@ pub fn recv_icmp_wrapped_udp(
         };
 
         let peer_ip = sock_addr_ip(&addr).unwrap_or(filter.bind_ip);
-        // SAFETY: `recv_from` initialized the first `received` bytes.
+        // SAFETY: `recv_from` initialized the first `received` bytes of `buf`, and
+        // `received <= buf.len()`. `MaybeUninit<u8>` is layout-identical to `u8`
+        // (size and alignment asserted in the const block above), so
+        // `buf.as_ptr().cast::<u8>()` is a correctly-aligned pointer to `received`
+        // initialized `u8`s — exactly the precondition `from_raw_parts` requires.
         let packet = unsafe { std::slice::from_raw_parts(buf.as_ptr().cast::<u8>(), received) };
         let Some((role, code, payload)) = extract_icmp_envelope(peer_ip, packet) else {
             continue;

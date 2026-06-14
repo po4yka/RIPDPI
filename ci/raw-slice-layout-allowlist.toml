@@ -45,12 +45,14 @@
 [[entries]]
 file = "native/rust/crates/ripdpi-privileged-ops/src/linux/experimental_tier3/icmp_wrapped_udp.rs"
 pattern = "from_raw_parts"
-line = 51
+line = 63
 reason = "Constructs `&[u8]` view over the bytes a `recv_from` syscall initialized."
 soundness_argument = """
-Pointer = `buf.as_ptr().cast::<u8>()` -- `buf` is a stack `[u8; N]`
-owned by the enclosing loop iteration; the resulting `&[u8]` borrow
-cannot outlive the iteration.
+Pointer = `buf.as_ptr().cast::<u8>()` -- `buf` is a stack
+`[MaybeUninit<u8>; 8192]` owned by the enclosing function; the cast to
+`*const u8` is sound because `MaybeUninit<u8>` is layout-identical to
+`u8` (size and alignment asserted by the `const _` block above the
+read). The resulting `&[u8]` borrow cannot outlive the function.
 
 Alignment = `u8` requires alignment 1; trivially satisfied.
 

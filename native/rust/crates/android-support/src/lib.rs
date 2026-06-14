@@ -4,6 +4,7 @@ mod ffi_boundary;
 mod handles;
 mod http;
 mod logging;
+mod shared_jvm;
 mod sync;
 mod tracing_layer;
 
@@ -30,6 +31,7 @@ pub use logging::{
     default_android_log_level, ignore_sigpipe, init_android_logging, install_panic_hook, log_with_level,
     set_android_log_scope_level,
 };
+pub use shared_jvm::SharedJvm;
 pub use tracing_layer::EventRingLayer;
 
 pub const JNI_VERSION: jint = jni::sys::JNI_VERSION_1_6;

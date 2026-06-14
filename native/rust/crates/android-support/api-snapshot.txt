@@ -48,6 +48,12 @@ pub android_support::RingConfig::tunnel_capacity: usize
 pub android_support::RingConfig::warp_capacity: usize
 impl core::default::Default for android_support::RingConfig
 pub fn android_support::RingConfig::default() -> Self
+pub struct android_support::SharedJvm(_)
+impl android_support::SharedJvm
+pub fn android_support::SharedJvm::new(&jni::vm::java_vm::JavaVM) -> Self
+impl core::ops::deref::Deref for android_support::SharedJvm
+pub type android_support::SharedJvm::Target = jni::vm::java_vm::JavaVM
+pub fn android_support::SharedJvm::deref(&self) -> &Self::Target
 pub const android_support::JNI_VERSION: jni_sys::jint
 pub fn android_support::android_log_level_from_debug_verbosity(i32) -> log::LevelFilter
 pub fn android_support::android_log_level_from_str(&str) -> core::option::Option<log::LevelFilter>

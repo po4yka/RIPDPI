@@ -1,38 +1,24 @@
 use std::io;
 use std::os::fd::RawFd;
 
-use jni::JavaVM;
+use android_support::SharedJvm;
 use jni::objects::{JObject, JValue};
 use jni::refs::Global;
 use ripdpi_native_protect::ProtectCallback;
 
 pub(crate) struct JniProtectCallback {
-    pub(crate) vm: JavaVM,
+    pub(crate) vm: SharedJvm,
     pub(crate) vpn_service: Global<JObject<'static>>,
 }
 
-// SAFETY: The two fields are the only state moved across the thread boundary.
-// - `vm: JavaVM` is documented by the `jni` crate as safe to move between
-//   threads: it represents the process-global JNI invocation interface, and the
-//   thread that ends up owning the value obtains its own `JNIEnv` via
-//   `attach_current_thread` (see `protect`). No `JNIEnv`/`AttachGuard` is ever
-//   stored in this struct, so the non-`Send` thread-locality of those types
-//   never escapes.
-// - `vpn_service: Global<JObject<'static>>` is a JNI global reference: the Java
-//   object it names is pinned alive by the VM regardless of which thread holds
-//   the handle, and transferring the handle is a plain pointer move.
-// The auto-`Send` impl is blocked only because the raw JNI handle types are
-// conservatively `!Send`; the invariants above make the move sound.
-unsafe impl Send for JniProtectCallback {}
-// SAFETY: shared (`&self`) access goes through `protect`, which (1) calls
-// `attach_current_thread` to obtain a thread-local `JNIEnv` — the JNI invocation
-// interface (`JavaVM`) is explicitly designed for concurrent attach from any
-// thread — and (2) only reads `vpn_service` to issue a JNI method call; it never
-// mutates either field. `JObject` global references are safe to dereference
-// concurrently. No interior mutability or non-`Sync` state is reachable through
-// `&JniProtectCallback`, so `&self` is sound to share across threads. The
-// auto-`Sync` impl is blocked only by the conservative `!Sync` raw JNI handles.
-unsafe impl Sync for JniProtectCallback {}
+// `JniProtectCallback` auto-derives `Send + Sync`: both fields — `vm: SharedJvm`
+// (`Arc<JavaVM>`) and `vpn_service: Global<JObject<'static>>` — are themselves
+// `Send + Sync` in jni 0.22. `protect()` only calls `attach_current_thread`
+// (obtaining its own thread-local `JNIEnv` per call) and reads the global ref; no
+// `JNIEnv`/`AttachGuard` is ever stored. Relying on the auto-derive instead of a
+// manual `unsafe impl` keeps the compiler's `!Send`/`!Sync`-field tripwire intact —
+// a future non-thread-safe field breaks the `assert_send`/`assert_sync` guards in
+// `lib.rs` instead of being silently forced thread-safe.
 
 impl ProtectCallback for JniProtectCallback {
     fn protect(&self, fd: RawFd) -> io::Result<()> {

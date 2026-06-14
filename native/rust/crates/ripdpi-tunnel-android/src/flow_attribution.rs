@@ -27,6 +27,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use android_support::SharedJvm;
 use jni::objects::{JObject, JValue};
 use jni::refs::Global;
 use jni::{EnvUnowned, JavaVM, Outcome};
@@ -51,16 +52,15 @@ trait FlowNotifier: Send {
 /// thread on demand. Mirrors `ripdpi-android-vpn-protect-adapter`'s
 /// `JniProtectCallback`.
 struct JniFlowNotifier {
-    vm: JavaVM,
+    vm: SharedJvm,
     bridge: Global<JObject<'static>>,
 }
 
-// SAFETY: JavaVM is Send+Sync and Global<JObject<'static>> keeps the Java object
-// alive across threads. note() only attaches the current thread and reads the
-// global ref.
-unsafe impl Send for JniFlowNotifier {}
-// SAFETY: see above; no interior mutability is shared without JNI's own guards.
-unsafe impl Sync for JniFlowNotifier {}
+// `JniFlowNotifier` auto-derives `Send + Sync`: `SharedJvm` (`Arc<JavaVM>`) and
+// `Global<JObject<'static>>` are both `Send + Sync` in jni 0.22. Relying on the
+// auto-derive rather than a manual `unsafe impl` keeps the compiler tripwire — a
+// future non-thread-safe field breaks the `assert_send`/`assert_sync` guard below
+// instead of being silently forced thread-safe.
 
 impl FlowNotifier for JniFlowNotifier {
     fn note(&self, request: FlowResolveRequest) {
@@ -189,9 +189,8 @@ fn register_with_notifier(notifier: Box<dyn FlowNotifier>) -> std::io::Result<At
 /// Returns the generation token Kotlin threads back to
 /// [`unregister_flow_attribution`].
 fn register_flow_attribution(vm: &JavaVM, bridge: Global<JObject<'static>>) -> i64 {
-    // SAFETY: the JavaVM pointer is valid for the life of the process (held by the
-    // JNI runtime); `from_raw` only copies the pointer.
-    let vm = unsafe { JavaVM::from_raw(vm.get_raw()) };
+    // The single auditable `JavaVM::from_raw` site lives in `SharedJvm::new`.
+    let vm = SharedJvm::new(vm);
     match register_with_notifier(Box::new(JniFlowNotifier { vm, bridge })) {
         Ok(generation) => {
             tracing::info!(generation = generation.token(), "flow-attribution bridge registered via JNI");
