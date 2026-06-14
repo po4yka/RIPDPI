@@ -23,6 +23,9 @@ url = { workspace = true }
 [dev-dependencies]
 android-support = { workspace = true }
 local-network-fixture = { workspace = true }
+# `test-server` exposes `ShadowTlsV2RejectLoopback` for the version-mismatch
+# end-to-end test. Dev-only edge — not counted by the arch-health dependency gate.
+ripdpi-shadowtls = { workspace = true, features = ["test-server"] }
 serde_json = { workspace = true }
 tracing-subscriber = { workspace = true }
 

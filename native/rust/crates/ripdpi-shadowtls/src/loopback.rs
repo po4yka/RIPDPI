@@ -100,16 +100,15 @@ impl Drop for ShadowTlsLoopback {
 /// classifies it as `ShadowTlsFailureKind::VersionMismatch`. See
 /// `docs/architecture/shadowtls-version-policy.md`.
 ///
-/// Test-only: this fixture exists for this crate's version-mismatch tests, not
-/// for the `test-server` feature consumers, so it is gated on `cfg(test)`.
-#[cfg(test)]
+/// Available to this crate's tests and, under the `test-server` feature, to
+/// downstream crates' integration tests (e.g. `ripdpi-relay-core` /
+/// `ripdpi-relay-tls-transports`) that drive the version-mismatch path end to end.
 pub struct ShadowTlsV2RejectLoopback {
     local_addr: SocketAddr,
     shutdown: Option<oneshot::Sender<()>>,
     join: Option<JoinHandle<()>>,
 }
 
-#[cfg(test)]
 impl ShadowTlsV2RejectLoopback {
     /// Start a loopback that always answers like a v2 server.
     ///
@@ -153,7 +152,6 @@ impl ShadowTlsV2RejectLoopback {
     }
 }
 
-#[cfg(test)]
 impl Drop for ShadowTlsV2RejectLoopback {
     fn drop(&mut self) {
         if let Some(tx) = self.shutdown.take() {
@@ -162,11 +160,10 @@ impl Drop for ShadowTlsV2RejectLoopback {
     }
 }
 
-#[cfg(test)]
 async fn handle_v2_reject_connection(mut stream: TcpStream) -> io::Result<()> {
     use std::io::Cursor;
 
-    use tokio::io::AsyncWriteExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     // 1-3. Relay a valid ServerHello (mirrors `handle_connection` steps 1-3) so
     //      the client's `parse_validated_server_hello` succeeds — a v2 server
@@ -203,9 +200,18 @@ async fn handle_v2_reject_connection(mut stream: TcpStream) -> io::Result<()> {
     stream.write_all(V2_HANDSHAKE_RECORD).await?;
     stream.flush().await?;
 
-    // Hold the connection open so the client's read of the v2 record succeeds
-    // before the peer half-closes (a close here could surface as EOF instead).
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    // Hold the connection open until the client closes, draining whatever it
+    // writes (e.g. a TLS middlebox-compat ChangeCipherSpec). Draining the peer's
+    // bytes means the eventual close is a clean FIN rather than an RST, so the
+    // client is guaranteed to read the v2 record before EOF instead of racing a
+    // reset that could discard the already-sent bytes.
+    let mut sink = [0u8; 64];
+    loop {
+        match stream.read(&mut sink).await {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {}
+        }
+    }
     Ok(())
 }
 
