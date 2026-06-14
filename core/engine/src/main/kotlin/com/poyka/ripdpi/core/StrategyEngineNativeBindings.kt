@@ -19,7 +19,16 @@ data class StrategyProbeResultDto(
 )
 
 interface StrategyEngineBindings {
-    fun luaLoadScript(path: String): String?
+    /**
+     * Loads the Lua script at [path], confined to the absolute `<filesDir>/lua`
+     * [baseDir] jail (seeded first-wins from [baseDir] on the first load — no
+     * trust-on-first-use). A [path] that escapes the jail is rejected. Returns
+     * `null` on success or an error string.
+     */
+    fun luaLoadScript(
+        baseDir: String,
+        path: String,
+    ): String?
 
     fun luaReloadConfig(): String?
 
@@ -48,7 +57,10 @@ class StrategyEngineNativeBindings internal constructor() : StrategyEngineBindin
         RipDpiNativeLoader.ensureLoaded()
     }
 
-    external override fun luaLoadScript(path: String): String?
+    external override fun luaLoadScript(
+        baseDir: String,
+        path: String,
+    ): String?
 
     external override fun luaReloadConfig(): String?
 
@@ -84,9 +96,12 @@ class StrategyEngineNativeBindings internal constructor() : StrategyEngineBindin
 class ProcessGlobalStrategyEngineBindings(
     private val delegate: StrategyEngineBindings = StrategyEngineNativeBindings(),
 ) : StrategyEngineBindings {
-    override fun luaLoadScript(path: String): String? =
+    override fun luaLoadScript(
+        baseDir: String,
+        path: String,
+    ): String? =
         withProcessGlobalLuaMutationLock {
-            delegate.luaLoadScript(path)
+            delegate.luaLoadScript(baseDir, path)
         }
 
     override fun luaReloadConfig(): String? =

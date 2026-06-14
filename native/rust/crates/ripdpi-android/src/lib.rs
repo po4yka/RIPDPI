@@ -121,7 +121,7 @@ mod tests {
             Java_com_poyka_ripdpi_core_RipDpiSharedPriorsNativeBindings_jniApplySharedPriors
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, JString<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaLoadScript
-                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, JString<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaReloadConfig
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaListStrategies

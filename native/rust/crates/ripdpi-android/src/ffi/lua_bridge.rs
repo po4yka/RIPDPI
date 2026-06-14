@@ -12,31 +12,48 @@ static LUA_ENGINE: LazyLock<Result<Mutex<LuaStrategyEngine>, String>> =
     LazyLock::new(|| LuaStrategyEngine::new().map(Mutex::new).map_err(|error| error.to_string()));
 static LOADED_SCRIPT_PATHS: LazyLock<Mutex<Vec<PathBuf>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
-/// Trust-on-first-use jail directory for the JNI `luaLoadScript` surface.
+/// Explicitly-seeded jail directory for the JNI `luaLoadScript` surface.
 ///
-/// `luaLoadScript` receives a user-typed absolute path from the app's advanced
-/// Lua field; in the legitimate flow the first load at startup is the bundled
-/// `<filesDir>/lua/…` script extracted by `LuaAssetManager`. The canonical
-/// parent of that first script is locked here, and every subsequent JNI load
-/// must canonicalize to a file inside it — closing cross-directory path escape
-/// (absolute or `../`) after the first local load. Genuinely untrusted
-/// *imported* configs do not reach this path; they go through the registry,
-/// which jails the VM to the config's own base directory via `new_jailed`.
+/// `luaLoadScript` receives a user-typed absolute `path` plus the canonical
+/// `<filesDir>/lua` `base_dir` (produced by `LuaAssetManager`) on every call.
+/// The first load seeds this jail base (first-seed-wins) and every load — first
+/// included — must canonicalize to a file inside it, closing cross-directory
+/// path escape (absolute or `../`).
+///
+/// This deliberately replaces the previous trust-on-first-use scheme, where the
+/// canonical parent of the *first* `luaLoadScript` path became the jail: a
+/// user/attacker-influenced first path could pin the jail to an arbitrary
+/// directory. Folding the base into the load also removes the unseeded window
+/// entirely; [`LuaBridgeError::JailNotSeeded`] remains as defence for the
+/// (now unreachable in production) case of a load against an unseeded jail.
+///
+/// Genuinely untrusted *imported* configs do not reach this path; they go
+/// through the registry, which jails the VM to the config's own base directory
+/// via `new_jailed`.
 static LUA_JNI_SCRIPT_JAIL: OnceLock<PathBuf> = OnceLock::new();
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaLoadScript(
     env: EnvUnowned<'_>,
     _thiz: JObject<'_>,
+    base_dir: JString<'_>,
     path: JString<'_>,
 ) -> jstring {
     ffi_boundary(core::ptr::null_mut(), move || {
-        nullable_error_entry(env, path, |path| {
-            let canonical = jail_jni_script_path(&path)?;
-            engine()?.load_script_registering_globals(&canonical)?;
-            remember_loaded_path(canonical)?;
-            Ok(())
-        })
+        let mut env = env;
+        match env
+            .with_env(|env| -> jni::errors::Result<jstring> {
+                let base_dir = base_dir.mutf8_chars(env)?.to_str().into_owned();
+                let path = path.mutf8_chars(env)?.to_str().into_owned();
+                let result = load_script_in_jail(PathBuf::from(base_dir), PathBuf::from(path))
+                    .map_err(|error| error.to_string());
+                error_to_nullable_jstring(env, result)
+            })
+            .into_outcome()
+        {
+            Outcome::Ok(value) => value,
+            _ => std::ptr::null_mut(),
+        }
     })
 }
 
@@ -206,25 +223,61 @@ fn reload_loaded_scripts() -> Result<(), LuaBridgeError> {
     Ok(())
 }
 
-/// Confines a JNI `luaLoadScript` path to the trust-on-first-use jail dir.
+/// Seeds the JNI script jail base from the `<filesDir>/lua` directory that
+/// Kotlin passes to `luaLoadScript` (sourced from `LuaAssetManager`). The
+/// directory is canonicalized (resolving symlinks and `..`) before being
+/// locked, so later containment checks compare canonical-vs-canonical. Seeding
+/// is idempotent: the first successful seed wins and subsequent calls are a
+/// no-op, so a stray later seed cannot move the jail.
+fn seed_jni_script_jail(dir: &Path) -> Result<(), LuaBridgeError> {
+    let canonical = std::fs::canonicalize(dir)
+        .map_err(|source| LuaBridgeError::JailSeedRead { path: dir.to_path_buf(), source })?;
+    // `set` returns Err if already seeded; first seed wins, so ignore it.
+    let _ = LUA_JNI_SCRIPT_JAIL.set(canonical);
+    Ok(())
+}
+
+/// Seeds the jail from the caller-supplied `<filesDir>/lua` `base_dir`
+/// (first-seed-wins) and loads `path` confined to it. Folding the base into the
+/// load removes any unseeded window and avoids a separate JNI surface to seed
+/// the jail.
+fn load_script_in_jail(base_dir: PathBuf, path: PathBuf) -> Result<(), LuaBridgeError> {
+    seed_jni_script_jail(&base_dir)?;
+    let canonical = jail_jni_script_path(&path)?;
+    engine()?.load_script_registering_globals(&canonical)?;
+    remember_loaded_path(canonical)?;
+    Ok(())
+}
+
+/// Confines a JNI `luaLoadScript` path to the explicitly-seeded jail dir.
 ///
-/// The target is canonicalized first (resolving symlinks and `..`); the
-/// canonical parent of the *first* load is locked as the jail base, and every
-/// later load must canonicalize to a file inside it. A path that escapes the
+/// The target is canonicalized first (resolving symlinks and `..`) and must
+/// canonicalize to a file inside the seeded base. A path that escapes the
 /// locked directory — an absolute path elsewhere or a `../` traversal — is
-/// rejected before the engine reads the file.
+/// rejected before the engine reads the file. If the jail has not been seeded
+/// yet (the `base_dir` of the first `luaLoadScript` call), the load is rejected
+/// outright rather than trust-on-first-use pinning the jail to the requested path.
 fn jail_jni_script_path(path: &Path) -> Result<PathBuf, LuaBridgeError> {
     let canonical = std::fs::canonicalize(path)
         .map_err(|source| LuaBridgeError::ScriptRead { path: path.to_path_buf(), source })?;
-    let parent =
-        canonical.parent().ok_or_else(|| LuaBridgeError::ScriptPathEscape { path: path.to_path_buf() })?.to_path_buf();
-    let base = LUA_JNI_SCRIPT_JAIL.get_or_init(|| parent);
-    enforce_jni_jail(base, path, &canonical)
+    resolve_in_jail(LUA_JNI_SCRIPT_JAIL.get().map(PathBuf::as_path), path, &canonical)
+}
+
+/// Pure jail resolution against an optional seeded `base`.
+///
+/// Returns [`LuaBridgeError::JailNotSeeded`] when `base` is `None` (the jail was
+/// never seeded), otherwise delegates to [`enforce_jni_jail`]. Split out from
+/// [`jail_jni_script_path`] so both the "unseeded load" and "seeded but
+/// out-of-jail" rules are unit-testable without touching the process-global
+/// [`LUA_JNI_SCRIPT_JAIL`].
+fn resolve_in_jail(base: Option<&Path>, requested: &Path, target: &Path) -> Result<PathBuf, LuaBridgeError> {
+    let base = base.ok_or(LuaBridgeError::JailNotSeeded)?;
+    enforce_jni_jail(base, requested, target)
 }
 
 /// Pure jail check: the canonicalized `target` must live inside the locked
 /// `base` directory, otherwise the original `requested` path is rejected as an
-/// escape. Split out from [`jail_jni_script_path`] so the containment rule is
+/// escape. Split out from [`resolve_in_jail`] so the containment rule is
 /// unit-testable without touching the process-global [`LUA_JNI_SCRIPT_JAIL`].
 fn enforce_jni_jail(base: &Path, requested: &Path, target: &Path) -> Result<PathBuf, LuaBridgeError> {
     if target.starts_with(base) {
@@ -242,15 +295,19 @@ enum LuaBridgeError {
     LockPoisoned(&'static str),
     #[error("Lua script path {path} could not be read: {source}")]
     ScriptRead { path: PathBuf, source: std::io::Error },
+    #[error("Lua script jail directory {path} could not be read: {source}")]
+    JailSeedRead { path: PathBuf, source: std::io::Error },
     #[error("Lua script path {path} escapes the locked script directory")]
     ScriptPathEscape { path: PathBuf },
+    #[error("Lua script jail is not seeded; luaLoadScript must be called with a non-empty base_dir")]
+    JailNotSeeded,
     #[error(transparent)]
     Lua(#[from] LuaError),
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{LuaBridgeError, enforce_jni_jail};
+    use super::{LuaBridgeError, enforce_jni_jail, resolve_in_jail};
     use std::path::Path;
 
     #[test]
@@ -258,6 +315,35 @@ mod tests {
         let base = Path::new("/data/user/0/com.poyka.ripdpi/files/lua");
         let target = base.join("zapret-antidpi.lua");
         let resolved = enforce_jni_jail(base, &target, &target).expect("in-jail path is accepted");
+        assert_eq!(resolved, target);
+    }
+
+    #[test]
+    fn unseeded_jail_rejects_any_load() {
+        // A load resolved against an unseeded jail (an attacker-typed path in
+        // the advanced field) must be rejected, never trust-on-first-use pinned
+        // as the jail base.
+        let requested = Path::new("/sdcard/Download/evil.lua");
+        let error = resolve_in_jail(None, requested, requested).expect_err("unseeded load is rejected");
+        assert!(matches!(error, LuaBridgeError::JailNotSeeded));
+    }
+
+    #[test]
+    fn seeded_jail_rejects_first_arbitrary_load() {
+        // With an explicit seed, the very first load of an out-of-jail path is
+        // rejected — the seed wins over what trust-on-first-use would have
+        // pinned to the attacker-influenced path.
+        let base = Path::new("/data/user/0/com.poyka.ripdpi/files/lua");
+        let requested = Path::new("/sdcard/Download/evil.lua");
+        let error = resolve_in_jail(Some(base), requested, requested).expect_err("out-of-jail first load is rejected");
+        assert!(matches!(error, LuaBridgeError::ScriptPathEscape { .. }));
+    }
+
+    #[test]
+    fn seeded_jail_accepts_in_jail_load() {
+        let base = Path::new("/data/user/0/com.poyka.ripdpi/files/lua");
+        let target = base.join("zapret-antidpi.lua");
+        let resolved = resolve_in_jail(Some(base), &target, &target).expect("in-jail load is accepted");
         assert_eq!(resolved, target);
     }
 

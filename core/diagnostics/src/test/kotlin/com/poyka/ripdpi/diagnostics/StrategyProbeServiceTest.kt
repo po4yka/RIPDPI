@@ -384,7 +384,10 @@ private class FakeStrategyEngineBindings(
     private val luaStrategies: Array<String>?,
     private val luaScriptPaths: Array<String>?,
 ) : StrategyEngineBindings {
-    override fun luaLoadScript(path: String): String? = null
+    override fun luaLoadScript(
+        baseDir: String,
+        path: String,
+    ): String? = null
 
     override fun luaReloadConfig(): String? = null
 

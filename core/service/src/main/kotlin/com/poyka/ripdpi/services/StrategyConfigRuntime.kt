@@ -6,7 +6,15 @@ import com.poyka.ripdpi.core.StrategyEngineBindings
 interface StrategyConfigRuntime {
     fun validateLuaScript(path: String): String?
 
-    fun loadLuaScript(path: String): String?
+    /**
+     * Loads the Lua script at [path], confined to the absolute `<filesDir>/lua`
+     * [baseDir] jail (seeded first-wins from [baseDir]). Returns `null` on
+     * success or an error string.
+     */
+    fun loadLuaScript(
+        baseDir: String,
+        path: String,
+    ): String?
 
     fun listLuaStrategies(): Array<String>
 
@@ -20,7 +28,10 @@ class NativeStrategyConfigRuntime(
 ) : StrategyConfigRuntime {
     override fun validateLuaScript(path: String): String? = bindings.luaValidateScript(path)
 
-    override fun loadLuaScript(path: String): String? = bindings.luaLoadScript(path)
+    override fun loadLuaScript(
+        baseDir: String,
+        path: String,
+    ): String? = bindings.luaLoadScript(baseDir, path)
 
     override fun listLuaStrategies(): Array<String> = bindings.luaListStrategies() ?: emptyArray()
 

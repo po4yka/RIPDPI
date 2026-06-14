@@ -25,12 +25,15 @@ import com.poyka.ripdpi.activities.StrategyConfigApplyResult
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.validateStrategyChainUsage
+import com.poyka.ripdpi.lua.LuaAssetManager
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import com.poyka.ripdpi.services.StrategyConfigRuntime
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun StrategyConfigRoute(
@@ -381,8 +384,14 @@ private suspend fun saveLuaStrategyConfig(
     val path = luaPath.trim()
     val function = luaFunction.trim()
     val yaml = luaStrategyConfigYaml(function = function, scriptPath = path)
+    // The absolute <filesDir>/lua jail base passed into loadLuaScript; the
+    // first load seeds the native jail from it (no trust-on-first-use).
+    val baseDir =
+        withContext(Dispatchers.IO) {
+            runCatching { LuaAssetManager.ensureExtracted(context).toAbsolutePath().toString() }
+        }
     return luaInputValidationBanner(context, path, function)
-        ?: luaRuntimeValidationBanner(context, runtime, path, function)
+        ?: luaRuntimeValidationBanner(context, runtime, baseDir, path, function)
         ?: saveAndApplyStrategyConfig(context, applySavedConfig) { saveRawStrategyConfig(yaml) }
 }
 
@@ -400,6 +409,7 @@ private fun luaInputValidationBanner(
 private fun luaRuntimeValidationBanner(
     context: Context,
     runtime: StrategyConfigRuntime?,
+    baseDir: Result<String>,
     path: String,
     function: String,
 ): StrategyConfigBanner? {
@@ -407,7 +417,10 @@ private fun luaRuntimeValidationBanner(
         if (runtime == null) {
             context.getString(R.string.strategy_config_native_unavailable)
         } else {
-            runtime.loadLuaScript(path)
+            baseDir.fold(
+                onSuccess = { dir -> runtime.loadLuaScript(dir, path) },
+                onFailure = { failure -> failure.localizedMessage ?: failure.toString() },
+            )
         }
     return when {
         error != null -> {
