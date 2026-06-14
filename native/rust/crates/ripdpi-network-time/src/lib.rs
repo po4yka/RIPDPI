@@ -91,6 +91,13 @@ impl Clock for SystemClock {
     }
 }
 
+/// Maximum gap (seconds) between a new calibration observation and the already-
+/// established network time before the observation is rejected as implausible.
+/// 10 minutes comfortably exceeds real intra-session drift and both Mieru's
+/// (~3 min) and Shadowsocks SIP022's (30 s) own freshness windows, while bounding
+/// how far a rogue/misconfigured server can move the shared clock.
+const MAX_PLAUSIBLE_DRIFT_SECS: u64 = 600;
+
 #[derive(Debug, Clone, Copy)]
 struct Anchor {
     /// Network Unix seconds at the moment of calibration.
@@ -166,12 +173,32 @@ impl NetworkTimeProvider {
     }
 
     /// Calibrate the anchor to a server-observed `observed_network_unix`,
-    /// captured against the current monotonic reading. The latest trusted
-    /// observation wins (re-anchoring is cheap and handshakes are infrequent).
-    pub fn calibrate(&self, observed_network_unix: i64) {
+    /// captured against the current monotonic reading. Returns whether the
+    /// observation was accepted.
+    ///
+    /// The **first** observation is always accepted (bootstrap — it may correct a
+    /// grossly-wrong device clock). Once anchored, an observation that disagrees
+    /// with the established network time by more than [`MAX_PLAUSIBLE_DRIFT_SECS`]
+    /// is **rejected**, so a single misconfigured or hostile (but key-holding)
+    /// server cannot yank the process-wide clock — and thus the replay window of
+    /// *other* transports sharing this provider — to an arbitrary value. Real
+    /// drift over a session is far inside this window; in-window observations
+    /// re-anchor (refining toward the freshest server time).
+    pub fn calibrate(&self, observed_network_unix: i64) -> bool {
         let mono = self.clock.monotonic_nanos();
         let mut guard = self.anchor.lock().unwrap_or_else(PoisonError::into_inner);
+        // Compute the current estimate under the same lock (calling `now_unix`
+        // here would re-lock the non-reentrant mutex and deadlock).
+        if let Some(anchor) = *guard {
+            let elapsed_nanos = mono.saturating_sub(anchor.mono_nanos);
+            let elapsed_secs = i64::try_from(elapsed_nanos / 1_000_000_000).unwrap_or(i64::MAX);
+            let estimate = anchor.net_unix.saturating_add(elapsed_secs);
+            if observed_network_unix.saturating_sub(estimate).unsigned_abs() > MAX_PLAUSIBLE_DRIFT_SECS {
+                return false;
+            }
+        }
         *guard = Some(Anchor { net_unix: observed_network_unix, mono_nanos: mono });
+        true
     }
 
     /// Whether an anchor has been set (the replay clock is network-derived).
@@ -266,17 +293,33 @@ mod tests {
     }
 
     #[test]
+    fn calibration_rejects_implausible_drift_after_anchoring() {
+        let clock = std::sync::Arc::new(TestClock::new(0));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
+        // First observation always accepted (bootstrap — may correct a wrong clock).
+        assert!(provider.calibrate(1_000_000_000));
+        assert_eq!(provider.now_unix(), 1_000_000_000);
+        // A wild jump from a rogue/misconfigured server (> MAX_PLAUSIBLE_DRIFT) is
+        // rejected and must not move the shared clock.
+        assert!(!provider.calibrate(1_000_000_000 + 3_600));
+        assert_eq!(provider.now_unix(), 1_000_000_000, "implausible calibration must not move the clock");
+        // A small in-window correction re-anchors.
+        assert!(provider.calibrate(1_000_000_010));
+        assert_eq!(provider.now_unix(), 1_000_000_010);
+    }
+
+    #[test]
     fn recalibration_reanchors_to_latest_observation() {
         let clock = std::sync::Arc::new(TestClock::new(0));
         let provider = NetworkTimeProvider::with_clock(Box::new(clock.clone()));
         provider.calibrate(1_000);
         clock.advance_secs(10);
         assert_eq!(provider.now_unix(), 1_010);
-        // A fresh, corrected observation re-anchors from the new monotonic point.
-        provider.calibrate(2_000);
-        assert_eq!(provider.now_unix(), 2_000);
+        // A fresh, in-window observation re-anchors from the new monotonic point.
+        provider.calibrate(1_400);
+        assert_eq!(provider.now_unix(), 1_400);
         clock.advance_secs(5);
-        assert_eq!(provider.now_unix(), 2_005);
+        assert_eq!(provider.now_unix(), 1_405);
     }
 
     #[test]
