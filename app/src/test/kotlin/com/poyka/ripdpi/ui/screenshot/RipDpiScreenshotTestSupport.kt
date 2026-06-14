@@ -19,6 +19,7 @@ import com.github.takahirom.roborazzi.fontScale
 import com.github.takahirom.roborazzi.inspectionMode
 import com.github.takahirom.roborazzi.registerRoborazziActivityToRobolectricIfNeeded
 import com.github.takahirom.roborazzi.size
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlin.math.roundToInt
 
 private val CROSS_PLATFORM_OPTIONS =
@@ -99,6 +100,42 @@ internal fun captureStaticRoboImage(
             }
         } finally {
             roborazziComposeOptions.afterCapture()
+        }
+    }
+}
+
+/**
+ * Render `<name>_light.png` and `<name>_dark.png` for a full screen. Unlike
+ * [captureBothThemes] in RoborazziCaptureHelpers (which wraps content in a padded
+ * Column for component galleries), this captures the composable as-is so a screen
+ * manages its own Scaffold/insets. The content is wrapped only in [RipDpiTheme]
+ * with the requested theme preference; pass the stateless screen composable with
+ * deterministic preview state.
+ */
+@OptIn(ExperimentalRoborazziApi::class)
+internal fun captureScreenBothThemes(
+    name: String,
+    widthDp: Int,
+    heightDp: Int,
+    testClassFqn: String,
+    fontScale: Float = 1f,
+    content: @Composable () -> Unit,
+) {
+    val moduleRoot = System.getProperty("user.dir")
+    listOf("light", "dark").forEach { themePreference ->
+        captureStaticRoboImage(
+            filePath = "$moduleRoot/src/test/screenshots/$testClassFqn.${name}_$themePreference.png",
+            widthDp = widthDp,
+            heightDp = heightDp,
+            roborazziOptions = CROSS_PLATFORM_OPTIONS,
+            roborazziComposeOptions =
+                RoborazziComposeOptions {
+                    size(widthDp = widthDp, heightDp = heightDp)
+                    fontScale(fontScale)
+                    inspectionMode(true)
+                },
+        ) {
+            RipDpiTheme(themePreference = themePreference) { content() }
         }
     }
 }
