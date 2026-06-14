@@ -19,20 +19,15 @@ pub(super) fn spawn_socks_session(runtime: Arc<RelayRuntime>, backend: Arc<Relay
             local_socks_host: runtime.config.common.local_socks_host.clone(),
             backend_kind: runtime.config.kind_id().to_string(),
         };
-        // Race the session against shutdown. On cancel the `handle_client`
-        // future is dropped at its current `.await` (cancel-safe — at worst a
-        // half-finished `copy_bidirectional` loses in-flight bytes, acceptable
-        // on shutdown); the SOCKS5 success reply is already fully written
-        // before `copy_bidirectional` begins, so no half-sent reply is
-        // stranded.
-        tokio::select! {
-            biased;
-            () = cancel.cancelled() => {}
-            result = handle_client(stream, backend, socks_config, runtime.as_ref()) => {
-                if let Err(error) = result {
-                    runtime.state.record_error(error.to_string());
-                }
-            }
+        // `handle_client` owns the shutdown token and honors it at the right
+        // boundaries: it abandons pre-reply negotiation by drop, but once a
+        // SOCKS5 success reply is on the wire it switches to a *graceful* cancel
+        // (FIN, not an abrupt drop), so shutdown can never strand a confirmed
+        // CONNECT/ASSOCIATE on a relay that never started. We therefore await it
+        // directly instead of racing it against `cancel` here — a drop-on-cancel
+        // `select!` at this layer is exactly what created that orphan window.
+        if let Err(error) = handle_client(stream, backend, socks_config, runtime.as_ref(), cancel).await {
+            runtime.state.record_error(error.to_string());
         }
         runtime.state.finish_session();
     });
