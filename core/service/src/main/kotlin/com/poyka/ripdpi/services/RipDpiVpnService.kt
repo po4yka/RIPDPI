@@ -263,6 +263,7 @@ class RipDpiVpnService :
             strategyChainYaml: String? = null,
             protectPath: String? = null,
             rootHelperSocketPath: String? = null,
+            luaScriptBaseDir: String? = null,
         ): Tun2SocksConfig {
             val tunnelDns = dnsPlan.resolverDns
             val mapDnsEnabled = dnsPlan.mapDnsEnabled
@@ -308,6 +309,7 @@ class RipDpiVpnService :
                 strategyChainYaml = strategyChainYaml,
                 protectPath = protectPath,
                 rootHelperSocketPath = rootHelperSocketPath,
+                luaScriptBaseDir = luaScriptBaseDir,
                 logContext = logContext,
                 username = localProxyEndpoint.username,
                 password = localProxyEndpoint.password,

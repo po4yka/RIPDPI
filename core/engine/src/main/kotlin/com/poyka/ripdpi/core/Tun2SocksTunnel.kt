@@ -345,6 +345,7 @@ data class Tun2SocksConfig(
     val strategyChainYaml: String? = null,
     val protectPath: String? = null,
     val rootHelperSocketPath: String? = null,
+    val luaScriptBaseDir: String? = null,
     val taskStackSize: Int = 81_920,
     val tcpBufferSize: Int? = null,
     val udpRecvBufferSize: Int? = null,

@@ -65,8 +65,11 @@ pub(in crate::io_loop) fn setup_io_loop(
             SynAckStrategy::from_yaml(config.misc.strategy_chain_yaml.as_deref()),
             RawSynAckPacketInjector::new(config.misc.protect_path.clone()),
         ),
-        tun_egress_interceptor: Box::new(TunEgressInterceptor::new(
+        // Jail the egress `lua`-step `script_paths` to the app's absolute
+        // `<filesDir>/lua` dir when supplied, not `"."` (ill-defined Android CWD).
+        tun_egress_interceptor: Box::new(TunEgressInterceptor::new_with_base_dir(
             config.misc.strategy_chain_yaml.as_deref(),
+            config.misc.lua_script_base_dir.as_deref().map_or(std::path::Path::new("."), std::path::Path::new),
             RawTunPacketInjector::new(config.misc.protect_path.clone()),
         )),
         udp_idle_timeout: Duration::from_millis(u64::from(config.misc.udp_read_write_timeout)),
