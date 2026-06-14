@@ -34,7 +34,18 @@ The audit confirmed the codebase is in good structural health but surfaced a P0 
 Child tasks (this epic is `parent:` for each):
 
 **High**
-- `fix-relay-core-session-leak-on-shutdown` — P0 spawned-session leak in `ripdpi-relay-core`.
+- ✅ `fix-relay-core-session-leak-on-shutdown` — P0 spawned-session leak in `ripdpi-relay-core`.
+  **Resolved — verified at HEAD 2026-06-14 (no code change needed; already landed).**
+  Shutdown path is fully wired: `RelayRuntime::stop()` → `RuntimeState::request_stop()` cancels
+  the parent `shutdown_token` (`runtime/state.rs`); every session is spawned on a `TaskTracker`
+  with a child cancel token and a biased `tokio::select!` on `cancel.cancelled()`
+  (`runtime/session.rs::spawn_socks_session`, the sole spawn site via the accept loop in
+  `runtime/listener.rs`); `RelayRuntime::run()` joins via `drain_sessions(SESSION_DRAIN_GRACE = 5s)`
+  and records an error if the grace window is exceeded (`runtime.rs`). Reproduce-before-fix test
+  `tests/shutdown_drain.rs::relay_runtime_stop_drains_in_flight_sessions_within_grace_window`
+  (3 idle SOCKS5 sessions over a real Shadowsocks loopback backend; asserts `run()` returns
+  in-window, `active_sessions()==0`, and client fds are released). Evidence: `cargo nextest run -p
+  ripdpi-relay-core --locked` → 87/87 passed incl. that test.
 - `redact-raw-bssid-in-detection-findings` — privacy violation in `LocationSignalsChecker`.
 
 **Medium — Rust correctness**
