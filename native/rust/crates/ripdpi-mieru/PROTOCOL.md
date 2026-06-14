@@ -158,21 +158,30 @@ backpressure. The wire multiplexing (`sessionID`-tagged sub-sessions over one AE
 direction) is faithful to upstream; the ceilings are RIPDPI policy. `off` keeps
 the legacy one-stream-per-carrier path (non-reusable).
 
-**Known limitations (loopback tier; adversarially reviewed):**
+**Robustness properties and known limitations (loopback tier; adversarially reviewed):**
 
-- *Head-of-line blocking.* One reader task drains the carrier; if a sub-session's
-  consumer stalls, its bounded mailbox fills and the shared reader blocks, pausing
-  inbound delivery for all co-multiplexed sub-sessions until it drains. This
-  couples streams the wire model treats as independent. It is a liveness property,
-  not a correctness/isolation one (no mis-delivery). Credit-based per-session flow
-  control is the follow-up if HoL latency becomes a problem.
-- *Segment timestamp staleness.* The carrier captures `now_unix` once at open and
-  stamps every segment's metadata timestamp with it (matching the per-carrier-
-  direction model; the replay key is likewise derived once at handshake). On a
-  long-lived carrier these timestamps do not advance — a metadata-freshness, not a
-  key-derivation, consideration.
-- *`sessionID` reuse on close.* A `closeSession*` is routed to whatever mailbox
-  currently holds that random `u32` id. If an id were re-rolled for a new
+- *Handshake is time-bounded.* The open-session + in-tunnel SOCKS5 handshake runs
+  under a 10 s timeout, so a wedged or half-broken (writes-accepted, no-response)
+  carrier cannot hang `open_stream` forever — important because a multiplexed
+  carrier is reused for every stream. On timeout the sub-session is closed and the
+  mailbox released. (The non-mux path applies the same bound in `tcp_connect`.)
+- *Per-segment freshness.* Every segment's metadata timestamp is stamped with the
+  current network time (from the shared `NetworkTimeProvider`), not a value frozen
+  at carrier open, so a long-lived carrier's segments stay fresh against a server
+  that enforces per-segment timestamps. (The replay key is still derived once at
+  handshake, per the per-carrier-direction model.)
+- *Concurrency permit never leaks.* The per-carrier concurrent-stream slot is
+  owned by the outbound pump and released when the caller closes its write half or
+  drops the stream (which always fires on caller teardown), so a half-idle dropped
+  stream cannot leak a slot even if the server never sends a close response.
+  Dropping the carrier clears all mailboxes so any parked inbound pumps unwind.
+- *Head-of-line blocking (residual).* One reader task drains the carrier; if a
+  sub-session's consumer stalls, its bounded mailbox fills and the shared reader
+  blocks, pausing inbound delivery for all co-multiplexed sub-sessions until it
+  drains. Liveness, not correctness/isolation (no mis-delivery). Credit-based
+  per-session flow control is the follow-up if HoL latency becomes a problem.
+- *`sessionID` reuse on close (residual).* A `closeSession*` is routed to whatever
+  mailbox currently holds that random `u32` id. If an id were re-rolled for a new
   sub-session in the window after the old one was retired, a delayed close could
   truncate the new one (spurious EOF). Accidental probability is ~2⁻³² per open;
   an adversarial server could target it, but a relay server can already truncate

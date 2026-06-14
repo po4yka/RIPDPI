@@ -8,10 +8,12 @@
 //! (see `mux.rs` and `PROTOCOL.md` §7), where many sub-sessions share one carrier.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use ring::rand::{SecureRandom, SystemRandom};
 use ripdpi_network_time::NetworkTimeProvider;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream};
+use tokio::time::timeout;
 
 use crate::config::{MieruConfig, MieruProtocol};
 use crate::error::{MieruError, Result};
@@ -21,6 +23,9 @@ use crate::session::{DataReader, DataWriter, open_session, socks5_connect};
 const BRIDGE_BUF: usize = 64 * 1024;
 /// Pump copy buffer (one application chunk; `<= MAX_PDU`).
 const PUMP_BUF: usize = 32 * 1024;
+/// Upper bound on the in-tunnel SOCKS5 handshake — a wedged carrier (writes
+/// accepted, no responses) must not hang `tcp_connect` forever.
+const SOCKS5_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// A Mieru outbound client holding one established session.
 pub struct MieruClient {
@@ -53,7 +58,10 @@ impl MieruClient {
     /// duplex; two background pumps move bytes to/from the tunnel.
     pub async fn tcp_connect(self, target: &str) -> Result<DuplexStream> {
         let MieruClient { mut writer, mut reader } = self;
-        socks5_connect(&mut writer, &mut reader, target).await?;
+        match timeout(SOCKS5_HANDSHAKE_TIMEOUT, socks5_connect(&mut writer, &mut reader, target)).await {
+            Ok(result) => result?,
+            Err(_elapsed) => return Err(MieruError::Socks5("in-tunnel SOCKS5 handshake timed out".to_owned())),
+        }
 
         let (caller, engine) = tokio::io::duplex(BRIDGE_BUF);
         let (mut engine_read, mut engine_write) = tokio::io::split(engine);

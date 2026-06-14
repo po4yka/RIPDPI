@@ -15,12 +15,13 @@ use crate::metadata::{DataAckMeta, ProtocolType, SessionMeta, timestamp_estimate
 use crate::segment::{Decryptor, Encryptor, MAX_PDU, decapsulate, encapsulate};
 
 /// Outbound data path: owns the encryptor, the (boxed) transport write half,
-/// and the per-segment header fields.
+/// and the per-segment header fields. `time` stamps each segment's metadata
+/// timestamp with the current network time (not a value frozen at open).
 pub(crate) struct DataWriter {
     enc: Encryptor,
     writer: Box<dyn AsyncWrite + Unpin + Send>,
     session_id: u32,
-    now_unix: i64,
+    time: Arc<NetworkTimeProvider>,
     seq: u32,
 }
 
@@ -29,10 +30,10 @@ impl DataWriter {
         enc: Encryptor,
         writer: Box<dyn AsyncWrite + Unpin + Send>,
         session_id: u32,
-        now_unix: i64,
+        time: Arc<NetworkTimeProvider>,
         seq: u32,
     ) -> Self {
-        Self { enc, writer, session_id, now_unix, seq }
+        Self { enc, writer, session_id, time, seq }
     }
 
     /// Send the one-shot open-session request (no piggybacked payload).
@@ -41,7 +42,7 @@ impl DataWriter {
         // zero on session segments (only suffix padding is length-delimited).
         let (_, suffix) = self.enc.next_padding()?;
         let session_id = self.session_id;
-        let now = self.now_unix;
+        let now = self.time.now_unix();
         let seq = self.next_seq();
         self.enc
             .write_segment(
@@ -77,7 +78,7 @@ impl DataWriter {
             let blob = encapsulate(chunk)?;
             let (prefix, suffix) = self.enc.next_padding()?;
             let session_id = self.session_id;
-            let now = self.now_unix;
+            let now = self.time.now_unix();
             let seq = self.next_seq();
             let payload_len =
                 u16::try_from(blob.len()).map_err(|_| MieruError::Protocol("fragment too large".to_owned()))?;
@@ -209,12 +210,11 @@ pub(crate) async fn open_session<T>(
 where
     T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
-    let now_unix = time.now_unix();
-    let key: [u8; KEY_LEN] = crate::cipher::derive_key(password, username, now_unix, 0);
+    let key: [u8; KEY_LEN] = crate::cipher::derive_key(password, username, time.now_unix(), 0);
     let (read_half, write_half) = tokio::io::split(transport);
     let enc = Encryptor::new(key, username.to_vec());
     let dec = Decryptor::new(key);
-    let mut writer = DataWriter::new(enc, Box::new(write_half), session_id, now_unix, 0);
+    let mut writer = DataWriter::new(enc, Box::new(write_half), session_id, Arc::clone(&time), 0);
     let reader = DataReader::new(dec, Box::new(read_half), time);
     writer.send_open().await?;
     Ok((writer, reader))
