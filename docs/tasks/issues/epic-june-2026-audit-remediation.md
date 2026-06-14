@@ -34,8 +34,31 @@ The audit confirmed the codebase is in good structural health but surfaced a P0 
 Child tasks (this epic is `parent:` for each):
 
 **High**
-- `fix-relay-core-session-leak-on-shutdown` — P0 spawned-session leak in `ripdpi-relay-core`.
-- `redact-raw-bssid-in-detection-findings` — privacy violation in `LocationSignalsChecker`.
+- ✅ `fix-relay-core-session-leak-on-shutdown` — P0 spawned-session leak in `ripdpi-relay-core`.
+  **Resolved — verified at HEAD 2026-06-14 (no code change needed; already landed).**
+  Shutdown path is fully wired: `RelayRuntime::stop()` → `RuntimeState::request_stop()` cancels
+  the parent `shutdown_token` (`runtime/state.rs`); every session is spawned on a `TaskTracker`
+  with a child cancel token and a biased `tokio::select!` on `cancel.cancelled()`
+  (`runtime/session.rs::spawn_socks_session`, the sole spawn site via the accept loop in
+  `runtime/listener.rs`); `RelayRuntime::run()` joins via `drain_sessions(SESSION_DRAIN_GRACE = 5s)`
+  and records an error if the grace window is exceeded (`runtime.rs`). Reproduce-before-fix test
+  `tests/shutdown_drain.rs::relay_runtime_stop_drains_in_flight_sessions_within_grace_window`
+  (3 idle SOCKS5 sessions over a real Shadowsocks loopback backend; asserts `run()` returns
+  in-window, `active_sessions()==0`, and client fds are released). Evidence: `cargo nextest run -p
+  ripdpi-relay-core --locked` → 87/87 passed incl. that test.
+- ✅ `redact-raw-bssid-in-detection-findings` — privacy violation in `LocationSignalsChecker`.
+  **Resolved — verified at HEAD 2026-06-14 (no code change needed; already landed).**
+  `LocationSignalsChecker.evaluate()` emits only a presence flag — `BSSID: present` /
+  `BSSID: unavailable` / `BSSID: permission not granted` — never the raw value, with an inline
+  comment citing `.claude/rules/network-fingerprint-privacy.md`; the raw `bssid` field feeds only
+  `isUsableBssid()`. Regression test `LocationSignalsCheckerTest.raw BSSID never appears in a
+  Finding string` asserts no Finding contains the raw BSSID (any encoding) and that a usable BSSID
+  surfaces as `BSSID: present`; `placeholder BSSID is reported as unavailable` covers the sentinel.
+  Adjacent-checker sweep (all 22 checkers): no other checker interpolates a raw BSSID/SSID/MAC into
+  a Finding; `BeaconDbClient` surfaces only fixed status strings (`exact match` / `lookup failed
+  <code>` / …) — AP MACs go only into the outbound geolocate request body, never a Finding; no raw
+  BSSID is logged anywhere. Evidence: `:core:detection:testDebugUnitTest --tests
+  *LocationSignalsCheckerTest` → BUILD SUCCESSFUL.
 
 **Medium — Rust correctness**
 - `fix-panic-in-drop-exit-ip-cap-guard`
@@ -62,7 +85,7 @@ Child tasks (this epic is `parent:` for each):
 
 ## Ship definition
 
-- Both `high` tasks landed with tests (relay shutdown drains within a bounded timeout; no raw BSSID reachable in any serialized `Finding`/log).
+- ✅ Both `high` tasks landed with tests (relay shutdown drains within a bounded timeout; no raw BSSID reachable in any serialized `Finding`/log). **Met — verified at HEAD 2026-06-14; see the High child entries above for evidence.**
 - All `medium` Rust correctness tasks landed or explicitly deferred with rationale in their work log.
 - Architecture tasks either landed or moved to `NATIVE_RUST.md`-documented backlog with a CI growth guard.
 - This epic flips to `done` (file deleted) when every child is `done`/`dropped`.
