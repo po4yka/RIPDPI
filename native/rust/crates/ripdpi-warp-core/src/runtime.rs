@@ -13,7 +13,7 @@ use crate::ports::{PortProtocol, UdpAssociationPool, VirtualPortPool};
 use crate::socks::handle_socks_client;
 use crate::support::to_io_error;
 use crate::virtual_iface::{Bus, DynamicTcpInterface, DynamicUdpInterface};
-use crate::wireguard::{WireGuardTunnel, reserved_bytes_from_client_id};
+use crate::wireguard::{WireGuardTunnel, WireGuardTunnelParams, reserved_bytes_from_client_id};
 
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const READY_SOURCE: &str = "warp";
@@ -139,12 +139,21 @@ impl WarpRuntime {
         let reserved = reserved_bytes_from_client_id(self.config.client_id.as_deref());
         let tunnel = Arc::new(
             WireGuardTunnel::new(
-                &self.config.private_key,
-                &self.config.peer_public_key,
-                endpoint,
-                reserved,
-                source_peer_ip,
-                &self.config.amnezia,
+                WireGuardTunnelParams {
+                    private_key: &self.config.private_key,
+                    peer_public_key: &self.config.peer_public_key,
+                    // WARP does not use a preshared key and pins the
+                    // persistent-keepalive interval at 25s.
+                    preshared_key: None,
+                    persistent_keepalive: Some(25),
+                    endpoint,
+                    reserved,
+                    source_peer_ip,
+                    amnezia_cfg: &self.config.amnezia,
+                    // The WARP runtime config does not carry AWG 2.0 I1..I5
+                    // special-junk frames.
+                    special_junk_hex: ["", "", "", "", ""],
+                },
                 &self.platform,
             )
             .await

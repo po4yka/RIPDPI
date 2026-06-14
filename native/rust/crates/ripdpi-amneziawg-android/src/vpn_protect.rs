@@ -1,0 +1,131 @@
+//! `VpnService.protect()` bridge for the AmneziaWG runtime's outbound UDP
+//! socket (see the `vpnservice-protect-invariant` rule). Identical in shape to
+//! `ripdpi-warp-android::vpn_protect` -- both store a `(JavaVM, Global<JObject>)`
+//! pair behind the process-global `ripdpi-native-protect` callback slot, which
+//! `ripdpi-warp-core`'s `bind_tunnel_socket` invokes before the WireGuard UDP
+//! socket carries any traffic.
+
+use std::io;
+use std::os::fd::RawFd;
+use std::sync::Arc;
+
+use jni::objects::{JObject, JValue};
+use jni::refs::Global;
+use jni::{EnvUnowned, JavaVM, Outcome};
+use ripdpi_native_protect::{
+    ProtectCallback, ProtectGeneration, register_protect_callback_versioned, unregister_protect_callback_if,
+};
+use ripdpi_warp_core::WarpPlatform;
+
+struct JniProtectCallback {
+    vm: JavaVM,
+    vpn_service: Global<JObject<'static>>,
+}
+
+// SAFETY: JavaVM is Send+Sync (just a *mut sys::JavaVM wrapper).
+// Global<JObject<'static>> prevents the JVM from GC-collecting the Java
+// object and is safe to use from any thread via attach_current_thread.
+unsafe impl Send for JniProtectCallback {}
+// SAFETY: see Send impl above -- both fields are themselves thread-safe and
+// `protect()` only reads them via Java-side synchronization.
+unsafe impl Sync for JniProtectCallback {}
+
+// Compile-fail regression: any future field change that breaks the Send/Sync
+// claim above fails to compile here.
+const _: fn() = || {
+    fn assert_send<T: Send>() {}
+    fn assert_sync<T: Sync>() {}
+    assert_send::<JniProtectCallback>();
+    assert_sync::<JniProtectCallback>();
+};
+
+// Compile-fail regression: a `Copy` impl on a JNI global-ref wrapper would let
+// safe code drop `DeleteGlobalRef` twice. This block is ambiguous (fails to
+// compile) if `JniProtectCallback` ever becomes `Copy`.
+const _: fn() = || {
+    #[allow(dead_code)]
+    struct Check<T>(core::marker::PhantomData<T>);
+    #[allow(dead_code)]
+    trait AmbiguousIfCopy<A> {
+        fn check() {}
+    }
+    impl<T> AmbiguousIfCopy<()> for Check<T> {}
+    impl<T: Copy> AmbiguousIfCopy<u8> for Check<T> {}
+    <Check<JniProtectCallback> as AmbiguousIfCopy<_>>::check();
+};
+
+impl ProtectCallback for JniProtectCallback {
+    fn protect(&self, fd: RawFd) -> io::Result<()> {
+        let result: Result<bool, jni::errors::Error> =
+            self.vm.attach_current_thread(|env| -> jni::errors::Result<bool> {
+                let ret = env.call_method(
+                    &self.vpn_service,
+                    jni::jni_str!("protect"),
+                    jni::jni_sig!("(I)Z"),
+                    &[JValue::Int(fd)],
+                )?;
+                ret.z()
+            });
+
+        match result {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(io::Error::new(io::ErrorKind::PermissionDenied, "VpnService.protect() returned false")),
+            Err(error) => Err(io::Error::other(error.to_string())),
+        }
+    }
+}
+
+/// Build a [`WarpPlatform`] whose socket protector routes through the
+/// process-global protect callback. `ripdpi-warp-core` shares the `WarpPlatform`
+/// protector abstraction across both the WARP and AmneziaWG runtimes.
+pub(crate) fn amneziawg_platform() -> WarpPlatform {
+    WarpPlatform::new().with_socket_protector(ripdpi_native_protect::protect_socket_via_callback)
+}
+
+/// JNI entry for `jniRegisterVpnProtect`. Returns the generation token the
+/// registry stamped on the slot, or `0` on failure. Kotlin threads it back to
+/// [`unregister_entry`] so a stale unregister cannot clobber a newer session.
+pub(crate) fn register_from_jni(mut env: EnvUnowned<'_>, vpn_service: JObject<'_>) -> i64 {
+    match env
+        .with_env(|env| -> jni::errors::Result<i64> {
+            let vm = env.get_java_vm()?;
+            let global_ref: Global<JObject<'static>> = env.new_global_ref(vpn_service)?;
+            Ok(register_vpn_protect(&vm, global_ref))
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(token) => token,
+        Outcome::Err(err) => {
+            log::error!("amneziawg VPN protect registration failed: {err}");
+            0
+        }
+        Outcome::Panic(payload) => {
+            let msg = payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .or_else(|| payload.downcast_ref::<&str>().copied())
+                .unwrap_or("unknown panic");
+            log::error!("amneziawg VPN protect registration panicked: {msg}");
+            0
+        }
+    }
+}
+
+fn register_vpn_protect(vm: &JavaVM, vpn_service: Global<JObject<'static>>) -> i64 {
+    // SAFETY: JavaVM pointer is held live by JNI_OnLoad registration for the duration of the process.
+    // Re-creating a JavaVM from the raw pointer copies only the thin pointer wrapper; no double-free risk.
+    let vm_clone = unsafe { JavaVM::from_raw(vm.get_raw()) };
+    let generation = register_protect_callback_versioned(Arc::new(JniProtectCallback { vm: vm_clone, vpn_service }));
+    generation.token() as i64
+}
+
+/// JNI entry for `jniUnregisterVpnProtect`. `token` is the value
+/// [`register_from_jni`] returned. Clearing is generation-checked: a stale
+/// token (a superseded session) or a `0` token (a failed register) is a safe
+/// no-op.
+pub(crate) fn unregister_entry(token: i64) {
+    let generation = ProtectGeneration::from_token(token as u64);
+    if !unregister_protect_callback_if(generation) {
+        log::info!("amneziawg VPN protect unregister ignored (stale token or no registration)");
+    }
+}

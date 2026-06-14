@@ -1,11 +1,19 @@
 package com.poyka.ripdpi.activities
 
+import android.app.Application
 import com.poyka.ripdpi.diagnostics.dpich.WhitelistedSubnetResult
+import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class DiagnosticsIpv4WhitelistUiMapperTest {
+    private val stringResolver = ResourceStringResolver()
+
     @Test
     fun checkResultsMapToRowsAndCsv() =
         runTest {
@@ -27,7 +35,7 @@ class DiagnosticsIpv4WhitelistUiMapperTest {
                     ),
                 )
 
-            val model = results.toIpv4WhitelistUiModel()
+            val model = results.toIpv4WhitelistUiModel(stringResolver)
 
             assertEquals(DiagnosticsIpv4WhitelistState.Complete, model.state)
             assertEquals("whitelisted", model.rows.first().verdict)
@@ -39,4 +47,13 @@ class DiagnosticsIpv4WhitelistUiMapperTest {
                 model.csv,
             )
         }
+
+    private class ResourceStringResolver : StringResolver {
+        private val application: Application = RuntimeEnvironment.getApplication()
+
+        override fun getString(
+            resId: Int,
+            vararg formatArgs: Any,
+        ): String = application.getString(resId, *formatArgs)
+    }
 }

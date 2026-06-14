@@ -328,10 +328,14 @@ private fun RememberedNetworkPoliciesCard(policies: List<DiagnosticsRememberedNe
                     androidx.compose.material3.Text(
                         text =
                             listOfNotNull(
-                                "Success ${policy.successCount}",
-                                "Failures ${policy.failureCount}",
-                                policy.lastValidatedLabel?.let { "Validated $it" },
-                                policy.lastAppliedLabel?.let { "Applied $it" },
+                                stringResource(R.string.diagnostics_overview_policy_success, policy.successCount),
+                                stringResource(R.string.diagnostics_overview_policy_failures, policy.failureCount),
+                                policy.lastValidatedLabel?.let {
+                                    stringResource(R.string.diagnostics_overview_policy_validated, it)
+                                },
+                                policy.lastAppliedLabel?.let {
+                                    stringResource(R.string.diagnostics_overview_policy_applied, it)
+                                },
                             ).joinToString(" · "),
                         style = type.caption,
                         color = colors.mutedForeground,

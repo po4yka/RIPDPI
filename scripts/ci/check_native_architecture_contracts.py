@@ -100,6 +100,7 @@ MONITOR_ENGINE_CONCRETE_LANE_DEP_RE = re.compile(
 )
 ENTRYPOINT_CRATES = frozenset(
     {
+        "ripdpi-amneziawg-android",
         "ripdpi-android",
         "ripdpi-bench",
         "ripdpi-cli",
@@ -112,6 +113,7 @@ ENTRYPOINT_CRATES = frozenset(
 RUNTIME_BOUNDARY_CRATES = frozenset({"ripdpi-runtime-api", "ripdpi-runtime-decision-ports"})
 RUNTIME_BOUNDARY_FORBIDDEN_DEPENDENCIES = frozenset(
     {
+        "ripdpi-amneziawg-android",
         "ripdpi-android",
         "ripdpi-android-bridge-support",
         "ripdpi-android-diagnostics-adapter",
@@ -196,7 +198,7 @@ RUNTIME_UPWARD_DEPENDENCY_PREFIXES = (
 )
 
 
-# NATIVE_RUST.md §3 rule 2 ("JNI containment") and §5: only the 12 L8
+# NATIVE_RUST.md §3 rule 2 ("JNI containment") and §5: only the 13 L8
 # Android/JNI crates (enumerated in §6) may pull `jni`, `android-support`,
 # `android_logger`, or an `ndk-*` crate. Every other crate must stay JNI-free.
 L8_JNI_ALLOWED_CRATES = frozenset(
@@ -205,6 +207,7 @@ L8_JNI_ALLOWED_CRATES = frozenset(
         "ripdpi-tunnel-android",
         "ripdpi-relay-android",
         "ripdpi-warp-android",
+        "ripdpi-amneziawg-android",
         "android-support",
         "ripdpi-android-bridge-support",
         "ripdpi-android-proxy-adapter",
@@ -417,7 +420,7 @@ def jni_containment_violations(
 ) -> list[Violation]:
     """NATIVE_RUST.md §3 rule 2 / §5: keep `jni` and friends out of non-L8 crates.
 
-    Only the 12 L8 Android/JNI crates may carry a production dependency on
+    Only the 13 L8 Android/JNI crates may carry a production dependency on
     `jni`, `android-support`, `android_logger`, or an `ndk-*` crate. The
     existing dependency-direction check only inspects workspace-crate edges, so
     this guards the *external* Android/JNI crates a lower crate could pull in
@@ -433,7 +436,7 @@ def jni_containment_violations(
                     Violation(
                         path=relative_path.as_posix(),
                         message=(
-                            f"{crate} must not depend on `{dependency}`: only the 12 L8 "
+                            f"{crate} must not depend on `{dependency}`: only the 13 L8 "
                             "Android/JNI crates may pull jni / android-support / android_logger / "
                             "ndk-* (NATIVE_RUST.md §3 rule 2, §5)"
                         ),

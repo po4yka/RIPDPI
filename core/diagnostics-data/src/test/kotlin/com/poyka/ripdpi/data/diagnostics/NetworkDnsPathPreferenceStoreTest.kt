@@ -63,6 +63,10 @@ private class FakeNetworkDnsPathPreferenceRecordStore : NetworkDnsPathPreference
         preferences.clear()
     }
 
+    override suspend fun deleteNetworkDnsPathPreferencesForFingerprint(fingerprintHash: String) {
+        preferences.remove(fingerprintHash)
+    }
+
     override suspend fun pruneNetworkDnsPathPreferences() = Unit
 
     fun requireStored(fingerprintHash: String): NetworkDnsPathPreferenceEntity =

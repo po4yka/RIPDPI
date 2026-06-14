@@ -47,6 +47,12 @@ interface DiagnosticsRememberedPolicyDao {
     @Query("DELETE FROM remembered_network_policies")
     suspend fun clearRememberedNetworkPolicies()
 
+    @Query("DELETE FROM remembered_network_policies WHERE id = :id")
+    suspend fun deleteRememberedNetworkPolicyById(id: Long)
+
+    @Query("SELECT COUNT(*) FROM remembered_network_policies WHERE fingerprintHash = :fingerprintHash")
+    suspend fun countRememberedNetworkPoliciesForFingerprint(fingerprintHash: String): Int
+
     @Query(
         """
         DELETE FROM remembered_network_policies

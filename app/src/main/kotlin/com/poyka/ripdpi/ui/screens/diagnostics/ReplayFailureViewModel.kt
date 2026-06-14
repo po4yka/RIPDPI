@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.replay.ProbeReplayService
 import com.poyka.ripdpi.diagnostics.replay.ReplayErrorKind
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeRequest
@@ -10,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.replay.ReplayResultStore
 import com.poyka.ripdpi.diagnostics.replay.ReplayStepEvent
 import com.poyka.ripdpi.diagnostics.replay.ReplayStepKind
 import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
+import com.poyka.ripdpi.platform.StringResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -51,6 +53,7 @@ class ReplayFailureViewModel
     constructor(
         private val replayService: ProbeReplayService,
         private val replayResultStore: ReplayResultStore,
+        private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val mutableUiState = MutableStateFlow(ReplayFailureUiState())
         val uiState: StateFlow<ReplayFailureUiState> = mutableUiState.asStateFlow()
@@ -71,7 +74,7 @@ class ReplayFailureViewModel
             eventBuffer = mutableListOf()
             recorded = AtomicBoolean(false)
             val timestamp = currentTimestamp()
-            val summary = "Probe replay · $domain · $strategyId"
+            val summary = stringResolver.getString(R.string.diagnostics_replay_probe_summary, domain, strategyId)
             mutableUiState.value =
                 ReplayFailureUiState(
                     timestampLabel = timestamp,
@@ -214,23 +217,27 @@ class ReplayFailureViewModel
                 }.toPersistentList()
 
         private fun stepDisplayName(kind: ReplayStepKind): String =
-            when (kind) {
-                ReplayStepKind.DnsResolve -> "DNS resolve"
-                ReplayStepKind.TcpOpen -> "TCP open"
-                ReplayStepKind.TlsClientHello -> "TLS ClientHello"
-                ReplayStepKind.TlsHandshake -> "TLS handshake"
-                ReplayStepKind.FirstByte -> "First byte"
-            }
+            stringResolver.getString(
+                when (kind) {
+                    ReplayStepKind.DnsResolve -> R.string.diagnostics_replay_step_dns_resolve
+                    ReplayStepKind.TcpOpen -> R.string.diagnostics_replay_step_tcp_open
+                    ReplayStepKind.TlsClientHello -> R.string.diagnostics_replay_step_tls_client_hello
+                    ReplayStepKind.TlsHandshake -> R.string.diagnostics_replay_step_tls_handshake
+                    ReplayStepKind.FirstByte -> R.string.diagnostics_replay_step_first_byte
+                },
+            )
 
         private fun errorKindLabel(kind: ReplayErrorKind): String =
-            when (kind) {
-                ReplayErrorKind.DnsTampered -> "DNS tampered"
-                ReplayErrorKind.ConnectionRefused -> "connection refused"
-                ReplayErrorKind.ConnectionReset -> "connection reset"
-                ReplayErrorKind.Timeout -> "timeout"
-                ReplayErrorKind.TlsHandshakeFailed -> "TLS handshake failed"
-                ReplayErrorKind.Unknown -> "unknown error"
-            }
+            stringResolver.getString(
+                when (kind) {
+                    ReplayErrorKind.DnsTampered -> R.string.diagnostics_replay_error_dns_tampered
+                    ReplayErrorKind.ConnectionRefused -> R.string.diagnostics_replay_error_connection_refused
+                    ReplayErrorKind.ConnectionReset -> R.string.diagnostics_replay_error_connection_reset
+                    ReplayErrorKind.Timeout -> R.string.diagnostics_replay_error_timeout
+                    ReplayErrorKind.TlsHandshakeFailed -> R.string.diagnostics_replay_error_tls_handshake_failed
+                    ReplayErrorKind.Unknown -> R.string.diagnostics_replay_error_unknown
+                },
+            )
 
         private fun currentTimestamp(): String =
             requireNotNull(TIMESTAMP_FORMAT.get()).format(Date(System.currentTimeMillis()))

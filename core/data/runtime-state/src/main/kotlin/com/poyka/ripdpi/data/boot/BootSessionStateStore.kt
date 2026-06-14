@@ -95,11 +95,16 @@ class SharedPreferencesBootSessionStateStore
             profileId: String,
             mode: Mode,
         ) {
+            // commit() (synchronous, fsync-backed), NOT apply(): an LMK SIGKILL can
+            // arrive at any moment with no Drop, flushing nothing. apply() only
+            // schedules the disk write, so the pointer could be lost before it lands
+            // and the boot receiver would have nothing to resume. See
+            // `.claude/rules/android-vpn-lifecycle.md` (state-persistence rule).
             preferences
                 .edit()
                 .putString(KeyProfileId, profileId)
                 .putString(KeyMode, mode.preferenceValue)
-                .apply()
+                .commit()
         }
 
         override fun clear() {
@@ -107,13 +112,24 @@ class SharedPreferencesBootSessionStateStore
                 .edit()
                 .remove(KeyProfileId)
                 .remove(KeyMode)
-                .apply()
+                .commit()
         }
 
         override fun wasRunningAtUpdate(): Boolean = preferences.getBoolean(KeyWasRunningAtUpdate, false)
 
         override fun setWasRunningAtUpdate(value: Boolean) {
-            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).apply()
+            // Only the `true` write is durability-critical: it gates auto-resume after
+            // an LMK kill, and the kill it must survive gives no chance to flush a
+            // deferred write, so it commits synchronously (the R3 fix). It is issued
+            // from a background coroutine (BootSessionRecorder), so the blocking write
+            // is off the main thread. The `false` write is the opposite — an explicit
+            // user stop, reached on the MAIN thread via ServiceManager.stop(); a lost
+            // `false` only risks one spurious MY_PACKAGE_REPLACED resume (and the flag
+            // is cleared read-once on every package-replaced run anyway), so it uses
+            // apply() to avoid blocking the UI on disk I/O.
+            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).also { editor ->
+                if (value) editor.commit() else editor.apply()
+            }
         }
 
         private companion object {

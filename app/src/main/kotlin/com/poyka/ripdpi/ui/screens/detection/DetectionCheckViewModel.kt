@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.BypassPortRange
 import com.poyka.ripdpi.core.detection.BypassScanOptions
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
@@ -25,8 +26,11 @@ import com.poyka.ripdpi.core.detection.debug.DetectionDebugFormatter
 import com.poyka.ripdpi.core.detection.debug.DetectionDebugSettings
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.detection.RoutingProtectionRecommendationStrings
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
+import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -79,6 +83,7 @@ class DetectionCheckViewModel
         private val communityStatsRepository: CommunityStatsRepository,
         private val detectionCheckPreferences: DetectionCheckPreferences,
         private val detectionCheckPlatform: DetectionCheckPlatform,
+        private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(DetectionCheckUiState())
         val uiState: StateFlow<DetectionCheckUiState> = _uiState.asStateFlow()
@@ -244,12 +249,12 @@ class DetectionCheckViewModel
                             val score = StealthScore.compute(result)
                             val label = StealthScore.label(score)
                             val recommendations =
-                                DetectionRecommendations.generate(result) +
-                                    buildRoutingProtectionRecommendations(
-                                        result = result,
-                                        settings = settings,
-                                        snapshot = routingProtectionCatalogService.snapshot(),
-                                    )
+                                buildAllRecommendations(
+                                    result = result,
+                                    settings = settings,
+                                    snapshot = routingProtectionCatalogService.snapshot(),
+                                    stringResolver = stringResolver,
+                                )
                             val privacyModeEnabled = settings.detectionCheckPrivacyModeEnabled
                             val reportText =
                                 DetectionReportFormatter.format(
@@ -291,7 +296,7 @@ class DetectionCheckViewModel
                             _uiState.value.copy(
                                 isRunning = false,
                                 progress = null,
-                                error = error.message ?: "Unknown error",
+                                error = error.message ?: stringResolver.getString(R.string.detection_error_unknown),
                             )
                     }
                 }
@@ -489,3 +494,17 @@ class DetectionCheckViewModel
                 }
         }
     }
+
+private fun buildAllRecommendations(
+    result: DetectionCheckResult,
+    settings: AppSettings,
+    snapshot: RoutingProtectionCatalogSnapshot,
+    stringResolver: StringResolver,
+): List<Recommendation> =
+    DetectionRecommendations.generate(result) +
+        buildRoutingProtectionRecommendations(
+            result = result,
+            settings = settings,
+            snapshot = snapshot,
+            strings = RoutingProtectionRecommendationStrings.resolve(stringResolver),
+        )

@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -13,6 +15,6 @@ internal fun WebTunnelRelayFields(
     RipDpiTextField(
         value = draft.relayWebTunnelUrl,
         onValueChange = actions.onRelayWebTunnelUrlChanged,
-        decoration = RipDpiTextFieldDecoration(label = "WebTunnel URL"),
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.relay_webtunnel_url_label)),
     )
 }

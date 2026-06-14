@@ -20,6 +20,7 @@ internal fun LazyListScope.advancedSettingsProtectionSections(
         visualEditorEnabled = contentState.visualEditorEnabled,
         onToggleChanged = actions.onToggleChanged,
         onClearRememberedNetworks = actions.onClearRememberedNetworks,
+        onOpenRememberedNetworks = actions.onOpenRememberedNetworks,
     )
     wsTunnelSection(
         uiState = uiState,

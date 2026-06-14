@@ -385,7 +385,7 @@ private fun reportPresentationFallback(
         report.auditAssessment
             ?.confidence
             ?.level
-            ?.let(::auditConfidenceLabel)
+            ?.let { auditConfidenceLabel(it) }
     val confidenceTone =
         report.auditAssessment
             ?.confidence
@@ -415,7 +415,7 @@ private fun reportPresentationFallback(
         auditConfidenceTone = confidenceTone,
         auditAssessmentMetrics =
             report.auditAssessment
-                ?.let(::auditAssessmentMetrics)
+                ?.let { auditAssessmentMetrics(it) }
                 ?: kotlinx.collections.immutable.persistentListOf(),
     )
 }
@@ -574,12 +574,15 @@ private fun WinningPathCandidateCard(
     }
 }
 
+@Composable
 private fun auditConfidenceLabel(level: StrategyProbeAuditConfidenceLevel): String =
-    when (level) {
-        StrategyProbeAuditConfidenceLevel.HIGH -> "High"
-        StrategyProbeAuditConfidenceLevel.MEDIUM -> "Medium"
-        StrategyProbeAuditConfidenceLevel.LOW -> "Low"
-    }
+    stringResource(
+        when (level) {
+            StrategyProbeAuditConfidenceLevel.HIGH -> R.string.diagnostics_audit_confidence_high
+            StrategyProbeAuditConfidenceLevel.MEDIUM -> R.string.diagnostics_audit_confidence_medium
+            StrategyProbeAuditConfidenceLevel.LOW -> R.string.diagnostics_audit_confidence_low
+        },
+    )
 
 private fun auditConfidenceTone(level: StrategyProbeAuditConfidenceLevel): DiagnosticsTone =
     when (level) {
@@ -588,17 +591,23 @@ private fun auditConfidenceTone(level: StrategyProbeAuditConfidenceLevel): Diagn
         StrategyProbeAuditConfidenceLevel.LOW -> DiagnosticsTone.Negative
     }
 
+@Composable
 private fun auditAssessmentMetrics(
     assessment: StrategyProbeAuditAssessment,
 ): kotlinx.collections.immutable.ImmutableList<com.poyka.ripdpi.activities.DiagnosticsMetricUiModel> =
     kotlinx.collections.immutable.persistentListOf(
         com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
-            label = "Confidence",
-            value = "${auditConfidenceLabel(assessment.confidence.level)} (${assessment.confidence.score}/100)",
+            label = stringResource(R.string.home_diagnostics_confidence_label),
+            value =
+                stringResource(
+                    R.string.diagnostics_audit_confidence_value,
+                    auditConfidenceLabel(assessment.confidence.level),
+                    assessment.confidence.score,
+                ),
             tone = auditConfidenceTone(assessment.confidence.level),
         ),
         com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
-            label = "Matrix coverage",
+            label = stringResource(R.string.diagnostics_audit_matrix_coverage_label),
             value = "${assessment.coverage.matrixCoveragePercent}%",
             tone =
                 if (assessment.coverage.matrixCoveragePercent >= 75) {
@@ -608,7 +617,7 @@ private fun auditAssessmentMetrics(
                 },
         ),
         com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
-            label = "Winner coverage",
+            label = stringResource(R.string.diagnostics_audit_winner_coverage_label),
             value = "${assessment.coverage.winnerCoveragePercent}%",
             tone =
                 if (assessment.coverage.winnerCoveragePercent >= 50) {

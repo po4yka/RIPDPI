@@ -67,7 +67,7 @@ pub async fn probe_endpoint_with_platform(
     let peer_public_key =
         decode_key(&request.peer_public_key).map_err(|_| WarpProbeError::InvalidKey("peer public key"))?;
     let reserved = reserved_bytes_from_client_id(request.client_id.as_deref());
-    let amnezia = build_awg_codec(&request.amnezia);
+    let amnezia = build_awg_codec(&request.amnezia, &["", "", "", "", ""]);
     let mut peer = Box::new(Tunn::new(
         boringtun::x25519::StaticSecret::from(private_key),
         boringtun::x25519::PublicKey::from(peer_public_key),
@@ -127,7 +127,9 @@ fn bind_probe_socket(endpoint: SocketAddr, platform: &WarpPlatform) -> std::io::
     };
     let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
     socket.bind(&bind_addr.into())?;
-    protect_socket_if_configured(&socket, platform);
+    // Fail-closed: a protect rejection drops the probe socket here rather than
+    // probing through an unprotected socket (vpnservice-protect-invariant).
+    protect_socket_if_configured(&socket, platform)?;
     socket.set_nonblocking(true)?;
     UdpSocket::from_std(socket.into())
 }

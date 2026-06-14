@@ -136,42 +136,37 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
         title = summary.displayName,
         subtitle = summary.secondaryLabel,
         verificationState = summary.verificationState.replaceFirstChar { it.uppercase() },
-        lastValidatedResult = summary.lastValidatedResult ?: "Unverified",
-        dominantFailurePattern = summary.topFailureOutcomes.firstOrNull() ?: "No dominant failure recorded",
+        lastValidatedResult =
+            summary.lastValidatedResult ?: context.getString(R.string.diagnostics_approach_unverified),
+        dominantFailurePattern =
+            summary.topFailureOutcomes.firstOrNull()
+                ?: context.getString(R.string.diagnostics_approach_no_dominant_failure),
         metrics =
-            buildList {
-                add(
-                    DiagnosticsMetricUiModel(
-                        label = "Validated",
-                        value = summary.validatedScanCount.toString(),
-                        tone = if (summary.validatedScanCount > 0) DiagnosticsTone.Info else DiagnosticsTone.Neutral,
-                    ),
-                )
-                add(
-                    DiagnosticsMetricUiModel(
-                        label = "Success",
-                        value =
-                            summary.validatedSuccessRate
-                                ?.let { "${(it * PercentageMultiplier).toInt()}%" }
-                                ?: "Unverified",
-                        tone = summary.successMetricTone(),
-                    ),
-                )
-                add(
-                    DiagnosticsMetricUiModel(
-                        label = "Usage",
-                        value = summary.usageCount.toString(),
-                        tone = DiagnosticsTone.Info,
-                    ),
-                )
-                add(
-                    DiagnosticsMetricUiModel(
-                        label = "Runtime",
-                        value = formatDurationMs(summary.totalRuntimeDurationMs),
-                        tone = DiagnosticsTone.Neutral,
-                    ),
-                )
-            }.toImmutableList(),
+            listOf(
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_approach_metric_validated),
+                    value = summary.validatedScanCount.toString(),
+                    tone = if (summary.validatedScanCount > 0) DiagnosticsTone.Info else DiagnosticsTone.Neutral,
+                ),
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_approach_metric_success),
+                    value =
+                        summary.validatedSuccessRate
+                            ?.let { "${(it * PercentageMultiplier).toInt()}%" }
+                            ?: context.getString(R.string.diagnostics_approach_unverified),
+                    tone = summary.successMetricTone(),
+                ),
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_approach_metric_usage),
+                    value = summary.usageCount.toString(),
+                    tone = DiagnosticsTone.Info,
+                ),
+                DiagnosticsMetricUiModel(
+                    label = context.getString(R.string.diagnostics_approach_metric_runtime),
+                    value = formatDurationMs(summary.totalRuntimeDurationMs),
+                    tone = DiagnosticsTone.Neutral,
+                ),
+            ).toImmutableList(),
         tone = summary.toDiagnosticsTone(),
     )
 
@@ -305,7 +300,7 @@ internal fun DiagnosticsUiFactorySupport.buildStrategyProbeReportPresentation(
         report.auditAssessment
             ?.confidence
             ?.level
-            ?.let(::auditConfidenceLabel)
+            ?.let { auditConfidenceLabel(it, context) }
     val confidenceTone =
         report.auditAssessment
             ?.confidence
@@ -334,7 +329,7 @@ internal fun DiagnosticsUiFactorySupport.buildStrategyProbeReportPresentation(
         auditConfidenceTone = confidenceTone,
         auditAssessmentMetrics =
             report.auditAssessment
-                ?.let(::auditAssessmentMetrics)
+                ?.let { auditAssessmentMetrics(it, context) }
                 .orEmpty()
                 .toImmutableList(),
     )

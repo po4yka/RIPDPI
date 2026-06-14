@@ -72,6 +72,8 @@ import com.poyka.ripdpi.ui.screens.settings.AssetProviderRoute
 import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
+import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksRoute
+import com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
@@ -616,6 +618,7 @@ private fun SettingsHomeRoute(
         onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
         onOpenRoutingRules = { navController.navigate(Route.Routes) },
         onOpenSplitTunnel = { navController.navigate(Route.SplitTunnel) },
+        onOpenRootModeStrategies = { navController.navigate(Route.RootModeStrategies) },
         onOpenBackupRestore = { navController.navigate(Route.BackupRestore) },
         onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
         onShareDebugBundle = actions.onShareDebugBundle,
@@ -644,7 +647,17 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
             onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
             onOpenBlockcheck = { navController.navigate(Route.Blockcheck) },
             onOpenAssetProvider = { navController.navigate(Route.AssetProvider) },
+            onOpenRememberedNetworks = { navController.navigate(Route.RememberedNetworks) },
             viewModel = settingsViewModel,
+        )
+    }
+    composable<Route.RememberedNetworks> {
+        RememberedNetworksRoute(onBack = { navController.popBackStack() })
+    }
+    composable<Route.RootModeStrategies> {
+        RootModeStrategiesRoute(
+            onBack = { navController.popBackStack() },
+            onOpenStrategyConfig = { navController.navigate(Route.StrategyConfig) },
         )
     }
     composable<Route.StrategyConfig> {

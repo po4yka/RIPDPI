@@ -408,6 +408,10 @@ internal fun resolveCurrentConnectionState(
             activeConnectionSession?.connectionState ?: AppStatus.Running.name
         }
 
+        AppStatus.Reconnecting -> {
+            activeConnectionSession?.connectionState ?: AppStatus.Reconnecting.name
+        }
+
         AppStatus.Halted -> {
             if (activeConnectionSession?.connectionState.equals("Failed", ignoreCase = true)) {
                 "Failed"

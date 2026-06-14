@@ -252,11 +252,18 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
     upstream_peer.send(b"edge-response").expect("send upstream response");
 
     let mut upstream_buffer = [0u8; 1500];
+    let mut encode_buffer = Vec::new();
     let deadline = Instant::now() + Duration::from_secs(1);
     let made_progress = loop {
-        let made_progress =
-            pump_udp_upstream_responses(&state, &client_relay, &mut upstream_buffer, &mut flow_state, None)
-                .expect("pump upstream response");
+        let made_progress = pump_udp_upstream_responses(
+            &state,
+            &client_relay,
+            &mut upstream_buffer,
+            &mut encode_buffer,
+            &mut flow_state,
+            None,
+        )
+        .expect("pump upstream response");
         if made_progress || Instant::now() >= deadline {
             break made_progress;
         }
@@ -363,11 +370,18 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
     }
 
     let mut upstream_buffer = [0u8; 1500];
+    let mut encode_buffer = Vec::new();
     let deadline = Instant::now() + Duration::from_secs(2);
     loop {
-        let made_progress =
-            pump_udp_upstream_responses(&state, &client_relay, &mut upstream_buffer, &mut flow_state, None)
-                .expect("pump upstream response");
+        let made_progress = pump_udp_upstream_responses(
+            &state,
+            &client_relay,
+            &mut upstream_buffer,
+            &mut encode_buffer,
+            &mut flow_state,
+            None,
+        )
+        .expect("pump upstream response");
         if made_progress || Instant::now() >= deadline {
             assert!(made_progress, "relay response must be pumped back to the client");
             break;

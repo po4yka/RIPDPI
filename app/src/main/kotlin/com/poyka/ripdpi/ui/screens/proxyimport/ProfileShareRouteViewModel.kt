@@ -2,9 +2,11 @@ package com.poyka.ripdpi.ui.screens.proxyimport
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proxyimport.RelayProfileShareMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +31,7 @@ class ProfileShareRouteViewModel
     constructor(
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialRepository: RelayCredentialRepository,
+        private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(ProfileShareRouteUiState())
         val uiState: StateFlow<ProfileShareRouteUiState> = _uiState.asStateFlow()
@@ -49,6 +52,7 @@ class ProfileShareRouteViewModel
                         setupSheet =
                             shareable?.let {
                                 ProfileSetupSheetFormatter.format(
+                                    strings = stringResolver,
                                     profileName = it.profile.displayName,
                                     profileKind = profileKindLabel(it.profile),
                                     shareUri = it.shareUri,
@@ -62,31 +66,17 @@ class ProfileShareRouteViewModel
 
 object ProfileSetupSheetFormatter {
     fun format(
+        strings: StringResolver,
         profileName: String,
         profileKind: String,
         shareUri: String,
     ): String =
-        """
-        RIPDPI setup sheet
-
-        Profile: $profileName
-        Type: $profileKind
-
-        Subscription/profile link:
-        $shareUri
-
-        Hiddify:
-        1. Open Hiddify.
-        2. Choose Add profile.
-        3. Scan the QR code or paste the link above.
-
-        AmneziaVPN:
-        1. Open AmneziaVPN.
-        2. Choose Add server from link or QR.
-        3. Scan the QR code or paste the link above.
-
-        Keep this sheet private. The QR code and link contain credentials.
-        """.trimIndent()
+        strings.getString(
+            R.string.profile_share_setup_sheet_template,
+            profileName,
+            profileKind,
+            shareUri,
+        )
 }
 
 internal fun profileKindLabel(profile: ProxyProfile): String =

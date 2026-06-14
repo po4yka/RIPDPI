@@ -5,9 +5,9 @@ pub(super) use ripdpi_proxy_runtime_adapter::model::session::{
     FirstOutboundPayloadPolicy, OutboundPayloadInfo, PayloadHostExtractor, ProxyReply, S_ATP_I4, S_ATP_I6, S_AUTH_BAD,
     S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_CONN, S_ER_GEN, S_ER_HOST, S_ER_NET, S_ER_TTL, S_VER5, SocketType,
     UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, encode_http_connect_reply, encode_socks4_reply,
-    encode_socks5_reply, encode_socks5_udp_packet, encode_upstream_socks_connect, extract_payload_host_with,
-    has_inbound_payload, new_session_state, observe_datagram_outbound_payload, observe_first_response_payload,
-    observe_inbound_payload, observe_outbound_payload, observe_retry_response_payload,
+    encode_socks5_reply, encode_socks5_udp_packet, encode_socks5_udp_packet_into, encode_upstream_socks_connect,
+    extract_payload_host_with, has_inbound_payload, new_session_state, observe_datagram_outbound_payload,
+    observe_first_response_payload, observe_inbound_payload, observe_outbound_payload, observe_retry_response_payload,
     outbound_payload_count_this_round, parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request,
     parse_socks5_request, read_upstream_socks_reply,
 };

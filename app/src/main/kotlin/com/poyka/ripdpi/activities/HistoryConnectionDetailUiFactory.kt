@@ -161,7 +161,7 @@ internal class HistoryConnectionDetailUiFactory
         private fun DiagnosticContextModel.toContextGroups(): List<DiagnosticsContextGroupUiModel> =
             listOf(
                 DiagnosticsContextGroupUiModel(
-                    title = "Service",
+                    title = context.getString(R.string.history_detail_section_service),
                     fields =
                         listOf(
                             DiagnosticsFieldUiModel("Status", service.serviceStatus),
@@ -174,7 +174,7 @@ internal class HistoryConnectionDetailUiFactory
                         ),
                 ),
                 DiagnosticsContextGroupUiModel(
-                    title = "Environment",
+                    title = context.getString(R.string.history_detail_section_environment),
                     fields =
                         listOf(
                             DiagnosticsFieldUiModel("VPN permission", permissions.vpnPermissionState),
@@ -187,7 +187,7 @@ internal class HistoryConnectionDetailUiFactory
                         ),
                 ),
                 DiagnosticsContextGroupUiModel(
-                    title = "Device",
+                    title = context.getString(R.string.history_detail_section_device),
                     fields =
                         listOf(
                             DiagnosticsFieldUiModel("App", device.appVersionName),
@@ -231,7 +231,10 @@ internal class HistoryConnectionDetailUiFactory
                     add(DiagnosticsFieldUiModel("Total retries", retryCount.toString()))
                 }
             return fields.takeIf { it.isNotEmpty() }?.let {
-                DiagnosticsContextGroupUiModel(title = "Field telemetry", fields = it)
+                DiagnosticsContextGroupUiModel(
+                    title = context.getString(R.string.history_detail_section_field_telemetry),
+                    fields = it,
+                )
             }
         }
 

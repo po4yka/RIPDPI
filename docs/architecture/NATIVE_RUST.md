@@ -39,6 +39,7 @@ convention plugin
 | `libripdpi.so` | `ripdpi-android` | `cdylib` | `:core:engine:buildRustNativeLibs` | `jniLibs/<abi>/` |
 | `libripdpi-relay.so` | `ripdpi-relay-android` | `cdylib` | `:core:engine:buildRustNativeLibs` | `jniLibs/<abi>/` |
 | `libripdpi-warp.so` | `ripdpi-warp-android` | `cdylib` | `:core:engine:buildRustNativeLibs` | `jniLibs/<abi>/` |
+| `libripdpi-amneziawg.so` | `ripdpi-amneziawg-android` | `cdylib` | `:core:engine:buildRustNativeLibs` | `jniLibs/<abi>/` |
 | `libripdpi-tunnel.so` | `ripdpi-tunnel-android` | `cdylib` | `:core:engine:buildRustNativeLibs` | `jniLibs/<abi>/` |
 | `ripdpi-root-helper` | `ripdpi-root-helper` | `bin` | `:core:engine:buildRustRootHelper` | APK assets (`rootHelperAssets/bin/<abi>/`) — run via `su` |
 | `ripdpi-naiveproxy` | `ripdpi-naiveproxy` | `bin` (`src/main.rs`) | NaiveProxy artifact task | APK assets — run as a subprocess helper |
@@ -46,10 +47,11 @@ convention plugin
 | `ripdpi-webtunnel` | `ripdpi-webtunnel` | `bin` (`src/main.rs`) | Pluggable-transport asset task | APK assets — run as a Tor PT managed-client helper |
 | `ripdpi` | `ripdpi-cli` | `bin` | `cargo build` (desktop) | **Not** in the APK — macOS/Linux dev binary |
 
-> **Native artifact map.** The Gradle plugin's artifact specs build four JNI
+> **Native artifact map.** The Gradle plugin's artifact specs build five JNI
 > `.so` libraries: `libripdpi.so`, `libripdpi-tunnel.so`,
-> `libripdpi-relay.so`, and `libripdpi-warp.so`. Relay and WARP ship as their
-> own libraries, not as code linked into `libripdpi.so`.
+> `libripdpi-relay.so`, `libripdpi-warp.so`, and `libripdpi-amneziawg.so`.
+> Relay, WARP, and AmneziaWG ship as their own libraries, not as code linked
+> into `libripdpi.so`.
 
 First-level composition of each artifact root (direct internal dependencies):
 
@@ -64,6 +66,10 @@ First-level composition of each artifact root (direct internal dependencies):
   pluggable transports remain subprocess/helper paths.
 - **`ripdpi-warp-android`** → `ripdpi-warp-core`, `ripdpi-native-protect`,
   `ripdpi-tls-profiles`, `ripdpi-quality`, `android-support`.
+- **`ripdpi-amneziawg-android`** → `ripdpi-warp-core`, `ripdpi-native-protect`,
+  `android-support`. Drives a user-configured AmneziaWG peer over the shared
+  `ripdpi-warp-core` WireGuard + AmneziaWG data plane (no Cloudflare WARP
+  provisioning); see [JNI_CONTRACT.md](JNI_CONTRACT.md).
 - **`ripdpi-root-helper`** → `ripdpi-privileged-ops`, `ripdpi-ipfrag`,
   `ripdpi-root-helper-protocol`.
 
@@ -85,7 +91,7 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 | L5 | **platform / privileged** | 8 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
 | L6 | **diagnostics / monitor** | 17 | 13 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
 | L7 | **relay transports** | 21 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel`, `ripdpi-mieru`, `ripdpi-ssh` |
-| L8 | **Android / JNI adapters** | 12 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android` |
+| L8 | **Android / JNI adapters** | 13 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android`, `ripdpi-amneziawg-android` |
 
 `ripdpi-diagnostics-contracts` is counted under L2 (it is a wire contract); the
 other 14 `ripdpi-diagnostics-*` crates are L6.
@@ -111,13 +117,13 @@ Rules, all of which **hold today** in `Cargo.toml`:
 1. **Dependencies point inward / downward only.** No L1/L2/L5 crate may depend
    on an L3+ crate; no L3 crate may depend on L4/L6/L7/L8. The artifact roots
    (L8 cdylibs, the bin crates) are sinks — nothing depends on them.
-2. **JNI containment.** Only the 12 L8 crates may depend on the `jni` crate or
+2. **JNI containment.** Only the 13 L8 crates may depend on the `jni` crate or
    on `android-support`. Today exactly 11 crates pull `jni`
    (`ripdpi-android-telemetry-adapter` is the one L8 crate without it), and
    `android-support` is consumed by L8 crates *only*. Every other crate must
    stay JNI-free — see [§5](#5-crates-that-must-stay-androidjni-free).
-3. **`cdylib` is L8-exclusive.** Exactly four crates set
-   `crate-type = ["cdylib"]`; all four are L8 artifact roots. No other crate
+3. **`cdylib` is L8-exclusive.** Exactly five crates set
+   `crate-type = ["cdylib"]`; all five are L8 artifact roots. No other crate
    may become a `cdylib`.
 4. **Platform ports, not platform impls.** `ripdpi-runtime-platform` and
    `ripdpi-native-protect` define platform capability/protection ports. Core
@@ -308,12 +314,13 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-tunnel-android` | `libripdpi-tunnel.so` — TUN bridge JNI entrypoint | `cdylib` + JNI | `ripdpi-tunnel-core`, `ripdpi-runtime-platform`, `ripdpi-pcap`, `ripdpi-quality`, … | `jni`; artifact root | Keep |
 | `ripdpi-relay-android` | `libripdpi-relay.so` — relay JNI entrypoint (`RipDpiRelayNativeBindings`) | `cdylib` + JNI | `ripdpi-relay-core`, `ripdpi-apps-script-core`, `ripdpi-quality`, `android-support` | `jni`; artifact root | Keep — Kotlin counterpart `RipDpiRelayNativeBindings` at `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt:82`; `System.loadLibrary("ripdpi-relay")` at `RipDpiRelayNativeLoader:76` |
 | `ripdpi-warp-android` | `libripdpi-warp.so` — WARP JNI entrypoint | `cdylib` + JNI | `ripdpi-warp-core`, `ripdpi-native-protect`, `ripdpi-tls-profiles`, `ripdpi-quality`, `android-support` | `jni`; artifact root | Keep |
+| `ripdpi-amneziawg-android` | `libripdpi-amneziawg.so` — AmneziaWG JNI entrypoint | `cdylib` + JNI | `ripdpi-warp-core`, `ripdpi-native-protect`, `android-support` | `jni`; artifact root; shares the WARP WireGuard+AmneziaWG data plane | Keep |
 
 ---
 
 ## 5. Crates that must stay Android/JNI-free
 
-Every crate **except the 12 L8 crates** must not depend on `jni`,
+Every crate **except the 13 L8 crates** must not depend on `jni`,
 `android-support`, `android_logger`, or any `ndk-*` crate. That is **99 crates**
 — all of L0–L7:
 
@@ -351,7 +358,7 @@ This invariant holds in `Cargo.toml` today: only the 11 JNI-bearing L8 crates
 pull `jni`, and `android-support` is consumed by L8 crates only.
 
 `scripts/ci/check_native_architecture_contracts.py` enforces it: a crate
-outside the 12 L8 crates (the allowlist mirrors [§6](#6-outer-android-adapter-crates))
+outside the 13 L8 crates (the allowlist mirrors [§6](#6-outer-android-adapter-crates))
 that adds a `jni` / `android-support` / `android_logger` / `ndk-*` production
 dependency fails the `native-contracts` pre-commit hook.
 
@@ -359,7 +366,7 @@ dependency fails the `native-contracts` pre-commit hook.
 
 ## 6. Outer Android adapter crates
 
-The **12 L8 crates** — the only crates allowed to touch JNI / `android-support`,
+The **13 L8 crates** — the only crates allowed to touch JNI / `android-support`,
 and the only `cdylib` roots:
 
 **Artifact roots (`cdylib` → `.so`):**

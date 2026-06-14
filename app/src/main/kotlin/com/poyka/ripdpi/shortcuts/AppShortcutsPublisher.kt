@@ -63,7 +63,11 @@ class AppShortcutsPublisher
                     .collect { status ->
                         runCatching {
                             when (status) {
-                                AppStatus.Running -> {
+                                // Reconnecting is an active session bringing itself back up:
+                                // keep the stop shortcut available, same as Running.
+                                AppStatus.Running,
+                                AppStatus.Reconnecting,
+                                -> {
                                     val manifestShortcut =
                                         ShortcutManagerCompat
                                             .getShortcuts(context, ShortcutManagerCompat.FLAG_MATCH_MANIFEST)

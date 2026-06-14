@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod amneziawg;
+mod amneziawg_runtime;
 mod config;
 mod endpoint_probe;
 mod observe;
@@ -12,6 +13,7 @@ mod support;
 mod virtual_iface;
 mod wireguard;
 
+pub use amneziawg_runtime::{AmneziaWgObfuscation, AmneziaWgProfileConfig, AmneziaWgRuntime, AmneziaWgTelemetry};
 pub use config::{
     ResolvedWarpRuntimeConfig, ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, WarpEndpointProbeRequest,
     WarpEndpointProbeResult, WarpManualEndpoint, WarpTelemetry,

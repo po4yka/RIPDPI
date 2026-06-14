@@ -108,7 +108,7 @@ private fun SubscriptionServerRow(server: SubscriptionServerUiState) {
                 )
             }
             Text(
-                text = server.status.label,
+                text = stringResource(server.status.labelRes),
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = server.status.color(),
             )

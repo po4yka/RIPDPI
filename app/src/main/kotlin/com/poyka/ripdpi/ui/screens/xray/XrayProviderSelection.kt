@@ -2,35 +2,22 @@ package com.poyka.ripdpi.ui.screens.xray
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.xray.VpnProviderKind
-import com.poyka.ripdpi.data.xray.XrayImportParser
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator
 import dagger.Binds
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
-
-/**
- * The pinned xray-core upstream tag used for version-gated import validation.
- *
- * Mirrors the `xray-core` pin in `gradle/libs.versions.toml` (kept in the
- * `v<major>.<minor>.<patch>` shape [com.poyka.ripdpi.data.XrayConfigValidator]
- * compares against). When the pin moves, update this constant in the same PR
- * so the importer enforces the same version gate the binary ships with.
- */
-const val PinnedXrayCoreUpstreamTag: String = "v26.4.7"
 
 /**
  * Runtime selection produced by the Xray provider-selection / import surface.
@@ -91,22 +78,31 @@ class DefaultXrayProfilePersistence
         private val appSettingsRepository: AppSettingsRepository,
         private val selectionStore: XrayProviderSelectionStore,
         private val stringResolver: StringResolver,
-        @param:ApplicationScope private val scope: CoroutineScope,
+        private val relayActivator: NativeRelayProfileActivator,
     ) : XrayProfilePersistence {
-        override val upstreamTag: String = PinnedXrayCoreUpstreamTag
-
         override val emptyInputMessage: String
             get() = stringResolver.getString(R.string.xray_import_empty_input_error)
 
-        override fun persist(
+        override val noSupportedNodesMessage: String
+            get() = stringResolver.getString(R.string.xray_import_error_no_supported)
+
+        override val unparseableMessage: String
+            get() = stringResolver.getString(R.string.xray_import_error_unparseable)
+
+        override val persistFailedMessage: String
+            get() = stringResolver.getString(R.string.xray_import_error_activation_failed)
+
+        override suspend fun persist(
             option: XrayServiceModeOption,
-            profile: XrayProfile?,
+            profiles: List<ProxyProfile>,
         ) {
-            selectionStore.record(option, profile)
+            // The libXray provider path is not yet linked; the accepted profile is
+            // not retained. Record the chosen mode and activate the first
+            // natively-supported translated outbound on the native relay engine.
+            selectionStore.record(option, null)
             val mode = if (option == XrayServiceModeOption.NativeProxy) Mode.Proxy else Mode.VPN
-            scope.launch {
-                appSettingsRepository.update { setRipdpiMode(mode.preferenceValue) }
-            }
+            profiles.firstOrNull { relayActivator.supports(it) }?.let { relayActivator.activate(it) }
+            appSettingsRepository.update { setRipdpiMode(mode.preferenceValue) }
         }
     }
 
@@ -116,16 +112,4 @@ abstract class XrayProfilePersistenceModule {
     @Binds
     @Singleton
     abstract fun bindXrayProfilePersistence(impl: DefaultXrayProfilePersistence): XrayProfilePersistence
-
-    companion object {
-        /**
-         * Provides the pure-Kotlin [XrayImportParser] the import ViewModel
-         * injects. The parser has no `@Inject` constructor (it lives in the
-         * Android-free `:core:data:catalog` module), so the binding is supplied
-         * here with its default [com.poyka.ripdpi.data.xray.XrayConfigRenderer].
-         */
-        @Provides
-        @Singleton
-        fun provideXrayImportParser(): XrayImportParser = XrayImportParser()
-    }
 }

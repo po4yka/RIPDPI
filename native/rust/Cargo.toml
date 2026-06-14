@@ -58,6 +58,7 @@ members = [
     "crates/ripdpi-android-platform-adapter",
     "crates/ripdpi-android-vpn-protect-adapter",
     "crates/ripdpi-android",
+    "crates/ripdpi-amneziawg-android",
     "crates/ripdpi-relay-core",
     "crates/ripdpi-tor",
     "crates/ripdpi-relay-tls-transports",

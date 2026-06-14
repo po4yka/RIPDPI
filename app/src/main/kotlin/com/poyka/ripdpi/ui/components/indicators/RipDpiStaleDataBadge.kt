@@ -18,10 +18,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.time.Duration
@@ -59,6 +61,33 @@ fun staleTierFor(age: Duration): RipDpiStaleTier =
         age.inWholeMinutes < StaleCutoffMinutes -> RipDpiStaleTier.Stale
         else -> RipDpiStaleTier.Expired
     }
+
+/**
+ * Tier to render for a *live* telemetry panel whose snapshot is [age] old, given
+ * the [activePollInterval] currently driving updates — or `null` when the data is
+ * still fresh (younger than `2 ×` the poll interval) and the badge should be
+ * omitted entirely.
+ *
+ * A healthy poll cycle keeps the snapshot age below one interval, well under the
+ * `2 ×` gate, so no badge ever flashes on a live, updating panel; the badge only
+ * appears once updates visibly stall. The function is pure and monotonic in
+ * [age]: for a fixed age it always returns the same result, so it cannot flicker
+ * at the threshold between recompositions — only a real change in age can flip it.
+ *
+ * The `2 ×` gate (e.g. 2 s at a 1 s poll) is tighter than the [RipDpiStaleTier.Fresh]
+ * window (< 5 s), so [staleTierFor] would otherwise label a just-stalled panel
+ * "Fresh" (a green *updating* pulse) — the opposite of the intended signal. The
+ * Fresh tier is therefore collapsed into [RipDpiStaleTier.Recent]: when this
+ * returns non-null the data is, by construction, no longer fresh.
+ */
+fun liveStaleBadgeTier(
+    age: Duration,
+    activePollInterval: Duration,
+): RipDpiStaleTier? {
+    if (age < activePollInterval * 2) return null
+    val tier = staleTierFor(age)
+    return if (tier == RipDpiStaleTier.Fresh) RipDpiStaleTier.Recent else tier
+}
 
 @Composable
 fun RipDpiStaleDataBadge(
@@ -110,13 +139,14 @@ fun RipDpiStaleDataBadge(
         } else {
             1f
         }
+    val badgeDescription = stringResource(R.string.cd_stale_data_badge, label, tier.name.lowercase())
     Row(
         modifier =
             modifier
                 .background(tones.container, RoundedCornerShape(percent = 50))
                 .border(width = staleBadgeBorderWidth, color = tones.border, shape = RoundedCornerShape(percent = 50))
                 .padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = staleBadgeVerticalPadding)
-                .semantics { contentDescription = "$label, ${tier.name.lowercase()} data" },
+                .semantics { contentDescription = badgeDescription },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {

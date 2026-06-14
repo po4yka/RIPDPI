@@ -152,6 +152,10 @@ private class FlowRememberedPolicySource(
 ) : DiagnosticsRememberedPolicySource {
     override fun observePolicies(limit: Int): Flow<List<DiagnosticsRememberedPolicy>> = policies
 
+    override suspend fun deletePolicy(policy: DiagnosticsRememberedPolicy) {
+        policies.value = policies.value.filterNot { it.id == policy.id }
+    }
+
     override suspend fun clearAll() {
         policies.value = emptyList()
     }

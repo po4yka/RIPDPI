@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,6 +20,7 @@ import com.poyka.ripdpi.services.ConnectionHealthDestinationClass
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -56,6 +56,12 @@ fun ConnectionHealthScreen(
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.ConnectionHealth)),
     ) {
         ConnectionHealthSummary(uiState)
+        if (uiState.latencyDistributions.isNotEmpty()) {
+            LatencyDistributionsCard(distributions = uiState.latencyDistributions)
+        }
+        uiState.dnsCounters?.let { counters ->
+            DnsCountersCard(counters = counters)
+        }
         uiState.rows.forEach { row ->
             ConnectionHealthRow(row = row)
         }
@@ -133,10 +139,7 @@ private fun ConnectionHealthRow(row: ConnectionHealthRowUiState) {
                 color = colors.foreground,
             )
         }
-        LinearProgressIndicator(
-            progress = { (rate ?: 0) / 100f },
-            modifier = Modifier.fillMaxWidth(),
-        )
+        RipDpiProgressBar(progress = (rate ?: 0) / 100f)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
@@ -201,6 +204,134 @@ private fun ConnectionHealthDestinationClass.label(): String =
         }
     }
 
+@Composable
+private fun LatencyDistributionsCard(distributions: List<LatencyDistributionUiState>) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard {
+        Text(
+            text = stringResource(R.string.connection_health_latency_section_title),
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = colors.foreground,
+        )
+        Text(
+            text = stringResource(R.string.connection_health_latency_caption),
+            style = RipDpiThemeTokens.type.caption,
+            color = colors.mutedForeground,
+        )
+        distributions.forEach { distribution ->
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(spacing.xs),
+            ) {
+                Text(
+                    text = distribution.kind.label(),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                PercentileBar(label = "p50", valueMs = distribution.p50Ms, scaleMs = distribution.scaleMs)
+                PercentileBar(label = "p95", valueMs = distribution.p95Ms, scaleMs = distribution.scaleMs)
+                PercentileBar(label = "p99", valueMs = distribution.p99Ms, scaleMs = distribution.scaleMs)
+                Text(
+                    text =
+                        stringResource(
+                            R.string.connection_health_latency_range_format,
+                            distribution.minMs,
+                            distribution.maxMs,
+                            distribution.count,
+                        ),
+                    style = RipDpiThemeTokens.type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PercentileBar(
+    label: String,
+    valueMs: Long,
+    scaleMs: Long,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val fraction = (valueMs.toFloat() / scaleMs.toFloat()).coerceIn(0f, 1f)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = colors.mutedForeground,
+        )
+        RipDpiProgressBar(
+            progress = fraction,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = stringResource(R.string.connection_health_latency_value_ms, valueMs),
+            style = RipDpiThemeTokens.type.monoSmall,
+            color = colors.foreground,
+        )
+    }
+}
+
+@Composable
+private fun DnsCountersCard(counters: DnsCountersUiState) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard {
+        Text(
+            text = stringResource(R.string.connection_health_dns_section_title),
+            style = RipDpiThemeTokens.type.sectionTitle,
+            color = colors.foreground,
+        )
+        counters.cacheHitRatePercent?.let { rate ->
+            Text(
+                text = stringResource(R.string.connection_health_dns_hit_rate_format, rate),
+                style = RipDpiThemeTokens.type.caption,
+                color = colors.mutedForeground,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
+        ) {
+            ConnectionHealthMetric(
+                label = stringResource(R.string.connection_health_dns_queries),
+                value = counters.queriesTotal.toString(),
+                modifier = Modifier.weight(1f),
+            )
+            ConnectionHealthMetric(
+                label = stringResource(R.string.connection_health_dns_cache_hits),
+                value = counters.cacheHits.toString(),
+                modifier = Modifier.weight(1f),
+            )
+            ConnectionHealthMetric(
+                label = stringResource(R.string.connection_health_dns_cache_misses),
+                value = counters.cacheMisses.toString(),
+                modifier = Modifier.weight(1f),
+            )
+            ConnectionHealthMetric(
+                label = stringResource(R.string.connection_health_dns_failures),
+                value = counters.failuresTotal.toString(),
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LatencyDistributionKind.label(): String =
+    when (this) {
+        LatencyDistributionKind.DnsResolution -> stringResource(R.string.connection_health_latency_dns)
+        LatencyDistributionKind.TcpConnect -> stringResource(R.string.connection_health_latency_tcp)
+        LatencyDistributionKind.TlsHandshake -> stringResource(R.string.connection_health_latency_tls)
+    }
+
 @Preview(
     showBackground = true,
     widthDp = 420,
@@ -248,5 +379,42 @@ fun previewConnectionHealthUiState(): ConnectionHealthUiState =
             ),
         qualityLossPercent = 8,
         qualityRttP50Ms = 61,
+        latencyDistributions =
+            listOf(
+                LatencyDistributionUiState(
+                    kind = LatencyDistributionKind.DnsResolution,
+                    p50Ms = 18,
+                    p95Ms = 44,
+                    p99Ms = 91,
+                    minMs = 6,
+                    maxMs = 102,
+                    count = 312,
+                ),
+                LatencyDistributionUiState(
+                    kind = LatencyDistributionKind.TcpConnect,
+                    p50Ms = 52,
+                    p95Ms = 140,
+                    p99Ms = 220,
+                    minMs = 31,
+                    maxMs = 240,
+                    count = 188,
+                ),
+                LatencyDistributionUiState(
+                    kind = LatencyDistributionKind.TlsHandshake,
+                    p50Ms = 96,
+                    p95Ms = 260,
+                    p99Ms = 410,
+                    minMs = 60,
+                    maxMs = 430,
+                    count = 174,
+                ),
+            ),
+        dnsCounters =
+            DnsCountersUiState(
+                queriesTotal = 1_204,
+                cacheHits = 938,
+                cacheMisses = 266,
+                failuresTotal = 12,
+            ),
         observedAt = 1_000L,
     )

@@ -178,7 +178,11 @@ class MainViewModel
         }
 
         fun onStopRequested() {
-            if (uiState.value.appStatus == AppStatus.Running) {
+            // Stop on any non-Halted status. The launcher stop-shortcut, Quick Tile,
+            // and widget all treat Reconnecting as stoppable; this external-stop sink
+            // (ripdpi://disconnect) must match so a stop issued during the brief
+            // Reconnecting window is not silently dropped.
+            if (uiState.value.appStatus != AppStatus.Halted) {
                 connectionActions.stop()
             }
         }

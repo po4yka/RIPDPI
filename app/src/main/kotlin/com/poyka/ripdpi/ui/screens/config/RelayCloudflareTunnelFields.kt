@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldRelayCloudflarePublishOrigin
 import com.poyka.ripdpi.activities.ConfigUiState
@@ -21,12 +23,12 @@ internal fun CloudflareTunnelRelayFields(
     actions: RelayVlessActions,
 ) {
     Text(
-        text = "Cloudflare Tunnel publishes or consumes an origin before VLESS transport handling.",
+        text = stringResource(R.string.relay_cloudflare_tunnel_caption),
         style = RipDpiThemeTokens.type.caption,
         color = RipDpiThemeTokens.colors.mutedForeground,
     )
     Text(
-        text = "Tunnel mode",
+        text = stringResource(R.string.relay_cloudflare_tunnel_mode_label),
         style = RipDpiThemeTokens.type.caption,
         color = RipDpiThemeTokens.colors.mutedForeground,
     )
@@ -34,13 +36,13 @@ internal fun CloudflareTunnelRelayFields(
         RelayKindChip(
             selectedKind = draft.relayCloudflareTunnelMode,
             kind = RelayCloudflareTunnelModeConsumeExisting,
-            label = "Consume existing",
+            label = stringResource(R.string.relay_cloudflare_mode_consume_existing),
             onRelayKindChanged = actions.onRelayCloudflareTunnelModeChanged,
         )
         RelayKindChip(
             selectedKind = draft.relayCloudflareTunnelMode,
             kind = RelayCloudflareTunnelModePublishLocalOrigin,
-            label = "Publish local",
+            label = stringResource(R.string.relay_cloudflare_mode_publish_local),
             onRelayKindChanged = actions.onRelayCloudflareTunnelModeChanged,
         )
     }
@@ -62,28 +64,34 @@ private fun CloudflareLocalOriginFields(
         onValueChange = actions.onRelayCloudflarePublishLocalOriginUrlChanged,
         decoration =
             RipDpiTextFieldDecoration(
-                label = "Local origin URL",
+                label = stringResource(R.string.relay_cloudflare_local_origin_url_label),
                 errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayCloudflarePublishOrigin]),
             ),
     )
     RipDpiTextField(
         value = draft.relayCloudflareCredentialsRef,
         onValueChange = actions.onRelayCloudflareCredentialsRefChanged,
-        decoration = RipDpiTextFieldDecoration(label = "Credentials reference"),
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.relay_cloudflare_credentials_reference_label),
+            ),
     )
     RipDpiConfigTextField(
         value = draft.relayCloudflareTunnelToken,
         onValueChange = actions.onRelayCloudflareTunnelTokenChanged,
         decoration =
             RipDpiTextFieldDecoration(
-                label = "Tunnel token",
-                helperText = "Import a Cloudflare tunnel token or credentials JSON.",
+                label = stringResource(R.string.relay_cloudflare_tunnel_token_label),
+                helperText = stringResource(R.string.relay_cloudflare_tunnel_token_helper),
             ),
     )
     RipDpiConfigTextField(
         value = draft.relayCloudflareTunnelCredentialsJson,
         onValueChange = actions.onRelayCloudflareTunnelCredentialsJsonChanged,
-        decoration = RipDpiTextFieldDecoration(label = "Named tunnel credentials JSON"),
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.relay_cloudflare_named_tunnel_credentials_label),
+            ),
         multiline = true,
     )
 }

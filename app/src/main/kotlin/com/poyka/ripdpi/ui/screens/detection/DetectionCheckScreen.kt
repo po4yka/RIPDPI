@@ -343,8 +343,8 @@ private fun DetectionTlsKeylogWarning(path: String?) {
     if (path.isNullOrBlank()) return
 
     WarningBanner(
-        title = "TLS keylog enabled",
-        message = "Secrets written to $path. Disable when done debugging.",
+        title = stringResource(R.string.detection_tls_keylog_warning_title),
+        message = stringResource(R.string.detection_tls_keylog_warning_message, path),
         tone = WarningBannerTone.Restricted,
     )
 }
@@ -361,7 +361,7 @@ private fun DetectionColorVisionControls(
     val type = RipDpiThemeTokens.type
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
         Text(
-            text = "Status visuals",
+            text = stringResource(R.string.detection_status_visuals_title),
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )
@@ -385,7 +385,7 @@ private fun DetectionColorVisionControls(
         StatusVisualPreviewRow(mode = selectedMode)
         if (protanopiaVariantUnlocked) {
             Text(
-                text = "Protanopia-safe red/green mode is unlocked.",
+                text = stringResource(R.string.detection_protanopia_unlocked_message),
                 style = type.caption,
                 color = colors.mutedForeground,
             )
@@ -415,7 +415,7 @@ private fun DetectionCdnPullingToggle(
         checked = enabled,
         onCheckedChange = onEnabledChange,
         enabled = controlEnabled,
-        label = "CDN trace and TLS MITM check",
+        label = stringResource(R.string.detection_cdn_trace_mitm_label),
     )
 }
 
@@ -429,7 +429,7 @@ private fun DetectionDebugModeToggle(
         checked = enabled,
         onCheckedChange = onEnabledChange,
         enabled = controlEnabled,
-        label = "Debug diagnostics",
+        label = stringResource(R.string.detection_debug_diagnostics_label),
     )
 }
 
@@ -645,6 +645,7 @@ private fun DetectionReportActions(
 ) {
     val context = LocalContext.current
     val spacing = RipDpiThemeTokens.spacing
+    val diagnosticsClipLabel = stringResource(R.string.clipboard_label_detection_diagnostics)
     var exportDialogVisible by rememberSaveable { mutableStateOf(false) }
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -674,13 +675,14 @@ private fun DetectionReportActions(
         performHaptic = performHaptic,
     )
     debugReportText?.let { text ->
+        val diagnosticsClipLabel = stringResource(R.string.clipboard_label_detection_diagnostics)
         RipDpiButton(
-            text = "Copy diagnostics",
+            text = stringResource(R.string.detection_check_copy_diagnostics),
             onClick = {
                 performHaptic(RipDpiHapticFeedback.Acknowledge)
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(
-                    ClipData.newPlainText(context.getString(R.string.clipboard_label_detection_diagnostics), text),
+                    ClipData.newPlainText(diagnosticsClipLabel, text),
                 )
             },
             modifier = Modifier.fillMaxWidth(),
@@ -738,11 +740,11 @@ private fun DetectionExportFormatDialog(
     if (!visible) return
     RipDpiDialog(
         onDismissRequest = onDismiss,
-        title = "Share detection report",
+        title = stringResource(R.string.detection_check_share_dialog_title),
         dismissAction = RipDpiDialogAction(label = stringResource(R.string.action_dismiss), onClick = onDismiss),
     ) {
         RipDpiButton(
-            text = "Markdown",
+            text = stringResource(R.string.detection_check_export_format_markdown),
             onClick = {
                 performHaptic(RipDpiHapticFeedback.Acknowledge)
                 shareDetectionExport(context, result, privacyModeEnabled, DetectionExportFormat.MARKDOWN)
@@ -751,7 +753,7 @@ private fun DetectionExportFormatDialog(
             modifier = Modifier.fillMaxWidth(),
         )
         RipDpiButton(
-            text = "JSON",
+            text = stringResource(R.string.detection_check_export_format_json),
             onClick = {
                 performHaptic(RipDpiHapticFeedback.Acknowledge)
                 shareDetectionExport(context, result, privacyModeEnabled, DetectionExportFormat.JSON)
@@ -762,7 +764,7 @@ private fun DetectionExportFormatDialog(
         )
         if (debugModeEnabled) {
             RipDpiButton(
-                text = "Copy Markdown",
+                text = stringResource(R.string.detection_check_copy_markdown),
                 onClick = {
                     performHaptic(RipDpiHapticFeedback.Acknowledge)
                     val text =

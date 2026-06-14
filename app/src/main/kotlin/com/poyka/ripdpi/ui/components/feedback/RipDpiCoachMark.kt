@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -119,7 +121,13 @@ fun RipDpiCoachMark(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = true),
     ) {
-        Box(modifier = modifier.fillMaxSize().ripDpiClickable(onClickLabel = "Dismiss", onClick = onDismiss)) {
+        Box(
+            modifier =
+                modifier.fillMaxSize().ripDpiClickable(
+                    onClickLabel = stringResource(R.string.action_dismiss),
+                    onClick = onDismiss,
+                ),
+        ) {
             // Scrim with circular cutout at anchor.
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawRect(color = Color.Black.copy(alpha = 0.55f))
@@ -168,6 +176,7 @@ private fun CoachMarkBubble(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val coachMarkDescription = stringResource(R.string.cd_coach_mark, content.title, content.body)
     Column(
         modifier =
             modifier
@@ -175,7 +184,7 @@ private fun CoachMarkBubble(
                 .clip(RoundedCornerShape(RipDpiThemeTokens.spacing.md))
                 .background(colors.card)
                 .padding(RipDpiThemeTokens.spacing.md)
-                .semantics { contentDescription = "Coach mark: ${content.title}. ${content.body}" },
+                .semantics { contentDescription = coachMarkDescription },
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         Text(content.title, style = RipDpiThemeTokens.type.bodyEmphasis.copy(color = colors.foreground))

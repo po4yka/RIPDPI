@@ -68,6 +68,11 @@ data class RelayProfileRecord(
     val ptWebTunnelUrl: String = "",
     val ptSnowflakeBrokerUrl: String = DefaultSnowflakeBrokerUrl,
     val ptSnowflakeFrontDomain: String = DefaultSnowflakeFrontDomain,
+    // SSH non-secret config. The endpoint reuses [server]/[serverPort]; the
+    // username/password/private-key/passphrase live in [RelayCredentialRecord].
+    val sshAuthType: String = RelaySshAuthTypePassword,
+    val sshHostKeyFingerprint: String = "",
+    val sshStrictHostKey: Boolean = false,
     val localSocksHost: String = DefaultRelayLocalSocksHost,
     val localSocksPort: Int = DefaultRelayLocalSocksPort,
     val udpEnabled: Boolean = false,

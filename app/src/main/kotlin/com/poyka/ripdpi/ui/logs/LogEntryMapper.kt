@@ -56,7 +56,12 @@ class LogEntryMapper
                 timestamp = formatTimestamp(createdAtMs),
                 subsystem = LogSubsystem.Service,
                 severity = severity,
-                message = stringResolver.getString(R.string.logs_service_action_format, mode.displayName(), action),
+                message =
+                    stringResolver.getString(
+                        R.string.logs_service_action_format,
+                        mode.displayName(stringResolver),
+                        action,
+                    ),
                 source = "service",
                 isActiveSession = true,
             )
@@ -163,8 +168,8 @@ private fun normalizeLogSubsystem(
         else -> fallback
     }
 
-private fun Mode.displayName(): String =
+private fun Mode.displayName(stringResolver: StringResolver): String =
     when (this) {
-        Mode.Proxy -> "Proxy"
-        Mode.VPN -> "VPN"
+        Mode.Proxy -> stringResolver.getString(R.string.logs_mode_proxy)
+        Mode.VPN -> stringResolver.getString(R.string.logs_mode_vpn)
     }

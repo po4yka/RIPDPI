@@ -15,6 +15,23 @@ import kotlinx.serialization.Serializable
  */
 enum class AppStatus {
     Halted,
+
+    /**
+     * Transient bring-up state written by the boot-resume and LMK
+     * (sticky-restart) paths while the previously-active service is restarting,
+     * so the UI does not flash [Halted] during the brief restart window.
+     *
+     * It is never a persisted or default value of the canonical runtime store:
+     * `ServiceStateStore` initializes to [Halted] on every fresh process (no Drop
+     * runs on a SIGKILL), and [Reconnecting] is only ever written by code that is
+     * actively resuming — so a killed process can never come back up *as*
+     * [Reconnecting]. It is always overwritten by [Running] once the runtime
+     * connects, or [Halted] if the resume fails (the runtime start path
+     * guarantees a terminal status on every exit). See
+     * `.claude/rules/android-vpn-lifecycle.md`.
+     */
+    Reconnecting,
+
     Running,
 }
 

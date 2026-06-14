@@ -61,6 +61,7 @@ internal object RipDpiTestTags {
     const val HomeNetworkConditionBanner = "home-network-condition-banner"
 
     const val ConfigEditCurrentButton = "config-edit-current"
+    const val ConfigPresetsLoading = "config-presets-loading"
     const val ConfigDnsSettings = "config-dns-settings"
     const val ConfigLocalBypassSummary = "config-local-bypass-summary"
     const val ConfigLocalBypassSimple = "config-local-bypass-simple"
@@ -177,6 +178,9 @@ internal object RipDpiTestTags {
     const val AppPickerSheet = "app-picker-sheet"
     const val AppPickerSearch = "app-picker-search"
     const val SettingsSplitTunnel = "settings-split-tunnel"
+    const val SettingsRootModeStrategies = "settings-root-mode-strategies"
+    const val RootModeStrategiesDisabled = "root-mode-strategies-disabled"
+    const val RootModeStrategiesConfigure = "root-mode-strategies-configure"
     const val SplitTunnelModeSelector = "split-tunnel-mode-selector"
     const val SplitTunnelEditApps = "split-tunnel-edit-apps"
     const val StrategyConfigSource = "strategy-config-source"
@@ -301,8 +305,14 @@ internal object RipDpiTestTags {
     const val LogsStream = "logs-stream"
 
     const val AdvancedClearRememberedNetworks = "advanced-clear-remembered-networks"
+    const val AdvancedInspectRememberedNetworks = "advanced-inspect-remembered-networks"
     const val AdvancedCommandLineWarning = "advanced-command-line-warning"
     const val AdvancedNoticeBanner = "advanced-notice-banner"
+
+    const val RememberedNetworksEmpty = "remembered-networks-empty"
+    const val RememberedNetworksClearAll = "remembered-networks-clear-all"
+    val rememberedNetworkCard: (Long) -> String = { id -> "remembered-network-card-$id" }
+    val rememberedNetworkDelete: (Long) -> String = { id -> "remembered-network-delete-$id" }
 
     const val HistoryConnectionsSearch = "history-connections-search"
     const val HistoryDiagnosticsSearch = "history-diagnostics-search"

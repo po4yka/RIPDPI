@@ -9,6 +9,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsCidrWhitelistState
 import com.poyka.ripdpi.activities.DiagnosticsCidrWhitelistToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
@@ -34,7 +36,7 @@ internal fun CidrWhitelistDetectionCard(
             tone = statusTone(tool.state.tone()),
         )
         androidx.compose.material3.Text(
-            text = "CIDR whitelist detection",
+            text = stringResource(R.string.diagnostics_cidr_whitelist_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -45,8 +47,14 @@ internal fun CidrWhitelistDetectionCard(
         )
         MetricsRow(metrics = tool.metrics)
         if (tool.rows.isNotEmpty()) {
+            val tracesToggleRes =
+                if (tracesExpanded) {
+                    R.string.diagnostics_cidr_whitelist_hide_traces
+                } else {
+                    R.string.diagnostics_cidr_whitelist_show_traces
+                }
             RipDpiButton(
-                text = if (tracesExpanded) "Hide URL traces" else "Show URL traces",
+                text = stringResource(tracesToggleRes),
                 enabled = tool.state != DiagnosticsCidrWhitelistState.Running,
                 onClick = { tracesExpanded = !tracesExpanded },
                 variant = RipDpiButtonVariant.Outline,
@@ -74,9 +82,9 @@ internal fun CidrWhitelistDetectionCard(
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsCidrWhitelistState.Running) {
-                    "Checking..."
+                    stringResource(R.string.diagnostics_tool_checking)
                 } else {
-                    "Run CIDR whitelist check"
+                    stringResource(R.string.diagnostics_cidr_whitelist_run)
                 },
             enabled = tool.state != DiagnosticsCidrWhitelistState.Running,
             onClick = onRun,

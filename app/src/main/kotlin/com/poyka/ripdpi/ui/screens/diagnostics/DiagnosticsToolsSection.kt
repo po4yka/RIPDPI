@@ -408,7 +408,7 @@ private fun Tcp16FatHeaderProbeCard(
             tone = statusTone(tool.state.tone()),
         )
         androidx.compose.material3.Text(
-            text = "TCP16 fat-header",
+            text = stringResource(R.string.diagnostics_tool_tcp16_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -439,9 +439,9 @@ private fun Tcp16FatHeaderProbeCard(
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsTcp16FatHeaderState.Running) {
-                    "Probing..."
+                    stringResource(R.string.diagnostics_tool_probing)
                 } else {
-                    "Run TCP16 probe"
+                    stringResource(R.string.diagnostics_tool_tcp16_run)
                 },
             enabled = tool.state != DiagnosticsTcp16FatHeaderState.Running,
             onClick = onRun,
@@ -469,7 +469,7 @@ private fun AllowlistSniFinderCard(
             tone = statusTone(tool.state.tone()),
         )
         androidx.compose.material3.Text(
-            text = "SNI compatibility",
+            text = stringResource(R.string.diagnostics_tool_sni_compatibility_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -501,9 +501,9 @@ private fun AllowlistSniFinderCard(
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsAllowlistSniState.Running) {
-                    "Checking..."
+                    stringResource(R.string.diagnostics_tool_checking)
                 } else {
-                    "Run SNI compatibility"
+                    stringResource(R.string.diagnostics_tool_sni_compatibility_run)
                 },
             enabled = tool.enabled && tool.state != DiagnosticsAllowlistSniState.Running,
             onClick = onRun,
@@ -523,7 +523,7 @@ private fun CompatibleSniValues(
     val compatibleSniLabel = stringResource(R.string.clipboard_label_compatible_sni)
     if (compatibleSnis.isEmpty()) {
         androidx.compose.material3.Text(
-            text = "No compatible entries found.",
+            text = stringResource(R.string.diagnostics_compatible_sni_empty),
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,
         )
@@ -562,7 +562,7 @@ private fun DnsAvailabilitySurveyCard(
             tone = statusTone(tool.state.tone()),
         )
         androidx.compose.material3.Text(
-            text = "DNS availability",
+            text = stringResource(R.string.diagnostics_tool_dns_availability_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -593,9 +593,9 @@ private fun DnsAvailabilitySurveyCard(
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsDnsAvailabilityState.Running) {
-                    "Surveying..."
+                    stringResource(R.string.diagnostics_tool_surveying)
                 } else {
-                    "Run DNS survey"
+                    stringResource(R.string.diagnostics_tool_dns_availability_run)
                 },
             enabled = tool.state != DiagnosticsDnsAvailabilityState.Running,
             onClick = onRun,
@@ -619,7 +619,7 @@ private fun HttpCompressionProbeCard(
             tone = statusTone(tool.state.tone()),
         )
         androidx.compose.material3.Text(
-            text = "HTTP compression",
+            text = stringResource(R.string.diagnostics_tool_http_compression_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -633,7 +633,7 @@ private fun HttpCompressionProbeCard(
             checked = tool.includeZstd,
             onCheckedChange = onZstdEnabledChange,
             enabled = tool.state != DiagnosticsCompressionProbeState.Running,
-            label = "Zstd codec",
+            label = stringResource(R.string.diagnostics_tool_zstd_codec_label),
         )
         if (tool.rows.isNotEmpty()) {
             Column(
@@ -656,9 +656,9 @@ private fun HttpCompressionProbeCard(
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsCompressionProbeState.Running) {
-                    "Checking..."
+                    stringResource(R.string.diagnostics_tool_checking)
                 } else {
-                    "Run compression probe"
+                    stringResource(R.string.diagnostics_tool_http_compression_run)
                 },
             enabled = tool.state != DiagnosticsCompressionProbeState.Running,
             onClick = onRun,
@@ -820,7 +820,7 @@ private fun DnsIntegrityToolCard(
             tone = statusTone(tool.state.tone()),
         )
         androidx.compose.material3.Text(
-            text = "DNS integrity",
+            text = stringResource(R.string.diagnostics_tool_dns_integrity_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -836,9 +836,9 @@ private fun DnsIntegrityToolCard(
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsDnsIntegrityState.Running) {
-                    "Checking..."
+                    stringResource(R.string.diagnostics_tool_checking)
                 } else {
-                    "Run DNS integrity"
+                    stringResource(R.string.diagnostics_tool_dns_integrity_run)
                 },
             enabled = tool.state != DiagnosticsDnsIntegrityState.Running,
             onClick = onRun,
@@ -861,7 +861,7 @@ private fun DomainReachabilityToolCard(
             tone = statusTone(tool.state.tone()),
         )
         androidx.compose.material3.Text(
-            text = "Domain reachability",
+            text = stringResource(R.string.diagnostics_tool_domain_reachability_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -897,9 +897,9 @@ private fun DomainReachabilityToolCard(
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsDomainReachabilityState.Running) {
-                    "Scanning..."
+                    stringResource(R.string.diagnostics_tool_scanning)
                 } else {
-                    "Run reachability scan"
+                    stringResource(R.string.diagnostics_tool_domain_reachability_run)
                 },
             enabled = tool.state != DiagnosticsDomainReachabilityState.Running,
             onClick = onRun,

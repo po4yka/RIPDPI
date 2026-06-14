@@ -10,11 +10,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.math.min
@@ -40,10 +42,11 @@ fun RipDpiSpinner(
     modifier: Modifier = Modifier,
     size: RipDpiSpinnerSize = RipDpiSpinnerSize.Standard,
 ) {
+    val loadingDescription = stringResource(R.string.cd_loading)
     val spinnerModifier =
         modifier
             .size(size.dp)
-            .semantics { contentDescription = "Loading" }
+            .semantics { contentDescription = loadingDescription }
     val foreground = RipDpiThemeTokens.colors.foreground
     val track = RipDpiThemeTokens.colors.muted
     val stroke = size.stroke

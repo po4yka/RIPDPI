@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.config
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldRelayFinalmask
 import com.poyka.ripdpi.activities.ConfigUiState
@@ -18,19 +20,19 @@ internal fun RelayFinalmaskHeaderFields(
         onValueChange = actions.onRelayFinalmaskHeaderHexChanged,
         decoration =
             RipDpiTextFieldDecoration(
-                label = "Header hex",
+                label = stringResource(R.string.relay_finalmask_header_hex_label),
                 errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayFinalmask]),
             ),
     )
     RipDpiTextField(
         value = draft.relayFinalmaskTrailerHex,
         onValueChange = actions.onRelayFinalmaskTrailerHexChanged,
-        decoration = RipDpiTextFieldDecoration(label = "Trailer hex"),
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.relay_finalmask_trailer_hex_label)),
     )
     RipDpiTextField(
         value = draft.relayFinalmaskRandRange,
         onValueChange = actions.onRelayFinalmaskRandRangeChanged,
-        decoration = RipDpiTextFieldDecoration(label = "Random range"),
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.relay_finalmask_random_range_label)),
     )
 }
 
@@ -45,7 +47,7 @@ internal fun RelayFinalmaskSudokuFields(
         onValueChange = actions.onRelayFinalmaskSudokuSeedChanged,
         decoration =
             RipDpiTextFieldDecoration(
-                label = "Sudoku seed",
+                label = stringResource(R.string.relay_finalmask_sudoku_seed_label),
                 errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayFinalmask]),
             ),
     )
@@ -62,7 +64,7 @@ internal fun RelayFinalmaskNoiseFields(
         onValueChange = actions.onRelayFinalmaskRandRangeChanged,
         decoration =
             RipDpiTextFieldDecoration(
-                label = "Noise range",
+                label = stringResource(R.string.relay_finalmask_noise_range_label),
                 errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayFinalmask]),
             ),
     )

@@ -63,15 +63,16 @@ private fun ConnectToggleContent(
     snap: WidgetSnapshot,
 ) {
     val size = LocalSize.current
-    val isRunning = snap.status == AppStatus.Running
+    // Reconnecting is an active (resuming) session: offer Disconnect, like Running.
+    val isActive = snap.status != AppStatus.Halted
     val action =
-        if (isRunning) {
+        if (isActive) {
             actionRunCallback<DisconnectAction>()
         } else {
             actionRunCallback<ConnectAction>()
         }
     val label =
-        if (isRunning) {
+        if (isActive) {
             context.getString(R.string.widget_action_disconnect)
         } else {
             context.getString(R.string.widget_action_connect)
@@ -79,6 +80,7 @@ private fun ConnectToggleContent(
     val statusText =
         when (snap.status) {
             AppStatus.Running -> context.getString(R.string.widget_status_running)
+            AppStatus.Reconnecting -> context.getString(R.string.widget_status_reconnecting)
             AppStatus.Halted -> context.getString(R.string.widget_status_halted)
         }
 
@@ -96,7 +98,7 @@ private fun ConnectToggleContent(
         ) {
             if (size.height >= 180.dp) {
                 Text(
-                    text = "RIPDPI",
+                    text = context.getString(R.string.app_name),
                     style =
                         TextStyle(
                             color = GlanceTheme.colors.onSurface,

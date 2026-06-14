@@ -28,8 +28,9 @@ class AppStatusTest {
 
     @Test
     fun `AppStatus enum values exist`() {
-        assertEquals(2, AppStatus.entries.size)
+        assertEquals(3, AppStatus.entries.size)
         assertEquals(AppStatus.Halted, AppStatus.valueOf("Halted"))
+        assertEquals(AppStatus.Reconnecting, AppStatus.valueOf("Reconnecting"))
         assertEquals(AppStatus.Running, AppStatus.valueOf("Running"))
     }
 }

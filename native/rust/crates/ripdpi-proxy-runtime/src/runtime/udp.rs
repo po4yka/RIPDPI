@@ -31,8 +31,13 @@ use self::upstream_pump::pump_udp_upstream_responses;
 use super::adaptive::emit_due_direct_path_learning_timeouts;
 use super::state::RuntimeState;
 
+#[allow(dead_code)]
 pub(crate) fn encode_socks5_udp_packet(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
     RuntimeState::encode_socks5_udp_packet(target, payload)
+}
+
+pub(crate) fn encode_socks5_udp_packet_into(out: &mut Vec<u8>, target: SocketAddr, payload: &[u8]) {
+    RuntimeState::encode_socks5_udp_packet_into(out, target, payload);
 }
 
 pub(crate) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState) -> Option<(SocketAddr, &'a [u8])> {
@@ -48,6 +53,7 @@ pub(super) fn udp_associate_loop(
     let mut udp_client_addr = None;
     let mut client_buffer = [0u8; 65_535];
     let mut upstream_buffer = [0u8; 65_535];
+    let mut encode_buffer: Vec<u8> = Vec::with_capacity(65_535 + 24);
     let mut flow_state = HashMap::<(SocketAddr, SocketAddr), UdpFlowActivationState>::new();
     let flow_limit = state.udp_flow_limit();
 
@@ -68,6 +74,7 @@ pub(super) fn udp_associate_loop(
             &state,
             &client_relay,
             &mut upstream_buffer,
+            &mut encode_buffer,
             &mut flow_state,
             protect_path.as_deref(),
         )?;

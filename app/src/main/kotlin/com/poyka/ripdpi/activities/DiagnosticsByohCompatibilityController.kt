@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpich.ByohConfig
 import com.poyka.ripdpi.diagnostics.dpich.ByohCsvExporter
@@ -8,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.dpich.ByohIncompatibleReason
 import com.poyka.ripdpi.diagnostics.dpich.ByohProbeResult
 import com.poyka.ripdpi.diagnostics.dpich.ByohProgress
 import com.poyka.ripdpi.diagnostics.dpich.ByohStats
+import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
@@ -22,6 +24,7 @@ import kotlinx.coroutines.withContext
 internal class DiagnosticsByohCompatibilityController(
     private val scope: CoroutineScope,
     private val assetLoader: DpiAssetLoader,
+    private val stringResolver: StringResolver,
     private val checker: ByohDomainCompatibilityChecker = ByohDomainCompatibilityChecker(),
 ) {
     private val _tool = MutableStateFlow(DiagnosticsByohCompatibilityToolUiModel())
@@ -48,14 +51,14 @@ internal class DiagnosticsByohCompatibilityController(
             _tool.value =
                 initial.copy(
                     state = DiagnosticsByohCompatibilityState.Failed,
-                    errorMessage = "Enter a destination IP for the user-controlled server.",
+                    errorMessage = stringResolver.getString(R.string.diagnostics_byoh_dst_ip_required),
                 )
             return
         }
         _tool.value =
             initial.copy(
                 state = DiagnosticsByohCompatibilityState.Running,
-                summary = "Preparing host compatibility probes...",
+                summary = stringResolver.getString(R.string.diagnostics_byoh_preparing),
                 metrics = emptyList<DiagnosticsMetricUiModel>().toPersistentList(),
                 rows = emptyList<DiagnosticsByohDomainUiModel>().toPersistentList(),
                 csvExport = "",
@@ -82,7 +85,7 @@ internal class DiagnosticsByohCompatibilityController(
                 _tool.value =
                     _tool.value.copy(
                         state = DiagnosticsByohCompatibilityState.Failed,
-                        summary = "Host compatibility check failed.",
+                        summary = stringResolver.getString(R.string.diagnostics_byoh_check_failed),
                         rows = rows.toPersistentList(),
                         csvExport = ByohCsvExporter.toCsv(results),
                         errorMessage = error.message ?: error.javaClass.simpleName,
@@ -100,7 +103,13 @@ internal class DiagnosticsByohCompatibilityController(
             is ByohProgress.Probing -> {
                 _tool.value =
                     _tool.value.copy(
-                        summary = "Checking ${event.domain} (${event.idx}/${event.total})...",
+                        summary =
+                            stringResolver.getString(
+                                R.string.diagnostics_byoh_checking_domain,
+                                event.domain,
+                                event.idx,
+                                event.total,
+                            ),
                     )
             }
 
@@ -157,7 +166,12 @@ internal class DiagnosticsByohCompatibilityController(
     ): DiagnosticsByohCompatibilityToolUiModel =
         _tool.value.copy(
             state = DiagnosticsByohCompatibilityState.Complete,
-            summary = "$compatible of $total hostnames completed the configured transfer.",
+            summary =
+                stringResolver.getString(
+                    R.string.diagnostics_byoh_complete,
+                    compatible,
+                    total,
+                ),
             metrics = results.toMetrics(),
             rows = rows.toPersistentList(),
             csvExport = ByohCsvExporter.toCsv(results),
@@ -166,14 +180,18 @@ internal class DiagnosticsByohCompatibilityController(
 
     private fun List<ByohProbeResult>.toMetrics(): ImmutableList<DiagnosticsMetricUiModel> =
         listOf(
-            DiagnosticsMetricUiModel("checked", size.toString(), DiagnosticsTone.Info),
             DiagnosticsMetricUiModel(
-                "compatible",
+                stringResolver.getString(R.string.diagnostics_byoh_metric_checked),
+                size.toString(),
+                DiagnosticsTone.Info,
+            ),
+            DiagnosticsMetricUiModel(
+                stringResolver.getString(R.string.diagnostics_byoh_metric_compatible),
                 count { result -> result.compatible }.toString(),
                 DiagnosticsTone.Info,
             ),
             DiagnosticsMetricUiModel(
-                "bytes",
+                stringResolver.getString(R.string.diagnostics_byoh_metric_bytes),
                 sumOf { result -> result.bytesReceived }.toString(),
                 DiagnosticsTone.Neutral,
             ),
@@ -182,7 +200,12 @@ internal class DiagnosticsByohCompatibilityController(
     private fun ByohProbeResult.toUiModel(): DiagnosticsByohDomainUiModel =
         DiagnosticsByohDomainUiModel(
             domain = domain,
-            verdict = if (compatible) "compatible" else (reason ?: ByohIncompatibleReason.InvalidResponse).label(),
+            verdict =
+                if (compatible) {
+                    stringResolver.getString(R.string.diagnostics_byoh_verdict_compatible)
+                } else {
+                    (reason ?: ByohIncompatibleReason.InvalidResponse).label()
+                },
             bytesReceived = bytesReceived.toString(),
             tone = if (compatible) DiagnosticsTone.Positive else DiagnosticsTone.Warning,
         )

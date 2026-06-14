@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -32,14 +34,17 @@ fun RipDpiProgressBar(
 ) {
     val foreground = RipDpiThemeTokens.colors.foreground
     val track = RipDpiThemeTokens.colors.muted
+    val progressDescription =
+        if (progress != null) {
+            stringResource(R.string.cd_progress_percent, (progress * ProgressPercentFactor).toInt())
+        } else {
+            stringResource(R.string.cd_loading)
+        }
     val baseModifier =
         modifier
             .fillMaxWidth()
             .height(ProgressBarHeight)
-            .semantics {
-                contentDescription =
-                    if (progress != null) "Progress ${(progress * ProgressPercentFactor).toInt()}%" else "Loading"
-            }
+            .semantics { contentDescription = progressDescription }
     if (progress == null) {
         LinearProgressIndicator(
             modifier = baseModifier,

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityDomainUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityDoqUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDohBootstrapUiModel
@@ -43,7 +45,13 @@ internal fun DnsIntegrityDoqRows(rows: List<DiagnosticsDnsIntegrityDoqUiModel>) 
         ) {
             rows.forEach { row ->
                 StatusIndicator(
-                    label = "DoQ ${row.provider} ${row.domain}: ${row.verdict}",
+                    label =
+                        stringResource(
+                            R.string.diagnostics_dns_integrity_doq_label,
+                            row.provider,
+                            row.domain,
+                            row.verdict,
+                        ),
                     tone = statusTone(row.tone),
                 )
                 androidx.compose.material3.Text(
@@ -67,7 +75,12 @@ internal fun DnsIntegrityDohBootstrapRows(rows: List<DiagnosticsDohBootstrapUiMo
         ) {
             rows.forEach { row ->
                 StatusIndicator(
-                    label = "DoH bootstrap ${row.provider}: ${row.verdict}",
+                    label =
+                        stringResource(
+                            R.string.diagnostics_dns_integrity_doh_bootstrap_label,
+                            row.provider,
+                            row.verdict,
+                        ),
                     tone = statusTone(row.tone),
                 )
                 androidx.compose.material3.Text(

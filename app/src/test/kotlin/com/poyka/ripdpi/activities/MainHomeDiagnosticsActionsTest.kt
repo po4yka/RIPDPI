@@ -646,7 +646,7 @@ private fun createActions(
         runtimeState = runtimeState,
         permissionState = permissionState,
         homeDiagnosticsState = homeDiagnosticsState,
-        stringResolver = FakeStringResolver(),
+        stringResolver = ResourceStringResolver(),
         requestVpnStart = requestVpnStart,
     )
 

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.app.Application
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.AttemptStatus
@@ -10,11 +11,18 @@ import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
 import com.poyka.ripdpi.diagnostics.rkn.RknCheckResult
 import com.poyka.ripdpi.diagnostics.rkn.RknConfidence
 import com.poyka.ripdpi.diagnostics.rkn.RknVerdict
+import com.poyka.ripdpi.platform.StringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class DiagnosticsDpiToolsTlsStateUiMapperTest {
+    private val stringResolver = ResourceStringResolver()
+
     @Test
     fun `domain reachability metrics include diagnostic tls fallback state`() {
         val model =
@@ -28,7 +36,7 @@ class DiagnosticsDpiToolsTlsStateUiMapperTest {
                     verdict = DomainVerdict.OK,
                     tlsClientState = fallbackTlsState(),
                 ),
-            ).toUiModel(stubIpCount = 0)
+            ).toUiModel(stubIpCount = 0, stringResolver = stringResolver)
 
         assertTrue(model.metrics.any { metric -> metric.label == "TLS profile" && metric.value == "chrome_stable" })
         assertEquals(
@@ -55,7 +63,7 @@ class DiagnosticsDpiToolsTlsStateUiMapperTest {
                     connectionCount = 1,
                     tlsClientState = fallbackTlsState(),
                 ),
-            ).toTcp16UiModel()
+            ).toTcp16UiModel(stringResolver)
 
         assertTrue(
             model.metrics.any { metric ->
@@ -75,6 +83,7 @@ class DiagnosticsDpiToolsTlsStateUiMapperTest {
                     selfInfoPrivacyOverridden = false,
                     selfInfo = null,
                 ),
+                stringResolver,
             )
 
         assertTrue(model.metrics.any { metric -> metric.label == "TLS profile" && metric.value == "chrome_stable" })
@@ -104,4 +113,13 @@ class DiagnosticsDpiToolsTlsStateUiMapperTest {
             confidence = RknConfidence.HIGH,
             tlsClientState = tlsState,
         )
+
+    private class ResourceStringResolver : StringResolver {
+        private val application: Application = RuntimeEnvironment.getApplication()
+
+        override fun getString(
+            resId: Int,
+            vararg formatArgs: Any,
+        ): String = application.getString(resId, *formatArgs)
+    }
 }

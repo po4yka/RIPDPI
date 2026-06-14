@@ -20,10 +20,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -100,7 +102,7 @@ private fun PortMatrixHeader(legendEntries: List<RipDpiPortVerdict>) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(text = "Port matrix", style = RipDpiThemeTokens.type.bodyEmphasis)
+        Text(text = stringResource(R.string.port_matrix_title), style = RipDpiThemeTokens.type.bodyEmphasis)
         Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             legendEntries.forEach { verdict ->
                 LegendChip(verdict = verdict)
@@ -132,7 +134,7 @@ private fun MatrixHeaderRow(ports: List<Int>) {
     Row(modifier = Modifier.background(colors.muted)) {
         Box(modifier = Modifier.width(110.dp).padding(8.dp)) {
             Text(
-                text = "HOST / PORT",
+                text = stringResource(R.string.port_matrix_host_port_header),
                 style = RipDpiThemeTokens.type.sectionTitle.copy(color = colors.foreground),
             )
         }
@@ -181,12 +183,14 @@ private fun VerdictCell(
 ) {
     val colors = RipDpiThemeTokens.colors
     val bg = verdictColor(verdict, colors)
+    val cellDescription =
+        stringResource(R.string.cd_port_matrix_cell, host, port.toString(), verdict.name.lowercase())
     Box(
         modifier =
             Modifier
                 .defaultMinSize(minWidth = 44.dp, minHeight = 44.dp)
                 .background(bg)
-                .semantics { contentDescription = "$host port $port ${verdict.name.lowercase()}" },
+                .semantics { contentDescription = cellDescription },
         contentAlignment = Alignment.Center,
     ) {
         Text(

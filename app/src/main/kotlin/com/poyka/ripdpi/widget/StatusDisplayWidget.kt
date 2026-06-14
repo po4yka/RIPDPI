@@ -31,6 +31,7 @@ import com.poyka.ripdpi.widget.state.loadSnapshot
 import com.poyka.ripdpi.widget.theme.GlanceError
 import com.poyka.ripdpi.widget.theme.GlanceOnPrimary
 import com.poyka.ripdpi.widget.theme.GlanceSuccess
+import com.poyka.ripdpi.widget.theme.GlanceWarning
 import com.poyka.ripdpi.widget.theme.RipDpiGlanceTheme
 
 class StatusDisplayWidget : GlanceAppWidget() {
@@ -66,10 +67,15 @@ private fun StatusDisplayContent(
     val statusText =
         when (snap.status) {
             AppStatus.Running -> context.getString(R.string.widget_status_running)
+            AppStatus.Reconnecting -> context.getString(R.string.widget_status_reconnecting)
             AppStatus.Halted -> context.getString(R.string.widget_status_halted)
         }
     val badgeColor =
-        if (snap.status == AppStatus.Running) GlanceSuccess else GlanceError
+        when (snap.status) {
+            AppStatus.Running -> GlanceSuccess
+            AppStatus.Reconnecting -> GlanceWarning
+            AppStatus.Halted -> GlanceError
+        }
     val modeText =
         when (snap.mode) {
             Mode.VPN -> context.getString(R.string.widget_mode_vpn)

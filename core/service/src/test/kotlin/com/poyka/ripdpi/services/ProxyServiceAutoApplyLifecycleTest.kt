@@ -326,6 +326,13 @@ private class InMemoryRememberedNetworkPolicyRecordStore(
         state.value = emptyList()
     }
 
+    override suspend fun deleteRememberedNetworkPolicy(id: Long) {
+        state.value = state.value.filterNot { it.id == id }
+    }
+
+    override suspend fun countRememberedNetworkPoliciesForFingerprint(fingerprintHash: String): Int =
+        state.value.count { it.fingerprintHash == fingerprintHash }
+
     override suspend fun pruneRememberedNetworkPolicies() = Unit
 
     fun snapshot(): List<RememberedNetworkPolicyEntity> = state.value.sortedBy { it.id }

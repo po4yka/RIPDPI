@@ -16,7 +16,7 @@ internal fun validationMessage(errorKey: String?): String? =
         "invalid_chain" -> stringResource(R.string.config_error_invalid_chain)
         "required" -> stringResource(R.string.config_error_required)
         "unsupported" -> stringResource(R.string.config_error_unsupported)
-        "same_hop" -> "Entry and exit must use different profiles."
+        "same_hop" -> stringResource(R.string.config_relay_chain_error_same_hop)
         "absolute_path" -> stringResource(R.string.config_relay_naive_path_error_absolute)
         else -> null
     }

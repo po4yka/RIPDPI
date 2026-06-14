@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeRankingAccumulator
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeService
 import com.poyka.ripdpi.diagnostics.toStrategyActivationYaml
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import dagger.Binds
 import dagger.Module
@@ -111,6 +112,7 @@ class StrategyTunerViewModel
     @Inject
     constructor(
         private val runner: StrategyTunerRunner,
+        private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val mutableUiState = MutableStateFlow(StrategyTunerUiState(budget = runner.budget))
         val uiState: StateFlow<StrategyTunerUiState> = mutableUiState.asStateFlow()
@@ -126,7 +128,9 @@ class StrategyTunerViewModel
         fun start() {
             val domains = uiState.value.domainsText.normalizedDomains(runner.budget.maxDomains)
             if (domains.isEmpty()) {
-                mutableUiState.update { it.copy(message = "Add at least one domain") }
+                mutableUiState.update {
+                    it.copy(message = stringResolver.getString(R.string.strategy_tuner_message_add_domain))
+                }
                 return
             }
             probeJob?.cancel()
@@ -147,7 +151,13 @@ class StrategyTunerViewModel
                             when (event) {
                                 StrategyTunerEvent.Complete -> {
                                     mutableUiState.update {
-                                        it.copy(runState = StrategyTunerRunState.Complete, message = "Sweep complete")
+                                        it.copy(
+                                            runState = StrategyTunerRunState.Complete,
+                                            message =
+                                                stringResolver.getString(
+                                                    R.string.strategy_tuner_message_sweep_complete,
+                                                ),
+                                        )
                                     }
                                 }
 
@@ -190,7 +200,7 @@ class StrategyTunerViewModel
                         } else {
                             StrategyTunerRunState.Complete
                         },
-                    message = "Sweep cancelled",
+                    message = stringResolver.getString(R.string.strategy_tuner_message_sweep_cancelled),
                 )
             }
         }
@@ -218,6 +228,7 @@ class DefaultStrategyTunerRunner
         private val candidateProvider: StrategyProbeCandidateProvider,
         private val probeService: StrategyProbeService,
         private val appSettingsRepository: AppSettingsRepository,
+        private val stringResolver: StringResolver,
     ) : StrategyTunerRunner {
         override val budget: StrategyTunerBudget = StrategyTunerBudget()
         private var lastCandidates: List<StrategyProbeCandidate> = emptyList()
@@ -262,7 +273,7 @@ class DefaultStrategyTunerRunner
             val candidate =
                 lastCandidates.firstOrNull { it.id == strategyId }
                     ?: candidateProvider.listCandidates().firstOrNull { it.id == strategyId }
-                    ?: return "Strategy is no longer registered"
+                    ?: return stringResolver.getString(R.string.strategy_tuner_strategy_unregistered)
             appSettingsRepository.update {
                 strategyChainYaml = candidate.toStrategyActivationYaml()
                 candidate.configDsl?.let(::setRawStrategyChainDsl)

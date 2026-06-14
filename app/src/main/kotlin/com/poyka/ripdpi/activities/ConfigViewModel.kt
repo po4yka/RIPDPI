@@ -3,11 +3,13 @@ package com.poyka.ripdpi.activities
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
 import com.poyka.ripdpi.config.relay.toUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
@@ -30,6 +32,7 @@ class ConfigViewModel
     constructor(
         dependencies: ConfigViewModelDependencies,
         importDependencies: ConfigImportDependencies,
+        private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val appSettingsRepository = dependencies.appSettingsRepository
         private val relayArtifacts = dependencies.relayArtifacts
@@ -136,7 +139,7 @@ class ConfigViewModel
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = ConfigUiState(),
+                initialValue = ConfigUiState(isLoading = true),
             )
 
         fun selectMode(mode: Mode) {
@@ -214,7 +217,11 @@ class ConfigViewModel
                     .onSuccess { certificateChain ->
                         updateDraft { copy(relayMasqueClientCertificateChainPem = certificateChain) }
                     }.onFailure { error ->
-                        _effects.emit(ConfigEffect.Message(error.message ?: "Certificate import failed."))
+                        _effects.emit(
+                            ConfigEffect.Message(
+                                error.message ?: stringResolver.getString(R.string.config_import_certificate_failed),
+                            ),
+                        )
                     }
             }
         }
@@ -225,7 +232,11 @@ class ConfigViewModel
                     .onSuccess { privateKey ->
                         updateDraft { copy(relayMasqueClientPrivateKeyPem = privateKey) }
                     }.onFailure { error ->
-                        _effects.emit(ConfigEffect.Message(error.message ?: "Private key import failed."))
+                        _effects.emit(
+                            ConfigEffect.Message(
+                                error.message ?: stringResolver.getString(R.string.config_import_private_key_failed),
+                            ),
+                        )
                     }
             }
         }
@@ -238,7 +249,11 @@ class ConfigViewModel
                 runCatching { masqueClientCredentialImporter.importPkcs12Identity(uri, password) }
                     .onSuccess(::applyImportedMasqueIdentity)
                     .onFailure { error ->
-                        _effects.emit(ConfigEffect.Message(error.message ?: "PKCS#12 import failed."))
+                        _effects.emit(
+                            ConfigEffect.Message(
+                                error.message ?: stringResolver.getString(R.string.config_import_pkcs12_failed),
+                            ),
+                        )
                     }
             }
         }

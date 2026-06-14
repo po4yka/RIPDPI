@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRknBlockDiagnosisState
 import com.poyka.ripdpi.activities.DiagnosticsRknBlockDiagnosisToolUiModel
@@ -51,12 +53,12 @@ internal fun RknBlockDiagnosisScreen(
             color = colors.mutedForeground,
         )
         SettingsRow(
-            title = "Fetch public IP and ASN for diagnostic context",
+            title = stringResource(R.string.rkn_fetch_public_ip_asn_title),
             subtitle =
                 if (tool.selfInfoPrivacyOverridden) {
-                    "Privacy Mode is on; ipinfo.io/ifconfig.co context is suppressed."
+                    stringResource(R.string.diagnostics_rkn_self_info_privacy_suppressed)
                 } else {
-                    "Uses ipinfo.io with ifconfig.co fallback; disabled by default."
+                    stringResource(R.string.diagnostics_rkn_self_info_subtitle)
                 },
             checked = tool.fetchSelfInfoEnabled,
             onCheckedChange = onSelfInfoEnabledChange,
@@ -71,9 +73,9 @@ internal fun RknBlockDiagnosisScreen(
         RipDpiButton(
             text =
                 if (tool.state == DiagnosticsRknBlockDiagnosisState.Running) {
-                    "Checking..."
+                    stringResource(R.string.diagnostics_tool_checking)
                 } else {
-                    "Run RKN diagnosis"
+                    stringResource(R.string.diagnostics_rkn_run)
                 },
             enabled = tool.state != DiagnosticsRknBlockDiagnosisState.Running,
             onClick = onRun,

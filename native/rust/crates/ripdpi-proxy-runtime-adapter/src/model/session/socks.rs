@@ -65,22 +65,28 @@ pub fn parse_socks5_udp_packet_with<'a>(
     parse_socks5_udp_packet(packet, &parser.config, resolve_name)
 }
 
-pub fn encode_socks5_udp_packet(sender: SocketAddr, payload: &[u8]) -> Vec<u8> {
-    let mut packet = vec![0, 0, 0];
+pub fn encode_socks5_udp_packet_into(out: &mut Vec<u8>, sender: SocketAddr, payload: &[u8]) {
+    out.clear();
+    out.extend_from_slice(&[0, 0, 0]);
     match sender {
         SocketAddr::V4(addr) => {
-            packet.push(S_ATP_I4);
-            packet.extend_from_slice(&addr.ip().octets());
-            packet.extend_from_slice(&addr.port().to_be_bytes());
+            out.push(S_ATP_I4);
+            out.extend_from_slice(&addr.ip().octets());
+            out.extend_from_slice(&addr.port().to_be_bytes());
         }
         SocketAddr::V6(addr) => {
-            packet.push(S_ATP_I6);
-            packet.extend_from_slice(&addr.ip().octets());
-            packet.extend_from_slice(&addr.port().to_be_bytes());
+            out.push(S_ATP_I6);
+            out.extend_from_slice(&addr.ip().octets());
+            out.extend_from_slice(&addr.port().to_be_bytes());
         }
     }
-    packet.extend_from_slice(payload);
-    packet
+    out.extend_from_slice(payload);
+}
+
+pub fn encode_socks5_udp_packet(sender: SocketAddr, payload: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    encode_socks5_udp_packet_into(&mut out, sender, payload);
+    out
 }
 
 pub fn encode_upstream_socks_connect(target: SocketAddr) -> Vec<u8> {
@@ -182,6 +188,44 @@ fn parse_domain_target(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn encode_into_matches_owned_v4() {
+        let sender = SocketAddr::from(([203, 0, 113, 7], 443));
+        let payload = b"hello world";
+        let owned = encode_socks5_udp_packet(sender, payload);
+        let mut buf = Vec::new();
+        encode_socks5_udp_packet_into(&mut buf, sender, payload);
+        assert_eq!(buf, owned);
+    }
+
+    #[test]
+    fn encode_into_matches_owned_v6() {
+        use std::net::{IpAddr, Ipv6Addr};
+        let sender = SocketAddr::new(
+            IpAddr::V6(Ipv6Addr::from([0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1])),
+            8080,
+        );
+        let payload = b"quic datagram payload";
+        let owned = encode_socks5_udp_packet(sender, payload);
+        let mut buf = Vec::new();
+        encode_socks5_udp_packet_into(&mut buf, sender, payload);
+        assert_eq!(buf, owned);
+    }
+
+    #[test]
+    fn encode_into_reuses_buffer() {
+        let sender = SocketAddr::from(([192, 0, 2, 1], 53));
+        // First call with longer payload.
+        let mut buf = Vec::new();
+        encode_socks5_udp_packet_into(&mut buf, sender, b"first payload that is longer");
+        let first_len = buf.len();
+        // Second call with shorter payload — no stale bytes from the first call.
+        encode_socks5_udp_packet_into(&mut buf, sender, b"short");
+        let expected = encode_socks5_udp_packet(sender, b"short");
+        assert_eq!(buf, expected, "second encode must not carry stale tail bytes from the first call");
+        assert!(buf.len() < first_len, "shorter payload must produce a shorter result");
+    }
 
     #[test]
     fn udp_packet_parser_preserves_socks5_domain_resolution() {

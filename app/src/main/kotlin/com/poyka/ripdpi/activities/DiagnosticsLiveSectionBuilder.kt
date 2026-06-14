@@ -36,6 +36,12 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
                 )
             }
                 ?: context.getString(R.string.diagnostics_live_no_telemetry),
+        // takeIf { > 0 }: buildCurrentServiceTelemetry can emit createdAt == 0L when a
+        // sample exists but none of its timestamp inputs were set (e.g. status Running
+        // with no updatedAt yet). A 0L epoch would make the stale badge compute a
+        // ~decades-long age and render Expired on a fresh session — coerce it to null
+        // so FreshnessIndicator falls back to the plain label instead.
+        currentTelemetryTimestampMs = currentTelemetry?.createdAt?.takeIf { it > 0L },
         headline = buildLiveHeadline(health, currentTelemetry, nativeEvents),
         body = buildLiveBody(currentTelemetry, nativeEvents),
         networkLabel = currentTelemetry?.networkType ?: activeConnectionSession?.networkType,

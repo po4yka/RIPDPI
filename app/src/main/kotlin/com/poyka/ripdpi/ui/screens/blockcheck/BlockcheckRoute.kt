@@ -48,9 +48,12 @@ fun BlockcheckRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val exportSubject = stringResource(R.string.title_blockcheck)
     val exportTitle = stringResource(R.string.blockcheck_export_title)
-    LaunchedEffect(state.message, state.messageRes) {
-        val resolved = state.messageRes?.let { context.getString(it) } ?: state.message
-        resolved?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+    // Resolve the (dynamic) message resource in composition via stringResource rather
+    // than LocalContext.getString in the effect (LocalContextGetResourceValueCall).
+    val messageRes = state.messageRes
+    val resolvedMessage = if (messageRes != null) stringResource(messageRes) else state.message
+    LaunchedEffect(resolvedMessage) {
+        resolvedMessage?.let { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
     }
     BlockcheckScreen(
         state = state,

@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -113,6 +114,21 @@ internal fun ScanSection(
     val motion = RipDpiThemeTokens.motion
     val selectedProfile = scan.selectedProfile
     val strategyProbeSelected = selectedProfile?.kind == com.poyka.ripdpi.diagnostics.ScanKind.STRATEGY_PROBE
+    // Memoize the reversed + truncated live-probe preview: during an active scan the
+    // progress model is re-emitted frequently (the elapsed/fraction fields tick), and
+    // recomputing `reversed().take(...)` inline in the LazyListScope below would
+    // reallocate and re-sort the list on each recomposition. `remember` cannot be
+    // called inside the LazyListScope, so the derivation is hoisted here. The memo is
+    // keyed on `completedProbes` specifically so it survives unrelated progress ticks
+    // and recomputes only when the probe list actually changes.
+    val livePreviewProbes =
+        remember(scan.activeProgress?.completedProbes) {
+            scan.activeProgress
+                ?.completedProbes
+                ?.reversed()
+                ?.take(LiveProbePreviewCount)
+                .orEmpty()
+        }
     val scanStateTag =
         when {
             scan.activeProgress != null -> RipDpiTestTags.DiagnosticsScanStateProgress
@@ -209,7 +225,7 @@ internal fun ScanSection(
                     SettingsCategoryHeader(title = stringResource(R.string.diagnostics_live_results_title))
                 }
                 items(
-                    items = progress.completedProbes.reversed().take(LiveProbePreviewCount),
+                    items = livePreviewProbes,
                     key = { probe -> "${probe.target}-${probe.outcome}" },
                     contentType = { "live_probe" },
                 ) { probe ->
@@ -271,7 +287,12 @@ internal fun ScanSection(
                     }
                 RipDpiCard {
                     SettingsCategoryHeader(
-                        title = "$sectionTitle (${scan.latestResults.size})",
+                        title =
+                            stringResource(
+                                R.string.diagnostics_results_section_count,
+                                sectionTitle,
+                                scan.latestResults.size,
+                            ),
                     )
                     scan.latestResults.forEach { probe ->
                         if (probe.probeType == "telegram_availability") {

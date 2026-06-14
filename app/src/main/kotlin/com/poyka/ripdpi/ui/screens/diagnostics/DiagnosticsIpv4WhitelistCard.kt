@@ -11,7 +11,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsIpv4WhitelistState
 import com.poyka.ripdpi.activities.DiagnosticsIpv4WhitelistToolUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
@@ -41,7 +43,7 @@ internal fun Ipv4WhitelistSubnetDiscoveryCard(
             tone = statusTone(tool.state.tone()),
         )
         Text(
-            text = "IPv4 whitelist subnet discovery",
+            text = stringResource(R.string.diagnostics_ipv4_whitelist_title),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -52,8 +54,14 @@ internal fun Ipv4WhitelistSubnetDiscoveryCard(
         )
         MetricsRow(metrics = tool.metrics)
         if (tool.rows.isNotEmpty()) {
+            val resultsToggleRes =
+                if (resultsExpanded) {
+                    R.string.diagnostics_ipv4_whitelist_hide_results
+                } else {
+                    R.string.diagnostics_ipv4_whitelist_show_results
+                }
             RipDpiButton(
-                text = if (resultsExpanded) "Hide subnet results" else "Show subnet results",
+                text = stringResource(resultsToggleRes),
                 enabled = !isRunning,
                 onClick = { resultsExpanded = !resultsExpanded },
                 variant = RipDpiButtonVariant.Outline,
@@ -61,48 +69,74 @@ internal fun Ipv4WhitelistSubnetDiscoveryCard(
             )
         }
         if (tool.rows.isNotEmpty() && resultsExpanded) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                tool.rows.forEach { row ->
-                    StatusIndicator(
-                        label = "${row.provider}: ${row.cidr}",
-                        tone = statusTone(row.tone),
-                    )
-                    Text(
-                        text = "alive ${row.alive} · ${row.verdict}",
-                        style = RipDpiThemeTokens.type.monoSmall,
-                        color = colors.mutedForeground,
-                    )
-                }
-            }
+            Ipv4WhitelistResultsColumn(tool = tool)
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            RipDpiButton(
-                text = if (isRunning) "Caching..." else "Cache subnets",
-                enabled = !isRunning,
-                onClick = onCache,
-                variant = RipDpiButtonVariant.Outline,
-                modifier = Modifier.weight(1f),
-            )
-            RipDpiButton(
-                text = if (isRunning) "Checking..." else "Check cached",
-                enabled = !isRunning,
-                onClick = onCheck,
-                variant = RipDpiButtonVariant.Outline,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        Ipv4WhitelistActionButtons(isRunning = isRunning, onCache = onCache, onCheck = onCheck)
         RipDpiButton(
-            text = "Save CSV",
+            text = stringResource(R.string.diagnostics_ipv4_whitelist_save_csv),
             enabled = !isRunning && tool.csv.isNotBlank(),
             onClick = onSaveCsv,
             variant = RipDpiButtonVariant.Outline,
             modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun Ipv4WhitelistResultsColumn(tool: DiagnosticsIpv4WhitelistToolUiModel) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        tool.rows.forEach { row ->
+            StatusIndicator(
+                label = "${row.provider}: ${row.cidr}",
+                tone = statusTone(row.tone),
+            )
+            Text(
+                text = "alive ${row.alive} · ${row.verdict}",
+                style = RipDpiThemeTokens.type.monoSmall,
+                color = colors.mutedForeground,
+            )
+        }
+    }
+}
+
+@Composable
+private fun Ipv4WhitelistActionButtons(
+    isRunning: Boolean,
+    onCache: () -> Unit,
+    onCheck: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        RipDpiButton(
+            text =
+                if (isRunning) {
+                    stringResource(R.string.diagnostics_ipv4_whitelist_caching)
+                } else {
+                    stringResource(R.string.diagnostics_ipv4_whitelist_cache)
+                },
+            enabled = !isRunning,
+            onClick = onCache,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.weight(1f),
+        )
+        RipDpiButton(
+            text =
+                if (isRunning) {
+                    stringResource(R.string.diagnostics_tool_checking)
+                } else {
+                    stringResource(R.string.diagnostics_ipv4_whitelist_check_cached)
+                },
+            enabled = !isRunning,
+            onClick = onCheck,
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.weight(1f),
         )
     }
 }

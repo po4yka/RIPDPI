@@ -155,6 +155,10 @@ interface RememberedNetworkPolicyRecordStore {
 
     suspend fun clearRememberedNetworkPolicies()
 
+    suspend fun deleteRememberedNetworkPolicy(id: Long)
+
+    suspend fun countRememberedNetworkPoliciesForFingerprint(fingerprintHash: String): Int
+
     suspend fun pruneRememberedNetworkPolicies()
 }
 
@@ -164,6 +168,8 @@ interface NetworkDnsPathPreferenceRecordStore {
     suspend fun upsertNetworkDnsPathPreference(preference: NetworkDnsPathPreferenceEntity): Long
 
     suspend fun clearNetworkDnsPathPreferences()
+
+    suspend fun deleteNetworkDnsPathPreferencesForFingerprint(fingerprintHash: String)
 
     suspend fun pruneNetworkDnsPathPreferences()
 }
@@ -178,6 +184,8 @@ interface NetworkDnsBlockedPathStore {
     )
 
     suspend fun clearAll()
+
+    suspend fun clearForFingerprint(fingerprintHash: String)
 }
 
 interface NetworkEdgePreferenceRecordStore {
@@ -192,6 +200,8 @@ interface NetworkEdgePreferenceRecordStore {
     suspend fun upsertNetworkEdgePreference(preference: NetworkEdgePreferenceEntity): Long
 
     suspend fun clearNetworkEdgePreferences()
+
+    suspend fun deleteNetworkEdgePreferencesForFingerprint(fingerprintHash: String)
 
     suspend fun pruneNetworkEdgePreferences()
 }
@@ -414,6 +424,13 @@ class RoomRememberedNetworkPolicyRecordStore
             dao.clearRememberedNetworkPolicies()
         }
 
+        override suspend fun deleteRememberedNetworkPolicy(id: Long) {
+            dao.deleteRememberedNetworkPolicyById(id)
+        }
+
+        override suspend fun countRememberedNetworkPoliciesForFingerprint(fingerprintHash: String): Int =
+            dao.countRememberedNetworkPoliciesForFingerprint(fingerprintHash)
+
         override suspend fun pruneRememberedNetworkPolicies() {
             val staleThreshold = clock.now() - RememberedNetworkPolicyRetentionMaxAgeMs
             dao.deleteRememberedNetworkPoliciesOlderThan(staleThreshold)
@@ -436,6 +453,10 @@ class RoomNetworkDnsPathPreferenceRecordStore
 
         override suspend fun clearNetworkDnsPathPreferences() {
             dao.clearNetworkDnsPathPreferences()
+        }
+
+        override suspend fun deleteNetworkDnsPathPreferencesForFingerprint(fingerprintHash: String) {
+            dao.deleteNetworkDnsPathPreferencesForFingerprint(fingerprintHash)
         }
 
         override suspend fun pruneNetworkDnsPathPreferences() {
@@ -476,6 +497,10 @@ class RoomNetworkDnsBlockedPathStore
         override suspend fun clearAll() {
             dao.clearBlockedPaths()
         }
+
+        override suspend fun clearForFingerprint(fingerprintHash: String) {
+            dao.deleteBlockedPathsForFingerprint(fingerprintHash)
+        }
     }
 
 @Singleton
@@ -505,6 +530,10 @@ class RoomNetworkEdgePreferenceRecordStore
 
         override suspend fun clearNetworkEdgePreferences() {
             dao.clearNetworkEdgePreferences()
+        }
+
+        override suspend fun deleteNetworkEdgePreferencesForFingerprint(fingerprintHash: String) {
+            dao.deleteNetworkEdgePreferencesForFingerprint(fingerprintHash)
         }
 
         override suspend fun pruneNetworkEdgePreferences() {

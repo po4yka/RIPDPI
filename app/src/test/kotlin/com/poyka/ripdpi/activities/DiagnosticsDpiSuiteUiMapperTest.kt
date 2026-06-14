@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.app.Application
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.AttemptStatus
@@ -13,11 +14,18 @@ import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
+import com.poyka.ripdpi.platform.StringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class DiagnosticsDpiSuiteUiMapperTest {
+    private val stringResolver = ResourceStringResolver()
+
     @Test
     fun domainReachabilityRowIncludesDiagnosticTlsFallbackState() {
         val row =
@@ -34,7 +42,7 @@ class DiagnosticsDpiSuiteUiMapperTest {
                             tlsClientState = fallbackTlsState(),
                         ),
                     ),
-                ).toDpiSuiteProbeRowUiModel()
+                ).toDpiSuiteProbeRowUiModel(stringResolver)
 
         assertTrue(row.detailRows.any { detail -> detail.label == "TLS profile" && detail.detail == "chrome_stable" })
         assertEquals(
@@ -64,7 +72,7 @@ class DiagnosticsDpiSuiteUiMapperTest {
                             tlsClientState = fallbackTlsState(),
                         ),
                     ),
-                ).toDpiSuiteProbeRowUiModel()
+                ).toDpiSuiteProbeRowUiModel(stringResolver)
 
         assertTrue(
             row.detailRows.any { detail ->
@@ -90,7 +98,7 @@ class DiagnosticsDpiSuiteUiMapperTest {
                             serverInitialLatencyMs = 42,
                         ),
                     ),
-                ).toDpiSuiteProbeRowUiModel()
+                ).toDpiSuiteProbeRowUiModel(stringResolver)
 
         assertEquals(DpiProbeKind.QUIC_H3, row.kind)
         assertEquals("QUIC/H3 fingerprint", row.label)
@@ -118,7 +126,7 @@ class DiagnosticsDpiSuiteUiMapperTest {
                             vanillaTlsOk = false,
                         ),
                     ),
-                ).toDpiSuiteProbeRowUiModel()
+                ).toDpiSuiteProbeRowUiModel(stringResolver)
 
         assertEquals(DpiProbeKind.ECH_READINESS, row.kind)
         assertEquals("ECH readiness", row.label)
@@ -137,4 +145,13 @@ class DiagnosticsDpiSuiteUiMapperTest {
             fallbackActive = true,
             fallbackReason = "android_okhttp_fingerprint_template",
         )
+
+    private class ResourceStringResolver : StringResolver {
+        private val application: Application = RuntimeEnvironment.getApplication()
+
+        override fun getString(
+            resId: Int,
+            vararg formatArgs: Any,
+        ): String = application.getString(resId, *formatArgs)
+    }
 }

@@ -1,38 +1,21 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFinder
-import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
-import com.poyka.ripdpi.diagnostics.dpi.DnsServerResult
-import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
-import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
-import com.poyka.ripdpi.diagnostics.dpi.Tcp16AsnSummary
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Target
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
-import com.poyka.ripdpi.diagnostics.dpi.byAsn
-import com.poyka.ripdpi.diagnostics.dpich.CompressionCodec
-import com.poyka.ripdpi.diagnostics.dpich.CompressionProbeResult
-import com.poyka.ripdpi.diagnostics.dpich.CompressionProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
-import com.poyka.ripdpi.diagnostics.rkn.RknAggregateVerdictEngine
-import com.poyka.ripdpi.diagnostics.rkn.RknCheckResult
-import com.poyka.ripdpi.diagnostics.rkn.RknConfidence
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
-import com.poyka.ripdpi.diagnostics.rkn.RknProbeTarget
 import com.poyka.ripdpi.diagnostics.rkn.RknTarget
-import com.poyka.ripdpi.diagnostics.rkn.RknVerdict
-import com.poyka.ripdpi.diagnostics.rkn.RknVerdictColorToken
-import com.poyka.ripdpi.diagnostics.rkn.RknVerdictLabel
 import com.poyka.ripdpi.diagnostics.rkn.SelfInfoFetcher
-import com.poyka.ripdpi.diagnostics.rkn.SelfInfoResult
-import kotlinx.collections.immutable.toPersistentList
+import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,7 +25,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.Locale
 
 private const val DnsIntegrityPreviewDomainLimit = 5
 
@@ -57,6 +39,7 @@ internal class DiagnosticsDpiToolsController(
     private val rknLayeredProbePipeline: RknLayeredProbePipeline = RknLayeredProbePipeline(),
     private val selfInfoFetcher: SelfInfoFetcher,
     private val assetLoader: DpiAssetLoader,
+    private val stringResolver: StringResolver,
 ) {
     private val _dnsIntegrityTool = MutableStateFlow(DiagnosticsDnsIntegrityToolUiModel())
     val dnsIntegrityTool: StateFlow<DiagnosticsDnsIntegrityToolUiModel> = _dnsIntegrityTool.asStateFlow()
@@ -89,6 +72,7 @@ internal class DiagnosticsDpiToolsController(
         DiagnosticsByohCompatibilityController(
             scope = scope,
             assetLoader = assetLoader,
+            stringResolver = stringResolver,
         )
     val byohCompatibilityTool: StateFlow<DiagnosticsByohCompatibilityToolUiModel> =
         byohCompatibilityController.tool
@@ -120,7 +104,7 @@ internal class DiagnosticsDpiToolsController(
         _dnsIntegrityTool.value =
             DiagnosticsDnsIntegrityToolUiModel(
                 state = DiagnosticsDnsIntegrityState.Running,
-                summary = "Checking UDP/53 answers against DoH controls...",
+                summary = stringResolver.getString(R.string.diagnostics_dns_integrity_running),
             )
         scope.launch {
             runCatching {
@@ -129,13 +113,13 @@ internal class DiagnosticsDpiToolsController(
                 dnsIntegrityChecker.check(domains)
             }.onSuccess { result ->
                 latestDnsStubIps = result.stubIps
-                _dnsIntegrityTool.value = result.toUiModel()
+                _dnsIntegrityTool.value = result.toUiModel(stringResolver)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 _dnsIntegrityTool.value =
                     DiagnosticsDnsIntegrityToolUiModel(
                         state = DiagnosticsDnsIntegrityState.Failed,
-                        summary = "DNS integrity check failed.",
+                        summary = stringResolver.getString(R.string.diagnostics_dns_integrity_failed),
                         errorMessage = error.message ?: error.javaClass.simpleName,
                     )
             }
@@ -149,19 +133,19 @@ internal class DiagnosticsDpiToolsController(
         _dnsAvailabilityTool.value =
             DiagnosticsDnsAvailabilityToolUiModel(
                 state = DiagnosticsDnsAvailabilityState.Running,
-                summary = "Surveying public DNS resolvers...",
+                summary = stringResolver.getString(R.string.diagnostics_dns_availability_running),
             )
         scope.launch {
             runCatching {
                 dnsAvailabilitySurvey.run()
             }.onSuccess { results ->
-                _dnsAvailabilityTool.value = results.toDnsAvailabilityUiModel()
+                _dnsAvailabilityTool.value = results.toDnsAvailabilityUiModel(stringResolver)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 _dnsAvailabilityTool.value =
                     DiagnosticsDnsAvailabilityToolUiModel(
                         state = DiagnosticsDnsAvailabilityState.Failed,
-                        summary = "DNS availability survey failed.",
+                        summary = stringResolver.getString(R.string.diagnostics_dns_availability_failed),
                         errorMessage = error.message ?: error.javaClass.simpleName,
                     )
             }
@@ -176,7 +160,11 @@ internal class DiagnosticsDpiToolsController(
         _domainReachabilityTool.value =
             DiagnosticsDomainReachabilityToolUiModel(
                 state = DiagnosticsDomainReachabilityState.Running,
-                summary = "Probing reachability with ${stubIps.size} DNS stub IPs...",
+                summary =
+                    stringResolver.getString(
+                        R.string.diagnostics_domain_reachability_running,
+                        stubIps.size,
+                    ),
             )
         scope.launch {
             runCatching {
@@ -189,13 +177,13 @@ internal class DiagnosticsDpiToolsController(
                     randomHostname = settings.detectionDiagnosticRandomHostnamesEnabled,
                 )
             }.onSuccess { results ->
-                _domainReachabilityTool.value = results.toUiModel(stubIps.size)
+                _domainReachabilityTool.value = results.toUiModel(stubIps.size, stringResolver)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 _domainReachabilityTool.value =
                     DiagnosticsDomainReachabilityToolUiModel(
                         state = DiagnosticsDomainReachabilityState.Failed,
-                        summary = "Domain reachability scan failed.",
+                        summary = stringResolver.getString(R.string.diagnostics_domain_reachability_failed),
                         errorMessage = error.message ?: error.javaClass.simpleName,
                     )
             }
@@ -211,7 +199,7 @@ internal class DiagnosticsDpiToolsController(
             DiagnosticsCompressionProbeToolUiModel(
                 state = DiagnosticsCompressionProbeState.Running,
                 targetUrl = current.targetUrl,
-                summary = "Checking HTTP compression support...",
+                summary = stringResolver.getString(R.string.diagnostics_compression_running),
                 includeZstd = current.includeZstd,
             )
         scope.launch {
@@ -229,7 +217,7 @@ internal class DiagnosticsDpiToolsController(
                     results = results,
                 )
             }.onSuccess { result ->
-                _compressionProbeTool.value = result.toUiModel()
+                _compressionProbeTool.value = result.toUiModel(stringResolver)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 val latest = _compressionProbeTool.value
@@ -237,7 +225,7 @@ internal class DiagnosticsDpiToolsController(
                     DiagnosticsCompressionProbeToolUiModel(
                         state = DiagnosticsCompressionProbeState.Failed,
                         targetUrl = latest.targetUrl,
-                        summary = "HTTP compression probe failed.",
+                        summary = stringResolver.getString(R.string.diagnostics_compression_failed),
                         includeZstd = latest.includeZstd,
                         errorMessage = error.message ?: error.javaClass.simpleName,
                     )
@@ -252,7 +240,7 @@ internal class DiagnosticsDpiToolsController(
         _tcp16FatHeaderTool.value =
             DiagnosticsTcp16FatHeaderToolUiModel(
                 state = DiagnosticsTcp16FatHeaderState.Running,
-                summary = "Running TCP16 fat-header probe across bundled targets...",
+                summary = stringResolver.getString(R.string.diagnostics_tcp16_running),
             )
         scope.launch {
             runCatching {
@@ -265,15 +253,18 @@ internal class DiagnosticsDpiToolsController(
                 )
             }.onSuccess { results ->
                 latestTcp16DetectedResults = results.filter { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
-                _tcp16FatHeaderTool.value = results.toTcp16UiModel()
+                _tcp16FatHeaderTool.value = results.toTcp16UiModel(stringResolver)
                 _allowlistSniTool.value =
                     _allowlistSniTool.value.copy(
                         enabled = latestTcp16DetectedResults.isNotEmpty(),
                         summary =
                             if (latestTcp16DetectedResults.isEmpty()) {
-                                "Run after TCP16 finds flagged ASNs."
+                                stringResolver.getString(R.string.diagnostics_allowlist_sni_run_after_tcp16)
                             } else {
-                                "Ready for ${latestTcp16DetectedResults.size} TCP16-flagged targets."
+                                stringResolver.getString(
+                                    R.string.diagnostics_allowlist_sni_ready,
+                                    latestTcp16DetectedResults.size,
+                                )
                             },
                     )
             }.onFailure { error ->
@@ -281,7 +272,7 @@ internal class DiagnosticsDpiToolsController(
                 _tcp16FatHeaderTool.value =
                     DiagnosticsTcp16FatHeaderToolUiModel(
                         state = DiagnosticsTcp16FatHeaderState.Failed,
-                        summary = "TCP16 fat-header probe failed.",
+                        summary = stringResolver.getString(R.string.diagnostics_tcp16_failed),
                         errorMessage = error.message ?: error.javaClass.simpleName,
                     )
             }
@@ -296,7 +287,7 @@ internal class DiagnosticsDpiToolsController(
         if (detectedResults.isEmpty()) {
             _allowlistSniTool.value =
                 DiagnosticsAllowlistSniToolUiModel(
-                    summary = "Run TCP16 first; no flagged ASNs are available yet.",
+                    summary = stringResolver.getString(R.string.diagnostics_allowlist_sni_no_flagged),
                     enabled = false,
                 )
             return
@@ -304,7 +295,7 @@ internal class DiagnosticsDpiToolsController(
         _allowlistSniTool.value =
             DiagnosticsAllowlistSniToolUiModel(
                 state = DiagnosticsAllowlistSniState.Running,
-                summary = "Testing SNI compatibility for TCP16-flagged ASNs...",
+                summary = stringResolver.getString(R.string.diagnostics_allowlist_sni_running),
                 enabled = true,
             )
         scope.launch {
@@ -322,7 +313,7 @@ internal class DiagnosticsDpiToolsController(
                 _allowlistSniTool.value =
                     DiagnosticsAllowlistSniToolUiModel(
                         state = DiagnosticsAllowlistSniState.Failed,
-                        summary = "SNI compatibility finder failed.",
+                        summary = stringResolver.getString(R.string.diagnostics_allowlist_sni_failed),
                         errorMessage = error.message ?: error.javaClass.simpleName,
                         enabled = true,
                     )
@@ -338,7 +329,7 @@ internal class DiagnosticsDpiToolsController(
         _rknBlockDiagnosisTool.value =
             DiagnosticsRknBlockDiagnosisToolUiModel(
                 state = DiagnosticsRknBlockDiagnosisState.Running,
-                summary = "Running RKN control and blacklist probes...",
+                summary = stringResolver.getString(R.string.diagnostics_rkn_running),
                 fetchSelfInfoEnabled = current.fetchSelfInfoEnabled,
                 selfInfoPrivacyOverridden = current.selfInfoPrivacyOverridden,
             )
@@ -364,14 +355,14 @@ internal class DiagnosticsDpiToolsController(
                     selfInfoPrivacyOverridden = settings.detectionCheckPrivacyModeEnabled,
                 )
             }.onSuccess { result ->
-                _rknBlockDiagnosisTool.value = buildRknBlockDiagnosisUiModel(result)
+                _rknBlockDiagnosisTool.value = buildRknBlockDiagnosisUiModel(result, stringResolver)
             }.onFailure { error ->
                 if (error is CancellationException) throw error
                 val latest = _rknBlockDiagnosisTool.value
                 _rknBlockDiagnosisTool.value =
                     DiagnosticsRknBlockDiagnosisToolUiModel(
                         state = DiagnosticsRknBlockDiagnosisState.Failed,
-                        summary = "RKN block diagnosis failed.",
+                        summary = stringResolver.getString(R.string.diagnostics_rkn_failed),
                         errorMessage = error.message ?: error.javaClass.simpleName,
                         fetchSelfInfoEnabled = latest.fetchSelfInfoEnabled,
                         selfInfoPrivacyOverridden = latest.selfInfoPrivacyOverridden,
@@ -445,295 +436,3 @@ internal class DiagnosticsDpiToolsController(
             assetLoader.loadWhitelistSni()
         }
 }
-
-internal data class RknDiagnosisRunResult(
-    val controlResults: List<RknCheckResult>,
-    val testResults: List<RknCheckResult>,
-    val selfInfo: SelfInfoResult?,
-    val fetchSelfInfoEnabled: Boolean,
-    val selfInfoPrivacyOverridden: Boolean,
-)
-
-private data class CompressionProbeRunResult(
-    val targetUrl: String,
-    val includeZstd: Boolean,
-    val results: Map<CompressionCodec, CompressionProbeResult>,
-)
-
-private fun List<DnsServerResult>.toDnsAvailabilityUiModel(): DiagnosticsDnsAvailabilityToolUiModel {
-    val available = count { result -> result.availableDomains > 0 }
-    return DiagnosticsDnsAvailabilityToolUiModel(
-        state = DiagnosticsDnsAvailabilityState.Complete,
-        summary = "$available of $size public DNS resolvers responded.",
-        metrics =
-            listOf(
-                DiagnosticsMetricUiModel("servers", size.toString(), DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("available", available.toString(), countTone(size - available)),
-            ).toPersistentList(),
-        rows =
-            map { result ->
-                DiagnosticsDnsAvailabilityServerUiModel(
-                    name = result.name,
-                    type = result.type.name.lowercase(Locale.US),
-                    availability = "${result.availableDomains}/${result.totalDomains}",
-                    latency = result.avgLatencyMs?.let { "$it ms" } ?: "timeout",
-                    tone = if (result.availableDomains > 0) DiagnosticsTone.Positive else DiagnosticsTone.Warning,
-                )
-            }.toPersistentList(),
-    )
-}
-
-internal fun List<DomainReachabilityResult>.toUiModel(stubIpCount: Int): DiagnosticsDomainReachabilityToolUiModel {
-    val blocked = count { result -> result.verdict != DomainVerdict.OK }
-    val checked = size
-    return DiagnosticsDomainReachabilityToolUiModel(
-        state = DiagnosticsDomainReachabilityState.Complete,
-        summary =
-            if (blocked == 0) {
-                "No reachability blocks detected across $checked bundled domains."
-            } else {
-                "$blocked of $checked domains showed reachability warnings."
-            },
-        metrics =
-            (
-                listOf(
-                    DiagnosticsMetricUiModel("checked", checked.toString(), DiagnosticsTone.Info),
-                    DiagnosticsMetricUiModel("flagged", blocked.toString(), countTone(blocked)),
-                    DiagnosticsMetricUiModel("stub IPs", stubIpCount.toString(), DiagnosticsTone.Neutral),
-                ) + mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsMetrics()
-            ).toPersistentList(),
-        rows =
-            map { result ->
-                DiagnosticsDomainReachabilityDomainUiModel(
-                    domain = result.domain,
-                    verdict = result.verdict.displayLabel(),
-                    resolvedIps = result.resolvedIps.joinToString().ifBlank { "unresolved" },
-                    tls13 = result.tls13.displayLabel(),
-                    tls12 = result.tls12.displayLabel(),
-                    http = result.http.displayLabel(),
-                    tone = result.verdict.tone(),
-                )
-            }.toPersistentList(),
-    )
-}
-
-private fun CompressionProbeRunResult.toUiModel(): DiagnosticsCompressionProbeToolUiModel {
-    val okCount = results.values.count { result -> result.verdict == CompressionProbeVerdict.OK }
-    return DiagnosticsCompressionProbeToolUiModel(
-        state = DiagnosticsCompressionProbeState.Complete,
-        targetUrl = targetUrl,
-        summary = "$okCount of ${results.size} compression codecs are usable for $targetUrl.",
-        includeZstd = includeZstd,
-        metrics =
-            listOf(
-                DiagnosticsMetricUiModel("target", targetUrl, DiagnosticsTone.Info),
-                DiagnosticsMetricUiModel("usable", okCount.toString(), countTone(results.size - okCount)),
-                DiagnosticsMetricUiModel("zstd", if (includeZstd) "enabled" else "off", DiagnosticsTone.Neutral),
-            ).toPersistentList(),
-        rows =
-            CompressionCodec.entries
-                .map { codec ->
-                    val result = results.getValue(codec)
-                    DiagnosticsCompressionCodecUiModel(
-                        codec = codec.name.lowercase(Locale.US),
-                        verdict = result.verdict.displayLabel(),
-                        compressedBytes = result.compressedBytes?.toString() ?: "n/a",
-                        decompressedBytes = result.decompressedBytes?.toString() ?: "n/a",
-                        tone = result.verdict.tone(),
-                    )
-                }.toPersistentList(),
-    )
-}
-
-internal fun List<Tcp16ProbeResult>.toTcp16UiModel(): DiagnosticsTcp16FatHeaderToolUiModel {
-    val detected = count { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
-    val invalid = count { result -> result.verdict == Tcp16Verdict.INVALID_RECONNECTED }
-    val unavailable = count { result -> result.verdict == Tcp16Verdict.DEAD || result.verdict == Tcp16Verdict.ERROR }
-    return DiagnosticsTcp16FatHeaderToolUiModel(
-        state = DiagnosticsTcp16FatHeaderState.Complete,
-        summary =
-            if (detected == 0 && invalid == 0) {
-                "No TCP16 fat-header closure pattern detected across $size targets."
-            } else {
-                "$detected targets showed TCP16 closure patterns; $invalid reconnect validations failed."
-            },
-        metrics =
-            (
-                listOf(
-                    DiagnosticsMetricUiModel("targets", size.toString(), DiagnosticsTone.Info),
-                    DiagnosticsMetricUiModel("detected", detected.toString(), countTone(detected)),
-                    DiagnosticsMetricUiModel("unavailable", unavailable.toString(), DiagnosticsTone.Neutral),
-                    DiagnosticsMetricUiModel("single-socket invalid", invalid.toString(), countTone(invalid)),
-                ) + mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsMetrics()
-            ).toPersistentList(),
-        rows =
-            byAsn()
-                .values
-                .sortedWith(compareByDescending<Tcp16AsnSummary> { summary -> summary.detected }.thenBy { it.asn })
-                .map { summary -> summary.toUiModel() }
-                .toPersistentList(),
-        detectedResults =
-            filter { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
-                .map { result ->
-                    DiagnosticsTcp16DetectedTargetUiModel(
-                        targetId = result.targetId,
-                        asn = result.asn,
-                        provider = result.provider,
-                        ip = result.ip,
-                    )
-                }.toPersistentList(),
-    )
-}
-
-private fun Tcp16AsnSummary.toUiModel(): DiagnosticsTcp16AsnUiModel {
-    val warningCount = detected + errors + invalidReconnected
-    return DiagnosticsTcp16AsnUiModel(
-        asn = asn,
-        providers = providers.joinToString(),
-        checked = checked.toString(),
-        detected = detected.toString(),
-        dead = dead.toString(),
-        errors = (errors + invalidReconnected).toString(),
-        tone = countTone(warningCount),
-    )
-}
-
-internal fun buildRknBlockDiagnosisUiModel(result: RknDiagnosisRunResult): DiagnosticsRknBlockDiagnosisToolUiModel {
-    val controlResults = result.controlResults
-    val testResults = result.testResults
-    val aggregate = RknAggregateVerdictEngine.aggregate(controlResults, testResults)
-    val blockTypes = RknAggregateVerdictEngine.blockTypes(testResults)
-    val flagged = testResults.count { result -> result.verdict != RknVerdict.OK }
-    val rows =
-        controlResults.map { result -> result.toUiModel("control") } +
-            testResults.map { result -> result.toUiModel("test") }
-    return DiagnosticsRknBlockDiagnosisToolUiModel(
-        state = DiagnosticsRknBlockDiagnosisState.Complete,
-        headline = aggregate.headline,
-        confidenceNote = aggregate.confidenceNote,
-        summary = "Checked ${controlResults.size} control targets and ${testResults.size} blacklist targets.",
-        fetchSelfInfoEnabled = result.fetchSelfInfoEnabled,
-        selfInfoPrivacyOverridden = result.selfInfoPrivacyOverridden,
-        selfInfo = result.selfInfo?.toUiModel(),
-        metrics =
-            (
-                listOf(
-                    DiagnosticsMetricUiModel("control", controlResults.size.toString(), DiagnosticsTone.Info),
-                    DiagnosticsMetricUiModel("test", testResults.size.toString(), DiagnosticsTone.Info),
-                    DiagnosticsMetricUiModel("flagged", flagged.toString(), countTone(flagged)),
-                ) + (controlResults + testResults).mapNotNull { item -> item.tlsClientState }.toDiagnosticsTlsMetrics()
-            ).toPersistentList(),
-        blockTypes =
-            blockTypes
-                .map { (verdict, count) ->
-                    val label = RknVerdictLabel.format(verdict, RknConfidence.HIGH)
-                    DiagnosticsRknBlockTypeUiModel(
-                        label = "${label.symbol} ${label.text}",
-                        count = count,
-                        tone = label.color.toDiagnosticsTone(),
-                    )
-                }.toPersistentList(),
-        rows = rows.toPersistentList(),
-    )
-}
-
-private fun SelfInfoResult.toUiModel(): DiagnosticsRknSelfInfoUiModel =
-    DiagnosticsRknSelfInfoUiModel(
-        maskedIp = SelfInfoFetcher.maskIpForDisplay(ip),
-        provider = listOfNotNull(asn, org).joinToString(" ").ifBlank { "Unknown ISP" },
-        asn = asn,
-        org = org,
-        location = listOfNotNull(city, region, country).joinToString(", ").ifBlank { null },
-        source = source,
-    )
-
-private fun DomainVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
-
-private fun CompressionProbeVerdict.displayLabel(): String = name.lowercase(Locale.US).replace('_', ' ')
-
-private fun AttemptResult.displayLabel(): String =
-    buildList {
-        add(status.name.lowercase(Locale.US).replace('_', ' '))
-        statusCode?.let { code -> add(code.toString()) }
-        error?.let { error -> add(error.label.lowercase(Locale.US).replace('_', ' ')) }
-    }.joinToString(" · ")
-
-private fun List<RknTarget>.toProbeTargets(): List<RknProbeTarget> =
-    map { target -> RknProbeTarget(name = target.name, url = target.url) }
-
-private fun RknCheckResult.toUiModel(group: String): DiagnosticsRknTargetUiModel {
-    val label = RknVerdictLabel.format(verdict, confidence)
-    return DiagnosticsRknTargetUiModel(
-        group = group,
-        name = name,
-        verdict = "${label.symbol} ${label.text}",
-        notes = notes.ifEmpty { listOfNotNull(dnsError, tcpError, tlsError, httpError) }.joinToString("; "),
-        tone = label.color.toDiagnosticsTone(),
-    )
-}
-
-private fun RknVerdictColorToken.toDiagnosticsTone(): DiagnosticsTone =
-    when (this) {
-        RknVerdictColorToken.POSITIVE -> DiagnosticsTone.Positive
-        RknVerdictColorToken.WARNING -> DiagnosticsTone.Warning
-        RknVerdictColorToken.ERROR -> DiagnosticsTone.Negative
-        RknVerdictColorToken.MUTED -> DiagnosticsTone.Neutral
-    }
-
-private fun List<DiagnosticsTlsClientState>.toDiagnosticsTlsMetrics(): List<DiagnosticsMetricUiModel> {
-    val state = firstOrNull() ?: return emptyList()
-    val mode =
-        when {
-            state.nativeOwnedTlsAvailable -> "Native owned TLS"
-            state.fallbackActive -> "Android template fallback"
-            else -> "Default TLS"
-        }
-    val tone =
-        when {
-            state.fallbackActive -> DiagnosticsTone.Warning
-            state.nativeOwnedTlsAvailable -> DiagnosticsTone.Positive
-            else -> DiagnosticsTone.Neutral
-        }
-    return buildList {
-        state.profileId?.let { profile ->
-            add(DiagnosticsMetricUiModel("TLS profile", profile, DiagnosticsTone.Info))
-        }
-        add(DiagnosticsMetricUiModel("TLS mode", mode, tone))
-    }
-}
-
-private fun countTone(count: Int): DiagnosticsTone =
-    if (count == 0) {
-        DiagnosticsTone.Positive
-    } else {
-        DiagnosticsTone.Warning
-    }
-
-private fun DomainVerdict.tone(): DiagnosticsTone =
-    when (this) {
-        DomainVerdict.OK -> DiagnosticsTone.Positive
-
-        DomainVerdict.DNS_FAIL,
-        DomainVerdict.FAKE_IP,
-        -> DiagnosticsTone.Neutral
-
-        DomainVerdict.BLOCKED,
-        DomainVerdict.TLS_VERSION_BLOCK,
-        DomainVerdict.ISP_PAGE,
-        DomainVerdict.TCP16_BAND,
-        DomainVerdict.UNREACHABLE,
-        -> DiagnosticsTone.Warning
-    }
-
-private fun CompressionProbeVerdict.tone(): DiagnosticsTone =
-    when (this) {
-        CompressionProbeVerdict.OK -> DiagnosticsTone.Positive
-
-        CompressionProbeVerdict.NOT_SUPPORTED -> DiagnosticsTone.Neutral
-
-        CompressionProbeVerdict.EOF_BEFORE_MIN,
-        CompressionProbeVerdict.TIMEOUT,
-        CompressionProbeVerdict.CONN_ERR,
-        CompressionProbeVerdict.INTERNAL_ERR,
-        -> DiagnosticsTone.Warning
-    }

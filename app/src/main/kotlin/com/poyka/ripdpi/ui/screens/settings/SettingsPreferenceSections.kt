@@ -83,45 +83,63 @@ internal fun SettingsConnectivitySection(
                 testTag = RipDpiTestTags.SettingsSubscriptionFailover,
             )
         }
-        AdvancedSection(
-            initiallyExpanded = uiState.uiPersona == "advanced",
-            testTag = RipDpiTestTags.SettingsAdvancedConnectivity,
-        ) {
-            SettingsRow(
-                title = stringResource(R.string.title_advanced_settings),
-                subtitle = stringResource(R.string.settings_advanced_body),
-                value = stringResource(R.string.settings_manage_action),
-                onClick = actions.onOpenAdvancedSettings,
-                showDivider = true,
-                testTag = RipDpiTestTags.SettingsAdvancedSettings,
-            )
-            SettingsRow(
-                title = stringResource(R.string.title_domain_bypass_list),
-                subtitle = stringResource(R.string.settings_domain_bypass_body),
-                value = stringResource(R.string.settings_manage_action),
-                onClick = actions.onOpenDomainBypass,
-                showDivider = true,
-                testTag = RipDpiTestTags.SettingsDomainBypass,
-            )
-            SettingsRow(
-                title = stringResource(R.string.title_routes),
-                subtitle = stringResource(R.string.settings_routing_rules_body),
-                value = stringResource(R.string.settings_manage_action),
-                onClick = actions.onOpenRoutingRules,
-                showDivider = true,
-                testTag = RipDpiTestTags.SettingsRoutingRules,
-            )
-            SettingsRow(
-                title = stringResource(R.string.title_split_tunnel),
-                subtitle = stringResource(R.string.settings_split_tunnel_body),
-                value = stringResource(R.string.settings_manage_action),
-                onClick = actions.onOpenSplitTunnel,
-                testTag = RipDpiTestTags.SettingsSplitTunnel,
-            )
-        }
+        SettingsAdvancedConnectivitySection(uiState = uiState, actions = actions)
     }
     if (showLanguagePicker) {
         LanguagePickerSheet(onDismissRequest = { showLanguagePicker = false })
+    }
+}
+
+@Composable
+private fun SettingsAdvancedConnectivitySection(
+    uiState: SettingsUiState,
+    actions: SettingsScreenActions,
+) {
+    AdvancedSection(
+        initiallyExpanded = uiState.uiPersona == "advanced",
+        testTag = RipDpiTestTags.SettingsAdvancedConnectivity,
+    ) {
+        SettingsRow(
+            title = stringResource(R.string.title_advanced_settings),
+            subtitle = stringResource(R.string.settings_advanced_body),
+            value = stringResource(R.string.settings_manage_action),
+            onClick = actions.onOpenAdvancedSettings,
+            showDivider = true,
+            testTag = RipDpiTestTags.SettingsAdvancedSettings,
+        )
+        SettingsRow(
+            title = stringResource(R.string.title_domain_bypass_list),
+            subtitle = stringResource(R.string.settings_domain_bypass_body),
+            value = stringResource(R.string.settings_manage_action),
+            onClick = actions.onOpenDomainBypass,
+            showDivider = true,
+            testTag = RipDpiTestTags.SettingsDomainBypass,
+        )
+        SettingsRow(
+            title = stringResource(R.string.title_routes),
+            subtitle = stringResource(R.string.settings_routing_rules_body),
+            value = stringResource(R.string.settings_manage_action),
+            onClick = actions.onOpenRoutingRules,
+            showDivider = true,
+            testTag = RipDpiTestTags.SettingsRoutingRules,
+        )
+        SettingsRow(
+            title = stringResource(R.string.title_split_tunnel),
+            subtitle = stringResource(R.string.settings_split_tunnel_body),
+            value = stringResource(R.string.settings_manage_action),
+            onClick = actions.onOpenSplitTunnel,
+            showDivider = uiState.rootModeEnabled,
+            testTag = RipDpiTestTags.SettingsSplitTunnel,
+        )
+        if (uiState.rootModeEnabled) {
+            SettingsRow(
+                title = stringResource(R.string.title_root_mode_strategies),
+                subtitle = stringResource(R.string.settings_root_mode_strategies_body),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = actions.onOpenRootModeStrategies,
+                testTag = RipDpiTestTags.SettingsRootModeStrategies,
+            )
+        }
     }
 }
 

@@ -1,14 +1,22 @@
 package com.poyka.ripdpi.activities
 
+import android.app.Application
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistDetectionResult
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistProbeTrace
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistUrlGroup
 import com.poyka.ripdpi.diagnostics.dpich.CidrWhitelistVerdict
+import com.poyka.ripdpi.platform.StringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class DiagnosticsCidrWhitelistUiMapperTest {
+    private val stringResolver = ResourceStringResolver()
+
     @Test
     fun `cidr whitelist result renders verdict metrics and traces`() {
         val model =
@@ -19,7 +27,7 @@ class DiagnosticsCidrWhitelistUiMapperTest {
                         trace("https://vk.example/", CidrWhitelistUrlGroup.WHITELISTED, ok = true),
                         trace("https://github.example/", CidrWhitelistUrlGroup.REGULAR, ok = false),
                     ),
-            ).toUiModel()
+            ).toUiModel(stringResolver)
 
         assertEquals(DiagnosticsCidrWhitelistState.Complete, model.state)
         assertTrue(model.summary.contains("CIDR whitelist pattern"))
@@ -42,4 +50,13 @@ class DiagnosticsCidrWhitelistUiMapperTest {
             latencyMs = 7,
             error = if (ok) null else "blocked",
         )
+
+    private class ResourceStringResolver : StringResolver {
+        private val application: Application = RuntimeEnvironment.getApplication()
+
+        override fun getString(
+            resId: Int,
+            vararg formatArgs: Any,
+        ): String = application.getString(resId, *formatArgs)
+    }
 }

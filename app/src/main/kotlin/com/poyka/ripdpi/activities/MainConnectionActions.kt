@@ -145,7 +145,14 @@ internal class MainConnectionActions(
             serviceStateStore.status.collect { (status, _) ->
                 when (status) {
                     AppStatus.Running -> onConnected()
+
                     AppStatus.Halted -> onHalted()
+
+                    // Reconnecting is surfaced as a Connecting actuator purely by
+                    // resolveEffectiveConnectionState (single source of truth); no
+                    // runtime-state mutation is needed here, and the terminal
+                    // Running/Halted edge resolves the state.
+                    AppStatus.Reconnecting -> Unit
                 }
                 refreshPermissionSnapshot()
             }

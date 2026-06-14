@@ -5309,6 +5309,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-amneziawg-android"
+version = "0.1.0"
+dependencies = [
+ "android-support",
+ "jni",
+ "log",
+ "ripdpi-native-protect",
+ "ripdpi-warp-core",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "ripdpi-android"
 version = "0.1.0"
 dependencies = [

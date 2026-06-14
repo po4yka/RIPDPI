@@ -13,6 +13,8 @@ import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.core.service.R
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
@@ -87,6 +89,18 @@ class RipDpiVpnService :
         super.onStartCommand(intent, flags, startId)
         notificationController.startForeground(this)
         refreshHardKillSwitchState()
+        // A null action is Android re-delivering a START_STICKY intent after the
+        // process was killed (LMK / memory limiter). Publish Reconnecting ONLY from
+        // a Halted baseline — i.e. a genuinely fresh process whose store re-init'd to
+        // Halted. Guarding on Halted is load-bearing: a null re-delivery to a process
+        // whose service is still Running must not demote it to Reconnecting (which
+        // would also wipe serviceStartedAt), because the runtime start that follows
+        // is then rejected as already-running and would never restore Running —
+        // leaving the status stuck. Reconnecting is overwritten by Running on connect
+        // or Halted if the resume fails.
+        if (intent?.action == null && serviceStateStore.status.value.first == AppStatus.Halted) {
+            serviceStateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
+        }
         return shellDelegate.onStartCommand(intent?.action, startId)
     }
 

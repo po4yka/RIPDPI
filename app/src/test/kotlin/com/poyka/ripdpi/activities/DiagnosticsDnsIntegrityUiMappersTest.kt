@@ -1,12 +1,20 @@
 package com.poyka.ripdpi.activities
 
+import android.app.Application
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
 import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapResult
+import com.poyka.ripdpi.platform.StringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class DiagnosticsDnsIntegrityUiMappersTest {
+    private val stringResolver = ResourceStringResolver()
+
     @Test
     fun dnsIntegrityMapperSurfacesDohBootstrapTrustRows() {
         val uiModel =
@@ -26,7 +34,7 @@ class DiagnosticsDnsIntegrityUiMappersTest {
                             expectedFilter = "as(15169)",
                         ),
                     ),
-            ).toUiModel()
+            ).toUiModel(stringResolver)
 
         val row = uiModel.dohBootstrapRows.single()
         assertEquals("Google", row.provider)
@@ -34,5 +42,14 @@ class DiagnosticsDnsIntegrityUiMappersTest {
         assertEquals("spoofed", row.verdict)
         assertEquals("1.2.3.4 · AS12389 · Rostelecom", row.detail)
         assertEquals(DiagnosticsTone.Warning, row.tone)
+    }
+
+    private class ResourceStringResolver : StringResolver {
+        private val application: Application = RuntimeEnvironment.getApplication()
+
+        override fun getString(
+            resId: Int,
+            vararg formatArgs: Any,
+        ): String = application.getString(resId, *formatArgs)
     }
 }

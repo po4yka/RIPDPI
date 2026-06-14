@@ -119,6 +119,8 @@ private class NoOpDnsPathPreferenceStore : NetworkDnsPathPreferenceStore {
 
     override suspend fun clearAll() = Unit
 
+    override suspend fun deleteForFingerprint(fingerprintHash: String) = Unit
+
     override suspend fun rememberPreferredPath(
         fingerprint: NetworkFingerprint,
         path: EncryptedDnsPathCandidate,
@@ -135,6 +137,8 @@ private class RecordingDnsPathPreferenceStore : NetworkDnsPathPreferenceStore {
     override suspend fun clearAll() {
         clearAllCallCount++
     }
+
+    override suspend fun deleteForFingerprint(fingerprintHash: String) = Unit
 
     override suspend fun rememberPreferredPath(
         fingerprint: NetworkFingerprint,

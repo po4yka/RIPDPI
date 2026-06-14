@@ -58,7 +58,7 @@ private fun DiagnosticsUiFactorySupport.buildSharePreviewDocument(
     DiagnosticsSummaryDocument(
         header =
             DiagnosticsSummarySection(
-                title = "Header",
+                title = context.getString(R.string.diagnostics_share_section_header),
                 lines =
                     stringLines {
                         appendShareIntro(this)
@@ -67,12 +67,12 @@ private fun DiagnosticsUiFactorySupport.buildSharePreviewDocument(
             ),
         reportMetadata =
             DiagnosticsSummarySection(
-                title = "Report",
+                title = context.getString(R.string.diagnostics_share_section_report),
                 lines = latestReport?.let(::shareReportLines).orEmpty(),
             ),
         environment =
             DiagnosticsSummarySection(
-                title = "Environment",
+                title = context.getString(R.string.diagnostics_share_section_environment),
                 lines =
                     stringLines {
                         latestSnapshot?.let { appendShareNetwork(it) }
@@ -81,7 +81,7 @@ private fun DiagnosticsUiFactorySupport.buildSharePreviewDocument(
             ),
         telemetry =
             DiagnosticsSummarySection(
-                title = "Telemetry",
+                title = context.getString(R.string.diagnostics_share_section_telemetry),
                 lines =
                     stringLines {
                         telemetry?.let { appendShareTelemetry(it) }
@@ -89,7 +89,7 @@ private fun DiagnosticsUiFactorySupport.buildSharePreviewDocument(
             ),
         warnings =
             DiagnosticsSummarySection(
-                title = "Warnings",
+                title = context.getString(R.string.diagnostics_share_section_warnings),
                 lines =
                     stringLines {
                         warningHeadline?.let { appendShareWarning(it) }

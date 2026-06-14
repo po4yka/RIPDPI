@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.content.Intent
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -100,6 +102,36 @@ class BootResumeTest {
                 wasRunningAtUpdate = true,
             )
         assertTrue(decision is BootResumeDecision.Skip)
+    }
+
+    @Test
+    fun `reconnecting is published on an accepted start from a halted store`() {
+        assertEquals(
+            Mode.VPN,
+            reconnectingResumeMode(ServiceStartResult.Accepted(Mode.VPN), AppStatus.Halted),
+        )
+        assertEquals(
+            Mode.Proxy,
+            reconnectingResumeMode(ServiceStartResult.Accepted(Mode.Proxy), AppStatus.Halted),
+        )
+    }
+
+    @Test
+    fun `a rejected start never publishes reconnecting - no stuck state`() {
+        assertNull(
+            reconnectingResumeMode(
+                ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.VpnConsentMissing),
+                AppStatus.Halted,
+            ),
+        )
+    }
+
+    @Test
+    fun `an already-active store is not demoted to reconnecting`() {
+        // e.g. an automation-intercepted Accepted that dispatched no foreground service,
+        // or a resume racing a still-running session.
+        assertNull(reconnectingResumeMode(ServiceStartResult.Accepted(Mode.VPN), AppStatus.Running))
+        assertNull(reconnectingResumeMode(ServiceStartResult.Accepted(Mode.VPN), AppStatus.Reconnecting))
     }
 
     @Test

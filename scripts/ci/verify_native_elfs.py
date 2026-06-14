@@ -13,6 +13,7 @@ from pathlib import Path
 EXPECTED_NEEDED = {
     "libripdpi.so": {"libc.so", "libm.so", "libdl.so", "liblog.so"},
     "libripdpi-tunnel.so": {"libc.so", "libm.so", "libdl.so", "liblog.so"},
+    "libripdpi-amneziawg.so": {"libc.so", "libm.so", "libdl.so", "liblog.so"},
 }
 REQUIRED_PAGE_ALIGNMENT = 16 * 1024
 DEFAULT_LIB_DIR = "app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib"

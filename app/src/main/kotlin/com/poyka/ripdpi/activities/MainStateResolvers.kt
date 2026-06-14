@@ -33,6 +33,12 @@ internal fun resolveEffectiveConnectionState(
             ConnectionState.Disconnected
         }
 
+        // Boot/LMK resume: surface the bring-up as Connecting so the actuator
+        // animates "engaging" instead of flashing Halted during the restart window.
+        appStatus == AppStatus.Reconnecting && runtimeConnectionState != ConnectionState.Connected -> {
+            ConnectionState.Connecting
+        }
+
         appStatus == AppStatus.Running && runtimeConnectionState == ConnectionState.Disconnected -> {
             ConnectionState.Connecting
         }
@@ -60,7 +66,15 @@ internal fun resolvePrimaryConnectionAction(
         -> {
             when (appStatus) {
                 AppStatus.Halted -> MainPrimaryConnectionAction.START_CONFIGURED_MODE
-                AppStatus.Running -> MainPrimaryConnectionAction.STOP
+
+                // Grouped with Running for exhaustiveness / as a defensive default.
+                // Not reached while appStatus == Reconnecting in practice:
+                // resolveEffectiveConnectionState maps Reconnecting to Connecting
+                // (-> NONE) above, so the button shows the same wait state as any
+                // connect-in-progress; aborting goes through the stop sinks.
+                AppStatus.Reconnecting,
+                AppStatus.Running,
+                -> MainPrimaryConnectionAction.STOP
             }
         }
     }

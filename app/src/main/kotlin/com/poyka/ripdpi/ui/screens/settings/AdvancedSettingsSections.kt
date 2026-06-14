@@ -452,6 +452,7 @@ private fun ProxyToggleSettings(
 ) {
     var showAllowLanWarning by rememberSaveable { mutableStateOf(false) }
     val context = LocalContext.current
+    val lanAuthTokenLabel = stringResource(R.string.clipboard_label_lan_auth_token)
 
     if (showAllowLanWarning) {
         ProxyAllowLanWarningDialog(
@@ -513,6 +514,7 @@ private fun ProxyToggleSettings(
         testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.ProxyAllowLan),
     )
     if (uiState.proxy.allowLan && uiState.proxy.lanAuthToken.isNotEmpty()) {
+        val lanAuthTokenLabel = stringResource(R.string.clipboard_label_lan_auth_token)
         ProxyLanTokenRow(
             token = uiState.proxy.lanAuthToken,
             enabled = visualEditorEnabled,
@@ -520,7 +522,7 @@ private fun ProxyToggleSettings(
                 val clipboard = context.getSystemService(ClipboardManager::class.java)
                 clipboard?.setPrimaryClip(
                     ClipData.newPlainText(
-                        context.getString(R.string.clipboard_label_lan_auth_token),
+                        lanAuthTokenLabel,
                         uiState.proxy.lanAuthToken,
                     ),
                 )
@@ -627,32 +629,18 @@ internal fun LazyListScope.networkStrategyMemorySection(
     visualEditorEnabled: Boolean,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onClearRememberedNetworks: () -> Unit,
+    onOpenRememberedNetworks: () -> Unit,
 ) {
     item(key = "advanced_network_strategy_memory") {
         var showClearDialog by remember { mutableStateOf(false) }
 
         if (showClearDialog) {
-            RipDpiDialog(
-                onDismissRequest = { showClearDialog = false },
-                title = stringResource(R.string.confirm_clear_remembered_networks_title),
-                dismissAction =
-                    RipDpiDialogAction(
-                        label = stringResource(R.string.confirm_clear_remembered_networks_dismiss),
-                        onClick = { showClearDialog = false },
-                    ),
-                confirmAction =
-                    RipDpiDialogAction(
-                        label = stringResource(R.string.confirm_clear_remembered_networks_confirm),
-                        onClick = {
-                            showClearDialog = false
-                            onClearRememberedNetworks()
-                        },
-                    ),
-                visuals =
-                    RipDpiDialogVisuals(
-                        message = stringResource(R.string.confirm_clear_remembered_networks_body),
-                        tone = RipDpiDialogTone.Destructive,
-                    ),
+            ClearRememberedNetworksDialog(
+                onDismiss = { showClearDialog = false },
+                onConfirm = {
+                    showClearDialog = false
+                    onClearRememberedNetworks()
+                },
             )
         }
 
@@ -669,6 +657,15 @@ internal fun LazyListScope.networkStrategyMemorySection(
                     enabled = visualEditorEnabled,
                     showDivider = true,
                     testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.NetworkStrategyMemoryEnabled),
+                )
+                SettingsRow(
+                    title = stringResource(R.string.network_strategy_memory_inspect_title),
+                    subtitle = stringResource(R.string.network_strategy_memory_inspect_body),
+                    value = uiState.autolearn.rememberedNetworkCount.toString(),
+                    onClick = onOpenRememberedNetworks,
+                    enabled = uiState.autolearn.rememberedNetworkCount > 0,
+                    showDivider = true,
+                    testTag = RipDpiTestTags.AdvancedInspectRememberedNetworks,
                 )
                 Text(
                     text =
@@ -700,6 +697,32 @@ internal fun LazyListScope.networkStrategyMemorySection(
             }
         }
     }
+}
+
+@Composable
+private fun ClearRememberedNetworksDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    RipDpiDialog(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.confirm_clear_remembered_networks_title),
+        dismissAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_clear_remembered_networks_dismiss),
+                onClick = onDismiss,
+            ),
+        confirmAction =
+            RipDpiDialogAction(
+                label = stringResource(R.string.confirm_clear_remembered_networks_confirm),
+                onClick = onConfirm,
+            ),
+        visuals =
+            RipDpiDialogVisuals(
+                message = stringResource(R.string.confirm_clear_remembered_networks_body),
+                tone = RipDpiDialogTone.Destructive,
+            ),
+    )
 }
 
 internal fun LazyListScope.wsTunnelSection(

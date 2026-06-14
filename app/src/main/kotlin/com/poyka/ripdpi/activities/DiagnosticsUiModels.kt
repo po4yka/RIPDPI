@@ -818,6 +818,13 @@ data class DiagnosticsLiveUiModel(
     val statusLabel: String = "Idle",
     val statusTone: DiagnosticsTone = DiagnosticsTone.Neutral,
     val freshnessLabel: String = "No live telemetry",
+    /**
+     * Wall-clock timestamp (epoch ms) of the snapshot behind [freshnessLabel], or
+     * null when no live telemetry exists yet. The live panel uses it to compute a
+     * staleness badge against a ticking clock — see `LiveHeroCard`. Distinct from
+     * the formatted [freshnessLabel] because staleness needs the raw age.
+     */
+    val currentTelemetryTimestampMs: Long? = null,
     val headline: String = "Live monitor standing by",
     val body: String = "Continuous monitor is waiting for an active RIPDPI session.",
     val networkLabel: String? = null,

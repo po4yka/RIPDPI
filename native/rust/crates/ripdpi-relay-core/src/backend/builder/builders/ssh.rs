@@ -8,12 +8,18 @@ use crate::protocols::SshSessionFactory;
 
 /// Build the SSH relay backend.
 ///
-/// SSH is TCP-only (a `direct-tcpip` channel) and non-reusable in this
-/// foundation. The `russh` wire engine in `ripdpi-ssh` is stubbed because the
-/// relay layer exposes no protected outbound connector to hand `russh` a
-/// pre-connected `VpnService.protect()`-honoured stream (see the `ripdpi-ssh`
-/// crate doc). The built backend therefore validates config and fails session
-/// creation with `Unimplemented` rather than opening an unprotected socket.
+/// SSH is TCP-only (a `direct-tcpip` channel) and non-reusable (one fresh
+/// session per flow). This wires the real `russh` engine in `ripdpi-ssh`:
+/// `build` validates the config and returns a [`RelayBackend::Ssh`] whose
+/// [`SshSessionFactory`] dials, verifies the host key (TOFU / strict pin),
+/// authenticates by password or private key, and opens one `direct-tcpip`
+/// channel per relay flow.
+///
+/// The outbound socket `russh` opens needs no per-socket `VpnService.protect()`
+/// call: the relay runs in-process under the app UID, which is excluded from
+/// the TUN by UID-level routing — the same socket-safety model the sibling
+/// `ripdpi-trojan` backend relies on (see the `ripdpi-ssh` crate doc and
+/// `.claude/rules/vpnservice-protect-invariant.md`).
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::Ssh(ssh) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected SSH config"));

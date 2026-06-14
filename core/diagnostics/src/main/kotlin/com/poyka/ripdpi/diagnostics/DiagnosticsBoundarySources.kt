@@ -6,7 +6,9 @@ import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsBlockedPathStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceRecordStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -79,6 +81,8 @@ class DefaultDiagnosticsRememberedPolicySource
     constructor(
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
+        private val networkDnsBlockedPathStore: NetworkDnsBlockedPathStore,
+        private val networkEdgePreferenceRecordStore: NetworkEdgePreferenceRecordStore,
         private val mapper: DiagnosticsBoundaryMapper,
     ) : DiagnosticsRememberedPolicySource {
         override fun observePolicies(limit: Int): Flow<List<DiagnosticsRememberedPolicy>> =
@@ -86,9 +90,32 @@ class DefaultDiagnosticsRememberedPolicySource
                 policies.map(mapper::toDiagnosticsRememberedPolicy)
             }
 
+        override suspend fun deletePolicy(policy: DiagnosticsRememberedPolicy) =
+            withContext(Dispatchers.IO) {
+                val remainingForFingerprint =
+                    rememberedNetworkPolicyStore.deletePolicy(
+                        id = policy.id,
+                        fingerprintHash = policy.fingerprintHash,
+                    )
+                // Only purge per-network learned state once no other mode still references this
+                // network scope; otherwise a surviving policy for the same fingerprint would be
+                // orphaned from its DNS-substrate learning.
+                if (remainingForFingerprint == 0) {
+                    networkDnsPathPreferenceStore.deleteForFingerprint(policy.fingerprintHash)
+                    networkDnsBlockedPathStore.clearForFingerprint(policy.fingerprintHash)
+                    networkEdgePreferenceRecordStore.deleteNetworkEdgePreferencesForFingerprint(
+                        policy.fingerprintHash,
+                    )
+                }
+            }
+
         override suspend fun clearAll() {
             rememberedNetworkPolicyStore.clearAll()
             networkDnsPathPreferenceStore.clearAll()
+            // Purge every companion per-network store so "clear all" leaves no orphaned learned
+            // state behind, mirroring the per-entry scoped purge above.
+            networkDnsBlockedPathStore.clearAll()
+            networkEdgePreferenceRecordStore.clearNetworkEdgePreferences()
         }
     }
 

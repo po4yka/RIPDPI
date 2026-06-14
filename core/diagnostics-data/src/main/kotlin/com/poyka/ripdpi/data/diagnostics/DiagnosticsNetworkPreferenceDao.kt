@@ -24,6 +24,9 @@ interface DiagnosticsNetworkPreferenceDao {
     @Query("DELETE FROM network_dns_path_preferences")
     suspend fun clearNetworkDnsPathPreferences()
 
+    @Query("DELETE FROM network_dns_path_preferences WHERE fingerprintHash = :fingerprintHash")
+    suspend fun deleteNetworkDnsPathPreferencesForFingerprint(fingerprintHash: String)
+
     @Query(
         """
         DELETE FROM network_dns_path_preferences
@@ -44,6 +47,9 @@ interface DiagnosticsNetworkPreferenceDao {
 
     @Query("DELETE FROM network_dns_blocked_paths")
     suspend fun clearBlockedPaths()
+
+    @Query("DELETE FROM network_dns_blocked_paths WHERE fingerprintHash = :fingerprintHash")
+    suspend fun deleteBlockedPathsForFingerprint(fingerprintHash: String)
 
     @Query(
         """
@@ -84,6 +90,9 @@ interface DiagnosticsNetworkPreferenceDao {
 
     @Query("DELETE FROM network_edge_preferences")
     suspend fun clearNetworkEdgePreferences()
+
+    @Query("DELETE FROM network_edge_preferences WHERE fingerprintHash = :fingerprintHash")
+    suspend fun deleteNetworkEdgePreferencesForFingerprint(fingerprintHash: String)
 
     @Query(
         """

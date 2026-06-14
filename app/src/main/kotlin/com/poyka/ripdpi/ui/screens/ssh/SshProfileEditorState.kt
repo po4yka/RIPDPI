@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.ui.screens.ssh
 
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
+import java.util.UUID
 
 /** Lower bound (inclusive) of a valid TCP port. */
 private const val MinPort = 1
@@ -55,8 +57,9 @@ enum class SshEditorField {
  * edit is not silently discarded; [authType] is a picker-backed whitelisted
  * selection. [privateKeyRevealed] / [passphraseRevealed] gate the secret fields
  * behind the biometric-reveal pattern used by the AmneziaWG editor; both default
- * to hidden. SSH is an editor-only relay kind: it has no URI / subscription
- * import path, so this state intentionally produces no `ProxyProfile`.
+ * to hidden. [toProfile] assembles a [ProxyProfile.Ssh] from a complete editor so
+ * the host can persist it and activate the native relay; the synthetic `ssh://`
+ * scheme (see `ProxyUriCodec`) round-trips the same shape for subscription import.
  */
 data class SshProfileEditorState(
     val rawTextByField: Map<SshEditorField, String> = emptyMap(),
@@ -119,6 +122,34 @@ data class SshProfileEditorState(
                 SshEditorField.SERVER_PORT.validate(rawText(SshEditorField.SERVER_PORT)) != null &&
                 SshEditorField.USERNAME.validate(rawText(SshEditorField.USERNAME)) != null &&
                 credentialComplete
+
+    /**
+     * Builds a [ProxyProfile.Ssh] from the current editor, or `null` when the
+     * required fields do not validate. The auth-irrelevant secret is dropped
+     * (only the password for password-auth, only the private key / passphrase for
+     * key-auth survive) and a blank pinned fingerprint becomes `null`. The display
+     * name falls back to the server when left empty.
+     */
+    fun toProfile(): ProxyProfile.Ssh? {
+        val port = SshEditorField.SERVER_PORT.validate(rawText(SshEditorField.SERVER_PORT)) as? Int
+        if (!isComplete || port == null) return null
+        val server = rawText(SshEditorField.SERVER).trim()
+        val isKey = authType == RelaySshAuthTypePrivateKey
+        return ProxyProfile.Ssh(
+            id = UUID.randomUUID().toString(),
+            displayName = rawText(SshEditorField.DISPLAY_NAME).trim().ifEmpty { server },
+            groupId = "",
+            server = server,
+            serverPort = port,
+            username = rawText(SshEditorField.USERNAME).trim(),
+            authType = authType,
+            password = rawText(SshEditorField.PASSWORD).takeIf { !isKey && it.isNotEmpty() },
+            privateKey = rawText(SshEditorField.PRIVATE_KEY).takeIf { isKey && it.isNotBlank() },
+            privateKeyPassphrase = rawText(SshEditorField.PRIVATE_KEY_PASSPHRASE).takeIf { isKey && it.isNotEmpty() },
+            hostKeyFingerprint = rawText(SshEditorField.HOST_KEY_FINGERPRINT).trim().ifEmpty { null },
+            strictHostKey = strictHostKey,
+        )
+    }
 
     companion object {
         /** A fresh editor: empty fields, password auth, and a lenient (non-strict) host-key policy. */

@@ -12,8 +12,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -110,7 +112,7 @@ private fun JsonNodeRow(
             ) {
                 Icon(
                     imageVector = if (open) RipDpiIcons.KeyboardArrowDown else RipDpiIcons.ChevronRight,
-                    contentDescription = if (open) "Collapse" else "Expand",
+                    contentDescription = stringResource(if (open) R.string.cd_collapse else R.string.cd_expand),
                     tint = colors.mutedForeground,
                     modifier = Modifier.size(JsonChevronSize),
                 )

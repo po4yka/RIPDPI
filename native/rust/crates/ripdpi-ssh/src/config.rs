@@ -77,6 +77,9 @@ impl SshConfig {
     /// material is present, and — for a strict host-key policy — that the
     /// pinned fingerprint parses.
     pub fn validate(&self) -> Result<()> {
+        if self.host.trim().is_empty() {
+            return Err(SshError::EmptyHost);
+        }
         if self.port == 0 {
             return Err(SshError::InvalidPort);
         }
@@ -214,6 +217,13 @@ mod tests {
         let mut config = valid_config();
         config.port = 0;
         assert!(matches!(config.validate(), Err(SshError::InvalidPort)));
+    }
+
+    #[test]
+    fn empty_host_is_rejected() {
+        let mut config = valid_config();
+        config.host = "   ".to_string();
+        assert!(matches!(config.validate(), Err(SshError::EmptyHost)));
     }
 
     #[test]
