@@ -18,6 +18,12 @@ internal class VpnTunnelRuntime(
     private val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
     private val vpnTunnelSessionProvider: VpnTunnelSessionProvider,
     private val protectPath: String? = null,
+    /**
+     * Absolute `<filesDir>/lua` directory the native TUN egress strategy loader
+     * jails `lua`-step `script_paths` to. `null` falls back to the process CWD
+     * (`"."`); production supplies the app's absolute lua directory.
+     */
+    private val luaScriptBaseDir: String? = null,
     private val rootHelperSocketPathProvider: () -> String? = { null },
     /**
      * Bridge the native tun2socks worker calls to report flow 5-tuples for per-app
@@ -68,6 +74,7 @@ internal class VpnTunnelRuntime(
                 strategyChainYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() },
                 protectPath = protectPath,
                 rootHelperSocketPath = rootHelperSocketPathProvider().takeIf { settings.rootModeEnabled },
+                luaScriptBaseDir = luaScriptBaseDir,
             )
 
         val proxy = settings.toSettingsSections().proxy

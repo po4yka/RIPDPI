@@ -130,6 +130,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 strategy_chain_yaml: None,
                 protect_path: None,
                 root_helper_socket_path: None,
+                lua_script_base_dir: None,
                 task_stack_size,
                 tcp_buffer_size,
                 udp_recv_buffer_size,
@@ -261,6 +262,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 strategy_chain_yaml: None,
                 protect_path: None,
                 root_helper_socket_path: None,
+                lua_script_base_dir: None,
                 task_stack_size,
                 tcp_buffer_size,
                 udp_recv_buffer_size,
@@ -341,12 +343,14 @@ fn maps_synack_runtime_fields_to_misc_config() {
     payload.strategy_chain_yaml = Some(chain_yaml.to_string());
     payload.protect_path = Some("/tmp/ripdpi-protect.sock".to_string());
     payload.root_helper_socket_path = Some("/tmp/ripdpi-root-helper.sock".to_string());
+    payload.lua_script_base_dir = Some("/data/user/0/com.poyka.ripdpi/files/lua".to_string());
 
     let config = config_from_payload(payload).expect("config");
 
     assert_eq!(config.misc.strategy_chain_yaml.as_deref(), Some(chain_yaml));
     assert_eq!(config.misc.protect_path.as_deref(), Some("/tmp/ripdpi-protect.sock"),);
     assert_eq!(config.misc.root_helper_socket_path.as_deref(), Some("/tmp/ripdpi-root-helper.sock"));
+    assert_eq!(config.misc.lua_script_base_dir.as_deref(), Some("/data/user/0/com.poyka.ripdpi/files/lua"));
 }
 
 #[test]
@@ -355,12 +359,14 @@ fn drops_blank_synack_runtime_fields() {
     payload.strategy_chain_yaml = Some(" \n\t ".to_string());
     payload.protect_path = Some("  ".to_string());
     payload.root_helper_socket_path = Some("  ".to_string());
+    payload.lua_script_base_dir = Some("  ".to_string());
 
     let config = config_from_payload(payload).expect("config");
 
     assert_eq!(config.misc.strategy_chain_yaml, None);
     assert_eq!(config.misc.protect_path, None);
     assert_eq!(config.misc.root_helper_socket_path, None);
+    assert_eq!(config.misc.lua_script_base_dir, None);
 }
 
 #[test]
@@ -586,6 +592,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "strategyChainYaml": "version: 1\nchains:\n  - id: vpn-synack",
         "protectPath": "/data/user/0/com.poyka.ripdpi/files/protect_path",
         "rootHelperSocketPath": "/data/user/0/com.poyka.ripdpi/files/root_helper.sock",
+        "luaScriptBaseDir": "/data/user/0/com.poyka.ripdpi/files/lua",
         "taskStackSize": 81920,
         "tcpBufferSize": 32768,
         "udpRecvBufferSize": 16384,

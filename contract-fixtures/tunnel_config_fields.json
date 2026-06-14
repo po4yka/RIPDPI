@@ -28,6 +28,7 @@
   "logContext.policySignature",
   "logContext.runtimeId",
   "logLevel",
+  "luaScriptBaseDir",
   "mapdnsAddress",
   "mapdnsCacheSize",
   "mapdnsNetmask",

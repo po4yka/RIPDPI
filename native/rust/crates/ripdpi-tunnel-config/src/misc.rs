@@ -30,6 +30,11 @@ pub struct MiscConfig {
     pub strategy_chain_yaml: Option<String>,
     pub protect_path: Option<String>,
     pub root_helper_socket_path: Option<String>,
+    /// Absolute directory the TUN egress strategy loader jails `lua`-step
+    /// `script_paths` to. When `None`, the loader falls back to `"."` (the
+    /// process CWD), which is ill-defined on Android — production passes the
+    /// app's absolute `<filesDir>/lua` directory here.
+    pub lua_script_base_dir: Option<String>,
 }
 
 impl Default for MiscConfig {
@@ -51,6 +56,7 @@ impl Default for MiscConfig {
             strategy_chain_yaml: None,
             protect_path: None,
             root_helper_socket_path: None,
+            lua_script_base_dir: None,
         }
     }
 }

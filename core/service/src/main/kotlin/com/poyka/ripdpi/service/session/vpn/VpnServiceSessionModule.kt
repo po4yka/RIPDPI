@@ -65,6 +65,11 @@ internal object VpnServiceSessionModule {
             tun2SocksBridgeFactory = dependencies.tun2SocksBridgeFactory,
             vpnTunnelSessionProvider = dependencies.vpnTunnelSessionProvider,
             protectPath = protectSocketServer.socketPath,
+            // Jail the TUN egress strategy loader to the app's absolute lua dir
+            // instead of "." — both the protect socket and the lua dir live
+            // directly under <filesDir>, so derive it from the socket's parent
+            // ("lua" mirrors LuaAssetManager's target directory name).
+            luaScriptBaseDir = File(File(protectSocketServer.socketPath).parentFile, "lua").absolutePath,
             rootHelperSocketPathProvider = { rootHelperManager.socketPath },
             flowAttributionBridge = flowAttributionBridge,
         )

@@ -64,6 +64,7 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) strategy_chain_yaml: Option<String>,
     pub(crate) protect_path: Option<String>,
     pub(crate) root_helper_socket_path: Option<String>,
+    pub(crate) lua_script_base_dir: Option<String>,
     #[serde(default = "default_task_stack_size")]
     pub(crate) task_stack_size: u32,
     pub(crate) tcp_buffer_size: Option<u32>,
