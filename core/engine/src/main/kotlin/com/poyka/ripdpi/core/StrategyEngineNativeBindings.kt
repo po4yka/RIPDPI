@@ -114,6 +114,11 @@ class ProcessGlobalStrategyEngineBindings(
         }
 }
 
+// Process-global serializer for native Lua mutations. NOTE: a ReentrantLock is
+// reentrant, so it will NOT trip on accidental re-entry the way the previous
+// coroutine Mutex did. Do not nest mutation calls on one thread (e.g. a mutating
+// binding method calling another through this wrapper) — the lock would silently
+// permit re-entry into the native engine, defeating the serialization guarantee.
 private val strategyEngineProcessGlobalMutationLock = ReentrantLock()
 
 private val StrategyProbeResultJson =
