@@ -22,6 +22,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use nix::sys::signal::{self, SigHandler, Signal};
 use tracing::{error, info, warn};
 
 #[cfg(target_os = "android")]
@@ -77,15 +78,20 @@ fn main() {
     let running = Arc::new(AtomicBool::new(true));
 
     // Handle SIGTERM for clean shutdown.
-    // SAFETY: `libc::signal` installs `signal_handler` as the disposition for
-    // `SIGTERM`. `signal_handler` is a real `extern "C" fn` whose body only
+    // SAFETY: installing a signal disposition is `unsafe` because the handler runs
+    // asynchronously. `signal_handler` is a real `extern "C" fn` whose body only
     // performs an `AtomicBool::store` on the `'static RUNNING` flag, which is
-    // async-signal-safe; the cast to `sighandler_t` is the standard function-
-    // pointer-to-handler conversion the libc ABI expects. We discard the
-    // previously-installed handler (the process default) and never need to
-    // restore it.
-    unsafe {
-        libc::signal(libc::SIGTERM, signal_handler as *const () as libc::sighandler_t);
+    // async-signal-safe. Going through `nix`'s typed `SigHandler::Handler` instead
+    // of a raw `libc::signal` call buys two things: the handler's `extern "C"
+    // fn(c_int)` signature is type-checked at the call site, and the install result
+    // is checked rather than silently discarded. It also drops the gratuitous
+    // `signal_handler as *const () as sighandler_t` double-cast — nix performs the
+    // single, unavoidable `fn -> sighandler_t` conversion internally (the libc
+    // signal ABI is integer-typed). We replace the previously installed handler
+    // (the process default) and never need to restore it.
+    let installed = unsafe { signal::signal(Signal::SIGTERM, SigHandler::Handler(signal_handler)) };
+    if let Err(err) = installed {
+        warn!(%err, "failed to install SIGTERM handler");
     }
     RUNNING.store(true, Ordering::SeqCst);
 

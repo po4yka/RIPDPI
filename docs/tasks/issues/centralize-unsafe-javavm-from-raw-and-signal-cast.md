@@ -1,7 +1,7 @@
 ---
 title: "Centralize JavaVM::from_raw behind a SharedJvm newtype and fix root-helper signal cast"
 type: task
-status: todo
+status: done
 area: rust-native
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-june-2026-audit-remediation
 blocks: []
 blocked_by: []
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-06-14
 source_wiki_pages: []
 linked_task: null
 ---
@@ -30,15 +30,42 @@ The 2026-06-10 unsafe-code audit reported 72 unsafe blocks, **0 missing SAFETY c
 
 ## Acceptance criteria
 
-- [ ] PR confirms current state at the 6 `from_raw` sites and `root-helper/src/main.rs:88`.
-- [ ] All 6 sites route through one `SharedJvm` constructor with a single auditable SAFETY block.
-- [ ] Root-helper signal registration no longer uses the `*const ()` double-cast.
-- [ ] `unsafe-code-auditor` re-run reports 0 missing SAFETY comments and no new HIGH/MEDIUM.
-- [ ] `cargo nextest run --locked` green for affected crates; clippy clean.
+- [x] PR confirms current state at the 6 `from_raw` sites and `root-helper/src/main.rs:88` (line numbers re-confirmed at HEAD `e1dabb3a8`).
+- [x] All 6 sites route through one `SharedJvm` constructor with a single auditable SAFETY block.
+- [x] Root-helper signal registration no longer uses the `*const ()` double-cast.
+- [x] `unsafe-code-auditor` re-run reports 0 missing SAFETY comments and no new HIGH/MEDIUM.
+- [x] `cargo nextest run --locked` green for affected crates (166 passed, 1 skipped); clippy clean (`-D warnings`).
+
+## Resolution (2026-06-14, branch `worktree-unsafe-centralize`)
+
+- `SharedJvm(Arc<JavaVM>)` lives in `android-support` (`src/shared_jvm.rs`) — the crate that
+  already owns the L8 JNI helper surface and is depended on by the adapter crates.
+  `ripdpi-android-vpn-protect-adapter` gained the one missing `android-support` edge
+  (in the `ANDROID_JNI_DEPENDENCY_NAMES` allowlist; arch-health reports New indicators: 0).
+- Scope grew from 6 to **8 sites across 6 crates**: the adversarial `pr-reviewer` /
+  `unsafe-code-auditor` pass found `ripdpi-amneziawg-android` (`vpn_protect.rs`,
+  `readiness.rs`) carrying the same inline `from_raw` shape — out of the original 6-site
+  list but in scope (AmneziaWG runs through the WARP engine). Folded both in so
+  `SharedJvm::new` is genuinely the single workspace `from_raw` call site
+  (`rg 'JavaVM::from_raw' crates` → only `shared_jvm.rs`). amneziawg already depended on
+  `android-support`, so no extra Cargo.lock churn.
+- The single `unsafe { JavaVM::from_raw(..) }` site is `SharedJvm::new`. Worth recording: in
+  jni 0.22.4 `from_raw` is already singleton-backed (`JAVA_VM_SINGLETON.get_or_init(..).clone()`)
+  and `jni::JavaVM` has **no `Drop`**, so no `DestroyJavaVM` is reachable through any handle —
+  the centralization is structural hardening, not a live-bug fix.
+- Compile-fail regression: `const _: fn(SharedJvm) -> Arc<JavaVM> = |shared| shared.0;` plus a
+  `Send + Sync + Clone` static assertion. Verified the guard fires on a naked field
+  (`error[E0308]: ... expected Arc<JavaVM>, found JavaVM` at the guard line).
+- Root-helper now uses `nix::sys::signal::signal(Signal::SIGTERM, SigHandler::Handler(signal_handler))`
+  (typed function pointer, no `*const ()` provenance hop), with error logged rather than discarded.
+- `icmp_wrapped_udp.rs`: added a `MaybeUninit<u8>` vs `u8` size/align `const` assertion and a
+  strengthened SAFETY comment.
 
 ## Risks / open questions
 
-- This is a refactor of working code — keep behavior identical; the value is structural enforcement, not a bug fix. Per `llm-rust-prompts.md`, any unsafe-touching diff needs a `pr-reviewer` pass before commit.
+- This is a refactor of working code — behavior identical; the value is structural enforcement,
+  not a bug fix. Per `llm-rust-prompts.md`, the unsafe-touching diff went through an
+  `unsafe-code-auditor` + `pr-reviewer` adversarial pass before commit.
 
 ## References
 

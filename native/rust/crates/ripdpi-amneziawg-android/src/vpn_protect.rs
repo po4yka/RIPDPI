@@ -9,6 +9,7 @@ use std::io;
 use std::os::fd::RawFd;
 use std::sync::Arc;
 
+use android_support::SharedJvm;
 use jni::objects::{JObject, JValue};
 use jni::refs::Global;
 use jni::{EnvUnowned, JavaVM, Outcome};
@@ -18,17 +19,15 @@ use ripdpi_native_protect::{
 use ripdpi_warp_core::WarpPlatform;
 
 struct JniProtectCallback {
-    vm: JavaVM,
+    vm: SharedJvm,
     vpn_service: Global<JObject<'static>>,
 }
 
-// SAFETY: JavaVM is Send+Sync (just a *mut sys::JavaVM wrapper).
-// Global<JObject<'static>> prevents the JVM from GC-collecting the Java
-// object and is safe to use from any thread via attach_current_thread.
-unsafe impl Send for JniProtectCallback {}
-// SAFETY: see Send impl above -- both fields are themselves thread-safe and
-// `protect()` only reads them via Java-side synchronization.
-unsafe impl Sync for JniProtectCallback {}
+// `JniProtectCallback` auto-derives `Send + Sync`: `SharedJvm` (`Arc<JavaVM>`) and
+// `Global<JObject<'static>>` are both `Send + Sync` in jni 0.22. Relying on the
+// auto-derive rather than a manual `unsafe impl` keeps the compiler tripwire — a
+// future non-thread-safe field breaks the assertion below instead of being
+// silently forced thread-safe.
 
 // Compile-fail regression: any future field change that breaks the Send/Sync
 // claim above fails to compile here.
@@ -115,10 +114,9 @@ pub(crate) fn register_from_jni(mut env: EnvUnowned<'_>, vpn_service: JObject<'_
 }
 
 fn register_vpn_protect(vm: &JavaVM, vpn_service: Global<JObject<'static>>) -> i64 {
-    // SAFETY: JavaVM pointer is held live by JNI_OnLoad registration for the duration of the process.
-    // Re-creating a JavaVM from the raw pointer copies only the thin pointer wrapper; no double-free risk.
-    let vm_clone = unsafe { JavaVM::from_raw(vm.get_raw()) };
-    let generation = register_protect_callback_versioned(Arc::new(JniProtectCallback { vm: vm_clone, vpn_service }));
+    // The single auditable `JavaVM::from_raw` site lives in `SharedJvm::new`.
+    let generation =
+        register_protect_callback_versioned(Arc::new(JniProtectCallback { vm: SharedJvm::new(vm), vpn_service }));
     generation.token() as i64
 }
 

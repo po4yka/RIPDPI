@@ -5460,6 +5460,7 @@ dependencies = [
 name = "ripdpi-android-vpn-protect-adapter"
 version = "0.1.0"
 dependencies = [
+ "android-support",
  "jni",
  "ripdpi-native-protect",
  "tracing",
