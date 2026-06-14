@@ -269,6 +269,26 @@ class StrategyProbeServiceTest {
             assertFalse(candidates.any { it.id.startsWith("lua:") })
         }
 
+    @Test
+    fun `candidate provider tolerates null lua binding returns`() =
+        runTest {
+            // A contained native panic marshals luaListStrategies/luaLoadedScriptPaths to
+            // null; the boundary must coalesce to empty rather than NPE. Only the built-in
+            // candidates should remain.
+            val provider =
+                DefaultStrategyProbeCandidateProvider(
+                    FakeStrategyEngineBindings(luaStrategies = null, luaScriptPaths = null),
+                )
+
+            val candidates = provider.listCandidates()
+
+            assertEquals(
+                listOf("split", "fake", "oob", "tls_rec_split", "seq_overlap", "udp_fake_burst"),
+                candidates.map(StrategyProbeCandidate::id),
+            )
+            assertFalse(candidates.any { it.id.startsWith("lua:") })
+        }
+
     private fun testService(
         candidates: List<StrategyProbeCandidate> = listOf(StrategyProbeCandidate("split", "Split")),
         transport: StrategyProbeTransport =
@@ -361,16 +381,16 @@ private class FakeStrategyProbeResultInjector : StrategyProbeResultInjector {
 }
 
 private class FakeStrategyEngineBindings(
-    private val luaStrategies: Array<String>,
-    private val luaScriptPaths: Array<String>,
+    private val luaStrategies: Array<String>?,
+    private val luaScriptPaths: Array<String>?,
 ) : StrategyEngineBindings {
     override fun luaLoadScript(path: String): String? = null
 
     override fun luaReloadConfig(): String? = null
 
-    override fun luaListStrategies(): Array<String> = luaStrategies
+    override fun luaListStrategies(): Array<String>? = luaStrategies
 
-    override fun luaLoadedScriptPaths(): Array<String> = luaScriptPaths
+    override fun luaLoadedScriptPaths(): Array<String>? = luaScriptPaths
 
     override fun luaValidateScript(path: String): String? = null
 
