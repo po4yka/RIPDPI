@@ -36,9 +36,11 @@ are removed entirely from code and documentation rather than left as dead stubs.
 
 Supported outbound/relay protocols are: VLESS Reality/xHTTP, Hysteria2, TUIC v5, MASQUE,
 ShadowTLS, Shadowsocks, Trojan, AnyTLS, Tor (per [ADR 0002](0002-tor-feasibility.md)), and
-relay chaining. SSH and Mieru remain in the backlog as not-yet-implemented (they are *not*
-"legacy" — they are newer compatibility work) and are explicitly **out of scope of this
-removal**.
+relay chaining. SSH and Mieru were in the backlog as not-yet-implemented **at the time of this
+decision** (they are *not* "legacy" — they are newer compatibility work) and were explicitly
+**out of scope of this removal**. _Status note: both have since been implemented at the
+native-carrier level — see the **Update (2026-06-14)** section at the end of this ADR. The
+2026-06-01 decision itself is unchanged._
 
 A new protocol is added only when it clears the epic's inclusion bar (present in realistic
 subscriptions, maintained upstream). A protocol that becomes legacy and unused is removed,
@@ -64,3 +66,36 @@ not stubbed indefinitely.
 Reopen only if a removed protocol re-appears at material volume in realistic subscription
 samples *and* remains maintained upstream — in which case it re-enters the inclusion-bar
 evaluation as new work, not as a restored stub.
+
+## Update (2026-06-14) — SSH and Mieru implemented
+
+This is an additive status amendment (per `docs/adr/README.md`: "update living reference docs
+when implementation changes"). The **Decision** above is unchanged — only the "backlog /
+not-yet-implemented" status aside for SSH and Mieru is now stale. Status derived from code at
+this point, not from intent:
+
+- **SSH — implemented and relay-wired.** Native crate `native/rust/crates/ripdpi-ssh` (real
+  `russh` engine); loopback-verified by `native/rust/crates/ripdpi-ssh/tests/loopback.rs`
+  (stands up a `russh` echo server on `127.0.0.1`, password auth, `direct-tcpip` channel,
+  byte round-trip). Native relay builder has a real arm
+  (`ripdpi-relay-core/src/backend/builder/builders/ssh.rs` → `RelayBackend::Ssh`, not the
+  `Unsupported` catch-all). Kotlin is end-to-end wired: `RelayProfileActivator` handles
+  `ProxyProfile.Ssh` (→ `RelayKindSsh` + credentials) and `SshProfileScreen` is a complete
+  editor. No "not implemented" status is shown in the UI (correctly).
+
+- **Mieru — native carrier implemented and loopback-verified; end-to-end profile activation
+  still pending.** Native crate `native/rust/crates/ripdpi-mieru` (XChaCha20-Poly1305 wire
+  engine); loopback-verified by `ripdpi-mieru/src/loopback.rs::client_round_trips_one_mib_through_spec_faithful_loopback`
+  (1 MiB TCP round-trip) with `udp_protocol_is_rejected` enforcing the UDP gate. The resolver
+  builds a `mieruSection()` and `MieruProfileScreen` exists with an **honest** "Experimental —
+  unverified against live servers" banner. **Remaining gap:** `RelayProfileActivator` has no
+  `ProxyProfile.Mieru` arm yet, so a saved Mieru profile is not yet activatable end-to-end, and
+  UDP relay is intentionally gated off pending the custom wire engine. So Mieru is "carrier
+  loopback-verified", not "fully usable from a profile".
+
+Neither protocol is live-verified (no real-remote-endpoint test exists for any relay protocol —
+loopback fixtures only); that is the same bar applied to every other implemented protocol here.
+
+A full code-derived per-protocol truth table (every outbound protocol × crate / loopback / live
+/ relay-wired / UI present / UI honest) lives at
+[`docs/architecture/PROTOCOL_STATUS.md`](../architecture/PROTOCOL_STATUS.md).
