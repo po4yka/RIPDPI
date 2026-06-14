@@ -1,9 +1,9 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use rand::RngExt;
+use ripdpi_network_time::NetworkTimeProvider;
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use ripdpi_shadowsocks::{
     Aead2022UdpPacketType, Aead2022UdpSession, Cipher, PresharedKey, SecretString, TcpStream as ShadowsocksTcpCodec,
@@ -27,6 +27,9 @@ pub struct ShadowsocksUdpSession {
     socket: UdpSocket,
     config: Arc<ShadowsocksClientConfig>,
     codec: ShadowsocksUdpCodec,
+    /// Whether this session has calibrated the shared network-time provider from
+    /// a server packet's authenticated timestamp (done once per session).
+    calibrated: bool,
 }
 
 #[derive(Clone)]
@@ -82,7 +85,7 @@ impl RelaySession for ShadowsocksSession {
         } else {
             ShadowsocksUdpCodec::Legacy(UdpPacket::new(config.cipher, false))
         };
-        Ok(ShadowsocksUdpSession { socket, config, codec })
+        Ok(ShadowsocksUdpSession { socket, config, codec, calibrated: false })
     }
 }
 
@@ -107,7 +110,8 @@ impl ShadowsocksUdpSession {
         let packet = match &mut self.codec {
             ShadowsocksUdpCodec::Legacy(codec) => codec.encrypt(&secret, &plain).map_err(to_io)?,
             ShadowsocksUdpCodec::Aead2022(codec) => {
-                codec.encrypt(Aead2022UdpPacketType::Client, unix_timestamp(), &plain).map_err(to_io)?
+                let now = NetworkTimeProvider::shared().now_unix_u64();
+                codec.encrypt(Aead2022UdpPacketType::Client, now, &plain).map_err(to_io)?
             }
         };
         self.socket.send(&packet).await?;
@@ -118,12 +122,26 @@ impl ShadowsocksUdpSession {
         let mut buffer = vec![0_u8; BUFFER_SIZE];
         let read = self.socket.recv(&mut buffer).await?;
         let secret = SecretString::new(self.config.password.clone());
+        let mut server_timestamp = None;
         let plain = match &mut self.codec {
             ShadowsocksUdpCodec::Legacy(codec) => codec.decrypt(&secret, &buffer[..read]).map_err(to_io)?,
             ShadowsocksUdpCodec::Aead2022(codec) => {
-                codec.decrypt(&buffer[..read], Aead2022UdpPacketType::Server, unix_timestamp()).map_err(to_io)?.payload
+                let now = NetworkTimeProvider::shared().now_unix_u64();
+                let packet = codec.decrypt(&buffer[..read], Aead2022UdpPacketType::Server, now).map_err(to_io)?;
+                server_timestamp = Some(packet.timestamp);
+                packet.payload
             }
         };
+        // Calibrate the shared replay clock once per session from the server's
+        // authenticated SIP022 timestamp (second granularity), so other
+        // transports (and future sessions) derive freshness from network time
+        // rather than the device clock.
+        if let Some(timestamp) = server_timestamp
+            && !self.calibrated
+        {
+            NetworkTimeProvider::shared().calibrate(i64::try_from(timestamp).unwrap_or(i64::MAX));
+            self.calibrated = true;
+        }
         let (target, payload) = decode_address(&plain)?;
         Ok((target, payload.to_vec()))
     }
@@ -317,10 +335,6 @@ fn decode_address(data: &[u8]) -> io::Result<(String, &[u8])> {
             Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unsupported Shadowsocks address type {atyp:#x}")))
         }
     }
-}
-
-fn unix_timestamp() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |duration| duration.as_secs())
 }
 
 fn to_io(error: impl std::fmt::Display) -> io::Error {
