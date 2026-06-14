@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -158,11 +158,11 @@ internal fun MetricsRow(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
         return
     }
     LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        itemsIndexed(
+        items(
             items = metrics,
-            key = { index, metric -> "${metric.label}-$index" },
-            contentType = { _, _ -> "metric" },
-        ) { _, metric ->
+            key = { metric -> metric.label },
+            contentType = { "metric" },
+        ) { metric ->
             TelemetryMetricCard(metric = metric)
         }
     }
