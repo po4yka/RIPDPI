@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use tokio::io::AsyncReadExt;
 use tokio::net::{TcpStream, UdpSocket};
+use tokio_util::sync::CancellationToken;
 
 use crate::backend::RelayBackend;
 use crate::socks::reply::write_reply;
@@ -12,11 +13,33 @@ use crate::socks::{decode_udp_frame, encode_udp_frame};
 
 const UDP_BUFFER_SIZE: usize = 65_536;
 
+/// Drive a SOCKS5 `UDP ASSOCIATE`: bind the relay socket, reply, then pump
+/// datagrams in both directions until the control connection or `cancel` ends
+/// the session.
+///
+/// # Cancel safety
+///
+/// Cancel-safe. `cancel` is the session's shutdown token. The relay loop's
+/// `select!` is `biased` with the two teardown arms first — `cancel.cancelled()`
+/// (arm 0) and the control-connection EOF (arm 1) — so sustained upstream UDP
+/// on the recv arms can never starve teardown (the original fairness hazard).
+/// `cancel` leads `control_closed` because the historic outer `select!` that
+/// dropped this future on shutdown was removed (see `runtime/session.rs`); this
+/// loop is now the sole place shutdown is observed, so it must lead. Teardown is
+/// at the `select!` boundary only: once a recv arm has been selected, its body
+/// runs a follow-on message-atomic `send_to().await` (relay→client or
+/// client→relay), so a cancel that arrives while that send is parked is deferred
+/// by at most that one datagram before the next loop iteration observes it — a
+/// bounded, single-datagram delay on already-lossy UDP, never an indefinite
+/// stall. The success reply (`REP=0x00`) and the first loop poll are separated by
+/// no externally-cancellable drop point, so a confirmed `ASSOCIATE` always enters
+/// the pump.
 pub(crate) async fn handle_udp_associate<T>(
     mut client: TcpStream,
     backend: Arc<RelayBackend>,
     config: SocksSessionConfig,
     telemetry: &T,
+    cancel: CancellationToken,
 ) -> io::Result<()>
 where
     T: SocksTelemetry + ?Sized,
@@ -53,6 +76,8 @@ where
 
     loop {
         tokio::select! {
+            biased;
+            () = cancel.cancelled() => break,
             _ = &mut control_closed => break,
             recv = udp_socket.recv_from(&mut udp_buffer) => {
                 let (received, source) = recv?;

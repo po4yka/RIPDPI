@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio_util::sync::CancellationToken;
 
 use crate::backend::RelayBackend;
 use crate::socks::connect::handle_connect;
@@ -12,33 +13,59 @@ use crate::socks::target::RelayTargetAddr;
 use crate::socks::telemetry::{SocksSessionConfig, SocksTelemetry};
 use crate::socks::udp::handle_udp_associate;
 
+/// Negotiate the SOCKS5 method, parse the request, and dispatch the command.
+///
+/// # Cancel safety
+///
+/// Cancel-safe. `cancel` is the session's shutdown token (a child of the runtime
+/// shutdown token), and this function owns every cancellation point — the caller
+/// (`runtime/session.rs`) no longer wraps the call in a drop-on-cancel `select!`.
+///
+/// - The **pre-reply** phase (method negotiation, request header, target parse)
+///   is raced against `cancel` and abandoned by drop on shutdown. `negotiate_no_auth`
+///   is itself NOT cancel-safe in isolation (read greeting → write method choice),
+///   but it runs only inside this `select!`: a cancel drops it before *or* after the
+///   method reply with no protocol reply for the command yet on the wire, so the
+///   client merely sees the connection close — never a torn command exchange.
+/// - The **post-reply** phase is delegated to [`handle_connect`] /
+///   [`handle_udp_associate`], each of which threads `cancel` through and keeps its
+///   own success-reply→relay window atomic.
 pub(crate) async fn handle_client<T>(
     mut client: TcpStream,
     backend: Arc<RelayBackend>,
     config: SocksSessionConfig,
     telemetry: &T,
+    cancel: CancellationToken,
 ) -> io::Result<()>
 where
     T: SocksTelemetry + ?Sized,
 {
-    // NOT cancel-safe: reads the method greeting, writes the method selection,
-    // then drives the full SOCKS5 command exchange; cancellation mid-write
-    // leaves the client in an undefined protocol state.
-    negotiate_no_auth(&mut client).await?;
+    // Pre-reply negotiation, raced against shutdown. Abandoning it by drop is
+    // safe: no SOCKS5 command reply has been written, so the client just sees
+    // the connection close — no false success, no torn command state.
+    let negotiation = async {
+        negotiate_no_auth(&mut client).await?;
 
-    let mut request_header = [0u8; 4];
-    client.read_exact(&mut request_header).await?;
-    if request_header[0] != 0x05 {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 request"));
-    }
+        let mut request_header = [0u8; 4];
+        client.read_exact(&mut request_header).await?;
+        if request_header[0] != 0x05 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 request"));
+        }
 
-    let command = request_header[1];
-    let target = read_target(&mut client, request_header[3]).await?;
+        let command = request_header[1];
+        let target = read_target(&mut client, request_header[3]).await?;
+        Ok::<_, io::Error>((command, target))
+    };
+    let (command, target) = tokio::select! {
+        biased;
+        () = cancel.cancelled() => return Ok(()),
+        result = negotiation => result?,
+    };
     telemetry.record_target(target.to_string());
 
     match command {
-        0x01 => handle_connect(client, backend, target, telemetry).await,
-        0x03 => handle_udp_associate(client, backend, config, telemetry).await,
+        0x01 => handle_connect(client, backend, target, telemetry, cancel).await,
+        0x03 => handle_udp_associate(client, backend, config, telemetry, cancel).await,
         _ => {
             write_reply(&mut client, 0x07, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
             Err(io::Error::new(io::ErrorKind::Unsupported, format!("SOCKS5 command {command:#x} is not supported")))
@@ -50,8 +77,16 @@ where
 /// negotiation. Replies `[0x05, 0x00]` (NO AUTH) when the client offers
 /// method `0x00`; replies `[0x05, 0xFF]` (NO ACCEPTABLE METHODS) and returns
 /// an error otherwise, as required by RFC 1928 §3.
-// NOT cancel-safe: reads the greeting then writes the server's method choice;
-// cancellation between the read and write leaves the client without a reply.
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe in isolation: it reads the greeting then writes the server's
+/// method choice; a cancel between the read and the write leaves the client
+/// without a method reply. The sole caller, [`handle_client`], drives it inside
+/// a `select!` whose other arm is shutdown — abandoning it by drop is then safe
+/// because no SOCKS5 *command* reply has been written, so the client simply sees
+/// the connection close. Do not call it under a cancellation scope that expects
+/// a clean handshake after a partial run.
 async fn negotiate_no_auth<S>(stream: &mut S) -> io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -77,6 +112,15 @@ where
     }
 }
 
+/// Reads the SOCKS5 target address (IPv4 / domain / IPv6) following the request
+/// header, per RFC 1928 §4.
+///
+/// # Cancel safety
+///
+/// Cancel-safe. Every `.await` is a pure `read_exact` into a local buffer; the
+/// function writes nothing to the stream, so a cancel at any point only abandons
+/// a partial read of bytes that are discarded with the dropped future. No
+/// observable protocol state is left behind.
 pub(crate) async fn read_target<S>(stream: &mut S, address_type: u8) -> io::Result<RelayTargetAddr>
 where
     S: AsyncRead + AsyncWrite + Unpin,
