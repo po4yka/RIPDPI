@@ -70,23 +70,26 @@ impl FlowNotifier for JniFlowNotifier {
         let local_port = i32::from(request.local.port());
         let remote_port = i32::from(request.remote.port());
 
-        let result: Result<(), jni::errors::Error> = self.vm.attach_current_thread(|env| -> jni::errors::Result<()> {
-            let local = env.new_string(&local_ip)?;
-            let remote = env.new_string(&remote_ip)?;
-            env.call_method(
-                &self.bridge,
-                jni::jni_str!("noteFlow"),
-                jni::jni_sig!("(ILjava/lang/String;ILjava/lang/String;I)V"),
-                &[
-                    JValue::Int(protocol),
-                    JValue::Object(&local),
-                    JValue::Int(local_port),
-                    JValue::Object(&remote),
-                    JValue::Int(remote_port),
-                ],
-            )?;
-            Ok(())
-        });
+        // Scoped attach (jni 0.22 has no daemon variant): detaches when the callback returns,
+        // so this runtime thread is never left permanently attached and can't block JVM teardown.
+        let result: Result<(), jni::errors::Error> =
+            self.vm.attach_current_thread_for_scope(|env| -> jni::errors::Result<()> {
+                let local = env.new_string(&local_ip)?;
+                let remote = env.new_string(&remote_ip)?;
+                env.call_method(
+                    &self.bridge,
+                    jni::jni_str!("noteFlow"),
+                    jni::jni_sig!("(ILjava/lang/String;ILjava/lang/String;I)V"),
+                    &[
+                        JValue::Int(protocol),
+                        JValue::Object(&local),
+                        JValue::Int(local_port),
+                        JValue::Object(&remote),
+                        JValue::Int(remote_port),
+                    ],
+                )?;
+                Ok(())
+            });
 
         if let Err(err) = result {
             // Off the hot path; a failed attribution just leaves the flow

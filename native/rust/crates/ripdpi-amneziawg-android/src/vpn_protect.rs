@@ -57,7 +57,10 @@ const _: fn() = || {
 impl ProtectCallback for JniProtectCallback {
     fn protect(&self, fd: RawFd) -> io::Result<()> {
         let result: Result<bool, jni::errors::Error> =
-            self.vm.attach_current_thread(|env| -> jni::errors::Result<bool> {
+            // Scoped attach (jni 0.22 has no daemon variant): detaches when the callback
+            // returns, so this runtime thread is never left permanently attached and can't
+            // block JVM teardown.
+            self.vm.attach_current_thread_for_scope(|env| -> jni::errors::Result<bool> {
                 let ret = env.call_method(
                     &self.vpn_service,
                     jni::jni_str!("protect"),

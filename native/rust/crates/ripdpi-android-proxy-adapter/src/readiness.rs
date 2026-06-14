@@ -36,10 +36,13 @@ unsafe impl Sync for JniReadinessCallback {}
 
 impl JniReadinessCallback {
     fn on_ready(&self) {
-        let result: Result<(), jni::errors::Error> = self.vm.attach_current_thread(|env| -> jni::errors::Result<()> {
-            env.call_method(&self.listener, jni::jni_str!("onRuntimeReady"), jni::jni_sig!("()V"), &[])?;
-            Ok(())
-        });
+        // Scoped attach (jni 0.22 has no daemon variant): detaches when the callback returns,
+        // so this runtime thread is never left permanently attached and can't block JVM teardown.
+        let result: Result<(), jni::errors::Error> =
+            self.vm.attach_current_thread_for_scope(|env| -> jni::errors::Result<()> {
+                env.call_method(&self.listener, jni::jni_str!("onRuntimeReady"), jni::jni_sig!("()V"), &[])?;
+                Ok(())
+            });
         if let Err(error) = result {
             log::warn!("proxy readiness callback failed: {error}");
         }
