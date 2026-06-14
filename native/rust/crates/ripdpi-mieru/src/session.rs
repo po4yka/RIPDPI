@@ -262,7 +262,7 @@ pub(crate) async fn socks5_connect(writer: &mut DataWriter, reader: &mut DataRea
     Ok(())
 }
 
-fn split_host_port(target: &str) -> Result<(&str, u16)> {
+pub(crate) fn split_host_port(target: &str) -> Result<(&str, u16)> {
     let (host, port) =
         target.rsplit_once(':').ok_or_else(|| MieruError::Socks5(format!("target `{target}` missing port")))?;
     let port: u16 = port.parse().map_err(|_| MieruError::Socks5(format!("bad port in `{target}`")))?;
@@ -270,7 +270,7 @@ fn split_host_port(target: &str) -> Result<(&str, u16)> {
     Ok((host, port))
 }
 
-fn encode_socks5_address(out: &mut Vec<u8>, host: &str, port: u16) -> Result<()> {
+pub(crate) fn encode_socks5_address(out: &mut Vec<u8>, host: &str, port: u16) -> Result<()> {
     if let Ok(v4) = host.parse::<Ipv4Addr>() {
         out.push(0x01);
         out.extend_from_slice(&v4.octets());

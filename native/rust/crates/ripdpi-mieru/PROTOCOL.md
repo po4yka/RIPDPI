@@ -121,3 +121,55 @@ then this blob is the segment payload that gets AEAD-encrypted.
   owns the protected dial** (`VpnService.protect()` invariant) and hands the
   engine an already-protected `TcpStream`. The engine never opens a raw socket
   itself (keeps `#![forbid(unsafe_code)]` and the protect invariant intact).
+- **Replay clock = network time, not the device clock.** The handshake key
+  (`timeSalt`) and segment timestamps come from a shared
+  `ripdpi_network_time::NetworkTimeProvider`, never a direct `SystemTime::now()`.
+  The engine calibrates that provider once per session from the server's first
+  AEAD-verified segment timestamp (`metadata[2..6]`, minute granularity, so the
+  estimate is `minutes*60 + 30`). Residual risk: before any calibration the first
+  handshake derives its key from the device wall clock; Mieru's ±1-window probing
+  (~3 min) tolerates a moderately-wrong clock, and once any session calibrates the
+  shared provider (Mieru *or* Shadowsocks SIP022), subsequent handshakes use
+  network time. No SNTP is used (offline/no-backend rule).
+
+## 7. Multiplexing (`low` / `middle` / `high`)
+
+Many logical sub-sessions share **one** carrier connection. The AEAD nonce is per
+carrier *direction* (§3), so multiplexing must reuse the single per-direction
+cipher context, not create one per stream:
+
+- **One `Encryptor`** behind an async mutex: every sub-session's segments are
+  sealed through one serialized writer, so the per-direction nonce is used exactly
+  once no matter how many streams write concurrently (nonce-reuse-safe under
+  reuse).
+- **One `Decryptor`** in a single reader task that routes each inbound segment to
+  the owning sub-session's mailbox by `sessionID` (`metadata[6..10]`). A
+  sub-session reads only its own mailbox, so streams never cross-contaminate.
+- Each `open_stream` allocates a fresh non-zero `sessionID`, performs its own
+  `openSessionRequest` + in-tunnel SOCKS5 `CONNECT`, and runs as an independent
+  byte pipe demultiplexed off the shared carrier. Half-closing the write side
+  sends `closeSessionRequest` but keeps the mailbox until inbound completes.
+
+**Level → concurrency.** Upstream `enfein/mieru` scales the *number of carrier
+connections* with the level; RIPDPI's relay pool caches one carrier per backend,
+so the level maps instead to a **per-carrier concurrent-stream ceiling**
+(`off`→1, `low`→8, `middle`→32, `high`→128); beyond it, `open_stream` applies
+backpressure. The wire multiplexing (`sessionID`-tagged sub-sessions over one AEAD
+direction) is faithful to upstream; the ceilings are RIPDPI policy. `off` keeps
+the legacy one-stream-per-carrier path (non-reusable).
+
+## 8. Verification tier
+
+- **Primitive vectors** (`cipher.rs`, `metadata.rs`, `segment.rs`): deterministic
+  unit vectors pin the byte-exact derivation/framing.
+- **Self-consistency loopback** (`loopback.rs`): the real client against a
+  spec-faithful in-crate server — open handshake, in-tunnel SOCKS5, a 1 MiB data
+  round-trip, and network-time calibration from server segments.
+- **Multiplexing loopback** (`mux.rs`): concurrent sub-sessions with strict
+  per-stream isolation (no cross-contamination) and sequential carrier reuse; the
+  single-`Decryptor` server proves nonce safety under reuse (a reused nonce would
+  fail the server's decrypt).
+- **NOT verified: on-wire interop with a real upstream `mita` server.** That
+  requires a live server and is infeasible offline; no live-interop claim is made.
+  Standing up a containerized `mita` fixture in CI is the path to close this and
+  remains future work.
