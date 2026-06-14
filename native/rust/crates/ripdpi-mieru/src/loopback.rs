@@ -4,6 +4,9 @@
 //! round-trip are internally consistent end to end. It does **not** prove
 //! interoperability with a real upstream mieru server (see `PROTOCOL.md`).
 
+use std::sync::Arc;
+
+use ripdpi_network_time::NetworkTimeProvider;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
 
 use crate::cipher::{self, KEY_LEN};
@@ -113,7 +116,12 @@ async fn client_round_trips_one_mib_through_spec_faithful_loopback() {
     let (client_side, server_side) = tokio::io::duplex(1 << 20);
     let server = tokio::spawn(run_server(server_side, key, USERNAME.as_bytes().to_vec()));
 
-    let client = MieruClient::connect_over(client_side, &test_config(), NOW).await.expect("session open");
+    // A device-clock-independent provider pinned to NOW for the handshake; the
+    // reader calibrates this same instance from the server's segments.
+    let time = Arc::new(NetworkTimeProvider::fixed(NOW));
+    let probe = Arc::clone(&time);
+
+    let client = MieruClient::connect_over(client_side, &test_config(), time).await.expect("session open");
     let stream = client.tcp_connect("example.com:443").await.expect("in-tunnel SOCKS5 connect");
     let (mut read_half, mut write_half) = tokio::io::split(stream);
 
@@ -130,6 +138,11 @@ async fn client_round_trips_one_mib_through_spec_faithful_loopback() {
     };
     tokio::join!(write, read);
 
+    // The session must have calibrated the shared replay clock from the server's
+    // (authenticated) segment timestamps — within the ±60 s minute-granularity.
+    assert!(probe.is_calibrated(), "reader must calibrate the network-time provider from server segments");
+    assert!((probe.now_unix() - NOW).abs() <= 60, "calibrated network time must track the server's wire timestamp");
+
     drop(server); // server task ends on client EOF
 }
 
@@ -138,7 +151,8 @@ async fn udp_protocol_is_rejected() {
     let mut config = test_config();
     config.protocol = MieruProtocol::Udp;
     let (client_side, _server_side) = tokio::io::duplex(1024);
-    match MieruClient::connect_over(client_side, &config, NOW).await {
+    let time = Arc::new(NetworkTimeProvider::fixed(NOW));
+    match MieruClient::connect_over(client_side, &config, time).await {
         Err(crate::error::MieruError::UdpUnsupported) => {}
         Ok(_) => panic!("udp config must be rejected"),
         Err(other) => panic!("expected UdpUnsupported, got {other:?}"),

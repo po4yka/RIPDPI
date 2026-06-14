@@ -20,8 +20,10 @@
 //! citations. The **UDP carrier** (KCP-like reliable ARQ) is out of scope and
 //! returns [`MieruError::UdpUnsupported`].
 //!
-//! The replay clock comes from a caller-supplied network-time source
-//! (`now_unix`), never `SystemTime::now()`. The transport is supplied
+//! The replay clock comes from a caller-supplied [`ripdpi_network_time::NetworkTimeProvider`],
+//! never a direct `SystemTime::now()` read; the session also calibrates that
+//! provider from the server's own authenticated segment timestamps so later
+//! sessions are immune to a wrong device clock. The transport is supplied
 //! already-protected by the relay layer (the engine never opens a raw socket),
 //! keeping the `VpnService.protect()` invariant intact.
 //!

@@ -12,6 +12,7 @@ ripdpi-shadowsocks = { workspace = true }
 ripdpi-tor = { workspace = true }
 ripdpi-trojan = { workspace = true }
 ripdpi-mieru = { workspace = true }
+ripdpi-network-time = { workspace = true }
 ripdpi-ssh = { workspace = true }
 ripdpi-vless = { workspace = true }
 rand = { workspace = true }

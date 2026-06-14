@@ -4,12 +4,14 @@
 //! plain byte stream. See `PROTOCOL.md` §5.
 
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::sync::Arc;
 
+use ripdpi_network_time::NetworkTimeProvider;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::cipher::KEY_LEN;
 use crate::error::{MieruError, Result};
-use crate::metadata::{DataAckMeta, ProtocolType, SessionMeta};
+use crate::metadata::{DataAckMeta, ProtocolType, SessionMeta, timestamp_estimate_unix};
 use crate::segment::{Decryptor, Encryptor, MAX_PDU, decapsulate, encapsulate};
 
 /// Outbound data path: owns the encryptor, the (boxed) transport write half,
@@ -114,11 +116,16 @@ pub(crate) struct DataReader {
     reader: Box<dyn AsyncRead + Unpin + Send>,
     buffer: Vec<u8>,
     pos: usize,
+    /// Shared network-time source; calibrated once from the first inbound
+    /// server segment so future sessions derive keys from network time even if
+    /// the device clock is wrong.
+    time: Arc<NetworkTimeProvider>,
+    calibrated: bool,
 }
 
 impl DataReader {
-    fn new(dec: Decryptor, reader: Box<dyn AsyncRead + Unpin + Send>) -> Self {
-        Self { dec, reader, buffer: Vec::new(), pos: 0 }
+    fn new(dec: Decryptor, reader: Box<dyn AsyncRead + Unpin + Send>, time: Arc<NetworkTimeProvider>) -> Self {
+        Self { dec, reader, buffer: Vec::new(), pos: 0, time, calibrated: false }
     }
 
     /// Pull the next decapsulated data fragment into the buffer, skipping any
@@ -130,6 +137,15 @@ impl DataReader {
                 Err(MieruError::Io(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(false),
                 Err(e) => return Err(e),
             };
+            // Calibrate the shared replay clock once per session from the
+            // server's own (authenticated) timestamp. Done a single time: the
+            // minute-granularity field would otherwise re-anchor mid-minute and
+            // make network time jitter backwards. The segment is already AEAD-
+            // verified at this point, so the timestamp is trusted.
+            if !self.calibrated {
+                self.time.calibrate(timestamp_estimate_unix(&meta));
+                self.calibrated = true;
+            }
             let protocol = ProtocolType::from_u8(meta[0])?;
             match protocol {
                 ProtocolType::DataServerToClient | ProtocolType::DataClientToServer => {
@@ -179,24 +195,27 @@ impl DataReader {
 }
 
 /// Derive the session key (current 2-minute window) and run the open-session
-/// handshake over `transport`, returning the split data paths. `now_unix` is the
-/// caller's network-time source (NOT the device wall clock).
+/// handshake over `transport`, returning the split data paths. The replay clock
+/// comes from the shared [`NetworkTimeProvider`] (NOT the device wall clock); the
+/// handshake time is captured once here, and the reader calibrates the provider
+/// from the server's first segment for subsequent sessions.
 pub(crate) async fn open_session<T>(
     transport: T,
     password: &[u8],
     username: &[u8],
     session_id: u32,
-    now_unix: i64,
+    time: Arc<NetworkTimeProvider>,
 ) -> Result<(DataWriter, DataReader)>
 where
     T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
+    let now_unix = time.now_unix();
     let key: [u8; KEY_LEN] = crate::cipher::derive_key(password, username, now_unix, 0);
     let (read_half, write_half) = tokio::io::split(transport);
     let enc = Encryptor::new(key, username.to_vec());
     let dec = Decryptor::new(key);
     let mut writer = DataWriter::new(enc, Box::new(write_half), session_id, now_unix, 0);
-    let reader = DataReader::new(dec, Box::new(read_half));
+    let reader = DataReader::new(dec, Box::new(read_half), time);
     writer.send_open().await?;
     Ok((writer, reader))
 }

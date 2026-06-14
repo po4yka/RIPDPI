@@ -6,7 +6,10 @@
 //! [`DuplexStream`]. One stream per session (multiplexing-`off` semantics); the
 //! `multiplexing` knob is accepted but session reuse is not yet implemented.
 
+use std::sync::Arc;
+
 use ring::rand::{SecureRandom, SystemRandom};
+use ripdpi_network_time::NetworkTimeProvider;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream};
 
 use crate::config::{MieruConfig, MieruProtocol};
@@ -27,10 +30,10 @@ pub struct MieruClient {
 impl MieruClient {
     /// Establish a Mieru session over an already-connected, protected transport.
     ///
-    /// `now_unix` is the caller's **network-time** source in Unix seconds (the
-    /// replay clock must not depend on the device wall clock). Only the TCP
-    /// carrier is supported; a `udp` config returns [`MieruError::UdpUnsupported`].
-    pub async fn connect_over<T>(transport: T, config: &MieruConfig, now_unix: i64) -> Result<Self>
+    /// `time` is the caller's shared **network-time** source (the replay clock
+    /// must not depend on the device wall clock). Only the TCP carrier is
+    /// supported; a `udp` config returns [`MieruError::UdpUnsupported`].
+    pub async fn connect_over<T>(transport: T, config: &MieruConfig, time: Arc<NetworkTimeProvider>) -> Result<Self>
     where
         T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
@@ -40,8 +43,7 @@ impl MieruClient {
         }
         let session_id = random_session_id()?;
         let (writer, reader) =
-            open_session(transport, config.password.as_bytes(), config.username.as_bytes(), session_id, now_unix)
-                .await?;
+            open_session(transport, config.password.as_bytes(), config.username.as_bytes(), session_id, time).await?;
         Ok(Self { writer, reader })
     }
 

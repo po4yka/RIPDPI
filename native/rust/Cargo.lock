@@ -5949,6 +5949,7 @@ version = "0.1.0"
 dependencies = [
  "chacha20poly1305",
  "ring",
+ "ripdpi-network-time",
  "thiserror 2.0.18",
  "tokio",
 ]
@@ -6261,6 +6262,7 @@ dependencies = [
  "rand 0.10.1",
  "ripdpi-anytls",
  "ripdpi-mieru",
+ "ripdpi-network-time",
  "ripdpi-relay-mux",
  "ripdpi-shadowsocks",
  "ripdpi-shadowtls",
