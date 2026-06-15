@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import java.util.Locale
 
 // Spec: components-section-header.html — `letter-spacing: 0.72px` matched in sp.
 private val SectionHeaderTracking = 0.72.sp
@@ -33,7 +34,7 @@ fun RipDpiSectionHeader(
     modifier: Modifier = Modifier,
 ) {
     Text(
-        text = title.uppercase(),
+        text = title.uppercase(Locale.getDefault()),
         modifier =
             modifier
                 .padding(top = RipDpiThemeTokens.spacing.md, bottom = RipDpiThemeTokens.spacing.sm)
