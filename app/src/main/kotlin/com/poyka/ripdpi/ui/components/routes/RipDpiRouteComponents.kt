@@ -421,7 +421,10 @@ private fun RouteStateBadge(
                 .clip(RipDpiThemeTokens.shapes.xxl)
                 .background(style.badgeContainer, RipDpiThemeTokens.shapes.xxl)
                 .border(RipDpiStroke.Thin, style.badgeBorder, RipDpiThemeTokens.shapes.xxl)
-                .padding(horizontal = 8.dp, vertical = 2.dp),
+                .padding(
+                    horizontal = RipDpiThemeTokens.components.rows.compactPillHorizontalPadding,
+                    vertical = RipDpiThemeTokens.components.rows.compactPillVerticalPadding,
+                ),
     )
 }
 
