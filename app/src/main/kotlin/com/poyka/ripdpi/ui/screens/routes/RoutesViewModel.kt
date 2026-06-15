@@ -11,10 +11,12 @@ import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.data.rules.RuleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -52,6 +54,11 @@ class RoutesViewModel
         // The relay profile list is a one-shot suspend read with no Flow, so it is loaded once and
         // re-read on demand; group changes flow reactively through proxyGroupRepository.groups().
         private val profiles = MutableStateFlow<List<RelayProfileRecord>>(emptyList())
+
+        // Emits when a reorder write fails so the screen can roll its optimistic order back to the
+        // persisted state. extraBufferCapacity keeps the emit non-suspending from the launched job.
+        private val _reorderFailures = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val reorderFailures: SharedFlow<Unit> = _reorderFailures.asSharedFlow()
 
         val uiState: StateFlow<RoutesUiState> =
             combine(
@@ -99,7 +106,8 @@ class RoutesViewModel
 
         fun reorder(orderedIds: List<Long>) {
             viewModelScope.launch {
-                ruleRepository.reorder(orderedIds)
+                runCatching { ruleRepository.reorder(orderedIds) }
+                    .onFailure { _reorderFailures.tryEmit(Unit) }
             }
         }
 

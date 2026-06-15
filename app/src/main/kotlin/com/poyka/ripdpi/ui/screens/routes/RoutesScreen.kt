@@ -13,6 +13,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,8 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlin.math.roundToInt
 
 @Composable
@@ -63,6 +66,7 @@ fun RoutesRoute(
         onToggleEnabled = viewModel::toggleEnabled,
         onDelete = viewModel::delete,
         onReorder = viewModel::reorder,
+        reorderFailures = viewModel.reorderFailures,
         modifier = modifier,
     )
 }
@@ -77,9 +81,15 @@ internal fun RoutesScreen(
     onDelete: (RuleEntity) -> Unit,
     onReorder: (List<Long>) -> Unit,
     modifier: Modifier = Modifier,
+    reorderFailures: Flow<Unit> = emptyFlow(),
 ) {
     // Local working order so a hand-rolled drag can reorder optimistically before persisting.
     var localRows by remember(state.rows) { mutableStateOf(state.rows) }
+
+    // Roll the optimistic order back to the persisted state when a reorder write fails.
+    LaunchedEffect(reorderFailures, state.rows) {
+        reorderFailures.collect { localRows = state.rows }
+    }
 
     fun move(
         from: Int,
