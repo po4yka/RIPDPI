@@ -409,6 +409,9 @@
     <string name="home_approach_title">نهج التحسين</string>
     <string name="home_approach_cta">فتح التشخيصات ومراجعة تحليلات النهج</string>
     <string name="home_diagnostics_section">التشخيصات</string>
+    <string name="home_diagnostics_stage_status_failed">فشل</string>
+    <string name="home_diagnostics_stage_status_skipped">تم التخطي</string>
+    <string name="home_diagnostics_stage_status_passed">نجح</string>
     <string name="home_diagnostics_title">تدقيق هذه الشبكة وتجهيز إطلاق موثّق</string>
     <string name="home_diagnostics_body">شغّل التدقيق الكامل المدمج على هذه الشبكة وطبّق أي إعدادات تجاوز أو DNS أو WARP قابلة للتنفيذ، ثم أطلق VPN وتحقق من الوصول عبر المسار الصحيح.</string>
     <string name="home_control_plane_health_title">حالة مستوى التحكم تحتاج مراجعة</string>

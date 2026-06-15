@@ -1855,6 +1855,9 @@ Origen: %2$s</string>
     <string name="home_diagnostics_recommendation_label">Recomendación</string>
     <string name="home_diagnostics_routing_sanity_section">Cordura del enrutamiento de aplicaciones</string>
     <string name="home_diagnostics_section">Diagnósticos</string>
+    <string name="home_diagnostics_stage_status_failed">Falló</string>
+    <string name="home_diagnostics_stage_status_skipped">Omitido</string>
+    <string name="home_diagnostics_stage_status_passed">Aprobado</string>
     <string name="home_diagnostics_stage_results_label">Resultados de etapa</string>
     <string name="home_diagnostics_verified_vpn_body">Inicia la VPN con el último resultado de auditoría aplicado y verifica el acceso a la red en la ruta.</string>
     <string name="home_history_body">El historial conserva sesiones de conexión duraderas, diagnósticos del entorno de ejecución muestreados y fallos nativos fuera de las herramientas de Diagnósticos en vivo.</string>

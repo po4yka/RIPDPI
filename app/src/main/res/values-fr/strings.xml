@@ -1855,6 +1855,9 @@ Source : %2$s</string>
     <string name="home_diagnostics_recommendation_label">Recommandation</string>
     <string name="home_diagnostics_routing_sanity_section">Cohérence du routage d\'app</string>
     <string name="home_diagnostics_section">Diagnostic</string>
+    <string name="home_diagnostics_stage_status_failed">Échec</string>
+    <string name="home_diagnostics_stage_status_skipped">Ignoré</string>
+    <string name="home_diagnostics_stage_status_passed">Réussi</string>
     <string name="home_diagnostics_stage_results_label">Résultats des étapes</string>
     <string name="home_diagnostics_verified_vpn_body">Démarrez le VPN avec le dernier résultat d\'audit appliqué et vérifiez l\'accès réseau sur le chemin.</string>
     <string name="home_history_body">L\'historique conserve les sessions de connexion durables, les diagnostics d\'exécution échantillonnés et les échecs natifs en dehors des outils Diagnostic en direct.</string>

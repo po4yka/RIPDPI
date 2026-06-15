@@ -412,6 +412,9 @@
     <string name="home_approach_title">优化方法</string>
     <string name="home_approach_cta">打开诊断并查看方法分析</string>
     <string name="home_diagnostics_section">诊断</string>
+    <string name="home_diagnostics_stage_status_failed">失败</string>
+    <string name="home_diagnostics_stage_status_skipped">已跳过</string>
+    <string name="home_diagnostics_stage_status_passed">已通过</string>
     <string name="home_diagnostics_title">审计此网络并准备已验证的启动</string>
     <string name="home_diagnostics_body">在此网络上运行完整的内置审计，应用任何可操作的绕过、DNS 或 WARP 设置，然后启动 VPN 并在工作路径上验证访问。</string>
     <string name="home_control_plane_health_title">控制平面状态需要审查</string>

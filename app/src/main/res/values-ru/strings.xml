@@ -369,6 +369,9 @@
     <string name="home_approach_title">Метод оптимизации</string>
     <string name="home_approach_cta">Открыть Диагностику и просмотреть аналитику подходов</string>
     <string name="home_diagnostics_section">Диагностика</string>
+    <string name="home_diagnostics_stage_status_failed">Не пройдено</string>
+    <string name="home_diagnostics_stage_status_skipped">Пропущено</string>
+    <string name="home_diagnostics_stage_status_passed">Пройдено</string>
     <string name="home_diagnostics_title">Проверить сеть и подготовить проверенный запуск</string>
     <string name="home_diagnostics_body">Запустите полный встроенный аудит этой сети, примените пригодные настройки и затем поднимите VPN с короткой проверкой доступа по рабочему пути.</string>
     <string name="home_control_plane_health_title">Состояние управляющих каталогов требует внимания</string>

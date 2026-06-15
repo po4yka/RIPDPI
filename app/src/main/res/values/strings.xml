@@ -421,6 +421,9 @@
     <string name="home_approach_title">Optimization approach</string>
     <string name="home_approach_cta">Open Diagnostics and review approach analytics</string>
     <string name="home_diagnostics_section">Diagnostics</string>
+    <string name="home_diagnostics_stage_status_failed">Failed</string>
+    <string name="home_diagnostics_stage_status_skipped">Skipped</string>
+    <string name="home_diagnostics_stage_status_passed">Passed</string>
     <string name="home_diagnostics_title">Audit this network and prepare verified launch</string>
     <string name="home_diagnostics_body">Run the full built-in audit on this network, apply any actionable bypass, DNS, or WARP settings, then launch a VPN and verify access on the working path.</string>
     <string name="home_control_plane_health_title">Control-plane status needs review</string>

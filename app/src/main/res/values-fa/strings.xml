@@ -413,6 +413,9 @@
     <string name="home_approach_title">رویکرد بهینه‌سازی</string>
     <string name="home_approach_cta">تشخیص را باز کنید و سنجش رویکرد را بررسی کنید</string>
     <string name="home_diagnostics_section">تشخیص</string>
+    <string name="home_diagnostics_stage_status_failed">ناموفق</string>
+    <string name="home_diagnostics_stage_status_skipped">رد شد</string>
+    <string name="home_diagnostics_stage_status_passed">موفق</string>
     <string name="home_diagnostics_title">حسابرسی این شبکه و آماده‌سازی راه‌اندازی تأییدشده</string>
     <string name="home_diagnostics_body">حسابرسی کامل داخلی را در این شبکه اجرا کنید، هر تنظیمات قابل اعمال دور زدن، DNS، یا WARP را اعمال کنید، سپس یک VPN راه‌اندازی کنید و دسترسی را در مسیر کاری تأیید کنید.</string>
     <string name="home_control_plane_health_title">وضعیت سطح کنترل نیاز به بررسی دارد</string>

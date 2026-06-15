@@ -363,6 +363,12 @@ internal fun StageResultRow(
             skipped -> colors.mutedForeground
             else -> colors.success
         }
+    val statusDescription =
+        when {
+            failed -> stringResource(R.string.home_diagnostics_stage_status_failed)
+            skipped -> stringResource(R.string.home_diagnostics_stage_status_skipped)
+            else -> stringResource(R.string.home_diagnostics_stage_status_passed)
+        }
 
     Row(
         modifier =
@@ -375,7 +381,7 @@ internal fun StageResultRow(
     ) {
         Icon(
             imageVector = statusIcon,
-            contentDescription = null,
+            contentDescription = statusDescription,
             tint = statusColor,
             modifier = Modifier.size(RipDpiIconSizes.Default),
         )
