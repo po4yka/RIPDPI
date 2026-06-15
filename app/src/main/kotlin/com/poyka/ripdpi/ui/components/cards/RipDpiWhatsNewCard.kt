@@ -28,6 +28,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import java.util.Locale
 
 enum class RipDpiWhatsNewTag {
     New,
@@ -239,7 +240,7 @@ private fun WhatsNewTagChip(tag: RipDpiWhatsNewTag) {
     ) {
         Text(
             modifier = Modifier.padding(horizontal = spacing.sm, vertical = spacing.xs),
-            text = tag.name.uppercase(),
+            text = tag.name.uppercase(Locale.getDefault()),
             style = type.smallLabel,
             color = content,
         )
