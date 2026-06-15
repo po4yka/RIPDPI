@@ -25,11 +25,13 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsViewModel
+import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StartOnBootController
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.xray.XrayProviderSettingsStatusRow
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -61,6 +63,7 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle()
+    val xrayProviderSnapshot = viewModel.xrayProviderSnapshot.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val startOnBootController =
         remember(context) { StartOnBootController(context.applicationContext) }
@@ -88,6 +91,7 @@ fun SettingsRoute(
     }
     SettingsScreen(
         uiState = uiState.value,
+        xrayProviderSnapshot = xrayProviderSnapshot.value,
         batteryOptimizationIgnored = batteryOptimizationIgnored,
         actions =
             SettingsScreenActions(
@@ -131,6 +135,7 @@ internal fun SettingsScreen(
     actions: SettingsScreenActions,
     permissionSummary: PermissionSummaryUiState,
     modifier: Modifier = Modifier,
+    xrayProviderSnapshot: XrayProviderSnapshot? = null,
     batteryOptimizationIgnored: Boolean = true,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -145,6 +150,11 @@ internal fun SettingsScreen(
                 .background(colors.background),
         title = stringResource(R.string.settings),
     ) {
+        // Embedded-Xray provider status — provider-distinct, rendered only while
+        // an Xray session is active (snapshot non-null).
+        if (xrayProviderSnapshot != null) {
+            item { XrayProviderSettingsStatusRow(snapshot = xrayProviderSnapshot) }
+        }
         item { SettingsConnectivitySection(uiState = uiState, actions = actions) }
         item {
             SettingsSecuritySection(

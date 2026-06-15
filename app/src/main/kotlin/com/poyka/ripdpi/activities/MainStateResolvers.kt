@@ -151,6 +151,7 @@ internal fun buildMainUiState(
                 strategyPackRuntimeState = inputs.strategyPackRuntimeState,
             ),
         connectionQuality = resolveConnectionQuality(inputs.telemetry.tunnelTelemetry),
+        xrayProviderSnapshot = inputs.telemetry.xrayProviderSnapshot,
     )
 }
 

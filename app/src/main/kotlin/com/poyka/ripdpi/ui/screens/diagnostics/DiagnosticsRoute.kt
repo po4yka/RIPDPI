@@ -34,6 +34,7 @@ import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.screens.xray.XrayProviderToolUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -69,6 +70,7 @@ fun DiagnosticsRoute(
         cidrWhitelistTool = toolsState.cidrWhitelist,
         ipv4WhitelistTool = toolsState.ipv4Whitelist,
         pluggableTransportTool = toolsState.pluggableTransport,
+        xrayProvider = toolsState.xrayProvider,
         rootModeEnabled = toolsState.rootModeEnabled,
         pcapRecording = toolsState.pcapRecording,
         topBarExtraActions = topBarExtraActions,
@@ -138,8 +140,20 @@ private fun DiagnosticsViewModel.toolsRouteStateFlow(): Flow<DiagnosticsToolsRou
                 pluggableTransport = pluggableTransport,
             )
         }
-    return combine(baseFlow, rootModeEnabled) { state, rootMode ->
-        state.copy(rootModeEnabled = rootMode)
+    val xrayProviderFlow =
+        combine(
+            xrayProviderSnapshot,
+            xrayProviderProbeReport,
+            xrayProviderProbeRunning,
+        ) { snapshot, report, running ->
+            XrayProviderToolUiModel(
+                snapshot = snapshot,
+                probeReport = report,
+                probeRunning = running,
+            )
+        }
+    return combine(baseFlow, rootModeEnabled, xrayProviderFlow) { state, rootMode, xrayProvider ->
+        state.copy(rootModeEnabled = rootMode, xrayProvider = xrayProvider)
     }
 }
 
@@ -351,6 +365,7 @@ private fun rememberDiagnosticsScreenActions(
         onDpiSuiteConcurrencyDelta = remember(viewModel) { viewModel::adjustDpiSuiteConcurrency },
         onRunDpiProbeSuite = remember(viewModel) { viewModel::runDpiProbeSuite },
         onCancelDpiProbeSuite = remember(viewModel) { viewModel::cancelDpiProbeSuite },
+        onRunXrayProviderProbe = remember(viewModel) { viewModel::runXrayProviderProbe },
     )
 
 private data class DiagnosticsToolsRouteState(
@@ -360,6 +375,7 @@ private data class DiagnosticsToolsRouteState(
     val cidrWhitelist: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
     val ipv4Whitelist: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
     val pluggableTransport: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
+    val xrayProvider: XrayProviderToolUiModel = XrayProviderToolUiModel(),
 )
 
 private data class DiagnosticsBasicDpiTools(

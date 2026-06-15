@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.HostPackPreset
+import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -10,8 +11,11 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -51,6 +55,20 @@ class SettingsViewModel
                 settingsUiDependencies = settingsUiDependencies,
                 hostAutolearnStoreRefresh = hostAutolearnStoreRefresh,
             )
+
+        /**
+         * Live embedded-Xray provider snapshot for the Settings provider status
+         * row. Null on the native provider path or when no Xray session is active.
+         */
+        val xrayProviderSnapshot: StateFlow<XrayProviderSnapshot?> =
+            settingsActionDependencies.serviceStateStore.telemetry
+                .map { it.xrayProviderSnapshot }
+                .stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5_000),
+                    initialValue =
+                        settingsActionDependencies.serviceStateStore.telemetry.value.xrayProviderSnapshot,
+                )
 
         private val dnsActions = SettingsDnsActions(mutations)
         private val customizationActions by lazy {
