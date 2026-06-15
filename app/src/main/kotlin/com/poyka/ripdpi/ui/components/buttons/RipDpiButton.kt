@@ -39,6 +39,7 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class RipDpiButtonVariant {
@@ -166,7 +167,7 @@ fun RipDpiButton(
                             CircularProgressIndicator(
                                 modifier = Modifier.size(RipDpiIconSizes.Small),
                                 color = animatedContentColor,
-                                strokeWidth = 2.dp,
+                                strokeWidth = RipDpiStroke.Thick,
                             )
                         } else {
                             leadingIcon?.let {
