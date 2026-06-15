@@ -127,7 +127,7 @@ class ReplayFailureViewModel
                         step.copy(
                             whenLabel = formatTime(event.timestampMs),
                             status = ReplayStepStatus.Pending,
-                            detail = "in progress",
+                            detail = stringResolver.getString(R.string.diagnostics_replay_step_in_progress),
                         )
                     }
                 }

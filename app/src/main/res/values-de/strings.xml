@@ -3820,6 +3820,7 @@ Quelle: %2$s</string>
     <string name="diagnostics_replay_error_unknown">unbekannter Fehler</string>
     <string name="diagnostics_replay_probe_summary">Proben-Replay · %1$s · %2$s</string>
     <string name="diagnostics_replay_step_dns_resolve">DNS-Auflösung</string>
+    <string name="diagnostics_replay_step_in_progress">Läuft</string>
     <string name="diagnostics_replay_step_first_byte">Erstes Byte</string>
     <string name="diagnostics_replay_step_tcp_open">TCP-Öffnung</string>
     <string name="diagnostics_replay_step_tls_client_hello">TLS-ClientHello</string>

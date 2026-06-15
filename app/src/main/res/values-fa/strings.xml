@@ -3825,6 +3825,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_replay_error_unknown">خطای ناشناخته</string>
     <string name="diagnostics_replay_probe_summary">بازپخش کاوش · %1$s · %2$s</string>
     <string name="diagnostics_replay_step_dns_resolve">حل DNS</string>
+    <string name="diagnostics_replay_step_in_progress">در حال انجام</string>
     <string name="diagnostics_replay_step_first_byte">اولین بایت</string>
     <string name="diagnostics_replay_step_tcp_open">بازکردن TCP</string>
     <string name="diagnostics_replay_step_tls_client_hello">TLS ClientHello</string>

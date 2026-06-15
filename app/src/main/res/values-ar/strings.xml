@@ -3828,6 +3828,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_replay_error_unknown">خطأ غير معروف</string>
     <string name="diagnostics_replay_probe_summary">إعادة تشغيل المسبار · %1$s · %2$s</string>
     <string name="diagnostics_replay_step_dns_resolve">تحليل DNS</string>
+    <string name="diagnostics_replay_step_in_progress">قيد التنفيذ</string>
     <string name="diagnostics_replay_step_first_byte">أول بايت</string>
     <string name="diagnostics_replay_step_tcp_open">فتح TCP</string>
     <string name="diagnostics_replay_step_tls_client_hello">TLS ClientHello</string>

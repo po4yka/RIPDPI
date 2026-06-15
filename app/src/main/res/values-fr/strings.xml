@@ -3820,6 +3820,7 @@ Source : %2$s</string>
     <string name="diagnostics_replay_error_unknown">erreur inconnue</string>
     <string name="diagnostics_replay_probe_summary">Rejeu de sonde · %1$s · %2$s</string>
     <string name="diagnostics_replay_step_dns_resolve">Résolution DNS</string>
+    <string name="diagnostics_replay_step_in_progress">En cours</string>
     <string name="diagnostics_replay_step_first_byte">Premier octet</string>
     <string name="diagnostics_replay_step_tcp_open">Ouverture TCP</string>
     <string name="diagnostics_replay_step_tls_client_hello">ClientHello TLS</string>

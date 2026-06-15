@@ -3814,6 +3814,7 @@ fake_burst 3</string>
     <string name="diagnostics_replay_error_unknown">未知错误</string>
     <string name="diagnostics_replay_probe_summary">探针重放 · %1$s · %2$s</string>
     <string name="diagnostics_replay_step_dns_resolve">DNS 解析</string>
+    <string name="diagnostics_replay_step_in_progress">进行中</string>
     <string name="diagnostics_replay_step_first_byte">首字节</string>
     <string name="diagnostics_replay_step_tcp_open">TCP 打开</string>
     <string name="diagnostics_replay_step_tls_client_hello">TLS ClientHello</string>

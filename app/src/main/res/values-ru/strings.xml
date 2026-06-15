@@ -3953,6 +3953,7 @@ fakeddisorder endhost</string>
     <string name="diagnostics_replay_error_unknown">неизвестная ошибка</string>
     <string name="diagnostics_replay_probe_summary">Повтор зонда · %1$s · %2$s</string>
     <string name="diagnostics_replay_step_dns_resolve">Разрешение DNS</string>
+    <string name="diagnostics_replay_step_in_progress">Выполняется</string>
     <string name="diagnostics_replay_step_first_byte">Первый байт</string>
     <string name="diagnostics_replay_step_tcp_open">Открытие TCP</string>
     <string name="diagnostics_replay_step_tls_client_hello">TLS ClientHello</string>

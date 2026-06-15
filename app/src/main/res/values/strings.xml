@@ -3943,6 +3943,7 @@ Source: %2$s</string>
     <string name="diagnostics_replay_error_unknown">unknown error</string>
     <string name="diagnostics_replay_probe_summary">Probe replay · %1$s · %2$s</string>
     <string name="diagnostics_replay_step_dns_resolve">DNS resolve</string>
+    <string name="diagnostics_replay_step_in_progress">In progress</string>
     <string name="diagnostics_replay_step_first_byte">First byte</string>
     <string name="diagnostics_replay_step_tcp_open">TCP open</string>
     <string name="diagnostics_replay_step_tls_client_hello">TLS ClientHello</string>
