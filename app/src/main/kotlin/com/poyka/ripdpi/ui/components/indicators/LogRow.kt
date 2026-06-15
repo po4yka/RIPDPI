@@ -21,6 +21,7 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import java.util.Locale
 
 enum class LogRowTone {
     Dns,
@@ -50,7 +51,7 @@ fun LogRow(
                 .fillMaxWidth()
                 .heightIn(min = components.feedback.decorativeBadgeSize)
                 .semantics(mergeDescendants = true) {
-                    contentDescription = "$timestamp ${type.uppercase()} $message ${metadataChips.joinToString(" ")}"
+                    contentDescription = "$timestamp $type $message ${metadataChips.joinToString(" ")}"
                 },
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
@@ -75,7 +76,7 @@ fun LogRow(
                         ),
             ) {
                 androidx.compose.material3.Text(
-                    text = type.uppercase(),
+                    text = type.uppercase(Locale.getDefault()),
                     style = typeScale.smallLabel,
                     color = palette.badgeContent,
                 )
