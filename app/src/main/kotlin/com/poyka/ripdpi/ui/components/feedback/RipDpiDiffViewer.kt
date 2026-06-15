@@ -12,17 +12,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
-private val diffRowGap = 1.dp
-private val diffUnifiedHorizontalPadding = 6.dp
-private val diffRowVerticalPadding = 2.dp
-private val diffUnifiedColumnGap = 8.dp
-private val diffSideBySideColumnGap = 4.dp
-private val diffSideBySideHorizontalPadding = 4.dp
 private const val diffUnifiedLineNumberWidth = 4
 private const val diffSideBySideLineNumberWidth = 3
 
@@ -83,13 +76,14 @@ private fun UnifiedDiffContent(
     colors: RipDpiExtendedColors,
     shape: RoundedCornerShape,
 ) {
+    val diff = RipDpiThemeTokens.components.diff
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
                 .background(colors.card, shape)
                 .padding(RipDpiThemeTokens.spacing.sm),
-        verticalArrangement = Arrangement.spacedBy(diffRowGap),
+        verticalArrangement = Arrangement.spacedBy(diff.rowGap),
     ) {
         lines.forEach { line ->
             val s = lineStyle(line.kind)
@@ -98,8 +92,8 @@ private fun UnifiedDiffContent(
                     Modifier
                         .fillMaxWidth()
                         .background(s.bg)
-                        .padding(horizontal = diffUnifiedHorizontalPadding, vertical = diffRowVerticalPadding),
-                horizontalArrangement = Arrangement.spacedBy(diffUnifiedColumnGap),
+                        .padding(horizontal = diff.unifiedHorizontalPadding, vertical = diff.rowVerticalPadding),
+                horizontalArrangement = Arrangement.spacedBy(diff.unifiedColumnGap),
             ) {
                 Text(
                     text =
@@ -135,6 +129,7 @@ private fun SideBySideDiffContent(
     colors: RipDpiExtendedColors,
     shape: RoundedCornerShape,
 ) {
+    val diff = RipDpiThemeTokens.components.diff
     val leftLines = lines.filter { it.kind != RipDpiDiffKind.Added }
     val rightLines = lines.filter { it.kind != RipDpiDiffKind.Removed }
 
@@ -144,7 +139,7 @@ private fun SideBySideDiffContent(
                 .fillMaxWidth()
                 .background(colors.card, shape)
                 .padding(RipDpiThemeTokens.spacing.sm),
-        horizontalArrangement = Arrangement.spacedBy(diffSideBySideColumnGap),
+        horizontalArrangement = Arrangement.spacedBy(diff.sideBySideColumnGap),
     ) {
         SideBySideColumn(
             lines = leftLines,
@@ -168,7 +163,8 @@ private fun SideBySideColumn(
     colors: RipDpiExtendedColors,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(diffRowGap)) {
+    val diff = RipDpiThemeTokens.components.diff
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(diff.rowGap)) {
         lines.forEach { line ->
             val s = lineStyle(line.kind)
             val lineNum = if (useOldLineNumber) line.oldLineNumber else line.newLineNumber
@@ -177,8 +173,8 @@ private fun SideBySideColumn(
                     Modifier
                         .fillMaxWidth()
                         .background(s.bg)
-                        .padding(horizontal = diffSideBySideHorizontalPadding, vertical = diffRowVerticalPadding),
-                horizontalArrangement = Arrangement.spacedBy(diffSideBySideColumnGap),
+                        .padding(horizontal = diff.sideBySideHorizontalPadding, vertical = diff.rowVerticalPadding),
+                horizontalArrangement = Arrangement.spacedBy(diff.sideBySideColumnGap),
             ) {
                 Text(
                     text = lineNum?.toString().orEmpty().padStart(diffSideBySideLineNumberWidth),

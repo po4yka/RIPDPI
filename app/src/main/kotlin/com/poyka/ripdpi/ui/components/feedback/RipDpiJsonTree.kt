@@ -15,16 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-
-private const val JsonIndentPerLevel = 16
-private val JsonRowVerticalPadding = 2.dp
-private val JsonChevronSize = 14.dp
 
 sealed interface RipDpiJsonNode {
     data class Leaf(
@@ -65,15 +60,16 @@ private fun JsonNodeRow(
     depth: Int,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val indent = (depth * JsonIndentPerLevel).dp
+    val jsonTree = RipDpiThemeTokens.components.jsonTree
+    val indent = RipDpiThemeTokens.spacing.lg * depth
     when (node) {
         is RipDpiJsonNode.Leaf -> {
             Row(
                 modifier =
                     Modifier.padding(
                         start = indent,
-                        top = JsonRowVerticalPadding,
-                        bottom = JsonRowVerticalPadding,
+                        top = jsonTree.rowVerticalPadding,
+                        bottom = jsonTree.rowVerticalPadding,
                     ),
             ) {
                 if (node.key != null) {
@@ -108,14 +104,17 @@ private fun JsonNodeRow(
             Row(
                 modifier =
                     Modifier
-                        .padding(start = indent, top = JsonRowVerticalPadding, bottom = JsonRowVerticalPadding)
-                        .ripDpiClickable(enabled = true, role = Role.Button) { open = !open },
+                        .padding(
+                            start = indent,
+                            top = jsonTree.rowVerticalPadding,
+                            bottom = jsonTree.rowVerticalPadding,
+                        ).ripDpiClickable(enabled = true, role = Role.Button) { open = !open },
             ) {
                 Icon(
                     imageVector = if (open) RipDpiIcons.KeyboardArrowDown else RipDpiIcons.ChevronRight,
                     contentDescription = stringResource(if (open) R.string.cd_collapse else R.string.cd_expand),
                     tint = colors.mutedForeground,
-                    modifier = Modifier.size(JsonChevronSize),
+                    modifier = Modifier.size(jsonTree.chevronSize),
                 )
                 if (node.key != null) {
                     Text(

@@ -16,7 +16,6 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -65,7 +64,10 @@ fun RipDpiTooltipRich(
                 colors = TooltipDefaults.richTooltipColors(containerColor = colors.card),
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth().widthIn(max = 320.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .widthIn(max = RipDpiThemeTokens.components.tooltip.richMaxWidth),
                     verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
                 ) {
                     Text(

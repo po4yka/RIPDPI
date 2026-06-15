@@ -165,6 +165,27 @@ data class RipDpiFeedbackMetrics(
 )
 
 @Immutable
+data class RipDpiDiffMetrics(
+    val rowGap: Dp = 1.dp,
+    val rowVerticalPadding: Dp = 2.dp,
+    val unifiedHorizontalPadding: Dp = 6.dp,
+    val unifiedColumnGap: Dp = 8.dp,
+    val sideBySideColumnGap: Dp = 4.dp,
+    val sideBySideHorizontalPadding: Dp = 4.dp,
+)
+
+@Immutable
+data class RipDpiJsonTreeMetrics(
+    val rowVerticalPadding: Dp = 2.dp,
+    val chevronSize: Dp = 14.dp,
+)
+
+@Immutable
+data class RipDpiTooltipMetrics(
+    val richMaxWidth: Dp = 320.dp,
+)
+
+@Immutable
 data class RipDpiComponents(
     val shapes: RipDpiShapeMetrics = RipDpiShapeMetrics(),
     val buttons: RipDpiButtonMetrics = RipDpiButtonMetrics(),
@@ -175,6 +196,9 @@ data class RipDpiComponents(
     val navigation: RipDpiNavigationMetrics = RipDpiNavigationMetrics(),
     val indicators: RipDpiIndicatorMetrics = RipDpiIndicatorMetrics(),
     val feedback: RipDpiFeedbackMetrics = RipDpiFeedbackMetrics(),
+    val diff: RipDpiDiffMetrics = RipDpiDiffMetrics(),
+    val jsonTree: RipDpiJsonTreeMetrics = RipDpiJsonTreeMetrics(),
+    val tooltip: RipDpiTooltipMetrics = RipDpiTooltipMetrics(),
 )
 
 object RipDpiStroke {
