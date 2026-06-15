@@ -2,15 +2,14 @@ package com.poyka.ripdpi.ui.components.indicators
 
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -160,12 +160,53 @@ fun RipDpiStaleDataBadge(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(indicators.staleBadgeDotSize)
-                    .background(tones.dot.copy(alpha = freshPulseAlpha), CircleShape),
-        )
+        // Stale/Expired set dot = Transparent (they signalled via the container only);
+        // fall back to the visible content tone so the shape cue is never invisible.
+        val markerBase = if (tones.dot == Color.Transparent) tones.content else tones.dot
+        val markerColor = markerBase.copy(alpha = freshPulseAlpha)
+        Canvas(modifier = Modifier.size(indicators.staleBadgeDotSize)) {
+            when (tier) {
+                // Round dot — newest tiers (matches the spec pulse on Fresh).
+                RipDpiStaleTier.Fresh, RipDpiStaleTier.Recent -> {
+                    drawCircle(markerColor)
+                }
+
+                // Diamond — Aging.
+                RipDpiStaleTier.Aging -> {
+                    val cx = size.width / 2f
+                    val cy = size.height / 2f
+                    val r = size.width / 2f
+                    drawPath(
+                        Path().apply {
+                            moveTo(cx, cy - r)
+                            lineTo(cx + r, cy)
+                            lineTo(cx, cy + r)
+                            lineTo(cx - r, cy)
+                            close()
+                        },
+                        markerColor,
+                    )
+                }
+
+                // Triangle — Stale (warn before acting).
+                RipDpiStaleTier.Stale -> {
+                    drawPath(
+                        Path().apply {
+                            moveTo(size.width / 2f, 0f)
+                            lineTo(size.width, size.height)
+                            lineTo(0f, size.height)
+                            close()
+                        },
+                        markerColor,
+                    )
+                }
+
+                // Square — Expired (treat as historic).
+                RipDpiStaleTier.Expired -> {
+                    drawRect(markerColor)
+                }
+            }
+        }
         Text(text = label, style = RipDpiThemeTokens.type.monoSmall.copy(color = tones.content))
     }
 }
