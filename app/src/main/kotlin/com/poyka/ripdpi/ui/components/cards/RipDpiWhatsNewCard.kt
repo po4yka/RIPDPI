@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
@@ -28,7 +29,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import java.util.Locale
 
 enum class RipDpiWhatsNewTag {
     New,
@@ -232,6 +232,7 @@ private fun WhatsNewTagChip(tag: RipDpiWhatsNewTag) {
     val spacing = RipDpiThemeTokens.spacing
     val shapes = RipDpiThemeTokens.shapes
     val type = RipDpiThemeTokens.type
+    val locale = LocalConfiguration.current.locales[0]
     val (container, content) = tagPalette(tag = tag)
     Surface(
         shape = shapes.sm,
@@ -240,7 +241,7 @@ private fun WhatsNewTagChip(tag: RipDpiWhatsNewTag) {
     ) {
         Text(
             modifier = Modifier.padding(horizontal = spacing.sm, vertical = spacing.xs),
-            text = tag.name.uppercase(Locale.getDefault()),
+            text = tag.name.uppercase(locale),
             style = type.smallLabel,
             color = content,
         )
