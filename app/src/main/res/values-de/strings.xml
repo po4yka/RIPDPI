@@ -1535,6 +1535,14 @@ Quelle: %2$s</string>
         <item quantity="one">%d bestanden</item>
         <item quantity="other">%d bestanden</item>
     </plurals>
+    <plurals name="stage_passed_chip">
+        <item quantity="one">%d bestanden</item>
+        <item quantity="other">%d bestanden</item>
+    </plurals>
+    <plurals name="stage_failed_chip">
+        <item quantity="one">%d fehlgeschlagen</item>
+        <item quantity="other">%d fehlgeschlagen</item>
+    </plurals>
     <string name="strategy_config_entry_body">Prüfen Sie die aktive Bypass-Strategie, importieren Sie eine lokale Konfiguration, exportieren Sie den Text oder laden Sie ein Lua-Strategie-Skript.</string>
     <string name="strategy_config_import_failed_title">Import fehlgeschlagen</string>
     <string name="strategy_config_invalid_title">Konfiguration nicht validiert</string>

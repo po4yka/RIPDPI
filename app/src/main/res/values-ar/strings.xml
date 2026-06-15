@@ -3203,6 +3203,22 @@ fakeddisorder endhost</string>
         <item quantity="many">اجتاز %d</item>
         <item quantity="other">اجتاز %d</item>
     </plurals>
+    <plurals name="stage_passed_chip">
+        <item quantity="zero">لا شيء اجتاز</item>
+        <item quantity="one">اجتاز %d</item>
+        <item quantity="two">اجتاز %d</item>
+        <item quantity="few">اجتاز %d</item>
+        <item quantity="many">اجتاز %d</item>
+        <item quantity="other">اجتاز %d</item>
+    </plurals>
+    <plurals name="stage_failed_chip">
+        <item quantity="zero">لا شيء فشل</item>
+        <item quantity="one">فشل %d</item>
+        <item quantity="two">فشل %d</item>
+        <item quantity="few">فشل %d</item>
+        <item quantity="many">فشل %d</item>
+        <item quantity="other">فشل %d</item>
+    </plurals>
     <plurals name="stage_failed_count">
         <item quantity="zero">، لا شيء فشل</item>
         <item quantity="one">، فشل %d</item>

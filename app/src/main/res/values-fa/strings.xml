@@ -1775,6 +1775,14 @@ fakeddisorder endhost</string>
         <item quantity="one">%d موفق</item>
         <item quantity="other">%d موفق</item>
     </plurals>
+    <plurals name="stage_passed_chip">
+        <item quantity="one">%d موفق</item>
+        <item quantity="other">%d موفق</item>
+    </plurals>
+    <plurals name="stage_failed_chip">
+        <item quantity="one">%d ناموفق</item>
+        <item quantity="other">%d ناموفق</item>
+    </plurals>
     <string name="strategy_config_active_path_label">منبع فعال</string>
     <string name="strategy_config_export_title">برون‌بری پیکربندی راهبرد</string>
     <string name="strategy_config_import_too_large">فایلی با اندازه حداکثر %1$d KB انتخاب کنید.</string>

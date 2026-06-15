@@ -2649,6 +2649,18 @@ fakeddisorder endhost</string>
         <item quantity="many">%d успешных</item>
         <item quantity="other">%d успешных</item>
     </plurals>
+    <plurals name="stage_passed_chip">
+        <item quantity="one">%d успешный</item>
+        <item quantity="few">%d успешных</item>
+        <item quantity="many">%d успешных</item>
+        <item quantity="other">%d успешных</item>
+    </plurals>
+    <plurals name="stage_failed_chip">
+        <item quantity="one">%d сбой</item>
+        <item quantity="few">%d сбоя</item>
+        <item quantity="many">%d сбоев</item>
+        <item quantity="other">%d сбоев</item>
+    </plurals>
     <plurals name="stage_pending_count">
         <item quantity="one">, %d в ожидании</item>
         <item quantity="few">, %d в ожидании</item>

@@ -1535,6 +1535,14 @@ Origen: %2$s</string>
         <item quantity="one">%d superada</item>
         <item quantity="other">%d superadas</item>
     </plurals>
+    <plurals name="stage_passed_chip">
+        <item quantity="one">%d superada</item>
+        <item quantity="other">%d superadas</item>
+    </plurals>
+    <plurals name="stage_failed_chip">
+        <item quantity="one">%d fallido</item>
+        <item quantity="other">%d fallidos</item>
+    </plurals>
     <string name="strategy_config_entry_body">Revisa la estrategia de bypass activa, importa una configuración local, exporta el texto o carga un script de estrategia Lua.</string>
     <string name="strategy_config_import_failed_title">Importación fallida</string>
     <string name="strategy_config_invalid_title">La configuración no se validó</string>

@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -23,9 +24,6 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-
-private const val PassedLabel = "passed"
-private const val FailedLabel = "failed"
 
 @Composable
 fun StageProgressIndicator(
@@ -119,8 +117,12 @@ private fun StageProgressSummary(
     val spacing = RipDpiThemeTokens.spacing
     val summaryParts =
         buildList {
-            if (completedCount > 0) add(StageSummaryPart(completedCount, PassedLabel, colors.success))
-            if (failedCount > 0) add(StageSummaryPart(failedCount, FailedLabel, colors.destructive))
+            if (completedCount > 0) {
+                add(StageSummaryPart(completedCount, R.plurals.stage_passed_chip, colors.success))
+            }
+            if (failedCount > 0) {
+                add(StageSummaryPart(failedCount, R.plurals.stage_failed_chip, colors.destructive))
+            }
         }
     if (summaryParts.isEmpty()) {
         return
@@ -135,7 +137,7 @@ private fun StageProgressSummary(
                 )
             }
             Text(
-                text = "${part.count} ${part.label}",
+                text = pluralStringResource(part.labelRes, part.count, part.count),
                 style = typeScale.caption,
                 color = part.color,
             )
@@ -159,7 +161,7 @@ private fun stageSegmentColor(
 
 private data class StageSummaryPart(
     val count: Int,
-    val label: String,
+    val labelRes: Int,
     val color: Color,
 )
 

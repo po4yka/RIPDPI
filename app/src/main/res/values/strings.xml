@@ -2792,6 +2792,14 @@ Source: %2$s</string>
         <item quantity="one">%d passed</item>
         <item quantity="other">%d passed</item>
     </plurals>
+    <plurals name="stage_passed_chip">
+        <item quantity="one">%d passed</item>
+        <item quantity="other">%d passed</item>
+    </plurals>
+    <plurals name="stage_failed_chip">
+        <item quantity="one">%d failed</item>
+        <item quantity="other">%d failed</item>
+    </plurals>
     <plurals name="stage_failed_count">
         <item quantity="one">, %d failed</item>
         <item quantity="other">, %d failed</item>

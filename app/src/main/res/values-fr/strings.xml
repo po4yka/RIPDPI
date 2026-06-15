@@ -1535,6 +1535,14 @@ Source : %2$s</string>
         <item quantity="one">%d réussi</item>
         <item quantity="other">%d réussis</item>
     </plurals>
+    <plurals name="stage_passed_chip">
+        <item quantity="one">%d réussi</item>
+        <item quantity="other">%d réussis</item>
+    </plurals>
+    <plurals name="stage_failed_chip">
+        <item quantity="one">%d échec</item>
+        <item quantity="other">%d échecs</item>
+    </plurals>
     <string name="strategy_config_entry_body">Examinez la stratégie de contournement active, importez une configuration locale, exportez le texte ou chargez un script de stratégie Lua.</string>
     <string name="strategy_config_import_failed_title">Échec de l\'import</string>
     <string name="strategy_config_invalid_title">La configuration n\'a pas été validée</string>
