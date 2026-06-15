@@ -23,6 +23,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -164,12 +167,34 @@ private fun RuleListRow(
     val rowHeightPx = with(LocalDensity.current) { dragThreshold.toPx() }
     var dragOffsetY by remember { mutableStateOf(0f) }
     val newRuleName = stringResource(R.string.routes_add_rule)
+    val moveUpLabel = stringResource(R.string.routes_move_up)
+    val moveDownLabel = stringResource(R.string.routes_move_down)
 
     RipDpiCard(
         onClick = onEdit,
         modifier =
             modifier
-                .offset { IntOffset(0, dragOffsetY.roundToInt()) }
+                .semantics {
+                    customActions =
+                        buildList {
+                            if (index > 0) {
+                                add(
+                                    CustomAccessibilityAction(moveUpLabel) {
+                                        onMoveUp()
+                                        true
+                                    },
+                                )
+                            }
+                            if (index < count - 1) {
+                                add(
+                                    CustomAccessibilityAction(moveDownLabel) {
+                                        onMoveDown()
+                                        true
+                                    },
+                                )
+                            }
+                        }
+                }.offset { IntOffset(0, dragOffsetY.roundToInt()) }
                 .pointerInput(index, count) {
                     detectDragGesturesAfterLongPress(
                         onDragEnd = { dragOffsetY = 0f },
