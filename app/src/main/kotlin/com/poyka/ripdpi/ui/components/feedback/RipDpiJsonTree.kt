@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -108,7 +109,7 @@ private fun JsonNodeRow(
                 modifier =
                     Modifier
                         .padding(start = indent, top = JsonRowVerticalPadding, bottom = JsonRowVerticalPadding)
-                        .ripDpiClickable(enabled = true) { open = !open },
+                        .ripDpiClickable(enabled = true, role = Role.Button) { open = !open },
             ) {
                 Icon(
                     imageVector = if (open) RipDpiIcons.KeyboardArrowDown else RipDpiIcons.ChevronRight,
