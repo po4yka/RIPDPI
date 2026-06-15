@@ -10,6 +10,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigFieldRelayCredentials
@@ -246,6 +251,7 @@ private fun VpnRelayRow(
 ) {
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigVpnRelay,
+        accessibilityLabel = stringResource(R.string.config_relay_server),
         onClick = onOpenRelaySettings,
     ) {
         SettingsRow(
@@ -266,6 +272,7 @@ private fun VpnProtocolRow(
 ) {
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigVpnProtocol,
+        accessibilityLabel = stringResource(R.string.config_vpn_protocol_title),
         onClick = onOpenRelaySettings,
     ) {
         SettingsRow(
@@ -286,6 +293,7 @@ private fun VpnCredentialsRow(
 ) {
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigVpnCredentials,
+        accessibilityLabel = stringResource(R.string.config_vpn_credentials_title),
         onClick = onOpenRelaySettings,
     ) {
         SettingsRow(
@@ -306,6 +314,7 @@ private fun VpnDnsRow(
 ) {
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigDnsSettings,
+        accessibilityLabel = stringResource(R.string.title_dns_settings),
         onClick = onOpenDnsSettings,
     ) {
         SettingsRow(
@@ -328,6 +337,7 @@ private fun VpnDnsRow(
 @Composable
 private fun VpnActionRow(
     testTag: String,
+    accessibilityLabel: String,
     onClick: () -> Unit,
     content: @Composable () -> Unit,
 ) {
@@ -335,7 +345,15 @@ private fun VpnActionRow(
         modifier =
             Modifier
                 .ripDpiClickable(role = Role.Button, onClick = onClick)
-                .ripDpiTestTag(testTag),
+                .clearAndSetSemantics {
+                    this.testTag = testTag
+                    contentDescription = accessibilityLabel
+                    role = Role.Button
+                    onClick(action = {
+                        onClick()
+                        true
+                    })
+                },
     ) {
         content()
     }
