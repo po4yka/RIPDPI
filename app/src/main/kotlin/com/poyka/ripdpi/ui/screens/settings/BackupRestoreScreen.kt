@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.biometric.BiometricManager
@@ -63,8 +65,6 @@ import java.util.Date
 import java.util.Locale
 
 private const val BackupMimeType = "application/json"
-private const val BytesPerKilobyte = 1_024L
-private const val BytesPerMegabyte = 1_048_576L
 
 /** Builds the default export filename, e.g. `ripdpi-backup-2026-05-29T14-30.json`. */
 internal fun defaultBackupFilename(now: Date = Date()): String {
@@ -239,6 +239,7 @@ private fun rememberBackupExportController(
     BackupExportEffectHandler(
         flow = viewModel.effects,
         snackbarHostState = snackbarHostState,
+        context = context,
         onShare = { lastWrittenUri?.let { uri -> shareBackup(context, uri) } },
     )
 
@@ -618,6 +619,7 @@ private fun BackupShareReminderDialog(
 private fun BackupExportEffectHandler(
     flow: SharedFlow<BackupExportEffect>,
     snackbarHostState: SnackbarHostState,
+    context: Context,
     onShare: () -> Unit,
 ) {
     val exportSuccessTemplate = stringResource(R.string.backup_export_success)
@@ -627,7 +629,8 @@ private fun BackupExportEffectHandler(
         flow.collect { effect ->
             when (effect) {
                 is BackupExportEffect.Success -> {
-                    val message = String.format(exportSuccessTemplate, formatBytes(effect.byteCount))
+                    val message =
+                        String.format(exportSuccessTemplate, Formatter.formatShortFileSize(context, effect.byteCount))
                     if (effect.offerShare) {
                         val result =
                             snackbarHostState.showRipDpiSnackbar(
@@ -661,13 +664,6 @@ private fun BackupExportEffectHandler(
         }
     }
 }
-
-private fun formatBytes(bytes: Long): String =
-    when {
-        bytes >= BytesPerMegabyte -> String.format(Locale.US, "%.1f MB", bytes / BytesPerMegabyte.toDouble())
-        bytes >= BytesPerKilobyte -> String.format(Locale.US, "%.1f KB", bytes / BytesPerKilobyte.toDouble())
-        else -> "$bytes B"
-    }
 
 /**
  * Export section card: the SAF "Export backup" action plus the in-app
