@@ -51,6 +51,7 @@ internal class ServiceStatusReporter(
         warpTelemetryStatus: RuntimeTelemetryStatus? = null,
         tunnelTelemetryStatus: RuntimeTelemetryStatus? = null,
         failureReason: FailureReason? = null,
+        xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
     ) {
         statusPersistence.applyStatus(newStatus, failureReason)
         val currentTelemetry = serviceStateStore.telemetry.value
@@ -69,6 +70,7 @@ internal class ServiceStatusReporter(
                 warpTelemetryStatus = warpTelemetryStatus,
                 tunnelTelemetryStatus = tunnelTelemetryStatus,
                 failureReason = failureReason,
+                xrayProviderSnapshot = xrayProviderSnapshot,
             ),
         )
     }
@@ -87,6 +89,7 @@ internal class ServiceStatusReporter(
         tunnelTelemetryStatus: RuntimeTelemetryStatus,
         tunnelRecoveryRetryCount: Long,
         failureReason: FailureReason? = null,
+        xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
     ) {
         val currentTelemetry = serviceStateStore.telemetry.value
 
@@ -106,6 +109,7 @@ internal class ServiceStatusReporter(
                 tunnelTelemetryStatus = tunnelTelemetryStatus,
                 tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
                 failureReason = failureReason,
+                xrayProviderSnapshot = xrayProviderSnapshot,
             ),
         )
     }

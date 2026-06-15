@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.deriveRuntimeFieldTelemetry
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.services.RuntimeExperimentSelectionProvider
 import com.poyka.ripdpi.services.ServiceClock
 import com.poyka.ripdpi.services.TelemetryFingerprintHasher
@@ -37,6 +38,7 @@ internal class RuntimeTelemetryProjection(
         warpTelemetryStatus: RuntimeTelemetryStatus?,
         tunnelTelemetryStatus: RuntimeTelemetryStatus?,
         failureReason: FailureReason?,
+        xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot?,
     ): ServiceTelemetrySnapshot {
         val proxyTelemetry = statusSnapshot(newStatus, source = "proxy", currentTelemetry.proxyTelemetry)
         val tunnelTelemetry =
@@ -95,10 +97,12 @@ internal class RuntimeTelemetryProjection(
                     tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
                     failureReason = failureReason,
                 ),
+            xrayProviderSnapshot = xrayProviderSnapshot ?: currentTelemetry.xrayProviderSnapshot,
             updatedAt = clock.nowMillis(),
         )
     }
 
+    @Suppress("LongParameterList")
     fun liveTelemetry(
         currentTelemetry: ServiceTelemetrySnapshot,
         activePolicy: ActiveConnectionPolicy?,
@@ -114,6 +118,7 @@ internal class RuntimeTelemetryProjection(
         tunnelTelemetryStatus: RuntimeTelemetryStatus,
         tunnelRecoveryRetryCount: Long,
         failureReason: FailureReason?,
+        xrayProviderSnapshot: XrayProviderSnapshot?,
     ): ServiceTelemetrySnapshot {
         val enrichedTunnelTelemetry =
             applyPendingNetworkHandoverClass(
@@ -150,6 +155,7 @@ internal class RuntimeTelemetryProjection(
                     tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
                     failureReason = failureReason,
                 ),
+            xrayProviderSnapshot = xrayProviderSnapshot ?: currentTelemetry.xrayProviderSnapshot,
             updatedAt =
                 maxOf(
                     clock.nowMillis(),
