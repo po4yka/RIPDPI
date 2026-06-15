@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -21,7 +22,6 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import java.util.Locale
 
 @Immutable
 data class RipDpiTelemetryEntry(
@@ -41,6 +41,7 @@ fun RipDpiScreenSectionHeader(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
+    val locale = LocalConfiguration.current.locales[0]
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -51,7 +52,7 @@ fun RipDpiScreenSectionHeader(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             Text(
-                text = title.uppercase(Locale.getDefault()),
+                text = title.uppercase(locale),
                 style = RipDpiThemeTokens.type.sectionTitle,
                 color = colors.mutedForeground,
                 modifier = Modifier.weight(1f).padding(start = spacing.xs),
