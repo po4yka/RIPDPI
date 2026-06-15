@@ -127,6 +127,7 @@
     <string name="diagnostics_probe_latest_section">Последняя рекомендация</string>
     <string name="diagnostics_probe_evidence_section">Данные зондирования</string>
     <string name="diagnostics_probe_status_recommended">Рекомендовано</string>
+    <string name="diagnostics_candidate_subtitle_format">%1$s · %2$s</string>
     <string name="diagnostics_probe_status_fallback">Резерв</string>
     <string name="diagnostics_probe_status_skipped">Пропущено</string>
     <string name="diagnostics_action_start_probe">Запустить автоматическое зондирование</string>

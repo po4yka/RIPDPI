@@ -679,6 +679,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="diagnostics_probe_profile_title">Sondeo automático</string>
     <string name="diagnostics_probe_short_circuit_recommendation_headline">Se recomienda reemplazar el resolutor</string>
     <string name="diagnostics_probe_status_recommended">Recomendado</string>
+    <string name="diagnostics_candidate_subtitle_format">%1$s · %2$s</string>
     <string name="diagnostics_profile_audit_partial_results_body">La auditoría se quedó sin tiempo antes de probar todos los candidatos. Los resultados se basan en %1$d de %2$d candidatos.</string>
     <string name="diagnostics_profile_badge_all_builtin">Todos los métodos integrados</string>
     <string name="diagnostics_profile_badge_manual_only">Solo manual</string>

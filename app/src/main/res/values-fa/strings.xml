@@ -127,6 +127,7 @@
     <string name="diagnostics_probe_latest_section">آخرین توصیه</string>
     <string name="diagnostics_probe_evidence_section">شواهد کاوش</string>
     <string name="diagnostics_probe_status_recommended">توصیه‌شده</string>
+    <string name="diagnostics_candidate_subtitle_format">%1$s · %2$s</string>
     <string name="diagnostics_probe_status_fallback">گزینهٔ پشتیبان</string>
     <string name="diagnostics_probe_status_skipped">صرف‌نظر شد</string>
     <string name="diagnostics_action_start_probe">شروع کاوش خودکار</string>

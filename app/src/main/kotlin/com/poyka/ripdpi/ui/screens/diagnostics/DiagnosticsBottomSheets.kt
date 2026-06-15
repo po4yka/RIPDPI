@@ -258,7 +258,12 @@ internal fun DiagnosticsBottomSheetHost(
         RipDpiBottomSheet(
             onDismissRequest = onDismissStrategyProbeCandidate,
             title = candidate.label,
-            message = "${candidate.familyLabel} · ${candidate.suiteLabel}",
+            message =
+                stringResource(
+                    R.string.diagnostics_candidate_subtitle_format,
+                    candidate.familyLabel,
+                    candidate.suiteLabel,
+                ),
             icon = RipDpiIcons.Search,
             testTag = RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet,
         ) {

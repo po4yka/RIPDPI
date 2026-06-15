@@ -127,6 +127,7 @@
     <string name="diagnostics_probe_latest_section">最新建议</string>
     <string name="diagnostics_probe_evidence_section">探测证据</string>
     <string name="diagnostics_probe_status_recommended">推荐</string>
+    <string name="diagnostics_candidate_subtitle_format">%1$s · %2$s</string>
     <string name="diagnostics_probe_status_fallback">备用</string>
     <string name="diagnostics_probe_status_skipped">已跳过</string>
     <string name="diagnostics_action_start_probe">启动自动探测</string>

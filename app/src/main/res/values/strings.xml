@@ -129,6 +129,7 @@
     <string name="diagnostics_probe_latest_section">Latest recommendation</string>
     <string name="diagnostics_probe_evidence_section">Probe evidence</string>
     <string name="diagnostics_probe_status_recommended">Recommended</string>
+    <string name="diagnostics_candidate_subtitle_format">%1$s · %2$s</string>
     <string name="diagnostics_probe_status_fallback">Fallback</string>
     <string name="diagnostics_probe_status_skipped">Skipped</string>
     <string name="diagnostics_action_start_probe">Start automatic probing</string>

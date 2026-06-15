@@ -127,6 +127,7 @@
     <string name="diagnostics_probe_latest_section">أحدث توصية</string>
     <string name="diagnostics_probe_evidence_section">أدلة الفحص</string>
     <string name="diagnostics_probe_status_recommended">موصى به</string>
+    <string name="diagnostics_candidate_subtitle_format">%1$s · %2$s</string>
     <string name="diagnostics_probe_status_fallback">بديل</string>
     <string name="diagnostics_probe_status_skipped">تم التخطي</string>
     <string name="diagnostics_action_start_probe">بدء الفحص التلقائي</string>
