@@ -23,13 +23,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -53,6 +56,8 @@ fun RipDpiAccordion(
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
     val shape = RoundedCornerShape(spacing.md)
+    val expandedLabel = stringResource(R.string.semantic_state_expanded)
+    val collapsedLabel = stringResource(R.string.semantic_state_collapsed)
     val chevronAngle by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = motion.stateTween(),
@@ -63,14 +68,15 @@ fun RipDpiAccordion(
             modifier
                 .fillMaxWidth()
                 .background(colors.card, shape)
-                .border(width = 1.dp, color = colors.cardBorder, shape = shape)
+                .border(width = RipDpiStroke.Thin, color = colors.cardBorder, shape = shape)
                 .animateContentSize(animationSpec = motion.stateTween()),
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .ripDpiClickable(enabled = true) { onExpandedChange(!expanded) }
+                    .semantics { stateDescription = if (expanded) expandedLabel else collapsedLabel }
+                    .ripDpiClickable(enabled = true, role = Role.Button) { onExpandedChange(!expanded) }
                     .then(headerTestTag?.let { Modifier.ripDpiTestTag(it) } ?: Modifier)
                     .padding(
                         horizontal = RipDpiThemeTokens.spacing.lg,
