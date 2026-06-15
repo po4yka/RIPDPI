@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
@@ -123,6 +125,7 @@ private fun LatencyPlot(state: LatencyGraphState) {
     // plotHeight = section(40) + xxxl(32) + xxl(24) + xs(4) = 100 dp
     val plotHeight = spacing.section + spacing.xxxl + spacing.xxl + spacing.xs
 
+    val plotDescription = state.title
     Box(
         modifier =
             Modifier
@@ -137,7 +140,7 @@ private fun LatencyPlot(state: LatencyGraphState) {
                     .clip(
                         androidx.compose.foundation.shape
                             .RoundedCornerShape(shapes.largeCornerRadius),
-                    ),
+                    ).semantics { contentDescription = plotDescription },
         ) {
             // Background
             drawRect(color = bgColor)
