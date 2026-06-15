@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 
 object RipDpiIconSizes {
     val Small = 16.dp
+    val Compact = 18.dp
     val Default = 20.dp
     val Medium = 24.dp
     val Large = 32.dp

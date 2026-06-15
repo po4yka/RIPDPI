@@ -29,7 +29,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.AutoTuneFix
 import com.poyka.ripdpi.core.detection.CategoryResult
@@ -56,7 +55,9 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private data class CategoryEntry(
@@ -85,9 +86,9 @@ internal fun StageProgressCard(progress: DetectionProgress) {
             CircularProgressIndicator(
                 modifier =
                     Modifier
-                        .size(24.dp)
+                        .size(RipDpiIconSizes.Medium)
                         .semantics { contentDescription = loadingDescription },
-                strokeWidth = 2.dp,
+                strokeWidth = RipDpiStroke.Thick,
                 color = colors.accent,
             )
             Column {
@@ -298,7 +299,7 @@ private fun VerdictScoreHeader(
         StatusVisualIndicator(
             state = visualState,
             mode = colorVisionMode,
-            size = 20.dp,
+            size = RipDpiThemeTokens.components.indicators.statusMarkerHero,
             contentDescription = verdictLabel,
         )
         StatusIndicator(label = verdictLabel, tone = indicatorTone)
@@ -344,7 +345,7 @@ internal fun VerdictNarrativeCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 220.dp)
+                    .heightIn(max = RipDpiThemeTokens.components.content.scrollableNarrativeMaxHeight)
                     .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(spacing.xs),
         ) {
@@ -379,7 +380,7 @@ internal fun VerdictNarrativeCard(
                 Icon(
                     imageVector = RipDpiIcons.Warning,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(RipDpiIconSizes.Compact),
                     tint = colors.warning,
                 )
                 Text(text = note, style = type.caption, color = colors.warning)
@@ -405,7 +406,7 @@ private fun NarrativeRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(RipDpiIconSizes.Compact),
             tint = row.exposureStatus.contentColor(),
         )
         Column {
@@ -695,7 +696,7 @@ private fun CollapsibleCard(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(RipDpiIconSizes.Default),
                     tint = colors.mutedForeground,
                 )
                 Text(text = title, style = type.bodyEmphasis)
@@ -707,7 +708,7 @@ private fun CollapsibleCard(
                 StatusVisualIndicator(
                     state = visualState,
                     mode = colorVisionMode,
-                    size = 14.dp,
+                    size = RipDpiThemeTokens.components.indicators.statusMarkerCompact,
                     contentDescription = statusLabel,
                 )
                 StatusIndicator(label = statusLabel, tone = tone)
@@ -763,7 +764,7 @@ private fun FindingRow(
                     needsReview = finding.needsReview,
                 ),
             mode = colorVisionMode,
-            size = 10.dp,
+            size = RipDpiThemeTokens.components.indicators.statusMarkerLarge,
             contentDescription = dotDescription,
         )
         Text(

@@ -186,6 +186,11 @@ data class RipDpiTooltipMetrics(
 )
 
 @Immutable
+data class RipDpiContentMetrics(
+    val scrollableNarrativeMaxHeight: Dp = 220.dp,
+)
+
+@Immutable
 data class RipDpiComponents(
     val shapes: RipDpiShapeMetrics = RipDpiShapeMetrics(),
     val buttons: RipDpiButtonMetrics = RipDpiButtonMetrics(),
@@ -199,6 +204,7 @@ data class RipDpiComponents(
     val diff: RipDpiDiffMetrics = RipDpiDiffMetrics(),
     val jsonTree: RipDpiJsonTreeMetrics = RipDpiJsonTreeMetrics(),
     val tooltip: RipDpiTooltipMetrics = RipDpiTooltipMetrics(),
+    val content: RipDpiContentMetrics = RipDpiContentMetrics(),
 )
 
 object RipDpiStroke {
