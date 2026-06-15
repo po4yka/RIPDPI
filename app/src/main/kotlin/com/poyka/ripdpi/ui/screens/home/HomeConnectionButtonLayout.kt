@@ -105,7 +105,6 @@ internal fun HomeConnectionButtonLayout(
             verticalArrangement = Arrangement.Center,
         ) {
             HomeConnectionButtonContent(
-                state = state,
                 label = label,
                 modeLabel = modeLabel,
                 visuals = visuals,
@@ -117,7 +116,6 @@ internal fun HomeConnectionButtonLayout(
 
 @Composable
 private fun HomeConnectionButtonContent(
-    state: ConnectionState,
     label: String,
     modeLabel: String,
     visuals: HomeConnectionButtonVisuals,
@@ -145,15 +143,15 @@ private fun HomeConnectionButtonContent(
     }
     Spacer(modifier = Modifier.height(connectionButtonIconSpacerDp.dp))
     AnimatedContent(
-        targetState = state,
+        targetState = label,
         transitionSpec = {
             fadeIn(animationSpec = motion.stateTween()) togetherWith
                 fadeOut(animationSpec = motion.quickTween())
         },
         label = "homeConnectionLabel",
-    ) { _ ->
+    ) { targetLabel ->
         Text(
-            text = label,
+            text = targetLabel,
             style = type.bodyEmphasis,
             color = visuals.contentColor,
             textAlign = TextAlign.Center,
@@ -163,15 +161,15 @@ private fun HomeConnectionButtonContent(
     }
     Spacer(modifier = Modifier.height(connectionButtonModeSpacerDp.dp))
     AnimatedContent(
-        targetState = state,
+        targetState = modeLabel,
         transitionSpec = {
             fadeIn(animationSpec = motion.quickTween()) togetherWith
                 fadeOut(animationSpec = motion.quickTween())
         },
         label = "homeConnectionModeLabel",
-    ) { _ ->
+    ) { targetModeLabel ->
         Text(
-            text = modeLabel,
+            text = targetModeLabel,
             style = type.caption,
             color = visuals.contentColor.copy(alpha = modeLabelAlpha),
             textAlign = TextAlign.Center,
