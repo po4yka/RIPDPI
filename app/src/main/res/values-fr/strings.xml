@@ -2863,6 +2863,12 @@ Source : %2$s</string>
     <string name="mieru_field_password">Mot de passe</string>
     <string name="mieru_field_protocol">Protocole</string>
     <string name="mieru_field_multiplexing">Multiplexage</string>
+    <string name="mieru_transport_tcp">TCP</string>
+    <string name="mieru_transport_udp">UDP</string>
+    <string name="mieru_mux_off">Désactivé</string>
+    <string name="mieru_mux_low">Faible</string>
+    <string name="mieru_mux_middle">Moyen</string>
+    <string name="mieru_mux_high">Élevé</string>
     <string name="mieru_field_mtu">MTU</string>
     <string name="mieru_field_invalid">Valeur non valide pour ce champ.</string>
     <string name="mieru_save_action">Enregistrer</string>
@@ -2880,6 +2886,8 @@ Source : %2$s</string>
     <string name="ssh_field_server_port">Port du serveur</string>
     <string name="ssh_field_username">Nom d\'utilisateur</string>
     <string name="ssh_field_auth_type">Méthode d\'authentification</string>
+    <string name="ssh_auth_password">Mot de passe</string>
+    <string name="ssh_auth_private_key">Clé privée</string>
     <string name="ssh_field_password">Mot de passe</string>
     <string name="ssh_field_private_key">Clé privée</string>
     <string name="ssh_field_private_key_passphrase">Phrase secrète de la clé privée (facultatif)</string>

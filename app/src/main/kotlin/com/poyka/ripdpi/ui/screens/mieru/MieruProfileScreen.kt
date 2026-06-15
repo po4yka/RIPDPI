@@ -10,6 +10,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RelayMieruMultiplexingHigh
+import com.poyka.ripdpi.data.RelayMieruMultiplexingLow
+import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
+import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
+import com.poyka.ripdpi.data.RelayMieruProtocolTcp
+import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
@@ -28,13 +34,35 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
-private val MieruProtocolDropdownOptions:
+@Composable
+private fun rememberMieruProtocolDropdownOptions():
     ImmutableList<com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption<String>> =
-    MieruProtocolOptions.map { RipDpiDropdownOption(value = it, label = it) }.toImmutableList()
+    MieruProtocolOptions
+        .map { value ->
+            val label =
+                when (value) {
+                    RelayMieruProtocolTcp -> stringResource(R.string.mieru_transport_tcp)
+                    RelayMieruProtocolUdp -> stringResource(R.string.mieru_transport_udp)
+                    else -> value
+                }
+            RipDpiDropdownOption(value = value, label = label)
+        }.toImmutableList()
 
-private val MieruMultiplexingDropdownOptions:
+@Composable
+private fun rememberMieruMultiplexingDropdownOptions():
     ImmutableList<com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption<String>> =
-    MieruMultiplexingOptions.map { RipDpiDropdownOption(value = it, label = it) }.toImmutableList()
+    MieruMultiplexingOptions
+        .map { value ->
+            val label =
+                when (value) {
+                    RelayMieruMultiplexingOff -> stringResource(R.string.mieru_mux_off)
+                    RelayMieruMultiplexingLow -> stringResource(R.string.mieru_mux_low)
+                    RelayMieruMultiplexingMiddle -> stringResource(R.string.mieru_mux_middle)
+                    RelayMieruMultiplexingHigh -> stringResource(R.string.mieru_mux_high)
+                    else -> value
+                }
+            RipDpiDropdownOption(value = value, label = label)
+        }.toImmutableList()
 
 /**
  * Mieru profile editor destination.
@@ -147,13 +175,13 @@ private fun TransportSection(
             supporting = stringResource(R.string.mieru_section_transport_body),
         )
         RipDpiDropdown(
-            options = MieruProtocolDropdownOptions,
+            options = rememberMieruProtocolDropdownOptions(),
             selectedValue = editor.protocol,
             onValueSelected = onProtocolSelected,
             label = stringResource(R.string.mieru_field_protocol),
         )
         RipDpiDropdown(
-            options = MieruMultiplexingDropdownOptions,
+            options = rememberMieruMultiplexingDropdownOptions(),
             selectedValue = editor.multiplexing,
             onValueSelected = onMultiplexingSelected,
             label = stringResource(R.string.mieru_field_multiplexing),

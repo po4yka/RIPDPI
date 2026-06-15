@@ -2859,6 +2859,12 @@ fake_burst 3</string>
     <string name="mieru_field_password">密码</string>
     <string name="mieru_field_protocol">协议</string>
     <string name="mieru_field_multiplexing">多路复用</string>
+    <string name="mieru_transport_tcp">TCP</string>
+    <string name="mieru_transport_udp">UDP</string>
+    <string name="mieru_mux_off">关闭</string>
+    <string name="mieru_mux_low">低</string>
+    <string name="mieru_mux_middle">中</string>
+    <string name="mieru_mux_high">高</string>
     <string name="mieru_field_mtu">MTU</string>
     <string name="mieru_field_invalid">此字段的值无效。</string>
     <string name="mieru_save_action">保存</string>
@@ -2876,6 +2882,8 @@ fake_burst 3</string>
     <string name="ssh_field_server_port">服务器端口</string>
     <string name="ssh_field_username">用户名</string>
     <string name="ssh_field_auth_type">身份验证方式</string>
+    <string name="ssh_auth_password">密码</string>
+    <string name="ssh_auth_private_key">私钥</string>
     <string name="ssh_field_password">密码</string>
     <string name="ssh_field_private_key">私钥</string>
     <string name="ssh_field_private_key_passphrase">私钥口令（可选）</string>

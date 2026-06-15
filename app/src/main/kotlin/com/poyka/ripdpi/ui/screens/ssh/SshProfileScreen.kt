@@ -13,6 +13,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -32,9 +33,19 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
-private val SshAuthTypeDropdownOptions:
+@Composable
+private fun rememberSshAuthTypeDropdownOptions():
     ImmutableList<com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption<String>> =
-    SshAuthTypeOptions.map { RipDpiDropdownOption(value = it, label = it) }.toImmutableList()
+    SshAuthTypeOptions
+        .map { value ->
+            val label =
+                when (value) {
+                    RelaySshAuthTypePassword -> stringResource(R.string.ssh_auth_password)
+                    RelaySshAuthTypePrivateKey -> stringResource(R.string.ssh_auth_private_key)
+                    else -> value
+                }
+            RipDpiDropdownOption(value = value, label = label)
+        }.toImmutableList()
 
 /**
  * SSH profile editor destination.
@@ -138,7 +149,7 @@ private fun AuthSection(
             supporting = stringResource(R.string.ssh_section_auth_body),
         )
         RipDpiDropdown(
-            options = SshAuthTypeDropdownOptions,
+            options = rememberSshAuthTypeDropdownOptions(),
             selectedValue = editor.authType,
             onValueSelected = onAuthTypeSelected,
             label = stringResource(R.string.ssh_field_auth_type),

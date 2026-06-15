@@ -2868,6 +2868,12 @@ fakeddisorder endhost</string>
     <string name="mieru_field_password">گذرواژه</string>
     <string name="mieru_field_protocol">پروتکل</string>
     <string name="mieru_field_multiplexing">چندگانه‌سازی</string>
+    <string name="mieru_transport_tcp">TCP</string>
+    <string name="mieru_transport_udp">UDP</string>
+    <string name="mieru_mux_off">خاموش</string>
+    <string name="mieru_mux_low">کم</string>
+    <string name="mieru_mux_middle">متوسط</string>
+    <string name="mieru_mux_high">زیاد</string>
     <string name="mieru_field_mtu">MTU</string>
     <string name="mieru_field_invalid">مقدار نامعتبر برای این فیلد.</string>
     <string name="mieru_save_action">ذخیره</string>
@@ -2885,6 +2891,8 @@ fakeddisorder endhost</string>
     <string name="ssh_field_server_port">درگاه سرور</string>
     <string name="ssh_field_username">نام کاربری</string>
     <string name="ssh_field_auth_type">روش احراز هویت</string>
+    <string name="ssh_auth_password">گذرواژه</string>
+    <string name="ssh_auth_private_key">کلید خصوصی</string>
     <string name="ssh_field_password">گذرواژه</string>
     <string name="ssh_field_private_key">کلید خصوصی</string>
     <string name="ssh_field_private_key_passphrase">عبارت عبور کلید خصوصی (اختیاری)</string>
