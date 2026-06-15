@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -112,7 +111,7 @@ internal fun BlockcheckScreen(
                     LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
                 }
                 state.message?.let {
-                    Text(text = it, style = MaterialTheme.typography.bodyMedium)
+                    Text(text = it, style = RipDpiThemeTokens.type.secondaryBody)
                 }
             }
         }
@@ -120,7 +119,7 @@ internal fun BlockcheckScreen(
             RipDpiCard {
                 Text(
                     text = stringResource(R.string.blockcheck_no_strategies),
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = RipDpiThemeTokens.type.body,
                 )
             }
         }
@@ -129,7 +128,7 @@ internal fun BlockcheckScreen(
                 Text(
                     text = stringResource(R.string.blockcheck_dns_warning),
                     color = RipDpiThemeTokens.colors.destructive,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = RipDpiThemeTokens.type.secondaryBody,
                 )
             }
         }
@@ -164,12 +163,12 @@ private fun BlockcheckDiagnosisCard(
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             Text(
                 text = stringResource(R.string.blockcheck_diagnosis_title),
-                style = MaterialTheme.typography.titleMedium,
+                style = RipDpiThemeTokens.type.sheetTitle,
             )
             if (primary == null) {
                 Text(
                     text = stringResource(R.string.blockcheck_diagnosis_empty),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = RipDpiThemeTokens.type.secondaryBody,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
             } else {
@@ -201,7 +200,7 @@ private fun BlockcheckDiagnosisRow(diagnosis: BlockcheckSiteDiagnosis) {
                     diagnosis.domain,
                     diagnosis.diagnosis.layer.label(),
                 ),
-            style = MaterialTheme.typography.bodyLarge,
+            style = RipDpiThemeTokens.type.body,
         )
         Text(
             text =
@@ -210,7 +209,7 @@ private fun BlockcheckDiagnosisRow(diagnosis: BlockcheckSiteDiagnosis) {
                     diagnosis.diagnosis.bypassClass.label(),
                     diagnosis.diagnosis.confidence.label(),
                 ),
-            style = MaterialTheme.typography.bodySmall,
+            style = RipDpiThemeTokens.type.caption,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
     }
@@ -229,7 +228,7 @@ private fun BlockcheckHeader(
     ) {
         Text(
             text = stringResource(R.string.blockcheck_status_format, state.results.size, state.totalExpectedResults),
-            style = MaterialTheme.typography.titleMedium,
+            style = RipDpiThemeTokens.type.sheetTitle,
             modifier = Modifier.weight(1f),
         )
         RipDpiButton(
@@ -281,12 +280,12 @@ private fun BlockcheckResultsCard(state: BlockcheckUiState) {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             Text(
                 text = stringResource(R.string.blockcheck_results_title),
-                style = MaterialTheme.typography.titleMedium,
+                style = RipDpiThemeTokens.type.sheetTitle,
             )
             if (state.rankedStrategies.isEmpty()) {
                 Text(
                     text = stringResource(R.string.blockcheck_empty_results),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = RipDpiThemeTokens.type.secondaryBody,
                 )
             } else {
                 state.rankedStrategies.forEachIndexed { index, result ->
@@ -311,7 +310,7 @@ private fun BlockcheckRankedRow(
                 .padding(vertical = spacing.xs),
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = result.strategyLabel, style = MaterialTheme.typography.bodyLarge)
+            Text(text = result.strategyLabel, style = RipDpiThemeTokens.type.body)
             Text(
                 text =
                     stringResource(
@@ -320,7 +319,7 @@ private fun BlockcheckRankedRow(
                         result.total,
                         result.averageLatencyMs,
                     ),
-                style = MaterialTheme.typography.bodySmall,
+                style = RipDpiThemeTokens.type.caption,
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
