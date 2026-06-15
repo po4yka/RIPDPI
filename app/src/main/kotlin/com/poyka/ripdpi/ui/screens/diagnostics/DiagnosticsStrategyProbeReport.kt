@@ -608,7 +608,7 @@ private fun auditAssessmentMetrics(
         ),
         com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
             label = stringResource(R.string.diagnostics_audit_matrix_coverage_label),
-            value = "${assessment.coverage.matrixCoveragePercent}%",
+            value = stringResource(R.string.percent_value, assessment.coverage.matrixCoveragePercent),
             tone =
                 if (assessment.coverage.matrixCoveragePercent >= 75) {
                     DiagnosticsTone.Positive
@@ -618,7 +618,7 @@ private fun auditAssessmentMetrics(
         ),
         com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
             label = stringResource(R.string.diagnostics_audit_winner_coverage_label),
-            value = "${assessment.coverage.winnerCoveragePercent}%",
+            value = stringResource(R.string.percent_value, assessment.coverage.winnerCoveragePercent),
             tone =
                 if (assessment.coverage.winnerCoveragePercent >= 50) {
                     DiagnosticsTone.Positive

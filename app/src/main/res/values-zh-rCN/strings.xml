@@ -3855,6 +3855,7 @@ fake_burst 3</string>
     <string name="qr_share_spec_ecc">ECC</string>
     <string name="a11y_share_qr_code">诊断分享二维码</string>
     <string name="a11y_loading">加载中</string>
+    <string name="percent_value">%1$d%%</string>
     <string name="qr_share_spec_payload">PAYLOAD</string>
     <string name="qr_share_spec_schema">SCHEMA</string>
     <string name="qr_share_spec_version">VERSION</string>

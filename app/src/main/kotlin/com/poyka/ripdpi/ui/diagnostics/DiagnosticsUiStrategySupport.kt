@@ -152,7 +152,7 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
                     label = context.getString(R.string.diagnostics_approach_metric_success),
                     value =
                         summary.validatedSuccessRate
-                            ?.let { "${(it * PercentageMultiplier).toInt()}%" }
+                            ?.let { context.getString(R.string.percent_value, (it * PercentageMultiplier).toInt()) }
                             ?: context.getString(R.string.diagnostics_approach_unverified),
                     tone = summary.successMetricTone(),
                 ),

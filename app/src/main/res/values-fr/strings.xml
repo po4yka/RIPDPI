@@ -3854,6 +3854,7 @@ Source : %2$s</string>
     <string name="qr_share_spec_ecc">ECC</string>
     <string name="a11y_share_qr_code">Code QR de partage du diagnostic</string>
     <string name="a11y_loading">Chargement</string>
+    <string name="percent_value">%1$d%%</string>
     <string name="qr_share_spec_payload">PAYLOAD</string>
     <string name="qr_share_spec_schema">SCHEMA</string>
     <string name="qr_share_spec_version">VERSION</string>

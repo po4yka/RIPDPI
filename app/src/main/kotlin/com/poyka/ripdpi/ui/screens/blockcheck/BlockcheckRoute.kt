@@ -331,7 +331,7 @@ private fun BlockcheckRankedRow(
                         if (isBest) {
                             stringResource(R.string.blockcheck_best_badge)
                         } else {
-                            "${(result.successRate * 100).toInt()}%"
+                            stringResource(R.string.percent_value, (result.successRate * 100).toInt())
                         },
                 )
             },
