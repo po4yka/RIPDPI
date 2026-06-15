@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -27,7 +28,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import java.util.Locale
 
 private const val QrPlateSizeMultiplier = 4
 private const val SpecsLabelWeight = 0.4f
@@ -71,6 +71,7 @@ fun RipDpiQrCodeShareCard(
     val spacing = RipDpiThemeTokens.spacing
     val shapes = RipDpiThemeTokens.shapes
     val type = RipDpiThemeTokens.type
+    val locale = LocalConfiguration.current.locales[0]
     val plateSize = spacing.section * QrPlateSizeMultiplier
 
     RipDpiCard(modifier = modifier, variant = RipDpiCardVariant.Outlined) {
@@ -101,7 +102,7 @@ fun RipDpiQrCodeShareCard(
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 Text(
-                    text = metadata.eyebrow.uppercase(Locale.getDefault()),
+                    text = metadata.eyebrow.uppercase(locale),
                     style = type.sectionTitle,
                     color = colors.mutedForeground,
                 )
