@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import com.poyka.ripdpi.R
@@ -167,6 +169,7 @@ private fun ThroughputPlot(state: ThroughputGraphState) {
     val downStroke = RipDpiStroke.Thick
     val upStroke = RipDpiStroke.Thin
     val plotHeight = spacing.section + spacing.xxxl + spacing.xxl + spacing.xs // 100 dp
+    val plotDescription = state.title
 
     Canvas(
         modifier =
@@ -176,7 +179,7 @@ private fun ThroughputPlot(state: ThroughputGraphState) {
                 .clip(
                     androidx.compose.foundation.shape
                         .RoundedCornerShape(shapes.largeCornerRadius),
-                ),
+                ).semantics { contentDescription = plotDescription },
     ) {
         drawRect(color = bgColor)
         drawThroughputCanvas(
