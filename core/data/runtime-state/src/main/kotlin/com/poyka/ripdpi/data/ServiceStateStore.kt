@@ -55,6 +55,16 @@ data class ServiceTelemetrySnapshot(
     val tunnelTelemetryStatus: RuntimeTelemetryStatus = RuntimeTelemetryStatus.NoData,
     val networkHandoverState: String? = null,
     val runtimeFieldTelemetry: RuntimeFieldTelemetry = RuntimeFieldTelemetry(),
+    /**
+     * Live Xray provider engine snapshot, populated only when the active session
+     * runs the Xray provider. Additive runtime DTO field (no proto/schema bump):
+     * the typed provider health axis surfaced DISTINCTLY from the tunnel
+     * data-plane telemetry above. Every field on it is already privacy-safe —
+     * versions, states, error classes, and an ALREADY-REDACTED failure detail
+     * (see [com.poyka.ripdpi.data.xray.XrayProviderSnapshot]). Null for the
+     * native provider path.
+     */
+    val xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
     val serviceStartedAt: Long? = null,
     val restartCount: Int = 0,
     val lastFailureSender: Sender? = null,
