@@ -2574,6 +2574,8 @@ fakeddisorder endhost</string>
     <string name="detection_finding_ok">حسناً</string>
     <string name="detection_score_improved">تحسّنت النقاط</string>
     <string name="detection_score_degraded">تراجعت النقاط</string>
+    <string name="detection_score_unchanged">دون تغيير</string>
+    <string name="detection_stealth_score_value">نقاط التخفّي %1$d</string>
     <string name="routing_protection_section_title">حماية توجيه التطبيق</string>
     <string name="routing_protection_summary_title">تستخدم اقتراحات التوجيه مطابقات التطبيقات المثبتة فقط</string>
     <string name="routing_protection_summary_body">تم اكتشاف %1$d تطبيق خطير عبر %2$d إعداد مسبق مُفعَّل.</string>

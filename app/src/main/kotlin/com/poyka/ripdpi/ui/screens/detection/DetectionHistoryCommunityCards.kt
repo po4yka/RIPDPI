@@ -12,6 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
@@ -86,12 +88,23 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                                 }
 
                                 else -> {
-                                    Triple(RipDpiIcons.Remove, null, colors.mutedForeground)
+                                    Triple(
+                                        RipDpiIcons.Remove,
+                                        stringResource(R.string.detection_score_unchanged),
+                                        colors.mutedForeground,
+                                    )
                                 }
                             }
                         Icon(icon, contentDescription = desc, modifier = Modifier.size(16.dp), tint = tint)
                     }
-                    Text("${entry.stealthScore}", style = type.bodyEmphasis, color = scoreColor)
+                    val stealthScoreDescription =
+                        stringResource(R.string.detection_stealth_score_value, entry.stealthScore)
+                    Text(
+                        "${entry.stealthScore}",
+                        style = type.bodyEmphasis,
+                        color = scoreColor,
+                        modifier = Modifier.semantics { contentDescription = stealthScoreDescription },
+                    )
                 }
             }
         }
