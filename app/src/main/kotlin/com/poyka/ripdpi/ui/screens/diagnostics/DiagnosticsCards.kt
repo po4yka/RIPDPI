@@ -74,7 +74,7 @@ internal fun CompactProbeRow(
                 .fillMaxWidth()
                 .ripDpiClickable(role = Role.Button, onClick = onClick)
                 .heightIn(min = ProbeRowMinHeightDp.dp)
-                .padding(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = 8.dp),
+                .padding(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = RipDpiThemeTokens.spacing.sm),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -196,7 +196,7 @@ internal fun SessionRow(
                         tone = RipDpiMetricTone.Muted,
                         shape = RipDpiThemeTokens.shapes.xxl,
                         textStyle = RipDpiThemeTokens.type.smallLabel,
-                        paddingValues = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        paddingValues = PaddingValues(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 2.dp),
                     )
                 }
                 Text(
@@ -250,7 +250,7 @@ internal fun ProbeResultRow(
         paddingValues =
             PaddingValues(
                 horizontal = RipDpiThemeTokens.layout.cardPadding,
-                vertical = 8.dp,
+                vertical = RipDpiThemeTokens.spacing.sm,
             ),
     ) {
         Row(
@@ -363,7 +363,11 @@ internal fun EventBadge(
         text = text,
         tone = metricTone(tone),
         shape = RipDpiThemeTokens.shapes.md,
-        paddingValues = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+        paddingValues =
+            PaddingValues(
+                horizontal = RipDpiThemeTokens.spacing.sm,
+                vertical = RipDpiThemeTokens.spacing.xs,
+            ),
     )
 }
 
