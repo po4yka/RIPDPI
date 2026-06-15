@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.Base64
 
@@ -191,6 +191,6 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
         const val START_OK = 0
         const val START_REJECTED = 1
         const val MPH_CACHE_FILE_NAME = "geo.mph"
-        val JSON = Json { ignoreUnknownKeys = true }
+        val JSON = RipDpiJson
     }
 }
