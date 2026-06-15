@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
@@ -28,7 +27,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldStrategyChain
@@ -53,6 +51,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -127,7 +126,7 @@ private fun ModeEditorChainBlockSurface(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RipDpiThemeTokens.shapes.sm
 
     Column(
         modifier =
@@ -136,7 +135,7 @@ private fun ModeEditorChainBlockSurface(
                 .alpha(if (enabled) 1f else ChainOverriddenAlpha)
                 .then(if (enabled) Modifier else Modifier.semantics { disabled() })
                 .fillMaxWidth()
-                .border(1.dp, colors.border, shape)
+                .border(RipDpiStroke.Thin, colors.border, shape)
                 .background(colors.card, shape)
                 .padding(spacing.md),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
@@ -364,14 +363,14 @@ private fun ModeEditorChainBlock(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RipDpiThemeTokens.shapes.sm
 
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .ripDpiTestTag(modeEditorChainBlockTag(section, index))
-                .border(1.dp, colors.border, shape)
+                .border(RipDpiStroke.Thin, colors.border, shape)
                 .background(colors.background, shape)
                 .padding(spacing.sm),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
