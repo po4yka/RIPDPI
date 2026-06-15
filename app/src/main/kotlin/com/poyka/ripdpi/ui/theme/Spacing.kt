@@ -128,6 +128,7 @@ data class RipDpiNavigationMetrics(
     val bottomNavIndicatorHeight: Dp = 28.dp,
     val bottomNavHorizontalPadding: Dp = 0.dp,
     val bottomNavIndicatorTopOffset: Dp = 10.dp,
+    val railItemLabelGap: Dp = 2.dp,
 )
 
 @Immutable

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalDivider
@@ -100,7 +99,7 @@ private fun BrandBadge() {
             painter = painterResource(R.drawable.ic_launcher_foreground_ripdpi_clean),
             contentDescription = stringResource(R.string.app_name),
             tint = colors.background,
-            modifier = Modifier.size(24.dp),
+            modifier = Modifier.size(RipDpiIconSizes.Medium),
         )
     }
 }
@@ -117,7 +116,7 @@ private fun NavRailItem(
     Column(
         modifier =
             Modifier
-                .clip(RoundedCornerShape(RipDpiThemeTokens.spacing.md))
+                .clip(RipDpiThemeTokens.shapes.lg)
                 .background(container)
                 .ripDpiSelectable(
                     selected = selected,
@@ -127,7 +126,7 @@ private fun NavRailItem(
                     onClick = onClick,
                 ).padding(horizontal = RipDpiThemeTokens.spacing.md, vertical = RipDpiThemeTokens.spacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.components.navigation.railItemLabelGap),
     ) {
         destination.icon?.let { icon ->
             Icon(
