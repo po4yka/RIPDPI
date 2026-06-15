@@ -272,6 +272,47 @@ class ServiceStatusReporterTest {
         }
     }
 
+    /**
+     * Regression: a STATUS-ONLY update (reportStatus with no snapshot arg) must
+     * NOT blank an Xray provider snapshot already present in the telemetry store.
+     *
+     * The additive xrayProviderSnapshot is populated by the live-telemetry path
+     * and persists for the session. A status-only update (the default-null
+     * xrayProviderSnapshot parameter) previously overwrote it with null, making
+     * the Home banner / Settings row / Diagnostics card flicker to "no provider"
+     * mid-session. The projection now preserves the prior snapshot
+     * (xrayProviderSnapshot ?: currentTelemetry.xrayProviderSnapshot).
+     */
+    @Test
+    fun statusOnlyUpdatePreservesExistingXrayProviderSnapshot() {
+        val existingSnapshot =
+            com.poyka.ripdpi.data.xray.XrayProviderSnapshot(
+                xrayVersion = "25.1.0",
+                profileName = "edge-relay",
+                outboundProtocol = "vless",
+                outboundSecurity = "reality",
+            )
+        val store =
+            TestServiceStateStore().apply {
+                updateTelemetry(
+                    ServiceTelemetrySnapshot(xrayProviderSnapshot = existingSnapshot),
+                )
+            }
+        val reporter = testReporter(store = store, mode = Mode.VPN, sender = Sender.VPN, now = 55L)
+
+        // Status-only update: reportStatus is called WITHOUT a snapshot arg, so the
+        // projection receives the default-null xrayProviderSnapshot.
+        reporter.reportStatus(
+            newStatus = ServiceStatus.Connected,
+            activePolicy = null,
+            consumePendingNetworkHandoverClass = { null },
+            currentNetworkHandoverState = { null },
+            tunnelRecoveryRetryCount = 0L,
+        )
+
+        assertEquals(existingSnapshot, store.telemetry.value.xrayProviderSnapshot)
+    }
+
     private fun testReporter(
         store: TestServiceStateStore,
         mode: Mode,
