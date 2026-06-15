@@ -54,7 +54,6 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
@@ -80,7 +79,6 @@ private const val WarningStagePulseAlpha = 0.82f
 private const val StripeStepPx = 10f
 private const val StripeStrokePx = 2f
 private const val CarriageGripCount = 4
-private val StageIconSize = 12.dp
 
 @Composable
 fun RipDpiConnectionActuator(
@@ -450,7 +448,7 @@ private fun StageSegment(
                 .semantics {
                     contentDescription = stage.label
                     stateDescription = stageStateDescription
-                }.padding(horizontal = 5.dp),
+                }.padding(horizontal = metrics.stageHorizontalPadding),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -462,10 +460,10 @@ private fun StageSegment(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    modifier = Modifier.size(StageIconSize),
+                    modifier = Modifier.size(metrics.stageIconSize),
                     tint = style.content,
                 )
-                Spacer(modifier = Modifier.width(3.dp))
+                Spacer(modifier = Modifier.width(metrics.stageIconGap))
             }
             Text(
                 text = stage.label,

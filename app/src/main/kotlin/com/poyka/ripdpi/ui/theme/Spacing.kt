@@ -109,6 +109,9 @@ data class RipDpiActuatorMetrics(
     val pipelineHeight: Dp = 28.dp,
     val gripWidth: Dp = 2.dp,
     val gripHeight: Dp = 20.dp,
+    val stageIconSize: Dp = 12.dp,
+    val stageHorizontalPadding: Dp = 5.dp,
+    val stageIconGap: Dp = 3.dp,
 )
 
 @Immutable
