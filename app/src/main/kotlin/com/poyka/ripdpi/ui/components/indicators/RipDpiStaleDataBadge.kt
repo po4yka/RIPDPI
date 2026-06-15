@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -165,49 +166,60 @@ fun RipDpiStaleDataBadge(
         val markerBase = if (tones.dot == Color.Transparent) tones.content else tones.dot
         val markerColor = markerBase.copy(alpha = freshPulseAlpha)
         Canvas(modifier = Modifier.size(indicators.staleBadgeDotSize)) {
-            when (tier) {
-                // Round dot — newest tiers (matches the spec pulse on Fresh).
-                RipDpiStaleTier.Fresh, RipDpiStaleTier.Recent -> {
-                    drawCircle(markerColor)
-                }
-
-                // Diamond — Aging.
-                RipDpiStaleTier.Aging -> {
-                    val cx = size.width / 2f
-                    val cy = size.height / 2f
-                    val r = size.width / 2f
-                    drawPath(
-                        Path().apply {
-                            moveTo(cx, cy - r)
-                            lineTo(cx + r, cy)
-                            lineTo(cx, cy + r)
-                            lineTo(cx - r, cy)
-                            close()
-                        },
-                        markerColor,
-                    )
-                }
-
-                // Triangle — Stale (warn before acting).
-                RipDpiStaleTier.Stale -> {
-                    drawPath(
-                        Path().apply {
-                            moveTo(size.width / 2f, 0f)
-                            lineTo(size.width, size.height)
-                            lineTo(0f, size.height)
-                            close()
-                        },
-                        markerColor,
-                    )
-                }
-
-                // Square — Expired (treat as historic).
-                RipDpiStaleTier.Expired -> {
-                    drawRect(markerColor)
-                }
-            }
+            drawStaleTierGlyph(tier, markerColor)
         }
         Text(text = label, style = RipDpiThemeTokens.type.monoSmall.copy(color = tones.content))
+    }
+}
+
+/**
+ * Draws the per-tier shape cue for the stale-data badge in [color]: a round dot for the
+ * newest tiers, a diamond for Aging, a triangle for Stale, and a square for Expired.
+ */
+private fun DrawScope.drawStaleTierGlyph(
+    tier: RipDpiStaleTier,
+    color: Color,
+) {
+    when (tier) {
+        // Round dot — newest tiers (matches the spec pulse on Fresh).
+        RipDpiStaleTier.Fresh, RipDpiStaleTier.Recent -> {
+            drawCircle(color)
+        }
+
+        // Diamond — Aging.
+        RipDpiStaleTier.Aging -> {
+            val cx = size.width / 2f
+            val cy = size.height / 2f
+            val r = size.width / 2f
+            drawPath(
+                Path().apply {
+                    moveTo(cx, cy - r)
+                    lineTo(cx + r, cy)
+                    lineTo(cx, cy + r)
+                    lineTo(cx - r, cy)
+                    close()
+                },
+                color,
+            )
+        }
+
+        // Triangle — Stale (warn before acting).
+        RipDpiStaleTier.Stale -> {
+            drawPath(
+                Path().apply {
+                    moveTo(size.width / 2f, 0f)
+                    lineTo(size.width, size.height)
+                    lineTo(0f, size.height)
+                    close()
+                },
+                color,
+            )
+        }
+
+        // Square — Expired (treat as historic).
+        RipDpiStaleTier.Expired -> {
+            drawRect(color)
+        }
     }
 }
 
