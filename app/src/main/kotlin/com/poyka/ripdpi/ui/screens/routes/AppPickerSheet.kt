@@ -18,13 +18,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -117,11 +119,15 @@ private fun AppPickerRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .ripDpiClickable(onClick = onToggle),
+                .ripDpiToggleable(
+                    value = checked,
+                    role = Role.Checkbox,
+                    onValueChange = { onToggle() },
+                ).semantics(mergeDescendants = true) {},
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        Checkbox(checked = checked, onCheckedChange = { onToggle() })
+        Checkbox(checked = checked, onCheckedChange = null)
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(text = app.label, style = type.body, color = colors.foreground)
             Text(text = app.packageName, style = type.caption, color = colors.mutedForeground)
