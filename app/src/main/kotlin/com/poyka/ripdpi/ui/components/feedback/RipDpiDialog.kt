@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -110,7 +109,7 @@ fun RipDpiDialogCard(
 
     Surface(
         modifier = modifier,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = RipDpiThemeTokens.shapes.xxl,
         color = surfaceStyle.container,
         contentColor = surfaceStyle.content,
         shadowElevation = surfaceStyle.shadowElevation,
@@ -185,7 +184,7 @@ private fun RipDpiModalIconBadge(
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = tone.name,
+            contentDescription = null,
             tint = surfaceStyle.content,
             modifier = Modifier.size(RipDpiIconSizes.Default),
         )
