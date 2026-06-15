@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.components
 
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import com.poyka.ripdpi.R
@@ -78,11 +78,11 @@ private fun LanguageRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onSelected)
+                .ripDpiSelectable(selected = selected, role = Role.RadioButton, onClick = onSelected)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = onSelected)
+        RadioButton(selected = selected, onClick = null)
         Text(
             text =
                 stringResource(
