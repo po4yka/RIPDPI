@@ -26,11 +26,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val StepperDefaultMin = 0
@@ -41,11 +41,6 @@ private const val StepperPreviewMax = 10
 private const val StepperPreviewInitial = 3
 private const val StepperPreviewDisabled = 5
 private const val StepperDarkPreview = 4
-private val StepperOuterPadding = 2.dp
-private val StepperButtonSize = 32.dp
-private val StepperButtonCornerRadius = 6.dp
-private val StepperValueMinWidth = 48.dp
-private val StepperIconSize = 16.dp
 
 /**
  * Numeric stepper: minus / value / plus row, clamped to [valueRange],
@@ -62,6 +57,7 @@ fun RipDpiStepper(
     enabled: Boolean = true,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val inputs = RipDpiThemeTokens.components.inputs
     val shape = RoundedCornerShape(RipDpiThemeTokens.spacing.sm)
     val canDecrement = enabled && value > valueRange.first
     val canIncrement = enabled && value < valueRange.last
@@ -69,11 +65,11 @@ fun RipDpiStepper(
         modifier =
             modifier
                 .background(colors.card, shape)
-                .border(width = 1.dp, color = colors.border, shape = shape)
-                .padding(StepperOuterPadding)
+                .border(width = RipDpiStroke.Thin, color = colors.border, shape = shape)
+                .padding(inputs.stepperOuterPadding)
                 .semantics { contentDescription = "$value" },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(StepperOuterPadding),
+        horizontalArrangement = Arrangement.spacedBy(inputs.stepperOuterPadding),
     ) {
         StepperButton(
             icon = RipDpiIcons.Remove,
@@ -84,7 +80,7 @@ fun RipDpiStepper(
         Box(
             modifier =
                 Modifier
-                    .defaultMinSize(minWidth = StepperValueMinWidth)
+                    .defaultMinSize(minWidth = inputs.stepperValueMinWidth)
                     .padding(horizontal = RipDpiThemeTokens.spacing.sm),
             contentAlignment = Alignment.Center,
         ) {
@@ -110,6 +106,7 @@ private fun StepperButton(
     onClick: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val inputs = RipDpiThemeTokens.components.inputs
     val container = if (enabled) colors.muted else colors.card
     val content = if (enabled) colors.foreground else colors.mutedForeground
     // Visual 32dp; ripDpiClickable wraps the layout in
@@ -119,8 +116,8 @@ private fun StepperButton(
     Box(
         modifier =
             Modifier
-                .size(StepperButtonSize)
-                .background(container, RoundedCornerShape(StepperButtonCornerRadius))
+                .size(inputs.stepperButtonSize)
+                .background(container, RoundedCornerShape(inputs.stepperButtonCornerRadius))
                 .ripDpiClickable(
                     enabled = enabled,
                     role = Role.Button,
@@ -133,7 +130,7 @@ private fun StepperButton(
             imageVector = icon,
             contentDescription = description,
             tint = content,
-            modifier = Modifier.size(StepperIconSize),
+            modifier = Modifier.size(inputs.stepperIconSize),
         )
     }
 }

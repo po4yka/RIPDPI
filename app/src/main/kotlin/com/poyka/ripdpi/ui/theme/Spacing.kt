@@ -91,6 +91,11 @@ data class RipDpiInputMetrics(
     val switchTrackHeight: Dp = 32.dp,
     val switchThumbSize: Dp = 24.dp,
     val switchThumbPadding: Dp = 4.dp,
+    val stepperOuterPadding: Dp = 2.dp,
+    val stepperButtonSize: Dp = 32.dp,
+    val stepperButtonCornerRadius: Dp = 6.dp,
+    val stepperValueMinWidth: Dp = 48.dp,
+    val stepperIconSize: Dp = 16.dp,
 )
 
 @Immutable
