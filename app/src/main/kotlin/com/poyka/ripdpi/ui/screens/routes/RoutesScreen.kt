@@ -168,15 +168,11 @@ private fun RuleListRow(
     onDragBy: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val spacing = RipDpiThemeTokens.spacing
-    val type = RipDpiThemeTokens.type
-    val colors = RipDpiThemeTokens.colors
     // Drag distance (in px) that commits a one-slot reorder. Derived from an existing layout token
     // rather than a literal .dp so the RDS no-literal-token floor holds in the component layer.
     val dragThreshold = RipDpiThemeTokens.components.inputs.multilineFieldMinHeight
     val rowHeightPx = with(LocalDensity.current) { dragThreshold.toPx() }
     var dragOffsetY by remember { mutableStateOf(0f) }
-    val newRuleName = stringResource(R.string.routes_add_rule)
     val moveUpLabel = stringResource(R.string.routes_move_up)
     val moveDownLabel = stringResource(R.string.routes_move_down)
 
@@ -223,50 +219,81 @@ private fun RuleListRow(
                     }
                 },
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = row.rule.name.ifBlank { newRuleName },
-                    style = type.bodyEmphasis,
-                    color = colors.foreground,
-                )
-                Text(
-                    text = ruleSummaryLine(row),
-                    style = type.secondaryBody,
-                    color = colors.mutedForeground,
-                )
-            }
-            Switch(checked = row.rule.enabled, onCheckedChange = { onToggleEnabled() })
+        RuleListRowSummary(row = row, onToggleEnabled = onToggleEnabled)
+        RuleListRowControls(
+            index = index,
+            count = count,
+            onMoveUp = onMoveUp,
+            onMoveDown = onMoveDown,
+            onDelete = onDelete,
+        )
+    }
+}
+
+@Composable
+private fun RuleListRowSummary(
+    row: RuleRow,
+    onToggleEnabled: () -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    val newRuleName = stringResource(R.string.routes_add_rule)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = row.rule.name.ifBlank { newRuleName },
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = ruleSummaryLine(row),
+                style = type.secondaryBody,
+                color = colors.mutedForeground,
+            )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.xs),
-        ) {
-            IconButton(onClick = onMoveUp, enabled = index > 0) {
-                Icon(
-                    imageVector = RipDpiIcons.KeyboardArrowUp,
-                    contentDescription = stringResource(R.string.routes_move_up),
-                    tint = colors.foreground,
-                )
-            }
-            IconButton(onClick = onMoveDown, enabled = index < count - 1) {
-                Icon(
-                    imageVector = RipDpiIcons.KeyboardArrowDown,
-                    contentDescription = stringResource(R.string.routes_move_down),
-                    tint = colors.foreground,
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = RipDpiIcons.Delete,
-                    contentDescription = stringResource(R.string.rule_editor_delete),
-                    tint = colors.destructive,
-                )
-            }
+        Switch(checked = row.rule.enabled, onCheckedChange = { onToggleEnabled() })
+    }
+}
+
+@Composable
+private fun RuleListRowControls(
+    index: Int,
+    count: Int,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val colors = RipDpiThemeTokens.colors
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        IconButton(onClick = onMoveUp, enabled = index > 0) {
+            Icon(
+                imageVector = RipDpiIcons.KeyboardArrowUp,
+                contentDescription = stringResource(R.string.routes_move_up),
+                tint = colors.foreground,
+            )
+        }
+        IconButton(onClick = onMoveDown, enabled = index < count - 1) {
+            Icon(
+                imageVector = RipDpiIcons.KeyboardArrowDown,
+                contentDescription = stringResource(R.string.routes_move_down),
+                tint = colors.foreground,
+            )
+        }
+        IconButton(onClick = onDelete) {
+            Icon(
+                imageVector = RipDpiIcons.Delete,
+                contentDescription = stringResource(R.string.rule_editor_delete),
+                tint = colors.destructive,
+            )
         }
     }
 }
