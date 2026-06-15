@@ -14,6 +14,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -21,7 +22,6 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import java.util.Locale
 
 enum class LogRowTone {
     Dns,
@@ -44,6 +44,7 @@ fun LogRow(
     val spacing = RipDpiThemeTokens.spacing
     val typeScale = RipDpiThemeTokens.type
     val palette = logRowPalette(tone)
+    val locale = LocalConfiguration.current.locales[0]
 
     Column(
         modifier =
@@ -76,7 +77,7 @@ fun LogRow(
                         ),
             ) {
                 androidx.compose.material3.Text(
-                    text = type.uppercase(Locale.getDefault()),
+                    text = type.uppercase(locale),
                     style = typeScale.smallLabel,
                     color = palette.badgeContent,
                 )
