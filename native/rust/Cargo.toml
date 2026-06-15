@@ -222,7 +222,7 @@ ripdpi-trojan = { path = "crates/ripdpi-trojan" }
 ripdpi-mieru = { path = "crates/ripdpi-mieru" }
 ripdpi-network-time = { path = "crates/ripdpi-network-time" }
 ripdpi-ssh = { path = "crates/ripdpi-ssh" }
-russh = "=0.61.1"
+russh = "=0.61.2"
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
 ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
 criterion = { version = "0.8", features = ["html_reports"] }
