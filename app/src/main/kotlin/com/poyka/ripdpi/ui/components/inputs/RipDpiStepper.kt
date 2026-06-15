@@ -22,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -120,7 +121,12 @@ private fun StepperButton(
             Modifier
                 .size(StepperButtonSize)
                 .background(container, RoundedCornerShape(StepperButtonCornerRadius))
-                .ripDpiClickable(enabled = enabled, onClickLabel = description, onClick = onClick),
+                .ripDpiClickable(
+                    enabled = enabled,
+                    role = Role.Button,
+                    onClickLabel = description,
+                    onClick = onClick,
+                ),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
