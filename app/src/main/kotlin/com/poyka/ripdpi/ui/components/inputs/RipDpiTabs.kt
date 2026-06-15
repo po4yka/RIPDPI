@@ -9,8 +9,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 data class RipDpiTab(
@@ -41,7 +41,7 @@ fun RipDpiTabs(
         indicator = {
             SecondaryIndicator(
                 modifier = Modifier.tabIndicatorOffset(selectedIndex),
-                height = 2.dp,
+                height = RipDpiStroke.Thick,
                 color = colors.foreground,
             )
         },
