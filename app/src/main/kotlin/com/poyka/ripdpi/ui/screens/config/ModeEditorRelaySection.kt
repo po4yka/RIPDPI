@@ -14,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldRelayCredentials
@@ -46,7 +45,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val relayChipColumns = 2
-private val relayProtocolChipHeight = 64.dp
 
 @Composable
 internal fun ModeEditorRelaySection(
@@ -188,6 +186,7 @@ private fun RelayChipSection(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
+    val chipHeight = RipDpiThemeTokens.components.inputs.chipHeight
 
     Column(
         modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.modeEditorRelaySection(sectionKey)),
@@ -211,7 +210,7 @@ private fun RelayChipSection(
                     )
                 }
                 repeat(relayChipColumns - rowChips.size) {
-                    Spacer(modifier = Modifier.weight(1f).height(relayProtocolChipHeight))
+                    Spacer(modifier = Modifier.weight(1f).height(chipHeight))
                 }
             }
         }
@@ -226,7 +225,7 @@ private fun RowScope.RelayChipOption(
 ) {
     val chipModifier =
         Modifier
-            .height(relayProtocolChipHeight)
+            .height(RipDpiThemeTokens.components.inputs.chipHeight)
             .ripDpiTestTag(RipDpiTestTags.modeEditorRelayChip(chip.kind))
     if (chip.labelRes != null) {
         RelayKindChip(
