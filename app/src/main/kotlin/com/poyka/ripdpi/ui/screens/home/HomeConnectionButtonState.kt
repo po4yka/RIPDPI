@@ -9,7 +9,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -80,15 +79,14 @@ internal data class HomeConnectionButtonMotionState(
 internal fun rememberHomeConnectionButtonVisuals(state: ConnectionState): HomeConnectionButtonVisuals {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
-    val scheme = MaterialTheme.colorScheme
     val targetVisuals =
-        remember(state, colors, scheme) {
+        remember(state, colors) {
             HomeConnectionButtonVisuals(
                 icon = state.homeConnectionIcon(),
                 containerColor =
                     when (state) {
                         ConnectionState.Connected, ConnectionState.Connecting -> colors.foreground
-                        ConnectionState.Disconnected, ConnectionState.Error -> scheme.surface
+                        ConnectionState.Disconnected, ConnectionState.Error -> colors.card
                     },
                 contentColor =
                     when (state) {
