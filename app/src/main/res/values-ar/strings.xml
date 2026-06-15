@@ -1490,6 +1490,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_bootstrap_label">عناوين IP للتمهيد</string>
     <string name="dns_custom_bootstrap_helper">أدخل عنوان IP واحداً أو أكثر للمحلِّل مفصولةً بفواصل أو مسافات.</string>
     <string name="dns_custom_bootstrap_error">أدخل عنوان IP تمهيدياً واحداً على الأقل من غير الشبكة المحلية.</string>
+    <string name="dns_custom_save_requirements_hint">املأ جميع الحقول المطلوبة للحفظ</string>
     <string name="dns_custom_switch_hint">احفظ هذا النموذج لاستبدال الملف الشخصي المدمج الحالي بنقطة نهاية مخصَّصة.</string>
     <string name="dns_resolver_custom_active">يُستخدم عنوان مخصَّص</string>
     <string name="dns_selected_badge">محدَّد</string>

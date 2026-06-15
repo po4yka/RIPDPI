@@ -123,6 +123,13 @@ internal fun CustomEncryptedDnsSection(
                         .fillMaxWidth()
                         .ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
             )
+            if (!(customDotValid && customDotDirty)) {
+                Text(
+                    text = stringResource(R.string.dns_custom_save_requirements_hint),
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
         }
 
         EncryptedDnsProtocolDnsCrypt -> {
@@ -213,6 +220,13 @@ internal fun CustomEncryptedDnsSection(
                         .fillMaxWidth()
                         .ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
             )
+            if (!(customDnsCryptValid && customDnsCryptDirty)) {
+                Text(
+                    text = stringResource(R.string.dns_custom_save_requirements_hint),
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
         }
 
         else -> {
@@ -293,6 +307,13 @@ internal fun CustomEncryptedDnsSection(
                         .fillMaxWidth()
                         .ripDpiTestTag(RipDpiTestTags.DnsCustomSave),
             )
+            if (!(customDohValid && customDohDirty)) {
+                Text(
+                    text = stringResource(R.string.dns_custom_save_requirements_hint),
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
         }
     }
 }

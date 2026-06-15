@@ -1803,6 +1803,7 @@ fake_burst 3</string>
     <string name="dns_active_detail_bootstrap">引导</string>
     <string name="dns_active_route_plain_vpn">在本地 VPN 模式下,查询直接发送到此解析器 IP。</string>
     <string name="dns_custom_bootstrap_error">请输入一个或多个非本地引导 IP 地址。</string>
+    <string name="dns_custom_save_requirements_hint">请填写所有必填字段以保存</string>
     <string name="dns_custom_dnscrypt_host_helper">DNSCrypt 服务器的主机名或 IP。</string>
     <string name="dns_custom_dnscrypt_public_key_helper">解析器签名密钥,64 个十六进制字符。</string>
     <string name="dns_custom_doh_title">自定义 DoH</string>

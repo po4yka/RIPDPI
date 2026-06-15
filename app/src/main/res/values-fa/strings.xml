@@ -1579,6 +1579,7 @@ fakeddisorder endhost</string>
     <string name="dns_active_detail_route">مسیر تونل</string>
     <string name="dns_active_route_saved">اکنون ذخیره شد و دفعه بعد که حالت VPN محلی فعال باشد اعمال خواهد شد.</string>
     <string name="dns_custom_bootstrap_error">یک یا چند آدرس IP بوت‌استرپ غیرمحلی وارد کنید.</string>
+    <string name="dns_custom_save_requirements_hint">برای ذخیره، همه فیلدهای لازم را پر کنید</string>
     <string name="dns_custom_dnscrypt_body">با مشخص کردن endpoint، نام ارائه‌دهنده، کلید عمومی و IPهای بوت‌استرپ از یک resolver DNSCrypt استفاده کنید.</string>
     <string name="dns_custom_dnscrypt_provider_label">نام ارائه‌دهنده</string>
     <string name="dns_custom_dnscrypt_public_key_label">کلید عمومی</string>

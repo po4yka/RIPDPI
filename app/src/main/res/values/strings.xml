@@ -1517,6 +1517,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_bootstrap_label">Bootstrap IPs</string>
     <string name="dns_custom_bootstrap_helper">Enter one or more resolver IPs separated by commas or spaces.</string>
     <string name="dns_custom_bootstrap_error">Enter one or more non-local bootstrap IP addresses.</string>
+    <string name="dns_custom_save_requirements_hint">Fill in all required fields to save</string>
     <string name="dns_custom_switch_hint">Save this form to replace the current built-in profile with a custom endpoint.</string>
     <string name="dns_resolver_custom_active">Using custom address</string>
     <string name="dns_selected_badge">Selected</string>

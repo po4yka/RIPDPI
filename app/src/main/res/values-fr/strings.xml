@@ -782,6 +782,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="diagnostics_warn_vpn_permission">La permission VPN n\'est pas actuellement accordée.</string>
     <string name="dns_active_route_encrypted_vpn">L\'interception DNS mappée est active en mode VPN local.</string>
     <string name="dns_custom_bootstrap_error">Saisissez une ou plusieurs adresses IP de bootstrap non locales.</string>
+    <string name="dns_custom_save_requirements_hint">Remplissez tous les champs requis pour enregistrer</string>
     <string name="dns_custom_dnscrypt_provider_helper">Nom du fournisseur de certificat annoncé par le résolveur DNSCrypt.</string>
     <string name="dns_custom_dnscrypt_title">DNSCrypt personnalisé</string>
     <string name="dns_custom_doh_url_label">URL DoH</string>

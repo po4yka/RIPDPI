@@ -1093,6 +1093,7 @@ fakeddisorder endhost</string>
     <string name="dns_custom_bootstrap_label">Bootstrap IP</string>
     <string name="dns_custom_bootstrap_helper">Введите один или несколько IP-адресов резолвера, разделённых запятыми или пробелами.</string>
     <string name="dns_custom_bootstrap_error">Введите один или несколько нелокальных bootstrap IP-адресов.</string>
+    <string name="dns_custom_save_requirements_hint">Заполните все обязательные поля, чтобы сохранить</string>
     <string name="dns_custom_switch_hint">Сохраните форму, чтобы заменить текущий встроенный профиль пользовательским адресом.</string>
     <string name="dns_resolver_custom_active">Используется пользовательский адрес</string>
     <string name="dns_selected_badge">Выбран</string>
