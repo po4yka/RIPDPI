@@ -38,7 +38,7 @@ internal fun StatusVisualIndicator(
     mode: DetectionColorVisionMode,
     modifier: Modifier = Modifier,
     size: Dp = 16.dp,
-    contentDescription: String = state.displayName,
+    contentDescription: String = state.displayLabel(),
 ) {
     val visual = StatusVisualResolver.resolve(state = state, mode = mode)
     val color = Color(parseColor(visual.colorHex))
@@ -129,7 +129,7 @@ internal fun StatusVisualPreviewRow(
             ) {
                 StatusVisualIndicator(state = state, mode = mode)
                 Text(
-                    text = state.displayName,
+                    text = state.displayLabel(),
                     style = RipDpiThemeTokens.type.caption,
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )

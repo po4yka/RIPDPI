@@ -3692,6 +3692,15 @@ fake_burst 3</string>
     <string name="detection_settings_xray_api_scan_subtitle">搜索本地主机 gRPC 控制端口</string>
     <string name="detection_settings_xray_api_scan_title">Xray API 扫描</string>
     <string name="detection_status_visuals_title">状态视觉效果</string>
+    <string name="detection_state_clean">干净</string>
+    <string name="detection_state_review">待审查</string>
+    <string name="detection_state_detected">已检测</string>
+    <string name="detection_state_error">错误</string>
+    <string name="detection_state_neutral">中性</string>
+    <string name="detection_color_vision_standard">标准</string>
+    <string name="detection_color_vision_red_green">红/绿安全</string>
+    <string name="detection_color_vision_blue_yellow">蓝/黄安全</string>
+    <string name="detection_color_vision_achromatopsia">全色盲</string>
     <string name="detection_stealth_score_label">在应用了掩护处，隐身度</string>
     <string name="detection_stealth_score_value">%1$d/100</string>
     <string name="detection_verdict_adjust_format">应调整：%1$s</string>

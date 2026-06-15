@@ -3703,6 +3703,15 @@ Origen: %2$s</string>
     <string name="detection_settings_xray_api_scan_subtitle">Busca puertos de control gRPC en localhost</string>
     <string name="detection_settings_xray_api_scan_title">Escaneo de API de Xray</string>
     <string name="detection_status_visuals_title">Elementos visuales de estado</string>
+    <string name="detection_state_clean">Limpio</string>
+    <string name="detection_state_review">Revisión</string>
+    <string name="detection_state_detected">Detectado</string>
+    <string name="detection_state_error">Error</string>
+    <string name="detection_state_neutral">Neutral</string>
+    <string name="detection_color_vision_standard">Estándar</string>
+    <string name="detection_color_vision_red_green">Seguro rojo/verde</string>
+    <string name="detection_color_vision_blue_yellow">Seguro azul/amarillo</string>
+    <string name="detection_color_vision_achromatopsia">Acromatopsia</string>
     <string name="detection_stealth_score_label">Donde se aplicó el enmascaramiento, sigilo</string>
     <string name="detection_stealth_score_value">%1$d/100</string>
     <string name="detection_verdict_adjust_format">Qué ajustar: %1$s</string>

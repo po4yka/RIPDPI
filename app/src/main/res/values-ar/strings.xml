@@ -3731,6 +3731,15 @@ fakeddisorder endhost</string>
     <string name="detection_settings_xray_api_scan_subtitle">ابحث عن منافذ تحكم gRPC على localhost</string>
     <string name="detection_settings_xray_api_scan_title">فحص واجهة Xray</string>
     <string name="detection_status_visuals_title">العناصر المرئية للحالة</string>
+    <string name="detection_state_clean">نظيف</string>
+    <string name="detection_state_review">مراجعة</string>
+    <string name="detection_state_detected">تم الكشف</string>
+    <string name="detection_state_error">خطأ</string>
+    <string name="detection_state_neutral">محايد</string>
+    <string name="detection_color_vision_standard">قياسي</string>
+    <string name="detection_color_vision_red_green">آمن للأحمر/الأخضر</string>
+    <string name="detection_color_vision_blue_yellow">آمن للأزرق/الأصفر</string>
+    <string name="detection_color_vision_achromatopsia">عمى الألوان الكلي</string>
     <string name="detection_stealth_score_label">حيثما طُبّق الإخفاء، التخفّي</string>
     <string name="detection_stealth_score_value">%1$d/100</string>
     <string name="detection_verdict_adjust_format">ما الذي يجب تعديله: %1$s</string>

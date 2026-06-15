@@ -3708,6 +3708,15 @@ fakeddisorder endhost</string>
     <string name="detection_settings_xray_api_scan_subtitle">جست‌وجوی پورت‌های کنترل gRPC روی localhost</string>
     <string name="detection_settings_xray_api_scan_title">پویش API مربوط به Xray</string>
     <string name="detection_status_visuals_title">نمایه‌های وضعیت</string>
+    <string name="detection_state_clean">پاک</string>
+    <string name="detection_state_review">بررسی</string>
+    <string name="detection_state_detected">شناسایی‌شده</string>
+    <string name="detection_state_error">خطا</string>
+    <string name="detection_state_neutral">خنثی</string>
+    <string name="detection_color_vision_standard">استاندارد</string>
+    <string name="detection_color_vision_red_green">ایمن قرمز/سبز</string>
+    <string name="detection_color_vision_blue_yellow">ایمن آبی/زرد</string>
+    <string name="detection_color_vision_achromatopsia">آکروماتوپسی</string>
     <string name="detection_stealth_score_label">جایی که پوشش اعمال شد، پنهان‌کاری</string>
     <string name="detection_stealth_score_value">%1$d/100</string>
     <string name="detection_verdict_adjust_format">چه چیزی را تنظیم کنیم: %1$s</string>

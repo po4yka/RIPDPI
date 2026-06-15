@@ -3846,6 +3846,15 @@ fakeddisorder endhost</string>
     <string name="detection_settings_xray_api_scan_subtitle">Искать управляющие порты gRPC на localhost</string>
     <string name="detection_settings_xray_api_scan_title">Сканирование Xray API</string>
     <string name="detection_status_visuals_title">Визуальные элементы статуса</string>
+    <string name="detection_state_clean">Чисто</string>
+    <string name="detection_state_review">Проверка</string>
+    <string name="detection_state_detected">Обнаружено</string>
+    <string name="detection_state_error">Ошибка</string>
+    <string name="detection_state_neutral">Нейтрально</string>
+    <string name="detection_color_vision_standard">Стандартный</string>
+    <string name="detection_color_vision_red_green">Защита красный/зелёный</string>
+    <string name="detection_color_vision_blue_yellow">Защита синий/жёлтый</string>
+    <string name="detection_color_vision_achromatopsia">Ахроматопсия</string>
     <string name="detection_stealth_score_label">Где применена маскировка, скрытность</string>
     <string name="detection_stealth_score_value">%1$d/100</string>
     <string name="detection_verdict_adjust_format">Что изменить: %1$s</string>

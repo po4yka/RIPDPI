@@ -3829,6 +3829,15 @@ Source: %2$s</string>
     <string name="detection_settings_xray_api_scan_subtitle">Search localhost gRPC control ports</string>
     <string name="detection_settings_xray_api_scan_title">Xray API scan</string>
     <string name="detection_status_visuals_title">Status visuals</string>
+    <string name="detection_state_clean">Clean</string>
+    <string name="detection_state_review">Review</string>
+    <string name="detection_state_detected">Detected</string>
+    <string name="detection_state_error">Error</string>
+    <string name="detection_state_neutral">Neutral</string>
+    <string name="detection_color_vision_standard">Standard</string>
+    <string name="detection_color_vision_red_green">Red/green safe</string>
+    <string name="detection_color_vision_blue_yellow">Blue/yellow safe</string>
+    <string name="detection_color_vision_achromatopsia">Achromatopsia</string>
     <string name="detection_stealth_score_label">Where masking applied, stealth</string>
     <string name="detection_stealth_score_value">%1$d/100</string>
     <string name="detection_verdict_adjust_format">What to adjust: %1$s</string>

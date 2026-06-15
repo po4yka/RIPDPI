@@ -3703,6 +3703,15 @@ Quelle: %2$s</string>
     <string name="detection_settings_xray_api_scan_subtitle">Localhost-gRPC-Steuerports durchsuchen</string>
     <string name="detection_settings_xray_api_scan_title">Xray-API-Scan</string>
     <string name="detection_status_visuals_title">Status-Visualisierungen</string>
+    <string name="detection_state_clean">Sauber</string>
+    <string name="detection_state_review">Prüfung</string>
+    <string name="detection_state_detected">Erkannt</string>
+    <string name="detection_state_error">Fehler</string>
+    <string name="detection_state_neutral">Neutral</string>
+    <string name="detection_color_vision_standard">Standard</string>
+    <string name="detection_color_vision_red_green">Rot/Grün-sicher</string>
+    <string name="detection_color_vision_blue_yellow">Blau/Gelb-sicher</string>
+    <string name="detection_color_vision_achromatopsia">Achromatopsie</string>
     <string name="detection_stealth_score_label">Wo Maskierung angewendet wurde, Stealth</string>
     <string name="detection_stealth_score_value">%1$d/100</string>
     <string name="detection_verdict_adjust_format">Was anzupassen ist: %1$s</string>

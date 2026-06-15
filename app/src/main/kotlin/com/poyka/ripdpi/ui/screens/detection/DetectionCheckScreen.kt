@@ -375,7 +375,7 @@ private fun DetectionColorVisionControls(
         ) {
             DetectionColorVisionMode.entries.forEach { mode ->
                 RipDpiChip(
-                    text = mode.displayName,
+                    text = mode.displayLabel(),
                     selected = selectedMode == mode,
                     enabled = controlEnabled,
                     onClick = { onModeChange(mode) },
