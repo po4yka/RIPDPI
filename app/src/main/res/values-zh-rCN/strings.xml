@@ -3177,6 +3177,8 @@ fake_burst 3</string>
     <string name="rule_editor_outbound_block">拦截</string>
     <string name="rule_editor_outbound_profile">配置：%1$s</string>
     <string name="rule_editor_outbound_group">分组：%1$s</string>
+    <string name="outbound_group_fallback">分组 #%1$d</string>
+    <string name="outbound_profile_fallback">配置 #%1$d</string>
     <string name="rule_editor_save">保存</string>
     <string name="rule_editor_cancel">取消</string>
     <string name="rule_editor_empty_error_title">规则为空</string>

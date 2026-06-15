@@ -3181,6 +3181,8 @@ Quelle: %2$s</string>
     <string name="rule_editor_outbound_block">Blockieren</string>
     <string name="rule_editor_outbound_profile">Profil: %1$s</string>
     <string name="rule_editor_outbound_group">Gruppe: %1$s</string>
+    <string name="outbound_group_fallback">Gruppe #%1$d</string>
+    <string name="outbound_profile_fallback">Profil #%1$d</string>
     <string name="rule_editor_save">Speichern</string>
     <string name="rule_editor_cancel">Abbrechen</string>
     <string name="rule_editor_empty_error_title">Regel ist leer</string>

@@ -3338,6 +3338,8 @@ Source: %2$s</string>
     <string name="rule_editor_outbound_block">Block</string>
     <string name="rule_editor_outbound_profile">Profile: %1$s</string>
     <string name="rule_editor_outbound_group">Group: %1$s</string>
+    <string name="outbound_group_fallback">Group #%1$d</string>
+    <string name="outbound_profile_fallback">Profile #%1$d</string>
     <string name="rule_editor_save">Save</string>
     <string name="rule_editor_cancel">Cancel</string>
     <string name="rule_editor_empty_error_title">Rule is empty</string>

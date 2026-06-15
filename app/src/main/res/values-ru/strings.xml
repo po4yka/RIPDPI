@@ -3310,6 +3310,8 @@ fakeddisorder endhost</string>
     <string name="rule_editor_outbound_block">Блокировать</string>
     <string name="rule_editor_outbound_profile">Профиль: %1$s</string>
     <string name="rule_editor_outbound_group">Группа: %1$s</string>
+    <string name="outbound_group_fallback">Группа №%1$d</string>
+    <string name="outbound_profile_fallback">Профиль №%1$d</string>
     <string name="rule_editor_save">Сохранить</string>
     <string name="rule_editor_cancel">Отмена</string>
     <string name="rule_editor_empty_error_title">Правило пустое</string>

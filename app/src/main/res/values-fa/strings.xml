@@ -3186,6 +3186,8 @@ fakeddisorder endhost</string>
     <string name="rule_editor_outbound_block">مسدود کردن</string>
     <string name="rule_editor_outbound_profile">نمایه: %1$s</string>
     <string name="rule_editor_outbound_group">گروه: %1$s</string>
+    <string name="outbound_group_fallback">گروه شماره %1$d</string>
+    <string name="outbound_profile_fallback">نمایه شماره %1$d</string>
     <string name="rule_editor_save">ذخیره</string>
     <string name="rule_editor_cancel">لغو</string>
     <string name="rule_editor_empty_error_title">قانون خالی است</string>

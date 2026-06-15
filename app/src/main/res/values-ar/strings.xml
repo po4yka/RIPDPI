@@ -3043,6 +3043,8 @@ fakeddisorder endhost</string>
     <string name="rule_editor_outbound_block">حجب</string>
     <string name="rule_editor_outbound_profile">الملف الشخصي: %1$s</string>
     <string name="rule_editor_outbound_group">المجموعة: %1$s</string>
+    <string name="outbound_group_fallback">المجموعة رقم %1$d</string>
+    <string name="outbound_profile_fallback">الملف الشخصي رقم %1$d</string>
     <string name="rule_editor_save">حفظ</string>
     <string name="rule_editor_cancel">إلغاء</string>
     <string name="rule_editor_empty_error_title">القاعدة فارغة</string>

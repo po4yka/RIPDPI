@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.ui.screens.routes
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.rules.OutboundTag
+import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,15 +44,16 @@ class OutboundTargetCatalog
     constructor(
         private val proxyGroupRepository: ProxyGroupRepository,
         private val relayProfileStore: RelayProfileStore,
+        private val stringResolver: StringResolver,
     ) {
         /** Returns built-in actions first, then groups, then profiles, each with a display label. */
         suspend fun targets(): List<OutboundTarget> {
             val groups = proxyGroupRepository.groups().first()
             val profiles = relayProfileStore.list()
             return buildList {
-                add(OutboundTarget(OutboundTag.Proxy, BuiltInProxyLabel))
-                add(OutboundTarget(OutboundTag.Bypass, BuiltInBypassLabel))
-                add(OutboundTarget(OutboundTag.Block, BuiltInBlockLabel))
+                add(OutboundTarget(OutboundTag.Proxy, builtInProxyLabel()))
+                add(OutboundTarget(OutboundTag.Bypass, builtInBypassLabel()))
+                add(OutboundTarget(OutboundTag.Block, builtInBlockLabel()))
                 groups.forEach { group ->
                     add(OutboundTarget(OutboundTag.Group(stableId(group.id)), group.name))
                 }
@@ -72,31 +75,37 @@ class OutboundTargetCatalog
         ): String =
             when (tag) {
                 OutboundTag.Proxy -> {
-                    BuiltInProxyLabel
+                    builtInProxyLabel()
                 }
 
                 OutboundTag.Bypass -> {
-                    BuiltInBypassLabel
+                    builtInBypassLabel()
                 }
 
                 OutboundTag.Block -> {
-                    BuiltInBlockLabel
+                    builtInBlockLabel()
                 }
 
                 is OutboundTag.Group -> {
                     groups
                         .firstOrNull { stableId(it.id) == tag.groupId }
                         ?.name
-                        ?: "Group #${tag.groupId}"
+                        ?: stringResolver.getString(R.string.outbound_group_fallback, tag.groupId)
                 }
 
                 is OutboundTag.Profile -> {
                     profiles
                         .firstOrNull { stableId(it.id) == tag.profileId }
                         ?.let(::profileLabel)
-                        ?: "Profile #${tag.profileId}"
+                        ?: stringResolver.getString(R.string.outbound_profile_fallback, tag.profileId)
                 }
             }
+
+        private fun builtInProxyLabel(): String = stringResolver.getString(R.string.rule_editor_outbound_proxy)
+
+        private fun builtInBypassLabel(): String = stringResolver.getString(R.string.rule_editor_outbound_bypass)
+
+        private fun builtInBlockLabel(): String = stringResolver.getString(R.string.rule_editor_outbound_block)
 
         private fun profileLabel(profile: RelayProfileRecord): String =
             profile.operatorName.ifBlank { profile.server }.ifBlank { profile.id }
@@ -118,10 +127,6 @@ class OutboundTargetCatalog
         }
 
         private companion object {
-            const val BuiltInProxyLabel = "Proxy"
-            const val BuiltInBypassLabel = "Bypass (direct)"
-            const val BuiltInBlockLabel = "Block"
-
             // 64-bit FNV-1a constants (offset basis interpreted as a signed Long via toLong()).
             const val FnvOffsetBasis: Long = -3750763034362895579L // 0xCBF29CE484222325
             const val FnvPrime: Long = 0x100000001B3
