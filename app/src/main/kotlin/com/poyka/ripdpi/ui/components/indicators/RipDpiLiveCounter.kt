@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -17,7 +18,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.text.NumberFormat
-import java.util.Locale
 
 private const val PreviewLatencyMillis = 1234
 private const val PreviewSuccessPercent = 87
@@ -40,12 +40,13 @@ fun RipDpiLiveCounter(
     style: TextStyle = RipDpiThemeTokens.type.monoValue,
 ) {
     val motion = RipDpiThemeTokens.motion
+    val locale = LocalConfiguration.current.locales[0]
     val animated by animateIntAsState(
         targetValue = value,
         animationSpec = motion.stateTween(),
         label = "liveCounter",
     )
-    val display = "${NumberFormat.getInstance(Locale.getDefault()).format(animated)}$suffix"
+    val display = "${NumberFormat.getInstance(locale).format(animated)}$suffix"
     Text(
         text = display,
         modifier = modifier.semantics { contentDescription = display },
