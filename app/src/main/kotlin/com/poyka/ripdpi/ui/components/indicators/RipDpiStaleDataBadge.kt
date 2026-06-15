@@ -22,9 +22,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.time.Duration
 
@@ -32,9 +32,6 @@ private const val FreshCutoffSeconds = 5
 private const val RecentCutoffMinutes = 1
 private const val AgingCutoffMinutes = 5
 private const val StaleCutoffMinutes = 30
-private val staleBadgeBorderWidth = 1.dp
-private val staleBadgeVerticalPadding = 3.dp
-private val staleBadgeDotSize = 6.dp
 
 enum class RipDpiStaleTier {
     /** < 5s — data is updating now. Spec shows a pulse here. */
@@ -150,20 +147,23 @@ fun RipDpiStaleDataBadge(
             },
         )
     val badgeDescription = stringResource(R.string.cd_stale_data_badge, label, tierLabel)
+    val indicators = RipDpiThemeTokens.components.indicators
     Row(
         modifier =
             modifier
                 .background(tones.container, RoundedCornerShape(percent = 50))
-                .border(width = staleBadgeBorderWidth, color = tones.border, shape = RoundedCornerShape(percent = 50))
-                .padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = staleBadgeVerticalPadding)
-                .semantics { contentDescription = badgeDescription },
+                .border(width = RipDpiStroke.Thin, color = tones.border, shape = RoundedCornerShape(percent = 50))
+                .padding(
+                    horizontal = RipDpiThemeTokens.spacing.sm,
+                    vertical = indicators.staleBadgeVerticalPadding,
+                ).semantics { contentDescription = badgeDescription },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         Box(
             modifier =
                 Modifier
-                    .size(staleBadgeDotSize)
+                    .size(indicators.staleBadgeDotSize)
                     .background(tones.dot.copy(alpha = freshPulseAlpha), CircleShape),
         )
         Text(text = label, style = RipDpiThemeTokens.type.monoSmall.copy(color = tones.content))

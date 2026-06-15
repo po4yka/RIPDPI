@@ -145,6 +145,17 @@ data class RipDpiIndicatorMetrics(
     val statusMarkerMedium: Dp = 9.dp,
     val statusMarkerLarge: Dp = 10.dp,
     val statusMarkerSpacing: Dp = 8.dp,
+    val statusMarkerCompact: Dp = 14.dp,
+    val statusMarkerHero: Dp = 20.dp,
+    val spinnerSmallSize: Dp = 16.dp,
+    val spinnerSmallStroke: Dp = 1.5.dp,
+    val spinnerStandardSize: Dp = 24.dp,
+    val spinnerStandardStroke: Dp = 2.dp,
+    val spinnerLargeSize: Dp = 40.dp,
+    val spinnerLargeStroke: Dp = 3.dp,
+    val staleBadgeVerticalPadding: Dp = 3.dp,
+    val staleBadgeDotSize: Dp = 6.dp,
+    val progressSegmentHeight: Dp = 6.dp,
 )
 
 @Immutable

@@ -15,19 +15,38 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlin.math.min
 
-enum class RipDpiSpinnerSize(
-    val dp: Dp,
+enum class RipDpiSpinnerSize {
+    Small,
+    Standard,
+    Large,
+}
+
+private data class RipDpiSpinnerDimensions(
+    val size: Dp,
     val stroke: Dp,
-) {
-    Small(16.dp, 1.5.dp),
-    Standard(24.dp, 2.dp),
-    Large(40.dp, 3.dp),
+)
+
+@Composable
+private fun RipDpiSpinnerSize.dimensions(): RipDpiSpinnerDimensions {
+    val indicators = RipDpiThemeTokens.components.indicators
+    return when (this) {
+        RipDpiSpinnerSize.Small -> {
+            RipDpiSpinnerDimensions(indicators.spinnerSmallSize, indicators.spinnerSmallStroke)
+        }
+
+        RipDpiSpinnerSize.Standard -> {
+            RipDpiSpinnerDimensions(indicators.spinnerStandardSize, indicators.spinnerStandardStroke)
+        }
+
+        RipDpiSpinnerSize.Large -> {
+            RipDpiSpinnerDimensions(indicators.spinnerLargeSize, indicators.spinnerLargeStroke)
+        }
+    }
 }
 
 /**
@@ -43,13 +62,14 @@ fun RipDpiSpinner(
     size: RipDpiSpinnerSize = RipDpiSpinnerSize.Standard,
 ) {
     val loadingDescription = stringResource(R.string.cd_loading)
+    val dimensions = size.dimensions()
     val spinnerModifier =
         modifier
-            .size(size.dp)
+            .size(dimensions.size)
             .semantics { contentDescription = loadingDescription }
     val foreground = RipDpiThemeTokens.colors.foreground
     val track = RipDpiThemeTokens.colors.muted
-    val stroke = size.stroke
+    val stroke = dimensions.stroke
 
     if (LocalInspectionMode.current || !RipDpiThemeTokens.motion.allowsInfiniteMotion) {
         Canvas(modifier = spinnerModifier) {

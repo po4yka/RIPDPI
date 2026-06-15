@@ -20,7 +20,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -85,6 +84,7 @@ private fun StageProgressSegments(
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
     val segmentShape = RipDpiThemeTokens.shapes.xs
+    val segmentHeight = RipDpiThemeTokens.components.indicators.progressSegmentHeight
     val animSpec = motion.stateTween<Color>()
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -100,7 +100,7 @@ private fun StageProgressSegments(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .height(6.dp)
+                        .height(segmentHeight)
                         .background(animatedColor, segmentShape),
             )
         }
