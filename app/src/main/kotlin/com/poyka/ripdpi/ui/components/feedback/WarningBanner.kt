@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -74,7 +75,13 @@ fun WarningBanner(
         }
 
     Surface(
-        modifier = onClick?.let { surfaceModifier.ripDpiClickable(onClick = it) } ?: surfaceModifier,
+        modifier =
+            onClick?.let {
+                surfaceModifier.ripDpiClickable(
+                    role = Role.Button,
+                    onClick = it,
+                )
+            } ?: surfaceModifier,
         shape = RipDpiThemeTokens.shapes.xl,
         color = state.container,
         border = BorderStroke(RipDpiStroke.Thin, state.border),
