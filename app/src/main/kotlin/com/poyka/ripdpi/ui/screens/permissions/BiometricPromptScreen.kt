@@ -25,7 +25,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,6 +46,7 @@ import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -397,7 +397,7 @@ private fun BiometricPromptPinInput(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = horizontalPadding),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         RipDpiTextField(
             value = pin,
