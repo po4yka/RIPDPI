@@ -3400,6 +3400,11 @@ fake_burst 3</string>
     <string name="stale_tier_aging">渐旧</string>
     <string name="stale_tier_stale">陈旧</string>
     <string name="stale_tier_expired">过期</string>
+    <string name="home_connection_stage_state_pending">等待中</string>
+    <string name="home_connection_stage_state_active">进行中</string>
+    <string name="home_connection_stage_state_complete">已完成</string>
+    <string name="home_connection_stage_state_warning">警告</string>
+    <string name="home_connection_stage_state_failed">失败</string>
     <string name="cd_port_matrix_cell">%1$s 端口 %2$s %3$s</string>
     <string name="clipboard_label_log_entry">日志条目</string>
     <string name="relay_kind_naiveproxy_label">NaiveProxy</string>

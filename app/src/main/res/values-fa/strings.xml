@@ -3404,6 +3404,11 @@ fakeddisorder endhost</string>
     <string name="stale_tier_aging">رو به کهنگی</string>
     <string name="stale_tier_stale">کهنه</string>
     <string name="stale_tier_expired">منقضی</string>
+    <string name="home_connection_stage_state_pending">در انتظار</string>
+    <string name="home_connection_stage_state_active">فعال</string>
+    <string name="home_connection_stage_state_complete">کامل</string>
+    <string name="home_connection_stage_state_warning">هشدار</string>
+    <string name="home_connection_stage_state_failed">ناموفق</string>
     <string name="cd_port_matrix_cell">%1$s درگاه %2$s %3$s</string>
     <string name="clipboard_label_log_entry">ورودی گزارش</string>
     <string name="relay_kind_naiveproxy_label">NaiveProxy</string>

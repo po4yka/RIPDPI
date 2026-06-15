@@ -42,6 +42,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
@@ -434,6 +436,7 @@ private fun StageSegment(
             1f
         }
     val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.extraSmallCornerRadius)
+    val stageStateDescription = stringResource(stage.state.stateDescriptionRes())
 
     Box(
         modifier =
@@ -446,7 +449,7 @@ private fun StageSegment(
                 .border(RipDpiStroke.Thin, style.border, shape)
                 .semantics {
                     contentDescription = stage.label
-                    stateDescription = stage.state.name.lowercase()
+                    stateDescription = stageStateDescription
                 }.padding(horizontal = 5.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -535,4 +538,13 @@ private fun HomeConnectionActuatorStageState.icon() =
         HomeConnectionActuatorStageState.Pending,
         HomeConnectionActuatorStageState.Active,
         -> null
+    }
+
+private fun HomeConnectionActuatorStageState.stateDescriptionRes(): Int =
+    when (this) {
+        HomeConnectionActuatorStageState.Pending -> R.string.home_connection_stage_state_pending
+        HomeConnectionActuatorStageState.Active -> R.string.home_connection_stage_state_active
+        HomeConnectionActuatorStageState.Complete -> R.string.home_connection_stage_state_complete
+        HomeConnectionActuatorStageState.Warning -> R.string.home_connection_stage_state_warning
+        HomeConnectionActuatorStageState.Failed -> R.string.home_connection_stage_state_failed
     }

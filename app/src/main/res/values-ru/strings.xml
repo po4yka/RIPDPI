@@ -3518,6 +3518,11 @@ fakeddisorder endhost</string>
     <string name="stale_tier_aging">устаревающие</string>
     <string name="stale_tier_stale">устаревшие</string>
     <string name="stale_tier_expired">просроченные</string>
+    <string name="home_connection_stage_state_pending">ожидание</string>
+    <string name="home_connection_stage_state_active">активно</string>
+    <string name="home_connection_stage_state_complete">завершено</string>
+    <string name="home_connection_stage_state_warning">предупреждение</string>
+    <string name="home_connection_stage_state_failed">сбой</string>
     <string name="cd_port_matrix_cell">%1$s, порт %2$s %3$s</string>
     <string name="clipboard_label_log_entry">Запись журнала</string>
     <string name="relay_kind_naiveproxy_label">NaiveProxy</string>

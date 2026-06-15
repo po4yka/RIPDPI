@@ -3379,6 +3379,11 @@ fakeddisorder endhost</string>
     <string name="stale_tier_aging">آخذة في التقادم</string>
     <string name="stale_tier_stale">قديمة</string>
     <string name="stale_tier_expired">منتهية الصلاحية</string>
+    <string name="home_connection_stage_state_pending">قيد الانتظار</string>
+    <string name="home_connection_stage_state_active">نشط</string>
+    <string name="home_connection_stage_state_complete">مكتمل</string>
+    <string name="home_connection_stage_state_warning">تحذير</string>
+    <string name="home_connection_stage_state_failed">فاشل</string>
     <string name="cd_port_matrix_cell">%1$s المنفذ %2$s %3$s</string>
     <string name="clipboard_label_log_entry">إدخال سجل</string>
     <string name="relay_kind_naiveproxy_label">NaiveProxy</string>

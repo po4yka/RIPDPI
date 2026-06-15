@@ -3399,6 +3399,11 @@ Quelle: %2$s</string>
     <string name="stale_tier_aging">alternde</string>
     <string name="stale_tier_stale">veraltete</string>
     <string name="stale_tier_expired">abgelaufene</string>
+    <string name="home_connection_stage_state_pending">ausstehend</string>
+    <string name="home_connection_stage_state_active">aktiv</string>
+    <string name="home_connection_stage_state_complete">abgeschlossen</string>
+    <string name="home_connection_stage_state_warning">Warnung</string>
+    <string name="home_connection_stage_state_failed">fehlgeschlagen</string>
     <string name="cd_port_matrix_cell">%1$s Port %2$s %3$s</string>
     <string name="clipboard_label_log_entry">Protokolleintrag</string>
     <string name="relay_kind_naiveproxy_label">NaiveProxy</string>
