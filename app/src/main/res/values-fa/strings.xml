@@ -3399,6 +3399,11 @@ fakeddisorder endhost</string>
     <string name="heartbeat_state_idle">بی‌کار</string>
     <string name="cd_progress_percent">پیشرفت %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s، داده‌های %2$s</string>
+    <string name="stale_tier_fresh">تازه</string>
+    <string name="stale_tier_recent">اخیر</string>
+    <string name="stale_tier_aging">رو به کهنگی</string>
+    <string name="stale_tier_stale">کهنه</string>
+    <string name="stale_tier_expired">منقضی</string>
     <string name="cd_port_matrix_cell">%1$s درگاه %2$s %3$s</string>
     <string name="clipboard_label_log_entry">ورودی گزارش</string>
     <string name="relay_kind_naiveproxy_label">NaiveProxy</string>

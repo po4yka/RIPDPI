@@ -139,7 +139,17 @@ fun RipDpiStaleDataBadge(
         } else {
             1f
         }
-    val badgeDescription = stringResource(R.string.cd_stale_data_badge, label, tier.name.lowercase())
+    val tierLabel =
+        stringResource(
+            when (tier) {
+                RipDpiStaleTier.Fresh -> R.string.stale_tier_fresh
+                RipDpiStaleTier.Recent -> R.string.stale_tier_recent
+                RipDpiStaleTier.Aging -> R.string.stale_tier_aging
+                RipDpiStaleTier.Stale -> R.string.stale_tier_stale
+                RipDpiStaleTier.Expired -> R.string.stale_tier_expired
+            },
+        )
+    val badgeDescription = stringResource(R.string.cd_stale_data_badge, label, tierLabel)
     Row(
         modifier =
             modifier

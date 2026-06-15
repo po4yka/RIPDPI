@@ -3374,6 +3374,11 @@ fakeddisorder endhost</string>
     <string name="heartbeat_state_idle">خامل</string>
     <string name="cd_progress_percent">التقدم %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s، بيانات %2$s</string>
+    <string name="stale_tier_fresh">حديثة</string>
+    <string name="stale_tier_recent">أخيرة</string>
+    <string name="stale_tier_aging">آخذة في التقادم</string>
+    <string name="stale_tier_stale">قديمة</string>
+    <string name="stale_tier_expired">منتهية الصلاحية</string>
     <string name="cd_port_matrix_cell">%1$s المنفذ %2$s %3$s</string>
     <string name="clipboard_label_log_entry">إدخال سجل</string>
     <string name="relay_kind_naiveproxy_label">NaiveProxy</string>

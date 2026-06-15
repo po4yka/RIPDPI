@@ -3395,6 +3395,11 @@ fake_burst 3</string>
     <string name="heartbeat_state_idle">空闲</string>
     <string name="cd_progress_percent">进度 %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s，%2$s 数据</string>
+    <string name="stale_tier_fresh">最新</string>
+    <string name="stale_tier_recent">较新</string>
+    <string name="stale_tier_aging">渐旧</string>
+    <string name="stale_tier_stale">陈旧</string>
+    <string name="stale_tier_expired">过期</string>
     <string name="cd_port_matrix_cell">%1$s 端口 %2$s %3$s</string>
     <string name="clipboard_label_log_entry">日志条目</string>
     <string name="relay_kind_naiveproxy_label">NaiveProxy</string>

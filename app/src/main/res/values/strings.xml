@@ -3505,6 +3505,11 @@ Source: %2$s</string>
     <string name="heartbeat_state_idle">idle</string>
     <string name="cd_progress_percent">Progress %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s, %2$s data</string>
+    <string name="stale_tier_fresh">fresh</string>
+    <string name="stale_tier_recent">recent</string>
+    <string name="stale_tier_aging">aging</string>
+    <string name="stale_tier_stale">stale</string>
+    <string name="stale_tier_expired">expired</string>
     <string name="cd_port_matrix_cell">%1$s port %2$s %3$s</string>
     <string name="clipboard_label_log_entry">Log entry</string>
 

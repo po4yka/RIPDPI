@@ -3394,6 +3394,11 @@ Source : %2$s</string>
     <string name="heartbeat_state_idle">inactif</string>
     <string name="cd_progress_percent">Progression %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s, données %2$s</string>
+    <string name="stale_tier_fresh">récentes</string>
+    <string name="stale_tier_recent">à jour</string>
+    <string name="stale_tier_aging">vieillissantes</string>
+    <string name="stale_tier_stale">obsolètes</string>
+    <string name="stale_tier_expired">expirées</string>
     <string name="cd_port_matrix_cell">%1$s port %2$s %3$s</string>
     <string name="clipboard_label_log_entry">Entrée de journal</string>
     <string name="relay_kind_naiveproxy_label">NaiveProxy</string>
