@@ -93,6 +93,10 @@ internal fun createDiagnosticsViewModel(
                 ),
             diagnosticsViewModelBootstrapper = DiagnosticsViewModelBootstrapper(diagnosticsBootstrapper),
             appSettingsRepository = appSettingsRepository,
+            serviceStateStore = serviceStateStore,
+            xrayProviderProbeCoordinator =
+                com.poyka.ripdpi.data.xray
+                    .DefaultXrayProviderProbeCoordinator(),
             probeDependencies = probeDependencies,
             diagnosticsFiles = DiagnosticsFiles(appContext),
             stringResolver = AndroidStringResolver(appContext),

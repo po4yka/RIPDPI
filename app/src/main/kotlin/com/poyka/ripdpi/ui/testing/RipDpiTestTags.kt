@@ -295,6 +295,10 @@ internal object RipDpiTestTags {
     const val DiagnosticsSessionsStateContent = "diagnostics-sessions-state-content"
     const val DiagnosticsEventsStateEmpty = "diagnostics-events-state-empty"
     const val DiagnosticsEventsStateContent = "diagnostics-events-state-content"
+    const val XrayProviderStatusCard = "xray-provider-status-card"
+    const val XrayProviderProbeRun = "xray-provider-probe-run"
+    const val HomeXrayProviderBanner = "home-xray-provider-banner"
+    const val SettingsXrayProviderStatus = "settings-xray-provider-status"
     const val StaticStrategyImportScreen = "strategy_import-screen"
     const val StaticProfileVariantsScreen = "profile_variants-screen"
 

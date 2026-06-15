@@ -72,6 +72,12 @@ data class MainUiState(
     val connectionQuality: ConnectionQualitySnapshot? = null,
     val networkCondition: com.poyka.ripdpi.services.network.NetworkCondition =
         com.poyka.ripdpi.services.network.NetworkCondition.Normal,
+    /**
+     * Live embedded-Xray provider engine snapshot, surfaced DISTINCTLY from the
+     * tunnel data plane on Home (see [com.poyka.ripdpi.ui.screens.home.HomeXrayProviderBanner]).
+     * Null on the native provider path or when no Xray session is active.
+     */
+    val xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
 ) {
     val localBypassCard: HomeModeCardUiState
         get() =
