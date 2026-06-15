@@ -39,11 +39,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -69,7 +67,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.coroutines.flow.SharedFlow
 import kotlin.math.absoluteValue
 
-// Animation / alpha keyframe fractions
+// Crossfade keyframe fractions for the swipeable info page. RDS bans per-element
+// parallax / rotation / scale, so the page-swipe entrance is a pure alpha crossfade.
 private const val alphaTextMin = 0.24f
 private const val alphaTextRange = 0.76f
 private const val alphaBodyMin = 0.18f
@@ -77,18 +76,8 @@ private const val alphaBodyRange = 0.82f
 private const val alphaIllusMin = 0.4f
 private const val alphaIllusRange = 0.6f
 
-// Illustration scale keyframe fractions
-private const val scaleIllusBase = 0.88f
-private const val scaleIllusRange = 0.12f
-
 // Intro illustration is drawn container-less at this multiple of the base illustration size.
 private const val introIllustrationScale = 1.5f
-
-// Parallax travel fractions (× illustration size) for the page-swipe entrance animation.
-private const val illusTravelFraction = 0.55f
-private const val titleTravelFraction = 0.35f
-private const val bodyTravelFraction = 0.52f
-private const val illusLiftFraction = 0.15f
 
 @Composable
 fun OnboardingRoute(
@@ -527,37 +516,20 @@ private fun OnboardingFooterCta(
     }
 }
 
-/** Per-frame parallax + fade values for the swipeable info page, derived once from the page offset. */
-private class OnboardingInfoParallax(
-    val clampedOffset: Float,
-    val pageProgress: Float,
-    val illustrationTravelPx: Float,
-    val titleTravelPx: Float,
-    val bodyTravelPx: Float,
-    val illustrationLiftPx: Float,
-    val textAlpha: Float,
+/** Per-frame crossfade alphas for the swipeable info page, derived from the page offset. */
+private class OnboardingInfoCrossfade(
+    val illustrationAlpha: Float,
+    val titleAlpha: Float,
     val bodyAlpha: Float,
 )
 
-@Composable
-private fun onboardingInfoParallax(
-    pageOffset: Float,
-    illustrationSize: Dp,
-): OnboardingInfoParallax {
-    val clampedOffset = pageOffset.coerceIn(-1f, 1f)
-    val pageProgress = (1f - clampedOffset.absoluteValue).coerceIn(0f, 1f)
-    return with(LocalDensity.current) {
-        OnboardingInfoParallax(
-            clampedOffset = clampedOffset,
-            pageProgress = pageProgress,
-            illustrationTravelPx = (illustrationSize * illusTravelFraction).toPx(),
-            titleTravelPx = (illustrationSize * titleTravelFraction).toPx(),
-            bodyTravelPx = (illustrationSize * bodyTravelFraction).toPx(),
-            illustrationLiftPx = (illustrationSize * illusLiftFraction).toPx(),
-            textAlpha = (alphaTextMin + (pageProgress * alphaTextRange)).coerceIn(0f, 1f),
-            bodyAlpha = (alphaBodyMin + (pageProgress * alphaBodyRange)).coerceIn(0f, 1f),
-        )
-    }
+private fun onboardingInfoCrossfade(pageOffset: Float): OnboardingInfoCrossfade {
+    val pageProgress = (1f - pageOffset.coerceIn(-1f, 1f).absoluteValue).coerceIn(0f, 1f)
+    return OnboardingInfoCrossfade(
+        illustrationAlpha = (alphaIllusMin + (pageProgress * alphaIllusRange)).coerceIn(0f, 1f),
+        titleAlpha = (alphaTextMin + (pageProgress * alphaTextRange)).coerceIn(0f, 1f),
+        bodyAlpha = (alphaBodyMin + (pageProgress * alphaBodyRange)).coerceIn(0f, 1f),
+    )
 }
 
 @Composable
@@ -570,7 +542,7 @@ private fun OnboardingInfoPageScene(
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
-    val parallax = onboardingInfoParallax(pageOffset, introLayout.illustrationSize)
+    val crossfade = onboardingInfoCrossfade(pageOffset)
 
     Column(
         modifier =
@@ -585,14 +557,7 @@ private fun OnboardingInfoPageScene(
             modifier =
                 Modifier
                     .size(introLayout.illustrationSize * introIllustrationScale)
-                    .graphicsLayer {
-                        translationX = -parallax.clampedOffset * parallax.illustrationTravelPx
-                        translationY = (1f - parallax.pageProgress) * parallax.illustrationLiftPx
-                        rotationZ = parallax.clampedOffset * 2f
-                        scaleX = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
-                        scaleY = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
-                        alpha = (alphaIllusMin + (parallax.pageProgress * alphaIllusRange)).coerceIn(0f, 1f)
-                    },
+                    .graphicsLayer { alpha = crossfade.illustrationAlpha },
         )
         Spacer(modifier = Modifier.height(introLayout.illustrationToTitleGap))
         Text(
@@ -604,10 +569,7 @@ private fun OnboardingInfoPageScene(
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = introLayout.titleHorizontalPadding)
-                    .graphicsLayer {
-                        translationX = parallax.clampedOffset * parallax.titleTravelPx
-                        alpha = parallax.textAlpha
-                    },
+                    .graphicsLayer { alpha = crossfade.titleAlpha },
         )
         Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
         Text(
@@ -619,10 +581,7 @@ private fun OnboardingInfoPageScene(
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = introLayout.bodyHorizontalPadding)
-                    .graphicsLayer {
-                        translationX = parallax.clampedOffset * parallax.bodyTravelPx
-                        alpha = parallax.bodyAlpha
-                    },
+                    .graphicsLayer { alpha = crossfade.bodyAlpha },
         )
         Spacer(modifier = Modifier.height(spacing.lg))
         OnboardingGuaranteeGrid(
