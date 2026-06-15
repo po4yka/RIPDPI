@@ -55,7 +55,6 @@ fun ConfigImportMenu(
             style = RipDpiIconButtonStyle.Ghost,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigOverflowMenuButton),
         )
-        val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.inputs.dropdownMenu)
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
@@ -63,6 +62,8 @@ fun ConfigImportMenu(
             DropdownMenuItem(
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigImportClipboardMenuItem),
                 text = {
+                    val surfaceStyle =
+                        RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.inputs.dropdownMenu)
                     Text(
                         text = stringResource(R.string.import_clipboard_action),
                         style = RipDpiThemeTokens.type.body,
