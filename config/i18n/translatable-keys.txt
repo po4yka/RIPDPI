@@ -1,3 +1,5 @@
+app:a11y_loading
+app:a11y_share_qr_code
 app:about_build_section
 app:about_build_type
 app:about_category
@@ -936,6 +938,10 @@ app:detection_check_subtitle
 app:detection_check_verdict_detected
 app:detection_check_verdict_needs_review
 app:detection_check_verdict_not_detected
+app:detection_color_vision_achromatopsia
+app:detection_color_vision_blue_yellow
+app:detection_color_vision_red_green
+app:detection_color_vision_standard
 app:detection_community_avg_score
 app:detection_community_detected_pct
 app:detection_community_error
@@ -1030,6 +1036,7 @@ app:detection_resistance_tls_fingerprint_body
 app:detection_resistance_tls_fingerprint_title
 app:detection_score_degraded
 app:detection_score_improved
+app:detection_score_unchanged
 app:detection_settings_call_transport_subtitle
 app:detection_settings_call_transport_title
 app:detection_settings_cancel
@@ -1069,11 +1076,17 @@ app:detection_settings_tls_keylog_privacy_note
 app:detection_settings_tun_probe_mode_title
 app:detection_settings_xray_api_scan_subtitle
 app:detection_settings_xray_api_scan_title
+app:detection_state_clean
+app:detection_state_detected
+app:detection_state_error
+app:detection_state_neutral
+app:detection_state_review
 app:detection_status_detected
 app:detection_status_ok
 app:detection_status_review
 app:detection_status_visuals_title
 app:detection_stealth_score
+app:detection_stealth_score_a11y
 app:detection_stealth_score_label
 app:detection_stealth_score_value
 app:detection_tls_keylog_warning_message
@@ -1169,6 +1182,7 @@ app:diagnostics_byoh_synthetic_fixture_label
 app:diagnostics_byoh_title
 app:diagnostics_byoh_url_path_label
 app:diagnostics_byoh_verdict_compatible
+app:diagnostics_candidate_subtitle_format
 app:diagnostics_capability_evidence_title
 app:diagnostics_cidr_whitelist_failed
 app:diagnostics_cidr_whitelist_hide_traces
@@ -1610,6 +1624,7 @@ app:diagnostics_replay_error_unknown
 app:diagnostics_replay_probe_summary
 app:diagnostics_replay_step_dns_resolve
 app:diagnostics_replay_step_first_byte
+app:diagnostics_replay_step_in_progress
 app:diagnostics_replay_step_tcp_open
 app:diagnostics_replay_step_tls_client_hello
 app:diagnostics_replay_step_tls_handshake
@@ -1816,6 +1831,7 @@ app:dns_custom_dot_tls_helper
 app:dns_custom_host_label
 app:dns_custom_port_helper
 app:dns_custom_port_label
+app:dns_custom_save_requirements_hint
 app:dns_custom_section
 app:dns_custom_section_body
 app:dns_custom_switch_hint
@@ -1859,6 +1875,7 @@ app:dns_resolver_quad9_body
 app:dns_resolver_quad9_title
 app:dns_resolvers_section
 app:dns_selected_badge
+app:dns_unknown_provider
 app:domain_bypass_clean_count
 app:domain_bypass_cleared
 app:domain_bypass_clipboard_empty
@@ -1936,6 +1953,10 @@ app:fake_payload_profile_status_separate
 app:fake_payload_profile_summary_label_current
 app:fake_payload_profile_summary_label_interaction
 app:fake_payload_profile_summary_label_when_used
+app:heartbeat_state_degraded
+app:heartbeat_state_failed
+app:heartbeat_state_healthy
+app:heartbeat_state_idle
 app:history_connection_remembered_policy_badge
 app:history_connection_remembered_policy_exact_match
 app:history_connection_remembered_policy_fingerprint
@@ -1956,6 +1977,9 @@ app:history_detail_section_service
 app:history_diagnostics_empty_body
 app:history_diagnostics_empty_title
 app:history_diagnostics_section
+app:history_event_occurrence_format
+app:history_event_timestamp_range
+app:history_event_timestamp_single
 app:history_events_empty_body
 app:history_events_empty_title
 app:history_events_section
@@ -1980,6 +2004,11 @@ app:home_connection_button_connecting
 app:home_connection_stage_handshake
 app:home_connection_stage_network
 app:home_connection_stage_route
+app:home_connection_stage_state_active
+app:home_connection_stage_state_complete
+app:home_connection_stage_state_failed
+app:home_connection_stage_state_pending
+app:home_connection_stage_state_warning
 app:home_connection_stage_tunnel
 app:home_control_plane_health_action
 app:home_control_plane_health_body
@@ -2059,6 +2088,9 @@ app:home_diagnostics_share_failed
 app:home_diagnostics_stage_failed_marker
 app:home_diagnostics_stage_recommendation_marker
 app:home_diagnostics_stage_results_label
+app:home_diagnostics_stage_status_failed
+app:home_diagnostics_stage_status_passed
+app:home_diagnostics_stage_status_skipped
 app:home_diagnostics_start_verified_vpn
 app:home_diagnostics_title
 app:home_diagnostics_verification_busy
@@ -2111,6 +2143,7 @@ app:home_network_condition_captive_title
 app:home_network_condition_no_connectivity_body
 app:home_network_condition_no_connectivity_title
 app:home_network_condition_whitelist_body
+app:home_network_condition_whitelist_message
 app:home_network_condition_whitelist_relay_suggestion
 app:home_network_condition_whitelist_title
 app:home_overview_title
@@ -2354,11 +2387,17 @@ app:mieru_field_protocol
 app:mieru_field_server
 app:mieru_field_server_port
 app:mieru_field_username
+app:mieru_mux_high
+app:mieru_mux_low
+app:mieru_mux_middle
+app:mieru_mux_off
 app:mieru_save_action
 app:mieru_section_credentials
 app:mieru_section_endpoint
 app:mieru_section_transport
 app:mieru_section_transport_body
+app:mieru_transport_tcp
+app:mieru_transport_udp
 app:mode_setting
 app:navigation_back
 app:network_strategy_memory_clear_action
@@ -2530,6 +2569,8 @@ app:oom_recovery_banner_title
 app:oom_recovery_sample_downtime
 app:oom_recovery_sample_kill_time
 app:oom_recovery_title
+app:outbound_group_fallback
+app:outbound_profile_fallback
 app:owned_stack_browser_backend_http_engine
 app:owned_stack_browser_backend_native_fallback
 app:owned_stack_browser_banner_android17
@@ -2550,6 +2591,7 @@ app:owned_stack_browser_trace_native_platform_unavailable
 app:owned_stack_browser_trace_opportunistic_platform
 app:owned_stack_browser_url_label
 app:owned_stack_browser_url_placeholder
+app:percent_value
 app:permissions_background_activity_body
 app:permissions_background_activity_body_huawei
 app:permissions_background_activity_body_oneplus
@@ -3089,6 +3131,7 @@ app:routing_protection_policy_prompt_body
 app:routing_protection_policy_prompt_title
 app:routing_protection_policy_title
 app:routing_protection_section_title
+app:routing_protection_suggestion_line
 app:routing_protection_summary_body
 app:routing_protection_summary_title
 app:rule_editor_apps_label
@@ -3116,6 +3159,7 @@ app:rule_editor_ports_label
 app:rule_editor_process_label
 app:rule_editor_save
 app:rule_editor_source_ports_label
+app:rule_summary_process
 app:save_logs
 app:scanner_invalid_qr_body
 app:scanner_invalid_qr_title
@@ -3321,6 +3365,8 @@ app:split_tunnel_mode_off
 app:split_tunnel_mode_off_body
 app:split_tunnel_open_system_settings
 app:split_tunnel_system_managed_body
+app:ssh_auth_password
+app:ssh_auth_private_key
 app:ssh_editor_title
 app:ssh_field_auth_type
 app:ssh_field_display_name
@@ -3342,6 +3388,11 @@ app:ssh_section_auth_body
 app:ssh_section_endpoint
 app:ssh_section_host_key
 app:ssh_section_host_key_body
+app:stale_tier_aging
+app:stale_tier_expired
+app:stale_tier_fresh
+app:stale_tier_recent
+app:stale_tier_stale
 app:status_indicator_description
 app:strategy_ab_action_switch
 app:strategy_ab_badge_candidate
@@ -3633,12 +3684,15 @@ app:vpn_pcap_viewer_col_time
 app:vpn_pcap_viewer_desync_annotation_title
 app:vpn_pcap_viewer_hex_label
 app:vpn_pcap_viewer_meta_format
+app:vpn_quality_graph_avg_ms
 app:vpn_quality_graph_caption
 app:vpn_quality_graph_latency_title
 app:vpn_quality_graph_legend_now
 app:vpn_quality_graph_legend_p50
+app:vpn_quality_graph_p50_ms
 app:vpn_quality_graph_samples_format
 app:vpn_quality_graph_throughput_title
+app:vpn_quality_graph_value_ms
 app:vpn_quality_metric_jitter
 app:vpn_quality_metric_loss
 app:vpn_quality_metric_rtt_p50
