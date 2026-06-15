@@ -36,6 +36,8 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val PercentScale = 100
+
 @Composable
 fun BlockcheckRoute(
     onBack: () -> Unit,
@@ -327,7 +329,7 @@ private fun BlockcheckRankedRow(
                 if (isBest) {
                     stringResource(R.string.blockcheck_best_badge)
                 } else {
-                    stringResource(R.string.percent_value, (result.successRate * 100).toInt())
+                    stringResource(R.string.percent_value, (result.successRate * PercentScale).toInt())
                 },
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = if (isBest) RipDpiThemeTokens.colors.accent else RipDpiThemeTokens.colors.foreground,
