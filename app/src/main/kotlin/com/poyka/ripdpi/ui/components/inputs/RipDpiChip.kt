@@ -34,6 +34,7 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val chipContentSpacingDp = 6
@@ -121,7 +122,7 @@ fun RipDpiChip(
                     scaleX = scale
                     scaleY = scale
                 }.background(animatedContainer, chipShape)
-                .border(1.dp, animatedBorderColor, chipShape)
+                .border(RipDpiStroke.Thin, animatedBorderColor, chipShape)
                 .semantics { contentDescription = text }
                 .focusable(enabled = enabled, interactionSource = interactionSource)
                 .ripDpiSelectable(
