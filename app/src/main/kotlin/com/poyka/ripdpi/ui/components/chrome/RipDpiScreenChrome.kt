@@ -12,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -22,6 +21,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import java.util.Locale
 
 @Immutable
 data class RipDpiTelemetryEntry(
@@ -51,10 +51,10 @@ fun RipDpiScreenSectionHeader(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             Text(
-                text = title.uppercase(),
+                text = title.uppercase(Locale.getDefault()),
                 style = RipDpiThemeTokens.type.sectionTitle,
                 color = colors.mutedForeground,
-                modifier = Modifier.weight(1f).padding(start = 4.dp),
+                modifier = Modifier.weight(1f).padding(start = spacing.xs),
             )
             trailingContent?.invoke(this)
         }
@@ -63,7 +63,7 @@ fun RipDpiScreenSectionHeader(
                 text = it,
                 style = RipDpiThemeTokens.type.secondaryBody,
                 color = colors.mutedForeground,
-                modifier = Modifier.padding(start = 4.dp),
+                modifier = Modifier.padding(start = spacing.xs),
             )
         }
         if (showDivider) {
