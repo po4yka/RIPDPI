@@ -1,7 +1,7 @@
 ---
 title: Run Xray as managed VPN relay runtime
 type: task
-status: blocked
+status: device-smoke-pending
 area: outbound
 priority: high
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-xray-provider-mode
 blocks: []
 blocked_by: []
 created: 2026-04-24
-updated: 2026-06-10
+updated: 2026-06-15
 ---
 
 ## Summary
@@ -33,7 +33,7 @@ Xray must behave like the existing managed proxy/relay runtimes: no ambiguous "r
 - [x] Xray version and basic provider state flow into service telemetry without exposing profile secrets. — `pollTelemetry()` emits a `NativeRuntimeSnapshot` with version+state and a secret-free assertion test.
 - [x] Unit or service tests cover startup failure, invalid config, late stop, and crash/exit mapping. — 14 tests in `RipDpiXrayRuntimeTest` (green offline in `:core:engine-api`).
 
-> All five criteria are verified against `FakeXrayNativeBridge`, which replays the full observable native contract. The criteria are met at the adapter/contract level. The real gomobile-backed `XrayNativeBridgeLibXrayImpl` (`RunXrayFromJSON` / `StopXray` / `XrayVersion`) has NOT executed here — the libXray AAR is absent from the offline toolchain — so end-to-end behavior against a real Xray process REMAINS OPEN (blocked on gomobile/libXray build, not on missing code). That gomobile/libXray build is the sole remaining gate; frontmatter `status: blocked` reflects it.
+> All five criteria are verified against `FakeXrayNativeBridge`, which replays the full observable native contract. The criteria are met at the adapter/contract level. The real gomobile-backed `XrayNativeBridgeLibXrayImpl` now COMPILES and LINKS against the per-ABI libXray AAR (`:core:engine`, `src/xrayLinked`) and is bound as the `XrayNativeBridge` singleton (`XrayBridgeModule`, `@Provides @XrayDatDir`); its pure logic — base64 `CallResponse` parsing, `version()` `data` extraction, the `DialerController` protect adapter, protect-first ordering, and the request-builder throw path — is unit-verified OFFLINE via the `LibXrayFfi` seam (`XrayNativeBridgeLibXrayImplTest`, no gojni load). What has NOT executed is the real native `RunXrayFromJSON`/`StopXray`/`getXrayState` against a live Xray process. The sole remaining gates are (1) device + live-server egress smoke (B-3) and (2) the missing service-integration consumer — no `:core:service` code injects `XrayNativeBridge` yet, so the binding is ready-to-inject but not yet constructed in production. Frontmatter `status` reflects the device-smoke-pending state.
 
 ## Progress
 
@@ -60,3 +60,4 @@ Map Xray readiness and stop outcomes into the same service-level language used f
 - 2026-06-05: Adapter layer complete — `RipDpiXrayRuntime` + 14 tests in `RipDpiXrayRuntimeTest` + 4 tests in `XrayProtectFdContractTest` all green offline via `FakeXrayNativeBridge`; `XrayNativeBridgeLibXrayImpl` throws `NotImplementedError` on every method (UNVERIFIED IN CI, gomobile libXray AAR absent). Blocked on gomobile build + NDK29 native link + real device run.
 - 2026-06-05: Audit confirmed — all 5 [x] criteria verified against source: protect-first registration at `RipDpiXrayRuntime.kt:83-84`, bounded idempotent stop with `StopCause` sealed interface at lines 150-185/274-284, `pollTelemetry()` with `NativeRuntimeSnapshot` at lines 199-206, 14 tests in `RipDpiXrayRuntimeTest` covering startup failure/invalid config/late stop/crash mapping (function names confirmed). `XrayNativeBridgeLibXrayImpl` confirmed to throw `NotImplementedError` on all 6 methods (lines 47-80). Status remains `blocked` — real end-to-end path blocked on gomobile libXray AAR; `blocked_by: []` reflects no tracked sibling task for the blocker. Note inside criteria block says "backlog" but frontmatter `blocked` is correct; no change to status.
 - 2026-06-11 (offline re-verify): `:core:engine-api:testDebugUnitTest` green — `RipDpiXrayRuntimeTest` (14) + `XrayProtectFdContractTest` (4), 0 failures, against `FakeXrayNativeBridge`. All 5 criteria stay code-complete at the adapter/contract level; real `RunXrayFromJSON`/`StopXray`/`XrayVersion` still unexecuted (AAR gate). See `docs/native/libxray-unblock-checklist.md`. Status stays `blocked`.
+- 2026-06-15 (A-3 bridge link + bind): The throwing `XrayNativeBridgeLibXrayImpl` was removed from `:core:engine-api` and re-implemented as the real gomobile-backed bridge in `:core:engine` `src/xrayLinked` (FFI seam `LibXrayFfi` / `GomobileLibXrayFfi` over `libXray.LibXray.*`; the only gojni-loading code), with a parity `src/xrayStub` for offline builds — exactly one variant is added to `main`. `XrayBridgeModule` binds it as the `XrayNativeBridge` singleton (`@Provides`, `@XrayDatDir` from `resolveGeoDatabasePaths`). Corrected the native contract vs the old stub comments: `CallResponse` error key is `error` (not `err`); `runXrayFromJSON`/`stopXray`/`xrayVersion` all return a base64-wrapped `CallResponse` (`version` reads `data`); flow is `newXrayRunFromJSONRequest(datDir, mph, json)` → base64 req → `runXrayFromJSON(req)`. New gated offline tests (`XrayNativeBridgeLibXrayImplTest`, `src/testXrayLinked`) cover parsing + protect adapter + ordering via a `FakeLibXrayFfi` (never classloads `LibXray`). Known device gaps for B-3: the Go wrapper discards `protectFd`'s boolean (denial can't abort the socket natively); `GeoDatabasePaths` names files `.db` while xray-core expects `.dat` (datDir/filename reconciliation); no `:core:service` consumer injects the binding yet. Status → `device-smoke-pending`.
