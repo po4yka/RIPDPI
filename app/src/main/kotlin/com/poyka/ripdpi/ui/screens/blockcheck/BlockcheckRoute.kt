@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -323,18 +322,15 @@ private fun BlockcheckRankedRow(
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
-        AssistChip(
-            onClick = {},
-            label = {
-                Text(
-                    text =
-                        if (isBest) {
-                            stringResource(R.string.blockcheck_best_badge)
-                        } else {
-                            stringResource(R.string.percent_value, (result.successRate * 100).toInt())
-                        },
-                )
-            },
+        Text(
+            text =
+                if (isBest) {
+                    stringResource(R.string.blockcheck_best_badge)
+                } else {
+                    stringResource(R.string.percent_value, (result.successRate * 100).toInt())
+                },
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = if (isBest) RipDpiThemeTokens.colors.accent else RipDpiThemeTokens.colors.foreground,
         )
     }
 }
