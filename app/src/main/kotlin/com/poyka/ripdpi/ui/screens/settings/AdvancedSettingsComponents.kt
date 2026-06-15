@@ -44,6 +44,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
@@ -517,7 +518,7 @@ internal fun SummaryCapsule(
         modifier =
             modifier
                 .background(container, RipDpiThemeTokens.shapes.lg)
-                .border(1.dp, border, RipDpiThemeTokens.shapes.lg)
+                .border(RipDpiStroke.Thin, border, RipDpiThemeTokens.shapes.lg)
                 .padding(horizontal = 10.dp, vertical = 6.dp),
         style = type.caption,
         color = content,
