@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -212,7 +211,7 @@ private fun SharedResultError(error: Throwable) {
         )
         Text(
             text = stringResource(R.string.shared_diagnostic_ask_fresh_link),
-            style = MaterialTheme.typography.bodyMedium,
+            style = RipDpiThemeTokens.type.secondaryBody,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
     }
