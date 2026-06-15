@@ -3850,6 +3850,7 @@ Source : %2$s</string>
     <string name="port_matrix_host_port_header">HÔTE / PORT</string>
     <string name="profile_share_setup_sheet_template">Fiche de configuration RIPDPI\n\nProfil : %1$s\nType : %2$s\n\nLien d\'abonnement/de profil :\n%3$s\n\nHiddify :\n1. Ouvrez Hiddify.\n2. Choisissez Ajouter un profil.\n3. Scannez le QR code ou collez le lien ci-dessus.\n\nAmneziaVPN :\n1. Ouvrez AmneziaVPN.\n2. Choisissez Ajouter un serveur depuis un lien ou un QR.\n3. Scannez le QR code ou collez le lien ci-dessus.\n\nGardez cette fiche privée. Le QR code et le lien contiennent des identifiants.</string>
     <string name="qr_share_spec_ecc">ECC</string>
+    <string name="a11y_share_qr_code">Code QR de partage du diagnostic</string>
     <string name="qr_share_spec_payload">PAYLOAD</string>
     <string name="qr_share_spec_schema">SCHEMA</string>
     <string name="qr_share_spec_version">VERSION</string>

@@ -3855,6 +3855,7 @@ fakeddisorder endhost</string>
     <string name="port_matrix_host_port_header">میزبان / پورت</string>
     <string name="profile_share_setup_sheet_template">برگهٔ راه‌اندازی RIPDPI\n\nپروفایل: %1$s\nنوع: %2$s\n\nپیوند اشتراک/پروفایل:\n%3$s\n\nHiddify:\n۱. Hiddify را باز کنید.\n۲. افزودن پروفایل را انتخاب کنید.\n۳. کد QR را اسکن کنید یا پیوند بالا را جای‌گذاری کنید.\n\nAmneziaVPN:\n۱. AmneziaVPN را باز کنید.\n۲. افزودن سرور از پیوند یا QR را انتخاب کنید.\n۳. کد QR را اسکن کنید یا پیوند بالا را جای‌گذاری کنید.\n\nاین برگه را خصوصی نگه دارید. کد QR و پیوند حاوی اعتبارنامه هستند.</string>
     <string name="qr_share_spec_ecc">ECC</string>
+    <string name="a11y_share_qr_code">کد QR اشتراک‌گذاری تشخیص</string>
     <string name="qr_share_spec_payload">PAYLOAD</string>
     <string name="qr_share_spec_schema">SCHEMA</string>
     <string name="qr_share_spec_version">VERSION</string>

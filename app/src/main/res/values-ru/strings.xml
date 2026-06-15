@@ -3969,6 +3969,7 @@ fakeddisorder endhost</string>
     <string name="port_matrix_host_port_header">ХОСТ / ПОРТ</string>
     <string name="profile_share_setup_sheet_template">Лист настройки RIPDPI\n\nПрофиль: %1$s\nТип: %2$s\n\nСсылка на подписку/профиль:\n%3$s\n\nHiddify:\n1. Откройте Hiddify.\n2. Выберите «Добавить профиль».\n3. Отсканируйте QR-код или вставьте ссылку выше.\n\nAmneziaVPN:\n1. Откройте AmneziaVPN.\n2. Выберите «Добавить сервер по ссылке или QR».\n3. Отсканируйте QR-код или вставьте ссылку выше.\n\nХраните этот лист в тайне. QR-код и ссылка содержат учётные данные.</string>
     <string name="qr_share_spec_ecc">ECC</string>
+    <string name="a11y_share_qr_code">QR-код для обмена диагностикой</string>
     <string name="qr_share_spec_payload">PAYLOAD</string>
     <string name="qr_share_spec_schema">SCHEMA</string>
     <string name="qr_share_spec_version">VERSION</string>

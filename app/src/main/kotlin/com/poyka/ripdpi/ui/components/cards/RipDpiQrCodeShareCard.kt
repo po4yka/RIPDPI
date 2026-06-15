@@ -65,7 +65,7 @@ fun RipDpiQrCodeShareCard(
     qrBitmap: ImageBitmap,
     metadata: RipDpiQrCodeMetadata,
     modifier: Modifier = Modifier,
-    contentDescription: String? = null,
+    contentDescription: String? = stringResource(R.string.a11y_share_qr_code),
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
