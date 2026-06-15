@@ -28,6 +28,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val disabledAlpha = 0.38f
@@ -135,7 +136,7 @@ fun PresetCard(
 
 private val RadioIndicatorSize = 18.dp
 private val RadioIndicatorDotSize = 8.dp
-private val RadioIndicatorBorderWidth = 2.dp
+private val RadioIndicatorBorderWidth = RipDpiStroke.Thick
 
 @Composable
 private fun RadioIndicator(selected: Boolean) {
