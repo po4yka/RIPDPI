@@ -10,7 +10,7 @@ java {
     }
 }
 
-val grpcVersion = "1.81.0"
+val grpcVersion = "1.82.0"
 val protobufVersion = "4.35.0"
 
 protobuf {
