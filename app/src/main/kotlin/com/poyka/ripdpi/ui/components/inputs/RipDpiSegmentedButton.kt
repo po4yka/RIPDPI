@@ -20,9 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -38,17 +38,18 @@ fun RipDpiSegmentedButton(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val gap = RipDpiThemeTokens.components.rows.compactPillVerticalPadding
     val shape = RoundedCornerShape(percent = 50)
     Row(
         modifier =
             modifier
                 .clip(shape)
                 .background(colors.muted, shape)
-                .border(width = 1.dp, color = colors.border, shape = shape)
-                .padding(2.dp)
+                .border(width = RipDpiStroke.Thin, color = colors.border, shape = shape)
+                .padding(gap)
                 .selectableGroup(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(gap),
     ) {
         options.forEachIndexed { index, label ->
             val isSelected = index == selectedIndex
