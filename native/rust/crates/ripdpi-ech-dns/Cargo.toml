@@ -12,3 +12,4 @@ ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-transport = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
+socket2 = { workspace = true }

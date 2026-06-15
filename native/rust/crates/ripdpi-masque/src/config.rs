@@ -1,6 +1,6 @@
 pub use ripdpi_tls_profiles::OutboundEchConfig;
 use std::io;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MasqueAuthMode {
@@ -51,8 +51,11 @@ pub struct MasqueConfig {
     pub ech_config: Option<OutboundEchConfig>,
 }
 
-pub fn resolve_ech_config_via_encrypted_dns(host: &str) -> io::Result<Option<OutboundEchConfig>> {
-    ripdpi_ech_dns::resolve_outbound_ech_config_via_encrypted_dns(host)
+pub fn resolve_ech_config_via_encrypted_dns(
+    host: &str,
+    outbound_bind_ip: Option<IpAddr>,
+) -> io::Result<Option<OutboundEchConfig>> {
+    ripdpi_ech_dns::resolve_outbound_ech_config_via_encrypted_dns(host, outbound_bind_ip)
         .map_err(|error| io::Error::other(format!("MASQUE ECH resolution failed: {error}")))
 }
 

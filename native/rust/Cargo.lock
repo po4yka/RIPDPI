@@ -5837,6 +5837,7 @@ dependencies = [
  "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
  "ripdpi-tls-profiles",
+ "socket2",
 ]
 
 [[package]]

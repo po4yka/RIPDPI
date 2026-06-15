@@ -1,4 +1,5 @@
 use std::io;
+use std::net::IpAddr;
 
 use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
@@ -6,7 +7,7 @@ use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::MasqueSessionFactory;
 
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
-    let masque_config = build_masque_client_config(config)?;
+    let masque_config = build_masque_client_config(config, context.outbound_bind_ip)?;
     Ok(RelayBackend::Masque(PooledRelayBackend::new(
         MasqueSessionFactory { config: masque_config, migration: context.quic_migration.clone() },
         context.pool_config,
@@ -14,8 +15,18 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     )))
 }
 
-fn build_masque_client_config(config: &ResolvedRelayRuntimeConfig) -> io::Result<ripdpi_masque::config::MasqueConfig> {
-    build_masque_client_config_with_ech_lookup(config, ripdpi_masque::config::resolve_ech_config_via_encrypted_dns)
+fn build_masque_client_config(
+    config: &ResolvedRelayRuntimeConfig,
+    outbound_bind_ip: Option<IpAddr>,
+) -> io::Result<ripdpi_masque::config::MasqueConfig> {
+    // Thread the relay's outbound bind IP into the encrypted-DNS ECH lookup so
+    // that DoH/DoT socket is bound to the protected physical interface, exactly
+    // like every other relay outbound socket (see chain.rs). The relay process
+    // registers no VpnService.protect callback, so this source-bind is the
+    // protect-equivalent that keeps the lookup off the VPN's own TUN.
+    build_masque_client_config_with_ech_lookup(config, move |host| {
+        ripdpi_masque::config::resolve_ech_config_via_encrypted_dns(host, outbound_bind_ip)
+    })
 }
 
 fn build_masque_client_config_with_ech_lookup(
