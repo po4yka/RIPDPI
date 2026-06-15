@@ -279,6 +279,9 @@
     <string name="diagnostics_source_strategy_probe_manual">策略探测（手动）</string>
     <string name="diagnostics_source_unknown">未知来源</string>
     <string name="history_connection_remembered_policy_badge">已记住的策略</string>
+    <string name="history_event_occurrence_format">x%1$d</string>
+    <string name="history_event_timestamp_range">%1$s · %2$s - %3$s</string>
+    <string name="history_event_timestamp_single">%1$s · %2$s</string>
     <string name="history_connection_remembered_policy_section">已记住的策略</string>
     <string name="history_connection_remembered_policy_source">来源</string>
     <string name="history_connection_remembered_policy_reason">匹配原因</string>

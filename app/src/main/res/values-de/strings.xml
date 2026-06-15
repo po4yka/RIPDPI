@@ -2434,6 +2434,9 @@ Quelle: %2$s</string>
     <string name="fake_payload_library_summary_label_scope">Geltungsbereich</string>
     <string name="fake_payload_profile_status_ready">Für später gespeichert</string>
     <string name="history_connection_remembered_policy_badge">Gespeicherte Richtlinie</string>
+    <string name="history_event_occurrence_format">x%1$d</string>
+    <string name="history_event_timestamp_range">%1$s · %2$s - %3$s</string>
+    <string name="history_event_timestamp_single">%1$s · %2$s</string>
     <string name="history_connection_remembered_policy_previous_successes">Frühere Erfolge</string>
     <string name="history_connections_empty_body">Starten Sie RIPDPI mindestens einmal, um dauerhafte Laufzeit-Sitzungen, Samples und Fehler zu erfassen.</string>
     <string name="history_diagnostics_section">Diagnose</string>

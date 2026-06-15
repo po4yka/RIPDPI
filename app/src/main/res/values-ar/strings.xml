@@ -279,6 +279,9 @@
     <string name="diagnostics_source_strategy_probe_manual">فحص الاستراتيجية (يدوي)</string>
     <string name="diagnostics_source_unknown">مصدر غير معروف</string>
     <string name="history_connection_remembered_policy_badge">سياسة محفوظة</string>
+    <string name="history_event_occurrence_format">x%1$d</string>
+    <string name="history_event_timestamp_range">%1$s · %2$s - %3$s</string>
+    <string name="history_event_timestamp_single">%1$s · %2$s</string>
     <string name="history_connection_remembered_policy_section">سياسة محفوظة</string>
     <string name="history_connection_remembered_policy_source">المصدر</string>
     <string name="history_connection_remembered_policy_reason">سبب المطابقة</string>

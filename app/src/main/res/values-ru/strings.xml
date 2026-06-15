@@ -265,6 +265,9 @@
     <string name="diagnostics_source_strategy_probe_manual">Стратегическое зондирование (вручную)</string>
     <string name="diagnostics_source_unknown">Неизвестный источник</string>
     <string name="history_connection_remembered_policy_badge">Запомненная политика</string>
+    <string name="history_event_occurrence_format">x%1$d</string>
+    <string name="history_event_timestamp_range">%1$s · %2$s - %3$s</string>
+    <string name="history_event_timestamp_single">%1$s · %2$s</string>
     <string name="history_connection_remembered_policy_section">Запомненная политика</string>
     <string name="history_connection_remembered_policy_source">Источник</string>
     <string name="history_connection_remembered_policy_reason">Причина совпадения</string>

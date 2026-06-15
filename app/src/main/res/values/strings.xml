@@ -286,6 +286,9 @@
     <string name="diagnostics_source_strategy_probe_manual">Strategy probe (manual)</string>
     <string name="diagnostics_source_unknown">Unknown source</string>
     <string name="history_connection_remembered_policy_badge">Remembered policy</string>
+    <string name="history_event_occurrence_format">x%1$d</string>
+    <string name="history_event_timestamp_range">%1$s · %2$s - %3$s</string>
+    <string name="history_event_timestamp_single">%1$s · %2$s</string>
     <string name="history_connection_remembered_policy_section">Remembered policy</string>
     <string name="history_connection_remembered_policy_source">Source</string>
     <string name="history_connection_remembered_policy_reason">Match reason</string>

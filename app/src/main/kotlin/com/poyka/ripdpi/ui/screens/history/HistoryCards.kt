@@ -180,7 +180,7 @@ internal fun EventRow(
                             ),
                 ) {
                     Text(
-                        text = "x$occurrenceCount",
+                        text = stringResource(R.string.history_event_occurrence_format, occurrenceCount),
                         style = type.smallLabel,
                         color = colors.mutedForeground,
                     )
@@ -189,9 +189,18 @@ internal fun EventRow(
         }
         val timestampText =
             if (lastTimestampLabel != null) {
-                "${event.source} · ${event.createdAtLabel} - $lastTimestampLabel"
+                stringResource(
+                    R.string.history_event_timestamp_range,
+                    event.source,
+                    event.createdAtLabel,
+                    lastTimestampLabel,
+                )
             } else {
-                "${event.source} · ${event.createdAtLabel}"
+                stringResource(
+                    R.string.history_event_timestamp_single,
+                    event.source,
+                    event.createdAtLabel,
+                )
             }
         Text(
             text = timestampText,

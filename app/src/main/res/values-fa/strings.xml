@@ -279,6 +279,9 @@
     <string name="diagnostics_source_strategy_probe_manual">کاوش راهبرد (دستی)</string>
     <string name="diagnostics_source_unknown">منبع ناشناخته</string>
     <string name="history_connection_remembered_policy_badge">سیاست به‌خاطر سپرده‌شده</string>
+    <string name="history_event_occurrence_format">x%1$d</string>
+    <string name="history_event_timestamp_range">%1$s · %2$s - %3$s</string>
+    <string name="history_event_timestamp_single">%1$s · %2$s</string>
     <string name="history_connection_remembered_policy_section">سیاست به‌خاطر سپرده‌شده</string>
     <string name="history_connection_remembered_policy_source">منبع</string>
     <string name="history_connection_remembered_policy_reason">دلیل تطابق</string>
