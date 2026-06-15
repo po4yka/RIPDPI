@@ -3235,6 +3235,30 @@ fakeddisorder endhost</string>
         <item quantity="many">، %d معلّقاً</item>
         <item quantity="other">، %d معلّق</item>
     </plurals>
+    <plurals name="analysis_progress_completed">
+        <item quantity="zero">لا شيء مكتمل</item>
+        <item quantity="one">اكتمل %d</item>
+        <item quantity="two">اكتمل %d</item>
+        <item quantity="few">اكتمل %d</item>
+        <item quantity="many">اكتمل %d</item>
+        <item quantity="other">اكتمل %d</item>
+    </plurals>
+    <plurals name="analysis_progress_running">
+        <item quantity="zero">لا شيء قيد التشغيل</item>
+        <item quantity="one">%d قيد التشغيل</item>
+        <item quantity="two">%d قيد التشغيل</item>
+        <item quantity="few">%d قيد التشغيل</item>
+        <item quantity="many">%d قيد التشغيل</item>
+        <item quantity="other">%d قيد التشغيل</item>
+    </plurals>
+    <plurals name="analysis_progress_failed">
+        <item quantity="zero">لا شيء فشل</item>
+        <item quantity="one">فشل %d</item>
+        <item quantity="two">فشل %d</item>
+        <item quantity="few">فشل %d</item>
+        <item quantity="many">فشل %d</item>
+        <item quantity="other">فشل %d</item>
+    </plurals>
     <string name="settings_mixed_inbound_title">الدخول المختلط (SOCKS5 + HTTP)</string>
     <string name="settings_mixed_inbound_body">يقبل مستمع محلي واحد اتصالات SOCKS5 و HTTP CONNECT معاً؛ المنفذ الافتراضي هو 2080.</string>
     <string name="settings_append_http_proxy_title">الإعلان عن وكيل HTTP للنظام</string>

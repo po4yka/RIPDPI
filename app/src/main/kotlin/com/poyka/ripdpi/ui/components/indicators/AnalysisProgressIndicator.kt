@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -41,6 +42,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -76,7 +78,8 @@ fun AnalysisProgressIndicator(
     val typeScale = RipDpiThemeTokens.type
     val containerShape = RipDpiThemeTokens.shapes.lg
     val (pulseAlpha, shimmerAlpha) = rememberPipelineAlphas(motion)
-    val description = buildStageDescription(stages)
+    val resources = LocalContext.current.resources
+    val description = buildStageDescription(resources, stages)
 
     Column(
         modifier =
@@ -122,15 +125,25 @@ fun AnalysisProgressIndicator(
     }
 }
 
-private fun buildStageDescription(stages: ImmutableList<AnalysisStageUiState>): String =
-    buildString {
-        val completed = stages.count { it.status == AnalysisStageStatus.COMPLETED }
-        val failed = stages.count { it.status == AnalysisStageStatus.FAILED }
-        val running = stages.count { it.status == AnalysisStageStatus.RUNNING }
-        append("$completed completed")
-        if (running > 0) append(", $running running")
-        if (failed > 0) append(", $failed failed")
-    }
+private fun buildStageDescription(
+    resources: android.content.res.Resources,
+    stages: ImmutableList<AnalysisStageUiState>,
+): String {
+    val completed = stages.count { it.status == AnalysisStageStatus.COMPLETED }
+    val failed = stages.count { it.status == AnalysisStageStatus.FAILED }
+    val running = stages.count { it.status == AnalysisStageStatus.RUNNING }
+    val fragments =
+        buildList {
+            add(resources.getQuantityString(R.plurals.analysis_progress_completed, completed, completed))
+            if (running > 0) {
+                add(resources.getQuantityString(R.plurals.analysis_progress_running, running, running))
+            }
+            if (failed > 0) {
+                add(resources.getQuantityString(R.plurals.analysis_progress_failed, failed, failed))
+            }
+        }
+    return fragments.joinToString(separator = ", ")
+}
 
 @Composable
 private fun rememberPipelineAlphas(motion: com.poyka.ripdpi.ui.theme.RipDpiMotion): Pair<Float, Float> {

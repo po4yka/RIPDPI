@@ -2808,6 +2808,18 @@ Source: %2$s</string>
         <item quantity="one">, %d pending</item>
         <item quantity="other">, %d pending</item>
     </plurals>
+    <plurals name="analysis_progress_completed">
+        <item quantity="one">%d completed</item>
+        <item quantity="other">%d completed</item>
+    </plurals>
+    <plurals name="analysis_progress_running">
+        <item quantity="one">%d running</item>
+        <item quantity="other">%d running</item>
+    </plurals>
+    <plurals name="analysis_progress_failed">
+        <item quantity="one">%d failed</item>
+        <item quantity="other">%d failed</item>
+    </plurals>
     <string name="settings_danger_section">Danger Zone</string>
     <string name="settings_reset_title">Reset all settings</string>
     <string name="settings_reset_body">Restore all settings to their default values</string>

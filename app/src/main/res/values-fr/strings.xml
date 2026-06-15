@@ -2092,6 +2092,18 @@ Source : %2$s</string>
         <item quantity="one">, %d en attente</item>
         <item quantity="other">, %d en attente</item>
     </plurals>
+    <plurals name="analysis_progress_completed">
+        <item quantity="one">%d terminé</item>
+        <item quantity="other">%d terminés</item>
+    </plurals>
+    <plurals name="analysis_progress_running">
+        <item quantity="one">%d en cours</item>
+        <item quantity="other">%d en cours</item>
+    </plurals>
+    <plurals name="analysis_progress_failed">
+        <item quantity="one">%d en échec</item>
+        <item quantity="other">%d en échec</item>
+    </plurals>
     <string name="strategy_config_entry_title">Config de stratégie</string>
     <string name="strategy_config_import_too_large">Choisissez un fichier de taille inférieure à %1$d Ko.</string>
     <string name="strategy_config_load_action">Charger</string>

@@ -2667,6 +2667,24 @@ fakeddisorder endhost</string>
         <item quantity="many">, %d в ожидании</item>
         <item quantity="other">, %d в ожидании</item>
     </plurals>
+    <plurals name="analysis_progress_completed">
+        <item quantity="one">%d завершён</item>
+        <item quantity="few">%d завершено</item>
+        <item quantity="many">%d завершено</item>
+        <item quantity="other">%d завершено</item>
+    </plurals>
+    <plurals name="analysis_progress_running">
+        <item quantity="one">%d выполняется</item>
+        <item quantity="few">%d выполняется</item>
+        <item quantity="many">%d выполняется</item>
+        <item quantity="other">%d выполняется</item>
+    </plurals>
+    <plurals name="analysis_progress_failed">
+        <item quantity="one">%d сбой</item>
+        <item quantity="few">%d сбоя</item>
+        <item quantity="many">%d сбоев</item>
+        <item quantity="other">%d сбоев</item>
+    </plurals>
 
     <!-- gap-fill: strategy_config_* -->
     <string name="strategy_config_active_path_label">Активный источник</string>

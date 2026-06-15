@@ -2209,6 +2209,18 @@ fakeddisorder endhost</string>
         <item quantity="one">، %d در انتظار</item>
         <item quantity="other">، %d در انتظار</item>
     </plurals>
+    <plurals name="analysis_progress_completed">
+        <item quantity="one">%d کامل‌شده</item>
+        <item quantity="other">%d کامل‌شده</item>
+    </plurals>
+    <plurals name="analysis_progress_running">
+        <item quantity="one">%d در حال اجرا</item>
+        <item quantity="other">%d در حال اجرا</item>
+    </plurals>
+    <plurals name="analysis_progress_failed">
+        <item quantity="one">%d ناموفق</item>
+        <item quantity="other">%d ناموفق</item>
+    </plurals>
     <string name="strategy_config_editor_label">Bypass strategy</string>
     <string name="strategy_config_import_empty">فایل انتخاب‌شده خالی است.</string>
     <string name="strategy_config_import_unreadable">فایل انتخاب‌شده قابل خواندن نبود.</string>

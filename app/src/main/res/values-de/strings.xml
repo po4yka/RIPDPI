@@ -2092,6 +2092,18 @@ Quelle: %2$s</string>
         <item quantity="one">, %d ausstehend</item>
         <item quantity="other">, %d ausstehend</item>
     </plurals>
+    <plurals name="analysis_progress_completed">
+        <item quantity="one">%d abgeschlossen</item>
+        <item quantity="other">%d abgeschlossen</item>
+    </plurals>
+    <plurals name="analysis_progress_running">
+        <item quantity="one">%d laufend</item>
+        <item quantity="other">%d laufend</item>
+    </plurals>
+    <plurals name="analysis_progress_failed">
+        <item quantity="one">%d fehlgeschlagen</item>
+        <item quantity="other">%d fehlgeschlagen</item>
+    </plurals>
     <string name="strategy_config_entry_title">Strategie-Konfiguration</string>
     <string name="strategy_config_import_too_large">Wählen Sie eine Datei, die nicht größer als %1$d KB ist.</string>
     <string name="strategy_config_load_action">Laden</string>

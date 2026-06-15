@@ -1510,6 +1510,15 @@ hostfake endhost host=cdn.discordapp.net</string>
     <plurals name="stage_pending_count">
         <item quantity="other">,%d 项待处理</item>
     </plurals>
+    <plurals name="analysis_progress_completed">
+        <item quantity="other">%d 项已完成</item>
+    </plurals>
+    <plurals name="analysis_progress_running">
+        <item quantity="other">%d 项进行中</item>
+    </plurals>
+    <plurals name="analysis_progress_failed">
+        <item quantity="other">%d 项失败</item>
+    </plurals>
     <string name="strategy_config_entry_body">查看活动绕过策略、导入本地配置、导出文本或加载 Lua 策略脚本。</string>
     <string name="strategy_config_import_empty">所选文件为空。</string>
     <string name="strategy_config_imported_body">已导入的文本可供查看。</string>

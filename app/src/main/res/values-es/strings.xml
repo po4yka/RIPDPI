@@ -2092,6 +2092,18 @@ Origen: %2$s</string>
         <item quantity="one">, %d pendiente</item>
         <item quantity="other">, %d pendientes</item>
     </plurals>
+    <plurals name="analysis_progress_completed">
+        <item quantity="one">%d completada</item>
+        <item quantity="other">%d completadas</item>
+    </plurals>
+    <plurals name="analysis_progress_running">
+        <item quantity="one">%d en curso</item>
+        <item quantity="other">%d en curso</item>
+    </plurals>
+    <plurals name="analysis_progress_failed">
+        <item quantity="one">%d fallida</item>
+        <item quantity="other">%d fallidas</item>
+    </plurals>
     <string name="strategy_config_entry_title">Configuración de Estrategia</string>
     <string name="strategy_config_import_too_large">Elige un archivo no mayor de %1$d KB.</string>
     <string name="strategy_config_load_action">Cargar</string>
