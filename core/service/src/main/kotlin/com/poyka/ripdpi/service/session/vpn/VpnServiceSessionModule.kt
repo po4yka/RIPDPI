@@ -1,9 +1,16 @@
 package com.poyka.ripdpi.service.session.vpn
 
 import android.net.VpnService
+import com.poyka.ripdpi.core.RipDpiXrayRuntime
+import com.poyka.ripdpi.core.XrayNativeBridge
+import com.poyka.ripdpi.core.XrayProviderOrchestrator
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
+import com.poyka.ripdpi.data.xray.XrayConfigRenderer
+import com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinator
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies
@@ -23,9 +30,17 @@ import com.poyka.ripdpi.services.VpnEncryptedDnsFailoverController
 import com.poyka.ripdpi.services.VpnProtectFailureMonitor
 import com.poyka.ripdpi.services.VpnProtectSocketServer
 import com.poyka.ripdpi.services.VpnServiceSessionComponent
+import com.poyka.ripdpi.services.VpnServiceXrayProtectController
 import com.poyka.ripdpi.services.VpnTunnelRuntime
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
+import com.poyka.ripdpi.services.XrayManagedTunnel
+import com.poyka.ripdpi.services.XrayProviderDiagnosticsProbeRunner
+import com.poyka.ripdpi.services.XrayProviderRouteBuilder
+import com.poyka.ripdpi.services.XrayProviderSessionController
+import com.poyka.ripdpi.services.XrayProviderSnapshotDeriver
+import com.poyka.ripdpi.services.XrayRenderedConfigHolder
+import com.poyka.ripdpi.services.XrayTunnelStartParamsHolder
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,6 +48,7 @@ import java.io.File
 
 @Module
 @InstallIn(VpnServiceSessionComponent::class)
+@Suppress("TooManyFunctions")
 internal object VpnServiceSessionModule {
     @Provides
     @ServiceSessionScope
@@ -130,6 +146,76 @@ internal object VpnServiceSessionModule {
 
     @Provides
     @ServiceSessionScope
+    fun provideXrayTunnelStartParamsHolder(): XrayTunnelStartParamsHolder = XrayTunnelStartParamsHolder()
+
+    @Provides
+    @ServiceSessionScope
+    fun provideXrayRenderedConfigHolder(): XrayRenderedConfigHolder = XrayRenderedConfigHolder()
+
+    @Provides
+    @ServiceSessionScope
+    fun provideVpnServiceXrayProtectController(
+        vpnService: VpnService,
+        protectFailureMonitor: VpnProtectFailureMonitor,
+    ): VpnServiceXrayProtectController =
+        VpnServiceXrayProtectController(
+            // Direct-JNI protect: wrap VpnService.protect(int) directly (the
+            // libXray DialerController.protectFd transport), reporting denials
+            // through the SAME monitor the native ProtectSocketFdProtector uses.
+            // See .claude/rules/vpnservice-protect-invariant.md.
+            fdProtector = vpnService::protect,
+            protectFailureMonitor = protectFailureMonitor,
+        )
+
+    @Provides
+    @ServiceSessionScope
+    fun provideXrayProviderSessionController(
+        selectionStore: XrayProviderSelectionStore,
+        profileStore: DurableXrayProfileStore,
+        xrayNativeBridge: XrayNativeBridge,
+        vpnTunnelRuntime: VpnTunnelRuntime,
+        protectController: VpnServiceXrayProtectController,
+        startParamsHolder: XrayTunnelStartParamsHolder,
+        renderedConfigHolder: XrayRenderedConfigHolder,
+        probeCoordinator: XrayProviderProbeCoordinator,
+    ): XrayProviderSessionController {
+        val orchestrator =
+            XrayProviderOrchestrator(
+                xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(xrayNativeBridge, cfg) },
+                tunnel =
+                    XrayManagedTunnel(
+                        vpnTunnelRuntime = vpnTunnelRuntime,
+                        startParamsProvider = startParamsHolder::require,
+                    ),
+                protectController = protectController,
+                // Synchronous provider reads the secret-bearing config the
+                // controller staged just before start; cleared right after.
+                renderedConfigProvider = { renderedConfigHolder.require() },
+            )
+        return XrayProviderSessionController(
+            selectionStore = selectionStore,
+            profileStore = profileStore,
+            routeBuilder = XrayProviderRouteBuilder(profileStore, XrayConfigRenderer()),
+            orchestrator = orchestrator,
+            snapshotDeriver = XrayProviderSnapshotDeriver(),
+            probeRunner = XrayProviderDiagnosticsProbeRunner(xrayNativeBridge),
+            startParamsHolder = startParamsHolder,
+            bridgeVersion = { runCatching { xrayNativeBridge.version() }.getOrNull() },
+            bridgeListenerReady = { runCatching { xrayNativeBridge.listenerReady() }.getOrDefault(false) },
+            bridgeIsAlive = { runCatching { xrayNativeBridge.isAlive() }.getOrDefault(false) },
+            renderedConfigSink = { config ->
+                renderedConfigHolder.current = config
+                if (config != null) {
+                    protectController.clearLastFailure()
+                }
+            },
+            lastProtectFailureDetail = { protectController.lastFailureDetail },
+            probeCoordinator = probeCoordinator,
+        )
+    }
+
+    @Provides
+    @ServiceSessionScope
     fun provideVpnCoordinator(
         host: VpnCoordinatorHost,
         runtimeDependencies: VpnServiceRuntimeRuntimeDependencies,
@@ -143,6 +229,7 @@ internal object VpnServiceSessionModule {
         statusReporter: ServiceStatusReporter,
         directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
         rootHelperManager: RootHelperManager,
+        xrayProviderSessionController: XrayProviderSessionController,
     ): VpnServiceRuntimeCoordinator =
         VpnServiceRuntimeCoordinator(
             vpnHost = host,
@@ -165,5 +252,6 @@ internal object VpnServiceSessionModule {
             screenStateObserver = runtimeDependencies.screenStateObserver,
             directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
             rootHelperManager = rootHelperManager,
+            xrayProviderSessionController = xrayProviderSessionController,
         )
 }
