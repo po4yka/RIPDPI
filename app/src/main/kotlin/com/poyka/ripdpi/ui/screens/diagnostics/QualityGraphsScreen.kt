@@ -58,15 +58,27 @@ fun QualityGraphsScreen(samples: ImmutableList<ConnectionQualitySnapshot>) {
     ) {
         QualityGraphCard(
             title = stringResource(R.string.vpn_quality_graph_throughput_title),
-            nowLabel = samples.lastOrNull()?.let { "${it.rttP50Ms} ms" } ?: "—",
-            p50Label = samples.lastOrNull()?.let { "p50 ${it.rttP50Ms} ms" } ?: "—",
+            nowLabel =
+                samples
+                    .lastOrNull()
+                    ?.let { stringResource(R.string.vpn_quality_graph_value_ms, it.rttP50Ms) } ?: "—",
+            p50Label =
+                samples
+                    .lastOrNull()
+                    ?.let { stringResource(R.string.vpn_quality_graph_p50_ms, it.rttP50Ms) } ?: "—",
             samples = samples,
             selector = { it.rttP50Ms },
         )
         QualityGraphCard(
             title = stringResource(R.string.vpn_quality_graph_latency_title),
-            nowLabel = samples.lastOrNull()?.let { "${it.jitterMs} ms" } ?: "—",
-            p50Label = samples.lastOrNull()?.let { "avg ${it.jitterMs} ms" } ?: "—",
+            nowLabel =
+                samples
+                    .lastOrNull()
+                    ?.let { stringResource(R.string.vpn_quality_graph_value_ms, it.jitterMs) } ?: "—",
+            p50Label =
+                samples
+                    .lastOrNull()
+                    ?.let { stringResource(R.string.vpn_quality_graph_avg_ms, it.jitterMs) } ?: "—",
             samples = samples,
             selector = { it.jitterMs },
         )

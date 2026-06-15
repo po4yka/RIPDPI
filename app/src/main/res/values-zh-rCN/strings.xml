@@ -3002,6 +3002,9 @@ fake_burst 3</string>
     <string name="vpn_quality_graph_legend_now">当前</string>
     <string name="vpn_quality_graph_legend_p50">p50</string>
     <string name="vpn_quality_graph_caption">RTT + 抖动图表 · 滚动 60 秒窗口。</string>
+    <string name="vpn_quality_graph_value_ms">%1$d ms</string>
+    <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
+    <string name="vpn_quality_graph_avg_ms">平均 %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">尚无捕获 · 在设置中启用</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d 个数据包</string>
     <string name="vpn_pcap_capture_drops_format">高负载下丢弃了 %1$d 个数据包</string>

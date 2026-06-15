@@ -3001,6 +3001,9 @@ Quelle: %2$s</string>
     <string name="vpn_quality_graph_legend_now">Jetzt</string>
     <string name="vpn_quality_graph_legend_p50">p50</string>
     <string name="vpn_quality_graph_caption">RTT + Jitter-Diagramme · gleitendes 60-s-Fenster.</string>
+    <string name="vpn_quality_graph_value_ms">%1$d ms</string>
+    <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
+    <string name="vpn_quality_graph_avg_ms">Ø %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">Noch keine Aufnahmen · in Einstellungen aktivieren</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d Pakete</string>
     <string name="vpn_pcap_capture_drops_format">%1$d Pakete unter Last verworfen</string>

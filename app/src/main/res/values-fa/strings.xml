@@ -3006,6 +3006,9 @@ fakeddisorder endhost</string>
     <string name="vpn_quality_graph_legend_now">اکنون</string>
     <string name="vpn_quality_graph_legend_p50">p50</string>
     <string name="vpn_quality_graph_caption">نمودارهای RTT + ناپایداری · پنجره 60 ثانیه‌ای.</string>
+    <string name="vpn_quality_graph_value_ms">%1$d ms</string>
+    <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
+    <string name="vpn_quality_graph_avg_ms">میانگین %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">هنوز ضبطی وجود ندارد · از تنظیمات فعال کنید</string>
     <string name="vpn_pcap_capture_meta_format">%1$d کیبی · %2$d بسته</string>
     <string name="vpn_pcap_capture_drops_format">%1$d بسته زیر بار از دست رفت</string>

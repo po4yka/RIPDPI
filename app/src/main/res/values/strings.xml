@@ -3155,6 +3155,9 @@ Source: %2$s</string>
     <string name="vpn_quality_graph_legend_now">Now</string>
     <string name="vpn_quality_graph_legend_p50">p50</string>
     <string name="vpn_quality_graph_caption">RTT + jitter graphs · rolling 60 s sample window.</string>
+    <string name="vpn_quality_graph_value_ms">%1$d ms</string>
+    <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
+    <string name="vpn_quality_graph_avg_ms">avg %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">No captures yet · enable in Settings</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d packets</string>
     <string name="vpn_pcap_capture_drops_format">%1$d packets dropped under load</string>

@@ -3001,6 +3001,9 @@ Origen: %2$s</string>
     <string name="vpn_quality_graph_legend_now">Ahora</string>
     <string name="vpn_quality_graph_legend_p50">p50</string>
     <string name="vpn_quality_graph_caption">Gráficas RTT + jitter · ventana deslizante 60 s.</string>
+    <string name="vpn_quality_graph_value_ms">%1$d ms</string>
+    <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
+    <string name="vpn_quality_graph_avg_ms">media %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">Aún sin capturas · habilitar en Ajustes</string>
     <string name="vpn_pcap_capture_meta_format">%1$d KiB · %2$d paquetes</string>
     <string name="vpn_pcap_capture_drops_format">%1$d paquetes descartados bajo carga</string>
