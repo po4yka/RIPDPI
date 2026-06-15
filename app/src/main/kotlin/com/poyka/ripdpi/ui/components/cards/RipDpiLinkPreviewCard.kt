@@ -32,6 +32,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import java.util.Locale
 
 private const val LegendKeyWeight = 0.32f
 private const val LegendValueWeight = 0.68f
@@ -121,7 +122,7 @@ private fun UrlBlock(
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         Text(
-            text = state.eyebrowLink.uppercase(),
+            text = state.eyebrowLink.uppercase(Locale.getDefault()),
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )
@@ -165,7 +166,7 @@ private fun UrlBlock(
                 ) {
                     Text(
                         modifier = Modifier.padding(horizontal = spacing.md, vertical = spacing.xs),
-                        text = state.copyLabel.uppercase(),
+                        text = state.copyLabel.uppercase(Locale.getDefault()),
                         style = type.smallLabel,
                         color = colors.background,
                     )
@@ -219,7 +220,7 @@ private fun LegendBlock(state: RipDpiLinkPreviewState) {
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         Text(
-            text = state.eyebrowPayload.uppercase(),
+            text = state.eyebrowPayload.uppercase(Locale.getDefault()),
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )
