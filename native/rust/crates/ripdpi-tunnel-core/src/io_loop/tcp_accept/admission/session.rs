@@ -25,6 +25,7 @@ pub(super) fn admit_session(
     pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
     proxy_sockaddr: SocketAddr,
     auth: &Auth,
+    protect_path: Option<&str>,
     cancel: &CancellationToken,
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
@@ -33,7 +34,7 @@ pub(super) fn admit_session(
     remove_pending_listen(pending_listens, pending.handle);
     pin_synthetic_ip(dns_cache, pending.synthetic_ip);
 
-    let session = create_session_duplex(proxy_sockaddr, auth, pending.target_addr, cancel, stats);
+    let session = create_session_duplex(proxy_sockaddr, auth, pending.target_addr, protect_path, cancel, stats);
     let entry = SessionEntry {
         smoltcp_side: session.smoltcp_side,
         cancel: session.cancel,

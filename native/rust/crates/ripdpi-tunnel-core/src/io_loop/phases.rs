@@ -89,6 +89,7 @@ pub(in crate::io_loop) fn admit_tcp_sessions(state: &mut LoopState) {
         &mut state.pending_listens,
         state.runtime.proxy_sockaddr,
         &state.runtime.auth,
+        state.runtime.protect_path.as_deref(),
         &state.cancel,
         &state.stats,
         &mut state.dns_cache,

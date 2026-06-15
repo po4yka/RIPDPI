@@ -4,10 +4,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::TcpSocket;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
+use super::protect::protect_socket_if_available;
 use super::socks5::{Auth, TargetAddr};
 use crate::stats::{Stats, TcpConnectObservation};
 
@@ -18,6 +19,11 @@ pub struct TcpSession {
     proxy_addr: SocketAddr,
     auth: Auth,
     target: TargetAddr,
+    /// CLI UDS fallback path for `VpnService.protect()` when no JNI protect
+    /// callback is registered. `None` on the Android callback path and in tests
+    /// (where the proxy is loopback and protect is a no-op). See
+    /// [`Self::run`] and `.claude/rules/vpnservice-protect-invariant.md`.
+    protect_path: Option<String>,
     /// Stats handle for emitting `TcpConnectObservation`s. Optional so unit
     /// tests that exercise the splice / handshake paths can construct a
     /// session without standing up a full `Stats` plumb-through.
@@ -26,13 +32,23 @@ pub struct TcpSession {
 
 impl TcpSession {
     pub fn new(proxy_addr: SocketAddr, auth: Auth, target: TargetAddr) -> Self {
-        Self { proxy_addr, auth, target, stats: None }
+        Self { proxy_addr, auth, target, protect_path: None, stats: None }
     }
 
     /// Construct a session that will emit `TcpConnectObservation`s into
     /// `stats` on every SOCKS5-connect attempt (success and failure).
-    pub fn with_stats(proxy_addr: SocketAddr, auth: Auth, target: TargetAddr, stats: Arc<Stats>) -> Self {
-        Self { proxy_addr, auth, target, stats: Some(stats) }
+    ///
+    /// `protect_path` is threaded to the outbound proxy socket so the
+    /// production data-plane path protects it before `connect` — see
+    /// [`Self::run`].
+    pub fn with_stats(
+        proxy_addr: SocketAddr,
+        auth: Auth,
+        target: TargetAddr,
+        protect_path: Option<String>,
+        stats: Arc<Stats>,
+    ) -> Self {
+        Self { proxy_addr, auth, target, protect_path, stats: Some(stats) }
     }
 
     /// Run the session to completion.
@@ -42,6 +58,17 @@ impl TcpSession {
     /// - Issues a SOCKS5 CONNECT request to `target`.
     /// - Bidirectionally splices `local` ↔ proxy until EOF on both sides or
     ///   until `cancel` is signalled (in which case the function returns `Ok(())`).
+    ///
+    /// # Socket protection
+    ///
+    /// The outbound proxy socket is created, protected via
+    /// [`protect_socket_if_available`], and only *then* connected — honoring the
+    /// `VpnService.protect()` invariant. The tunnel→proxy hop is loopback by
+    /// default (a no-op for protect), but a non-loopback proxy address is a
+    /// supported configuration whose socket would otherwise be routed back into
+    /// the TUN the VPN owns, producing a packet loop. This mirrors
+    /// [`super::udp::UdpSession::connect`]. See
+    /// `.claude/rules/vpnservice-protect-invariant.md`.
     ///
     /// # Cancel safety
     ///
@@ -53,7 +80,18 @@ impl TcpSession {
     where
         L: AsyncRead + AsyncWrite + Unpin,
     {
-        self.run_with_connector(local, cancel, TcpStream::connect).await
+        let protect_path = self.protect_path.clone();
+        self.run_with_connector(local, cancel, move |addr: SocketAddr| async move {
+            // Create the socket, protect it, *then* connect — never connect an
+            // unprotected non-loopback socket into the VPN's own TUN.
+            let socket = match addr {
+                SocketAddr::V4(_) => TcpSocket::new_v4()?,
+                SocketAddr::V6(_) => TcpSocket::new_v6()?,
+            };
+            protect_socket_if_available(&socket, protect_path.as_deref())?;
+            socket.connect(addr).await
+        })
+        .await
     }
 
     /// # Cancel safety
@@ -205,6 +243,7 @@ mod tests {
     use std::sync::OnceLock;
     use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
+    use tokio::net::TcpStream;
     use tokio::time::{sleep, timeout};
     use tracing_subscriber::EnvFilter;
 

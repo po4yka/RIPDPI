@@ -24,12 +24,14 @@ use session::admit_session;
 /// IANA IP protocol number for TCP, for flow-attribution `note_flow`.
 const PROTO_TCP: u8 = 6;
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_new_tcp_sessions(
     socket_set: &mut SocketSet<'static>,
     sessions: &mut ActiveSessions,
     pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
     proxy_sockaddr: SocketAddr,
     auth: &Auth,
+    protect_path: Option<&str>,
     cancel: &CancellationToken,
     stats: &Arc<Stats>,
     dns_cache: &mut Option<DnsCache>,
@@ -38,7 +40,18 @@ pub(crate) fn spawn_new_tcp_sessions(
     abort_unresolved_sessions(socket_set, pending_listens, unresolvable);
 
     for pending in new_sessions {
-        admit_session(socket_set, sessions, pending_listens, proxy_sockaddr, auth, cancel, stats, dns_cache, pending);
+        admit_session(
+            socket_set,
+            sessions,
+            pending_listens,
+            proxy_sockaddr,
+            auth,
+            protect_path,
+            cancel,
+            stats,
+            dns_cache,
+            pending,
+        );
     }
 }
 
