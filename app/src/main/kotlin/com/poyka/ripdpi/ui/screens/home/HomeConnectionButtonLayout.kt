@@ -30,6 +30,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -75,7 +77,7 @@ internal fun HomeConnectionButtonLayout(
                 Modifier
                     .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorButton)
                     .semantics(mergeDescendants = true) {
-                        contentDescription = label
+                        contentDescription = "$label $modeLabel".trim()
                         this.stateDescription = stateDescription
                         liveRegion = LiveRegionMode.Polite
                     }.size(homeChrome.connectionButtonSize)
@@ -103,9 +105,11 @@ internal fun HomeConnectionButtonLayout(
             verticalArrangement = Arrangement.Center,
         ) {
             HomeConnectionButtonContent(
+                state = state,
                 label = label,
                 modeLabel = modeLabel,
                 visuals = visuals,
+                connectionIconSize = homeChrome.connectionIconSize,
             )
         }
     }
@@ -113,9 +117,11 @@ internal fun HomeConnectionButtonLayout(
 
 @Composable
 private fun HomeConnectionButtonContent(
+    state: ConnectionState,
     label: String,
     modeLabel: String,
     visuals: HomeConnectionButtonVisuals,
+    connectionIconSize: Dp,
 ) {
     val motion = RipDpiThemeTokens.motion
     val type = RipDpiThemeTokens.type
@@ -134,39 +140,43 @@ private fun HomeConnectionButtonContent(
             imageVector = currentIcon,
             contentDescription = null,
             tint = visuals.contentColor,
-            modifier = Modifier.size(rememberHomeChromeMetrics().connectionIconSize),
+            modifier = Modifier.size(connectionIconSize),
         )
     }
     Spacer(modifier = Modifier.height(connectionButtonIconSpacerDp.dp))
     AnimatedContent(
-        targetState = label,
+        targetState = state,
         transitionSpec = {
             fadeIn(animationSpec = motion.stateTween()) togetherWith
                 fadeOut(animationSpec = motion.quickTween())
         },
         label = "homeConnectionLabel",
-    ) { currentLabel ->
+    ) { _ ->
         Text(
-            text = currentLabel,
+            text = label,
             style = type.bodyEmphasis,
             color = visuals.contentColor,
             textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
     Spacer(modifier = Modifier.height(connectionButtonModeSpacerDp.dp))
     AnimatedContent(
-        targetState = modeLabel,
+        targetState = state,
         transitionSpec = {
             fadeIn(animationSpec = motion.quickTween()) togetherWith
                 fadeOut(animationSpec = motion.quickTween())
         },
         label = "homeConnectionModeLabel",
-    ) { currentModeLabel ->
+    ) { _ ->
         Text(
-            text = currentModeLabel,
+            text = modeLabel,
             style = type.caption,
             color = visuals.contentColor.copy(alpha = modeLabelAlpha),
             textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
