@@ -90,9 +90,11 @@ data class StateMachineState(
  * Renders 7 VPN-state nodes on a 640 × 380 spec canvas (scaled to fill
  * available width) with directed edges drawn by Compose [Canvas]. The
  * active node is ringed; the active outgoing edge is dashed and accented.
- * A colour-coded legend row sits beneath the diagram. All tokens come from
- * [RipDpiThemeTokens]; no literal colours, dp values outside `ui/theme/`,
- * or animation-spec constants appear in this file.
+ * A colour-coded legend row sits beneath the diagram. All colours come from
+ * [RipDpiThemeTokens] and no animation-spec constants appear here. The small
+ * set of Canvas geometry sizes (node corner, status dot, ring inset, legend
+ * swatch) use off-scale `.dp` values that have no matching RDS token and are
+ * intentionally local to this diagram rather than promoted to `ui/theme/`.
  */
 @Composable
 fun StateMachineScreen(
