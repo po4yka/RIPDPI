@@ -130,7 +130,7 @@ fun RipDpiCoachMark(
         ) {
             // Scrim with circular cutout at anchor.
             Canvas(modifier = Modifier.fillMaxSize()) {
-                drawRect(color = Color.Black.copy(alpha = 0.55f))
+                drawRect(color = colors.scrim)
                 drawCircle(
                     color = Color.Transparent,
                     radius = with(density) { anchor.radius.toPx() },
