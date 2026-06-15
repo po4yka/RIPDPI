@@ -2315,7 +2315,7 @@ Origen: %2$s</string>
     <string name="detection_resistance_summary_quic_low_port">Vincular puertos de origen bajos</string>
     <string name="detection_score_degraded">Puntuación degradada</string>
     <string name="detection_score_unchanged">Sin cambios</string>
-    <string name="detection_stealth_score_value">Puntuación de sigilo %1$d</string>
+    <string name="detection_stealth_score_a11y">Puntuación de sigilo %1$d</string>
     <string name="detection_stealth_score">Visibilidad</string>
     <string name="diagnostics_action_in_path">Ejecutar escaneo en ruta</string>
     <string name="diagnostics_approaches_profiles">Perfiles</string>

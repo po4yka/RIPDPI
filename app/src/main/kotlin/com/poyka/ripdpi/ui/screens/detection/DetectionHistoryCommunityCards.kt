@@ -98,7 +98,7 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                         Icon(icon, contentDescription = desc, modifier = Modifier.size(16.dp), tint = tint)
                     }
                     val stealthScoreDescription =
-                        stringResource(R.string.detection_stealth_score_value, entry.stealthScore)
+                        stringResource(R.string.detection_stealth_score_a11y, entry.stealthScore)
                     Text(
                         "${entry.stealthScore}",
                         style = type.bodyEmphasis,

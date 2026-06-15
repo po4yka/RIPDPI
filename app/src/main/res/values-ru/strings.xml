@@ -2116,7 +2116,7 @@ fakeddisorder endhost</string>
     <string name="detection_score_improved">Оценка улучшилась</string>
     <string name="detection_score_degraded">Оценка ухудшилась</string>
     <string name="detection_score_unchanged">Без изменений</string>
-    <string name="detection_stealth_score_value">Оценка скрытности %1$d</string>
+    <string name="detection_stealth_score_a11y">Оценка скрытности %1$d</string>
 
     <!-- gap-fill: adaptive_fallback_* -->
     <string name="adaptive_fallback_auto_sort_body">Если поздняя группа продолжает побеждать для одних и тех же назначений, переместите её раньше в адаптивном порядке для более быстрого восстановления.</string>

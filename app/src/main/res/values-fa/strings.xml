@@ -1930,7 +1930,7 @@ fakeddisorder endhost</string>
     <string name="detection_resistance_summary_tls">پروفایل دست‌دهی TLS</string>
     <string name="detection_score_degraded">امتیاز کاهش یافت</string>
     <string name="detection_score_unchanged">بدون تغییر</string>
-    <string name="detection_stealth_score_value">امتیاز پنهان‌کاری %1$d</string>
+    <string name="detection_stealth_score_a11y">امتیاز پنهان‌کاری %1$d</string>
     <string name="detection_status_ok">OK</string>
     <string name="detection_verdict_label">حکم</string>
     <string name="diagnostics_autolearn_host_blocked">میزبان مسدودشده شناسایی شد</string>

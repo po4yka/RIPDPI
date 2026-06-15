@@ -2315,7 +2315,7 @@ Source : %2$s</string>
     <string name="detection_resistance_summary_quic_low_port">Lier des ports source bas</string>
     <string name="detection_score_degraded">Score dégradé</string>
     <string name="detection_score_unchanged">Inchangé</string>
-    <string name="detection_stealth_score_value">Score de discrétion %1$d</string>
+    <string name="detection_stealth_score_a11y">Score de discrétion %1$d</string>
     <string name="detection_stealth_score">Visibilité</string>
     <string name="diagnostics_action_in_path">Lancer un scan en ligne</string>
     <string name="diagnostics_approaches_profiles">Profils</string>

@@ -2732,7 +2732,7 @@ Source: %2$s</string>
     <string name="detection_score_improved">Score improved</string>
     <string name="detection_score_degraded">Score degraded</string>
     <string name="detection_score_unchanged">Unchanged</string>
-    <string name="detection_stealth_score_value">Stealth score %1$d</string>
+    <string name="detection_stealth_score_a11y">Stealth score %1$d</string>
     <string name="routing_protection_section_title">App Routing Protection</string>
     <string name="routing_protection_summary_title">Routing suggestions use installed-app matches only</string>
     <string name="routing_protection_summary_body">%1$d risky apps detected across %2$d enabled presets.</string>

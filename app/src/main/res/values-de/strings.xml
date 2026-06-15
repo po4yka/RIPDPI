@@ -2315,7 +2315,7 @@ Quelle: %2$s</string>
     <string name="detection_resistance_summary_quic_low_port">Niedrige Quellports binden</string>
     <string name="detection_score_degraded">Bewertung verschlechtert</string>
     <string name="detection_score_unchanged">Unverändert</string>
-    <string name="detection_stealth_score_value">Tarnwert %1$d</string>
+    <string name="detection_stealth_score_a11y">Tarnwert %1$d</string>
     <string name="detection_stealth_score">Sichtbarkeit</string>
     <string name="diagnostics_action_in_path">In-Path-Scan ausführen</string>
     <string name="diagnostics_approaches_profiles">Profile</string>
