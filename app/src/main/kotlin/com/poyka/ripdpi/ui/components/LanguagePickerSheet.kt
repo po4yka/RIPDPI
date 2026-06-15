@@ -15,11 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
 import androidx.core.os.LocaleListCompat
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.LocalesConfig
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,12 +74,13 @@ private fun LanguageRow(
     onSelected: () -> Unit,
 ) {
     val nameRes = languageNameResource(tag)
+    val spacing = RipDpiThemeTokens.spacing
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .ripDpiSelectable(selected = selected, role = Role.RadioButton, onClick = onSelected)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = spacing.lg, vertical = spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         RadioButton(selected = selected, onClick = null)
@@ -89,7 +90,7 @@ private fun LanguageRow(
                     R.string.language_picker_native_format,
                     stringResource(nameRes),
                 ),
-            modifier = Modifier.padding(start = 12.dp),
+            modifier = Modifier.padding(start = spacing.md),
         )
     }
 }
