@@ -56,7 +56,7 @@ pub(crate) fn build_inner(
     connect_hooks: EncryptedDnsConnectHooks,
 ) -> Result<ResolverInner, EncryptedDnsError> {
     let normalized = normalize_endpoint(endpoint, &transport)?;
-    let dot_tls_config = build_client_config(tls_verifiers.tls_verifier.as_ref(), &tls_roots);
+    let dot_tls_config = build_client_config(tls_verifiers.tls_verifier.as_ref(), &tls_roots)?;
     let doh_client = build_doh_client_for_endpoint(
         &normalized,
         &transport,

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::{Client, Proxy};
-use ripdpi_tls_profiles::{EchFacadeError, EchSetup};
+use ripdpi_tls_profiles::EchSetup;
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig, RootCertStore};
@@ -15,14 +15,14 @@ use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTranspor
 pub(crate) fn build_client_config(
     verifier: Option<&Arc<dyn ServerCertVerifier>>,
     extra_roots: &[CertificateDer<'static>],
-) -> Arc<ClientConfig> {
+) -> Result<Arc<ClientConfig>, EncryptedDnsError> {
     let builder = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
         .with_safe_default_protocol_versions()
         .expect("ring provider supports default TLS versions");
     if let Some(verifier) = verifier {
-        Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
+        Ok(Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()))
     } else {
-        Arc::new(builder.with_root_certificates(default_root_store(extra_roots)).with_no_client_auth())
+        Ok(Arc::new(builder.with_root_certificates(default_root_store(extra_roots)?).with_no_client_auth()))
     }
 }
 
@@ -38,7 +38,7 @@ pub(crate) fn build_doh_client(
     let mut builder = Client::builder().timeout(timeout).connect_timeout(timeout);
 
     if doh_uses_tls(endpoint) {
-        builder = builder.use_preconfigured_tls(doh_tls_config(tls_roots, tls_verifier));
+        builder = builder.use_preconfigured_tls(doh_tls_config(tls_roots, tls_verifier)?);
     } else if tls_verifier.is_some() {
         // Plain HTTP DoH is used only in local tests; custom TLS config is irrelevant there.
     } else {
@@ -49,13 +49,16 @@ pub(crate) fn build_doh_client(
     builder.build().map_err(|err| EncryptedDnsError::ClientBuild(err.to_string()))
 }
 
-fn default_root_store(extra_roots: &[CertificateDer<'static>]) -> RootCertStore {
+fn default_root_store(extra_roots: &[CertificateDer<'static>]) -> Result<RootCertStore, EncryptedDnsError> {
     let mut roots = RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
     for certificate in extra_roots {
-        let _ = roots.add(certificate.clone());
+        // Propagate rather than silently drop: a malformed caller-supplied extra
+        // trust anchor must surface as a config error, not be quietly skipped
+        // (which would leave the resolver trusting fewer roots than configured).
+        roots.add(certificate.clone()).map_err(|err| EncryptedDnsError::ClientBuild(format!("add TLS root: {err}")))?;
     }
-    roots
+    Ok(roots)
 }
 
 fn doh_uses_tls(endpoint: &EncryptedDnsEndpoint) -> bool {
@@ -71,24 +74,24 @@ fn endpoint_doh_url(endpoint: &EncryptedDnsEndpoint) -> Option<&str> {
 fn doh_tls_config(
     tls_roots: &[CertificateDer<'static>],
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-) -> ClientConfig {
+) -> Result<ClientConfig, EncryptedDnsError> {
     doh_tls_config_with_ech_setup(tls_roots, tls_verifier, &EchSetup::Grease)
-        .expect("DoH TLS ECH GREASE config must build")
 }
 
 fn doh_tls_config_with_ech_setup(
     tls_roots: &[CertificateDer<'static>],
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     setup: &EchSetup,
-) -> Result<ClientConfig, EchFacadeError> {
+) -> Result<ClientConfig, EncryptedDnsError> {
     let builder = ripdpi_tls_profiles::configure_rustls_ech(
         ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into()),
         setup,
-    )?;
+    )
+    .map_err(|err| EncryptedDnsError::ClientBuild(format!("DoH ECH setup: {err}")))?;
     let mut config = if let Some(verifier) = tls_verifier {
         builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
-        builder.with_root_certificates(default_root_store(tls_roots)).with_no_client_auth()
+        builder.with_root_certificates(default_root_store(tls_roots)?).with_no_client_auth()
     };
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
     Ok(config)
@@ -155,6 +158,23 @@ mod tests {
 
         assert_eq!(config.alpn_protocols, vec![b"h2".to_vec(), b"http/1.1".to_vec()]);
         assert!(rustls_client_hello_has_ech_extension(config), "DoH outbound TLS must send ECH or GREASE");
+    }
+
+    #[test]
+    fn build_client_config_surfaces_malformed_extra_root() {
+        // A malformed extra trust anchor must now surface as a ClientBuild error
+        // rather than being silently skipped (the pre-fix `let _ = roots.add(..)`).
+        let bogus = CertificateDer::from(vec![0x00, 0x01, 0x02, 0x03]);
+        let result = build_client_config(None, std::slice::from_ref(&bogus));
+        assert!(
+            matches!(result, Err(EncryptedDnsError::ClientBuild(_))),
+            "malformed extra TLS root must surface as ClientBuild, not be silently dropped"
+        );
+    }
+
+    #[test]
+    fn build_client_config_accepts_no_extra_roots() {
+        assert!(build_client_config(None, &[]).is_ok(), "empty extra roots must build");
     }
 
     fn rustls_client_hello_has_ech_extension(config: ClientConfig) -> bool {
