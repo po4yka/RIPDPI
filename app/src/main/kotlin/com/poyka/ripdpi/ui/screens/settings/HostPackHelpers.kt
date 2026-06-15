@@ -111,7 +111,7 @@ internal fun hostPackSourceSummary(preset: HostPackPreset): String =
     }
 
 private val hostPackTimestampFormatter =
-    DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.US)
+    DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.getDefault())
 
 internal fun formatHostPackGeneratedAt(timestamp: String): String? =
     runCatching {
