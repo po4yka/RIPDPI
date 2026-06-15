@@ -27,6 +27,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import java.util.Locale
 
 private const val QrPlateSizeMultiplier = 4
 private const val SpecsLabelWeight = 0.4f
@@ -100,7 +101,7 @@ fun RipDpiQrCodeShareCard(
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 Text(
-                    text = metadata.eyebrow.uppercase(),
+                    text = metadata.eyebrow.uppercase(Locale.getDefault()),
                     style = type.sectionTitle,
                     color = colors.mutedForeground,
                 )
