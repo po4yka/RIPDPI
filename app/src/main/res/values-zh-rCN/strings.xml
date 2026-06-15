@@ -3155,6 +3155,22 @@ fake_burst 3</string>
     <string name="routes_empty_body">添加规则，按域名、IP、端口、应用等对流量进行路由、绕过或拦截。</string>
     <string name="routes_add_rule">添加规则</string>
     <string name="routes_rule_summary_separator">" · "</string>
+    <plurals name="rule_summary_domains">
+        <item quantity="other">%d 个域名</item>
+    </plurals>
+    <plurals name="rule_summary_ips">
+        <item quantity="other">%d 个 IP</item>
+    </plurals>
+    <plurals name="rule_summary_ports">
+        <item quantity="other">%d 个端口</item>
+    </plurals>
+    <plurals name="rule_summary_src_ports">
+        <item quantity="other">%d 个源端口</item>
+    </plurals>
+    <plurals name="rule_summary_apps">
+        <item quantity="other">%d 个应用</item>
+    </plurals>
+    <string name="rule_summary_process">进程</string>
     <string name="routes_move_up">上移</string>
     <string name="routes_move_down">下移</string>
     <string name="rule_editor_name_label">名称</string>

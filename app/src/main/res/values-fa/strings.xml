@@ -3164,6 +3164,27 @@ fakeddisorder endhost</string>
     <string name="routes_empty_body">قانونی اضافه کنید تا ترافیک را بر اساس دامنه، IP، پورت، برنامه و موارد دیگر مسیریابی، دور بزنید یا مسدود کنید.</string>
     <string name="routes_add_rule">افزودن قانون</string>
     <string name="routes_rule_summary_separator">" · "</string>
+    <plurals name="rule_summary_domains">
+        <item quantity="one">%d دامنه</item>
+        <item quantity="other">%d دامنه</item>
+    </plurals>
+    <plurals name="rule_summary_ips">
+        <item quantity="one">%d IP</item>
+        <item quantity="other">%d IP</item>
+    </plurals>
+    <plurals name="rule_summary_ports">
+        <item quantity="one">%d پورت</item>
+        <item quantity="other">%d پورت</item>
+    </plurals>
+    <plurals name="rule_summary_src_ports">
+        <item quantity="one">%d پورت مبدأ</item>
+        <item quantity="other">%d پورت مبدأ</item>
+    </plurals>
+    <plurals name="rule_summary_apps">
+        <item quantity="one">%d برنامه</item>
+        <item quantity="other">%d برنامه</item>
+    </plurals>
+    <string name="rule_summary_process">فرایند</string>
     <string name="routes_move_up">انتقال به بالا</string>
     <string name="routes_move_down">انتقال به پایین</string>
     <string name="rule_editor_name_label">نام</string>

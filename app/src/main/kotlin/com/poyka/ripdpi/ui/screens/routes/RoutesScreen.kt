@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -238,7 +239,36 @@ private fun RuleListRow(
 @Composable
 private fun ruleSummaryLine(row: RuleRow): String {
     val separator = stringResource(R.string.routes_rule_summary_separator)
-    val parts = ruleSummaryParts(row.rule) + "→ ${row.outboundLabel}"
+    val counts = ruleSummaryCounts(row.rule)
+    val parts =
+        buildList {
+            if (counts.domains > 0) {
+                add(pluralStringResource(R.plurals.rule_summary_domains, counts.domains, counts.domains))
+            }
+            if (counts.ips > 0) {
+                add(pluralStringResource(R.plurals.rule_summary_ips, counts.ips, counts.ips))
+            }
+            if (counts.ports > 0) {
+                add(pluralStringResource(R.plurals.rule_summary_ports, counts.ports, counts.ports))
+            }
+            if (counts.sourcePorts > 0) {
+                add(pluralStringResource(R.plurals.rule_summary_src_ports, counts.sourcePorts, counts.sourcePorts))
+            }
+            if (counts.hasProcess) {
+                add(stringResource(R.string.rule_summary_process))
+            }
+            if (counts.apps > 0) {
+                add(pluralStringResource(R.plurals.rule_summary_apps, counts.apps, counts.apps))
+            }
+            add(
+                when (counts.network) {
+                    RuleNetwork.TCP -> stringResource(R.string.rule_summary_net_tcp)
+                    RuleNetwork.UDP -> stringResource(R.string.rule_summary_net_udp)
+                    RuleNetwork.BOTH -> stringResource(R.string.rule_summary_net_both)
+                },
+            )
+            add("→ ${row.outboundLabel}")
+        }
     return parts.joinToString(separator)
 }
 

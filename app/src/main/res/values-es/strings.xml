@@ -3159,6 +3159,27 @@ Origen: %2$s</string>
     <string name="routes_empty_body">Añade una regla para enrutar, omitir o bloquear el tráfico por dominio, IP, puerto, aplicación y más.</string>
     <string name="routes_add_rule">Añadir regla</string>
     <string name="routes_rule_summary_separator">" · "</string>
+    <plurals name="rule_summary_domains">
+        <item quantity="one">%d dominio</item>
+        <item quantity="other">%d dominios</item>
+    </plurals>
+    <plurals name="rule_summary_ips">
+        <item quantity="one">%d IP</item>
+        <item quantity="other">%d IP</item>
+    </plurals>
+    <plurals name="rule_summary_ports">
+        <item quantity="one">%d puerto</item>
+        <item quantity="other">%d puertos</item>
+    </plurals>
+    <plurals name="rule_summary_src_ports">
+        <item quantity="one">%d puerto de origen</item>
+        <item quantity="other">%d puertos de origen</item>
+    </plurals>
+    <plurals name="rule_summary_apps">
+        <item quantity="one">%d app</item>
+        <item quantity="other">%d apps</item>
+    </plurals>
+    <string name="rule_summary_process">proceso</string>
     <string name="routes_move_up">Subir</string>
     <string name="routes_move_down">Bajar</string>
     <string name="rule_editor_name_label">Nombre</string>

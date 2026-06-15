@@ -108,27 +108,32 @@ class RoutesViewModel
         }
     }
 
-/** Builds a one-line summary string for a rule row, e.g. "3 domains · TCP · → Bypass". */
-internal fun ruleSummaryParts(rule: RuleEntity): List<String> =
-    buildList {
-        val domains = rule.domains.lines().count { it.isNotBlank() }
-        val ips = rule.ipCidrs.lines().count { it.isNotBlank() }
-        val ports = rule.ports.lines().count { it.isNotBlank() }
-        val sourcePorts = rule.sourcePorts.lines().count { it.isNotBlank() }
-        if (domains > 0) add("$domains domains")
-        if (ips > 0) add("$ips IPs")
-        if (ports > 0) add("$ports ports")
-        if (sourcePorts > 0) add("$sourcePorts src ports")
-        if (rule.processName.isNotBlank()) add("process")
-        if (rule.packages.isNotEmpty()) add("${rule.packages.size} apps")
-        add(
-            when (rule.network) {
-                RuleNetwork.TCP -> "TCP"
-                RuleNetwork.UDP -> "UDP"
-                RuleNetwork.BOTH -> "TCP+UDP"
-            },
-        )
-    }
+/**
+ * Structured, locale-independent counts for a rule row. The [RoutesScreen] composable layer turns
+ * these into a localized one-line summary via `pluralStringResource` / `stringResource` so no English
+ * fragments are assembled here. A zero count means the matcher is absent and is omitted from the line.
+ */
+data class RuleSummaryCounts(
+    val domains: Int,
+    val ips: Int,
+    val ports: Int,
+    val sourcePorts: Int,
+    val hasProcess: Boolean,
+    val apps: Int,
+    val network: RuleNetwork,
+)
+
+/** Extracts the structured matcher counts for a rule row; formatting happens in the composable layer. */
+internal fun ruleSummaryCounts(rule: RuleEntity): RuleSummaryCounts =
+    RuleSummaryCounts(
+        domains = rule.domains.lines().count { it.isNotBlank() },
+        ips = rule.ipCidrs.lines().count { it.isNotBlank() },
+        ports = rule.ports.lines().count { it.isNotBlank() },
+        sourcePorts = rule.sourcePorts.lines().count { it.isNotBlank() },
+        hasProcess = rule.processName.isNotBlank(),
+        apps = rule.packages.size,
+        network = rule.network,
+    )
 
 /**
  * True when every matcher field on [rule] is empty — such a rule cannot be saved (the outbound

@@ -3021,6 +3021,47 @@ fakeddisorder endhost</string>
     <string name="routes_empty_body">أضف قاعدة لتوجيه حركة البيانات أو تجاوزها أو حجبها حسب النطاق أو IP أو المنفذ أو التطبيق وغير ذلك.</string>
     <string name="routes_add_rule">إضافة قاعدة</string>
     <string name="routes_rule_summary_separator">" · "</string>
+    <plurals name="rule_summary_domains">
+        <item quantity="zero">%d نطاق</item>
+        <item quantity="one">نطاق واحد</item>
+        <item quantity="two">نطاقان</item>
+        <item quantity="few">%d نطاقات</item>
+        <item quantity="many">%d نطاقًا</item>
+        <item quantity="other">%d نطاق</item>
+    </plurals>
+    <plurals name="rule_summary_ips">
+        <item quantity="zero">%d IP</item>
+        <item quantity="one">IP واحد</item>
+        <item quantity="two">IP اثنان</item>
+        <item quantity="few">%d عناوين IP</item>
+        <item quantity="many">%d عنوان IP</item>
+        <item quantity="other">%d IP</item>
+    </plurals>
+    <plurals name="rule_summary_ports">
+        <item quantity="zero">%d منفذ</item>
+        <item quantity="one">منفذ واحد</item>
+        <item quantity="two">منفذان</item>
+        <item quantity="few">%d منافذ</item>
+        <item quantity="many">%d منفذًا</item>
+        <item quantity="other">%d منفذ</item>
+    </plurals>
+    <plurals name="rule_summary_src_ports">
+        <item quantity="zero">%d منفذ مصدر</item>
+        <item quantity="one">منفذ مصدر واحد</item>
+        <item quantity="two">منفذا مصدر</item>
+        <item quantity="few">%d منافذ مصدر</item>
+        <item quantity="many">%d منفذ مصدر</item>
+        <item quantity="other">%d منفذ مصدر</item>
+    </plurals>
+    <plurals name="rule_summary_apps">
+        <item quantity="zero">%d تطبيق</item>
+        <item quantity="one">تطبيق واحد</item>
+        <item quantity="two">تطبيقان</item>
+        <item quantity="few">%d تطبيقات</item>
+        <item quantity="many">%d تطبيقًا</item>
+        <item quantity="other">%d تطبيق</item>
+    </plurals>
+    <string name="rule_summary_process">عملية</string>
     <string name="routes_move_up">تحريك لأعلى</string>
     <string name="routes_move_down">تحريك لأسفل</string>
     <string name="rule_editor_name_label">الاسم</string>

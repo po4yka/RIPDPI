@@ -3288,6 +3288,37 @@ fakeddisorder endhost</string>
     <string name="routes_empty_body">Добавьте правило, чтобы направлять, пропускать в обход или блокировать трафик по домену, IP, порту, приложению и другим признакам.</string>
     <string name="routes_add_rule">Добавить правило</string>
     <string name="routes_rule_summary_separator">" · "</string>
+    <plurals name="rule_summary_domains">
+        <item quantity="one">%d домен</item>
+        <item quantity="few">%d домена</item>
+        <item quantity="many">%d доменов</item>
+        <item quantity="other">%d домена</item>
+    </plurals>
+    <plurals name="rule_summary_ips">
+        <item quantity="one">%d IP</item>
+        <item quantity="few">%d IP</item>
+        <item quantity="many">%d IP</item>
+        <item quantity="other">%d IP</item>
+    </plurals>
+    <plurals name="rule_summary_ports">
+        <item quantity="one">%d порт</item>
+        <item quantity="few">%d порта</item>
+        <item quantity="many">%d портов</item>
+        <item quantity="other">%d порта</item>
+    </plurals>
+    <plurals name="rule_summary_src_ports">
+        <item quantity="one">%d исх. порт</item>
+        <item quantity="few">%d исх. порта</item>
+        <item quantity="many">%d исх. портов</item>
+        <item quantity="other">%d исх. порта</item>
+    </plurals>
+    <plurals name="rule_summary_apps">
+        <item quantity="one">%d приложение</item>
+        <item quantity="few">%d приложения</item>
+        <item quantity="many">%d приложений</item>
+        <item quantity="other">%d приложения</item>
+    </plurals>
+    <string name="rule_summary_process">процесс</string>
     <string name="routes_move_up">Вверх</string>
     <string name="routes_move_down">Вниз</string>
     <string name="rule_editor_name_label">Название</string>
