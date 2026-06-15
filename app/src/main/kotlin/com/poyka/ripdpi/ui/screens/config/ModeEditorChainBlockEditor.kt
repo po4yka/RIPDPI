@@ -339,7 +339,14 @@ private fun ModeEditorUdpBlock(
         index = index,
         count = count,
         descriptor = descriptor,
-        value = if (step.kind == UdpChainStepKind.IpFrag2Udp) "${step.splitBytes} bytes" else "${step.count} packets",
+        value =
+            if (step.kind == UdpChainStepKind.IpFrag2Udp) {
+                androidx.compose.ui.res
+                    .pluralStringResource(R.plurals.config_chain_step_byte_count, step.splitBytes, step.splitBytes)
+            } else {
+                androidx.compose.ui.res
+                    .pluralStringResource(R.plurals.config_chain_step_packet_count, step.count, step.count)
+            },
         detail =
             androidx.compose.ui.res
                 .stringResource(R.string.config_chain_step_detail_udp_quic),

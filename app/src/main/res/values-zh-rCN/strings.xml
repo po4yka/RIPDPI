@@ -3482,6 +3482,12 @@ fake_burst 3</string>
     <string name="config_chain_step_detail_tcp_send">TCP 发送步骤</string>
     <string name="config_chain_step_detail_tls_prelude">TLS 前奏</string>
     <string name="config_chain_step_detail_udp_quic">UDP/QUIC 步骤</string>
+    <plurals name="config_chain_step_byte_count">
+        <item quantity="other">%d 字节</item>
+    </plurals>
+    <plurals name="config_chain_step_packet_count">
+        <item quantity="other">%d 个数据包</item>
+    </plurals>
     <string name="config_chain_step_disoob_add">添加 disoob</string>
     <string name="config_chain_step_disoob_explanation">将低 TTL 乱序与紧急数据结合。</string>
     <string name="config_chain_step_disoob_label">乱序 OOB</string>

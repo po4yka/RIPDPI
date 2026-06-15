@@ -3486,6 +3486,14 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_detail_tcp_send">گام ارسال TCP</string>
     <string name="config_chain_step_detail_tls_prelude">پیش‌درآمد TLS</string>
     <string name="config_chain_step_detail_udp_quic">گام UDP/QUIC</string>
+    <plurals name="config_chain_step_byte_count">
+        <item quantity="one">%d بایت</item>
+        <item quantity="other">%d بایت</item>
+    </plurals>
+    <plurals name="config_chain_step_packet_count">
+        <item quantity="one">%d بسته</item>
+        <item quantity="other">%d بسته</item>
+    </plurals>
     <string name="config_chain_step_disoob_add">افزودن disoob</string>
     <string name="config_chain_step_disoob_explanation">بی‌نظمی با TTL پایین را با داده‌های فوری ترکیب می‌کند.</string>
     <string name="config_chain_step_disoob_label">بی‌نظمی OOB</string>

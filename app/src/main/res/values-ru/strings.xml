@@ -3600,6 +3600,18 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_detail_tcp_send">Шаг отправки TCP</string>
     <string name="config_chain_step_detail_tls_prelude">Прелюдия TLS</string>
     <string name="config_chain_step_detail_udp_quic">Шаг UDP/QUIC</string>
+    <plurals name="config_chain_step_byte_count">
+        <item quantity="one">%d байт</item>
+        <item quantity="few">%d байта</item>
+        <item quantity="many">%d байт</item>
+        <item quantity="other">%d байта</item>
+    </plurals>
+    <plurals name="config_chain_step_packet_count">
+        <item quantity="one">%d пакет</item>
+        <item quantity="few">%d пакета</item>
+        <item quantity="many">%d пакетов</item>
+        <item quantity="other">%d пакета</item>
+    </plurals>
     <string name="config_chain_step_disoob_add">Добавить disoob</string>
     <string name="config_chain_step_disoob_explanation">Сочетает разупорядочивание с низким TTL и срочные данные.</string>
     <string name="config_chain_step_disoob_label">Разупорядочивание OOB</string>

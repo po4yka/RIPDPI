@@ -3461,6 +3461,22 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_detail_tcp_send">خطوة إرسال TCP</string>
     <string name="config_chain_step_detail_tls_prelude">مقدمة TLS</string>
     <string name="config_chain_step_detail_udp_quic">خطوة UDP/QUIC</string>
+    <plurals name="config_chain_step_byte_count">
+        <item quantity="zero">%d بايت</item>
+        <item quantity="one">بايت واحد</item>
+        <item quantity="two">بايتان</item>
+        <item quantity="few">%d بايت</item>
+        <item quantity="many">%d بايت</item>
+        <item quantity="other">%d بايت</item>
+    </plurals>
+    <plurals name="config_chain_step_packet_count">
+        <item quantity="zero">%d حزمة</item>
+        <item quantity="one">حزمة واحدة</item>
+        <item quantity="two">حزمتان</item>
+        <item quantity="few">%d حِزَم</item>
+        <item quantity="many">%d حزمة</item>
+        <item quantity="other">%d حزمة</item>
+    </plurals>
     <string name="config_chain_step_disoob_add">إضافة disoob</string>
     <string name="config_chain_step_disoob_explanation">يجمع بين الفوضى منخفضة TTL والبيانات العاجلة.</string>
     <string name="config_chain_step_disoob_label">فوضى OOB</string>

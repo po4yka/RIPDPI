@@ -3481,6 +3481,14 @@ Quelle: %2$s</string>
     <string name="config_chain_step_detail_tcp_send">TCP-Sendeschritt</string>
     <string name="config_chain_step_detail_tls_prelude">TLS-Prelude</string>
     <string name="config_chain_step_detail_udp_quic">UDP/QUIC-Schritt</string>
+    <plurals name="config_chain_step_byte_count">
+        <item quantity="one">%d Byte</item>
+        <item quantity="other">%d Bytes</item>
+    </plurals>
+    <plurals name="config_chain_step_packet_count">
+        <item quantity="one">%d Paket</item>
+        <item quantity="other">%d Pakete</item>
+    </plurals>
     <string name="config_chain_step_disoob_add">Disoob hinzufügen</string>
     <string name="config_chain_step_disoob_explanation">Kombiniert Low-TTL-Disorder mit Urgent-Daten.</string>
     <string name="config_chain_step_disoob_label">Disorder-OOB</string>

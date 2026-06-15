@@ -3481,6 +3481,14 @@ Origen: %2$s</string>
     <string name="config_chain_step_detail_tcp_send">Paso de envío TCP</string>
     <string name="config_chain_step_detail_tls_prelude">Preludio TLS</string>
     <string name="config_chain_step_detail_udp_quic">Paso UDP/QUIC</string>
+    <plurals name="config_chain_step_byte_count">
+        <item quantity="one">%d byte</item>
+        <item quantity="other">%d bytes</item>
+    </plurals>
+    <plurals name="config_chain_step_packet_count">
+        <item quantity="one">%d paquete</item>
+        <item quantity="other">%d paquetes</item>
+    </plurals>
     <string name="config_chain_step_disoob_add">Añadir disoob</string>
     <string name="config_chain_step_disoob_explanation">Combina el desorden de TTL bajo con datos urgentes.</string>
     <string name="config_chain_step_disoob_label">Desorden OOB</string>

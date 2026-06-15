@@ -3604,6 +3604,14 @@ Source: %2$s</string>
     <string name="config_chain_step_detail_tcp_send">TCP send step</string>
     <string name="config_chain_step_detail_tls_prelude">TLS prelude</string>
     <string name="config_chain_step_detail_udp_quic">UDP/QUIC step</string>
+    <plurals name="config_chain_step_byte_count">
+        <item quantity="one">%d byte</item>
+        <item quantity="other">%d bytes</item>
+    </plurals>
+    <plurals name="config_chain_step_packet_count">
+        <item quantity="one">%d packet</item>
+        <item quantity="other">%d packets</item>
+    </plurals>
     <string name="config_chain_step_disoob_add">Add disoob</string>
     <string name="config_chain_step_disoob_explanation">Combines low-TTL disorder with urgent data.</string>
     <string name="config_chain_step_disoob_label">Disorder OOB</string>
