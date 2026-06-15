@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,7 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -43,16 +41,15 @@ fun RipDpiCombobox(
             if (value.isBlank()) suggestions else suggestions.filter { it.contains(value, ignoreCase = true) }
         }
     Box(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = TextFieldValue(value),
-            onValueChange = { tfv ->
-                onValueChange(tfv.text)
-                expanded = tfv.text.isNotEmpty()
+        RipDpiTextField(
+            value = value,
+            onValueChange = {
+                onValueChange(it)
+                expanded = it.isNotEmpty()
             },
             modifier = Modifier.fillMaxWidth(),
-            label = label?.let { { Text(it) } },
-            singleLine = true,
-            textStyle = RipDpiThemeTokens.type.body,
+            decoration = RipDpiTextFieldDecoration(label = label),
+            behavior = RipDpiTextFieldBehavior(singleLine = true),
         )
         DropdownMenu(
             expanded = expanded && matches.isNotEmpty(),
