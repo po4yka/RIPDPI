@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.subscription.XrayConfigImportResult
 import com.poyka.ripdpi.data.subscription.XraySkipReason
 import com.poyka.ripdpi.data.subscription.XraySkippedNode
 import com.poyka.ripdpi.data.xray.XrayCapability
+import com.poyka.ripdpi.data.xray.XrayImportParser
+import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -80,12 +82,33 @@ class XrayProfileImportViewModel
         /** Profiles translated by the last successful [validate]; not exposed to the UI. */
         private var translatedProfiles: List<ProxyProfile> = emptyList()
 
+        /**
+         * The typed Xray profile the libXray provider runs, produced by the
+         * validated [XrayImportParser] (render + [com.poyka.ripdpi.data.XrayConfigValidator]
+         * gate) — NOT hand-converted from the translated relay profile. Null when
+         * the chosen option is native, or when the validated parse produced no
+         * typed profile (raw-JSON path) / was rejected, in which case the Xray
+         * option fails closed at validate-time. Never exposed to the UI and never
+         * logged.
+         */
+        private var acceptedXrayProfile: XrayProfile? = null
+
+        /**
+         * Validated import parser: the same render + validator gate the libXray
+         * runner reads through ([com.poyka.ripdpi.data.xray.XrayConfigRenderer] ->
+         * [com.poyka.ripdpi.data.XrayConfigValidator]). The durable typed profile
+         * is derived from its [XrayImportParser.Result.Accepted] output so an
+         * import can never persist an unvalidated/incomplete REALITY profile.
+         */
+        private val xrayImportParser = XrayImportParser()
+
         /** Guards [confirm] against re-entry while the async persist is in flight. */
         private var importInFlight: Boolean = false
 
         /** Selects a service-mode option, clearing any stale validation outcome. */
         fun selectOption(option: XrayServiceModeOption) {
             translatedProfiles = emptyList()
+            acceptedXrayProfile = null
             _uiState.update {
                 it.copy(
                     selectedOption = option,
@@ -102,6 +125,7 @@ class XrayProfileImportViewModel
         /** Updates the editable import text, clearing the previous outcome. */
         fun onRawInputChange(value: String) {
             translatedProfiles = emptyList()
+            acceptedXrayProfile = null
             _uiState.update {
                 it.copy(
                     rawInput = value,
@@ -136,6 +160,7 @@ class XrayProfileImportViewModel
 
                 is XrayConfigImportResult.Unparseable -> {
                     translatedProfiles = emptyList()
+                    acceptedXrayProfile = null
                     _uiState.update {
                         it.copy(
                             validating = false,
@@ -152,6 +177,7 @@ class XrayProfileImportViewModel
 
         private fun applyTranslation(result: XrayConfigImportResult.Translated) {
             translatedProfiles = result.profiles
+            acceptedXrayProfile = null
             if (result.profiles.isEmpty()) {
                 // Valid config but every node was skipped — surface the reasons.
                 _uiState.update {
@@ -178,6 +204,18 @@ class XrayProfileImportViewModel
                         reason = XraySkipReason.SINGLE_RELAY_ONLY,
                     )
                 }
+            if (_uiState.value.requiresXrayProfile) {
+                // The Xray (libXray) option must run through the SAME validated
+                // render + validator gate the runner reads, so derive the typed
+                // profile from XrayImportParser — never from the translated relay
+                // profile (lossy and validation-bypassing). Fail closed at
+                // validate-time when no validated typed profile is available, so a
+                // non-REALITY / invalid config never enables Finish.
+                applyXrayValidation(result.skipped + deferred)
+                return
+            }
+            // Native options need no typed Xray profile.
+            acceptedXrayProfile = null
             _uiState.update {
                 it.copy(
                     validating = false,
@@ -186,6 +224,67 @@ class XrayProfileImportViewModel
                     capabilities = capabilitiesFor(listOf(activated)),
                     skipped = result.skipped + deferred,
                     errorMessage = null,
+                )
+            }
+        }
+
+        /**
+         * Runs the validated [XrayImportParser] over the current raw input and,
+         * only on an [XrayImportParser.Result.Accepted] carrying a typed profile,
+         * marks the Xray option ready to finish. A rejection or a typed-less accept
+         * (the raw-JSON path the libXray runner cannot source) fails closed: no
+         * typed profile is retained and Finish stays disabled, with the parser's
+         * already-redacted rejection reason surfaced when present.
+         */
+        private fun applyXrayValidation(skipped: List<XraySkippedNode>) {
+            val input = _uiState.value.rawInput.trim()
+            val parsed =
+                xrayImportParser.parse(
+                    input,
+                    upstreamTag = XRAY_UPSTREAM_TAG,
+                    profileName = IMPORTED_PROFILE_NAME,
+                )
+            when (parsed) {
+                is XrayImportParser.Result.Accepted -> {
+                    val typed = parsed.profile
+                    if (typed == null) {
+                        failXrayValidation(skipped, persistence.noSupportedNodesMessage)
+                    } else {
+                        acceptedXrayProfile = typed
+                        _uiState.update {
+                            it.copy(
+                                validating = false,
+                                acceptedConfigReady = true,
+                                importableCount = 1,
+                                capabilities = parsed.capabilities,
+                                skipped = skipped,
+                                errorMessage = null,
+                            )
+                        }
+                    }
+                }
+
+                is XrayImportParser.Result.Rejected -> {
+                    // parsed.message is already redacted by XrayProfileRedactor.
+                    failXrayValidation(skipped, parsed.message)
+                }
+            }
+        }
+
+        /** Fail-closed Xray validate outcome: no typed profile, Finish disabled. */
+        private fun failXrayValidation(
+            skipped: List<XraySkippedNode>,
+            message: String,
+        ) {
+            acceptedXrayProfile = null
+            _uiState.update {
+                it.copy(
+                    validating = false,
+                    acceptedConfigReady = false,
+                    importableCount = 0,
+                    capabilities = emptyList(),
+                    skipped = skipped,
+                    errorMessage = message,
                 )
             }
         }
@@ -202,7 +301,10 @@ class XrayProfileImportViewModel
             if (!state.canFinish || state.imported || importInFlight) return
             importInFlight = true
             viewModelScope.launch {
-                val result = runCatching { persistence.persist(state.selectedOption, translatedProfiles) }
+                val result =
+                    runCatching {
+                        persistence.persist(state.selectedOption, translatedProfiles, acceptedXrayProfile)
+                    }
                 importInFlight = false
                 result.fold(
                     onSuccess = { _uiState.update { it.copy(imported = true) } },
@@ -225,6 +327,24 @@ class XrayProfileImportViewModel
                 add(XrayCapability.DNS_PROTECTION)
                 add(XrayCapability.REALTIME_MEDIA)
             }
+
+        private companion object {
+            /**
+             * Stable, user-meaningful label for the persisted typed profile. Kept
+             * as a fixed internal name (NOT the relay displayName) so re-imports of
+             * the same endpoint do not churn the durable profile's label; this is a
+             * data-model name field, never rendered into the xray-core config.
+             */
+            const val IMPORTED_PROFILE_NAME = "Imported Xray profile"
+
+            /**
+             * xray-core release tag the validator gates version-dependent rules
+             * against. Mirrors the production render call in
+             * `core/service` `XrayProviderRouteBuilder` (`upstreamTag = "proxy"`),
+             * which carries no version tuple, so REALITY+XHTTP is not version-gated.
+             */
+            const val XRAY_UPSTREAM_TAG = "proxy"
+        }
     }
 
 /**
@@ -248,13 +368,24 @@ interface XrayProfilePersistence {
     val persistFailedMessage: String
 
     /**
-     * Persists the chosen provider [option] and activates the first supported
-     * profile from [profiles] (empty for native options) on the native relay.
-     * Suspends until the relay + settings are written so callers can sequence a
+     * Persists the chosen provider [option].
+     *
+     * For the Xray provider ([XrayServiceModeOption.requiresXrayProfile]) the
+     * validated [acceptedProfile] is persisted to the durable Keystore-split store
+     * and the durable selection is flipped to Xray; the libXray runner then owns
+     * the connection, so no native relay is activated. A null [acceptedProfile]
+     * for an Xray option is fail-closed (the import cannot run via libXray).
+     *
+     * For the native options the durable Xray selection is cleared and the first
+     * supported profile from [profiles] (empty for native-direct) is activated on
+     * the native relay — pre-existing behaviour, unchanged.
+     *
+     * Suspends until the stores + settings are written so callers can sequence a
      * navigate-away only after a real, runnable connection is configured.
      */
     suspend fun persist(
         option: XrayServiceModeOption,
         profiles: List<ProxyProfile>,
+        acceptedProfile: XrayProfile?,
     )
 }
