@@ -30,10 +30,10 @@ import androidx.navigation.toRoute
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
-import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.serialization.RipDpiJson
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileRoute
@@ -124,9 +124,9 @@ data class RipDpiNavHostLaunchRequests(
 @Suppress("detekt.LongMethod")
 @Composable
 fun RipDpiNavHost(
+    mainViewModel: MainViewModel,
     modifier: Modifier = Modifier,
     startDestination: Route = Route.Home,
-    mainViewModel: MainViewModel,
     actions: RipDpiNavHostActions = RipDpiNavHostActions(),
     launchRequests: RipDpiNavHostLaunchRequests = RipDpiNavHostLaunchRequests(),
     snackbarHostState: SnackbarHostState? = null,
@@ -211,7 +211,7 @@ fun RipDpiNavHost(
             motion = motion,
             actions = actions,
             mainViewModel = mainViewModel,
-            mainUiState = mainUiState,
+            permissionSummary = mainUiState.permissionSummary,
             diagnosticsInitialSection = diagnosticsInitialSection.value,
             onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
         )
@@ -228,7 +228,7 @@ private fun ResponsiveNavContent(
     motion: RipDpiMotion,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
-    mainUiState: MainUiState,
+    permissionSummary: PermissionSummaryUiState,
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
@@ -246,7 +246,7 @@ private fun ResponsiveNavContent(
                     motion = motion,
                     actions = actions,
                     mainViewModel = mainViewModel,
-                    mainUiState = mainUiState,
+                    permissionSummary = permissionSummary,
                     diagnosticsInitialSection = diagnosticsInitialSection,
                     onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
                 )
@@ -260,7 +260,7 @@ private fun ResponsiveNavContent(
             motion = motion,
             actions = actions,
             mainViewModel = mainViewModel,
-            mainUiState = mainUiState,
+            permissionSummary = permissionSummary,
             diagnosticsInitialSection = diagnosticsInitialSection,
             onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
         )
@@ -351,7 +351,7 @@ private fun RipDpiNavGraph(
     motion: RipDpiMotion,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
-    mainUiState: MainUiState,
+    permissionSummary: PermissionSummaryUiState,
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
@@ -376,7 +376,7 @@ private fun RipDpiNavGraph(
             navController = navController,
             actions = actions,
             mainViewModel = mainViewModel,
-            mainUiState = mainUiState,
+            permissionSummary = permissionSummary,
         )
         composable<Route.About> {
             AboutRoute(onBack = { navController.popBackStack() })
@@ -579,7 +579,7 @@ private fun NavGraphBuilder.addSettingsRoutes(
     navController: NavHostController,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
-    mainUiState: MainUiState,
+    permissionSummary: PermissionSummaryUiState,
 ) {
     navigation<SettingsGraph>(
         startDestination = Route.Settings,
@@ -587,7 +587,7 @@ private fun NavGraphBuilder.addSettingsRoutes(
         composable<Route.Settings>(
             deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://settings" }),
         ) {
-            SettingsHomeRoute(navController, it, actions, mainViewModel, mainUiState)
+            SettingsHomeRoute(navController, it, actions, mainViewModel, permissionSummary)
         }
         addAdvancedSettingsRoutes(navController, mainViewModel)
         addDetectionSettingsRoutes(navController)
@@ -600,7 +600,7 @@ private fun SettingsHomeRoute(
     backStackEntry: NavBackStackEntry,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
-    mainUiState: MainUiState,
+    permissionSummary: PermissionSummaryUiState,
 ) {
     val settingsGraphEntry =
         remember(navController, backStackEntry) {
@@ -622,7 +622,7 @@ private fun SettingsHomeRoute(
         onOpenBackupRestore = { navController.navigate(Route.BackupRestore) },
         onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
         onShareDebugBundle = actions.onShareDebugBundle,
-        permissionSummary = mainUiState.permissionSummary,
+        permissionSummary = permissionSummary,
         onRepairPermission = actions.onRepairPermission,
         onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
         onDismissBackgroundGuidance = mainViewModel::onDismissBackgroundGuidance,
