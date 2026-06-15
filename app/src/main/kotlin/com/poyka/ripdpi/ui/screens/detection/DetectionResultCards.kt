@@ -81,8 +81,12 @@ internal fun StageProgressCard(progress: DetectionProgress) {
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val loadingDescription = stringResource(R.string.a11y_loading)
             CircularProgressIndicator(
-                modifier = Modifier.size(24.dp),
+                modifier =
+                    Modifier
+                        .size(24.dp)
+                        .semantics { contentDescription = loadingDescription },
                 strokeWidth = 2.dp,
                 color = colors.accent,
             )

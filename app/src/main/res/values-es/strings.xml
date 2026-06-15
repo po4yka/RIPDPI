@@ -3851,6 +3851,7 @@ Origen: %2$s</string>
     <string name="profile_share_setup_sheet_template">Hoja de configuración de RIPDPI\n\nPerfil: %1$s\nTipo: %2$s\n\nEnlace de suscripción/perfil:\n%3$s\n\nHiddify:\n1. Abre Hiddify.\n2. Elige Añadir perfil.\n3. Escanea el código QR o pega el enlace anterior.\n\nAmneziaVPN:\n1. Abre AmneziaVPN.\n2. Elige Añadir servidor desde enlace o QR.\n3. Escanea el código QR o pega el enlace anterior.\n\nMantén esta hoja en privado. El código QR y el enlace contienen credenciales.</string>
     <string name="qr_share_spec_ecc">ECC</string>
     <string name="a11y_share_qr_code">Código QR para compartir el diagnóstico</string>
+    <string name="a11y_loading">Cargando</string>
     <string name="qr_share_spec_payload">PAYLOAD</string>
     <string name="qr_share_spec_schema">SCHEMA</string>
     <string name="qr_share_spec_version">VERSION</string>

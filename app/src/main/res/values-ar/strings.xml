@@ -3831,6 +3831,7 @@ fakeddisorder endhost</string>
     <string name="profile_share_setup_sheet_template">RIPDPI ورقة الإعداد\n\nالملف: %1$s\nالنوع: %2$s\n\nرابط الاشتراك/الملف:\n%3$s\n\nHiddify:\n1. افتح Hiddify.\n2. اختر إضافة ملف.\n3. امسح رمز QR أو الصق الرابط أعلاه.\n\nAmneziaVPN:\n1. افتح AmneziaVPN.\n2. اختر إضافة خادم من رابط أو QR.\n3. امسح رمز QR أو الصق الرابط أعلاه.\n\nاحتفظ بهذه الورقة خاصة. يحتوي رمز QR والرابط على بيانات الاعتماد.</string>
     <string name="qr_share_spec_ecc">ECC</string>
     <string name="a11y_share_qr_code">رمز QR لمشاركة التشخيص</string>
+    <string name="a11y_loading">جارٍ التحميل</string>
     <string name="qr_share_spec_payload">PAYLOAD</string>
     <string name="qr_share_spec_schema">SCHEMA</string>
     <string name="qr_share_spec_version">VERSION</string>
