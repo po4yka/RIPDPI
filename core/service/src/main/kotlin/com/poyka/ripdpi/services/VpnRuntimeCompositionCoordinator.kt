@@ -7,6 +7,14 @@ import java.util.UUID
  * Composes a VPN runtime — starts and stops the shared proxy runtime stack and
  * the VPN tunnel together as one unit, and applies the active connection
  * policy. Driven by `VpnServiceRuntimeCoordinator`.
+ *
+ * ### Provider delegation
+ * When [providerDelegate] is non-null it is consulted FIRST at start / stop /
+ * handover. If it reports it handled the call, the coordinator returns; only
+ * when it declines does the EXISTING native composition below run
+ * BYTE-IDENTICAL. A default install (no provider selected) always declines, so
+ * the native path is unchanged. All provider-specific logic lives behind the
+ * delegate — this coordinator only owns the native composition.
  */
 internal class VpnRuntimeCompositionCoordinator(
     private val proxyRuntimeStack: SharedProxyRuntimeStack,
@@ -18,9 +26,24 @@ internal class VpnRuntimeCompositionCoordinator(
         restartReason: String,
         appliedAt: Long,
     ) -> Unit,
+    /**
+     * Optional embedded provider seam. Null in builds / sessions where no
+     * alternate provider is wired; when present it is consulted at start / stop /
+     * handover and only takes over when it reports it handled the call.
+     */
+    providerController: XrayProviderSessionController? = null,
 ) {
     var currentLocalProxyEndpoint: LocalProxyEndpoint? = null
         private set
+
+    private val providerDelegate: XrayConnectFlowDelegate? =
+        providerController?.let { controller ->
+            XrayConnectFlowDelegate(
+                controller = controller,
+                publishActiveDnsState = ::updateRuntimeDnsState,
+                applyActiveConnectionPolicy = applyActiveConnectionPolicy,
+            )
+        }
 
     suspend fun start(
         session: VpnRuntimeSession,
@@ -30,6 +53,10 @@ internal class VpnRuntimeCompositionCoordinator(
     }
 
     suspend fun stop(skipRuntimeShutdown: Boolean) {
+        if (providerDelegate?.tryStop() == true) {
+            currentLocalProxyEndpoint = null
+            return
+        }
         var stopFailure: Throwable? = null
         runCatching {
             vpnTunnelRuntime.stop()
@@ -57,6 +84,9 @@ internal class VpnRuntimeCompositionCoordinator(
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
     ) {
+        if (providerDelegate?.tryRestart(session, resolution, appliedAt) == true) {
+            return
+        }
         session.currentDns = null
         session.currentDnsSignature = null
         session.currentNetworkScopeKey = null
@@ -84,6 +114,7 @@ internal class VpnRuntimeCompositionCoordinator(
     fun resetAfterStop(session: VpnRuntimeSession?) {
         vpnTunnelRuntime.resetRuntimeState()
         currentLocalProxyEndpoint = null
+        providerDelegate?.reset()
         session?.encryptedDnsFailoverState?.resetAll()
     }
 
@@ -91,6 +122,13 @@ internal class VpnRuntimeCompositionCoordinator(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ) {
+        // PROVIDER SEAM: let the delegate take over only when it reports it
+        // handled the start. Everything below this guard is the native
+        // composition, unchanged.
+        if (providerDelegate?.tryStart(session, resolution) == true) {
+            return
+        }
+
         val logContext = session.buildLogContext(session.currentActiveConnectionPolicy)
         val authToken =
             UUID
