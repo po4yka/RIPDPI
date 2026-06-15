@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -32,7 +33,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import java.util.Locale
 
 private const val LegendKeyWeight = 0.32f
 private const val LegendValueWeight = 0.68f
@@ -117,12 +117,13 @@ private fun UrlBlock(
     val spacing = RipDpiThemeTokens.spacing
     val shapes = RipDpiThemeTokens.shapes
     val type = RipDpiThemeTokens.type
+    val locale = LocalConfiguration.current.locales[0]
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         Text(
-            text = state.eyebrowLink.uppercase(Locale.getDefault()),
+            text = state.eyebrowLink.uppercase(locale),
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )
@@ -166,7 +167,7 @@ private fun UrlBlock(
                 ) {
                     Text(
                         modifier = Modifier.padding(horizontal = spacing.md, vertical = spacing.xs),
-                        text = state.copyLabel.uppercase(Locale.getDefault()),
+                        text = state.copyLabel.uppercase(locale),
                         style = type.smallLabel,
                         color = colors.background,
                     )
@@ -215,12 +216,13 @@ private fun LegendBlock(state: RipDpiLinkPreviewState) {
     val spacing = RipDpiThemeTokens.spacing
     val shapes = RipDpiThemeTokens.shapes
     val type = RipDpiThemeTokens.type
+    val locale = LocalConfiguration.current.locales[0]
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         Text(
-            text = state.eyebrowPayload.uppercase(Locale.getDefault()),
+            text = state.eyebrowPayload.uppercase(locale),
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )
