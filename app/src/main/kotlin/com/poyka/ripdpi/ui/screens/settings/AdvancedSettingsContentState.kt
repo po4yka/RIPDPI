@@ -2,10 +2,6 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.runtime.Composable
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.FakeOrderAllFakesFirst
-import com.poyka.ripdpi.data.FakeOrderAllRealsFirst
-import com.poyka.ripdpi.data.FakeOrderDefault
-import com.poyka.ripdpi.data.FakeOrderInterleaveRealFirst
 import com.poyka.ripdpi.data.FakeSeqModeDuplicate
 import com.poyka.ripdpi.data.FakeSeqModeSequential
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
@@ -112,11 +108,9 @@ private fun rememberTlsFakeProfileOptions() =
 
 @Composable
 private fun rememberFakeOrderOptions() =
-    persistentListOf(
-        RipDpiDropdownOption(FakeOrderDefault, "Altorder 0"),
-        RipDpiDropdownOption(FakeOrderAllFakesFirst, "Altorder 1"),
-        RipDpiDropdownOption(FakeOrderInterleaveRealFirst, "Altorder 2"),
-        RipDpiDropdownOption(FakeOrderAllRealsFirst, "Altorder 3"),
+    rememberSettingsOptions(
+        labelArrayRes = R.array.fake_order_modes,
+        valueArrayRes = R.array.fake_order_modes_entries,
     )
 
 @Composable

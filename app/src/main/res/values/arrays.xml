@@ -142,6 +142,19 @@
         <item name="zero">zero</item>
     </array>
 
+    <array name="fake_order_modes">
+        <item name="0">Altorder 0</item>
+        <item name="1">Altorder 1</item>
+        <item name="2">Altorder 2</item>
+        <item name="3">Altorder 3</item>
+    </array>
+    <array name="fake_order_modes_entries">
+        <item name="0">0</item>
+        <item name="1">1</item>
+        <item name="2">2</item>
+        <item name="3">3</item>
+    </array>
+
     <array name="tls_fake_profiles">
         <item name="compat_default">Compatibility default</item>
         <item name="iana_firefox">IANA Firefox</item>
