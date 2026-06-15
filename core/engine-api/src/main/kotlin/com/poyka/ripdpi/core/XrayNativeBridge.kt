@@ -5,9 +5,10 @@ package com.poyka.ripdpi.core
  *
  * [RipDpiXrayRuntime] depends ONLY on this interface so its lifecycle and
  * telemetry logic is fully unit-testable with a fake, without dragging in the
- * gomobile native artifact. The real implementation lives in the module that
- * links libXray (see [XrayNativeBridgeLibXrayImpl]) and is `// UNVERIFIED IN
- * CI` because gomobile/libXray are absent from the offline CI toolchain.
+ * gomobile native artifact. The real implementation lives in `:core:engine`
+ * (`XrayNativeBridgeLibXrayImpl`, gated source set `xrayLinked`); its logic is
+ * verified offline via an FFI seam, while native execution is device-pending
+ * (gomobile/libXray are absent from the offline CI toolchain).
  *
  * ### Protect-first contract
  * [registerProtect] MUST be wired BEFORE [start] is invoked. Xray-core opens
