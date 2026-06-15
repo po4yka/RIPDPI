@@ -2500,6 +2500,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_privacy_title">شفاف به‌طور طراحی‌شده</string>
     <string name="onboarding_setup_dns_google_body">DNS قابل‌اعتماد توسط Google.</string>
     <string name="onboarding_setup_dns_system">پیش‌فرض سیستم</string>
+    <string name="dns_unknown_provider">ارائه‌دهنده ناشناس</string>
     <string name="onboarding_setup_mode_proxy_body">یک پراکسی محلی برای برنامه‌ها یا کلاینت‌هایی که از پیکربندی دستی پراکسی پشتیبانی می‌کنند اجرا می‌کند.</string>
     <string name="onboarding_setup_mode_vpn_body">تمام ترافیک برنامه‌ها را از طریق یک VPN محلی روی دستگاه مسیریابی می‌کند. پوشش کامل، بدون راه‌اندازی دستی.</string>
     <string name="onboarding_setup_test_failed">اتصال ناموفق بود: %1$s</string>

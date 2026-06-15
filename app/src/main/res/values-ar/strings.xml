@@ -1584,6 +1584,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_mode_proxy_body">يشغِّل وكيلاً محلياً للتطبيقات أو العملاء الذين يدعمون تهيئة الوكيل يدوياً.</string>
     <string name="onboarding_setup_dns_title">اختر DNS</string>
     <string name="onboarding_setup_dns_system">الافتراضي للنظام</string>
+    <string name="dns_unknown_provider">مزوّد غير معروف</string>
     <string name="onboarding_setup_dns_system_body">استخدام خوادم DNS الخاصة بشبكتك كما هي.</string>
     <string name="onboarding_setup_dns_provider_body">محلِّل %1$s يستخدم %2$s كعنوانه الأساسي.</string>
     <string name="onboarding_setup_dns_cloudflare_body">محلِّل DNS سريع للأغراض العامة.</string>

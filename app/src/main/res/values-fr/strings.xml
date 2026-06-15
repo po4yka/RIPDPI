@@ -1421,6 +1421,7 @@ Source : %2$s</string>
     <string name="onboarding_modes_body">Commencez avec un préréglage prêt à l\'emploi, ou configurez chaque paramètre manuellement. Vous pouvez toujours changer d\'avis.</string>
     <string name="onboarding_privacy_title">Transparent par conception</string>
     <string name="onboarding_setup_dns_system">Par défaut du système</string>
+    <string name="dns_unknown_provider">Fournisseur inconnu</string>
     <string name="onboarding_setup_mode_proxy_title">Mode proxy</string>
     <string name="onboarding_setup_test_failed">Échec de la connexion : %1$s</string>
     <string name="onboarding_setup_test_title">Tester votre connexion</string>

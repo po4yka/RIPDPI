@@ -1360,6 +1360,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_permission_title">本地 VPN,而非远程 VPN</string>
     <string name="onboarding_setup_dns_cloudflare_body">快速的通用 DNS 解析器。</string>
     <string name="onboarding_setup_dns_system">系统默认</string>
+    <string name="dns_unknown_provider">未知提供商</string>
     <string name="onboarding_setup_mode_proxy_title">代理模式</string>
     <string name="onboarding_setup_next">下一步</string>
     <string name="onboarding_setup_test_running">正在检查连接…</string>

@@ -130,7 +130,8 @@ internal fun OnboardingDnsSelectionContent(
                 if (isSystem) {
                     stringResource(R.string.onboarding_setup_dns_system)
                 } else {
-                    dnsProviderById(option.providerId)?.displayName ?: option.providerId
+                    dnsProviderById(option.providerId)?.displayName
+                        ?: stringResource(R.string.dns_unknown_provider)
                 }
             val selected =
                 if (isSystem) {

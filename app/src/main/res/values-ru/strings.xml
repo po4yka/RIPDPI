@@ -1172,6 +1172,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_mode_proxy_body">Запускает локальный прокси для приложений и клиентов, поддерживающих ручную настройку прокси.</string>
     <string name="onboarding_setup_dns_title">Выберите DNS</string>
     <string name="onboarding_setup_dns_system">Системный по умолчанию</string>
+    <string name="dns_unknown_provider">Неизвестный провайдер</string>
     <string name="onboarding_setup_dns_system_body">Использовать DNS-серверы текущей сети без изменений.</string>
     <string name="onboarding_setup_dns_provider_body">Резолвер %1$s с основным адресом %2$s.</string>
     <string name="onboarding_setup_dns_cloudflare_body">Быстрый универсальный DNS-резолвер.</string>

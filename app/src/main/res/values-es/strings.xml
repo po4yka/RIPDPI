@@ -1421,6 +1421,7 @@ Origen: %2$s</string>
     <string name="onboarding_modes_body">Empieza con un preset que funciona de serie o configura cada parámetro manualmente. Siempre puedes cambiar de opinión.</string>
     <string name="onboarding_privacy_title">Transparente por diseño</string>
     <string name="onboarding_setup_dns_system">Predeterminado del sistema</string>
+    <string name="dns_unknown_provider">Proveedor desconocido</string>
     <string name="onboarding_setup_mode_proxy_title">Modo proxy</string>
     <string name="onboarding_setup_test_failed">Conexión fallida: %1$s</string>
     <string name="onboarding_setup_test_title">Prueba tu conexión</string>

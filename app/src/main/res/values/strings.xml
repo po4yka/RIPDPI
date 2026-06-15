@@ -1613,6 +1613,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_mode_proxy_body">Runs a local proxy for apps or clients that support manual proxy configuration.</string>
     <string name="onboarding_setup_dns_title">Choose DNS</string>
     <string name="onboarding_setup_dns_system">System default</string>
+    <string name="dns_unknown_provider">Unknown provider</string>
     <string name="onboarding_setup_dns_system_body">Use your network\'s DNS servers as-is.</string>
     <string name="onboarding_setup_dns_provider_body">%1$s resolver using %2$s as its primary address.</string>
     <string name="onboarding_setup_dns_cloudflare_body">Fast general-purpose DNS resolver.</string>
