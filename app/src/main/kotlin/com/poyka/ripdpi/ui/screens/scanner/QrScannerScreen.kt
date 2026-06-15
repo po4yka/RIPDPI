@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -189,7 +190,7 @@ private fun CameraPreview(
                 .newSingleThreadExecutor()
         }
 
-    LaunchedEffect(previewView) {
+    DisposableEffect(lifecycleOwner, previewView) {
         val cameraProvider = ProcessCameraProvider.getInstance(context).get()
         val preview =
             Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
@@ -207,6 +208,10 @@ private fun CameraPreview(
                 preview,
                 analysis,
             )
+        }
+        onDispose {
+            runCatching { cameraProvider.unbindAll() }
+            analyzerExecutor.shutdown()
         }
     }
 
