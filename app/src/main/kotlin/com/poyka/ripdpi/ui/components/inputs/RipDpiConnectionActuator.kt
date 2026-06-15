@@ -328,7 +328,7 @@ private fun TerminalSlot(
                 .clip(shape)
                 .background(container)
                 .border(RipDpiStroke.Thin, border, shape)
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = RipDpiThemeTokens.spacing.sm),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -338,7 +338,7 @@ private fun TerminalSlot(
             modifier = Modifier.size(RipDpiIconSizes.Small),
             tint = content,
         )
-        Spacer(modifier = Modifier.width(4.dp))
+        Spacer(modifier = Modifier.width(RipDpiThemeTokens.spacing.xs))
         Text(
             text = label,
             style = type.smallLabel,
