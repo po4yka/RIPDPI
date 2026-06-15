@@ -47,7 +47,11 @@ fun HomeNetworkConditionBanner(
             val body = stringResource(R.string.home_network_condition_whitelist_body)
             val message =
                 if (condition.suggestRelayProfile) {
-                    "$body ${stringResource(R.string.home_network_condition_whitelist_relay_suggestion)}"
+                    stringResource(
+                        R.string.home_network_condition_whitelist_message,
+                        body,
+                        stringResource(R.string.home_network_condition_whitelist_relay_suggestion),
+                    )
                 } else {
                     body
                 }

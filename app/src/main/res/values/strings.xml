@@ -393,6 +393,7 @@
     <string name="home_network_condition_whitelist_title">Network may be filtering traffic</string>
     <string name="home_network_condition_whitelist_body">Foreign sites are failing while local ones work. This network may only allow approved destinations.</string>
     <string name="home_network_condition_whitelist_relay_suggestion">Try your saved whitelist relay profile.</string>
+    <string name="home_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="home_network_condition_no_connectivity_title">No connectivity</string>
     <string name="home_network_condition_no_connectivity_body">This network has no working route. Check your connection and try again.</string>
     <string name="home_permission_issue_with_retry">%1$s Use the connection button to continue the permission flow.</string>

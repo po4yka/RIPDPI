@@ -386,6 +386,7 @@
     <string name="home_network_condition_whitelist_title">ممکن است شبکه ترافیک را فیلتر کند</string>
     <string name="home_network_condition_whitelist_body">سایت‌های خارجی ناموفق هستند در حالی که سایت‌های محلی کار می‌کنند. این شبکه ممکن است فقط مقصدهای تأییدشده را مجاز کند.</string>
     <string name="home_network_condition_whitelist_relay_suggestion">نمایه relay فهرست سفید ذخیره‌شده خود را امتحان کنید.</string>
+    <string name="home_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="home_network_condition_no_connectivity_title">بدون اتصال</string>
     <string name="home_network_condition_no_connectivity_body">این شبکه مسیر فعالی ندارد. اتصال خود را بررسی کنید و دوباره تلاش کنید.</string>
     <string name="home_permission_issue_with_retry">%1$s از دکمهٔ اتصال برای ادامهٔ جریان مجوز استفاده کنید.</string>

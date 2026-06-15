@@ -356,6 +356,7 @@
     <string name="home_network_condition_whitelist_title">Сеть может фильтровать трафик</string>
     <string name="home_network_condition_whitelist_body">Зарубежные сайты не открываются, а локальные работают. Эта сеть может разрешать только одобренные адреса.</string>
     <string name="home_network_condition_whitelist_relay_suggestion">Попробуйте сохранённый профиль relay для белого списка.</string>
+    <string name="home_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="home_network_condition_no_connectivity_title">Нет подключения</string>
     <string name="home_network_condition_no_connectivity_body">В этой сети нет рабочего маршрута. Проверьте подключение и попробуйте снова.</string>
     <string name="home_permission_issue_with_retry">%1$s Используйте кнопку подключения для продолжения запроса разрешений.</string>

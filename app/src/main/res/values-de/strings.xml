@@ -854,6 +854,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="home_network_condition_whitelist_title">Netzwerk filtert möglicherweise den Datenverkehr</string>
     <string name="home_network_condition_whitelist_body">Ausländische Seiten schlagen fehl, während lokale funktionieren. Dieses Netzwerk lässt möglicherweise nur freigegebene Ziele zu.</string>
     <string name="home_network_condition_whitelist_relay_suggestion">Versuchen Sie Ihr gespeichertes Whitelist-Relay-Profil.</string>
+    <string name="home_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="home_network_condition_no_connectivity_title">Keine Verbindung</string>
     <string name="home_network_condition_no_connectivity_body">Dieses Netzwerk hat keine funktionierende Route. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.</string>
     <string name="host_autolearn_action_host_promoted">Beste Route befördert</string>

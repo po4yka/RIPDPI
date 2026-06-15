@@ -385,6 +385,7 @@
     <string name="home_network_condition_whitelist_title">网络可能正在过滤流量</string>
     <string name="home_network_condition_whitelist_body">境外站点失败而本地站点正常。此网络可能仅允许已批准的目标。</string>
     <string name="home_network_condition_whitelist_relay_suggestion">尝试你保存的白名单 relay 配置。</string>
+    <string name="home_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="home_network_condition_no_connectivity_title">无连接</string>
     <string name="home_network_condition_no_connectivity_body">此网络没有可用路由。请检查你的连接并重试。</string>
     <string name="home_permission_issue_with_retry">%1$s 使用连接按钮继续权限流程。</string>
