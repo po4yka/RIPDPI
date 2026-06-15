@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ConnectionQualitySnapshot
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -83,7 +85,7 @@ private fun QualityGraphCard(
     RipDpiCard(modifier = Modifier.fillMaxWidth(), variant = RipDpiCardVariant.Outlined) {
         QualityGraphHeader(title = title, nowLabel = nowLabel, p50Label = p50Label)
         Spacer(modifier = Modifier.height(spacing.sm))
-        QualityLinePlot(samples = samples, selector = selector)
+        QualityLinePlot(samples = samples, selector = selector, description = title)
         Spacer(modifier = Modifier.height(spacing.sm))
         QualityLegend(nowLabel = nowLabel, p50Label = p50Label)
         Spacer(modifier = Modifier.height(spacing.xs))
@@ -137,6 +139,7 @@ private fun QualityGraphHeader(
 private fun QualityLinePlot(
     samples: ImmutableList<ConnectionQualitySnapshot>,
     selector: (ConnectionQualitySnapshot) -> Long,
+    description: String,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -163,7 +166,7 @@ private fun QualityLinePlot(
                     .clip(
                         androidx.compose.foundation.shape
                             .RoundedCornerShape(shapes.largeCornerRadius),
-                    ),
+                    ).semantics { contentDescription = description },
         ) {
             drawRect(color = bgColor)
 
