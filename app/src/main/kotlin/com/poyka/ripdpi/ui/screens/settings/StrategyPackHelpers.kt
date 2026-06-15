@@ -151,7 +151,7 @@ internal fun strategyPackRefreshPolicyLabelResId(policy: String): Int =
     }
 
 private val strategyPackTimestampFormatter =
-    DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.US)
+    DateTimeFormatter.ofPattern("MMM d, HH:mm", Locale.getDefault())
 
 internal fun formatStrategyPackFetchedAt(timestampMillis: Long): String =
     strategyPackTimestampFormatter.format(Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.systemDefault()))
