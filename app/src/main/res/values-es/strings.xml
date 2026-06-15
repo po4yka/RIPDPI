@@ -3388,6 +3388,10 @@ Origen: %2$s</string>
     <string name="cd_increment">Aumentar</string>
     <string name="cd_coach_mark">Indicación: %1$s. %2$s</string>
     <string name="cd_heartbeat_state">Latido %1$s</string>
+    <string name="heartbeat_state_healthy">correcto</string>
+    <string name="heartbeat_state_degraded">degradado</string>
+    <string name="heartbeat_state_failed">con error</string>
+    <string name="heartbeat_state_idle">inactivo</string>
     <string name="cd_progress_percent">Progreso %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s, datos %2$s</string>
     <string name="cd_port_matrix_cell">%1$s puerto %2$s %3$s</string>

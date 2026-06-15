@@ -80,7 +80,16 @@ fun RipDpiHeartbeatIndicator(
         } else {
             StaticHeartbeatProgress
         }
-    val heartbeatDescription = stringResource(R.string.cd_heartbeat_state, state.name.lowercase())
+    val stateLabel =
+        stringResource(
+            when (state) {
+                RipDpiHeartbeatState.Healthy -> R.string.heartbeat_state_healthy
+                RipDpiHeartbeatState.Degraded -> R.string.heartbeat_state_degraded
+                RipDpiHeartbeatState.Failed -> R.string.heartbeat_state_failed
+                RipDpiHeartbeatState.Idle -> R.string.heartbeat_state_idle
+            },
+        )
+    val heartbeatDescription = stringResource(R.string.cd_heartbeat_state, stateLabel)
     Canvas(
         modifier =
             modifier

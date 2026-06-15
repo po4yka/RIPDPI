@@ -3388,6 +3388,10 @@ Quelle: %2$s</string>
     <string name="cd_increment">Erhöhen</string>
     <string name="cd_coach_mark">Hinweis: %1$s. %2$s</string>
     <string name="cd_heartbeat_state">Heartbeat %1$s</string>
+    <string name="heartbeat_state_healthy">in Ordnung</string>
+    <string name="heartbeat_state_degraded">beeinträchtigt</string>
+    <string name="heartbeat_state_failed">fehlgeschlagen</string>
+    <string name="heartbeat_state_idle">inaktiv</string>
     <string name="cd_progress_percent">Fortschritt %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s, %2$s Daten</string>
     <string name="cd_port_matrix_cell">%1$s Port %2$s %3$s</string>

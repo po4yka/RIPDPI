@@ -3507,6 +3507,10 @@ fakeddisorder endhost</string>
     <string name="cd_increment">Увеличить</string>
     <string name="cd_coach_mark">Подсказка: %1$s. %2$s</string>
     <string name="cd_heartbeat_state">Пульс %1$s</string>
+    <string name="heartbeat_state_healthy">в норме</string>
+    <string name="heartbeat_state_degraded">ухудшен</string>
+    <string name="heartbeat_state_failed">сбой</string>
+    <string name="heartbeat_state_idle">бездействие</string>
     <string name="cd_progress_percent">Прогресс %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s, данные %2$s</string>
     <string name="cd_port_matrix_cell">%1$s, порт %2$s %3$s</string>

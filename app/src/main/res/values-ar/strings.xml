@@ -3368,6 +3368,10 @@ fakeddisorder endhost</string>
     <string name="cd_increment">زيادة</string>
     <string name="cd_coach_mark">تلميح إرشادي: %1$s. %2$s</string>
     <string name="cd_heartbeat_state">نبض %1$s</string>
+    <string name="heartbeat_state_healthy">سليم</string>
+    <string name="heartbeat_state_degraded">متدهور</string>
+    <string name="heartbeat_state_failed">فاشل</string>
+    <string name="heartbeat_state_idle">خامل</string>
     <string name="cd_progress_percent">التقدم %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s، بيانات %2$s</string>
     <string name="cd_port_matrix_cell">%1$s المنفذ %2$s %3$s</string>

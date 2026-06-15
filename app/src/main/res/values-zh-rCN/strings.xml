@@ -3389,6 +3389,10 @@ fake_burst 3</string>
     <string name="cd_increment">增加</string>
     <string name="cd_coach_mark">操作提示：%1$s。%2$s</string>
     <string name="cd_heartbeat_state">心跳 %1$s</string>
+    <string name="heartbeat_state_healthy">正常</string>
+    <string name="heartbeat_state_degraded">降级</string>
+    <string name="heartbeat_state_failed">失败</string>
+    <string name="heartbeat_state_idle">空闲</string>
     <string name="cd_progress_percent">进度 %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s，%2$s 数据</string>
     <string name="cd_port_matrix_cell">%1$s 端口 %2$s %3$s</string>

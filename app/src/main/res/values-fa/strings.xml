@@ -3393,6 +3393,10 @@ fakeddisorder endhost</string>
     <string name="cd_increment">افزایش</string>
     <string name="cd_coach_mark">نشانه راهنما: %1$s. %2$s</string>
     <string name="cd_heartbeat_state">ضربان %1$s</string>
+    <string name="heartbeat_state_healthy">سالم</string>
+    <string name="heartbeat_state_degraded">افت‌کرده</string>
+    <string name="heartbeat_state_failed">ناموفق</string>
+    <string name="heartbeat_state_idle">بی‌کار</string>
     <string name="cd_progress_percent">پیشرفت %1$d%%</string>
     <string name="cd_stale_data_badge">%1$s، داده‌های %2$s</string>
     <string name="cd_port_matrix_cell">%1$s درگاه %2$s %3$s</string>
