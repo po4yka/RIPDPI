@@ -2583,6 +2583,7 @@ fakeddisorder endhost</string>
     <string name="routing_protection_policy_title">Режим предложений</string>
     <string name="routing_protection_section_title">Защита маршрутизации приложений</string>
     <string name="routing_protection_summary_body">%1$d рискованных приложений обнаружено в %2$d включённых пресетах.</string>
+    <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
     <string name="routing_protection_summary_title">Предложения по маршрутизации используют только сопоставления установленных приложений</string>
 
     <!-- gap-fill: semantic_action_* and semantic_state_* -->

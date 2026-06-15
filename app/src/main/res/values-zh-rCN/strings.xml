@@ -2564,6 +2564,7 @@ fake_burst 3</string>
     <string name="routing_protection_full_tunnel_active">全局隧道模式已激活,因此应用排除和反关联提示目前被抑制。</string>
     <string name="routing_protection_policy_prompt_body">当存在风险应用时显示路由建议。</string>
     <string name="routing_protection_summary_body">在 %2$d 个已启用的预设中检测到 %1$d 个风险应用。</string>
+    <string name="routing_protection_suggestion_line">%1$s：%2$s</string>
     <string name="semantic_action_expand">展开</string>
     <string name="semantic_state_on">开启</string>
     <string name="settings_backup_pin_body">在本设备上存储一个四位 PIN 用于备用身份验证。</string>

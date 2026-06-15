@@ -2158,6 +2158,7 @@ fakeddisorder endhost</string>
     <string name="routing_protection_policy_off_body">پیشنهادهای مسیریابی را پنهان کن و خط‌مشی را بدون تغییر باقی بگذار.</string>
     <string name="routing_protection_policy_prompt_title">پرسش</string>
     <string name="routing_protection_summary_body">%1$d برنامه پرخطر در %2$d پیش‌تنظیم فعال شناسایی شد.</string>
+    <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
     <string name="semantic_action_collapse">جمع کردن</string>
     <string name="semantic_state_expanded">باز شد</string>
     <string name="settings_about_body">نسخه، اعتبارات و مستندات پروژه.</string>

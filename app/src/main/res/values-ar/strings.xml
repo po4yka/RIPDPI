@@ -2571,6 +2571,7 @@ fakeddisorder endhost</string>
     <string name="routing_protection_section_title">حماية توجيه التطبيق</string>
     <string name="routing_protection_summary_title">تستخدم اقتراحات التوجيه مطابقات التطبيقات المثبتة فقط</string>
     <string name="routing_protection_summary_body">تم اكتشاف %1$d تطبيق خطير عبر %2$d إعداد مسبق مُفعَّل.</string>
+    <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
     <string name="routing_protection_full_tunnel_active">وضع النفق الكامل نشط، لذا يتم تعليق استثناءات التطبيقات وتلميحات مكافحة الارتباط حالياً.</string>
     <string name="routing_protection_policy_title">وضع الاقتراحات</string>
     <string name="routing_protection_policy_body">لا تُطبَّق الاقتراحات تلقائياً. يبقي وضع التنبيه نصائح التوجيه مرئية عند وجود تطبيقات خطيرة.</string>

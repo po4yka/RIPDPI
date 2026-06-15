@@ -420,6 +420,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="routing_protection_dht_off_title">Desactivado</string>
     <string name="routing_protection_policy_off_title">Desactivado</string>
     <string name="routing_protection_summary_body">%1$d apps de riesgo detectadas en %2$d preajustes activados.</string>
+    <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
     <string name="semantic_state_collapsed">Contraído</string>
     <string name="settings_about_body">Versión, créditos y documentación del proyecto.</string>
     <string name="settings_backup_pin_error">El PIN de respaldo debe tener exactamente cuatro dígitos.</string>

@@ -175,7 +175,12 @@ private fun RoutingProtectionSummaryCard(
             )
             uiState.routingProtection.suggestions.forEach { suggestion ->
                 Text(
-                    text = "${suggestion.title}: ${suggestion.body}",
+                    text =
+                        stringResource(
+                            R.string.routing_protection_suggestion_line,
+                            suggestion.title,
+                            suggestion.body,
+                        ),
                     style = type.caption,
                     color = colors.mutedForeground,
                 )

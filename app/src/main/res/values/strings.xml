@@ -2728,6 +2728,7 @@ Source: %2$s</string>
     <string name="routing_protection_section_title">App Routing Protection</string>
     <string name="routing_protection_summary_title">Routing suggestions use installed-app matches only</string>
     <string name="routing_protection_summary_body">%1$d risky apps detected across %2$d enabled presets.</string>
+    <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
     <string name="routing_protection_full_tunnel_active">Full tunnel mode is active, so app exclusions and anti-correlation hints are currently suppressed.</string>
     <string name="routing_protection_policy_title">Suggestion mode</string>
     <string name="routing_protection_policy_body">Suggestions never auto-apply. Prompt mode keeps routing advice visible when risky apps are installed.</string>
