@@ -105,8 +105,6 @@ sealed interface XrayConfigImportResult {
  * Never throws; malformed input yields [XrayConfigImportResult.Unparseable].
  */
 object XrayConfigImportParser {
-    private const val DEFAULT_REALITY_FLOW = "xtls-rprx-vision"
-
     /** xray-core protocol names that are utility outbounds, not foreign exits. */
     private val NON_PROXY_PROTOCOLS =
         setOf("freedom", "blackhole", "dns", "loopback", "dokodemo-door")
@@ -121,15 +119,11 @@ object XrayConfigImportParser {
     ): XrayConfigImportResult {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return XrayConfigImportResult.Unparseable(XrayUnparseableReason.EMPTY)
-        if (looksLikeJson(trimmed)) return parseJson(trimmed, groupId)
-        // A base64-wrapped xray-core JSON config decodes to JSON — route it to the
-        // JSON path rather than treating it as an (unrecognised) link list.
-        val decoded = decodeBase64Text(trimmed)
-        if (decoded != null && looksLikeJson(decoded.trim())) return parseJson(decoded.trim(), groupId)
-        return parseLinks(trimmed, groupId)
+        // A base64-wrapped xray-core JSON config decodes to JSON — route it (and any
+        // direct JSON) to the JSON path rather than treating it as a link list.
+        val json = jsonPayloadOrNull(trimmed)
+        return if (json != null) parseJson(json, groupId) else parseLinks(trimmed, groupId)
     }
-
-    private fun looksLikeJson(text: String): Boolean = text.startsWith("{") || text.startsWith("[")
 
     // ---------------------------------------------------------------------
     // xray-core JSON
@@ -139,14 +133,19 @@ object XrayConfigImportParser {
         text: String,
         groupId: String,
     ): XrayConfigImportResult {
-        val root =
-            runCatching { RipDpiLenientJson.parseToJsonElement(text) }.getOrElse {
-                return XrayConfigImportResult.Unparseable(XrayUnparseableReason.MALFORMED_JSON)
-            }
-        val outbounds =
-            extractOutbounds(root)
-                ?: return XrayConfigImportResult.Unparseable(XrayUnparseableReason.NO_OUTBOUNDS)
+        val root = runCatching { RipDpiLenientJson.parseToJsonElement(text) }.getOrNull()
+        val outbounds = root?.let { extractOutbounds(it) }
+        return when {
+            root == null -> XrayConfigImportResult.Unparseable(XrayUnparseableReason.MALFORMED_JSON)
+            outbounds == null -> XrayConfigImportResult.Unparseable(XrayUnparseableReason.NO_OUTBOUNDS)
+            else -> translateOutbounds(outbounds, groupId)
+        }
+    }
 
+    private fun translateOutbounds(
+        outbounds: List<JsonElement>,
+        groupId: String,
+    ): XrayConfigImportResult.Translated {
         val profiles = mutableListOf<ProxyProfile>()
         val skipped = mutableListOf<XraySkippedNode>()
         outbounds.forEachIndexed { index, element ->
@@ -169,27 +168,6 @@ object XrayConfigImportParser {
         }
         return XrayConfigImportResult.Translated(profiles, skipped)
     }
-
-    /** Returns the outbound elements, or null when the payload has none. */
-    private fun extractOutbounds(root: JsonElement): List<JsonElement>? =
-        when (root) {
-            is JsonArray -> {
-                root.toList()
-            }
-
-            is JsonObject -> {
-                val outbounds = root["outbounds"]
-                when {
-                    outbounds is JsonArray -> outbounds.toList()
-                    root["protocol"] is JsonPrimitive -> listOf(root)
-                    else -> null
-                }
-            }
-
-            else -> {
-                null
-            }
-        }
 
     private sealed interface OutboundMapping {
         data class Profile(
@@ -229,42 +207,33 @@ object XrayConfigImportParser {
         groupId: String,
     ): OutboundMapping {
         val vnext = (settings?.get("vnext") as? JsonArray)?.firstObject()
+        val user = (vnext?.get("users") as? JsonArray)?.firstObject()
         val address = vnext?.string("address")
         val port = vnext?.int("port")
-        val user = (vnext?.get("users") as? JsonArray)?.firstObject()
         val uuid = user?.string("id")
-        if (address == null || port == null || uuid == null) {
-            return OutboundMapping.Skip(XraySkipReason.MALFORMED)
-        }
         val security = stream?.string("security")?.lowercase()
         val reality = stream?.get("realitySettings") as? JsonObject
         val publicKey = reality?.string("publicKey")
         val isReality = security == "reality" || !publicKey.isNullOrBlank()
-        if (!isReality) {
-            return OutboundMapping.Skip(XraySkipReason.VLESS_REQUIRES_REALITY)
+        return when {
+            address == null || port == null || user == null || uuid == null -> {
+                OutboundMapping.Skip(XraySkipReason.MALFORMED)
+            }
+
+            !isReality -> {
+                OutboundMapping.Skip(XraySkipReason.VLESS_REQUIRES_REALITY)
+            }
+
+            reality == null || publicKey.isNullOrBlank() -> {
+                OutboundMapping.Skip(XraySkipReason.MALFORMED)
+            }
+
+            else -> {
+                OutboundMapping.Profile(
+                    buildVlessReality(stream, reality, user, address, port, uuid, publicKey, tag, groupId),
+                )
+            }
         }
-        if (publicKey.isNullOrBlank()) {
-            return OutboundMapping.Skip(XraySkipReason.MALFORMED)
-        }
-        val network = stream.string("network")?.lowercase()
-        val xhttp = if (network == "xhttp") stream["xhttpSettings"] as? JsonObject else null
-        return OutboundMapping.Profile(
-            ProxyProfile.VlessReality(
-                id = newId(),
-                displayName = tag ?: address,
-                groupId = groupId,
-                server = address,
-                serverPort = port,
-                uuid = uuid,
-                realityPublicKey = publicKey,
-                realityShortId = reality.string("shortId").orEmpty(),
-                serverName = reality.string("serverName") ?: address,
-                flow = user.string("flow") ?: DEFAULT_REALITY_FLOW,
-                fingerprint = reality.string("fingerprint"),
-                xhttpPath = xhttp?.string("path"),
-                xhttpHost = xhttp?.string("host"),
-            ),
-        )
     }
 
     private fun mapTrojan(
@@ -272,21 +241,15 @@ object XrayConfigImportParser {
         tag: String?,
         groupId: String,
     ): OutboundMapping {
-        val server = (settings?.get("servers") as? JsonArray)?.firstObject()
-        val address = server?.string("address")
-        val port = server?.int("port")
-        val password = server?.string("password")
-        if (address == null || port == null || password == null) {
-            return OutboundMapping.Skip(XraySkipReason.MALFORMED)
-        }
+        val creds = firstServerCredentials(settings) ?: return OutboundMapping.Skip(XraySkipReason.MALFORMED)
         return OutboundMapping.Profile(
             ProxyProfile.Trojan(
                 id = newId(),
-                displayName = tag ?: address,
+                displayName = tag ?: creds.address,
                 groupId = groupId,
-                server = address,
-                serverPort = port,
-                password = password,
+                server = creds.address,
+                serverPort = creds.port,
+                password = creds.password,
             ),
         )
     }
@@ -296,23 +259,20 @@ object XrayConfigImportParser {
         tag: String?,
         groupId: String,
     ): OutboundMapping {
-        val server = (settings?.get("servers") as? JsonArray)?.firstObject()
-        val address = server?.string("address")
-        val port = server?.int("port")
-        val method = server?.string("method")
-        val password = server?.string("password")
-        if (address == null || port == null || method == null || password == null) {
+        val creds = firstServerCredentials(settings)
+        val method = (settings?.get("servers") as? JsonArray)?.firstObject()?.string("method")
+        if (creds == null || method == null) {
             return OutboundMapping.Skip(XraySkipReason.MALFORMED)
         }
         return OutboundMapping.Profile(
             ProxyProfile.Shadowsocks(
                 id = newId(),
-                displayName = tag ?: address,
+                displayName = tag ?: creds.address,
                 groupId = groupId,
-                server = address,
-                serverPort = port,
+                server = creds.address,
+                serverPort = creds.port,
                 method = method,
-                password = password,
+                password = creds.password,
             ),
         )
     }
@@ -339,10 +299,11 @@ object XrayConfigImportParser {
             index += 1
             classifyLink(line, current, groupId, profiles, skipped)
         }
-        if (profiles.isEmpty() && skipped.isEmpty()) {
-            return XrayConfigImportResult.Unparseable(XrayUnparseableReason.UNRECOGNISED_INPUT)
+        return if (profiles.isEmpty() && skipped.isEmpty()) {
+            XrayConfigImportResult.Unparseable(XrayUnparseableReason.UNRECOGNISED_INPUT)
+        } else {
+            XrayConfigImportResult.Translated(profiles, skipped)
         }
-        return XrayConfigImportResult.Translated(profiles, skipped)
     }
 
     private fun classifyLink(
@@ -396,64 +357,154 @@ object XrayConfigImportParser {
             }
         }
     }
+}
 
-    /**
-     * Returns the decoded text of a base64-wrapped link list, or [input]
-     * unchanged when it is already a plain link list / not base64.
-     */
-    private fun decodeBase64OrPlain(input: String): String {
-        if (input.contains("://")) return input.replace("\r\n", "\n").replace('\r', '\n')
-        val decoded = decodeBase64Text(input)
-        return if (decoded != null && decoded.contains("://")) {
-            decoded.replace("\r\n", "\n").replace('\r', '\n')
-        } else {
-            input.replace("\r\n", "\n").replace('\r', '\n')
+/** Base64 encodes input in groups of four characters; the unit used to pad. */
+private const val Base64GroupSize = 4
+
+/** Default XTLS flow stamped on a REALITY profile when the source omits one. */
+private const val DefaultRealityFlow = "xtls-rprx-vision"
+
+// ---------------------------------------------------------------------
+// File-private helpers (the sister parsers keep their own copies; these are
+// intentionally NOT shared across modules). Top-level so the parser object
+// stays under detekt's per-object function threshold.
+// ---------------------------------------------------------------------
+
+/**
+ * The address/port/password common to a `trojan` / `shadowsocks` `servers[0]`
+ * entry, or null when any of the three required fields is absent.
+ */
+private data class ServerCredentials(
+    val address: String,
+    val port: Int,
+    val password: String,
+)
+
+private fun firstServerCredentials(settings: JsonObject?): ServerCredentials? {
+    val server = (settings?.get("servers") as? JsonArray)?.firstObject()
+    val address = server?.string("address")
+    val port = server?.int("port")
+    val password = server?.string("password")
+    return if (address != null && port != null && password != null) {
+        ServerCredentials(address, port, password)
+    } else {
+        null
+    }
+}
+
+private fun buildVlessReality(
+    stream: JsonObject?,
+    reality: JsonObject,
+    user: JsonObject,
+    address: String,
+    port: Int,
+    uuid: String,
+    publicKey: String,
+    tag: String?,
+    groupId: String,
+): ProxyProfile.VlessReality {
+    val network = stream?.string("network")?.lowercase()
+    val xhttp = if (network == "xhttp") stream["xhttpSettings"] as? JsonObject else null
+    return ProxyProfile.VlessReality(
+        id = newId(),
+        displayName = tag ?: address,
+        groupId = groupId,
+        server = address,
+        serverPort = port,
+        uuid = uuid,
+        realityPublicKey = publicKey,
+        realityShortId = reality.string("shortId").orEmpty(),
+        serverName = reality.string("serverName") ?: address,
+        flow = user.string("flow") ?: DefaultRealityFlow,
+        fingerprint = reality.string("fingerprint"),
+        xhttpPath = xhttp?.string("path"),
+        xhttpHost = xhttp?.string("host"),
+    )
+}
+
+private fun looksLikeJson(text: String): Boolean = text.startsWith("{") || text.startsWith("[")
+
+/**
+ * Returns the JSON text to parse — [trimmed] itself when it already looks like
+ * JSON, or its base64-decoded form when that decodes to JSON — else null.
+ */
+private fun jsonPayloadOrNull(trimmed: String): String? {
+    if (looksLikeJson(trimmed)) return trimmed
+    val decoded = decodeBase64Text(trimmed)?.trim()
+    return decoded?.takeIf { looksLikeJson(it) }
+}
+
+/** Returns the outbound elements, or null when the payload has none. */
+private fun extractOutbounds(root: JsonElement): List<JsonElement>? =
+    when (root) {
+        is JsonArray -> {
+            root.toList()
+        }
+
+        is JsonObject -> {
+            val outbounds = root["outbounds"]
+            when {
+                outbounds is JsonArray -> outbounds.toList()
+                root["protocol"] is JsonPrimitive -> listOf(root)
+                else -> null
+            }
+        }
+
+        else -> {
+            null
         }
     }
 
-    /**
-     * Best-effort base64 decode of a (possibly whitespace-padded, URL-safe) blob to
-     * text, or null when it does not decode. The caller validates the shape of the
-     * decoded text (link list vs JSON); a successful decode of random input may still
-     * be garbage.
-     */
-    private fun decodeBase64Text(input: String): String? {
-        val condensed =
-            input
-                .trim()
-                .replace("\n", "")
-                .replace("\r", "")
-                .replace(" ", "")
-        if (condensed.isEmpty()) return null
-        val padded = condensed.replace('-', '+').replace('_', '/').let { padBase64(it) }
-        for (decoder in listOf(Base64.getMimeDecoder(), Base64.getDecoder())) {
-            val decoded = runCatching { String(decoder.decode(padded)) }.getOrNull() ?: continue
-            return decoded
-        }
-        return null
-    }
+/** Normalises CRLF/CR line endings to LF. */
+private fun normalizeNewlines(text: String): String = text.replace("\r\n", "\n").replace('\r', '\n')
 
-    private fun padBase64(value: String): String {
-        val remainder = value.length % 4
-        return if (remainder == 0) value else value + "=".repeat(4 - remainder)
-    }
+/**
+ * Returns the decoded text of a base64-wrapped link list, or [input]
+ * unchanged when it is already a plain link list / not base64. Line endings
+ * are always normalised to LF.
+ */
+private fun decodeBase64OrPlain(input: String): String {
+    if (input.contains("://")) return normalizeNewlines(input)
+    val decoded = decodeBase64Text(input)?.takeIf { it.contains("://") }
+    return normalizeNewlines(decoded ?: input)
+}
 
-    // ---------------------------------------------------------------------
-    // JSON helpers (file-private; the sister parsers keep their own copies)
-    // ---------------------------------------------------------------------
+/**
+ * Best-effort base64 decode of a (possibly whitespace-padded, URL-safe) blob to
+ * text, or null when it does not decode. The caller validates the shape of the
+ * decoded text (link list vs JSON); a successful decode of random input may still
+ * be garbage.
+ */
+private fun decodeBase64Text(input: String): String? {
+    val condensed =
+        input
+            .trim()
+            .replace("\n", "")
+            .replace("\r", "")
+            .replace(" ", "")
+    if (condensed.isEmpty()) return null
+    val padded = condensed.replace('-', '+').replace('_', '/').let { padBase64(it) }
+    return listOf(Base64.getMimeDecoder(), Base64.getDecoder())
+        .firstNotNullOfOrNull { decoder -> runCatching { String(decoder.decode(padded)) }.getOrNull() }
+}
 
-    private fun newId(): String =
-        java.util.UUID
-            .randomUUID()
-            .toString()
+private fun padBase64(value: String): String {
+    val remainder = value.length % Base64GroupSize
+    return if (remainder == 0) value else value + "=".repeat(Base64GroupSize - remainder)
+}
 
-    private fun JsonArray.firstObject(): JsonObject? = firstOrNull() as? JsonObject
+private fun newId(): String =
+    java.util.UUID
+        .randomUUID()
+        .toString()
 
-    private fun JsonObject.string(key: String): String? =
-        (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+private fun JsonArray.firstObject(): JsonObject? = firstOrNull() as? JsonObject
 
-    private fun JsonObject.int(key: String): Int? {
-        val primitive = this[key] as? JsonPrimitive ?: return null
-        return primitive.intOrNull ?: primitive.contentOrNull?.toIntOrNull()
-    }
+private fun JsonObject.string(key: String): String? =
+    (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+
+private fun JsonObject.int(key: String): Int? {
+    val primitive = this[key] as? JsonPrimitive ?: return null
+    return primitive.intOrNull ?: primitive.contentOrNull?.toIntOrNull()
 }
