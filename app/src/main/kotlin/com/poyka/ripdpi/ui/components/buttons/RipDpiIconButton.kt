@@ -32,6 +32,7 @@ import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class RipDpiIconButtonStyle {
@@ -133,7 +134,7 @@ fun RipDpiIconButton(
                 CircularProgressIndicator(
                     modifier = Modifier.size(iconSize),
                     color = animatedIconTint,
-                    strokeWidth = 2.dp,
+                    strokeWidth = RipDpiStroke.Thick,
                 )
             } else {
                 Icon(
