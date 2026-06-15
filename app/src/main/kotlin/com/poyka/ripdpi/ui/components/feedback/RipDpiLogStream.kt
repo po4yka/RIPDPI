@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,8 +59,15 @@ fun RipDpiLogStream(
         remember(entries, levelFilter) {
             if (levelFilter == null) entries else entries.filter { it.level in levelFilter }
         }
+    val isAtBottom by remember {
+        derivedStateOf {
+            val info = state.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()
+            last == null || last.index >= filtered.lastIndex - 1
+        }
+    }
     LaunchedEffect(filtered.size, autoScroll) {
-        if (autoScroll && filtered.isNotEmpty()) {
+        if (autoScroll && filtered.isNotEmpty() && isAtBottom) {
             state.animateScrollToItem(filtered.lastIndex)
         }
     }
