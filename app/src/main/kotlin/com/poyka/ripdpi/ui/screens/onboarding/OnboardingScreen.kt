@@ -446,7 +446,7 @@ private fun OnboardingBottomBar(
                     Modifier
                         .fillMaxWidth()
                         .heightIn(min = introLayout.footerButtonMinHeight)
-                        .ripDpiTestTag(RipDpiTestTags.OnboardingSkip),
+                        .ripDpiTestTag(RipDpiTestTags.OnboardingSkipTest),
             ) {
                 Text(
                     text = stringResource(R.string.onboarding_skip_test),

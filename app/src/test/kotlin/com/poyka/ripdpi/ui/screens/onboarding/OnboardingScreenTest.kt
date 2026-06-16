@@ -155,7 +155,7 @@ class OnboardingScreenTest {
         // No in-content finish/keep-running button in Idle.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertCountEquals(0)
         // Skip is a secondary action near the bottom CTA ("Skip test"), not a top-right action.
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipTest).assertExists()
         composeRule.onNodeWithText("Skip test").assertExists()
         // The bottom "Skip test" maps to finish-anyway but does not carry the content finish tag.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertCountEquals(0)
@@ -300,7 +300,7 @@ class OnboardingScreenTest {
         // Busy footer CTA carries no actionable tag and shows the testing label.
         composeRule.onNodeWithText("Testing…").assertExists()
         composeRule.onNodeWithContentDescription("Step 4 of 4").assertExists()
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipTest).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidationStatus).assertExists()
     }
@@ -316,7 +316,7 @@ class OnboardingScreenTest {
         )
 
         composeRule.onNodeWithContentDescription("Step 4 of 4").assertExists()
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipTest).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingValidateAction).assertCountEquals(0)
     }
 
@@ -333,7 +333,7 @@ class OnboardingScreenTest {
         composeRule
             .onNodeWithText("Android will ask for permission to create a local VPN connection.")
             .assertExists()
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkip).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSkipTest).assertCountEquals(0)
     }
 
     private fun renderOnboarding(
