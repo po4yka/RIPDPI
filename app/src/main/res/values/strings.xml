@@ -1657,6 +1657,8 @@ fakeddisorder endhost</string>
     <string name="onboarding_chip_no_account">No account</string>
     <string name="onboarding_chip_no_telemetry">No telemetry</string>
     <string name="onboarding_chip_no_cloud_sync">No cloud sync</string>
+    <string name="onboarding_guarantee_header_privacy">Privacy</string>
+    <string name="onboarding_guarantee_header_local">On your device</string>
     <string name="onboarding_chip_local_vpn">Local VPN</string>
     <string name="onboarding_chip_local_proxy">Local proxy</string>
     <string name="onboarding_chip_local_config">Local config</string>

@@ -22,10 +22,15 @@ internal data class RipDpiIntroScaffoldMetrics(
     val setupHeaderToContentGap: Dp = 20.dp,
     val titleHorizontalPadding: Dp = 12.dp,
     val bodyHorizontalPadding: Dp = 14.dp,
+    // Max width of the two-column guarantee grid on the intro page. Caps the grid below the page
+    // width so the two weight(1f) columns ("Privacy" / "On your device") narrow and sit close
+    // together as one block, instead of being pushed apart by full-width weight distribution. The
+    // grid is centered within the page by its parent's CenterHorizontally alignment.
+    val guaranteeGridMaxWidth: Dp = 320.dp,
     val indicatorSize: Dp = 8.dp,
     val indicatorActiveWidth: Dp = 24.dp,
     val indicatorSpacing: Dp = 8.dp,
-    val footerProgressGap: Dp = 20.dp,
+    val footerProgressGap: Dp = 24.dp,
     val footerButtonHorizontalInset: Dp = 18.dp,
     val footerButtonMinHeight: Dp = 52.dp,
     // Padding ABOVE the Android navigation-bar inset. Kept modest so the bottom action area is not
@@ -50,6 +55,7 @@ internal fun rememberRipDpiIntroScaffoldMetrics(): RipDpiIntroScaffoldMetrics {
                 setupHeaderToContentGap = 24.dp,
                 titleHorizontalPadding = 20.dp,
                 bodyHorizontalPadding = 24.dp,
+                guaranteeGridMaxWidth = 380.dp,
                 footerButtonHorizontalInset = 0.dp,
                 footerBottomPadding = 24.dp,
             )
@@ -63,6 +69,7 @@ internal fun rememberRipDpiIntroScaffoldMetrics(): RipDpiIntroScaffoldMetrics {
                 setupHeaderToContentGap = 28.dp,
                 titleHorizontalPadding = 24.dp,
                 bodyHorizontalPadding = 28.dp,
+                guaranteeGridMaxWidth = 420.dp,
                 footerButtonHorizontalInset = 0.dp,
                 footerBottomPadding = 28.dp,
             )

@@ -3359,6 +3359,8 @@ Origen: %2$s</string>
     <string name="onboarding_chip_no_account">Sin cuenta</string>
     <string name="onboarding_chip_no_telemetry">Sin telemetría</string>
     <string name="onboarding_chip_no_cloud_sync">Sin sincronización en la nube</string>
+    <string name="onboarding_guarantee_header_privacy">Privacidad</string>
+    <string name="onboarding_guarantee_header_local">En tu dispositivo</string>
     <string name="onboarding_chip_local_vpn">VPN local</string>
     <string name="onboarding_chip_local_proxy">Proxy local</string>
     <string name="onboarding_chip_local_config">Configuración local</string>

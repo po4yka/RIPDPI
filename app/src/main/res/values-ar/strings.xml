@@ -3379,6 +3379,8 @@ fakeddisorder endhost</string>
     <string name="onboarding_chip_no_account">بدون حساب</string>
     <string name="onboarding_chip_no_telemetry">بدون قياس عن بُعد</string>
     <string name="onboarding_chip_no_cloud_sync">بدون استراتيجية التجاوز سحابية</string>
+    <string name="onboarding_guarantee_header_privacy">الخصوصية</string>
+    <string name="onboarding_guarantee_header_local">على جهازك</string>
     <string name="onboarding_chip_local_vpn">VPN محلي</string>
     <string name="onboarding_chip_local_proxy">وكيل محلي</string>
     <string name="onboarding_chip_local_config">تهيئة محلية</string>

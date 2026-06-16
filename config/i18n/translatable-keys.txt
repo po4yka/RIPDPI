@@ -2467,6 +2467,8 @@ app:onboarding_diagnostics_body
 app:onboarding_diagnostics_title
 app:onboarding_dns_advanced
 app:onboarding_get_started
+app:onboarding_guarantee_header_local
+app:onboarding_guarantee_header_privacy
 app:onboarding_local_first_body
 app:onboarding_local_first_title
 app:onboarding_modes_body

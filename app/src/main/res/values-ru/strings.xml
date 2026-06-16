@@ -3498,6 +3498,8 @@ fakeddisorder endhost</string>
     <string name="onboarding_chip_no_account">Без аккаунта</string>
     <string name="onboarding_chip_no_telemetry">Без телеметрии</string>
     <string name="onboarding_chip_no_cloud_sync">Без облачной синхронизации</string>
+    <string name="onboarding_guarantee_header_privacy">Конфиденциальность</string>
+    <string name="onboarding_guarantee_header_local">На вашем устройстве</string>
     <string name="onboarding_chip_local_vpn">Локальный VPN</string>
     <string name="onboarding_chip_local_proxy">Локальный прокси</string>
     <string name="onboarding_chip_local_config">Локальная конфигурация</string>

@@ -3350,6 +3350,8 @@ fake_burst 3</string>
     <string name="onboarding_chip_no_account">无账号</string>
     <string name="onboarding_chip_no_telemetry">无遥测</string>
     <string name="onboarding_chip_no_cloud_sync">无云同步</string>
+    <string name="onboarding_guarantee_header_privacy">隐私</string>
+    <string name="onboarding_guarantee_header_local">在你的设备上</string>
     <string name="onboarding_chip_local_vpn">本地 VPN</string>
     <string name="onboarding_chip_local_proxy">本地代理</string>
     <string name="onboarding_chip_local_config">本地配置</string>

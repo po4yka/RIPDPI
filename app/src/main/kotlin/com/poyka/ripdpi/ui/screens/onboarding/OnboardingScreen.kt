@@ -6,9 +6,11 @@ import android.net.VpnService
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +32,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -39,9 +42,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -67,8 +72,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.coroutines.flow.SharedFlow
 import kotlin.math.absoluteValue
 
-// Crossfade keyframe fractions for the swipeable info page. RDS bans per-element
-// parallax / rotation / scale, so the page-swipe entrance is a pure alpha crossfade.
+// Animation / alpha keyframe fractions
 private const val alphaTextMin = 0.24f
 private const val alphaTextRange = 0.76f
 private const val alphaBodyMin = 0.18f
@@ -76,8 +80,22 @@ private const val alphaBodyRange = 0.82f
 private const val alphaIllusMin = 0.4f
 private const val alphaIllusRange = 0.6f
 
+// Illustration scale keyframe fractions
+private const val scaleIllusBase = 0.88f
+private const val scaleIllusRange = 0.12f
+
 // Intro illustration is drawn container-less at this multiple of the base illustration size.
-private const val introIllustrationScale = 1.5f
+private const val introIllustrationScale = 2.1f
+
+// Parallax travel fractions (× illustration size) for the page-swipe entrance animation.
+private const val illusTravelFraction = 0.55f
+private const val titleTravelFraction = 0.35f
+private const val bodyTravelFraction = 0.52f
+private const val illusLiftFraction = 0.15f
+
+// Fraction of the page viewport reserved BELOW the guarantee grid in the SpaceBetween info
+// layout. Larger value lifts the grid toward the body, shrinking the body->grid empty band.
+private const val guaranteeGridBottomInsetFraction = 0.12f
 
 @Composable
 fun OnboardingRoute(
@@ -338,7 +356,8 @@ private fun OnboardingTopBar(
                 modifier =
                     Modifier
                         .ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
-                        .height(introLayout.topActionRowHeight),
+                        .minimumInteractiveComponentSize()
+                        .heightIn(min = introLayout.topActionRowHeight),
             ) {
                 Text(
                     text = stringResource(R.string.onboarding_skip_setup),
@@ -516,20 +535,37 @@ private fun OnboardingFooterCta(
     }
 }
 
-/** Per-frame crossfade alphas for the swipeable info page, derived from the page offset. */
-private class OnboardingInfoCrossfade(
-    val illustrationAlpha: Float,
-    val titleAlpha: Float,
+/** Per-frame parallax + fade values for the swipeable info page, derived once from the page offset. */
+private class OnboardingInfoParallax(
+    val clampedOffset: Float,
+    val pageProgress: Float,
+    val illustrationTravelPx: Float,
+    val titleTravelPx: Float,
+    val bodyTravelPx: Float,
+    val illustrationLiftPx: Float,
+    val textAlpha: Float,
     val bodyAlpha: Float,
 )
 
-private fun onboardingInfoCrossfade(pageOffset: Float): OnboardingInfoCrossfade {
-    val pageProgress = (1f - pageOffset.coerceIn(-1f, 1f).absoluteValue).coerceIn(0f, 1f)
-    return OnboardingInfoCrossfade(
-        illustrationAlpha = (alphaIllusMin + (pageProgress * alphaIllusRange)).coerceIn(0f, 1f),
-        titleAlpha = (alphaTextMin + (pageProgress * alphaTextRange)).coerceIn(0f, 1f),
-        bodyAlpha = (alphaBodyMin + (pageProgress * alphaBodyRange)).coerceIn(0f, 1f),
-    )
+@Composable
+private fun onboardingInfoParallax(
+    pageOffset: Float,
+    illustrationSize: Dp,
+): OnboardingInfoParallax {
+    val clampedOffset = pageOffset.coerceIn(-1f, 1f)
+    val pageProgress = (1f - clampedOffset.absoluteValue).coerceIn(0f, 1f)
+    return with(LocalDensity.current) {
+        OnboardingInfoParallax(
+            clampedOffset = clampedOffset,
+            pageProgress = pageProgress,
+            illustrationTravelPx = (illustrationSize * illusTravelFraction).toPx(),
+            titleTravelPx = (illustrationSize * titleTravelFraction).toPx(),
+            bodyTravelPx = (illustrationSize * bodyTravelFraction).toPx(),
+            illustrationLiftPx = (illustrationSize * illusLiftFraction).toPx(),
+            textAlpha = (alphaTextMin + (pageProgress * alphaTextRange)).coerceIn(0f, 1f),
+            bodyAlpha = (alphaBodyMin + (pageProgress * alphaBodyRange)).coerceIn(0f, 1f),
+        )
+    }
 }
 
 @Composable
@@ -542,68 +578,100 @@ private fun OnboardingInfoPageScene(
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
-    val crossfade = onboardingInfoCrossfade(pageOffset)
+    val parallax = onboardingInfoParallax(pageOffset, introLayout.illustrationSize)
 
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = introLayout.bodyHorizontalPadding),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        OnboardingIllustrationBox(
-            modifier =
-                Modifier
-                    .size(introLayout.illustrationSize * introIllustrationScale)
-                    .graphicsLayer { alpha = crossfade.illustrationAlpha },
-        )
-        Spacer(modifier = Modifier.height(introLayout.illustrationToTitleGap))
-        Text(
-            text = stringResource(pageModel.titleRes),
-            style = type.introTitle,
-            color = colors.foreground,
-            textAlign = TextAlign.Center,
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        // Captured here so it stays reachable inside the nested Column lambdas — Compose's
+        // @LayoutScopeMarker hides the outer BoxWithConstraints receiver from inner layout scopes.
+        val gridBottomInset = maxHeight * guaranteeGridBottomInsetFraction
+        // Two-zone layout: the hero cluster (illustration + title + body) anchors the top and the
+        // guarantee grid is pushed toward the CTA by SpaceBetween, so the page reads as two
+        // deliberate zones instead of a top-loaded block over an empty band. heightIn(min =
+        // maxHeight) keeps the column at least one viewport tall so SpaceBetween has room to
+        // distribute, while verticalScroll preserves large-font / a11y reflow on short viewports.
+        Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = introLayout.titleHorizontalPadding)
-                    .graphicsLayer { alpha = crossfade.titleAlpha },
-        )
-        Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
-        Text(
-            text = stringResource(pageModel.descriptionRes),
-            style = type.introBody,
-            color = colors.mutedForeground,
-            textAlign = TextAlign.Center,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = introLayout.bodyHorizontalPadding)
-                    .graphicsLayer { alpha = crossfade.bodyAlpha },
-        )
-        Spacer(modifier = Modifier.height(spacing.lg))
-        OnboardingGuaranteeGrid(
-            privacyLabels =
-                listOf(
-                    R.string.onboarding_chip_no_account,
-                    R.string.onboarding_chip_no_telemetry,
-                    R.string.onboarding_chip_no_cloud_sync,
-                ),
-            localLabels =
-                listOf(
-                    R.string.onboarding_chip_local_vpn,
-                    R.string.onboarding_chip_local_proxy,
-                    R.string.onboarding_chip_local_config,
-                ),
-        )
+                    .heightIn(min = maxHeight)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = introLayout.bodyHorizontalPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            // Hero cluster — kept together so SpaceBetween treats it as the single top zone. A
+            // leading inset clears the OnboardingTopBar "Skip setup" row that overlays the page.
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(modifier = Modifier.height(introLayout.topActionRowHeight))
+                OnboardingIllustrationBox(
+                    modifier =
+                        Modifier
+                            .size(introLayout.illustrationSize * introIllustrationScale)
+                            .graphicsLayer {
+                                translationX = -parallax.clampedOffset * parallax.illustrationTravelPx
+                                translationY = (1f - parallax.pageProgress) * parallax.illustrationLiftPx
+                                rotationZ = parallax.clampedOffset * 2f
+                                scaleX = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
+                                scaleY = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
+                                alpha = (alphaIllusMin + (parallax.pageProgress * alphaIllusRange)).coerceIn(0f, 1f)
+                            },
+                )
+                Spacer(modifier = Modifier.height(spacing.xl))
+                Text(
+                    text = stringResource(pageModel.titleRes),
+                    style = type.introTitle,
+                    color = colors.foreground,
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = introLayout.titleHorizontalPadding)
+                            .graphicsLayer {
+                                translationX = parallax.clampedOffset * parallax.titleTravelPx
+                                alpha = parallax.textAlpha
+                            },
+                )
+                Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
+                Text(
+                    text = stringResource(pageModel.descriptionRes),
+                    style = type.introBody,
+                    color = colors.mutedForeground,
+                    textAlign = TextAlign.Center,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                translationX = parallax.clampedOffset * parallax.bodyTravelPx
+                                alpha = parallax.bodyAlpha
+                            },
+                )
+            }
+            OnboardingGuaranteeGrid(
+                modifier = Modifier.padding(bottom = gridBottomInset),
+                privacyLabels =
+                    listOf(
+                        R.string.onboarding_chip_no_account,
+                        R.string.onboarding_chip_no_telemetry,
+                        R.string.onboarding_chip_no_cloud_sync,
+                    ),
+                localLabels =
+                    listOf(
+                        R.string.onboarding_chip_local_vpn,
+                        R.string.onboarding_chip_local_proxy,
+                        R.string.onboarding_chip_local_config,
+                    ),
+            )
+        }
     }
 }
 
 /**
  * Passive guarantee grid in two grouped columns — privacy promises on the left, local-engine
- * capabilities on the right — each a small check mark + muted label. Read-only by design:
+ * capabilities on the right — each a small check mark + muted label. Each column carries a quiet
+ * micro-header ("Privacy" / "On your device") so the grouping reads. Read-only by design:
  * deliberately NOT bordered pills, so it never reads as an interactive filter-chip row.
  */
 @Composable
@@ -613,25 +681,46 @@ private fun OnboardingGuaranteeGrid(
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
+    val introLayout = rememberRipDpiIntroScaffoldMetrics()
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .widthIn(max = introLayout.guaranteeGridMaxWidth),
         horizontalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        OnboardingGuaranteeColumn(labels = privacyLabels, modifier = Modifier.weight(1f))
-        OnboardingGuaranteeColumn(labels = localLabels, modifier = Modifier.weight(1f))
+        OnboardingGuaranteeColumn(
+            headerRes = R.string.onboarding_guarantee_header_privacy,
+            labels = privacyLabels,
+            modifier = Modifier.weight(1f),
+        )
+        OnboardingGuaranteeColumn(
+            headerRes = R.string.onboarding_guarantee_header_local,
+            labels = localLabels,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
 @Composable
 private fun OnboardingGuaranteeColumn(
+    @StringRes headerRes: Int,
     labels: List<Int>,
     modifier: Modifier = Modifier,
 ) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
+        Text(
+            text = stringResource(headerRes),
+            style = type.caption,
+            color = colors.mutedForeground,
+            modifier = Modifier.fillMaxWidth(),
+        )
         labels.forEach { labelRes ->
             OnboardingGuaranteeItem(
                 text = stringResource(labelRes),
