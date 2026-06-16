@@ -89,20 +89,21 @@ internal fun OnboardingPersonaSelectionContent(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
+        val persona = OnboardingPersona.fromId(selectedPersona)
         OnboardingOptionCard(
             title = stringResource(R.string.persona_simple),
             description = stringResource(R.string.onboarding_persona_simple_body),
             badgeText = stringResource(R.string.onboarding_badge_recommended),
-            selected = selectedPersona != "advanced",
-            onClick = { onPersonaSelected("simple") },
+            selected = persona == OnboardingPersona.Simple,
+            onClick = { onPersonaSelected(OnboardingPersona.Simple.id) },
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingPersonaSimple),
         )
         OnboardingOptionCard(
             title = stringResource(R.string.persona_advanced),
             description = stringResource(R.string.onboarding_persona_advanced_body),
             badgeText = stringResource(R.string.onboarding_badge_advanced),
-            selected = selectedPersona == "advanced",
-            onClick = { onPersonaSelected("advanced") },
+            selected = persona == OnboardingPersona.Advanced,
+            onClick = { onPersonaSelected(OnboardingPersona.Advanced.id) },
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingPersonaAdvanced),
         )
     }
