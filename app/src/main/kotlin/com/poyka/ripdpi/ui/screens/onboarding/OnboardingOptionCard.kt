@@ -115,17 +115,28 @@ internal fun OnboardingOptionCard(
     }
 }
 
-/** Quiet tonal pill — deliberately secondary to the card title (no solid/inverted fill). */
+/**
+ * Quiet OUTLINE pill — deliberately secondary to the card title. Uses an outline (no solid fill) so
+ * the pill stays visible on BOTH the unselected `card` and the selected `muted` card background; a
+ * tonal fill would collide with the selected card's `muted` container and read as floating text.
+ */
 @Composable
 private fun OnboardingOptionBadge(text: String) {
     val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val components = RipDpiThemeTokens.components
+    val shape = RipDpiThemeTokens.shapes.xxl
+    // Token-derived 1 dp hairline outline (same divisor as the unselected card border).
     Box(
         modifier =
             Modifier
-                .background(color = colors.muted, shape = RipDpiThemeTokens.shapes.xxl)
-                .padding(
+                .clip(shape)
+                .border(
+                    width = spacing.xs / unselectedBorderDivisor,
+                    color = colors.outline,
+                    shape = shape,
+                ).padding(
                     horizontal = components.rows.compactPillHorizontalPadding,
                     vertical = components.rows.compactPillVerticalPadding,
                 ),
