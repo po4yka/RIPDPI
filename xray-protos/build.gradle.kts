@@ -1,7 +1,7 @@
 plugins {
     `java-library`
     id("com.android.lint")
-    id("com.google.protobuf") version "0.10.0"
+    alias(libs.plugins.google.protobuf)
 }
 
 java {
@@ -10,8 +10,8 @@ java {
     }
 }
 
-val grpcVersion = "1.82.0"
-val protobufVersion = "4.35.1"
+val grpcVersion = libs.versions.grpc.get()
+val protobufVersion = libs.versions.protobuf.get()
 
 protobuf {
     protoc {
