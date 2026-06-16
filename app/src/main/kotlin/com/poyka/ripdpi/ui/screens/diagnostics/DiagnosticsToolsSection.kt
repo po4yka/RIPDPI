@@ -57,6 +57,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.screens.diagnostics.rkn.RknBlockDiagnosisScreen
+import com.poyka.ripdpi.ui.screens.xray.XrayProviderStatusCard
+import com.poyka.ripdpi.ui.screens.xray.XrayProviderToolUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -104,6 +106,20 @@ internal data class DiagnosticsToolsNavActions(
     val onOpenPastReplays: () -> Unit = {},
 )
 
+/**
+ * Cohesive bundle of the per-tool UI models rendered by [ToolsSection] plus the
+ * user-triggered Xray provider probe handler. Grouping these keeps the screen
+ * surface narrow without flattening the tool models into one another.
+ */
+internal data class DiagnosticsToolsUiModel(
+    val dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
+    val cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
+    val ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
+    val pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
+    val xrayProvider: XrayProviderToolUiModel = XrayProviderToolUiModel(),
+    val onRunXrayProviderProbe: () -> Unit = {},
+)
+
 @Composable
 internal fun ToolsSection(
     approaches: DiagnosticsApproachesUiModel,
@@ -111,10 +127,7 @@ internal fun ToolsSection(
     onSelectApproachMode: (DiagnosticsApproachMode) -> Unit,
     onSelectApproach: (String) -> Unit,
     shareActions: DiagnosticsShareActions,
-    dpiTools: DiagnosticsDpiToolsUiModel = DiagnosticsDpiToolsUiModel(),
-    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
-    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
-    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
+    tools: DiagnosticsToolsUiModel = DiagnosticsToolsUiModel(),
     dpiToolActions: DiagnosticsDpiToolActions = DiagnosticsDpiToolActions(),
     navActions: DiagnosticsToolsNavActions = DiagnosticsToolsNavActions(),
     rootModeEnabled: Boolean = false,
@@ -149,11 +162,12 @@ internal fun ToolsSection(
             onSaveLogs = shareActions.onSaveLogs,
             onOpenLogs = shareActions.onOpenLogs,
         )
+        xrayProviderItem(tools.xrayProvider, tools.onRunXrayProviderProbe)
         dpiToolItems(
-            dpiTools = dpiTools,
-            cidrWhitelistTool = cidrWhitelistTool,
-            ipv4WhitelistTool = ipv4WhitelistTool,
-            pluggableTransportTool = pluggableTransportTool,
+            dpiTools = tools.dpiTools,
+            cidrWhitelistTool = tools.cidrWhitelistTool,
+            ipv4WhitelistTool = tools.ipv4WhitelistTool,
+            pluggableTransportTool = tools.pluggableTransportTool,
             actions = dpiToolActions,
         )
         detectionCheckItem(navActions.onOpenDetectionCheck)
@@ -664,6 +678,26 @@ private fun HttpCompressionProbeCard(
             onClick = onRun,
             variant = RipDpiButtonVariant.Outline,
             modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/**
+ * Embedded-Xray provider-path diagnostic. Rendered only when a provider session
+ * is active (live snapshot present); the card itself shows the typed provider
+ * stage + failure class DISTINCTLY from the DPI/tunnel cards and exposes the
+ * user-triggered provider probe.
+ */
+private fun LazyListScope.xrayProviderItem(
+    xrayProvider: XrayProviderToolUiModel,
+    onRunProbe: () -> Unit,
+) {
+    val report = xrayProvider.report ?: return
+    item {
+        XrayProviderStatusCard(
+            report = report,
+            onRunProbe = onRunProbe,
+            probeRunning = xrayProvider.probeRunning,
         )
     }
 }

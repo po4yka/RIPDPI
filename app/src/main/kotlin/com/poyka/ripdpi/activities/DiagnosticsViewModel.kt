@@ -5,6 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinator
+import com.poyka.ripdpi.data.xray.XrayProviderProbeReport
+import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.platform.StringResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +35,8 @@ class DiagnosticsViewModel
         private val diagnosticsFiles: DiagnosticsFiles,
         private val stringResolver: StringResolver,
         private val appSettingsRepository: AppSettingsRepository,
+        serviceStateStore: ServiceStateStore,
+        xrayProviderProbeCoordinator: XrayProviderProbeCoordinator,
         probeDependencies: DiagnosticsProbeDependencies,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
         uiStateFactory: DiagnosticsUiStateFactory,
@@ -105,6 +111,12 @@ class DiagnosticsViewModel
                 assetLoader = probeDependencies.assetLoader,
                 stringResolver = stringResolver,
             )
+        private val xrayProviderController =
+            DiagnosticsXrayProviderController(
+                scope = viewModelScope,
+                serviceStateStore = serviceStateStore,
+                probeCoordinator = xrayProviderProbeCoordinator,
+            )
 
         val uiState: StateFlow<DiagnosticsUiState> =
             diagnosticsUiStateAssembler.assemble(
@@ -150,6 +162,9 @@ class DiagnosticsViewModel
             dpiToolsController.byohCompatibilityTool
         val dpiSuiteTool: StateFlow<DiagnosticsDpiSuiteToolUiModel> =
             dpiSuiteController.tool
+        val xrayProviderSnapshot: StateFlow<XrayProviderSnapshot?> = xrayProviderController.snapshot
+        val xrayProviderProbeReport: StateFlow<XrayProviderProbeReport?> = xrayProviderController.probeReport
+        val xrayProviderProbeRunning: StateFlow<Boolean> = xrayProviderController.probeRunning
 
         private val mutations =
             DiagnosticsMutationRunner(
@@ -340,6 +355,8 @@ class DiagnosticsViewModel
         fun runDpiProbeSuite() = dpiSuiteController.run()
 
         fun cancelDpiProbeSuite() = dpiSuiteController.cancel()
+
+        fun runXrayProviderProbe() = xrayProviderController.runProbe()
     }
 
 private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =

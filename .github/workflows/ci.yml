@@ -1037,8 +1037,9 @@ jobs:
             --markdown-output "$RUNNER_TEMP/criterion-summary.md"
           cat "$RUNNER_TEMP/criterion-summary.md" >> "$GITHUB_STEP_SUMMARY"
 
-      # Enforced on the nightly reference runner only: a >20% mean regression in any
-      # protocol-throughput transport fails the lane (DoD). Scoped to
+      # Enforced on the nightly reference runner only: a >20% median regression in any
+      # protocol-throughput transport fails the lane (DoD). Median (not mean) is gated so
+      # the heavy-tailed slow samples on shared runners can't flap it. Scoped to
       # protocol-throughput/* so the noisier microbenches can't flap the gate; the
       # 20% threshold tolerates shared-runner noise while catching the 25% DoD target.
       # Until a reference-runner baseline lands the 7 protocol-throughput/* keys, this

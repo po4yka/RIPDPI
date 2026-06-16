@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.core.RipDpiXrayRuntime
+import com.poyka.ripdpi.core.XrayProviderOrchestrator
+import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
@@ -189,6 +192,7 @@ class ServiceSessionModuleTest {
                     statusReporter = statusReporter,
                     directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
                     rootHelperManager = RootHelperManager(),
+                    xrayProviderSessionController = buildTestXrayProviderSessionController(vpnTunnelRuntime),
                 )
 
             assertEquals(1, proxyFactory.createCalls)
@@ -208,6 +212,43 @@ class ServiceSessionModuleTest {
             default = dispatcher,
             io = dispatcher,
             main = dispatcher,
+        )
+    }
+
+    /**
+     * Build an [XrayProviderSessionController] for the coordinator-wiring test
+     * using the offline test fakes (no Android Context / Keystore / gomobile).
+     * The session itself is never started here — the test only asserts the
+     * coordinator constructs — so a fake bridge/tunnel/stores suffice.
+     */
+    private fun buildTestXrayProviderSessionController(
+        vpnTunnelRuntime: VpnTunnelRuntime,
+    ): XrayProviderSessionController {
+        val bridge = FakeXrayNativeBridge()
+        val selectionStore = FakeSelectionStore()
+        val profileStore = FakeDurableXrayProfileStore()
+        val renderedConfigHolder = XrayRenderedConfigHolder()
+        val startParamsHolder = XrayTunnelStartParamsHolder()
+        val orchestrator =
+            XrayProviderOrchestrator(
+                xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(bridge, cfg) },
+                tunnel = XrayManagedTunnel(vpnTunnelRuntime, startParamsHolder::require),
+                protectController = { true },
+                renderedConfigProvider = { renderedConfigHolder.require() },
+            )
+        return XrayProviderSessionController(
+            selectionStore = selectionStore,
+            profileStore = profileStore,
+            routeBuilder = XrayProviderRouteBuilder(profileStore),
+            orchestrator = orchestrator,
+            snapshotDeriver = XrayProviderSnapshotDeriver(),
+            probeRunner = XrayProviderDiagnosticsProbeRunner(bridge),
+            startParamsHolder = startParamsHolder,
+            bridgeVersion = { bridge.version() },
+            bridgeListenerReady = { bridge.listenerReady() },
+            bridgeIsAlive = { bridge.isAlive() },
+            renderedConfigSink = { renderedConfigHolder.current = it },
+            lastProtectFailureDetail = { null },
         )
     }
 

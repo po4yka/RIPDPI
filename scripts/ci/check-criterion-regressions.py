@@ -84,15 +84,19 @@ def compare(
             warnings.append(f"New benchmark (no baseline): {name}")
             continue
         base = baseline_benchmarks[name]
-        base_mean = base["mean_ns"]
-        cur_mean = values["mean_ns"]
-        if base_mean == 0:
-            warnings.append(f"Baseline mean is zero for {name}, skipping comparison")
+        # Compare the median, not the mean: criterion's mean is dominated by the heavy tail
+        # of slow samples on shared CI runners (e.g. ws_tunnel_1MiB's baseline mean is 2.4x
+        # its median), which flaps this enforcing gate on noise rather than real regressions.
+        # The median is the robust point estimate and is captured in every baseline entry.
+        base_median = base.get("median_ns", base["mean_ns"])
+        cur_median = values.get("median_ns", values["mean_ns"])
+        if base_median == 0:
+            warnings.append(f"Baseline median is zero for {name}, skipping comparison")
             continue
-        change_pct = ((cur_mean - base_mean) / base_mean) * 100.0
+        change_pct = ((cur_median - base_median) / base_median) * 100.0
         direction = "slower" if change_pct > 0 else "faster"
         summary = (
-            f"{name}: {base_mean:.0f} -> {cur_mean:.0f} ns "
+            f"{name}: {base_median:.0f} -> {cur_median:.0f} ns "
             f"({change_pct:+.1f}%, {abs(change_pct):.1f}% {direction})"
         )
         if change_pct > threshold:
@@ -148,15 +152,15 @@ def format_markdown(
     if all_names:
         lines.append("### All Benchmarks")
         lines.append("")
-        lines.append("| Benchmark | Baseline (ns) | Current (ns) | Change |")
-        lines.append("|-----------|--------------|-------------|--------|")
+        lines.append("| Benchmark | Baseline median (ns) | Current median (ns) | Change |")
+        lines.append("|-----------|---------------------|--------------------|--------|")
         for name in all_names:
-            base_mean = baseline_benchmarks.get(name, {}).get("mean_ns")
-            cur_mean = current.get(name, {}).get("mean_ns")
-            base_str = f"{base_mean:.0f}" if base_mean is not None else "n/a"
-            cur_str = f"{cur_mean:.0f}" if cur_mean is not None else "n/a"
-            if base_mean is not None and cur_mean is not None and base_mean != 0:
-                change_pct = ((cur_mean - base_mean) / base_mean) * 100.0
+            base_median = baseline_benchmarks.get(name, {}).get("median_ns")
+            cur_median = current.get(name, {}).get("median_ns")
+            base_str = f"{base_median:.0f}" if base_median is not None else "n/a"
+            cur_str = f"{cur_median:.0f}" if cur_median is not None else "n/a"
+            if base_median is not None and cur_median is not None and base_median != 0:
+                change_pct = ((cur_median - base_median) / base_median) * 100.0
                 change_str = f"{change_pct:+.1f}%"
             else:
                 change_str = "n/a"

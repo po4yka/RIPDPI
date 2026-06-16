@@ -4,6 +4,7 @@ package com.poyka.ripdpi.ui.screens.xray
 
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.subscription.XraySkipReason
+import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -12,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -30,13 +32,14 @@ class XrayProfileImportViewModelTest {
         override val noSupportedNodesMessage: String = "no-supported"
         override val unparseableMessage: String = "unparseable"
         override val persistFailedMessage: String = "activation-failed"
-        var persisted: Pair<XrayServiceModeOption, List<ProxyProfile>>? = null
+        var persisted: Triple<XrayServiceModeOption, List<ProxyProfile>, XrayProfile?>? = null
 
         override suspend fun persist(
             option: XrayServiceModeOption,
             profiles: List<ProxyProfile>,
+            acceptedProfile: XrayProfile?,
         ) {
-            persisted = option to profiles
+            persisted = Triple(option, profiles, acceptedProfile)
         }
     }
 
@@ -51,6 +54,7 @@ class XrayProfileImportViewModelTest {
         override suspend fun persist(
             option: XrayServiceModeOption,
             profiles: List<ProxyProfile>,
+            acceptedProfile: XrayProfile?,
         ) {
             attempts += 1
             if (attempts == 1) error("store write failed")
@@ -118,6 +122,16 @@ class XrayProfileImportViewModelTest {
             assertEquals(XrayServiceModeOption.XrayVpn, persistence.persisted?.first)
             assertEquals(1, persistence.persisted?.second?.size)
             assertTrue(persistence.persisted?.second?.first() is ProxyProfile.VlessReality)
+            // The typed Xray profile is threaded through for the REALITY outbound so the
+            // libXray runner has a production source.
+            val acceptedProfile = persistence.persisted?.third
+            assertNotNull(acceptedProfile)
+            assertEquals(XrayProfile.Security.REALITY, acceptedProfile?.outbound?.security)
+            assertEquals(uuid, acceptedProfile?.outbound?.uuid)
+            assertEquals(pbk, acceptedProfile?.outbound?.reality?.publicKey)
+            // The persisted profile carries a stable, user-meaningful label (not the
+            // relay displayName / share-link fragment "#n").
+            assertEquals("Imported Xray profile", acceptedProfile?.name)
         }
 
     @Test
@@ -125,7 +139,11 @@ class XrayProfileImportViewModelTest {
         runTest {
             val persistence = RecordingPersistence()
             val vm = viewModel(persistence)
-            vm.selectOption(XrayServiceModeOption.XrayVpn)
+            // A raw-JSON config has no typed Xray profile (the validated parser
+            // only derives one from a share link), so the libXray Xray option
+            // cannot persist it. The multi-outbound skip surfacing is a
+            // native-translation concern, so this exercises the native option.
+            vm.selectOption(XrayServiceModeOption.NativeProxy)
             val config =
                 """
                 {
@@ -155,7 +173,35 @@ class XrayProfileImportViewModelTest {
             vm.confirm()
             advanceUntilIdle()
             assertEquals(1, persistence.persisted?.second?.size)
+            // Native option threads no typed Xray profile.
+            assertNull(persistence.persisted?.third)
         }
+
+    @Test
+    fun rawJsonXrayOptionFailsClosedWithoutTypedProfile() {
+        val vm = viewModel()
+        vm.selectOption(XrayServiceModeOption.XrayVpn)
+        // A valid REALITY config pasted as raw JSON translates to a native relay,
+        // but the validated parser derives a typed profile only from a share link,
+        // so the libXray Xray option fails closed at validate-time (Finish stays off).
+        val config =
+            """
+            { "outbounds": [ {
+              "tag": "reality", "protocol": "vless",
+              "settings": { "vnext": [ { "address": "edge.example.com", "port": 443,
+                "users": [ { "id": "$uuid", "flow": "xtls-rprx-vision" } ] } ] },
+              "streamSettings": { "network": "tcp", "security": "reality",
+                "realitySettings": { "publicKey": "$pbk", "serverName": "www.cloudflare.com", "shortId": "ab12" } }
+            } ] }
+            """.trimIndent()
+        vm.onRawInputChange(config)
+        vm.validate()
+
+        val state = vm.uiState.value
+        assertFalse(state.acceptedConfigReady)
+        assertFalse(state.canFinish)
+        assertNotNull(state.errorMessage)
+    }
 
     @Test
     fun multipleSupportedActivatesFirstAndDefersRest() {
@@ -212,5 +258,31 @@ class XrayProfileImportViewModelTest {
             assertTrue(vm.uiState.value.imported)
             assertEquals(XrayServiceModeOption.NativeDirect, persistence.persisted?.first)
             assertTrue(persistence.persisted?.second?.isEmpty() == true)
+            // Native options never thread a typed Xray profile.
+            assertNull(persistence.persisted?.third)
+        }
+
+    @Test
+    fun nonRealityFirstOutboundFailsClosedAndBlocksFinish() =
+        runTest {
+            val persistence = RecordingPersistence()
+            val vm = viewModel(persistence)
+            vm.selectOption(XrayServiceModeOption.XrayVpn)
+            // Trojan translates to a native relay but is NOT a libXray-runnable
+            // VLESS/REALITY profile, so the validated parser rejects it: the Xray
+            // option fails closed at validate-time instead of enabling Finish and
+            // throwing the generic persist error at confirm.
+            vm.onRawInputChange("trojan://pw@tj.example:443#only")
+            vm.validate()
+            val state = vm.uiState.value
+            assertFalse(state.acceptedConfigReady)
+            assertFalse(state.canFinish)
+            assertNotNull(state.errorMessage)
+
+            // Confirm is a no-op while Finish is disabled: nothing is persisted.
+            vm.confirm()
+            advanceUntilIdle()
+            assertFalse(vm.uiState.value.imported)
+            assertNull(persistence.persisted)
         }
 }

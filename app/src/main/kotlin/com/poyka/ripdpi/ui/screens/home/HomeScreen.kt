@@ -121,6 +121,10 @@ fun HomeScreen(
             onDismissBackgroundGuidance = onDismissBackgroundGuidance,
         )
 
+        // Embedded-Xray provider stage. Provider-distinct treatment and active-only
+        // rendering live in [HomeXrayProviderBanner]; nothing renders when inactive.
+        HomeXrayProviderBanner(snapshot = uiState.xrayProviderSnapshot)
+
         HomeNetworkConditionBanner(
             condition = uiState.networkCondition,
             onCaptivePortalSignIn = onCaptivePortalSignIn,

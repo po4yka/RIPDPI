@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.xray
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -16,6 +17,13 @@ import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.subscription.XrayConfigImportParser
 import com.poyka.ripdpi.data.subscription.XrayConfigImportResult
+import com.poyka.ripdpi.data.xray.DefaultXrayProfileId
+import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
+import com.poyka.ripdpi.data.xray.VpnProviderKind
+import com.poyka.ripdpi.data.xray.XrayProfile
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
+import com.poyka.ripdpi.data.xray.XrayServiceModeOption
+import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator
@@ -26,8 +34,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore as DurableXrayProviderSelectionStore
 
 /**
  * Integration coverage for the full Xray import path: parse an xray-core config
@@ -120,6 +131,196 @@ class XrayImportNativeActivationTest {
             assertEquals("tj.example", settings.relayServer)
             assertEquals("tj-secret", relayCredentialStore.load(DefaultRelayProfileId)?.trojanPassword)
         }
+
+    // -----------------------------------------------------------------------
+    // DefaultXrayProfilePersistence — import -> durable-store WRITE wiring.
+    // -----------------------------------------------------------------------
+
+    private fun xrayProfile(): XrayProfile =
+        XrayProfile(
+            name = "tokyo",
+            outbound =
+                XrayProfile.Outbound(
+                    serverAddress = "edge.example.com",
+                    serverPort = 443,
+                    uuid = uuid,
+                    security = XrayProfile.Security.REALITY,
+                    network = XrayProfile.Network.TCP,
+                    reality =
+                        XrayProfile.Reality(
+                            publicKey = pbk,
+                            serverName = "www.cloudflare.com",
+                            shortId = "ab12",
+                        ),
+                ),
+        )
+
+    private fun persistence(
+        settingsRepository: FakeAppSettingsRepository,
+        durableProfileStore: FakeDurableXrayProfileStore,
+        durableSelectionStore: FakeDurableXrayProviderSelectionStore,
+        appSelectionStore: XrayProviderSelectionStore,
+        activator: NativeRelayProfileActivator,
+    ): DefaultXrayProfilePersistence =
+        DefaultXrayProfilePersistence(
+            appSettingsRepository = settingsRepository,
+            selectionStore = appSelectionStore,
+            stringResolver = FakeStringResolver(),
+            relayActivator = activator,
+            durableProfileStore = durableProfileStore,
+            durableSelectionStore = durableSelectionStore,
+        )
+
+    @Test
+    fun `xray option with typed profile persists durably and flips selection without native relay`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val durableProfileStore = FakeDurableXrayProfileStore()
+            val durableSelectionStore = FakeDurableXrayProviderSelectionStore()
+            val appSelectionStore = XrayProviderSelectionStore()
+            val activator =
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+            val persistence =
+                persistence(
+                    settingsRepository,
+                    durableProfileStore,
+                    durableSelectionStore,
+                    appSelectionStore,
+                    activator,
+                )
+
+            val profile = xrayProfile()
+            persistence.persist(
+                XrayServiceModeOption.XrayVpn,
+                listOf(
+                    ProxyProfile.VlessReality(
+                        id = "p1",
+                        displayName = "tokyo",
+                        groupId = "g",
+                        server = "edge.example.com",
+                        serverPort = 443,
+                        uuid = uuid,
+                        realityPublicKey = pbk,
+                        realityShortId = "ab12",
+                        serverName = "www.cloudflare.com",
+                    ),
+                ),
+                profile,
+            )
+
+            // Durable profile saved exactly once under the default id.
+            assertEquals(1, durableProfileStore.saves.size)
+            assertEquals(DefaultXrayProfileId, durableProfileStore.saves.single().first)
+            assertEquals(profile, durableProfileStore.saves.single().second)
+            // Durable selection flipped to Xray pointing at the default profile.
+            assertEquals(VpnProviderKind.Xray, durableSelectionStore.current().kind)
+            assertEquals(DefaultXrayProfileId, durableSelectionStore.current().activeProfileId)
+            // libXray owns the connection: NO native relay activated.
+            assertFalse(settingsRepository.snapshot().relayEnabled)
+            assertEquals(0, repository.list().size)
+            // Mode is VPN; in-memory selection carries the real profile.
+            assertEquals(Mode.VPN.preferenceValue, settingsRepository.snapshot().ripdpiMode)
+            assertEquals(profile, appSelectionStore.selection.first().acceptedProfile)
+        }
+
+    @Test
+    fun `xray option with null profile fails closed without persisting or selecting`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val durableProfileStore = FakeDurableXrayProfileStore()
+            val durableSelectionStore = FakeDurableXrayProviderSelectionStore()
+            val appSelectionStore = XrayProviderSelectionStore()
+            val activator =
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+            val persistence =
+                persistence(
+                    settingsRepository,
+                    durableProfileStore,
+                    durableSelectionStore,
+                    appSelectionStore,
+                    activator,
+                )
+
+            val error =
+                runCatching {
+                    persistence.persist(XrayServiceModeOption.XrayVpn, emptyList(), acceptedProfile = null)
+                }.exceptionOrNull()
+            // Fail-closed: a typed-less Xray selection throws (the VM surfaces this as
+            // persistFailedMessage), it does not silently persist or fall back to native.
+            assertTrue(error is IllegalArgumentException)
+            // The thrown message must not leak any profile/secret material.
+            assertFalse(error?.message.orEmpty().contains(uuid))
+            assertFalse(error?.message.orEmpty().contains(pbk))
+            // No durable save, no xray selection, no native relay, no group.
+            assertEquals(0, durableProfileStore.saves.size)
+            assertEquals(VpnProviderKind.Native, durableSelectionStore.current().kind)
+            assertFalse(settingsRepository.snapshot().relayEnabled)
+            assertEquals(0, repository.list().size)
+        }
+
+    @Test
+    fun `native option clears xray selection and activates relay without durable save`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            // Seed a stale Xray profile + selection to prove the native path clears
+            // BOTH (so the deselected secret does not linger encrypted-at-rest).
+            val durableProfileStore =
+                FakeDurableXrayProfileStore(seed = DefaultXrayProfileId to xrayProfile())
+            val durableSelectionStore =
+                FakeDurableXrayProviderSelectionStore(
+                    XrayProviderSelectionRecord(
+                        providerKind = XrayProviderSelectionRecord.ProviderKindXray,
+                        activeProfileId = DefaultXrayProfileId,
+                    ),
+                )
+            val appSelectionStore = XrayProviderSelectionStore()
+            val activator =
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+            val persistence =
+                persistence(
+                    settingsRepository,
+                    durableProfileStore,
+                    durableSelectionStore,
+                    appSelectionStore,
+                    activator,
+                )
+
+            persistence.persist(
+                XrayServiceModeOption.NativeProxy,
+                listOf(firstProfile("trojan://pw@tj.example:443#n")),
+                acceptedProfile = null,
+            )
+
+            // Stale Xray selection cleared to native; no durable profile save.
+            assertEquals(VpnProviderKind.Native, durableSelectionStore.current().kind)
+            assertEquals(0, durableProfileStore.saves.size)
+            assertNull(durableProfileStore.saves.firstOrNull())
+            // The orphaned Xray secret is cleared from the durable store at-rest.
+            assertTrue(durableProfileStore.clears.contains(DefaultXrayProfileId))
+            assertNull(durableProfileStore.load(DefaultXrayProfileId))
+            // Native relay activated (existing behaviour) and mode is proxy.
+            assertTrue(settingsRepository.snapshot().relayEnabled)
+            assertEquals(Mode.Proxy.preferenceValue, settingsRepository.snapshot().ripdpiMode)
+            assertEquals(1, repository.list().size)
+        }
 }
 
 private class FakeProxyGroupRepository : ProxyGroupRepository {
@@ -190,4 +391,59 @@ private class FakeAppSettingsRepository : AppSettingsRepository {
     override suspend fun replace(settings: AppSettings) {
         state.value = settings
     }
+}
+
+/**
+ * In-memory [DurableXrayProfileStore] for host-JVM tests — never classloads the
+ * real Keystore-backed implementation. Records every save so the wiring test can
+ * assert the profile id and contents written.
+ */
+private class FakeDurableXrayProfileStore(
+    seed: Pair<String, XrayProfile>? = null,
+) : DurableXrayProfileStore {
+    val saves = mutableListOf<Pair<String, XrayProfile>>()
+    val clears = mutableListOf<String>()
+    private val profiles = mutableMapOf<String, XrayProfile>()
+
+    init {
+        seed?.let { (id, profile) -> profiles[id] = profile }
+    }
+
+    override suspend fun load(profileId: String): XrayProfile? = profiles[profileId]
+
+    override suspend fun save(
+        profileId: String,
+        profile: XrayProfile,
+    ) {
+        saves += profileId to profile
+        profiles[profileId] = profile
+    }
+
+    override suspend fun clear(profileId: String) {
+        clears += profileId
+        profiles.remove(profileId)
+    }
+
+    override suspend fun listProfileIds(): List<String> = profiles.keys.toList()
+}
+
+/** In-memory durable selection store; SharedPreferences-free for host-JVM tests. */
+private class FakeDurableXrayProviderSelectionStore(
+    initial: XrayProviderSelectionRecord = XrayProviderSelectionRecord(),
+) : DurableXrayProviderSelectionStore {
+    private var record = initial
+
+    override suspend fun current(): XrayProviderSelectionRecord = record
+
+    override suspend fun update(record: XrayProviderSelectionRecord) {
+        this.record = record
+    }
+}
+
+/** Returns the resource id as a stable token; no Android resources on host JVM. */
+private class FakeStringResolver : StringResolver {
+    override fun getString(
+        resId: Int,
+        vararg formatArgs: Any,
+    ): String = "string:$resId"
 }

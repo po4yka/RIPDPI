@@ -90,6 +90,7 @@ import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.xray.XrayProviderToolUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -169,6 +170,7 @@ data class DiagnosticsScreenActions(
     val onDpiSuiteConcurrencyDelta: (Int) -> Unit = {},
     val onRunDpiProbeSuite: () -> Unit = {},
     val onCancelDpiProbeSuite: () -> Unit = {},
+    val onRunXrayProviderProbe: () -> Unit = {},
 )
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -183,6 +185,7 @@ fun DiagnosticsScreen(
     cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel = DiagnosticsCidrWhitelistToolUiModel(),
     ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel = DiagnosticsIpv4WhitelistToolUiModel(),
     pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel = DiagnosticsPluggableTransportToolUiModel(),
+    xrayProvider: XrayProviderToolUiModel = XrayProviderToolUiModel(),
     rootModeEnabled: Boolean = false,
     pcapRecording: Boolean = false,
     topBarExtraActions: @Composable () -> Unit = {},
@@ -197,10 +200,15 @@ fun DiagnosticsScreen(
         actions = actions,
         showDebugInfo = showDebugInfo,
         onToggleDebugInfo = { if (BuildConfig.DEBUG) showDebugInfo = !showDebugInfo },
-        dpiTools = dpiTools,
-        cidrWhitelistTool = cidrWhitelistTool,
-        ipv4WhitelistTool = ipv4WhitelistTool,
-        pluggableTransportTool = pluggableTransportTool,
+        tools =
+            DiagnosticsToolsUiModel(
+                dpiTools = dpiTools,
+                cidrWhitelistTool = cidrWhitelistTool,
+                ipv4WhitelistTool = ipv4WhitelistTool,
+                pluggableTransportTool = pluggableTransportTool,
+                xrayProvider = xrayProvider,
+                onRunXrayProviderProbe = actions.onRunXrayProviderProbe,
+            ),
         rootModeEnabled = rootModeEnabled,
         pcapRecording = pcapRecording,
         topBarExtraActions = topBarExtraActions,
@@ -218,10 +226,7 @@ private fun DiagnosticsScreenFrame(
     actions: DiagnosticsScreenActions,
     showDebugInfo: Boolean,
     onToggleDebugInfo: () -> Unit,
-    dpiTools: DiagnosticsDpiToolsUiModel,
-    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
-    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
-    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
+    tools: DiagnosticsToolsUiModel,
     rootModeEnabled: Boolean,
     pcapRecording: Boolean,
     topBarExtraActions: @Composable () -> Unit,
@@ -283,10 +288,7 @@ private fun DiagnosticsScreenFrame(
                     uiState = uiState,
                     pagerState = pagerState,
                     actions = actions,
-                    dpiTools = dpiTools,
-                    cidrWhitelistTool = cidrWhitelistTool,
-                    ipv4WhitelistTool = ipv4WhitelistTool,
-                    pluggableTransportTool = pluggableTransportTool,
+                    tools = tools,
                     rootModeEnabled = rootModeEnabled,
                     pcapRecording = pcapRecording,
                     modifier = Modifier.weight(1f),
@@ -332,10 +334,7 @@ private fun DiagnosticsScreenPager(
     uiState: DiagnosticsUiState,
     pagerState: PagerState,
     actions: DiagnosticsScreenActions,
-    dpiTools: DiagnosticsDpiToolsUiModel,
-    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
-    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
-    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
+    tools: DiagnosticsToolsUiModel,
     rootModeEnabled: Boolean,
     pcapRecording: Boolean,
     modifier: Modifier = Modifier,
@@ -384,10 +383,7 @@ private fun DiagnosticsScreenPager(
                 DiagnosticsToolsPagerPage(
                     uiState = uiState,
                     actions = actions,
-                    dpiTools = dpiTools,
-                    cidrWhitelistTool = cidrWhitelistTool,
-                    ipv4WhitelistTool = ipv4WhitelistTool,
-                    pluggableTransportTool = pluggableTransportTool,
+                    tools = tools,
                     rootModeEnabled = rootModeEnabled,
                     pcapRecording = pcapRecording,
                 )
@@ -400,10 +396,7 @@ private fun DiagnosticsScreenPager(
 private fun DiagnosticsToolsPagerPage(
     uiState: DiagnosticsUiState,
     actions: DiagnosticsScreenActions,
-    dpiTools: DiagnosticsDpiToolsUiModel,
-    cidrWhitelistTool: DiagnosticsCidrWhitelistToolUiModel,
-    ipv4WhitelistTool: DiagnosticsIpv4WhitelistToolUiModel,
-    pluggableTransportTool: DiagnosticsPluggableTransportToolUiModel,
+    tools: DiagnosticsToolsUiModel,
     rootModeEnabled: Boolean,
     pcapRecording: Boolean,
 ) {
@@ -413,10 +406,7 @@ private fun DiagnosticsToolsPagerPage(
         onSelectApproachMode = actions.onSelectApproachMode,
         onSelectApproach = actions.onSelectApproach,
         shareActions = actions.toDiagnosticsShareActions(),
-        dpiTools = dpiTools,
-        cidrWhitelistTool = cidrWhitelistTool,
-        ipv4WhitelistTool = ipv4WhitelistTool,
-        pluggableTransportTool = pluggableTransportTool,
+        tools = tools,
         dpiToolActions = actions.toDiagnosticsDpiToolActions(),
         navActions =
             DiagnosticsToolsNavActions(

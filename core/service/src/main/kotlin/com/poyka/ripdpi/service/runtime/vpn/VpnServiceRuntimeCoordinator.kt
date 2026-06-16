@@ -66,6 +66,7 @@ import com.poyka.ripdpi.services.VpnTunnelRuntime
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
+import com.poyka.ripdpi.services.XrayProviderSessionController
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -102,6 +103,13 @@ internal class VpnServiceRuntimeCoordinator(
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
     private val rootHelperManager: RootHelperManager = RootHelperManager(),
+    /**
+     * Optional embedded-Xray provider seam. Null when the provider is not wired;
+     * non-null in production (provided by `VpnServiceSessionModule`). It only
+     * takes over when the durable selection is Xray — the native path is
+     * untouched otherwise.
+     */
+    private val xrayProviderSessionController: XrayProviderSessionController? = null,
 ) : BaseServiceRuntimeCoordinator<VpnRuntimeSession>(
         mode = Mode.VPN,
         host = vpnHost,
@@ -141,6 +149,7 @@ internal class VpnServiceRuntimeCoordinator(
             vpnTunnelRuntime = vpnTunnelRuntime,
             supervisorExitHandler = supervisorExitHandler,
             applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
+            providerController = xrayProviderSessionController,
         )
     private val telemetryCoordinator =
         VpnTelemetryCoordinator(
@@ -165,6 +174,7 @@ internal class VpnServiceRuntimeCoordinator(
                             directPathPolicyTelemetryConsumer =
                                 this@VpnServiceRuntimeCoordinator.directPathPolicyTelemetryConsumer,
                             vpnTunnelRuntime = this@VpnServiceRuntimeCoordinator.vpnTunnelRuntime,
+                            xrayController = this@VpnServiceRuntimeCoordinator.xrayProviderSessionController,
                         )
                 },
             state =
