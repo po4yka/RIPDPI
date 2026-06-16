@@ -28,7 +28,7 @@ class BackupRestoreViewModel
         private val exportPolicy: BackupExportPolicy,
         private val shareReminderPreferences: BackupShareReminderPreferences,
         resetAllSettingsUseCase: ResetAllSettingsUseCase,
-        @param:Named("appVersionName") appVersion: String,
+        @Named("appVersionName") appVersion: String,
     ) : ViewModel() {
         private val _uiState =
             MutableStateFlow(

@@ -162,7 +162,7 @@ class StrategyTunerViewModel
                                 }
 
                                 is StrategyTunerEvent.Result -> {
-                                    collected = collected.add(event.result)
+                                    collected = collected.adding(event.result)
                                     rankingAccumulator.add(event.result)
                                     mutableUiState.update {
                                         it.copy(

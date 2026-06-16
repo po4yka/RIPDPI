@@ -74,7 +74,7 @@ class BlockcheckProbeOrchestrator
                 val rankingAccumulator = StrategyProbeRankingAccumulator()
                 val config = StrategyProbeConfig(testDomains = domains, maxStrategies = candidates.size)
                 probeService.run(config).collect { result ->
-                    collected = collected.add(result)
+                    collected = collected.adding(result)
                     rankingAccumulator.add(result)
                     val ranked = rankingAccumulator.rankedStrategies()
                     emit(
