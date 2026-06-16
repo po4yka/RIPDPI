@@ -186,7 +186,7 @@ private fun SettingsRowLeadingIcon(
             imageVector = leadingIcon,
             contentDescription = null,
             tint = state.leadingBadgeIcon,
-            modifier = Modifier.size(RipDpiIconSizes.Small),
+            modifier = Modifier.size(RipDpiIconSizes.Default),
         )
     }
 }
@@ -233,8 +233,8 @@ private fun RowScope.SettingsRowTrailing(
 
         value != null -> {
             Row(
-                modifier = Modifier.weight(1f, fill = false),
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
