@@ -801,8 +801,16 @@ private fun OnboardingSetupPageScene(
                     Arrangement.spacedBy(headerToContentGap)
                 },
         ) {
+            val headerTitleRes =
+                if (pageModel.kind == SetupPageKind.ConnectionTest &&
+                    uiState.validationState is OnboardingValidationState.Success
+                ) {
+                    R.string.onboarding_test_success_title
+                } else {
+                    pageModel.titleRes
+                }
             OnboardingSetupHeader(
-                titleRes = pageModel.titleRes,
+                titleRes = headerTitleRes,
                 subtitleRes = onboardingSetupSubtitleRes(pageModel.kind),
             )
 

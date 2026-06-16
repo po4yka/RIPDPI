@@ -309,20 +309,14 @@ private fun OnboardingValidationSuccessMessage(modifier: Modifier = Modifier) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     Text(
-        text = stringResource(R.string.onboarding_test_success_title),
-        style = type.sectionTitle,
-        color = colors.foreground,
+        text = stringResource(R.string.onboarding_test_success_body),
+        style = type.introBody,
+        color = colors.mutedForeground,
         modifier =
             modifier
                 .fillMaxWidth()
                 .semantics { liveRegion = LiveRegionMode.Polite }
                 .ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
-    )
-    Text(
-        text = stringResource(R.string.onboarding_test_success_body),
-        style = type.introBody,
-        color = colors.mutedForeground,
-        modifier = Modifier.fillMaxWidth(),
     )
 }
 
