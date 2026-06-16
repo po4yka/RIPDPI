@@ -10,8 +10,9 @@ java {
     }
 }
 
-val grpcVersion = libs.versions.grpc.get()
-val protobufVersion = libs.versions.protobuf.get()
+val libsCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
+val grpcVersion = libsCatalog.findVersion("grpc").get().requiredVersion
+val protobufVersion = libsCatalog.findVersion("protobuf").get().requiredVersion
 
 protobuf {
     protoc {
