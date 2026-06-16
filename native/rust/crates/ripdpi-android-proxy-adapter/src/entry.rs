@@ -6,7 +6,7 @@ use jni::{EnvUnowned, Outcome};
 use ripdpi_android_bridge_support::{NativeBridgeError, NativeBridgeErrorDomain, extract_panic_message};
 
 use crate::entry_error::{log_and_throw, log_and_throw_with_payload};
-use crate::geo_versions::{geo_database_versions, geoip_metadata};
+use crate::geo_versions::geoip_metadata;
 use crate::lifecycle::{create_session, destroy_session, start_session, stop_session, update_network_snapshot};
 use crate::telemetry::poll_proxy_telemetry;
 
@@ -142,30 +142,6 @@ pub fn proxy_update_network_snapshot_entry(mut env: EnvUnowned<'_>, handle: jlon
         Outcome::Err(err) => log_and_throw(&mut env, "Proxy network snapshot update failed", &err.to_string()),
         Outcome::Panic(payload) => {
             log_and_throw(&mut env, "Proxy network snapshot update panicked", &extract_panic_message(payload));
-        }
-    }
-}
-
-pub fn proxy_geo_database_versions_entry(
-    mut env: EnvUnowned<'_>,
-    geoip_db_path: JString,
-    geosite_db_path: JString,
-) -> jstring {
-    init_android_logging("ripdpi-native");
-    match env
-        .with_env(move |env| -> jni::errors::Result<jstring> {
-            Ok(geo_database_versions(env, geoip_db_path, geosite_db_path))
-        })
-        .into_outcome()
-    {
-        Outcome::Ok(value) => value,
-        Outcome::Err(err) => {
-            log_and_throw(&mut env, "Proxy geo database version lookup failed", &err.to_string());
-            std::ptr::null_mut()
-        }
-        Outcome::Panic(payload) => {
-            log_and_throw(&mut env, "Proxy geo database version lookup panicked", &extract_panic_message(payload));
-            std::ptr::null_mut()
         }
     }
 }

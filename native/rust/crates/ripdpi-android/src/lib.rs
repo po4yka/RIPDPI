@@ -83,13 +83,6 @@ mod tests {
             Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy as VoidHandle,
             Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUpdateNetworkSnapshot
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong, JString<'_>),
-            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStartPcapRecording
-                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong, JString<'_>, jlong) -> jboolean,
-            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStopPcapRecording as StringHandle,
-            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniIsPcapRecording
-                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong) -> jboolean,
-            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniGeoDatabaseVersions
-                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, JString<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniGeoIpMetadata
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, JString<'_>, JString<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniRegisterVpnProtect
