@@ -53,6 +53,25 @@ def filter_by_prefix(
     return {name: values for name, values in benchmarks.items() if any(name.startswith(p) for p in prefixes)}
 
 
+def filter_excluding(
+    benchmarks: dict[str, dict[str, float]],
+    excludes: list[str],
+) -> dict[str, dict[str, float]]:
+    """Drop benchmarks whose name exactly matches one of ``excludes``.
+
+    Used by the enforcing nightly lane to skip a specific benchmark whose
+    measurement variance on shared CI runners exceeds the gate threshold (e.g.
+    ``protocol-throughput/ws_tunnel_1MiB``, whose 1 MiB full-duplex TLS echo on a
+    multi-thread runtime is bound by the runner's vCPU count, not the code). The
+    excluded bench is still measured and still reported by the advisory lane; it
+    is only removed from the hard gate. An empty ``excludes`` list is a no-op.
+    """
+    if not excludes:
+        return benchmarks
+    skip = set(excludes)
+    return {name: values for name, values in benchmarks.items() if name not in skip}
+
+
 def build_baseline_payload(
     current: dict[str, dict[str, float]],
     max_regression_percent: float,
@@ -216,6 +235,18 @@ def main() -> int:
             "the full result set."
         ),
     )
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="BENCH",
+        help=(
+            "Exclude an exact benchmark name from the comparison (repeatable). Use "
+            "for benches whose CI-runner variance exceeds the gate threshold. The "
+            "bench is still measured and reported by the advisory lane; only the "
+            "hard gate skips it. Does not affect --dump-current."
+        ),
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -244,6 +275,9 @@ def main() -> int:
     if args.only_prefix:
         current = filter_by_prefix(current, args.only_prefix)
         baseline["benchmarks"] = filter_by_prefix(baseline.get("benchmarks", {}), args.only_prefix)
+    if args.exclude:
+        current = filter_excluding(current, args.exclude)
+        baseline["benchmarks"] = filter_excluding(baseline.get("benchmarks", {}), args.exclude)
     threshold = args.max_regression_percent if args.max_regression_percent is not None else baseline["maxRegressionPercent"]
     regressions, improvements, warnings = compare(current, baseline, args.max_regression_percent)
 
