@@ -15,6 +15,7 @@ import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
 import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
+import com.poyka.ripdpi.activities.HomeModeSummaryFacet
 import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.HttpParserUiState
@@ -648,6 +649,15 @@ private fun homePreviewModeCard(
                 HomeMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
                 HomeMode.RemoteVpn -> "relay.example"
                 HomeMode.Diagnostic -> if (loading) "Stage 2 of 4 - Testing TCP" else "No analysis yet"
+            },
+        summaryFacets =
+            if (mode == HomeMode.LocalDpiBypass) {
+                persistentListOf(
+                    HomeModeSummaryFacet(label = "Strategy", value = "tcp: split(host+1)"),
+                    HomeModeSummaryFacet(label = "DNS", value = "Encrypted DNS · AdGuard DNS (DoH)"),
+                )
+            } else {
+                persistentListOf()
             },
         secondaryLabel = if (active) "Connected 00:47:00" else null,
         statusLine =

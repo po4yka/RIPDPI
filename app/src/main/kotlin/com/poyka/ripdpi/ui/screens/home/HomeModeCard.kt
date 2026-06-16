@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.ui.screens.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,6 +18,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
+import com.poyka.ripdpi.activities.HomeModeSummaryFacet
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -25,7 +29,10 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @Composable
 fun HomeModeCard(
@@ -135,7 +142,9 @@ private fun HomeModeCardBody(
         color = colors.mutedForeground,
     )
 
-    if (uiState.primaryLabel.isNotBlank()) {
+    if (uiState.summaryFacets.isNotEmpty()) {
+        HomeModeSummaryStrip(facets = uiState.summaryFacets)
+    } else if (uiState.primaryLabel.isNotBlank()) {
         Text(
             text = uiState.primaryLabel,
             style = type.bodyEmphasis,
@@ -157,6 +166,56 @@ private fun HomeModeCardBody(
             )
         }
 }
+
+/**
+ * Renders a card's configuration summary as a structured key/value panel (one row per
+ * [HomeModeSummaryFacet]) instead of a single dense line. The fixed-weight label/value columns
+ * keep labels aligned across rows; the panel's subtle fill + outline read it as a discrete element.
+ */
+@Composable
+private fun HomeModeSummaryStrip(facets: ImmutableList<HomeModeSummaryFacet>) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val spacing = RipDpiThemeTokens.spacing
+    val shape = RipDpiThemeTokens.shapes.md
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(colors.muted, shape)
+                .border(RipDpiStroke.Thin, colors.outline, shape)
+                .padding(horizontal = spacing.md, vertical = spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        facets.forEach { facet ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = facet.label,
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(HomeModeSummaryLabelWeight),
+                )
+                Text(
+                    text = facet.value,
+                    style = type.monoSmall,
+                    color = colors.foreground,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(HomeModeSummaryValueWeight),
+                )
+            }
+        }
+    }
+}
+
+private const val HomeModeSummaryLabelWeight = 0.3f
+private const val HomeModeSummaryValueWeight = 0.7f
 
 @Composable
 private fun HomeModeCardActions(
@@ -313,6 +372,15 @@ private fun previewCard(
                 HomeMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
                 HomeMode.RemoteVpn -> "relay.example"
                 HomeMode.Diagnostic -> "No analysis yet"
+            },
+        summaryFacets =
+            if (mode == HomeMode.LocalDpiBypass) {
+                persistentListOf(
+                    HomeModeSummaryFacet(label = "Strategy", value = "tcp: split(host+1)"),
+                    HomeModeSummaryFacet(label = "DNS", value = "Encrypted DNS · AdGuard DNS (DoH)"),
+                )
+            } else {
+                persistentListOf()
             },
         secondaryLabel = if (active) "Connected 00:18:42" else null,
         statusLine = if (active) "Connected 00:18:42" else "Inactive",

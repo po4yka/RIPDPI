@@ -16,6 +16,17 @@ enum class HomeMode {
     Diagnostic,
 }
 
+/**
+ * A labeled facet of a mode card's configuration summary (e.g. "Strategy" -> "tcp: split(host+1)").
+ * When a card carries [HomeModeCardUiState.summaryFacets], the card renders them as a structured
+ * key/value panel instead of the dense single-line [HomeModeCardUiState.primaryLabel].
+ */
+@Immutable
+data class HomeModeSummaryFacet(
+    val label: String,
+    val value: String,
+)
+
 @Immutable
 data class HomeModeCardUiState(
     val mode: HomeMode = HomeMode.LocalDpiBypass,
@@ -29,6 +40,7 @@ data class HomeModeCardUiState(
     val configureLabel: String = "",
     val primaryActionEnabled: Boolean = !isLoading,
     val primaryActionDisabledHint: String = "",
+    val summaryFacets: ImmutableList<HomeModeSummaryFacet> = persistentListOf(),
 )
 
 internal val DefaultHomeModeCards: ImmutableList<HomeModeCardUiState> =
@@ -90,6 +102,17 @@ private fun buildLocalBypassCard(
         mode = HomeMode.LocalDpiBypass,
         title = stringResolver.getString(R.string.home_mode_local_dpi_bypass),
         primaryLabel = "${draft.chainSummary} - ${draft.dnsSummary}",
+        summaryFacets =
+            persistentListOf(
+                HomeModeSummaryFacet(
+                    label = stringResolver.getString(R.string.diagnostics_metric_strategy),
+                    value = draft.chainSummary,
+                ),
+                HomeModeSummaryFacet(
+                    label = stringResolver.getString(R.string.home_connection_stage_dns),
+                    value = draft.dnsSummary,
+                ),
+            ),
         secondaryLabel =
             modeStatusLabel(
                 connectionState = connectionState,
