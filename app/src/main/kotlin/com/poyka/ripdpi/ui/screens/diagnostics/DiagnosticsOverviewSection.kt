@@ -429,7 +429,7 @@ private fun DiagnosticsHealthHero(
                 style = RipDpiThemeTokens.type.sectionTitle,
                 color = colors.mutedForeground,
             )
-            MetricsRow(metrics = overview.metrics)
+            OverviewStatGrid(metrics = overview.metrics)
         }
     }
 }

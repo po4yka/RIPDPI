@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -39,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -193,6 +195,73 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
         }
     }
 }
+
+/**
+ * Width-filling stat grid for the small, fixed overview metric set (sessions / events / tx / rx).
+ * Unlike [MetricsRow] — which horizontally scrolls a potentially long list of live string metrics —
+ * these tiles split the card edge-to-edge in a two-column grid so there is no dead space, and lead
+ * with the value (large) over a quiet label, so a lone "0" reads as a deliberate figure.
+ */
+@Composable
+internal fun OverviewStatGrid(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
+    if (metrics.isEmpty()) return
+    val spacing = RipDpiThemeTokens.spacing
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        metrics.chunked(OverviewStatColumns).forEach { rowMetrics ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                rowMetrics.forEach { metric ->
+                    OverviewStatTile(metric = metric, modifier = Modifier.weight(1f))
+                }
+                repeat(OverviewStatColumns - rowMetrics.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewStatTile(
+    metric: DiagnosticsMetricUiModel,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    RipDpiMetricSurface(
+        tone = metricTone(metric.tone),
+        shape = RipDpiThemeTokens.shapes.xl,
+        modifier = modifier,
+    ) { contentColor ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = spacing.md, vertical = spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.xs),
+        ) {
+            Text(
+                text = metric.value,
+                style = type.screenTitle,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = metric.label.uppercase(),
+                style = type.smallLabel,
+                color = contentColor.copy(alpha = OverviewStatLabelAlpha),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+private const val OverviewStatColumns = 2
+private const val OverviewStatLabelAlpha = 0.7f
 
 @Composable
 internal fun TelemetrySparkline(trend: DiagnosticsSparklineUiModel) {
