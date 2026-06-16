@@ -61,6 +61,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
+import com.poyka.ripdpi.ui.components.intro.RipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -574,9 +575,6 @@ private fun OnboardingInfoPageScene(
     pageOffset: Float,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
-    val spacing = RipDpiThemeTokens.spacing
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
     val parallax = onboardingInfoParallax(pageOffset, introLayout.illustrationSize)
 
@@ -599,56 +597,11 @@ private fun OnboardingInfoPageScene(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween,
         ) {
-            // Hero cluster — kept together so SpaceBetween treats it as the single top zone. A
-            // leading inset clears the OnboardingTopBar "Skip setup" row that overlays the page.
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Spacer(modifier = Modifier.height(introLayout.topActionRowHeight))
-                OnboardingIllustrationBox(
-                    modifier =
-                        Modifier
-                            .size(introLayout.illustrationSize * introIllustrationScale)
-                            .graphicsLayer {
-                                translationX = -parallax.clampedOffset * parallax.illustrationTravelPx
-                                translationY = (1f - parallax.pageProgress) * parallax.illustrationLiftPx
-                                rotationZ = parallax.clampedOffset * 2f
-                                scaleX = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
-                                scaleY = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
-                                alpha = (alphaIllusMin + (parallax.pageProgress * alphaIllusRange)).coerceIn(0f, 1f)
-                            },
-                )
-                Spacer(modifier = Modifier.height(spacing.xl))
-                Text(
-                    text = stringResource(pageModel.titleRes),
-                    style = type.introTitle,
-                    color = colors.foreground,
-                    textAlign = TextAlign.Center,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = introLayout.titleHorizontalPadding)
-                            .graphicsLayer {
-                                translationX = parallax.clampedOffset * parallax.titleTravelPx
-                                alpha = parallax.textAlpha
-                            },
-                )
-                Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
-                Text(
-                    text = stringResource(pageModel.descriptionRes),
-                    style = type.introBody,
-                    color = colors.mutedForeground,
-                    textAlign = TextAlign.Center,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .graphicsLayer {
-                                translationX = parallax.clampedOffset * parallax.bodyTravelPx
-                                alpha = parallax.bodyAlpha
-                            },
-                )
-            }
+            OnboardingInfoHero(
+                pageModel = pageModel,
+                parallax = parallax,
+                introLayout = introLayout,
+            )
             OnboardingGuaranteeGrid(
                 modifier = Modifier.padding(bottom = gridBottomInset),
                 privacyLabels =
@@ -665,6 +618,72 @@ private fun OnboardingInfoPageScene(
                     ),
             )
         }
+    }
+}
+
+/**
+ * Hero cluster for the informational onboarding page — illustration, title, and body — extracted
+ * so [OnboardingInfoPageScene] stays within the method-length budget. Kept as one unit so the
+ * caller's SpaceBetween arrangement treats it as the single top zone.
+ */
+@Composable
+private fun OnboardingInfoHero(
+    pageModel: OnboardingPage.Informational,
+    parallax: OnboardingInfoParallax,
+    introLayout: RipDpiIntroScaffoldMetrics,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val spacing = RipDpiThemeTokens.spacing
+    // A leading inset clears the OnboardingTopBar "Skip setup" row that overlays the page.
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(modifier = Modifier.height(introLayout.topActionRowHeight))
+        OnboardingIllustrationBox(
+            modifier =
+                Modifier
+                    .size(introLayout.illustrationSize * introIllustrationScale)
+                    .graphicsLayer {
+                        translationX = -parallax.clampedOffset * parallax.illustrationTravelPx
+                        translationY = (1f - parallax.pageProgress) * parallax.illustrationLiftPx
+                        rotationZ = parallax.clampedOffset * 2f
+                        scaleX = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
+                        scaleY = scaleIllusBase + (parallax.pageProgress * scaleIllusRange)
+                        alpha = (alphaIllusMin + (parallax.pageProgress * alphaIllusRange)).coerceIn(0f, 1f)
+                    },
+        )
+        Spacer(modifier = Modifier.height(spacing.xl))
+        Text(
+            text = stringResource(pageModel.titleRes),
+            style = type.introTitle,
+            color = colors.foreground,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = introLayout.titleHorizontalPadding)
+                    .graphicsLayer {
+                        translationX = parallax.clampedOffset * parallax.titleTravelPx
+                        alpha = parallax.textAlpha
+                    },
+        )
+        Spacer(modifier = Modifier.height(introLayout.titleToBodyGap))
+        Text(
+            text = stringResource(pageModel.descriptionRes),
+            style = type.introBody,
+            color = colors.mutedForeground,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        translationX = parallax.clampedOffset * parallax.bodyTravelPx
+                        alpha = parallax.bodyAlpha
+                    },
+        )
     }
 }
 
