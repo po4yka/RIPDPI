@@ -133,10 +133,6 @@
       "maxProductionLoc": 197
     },
     {
-      "path": "native/rust/crates/ripdpi-android-proxy-adapter/src/pcap.rs",
-      "maxProductionLoc": 130
-    },
-    {
       "path": "native/rust/crates/ripdpi-android-proxy-adapter/src/registry.rs",
       "maxProductionLoc": 60
     },

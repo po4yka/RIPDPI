@@ -5430,7 +5430,6 @@ dependencies = [
  "ripdpi-android-bridge-support",
  "ripdpi-android-telemetry-adapter",
  "ripdpi-config",
- "ripdpi-diagnostics-pcap",
  "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
  "ripdpi-proxy-runtime",

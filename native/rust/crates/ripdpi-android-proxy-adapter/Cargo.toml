@@ -15,7 +15,6 @@ log = { workspace = true }
 ripdpi-android-bridge-support = { workspace = true }
 ripdpi-android-telemetry-adapter = { workspace = true }
 ripdpi-config = { workspace = true }
-ripdpi-diagnostics-pcap = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
 ripdpi-proxy-runtime = { workspace = true }
