@@ -1044,6 +1044,11 @@ jobs:
       # 20% threshold tolerates shared-runner noise while catching the 25% DoD target.
       # Until a reference-runner baseline lands the 7 protocol-throughput/* keys, this
       # is a safe no-op (missing keys -> "new benchmark" warning -> exit 0).
+      # ws_tunnel_1MiB is excluded from the HARD gate: its 1 MiB full-duplex TLS echo
+      # on a multi-thread tokio runtime is bound by the shared runner's vCPU count, not
+      # the code -- identical code measures 1.75ms (fast box) to 11.5ms (shared CI), with
+      # a ~+-35% 95% CI within a single run. It stays measured and visible in the advisory
+      # lane below; only the pass/fail gate skips it. See the ws-tunnel variance analysis.
       - name: Check for regressions (enforced, nightly)
         if: github.event_name == 'schedule'
         run: |
@@ -1051,6 +1056,7 @@ jobs:
             --criterion-dir native/rust/target/criterion \
             --baseline scripts/ci/rust-bench-baseline.json \
             --only-prefix 'protocol-throughput/' \
+            --exclude 'protocol-throughput/ws_tunnel_1MiB' \
             --max-regression-percent 20 \
             --markdown-output "$RUNNER_TEMP/criterion-summary.md"
           cat "$RUNNER_TEMP/criterion-summary.md" >> "$GITHUB_STEP_SUMMARY"
