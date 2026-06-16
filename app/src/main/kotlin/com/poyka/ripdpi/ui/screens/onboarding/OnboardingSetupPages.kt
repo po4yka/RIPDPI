@@ -100,6 +100,7 @@ internal fun OnboardingPersonaSelectionContent(
         OnboardingOptionCard(
             title = stringResource(R.string.persona_advanced),
             description = stringResource(R.string.onboarding_persona_advanced_body),
+            badgeText = stringResource(R.string.onboarding_badge_advanced),
             selected = selectedPersona == "advanced",
             onClick = { onPersonaSelected("advanced") },
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingPersonaAdvanced),
