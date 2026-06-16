@@ -328,7 +328,7 @@ private fun OnboardingValidationSuccessMessage(modifier: Modifier = Modifier) {
 
 /**
  * Low-emphasis info card clarifying the Android VPN consent prompt is for a LOCAL tunnel. Reuses the
- * shared [WarningBanner] in its quiet [WarningBannerTone.Info] tone with a lock glyph, so it reads as
+ * shared [WarningBanner] in its quiet neutral [WarningBannerTone.Restricted] tone with a lock glyph, so it reads as
  * a clearly separated notice (title + supporting text) rather than a faint inline caption.
  */
 @Composable
@@ -336,7 +336,7 @@ private fun OnboardingPermissionNote(modifier: Modifier = Modifier) {
     WarningBanner(
         title = stringResource(R.string.onboarding_test_permission_card_title),
         message = stringResource(R.string.onboarding_test_permission_note),
-        tone = WarningBannerTone.Info,
+        tone = WarningBannerTone.Restricted,
         icon = RipDpiIcons.Lock,
         // Static reference note (always shown in the VPN idle state) — read on focus, not auto-announced.
         announce = false,
