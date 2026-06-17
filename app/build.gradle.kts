@@ -116,8 +116,8 @@ val releaseStoreFilePath = localOrEnv("signing.storeFile", "RIPDPI_SIGNING_STORE
 val releaseStorePassword = localOrEnv("signing.storePassword", "RIPDPI_SIGNING_STORE_PASSWORD")
 val releaseKeyAlias = localOrEnv("signing.keyAlias", "RIPDPI_SIGNING_KEY_ALIAS")
 val releaseKeyPassword = localOrEnv("signing.keyPassword", "RIPDPI_SIGNING_KEY_PASSWORD")
-val ripdpiVersionCode = 9
-val ripdpiVersionName = "0.1.1"
+val ripdpiVersionCode = 10
+val ripdpiVersionName = "0.1.2"
 
 val forwardedInstrumentationArguments =
     listOf(
