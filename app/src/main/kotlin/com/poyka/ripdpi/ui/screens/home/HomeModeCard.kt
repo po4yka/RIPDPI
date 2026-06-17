@@ -219,8 +219,11 @@ private fun HomeModeSummaryStrip(facets: ImmutableList<HomeModeSummaryFacet>) {
     }
 }
 
-private const val HomeModeSummaryLabelWeight = 0.3f
-private const val HomeModeSummaryValueWeight = 0.7f
+// Labels are short ("Strategy", "DNS"); give the mono value column the extra
+// width so long values (e.g. "Encrypted DNS · AdGuard DNS (DoH)") fit on fewer
+// lines instead of wrapping under a half-empty label column.
+private const val HomeModeSummaryLabelWeight = 0.25f
+private const val HomeModeSummaryValueWeight = 0.75f
 
 @Composable
 private fun HomeModeCardActions(
