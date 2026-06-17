@@ -57,10 +57,10 @@ fun HomeModeCard(
             when {
                 uiState.isLoading -> RipDpiCardVariant.Elevated
 
-                // Active card uses the elevated Status surface so it stands out
-                // above the flat Outlined (inactive) cards instead of receding
-                // into the page background as the Tonal fill did.
-                uiState.isActive -> RipDpiCardVariant.Status
+                // Active card uses the Selected surface (accent fill + bold
+                // foreground border + elevation) so it is unmistakably the live
+                // card, rather than receding behind the flat Outlined cards.
+                uiState.isActive -> RipDpiCardVariant.Selected
 
                 else -> RipDpiCardVariant.Outlined
             },

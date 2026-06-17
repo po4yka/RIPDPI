@@ -31,6 +31,7 @@ enum class RipDpiCardVariant {
     Tonal,
     Elevated,
     Status,
+    Selected,
 }
 
 @Composable
