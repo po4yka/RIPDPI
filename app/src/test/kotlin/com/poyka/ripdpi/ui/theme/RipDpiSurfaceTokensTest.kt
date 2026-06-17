@@ -57,7 +57,7 @@ class RipDpiSurfaceTokensTest {
         val bar = tokens.resolve(RipDpiSurfaceRole.BottomBar)
         val indicator = tokens.resolve(RipDpiSurfaceRole.BottomBarIndicator)
 
-        assertEquals(LightRipDpiExtendedColors.card, bar.container)
+        assertEquals(LightRipDpiExtendedColors.background, bar.container)
         assertEquals(LightRipDpiExtendedColors.border, bar.border)
         assertEquals(LightRipDpiExtendedColors.inputBackground, indicator.container)
         assertEquals(Color.Transparent, indicator.border)

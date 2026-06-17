@@ -212,7 +212,10 @@ data class RipDpiSurfaceTokens(
 
             RipDpiSurfaceRole.BottomBar -> {
                 RipDpiSurfaceStyle(
-                    container = colors.card,
+                    // Match the page background so the bar is flat, not a white
+                    // island floating over a grey gap above it (only the hairline
+                    // border separates the bar from scrolled content).
+                    container = colors.background,
                     border = colors.border,
                     content = colors.foreground,
                 )
