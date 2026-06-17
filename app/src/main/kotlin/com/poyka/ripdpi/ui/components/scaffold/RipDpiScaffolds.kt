@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +33,7 @@ import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class RipDpiScaffoldWidth {
@@ -175,10 +177,21 @@ fun RipDpiDashboardScaffold(
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
+    val scrollState = rememberScrollState()
 
     RipDpiScreenScaffold(
         modifier = modifier,
-        topBar = topBar,
+        topBar = {
+            Column {
+                topBar()
+                // Hairline appears only once content scrolls beneath the top bar,
+                // so the bar reads as a surface over scrollable content instead of
+                // clipping it abruptly at rest.
+                if (scrollState.canScrollBackward) {
+                    HorizontalDivider(thickness = RipDpiStroke.Hairline, color = colors.border)
+                }
+            }
+        },
     ) { innerPadding ->
         Box(
             modifier =
@@ -193,7 +206,7 @@ fun RipDpiDashboardScaffold(
                     Modifier
                         .fillMaxWidth()
                         .widthIn(max = ripDpiScaffoldMaxWidth(RipDpiScaffoldWidth.Dashboard))
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(
                             start = layout.horizontalPadding,
                             top = spacing.sm,
