@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.xray.XrayProfileRedactor
 import com.poyka.ripdpi.data.xray.XrayProviderFailureClass
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -59,7 +60,13 @@ class XrayProviderSessionControllerTest {
     private fun controller(): XrayProviderSessionController {
         val orchestrator =
             XrayProviderOrchestrator(
-                xrayRuntimeFactory = { cfg -> RipDpiXrayRuntime(bridge, cfg) },
+                // Run the runtime's blocking native stop inline instead of on the
+                // production Dispatchers.IO default; a real IO worker leaks past
+                // runTest's scheduler and flakily trips UncompletedCoroutinesError on
+                // the teardown path (matches XrayProviderOrchestratorTest).
+                xrayRuntimeFactory = { cfg ->
+                    RipDpiXrayRuntime(bridge, cfg, nativeStopDispatcher = Dispatchers.Unconfined)
+                },
                 tunnel = tunnel,
                 protectController = { true },
                 renderedConfigProvider = { checkNotNull(renderedConfig[0]) },
