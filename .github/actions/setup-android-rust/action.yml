@@ -38,10 +38,18 @@ inputs:
 runs:
   using: composite
   steps:
+    # Install the Gradle daemon JVM (JDK 21, per gradle/gradle-daemon-jvm.properties)
+    # alongside the compile-toolchain version, both as Temurin. This guarantees a
+    # local JDK 21 on every runner so the daemon resolves it directly instead of
+    # auto-downloading from foojay (whose pinned package ids rotate and return 400).
+    # The compile version is listed last so JAVA_HOME is unchanged for back-compat;
+    # setup-gradle wires every installed JDK into Gradle's toolchain discovery.
     - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
       with:
         distribution: temurin
-        java-version: ${{ inputs.java-version }}
+        java-version: |
+          21
+          ${{ inputs.java-version }}
 
     # Keep in sync with native/rust/rust-toolchain.toml
     - uses: dtolnay/rust-toolchain@master
