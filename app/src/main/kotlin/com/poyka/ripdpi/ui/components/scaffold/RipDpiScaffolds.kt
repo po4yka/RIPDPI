@@ -198,7 +198,9 @@ fun RipDpiDashboardScaffold(
                             start = layout.horizontalPadding,
                             top = spacing.sm,
                             end = layout.horizontalPadding,
-                            bottom = spacing.xxl,
+                            // No bottom gap: content scrolls flush to the bottom nav
+                            // bar (innerPadding already reserves the bar height), so
+                            // there is no empty grey band above it.
                         ),
                 verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
                 content = content,
