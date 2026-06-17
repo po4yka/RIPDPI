@@ -252,6 +252,10 @@ private fun HomeModeCardActions(
                         .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
                 enabled = primaryEnabled,
                 loading = uiState.isLoading,
+                // Active card shows "Disable": use the muted Secondary fill so
+                // turning off working protection is not the loudest call to
+                // action. Inactive ("Enable") keeps the prominent Primary fill.
+                variant = if (uiState.isActive) RipDpiButtonVariant.Secondary else RipDpiButtonVariant.Primary,
             )
             RipDpiButton(
                 text = configureLabel,
