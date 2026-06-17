@@ -1,7 +1,7 @@
 ---
 title: Add mid-handshake-freeze classification precision and retry-storm backoff guard to failure classifier and retry policy
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -9,7 +9,7 @@ parent: epic-transport-obfuscation-research
 blocks: []
 blocked_by: []
 created: 2026-06-15
-updated: 2026-06-15
+updated: 2026-06-17
 source_wiki_pages:
   - "behavioral-freeze-client-device-view-2026"
   - "gfw-residual-censorship-timers"
@@ -33,11 +33,11 @@ Spike deliverable: a written design note covering the classification gap (if any
 
 ## Acceptance criteria
 
-- [ ] Audit of `ripdpi-failure-classifier/src/signal_types.rs` documents whether `ConnectionFreeze` distinguishes mid-handshake-freeze from pre-handshake and post-data silent-drop subtypes.
-- [ ] If a classification gap is found, a minimal attribute extension is proposed that does not break the existing `(transport_class, network_scope_hash, BlockSignal, quorum)` matrix schema.
-- [ ] Audit of `build_retry_penalties` and `PolicyPort` / `PolicySelectionPort` callers documents whether a `ConnectionFreeze` signal already suppresses same-tuple retries or whether a guard is absent.
-- [ ] Design note produced covering both findings with a seam recommendation; no timer constant derived from the China/GFW figure is embedded.
-- [ ] Design note states which implementation tasks (if any) should be filed as follow-ons.
+- [x] Audit of the classifier documents whether `ConnectionFreeze` distinguishes mid-handshake-freeze from pre-handshake and post-data silent-drop subtypes. (Variants live in `types.rs` / `block_detection/signal_types.rs`, not `signal_types.rs`. See **Spike findings → Part 1**.)
+- [x] A minimal, non-breaking attribute extension is proposed (`FreezePhase` as a separate observation attribute, never folded into `BlockSignal`) that preserves the `(transport_class, network_scope_hash, BlockSignal, quorum)` matrix schema. See **Part 1 → Proposal**.
+- [x] Audit of `build_retry_penalties` / `PolicyPort` documents that a freeze-specific same-tuple guard is **absent** — and that the existing penalty path actively *diversifies* (flips fingerprint), the opposite of the desired behavior. See **Part 2**.
+- [x] Design note produced with a seam recommendation; **no timer constant derived from the China/GFW figure is embedded** (cooldown proposed as `Option<u64>`, default `None`).
+- [x] Design note states the implementation follow-ons to file. See **Follow-on tasks**.
 
 ## Risks / open questions
 
@@ -53,3 +53,124 @@ Spike deliverable: a written design note covering the classification gap (if any
 - `tspu-vpn-detection-layers` — RU detection-layer taxonomy.
 - `investigate-rkn-unannounced-protocol-class-signatures` — establishes the `BlockSignal` matrix schema; `ConnectionFreeze` enumerated in `signal_types.rs`.
 - `split-policyport-trait-selection-learning` — `build_retry_penalties` decomposition context.
+
+## Spike findings (2026-06-17)
+
+All facts read from `native/rust/crates` at HEAD. The task's file names are
+slightly off: `FailureClass` lives in `ripdpi-failure-classifier/src/types.rs`,
+the matrix `BlockSignal` in `.../src/block_detection/signal_types.rs`, and the
+freeze classifier in `.../src/connection_freeze.rs`. `build_retry_penalties` is a
+`PolicyPort` method in `ripdpi-runtime-decision-ports/src/policy.rs`, implemented
+in `ripdpi-runtime-policy`.
+
+### Part 1 — classification precision (gap: yes, two subtypes conflated)
+
+`classify_connection_freeze(bytes_received, stall_windows, window_ms)`
+(`connection_freeze.rs:3`) produces a `ClassifiedFailure` with
+`class = ConnectionFreeze`, a hardcoded `stage = FailureStage::Relay`, and the
+wire counters recorded only as **free-form string tags**
+(`bytesReceived=…`, `stallWindows=…`) on `evidence.tags: Vec<String>`.
+
+The three subtypes the task asks about sit as follows today:
+
+| Subtype | Wire signature | Current classification |
+|---|---|---|
+| pre-handshake silent-drop | SYN, no SYN-ACK | **already distinct** — `FailureClass::SilentDrop` (`transport.rs`), not `ConnectionFreeze` |
+| mid-handshake-freeze | TCP est → ClientHello sent → no ServerHello, no RST | `ConnectionFreeze` with `bytesReceived = 0` |
+| post-data silent-drop | data flowed → silence | `ConnectionFreeze` with `bytesReceived > 0` |
+
+**Gap:** mid-handshake-freeze and post-data freeze are **conflated** into one
+`ConnectionFreeze`, separable only by the stringly-typed `bytesReceived` tag —
+and that distinction is **lost at the matrix boundary**: `BlockSignal`
+(`signal_types.rs:5`) is a bare C-like enum, so `signal_mapping.rs` maps both to
+`BlockSignal::ConnectionFreeze` with no phase. The policy/diagnostic layers never
+see the phase. Pre-handshake is fine (separate class).
+
+**Proposal (minimal, non-breaking):**
+
+1. Add `FreezePhase { MidHandshake, PostData, Unknown }` (snake_case serde) to
+   `ripdpi-failure-classifier`.
+2. Thread an explicit wire-observable input into `classify_connection_freeze`
+   (e.g. `server_hello_seen: bool`, or keep deriving `MidHandshake` from
+   `bytes_received == 0` *and* a "no app bytes before stall" flag) so phase is
+   computed from observation, not guessed.
+3. Surface it as an **optional typed field** on `ClassifiedFailure`:
+   `#[serde(default, skip_serializing_if = "Option::is_none")] pub freeze_phase:
+   Option<FreezePhase>`. `serde(default)` + camelCase `freezePhase` keeps every
+   existing JSON payload and the round-trip tests valid (non-breaking).
+4. **Hard constraint — do NOT add phase to `BlockSignal`.** That enum is the
+   third element of the `(transport_class, network_scope_hash, BlockSignal,
+   quorum)` matrix key; widening it would change the key cardinality and break
+   the schema from `investigate-rkn-unannounced-protocol-class-signatures`. Phase
+   rides **alongside** `BlockSignal` as a refinement attribute consumed only by
+   the policy/diagnostic layer, never inside the matrix key.
+
+### Part 2 — retry-storm guard (gap: absent, and the default behavior is inverted)
+
+Penalty store (`autolearn/mod.rs:55`): `learned_hosts_by_scope:
+BTreeMap<network_scope_key, BTreeMap<host /*=SNI*/, LearnedHostRecord>>`, with
+per-group `penalty_until_ms`. So the persisted key is
+**`(network_scope_hash, SNI)`**, *not* `(dst_IP, SNI)`. The source binds the
+freeze to `(src_IP, dst_SNI)`; `network_scope_key` already encodes the src
+**network** identity (per `network-fingerprint-privacy.md`) and `host` = dst SNI,
+so the existing keying is **broadly compatible** with the source's binding
+without introducing `dst_IP` (which is available ephemerally as
+`RouteAdvance.dest` but is deliberately not persisted).
+
+What a `ConnectionFreeze` does today:
+
+- `note_host_failure` → sets per-`(host, group)` `penalty_until_ms` → selection
+  **skips that group** → **diversifies to another strategy group = transport
+  fingerprint flip**.
+- `note_block_signal(ConnectionFreeze)` (`autolearn/mod.rs:120`) → 2-hit
+  confirmation within `BLOCK_CONFIRMATION_WINDOW_MS` → marks the **whole host
+  blocked**.
+- `build_retry_penalties` → `RetrySelectionPenalty { same_signature_cooldown_ms,
+  family_cooldown_ms, diversification_rank }` → diversification-oriented.
+
+**Finding:** there is **no** freeze-specific guard that holds the same tuple
+without re-attempt. Worse, the dominant path (`diversification_rank`) does the
+**opposite** of the task's objective — it pushes a fingerprint flip on a freeze,
+which the source says can *extend* the block. `same_signature_cooldown_ms` is the
+inverse lever but is generic and dominated by diversification.
+
+**Proposed guard (default-unset, no hardcoded timer):**
+
+- Config: add `host_autolearn.freeze_cooldown_secs: Option<u64>` to
+  `ripdpi-config`, default `None`. `None` → guard disabled → behavior identical
+  to today. Configurable; **never seeded from the 120s GFW figure**.
+- Write seam: in `note_block_signal`, on a confirmed `BlockSignal::ConnectionFreeze`
+  (refined by `FreezePhase::MidHandshake` once Part 1 lands) and when
+  `freeze_cooldown_secs` is `Some`, stamp a `freeze_cooldown_until_ms` on the
+  `LearnedHostRecord` (already scoped by `network_scope` ≈ src network).
+- Read/enforce seam: in `select_initial` / `select_next` / `advance_route`, while
+  `freeze_cooldown_until_ms > now` for `(network_scope, SNI)`, (a) do **not**
+  re-attempt that tuple and (b) **suppress the diversification penalty** so the
+  transport fingerprint is held, not flipped, for the cooldown window.
+- Decomposition coordination (`split-policyport-trait-selection-learning`): the
+  cooldown **write** belongs on the learning trait surface (`note_block_signal`),
+  the **read/suppress** on the selection trait surface (the penalty consumer),
+  with the timestamp on the shared `LearnedHostRecord`. The guard straddles both
+  decomposed traits; landing it on the shared record keeps the seam stable across
+  the split.
+
+### Follow-on tasks to file
+
+1. **`implement-freeze-phase-classifier-attribute`** (`ripdpi-failure-classifier`)
+   — `FreezePhase` enum + optional `freeze_phase` field on `ClassifiedFailure`,
+   derived from a wire-observable input; `BlockSignal`/matrix unchanged;
+   serde-default non-breaking; tests for mid-handshake (`bytesReceived = 0`) vs
+   post-data.
+2. **`implement-freeze-cooldown-retry-guard`** (`ripdpi-runtime-policy` +
+   `ripdpi-config`) — `freeze_cooldown_secs: Option<u64>` (default `None`); stamp
+   cooldown on confirmed `ConnectionFreeze`; during cooldown suppress re-attempt
+   **and** diversification on `(network_scope, SNI)`; coordinate the seam with
+   `split-policyport-trait-selection-learning`; tests including default-unset =
+   exact no-op.
+
+### Scope limitation (per the source)
+
+The ~120s figure in `gfw-residual-censorship-timers` is a single-source
+China/GFW reconstruction, **not a measured RU constant**. Both proposals treat
+the cooldown strictly as an operator-configurable, default-unset observable —
+never a hardcoded default — per the task's risk note.
