@@ -109,6 +109,7 @@ RIPDPI's design principle: classify each target and each network separately, app
 - **Proxy mode**: local SOCKS5 proxy on the configured localhost port.
 - **VPN mode**: routes Android device traffic through a local TUN-to-SOCKS bridge via `VpnService`.
 - **Profile import**: QR-code scan and generation, plus clipboard and share-sheet import. Clipboard/share-sheet parsing uses the proxy URI codec, which accepts `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://`, and `ssh://`; QR scanning currently succeeds for `vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, and `tuic://`. AmneziaWG uses the separate `amneziawg://` codec. Android intent filters also expose `ssh://` to the import trampoline, and the proxy URI codec parses and round-trips it.
+- **Support settings links**: `ripdpi://support-config` and verified HTTPS support links can preview and apply a support-provided patch for any persisted app setting after user confirmation.
 - **Subscriptions**: base64, Clash / Clash.Meta YAML, sing-box JSON, and WireGuard-INI subscription formats with background auto-update, duplicate-profile detection, selector/urltest groups, and multi-mirror delivery.
 - **Encrypted DNS**: DoH, DoT, DNSCrypt, and DoQ resolver support in VPN-related paths.
 - **Strategy controls**: TCP split/disorder/fake families, TLS record fragmentation and fake profiles, QUIC and DTLS handshake variation, UDP length-field variation, IPv6 extension headers, Lua `rawsend`, per-step activation filters, IPv4 ID control, and OOB injection.

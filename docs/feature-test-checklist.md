@@ -449,6 +449,7 @@ A feature is ready for review when all applicable items are true:
 - [ ] Failure behavior is covered with timeout, malformed input, or unavailable dependency.
 - [ ] Logs and exported artifacts are redacted.
 - [ ] UI text is localized in all supported locales when new strings are added.
+- [ ] Support settings links, if affected, preview every changed setting and reject malformed or partially unsupported packages without writing settings.
 - [ ] Documentation describes any new user-visible setting, workflow, or test-lab command.
 - [ ] CI gates that should catch regressions are wired or updated.
 - [ ] Manual test gaps are recorded when automation is not yet practical.

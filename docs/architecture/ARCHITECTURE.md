@@ -66,7 +66,7 @@ auto-generated Mermaid dependency graph is kept at
 | `:core:detection` | VPN/DPI detection and checkers (consensus, privacy, `vpn`, `dpi`, `export`, `community`, `probe` subpackages); depends on `:xray-protos` |
 | `:core:data` | Aggregator — `api`-exports the four sub-modules below; Room DB (KSP), backup, rules |
 | `:core:data:model` | App-settings + geosite protobuf schemas (see [§6](#6-config-flow)) |
-| `:core:data:settings` | Settings persistence (DataStore-backed) |
+| `:core:data:settings` | Settings persistence (DataStore-backed), support settings deep-link package parsing, preview, and apply |
 | `:core:data:runtime-state` | Runtime/session state |
 | `:core:data:catalog` | Diagnostics / strategy-pack catalog data |
 | `:xray-protos` | Java-library: Xray/V2Ray protobuf schemas (VLESS, Reality, transport) + gRPC; consumed by `:core:detection` |

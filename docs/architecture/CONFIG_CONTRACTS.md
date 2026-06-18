@@ -46,6 +46,7 @@ Rust deserialization → RuntimeConfig
 | Diagnostics wire contract | `native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs` |
 | Root-helper IPC protocol | `native/rust/crates/ripdpi-root-helper-protocol/src/commands.rs` |
 | Telemetry payloads | `native/rust/crates/ripdpi-telemetry`, event ring `native/rust/crates/android-support/src/events.rs` |
+| Support settings deep-link packages | `core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/support/*`, [`docs/support-settings-deep-links.md`](../support-settings-deep-links.md) |
 
 > **Direction of authority.** Kotlin is authoritative for user-facing models,
 > defaults, validation, and JSON serialization. Rust **consumes** the JSON and
@@ -255,7 +256,25 @@ values; never rename or repurpose an existing one.**
 
 ---
 
-## 6. Rules for additive settings
+## 6. Support settings deep-link packages
+
+Support settings deep links are a user-support contract layered on top of `AppSettings`. They do not add a separate persistence store; they decode a versioned package from `ripdpi://support-config` or `https://po4yka.github.io/RIPDPI/support-config`, stage the package against the current `AppSettings`, show the user a preview, and replace the stored settings only when every operation validates.
+
+The address space is the generated top-level `AppSettings.Builder` surface. A support package writes paths as `settings.<field_name>`; the registry normalizes generated setter casing, snake_case, and kebab-case to `settings.<snake_case>`. New protobuf settings become support-link addressable automatically when the generated builder exposes a setter, and `SupportSettingsApplyUseCaseTest` asserts that every generated top-level setter has a support path.
+
+Compatibility rules:
+
+- Package `schema` must equal the current support package schema (`1`).
+- Only `op: "set"` is accepted.
+- Scalar values use JSON primitives; repeated string settings use JSON string arrays; protobuf-message settings such as chain steps use unpadded URL-safe Base64 of serialized protobuf bytes.
+- Preview/apply is all-or-nothing. Unsupported paths, unsupported operations, invalid values, malformed packages, and unsupported schemas reject the whole package without writing settings.
+- Sensitive paths must remain preview-visible. The registry flags explicit sensitive paths and any normalized path containing `token`, `credential`, `password`, `private_key`, or `keylog`.
+
+Detailed package shape, link forms, limits, ownership, and focused tests live in [`docs/support-settings-deep-links.md`](../support-settings-deep-links.md).
+
+---
+
+## 7. Rules for additive settings
 
 A new setting is **safe** only if all of the following hold:
 
@@ -277,7 +296,7 @@ is a `kind` string) — but an old Rust build will drop it (§5).
 
 ---
 
-## 7. Migration checklist — a setting that affects Rust runtime behavior
+## 8. Migration checklist — a setting that affects Rust runtime behavior
 
 1. **Proto.** Add the field to `AppSettings` in `app_settings.proto`; next free
    number; document the unset sentinel in a trailing comment. If replacing a
@@ -300,15 +319,16 @@ is a `kind` string) — but an old Rust build will drop it (§5).
    it per §5 and add the Rust `parse_*` arm with a safe fallback.
 8. **Goldens.** Update the config-translation goldens under human supervision;
    if it touches diagnostics or telemetry payloads, follow those contracts'
-   governance (see §8 and `DiagnosticsContractGovernanceTest`).
+   governance (see §9 and `DiagnosticsContractGovernanceTest`).
 9. **Locales.** Any new UI string lands in all 7 locale files in the same
    commit.
-10. **Tests.** Protobuf round-trip test; codec/mapper test; Rust deserialization
+10. **Support link.** Confirm the generated support-settings registry test covers the new top-level path; add explicit preview/apply tests for sensitive, repeated, or protobuf-message settings.
+11. **Tests.** Protobuf round-trip test; codec/mapper test; Rust deserialization
     test proving an old config (field absent) still loads.
 
 ---
 
-## 8. Native config schema versions
+## 9. Native config schema versions
 
 **Current state.** Versioning is explicit for native-facing JSON contracts:
 
@@ -370,7 +390,7 @@ is a `kind` string) — but an old Rust build will drop it (§5).
 
 For proxy and tunnel payloads, `schemaVersion` is bumped **only** on a genuinely
 breaking shape change — a field whose meaning changed, or a removed section —
-never for an additive field. Additive changes stay covered by §6.
+never for an additive field. Additive changes stay covered by §7.
 
 ---
 

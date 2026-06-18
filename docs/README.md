@@ -44,6 +44,7 @@ New developers should read these in order:
 
 - [Relay profile examples](relay-profile-examples.md)
 - [AmneziaWG URI scheme](amneziawg-uri-scheme.md)
+- [Support settings deep links](support-settings-deep-links.md)
 
 ## Testing & CI
 
