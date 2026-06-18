@@ -39,6 +39,15 @@ class NativeBinaryContractTest {
             // list-typed fields with "[]".
             "chainIntermediateHops[]",
             "ptRuntimeVersion",
+            // Emitted by the ripdpi-amneziawg-android native runtime's
+            // jniPollTelemetry snapshot (flattened AmneziaWgTelemetry, camelCase
+            // wire JSON) but absent from the proxy/tunnel adapter manifest
+            // fixtures, mirroring the relay-core chain fields above. The
+            // AmneziaWG runtime is a third native telemetry source that does not
+            // generate a contract-fixtures manifest, so its additive WG-over-WS
+            // carrier counters live here. See commit 63f8ee9c3.
+            "wsCarrierHandshakes",
+            "wsCarrierHandshakeFailures",
         )
 
     private val contractJson =

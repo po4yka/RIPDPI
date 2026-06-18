@@ -101,5 +101,7 @@
     "udpCapable": null,
     "upstreamAddress": null,
     "upstreamRttMs": null,
+    "wsCarrierHandshakeFailures": 0,
+    "wsCarrierHandshakes": 0,
     "wsTunnelFakeSniActive": 0
 }
