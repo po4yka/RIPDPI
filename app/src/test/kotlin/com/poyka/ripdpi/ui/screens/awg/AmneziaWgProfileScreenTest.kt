@@ -9,9 +9,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Rule
@@ -56,6 +58,11 @@ class AmneziaWgProfileScreenTest {
         AmneziaWgProfileViewModel(
             object : AwgCohortCatalogProvider {
                 override fun catalog() = AwgCohortCatalogData(presets = listOf(rtkSouth))
+            },
+            object : StandaloneAmneziaWgActivator {
+                override suspend fun activate(request: AwgActivationRequest) = Unit
+
+                override suspend fun deactivate() = Unit
             },
         )
 

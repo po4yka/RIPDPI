@@ -1,13 +1,24 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 /**
@@ -15,9 +26,23 @@ import org.junit.Test
  *
  * The editor surfaces every obfuscation field inline. A cohort preset fills and locks the
  * obfuscation group; "Custom" frees it. These tests inject a fake catalog so they stay
- * pure-JVM (no Android asset loading).
+ * pure-JVM (no Android asset loading) and a fake activator that records the dispatched
+ * [AwgActivationRequest] without touching the native runtime.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class AmneziaWgProfileViewModelTest {
+    private val mainDispatcher = StandardTestDispatcher()
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(mainDispatcher)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
     private val rtkSouth =
         AwgCohortPreset(
             id = "rtk_south",
@@ -35,8 +60,9 @@ class AmneziaWgProfileViewModelTest {
             randomizeHeaders = false,
         )
     private val catalog = AwgCohortCatalogData(presets = listOf(rtkSouth))
+    private val activator = RecordingStandaloneAmneziaWgActivator()
 
-    private fun viewModel() = AmneziaWgProfileViewModel(FakeCatalogProvider(catalog))
+    private fun viewModel() = AmneziaWgProfileViewModel(FakeCatalogProvider(catalog), activator)
 
     @Test
     fun `initial state is a custom, unlocked editor`() {
@@ -176,13 +202,17 @@ class AmneziaWgProfileViewModelTest {
     }
 
     @Test
-    fun `a fresh editor cannot activate and connect is a no-op`() {
-        val viewModel = viewModel()
+    fun `a fresh editor cannot activate and connect is a no-op`() =
+        runTest {
+            val viewModel = viewModel()
 
-        assertFalse(viewModel.uiState.value.canActivate)
-        viewModel.onConnect()
-        assertNull(viewModel.uiState.value.pendingActivation)
-    }
+            assertFalse(viewModel.uiState.value.canActivate)
+            viewModel.onConnect()
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.pendingActivation)
+            assertNull(activator.lastActivated)
+        }
 
     @Test
     fun `filling the required identity fields makes the editor activatable`() {
@@ -194,54 +224,79 @@ class AmneziaWgProfileViewModelTest {
     }
 
     @Test
-    fun `connect projects the editor into an activation request carrying PSK and keepalive`() {
-        val viewModel = viewModel()
-        fillRequiredIdentity(viewModel)
-        viewModel.onFieldChanged(AwgEditorField.PRESHARED_KEY, "psk-material==")
-        viewModel.onFieldChanged(AwgEditorField.PERSISTENT_KEEPALIVE, "37")
-        viewModel.onFieldChanged(AwgEditorField.MTU, "1280")
+    fun `connect dispatches an activation request carrying PSK and keepalive to the service`() =
+        runTest {
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.onFieldChanged(AwgEditorField.PRESHARED_KEY, "psk-material==")
+            viewModel.onFieldChanged(AwgEditorField.PERSISTENT_KEEPALIVE, "37")
+            viewModel.onFieldChanged(AwgEditorField.MTU, "1280")
 
-        viewModel.onConnect()
+            viewModel.onConnect()
+            advanceUntilIdle()
 
-        val request =
-            requireNotNull(viewModel.uiState.value.pendingActivation) { "expected an activation request" }
-        assertEquals("vpn.example.com", request.endpointHost)
-        assertEquals(51820, request.endpointPort)
-        assertEquals("privkey==", request.privateKey)
-        assertEquals("peerpub==", request.peerPublicKey)
-        assertEquals("psk-material==", request.presharedKey)
-        assertEquals(37, request.persistentKeepalive)
-        assertEquals(1280, request.mtu)
-        assertEquals("10.8.0.2/32", request.interfaceAddressV4)
-    }
-
-    @Test
-    fun `connect carries the locked cohort obfuscation including special junk`() {
-        val viewModel = viewModel()
-        fillRequiredIdentity(viewModel)
-        viewModel.onCohortSelected("rtk_south")
-
-        viewModel.onConnect()
-
-        val obf =
-            requireNotNull(viewModel.uiState.value.pendingActivation) { "expected an activation request" }
-                .obfuscation
-        assertEquals(4, obf.jc)
-        assertEquals(70, obf.jmax)
-        assertEquals(1_000_000_001L, obf.h1)
-    }
+            val request =
+                requireNotNull(activator.lastActivated) { "expected the service to be activated" }
+            assertEquals("vpn.example.com", request.endpointHost)
+            assertEquals(51820, request.endpointPort)
+            assertEquals("privkey==", request.privateKey)
+            assertEquals("peerpub==", request.peerPublicKey)
+            assertEquals("psk-material==", request.presharedKey)
+            assertEquals(37, request.persistentKeepalive)
+            assertEquals(1280, request.mtu)
+            assertEquals("10.8.0.2/32", request.interfaceAddressV4)
+            // The same request is surfaced for the screen to react to.
+            assertEquals(request, viewModel.uiState.value.pendingActivation)
+        }
 
     @Test
-    fun `consuming the activation request clears it`() {
-        val viewModel = viewModel()
-        fillRequiredIdentity(viewModel)
-        viewModel.onConnect()
-        assertNotNull(viewModel.uiState.value.pendingActivation)
+    fun `connect carries the locked cohort obfuscation including special junk to the service`() =
+        runTest {
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.onCohortSelected("rtk_south")
 
-        viewModel.onActivationConsumed()
+            viewModel.onConnect()
+            advanceUntilIdle()
 
-        assertNull(viewModel.uiState.value.pendingActivation)
-    }
+            val obf =
+                requireNotNull(activator.lastActivated) { "expected the service to be activated" }
+                    .obfuscation
+            assertEquals(4, obf.jc)
+            assertEquals(70, obf.jmax)
+            assertEquals(1_000_000_001L, obf.h1)
+        }
+
+    @Test
+    fun `the activation profile id is an opaque uuid, not derived from the endpoint`() =
+        runTest {
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+
+            viewModel.onConnect()
+            advanceUntilIdle()
+
+            val profileId =
+                requireNotNull(activator.lastActivated) { "expected the service to be activated" }.profileId
+            // Must NOT leak the peer host/port (network-fingerprint-privacy.md hard rule).
+            assertFalse(profileId.contains("vpn.example.com"))
+            assertFalse(profileId.contains("51820"))
+            assertTrue(profileId.startsWith("awg-"))
+        }
+
+    @Test
+    fun `consuming the activation request clears it`() =
+        runTest {
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.onConnect()
+            advanceUntilIdle()
+            assertNotNull(viewModel.uiState.value.pendingActivation)
+
+            viewModel.onActivationConsumed()
+
+            assertNull(viewModel.uiState.value.pendingActivation)
+        }
 
     private fun fillRequiredIdentity(viewModel: AmneziaWgProfileViewModel) {
         viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn.example.com")
@@ -257,4 +312,18 @@ private class FakeCatalogProvider(
     private val catalog: AwgCohortCatalogData,
 ) : AwgCohortCatalogProvider {
     override fun catalog(): AwgCohortCatalogData = catalog
+}
+
+/** Records the dispatched activation request without driving the native runtime. */
+private class RecordingStandaloneAmneziaWgActivator : StandaloneAmneziaWgActivator {
+    var lastActivated: AwgActivationRequest? = null
+        private set
+
+    override suspend fun activate(request: AwgActivationRequest) {
+        lastActivated = request
+    }
+
+    override suspend fun deactivate() {
+        lastActivated = null
+    }
 }

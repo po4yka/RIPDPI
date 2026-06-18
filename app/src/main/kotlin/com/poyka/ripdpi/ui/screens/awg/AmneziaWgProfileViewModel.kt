@@ -1,14 +1,18 @@
 package com.poyka.ripdpi.ui.screens.awg
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -66,6 +70,7 @@ class AmneziaWgProfileViewModel
     @Inject
     constructor(
         private val catalogProvider: AwgCohortCatalogProvider,
+        private val amneziaWgActivator: StandaloneAmneziaWgActivator,
     ) : ViewModel() {
         private val catalog: AwgCohortCatalogData = catalogProvider.catalog()
 
@@ -120,19 +125,23 @@ class AmneziaWgProfileViewModel
         }
 
         /**
-         * Projects the current editor into an [AwgActivationRequest] and parks it on
-         * [AmneziaWgProfileUiState.pendingActivation] for the screen to dispatch to the
-         * service layer's AmneziaWG runtime (the WARP-engine-derived activation path). A
-         * no-op when the editor is not yet [AmneziaWgEditorState.isActivatable]. The
-         * request carries the full PSK + persistent-keepalive plumbing.
+         * Projects the current editor into an [AwgActivationRequest] and activates it
+         * through the `:core:service` [StandaloneAmneziaWgActivator] (the
+         * WARP-engine-derived AmneziaWG runtime path). A no-op when the editor is not
+         * yet [AmneziaWgEditorState.isActivatable]. The request carries the full PSK +
+         * persistent-keepalive plumbing and is also surfaced on
+         * [AmneziaWgProfileUiState.pendingActivation] so the screen can react to the
+         * dispatch; the screen clears it via [onActivationConsumed].
          */
         fun onConnect() {
-            _uiState.update { state ->
-                if (!state.editor.isActivatable()) {
-                    state
-                } else {
-                    state.copy(pendingActivation = state.editor.toActivationRequest(profileId = generateProfileId()))
-                }
+            val editor = _uiState.value.editor
+            if (!editor.isActivatable()) return
+            // Mint the request once (a single fresh profile id), surface it for the
+            // screen, then dispatch the real activation to the service layer.
+            val request = editor.toActivationRequest(profileId = generateProfileId())
+            _uiState.update { it.copy(pendingActivation = request) }
+            viewModelScope.launch {
+                amneziaWgActivator.activate(request)
             }
         }
 
@@ -142,14 +151,15 @@ class AmneziaWgProfileViewModel
         }
 
         /**
-         * A stable, non-secret telemetry id for the activation request, derived from the
-         * peer endpoint so re-connecting the same profile reuses the same id. Durable
-         * persistence (and a real per-profile id) is deferred -- see the A3 commit body.
+         * An opaque, non-secret id for the activation request. It is a random UUID, NOT
+         * derived from the endpoint host/port: [AwgActivationRequest.profileId] flows into
+         * the native runtime telemetry snapshot, and an endpoint-derived id would leak the
+         * peer host into a persisted/telemetry artifact, violating the
+         * network-fingerprint-privacy rule. Durable per-profile persistence (which would
+         * let a re-connect reuse a stable id) is deferred -- the in-memory editor mints a
+         * fresh id per activation.
          */
-        private fun generateProfileId(): String {
-            val form = _uiState.value.editor.form
-            return "awg-${form.server}:${form.serverPort}"
-        }
+        private fun generateProfileId(): String = "awg-${UUID.randomUUID()}"
 
         /** Reveals the private-key field after the biometric gate authorizes it. */
         fun onPrivateKeyRevealAuthorized() {

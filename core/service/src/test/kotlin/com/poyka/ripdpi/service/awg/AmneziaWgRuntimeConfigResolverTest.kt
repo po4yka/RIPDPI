@@ -1,0 +1,105 @@
+package com.poyka.ripdpi.service.awg
+
+import com.poyka.ripdpi.data.awg.AwgActivationObfuscation
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
+import org.junit.Test
+
+/**
+ * Tests for [DefaultAmneziaWgRuntimeConfigResolver]: the pure structural copy of the
+ * app-reachable [AwgActivationRequest] into the engine-api `ResolvedRipDpiAmneziaWgConfig`.
+ */
+class AmneziaWgRuntimeConfigResolverTest {
+    private val resolver = DefaultAmneziaWgRuntimeConfigResolver()
+
+    private fun request() =
+        AwgActivationRequest(
+            profileId = "awg-uuid-1",
+            privateKey = "privkey==",
+            peerPublicKey = "peerpub==",
+            presharedKey = "psk==",
+            endpointHost = "vpn.example.org",
+            endpointPort = 51820,
+            interfaceAddressV4 = "10.8.0.2/32",
+            interfaceAddressV6 = "fd00::2/128",
+            mtu = 1280,
+            persistentKeepalive = 25,
+            obfuscation =
+                AwgActivationObfuscation(
+                    jc = 4,
+                    jmin = 40,
+                    jmax = 70,
+                    s1 = 50,
+                    s2 = 100,
+                    s3 = 7,
+                    s4 = 9,
+                    h1 = 1_000_000_001L,
+                    h4 = 1_000_000_004L,
+                    i1 = "deadbeef",
+                    i5 = "cafe",
+                ),
+        )
+
+    @Test
+    fun `identity, PSK and transport fields copy verbatim`() {
+        val config = resolver.resolve(request())
+
+        assertEquals(true, config.enabled)
+        assertEquals("awg-uuid-1", config.profileId)
+        assertEquals("privkey==", config.privateKey)
+        assertEquals("peerpub==", config.peerPublicKey)
+        assertEquals("psk==", config.presharedKey)
+        assertEquals("vpn.example.org", config.endpointHost)
+        assertEquals(51820, config.endpointPort)
+        assertEquals("10.8.0.2/32", config.interfaceAddressV4)
+        assertEquals("fd00::2/128", config.interfaceAddressV6)
+        assertEquals(1280, config.mtu)
+        assertEquals(25, config.persistentKeepalive)
+    }
+
+    @Test
+    fun `the obfuscation group including S3-S4 and I1-I5 copies through`() {
+        val amnezia = resolver.resolve(request()).amnezia
+
+        assertEquals(4, amnezia.jc)
+        assertEquals(40, amnezia.jmin)
+        assertEquals(70, amnezia.jmax)
+        assertEquals(50, amnezia.s1)
+        assertEquals(100, amnezia.s2)
+        assertEquals(7, amnezia.s3)
+        assertEquals(9, amnezia.s4)
+        assertEquals(1_000_000_001L, amnezia.h1)
+        assertEquals(1_000_000_004L, amnezia.h4)
+        assertEquals("deadbeef", amnezia.i1)
+        assertEquals("cafe", amnezia.i5)
+    }
+
+    @Test
+    fun `the local SOCKS inbound binds to loopback`() {
+        val config = resolver.resolve(request())
+
+        assertEquals("127.0.0.1", config.localSocksHost)
+    }
+
+    @Test
+    fun `a blank private key is rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(request().copy(privateKey = ""))
+        }
+    }
+
+    @Test
+    fun `a blank interface address is rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(request().copy(interfaceAddressV4 = ""))
+        }
+    }
+
+    @Test
+    fun `a non-positive endpoint port is rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(request().copy(endpointPort = 0))
+        }
+    }
+}
