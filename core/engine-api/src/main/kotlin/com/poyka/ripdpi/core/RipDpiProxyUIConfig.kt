@@ -315,6 +315,12 @@ data class RipDpiWarpAmneziaConfig(
     val s2: Int = 0,
     val s3: Int = 0,
     val s4: Int = 0,
+    // AmneziaWG 2.0 I1..I5 special-junk frames as hex strings. Empty = unset.
+    val i1: String = "",
+    val i2: String = "",
+    val i3: String = "",
+    val i4: String = "",
+    val i5: String = "",
 )
 
 @Serializable

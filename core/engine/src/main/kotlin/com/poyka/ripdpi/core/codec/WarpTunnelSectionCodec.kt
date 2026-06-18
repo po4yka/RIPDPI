@@ -28,6 +28,12 @@ internal data class NativeWarpAmneziaConfig(
     val s2: Int = 0,
     val s3: Int = 0,
     val s4: Int = 0,
+    // AmneziaWG 2.0 I1..I5 special-junk frames as hex strings. Empty = unset.
+    val i1: String = "",
+    val i2: String = "",
+    val i3: String = "",
+    val i4: String = "",
+    val i5: String = "",
 )
 
 @Serializable
@@ -88,6 +94,11 @@ internal object WarpSectionCodec {
                     s2 = value.amnezia.s2,
                     s3 = value.amnezia.s3,
                     s4 = value.amnezia.s4,
+                    i1 = value.amnezia.i1,
+                    i2 = value.amnezia.i2,
+                    i3 = value.amnezia.i3,
+                    i4 = value.amnezia.i4,
+                    i5 = value.amnezia.i5,
                 ),
             localSocksHost = value.localSocksHost,
             localSocksPort = value.localSocksPort,
@@ -125,6 +136,11 @@ internal object WarpSectionCodec {
                     s2 = value.amnezia.s2,
                     s3 = value.amnezia.s3,
                     s4 = value.amnezia.s4,
+                    i1 = value.amnezia.i1,
+                    i2 = value.amnezia.i2,
+                    i3 = value.amnezia.i3,
+                    i4 = value.amnezia.i4,
+                    i5 = value.amnezia.i5,
                 ),
             localSocksHost = value.localSocksHost,
             localSocksPort = value.localSocksPort,

@@ -1050,6 +1050,11 @@ class NativeConfigContractSnapshotTest {
         amneziaS2: Int = 0,
         amneziaS3: Int = 0,
         amneziaS4: Int = 0,
+        amneziaI1: String = "",
+        amneziaI2: String = "",
+        amneziaI3: String = "",
+        amneziaI4: String = "",
+        amneziaI5: String = "",
         amneziaPreset: String = "off",
         localSocksHost: String = "127.0.0.1",
         localSocksPort: Int = 11888,
@@ -1087,6 +1092,11 @@ class NativeConfigContractSnapshotTest {
                     put("s2", JsonPrimitive(amneziaS2))
                     put("s3", JsonPrimitive(amneziaS3))
                     put("s4", JsonPrimitive(amneziaS4))
+                    put("i1", JsonPrimitive(amneziaI1))
+                    put("i2", JsonPrimitive(amneziaI2))
+                    put("i3", JsonPrimitive(amneziaI3))
+                    put("i4", JsonPrimitive(amneziaI4))
+                    put("i5", JsonPrimitive(amneziaI5))
                 },
             )
             put("amneziaPreset", JsonPrimitive(amneziaPreset))

@@ -53,6 +53,17 @@ pub struct ProxyUiWarpAmneziaConfig {
     pub s3: i32,
     #[serde(default)]
     pub s4: i32,
+    /// AmneziaWG 2.0 `I1..I5` special-junk frames as hex strings. Empty = unset.
+    #[serde(default)]
+    pub i1: String,
+    #[serde(default)]
+    pub i2: String,
+    #[serde(default)]
+    pub i3: String,
+    #[serde(default)]
+    pub i4: String,
+    #[serde(default)]
+    pub i5: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

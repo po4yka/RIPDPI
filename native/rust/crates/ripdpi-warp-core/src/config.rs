@@ -68,6 +68,25 @@ pub struct WarpAmneziaConfig {
     pub s2: i32,
     pub s3: i32,
     pub s4: i32,
+    /// AmneziaWG 2.0 `I1..I5` special-junk frames as hex strings. Empty = unset.
+    #[serde(default)]
+    pub i1: String,
+    #[serde(default)]
+    pub i2: String,
+    #[serde(default)]
+    pub i3: String,
+    #[serde(default)]
+    pub i4: String,
+    #[serde(default)]
+    pub i5: String,
+}
+
+impl WarpAmneziaConfig {
+    /// The AWG 2.0 `I1..I5` special-junk frames as hex strings, in order, for
+    /// feeding `AwgParams::from_config`.
+    pub fn special_junk_hex(&self) -> [&str; 5] {
+        [&self.i1, &self.i2, &self.i3, &self.i4, &self.i5]
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

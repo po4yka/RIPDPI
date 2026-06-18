@@ -147,6 +147,9 @@ impl AmneziaWgObfuscation {
 
     /// Project onto the data-plane [`WarpAmneziaConfig`] consumed by the AWG
     /// wire codec. `S3`/`S4` are always `0` (the editor does not expose them).
+    /// The AWG 2.0 `I1..I5` special-junk frames are carried out-of-band via the
+    /// tunnel's `special_junk_hex` parameter (sourced from this profile's
+    /// `AmneziaWgObfuscation` `i1..i5`), so they default to empty here.
     fn to_warp_amnezia(&self) -> WarpAmneziaConfig {
         WarpAmneziaConfig {
             enabled: self.is_active(),
@@ -161,6 +164,7 @@ impl AmneziaWgObfuscation {
             s2: self.s2,
             s3: 0,
             s4: 0,
+            ..Default::default()
         }
     }
 }

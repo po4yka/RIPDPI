@@ -150,9 +150,11 @@ impl WarpRuntime {
                     reserved,
                     source_peer_ip,
                     amnezia_cfg: &self.config.amnezia,
-                    // The WARP runtime config does not carry AWG 2.0 I1..I5
-                    // special-junk frames.
-                    special_junk_hex: ["", "", "", "", ""],
+                    // AWG 2.0 I1..I5 special-junk frames, sourced from the
+                    // resolved WARP config's own `i1..i5` hex fields. Empty
+                    // strings mean unset, preserving prior behavior when the
+                    // config does not configure them.
+                    special_junk_hex: self.config.amnezia.special_junk_hex(),
                 },
                 &self.platform,
             )

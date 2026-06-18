@@ -18,11 +18,13 @@ use crate::virtual_iface::{Bus, Event};
 /// Build the AmneziaWG wire codec for a tunnel from its config.
 ///
 /// `special_junk_hex` carries the AWG 2.0 `I1..I5` fixed special-junk frames
-/// (hex strings); the native WARP runtime passes them empty (`&["", ..]`),
-/// while a generic AmneziaWG profile may supply them. An invalid config
-/// (e.g. inverted junk range, colliding headers, malformed `I*` hex) is
-/// logged and treated as disabled rather than failing tunnel construction --
-/// a malformed obfuscation knob must not take the whole runtime down.
+/// (hex strings). The native WARP runtime now sources them from the resolved
+/// config's own `i1..i5` fields (via [`WarpAmneziaConfig::special_junk_hex`]),
+/// and a generic AmneziaWG profile maps its `AmneziaWgObfuscation` `I*` fields
+/// here; empty strings mean unset. An invalid config (e.g. inverted junk range,
+/// colliding headers, malformed `I*` hex) is logged and treated as disabled
+/// rather than failing tunnel construction -- a malformed obfuscation knob must
+/// not take the whole runtime down.
 pub(crate) fn build_awg_codec(cfg: &WarpAmneziaConfig, special_junk_hex: &[&str]) -> Option<AwgWireCodec> {
     if !cfg.enabled {
         return None;

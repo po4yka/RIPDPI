@@ -487,6 +487,7 @@ mod tests {
             s2: s[1],
             s3: s[2],
             s4: s[3],
+            ..Default::default()
         }
     }
 
