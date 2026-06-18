@@ -1,0 +1,25 @@
+{
+  "outbounds": [],
+  "ripdpi": {
+    "schema_version": 1,
+    "amneziawg": [
+      {
+        "tag": "p2-awg-x",
+        "address": ["10.66.66.2/32"],
+        "dns": ["1.1.1.1"],
+        "mtu": 1420,
+        "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100,
+        "h2": 2, "h3": 3, "h4": 4,
+        "private_key_placeholder": true,
+        "peer": {
+          "public_key": "pub==",
+          "preshared_key": "psk==",
+          "endpoint": "203.0.113.7:51820",
+          "allowed_ips": ["0.0.0.0/0"],
+          "persistent_keepalive": 25
+        }
+      }
+    ],
+    "hysteria_extras": {}
+  }
+}

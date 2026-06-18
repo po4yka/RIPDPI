@@ -18,6 +18,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * Client half of the cross-repo bundle contract test. The server repo
@@ -130,6 +131,75 @@ class RipdpiBundleContractTest {
         assertEquals("2026-12-31T23:59:59Z", result.expiresAt)
     }
 
+    // -------------------------------------------------------------------------
+    // Realistic full bundle (sing-box document + ripdpi object), byte-identical
+    // to the server's contract/ripdpi-bundle.golden-full.json. The client parses
+    // the WHOLE document end-to-end; the server validates the same file's ripdpi
+    // object against the schema. This is the cross-repo emit->parse check.
+    // -------------------------------------------------------------------------
+    @Test
+    fun `parser consumes the realistic golden-full bundle end to end`() {
+        val result = SingBoxSubscriptionParser.parse(resource(GOLDEN_FULL), "golden-full")
+        assertTrue("expected Success but got $result", result is SingBoxParseResult.Success)
+        result as SingBoxParseResult.Success
+
+        // Real outbounds imported (vless-reality + hysteria2; selector/urltest skipped).
+        assertEquals(2, result.profiles.size)
+        val hy2 = result.profiles.filterIsInstance<ProxyProfile.Hysteria2>().single()
+        assertEquals("EXAMPLEsalamanderPassword", hy2.obfsPassword)
+        assertEquals("v2.9.0", hy2.salamanderUpstreamTag)
+        assertEquals(false, hy2.insecure)
+        assertEquals("20000:50000", hy2.portHopPorts)
+        assertEquals("30s", hy2.portHopInterval)
+
+        // AWG entry with i-values; delivered fingerprint recomputes from its params.
+        val awg = result.amneziaWgProfiles.single()
+        assertEquals("deadbeef", awg.awg.i1)
+        assertEquals("cafebabe", awg.awg.i3)
+        assertEquals(
+            "sha256:5c6da6e7611473a17003b31df40ba2fba04fac5990dc1da2cb06608ecc45bd25",
+            awg.cohortFingerprint,
+        )
+        assertEquals(awg.cohortFingerprint, awg.awg.cohortFingerprint())
+
+        // Non-default topology + expiry surfaced.
+        assertEquals(true, result.topology!!.splitHopEgress)
+        assertEquals("realm-a", result.topology!!.hysteriaRealm)
+        assertEquals("2026-12-31T23:59:59Z", result.expiresAt)
+    }
+
+    // -------------------------------------------------------------------------
+    // Negative fixtures (byte-identical to the server's contract/negative/). The
+    // server asserts the schema REJECTS each; this side asserts the lenient,
+    // forward-compatible parser handles each deterministically WITHOUT throwing.
+    // That intentional strict-server / lenient-client asymmetry is the contract.
+    // -------------------------------------------------------------------------
+    @Test
+    fun `parser handles every negative fixture leniently without throwing`() {
+        val dir = File(requireNotNull(javaClass.getResource(NEGATIVE_DIR)) { "missing $NEGATIVE_DIR" }.toURI())
+        val files =
+            requireNotNull(dir.listFiles { f -> f.name.startsWith("neg-") && f.name.endsWith(".json") })
+                .sortedBy { it.name }
+        assertTrue("no negative fixtures found", files.isNotEmpty())
+
+        for (f in files) {
+            val result = SingBoxSubscriptionParser.parse(f.readText(), "neg")
+            assertTrue("${f.name}: expected Success (lenient) but got $result", result is SingBoxParseResult.Success)
+            result as SingBoxParseResult.Success
+            when (f.name) {
+                // Unrecognised / absent schema_version => whole ripdpi block ignored.
+                "neg-schema-version-2.json", "neg-missing-schema-version.json" -> {
+                    assertTrue("${f.name}: ripdpi block should be ignored", result.amneziaWgProfiles.isEmpty())
+                }
+
+                // A peer with no public key is unparseable => that AWG entry is skipped.
+                "neg-peer-missing-public-key.json" -> {
+                    assertTrue("${f.name}: malformed AWG entry should be skipped", result.amneziaWgProfiles.isEmpty())
+                }
+            }
+        }
+    }
+
     private fun paramsFrom(obj: JsonObject): AmneziaWgParameters =
         AmneziaWgParameters(
             jc = obj["jc"]?.jsonPrimitive?.int,
@@ -152,5 +222,7 @@ class RipdpiBundleContractTest {
         const val SCHEMA = "/contract/ripdpi-bundle.schema.json"
         const val EXAMPLE = "/contract/ripdpi-bundle.example.json"
         const val GOLDEN = "/contract/cohort-fingerprint.golden.json"
+        const val GOLDEN_FULL = "/contract/ripdpi-bundle.golden-full.json"
+        const val NEGATIVE_DIR = "/contract/negative"
     }
 }

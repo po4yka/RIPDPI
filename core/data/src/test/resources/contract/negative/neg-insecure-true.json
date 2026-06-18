@@ -1,0 +1,15 @@
+{
+  "outbounds": [
+    { "type": "hysteria2", "tag": "hy2-main", "server": "203.0.113.7", "server_port": 443, "password": "p" }
+  ],
+  "ripdpi": {
+    "schema_version": 1,
+    "amneziawg": [],
+    "hysteria_extras": {
+      "hy2-main": {
+        "insecure": true,
+        "obfs": { "type": "salamander", "password": "k" }
+      }
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "_comment": "A realistic FULL bundle (sing-box document + ripdpi object) shaped exactly like emit-bundle.sh output, used as the cross-repo emit->parse golden: the server validates its ripdpi object against the schema (tests/unit/test_bundle_schema.py) and the RIPDPI client parses the WHOLE document through SingBoxSubscriptionParser (RipdpiBundleContractTest). It deliberately exercises what the bare example omits: a populated outbounds list with a hysteria2 tag that the hysteria_extras attaches to, i1..i5 values, salamander_upstream_tag, and a non-default topology. Regenerate from a real `make emit-bundle` if the emit format changes; the cohort_fingerprint must match the AWG params (sha256 over jc..h4 + i1..i5).",
+  "log": { "level": "warn" },
+  "dns": { "servers": [{ "tag": "cloudflare", "address": "1.1.1.1" }] },
+  "inbounds": [{ "type": "tun", "tag": "tun-in", "stack": "system" }],
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "p0-reality-upcloud-prod",
+      "server": "203.0.113.7",
+      "server_port": 443,
+      "uuid": "12345678-1234-4234-8234-123456789abc",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "mirror.example.com",
+        "reality": { "enabled": true, "public_key": "EXAMPLErealityPublicKeyBase64xxxxxxxxxxxxx", "short_id": "aabbccdd" },
+        "utls": { "enabled": true, "fingerprint": "chrome" }
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "p2-hysteria2-upcloud-prod",
+      "server": "203.0.113.7",
+      "server_port": 443,
+      "password": "EXAMPLEhysteriaClientPassword"
+    },
+    { "type": "selector", "tag": "select", "outbounds": ["p0-reality-upcloud-prod", "p2-hysteria2-upcloud-prod"] },
+    { "type": "urltest", "tag": "auto", "outbounds": ["p0-reality-upcloud-prod", "p2-hysteria2-upcloud-prod"] }
+  ],
+  "route": { "rules": [{ "action": "sniff" }], "final": "select" },
+  "ripdpi": {
+    "schema_version": 1,
+    "amneziawg": [
+      {
+        "tag": "p2-awg-phone",
+        "address": ["10.66.66.2/32"],
+        "dns": ["1.1.1.1", "1.0.0.1"],
+        "mtu": 1420,
+        "jc": 3,
+        "jmin": 20,
+        "jmax": 50,
+        "s1": 10,
+        "s2": 20,
+        "h1": 11,
+        "h2": 22,
+        "h3": 33,
+        "h4": 44,
+        "i1": "deadbeef",
+        "i3": "cafebabe",
+        "cohort_fingerprint": "sha256:5c6da6e7611473a17003b31df40ba2fba04fac5990dc1da2cb06608ecc45bd25",
+        "private_key_placeholder": true,
+        "peer": {
+          "public_key": "EXAMPLEserverPublicKeyBase64xxxxxxxxxxxxxxx=",
+          "preshared_key": "EXAMPLEpresharedKeyBase64xxxxxxxxxxxxxxxxxxx=",
+          "endpoint": "203.0.113.7:51820",
+          "allowed_ips": ["0.0.0.0/0", "::/0"],
+          "persistent_keepalive": 25
+        }
+      }
+    ],
+    "hysteria_extras": {
+      "p2-hysteria2-upcloud-prod": {
+        "insecure": false,
+        "obfs": { "type": "salamander", "password": "EXAMPLEsalamanderPassword" },
+        "salamander_upstream_tag": "v2.9.0",
+        "port_hopping": { "ports": "20000:50000", "interval": "30s" }
+      }
+    },
+    "topology": {
+      "split_hop_egress": true,
+      "hysteria_realm": "realm-a"
+    },
+    "expires": "2026-12-31T23:59:59Z"
+  }
+}
