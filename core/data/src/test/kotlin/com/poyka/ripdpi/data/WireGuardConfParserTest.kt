@@ -88,6 +88,8 @@ class WireGuardConfParserTest {
             Jmax = 70
             S1 = 30
             S2 = 50
+            S3 = 60
+            S4 = 80
             H1 = 1234567
             H2 = 2345678
             H3 = 3456789
@@ -113,6 +115,8 @@ class WireGuardConfParserTest {
         assertEquals(70, parsed.awg.jmax)
         assertEquals(30, parsed.awg.s1)
         assertEquals(50, parsed.awg.s2)
+        assertEquals(60, parsed.awg.s3)
+        assertEquals(80, parsed.awg.s4)
         assertEquals(1234567L, parsed.awg.h1)
         assertEquals(2345678L, parsed.awg.h2)
         assertEquals(3456789L, parsed.awg.h3)

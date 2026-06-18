@@ -22,7 +22,7 @@ import java.net.URLEncoder
  *   &allowed_ips=<cidr,cidr>
  *   &dns=<ip,ip>
  *   &mtu=<n>
- *   &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>
+ *   &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>&s3=<n>&s4=<n>
  *   &h1=<n>&h2=<n>&h3=<n>&h4=<n>
  *   &i1=<hex>&i2=<hex>&i3=<hex>&i4=<hex>&i5=<hex>
  *   #<name>
@@ -77,6 +77,8 @@ object AmneziaWgUriCodec {
             awg.jmax?.let { "jmax" to it.toString() },
             awg.s1?.let { "s1" to it.toString() },
             awg.s2?.let { "s2" to it.toString() },
+            awg.s3?.let { "s3" to it.toString() },
+            awg.s4?.let { "s4" to it.toString() },
             awg.h1?.let { "h1" to it.toString() },
             awg.h2?.let { "h2" to it.toString() },
             awg.h3?.let { "h3" to it.toString() },
@@ -113,6 +115,8 @@ object AmneziaWgUriCodec {
                     jmax = params["jmax"]?.toIntOrNull(),
                     s1 = params["s1"]?.toIntOrNull(),
                     s2 = params["s2"]?.toIntOrNull(),
+                    s3 = params["s3"]?.toIntOrNull(),
+                    s4 = params["s4"]?.toIntOrNull(),
                     h1 = params["h1"]?.toLongOrNull(),
                     h2 = params["h2"]?.toLongOrNull(),
                     h3 = params["h3"]?.toLongOrNull(),

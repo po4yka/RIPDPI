@@ -5,7 +5,7 @@ package com.poyka.ripdpi.data.wireguard
  *
  * The `.conf` format is the standard WireGuard INI: `[Interface]` / `[Peer]`
  * section headers followed by `Key = Value` pairs. AmneziaWG adds obfuscation
- * keys (`Jc`, `Jmin`, `Jmax`, `S1`, `S2`, `H1`..`H4`, `I1`..`I5`) on the
+ * keys (`Jc`, `Jmin`, `Jmax`, `S1`..`S4`, `H1`..`H4`, `I1`..`I5`) on the
  * `[Interface]` block.
  *
  * - A `.conf` with **no** AmneziaWG keys parses to a [WireGuardConfig].
@@ -52,6 +52,8 @@ object WireGuardConfParser {
         var jmax: Int? = null
         var s1: Int? = null
         var s2: Int? = null
+        var s3: Int? = null
+        var s4: Int? = null
         var h1: Long? = null
         var h2: Long? = null
         var h3: Long? = null
@@ -69,6 +71,8 @@ object WireGuardConfParser {
                 jmax = jmax,
                 s1 = s1,
                 s2 = s2,
+                s3 = s3,
+                s4 = s4,
                 h1 = h1,
                 h2 = h2,
                 h3 = h3,
@@ -199,6 +203,8 @@ object WireGuardConfParser {
             "jmax" -> builder.awg.jmax = parseNonNegativeInt(key, value)
             "s1" -> builder.awg.s1 = parseNonNegativeInt(key, value)
             "s2" -> builder.awg.s2 = parseNonNegativeInt(key, value)
+            "s3" -> builder.awg.s3 = parseNonNegativeInt(key, value)
+            "s4" -> builder.awg.s4 = parseNonNegativeInt(key, value)
             "h1" -> builder.awg.h1 = parseFourByteUnsigned(key, value)
             "h2" -> builder.awg.h2 = parseFourByteUnsigned(key, value)
             "h3" -> builder.awg.h3 = parseFourByteUnsigned(key, value)

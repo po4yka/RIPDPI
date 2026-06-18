@@ -152,7 +152,9 @@ data class AmneziaWgEditorState(
         val cohortId = matchCohortForConf(conf, catalog)
         val nextForm =
             buildFormFromConf(parsed, awg, cohortId)
-        val nextRaw = nextForm.identityRawText() + nextForm.obfuscationRawText() + awg.iFieldRawText()
+        // obfuscationRawText() seeds the S/H/I raw text from the freshly-built
+        // form, so the I-fields parsed into the form above are covered here too.
+        val nextRaw = nextForm.identityRawText() + nextForm.obfuscationRawText()
         return copy(
             form = nextForm,
             rawTextByField = rawTextByField + nextRaw,
@@ -180,10 +182,17 @@ data class AmneziaWgEditorState(
             jmax = awg.jmax ?: 0,
             s1 = awg.s1 ?: 0,
             s2 = awg.s2 ?: 0,
+            s3 = awg.s3 ?: 0,
+            s4 = awg.s4 ?: 0,
             h1 = awg.h1 ?: 0L,
             h2 = awg.h2 ?: 0L,
             h3 = awg.h3 ?: 0L,
             h4 = awg.h4 ?: 0L,
+            i1 = awg.i1.orEmpty(),
+            i2 = awg.i2.orEmpty(),
+            i3 = awg.i3.orEmpty(),
+            i4 = awg.i4.orEmpty(),
+            i5 = awg.i5.orEmpty(),
             cohortId = cohortId,
         )
     }
@@ -205,6 +214,10 @@ data class AmneziaWgEditorState(
     }
 }
 
+// Flat dispatch over the fixed editable-field set; the branch count is inherent
+// to the AmneziaWG field set, not accidental complexity (mirrors the same
+// CyclomaticComplexMethod suppression on WireGuardConfParser.applyInterfaceKey).
+@Suppress("CyclomaticComplexMethod")
 private fun AwgProfileForm.applyField(
     field: AwgEditorField,
     parsed: Any,
@@ -230,6 +243,10 @@ private fun AwgProfileForm.applyField(
 
         AwgEditorField.S2 -> copy(s2 = parsed as Int)
 
+        AwgEditorField.S3 -> copy(s3 = parsed as Int)
+
+        AwgEditorField.S4 -> copy(s4 = parsed as Int)
+
         AwgEditorField.H1 -> copy(h1 = parsed as Long)
 
         AwgEditorField.H2 -> copy(h2 = parsed as Long)
@@ -238,8 +255,18 @@ private fun AwgProfileForm.applyField(
 
         AwgEditorField.H4 -> copy(h4 = parsed as Long)
 
-        // S3/S4/I1-I5/ADDRESS/DNS/MTU/PEER_ENDPOINT/ALLOWED_IPS/PERSISTENT_KEEPALIVE are
-        // not first-class AwgProfileForm columns; their raw text is tracked separately.
+        AwgEditorField.I1 -> copy(i1 = parsed as String)
+
+        AwgEditorField.I2 -> copy(i2 = parsed as String)
+
+        AwgEditorField.I3 -> copy(i3 = parsed as String)
+
+        AwgEditorField.I4 -> copy(i4 = parsed as String)
+
+        AwgEditorField.I5 -> copy(i5 = parsed as String)
+
+        // ADDRESS/DNS/MTU/PEER_ENDPOINT/ALLOWED_IPS/PERSISTENT_KEEPALIVE are not
+        // first-class AwgProfileForm columns; their raw text is tracked separately.
         else -> this
     }
 
@@ -253,23 +280,23 @@ private fun AwgProfileForm.identityRawText(): Map<AwgEditorField, String> =
     )
 
 private fun AwgProfileForm.obfuscationRawText(): Map<AwgEditorField, String> =
-    mapOf(
-        AwgEditorField.JC to jc.toString(),
-        AwgEditorField.JMIN to jmin.toString(),
-        AwgEditorField.JMAX to jmax.toString(),
-        AwgEditorField.S1 to s1.toString(),
-        AwgEditorField.S2 to s2.toString(),
-        AwgEditorField.H1 to h1.toString(),
-        AwgEditorField.H2 to h2.toString(),
-        AwgEditorField.H3 to h3.toString(),
-        AwgEditorField.H4 to h4.toString(),
-    )
-
-private fun com.poyka.ripdpi.data.wireguard.AmneziaWgParameters.iFieldRawText(): Map<AwgEditorField, String> =
     buildMap {
-        i1?.let { put(AwgEditorField.I1, it) }
-        i2?.let { put(AwgEditorField.I2, it) }
-        i3?.let { put(AwgEditorField.I3, it) }
-        i4?.let { put(AwgEditorField.I4, it) }
-        i5?.let { put(AwgEditorField.I5, it) }
+        put(AwgEditorField.JC, jc.toString())
+        put(AwgEditorField.JMIN, jmin.toString())
+        put(AwgEditorField.JMAX, jmax.toString())
+        put(AwgEditorField.S1, s1.toString())
+        put(AwgEditorField.S2, s2.toString())
+        put(AwgEditorField.S3, s3.toString())
+        put(AwgEditorField.S4, s4.toString())
+        put(AwgEditorField.H1, h1.toString())
+        put(AwgEditorField.H2, h2.toString())
+        put(AwgEditorField.H3, h3.toString())
+        put(AwgEditorField.H4, h4.toString())
+        // I1..I5 are hex strings: only seed raw text when present so an empty
+        // payload column does not flag a spurious field error in the editor.
+        if (i1.isNotEmpty()) put(AwgEditorField.I1, i1)
+        if (i2.isNotEmpty()) put(AwgEditorField.I2, i2)
+        if (i3.isNotEmpty()) put(AwgEditorField.I3, i3)
+        if (i4.isNotEmpty()) put(AwgEditorField.I4, i4)
+        if (i5.isNotEmpty()) put(AwgEditorField.I5, i5)
     }

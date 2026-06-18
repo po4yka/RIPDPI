@@ -16,7 +16,7 @@ import org.junit.Test
  * amneziawg://<base64url(private-key)>@<host>:<port>
  *   ?public_key=<base64url>&allowed_ips=<cidr,cidr>&mtu=<n>
  *   &preshared_key=<base64url>&dns=<ip,ip>
- *   &jc=&jmin=&jmax=&s1=&s2=&h1=&h2=&h3=&h4=&i1=&i2=&i3=&i4=&i5=
+ *   &jc=&jmin=&jmax=&s1=&s2=&s3=&s4=&h1=&h2=&h3=&h4=&i1=&i2=&i3=&i4=&i5=
  *   #<name>
  * ```
  *
@@ -41,6 +41,8 @@ class AmneziaWgUriCodecTest {
                     jmax = 70,
                     s1 = 30,
                     s2 = 50,
+                    s3 = 60,
+                    s4 = 80,
                     h1 = 1234567L,
                     h2 = 2345678L,
                     h3 = 3456789L,
@@ -70,6 +72,19 @@ class AmneziaWgUriCodecTest {
         val decoded = AmneziaWgUriCodec.decode(AmneziaWgUriCodec.encode(original))
 
         assertEquals(original, decoded)
+    }
+
+    @Test
+    fun `encode emits the s3 and s4 junk-size params and decode restores them`() {
+        val original = fullProfile()
+
+        val uri = AmneziaWgUriCodec.encode(original)
+        assertTrue("s3 param present", uri.contains("s3=60"))
+        assertTrue("s4 param present", uri.contains("s4=80"))
+
+        val decoded = AmneziaWgUriCodec.decode(uri)
+        assertEquals(60, decoded?.awg?.s3)
+        assertEquals(80, decoded?.awg?.s4)
     }
 
     @Test

@@ -50,8 +50,8 @@ data class WireGuardPeer(
  * vanilla [WireGuardConfig]; a `.conf` with any of these keys parses as an
  * [AmneziaWgConfig].
  *
- * - `jc`, `jmin`, `jmax`, `s1`, `s2`: non-negative integers (junk packet
- *   counts / sizes).
+ * - `jc`, `jmin`, `jmax`, `s1`, `s2`, `s3`, `s4`: non-negative integers (junk
+ *   packet counts / sizes).
  * - `h1`..`h4`: 4-byte unsigned magic-header values, stored as [Long] in the
  *   `0..0xFFFFFFFF` range.
  * - `i1`..`i5`: special-junk payloads, stored as lowercase hex strings.
@@ -63,6 +63,8 @@ data class AmneziaWgParameters(
     val jmax: Int? = null,
     val s1: Int? = null,
     val s2: Int? = null,
+    val s3: Int? = null,
+    val s4: Int? = null,
     val h1: Long? = null,
     val h2: Long? = null,
     val h3: Long? = null,
@@ -77,6 +79,7 @@ data class AmneziaWgParameters(
     val isEmpty: Boolean
         get() =
             jc == null && jmin == null && jmax == null && s1 == null && s2 == null &&
+                s3 == null && s4 == null &&
                 h1 == null && h2 == null && h3 == null && h4 == null &&
                 i1 == null && i2 == null && i3 == null && i4 == null && i5 == null
 

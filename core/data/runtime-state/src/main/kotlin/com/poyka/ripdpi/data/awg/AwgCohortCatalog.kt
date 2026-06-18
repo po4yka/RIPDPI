@@ -16,7 +16,15 @@ import javax.inject.Singleton
 
 private const val AwgCohortAssetPath = "awg-cohorts.json"
 
-/** The set of object keys a well-formed cohort preset is allowed to carry. */
+/**
+ * The set of object keys a well-formed cohort preset is allowed to carry.
+ *
+ * `s3`/`s4` and `i1`..`i5` are AmneziaWG v1.5 obfuscation extensions: allowed so
+ * a preset may pin them, but intentionally NOT in [REQUIRED_PRESET_KEYS] — the
+ * shipped presets predate these fields and default to absent (see
+ * [AwgCohortPreset]), so requiring them would force needless asset churn and
+ * break the existing presets' strict validation.
+ */
 private val ALLOWED_PRESET_KEYS =
     setOf(
         "id",
@@ -27,10 +35,17 @@ private val ALLOWED_PRESET_KEYS =
         "jmax",
         "s1",
         "s2",
+        "s3",
+        "s4",
         "h1",
         "h2",
         "h3",
         "h4",
+        "i1",
+        "i2",
+        "i3",
+        "i4",
+        "i5",
         "randomizeHeaders",
     )
 
@@ -63,9 +78,15 @@ private val awgCohortStrictJson =
  * One AmneziaWG obfuscation cohort preset, mirroring a row of the deployer's
  * `ripdpi-vpn-deploy/docs/AWG-COHORTS.md` table.
  *
- * The obfuscation numbers (`jc`, `jmin`, `jmax`, `s1`, `s2`, `h1`..`h4`) are
- * server-coordinated and must exactly match what the server sends; when a
- * preset is selected they are not user-editable.
+ * The obfuscation numbers (`jc`, `jmin`, `jmax`, `s1`, `s2`, `s3`, `s4`,
+ * `h1`..`h4`, `i1`..`i5`) are server-coordinated and must exactly match what the
+ * server sends; when a preset is selected they are not user-editable.
+ *
+ * [s3]/[s4] and [i1]..[i5] are the AmneziaWG v1.5 obfuscation extensions. They
+ * default to `null` (not pinned) so the shipped presets — which predate the
+ * extension — decode unchanged; only a preset that explicitly pins them carries
+ * a value, and a `null` field is excluded from cohort matching (see
+ * [matchCohortForConf]).
  *
  * [displayNameKey] / [descriptionKey] are `strings.xml` resource keys, never
  * literal localized text — the asset JSON carries no human-readable labels.
@@ -85,10 +106,17 @@ data class AwgCohortPreset(
     val jmax: Int,
     val s1: Int,
     val s2: Int,
+    val s3: Int? = null,
+    val s4: Int? = null,
     val h1: Long,
     val h2: Long,
     val h3: Long,
     val h4: Long,
+    val i1: String? = null,
+    val i2: String? = null,
+    val i3: String? = null,
+    val i4: String? = null,
+    val i5: String? = null,
     val randomizeHeaders: Boolean,
 )
 
@@ -139,10 +167,17 @@ fun applyCohortPreset(
         jmax = preset.jmax,
         s1 = preset.s1,
         s2 = preset.s2,
+        s3 = preset.s3 ?: 0,
+        s4 = preset.s4 ?: 0,
         h1 = preset.h1,
         h2 = preset.h2,
         h3 = preset.h3,
         h4 = preset.h4,
+        i1 = preset.i1.orEmpty(),
+        i2 = preset.i2.orEmpty(),
+        i3 = preset.i3.orEmpty(),
+        i4 = preset.i4.orEmpty(),
+        i5 = preset.i5.orEmpty(),
         cohortId = preset.id,
     )
 
@@ -169,19 +204,50 @@ fun matchCohortForConf(
             else -> return "Custom"
         }
     return catalog.presets
-        .firstOrNull { preset ->
-            preset.jc == awg.jc &&
-                preset.jmin == awg.jmin &&
-                preset.jmax == awg.jmax &&
-                preset.s1 == awg.s1 &&
-                preset.s2 == awg.s2 &&
-                preset.h1 == awg.h1 &&
-                preset.h2 == awg.h2 &&
-                preset.h3 == awg.h3 &&
-                preset.h4 == awg.h4
-        }?.id
+        .firstOrNull { preset -> preset.matches(awg) }
+        ?.id
         ?: "Custom"
 }
+
+/**
+ * True when every obfuscation param this preset *pins* equals the parsed config.
+ *
+ * The legacy params (`jc`/`jmin`/`jmax`/`s1`/`s2`/`h1`..`h4`) are always
+ * compared. The AmneziaWG v1.5 extension params (`s3`/`s4`/`i1`..`i5`) are
+ * nullable on the preset and are constrained only when the preset pins them —
+ * a preset that predates the extension (all-`null`) keeps matching a `.conf`
+ * regardless of whether that `.conf` carries S3/S4/I values, preserving the
+ * pre-extension matching behaviour.
+ */
+private fun AwgCohortPreset.matches(awg: com.poyka.ripdpi.data.wireguard.AmneziaWgParameters): Boolean =
+    // Legacy params (predate the v1.5 extension) are always compared.
+    jc == awg.jc &&
+        jmin == awg.jmin &&
+        jmax == awg.jmax &&
+        s1 == awg.s1 &&
+        s2 == awg.s2 &&
+        h1 == awg.h1 &&
+        h2 == awg.h2 &&
+        h3 == awg.h3 &&
+        h4 == awg.h4 &&
+        // Extension params constrain the match only when this preset pins them.
+        pinnedEquals(s3, awg.s3) &&
+        pinnedEquals(s4, awg.s4) &&
+        pinnedEquals(i1, awg.i1) &&
+        pinnedEquals(i2, awg.i2) &&
+        pinnedEquals(i3, awg.i3) &&
+        pinnedEquals(i4, awg.i4) &&
+        pinnedEquals(i5, awg.i5)
+
+/**
+ * Cohort-match rule for a nullable extension param: a `null` [pinned] value (the
+ * preset does not pin the field) always matches; a non-`null` value must equal
+ * the parsed config's [actual].
+ */
+private fun <T> pinnedEquals(
+    pinned: T?,
+    actual: T?,
+): Boolean = pinned == null || pinned == actual
 
 /**
  * Catalog loader plus the build-time validation entry point.
@@ -254,8 +320,9 @@ class AwgCohortCatalog
                             errors += "preset '$label' is missing required field '$missing'"
                         }
 
-                    // Numeric fields must actually be numbers.
-                    listOf("jc", "jmin", "jmax", "s1", "s2").forEach { key ->
+                    // Numeric fields must actually be numbers. s3/s4 are optional
+                    // (v1.5 extension) but, when present, must still be integers.
+                    listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4").forEach { key ->
                         val primitive = obj[key] as? JsonPrimitive
                         if (primitive != null && primitive.intOrNull == null) {
                             errors += "preset '$label' field '$key' is not an integer"

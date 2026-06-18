@@ -516,6 +516,8 @@ private fun mapRipdpiAwg(
             jmax = obj.int("jmax"),
             s1 = obj.int("s1"),
             s2 = obj.int("s2"),
+            s3 = obj.int("s3"),
+            s4 = obj.int("s4"),
             h1 = obj.long("h1"),
             h2 = obj.long("h2"),
             h3 = obj.long("h3"),
