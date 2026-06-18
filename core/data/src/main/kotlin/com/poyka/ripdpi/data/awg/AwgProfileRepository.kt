@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.json.Json
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -49,7 +49,7 @@ class AwgProfileRepository
     constructor(
         private val dao: AwgProfileDao,
     ) {
-        private val json = Json { encodeDefaults = true }
+        private val json = RipDpiEncodeDefaultsJson
 
         /** Observes every saved profile, newest-updated first, each stamped with its stable id. */
         fun observeProfiles(): Flow<List<SavedAwgProfile>> =
