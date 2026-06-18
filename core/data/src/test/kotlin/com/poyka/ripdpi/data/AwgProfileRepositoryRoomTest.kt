@@ -167,6 +167,25 @@ class AwgProfileRepositoryRoomTest {
         }
 
     @Test
+    fun `a stored blob with an unknown extra key decodes without throwing`() =
+        runTest {
+            val id = repository.save(name = "home", request = sampleRequest())
+
+            // Simulate a row written by a FUTURE app version carrying an additive field.
+            val row = dao.getProfile(id)!!
+            val forwardCompatJson =
+                row.requestJson.replaceFirst("{", """{"unknownFutureField":"surprise",""")
+            dao.upsertProfile(row.copy(requestJson = forwardCompatJson))
+
+            // Decode must tolerate the unknown key instead of throwing into a silent Failed.
+            val loaded = repository.load(id)
+            assertNotNull("forward-compatible decode must not throw", loaded)
+            assertEquals("vpn.example.com", loaded!!.request.endpointHost)
+            // Secrets are still re-injected from the credential store on the rehydrated row.
+            assertEquals("privkey==", loaded.request.privateKey)
+        }
+
+    @Test
     fun `observeProfiles emits on save and delete`() =
         runTest {
             repository.observeProfiles().test {

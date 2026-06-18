@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -46,8 +47,9 @@ data class SavedAwgProfile(
  * blob therefore carries no `privateKey`, `presharedKey`, or `profileId` -- the id
  * is authoritative on the row, and the secrets are authoritative in the keystore.
  *
- * The serialized blob keeps [RipDpiEncodeDefaultsJson] (defaults written) for a
- * stable persisted shape.
+ * The persisted blob is decoded with the tolerant [RipDpiContractJson] so a future
+ * additive [AwgActivationRequest] field does not make old rows throw on decode;
+ * encoding keeps [RipDpiEncodeDefaultsJson] (defaults written) for a stable blob.
  */
 @Singleton
 class AwgProfileRepository
@@ -56,7 +58,8 @@ class AwgProfileRepository
         private val dao: AwgProfileDao,
         private val credentialStore: AwgCredentialStore,
     ) {
-        private val json = RipDpiEncodeDefaultsJson
+        private val encodeJson = RipDpiEncodeDefaultsJson
+        private val decodeJson = RipDpiContractJson
 
         /** Observes every saved profile, newest-updated first, each stamped with its stable id. */
         fun observeProfiles(): Flow<List<SavedAwgProfile>> =
@@ -92,7 +95,7 @@ class AwgProfileRepository
             val id = existingId ?: generateProfileId()
             // Strip the id and the two secrets from the Room blob; secrets go to the keystore.
             val sanitized = request.copy(profileId = "", privateKey = "", presharedKey = "")
-            val blob = json.encodeToString(sanitized)
+            val blob = encodeJson.encodeToString(sanitized)
             credentialStore.save(
                 id,
                 AwgSecrets(privateKey = request.privateKey, presharedKey = request.presharedKey),
@@ -116,7 +119,8 @@ class AwgProfileRepository
         }
 
         private suspend fun AwgProfileEntity.toSavedProfile(): SavedAwgProfile {
-            val decoded = json.decodeFromString<AwgActivationRequest>(requestJson)
+            // Decode tolerantly so an older blob with an additive field does not throw.
+            val decoded = decodeJson.decodeFromString<AwgActivationRequest>(requestJson)
             val secrets = secretsFor(id)
             // Stamp the stable row id as the profileId and re-inject the sealed secrets so the
             // activation request is identical across re-connects and carries the opaque id.
