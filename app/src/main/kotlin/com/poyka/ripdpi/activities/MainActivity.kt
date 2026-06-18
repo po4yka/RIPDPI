@@ -16,6 +16,8 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationController
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import com.poyka.ripdpi.data.support.SupportSettingsDeepLinkParseResult
+import com.poyka.ripdpi.data.support.SupportSettingsDeepLinkParser
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.proxyimport.ImportHandlerActivity
@@ -162,6 +164,13 @@ internal fun diagnosticShareFragment(intent: Intent?): String? = DiagnosticShare
 
 @Suppress("ReturnCount")
 internal fun importRouteFrom(intent: Intent?): Route? {
+    when (val result = supportSettingsRouteFrom(intent)) {
+        is SupportSettingsDeepLinkParseResult.Success -> return Route.SupportSettings(packageJson = result.packageJson)
+
+        is SupportSettingsDeepLinkParseResult.Error,
+        null,
+        -> Unit
+    }
     val route = intent?.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE) ?: return null
     return when (route) {
         ImportLaunchRoute.PROFILE_CONFIRM -> {
@@ -190,6 +199,11 @@ internal fun importRouteFrom(intent: Intent?): Route? {
             null
         }
     }
+}
+
+internal fun supportSettingsRouteFrom(intent: Intent?): SupportSettingsDeepLinkParseResult? {
+    val data = intent?.data?.toString()?.takeIf { it.isNotBlank() } ?: return null
+    return SupportSettingsDeepLinkParser.parse(data)
 }
 
 internal fun mapNotificationPermissionResult(

@@ -6,6 +6,7 @@ import app.cash.turbine.test
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.shortcuts.ExtraSelectGroupId
 import com.poyka.ripdpi.shortcuts.ExtraSelectProfileId
+import com.poyka.ripdpi.ui.navigation.Route
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.util.Base64
 
 @RunWith(RobolectricTestRunner::class)
 class MainActivityShellControllerTest {
@@ -203,6 +205,17 @@ class MainActivityShellControllerTest {
         val controller = MainActivityShellController(intent)
 
         assertTrue(controller.state.value.stopConfiguredModeRequested)
+    }
+
+    @Test
+    fun `support settings deep link populates import route request`() {
+        val payload = """{"schema":1,"operations":[{"op":"set","path":"settings.app_theme","value":"dark"}]}"""
+        val encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(payload.toByteArray())
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://support-config?payload=$encoded"))
+
+        val controller = MainActivityShellController(intent)
+
+        assertEquals(Route.SupportSettings(packageJson = payload), controller.state.value.importRouteRequested)
     }
 
     @Test

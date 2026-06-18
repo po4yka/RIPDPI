@@ -4021,4 +4021,21 @@ fake_burst 3</string>
     <string name="history_detail_section_environment">环境</string>
     <string name="history_detail_section_device">设备</string>
     <string name="history_detail_section_field_telemetry">现场遥测</string>
+    <string name="support_settings_title">Support settings link</string>
+    <string name="support_settings_default_title">Apply support settings</string>
+    <string name="support_settings_default_reason">Review these changes before applying them to RIPDPI.</string>
+    <string name="support_settings_loading_title">Reading support link</string>
+    <string name="support_settings_loading_body">RIPDPI is validating the settings package.</string>
+    <string name="support_settings_invalid_title">Unsupported support link</string>
+    <string name="support_settings_invalid_body">This link is malformed, expired, or contains settings this app version cannot apply.</string>
+    <string name="support_settings_sensitive_title">Review sensitive changes</string>
+    <string name="support_settings_sensitive_body">This support link changes settings that can expose traffic, credentials, diagnostics, or privileged features. Apply it only if you trust the support message.</string>
+    <string name="support_settings_changes_title">Changes</string>
+    <string name="support_settings_change_summary">%1$s to %2$s</string>
+    <string name="support_settings_no_changes">No setting changes were found.</string>
+    <string name="support_settings_apply_action">Apply changes</string>
+    <string name="support_settings_applied_action">Applied</string>
+    <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
+    <string name="support_settings_restart_required">Restart is required after applying.</string>
+    <string name="support_settings_restart_never">No restart is expected.</string>
 </resources>

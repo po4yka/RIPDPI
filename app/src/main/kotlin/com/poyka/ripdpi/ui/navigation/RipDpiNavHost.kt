@@ -79,6 +79,7 @@ import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import com.poyka.ripdpi.ui.screens.ssh.SshProfileRoute
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverRoute
+import com.poyka.ripdpi.ui.screens.support.SupportSettingsRoute
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerRoute
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerTopBarAction
 import com.poyka.ripdpi.ui.screens.xray.XrayProfileImportRoute
@@ -773,6 +774,14 @@ private fun NavGraphBuilder.addImportRoutes(navController: NavHostController) {
             onImported = { navController.navigateHome() },
         )
     }
+    composable<Route.SupportSettings> { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.SupportSettings>()
+        SupportSettingsRoute(
+            packageJson = route.packageJson,
+            onBack = { navController.popBackStack() },
+            onApplied = { navController.navigateHome() },
+        )
+    }
     composable<Route.ProfileShare> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.ProfileShare>()
         ProfileShareRoute(
@@ -924,6 +933,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
         Route.ProfileImportConfirm().stableRoute to { hasRoute<Route.ProfileImportConfirm>() },
         Route.SubscriptionImportConfirm().stableRoute to { hasRoute<Route.SubscriptionImportConfirm>() },
+        Route.SupportSettings().stableRoute to { hasRoute<Route.SupportSettings>() },
         Route.ProfileShare().stableRoute to { hasRoute<Route.ProfileShare>() },
         Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },
         Route.AmneziaWgProfile.stableRoute to { hasRoute<Route.AmneziaWgProfile>() },

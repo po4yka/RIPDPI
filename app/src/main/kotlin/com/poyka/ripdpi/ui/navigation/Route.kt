@@ -338,6 +338,20 @@ sealed class Route {
     }
 
     @Serializable
+    data class SupportSettings(
+        val packageJson: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "support/settings"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.support_settings_title
+
+        @kotlinx.serialization.Transient
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class ProfileShare(
         val profileId: String = "",
     ) : Route() {
@@ -438,6 +452,7 @@ sealed class Route {
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),
                     SubscriptionImportConfirm(),
+                    SupportSettings(),
                     ProfileShare(),
                     QrScanner,
                     AmneziaWgProfile,

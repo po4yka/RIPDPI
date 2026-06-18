@@ -65,6 +65,15 @@
                     android:host="po4yka.github.io"
                     android:path="/RIPDPI/share" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="po4yka.github.io"
+                    android:path="/RIPDPI/support-config" />
+            </intent-filter>
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
