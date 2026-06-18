@@ -2968,6 +2968,9 @@ fakeddisorder endhost</string>
     <string name="awg_paste_conf_action">Вставить .conf</string>
     <string name="awg_reveal_secret_action">Показать</string>
     <string name="awg_secret_hidden">Скрыто — нажмите «Показать», чтобы отобразить</string>
+    <string name="awg_connect_action">Подключиться</string>
+    <string name="awg_connect_ready_hint">Готово к подключению.</string>
+    <string name="awg_connect_incomplete_hint">Укажите сервер, порт, приватный ключ, публичный ключ узла и адрес, чтобы подключиться.</string>
 
     <!-- VMess profile editor (legacy outbound) -->
 

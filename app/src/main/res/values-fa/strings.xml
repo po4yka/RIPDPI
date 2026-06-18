@@ -2844,6 +2844,9 @@ fakeddisorder endhost</string>
     <string name="awg_paste_conf_action">چسباندن ‎.conf</string>
     <string name="awg_reveal_secret_action">نمایش</string>
     <string name="awg_secret_hidden">پنهان — برای نمایش، «نمایش» را بزنید</string>
+    <string name="awg_connect_action">اتصال</string>
+    <string name="awg_connect_ready_hint">آماده برای اتصال.</string>
+    <string name="awg_connect_incomplete_hint">برای اتصال، سرور، درگاه، کلید خصوصی، کلید عمومی همتا و نشانی را وارد کنید.</string>
 
     <!-- VMess profile editor (legacy outbound) -->
 

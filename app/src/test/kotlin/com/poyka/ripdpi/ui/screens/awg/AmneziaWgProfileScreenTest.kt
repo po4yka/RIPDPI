@@ -134,6 +134,30 @@ class AmneziaWgProfileScreenTest {
     }
 
     @Test
+    fun `the connect action is disabled until the identity fields are present`() {
+        val viewModel = viewModel()
+        composeRule.setContent { RipDpiTheme { ScreenUnderTest(viewModel) } }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.AwgConnectAction)
+            .performScrollTo()
+            .assertIsNotEnabled()
+
+        composeRule.runOnUiThread {
+            viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn.example.com")
+            viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "51820")
+            viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, "privkey")
+            viewModel.onFieldChanged(AwgEditorField.PEER_PUBLIC_KEY, "pubkey")
+            viewModel.onFieldChanged(AwgEditorField.ADDRESS, "10.8.0.2/32")
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.AwgConnectAction)
+            .performScrollTo()
+            .assertIsEnabled()
+    }
+
+    @Test
     fun `editing the server field flows into the view model`() {
         val viewModel = viewModel()
         composeRule.setContent { RipDpiTheme { ScreenUnderTest(viewModel) } }
@@ -163,5 +187,6 @@ private fun ScreenUnderTest(viewModel: AmneziaWgProfileViewModel) {
         onPasteConf = {},
         onRevealPrivateKey = viewModel::onPrivateKeyRevealAuthorized,
         onRevealPresharedKey = viewModel::onPresharedKeyRevealAuthorized,
+        onConnect = viewModel::onConnect,
     )
 }

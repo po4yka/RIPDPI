@@ -2839,6 +2839,9 @@ Quelle: %2$s</string>
     <string name="awg_paste_conf_action">.conf einfügen</string>
     <string name="awg_reveal_secret_action">Anzeigen</string>
     <string name="awg_secret_hidden">Verborgen – zum Anzeigen tippen</string>
+    <string name="awg_connect_action">Verbinden</string>
+    <string name="awg_connect_ready_hint">Bereit zum Verbinden.</string>
+    <string name="awg_connect_incomplete_hint">Gib Server, Port, privaten Schlüssel, öffentlichen Peer-Schlüssel und Adresse ein, um zu verbinden.</string>
 
     <!-- VMess profile editor (legacy outbound) -->
 

@@ -70,17 +70,19 @@ class AmneziaWgProfileScreenshotTest {
                 AwgEditorField.H3 to form.h3.toString(),
                 AwgEditorField.H4 to form.h4.toString(),
             )
+        val editor =
+            AmneziaWgEditorState(
+                form = form,
+                rawTextByField = rawText,
+                obfuscationLocked = true,
+            )
         capture(
             "populatedLockedCohort",
             AmneziaWgProfileUiState(
-                editor =
-                    AmneziaWgEditorState(
-                        form = form,
-                        rawTextByField = rawText,
-                        obfuscationLocked = true,
-                    ),
+                editor = editor,
                 cohortOptions = listOf(AwgCohortOption(id = COHORT_ID, displayNameKey = ""), customOption()),
                 privateKeyRevealed = true,
+                canActivate = editor.isActivatable(),
             ),
         )
     }
@@ -136,6 +138,7 @@ class AmneziaWgProfileScreenshotTest {
                 onPasteConf = {},
                 onRevealPrivateKey = {},
                 onRevealPresharedKey = {},
+                onConnect = {},
             )
         }
     }

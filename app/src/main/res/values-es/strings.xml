@@ -2839,6 +2839,9 @@ Origen: %2$s</string>
     <string name="awg_paste_conf_action">Pegar .conf</string>
     <string name="awg_reveal_secret_action">Mostrar</string>
     <string name="awg_secret_hidden">Oculto: toca mostrar para verlo</string>
+    <string name="awg_connect_action">Conectar</string>
+    <string name="awg_connect_ready_hint">Listo para conectar.</string>
+    <string name="awg_connect_incomplete_hint">Completa el servidor, el puerto, la clave privada, la clave pública del par y la dirección para conectar.</string>
 
     <!-- VMess profile editor (legacy outbound) -->
 

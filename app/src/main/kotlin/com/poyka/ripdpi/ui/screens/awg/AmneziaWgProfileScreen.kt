@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -62,6 +63,7 @@ fun AmneziaWgProfileRoute(
         onPasteConf = { /* clipboard read is wired by the host; no-op in the pure screen */ },
         onRevealPrivateKey = onRequestPrivateKeyReveal ?: viewModel::onPrivateKeyRevealAuthorized,
         onRevealPresharedKey = onRequestPresharedKeyReveal ?: viewModel::onPresharedKeyRevealAuthorized,
+        onConnect = viewModel::onConnect,
         modifier = modifier,
     )
 }
@@ -75,6 +77,7 @@ internal fun AmneziaWgProfileScreen(
     onPasteConf: () -> Unit,
     onRevealPrivateKey: () -> Unit,
     onRevealPresharedKey: () -> Unit,
+    onConnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     RipDpiContentScreenScaffold(
@@ -87,6 +90,42 @@ internal fun AmneziaWgProfileScreen(
         InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
         PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
         ObfuscationSection(uiState, onFieldChanged, onCohortSelected, onPasteConf)
+        ConnectSection(canActivate = uiState.canActivate, onConnect = onConnect)
+    }
+}
+
+@Composable
+private fun ConnectSection(
+    canActivate: Boolean,
+    onConnect: () -> Unit,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+            Text(
+                text =
+                    stringResource(
+                        if (canActivate) {
+                            R.string.awg_connect_ready_hint
+                        } else {
+                            R.string.awg_connect_incomplete_hint
+                        },
+                    ),
+                style = RipDpiThemeTokens.type.caption,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+            RipDpiButton(
+                text = stringResource(R.string.awg_connect_action),
+                onClick = onConnect,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.AwgConnectAction),
+                variant = RipDpiButtonVariant.Primary,
+                enabled = canActivate,
+                leadingIcon = RipDpiIcons.Vpn,
+            )
+        }
     }
 }
 

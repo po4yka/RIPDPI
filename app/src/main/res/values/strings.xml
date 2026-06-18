@@ -2994,6 +2994,9 @@ Source: %2$s</string>
     <string name="awg_paste_conf_action">Paste .conf</string>
     <string name="awg_reveal_secret_action">Reveal</string>
     <string name="awg_secret_hidden">Hidden — tap reveal to show</string>
+    <string name="awg_connect_action">Connect</string>
+    <string name="awg_connect_ready_hint">Ready to connect.</string>
+    <string name="awg_connect_incomplete_hint">Fill in the server, port, private key, peer public key, and address to connect.</string>
 
     <!-- VMess profile editor (legacy outbound) -->
 

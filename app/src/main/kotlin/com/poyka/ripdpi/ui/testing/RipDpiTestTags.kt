@@ -96,6 +96,7 @@ internal object RipDpiTestTags {
     const val ConfigOverflowMenuButton = "config-overflow-menu-button"
     const val ConfigImportClipboardMenuItem = "config-import-clipboard-menu-item"
     const val AwgCohortPicker = "awg-cohort-picker"
+    const val AwgConnectAction = "awg-connect-action"
     const val ModeEditorCancel = "mode-editor-cancel"
     const val ModeEditorSave = "mode-editor-save"
     const val ModeEditorProxyIp = "mode-editor-proxy-ip"

@@ -280,6 +280,9 @@ app:asset_provider_version_none
 app:awg_cohort_custom
 app:awg_cohort_locked_hint
 app:awg_cohort_picker_label
+app:awg_connect_action
+app:awg_connect_incomplete_hint
+app:awg_connect_ready_hint
 app:awg_editor_title
 app:awg_field_address
 app:awg_field_allowed_ips

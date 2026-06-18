@@ -2835,6 +2835,9 @@ fake_burst 3</string>
     <string name="awg_paste_conf_action">粘贴 .conf</string>
     <string name="awg_reveal_secret_action">显示</string>
     <string name="awg_secret_hidden">已隐藏 — 点按“显示”以查看</string>
+    <string name="awg_connect_action">连接</string>
+    <string name="awg_connect_ready_hint">已准备好连接。</string>
+    <string name="awg_connect_incomplete_hint">填写服务器、端口、私钥、对端公钥和地址以进行连接。</string>
 
     <!-- VMess profile editor (legacy outbound) -->
 
