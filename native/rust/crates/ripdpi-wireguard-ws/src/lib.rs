@@ -22,15 +22,16 @@
 //!
 //! * implement the WireGuard Noise handshake or transport crypto — that lives
 //!   in `ripdpi-warp-core` (`boringtun` + `amneziawg.rs`);
-//! * open a live outbound socket — see the protect invariant below;
 //! * perform the TLS handshake — the carrier is an
 //!   [`AsyncRead`](tokio::io::AsyncRead) + [`AsyncWrite`](tokio::io::AsyncWrite)
 //!   supplied by the caller (a TLS stream in production, a plain TCP stream in
 //!   the loopback test).
 //!
 //! The public surface is intentionally tiny: [`frame_datagram`] /
-//! [`unframe_message`] are the pure byte-level codec, and [`WsCarrier`] drives
-//! them over an established WebSocket.
+//! [`unframe_message`] are the pure byte-level codec, [`WsCarrier`] drives them
+//! over an established WebSocket, and [`connect_protected_carrier`] is the one
+//! seam that *creates* the outbound carrier socket — protecting its fd before
+//! `connect()` per the invariant below.
 //!
 //! # `VpnService.protect` invariant
 //!
@@ -39,15 +40,24 @@
 //! be `protect_socket(fd)`-ed *before* `connect()` returns, exactly as for any
 //! other RIPDPI outbound socket (see `.claude/rules/vpnservice-protect-invariant.md`).
 //!
-//! This crate does **not** open that socket: it accepts an already-connected,
-//! already-protected stream. That keeps the protect call at the single seam
-//! where the caller owns the fd, and means this crate never wires a live
-//! unprotected outbound socket. The only socket created in-crate is the
-//! `127.0.0.1` loopback used by the integration test, which is protect-exempt.
+//! [`connect_protected_carrier`] is the seam that honours this: it takes an
+//! injected [`CarrierSocketProtector`] (the JNI-backed `VpnService.protect`
+//! shim in production, a fake in tests), runs it on the socket fd *before*
+//! `connect()`, and fails closed — dropping the socket and propagating the
+//! error — if the protector rejects the fd. The crate never reaches for a
+//! process-global registry or JNI itself; the protector is always supplied by
+//! the caller, mirroring `ripdpi-warp-core::platform::WarpSocketProtector`. The
+//! `127.0.0.1`/`[::1]` loopbacks used by the tests are protect-exempt in
+//! production, but the seam still invokes the injected protector unconditionally
+//! so the fail-closed path is exercised.
 
 use std::fmt;
 
 use tokio_tungstenite::tungstenite::Message;
+
+mod connect;
+
+pub use connect::{CarrierSocketProtector, connect_protected_carrier};
 
 /// Errors produced by the WireGuard-over-WebSocket carrier.
 #[derive(Debug, thiserror::Error)]

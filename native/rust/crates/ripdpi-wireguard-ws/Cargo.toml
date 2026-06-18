@@ -20,6 +20,10 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio-tungstenite = { workspace = true }
 tungstenite = { workspace = true }
+# tokio's net feature supplies TcpSocket, which exposes the raw fd BEFORE
+# connect() so the protect callback can run on it first (vpnservice-protect
+# invariant). Same workspace-pinned tokio every other crate uses.
+tokio = { workspace = true, features = ["net"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync"] }
