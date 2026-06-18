@@ -6868,6 +6868,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-wireguard-ws"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "getrandom 0.4.2",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+ "tungstenite",
+]
+
+[[package]]
 name = "ripdpi-ws-bootstrap"
 version = "0.1.0"
 dependencies = [

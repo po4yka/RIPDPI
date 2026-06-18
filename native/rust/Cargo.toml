@@ -115,6 +115,7 @@ members = [
     "crates/ripdpi-mieru",
     "crates/ripdpi-ssh",
     "crates/ripdpi-network-time",
+    "crates/ripdpi-wireguard-ws",
 ]
 
 [workspace.package]
@@ -221,6 +222,7 @@ ripdpi-xhttp = { path = "crates/ripdpi-xhttp" }
 ripdpi-trojan = { path = "crates/ripdpi-trojan" }
 ripdpi-mieru = { path = "crates/ripdpi-mieru" }
 ripdpi-network-time = { path = "crates/ripdpi-network-time" }
+ripdpi-wireguard-ws = { path = "crates/ripdpi-wireguard-ws" }
 ripdpi-ssh = { path = "crates/ripdpi-ssh" }
 russh = "=0.61.2"
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
