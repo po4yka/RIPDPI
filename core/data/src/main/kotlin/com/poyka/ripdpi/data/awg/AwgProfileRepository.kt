@@ -39,31 +39,50 @@ data class SavedAwgProfile(
  * (network-fingerprint-privacy.md). The endpoint host/port are serialized inside
  * the blob as user config but never logged or exported.
  *
- * The serialized blob is the [AwgActivationRequest] with its `profileId` blanked
- * to the empty string, so the persisted bytes never pin a specific activation id
- * -- the id is authoritative on the row, not in the blob.
+ * **At-rest secrets:** the WireGuard `privateKey` and `presharedKey` are NEVER
+ * persisted in the Room blob. They are sealed in [AwgCredentialStore] (AES-256-GCM
+ * via AndroidKeyStore, mirroring the WARP credential split) keyed by the stable
+ * profile id, then re-injected into the rehydrated request on load. The serialized
+ * blob therefore carries no `privateKey`, `presharedKey`, or `profileId` -- the id
+ * is authoritative on the row, and the secrets are authoritative in the keystore.
+ *
+ * The serialized blob keeps [RipDpiEncodeDefaultsJson] (defaults written) for a
+ * stable persisted shape.
  */
 @Singleton
 class AwgProfileRepository
     @Inject
     constructor(
         private val dao: AwgProfileDao,
+        private val credentialStore: AwgCredentialStore,
     ) {
         private val json = RipDpiEncodeDefaultsJson
 
         /** Observes every saved profile, newest-updated first, each stamped with its stable id. */
         fun observeProfiles(): Flow<List<SavedAwgProfile>> =
-            dao.observeProfiles().map { rows -> rows.map { it.toSavedProfile() } }
+            dao.observeProfiles().map { rows -> rows.toSavedProfiles() }
+
+        // List.map cannot call the suspend secret-rehydration, so build explicitly.
+        private suspend fun List<AwgProfileEntity>.toSavedProfiles(): List<SavedAwgProfile> {
+            val profiles = ArrayList<SavedAwgProfile>(size)
+            for (row in this) {
+                profiles.add(row.toSavedProfile())
+            }
+            return profiles
+        }
 
         /** Loads a single saved profile by its stable [id], or `null` when none exists. */
         suspend fun load(id: String): SavedAwgProfile? = dao.getProfile(id)?.toSavedProfile()
+
+        private suspend fun secretsFor(id: String): AwgSecrets = credentialStore.load(id) ?: AwgSecrets()
 
         /**
          * Persists [request] under [name], returning the stable profile id used for the row.
          *
          * When [existingId] is `null` a fresh `"awg-<UUID>"` id is minted; otherwise the row
          * with [existingId] is updated in place and its id is reused. The stored blob blanks
-         * the request's `profileId` -- the row id is the single source of truth.
+         * the request's `profileId` AND both secret fields -- the row id is the single source
+         * of truth for the id, and the secrets are sealed in [AwgCredentialStore].
          */
         suspend fun save(
             name: String,
@@ -71,7 +90,13 @@ class AwgProfileRepository
             existingId: String? = null,
         ): String {
             val id = existingId ?: generateProfileId()
-            val blob = json.encodeToString(request.copy(profileId = ""))
+            // Strip the id and the two secrets from the Room blob; secrets go to the keystore.
+            val sanitized = request.copy(profileId = "", privateKey = "", presharedKey = "")
+            val blob = json.encodeToString(sanitized)
+            credentialStore.save(
+                id,
+                AwgSecrets(privateKey = request.privateKey, presharedKey = request.presharedKey),
+            )
             dao.upsertProfile(
                 AwgProfileEntity(
                     id = id,
@@ -87,13 +112,24 @@ class AwgProfileRepository
         suspend fun delete(id: String) {
             val existing = dao.getProfile(id) ?: return
             dao.deleteProfile(existing)
+            credentialStore.clear(id)
         }
 
-        private fun AwgProfileEntity.toSavedProfile(): SavedAwgProfile {
+        private suspend fun AwgProfileEntity.toSavedProfile(): SavedAwgProfile {
             val decoded = json.decodeFromString<AwgActivationRequest>(requestJson)
-            // Stamp the stable row id as the profileId so the activation request is
-            // identical across re-connects and carries the opaque (non-endpoint) id.
-            return SavedAwgProfile(id = id, name = name, request = decoded.copy(profileId = id))
+            val secrets = secretsFor(id)
+            // Stamp the stable row id as the profileId and re-inject the sealed secrets so the
+            // activation request is identical across re-connects and carries the opaque id.
+            return SavedAwgProfile(
+                id = id,
+                name = name,
+                request =
+                    decoded.copy(
+                        profileId = id,
+                        privateKey = secrets.privateKey,
+                        presharedKey = secrets.presharedKey,
+                    ),
+            )
         }
 
         companion object {

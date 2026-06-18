@@ -12,10 +12,12 @@ import androidx.compose.ui.test.performTextInput
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
+import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -70,7 +72,7 @@ class AmneziaWgProfileScreenTest {
 
                 override suspend fun deactivate() = Unit
             },
-            AwgProfileRepository(InMemoryAwgProfileDao()),
+            AwgProfileRepository(InMemoryAwgProfileDao(), InMemoryAwgCredentialStore()),
         )
 
     /** In-memory DAO so the screen test drives the real repository without Room. */
@@ -87,6 +89,24 @@ class AmneziaWgProfileScreenTest {
 
         override suspend fun deleteProfile(profile: AwgProfileEntity) {
             rows.value = rows.value.filterNot { it.id == profile.id }
+        }
+    }
+
+    /** In-memory credential store so the screen test drives the real repository without keystore. */
+    private class InMemoryAwgCredentialStore : AwgCredentialStore {
+        private val secrets = mutableMapOf<String, AwgSecrets>()
+
+        override suspend fun load(profileId: String): AwgSecrets? = secrets[profileId]
+
+        override suspend fun save(
+            profileId: String,
+            secrets: AwgSecrets,
+        ) {
+            this.secrets[profileId] = secrets
+        }
+
+        override suspend fun clear(profileId: String) {
+            secrets.remove(profileId)
         }
     }
 

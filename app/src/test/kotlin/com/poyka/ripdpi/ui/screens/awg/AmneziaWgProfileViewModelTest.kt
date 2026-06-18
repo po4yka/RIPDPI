@@ -3,10 +3,12 @@ package com.poyka.ripdpi.ui.screens.awg
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
+import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -69,7 +71,8 @@ class AmneziaWgProfileViewModelTest {
     private val catalog = AwgCohortCatalogData(presets = listOf(rtkSouth))
     private val activator = RecordingStandaloneAmneziaWgActivator()
     private val dao = InMemoryAwgProfileDao()
-    private val repository = AwgProfileRepository(dao)
+    private val credentialStore = InMemoryAwgCredentialStore()
+    private val repository = AwgProfileRepository(dao, credentialStore)
 
     private fun viewModel() = AmneziaWgProfileViewModel(FakeCatalogProvider(catalog), activator, repository)
 
@@ -425,5 +428,26 @@ private class InMemoryAwgProfileDao : AwgProfileDao {
 
     override suspend fun deleteProfile(profile: AwgProfileEntity) {
         rows.value = rows.value.filterNot { it.id == profile.id }
+    }
+}
+
+/**
+ * In-memory [AwgCredentialStore] so the ViewModel test drives the REAL
+ * [AwgProfileRepository] secret-split without an AndroidKeyStore dependency.
+ */
+private class InMemoryAwgCredentialStore : AwgCredentialStore {
+    private val secrets = mutableMapOf<String, AwgSecrets>()
+
+    override suspend fun load(profileId: String): AwgSecrets? = secrets[profileId]
+
+    override suspend fun save(
+        profileId: String,
+        secrets: AwgSecrets,
+    ) {
+        this.secrets[profileId] = secrets
+    }
+
+    override suspend fun clear(profileId: String) {
+        secrets.remove(profileId)
     }
 }

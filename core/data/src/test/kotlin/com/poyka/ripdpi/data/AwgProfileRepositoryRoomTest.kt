@@ -6,14 +6,17 @@ import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
 import com.poyka.ripdpi.data.awg.AwgActivationObfuscation
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -35,6 +38,7 @@ import org.robolectric.annotation.Config
 class AwgProfileRepositoryRoomTest {
     private lateinit var db: RipDpiDatabase
     private lateinit var dao: AwgProfileDao
+    private lateinit var credentialStore: FakeAwgCredentialStore
     private lateinit var repository: AwgProfileRepository
 
     @Before
@@ -46,7 +50,8 @@ class AwgProfileRepositoryRoomTest {
                 .allowMainThreadQueries()
                 .build()
         dao = db.awgProfileDao()
-        repository = AwgProfileRepository(dao)
+        credentialStore = FakeAwgCredentialStore()
+        repository = AwgProfileRepository(dao, credentialStore)
     }
 
     @After
@@ -132,6 +137,36 @@ class AwgProfileRepositoryRoomTest {
         }
 
     @Test
+    fun `the persisted blob holds no private or preshared key material and load re-injects it`() =
+        runTest {
+            val id = repository.save(name = "home", request = sampleRequest())
+
+            // The Room blob must contain NO secret material -- it lives encrypted elsewhere.
+            val row = dao.getProfile(id)!!
+            assertFalse("the blob must not persist the private key", row.requestJson.contains("privkey=="))
+            assertFalse("the blob must not persist the preshared key", row.requestJson.contains("psk=="))
+
+            // The secrets are sealed in the credential store, keyed by the stable id.
+            assertEquals("privkey==", credentialStore.load(id)?.privateKey)
+            assertEquals("psk==", credentialStore.load(id)?.presharedKey)
+
+            // load() re-injects the secrets so the round-tripped request equals the original.
+            val loaded = repository.load(id)!!
+            assertEquals(sampleRequest().copy(profileId = id), loaded.request)
+        }
+
+    @Test
+    fun `delete removes the encrypted secrets alongside the row`() =
+        runTest {
+            val id = repository.save(name = "home", request = sampleRequest())
+            assertNotNull(credentialStore.load(id))
+
+            repository.delete(id)
+
+            assertNull("delete must also clear the sealed secrets", credentialStore.load(id))
+        }
+
+    @Test
     fun `observeProfiles emits on save and delete`() =
         runTest {
             repository.observeProfiles().test {
@@ -153,4 +188,26 @@ class AwgProfileRepositoryRoomTest {
             repository.delete("awg-does-not-exist")
             assertNull(repository.load("awg-does-not-exist"))
         }
+}
+
+/**
+ * In-memory [AwgCredentialStore] double so the test exercises the REAL secret
+ * split without an AndroidKeyStore dependency. Mirrors the fake-store doubles used
+ * by the other repository round-trip tests.
+ */
+private class FakeAwgCredentialStore : AwgCredentialStore {
+    private val secrets = mutableMapOf<String, AwgSecrets>()
+
+    override suspend fun load(profileId: String): AwgSecrets? = secrets[profileId]
+
+    override suspend fun save(
+        profileId: String,
+        secrets: AwgSecrets,
+    ) {
+        this.secrets[profileId] = secrets
+    }
+
+    override suspend fun clear(profileId: String) {
+        secrets.remove(profileId)
+    }
 }
