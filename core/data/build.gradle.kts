@@ -19,6 +19,11 @@ extensions.configure<LibraryExtension> {
             assets.srcDir("$projectDir/schemas")
         }
     }
+    testOptions {
+        // Robolectric must merge the android assets (the exported Room schema JSONs above)
+        // into its asset manager so MigrationTestHelper's loadSchema can find <db>/<v>.json.
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 extensions.configure<KspExtension> {

@@ -2,10 +2,12 @@ package com.poyka.ripdpi.data
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
 import com.poyka.ripdpi.data.rules.RipDpiDatabaseMigrations
 import kotlinx.coroutines.flow.first
@@ -103,6 +105,31 @@ class RipDpiDatabaseMigrationTest {
             helper.close()
             context.deleteDatabase(dbName)
         }
+    }
+
+    @Test
+    fun `migration 1 to 2 produces a schema matching the exported v2 identity hash`() {
+        // MigrationTestHelper loads the exported schema JSONs (exposed to the test source
+        // set via assets.srcDir("$projectDir/schemas")) and, after running the migration,
+        // validates the resulting schema against the version-2 identity hash. This catches
+        // a hand-written MIGRATION_1_2 DDL that drifts from the Room-generated v2 schema --
+        // table-presence + data-preservation tests above would still pass in that case.
+        val helper =
+            MigrationTestHelper(
+                InstrumentationRegistry.getInstrumentation(),
+                RipDpiDatabase::class.java,
+            )
+        val dbName = "identity-hash-${System.nanoTime()}.db"
+        // Create the database at version 1 from the exported 1.json schema.
+        helper.createDatabase(dbName, 1).close()
+        // Run the real migration and assert the post-migration schema identity == 2.json.
+        helper
+            .runMigrationsAndValidate(
+                dbName,
+                2,
+                true,
+                RipDpiDatabaseMigrations.MIGRATION_1_2,
+            ).close()
     }
 
     @Test
