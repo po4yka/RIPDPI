@@ -13,12 +13,19 @@ base64 = { workspace = true }
 boringtun = { version = "0.7.1", default-features = false }
 getrandom = "0.4"
 bytes = "1"
+# The WG-over-WebSocket carrier select: framing codec + protected-connect seam.
+ripdpi-wireguard-ws = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 smoltcp = { version = "0.13", default-features = false, features = ["std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-udp", "socket-tcp"] }
 socket2 = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+# Drives the WS client handshake over the protected carrier TcpStream
+# (`client_async` + `WebSocketStream`); same workspace pin the carrier crate uses.
+tokio-tungstenite = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+# The carrier integration test drives a real boringtun handshake over a local
+# WS relay -> UDP responder, needing UDP sockets, select!, and timeout.
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }

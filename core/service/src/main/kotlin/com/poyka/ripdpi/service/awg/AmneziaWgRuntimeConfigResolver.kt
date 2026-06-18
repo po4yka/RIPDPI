@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.service.awg
 
 import com.poyka.ripdpi.core.ResolvedRipDpiAmneziaWgConfig
+import com.poyka.ripdpi.core.RipDpiAmneziaWgCarrierKind
 import com.poyka.ripdpi.core.RipDpiAmneziaWgObfuscationConfig
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import dagger.Binds
@@ -36,6 +37,10 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
             require(request.endpointHost.isNotBlank()) { "AmneziaWG endpoint host missing" }
             require(request.endpointPort > 0) { "AmneziaWG endpoint port invalid" }
             require(request.interfaceAddressV4.isNotBlank()) { "AmneziaWG interface address missing" }
+            val carrier = request.carrier.toCarrierKind()
+            require(carrier != RipDpiAmneziaWgCarrierKind.Ws || request.carrierWsUrl.isNotBlank()) {
+                "AmneziaWG WS carrier requires a carrier URL"
+            }
             return ResolvedRipDpiAmneziaWgConfig(
                 enabled = true,
                 profileId = request.profileId,
@@ -49,6 +54,8 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
                 mtu = request.mtu,
                 persistentKeepalive = request.persistentKeepalive,
                 amnezia = request.obfuscation.toObfuscationConfig(),
+                carrier = carrier,
+                carrierWsUrl = request.carrierWsUrl,
                 // The tunnel exposes a loopback SOCKS inbound the rest of the data
                 // plane dials; never an externally-reachable bind. Loopback is
                 // exempt from the VpnService.protect invariant.
@@ -65,6 +72,18 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
             // future composition runs both.
             private const val StandaloneAmneziaWgLocalSocksPort = 10808
         }
+    }
+
+/**
+ * Map the activation-request carrier token (`udp`/`ws`, mirroring the Rust
+ * `AmneziaWgCarrierKind` serde wire) onto the engine-api enum. An unrecognized
+ * token falls back to [RipDpiAmneziaWgCarrierKind.Udp] (today's behavior) rather
+ * than failing activation — forward-compatible with an older persisted request.
+ */
+private fun String.toCarrierKind(): RipDpiAmneziaWgCarrierKind =
+    when (this) {
+        AwgActivationRequest.CARRIER_WS -> RipDpiAmneziaWgCarrierKind.Ws
+        else -> RipDpiAmneziaWgCarrierKind.Udp
     }
 
 /**

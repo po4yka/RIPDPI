@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -51,11 +52,35 @@ data class RipDpiAmneziaWgObfuscationConfig(
 )
 
 /**
+ * The transport an AmneziaWG tunnel egresses its WireGuard datagrams over.
+ * Mirrors the Rust `AmneziaWgCarrierKind` (serde `snake_case`): [Udp] is the
+ * default plain-UDP path; [Ws] frames each WireGuard datagram as a binary
+ * WebSocket message over one protected TLS/TCP stream (the WG-over-WebSocket
+ * carrier in `ripdpi-wireguard-ws`). The wire tokens are pinned by
+ * [SerialName] so a rename on either side is caught by the contract test.
+ */
+@Serializable
+enum class RipDpiAmneziaWgCarrierKind {
+    @SerialName("udp")
+    Udp,
+
+    @SerialName("ws")
+    Ws,
+}
+
+/**
  * Fully-resolved AmneziaWG session configuration. Field names and types mirror
  * the Rust `AmneziaWgProfileConfig` (serde camelCase) the native bridge
  * deserializes from the create-config JSON; serializing this with [RipDpiJson]
  * must produce exactly those keys (the cross-language contract is guarded by
  * `RipDpiAmneziaWgConfigSerializationTest`).
+ *
+ * [carrier] / [carrierWsUrl] are additive and defaulted ([carrier] =
+ * [RipDpiAmneziaWgCarrierKind.Udp]) so a profile that omits them — and a native
+ * core built before the carrier seam — deserializes unchanged; the native
+ * schema does not bump. The endpoint host/port carried in [endpointHost] and
+ * (when WS) [carrierWsUrl] are user-pasted config; they MUST NOT flow into
+ * telemetry or logs in plain form (network-fingerprint-privacy).
  */
 @Serializable
 data class ResolvedRipDpiAmneziaWgConfig(
@@ -73,6 +98,8 @@ data class ResolvedRipDpiAmneziaWgConfig(
     val mtu: Int = DefaultAmneziaWgTunnelMtu,
     val persistentKeepalive: Int = 0,
     val amnezia: RipDpiAmneziaWgObfuscationConfig = RipDpiAmneziaWgObfuscationConfig(),
+    val carrier: RipDpiAmneziaWgCarrierKind = RipDpiAmneziaWgCarrierKind.Udp,
+    val carrierWsUrl: String = "",
     val localSocksHost: String,
     val localSocksPort: Int,
 )

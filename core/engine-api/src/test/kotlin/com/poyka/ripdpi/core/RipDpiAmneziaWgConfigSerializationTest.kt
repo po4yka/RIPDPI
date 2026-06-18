@@ -53,6 +53,10 @@ class RipDpiAmneziaWgConfigSerializationTest {
                     i4 = "<b 0x04>",
                     i5 = "<b 0x05>",
                 ),
+            // Non-default carrier so the additive keys surface under
+            // RipDpiJson (encodeDefaults = false omits default-valued fields).
+            carrier = RipDpiAmneziaWgCarrierKind.Ws,
+            carrierWsUrl = "wss://carrier.example.org:443/wg",
             localSocksHost = "127.0.0.1",
             localSocksPort = 10808,
         )
@@ -77,11 +81,32 @@ class RipDpiAmneziaWgConfigSerializationTest {
                 "mtu",
                 "persistentKeepalive",
                 "amnezia",
+                "carrier",
+                "carrierWsUrl",
                 "localSocksHost",
                 "localSocksPort",
             )
 
         assertEquals(expectedTopLevel, obj.keys)
+    }
+
+    @Test
+    fun `carrier kind serializes as the snake_case wire token`() {
+        val obj = RipDpiJson.parseToJsonElement(RipDpiJson.encodeToString(fullConfig)).jsonObject
+        // The Rust AmneziaWgCarrierKind is serde snake_case: udp / ws.
+        assertEquals(JsonPrimitive("ws"), obj["carrier"])
+        assertEquals(JsonPrimitive("wss://carrier.example.org:443/wg"), obj["carrierWsUrl"])
+    }
+
+    @Test
+    fun `udp carrier default is omitted under RipDpiJson`() {
+        // encodeDefaults = false means a default UDP carrier (today's behavior)
+        // emits no carrier/carrierWsUrl keys, so the Rust serde(default) restores
+        // them — the field is fully additive and back-compatible.
+        val udpConfig = fullConfig.copy(carrier = RipDpiAmneziaWgCarrierKind.Udp, carrierWsUrl = "")
+        val obj = RipDpiJson.parseToJsonElement(RipDpiJson.encodeToString(udpConfig)).jsonObject
+        assertEquals(false, obj.containsKey("carrier"))
+        assertEquals(false, obj.containsKey("carrierWsUrl"))
     }
 
     @Test

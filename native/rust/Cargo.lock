@@ -6843,11 +6843,13 @@ dependencies = [
  "boringtun",
  "bytes",
  "getrandom 0.4.2",
+ "ripdpi-wireguard-ws",
  "serde",
  "serde_json",
  "smoltcp",
  "socket2",
  "tokio",
+ "tokio-tungstenite",
  "tracing",
 ]
 

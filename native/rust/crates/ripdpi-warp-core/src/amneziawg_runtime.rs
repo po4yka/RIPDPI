@@ -36,7 +36,7 @@ use crate::ports::{PortProtocol, UdpAssociationPool, VirtualPortPool};
 use crate::socks::handle_socks_client;
 use crate::support::to_io_error;
 use crate::virtual_iface::{Bus, DynamicTcpInterface, DynamicUdpInterface};
-use crate::wireguard::{WireGuardTunnel, WireGuardTunnelParams};
+use crate::wireguard::{WgCarrier, WireGuardTunnel, WireGuardTunnelParams, connect_ws_carrier};
 
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const MIN_MTU: i32 = 1280;
@@ -87,10 +87,41 @@ pub struct AmneziaWgProfileConfig {
     /// AmneziaWG `Jc/Jmin/Jmax/H1..H4/S1..S2` obfuscation knobs.
     #[serde(default)]
     pub amnezia: AmneziaWgObfuscation,
+    /// Transport carrier the WireGuard datagrams egress over. Additive serde
+    /// default of [`AmneziaWgCarrierKind::Udp`] preserves today's plain-UDP
+    /// behavior, so a config that omits the field (or a native core built
+    /// before the carrier seam) deserializes unchanged and the native schema
+    /// does not bump.
+    #[serde(default)]
+    pub carrier: AmneziaWgCarrierKind,
+    /// WebSocket carrier request URL (e.g. `wss://host:443/path`). Only consulted
+    /// when [`Self::carrier`] is [`AmneziaWgCarrierKind::Ws`]; ignored (and
+    /// typically empty) for the UDP path. The host/port are user-pasted config —
+    /// never logged or forwarded to telemetry in plain form
+    /// (network-fingerprint-privacy).
+    #[serde(default)]
+    pub carrier_ws_url: String,
     /// Loopback SOCKS5 bind host (e.g. `127.0.0.1`).
     pub local_socks_host: String,
     /// Loopback SOCKS5 bind port.
     pub local_socks_port: i32,
+}
+
+/// Selects the transport the AmneziaWG tunnel's WireGuard datagrams ride over.
+///
+/// `serde(rename_all = "snake_case")` so the wire tokens are `"udp"` / `"ws"`,
+/// matching the Kotlin `RipDpiAmneziaWgCarrierKind` enum. Defaults to
+/// [`Self::Udp`] (today's behavior) so the field is fully additive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum AmneziaWgCarrierKind {
+    /// Plain WireGuard over UDP (the default): the tunnel binds + protects its
+    /// own `UdpSocket`.
+    #[default]
+    Udp,
+    /// WireGuard framed over a WebSocket carrier on a single protected TLS/TCP
+    /// stream (see [`crate::wireguard::WgCarrier`] and `ripdpi-wireguard-ws`).
+    Ws,
 }
 
 /// AmneziaWG obfuscation knobs as carried by the `AmneziaWgProfileScreen`
@@ -333,6 +364,15 @@ impl AmneziaWgRuntime {
         let amnezia_cfg = self.config.amnezia.to_warp_amnezia();
         let keepalive = u16::try_from(self.config.persistent_keepalive.max(0)).ok().filter(|value| *value != 0);
         let preshared = (!self.config.preshared_key.is_empty()).then_some(self.config.preshared_key.as_str());
+
+        // Carrier select. UDP (the default) hands the tunnel `None` so it binds +
+        // protects its own UdpSocket. WS opens a protected carrier socket NOW
+        // (protect-before-connect via the SAME VpnService.protect callback as the
+        // UDP path), upgrades it to a WebSocket, and hands the tunnel the ready
+        // carrier. A carrier-open success/failure is recorded on the telemetry
+        // counters before the first WireGuard datagram is framed.
+        let carrier = self.open_carrier(endpoint).await?;
+
         let tunnel = Arc::new(
             WireGuardTunnel::new(
                 WireGuardTunnelParams {
@@ -352,6 +392,9 @@ impl AmneziaWgRuntime {
                         self.config.amnezia.i4.as_str(),
                         self.config.amnezia.i5.as_str(),
                     ],
+                    // `None` for the UDP path (the tunnel binds its own socket);
+                    // `Some(ws)` when a WS carrier was opened above.
+                    carrier,
                 },
                 &self.platform,
             )
@@ -449,6 +492,57 @@ impl AmneziaWgRuntime {
             ipv6: optional(&self.config.endpoint_ipv6),
             port: self.config.endpoint_port,
             source: "profile".to_string(),
+        }
+    }
+
+    /// Open the datagram transport for the configured carrier.
+    ///
+    /// * [`AmneziaWgCarrierKind::Udp`] returns `Ok(None)`: the tunnel binds +
+    ///   protects its own `UdpSocket` (today's behavior).
+    /// * [`AmneziaWgCarrierKind::Ws`] opens a protected carrier socket to
+    ///   `endpoint` *now* — protect-before-connect via the same
+    ///   `VpnService.protect` callback the UDP path uses — upgrades it to a
+    ///   WebSocket, and returns `Ok(Some(carrier))`. A successful open
+    ///   increments [`Self::record_ws_carrier_handshake`]; a failure increments
+    ///   [`Self::record_ws_carrier_handshake_failure`], records the error, and
+    ///   propagates so `run` fails closed rather than silently downgrading to
+    ///   UDP (which would defeat the obfuscation the user selected).
+    ///
+    /// A WS carrier with an empty `carrier_ws_url` is a config error
+    /// (`InvalidInput`) — there is nothing to connect to.
+    ///
+    /// # Cancel safety
+    /// Not cancel-safe in aggregate (it mutates the failure counter on error),
+    /// but `run` never selects over it.
+    async fn open_carrier(&self, endpoint: std::net::SocketAddr) -> io::Result<Option<WgCarrier>> {
+        match self.config.carrier {
+            AmneziaWgCarrierKind::Udp => Ok(None),
+            AmneziaWgCarrierKind::Ws => {
+                if self.config.carrier_ws_url.is_empty() {
+                    // A WS carrier that cannot even attempt to connect is a failed
+                    // carrier handshake (counted), not a silent UDP downgrade.
+                    self.record_ws_carrier_handshake_failure();
+                    let error =
+                        io::Error::new(io::ErrorKind::InvalidInput, "AmneziaWG WS carrier requires carrierWsUrl");
+                    *self.last_error.lock().expect("last error") = Some(error.to_string());
+                    return Err(error);
+                }
+                let protector = self.platform.carrier_protector();
+                match connect_ws_carrier(endpoint, &self.config.carrier_ws_url, &protector).await {
+                    Ok(carrier) => {
+                        self.record_ws_carrier_handshake();
+                        // Never log the endpoint host/port (privacy): the scope
+                        // is the opaque profile_id only.
+                        tracing::info!(profile = %self.config.profile_id, "AmneziaWG WS carrier connected");
+                        Ok(Some(carrier))
+                    }
+                    Err(error) => {
+                        self.record_ws_carrier_handshake_failure();
+                        *self.last_error.lock().expect("last error") = Some(error.to_string());
+                        Err(error)
+                    }
+                }
+            }
         }
     }
 }
@@ -563,6 +657,65 @@ mod tests {
         let t = rt.telemetry();
         assert_eq!(t.ws_carrier_handshakes, 2, "two successful carrier handshakes recorded");
         assert_eq!(t.ws_carrier_handshake_failures, 1, "one failed carrier handshake recorded");
+    }
+
+    #[test]
+    fn carrier_defaults_to_udp_when_omitted() {
+        // A config with no `carrier` field deserializes to the UDP default,
+        // preserving today's behavior (additive, no schema bump).
+        let json = r#"{
+            "enabled": true, "profileId": "p", "privateKey": "k", "peerPublicKey": "p",
+            "endpointHost": "1.2.3.4", "endpointPort": 51820,
+            "interfaceAddressV4": "10.8.0.2/32", "mtu": 1330,
+            "localSocksHost": "127.0.0.1", "localSocksPort": 11090
+        }"#;
+        let cfg: AmneziaWgProfileConfig = serde_json::from_str(json).expect("parse");
+        assert_eq!(cfg.carrier, AmneziaWgCarrierKind::Udp);
+        assert!(cfg.carrier_ws_url.is_empty());
+    }
+
+    #[test]
+    fn carrier_ws_select_round_trips() {
+        let json = r#"{
+            "enabled": true, "profileId": "p", "privateKey": "k", "peerPublicKey": "p",
+            "endpointHost": "1.2.3.4", "endpointPort": 443,
+            "interfaceAddressV4": "10.8.0.2/32", "mtu": 1330,
+            "carrier": "ws", "carrierWsUrl": "wss://carrier.example.org:443/wg",
+            "localSocksHost": "127.0.0.1", "localSocksPort": 11090
+        }"#;
+        let cfg: AmneziaWgProfileConfig = serde_json::from_str(json).expect("parse");
+        assert_eq!(cfg.carrier, AmneziaWgCarrierKind::Ws);
+        assert_eq!(cfg.carrier_ws_url, "wss://carrier.example.org:443/wg");
+        // camelCase symmetry on re-serialize.
+        let again: AmneziaWgProfileConfig =
+            serde_json::from_str(&serde_json::to_string(&cfg).expect("serialize")).expect("reparse");
+        assert_eq!(again.carrier, AmneziaWgCarrierKind::Ws);
+    }
+
+    #[test]
+    fn ws_carrier_without_url_fails_closed() {
+        // A WS carrier with no URL is a config error, not a silent UDP downgrade.
+        let cfg = AmneziaWgProfileConfig {
+            enabled: true,
+            carrier: AmneziaWgCarrierKind::Ws,
+            carrier_ws_url: String::new(),
+            interface_address_v4: "10.8.0.2/32".to_string(),
+            endpoint_host: "1.2.3.4".to_string(),
+            endpoint_port: 443,
+            local_socks_host: "127.0.0.1".to_string(),
+            local_socks_port: 11090,
+            ..Default::default()
+        };
+        let rt = AmneziaWgRuntime::new(cfg);
+        let result = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(rt.clone().run());
+        let err = result.expect_err("WS carrier without a URL must fail run closed");
+        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        // The failure was recorded on the carrier counter, not silently dropped.
+        assert_eq!(rt.telemetry().ws_carrier_handshake_failures, 1);
     }
 
     #[test]

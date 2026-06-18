@@ -33,10 +33,31 @@ data class AwgActivationRequest(
     val mtu: Int = DEFAULT_MTU,
     val persistentKeepalive: Int = 0,
     val obfuscation: AwgActivationObfuscation = AwgActivationObfuscation(),
+    /**
+     * Transport carrier the WireGuard datagrams egress over. [CARRIER_UDP]
+     * (the default) is plain WireGuard-over-UDP; [CARRIER_WS] selects the
+     * WG-over-WebSocket carrier, which requires a non-blank [carrierWsUrl].
+     * Mirrors the engine-api `RipDpiAmneziaWgCarrierKind` snake_case wire token
+     * (`udp`/`ws`) so the service-layer translation stays a structural copy.
+     * Additive + defaulted: an older persisted request decodes as UDP unchanged.
+     */
+    val carrier: String = CARRIER_UDP,
+    /**
+     * WebSocket carrier request URL (e.g. `wss://host:443/path`); only consulted
+     * when [carrier] is [CARRIER_WS]. User-pasted config — never logged or sent
+     * to telemetry in plain form (network-fingerprint-privacy).
+     */
+    val carrierWsUrl: String = "",
 ) {
     companion object {
         /** Native AmneziaWG tunnel MTU default; mirrors `DefaultAmneziaWgTunnelMtu`. */
         const val DEFAULT_MTU: Int = 1330
+
+        /** Plain WireGuard-over-UDP carrier token (the default). */
+        const val CARRIER_UDP: String = "udp"
+
+        /** WG-over-WebSocket carrier token. */
+        const val CARRIER_WS: String = "ws"
     }
 }
 

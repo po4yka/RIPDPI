@@ -13,7 +13,9 @@ mod support;
 mod virtual_iface;
 mod wireguard;
 
-pub use amneziawg_runtime::{AmneziaWgObfuscation, AmneziaWgProfileConfig, AmneziaWgRuntime, AmneziaWgTelemetry};
+pub use amneziawg_runtime::{
+    AmneziaWgCarrierKind, AmneziaWgObfuscation, AmneziaWgProfileConfig, AmneziaWgRuntime, AmneziaWgTelemetry,
+};
 pub use config::{
     ResolvedWarpRuntimeConfig, ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, WarpEndpointProbeRequest,
     WarpEndpointProbeResult, WarpManualEndpoint, WarpTelemetry,

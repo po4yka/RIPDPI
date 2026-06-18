@@ -36,6 +36,28 @@ impl WarpPlatform {
     fn socket_protector(&self) -> Option<&dyn WarpSocketProtector> {
         self.socket_protector.as_deref()
     }
+
+    /// Adapt this platform's protector into the carrier crate's
+    /// [`CarrierSocketProtector`](ripdpi_wireguard_ws::CarrierSocketProtector)
+    /// so the WG-over-WebSocket carrier socket is protected by the SAME
+    /// `VpnService.protect` callback as the plain-UDP tunnel socket.
+    ///
+    /// The carrier crate seals its protector behind a blanket
+    /// `Fn(RawFd) -> io::Result<()>`; this returns exactly such a closure,
+    /// capturing the shared `Arc<dyn WarpSocketProtector>`. When no protector is
+    /// configured (host tests / desktop) the closure is `Ok(())`, mirroring
+    /// [`protect_socket_if_configured`]'s no-op posture so a loopback fixture
+    /// still exercises the carrier path. There is no second JNI bridge or
+    /// registration: one protector, both sockets.
+    pub(crate) fn carrier_protector(&self) -> impl Fn(RawFd) -> io::Result<()> + Send + Sync + use<> {
+        let protector = self.socket_protector.clone();
+        move |fd: RawFd| -> io::Result<()> {
+            match &protector {
+                Some(protector) => protector.protect_socket(fd),
+                None => Ok(()),
+            }
+        }
+    }
 }
 
 /// Protect `socket` against the VPN TUN route if a protector is configured.

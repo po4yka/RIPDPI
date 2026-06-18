@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.service.awg
 
+import com.poyka.ripdpi.core.RipDpiAmneziaWgCarrierKind
 import com.poyka.ripdpi.data.awg.AwgActivationObfuscation
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import org.junit.Assert.assertEquals
@@ -100,6 +101,35 @@ class AmneziaWgRuntimeConfigResolverTest {
     fun `a non-positive endpoint port is rejected`() {
         assertThrows(IllegalArgumentException::class.java) {
             resolver.resolve(request().copy(endpointPort = 0))
+        }
+    }
+
+    @Test
+    fun `the carrier defaults to UDP`() {
+        val config = resolver.resolve(request())
+
+        assertEquals(RipDpiAmneziaWgCarrierKind.Udp, config.carrier)
+        assertEquals("", config.carrierWsUrl)
+    }
+
+    @Test
+    fun `a WS carrier with a URL maps to the WS kind`() {
+        val config =
+            resolver.resolve(
+                request().copy(
+                    carrier = AwgActivationRequest.CARRIER_WS,
+                    carrierWsUrl = "wss://carrier.example.org:443/wg",
+                ),
+            )
+
+        assertEquals(RipDpiAmneziaWgCarrierKind.Ws, config.carrier)
+        assertEquals("wss://carrier.example.org:443/wg", config.carrierWsUrl)
+    }
+
+    @Test
+    fun `a WS carrier without a URL is rejected`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            resolver.resolve(request().copy(carrier = AwgActivationRequest.CARRIER_WS, carrierWsUrl = ""))
         }
     }
 }

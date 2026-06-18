@@ -4,8 +4,8 @@ use std::time::Duration;
 use anyhow::Context;
 use boringtun::noise::{Tunn, TunnResult};
 use bytes::Bytes;
-use tokio::net::UdpSocket;
 
+use super::carrier::WgCarrier;
 use super::keys::{apply_reserved_bytes, decode_key};
 use super::routing::route_protocol;
 use super::socket::bind_tunnel_socket;
@@ -67,11 +67,17 @@ pub(crate) struct WireGuardTunnelParams<'a> {
     pub amnezia_cfg: &'a WarpAmneziaConfig,
     /// AmneziaWG 2.0 `I1..I5` special-junk frames (hex). Empty strings = unset.
     pub special_junk_hex: [&'a str; 5],
+    /// Pre-built datagram transport. `None` is the default plain-UDP path: the
+    /// tunnel binds + protects its own [`UdpSocket`](tokio::net::UdpSocket) via
+    /// `bind_tunnel_socket`. `Some(carrier)` selects an already-connected
+    /// WG-over-WebSocket carrier (the WS-select path); ownership transfers into
+    /// the tunnel. WARP and the plain-UDP AmneziaWG path pass `None`.
+    pub carrier: Option<WgCarrier>,
 }
 
 pub(crate) struct WireGuardTunnel {
     peer: tokio::sync::Mutex<Box<Tunn>>,
-    udp: UdpSocket,
+    carrier: WgCarrier,
     endpoint: SocketAddr,
     source_peer_ip: IpAddr,
     reserved: [u8; 3],
@@ -90,6 +96,7 @@ impl WireGuardTunnel {
             source_peer_ip,
             amnezia_cfg,
             special_junk_hex,
+            carrier,
         } = params;
         let private_key = decode_key(private_key).context("invalid WireGuard private key")?;
         let peer_public_key = decode_key(peer_public_key).context("invalid WireGuard peer public key")?;
@@ -105,9 +112,15 @@ impl WireGuardTunnel {
             0,
             None,
         ));
-        let udp = bind_tunnel_socket(endpoint, platform)?;
+        // Default (carrier = None): bind + protect a plain WireGuard UDP socket.
+        // A WS-select profile supplies an already-connected, already-protected
+        // carrier, which takes ownership unchanged.
+        let carrier = match carrier {
+            Some(carrier) => carrier,
+            None => WgCarrier::Udp(bind_tunnel_socket(endpoint, platform)?),
+        };
         let amnezia = build_awg_codec(amnezia_cfg, &special_junk_hex);
-        Ok(Self { peer: tokio::sync::Mutex::new(peer), udp, endpoint, source_peer_ip, reserved, amnezia })
+        Ok(Self { peer: tokio::sync::Mutex::new(peer), carrier, endpoint, source_peer_ip, reserved, amnezia })
     }
 
     /// Emit the AmneziaWG handshake prelude -- AWG 2.0 special-junk frames
@@ -121,7 +134,7 @@ impl WireGuardTunnel {
         };
         let mut rng = rand_u32;
         for junk in codec.params().handshake_prelude(&mut rng) {
-            let _ = self.udp.send_to(&junk, self.endpoint).await;
+            let _ = self.carrier.send_to(&junk, self.endpoint).await;
         }
     }
 
@@ -148,7 +161,7 @@ impl WireGuardTunnel {
         match result {
             TunnResult::WriteToNetwork(packet) => {
                 let payload = self.encode_outbound_packet(packet);
-                let _ = self.udp.send_to(&payload, self.endpoint).await;
+                let _ = self.carrier.send_to(&payload, self.endpoint).await;
             }
             TunnResult::Done => {}
             TunnResult::Err(error) => tracing::warn!("WARP tunnel write failed: {error:?}"),
@@ -181,7 +194,7 @@ impl WireGuardTunnel {
         loop {
             let mut recv_buf = [0u8; MAX_PACKET];
             let mut send_buf = [0u8; MAX_PACKET];
-            let size = match self.udp.recv(&mut recv_buf).await {
+            let size = match self.carrier.recv(&mut recv_buf).await {
                 Ok(size) => size,
                 Err(error) => {
                     tracing::warn!("WARP tunnel recv failed: {error}");
@@ -221,7 +234,7 @@ impl WireGuardTunnel {
             match result {
                 TunnResult::WriteToNetwork(packet) => {
                     let payload = self.encode_outbound_packet(packet);
-                    let _ = self.udp.send_to(&payload, self.endpoint).await;
+                    let _ = self.carrier.send_to(&payload, self.endpoint).await;
                 }
                 TunnResult::WriteToTunnelV4(packet, _) | TunnResult::WriteToTunnelV6(packet, _) => {
                     if let Some(protocol) = route_protocol(packet, self.source_peer_ip) {
@@ -269,6 +282,7 @@ mod tests {
             source_peer_ip: IpAddr::V4(Ipv4Addr::new(10, 8, 0, 2)),
             amnezia_cfg: &amnezia,
             special_junk_hex: ["", "", "", "", ""],
+            carrier: None,
         };
         let result = tokio::runtime::Builder::new_current_thread()
             .enable_all()

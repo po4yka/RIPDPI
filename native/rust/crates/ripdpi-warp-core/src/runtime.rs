@@ -157,6 +157,10 @@ impl WarpRuntime {
                     // strings mean unset, preserving prior behavior when the
                     // config does not configure them.
                     special_junk_hex: self.config.amnezia.special_junk_hex(),
+                    // WARP always egresses over plain WireGuard UDP; the
+                    // WG-over-WebSocket carrier is a generic-AmneziaWG-profile
+                    // opt-in. `None` keeps the tunnel binding its own UDP socket.
+                    carrier: None,
                 },
                 &self.platform,
             )
