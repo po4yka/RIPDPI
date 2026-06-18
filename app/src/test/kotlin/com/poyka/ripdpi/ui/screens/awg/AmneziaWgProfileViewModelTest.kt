@@ -3,10 +3,17 @@ package com.poyka.ripdpi.ui.screens.awg
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
+import com.poyka.ripdpi.data.awg.AwgProfileDao
+import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -61,8 +68,10 @@ class AmneziaWgProfileViewModelTest {
         )
     private val catalog = AwgCohortCatalogData(presets = listOf(rtkSouth))
     private val activator = RecordingStandaloneAmneziaWgActivator()
+    private val dao = InMemoryAwgProfileDao()
+    private val repository = AwgProfileRepository(dao)
 
-    private fun viewModel() = AmneziaWgProfileViewModel(FakeCatalogProvider(catalog), activator)
+    private fun viewModel() = AmneziaWgProfileViewModel(FakeCatalogProvider(catalog), activator, repository)
 
     @Test
     fun `initial state is a custom, unlocked editor`() {
@@ -285,6 +294,45 @@ class AmneziaWgProfileViewModelTest {
         }
 
     @Test
+    fun `re-connecting reuses the same persisted profile id`() =
+        runTest {
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+
+            viewModel.onConnect()
+            advanceUntilIdle()
+            val firstId =
+                requireNotNull(activator.lastActivated) { "expected the first activation" }.profileId
+
+            // Edit the profile and re-connect: the stable id must be reused, not re-minted.
+            viewModel.onFieldChanged(AwgEditorField.PERSISTENT_KEEPALIVE, "42")
+            viewModel.onConnect()
+            advanceUntilIdle()
+            val secondId =
+                requireNotNull(activator.lastActivated) { "expected the second activation" }.profileId
+
+            assertEquals("re-connect must reuse the persisted stable id", firstId, secondId)
+            // And the store holds exactly one row -- re-save updated it in place.
+            assertEquals(1, repository.observeProfiles().first().size)
+        }
+
+    @Test
+    fun `connect persists the profile so it survives across editor instances`() =
+        runTest {
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.onConnect()
+            advanceUntilIdle()
+            val id =
+                requireNotNull(activator.lastActivated) { "expected the activation" }.profileId
+
+            // The persisted row carries the same stable id and re-hydrates the endpoint config.
+            val saved = repository.load(id)!!
+            assertEquals(id, saved.request.profileId)
+            assertEquals("vpn.example.com", saved.request.endpointHost)
+        }
+
+    @Test
     fun `consuming the activation request clears it`() =
         runTest {
             val viewModel = viewModel()
@@ -357,5 +405,25 @@ private class RecordingStandaloneAmneziaWgActivator : StandaloneAmneziaWgActivat
 
     override suspend fun deactivate() {
         lastActivated = null
+    }
+}
+
+/**
+ * In-memory [AwgProfileDao] so the test drives the REAL [AwgProfileRepository]
+ * (and therefore the real stable-id discipline) without a Room dependency.
+ */
+private class InMemoryAwgProfileDao : AwgProfileDao {
+    private val rows = MutableStateFlow<List<AwgProfileEntity>>(emptyList())
+
+    override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows.asStateFlow()
+
+    override suspend fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
+
+    override suspend fun upsertProfile(profile: AwgProfileEntity) {
+        rows.value = rows.value.filterNot { it.id == profile.id } + profile
+    }
+
+    override suspend fun deleteProfile(profile: AwgProfileEntity) {
+        rows.value = rows.value.filterNot { it.id == profile.id }
     }
 }

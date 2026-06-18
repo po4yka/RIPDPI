@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -13,7 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -88,8 +88,20 @@ class AmneziaWgProfileViewModel
     constructor(
         private val catalogProvider: AwgCohortCatalogProvider,
         private val amneziaWgActivator: StandaloneAmneziaWgActivator,
+        private val profileRepository: AwgProfileRepository,
     ) : ViewModel() {
         private val catalog: AwgCohortCatalogData = catalogProvider.catalog()
+
+        /**
+         * The stable id of the durably-persisted profile this editor is bound to,
+         * or `null` until the first successful save. On the first Connect tap the
+         * profile is persisted and the repository mints an opaque `"awg-<UUID>"` id;
+         * every later Connect re-uses that same id (both as the persisted row key and
+         * as [AwgActivationRequest.profileId]), closing the per-activation fresh-UUID
+         * deferral. Accessed only from [onConnect] on the main dispatcher, so a plain
+         * field is sufficient.
+         */
+        private var savedProfileId: String? = null
 
         private val _uiState =
             MutableStateFlow(
@@ -155,29 +167,41 @@ class AmneziaWgProfileViewModel
         }
 
         /**
-         * Projects the current editor into an [AwgActivationRequest] and activates it
-         * through the `:core:service` [StandaloneAmneziaWgActivator] (the
-         * WARP-engine-derived AmneziaWG runtime path). A no-op when the editor is not
-         * yet [AmneziaWgEditorState.isActivatable]. The request carries the full PSK +
-         * persistent-keepalive plumbing and is also surfaced on
-         * [AmneziaWgProfileUiState.pendingActivation] so the screen can react to the
+         * Projects the current editor into an [AwgActivationRequest], durably persists
+         * it, and activates it through the `:core:service` [StandaloneAmneziaWgActivator]
+         * (the WARP-engine-derived AmneziaWG runtime path). A no-op when the editor is not
+         * yet [AmneziaWgEditorState.isActivatable].
+         *
+         * **Stable id (A3 closure):** the first Connect saves the profile via
+         * [AwgProfileRepository], which mints an opaque `"awg-<UUID>"` id; every later
+         * Connect re-saves under that same id and re-uses it as
+         * [AwgActivationRequest.profileId]. The persisted id -- never the endpoint -- is
+         * what flows into native runtime telemetry, honoring network-fingerprint-privacy.
+         *
+         * The request carries the full PSK + persistent-keepalive plumbing and is surfaced
+         * on [AmneziaWgProfileUiState.pendingActivation] so the screen can react to the
          * dispatch; the screen clears it via [onActivationConsumed].
          *
-         * The activation runs on [viewModelScope]; the call is wrapped so a startup failure
-         * surfaces as [AwgActivationStatus.Failed] instead of being silently dropped.
+         * The save + activation run on [viewModelScope]; the call is wrapped so a persist
+         * or startup failure surfaces as [AwgActivationStatus.Failed] instead of being
+         * silently dropped.
          */
         @Suppress("TooGenericExceptionCaught")
         fun onConnect() {
             val editor = _uiState.value.editor
             if (!editor.isActivatable()) return
-            // Mint the request once (a single fresh profile id), surface it for the
-            // screen, then dispatch the real activation to the service layer.
-            val request = editor.toActivationRequest(profileId = generateProfileId())
-            _uiState.update {
-                it.copy(pendingActivation = request, activationStatus = AwgActivationStatus.Connecting)
-            }
+            _uiState.update { it.copy(activationStatus = AwgActivationStatus.Connecting) }
             viewModelScope.launch {
                 try {
+                    // Persist first so the stable row id is the profileId the runtime sees.
+                    // The blob's profileId is blanked by the repository; the saved id is
+                    // authoritative and re-used on every later Connect.
+                    val draft = editor.toActivationRequest(profileId = "")
+                    val name = profileName(editor)
+                    val stableId = profileRepository.save(name, draft, existingId = savedProfileId)
+                    savedProfileId = stableId
+                    val request = draft.copy(profileId = stableId)
+                    _uiState.update { it.copy(pendingActivation = request) }
                     amneziaWgActivator.activate(request)
                     _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
                 } catch (cancellation: CancellationException) {
@@ -185,12 +209,12 @@ class AmneziaWgProfileViewModel
                 } catch (ignored: Exception) {
                     // The service signals startup failure with SupervisorStartupFailureException,
                     // which is `internal` to :core:service and so cannot be named from :app; the
-                    // resolver can also fail closed with IllegalArgumentException. Catch broadly to
-                    // convert ANY failure into the user-visible Failed state, rethrowing
-                    // CancellationException above to preserve structured concurrency. The exception
-                    // detail is intentionally not propagated or logged -- it may carry endpoint or
-                    // config material that must not reach logs (network-fingerprint-privacy.md); the
-                    // Failed status is the user-facing feedback.
+                    // resolver can also fail closed with IllegalArgumentException, and the persist
+                    // step may throw. Catch broadly to convert ANY failure into the user-visible
+                    // Failed state, rethrowing CancellationException above to preserve structured
+                    // concurrency. The exception detail is intentionally not propagated or logged --
+                    // it may carry endpoint or config material that must not reach logs
+                    // (network-fingerprint-privacy.md); the Failed status is the user-facing feedback.
                     _uiState.update { it.copy(activationStatus = AwgActivationStatus.Failed) }
                 }
             }
@@ -202,15 +226,15 @@ class AmneziaWgProfileViewModel
         }
 
         /**
-         * An opaque, non-secret id for the activation request. It is a random UUID, NOT
-         * derived from the endpoint host/port: [AwgActivationRequest.profileId] flows into
-         * the native runtime telemetry snapshot, and an endpoint-derived id would leak the
-         * peer host into a persisted/telemetry artifact, violating the
-         * network-fingerprint-privacy rule. Durable per-profile persistence (which would
-         * let a re-connect reuse a stable id) is deferred -- the in-memory editor mints a
-         * fresh id per activation.
+         * A non-sensitive display label for the saved profile, derived from the cohort id
+         * (server-coordinated, not user-private) rather than the endpoint host. The
+         * endpoint host is intentionally NOT used as the name so it never surfaces in a
+         * profile-list UI label; it lives only inside the serialized blob as user config.
          */
-        private fun generateProfileId(): String = "awg-${UUID.randomUUID()}"
+        private fun profileName(editor: AmneziaWgEditorState): String {
+            val cohort = editor.form.cohortId
+            return if (cohort == AwgProfileForm.CUSTOM_COHORT_ID) "AmneziaWG" else "AmneziaWG ($cohort)"
+        }
 
         /** Reveals the private-key field after the biometric gate authorizes it. */
         fun onPrivateKeyRevealAuthorized() {

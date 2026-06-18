@@ -4,15 +4,19 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.poyka.ripdpi.data.awg.AwgProfileDao
+import com.poyka.ripdpi.data.awg.AwgProfileEntity
 
 @Database(
-    entities = [RuleEntity::class],
-    version = 1,
+    entities = [RuleEntity::class, AwgProfileEntity::class],
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(RuleTypeConverters::class)
 abstract class RipDpiDatabase : RoomDatabase() {
     abstract fun ruleDao(): RuleDao
+
+    abstract fun awgProfileDao(): AwgProfileDao
 
     /**
      * Seeds two default rules on first database creation.

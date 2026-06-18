@@ -12,6 +12,13 @@ plugins {
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.data"
+    sourceSets {
+        // Expose the exported Room schema JSONs to the test source set so
+        // MigrationTestHelper can create old-version schemas and validate migrations.
+        getByName("test") {
+            assets.srcDir("$projectDir/schemas")
+        }
+    }
 }
 
 extensions.configure<KspExtension> {

@@ -12,10 +12,16 @@ import androidx.compose.ui.test.performTextInput
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
+import com.poyka.ripdpi.data.awg.AwgProfileDao
+import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -64,7 +70,25 @@ class AmneziaWgProfileScreenTest {
 
                 override suspend fun deactivate() = Unit
             },
+            AwgProfileRepository(InMemoryAwgProfileDao()),
         )
+
+    /** In-memory DAO so the screen test drives the real repository without Room. */
+    private class InMemoryAwgProfileDao : AwgProfileDao {
+        private val rows = MutableStateFlow<List<AwgProfileEntity>>(emptyList())
+
+        override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows.asStateFlow()
+
+        override suspend fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
+
+        override suspend fun upsertProfile(profile: AwgProfileEntity) {
+            rows.value = rows.value.filterNot { it.id == profile.id } + profile
+        }
+
+        override suspend fun deleteProfile(profile: AwgProfileEntity) {
+            rows.value = rows.value.filterNot { it.id == profile.id }
+        }
+    }
 
     @Test
     fun `the editor renders the standard wireguard fields`() {
