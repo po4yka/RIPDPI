@@ -1,0 +1,15 @@
+{
+  "_comment": "Paired golden for the AWG cohort fingerprint. Vendored byte-identical into the client repo at core/data/src/test/resources/contract/cohort-fingerprint.golden.json. The server test (tests/unit/test_bundle_schema.py) and the client test (RipdpiBundleContractTest) each compute the fingerprint from `params` in their own language and assert it equals `fingerprint`. Same bytes, two implementations => the bash/python emit side and the Kotlin parse side can never silently disagree on the algorithm. Params are the narrow-junk-sequential cohort (ansible/roles/amneziawg/vars/cohorts/narrow-junk-sequential.yml).",
+  "params": {
+    "jc": 4,
+    "jmin": 10,
+    "jmax": 50,
+    "s1": 0,
+    "s2": 0,
+    "h1": 1,
+    "h2": 2,
+    "h3": 3,
+    "h4": 4
+  },
+  "fingerprint": "sha256:4edc275de5b78634c718569b8c6ab3ac3d87bc44afa83357b4e165e93dd3914b"
+}

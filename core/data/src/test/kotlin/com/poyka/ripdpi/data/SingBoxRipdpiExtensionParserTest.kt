@@ -330,5 +330,108 @@ class SingBoxRipdpiExtensionParserTest {
 
         // RIPDPI block ignored.
         assertTrue(result.amneziaWgProfiles.isEmpty())
+
+        // Additive metadata is absent when the block is ignored.
+        assertNull(result.topology)
+        assertNull(result.expiresAt)
+    }
+
+    // -------------------------------------------------------------------------
+    // Additive contract fields (schema_version stays 1)
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun `ripdpi amneziawg cohort_fingerprint is carried and recomputes from params`() {
+        val json =
+            """
+            {
+              "outbounds": [],
+              "ripdpi": {
+                "schema_version": 1,
+                "amneziawg": [
+                  {
+                    "tag": "p2-awg-x",
+                    "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100,
+                    "h1": 1, "h2": 2, "h3": 3, "h4": 4,
+                    "cohort_fingerprint": "sha256:7738f14d7036d6399f102b1f486127244c79606bc47eda66bdd378fd03306214",
+                    "private_key_placeholder": true,
+                    "peer": { "public_key": "pub==", "endpoint": "10.0.0.1:51820" }
+                  }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val result = success(SingBoxSubscriptionParser.parse(json, groupId))
+        val awg = result.amneziaWgProfiles.single()
+        assertEquals(
+            "sha256:7738f14d7036d6399f102b1f486127244c79606bc47eda66bdd378fd03306214",
+            awg.cohortFingerprint,
+        )
+        // The recomputed fingerprint matches the server-stamped one byte-for-byte.
+        assertEquals(awg.cohortFingerprint, awg.awg.cohortFingerprint())
+    }
+
+    @Test
+    fun `ripdpi hysteria_extras carries salamander_upstream_tag onto the matching profile`() {
+        val json =
+            """
+            {
+              "outbounds": [
+                { "type": "hysteria2", "tag": "hy2-main", "server": "hy2.example.com",
+                  "server_port": 8443, "password": "hy2-secret" }
+              ],
+              "ripdpi": {
+                "schema_version": 1,
+                "hysteria_extras": {
+                  "hy2-main": {
+                    "insecure": false,
+                    "obfs": { "type": "salamander", "password": "key" },
+                    "salamander_upstream_tag": "v2.9.0"
+                  }
+                }
+              }
+            }
+            """.trimIndent()
+
+        val result = success(SingBoxSubscriptionParser.parse(json, groupId))
+        val hy2 = result.profiles[0] as ProxyProfile.Hysteria2
+        assertEquals("v2.9.0", hy2.salamanderUpstreamTag)
+    }
+
+    @Test
+    fun `ripdpi topology is parsed into the result`() {
+        val json =
+            """
+            {
+              "outbounds": [],
+              "ripdpi": {
+                "schema_version": 1,
+                "topology": { "split_hop_egress": true, "hysteria_realm": "realm-a" }
+              }
+            }
+            """.trimIndent()
+
+        val result = success(SingBoxSubscriptionParser.parse(json, groupId))
+        assertNotNull(result.topology)
+        assertEquals(true, result.topology!!.splitHopEgress)
+        assertEquals("realm-a", result.topology!!.hysteriaRealm)
+    }
+
+    @Test
+    fun `ripdpi expires is parsed into the result`() {
+        val json =
+            """
+            {
+              "outbounds": [],
+              "ripdpi": {
+                "schema_version": 1,
+                "expires": "2026-12-31T23:59:59Z"
+              }
+            }
+            """.trimIndent()
+
+        val result = success(SingBoxSubscriptionParser.parse(json, groupId))
+        assertEquals("2026-12-31T23:59:59Z", result.expiresAt)
     }
 }

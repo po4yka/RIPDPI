@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vpn-deploy/ripdpi-bundle.schema.json",
+  "title": "RIPDPI bundle `ripdpi` object schema",
+  "description": "Executable contract for the top-level `ripdpi` object that emit-bundle.sh appends to the sing-box document and the RIPDPI Android client parses (SingBoxSubscriptionParser). This file is the SINGLE SOURCE OF TRUTH: it is vendored byte-identical into the client repo at core/data/src/test/resources/contract/ripdpi-bundle.schema.json and validated by a contract test in BOTH CIs. Prose lives in docs/RIPDPI-BUNDLE.md but this file is authoritative. All fields added after schema_version 1 are OPTIONAL and additive: an old client ignores them, a new client reads them, so schema_version stays 1 (a bump would make old clients drop the whole block). Bump schema_version only for a breaking change, and update the client parser before the server emits the new version.",
+  "$comment": "Canonical source: ripdpi-vpn-deploy/contract/ripdpi-bundle.schema.json — keep the client vendored copy byte-identical. The integer below is the cross-repo drift pin: both repos assert it equals their supported schema_version.",
+  "x-contract-version": 1,
+  "type": "object",
+  "required": ["schema_version", "amneziawg", "hysteria_extras"],
+  "additionalProperties": true,
+  "$defs": {
+    "cohort_fingerprint": {
+      "description": "SHA-256 of the resolved AWG obfuscation parameter set. Canonical preimage (UTF-8, no trailing newline): 'jc=<jc>&jmin=<jmin>&jmax=<jmax>&s1=<s1>&s2=<s2>&h1=<h1>&h2=<h2>&h3=<h3>&h4=<h4>&i1=<i1>&i2=<i2>&i3=<i3>&i4=<i4>&i5=<i5>' where each value is its base-10 (jc..h4) or lowercase-hex (i1..i5) form, and an absent i-value renders as the empty string. The client recomputes this from the parsed params and compares; a mismatch means the bundle's params drifted from the cohort the fingerprint was minted for (show 'profile outdated, refresh subscription' instead of a silent handshake stall).",
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "awg_entry": {
+      "type": "object",
+      "required": [
+        "tag", "address", "dns", "mtu",
+        "jc", "jmin", "jmax", "s1", "s2", "h1", "h2", "h3", "h4",
+        "private_key_placeholder", "peer"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tag": { "type": "string", "minLength": 1 },
+        "address": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "dns": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "mtu": { "type": "integer", "minimum": 576, "maximum": 1500 },
+        "jc": { "type": "integer", "minimum": 0, "maximum": 128 },
+        "jmin": { "type": "integer", "minimum": 0, "maximum": 1280 },
+        "jmax": { "type": "integer", "minimum": 0, "maximum": 1280 },
+        "s1": { "type": "integer", "minimum": 0, "maximum": 1280 },
+        "s2": { "type": "integer", "minimum": 0, "maximum": 1280 },
+        "h1": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "h2": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "h3": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "h4": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "i1": { "type": "string", "pattern": "^[0-9a-f]+$" },
+        "i2": { "type": "string", "pattern": "^[0-9a-f]+$" },
+        "i3": { "type": "string", "pattern": "^[0-9a-f]+$" },
+        "i4": { "type": "string", "pattern": "^[0-9a-f]+$" },
+        "i5": { "type": "string", "pattern": "^[0-9a-f]+$" },
+        "cohort_fingerprint": { "$ref": "#/$defs/cohort_fingerprint" },
+        "private_key_placeholder": {
+          "description": "Always true: the per-device WireGuard private key is never stored server-side. The client substitutes its locally-held key; see docs/RIPDPI-BUNDLE.md 'Private-key recovery flow' for what the client does when no local key is present.",
+          "const": true
+        },
+        "peer": {
+          "type": "object",
+          "required": ["public_key", "preshared_key", "endpoint", "allowed_ips", "persistent_keepalive"],
+          "additionalProperties": false,
+          "properties": {
+            "public_key": { "type": "string", "minLength": 1 },
+            "preshared_key": { "type": "string", "minLength": 1 },
+            "endpoint": { "type": "string", "pattern": "^.+:[0-9]+$" },
+            "allowed_ips": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+            "persistent_keepalive": { "type": "integer", "minimum": 0, "maximum": 65535 }
+          }
+        }
+      }
+    },
+    "hysteria_extras_entry": {
+      "type": "object",
+      "required": ["insecure"],
+      "additionalProperties": false,
+      "properties": {
+        "insecure": {
+          "description": "Always present and false. The client treats a missing or true value as a configuration error and refuses to connect.",
+          "const": false
+        },
+        "obfs": {
+          "type": "object",
+          "required": ["type", "password"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "const": "salamander" },
+            "password": { "type": "string", "minLength": 1 }
+          }
+        },
+        "salamander_upstream_tag": {
+          "description": "The upstream Hysteria2 release tag (e.g. 'v2.9.0') whose Salamander algorithm this server runs. The client compares it to the Salamander version its bundled obfuscator implements and warns the user on a version skew instead of failing the handshake opaquely. Sourced from hysteria.version in SOPS.",
+          "type": "string",
+          "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+(-[A-Za-z0-9.+-]+)?$"
+        },
+        "port_hopping": {
+          "type": "object",
+          "required": ["ports", "interval"],
+          "additionalProperties": false,
+          "properties": {
+            "ports": { "type": "string", "pattern": "^[0-9]+[:-][0-9]+$" },
+            "interval": { "type": "string", "pattern": "^[0-9]+[smh]$" }
+          }
+        }
+      }
+    },
+    "topology": {
+      "description": "Declares transport topology the client cannot infer from the flat outbounds list. Lets the client distinguish a split-hop or realm-relayed endpoint from a direct one and act (or at least surface it) instead of silently mis-modelling a dual-role flow.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "split_hop_egress": {
+          "description": "True when the endpoint is the entry of a two-VPS split-hop topology (entry and egress are different hosts). The client must not assume per-IP egress identity.",
+          "type": "boolean"
+        },
+        "hysteria_realm": {
+          "description": "Realm/relay identifier when the Hysteria2 endpoint is reached via a STUN/NAT-traversal realm relay rather than directly; null when direct.",
+          "type": ["string", "null"]
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "description": "Contract version of the ripdpi object. Currently 1. All post-1 fields are additive and optional, so this stays 1; the client rejects (ignores) a ripdpi block whose schema_version it does not recognise.",
+      "type": "integer",
+      "const": 1
+    },
+    "amneziawg": {
+      "description": "AWG device-VPN entries. Empty array when AmneziaWG is not enabled for the cohort.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/awg_entry" }
+    },
+    "hysteria_extras": {
+      "description": "Map keyed by the exact Hysteria2 outbound tag emit-singbox.sh emits. Empty object when Hysteria is not enabled.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/hysteria_extras_entry" }
+    },
+    "topology": { "$ref": "#/$defs/topology" },
+    "expires": {
+      "description": "RFC 3339 / ISO-8601 UTC instant after which the subscription token stops serving this bundle (the server returns 410). Carried inside the ripdpi object so the client can warn 'subscription expires in N days, refresh' proactively, instead of discovering expiry only when the fetch fails. Optional; absent for non-expiring tokens.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2}))?$"
+    }
+  }
+}

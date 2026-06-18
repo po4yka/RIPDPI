@@ -26,6 +26,21 @@ sealed interface SingBoxParseResult {
     data class Success(
         val profiles: List<ProxyProfile>,
         val amneziaWgProfiles: List<AmneziaWgSubscriptionProfile> = emptyList(),
+        /**
+         * Declared transport topology from `ripdpi.topology`, or `null` for a
+         * plain sing-box bundle or one whose `schema_version` is unknown. Lets
+         * the client distinguish a split-hop / realm-relayed endpoint from a
+         * direct one instead of mis-modelling a dual-role flow.
+         */
+        val topology: RipdpiTopology? = null,
+        /**
+         * Subscription expiry from `ripdpi.expires` (RFC-3339 / ISO-8601), or
+         * `null` when the bundle omits it. Lets the client warn "expires in N
+         * days, refresh" proactively rather than discovering expiry only when a
+         * later `/sub` fetch returns 410. The `.meta` sidecar / `410` remains
+         * the enforcement point; this is the early-warning copy.
+         */
+        val expiresAt: String? = null,
     ) : SingBoxParseResult
 
     /** Parsing failed; [message] carries a human-readable, location-aware reason. */
@@ -33,6 +48,25 @@ sealed interface SingBoxParseResult {
         val message: String,
     ) : SingBoxParseResult
 }
+
+/**
+ * Transport topology declared by `ripdpi.topology`. Both fields are optional
+ * within the block; absent values default to the direct-deployment case
+ * ([splitHopEgress] = false, [hysteriaRealm] = null).
+ */
+data class RipdpiTopology(
+    /**
+     * True when the endpoint is the entry of a two-VPS split-hop topology
+     * (entry and egress are different hosts); the client must not assume the
+     * egress IP equals the endpoint IP.
+     */
+    val splitHopEgress: Boolean = false,
+    /**
+     * Realm/relay id when the Hysteria2 endpoint is reached via a STUN/NAT
+     * realm relay rather than directly; `null` when direct.
+     */
+    val hysteriaRealm: String? = null,
+)
 
 /**
  * Parses a sing-box JSON subscription — either a bare `outbounds:` array or a
@@ -51,6 +85,14 @@ sealed interface SingBoxParseResult {
 object SingBoxSubscriptionParser {
     /** Outbound `type:` values that are group metadata rather than concrete nodes. */
     val GROUP_OUTBOUND_TYPES: Set<String> = setOf("selector", "urltest")
+
+    /**
+     * The only `ripdpi.schema_version` this parser understands. Post-1 fields
+     * are additive and optional, so this stays 1; a future breaking change
+     * bumps it in lockstep with the server. Must equal `x-contract-version` in
+     * `contract/ripdpi-bundle.schema.json` — `RipdpiBundleContractTest` pins it.
+     */
+    const val RIPDPI_SCHEMA_VERSION: Int = 1
 
     /**
      * Parses [payload] into a [SingBoxParseResult]. Every produced
@@ -94,6 +136,8 @@ object SingBoxSubscriptionParser {
                 SingBoxParseResult.Success(
                     profiles = ripdpi.profiles,
                     amneziaWgProfiles = ripdpi.amneziaWgProfiles,
+                    topology = ripdpi.topology,
+                    expiresAt = ripdpi.expiresAt,
                 )
             }
         }
@@ -129,9 +173,6 @@ object SingBoxSubscriptionParser {
 /** Permissive JSON reader shared by the sing-box parser and its outbound mappers. */
 private val singBoxJson =
     RipDpiLenientJson
-
-/** The only `ripdpi.schema_version` value this parser understands. */
-private const val RipdpiSchemaVersion = 1
 
 /** Upper bound for a TCP/UDP port number. */
 private const val MaxPort = 65_535
@@ -367,10 +408,12 @@ private fun rawConfig(
 // RIPDPI extension block helpers
 // -------------------------------------------------------------------------
 
-/** Profiles plus AmneziaWG profiles produced by processing the `ripdpi` block. */
+/** Profiles plus AmneziaWG profiles and metadata produced by processing the `ripdpi` block. */
 private data class RipdpiBlockResult(
     val profiles: List<ProxyProfile>,
     val amneziaWgProfiles: List<AmneziaWgSubscriptionProfile>,
+    val topology: RipdpiTopology? = null,
+    val expiresAt: String? = null,
 )
 
 /**
@@ -387,7 +430,7 @@ private fun processRipdpiBlock(
 ): RipdpiBlockResult {
     val ripdpiBlock = (rootElement as? JsonObject)?.get("ripdpi") as? JsonObject
     val versioned =
-        ripdpiBlock?.takeIf { it.int("schema_version") == RipdpiSchemaVersion }
+        ripdpiBlock?.takeIf { it.int("schema_version") == SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION }
             ?: return RipdpiBlockResult(profiles, emptyList())
     val awgProfiles =
         (versioned["amneziawg"] as? JsonArray)
@@ -395,7 +438,24 @@ private fun processRipdpiBlock(
             ?: emptyList()
     val hyExtras = versioned["hysteria_extras"] as? JsonObject
     val patchedProfiles = hyExtras?.let { applyHysteriaExtras(profiles, it) } ?: profiles
-    return RipdpiBlockResult(profiles = patchedProfiles, amneziaWgProfiles = awgProfiles)
+    return RipdpiBlockResult(
+        profiles = patchedProfiles,
+        amneziaWgProfiles = awgProfiles,
+        topology = parseRipdpiTopology(versioned["topology"] as? JsonObject),
+        expiresAt = versioned.string("expires"),
+    )
+}
+
+/**
+ * Maps `ripdpi.topology` to a [RipdpiTopology], or `null` when the block omits
+ * topology. Missing inner fields default to the direct-deployment case.
+ */
+private fun parseRipdpiTopology(obj: JsonObject?): RipdpiTopology? {
+    if (obj == null) return null
+    return RipdpiTopology(
+        splitHopEgress = obj.bool("split_hop_egress") ?: false,
+        hysteriaRealm = obj.string("hysteria_realm"),
+    )
 }
 
 /**
@@ -489,6 +549,7 @@ private fun mapRipdpiAwg(
                 ?: emptyList(),
         persistentKeepalive = peerObj.int("persistent_keepalive"),
         awg = awg,
+        cohortFingerprint = obj.string("cohort_fingerprint"),
     )
 }
 
@@ -512,11 +573,13 @@ private fun applyHysteriaExtras(
         val portHopObj = extras["port_hopping"] as? JsonObject
         val portHopPorts = portHopObj?.string("ports")
         val portHopInterval = portHopObj?.string("interval")
+        val salamanderUpstreamTag = extras.string("salamander_upstream_tag")
         profile.copy(
             obfsPassword = obfsPassword ?: profile.obfsPassword,
             insecure = insecure ?: profile.insecure,
             portHopPorts = portHopPorts ?: profile.portHopPorts,
             portHopInterval = portHopInterval ?: profile.portHopInterval,
+            salamanderUpstreamTag = salamanderUpstreamTag ?: profile.salamanderUpstreamTag,
         )
     }
 }

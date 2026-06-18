@@ -207,6 +207,15 @@ sealed interface ProxyProfile {
          * follow-up.
          */
         val portHopInterval: String? = null,
+        /**
+         * The upstream Hysteria2 release tag whose Salamander algorithm the
+         * server runs (`ripdpi.hysteria_extras.<tag>.salamander_upstream_tag`,
+         * e.g. `"v2.9.0"`). `null` when the bundle omits it. Salamander can
+         * change between Hysteria2 releases; comparing this against the version
+         * the bundled obfuscator implements lets the client warn the user on a
+         * skew instead of failing the handshake opaquely.
+         */
+        val salamanderUpstreamTag: String? = null,
     ) : ProxyProfile
 
     @Serializable

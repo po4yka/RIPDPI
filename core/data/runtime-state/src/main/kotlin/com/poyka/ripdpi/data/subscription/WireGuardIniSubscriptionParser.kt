@@ -59,6 +59,14 @@ data class AmneziaWgSubscriptionProfile(
     val allowedIps: List<String>,
     val persistentKeepalive: Int?,
     val awg: AmneziaWgParameters,
+    /**
+     * Server-stamped fingerprint of [awg] (`ripdpi.amneziawg[].cohort_fingerprint`),
+     * or `null` when the bundle predates the field. Compare against
+     * [AmneziaWgParameters.cohortFingerprint] to detect a drifted/corrupted
+     * bundle, or cache it across subscription refreshes to detect a cohort
+     * rotation. See [AmneziaWgParameters.cohortFingerprint].
+     */
+    val cohortFingerprint: String? = null,
 )
 
 /**

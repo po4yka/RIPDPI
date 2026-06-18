@@ -79,6 +79,35 @@ data class AmneziaWgParameters(
             jc == null && jmin == null && jmax == null && s1 == null && s2 == null &&
                 h1 == null && h2 == null && h3 == null && h4 == null &&
                 i1 == null && i2 == null && i3 == null && i4 == null && i5 == null
+
+    /**
+     * SHA-256 fingerprint of this resolved obfuscation parameter set, in the
+     * cross-repo form `"sha256:<64-hex>"`. The server stamps the same value into
+     * `ripdpi.amneziawg[].cohort_fingerprint`; recomputing it here lets the
+     * client tell the user "profile outdated, refresh your subscription" when a
+     * cached bundle's params have drifted from the server's current cohort,
+     * instead of letting the AmneziaWG handshake stall silently.
+     *
+     * The algorithm is the cross-language contract pinned by
+     * `contract/cohort-fingerprint.golden.json` (committed identically in this
+     * repo and ripdpi-vpn-deploy) and implemented server-side in
+     * `ripdpi_cohort_fingerprint.py`. Pre-image (UTF-8, no trailing newline):
+     * `jc=<jc>&jmin=<jmin>&...&h4=<h4>&i1=<i1>&...&i5=<i5>`, each value base-10
+     * (jc..h4) or lowercase hex (i1..i5), an absent value rendering as "".
+     * Keep byte-for-byte in sync with the Python implementation.
+     */
+    fun cohortFingerprint(): String {
+        fun v(value: Any?): String = value?.toString() ?: ""
+        val preimage =
+            "jc=${v(jc)}&jmin=${v(jmin)}&jmax=${v(jmax)}&s1=${v(s1)}&s2=${v(s2)}" +
+                "&h1=${v(h1)}&h2=${v(h2)}&h3=${v(h3)}&h4=${v(h4)}" +
+                "&i1=${v(i1)}&i2=${v(i2)}&i3=${v(i3)}&i4=${v(i4)}&i5=${v(i5)}"
+        val digest =
+            java.security.MessageDigest
+                .getInstance("SHA-256")
+                .digest(preimage.toByteArray(Charsets.UTF_8))
+        return "sha256:" + digest.joinToString("") { "%02x".format(it) }
+    }
 }
 
 /** Common shape of a parsed `.conf`: an `[Interface]` plus zero or more `[Peer]`s. */

@@ -1,0 +1,49 @@
+{
+  "_comment": "Representative `ripdpi` object exercising every field including the additive ones (cohort_fingerprint, salamander_upstream_tag, topology, expires). Validated against ripdpi-bundle.schema.json by tests/unit/test_bundle_schema.py and, vendored, by the client RipdpiBundleContractTest. Values are illustrative placeholders; the AWG params and cohort_fingerprint match contract/cohort-fingerprint.golden.json (narrow-junk-sequential).",
+  "schema_version": 1,
+  "amneziawg": [
+    {
+      "tag": "p2-awg-phone",
+      "address": ["10.66.66.2/32"],
+      "dns": ["1.1.1.1", "1.0.0.1"],
+      "mtu": 1420,
+      "jc": 4,
+      "jmin": 10,
+      "jmax": 50,
+      "s1": 0,
+      "s2": 0,
+      "h1": 1,
+      "h2": 2,
+      "h3": 3,
+      "h4": 4,
+      "cohort_fingerprint": "sha256:4edc275de5b78634c718569b8c6ab3ac3d87bc44afa83357b4e165e93dd3914b",
+      "private_key_placeholder": true,
+      "peer": {
+        "public_key": "EXAMPLEserverPublicKeyBase64xxxxxxxxxxxxxxx=",
+        "preshared_key": "EXAMPLEpresharedKeyBase64xxxxxxxxxxxxxxxxxxx=",
+        "endpoint": "203.0.113.7:51820",
+        "allowed_ips": ["0.0.0.0/0", "::/0"],
+        "persistent_keepalive": 25
+      }
+    }
+  ],
+  "hysteria_extras": {
+    "p2-hysteria2-upcloud-prod": {
+      "insecure": false,
+      "obfs": {
+        "type": "salamander",
+        "password": "EXAMPLEsalamanderPassword"
+      },
+      "salamander_upstream_tag": "v2.9.0",
+      "port_hopping": {
+        "ports": "20000:50000",
+        "interval": "30s"
+      }
+    }
+  },
+  "topology": {
+    "split_hop_egress": false,
+    "hysteria_realm": null
+  },
+  "expires": "2026-12-31T23:59:59Z"
+}
