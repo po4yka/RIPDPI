@@ -57,6 +57,8 @@ mod tests {
             health: "running".to_string(),
             active_sessions: 1,
             total_sessions: 2,
+            ws_carrier_handshakes: 3,
+            ws_carrier_handshake_failures: 1,
             listener_address: Some("127.0.0.1:11090".to_string()),
             upstream_address: Some("vpn.example.test:51820".to_string()),
             profile_id: Some("awg-profile".to_string()),
@@ -75,6 +77,10 @@ mod tests {
         assert_eq!(value["state"], serde_json::json!("running"));
         assert_eq!(value["listenerAddress"], serde_json::json!("127.0.0.1:11090"));
         assert_eq!(value["profileId"], serde_json::json!("awg-profile"));
+        // The WG-over-WebSocket carrier counters are surfaced through the same
+        // flattened telemetry channel the Kotlin NativeRuntimeSnapshot consumes.
+        assert_eq!(value["wsCarrierHandshakes"], serde_json::json!(3));
+        assert_eq!(value["wsCarrierHandshakeFailures"], serde_json::json!(1));
     }
 
     #[test]

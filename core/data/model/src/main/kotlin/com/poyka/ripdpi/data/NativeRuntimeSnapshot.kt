@@ -188,6 +188,20 @@ data class NativeRuntimeSnapshot(
      * occurring. Defaults to 0 on payloads from older native cores.
      */
     val wsTunnelFakeSniActive: Long = 0,
+    /**
+     * Cumulative count of successful WG-over-WebSocket carrier handshakes (a
+     * protected carrier socket opened, TLS/WS upgraded, and the first real
+     * WireGuard datagram framed) reported by the AmneziaWG native runtime. Stays
+     * 0 on the plain-UDP path and on payloads from native cores without the
+     * carrier seam. Additive defaulted field — no schema bump.
+     */
+    val wsCarrierHandshakes: Long = 0,
+    /**
+     * Cumulative count of WG-over-WebSocket carrier handshakes that failed before
+     * the first datagram could be framed (protect rejection, connect, TLS, or
+     * WS-upgrade failure). Additive defaulted field.
+     */
+    val wsCarrierHandshakeFailures: Long = 0,
     val tunnelStats: TunnelStats = TunnelStats(),
     val directPathLearningSignals: List<DirectPathLearningSignal> = emptyList(),
     val nativeEvents: List<NativeRuntimeEvent> = emptyList(),

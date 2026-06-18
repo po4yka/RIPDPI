@@ -190,6 +190,17 @@ pub struct AmneziaWgTelemetry {
     pub health: String,
     pub active_sessions: u64,
     pub total_sessions: u64,
+    /// Cumulative count of successful WG-over-WebSocket carrier handshakes (a
+    /// protected carrier socket opened, TLS/WS upgraded, and the first real
+    /// WireGuard datagram framed). Stays `0` on the plain-UDP path. Additive
+    /// telemetry field: serde defaults to `0` so a snapshot from a build
+    /// without the carrier path decodes unchanged, and the JNI snapshot schema
+    /// version does not bump.
+    pub ws_carrier_handshakes: u64,
+    /// Cumulative count of WG-over-WebSocket carrier handshakes that failed
+    /// before the first datagram could be framed (protect rejection, connect,
+    /// TLS, or WS-upgrade failure). Additive; defaults to `0`.
+    pub ws_carrier_handshake_failures: u64,
     pub listener_address: Option<String>,
     pub upstream_address: Option<String>,
     pub profile_id: Option<String>,
@@ -207,6 +218,8 @@ pub struct AmneziaWgRuntime {
     running: AtomicBool,
     active_sessions: AtomicU64,
     total_sessions: AtomicU64,
+    ws_carrier_handshakes: AtomicU64,
+    ws_carrier_handshake_failures: AtomicU64,
     listener_address: Mutex<Option<String>>,
     last_error: Mutex<Option<String>>,
     readiness_observer: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
@@ -225,6 +238,8 @@ impl AmneziaWgRuntime {
             running: AtomicBool::new(false),
             active_sessions: AtomicU64::new(0),
             total_sessions: AtomicU64::new(0),
+            ws_carrier_handshakes: AtomicU64::new(0),
+            ws_carrier_handshake_failures: AtomicU64::new(0),
             listener_address: Mutex::new(None),
             last_error: Mutex::new(None),
             readiness_observer: Mutex::new(None),
@@ -234,6 +249,28 @@ impl AmneziaWgRuntime {
     /// Signal a blocked [`AmneziaWgRuntime::run`] to unwind. Idempotent.
     pub fn stop(&self) {
         self.stop_requested.store(true, Ordering::SeqCst);
+    }
+
+    /// Record one successful WG-over-WebSocket carrier handshake.
+    ///
+    /// The WG-over-WSS carrier-select path (an additive transport seam tracked
+    /// as a follow-up B1 slice) calls this once it has opened a protected
+    /// carrier socket, completed the TLS/WS upgrade, and framed the first real
+    /// WireGuard datagram. The counter is surfaced through [`Self::telemetry`]
+    /// so the carrier path is observable even before any UI knob exists. The
+    /// plain-UDP path never calls it, leaving the counter at `0`.
+    ///
+    /// Cancel-safety: a single relaxed-style atomic add; no `.await`.
+    pub fn record_ws_carrier_handshake(&self) {
+        self.ws_carrier_handshakes.fetch_add(1, Ordering::SeqCst);
+    }
+
+    /// Record one failed WG-over-WebSocket carrier handshake (protect
+    /// rejection, connect/TLS/WS-upgrade failure before the first datagram).
+    ///
+    /// Cancel-safety: a single relaxed-style atomic add; no `.await`.
+    pub fn record_ws_carrier_handshake_failure(&self) {
+        self.ws_carrier_handshake_failures.fetch_add(1, Ordering::SeqCst);
     }
 
     /// Install a readiness observer fired once when the SOCKS listener is
@@ -265,6 +302,8 @@ impl AmneziaWgRuntime {
             health: state.to_string(),
             active_sessions: self.active_sessions.load(Ordering::SeqCst),
             total_sessions: self.total_sessions.load(Ordering::SeqCst),
+            ws_carrier_handshakes: self.ws_carrier_handshakes.load(Ordering::SeqCst),
+            ws_carrier_handshake_failures: self.ws_carrier_handshake_failures.load(Ordering::SeqCst),
             listener_address: self.listener_address.lock().expect("listener address").clone(),
             upstream_address: Some(format!("{}:{}", self.config.endpoint_host, self.config.endpoint_port)),
             profile_id: Some(self.config.profile_id.clone()),
@@ -505,6 +544,25 @@ mod tests {
         assert_eq!(t.state, "idle");
         assert_eq!(t.profile_id.as_deref(), Some("awg-1"));
         assert_eq!(t.upstream_address.as_deref(), Some("vpn.example.org:51820"));
+        // Carrier counters start at zero on a runtime that has never opened a
+        // WG-over-WebSocket carrier (the plain-UDP / idle path).
+        assert_eq!(t.ws_carrier_handshakes, 0);
+        assert_eq!(t.ws_carrier_handshake_failures, 0);
+    }
+
+    #[test]
+    fn carrier_handshake_counters_increment_and_surface_in_telemetry() {
+        let rt = AmneziaWgRuntime::new(AmneziaWgProfileConfig::default());
+        assert_eq!(rt.telemetry().ws_carrier_handshakes, 0);
+        assert_eq!(rt.telemetry().ws_carrier_handshake_failures, 0);
+
+        rt.record_ws_carrier_handshake();
+        rt.record_ws_carrier_handshake();
+        rt.record_ws_carrier_handshake_failure();
+
+        let t = rt.telemetry();
+        assert_eq!(t.ws_carrier_handshakes, 2, "two successful carrier handshakes recorded");
+        assert_eq!(t.ws_carrier_handshake_failures, 1, "one failed carrier handshake recorded");
     }
 
     #[test]

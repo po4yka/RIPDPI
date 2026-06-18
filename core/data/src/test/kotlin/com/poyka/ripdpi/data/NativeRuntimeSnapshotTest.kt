@@ -254,6 +254,35 @@ class NativeRuntimeSnapshotTest {
     }
 
     @Test
+    fun `ws carrier handshake counters decode from a native telemetry payload`() {
+        // The AmneziaWG native runtime flattens wsCarrierHandshakes /
+        // wsCarrierHandshakeFailures into its snapshot; this is the Kotlin
+        // telemetry-channel surface for those counters.
+        val json =
+            """
+            { "source": "amneziawg", "state": "running",
+              "wsCarrierHandshakes": 4, "wsCarrierHandshakeFailures": 1 }
+            """.trimIndent()
+
+        val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
+
+        assertEquals(4L, decoded.wsCarrierHandshakes)
+        assertEquals(1L, decoded.wsCarrierHandshakeFailures)
+    }
+
+    @Test
+    fun `ws carrier handshake counters default to zero when absent`() {
+        // A native core without the carrier seam omits the keys; the defaulted
+        // Kotlin fields keep the snapshot decodable at 0.
+        val json = """{ "source": "amneziawg", "state": "running" }"""
+
+        val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
+
+        assertEquals(0L, decoded.wsCarrierHandshakes)
+        assertEquals(0L, decoded.wsCarrierHandshakeFailures)
+    }
+
+    @Test
     fun `default snapshot encodes schemaVersion as 1`() {
         val encoded =
             snapshotJson.encodeToString(

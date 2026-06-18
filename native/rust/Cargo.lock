@@ -5320,6 +5320,7 @@ dependencies = [
  "log",
  "ripdpi-native-protect",
  "ripdpi-warp-core",
+ "ripdpi-wireguard-ws",
  "serde",
  "serde_json",
  "tokio",

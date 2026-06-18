@@ -16,6 +16,15 @@ jni = { workspace = true }
 log = { workspace = true }
 ripdpi-native-protect = { workspace = true }
 ripdpi-warp-core = { workspace = true }
+# WG-over-WebSocket carrier: this adapter owns the production
+# `CarrierSocketProtector` seam that hands `connect_protected_carrier` the
+# JNI-backed `VpnService.protect` shim (see `carrier_protect`).
+ripdpi-wireguard-ws = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["net", "rt", "rt-multi-thread", "time"] }
+
+[dev-dependencies]
+# A loopback listener + atomic-recording fake exercises the protect-before-use
+# and fail-closed contract of the production carrier protector seam.
+tokio = { workspace = true, features = ["macros", "net", "rt", "sync"] }

@@ -35,6 +35,7 @@
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 #![warn(clippy::missing_safety_doc)]
 
+mod carrier_protect;
 mod lifecycle;
 mod readiness;
 mod registry;
