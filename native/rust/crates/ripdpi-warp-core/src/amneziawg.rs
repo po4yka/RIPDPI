@@ -24,7 +24,7 @@
 // # License attribution
 //
 // `boringtun` is BSD-3-Clause; the AmneziaWG protocol delta ported from
-// `amnezia-vpn/amneziawg-go` (pin `v0.2.16`) is MIT. This file contains
+// `amnezia-vpn/amneziawg-go` (pin `v0.2.18`) is MIT. This file contains
 // only the AWG obfuscation delta (junk-packet sequencing, H1-H4 magic
 // header substitution, S1-S4 size padding, AWG 2.0 I1-I5 special junk
 // intervals). It does not vendor any Noise primitive, so no BSD-3 source
@@ -34,7 +34,7 @@
 //
 // # Reference
 //
-// Semantics mirror `amnezia-vpn/amneziawg-go` v0.2.16:
+// Semantics mirror `amnezia-vpn/amneziawg-go` v0.2.18:
 //   * `device/peer.go`, `device/send.go` -- `junkPacketCount` (Jc) junk
 //     packets, each sized uniformly in `[Jmin, Jmax]`, sent before the
 //     real initiation.
@@ -45,6 +45,11 @@
 //     payload and the MAC.
 //   * `device/device.go` -- AWG 2.0 `I1..I5` "special junk" intervals:
 //     fixed hex-encoded junk frames injected at the start of the flow.
+//
+// Note: v0.2.18 fixed the pre-v0.2.18 bug where keepalive packets bypassed
+// `S4` padding. RIPDPI was never affected -- its uniform-codec design pads
+// *every* `WriteToNetwork` frame (keepalives included), so the unpadded
+// keepalive could not occur here regardless of the upstream pin.
 
 use crate::config::WarpAmneziaConfig;
 
@@ -262,7 +267,7 @@ impl AwgParams {
     /// Build the AWG 2.0 special-junk (`I1..I5`) frames in slot order.
     /// Unset slots are skipped. These are fixed, hex-decoded byte strings --
     /// they are *not* randomized -- so the obfuscator emits them verbatim at
-    /// the start of the flow, matching `amneziawg-go` v0.2.16.
+    /// the start of the flow, matching `amneziawg-go` v0.2.18.
     pub(crate) fn special_junk_packets(&self) -> Vec<Vec<u8>> {
         self.special_junk.iter().filter(|frame| !frame.is_empty()).cloned().collect()
     }
