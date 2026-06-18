@@ -2842,6 +2842,7 @@ Quelle: %2$s</string>
     <string name="awg_connect_action">Verbinden</string>
     <string name="awg_connect_ready_hint">Bereit zum Verbinden.</string>
     <string name="awg_connect_incomplete_hint">Gib Server, Port, privaten Schlüssel, öffentlichen Peer-Schlüssel und Adresse ein, um zu verbinden.</string>
+    <string name="awg_connect_error">Verbindung fehlgeschlagen. Prüfe die Serverdaten und versuche es erneut.</string>
 
     <!-- VMess profile editor (legacy outbound) -->
 

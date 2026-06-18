@@ -90,29 +90,40 @@ internal fun AmneziaWgProfileScreen(
         InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
         PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
         ObfuscationSection(uiState, onFieldChanged, onCohortSelected, onPasteConf)
-        ConnectSection(canActivate = uiState.canActivate, onConnect = onConnect)
+        ConnectSection(
+            canActivate = uiState.canActivate,
+            activationStatus = uiState.activationStatus,
+            onConnect = onConnect,
+        )
     }
 }
 
 @Composable
 private fun ConnectSection(
     canActivate: Boolean,
+    activationStatus: AwgActivationStatus,
     onConnect: () -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
+    val failed = activationStatus == AwgActivationStatus.Failed
     RipDpiCard {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             Text(
                 text =
                     stringResource(
-                        if (canActivate) {
-                            R.string.awg_connect_ready_hint
-                        } else {
-                            R.string.awg_connect_incomplete_hint
+                        when {
+                            failed -> R.string.awg_connect_error
+                            canActivate -> R.string.awg_connect_ready_hint
+                            else -> R.string.awg_connect_incomplete_hint
                         },
                     ),
                 style = RipDpiThemeTokens.type.caption,
-                color = RipDpiThemeTokens.colors.mutedForeground,
+                color =
+                    if (failed) {
+                        RipDpiThemeTokens.colors.destructive
+                    } else {
+                        RipDpiThemeTokens.colors.mutedForeground
+                    },
             )
             RipDpiButton(
                 text = stringResource(R.string.awg_connect_action),
@@ -122,7 +133,7 @@ private fun ConnectSection(
                         .fillMaxWidth()
                         .ripDpiTestTag(RipDpiTestTags.AwgConnectAction),
                 variant = RipDpiButtonVariant.Primary,
-                enabled = canActivate,
+                enabled = canActivate && activationStatus != AwgActivationStatus.Connecting,
                 leadingIcon = RipDpiIcons.Vpn,
             )
         }

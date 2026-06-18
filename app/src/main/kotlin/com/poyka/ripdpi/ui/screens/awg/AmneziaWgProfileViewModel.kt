@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +28,17 @@ data class AwgCohortOption(
     val id: String,
     val displayNameKey: String,
 )
+
+/**
+ * Lifecycle of a Connect tap, surfaced so the screen can give feedback.
+ *
+ * [Idle] is the resting state (no attempt, or a prior attempt cleared by an edit).
+ * [Connecting] spans the in-flight activation. [Failed] means the service layer could
+ * not bring the tunnel to readiness — the screen shows an error caption. There is no
+ * `Connected` state: a running tunnel is owned by the foreground service and observed
+ * via the runtime telemetry channel, not this editor's transient state.
+ */
+enum class AwgActivationStatus { Idle, Connecting, Failed }
 
 /**
  * UI state for the AmneziaWG profile editor.
@@ -53,6 +65,11 @@ data class AmneziaWgProfileUiState(
      * via [AmneziaWgProfileViewModel.onActivationConsumed] after dispatching.
      */
     val pendingActivation: AwgActivationRequest? = null,
+    /**
+     * Connect-attempt lifecycle for screen feedback. [AwgActivationStatus.Failed] is set
+     * when the service layer cannot reach readiness; the next edit or Connect tap clears it.
+     */
+    val activationStatus: AwgActivationStatus = AwgActivationStatus.Idle,
 )
 
 /**
@@ -84,11 +101,24 @@ class AmneziaWgProfileViewModel
             )
         val uiState: StateFlow<AmneziaWgProfileUiState> = _uiState.asStateFlow()
 
-        /** Replaces the editor and recomputes the derived [AmneziaWgProfileUiState.canActivate]. */
+        /**
+         * Replaces the editor, recomputes the derived [AmneziaWgProfileUiState.canActivate],
+         * and clears a stale [AwgActivationStatus.Failed] (the user is changing input, so the
+         * previous failure no longer describes the current form).
+         */
         private inline fun mutateEditor(crossinline transform: (AmneziaWgEditorState) -> AmneziaWgEditorState) {
             _uiState.update {
                 val nextEditor = transform(it.editor)
-                it.copy(editor = nextEditor, canActivate = nextEditor.isActivatable())
+                it.copy(
+                    editor = nextEditor,
+                    canActivate = nextEditor.isActivatable(),
+                    activationStatus =
+                        if (it.activationStatus == AwgActivationStatus.Failed) {
+                            AwgActivationStatus.Idle
+                        } else {
+                            it.activationStatus
+                        },
+                )
             }
         }
 
@@ -132,16 +162,37 @@ class AmneziaWgProfileViewModel
          * persistent-keepalive plumbing and is also surfaced on
          * [AmneziaWgProfileUiState.pendingActivation] so the screen can react to the
          * dispatch; the screen clears it via [onActivationConsumed].
+         *
+         * The activation runs on [viewModelScope]; the call is wrapped so a startup failure
+         * surfaces as [AwgActivationStatus.Failed] instead of being silently dropped.
          */
+        @Suppress("TooGenericExceptionCaught")
         fun onConnect() {
             val editor = _uiState.value.editor
             if (!editor.isActivatable()) return
             // Mint the request once (a single fresh profile id), surface it for the
             // screen, then dispatch the real activation to the service layer.
             val request = editor.toActivationRequest(profileId = generateProfileId())
-            _uiState.update { it.copy(pendingActivation = request) }
+            _uiState.update {
+                it.copy(pendingActivation = request, activationStatus = AwgActivationStatus.Connecting)
+            }
             viewModelScope.launch {
-                amneziaWgActivator.activate(request)
+                try {
+                    amneziaWgActivator.activate(request)
+                    _uiState.update { it.copy(activationStatus = AwgActivationStatus.Idle) }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (ignored: Exception) {
+                    // The service signals startup failure with SupervisorStartupFailureException,
+                    // which is `internal` to :core:service and so cannot be named from :app; the
+                    // resolver can also fail closed with IllegalArgumentException. Catch broadly to
+                    // convert ANY failure into the user-visible Failed state, rethrowing
+                    // CancellationException above to preserve structured concurrency. The exception
+                    // detail is intentionally not propagated or logged -- it may carry endpoint or
+                    // config material that must not reach logs (network-fingerprint-privacy.md); the
+                    // Failed status is the user-facing feedback.
+                    _uiState.update { it.copy(activationStatus = AwgActivationStatus.Failed) }
+                }
             }
         }
 

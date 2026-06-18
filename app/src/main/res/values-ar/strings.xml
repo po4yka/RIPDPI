@@ -2788,6 +2788,7 @@ fakeddisorder endhost</string>
     <string name="awg_connect_action">اتصال</string>
     <string name="awg_connect_ready_hint">جاهز للاتصال.</string>
     <string name="awg_connect_incomplete_hint">أدخل الخادم والمنفذ والمفتاح الخاص والمفتاح العام للنظير والعنوان للاتصال.</string>
+    <string name="awg_connect_error">تعذّر الاتصال. تحقّق من بيانات الخادم وحاول مرة أخرى.</string>
     <string name="widget_description_connect_toggle">زر التبديل للاتصال</string>
     <string name="widget_description_status">حالة VPN</string>
     <string name="widget_description_telemetry">القياس عن بُعد</string>

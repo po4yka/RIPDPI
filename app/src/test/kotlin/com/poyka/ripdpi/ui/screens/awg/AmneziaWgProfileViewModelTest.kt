@@ -298,6 +298,34 @@ class AmneziaWgProfileViewModelTest {
             assertNull(viewModel.uiState.value.pendingActivation)
         }
 
+    @Test
+    fun `a failed activation surfaces an error status instead of being dropped`() =
+        runTest {
+            activator.failure = IllegalStateException("runtime failed to reach readiness")
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+
+            viewModel.onConnect()
+            advanceUntilIdle()
+
+            assertEquals(AwgActivationStatus.Failed, viewModel.uiState.value.activationStatus)
+        }
+
+    @Test
+    fun `editing after a failed activation clears the error status`() =
+        runTest {
+            activator.failure = IllegalStateException("runtime failed to reach readiness")
+            val viewModel = viewModel()
+            fillRequiredIdentity(viewModel)
+            viewModel.onConnect()
+            advanceUntilIdle()
+            assertEquals(AwgActivationStatus.Failed, viewModel.uiState.value.activationStatus)
+
+            viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn2.example.com")
+
+            assertEquals(AwgActivationStatus.Idle, viewModel.uiState.value.activationStatus)
+        }
+
     private fun fillRequiredIdentity(viewModel: AmneziaWgProfileViewModel) {
         viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn.example.com")
         viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "51820")
@@ -319,7 +347,11 @@ private class RecordingStandaloneAmneziaWgActivator : StandaloneAmneziaWgActivat
     var lastActivated: AwgActivationRequest? = null
         private set
 
+    /** When non-null, [activate] throws it (simulating a startup failure from the service). */
+    var failure: Throwable? = null
+
     override suspend fun activate(request: AwgActivationRequest) {
+        failure?.let { throw it }
         lastActivated = request
     }
 

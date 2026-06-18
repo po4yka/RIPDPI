@@ -281,6 +281,7 @@ app:awg_cohort_custom
 app:awg_cohort_locked_hint
 app:awg_cohort_picker_label
 app:awg_connect_action
+app:awg_connect_error
 app:awg_connect_incomplete_hint
 app:awg_connect_ready_hint
 app:awg_editor_title

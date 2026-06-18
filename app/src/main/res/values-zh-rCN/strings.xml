@@ -2838,6 +2838,7 @@ fake_burst 3</string>
     <string name="awg_connect_action">连接</string>
     <string name="awg_connect_ready_hint">已准备好连接。</string>
     <string name="awg_connect_incomplete_hint">填写服务器、端口、私钥、对端公钥和地址以进行连接。</string>
+    <string name="awg_connect_error">连接失败。请检查服务器信息后重试。</string>
 
     <!-- VMess profile editor (legacy outbound) -->
 
