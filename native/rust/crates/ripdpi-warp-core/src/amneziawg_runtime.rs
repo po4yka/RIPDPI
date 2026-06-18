@@ -94,9 +94,10 @@ pub struct AmneziaWgProfileConfig {
 }
 
 /// AmneziaWG obfuscation knobs as carried by the `AmneziaWgProfileScreen`
-/// form. Mirrors the Kotlin `AmneziaWgParameters` field set (note: the editor
-/// exposes only `S1`/`S2`; `S3`/`S4` are AWG-2.x cookie/transport padding and
-/// are held at `0` here).
+/// form. Mirrors the Kotlin `AmneziaWgParameters` field set, including the
+/// AWG-2.x `S3`/`S4` cookie/transport padding sizes (additive serde defaults of
+/// `0`, so a config that omits them deserializes cleanly and the native schema
+/// does not bump).
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AmneziaWgObfuscation {
@@ -105,6 +106,10 @@ pub struct AmneziaWgObfuscation {
     pub jmax: i32,
     pub s1: i32,
     pub s2: i32,
+    #[serde(default)]
+    pub s3: i32,
+    #[serde(default)]
+    pub s4: i32,
     pub h1: i64,
     pub h2: i64,
     pub h3: i64,
@@ -134,6 +139,8 @@ impl AmneziaWgObfuscation {
         self.jc != 0
             || self.s1 != 0
             || self.s2 != 0
+            || self.s3 != 0
+            || self.s4 != 0
             || self.h1 != 0
             || self.h2 != 0
             || self.h3 != 0
@@ -146,9 +153,10 @@ impl AmneziaWgObfuscation {
     }
 
     /// Project onto the data-plane [`WarpAmneziaConfig`] consumed by the AWG
-    /// wire codec. `S3`/`S4` are always `0` (the editor does not expose them).
-    /// The AWG 2.0 `I1..I5` special-junk frames are carried out-of-band via the
-    /// tunnel's `special_junk_hex` parameter (sourced from this profile's
+    /// wire codec. The full `S1..S4` junk-size knobs carry through (the 4-slot
+    /// `AwgWireCodec` raw-padding builder honors `s3`/`s4`). The AWG 2.0
+    /// `I1..I5` special-junk frames are carried out-of-band via the tunnel's
+    /// `special_junk_hex` parameter (sourced from this profile's
     /// `AmneziaWgObfuscation` `i1..i5`), so they default to empty here.
     fn to_warp_amnezia(&self) -> WarpAmneziaConfig {
         WarpAmneziaConfig {
@@ -162,8 +170,8 @@ impl AmneziaWgObfuscation {
             h4: self.h4,
             s1: self.s1,
             s2: self.s2,
-            s3: 0,
-            s4: 0,
+            s3: self.s3,
+            s4: self.s4,
             ..Default::default()
         }
     }
@@ -442,16 +450,26 @@ mod tests {
         assert!(obf(0, 0, 0x10_00_00_01).is_active());
         let with_i = AmneziaWgObfuscation { i1: "deadbeef".to_string(), ..Default::default() };
         assert!(with_i.is_active());
+        // s3/s4 are real junk-size knobs (the codec's 4-slot raw-padding builder
+        // honors them), so an s3/s4-only config must also count as active --
+        // otherwise to_warp_amnezia() would disable the codec and silently drop
+        // the padding.
+        let with_s3 = AmneziaWgObfuscation { s3: 16, ..Default::default() };
+        assert!(with_s3.is_active());
+        let with_s4 = AmneziaWgObfuscation { s4: 20, ..Default::default() };
+        assert!(with_s4.is_active());
     }
 
     #[test]
-    fn to_warp_amnezia_maps_knobs_and_zeroes_s3_s4() {
+    fn to_warp_amnezia_maps_knobs_including_s3_s4() {
         let o = AmneziaWgObfuscation {
             jc: 4,
             jmin: 10,
             jmax: 50,
             s1: 8,
             s2: 12,
+            s3: 16,
+            s4: 20,
             h1: 1,
             h2: 2,
             h3: 3,
@@ -461,7 +479,7 @@ mod tests {
         let w = o.to_warp_amnezia();
         assert!(w.enabled);
         assert_eq!((w.jc, w.jmin, w.jmax), (4, 10, 50));
-        assert_eq!((w.s1, w.s2, w.s3, w.s4), (8, 12, 0, 0));
+        assert_eq!((w.s1, w.s2, w.s3, w.s4), (8, 12, 16, 20));
         assert_eq!((w.h1, w.h2, w.h3, w.h4), (1, 2, 3, 4));
     }
 
@@ -503,6 +521,7 @@ mod tests {
             "mtu": 1420,
             "persistentKeepalive": 25,
             "amnezia": { "jc": 4, "jmin": 10, "jmax": 50, "s1": 8, "s2": 0,
+                         "s3": 16, "s4": 20,
                          "h1": 1, "h2": 2, "h3": 3, "h4": 4, "i1": "dead" },
             "localSocksHost": "127.0.0.1",
             "localSocksPort": 11090
@@ -512,6 +531,7 @@ mod tests {
         assert_eq!(cfg.endpoint_port, 51820);
         assert_eq!(cfg.persistent_keepalive, 25);
         assert_eq!(cfg.amnezia.jc, 4);
+        assert_eq!((cfg.amnezia.s3, cfg.amnezia.s4), (16, 20));
         assert_eq!(cfg.amnezia.i1, "dead");
         assert!(cfg.amnezia.is_active());
         // Re-serialize and re-parse to confirm camelCase symmetry.

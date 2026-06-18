@@ -25,9 +25,10 @@ internal const val defaultAmneziaWgReadyTimeoutMs = 5_000L
  * AmneziaWG obfuscation parameters. Field names and types mirror the Rust
  * `AmneziaWgProfileConfig::amnezia` object (serde camelCase) deserialized by
  * `ripdpi-amneziawg-android`. `jc`/`jmin`/`jmax` size the junk-packet padding,
- * `s1`/`s2` the handshake-init/response junk prefixes, `h1`..`h4` the magic
- * header constants (64-bit, hence [Long]), and `i1`..`i5` the optional packet
- * templates (empty string = unused).
+ * `s1`..`s4` the per-message-type junk-size knobs (`s1`/`s2` the
+ * handshake-init/response prefixes, `s3`/`s4` the AWG-2.x cookie/transport
+ * padding), `h1`..`h4` the magic header constants (64-bit, hence [Long]), and
+ * `i1`..`i5` the optional packet templates (empty string = unused).
  */
 @Serializable
 data class RipDpiAmneziaWgObfuscationConfig(
@@ -36,6 +37,8 @@ data class RipDpiAmneziaWgObfuscationConfig(
     val jmax: Int = 0,
     val s1: Int = 0,
     val s2: Int = 0,
+    val s3: Int = 0,
+    val s4: Int = 0,
     val h1: Long = 0L,
     val h2: Long = 0L,
     val h3: Long = 0L,

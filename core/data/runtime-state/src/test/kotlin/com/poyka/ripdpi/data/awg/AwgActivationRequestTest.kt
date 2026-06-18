@@ -63,6 +63,8 @@ class AwgActivationRequestTest {
         assertEquals(70, obf.jmax)
         assertEquals(50, obf.s1)
         assertEquals(100, obf.s2)
+        assertEquals(7, obf.s3)
+        assertEquals(9, obf.s4)
         assertEquals(1_000_000_001L, obf.h1)
         assertEquals(1_000_000_004L, obf.h4)
         assertEquals("deadbeef", obf.i1)

@@ -173,3 +173,58 @@ fn probe_result_from_endpoint(
         rtt_ms: elapsed.as_millis().max(1) as u64,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::WarpAmneziaConfig;
+
+    // A valid 32-byte base64 key (all zero bytes) for the keys that must decode
+    // so the probe reaches the preshared-key decode and fails there, not earlier.
+    const VALID_KEY_B64: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+    fn request_with_psk(preshared_key: &str) -> WarpEndpointProbeRequest {
+        let amnezia = WarpAmneziaConfig { preshared_key: preshared_key.to_owned(), ..Default::default() };
+        WarpEndpointProbeRequest {
+            // Literal IPv4 so resolution is synchronous and offline; the probe
+            // fails at the PSK decode before any socket is bound.
+            endpoint: ResolvedWarpRuntimeEndpoint {
+                host: "vpn.example.org".to_owned(),
+                ipv4: Some("203.0.113.7".to_owned()),
+                ipv6: None,
+                port: 51820,
+                source: "test".to_owned(),
+            },
+            private_key: VALID_KEY_B64.to_owned(),
+            peer_public_key: VALID_KEY_B64.to_owned(),
+            client_id: None,
+            amnezia,
+            timeout_ms: 250,
+        }
+    }
+
+    fn probe(preshared_key: &str) -> Result<WarpEndpointProbeResult, WarpProbeError> {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(probe_endpoint(request_with_psk(preshared_key)))
+    }
+
+    #[test]
+    fn probe_rejects_non_base64_preshared_key() {
+        match probe("not valid base64!!!") {
+            Err(WarpProbeError::InvalidKey("preshared key")) => {}
+            other => panic!("malformed PSK must fail closed with InvalidKey(\"preshared key\"), got: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn probe_rejects_wrong_length_preshared_key() {
+        // Decodes cleanly from base64 but yields fewer than 32 bytes.
+        match probe("AAAA") {
+            Err(WarpProbeError::InvalidKey("preshared key")) => {}
+            other => panic!("short PSK must fail closed with InvalidKey(\"preshared key\"), got: {other:?}"),
+        }
+    }
+}

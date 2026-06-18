@@ -43,10 +43,11 @@ data class AwgActivationRequest(
 /**
  * AmneziaWG obfuscation knobs in activation-request form. Mirrors the
  * `RipDpiAmneziaWgObfuscationConfig` field set: `jc`/`jmin`/`jmax` size the junk
- * padding, `s1`/`s2` the handshake-init/response junk prefixes, `h1`..`h4` the
- * 64-bit magic headers, and `i1`..`i5` the optional AWG-2.0 special-junk
- * templates (empty = unused). `s3`/`s4` are AWG-2.x cookie/transport padding the
- * editor does not surface and are held at `0`.
+ * padding, `s1`..`s4` the per-message-type junk-size knobs (`s1`/`s2` the
+ * handshake-init/response prefixes, `s3`/`s4` the AWG-2.x cookie/transport
+ * padding), `h1`..`h4` the 64-bit magic headers, and `i1`..`i5` the optional
+ * AWG-2.0 special-junk templates (empty = unused). All knobs carry through to
+ * the native runtime; the additive `s3`/`s4` default to `0`.
  */
 @Serializable
 data class AwgActivationObfuscation(
@@ -55,6 +56,8 @@ data class AwgActivationObfuscation(
     val jmax: Int = 0,
     val s1: Int = 0,
     val s2: Int = 0,
+    val s3: Int = 0,
+    val s4: Int = 0,
     val h1: Long = 0L,
     val h2: Long = 0L,
     val h3: Long = 0L,
@@ -71,12 +74,11 @@ data class AwgActivationObfuscation(
  * transport fields the form does not carry as first-class columns
  * ([interfaceAddressV4], [mtu], [persistentKeepalive]).
  *
- * The obfuscation group (including the AWG-2.0 `i1`..`i5` payloads) and the
- * identity + PSK fields come straight from [form]; `s3`/`s4` map through because
- * the form already carries them even though the native obfuscation block treats
- * them as held-at-zero on the standalone path. A blank [interfaceAddressV4]
- * yields a request the service layer is expected to reject -- the mapper does
- * not invent a default address.
+ * The obfuscation group (including the AWG-2.0 `i1`..`i5` payloads and the full
+ * `s1`..`s4` junk-size knobs) and the identity + PSK fields come straight from
+ * [form]; `s3`/`s4` carry through to the native runtime alongside `s1`/`s2`. A
+ * blank [interfaceAddressV4] yields a request the service layer is expected to
+ * reject -- the mapper does not invent a default address.
  */
 fun AwgProfileForm.toActivationRequest(
     profileId: String,
@@ -101,6 +103,8 @@ fun AwgProfileForm.toActivationRequest(
                 jmax = jmax,
                 s1 = s1,
                 s2 = s2,
+                s3 = s3,
+                s4 = s4,
                 h1 = h1,
                 h2 = h2,
                 h3 = h3,

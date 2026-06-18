@@ -236,3 +236,58 @@ impl WireGuardTunnel {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::net::{Ipv4Addr, SocketAddr};
+
+    use super::*;
+
+    // A valid 32-byte base64 key (all zero bytes). Used for the keys that must
+    // decode successfully so the test isolates the *preshared* key failure.
+    const VALID_KEY_B64: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+    // Non-loopback, never connected: a non-empty malformed PSK is rejected
+    // before any socket is bound, so this address is never touched.
+    fn dummy_endpoint() -> SocketAddr {
+        SocketAddr::from((Ipv4Addr::new(203, 0, 113, 7), 51820))
+    }
+
+    /// Drive [`WireGuardTunnel::new`] with valid identity keys and the given
+    /// PSK, returning the construction error string (or `None` on success). The
+    /// AmneziaWG config borrow must outlive the `block_on`, so it is held in a
+    /// local here rather than handed back from a `'static` helper.
+    fn build_error(preshared_key: Option<&str>) -> Option<String> {
+        let amnezia = WarpAmneziaConfig::default();
+        let params = WireGuardTunnelParams {
+            private_key: VALID_KEY_B64,
+            peer_public_key: VALID_KEY_B64,
+            preshared_key,
+            persistent_keepalive: None,
+            endpoint: dummy_endpoint(),
+            reserved: [0u8; 3],
+            source_peer_ip: IpAddr::V4(Ipv4Addr::new(10, 8, 0, 2)),
+            amnezia_cfg: &amnezia,
+            special_junk_hex: ["", "", "", "", ""],
+        };
+        let result = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(WireGuardTunnel::new(params, &WarpPlatform::default()));
+        result.err().map(|error| error.to_string())
+    }
+
+    #[test]
+    fn new_rejects_non_base64_preshared_key() {
+        let error = build_error(Some("not valid base64!!!")).expect("malformed PSK must fail closed");
+        assert!(error.contains("invalid WireGuard preshared key"), "error must be the PSK context, got: {error}");
+    }
+
+    #[test]
+    fn new_rejects_wrong_length_preshared_key() {
+        // Decodes cleanly from base64 but yields fewer than 32 bytes.
+        let error = build_error(Some("AAAA")).expect("short PSK must fail closed");
+        assert!(error.contains("invalid WireGuard preshared key"), "error must be the PSK context, got: {error}");
+    }
+}
