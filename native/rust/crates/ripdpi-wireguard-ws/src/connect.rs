@@ -37,13 +37,29 @@ use std::os::fd::{AsRawFd, RawFd};
 
 use tokio::net::{TcpSocket, TcpStream};
 
+mod private {
+    use std::io;
+    use std::os::fd::RawFd;
+
+    /// Sealing supertrait. Keeps [`CarrierSocketProtector`](super::CarrierSocketProtector)
+    /// implementable only inside this crate — via the blanket `Fn` impl — so a
+    /// blanket impl on a public trait is not a downstream semver hazard.
+    pub trait Sealed {}
+
+    impl<F> Sealed for F where F: Fn(RawFd) -> io::Result<()> + Send + Sync {}
+}
+
 /// Protects an outbound socket fd against the VPN TUN route.
 ///
 /// Mirrors `ripdpi-warp-core::platform::WarpSocketProtector`: the production
 /// implementation calls Kotlin's `VpnService.protect(int)` through the JNI
 /// bridge owned by a `*-android` adapter; host tests supply a fake. The blanket
 /// impl below lets any `Fn(RawFd) -> io::Result<()>` be used directly.
-pub trait CarrierSocketProtector: Send + Sync {
+///
+/// This trait is **sealed**: it is implemented solely by that blanket impl and
+/// cannot be implemented outside this crate, so the blanket impl carries no
+/// semver hazard for downstream consumers.
+pub trait CarrierSocketProtector: private::Sealed + Send + Sync {
     /// Protect `fd` so its traffic bypasses the VPN's own TUN route.
     ///
     /// Returns `Err` to fail the connection closed: the caller drops the socket
