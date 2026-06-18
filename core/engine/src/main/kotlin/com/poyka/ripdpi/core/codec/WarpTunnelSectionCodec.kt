@@ -34,6 +34,12 @@ internal data class NativeWarpAmneziaConfig(
     val i3: String = "",
     val i4: String = "",
     val i5: String = "",
+    // Base64/hex 32-byte WireGuard preshared key ([Peer] PresharedKey); empty =
+    // none. WARP itself uses no PSK; a generic AmneziaWG peer may.
+    val presharedKey: String = "",
+    // [Peer] PersistentKeepalive in seconds; 0 disables keepalive. Defaults to
+    // WARP's historical 25s pin.
+    val persistentKeepalive: Int = 25,
 )
 
 @Serializable
@@ -99,6 +105,8 @@ internal object WarpSectionCodec {
                     i3 = value.amnezia.i3,
                     i4 = value.amnezia.i4,
                     i5 = value.amnezia.i5,
+                    presharedKey = value.amnezia.presharedKey,
+                    persistentKeepalive = value.amnezia.persistentKeepalive,
                 ),
             localSocksHost = value.localSocksHost,
             localSocksPort = value.localSocksPort,
@@ -141,6 +149,8 @@ internal object WarpSectionCodec {
                     i3 = value.amnezia.i3,
                     i4 = value.amnezia.i4,
                     i5 = value.amnezia.i5,
+                    presharedKey = value.amnezia.presharedKey,
+                    persistentKeepalive = value.amnezia.persistentKeepalive,
                 ),
             localSocksHost = value.localSocksHost,
             localSocksPort = value.localSocksPort,

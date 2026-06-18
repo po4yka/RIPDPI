@@ -321,6 +321,12 @@ data class RipDpiWarpAmneziaConfig(
     val i3: String = "",
     val i4: String = "",
     val i5: String = "",
+    // Base64/hex 32-byte WireGuard preshared key ([Peer] PresharedKey); empty =
+    // none. WARP itself uses no PSK; a generic AmneziaWG peer may.
+    val presharedKey: String = "",
+    // [Peer] PersistentKeepalive in seconds; 0 disables keepalive. Defaults to
+    // WARP's historical 25s pin.
+    val persistentKeepalive: Int = 25,
 )
 
 @Serializable

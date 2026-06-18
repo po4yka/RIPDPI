@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.awg
 
 import androidx.lifecycle.ViewModel
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -36,6 +37,18 @@ data class AmneziaWgProfileUiState(
     val cohortOptions: List<AwgCohortOption>,
     val privateKeyRevealed: Boolean = false,
     val presharedKeyRevealed: Boolean = false,
+    /**
+     * `true` exactly when the editor carries the identity fields required to
+     * open a tunnel. Drives the Connect action's enabled state.
+     */
+    val canActivate: Boolean = false,
+    /**
+     * A one-shot activation request produced by [AmneziaWgProfileViewModel.onConnect].
+     * Non-null means the editor was projected into an [AwgActivationRequest] the
+     * service layer should hand to the AmneziaWG runtime; the screen clears it
+     * via [AmneziaWgProfileViewModel.onActivationConsumed] after dispatching.
+     */
+    val pendingActivation: AwgActivationRequest? = null,
 )
 
 /**
@@ -61,9 +74,18 @@ class AmneziaWgProfileViewModel
                 AmneziaWgProfileUiState(
                     editor = AmneziaWgEditorState.initial(),
                     cohortOptions = buildCohortOptions(catalog),
+                    canActivate = AmneziaWgEditorState.initial().isActivatable(),
                 ),
             )
         val uiState: StateFlow<AmneziaWgProfileUiState> = _uiState.asStateFlow()
+
+        /** Replaces the editor and recomputes the derived [AmneziaWgProfileUiState.canActivate]. */
+        private inline fun mutateEditor(crossinline transform: (AmneziaWgEditorState) -> AmneziaWgEditorState) {
+            _uiState.update {
+                val nextEditor = transform(it.editor)
+                it.copy(editor = nextEditor, canActivate = nextEditor.isActivatable())
+            }
+        }
 
         /**
          * Applies a user edit of [field] to [raw]. Edits to an obfuscation field while a
@@ -73,7 +95,7 @@ class AmneziaWgProfileViewModel
             field: AwgEditorField,
             raw: String,
         ) {
-            _uiState.update { it.copy(editor = it.editor.updateField(field, raw)) }
+            mutateEditor { it.updateField(field, raw) }
         }
 
         /**
@@ -82,11 +104,11 @@ class AmneziaWgProfileViewModel
          */
         fun onCohortSelected(cohortId: String) {
             if (cohortId == AwgProfileForm.CUSTOM_COHORT_ID) {
-                _uiState.update { it.copy(editor = it.editor.selectCustom()) }
+                mutateEditor { it.selectCustom() }
                 return
             }
             val preset = catalog.find(cohortId) ?: return
-            _uiState.update { it.copy(editor = it.editor.selectCohort(preset)) }
+            mutateEditor { it.selectCohort(preset) }
         }
 
         /**
@@ -94,7 +116,39 @@ class AmneziaWgProfileViewModel
          * vanilla WireGuard config leaves the editor unchanged.
          */
         fun onConfPasted(conf: String) {
-            _uiState.update { it.copy(editor = it.editor.populateFromConf(conf, catalog)) }
+            mutateEditor { it.populateFromConf(conf, catalog) }
+        }
+
+        /**
+         * Projects the current editor into an [AwgActivationRequest] and parks it on
+         * [AmneziaWgProfileUiState.pendingActivation] for the screen to dispatch to the
+         * service layer's AmneziaWG runtime (the WARP-engine-derived activation path). A
+         * no-op when the editor is not yet [AmneziaWgEditorState.isActivatable]. The
+         * request carries the full PSK + persistent-keepalive plumbing.
+         */
+        fun onConnect() {
+            _uiState.update { state ->
+                if (!state.editor.isActivatable()) {
+                    state
+                } else {
+                    state.copy(pendingActivation = state.editor.toActivationRequest(profileId = generateProfileId()))
+                }
+            }
+        }
+
+        /** Clears the one-shot [AmneziaWgProfileUiState.pendingActivation] after dispatch. */
+        fun onActivationConsumed() {
+            _uiState.update { it.copy(pendingActivation = null) }
+        }
+
+        /**
+         * A stable, non-secret telemetry id for the activation request, derived from the
+         * peer endpoint so re-connecting the same profile reuses the same id. Durable
+         * persistence (and a real per-profile id) is deferred -- see the A3 commit body.
+         */
+        private fun generateProfileId(): String {
+            val form = _uiState.value.editor.form
+            return "awg-${form.server}:${form.serverPort}"
         }
 
         /** Reveals the private-key field after the biometric gate authorizes it. */

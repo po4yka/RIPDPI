@@ -53,7 +53,15 @@ pub struct WarpManualEndpoint {
     pub port: i32,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+/// WARP's persistent-keepalive default (seconds). WARP historically pinned the
+/// interval at 25s; this preserves that when a config omits the field.
+pub(crate) const WARP_DEFAULT_PERSISTENT_KEEPALIVE: u16 = 25;
+
+fn default_warp_persistent_keepalive() -> u16 {
+    WARP_DEFAULT_PERSISTENT_KEEPALIVE
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WarpAmneziaConfig {
     pub enabled: bool,
@@ -79,6 +87,41 @@ pub struct WarpAmneziaConfig {
     pub i4: String,
     #[serde(default)]
     pub i5: String,
+    /// Base64 (or hex) 32-byte WireGuard preshared key (`[Peer] PresharedKey`).
+    /// Empty = no PSK. WARP itself does not use one; a generic AmneziaWG peer
+    /// configured through the WARP runtime surface may.
+    #[serde(default)]
+    pub preshared_key: String,
+    /// `[Peer] PersistentKeepalive` in seconds; `0` disables keepalive. Defaults
+    /// to WARP's historical 25s pin when omitted from the config JSON.
+    #[serde(default = "default_warp_persistent_keepalive")]
+    pub persistent_keepalive: u16,
+}
+
+impl Default for WarpAmneziaConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            jc: 0,
+            jmin: 0,
+            jmax: 0,
+            h1: 0,
+            h2: 0,
+            h3: 0,
+            h4: 0,
+            s1: 0,
+            s2: 0,
+            s3: 0,
+            s4: 0,
+            i1: String::new(),
+            i2: String::new(),
+            i3: String::new(),
+            i4: String::new(),
+            i5: String::new(),
+            preshared_key: String::new(),
+            persistent_keepalive: WARP_DEFAULT_PERSISTENT_KEEPALIVE,
+        }
+    }
 }
 
 impl WarpAmneziaConfig {
@@ -86,6 +129,19 @@ impl WarpAmneziaConfig {
     /// feeding `AwgParams::from_config`.
     pub fn special_junk_hex(&self) -> [&str; 5] {
         [&self.i1, &self.i2, &self.i3, &self.i4, &self.i5]
+    }
+
+    /// The configured preshared key, or `None` when empty. Mirrors the
+    /// generic-profile mapping in `amneziawg_runtime` so the WARP runtime and a
+    /// generic AmneziaWG peer plumb PSK identically into `WireGuardTunnelParams`.
+    pub fn preshared_key_opt(&self) -> Option<&str> {
+        (!self.preshared_key.is_empty()).then_some(self.preshared_key.as_str())
+    }
+
+    /// The configured persistent-keepalive interval, or `None` when `0`
+    /// (keepalive disabled).
+    pub fn persistent_keepalive_opt(&self) -> Option<u16> {
+        (self.persistent_keepalive != 0).then_some(self.persistent_keepalive)
     }
 }
 
@@ -215,5 +271,40 @@ mod tests {
         assert_eq!(parse_ipv4_cidr(Some("172.16.0.2/32")), Some(IpAddr::V4(Ipv4Addr::new(172, 16, 0, 2))));
         assert_eq!(parse_ipv4_cidr(Some("not-an-ip/32")), None);
         assert_eq!(parse_ipv4_cidr(None), None);
+    }
+
+    #[test]
+    fn amnezia_keepalive_defaults_to_warp_pin_when_omitted() {
+        // A config JSON that omits keepalive/PSK (every pre-A3 WARP config)
+        // must deserialize to the historical 25s pin and no PSK.
+        let cfg: WarpAmneziaConfig = serde_json::from_str(
+            r#"{
+            "enabled": false, "jc": 0, "jmin": 0, "jmax": 0,
+            "h1": 0, "h2": 0, "h3": 0, "h4": 0,
+            "s1": 0, "s2": 0, "s3": 0, "s4": 0
+        }"#,
+        )
+        .expect("parse");
+        assert_eq!(cfg.persistent_keepalive, WARP_DEFAULT_PERSISTENT_KEEPALIVE);
+        assert_eq!(cfg.persistent_keepalive_opt(), Some(25));
+        assert_eq!(cfg.preshared_key_opt(), None);
+        // The struct Default mirrors the serde default for both knobs.
+        assert_eq!(WarpAmneziaConfig::default().persistent_keepalive, 25);
+    }
+
+    #[test]
+    fn amnezia_psk_and_keepalive_round_trip_and_project() {
+        let cfg =
+            WarpAmneziaConfig { preshared_key: "abc123".to_string(), persistent_keepalive: 0, ..Default::default() };
+        // 0 keepalive disables the option; a non-empty PSK projects to Some.
+        assert_eq!(cfg.persistent_keepalive_opt(), None);
+        assert_eq!(cfg.preshared_key_opt(), Some("abc123"));
+
+        let json = serde_json::to_string(&cfg).expect("serialize");
+        assert!(json.contains("\"presharedKey\":\"abc123\""));
+        assert!(json.contains("\"persistentKeepalive\":0"));
+        let again: WarpAmneziaConfig = serde_json::from_str(&json).expect("reparse");
+        assert_eq!(again.preshared_key, "abc123");
+        assert_eq!(again.persistent_keepalive, 0);
     }
 }

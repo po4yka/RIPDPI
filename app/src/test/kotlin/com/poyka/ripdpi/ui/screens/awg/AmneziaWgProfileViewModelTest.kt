@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -171,6 +173,82 @@ class AmneziaWgProfileViewModelTest {
         viewModel.onPresharedKeyRevealAuthorized()
 
         assertTrue(viewModel.uiState.value.presharedKeyRevealed)
+    }
+
+    @Test
+    fun `a fresh editor cannot activate and connect is a no-op`() {
+        val viewModel = viewModel()
+
+        assertFalse(viewModel.uiState.value.canActivate)
+        viewModel.onConnect()
+        assertNull(viewModel.uiState.value.pendingActivation)
+    }
+
+    @Test
+    fun `filling the required identity fields makes the editor activatable`() {
+        val viewModel = viewModel()
+
+        fillRequiredIdentity(viewModel)
+
+        assertTrue(viewModel.uiState.value.canActivate)
+    }
+
+    @Test
+    fun `connect projects the editor into an activation request carrying PSK and keepalive`() {
+        val viewModel = viewModel()
+        fillRequiredIdentity(viewModel)
+        viewModel.onFieldChanged(AwgEditorField.PRESHARED_KEY, "psk-material==")
+        viewModel.onFieldChanged(AwgEditorField.PERSISTENT_KEEPALIVE, "37")
+        viewModel.onFieldChanged(AwgEditorField.MTU, "1280")
+
+        viewModel.onConnect()
+
+        val request =
+            requireNotNull(viewModel.uiState.value.pendingActivation) { "expected an activation request" }
+        assertEquals("vpn.example.com", request.endpointHost)
+        assertEquals(51820, request.endpointPort)
+        assertEquals("privkey==", request.privateKey)
+        assertEquals("peerpub==", request.peerPublicKey)
+        assertEquals("psk-material==", request.presharedKey)
+        assertEquals(37, request.persistentKeepalive)
+        assertEquals(1280, request.mtu)
+        assertEquals("10.8.0.2/32", request.interfaceAddressV4)
+    }
+
+    @Test
+    fun `connect carries the locked cohort obfuscation including special junk`() {
+        val viewModel = viewModel()
+        fillRequiredIdentity(viewModel)
+        viewModel.onCohortSelected("rtk_south")
+
+        viewModel.onConnect()
+
+        val obf =
+            requireNotNull(viewModel.uiState.value.pendingActivation) { "expected an activation request" }
+                .obfuscation
+        assertEquals(4, obf.jc)
+        assertEquals(70, obf.jmax)
+        assertEquals(1_000_000_001L, obf.h1)
+    }
+
+    @Test
+    fun `consuming the activation request clears it`() {
+        val viewModel = viewModel()
+        fillRequiredIdentity(viewModel)
+        viewModel.onConnect()
+        assertNotNull(viewModel.uiState.value.pendingActivation)
+
+        viewModel.onActivationConsumed()
+
+        assertNull(viewModel.uiState.value.pendingActivation)
+    }
+
+    private fun fillRequiredIdentity(viewModel: AmneziaWgProfileViewModel) {
+        viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn.example.com")
+        viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "51820")
+        viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, "privkey==")
+        viewModel.onFieldChanged(AwgEditorField.PEER_PUBLIC_KEY, "peerpub==")
+        viewModel.onFieldChanged(AwgEditorField.ADDRESS, "10.8.0.2/32")
     }
 }
 

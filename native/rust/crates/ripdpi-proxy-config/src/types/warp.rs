@@ -26,7 +26,7 @@ impl Default for ProxyUiWarpManualEndpointConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ProxyUiWarpAmneziaConfig {
     #[serde(default)]
@@ -64,6 +64,44 @@ pub struct ProxyUiWarpAmneziaConfig {
     pub i4: String,
     #[serde(default)]
     pub i5: String,
+    /// Base64/hex 32-byte WireGuard preshared key (`[Peer] PresharedKey`);
+    /// empty = none. WARP itself uses no PSK; a generic AmneziaWG peer may.
+    #[serde(default)]
+    pub preshared_key: String,
+    /// `[Peer] PersistentKeepalive` in seconds; `0` disables keepalive. Defaults
+    /// to WARP's historical 25s pin when omitted.
+    #[serde(default = "default_warp_persistent_keepalive")]
+    pub persistent_keepalive: u16,
+}
+
+impl Default for ProxyUiWarpAmneziaConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            jc: 0,
+            jmin: 0,
+            jmax: 0,
+            h1: 0,
+            h2: 0,
+            h3: 0,
+            h4: 0,
+            s1: 0,
+            s2: 0,
+            s3: 0,
+            s4: 0,
+            i1: String::new(),
+            i2: String::new(),
+            i3: String::new(),
+            i4: String::new(),
+            i5: String::new(),
+            preshared_key: String::new(),
+            persistent_keepalive: default_warp_persistent_keepalive(),
+        }
+    }
+}
+
+fn default_warp_persistent_keepalive() -> u16 {
+    25
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.applyCohortPreset
 import com.poyka.ripdpi.data.awg.matchCohortForConf
+import com.poyka.ripdpi.data.awg.toActivationRequest
 import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
 import com.poyka.ripdpi.data.wireguard.WireGuardConfModel
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
@@ -135,6 +137,41 @@ data class AmneziaWgEditorState(
             form = form.copy(cohortId = AwgProfileForm.CUSTOM_COHORT_ID),
             obfuscationLocked = false,
         )
+
+    /**
+     * Projects the editor into an [AwgActivationRequest] for the standalone
+     * AmneziaWG runtime. Identity, PSK and obfuscation come from [form]; the
+     * transport fields the form does not carry as columns ([AwgEditorField.ADDRESS],
+     * [AwgEditorField.MTU], [AwgEditorField.PERSISTENT_KEEPALIVE]) are read from
+     * [rawTextByField]. A blank address or MTU falls back to the request's own
+     * defaults; an unparseable keepalive disables it (`0`).
+     */
+    fun toActivationRequest(profileId: String): AwgActivationRequest {
+        val address = rawText(AwgEditorField.ADDRESS).trim()
+        val mtu =
+            rawText(AwgEditorField.MTU).trim().toIntOrNull()?.takeIf { it > 0 }
+                ?: AwgActivationRequest.DEFAULT_MTU
+        val keepalive = rawText(AwgEditorField.PERSISTENT_KEEPALIVE).trim().toIntOrNull()?.takeIf { it >= 0 } ?: 0
+        return form.toActivationRequest(
+            profileId = profileId,
+            interfaceAddressV4 = address,
+            mtu = mtu,
+            persistentKeepalive = keepalive,
+        )
+    }
+
+    /**
+     * `true` when the identity fields required to open a tunnel are all present:
+     * server host + port, interface private key, peer public key, and an
+     * interface address. Obfuscation fields are optional (an empty set is a
+     * vanilla WireGuard peer).
+     */
+    fun isActivatable(): Boolean =
+        form.server.isNotBlank() &&
+            form.serverPort > 0 &&
+            form.interfacePrivateKey.isNotBlank() &&
+            form.peerPublicKey.isNotBlank() &&
+            rawText(AwgEditorField.ADDRESS).isNotBlank()
 
     /**
      * Replaces the editor state from a pasted AmneziaWG `.conf`. Parsing reuses

@@ -68,11 +68,18 @@ pub async fn probe_endpoint_with_platform(
         decode_key(&request.peer_public_key).map_err(|_| WarpProbeError::InvalidKey("peer public key"))?;
     let reserved = reserved_bytes_from_client_id(request.client_id.as_deref());
     let amnezia = build_awg_codec(&request.amnezia, &request.amnezia.special_junk_hex());
+    // Fail-closed on a malformed PSK rather than silently probing without it:
+    // a probe that succeeds without the PSK the live tunnel will use is a false
+    // positive. An empty PSK (the WARP default) is `None`, not an error.
+    let preshared_key = match request.amnezia.preshared_key_opt() {
+        Some(value) => Some(decode_key(value).map_err(|_| WarpProbeError::InvalidKey("preshared key"))?),
+        None => None,
+    };
     let mut peer = Box::new(Tunn::new(
         boringtun::x25519::StaticSecret::from(private_key),
         boringtun::x25519::PublicKey::from(peer_public_key),
-        None,
-        Some(25),
+        preshared_key,
+        request.amnezia.persistent_keepalive_opt(),
         0,
         None,
     ));

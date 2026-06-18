@@ -142,10 +142,12 @@ impl WarpRuntime {
                 WireGuardTunnelParams {
                     private_key: &self.config.private_key,
                     peer_public_key: &self.config.peer_public_key,
-                    // WARP does not use a preshared key and pins the
-                    // persistent-keepalive interval at 25s.
-                    preshared_key: None,
-                    persistent_keepalive: Some(25),
+                    // WARP itself uses no PSK and a 25s keepalive, but a generic
+                    // AmneziaWG peer driven through this runtime may override both
+                    // via the config's amnezia block. `persistent_keepalive`
+                    // defaults to 25 when omitted, preserving WARP's pin.
+                    preshared_key: self.config.amnezia.preshared_key_opt(),
+                    persistent_keepalive: self.config.amnezia.persistent_keepalive_opt(),
                     endpoint,
                     reserved,
                     source_peer_ip,

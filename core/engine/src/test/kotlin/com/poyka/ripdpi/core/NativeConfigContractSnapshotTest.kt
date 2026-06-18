@@ -1055,6 +1055,8 @@ class NativeConfigContractSnapshotTest {
         amneziaI3: String = "",
         amneziaI4: String = "",
         amneziaI5: String = "",
+        amneziaPresharedKey: String = "",
+        amneziaPersistentKeepalive: Int = 25,
         amneziaPreset: String = "off",
         localSocksHost: String = "127.0.0.1",
         localSocksPort: Int = 11888,
@@ -1097,6 +1099,8 @@ class NativeConfigContractSnapshotTest {
                     put("i3", JsonPrimitive(amneziaI3))
                     put("i4", JsonPrimitive(amneziaI4))
                     put("i5", JsonPrimitive(amneziaI5))
+                    put("presharedKey", JsonPrimitive(amneziaPresharedKey))
+                    put("persistentKeepalive", JsonPrimitive(amneziaPersistentKeepalive))
                 },
             )
             put("amneziaPreset", JsonPrimitive(amneziaPreset))
