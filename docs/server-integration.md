@@ -64,11 +64,20 @@ The RIPDPI bundle is a normal sing-box JSON document with one additional top-lev
 }
 ```
 
-`SingBoxSubscriptionParser` parses the standard outbounds first, then reads the `ripdpi` block when `schema_version == 1`. `amneziawg[]` entries become AmneziaWG profiles; `hysteria_extras` entries are matched to their Hysteria2 outbound by `tag` and carry the salamander obfs password onto that profile. An unknown `schema_version` is ignored — the sing-box outbounds still import. Plain sing-box clients ignore the `ripdpi` key, so the same bundle is safe to hand to any client. The authoritative server-side schema is `docs/RIPDPI-BUNDLE.md` in the `ripdpi-vpn-deploy` repository.
+`SingBoxSubscriptionParser` parses the standard outbounds first, then reads the `ripdpi` block when `schema_version == 1`. `amneziawg[]` entries become AmneziaWG profiles; `hysteria_extras` entries are matched to their Hysteria2 outbound by `tag` and carry the salamander obfs password onto that profile. An unknown `schema_version` is ignored — the sing-box outbounds still import. Plain sing-box clients ignore the `ripdpi` key, so the same bundle is safe to hand to any client.
+
+The authoritative contract is the **executable JSON Schema** `contract/ripdpi-bundle.schema.json` in the `ripdpi-vpn-deploy` repo (prose companion: `docs/RIPDPI-BUNDLE.md`). It is vendored byte-identical into this repo at `core/data/src/test/resources/contract/` and validated by `RipdpiBundleContractTest` — the mirror of the server's `tests/unit/test_bundle_schema.py` — so the contract is machine-checked on both sides and cannot drift silently. `schema_version` stays `1`: post-1 fields are additive and optional. The parser surfaces them too:
+
+- **`amneziawg[].cohort_fingerprint`** — `"sha256:…"` over the resolved obfuscation params; `AmneziaWgParameters.cohortFingerprint()` recomputes it, so a bundle whose params have drifted from the server's current cohort is detectable up front instead of stalling the AWG handshake.
+- **`hysteria_extras.<tag>.salamander_upstream_tag`** — the server's Hysteria2 release; compare to the bundled obfuscator version to warn on a Salamander skew.
+- **`topology`** — `split_hop_egress` / `hysteria_realm`, surfaced on `SingBoxParseResult.Success.topology`.
+- **`expires`** — RFC-3339 instant, surfaced on `SingBoxParseResult.Success.expiresAt` so the client can warn before the subscription lapses.
 
 ## The one manual step: AmneziaWG device key
 
 The AmneziaWG **device private key** is generated on-device at client creation and is never stored on the server, so it cannot travel in any artifact. The bundle marks it with `private_key_placeholder: true`; after import, the AmneziaWG editor prompts you to paste the private key you saved when the peer was created (`new-client.sh` on the server prints it once). Everything else — server public key, preshared key, endpoint, obfuscation parameters, and every proxy profile — is applied automatically.
+
+**Recovery (no local key).** When `private_key_placeholder` is `true` but the device has no stored key — a fresh install, a device migration, or cleared app data — the parser does **not** fail: it imports the AmneziaWG profile with an empty private key, and the profile stays inactive until you supply the key. The subscription itself remains valid; only the device key is missing. The fix is the same out-of-band handoff as the first time: the operator re-issues the key with `new-client.sh` and sends it over Signal/QR, and you paste it into the AWG editor. The full state machine and codes (`KEY_PRESENT`, `KEY_MISSING_REPROVISION`, `KEY_REJECTED`, `PLACEHOLDER_ABSENT_NO_KEY`) are specified in `ripdpi-vpn-deploy` `docs/RIPDPI-BUNDLE.md` → "Private-key recovery flow".
 
 ## After import
 
