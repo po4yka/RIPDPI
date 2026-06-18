@@ -59,7 +59,7 @@ class SupportSettingsViewModel
 
         fun apply() {
             val state = _uiState.value
-            if (state.packageJson.isBlank() || state.loading || state.applying || state.applied || state.invalid) return
+            if (!state.canApply) return
             _uiState.update { it.copy(applying = true) }
             viewModelScope.launch {
                 when (val result = applyUseCase.apply(state.packageJson)) {
@@ -80,3 +80,6 @@ class SupportSettingsViewModel
             }
         }
     }
+
+private val SupportSettingsUiState.canApply: Boolean
+    get() = packageJson.isNotBlank() && !loading && !applying && !applied && !invalid
