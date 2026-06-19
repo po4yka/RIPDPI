@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
+import com.poyka.ripdpi.failover.ActiveTransportProvider
 import com.poyka.ripdpi.permissions.PermissionAction
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
@@ -19,9 +20,11 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Optional
 import javax.inject.Inject
 
 @HiltViewModel
@@ -35,6 +38,7 @@ class MainViewModel
         private val mainControlPlaneDependencies: MainControlPlaneDependencies,
         private val mainLifecycleDependencies: MainLifecycleDependencies,
         private val stringResolver: StringResolver,
+        private val activeTransportProvider: Optional<ActiveTransportProvider>,
     ) : ViewModel() {
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
@@ -129,6 +133,25 @@ class MainViewModel
         val startupState: StateFlow<MainStartupState> = lifecycleOwner.startupState
         val homeDiagnosticsUiState: StateFlow<HomeDiagnosticsUiState> = homeDiagnostics.uiState
         val homeDiagnosticCard: StateFlow<HomeModeCardUiState> = homeDiagnostics.diagnosticCard
+
+        /**
+         * Raw protocol kind of the currently active transport (e.g. `"vless_reality"`,
+         * `"hysteria2"`, `"amneziawg"`), or `null` when no session is running or
+         * the active transport provider is not available (non-simple flavors).
+         *
+         * UI layers in the simple flavor map this to a localized display string.
+         * The raw kind is privacy-safe: it is a protocol identifier, not a server
+         * address or user identifier.
+         */
+        val activeTransportKind: StateFlow<String?> =
+            (
+                activeTransportProvider.orElse(null)?.activeKind
+                    ?: flowOf(null)
+            ).stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = null,
+            )
         val uiState: StateFlow<MainUiState> =
             MainUiStateOwner(
                 scope = viewModelScope,

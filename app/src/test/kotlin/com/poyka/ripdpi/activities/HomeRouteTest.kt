@@ -94,6 +94,7 @@ class HomeRouteTest {
             mainControlPlaneDependencies = homeRouteControlPlaneDependencies(),
             mainLifecycleDependencies = homeRouteLifecycleDependencies(appSettingsRepository, crashReportReader),
             stringResolver = FakeStringResolver(),
+            activeTransportProvider = java.util.Optional.empty(),
         ).also(MainViewModel::initialize)
     }
 }

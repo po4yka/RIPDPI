@@ -143,6 +143,7 @@ class DiagnosticsBoundaryMapper
                 rxBytes = entity.rxBytes,
                 nativeHeapBytes = entity.nativeHeapBytes,
                 processRssBytes = entity.processRssBytes,
+                relayProtocolKind = entity.relayProtocolKind,
                 createdAt = entity.createdAt,
             )
 

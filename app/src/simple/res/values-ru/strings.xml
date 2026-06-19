@@ -8,4 +8,7 @@
     <string name="simple_status_connecting">Подключение…</string>
     <string name="simple_status_connected">Подключено</string>
     <string name="simple_status_error">Ошибка подключения</string>
+    <string name="simple_protocol_vless_reality">VLESS+Reality</string>
+    <string name="simple_protocol_hysteria2">Hysteria2</string>
+    <string name="simple_protocol_awg">AmneziaWG</string>
 </resources>

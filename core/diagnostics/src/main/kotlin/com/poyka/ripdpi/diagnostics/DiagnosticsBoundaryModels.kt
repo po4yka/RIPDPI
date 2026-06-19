@@ -189,6 +189,7 @@ data class DiagnosticTelemetrySample(
     val rxBytes: Long,
     val nativeHeapBytes: Long? = null,
     val processRssBytes: Long? = null,
+    val relayProtocolKind: String? = null,
     val createdAt: Long,
 )
 

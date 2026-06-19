@@ -60,7 +60,7 @@ private fun buildTelemetryCsv(
                 "rttBand,proxyRouteRetryCount," +
                 "tunnelRecoveryRetryCount,retryCount,resolverId,resolverProtocol," +
                 "resolverEndpoint,resolverLatencyMs,dnsFailuresTotal,resolverFallbackActive," +
-                "resolverFallbackReason,networkHandoverClass,txPackets,txBytes,rxPackets,rxBytes",
+                "resolverFallbackReason,networkHandoverClass,txPackets,txBytes,rxPackets,rxBytes,relayProtocolKind",
         )
         payload.telemetry.forEach { sample ->
             appendLine(
@@ -119,6 +119,7 @@ private fun buildTelemetryCsv(
                     sample.txBytes,
                     sample.rxPackets,
                     sample.rxBytes,
+                    sample.relayProtocolKind.orEmpty(),
                 ).joinToString(","),
             )
         }

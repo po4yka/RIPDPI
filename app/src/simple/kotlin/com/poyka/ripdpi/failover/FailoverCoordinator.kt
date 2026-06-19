@@ -111,13 +111,23 @@ class FailoverCoordinator
         private val awgProfileRepository: AwgProfileRepository,
         private val settingsRepository: AppSettingsRepository,
         private val clock: FailoverClock,
-    ) : SimpleFlavorSessionWatcher {
+    ) : SimpleFlavorSessionWatcher,
+        ActiveTransportProvider {
         // ── Public state ────────────────────────────────────────────────────
 
         private val _activeCandidate = MutableStateFlow<FailoverCandidate?>(null)
 
         /** The currently active transport candidate, or `null` when no session runs. */
         val activeCandidate: StateFlow<FailoverCandidate?> = _activeCandidate.asStateFlow()
+
+        private val _activeKind = MutableStateFlow<String?>(null)
+
+        /**
+         * Raw protocol kind of the currently active transport (e.g. `"vless_reality"`,
+         * `"hysteria2"`, `"amneziawg"`), or `null` when no session is running.
+         * Safe to display on the UI and to include verbatim in the diagnostic archive.
+         */
+        override val activeKind: StateFlow<String?> = _activeKind.asStateFlow()
 
         // ── Internal state ──────────────────────────────────────────────────
 
@@ -201,7 +211,7 @@ class FailoverCoordinator
                     }
                     // The debounce window always restarts for a new session.
                     failingsSince = null
-                    _activeCandidate.value = candidates[activeCandidateIndex]
+                    setActiveCandidate(candidates[activeCandidateIndex])
                     Logger.i {
                         "FailoverCoordinator: watching ${candidates.size} candidates, " +
                             "active=${candidates[activeCandidateIndex]} (resumed=$resumed)"
@@ -220,8 +230,14 @@ class FailoverCoordinator
         fun stopObserving() {
             observeJob?.cancel()
             observeJob = null
-            _activeCandidate.value = null
+            setActiveCandidate(null)
             failingsSince = null
+        }
+
+        /** Updates [_activeCandidate] and the derived [_activeKind] together. */
+        private fun setActiveCandidate(candidate: FailoverCandidate?) {
+            _activeCandidate.value = candidate
+            _activeKind.value = candidate?.toKindString()
         }
 
         /**
@@ -353,7 +369,7 @@ class FailoverCoordinator
             lastSwitchAt = now
             failingsSince = null
             switchesInCycle++
-            _activeCandidate.value = nextCandidate
+            setActiveCandidate(nextCandidate)
 
             // Session restart: stop then start. VPN consent is already granted;
             // start(Mode.VPN) reuses it without prompting.
@@ -484,6 +500,21 @@ class FailoverCoordinator
         }
     }
 
+/**
+ * Maps a [FailoverCandidate] to its raw protocol kind string.
+ *
+ * Relay candidates use their [FailoverCandidate.Relay.relayKind] directly — these are
+ * the same wire values emitted by the native runtime (e.g. `"vless_reality"`,
+ * `"hysteria2"`). AWG uses the constant `"amneziawg"`. This string is safe to display
+ * on the UI and to include verbatim in the diagnostic archive (it is a protocol kind,
+ * not a server address or user identifier).
+ */
+internal fun FailoverCandidate.toKindString(): String =
+    when (this) {
+        is FailoverCandidate.Relay -> relayKind
+        is FailoverCandidate.Awg -> "amneziawg"
+    }
+
 @Module
 @InstallIn(SingletonComponent::class)
 object FailoverCoordinatorModule {
@@ -497,4 +528,7 @@ object FailoverCoordinatorModule {
 abstract class FailoverCoordinatorBindsModule {
     @Binds
     abstract fun bindSimpleFlavorSessionWatcher(coordinator: FailoverCoordinator): SimpleFlavorSessionWatcher
+
+    @Binds
+    abstract fun bindActiveTransportProvider(coordinator: FailoverCoordinator): ActiveTransportProvider
 }

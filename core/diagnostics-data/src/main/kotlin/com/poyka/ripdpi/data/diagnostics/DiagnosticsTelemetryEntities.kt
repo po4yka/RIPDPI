@@ -71,6 +71,9 @@ data class TelemetrySampleEntity(
     // Nullable so destructively-recreated/idle samples decode cleanly.
     val nativeHeapBytes: Long? = null,
     val processRssBytes: Long? = null,
+    // Protocol kind emitted by the relay runtime (e.g. "vless_reality", "hysteria2").
+    // Nullable so older rows (v5 schema) decode without a default value on the column.
+    val relayProtocolKind: String? = null,
     val createdAt: Long,
 )
 

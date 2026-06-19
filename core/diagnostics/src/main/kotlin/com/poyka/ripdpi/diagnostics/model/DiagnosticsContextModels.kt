@@ -132,6 +132,7 @@ data class RuntimeComponentSummary(
     val activeSessions: Long = 0,
     val lastError: String = "none",
     val lastFailureClass: String = "none",
+    val protocolKind: String? = null,
     val listenerAddress: String? = null,
     val upstreamAddress: String? = null,
     val capturedAt: Long? = null,

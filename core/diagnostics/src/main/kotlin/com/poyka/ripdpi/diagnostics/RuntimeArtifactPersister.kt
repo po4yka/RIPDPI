@@ -223,6 +223,7 @@ class RuntimeArtifactPersister
                 rxBytes = telemetry.tunnelStats.rxBytes,
                 nativeHeapBytes = memory.nativeHeapBytes,
                 processRssBytes = memory.processRssBytes,
+                relayProtocolKind = telemetry.relayTelemetry.protocolKind,
                 createdAt = createdAt,
             )
         }

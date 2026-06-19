@@ -19,6 +19,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -41,6 +43,7 @@ fun SimpleHomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val diagnostics by viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle()
+    val activeTransportKind by viewModel.activeTransportKind.collectAsStateWithLifecycle()
 
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -49,6 +52,7 @@ fun SimpleHomeScreen(
     val connected = uiState.connectionState == ConnectionState.Connected
     val active = connecting || connected
     val reportBusy = diagnostics.analysisAction.busy
+    val protocolLabel = activeTransportKind?.toProtocolLabel()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -77,6 +81,16 @@ fun SimpleHomeScreen(
                 color = if (connected) colors.success else colors.mutedForeground,
                 textAlign = TextAlign.Center,
             )
+
+            if (protocolLabel != null) {
+                Text(
+                    modifier = Modifier.padding(top = spacing.xs),
+                    text = protocolLabel,
+                    style = RipDpiThemeTokens.type.caption,
+                    color = colors.mutedForeground,
+                    textAlign = TextAlign.Center,
+                )
+            }
 
             RipDpiButton(
                 modifier =
@@ -115,4 +129,20 @@ private fun simpleStatusLabel(state: ConnectionState): Int =
         ConnectionState.Connecting -> R.string.simple_status_connecting
         ConnectionState.Connected -> R.string.simple_status_connected
         ConnectionState.Error -> R.string.simple_status_error
+    }
+
+/**
+ * Maps a raw protocol kind string to a localized display label.
+ *
+ * Called from the composable scope where string resources are available.
+ * Unknown protocol kinds fall back to the raw kind string — forward-compat
+ * for protocol kinds added after this build.
+ */
+@Composable
+private fun String.toProtocolLabel(): String =
+    when (this) {
+        RelayKindVlessReality -> stringResource(R.string.simple_protocol_vless_reality)
+        RelayKindHysteria2 -> stringResource(R.string.simple_protocol_hysteria2)
+        "amneziawg" -> stringResource(R.string.simple_protocol_awg)
+        else -> this
     }

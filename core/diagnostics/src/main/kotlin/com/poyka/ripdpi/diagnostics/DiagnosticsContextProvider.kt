@@ -224,6 +224,7 @@ internal fun NativeRuntimeSnapshot.toRuntimeComponentSummary(): RuntimeComponent
         activeSessions = activeSessions,
         lastError = lastError?.takeIf { it.isNotBlank() } ?: "none",
         lastFailureClass = lastFailureClass?.takeIf { it.isNotBlank() } ?: "none",
+        protocolKind = protocolKind,
         listenerAddress = listenerAddress,
         upstreamAddress = upstreamAddress,
         capturedAt = capturedAt.takeIf { it > 0L },

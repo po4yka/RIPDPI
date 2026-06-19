@@ -1438,6 +1438,7 @@ class MainViewModelTest {
                         ),
                 ),
             stringResolver = FakeStringResolver(),
+            activeTransportProvider = java.util.Optional.empty(),
         ).also { viewModel ->
             if (initialize) {
                 viewModel.initialize()

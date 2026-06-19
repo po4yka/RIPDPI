@@ -33,7 +33,7 @@ interface DiagnosticsDao :
         NetworkDnsBlockedPathEntity::class,
         NetworkEdgePreferenceEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {
