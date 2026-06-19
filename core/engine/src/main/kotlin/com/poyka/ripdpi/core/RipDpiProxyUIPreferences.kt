@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.EnvironmentKind
 import com.poyka.ripdpi.data.StrategyLaneFamilies
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.toSettingsSections
@@ -30,6 +31,13 @@ class RipDpiProxyUIPreferences(
     geoipDbPath: String? = null,
     geositeDbPath: String? = null,
     val environmentKind: EnvironmentKind = EnvironmentKind.Unknown,
+    /**
+     * AmneziaWG VPN-mode egress request. Non-null means AWG is the configured egress
+     * transport for this session; null means AWG is not active. AWG and WARP are
+     * mutually exclusive — when this is non-null, [warp] must not be started
+     * simultaneously. Consumed via [com.poyka.ripdpi.core.awgConfigOrNull].
+     */
+    val awg: AwgActivationRequest? = null,
 ) : RipDpiProxyPreferences {
     val listen: RipDpiListenConfig = normalizeListenConfig(listen)
     val chains: RipDpiChainConfig = normalizeChainConfig(chains)
@@ -90,6 +98,7 @@ class RipDpiProxyUIPreferences(
             geoipDbPath = geoipDbPath,
             geositeDbPath = geositeDbPath,
             environmentKind = environmentKind,
+            awg = awg,
         )
 
     companion object {

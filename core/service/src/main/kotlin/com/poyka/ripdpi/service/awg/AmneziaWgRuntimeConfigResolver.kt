@@ -75,6 +75,14 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
     }
 
 /**
+ * Loopback SOCKS port used when AmneziaWG runs as the VPN-mode egress transport
+ * inside [SharedProxyRuntimeStack]. Kept distinct from both the standalone port
+ * (10808) and the WARP inbound so they cannot collide in any composition.
+ * The proxy core dials this port as its upstream when AWG is the active egress.
+ */
+internal const val VpnModeAmneziaWgLocalSocksPort = 10809
+
+/**
  * Map the activation-request carrier token (`udp`/`ws`, mirroring the Rust
  * `AmneziaWgCarrierKind` serde wire) onto the engine-api enum. An unrecognized
  * token falls back to [RipDpiAmneziaWgCarrierKind.Udp] (today's behavior) rather

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.utility.shellSplit
 
 sealed interface RipDpiProxyPreferences {
@@ -26,6 +27,27 @@ fun RipDpiProxyPreferences.warpConfigOrNull(): RipDpiWarpConfig? =
 
         is RipDpiProxyJsonPreferences -> {
             decodeRipDpiProxyUiPreferences(toNativeConfigJson())?.warp?.takeIf { it.enabled }
+        }
+
+        is RipDpiProxyCmdPreferences -> {
+            null
+        }
+    }
+
+/**
+ * Returns the AmneziaWG activation request when AWG is the configured VPN-mode egress,
+ * or null otherwise. A non-null value means AWG is active; null means it is not configured.
+ * AWG and WARP are mutually exclusive WireGuard egress transports: when AWG is present
+ * it takes precedence and WARP must not be started simultaneously. Mirrors [warpConfigOrNull].
+ */
+fun RipDpiProxyPreferences.awgConfigOrNull(): AwgActivationRequest? =
+    when (this) {
+        is RipDpiProxyUIPreferences -> {
+            awg
+        }
+
+        is RipDpiProxyJsonPreferences -> {
+            decodeRipDpiProxyUiPreferences(toNativeConfigJson())?.awg
         }
 
         is RipDpiProxyCmdPreferences -> {
@@ -70,6 +92,53 @@ fun RipDpiProxyPreferences.ownedRelayQuicMigrationConfig(): OwnedRelayQuicMigrat
 
         is RipDpiProxyCmdPreferences -> {
             OwnedRelayQuicMigrationConfig()
+        }
+    }
+
+/**
+ * Returns a copy of these preferences with the WARP section configured to point the
+ * proxy upstream at [port] on loopback (`enabled = true`). When AmneziaWG is the active
+ * VPN-mode egress, the proxy core's existing WARP-upstream mechanism is reused to dial
+ * the AWG loopback SOCKS inbound, so no new native config section is required. Non-UI
+ * preferences are returned unchanged.
+ */
+fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences =
+    when (this) {
+        is RipDpiProxyUIPreferences -> {
+            RipDpiProxyUIPreferences(
+                listen = listen,
+                protocols = protocols,
+                chains = chains,
+                fakePackets = fakePackets,
+                parserEvasions = parserEvasions,
+                adaptiveFallback = adaptiveFallback,
+                quic = quic,
+                hosts = hosts,
+                relay = relay,
+                warp =
+                    RipDpiWarpConfig(
+                        enabled = true,
+                        localSocksHost = "127.0.0.1",
+                        localSocksPort = port,
+                    ),
+                hostAutolearn = hostAutolearn,
+                wsTunnel = wsTunnel,
+                nativeLogLevel = nativeLogLevel,
+                runtimeContext = runtimeContext,
+                logContext = logContext,
+                rootMode = rootMode,
+                rootHelperSocketPath = rootHelperSocketPath,
+                geoipDbPath = geoipDbPath,
+                geositeDbPath = geositeDbPath,
+                environmentKind = environmentKind,
+                awg = awg,
+            )
+        }
+
+        is RipDpiProxyJsonPreferences,
+        is RipDpiProxyCmdPreferences,
+        -> {
+            this
         }
     }
 

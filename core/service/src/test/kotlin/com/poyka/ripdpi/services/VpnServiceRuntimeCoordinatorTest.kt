@@ -898,6 +898,13 @@ class VpnServiceRuntimeCoordinatorTest {
                     warpFactory = TestRipDpiWarpFactory(),
                     runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
                 ),
+            amneziaWgRuntimeSupervisor =
+                AmneziaWgRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
+                    runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+                ),
             proxyRuntimeSupervisor =
                 ProxyRuntimeSupervisor(
                     scope = backgroundScope,
@@ -1090,6 +1097,13 @@ class VpnServiceRuntimeCoordinatorTest {
                         dispatcher = dispatcher,
                         warpFactory = warpFactory,
                         runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+                    ),
+                amneziaWgRuntimeSupervisor =
+                    AmneziaWgRuntimeSupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
+                        runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
                     ),
                 proxyRuntimeSupervisor =
                     ProxyRuntimeSupervisor(

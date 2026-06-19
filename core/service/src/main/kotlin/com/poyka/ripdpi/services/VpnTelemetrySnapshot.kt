@@ -15,6 +15,8 @@ internal data class VpnTelemetrySnapshot(
     val relayTelemetryStatus: RuntimeTelemetryStatus,
     val warpTelemetry: NativeRuntimeSnapshot,
     val warpTelemetryStatus: RuntimeTelemetryStatus,
+    val awgTelemetry: NativeRuntimeSnapshot,
+    val awgTelemetryStatus: RuntimeTelemetryStatus,
     val tunnelTelemetry: NativeRuntimeSnapshot,
     val tunnelTelemetryStatus: RuntimeTelemetryStatus,
 ) {

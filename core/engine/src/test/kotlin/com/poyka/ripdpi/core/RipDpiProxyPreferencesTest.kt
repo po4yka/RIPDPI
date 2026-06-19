@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -765,6 +766,36 @@ class RipDpiProxyPreferencesTest {
         assertEquals(true, decoded?.parserEvasions?.hostRemoveSpaces)
         assertEquals(true, decoded?.parserEvasions?.httpMethodEol)
         assertEquals(true, decoded?.parserEvasions?.httpUnixEol)
+    }
+
+    @Test
+    fun awgConfigOrNullReturnsNullWhenNoAwgSet() {
+        val preferences = RipDpiProxyUIPreferences()
+
+        assertNull(preferences.awgConfigOrNull())
+    }
+
+    @Test
+    fun awgConfigOrNullReturnsRequestWhenAwgSet() {
+        val request =
+            AwgActivationRequest(
+                profileId = "test",
+                privateKey = "priv",
+                peerPublicKey = "pub",
+                endpointHost = "1.2.3.4",
+                endpointPort = 51820,
+                interfaceAddressV4 = "10.0.0.2",
+            )
+        val preferences = RipDpiProxyUIPreferences(awg = request)
+
+        assertEquals(request, preferences.awgConfigOrNull())
+    }
+
+    @Test
+    fun awgConfigOrNullAlwaysNullForCmdPreferences() {
+        val preferences = RipDpiProxyCmdPreferences("--port 1081")
+
+        assertNull(preferences.awgConfigOrNull())
     }
 
     @Test

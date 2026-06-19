@@ -66,6 +66,8 @@ internal class ProxyTelemetryCoordinator(
             relayTelemetryStatus = relayTelemetryOutcome.toStatus(),
             warpTelemetry = warpTelemetryOutcome.snapshotOrIdle(source = "warp"),
             warpTelemetryStatus = warpTelemetryOutcome.toStatus(),
+            awgTelemetry = RuntimeTelemetryOutcome.NoData.snapshotOrIdle(source = "amneziawg"),
+            awgTelemetryStatus = RuntimeTelemetryOutcome.NoData.toStatus(),
             tunnelTelemetry = pendingTunnelTelemetry(),
             tunnelTelemetryStatus = RuntimeTelemetryOutcome.NoData.toStatus(),
         )

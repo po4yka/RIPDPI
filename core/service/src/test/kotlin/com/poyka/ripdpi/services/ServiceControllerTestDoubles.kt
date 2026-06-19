@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
+import com.poyka.ripdpi.core.ResolvedRipDpiAmneziaWgConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+import com.poyka.ripdpi.core.RipDpiAmneziaWgFactory
+import com.poyka.ripdpi.core.RipDpiAmneziaWgRuntime
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
@@ -51,6 +54,7 @@ import com.poyka.ripdpi.data.TransportPolicyEnvelope
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.derivedFallbackRequired
 import com.poyka.ripdpi.data.derivedHandshakeFailureClass
 import com.poyka.ripdpi.data.derivedQuicUsable
@@ -63,6 +67,7 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.service.awg.AmneziaWgRuntimeConfigResolver
 import com.poyka.ripdpi.service.warp.WarpRuntimeConfigResolver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -1271,4 +1276,37 @@ internal class TestScreenStateObserver(
     interactive: Boolean = true,
 ) : ScreenStateObserver {
     override val isInteractive: StateFlow<Boolean> = MutableStateFlow(interactive)
+}
+
+internal class NoOpRipDpiAmneziaWgFactory : RipDpiAmneziaWgFactory {
+    override fun create(): RipDpiAmneziaWgRuntime = NoOpRipDpiAmneziaWgRuntime()
+}
+
+internal class NoOpRipDpiAmneziaWgRuntime : RipDpiAmneziaWgRuntime {
+    private val exitCode = CompletableDeferred<Int>()
+
+    override suspend fun start(config: ResolvedRipDpiAmneziaWgConfig): Int = exitCode.await()
+
+    override suspend fun awaitReady(timeoutMillis: Long) = Unit
+
+    override suspend fun stop() {
+        if (!exitCode.isCompleted) exitCode.complete(0)
+    }
+
+    override suspend fun pollTelemetry(): NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "amneziawg")
+}
+
+internal class TestAmneziaWgRuntimeConfigResolver : AmneziaWgRuntimeConfigResolver {
+    override fun resolve(request: AwgActivationRequest): ResolvedRipDpiAmneziaWgConfig =
+        ResolvedRipDpiAmneziaWgConfig(
+            enabled = false,
+            profileId = request.profileId,
+            privateKey = request.privateKey,
+            peerPublicKey = request.peerPublicKey,
+            endpointHost = request.endpointHost,
+            endpointPort = request.endpointPort,
+            interfaceAddressV4 = request.interfaceAddressV4,
+            localSocksHost = "127.0.0.1",
+            localSocksPort = 10808,
+        )
 }

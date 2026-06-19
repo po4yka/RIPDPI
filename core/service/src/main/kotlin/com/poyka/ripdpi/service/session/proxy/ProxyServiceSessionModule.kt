@@ -10,6 +10,8 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
+import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor
+import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
@@ -54,6 +56,14 @@ internal object ProxyServiceSessionModule {
 
     @Provides
     @ServiceSessionScope
+    fun provideProxyAmneziaWgRuntimeSupervisor(
+        host: ServiceCoordinatorHost,
+        factory: AmneziaWgRuntimeSupervisorFactory,
+        dispatchers: AppCoroutineDispatchers,
+    ): AmneziaWgRuntimeSupervisor = factory.create(scope = host.serviceScope, dispatcher = dispatchers.io)
+
+    @Provides
+    @ServiceSessionScope
     fun provideProxyRuntimeSupervisor(
         host: ServiceCoordinatorHost,
         factory: ProxyRuntimeSupervisorFactory,
@@ -94,6 +104,7 @@ internal object ProxyServiceSessionModule {
         permissionWatchdog: PermissionWatchdog,
         upstreamRelaySupervisor: UpstreamRelaySupervisor,
         warpRuntimeSupervisor: WarpRuntimeSupervisor,
+        amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
         proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
         statusReporter: ServiceStatusReporter,
         screenStateObserver: ScreenStateObserver,
@@ -112,6 +123,7 @@ internal object ProxyServiceSessionModule {
                 ProxyRuntimeSupervisorBundle(
                     upstreamRelaySupervisor = upstreamRelaySupervisor,
                     warpRuntimeSupervisor = warpRuntimeSupervisor,
+                    amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
                     proxyRuntimeSupervisor = proxyRuntimeSupervisor,
                 ),
             statusReporter = statusReporter,

@@ -35,17 +35,22 @@ class VpnNativeProtectRegistrationTest {
 
     private val proxyRegisterCalls = mutableListOf<Long>()
     private val warpRegisterCalls = mutableListOf<Long>()
+    private val awgRegisterCalls = mutableListOf<Long>()
     private val proxyUnregisterCalls = mutableListOf<Long>()
     private val warpUnregisterCalls = mutableListOf<Long>()
+    private val awgUnregisterCalls = mutableListOf<Long>()
 
     private val nextProxyToken = AtomicLong(1L)
     private val nextWarpToken = AtomicLong(100L)
+    private val nextAwgToken = AtomicLong(200L)
 
     // Saved originals restored in tearDown.
     private val savedProxyRegister = VpnNativeProtectRegistration.proxyRegister
     private val savedWarpRegister = VpnNativeProtectRegistration.warpRegister
+    private val savedAwgRegister = VpnNativeProtectRegistration.awgRegister
     private val savedProxyUnregister = VpnNativeProtectRegistration.proxyUnregister
     private val savedWarpUnregister = VpnNativeProtectRegistration.warpUnregister
+    private val savedAwgUnregister = VpnNativeProtectRegistration.awgUnregister
 
     @Before
     fun setUp() {
@@ -55,13 +60,18 @@ class VpnNativeProtectRegistrationTest {
         VpnNativeProtectRegistration.warpRegister = {
             nextWarpToken.getAndIncrement().also { warpRegisterCalls += it }
         }
+        VpnNativeProtectRegistration.awgRegister = {
+            nextAwgToken.getAndIncrement().also { awgRegisterCalls += it }
+        }
         VpnNativeProtectRegistration.proxyUnregister = { token -> proxyUnregisterCalls += token }
         VpnNativeProtectRegistration.warpUnregister = { token -> warpUnregisterCalls += token }
+        VpnNativeProtectRegistration.awgUnregister = { token -> awgUnregisterCalls += token }
 
         // Drain any leftover state from a previous test (object is a singleton).
         VpnNativeProtectRegistration.unregister()
         proxyUnregisterCalls.clear()
         warpUnregisterCalls.clear()
+        awgUnregisterCalls.clear()
     }
 
     @After
@@ -69,8 +79,10 @@ class VpnNativeProtectRegistrationTest {
         VpnNativeProtectRegistration.unregister()
         VpnNativeProtectRegistration.proxyRegister = savedProxyRegister
         VpnNativeProtectRegistration.warpRegister = savedWarpRegister
+        VpnNativeProtectRegistration.awgRegister = savedAwgRegister
         VpnNativeProtectRegistration.proxyUnregister = savedProxyUnregister
         VpnNativeProtectRegistration.warpUnregister = savedWarpUnregister
+        VpnNativeProtectRegistration.awgUnregister = savedAwgUnregister
     }
 
     /**
@@ -85,6 +97,7 @@ class VpnNativeProtectRegistrationTest {
         VpnNativeProtectRegistration.register(fakeService)
         val firstProxy = proxyRegisterCalls[0]
         val firstWarp = warpRegisterCalls[0]
+        val firstAwg = awgRegisterCalls[0]
 
         VpnNativeProtectRegistration.register(fakeService)
         assertEquals(
@@ -97,24 +110,34 @@ class VpnNativeProtectRegistrationTest {
             listOf(firstWarp),
             warpUnregisterCalls,
         )
+        assertEquals(
+            "awg unregister must be called with first awg token during double-register guard",
+            listOf(firstAwg),
+            awgUnregisterCalls,
+        )
 
         // Clear guard-unregister calls so we can inspect the final unregister independently.
         proxyUnregisterCalls.clear()
         warpUnregisterCalls.clear()
+        awgUnregisterCalls.clear()
 
         val secondProxy = proxyRegisterCalls[1]
         val secondWarp = warpRegisterCalls[1]
+        val secondAwg = awgRegisterCalls[1]
 
         VpnNativeProtectRegistration.unregister()
         assertEquals(listOf(secondProxy), proxyUnregisterCalls)
         assertEquals(listOf(secondWarp), warpUnregisterCalls)
+        assertEquals(listOf(secondAwg), awgUnregisterCalls)
 
         // After unregister tokens must be zero; a follow-up unregister passes 0.
         proxyUnregisterCalls.clear()
         warpUnregisterCalls.clear()
+        awgUnregisterCalls.clear()
         VpnNativeProtectRegistration.unregister()
         assertEquals("proxy token must be 0 after unregister", listOf(0L), proxyUnregisterCalls)
         assertEquals("warp token must be 0 after unregister", listOf(0L), warpUnregisterCalls)
+        assertEquals("awg token must be 0 after unregister", listOf(0L), awgUnregisterCalls)
     }
 
     /**
@@ -145,8 +168,10 @@ class VpnNativeProtectRegistrationTest {
         VpnNativeProtectRegistration.unregister()
         proxyUnregisterCalls.clear()
         warpUnregisterCalls.clear()
+        awgUnregisterCalls.clear()
         VpnNativeProtectRegistration.unregister()
         assertEquals("proxy token must be 0 after final drain", listOf(0L), proxyUnregisterCalls)
         assertEquals("warp token must be 0 after final drain", listOf(0L), warpUnregisterCalls)
+        assertEquals("awg token must be 0 after final drain", listOf(0L), awgUnregisterCalls)
     }
 }

@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor
 import com.poyka.ripdpi.services.BaseServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.ConnectionPolicyResolution
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
@@ -50,6 +51,7 @@ import kotlinx.coroutines.Dispatchers
 internal data class ProxyRuntimeSupervisorBundle(
     val upstreamRelaySupervisor: UpstreamRelaySupervisor,
     val warpRuntimeSupervisor: WarpRuntimeSupervisor,
+    val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
 )
 
@@ -89,12 +91,14 @@ internal class ProxyServiceRuntimeCoordinator(
     ) {
     private val upstreamRelaySupervisor = supervisors.upstreamRelaySupervisor
     private val warpRuntimeSupervisor = supervisors.warpRuntimeSupervisor
+    private val amneziaWgRuntimeSupervisor = supervisors.amneziaWgRuntimeSupervisor
     private val proxyRuntimeSupervisor = supervisors.proxyRuntimeSupervisor
 
     private val proxyRuntimeStack =
         SharedProxyRuntimeStack(
             upstreamRelaySupervisor = upstreamRelaySupervisor,
             warpRuntimeSupervisor = warpRuntimeSupervisor,
+            amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
         )
     private val supervisorExitHandler =
@@ -204,6 +208,7 @@ internal class ProxyServiceRuntimeCoordinator(
                 ),
             onRelayExit = supervisorExitHandler::handleRelayExit,
             onWarpExit = supervisorExitHandler::handleWarpExit,
+            onAwgExit = {}, // ponytail: proxy mode never starts AWG
             onProxyExit = supervisorExitHandler::handleProxyExit,
         )
     }
@@ -239,6 +244,7 @@ internal class ProxyServiceRuntimeCoordinator(
                 ),
             onRelayExit = supervisorExitHandler::handleRelayExit,
             onWarpExit = supervisorExitHandler::handleWarpExit,
+            onAwgExit = {}, // ponytail: proxy mode never starts AWG
             onProxyExit = supervisorExitHandler::handleProxyExit,
         )
     }

@@ -21,6 +21,7 @@ internal interface VpnTelemetryRuntimeDependencies {
     val vpnTunnelRuntime: VpnTunnelRuntime
     val upstreamRelaySupervisor: UpstreamRelaySupervisor
     val warpRuntimeSupervisor: WarpRuntimeSupervisor
+    val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor
     val proxyRuntimeSupervisor: ProxyRuntimeSupervisor
     val screenStateObserver: ScreenStateObserver
     val telemetryReporter: VpnRuntimeTelemetryReporter
@@ -101,6 +102,7 @@ internal class VpnTelemetryCoordinator(
         val proxyTelemetryOutcome = dependencies.proxyRuntimeSupervisor.pollTelemetry()
         val relayTelemetryOutcome = dependencies.upstreamRelaySupervisor.pollTelemetry()
         val warpTelemetryOutcome = dependencies.warpRuntimeSupervisor.pollTelemetry()
+        val awgTelemetryOutcome = dependencies.amneziaWgRuntimeSupervisor.pollTelemetry()
         val tunnelTelemetryOutcome = dependencies.vpnTunnelRuntime.pollTelemetry()
         val tunnelTelemetry = tunnelTelemetryOutcome.snapshotOrIdle(source = "tunnel")
         return VpnTelemetrySnapshot(
@@ -110,6 +112,8 @@ internal class VpnTelemetryCoordinator(
             relayTelemetryStatus = relayTelemetryOutcome.toStatus(),
             warpTelemetry = warpTelemetryOutcome.snapshotOrIdle(source = "warp"),
             warpTelemetryStatus = warpTelemetryOutcome.toStatus(),
+            awgTelemetry = awgTelemetryOutcome.snapshotOrIdle(source = "amneziawg"),
+            awgTelemetryStatus = awgTelemetryOutcome.toStatus(),
             tunnelTelemetry = state.applyPendingNetworkHandoverClass(tunnelTelemetry),
             tunnelTelemetryStatus = tunnelTelemetryOutcome.toStatus(),
         )

@@ -17,6 +17,8 @@ import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsBlockedPathStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisor
+import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.BaseServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.ConnectionPolicyResolution
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
@@ -95,6 +97,7 @@ internal class VpnServiceRuntimeCoordinator(
     private val encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,
     private val upstreamRelaySupervisor: UpstreamRelaySupervisor,
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
+    private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
     private val screenStateObserver: ScreenStateObserver,
@@ -126,6 +129,7 @@ internal class VpnServiceRuntimeCoordinator(
         SharedProxyRuntimeStack(
             upstreamRelaySupervisor = upstreamRelaySupervisor,
             warpRuntimeSupervisor = warpRuntimeSupervisor,
+            amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
         )
     private val dnsPolicyCoordinator =
@@ -140,6 +144,7 @@ internal class VpnServiceRuntimeCoordinator(
             proxyRuntimeStack = proxyRuntimeStack,
             upstreamRelaySupervisor = upstreamRelaySupervisor,
             warpRuntimeSupervisor = warpRuntimeSupervisor,
+            amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             updateStatus = ::updateStatus,
             stopService = { skipRuntimeShutdown -> stop(skipRuntimeShutdown = skipRuntimeShutdown) },
         )
@@ -164,6 +169,9 @@ internal class VpnServiceRuntimeCoordinator(
                     override val vpnTunnelRuntime = this@VpnServiceRuntimeCoordinator.vpnTunnelRuntime
                     override val upstreamRelaySupervisor = this@VpnServiceRuntimeCoordinator.upstreamRelaySupervisor
                     override val warpRuntimeSupervisor = this@VpnServiceRuntimeCoordinator.warpRuntimeSupervisor
+                    override val amneziaWgRuntimeSupervisor =
+                        this@VpnServiceRuntimeCoordinator
+                            .amneziaWgRuntimeSupervisor
                     override val proxyRuntimeSupervisor = this@VpnServiceRuntimeCoordinator.proxyRuntimeSupervisor
                     override val screenStateObserver = this@VpnServiceRuntimeCoordinator.screenStateObserver
                     override val telemetryReporter =
@@ -395,6 +403,7 @@ internal class VpnServiceRuntimeRuntimeDependencies
         val dnsDependencies: VpnServiceRuntimeDnsDependencies,
         val upstreamRelaySupervisorFactory: UpstreamRelaySupervisorFactory,
         val warpRuntimeSupervisorFactory: WarpRuntimeSupervisorFactory,
+        val amneziaWgRuntimeSupervisorFactory: AmneziaWgRuntimeSupervisorFactory,
         val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
         val screenStateObserver: ScreenStateObserver,
     )

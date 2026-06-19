@@ -144,6 +144,7 @@ internal class VpnRuntimeCompositionCoordinator(
                         .withSessionLocalProxyOverrides(listenPortOverride = 0, authToken = authToken),
                 onRelayExit = supervisorExitHandler::handleRelayExit,
                 onWarpExit = supervisorExitHandler::handleWarpExit,
+                onAwgExit = supervisorExitHandler::handleAwgExit,
                 onProxyExit = supervisorExitHandler::handleProxyExit,
             )
         currentLocalProxyEndpoint = localProxyEndpoint

@@ -65,6 +65,12 @@ class ServiceSessionModuleTest {
                     permissionWatchdog = TestPermissionWatchdog(),
                     upstreamRelaySupervisor = upstreamRelaySupervisor,
                     warpRuntimeSupervisor = warpRuntimeSupervisor,
+                    amneziaWgRuntimeSupervisor =
+                        ProxyServiceSessionModule.provideProxyAmneziaWgRuntimeSupervisor(
+                            host = host,
+                            factory = NoOpAmneziaWgRuntimeSupervisorFactory(),
+                            dispatchers = dispatchers,
+                        ),
                     proxyRuntimeSupervisor = proxyRuntimeSupervisor,
                     statusReporter = statusReporter,
                     screenStateObserver = TestScreenStateObserver(),
@@ -188,6 +194,12 @@ class ServiceSessionModuleTest {
                     encryptedDnsFailoverController = encryptedDnsFailoverController,
                     upstreamRelaySupervisor = upstreamRelaySupervisor,
                     warpRuntimeSupervisor = warpRuntimeSupervisor,
+                    amneziaWgRuntimeSupervisor =
+                        VpnServiceSessionModule.provideVpnAmneziaWgRuntimeSupervisor(
+                            host = host,
+                            factory = NoOpAmneziaWgRuntimeSupervisorFactory(),
+                            dispatchers = dispatchers,
+                        ),
                     proxyRuntimeSupervisor = proxyRuntimeSupervisor,
                     statusReporter = statusReporter,
                     directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
@@ -273,6 +285,7 @@ class ServiceSessionModuleTest {
             dnsDependencies = createVpnDnsDependencies(resolver, overrides),
             upstreamRelaySupervisorFactory = relayFactory,
             warpRuntimeSupervisorFactory = warpFactory,
+            amneziaWgRuntimeSupervisorFactory = NoOpAmneziaWgRuntimeSupervisorFactory(),
             proxyRuntimeSupervisorFactory = proxyFactory,
             screenStateObserver = TestScreenStateObserver(),
         )
@@ -402,6 +415,13 @@ class ServiceSessionModuleTest {
         }
     }
 }
+
+/** No-op [AmneziaWgRuntimeSupervisorFactory] for module wiring tests — proxy mode never starts AWG. */
+private class NoOpAmneziaWgRuntimeSupervisorFactory :
+    AmneziaWgRuntimeSupervisorFactory(
+        NoOpRipDpiAmneziaWgFactory(),
+        TestAmneziaWgRuntimeConfigResolver(),
+    )
 
 /** No-op [FlowAppAttributionStore] for constructing a [FlowAttributionBridge] in module wiring tests. */
 private object NoOpFlowAppAttributionStore : FlowAppAttributionStore {
