@@ -1,0 +1,328 @@
+package com.poyka.ripdpi.seed
+
+import android.app.Application
+import android.content.Context
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.awg.AwgCredentialStore
+import com.poyka.ripdpi.data.awg.AwgProfileDao
+import com.poyka.ripdpi.data.awg.AwgProfileEntity
+import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.proxyimport.RelayProfileActivator
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+
+/**
+ * Synthetic RIPDPI sing-box bundle with fake values only.
+ * Contains one VLESS-REALITY outbound and one ripdpi.amneziawg entry.
+ * No real keys, UUIDs, or server addresses.
+ */
+private val FAKE_BUNDLE =
+    """
+    {
+      "outbounds": [
+        {
+          "type": "vless",
+          "tag": "test-reality",
+          "server": "1.2.3.4",
+          "server_port": 443,
+          "uuid": "00000000-0000-0000-0000-000000000001",
+          "flow": "xtls-rprx-vision",
+          "tls": {
+            "enabled": true,
+            "server_name": "example.com",
+            "utls": { "enabled": true, "fingerprint": "chrome" },
+            "reality": {
+              "enabled": true,
+              "public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+              "short_id": "deadbeef"
+            }
+          }
+        },
+        {
+          "type": "hysteria2",
+          "tag": "test-hysteria",
+          "server": "1.2.3.4",
+          "server_port": 8443,
+          "password": "fakepwd"
+        }
+      ],
+      "ripdpi": {
+        "schema_version": 1,
+        "amneziawg": [
+          {
+            "tag": "test-awg",
+            "private_key": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
+            "address": ["10.8.0.2/32"],
+            "dns": ["1.1.1.1"],
+            "mtu": 1330,
+            "peer": {
+              "public_key": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
+              "endpoint": "1.2.3.4:51820",
+              "allowed_ips": ["0.0.0.0/0"],
+              "persistent_keepalive": 25
+            },
+            "jc": 4,
+            "jmin": 40,
+            "jmax": 70,
+            "s1": 0,
+            "s2": 0,
+            "h1": 1,
+            "h2": 2,
+            "h3": 3,
+            "h4": 4
+          }
+        ]
+      }
+    }
+    """.trimIndent()
+
+@RunWith(RobolectricTestRunner::class)
+class ConfigSeederTest {
+    private lateinit var application: Application
+    private lateinit var proxyGroupRepository: RecordingProxyGroupRepository
+    private lateinit var relayProfileActivator: RelayProfileActivator
+    private lateinit var awgProfileRepository: AwgProfileRepository
+    private lateinit var awgDao: InMemoryAwgProfileDao
+    private lateinit var awgCredentials: InMemoryAwgCredentialStore
+
+    @Before
+    fun setUp() {
+        application = RuntimeEnvironment.getApplication()
+        proxyGroupRepository = RecordingProxyGroupRepository()
+        relayProfileActivator =
+            RelayProfileActivator(
+                relayProfileStore = FakeRelayProfileStore(),
+                relayCredentialStore = FakeRelayCredentialStore(),
+                settingsRepository = FakeAppSettingsRepository(),
+            )
+        awgDao = InMemoryAwgProfileDao()
+        awgCredentials = InMemoryAwgCredentialStore()
+        awgProfileRepository = AwgProfileRepository(dao = awgDao, credentialStore = awgCredentials)
+    }
+
+    private fun makeSeeder(bundleJson: String? = FAKE_BUNDLE): TestableConfigSeeder =
+        TestableConfigSeeder(
+            context = application,
+            proxyGroupRepository = proxyGroupRepository,
+            relayProfileActivator = relayProfileActivator,
+            awgProfileRepository = awgProfileRepository,
+            bundleJson = bundleJson,
+        )
+
+    @Test
+    fun `first seed adds group, activates relay profile, saves AWG profile and sets flag`() =
+        runTest {
+            val seeder = makeSeeder(FAKE_BUNDLE)
+
+            seeder.seed()
+
+            // Group was persisted
+            assertEquals(1, proxyGroupRepository.addedGroups.size)
+            assertEquals(ProxyGroupType.BASIC, proxyGroupRepository.addedGroups.single().type)
+            // AWG profile was saved
+            assertEquals(1, awgDao.rows.value.size)
+            assertEquals(
+                "test-awg",
+                awgDao.rows.value
+                    .single()
+                    .name,
+            )
+            // Seeded flag was set
+            assertTrue(seeder.isSeeded())
+        }
+
+    @Test
+    fun `hysteria2 profile is silently skipped by activator but does not abort seed`() =
+        runTest {
+            val seeder = makeSeeder(FAKE_BUNDLE)
+
+            seeder.seed()
+
+            // Seed completed (flag set) even though Hysteria2 is not relay-activatable
+            assertTrue(seeder.isSeeded())
+        }
+
+    @Test
+    fun `second seed call is a complete no-op`() =
+        runTest {
+            val seeder = makeSeeder(FAKE_BUNDLE)
+
+            seeder.seed()
+            seeder.seed()
+
+            assertEquals(1, proxyGroupRepository.addedGroups.size)
+            assertEquals(1, awgDao.rows.value.size)
+        }
+
+    @Test
+    fun `missing asset does not set the seeded flag`() =
+        runTest {
+            val seeder = makeSeeder(bundleJson = null)
+
+            seeder.seed()
+
+            assertFalse(seeder.isSeeded())
+            assertTrue(proxyGroupRepository.addedGroups.isEmpty())
+            assertTrue(awgDao.rows.value.isEmpty())
+        }
+
+    @Test
+    fun `missing asset followed by present asset seeds successfully`() =
+        runTest {
+            // First call: asset absent — flag not set
+            makeSeeder(bundleJson = null).seed()
+
+            // Second call with same shared prefs: asset now present — seeds
+            val seeder = makeSeeder(FAKE_BUNDLE)
+            seeder.seed()
+
+            assertTrue(seeder.isSeeded())
+            assertEquals(1, proxyGroupRepository.addedGroups.size)
+        }
+}
+
+// ---------------------------------------------------------------------------
+// Test double: subclass of ConfigSeeder with injected bundle string
+// ---------------------------------------------------------------------------
+
+private class TestableConfigSeeder(
+    context: Context,
+    proxyGroupRepository: ProxyGroupRepository,
+    relayProfileActivator: RelayProfileActivator,
+    awgProfileRepository: AwgProfileRepository,
+    private val bundleJson: String?,
+) : ConfigSeeder(context, proxyGroupRepository, relayProfileActivator, awgProfileRepository) {
+    override fun readBundle(): String? = bundleJson
+
+    fun isSeeded(): Boolean =
+        context
+            .getSharedPreferences(SEED_PREFS_NAME, Context.MODE_PRIVATE)
+            .getBoolean(SEED_KEY_SEEDED, false)
+}
+
+// ---------------------------------------------------------------------------
+// Fakes for stores required by RelayProfileActivator and AwgProfileRepository
+// ---------------------------------------------------------------------------
+
+private class RecordingProxyGroupRepository : ProxyGroupRepository {
+    val addedGroups = mutableListOf<ProxyGroup>()
+
+    override suspend fun add(group: ProxyGroup) {
+        addedGroups += group
+    }
+
+    override suspend fun update(group: ProxyGroup) = Unit
+
+    override suspend fun delete(id: String) = Unit
+
+    override suspend fun list(): List<ProxyGroup> = addedGroups.toList()
+
+    override fun groups(): Flow<List<ProxyGroup>> = flowOf(emptyList())
+}
+
+private class FakeRelayProfileStore : RelayProfileStore {
+    private val profiles = mutableMapOf<String, RelayProfileRecord>()
+
+    override suspend fun load(profileId: String): RelayProfileRecord? = profiles[profileId]
+
+    override suspend fun list(): List<RelayProfileRecord> = profiles.values.toList()
+
+    override suspend fun save(profile: RelayProfileRecord) {
+        profiles[profile.id] = profile
+    }
+
+    override suspend fun clear(profileId: String) {
+        profiles.remove(profileId)
+    }
+}
+
+private class FakeRelayCredentialStore : RelayCredentialStore {
+    private val credentials = mutableMapOf<String, RelayCredentialRecord>()
+
+    override suspend fun load(profileId: String): RelayCredentialRecord? = credentials[profileId]
+
+    override suspend fun save(credentials: RelayCredentialRecord) {
+        this.credentials[credentials.profileId] = credentials
+    }
+
+    override suspend fun clear(profileId: String) {
+        credentials.remove(profileId)
+    }
+}
+
+private class FakeAppSettingsRepository : AppSettingsRepository {
+    private val state = MutableStateFlow(AppSettingsSerializer.defaultValue)
+
+    override val settings: Flow<AppSettings> = state.asStateFlow()
+
+    override suspend fun snapshot(): AppSettings = settings.first()
+
+    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
+    }
+
+    override suspend fun replace(settings: AppSettings) {
+        state.value = settings
+    }
+}
+
+private class InMemoryAwgProfileDao : AwgProfileDao {
+    val rows = MutableStateFlow<List<AwgProfileEntity>>(emptyList())
+
+    override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows.asStateFlow()
+
+    override suspend fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
+
+    override suspend fun upsertProfile(profile: AwgProfileEntity) {
+        rows.value = rows.value.filterNot { it.id == profile.id } + profile
+    }
+
+    override suspend fun deleteProfile(profile: AwgProfileEntity) {
+        rows.value = rows.value.filterNot { it.id == profile.id }
+    }
+}
+
+private class InMemoryAwgCredentialStore : AwgCredentialStore {
+    private val secrets = mutableMapOf<String, AwgSecrets>()
+
+    override suspend fun load(profileId: String): AwgSecrets? = secrets[profileId]
+
+    override suspend fun save(
+        profileId: String,
+        secrets: AwgSecrets,
+    ) {
+        this.secrets[profileId] = secrets
+    }
+
+    override suspend fun clear(profileId: String) {
+        secrets.remove(profileId)
+    }
+}

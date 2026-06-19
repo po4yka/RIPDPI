@@ -102,3 +102,10 @@ design-review/
 
 # Advisor implementation plans (improve skill output) — local working artifacts
 /plans/
+
+# Compiled-in server config for the "simple" flavor. Holds the emit-bundle
+# output (per-client UUIDs/passwords, AmneziaWG private key) and must never be
+# committed — it ships inside the simple APK but stays out of source control.
+# Consumed by the simple-flavor first-launch seeder (ConfigSeeder); when the
+# file is absent the seeder no-ops, so other flavors/CI build fine without it.
+app/src/simple/assets/embedded-relay-bundle.json

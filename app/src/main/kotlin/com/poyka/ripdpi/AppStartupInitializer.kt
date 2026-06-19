@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
+import com.poyka.ripdpi.seed.SimpleFlavorSeeder
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
@@ -22,6 +23,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
@@ -43,6 +45,7 @@ class AppStartupInitializer
         private val resetEventRecorder: ResetEventRecorder,
         private val lastExitInspector: LastExitInspector,
         private val memoryProfilingRegistrar: MemoryProfilingRegistrar,
+        private val simpleFlavorSeeder: Optional<SimpleFlavorSeeder>,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
@@ -121,6 +124,10 @@ class AppStartupInitializer
                 runSubsystem(AppStartupSubsystem.BootSessionRecorderRegistration) {
                     bootSessionRecorder.register()
                 }
+            val simpleConfigSeed =
+                runSubsystem(AppStartupSubsystem.SimpleConfigSeed) {
+                    simpleFlavorSeeder.orElse(null)?.seed()
+                }
             return AppStartupReport(
                 resetEventConsume = resetEventConsume,
                 compatibilityReset = compatibilityReset,
@@ -132,6 +139,7 @@ class AppStartupInitializer
                 cdnEchWorkerEnqueue = cdnEchWorkerEnqueue,
                 subscriptionWorkerEnqueue = subscriptionWorkerEnqueue,
                 bootSessionRecorderRegistration = bootSessionRecorderRegistration,
+                simpleConfigSeed = simpleConfigSeed,
             )
         }
 
@@ -173,6 +181,7 @@ internal data class AppStartupReport(
     val cdnEchWorkerEnqueue: AppStartupSubsystemResult,
     val subscriptionWorkerEnqueue: AppStartupSubsystemResult,
     val bootSessionRecorderRegistration: AppStartupSubsystemResult,
+    val simpleConfigSeed: AppStartupSubsystemResult,
 ) {
     fun toLogMessage(): String =
         "App startup report: " +
@@ -187,6 +196,7 @@ internal data class AppStartupReport(
                 cdnEchWorkerEnqueue,
                 subscriptionWorkerEnqueue,
                 bootSessionRecorderRegistration,
+                simpleConfigSeed,
             ).joinToString(separator = ", ") { result ->
                 buildString {
                     append(result.subsystem.logLabel)
@@ -220,6 +230,7 @@ internal enum class AppStartupSubsystem(
     CdnEchRefreshWorkerEnqueue("cdn_ech_refresh_worker_enqueue"),
     SubscriptionAutoUpdateWorkerEnqueue("subscription_auto_update_worker_enqueue"),
     BootSessionRecorderRegistration("boot_session_recorder_registration"),
+    SimpleConfigSeed("simple_config_seed"),
 }
 
 internal enum class AppStartupSubsystemStatus {

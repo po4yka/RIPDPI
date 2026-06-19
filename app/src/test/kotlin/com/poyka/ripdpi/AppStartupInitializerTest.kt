@@ -20,6 +20,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.seed.SimpleFlavorSeeder
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
@@ -44,6 +45,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.util.Optional
 import javax.inject.Provider
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -92,7 +94,8 @@ class AppStartupInitializerTest {
                     "shared_priors_refresh_worker_enqueue=succeeded, " +
                     "cdn_ech_seed_from_cache=succeeded, cdn_ech_refresh_worker_enqueue=succeeded, " +
                     "subscription_auto_update_worker_enqueue=succeeded, " +
-                    "boot_session_recorder_registration=succeeded",
+                    "boot_session_recorder_registration=succeeded, " +
+                    "simple_config_seed=succeeded",
                 report.toLogMessage(),
             )
         }
@@ -476,6 +479,7 @@ class AppStartupInitializerTest {
             resetEventRecorder = resetEventRecorder,
             lastExitInspector = lastExitInspector,
             memoryProfilingRegistrar = memoryProfilingRegistrar,
+            simpleFlavorSeeder = Optional.empty(),
             appShortcutsPublisher =
                 AppShortcutsPublisher(
                     context = application,
