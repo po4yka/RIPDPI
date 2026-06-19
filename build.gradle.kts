@@ -209,7 +209,9 @@ val coverageModulePaths =
     )
 
 val qualityModulePaths = listOf(":app") + coverageModulePaths
-val lintTaskPaths = listOf(":app:lintGithubDebug") + coverageModulePaths.map { "$it:lintDebug" }
+val lintTaskPaths =
+    listOf(":app:lintGithubFullDebug", ":app:lintGithubSimpleDebug") +
+        coverageModulePaths.map { "$it:lintDebug" }
 
 fun moduleRelativePath(modulePath: String): String = modulePath.removePrefix(":").replace(':', '/')
 
@@ -388,11 +390,11 @@ tasks.matching { it.name == "prepareKotlinBuildScriptModel" }.configureEach {
 tasks.register("recordScreenshots") {
     group = "verification"
     description = "Records Roborazzi screenshot baselines for the app module"
-    dependsOn(":app:recordRoborazziGithubDebug")
+    dependsOn(":app:recordRoborazziGithubFullDebug")
 }
 
 tasks.register("verifyScreenshots") {
     group = "verification"
     description = "Verifies Roborazzi screenshot baselines for the app module"
-    dependsOn(":app:verifyRoborazziGithubDebug")
+    dependsOn(":app:verifyRoborazziGithubFullDebug")
 }

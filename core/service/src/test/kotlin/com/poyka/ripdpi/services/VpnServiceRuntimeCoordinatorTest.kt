@@ -844,13 +844,8 @@ class VpnServiceRuntimeCoordinatorTest {
     ): VpnServiceRuntimeCoordinator {
         val overrides = TestResolverOverrideStore()
         val clock = TestServiceClock(now = 1_000L)
-        val bridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events))
         val appSettingsRepository = TestAppSettingsRepository()
-        val tunnelProvider =
-            TestVpnTunnelSessionProvider(
-                events = events,
-                session = TestVpnTunnelSession(events = events),
-            )
+        val tunnelRuntime = buildTestVpnTunnelRuntime(host, appSettingsRepository, events)
         return VpnServiceRuntimeCoordinator(
             vpnHost = host,
             appSettingsRepository = appSettingsRepository,
@@ -862,18 +857,9 @@ class VpnServiceRuntimeCoordinatorTest {
             policyHandoverEventStore = TestPolicyHandoverEventStore(),
             permissionWatchdog = TestPermissionWatchdog(),
             vpnProtectFailureMonitor = TestVpnProtectFailureMonitor(),
-            vpnTunnelRuntime =
-                VpnTunnelRuntime(
-                    vpnHost = host,
-                    appSettingsRepository = appSettingsRepository,
-                    tun2SocksBridgeFactory = bridgeFactory,
-                    vpnTunnelSessionProvider = tunnelProvider,
-                ),
+            vpnTunnelRuntime = tunnelRuntime,
             resolverRefreshPlanner =
-                VpnResolverRefreshPlanner(
-                    connectionPolicyResolver = resolver,
-                    resolverOverrideStore = overrides,
-                ),
+                VpnResolverRefreshPlanner(connectionPolicyResolver = resolver, resolverOverrideStore = overrides),
             encryptedDnsFailoverController =
                 VpnEncryptedDnsFailoverController(
                     resolverOverrideStore = overrides,
@@ -882,29 +868,9 @@ class VpnServiceRuntimeCoordinatorTest {
                     networkFingerprintProvider = TestNetworkFingerprintProvider(initialFingerprint),
                     clock = clock,
                 ),
-            upstreamRelaySupervisor =
-                UpstreamRelaySupervisor(
-                    scope = backgroundScope,
-                    dispatcher = dispatcher,
-                    relayFactory = TestRipDpiRelayFactory(),
-                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                    relayProfileStore = TestRelayProfileStore(),
-                    relayCredentialStore = TestRelayCredentialStore(),
-                ),
-            warpRuntimeSupervisor =
-                WarpRuntimeSupervisor(
-                    scope = backgroundScope,
-                    dispatcher = dispatcher,
-                    warpFactory = TestRipDpiWarpFactory(),
-                    runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
-                ),
-            amneziaWgRuntimeSupervisor =
-                AmneziaWgRuntimeSupervisor(
-                    scope = backgroundScope,
-                    dispatcher = dispatcher,
-                    amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
-                    runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
-                ),
+            upstreamRelaySupervisor = buildTestUpstreamRelaySupervisor(backgroundScope, dispatcher),
+            warpRuntimeSupervisor = buildTestWarpRuntimeSupervisor(backgroundScope, dispatcher),
+            amneziaWgRuntimeSupervisor = buildTestAmneziaWgRuntimeSupervisor(backgroundScope, dispatcher),
             proxyRuntimeSupervisor =
                 ProxyRuntimeSupervisor(
                     scope = backgroundScope,
@@ -927,6 +893,57 @@ class VpnServiceRuntimeCoordinatorTest {
             clock = clock,
         )
     }
+
+    private fun buildTestVpnTunnelRuntime(
+        host: TestVpnServiceHost,
+        appSettingsRepository: TestAppSettingsRepository,
+        events: MutableList<String>,
+    ): VpnTunnelRuntime =
+        VpnTunnelRuntime(
+            vpnHost = host,
+            appSettingsRepository = appSettingsRepository,
+            tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events)),
+            vpnTunnelSessionProvider =
+                TestVpnTunnelSessionProvider(
+                    events = events,
+                    session = TestVpnTunnelSession(events = events),
+                ),
+        )
+
+    private fun buildTestUpstreamRelaySupervisor(
+        scope: kotlinx.coroutines.CoroutineScope,
+        dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    ): UpstreamRelaySupervisor =
+        UpstreamRelaySupervisor(
+            scope = scope,
+            dispatcher = dispatcher,
+            relayFactory = TestRipDpiRelayFactory(),
+            naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+            relayProfileStore = TestRelayProfileStore(),
+            relayCredentialStore = TestRelayCredentialStore(),
+        )
+
+    private fun buildTestWarpRuntimeSupervisor(
+        scope: kotlinx.coroutines.CoroutineScope,
+        dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    ): WarpRuntimeSupervisor =
+        WarpRuntimeSupervisor(
+            scope = scope,
+            dispatcher = dispatcher,
+            warpFactory = TestRipDpiWarpFactory(),
+            runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+        )
+
+    private fun buildTestAmneziaWgRuntimeSupervisor(
+        scope: kotlinx.coroutines.CoroutineScope,
+        dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+    ): AmneziaWgRuntimeSupervisor =
+        AmneziaWgRuntimeSupervisor(
+            scope = scope,
+            dispatcher = dispatcher,
+            amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
+            runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+        )
 
     @Test
     fun stopPreventsPendingResolverRefreshFromRebuildingTunnel() =

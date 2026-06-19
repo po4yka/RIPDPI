@@ -485,6 +485,7 @@ class ProxyServiceRuntimeCoordinatorTest {
         val runtimeRegistry = DefaultServiceRuntimeRegistry()
         val handoverMonitor = TestNetworkHandoverMonitor()
         val handoverEvents = TestPolicyHandoverEventStore()
+        val supervisors = buildProxySupervisorBundle(dispatcher, factory, warpFactory)
         val coordinator =
             ProxyServiceRuntimeCoordinator(
                 host = host,
@@ -494,39 +495,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                 networkHandoverMonitor = handoverMonitor,
                 policyHandoverEventStore = handoverEvents,
                 permissionWatchdog = TestPermissionWatchdog(),
-                supervisors =
-                    ProxyRuntimeSupervisorBundle(
-                        upstreamRelaySupervisor =
-                            UpstreamRelaySupervisor(
-                                scope = backgroundScope,
-                                dispatcher = dispatcher,
-                                relayFactory = TestRipDpiRelayFactory(),
-                                naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                                relayProfileStore = TestRelayProfileStore(),
-                                relayCredentialStore = TestRelayCredentialStore(),
-                            ),
-                        warpRuntimeSupervisor =
-                            WarpRuntimeSupervisor(
-                                scope = backgroundScope,
-                                dispatcher = dispatcher,
-                                warpFactory = warpFactory,
-                                runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
-                            ),
-                        amneziaWgRuntimeSupervisor =
-                            AmneziaWgRuntimeSupervisor(
-                                scope = backgroundScope,
-                                dispatcher = dispatcher,
-                                amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
-                                runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
-                            ),
-                        proxyRuntimeSupervisor =
-                            ProxyRuntimeSupervisor(
-                                scope = backgroundScope,
-                                dispatcher = dispatcher,
-                                ripDpiProxyFactory = factory,
-                                networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
-                            ),
-                    ),
+                supervisors = supervisors,
                 statusReporter =
                     ServiceStatusReporter(
                         mode = Mode.Proxy,
@@ -557,6 +526,44 @@ class ProxyServiceRuntimeCoordinatorTest {
             resolver = resolver,
         )
     }
+
+    private fun TestScope.buildProxySupervisorBundle(
+        dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+        factory: TestRipDpiProxyFactory,
+        warpFactory: TestRipDpiWarpFactory,
+    ): ProxyRuntimeSupervisorBundle =
+        ProxyRuntimeSupervisorBundle(
+            upstreamRelaySupervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    relayFactory = TestRipDpiRelayFactory(),
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    relayProfileStore = TestRelayProfileStore(),
+                    relayCredentialStore = TestRelayCredentialStore(),
+                ),
+            warpRuntimeSupervisor =
+                WarpRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    warpFactory = warpFactory,
+                    runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+                ),
+            amneziaWgRuntimeSupervisor =
+                AmneziaWgRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
+                    runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
+                ),
+            proxyRuntimeSupervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = factory,
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                ),
+        )
 }
 
 private class DelayedStopProxyRuntime(

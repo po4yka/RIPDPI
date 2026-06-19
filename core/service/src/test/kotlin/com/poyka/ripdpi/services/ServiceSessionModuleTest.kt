@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeDnsDependencies
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies
@@ -54,6 +55,19 @@ class ServiceSessionModuleTest {
                     telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
                     factory = statusFactory,
                 )
+            val amneziaWgRuntimeSupervisor =
+                ProxyServiceSessionModule.provideProxyAmneziaWgRuntimeSupervisor(
+                    host = host,
+                    factory = NoOpAmneziaWgRuntimeSupervisorFactory(),
+                    dispatchers = dispatchers,
+                )
+            val supervisors =
+                ProxyServiceSessionModule.provideProxyRuntimeSupervisorBundle(
+                    upstreamRelaySupervisor = upstreamRelaySupervisor,
+                    warpRuntimeSupervisor = warpRuntimeSupervisor,
+                    amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
+                    proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+                )
             val coordinator =
                 ProxyServiceSessionModule.provideProxyCoordinator(
                     host = host,
@@ -63,15 +77,7 @@ class ServiceSessionModuleTest {
                     networkHandoverMonitor = TestNetworkHandoverMonitor(),
                     policyHandoverEventStore = TestPolicyHandoverEventStore(),
                     permissionWatchdog = TestPermissionWatchdog(),
-                    upstreamRelaySupervisor = upstreamRelaySupervisor,
-                    warpRuntimeSupervisor = warpRuntimeSupervisor,
-                    amneziaWgRuntimeSupervisor =
-                        ProxyServiceSessionModule.provideProxyAmneziaWgRuntimeSupervisor(
-                            host = host,
-                            factory = NoOpAmneziaWgRuntimeSupervisorFactory(),
-                            dispatchers = dispatchers,
-                        ),
-                    proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+                    supervisors = supervisors,
                     statusReporter = statusReporter,
                     screenStateObserver = TestScreenStateObserver(),
                     directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
@@ -207,16 +213,26 @@ class ServiceSessionModuleTest {
                     xrayProviderSessionController = buildTestXrayProviderSessionController(vpnTunnelRuntime),
                 )
 
-            assertEquals(1, proxyFactory.createCalls)
-            assertEquals(1, relayFactory.createCalls)
-            assertEquals(1, warpFactory.createCalls)
-            assertSame(dispatchers.io, proxyFactory.createdDispatchers.single())
-            assertSame(dispatchers.io, relayFactory.createdDispatchers.single())
-            assertSame(dispatchers.io, warpFactory.createdDispatchers.single())
-            assertEquals(Mode.VPN, statusFactory.createdModes.single())
-            assertEquals(Sender.VPN, statusFactory.createdSenders.single())
+            assertVpnFactoriesInvoked(proxyFactory, relayFactory, warpFactory, statusFactory, dispatchers)
             assertNotNull(coordinator)
         }
+
+    private fun assertVpnFactoriesInvoked(
+        proxyFactory: RecordingProxyRuntimeSupervisorFactory,
+        relayFactory: RecordingUpstreamRelaySupervisorFactory,
+        warpFactory: RecordingWarpRuntimeSupervisorFactory,
+        statusFactory: RecordingServiceStatusReporterFactory,
+        dispatchers: AppCoroutineDispatchers,
+    ) {
+        assertEquals(1, proxyFactory.createCalls)
+        assertEquals(1, relayFactory.createCalls)
+        assertEquals(1, warpFactory.createCalls)
+        assertSame(dispatchers.io, proxyFactory.createdDispatchers.single())
+        assertSame(dispatchers.io, relayFactory.createdDispatchers.single())
+        assertSame(dispatchers.io, warpFactory.createdDispatchers.single())
+        assertEquals(Mode.VPN, statusFactory.createdModes.single())
+        assertEquals(Sender.VPN, statusFactory.createdSenders.single())
+    }
 
     private fun testDispatchers(): AppCoroutineDispatchers {
         val dispatcher = StandardTestDispatcher()

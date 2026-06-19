@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryStatuses
 
 internal class VpnRuntimeTelemetryReporter(
     private val host: VpnCoordinatorHost,
@@ -30,11 +31,14 @@ internal class VpnRuntimeTelemetryReporter(
             warpTelemetry = telemetry.warpTelemetry,
             awgTelemetry = telemetry.awgTelemetry,
             tunnelTelemetry = telemetry.tunnelTelemetry,
-            proxyTelemetryStatus = telemetry.proxyTelemetryStatus,
-            relayTelemetryStatus = telemetry.relayTelemetryStatus,
-            warpTelemetryStatus = telemetry.warpTelemetryStatus,
-            awgTelemetryStatus = telemetry.awgTelemetryStatus,
-            tunnelTelemetryStatus = telemetry.tunnelTelemetryStatus,
+            telemetryStatuses =
+                RuntimeTelemetryStatuses(
+                    proxy = telemetry.proxyTelemetryStatus,
+                    relay = telemetry.relayTelemetryStatus,
+                    warp = telemetry.warpTelemetryStatus,
+                    awg = telemetry.awgTelemetryStatus,
+                    tunnel = telemetry.tunnelTelemetryStatus,
+                ),
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
             failureReason = failureReason,
             xrayProviderSnapshot = xrayController?.takeIf { it.isActive }?.currentSnapshot(),

@@ -34,11 +34,7 @@ internal class RuntimeTelemetryProjection(
         relayTelemetry: NativeRuntimeSnapshot?,
         warpTelemetry: NativeRuntimeSnapshot?,
         awgTelemetry: NativeRuntimeSnapshot?,
-        proxyTelemetryStatus: RuntimeTelemetryStatus?,
-        relayTelemetryStatus: RuntimeTelemetryStatus?,
-        warpTelemetryStatus: RuntimeTelemetryStatus?,
-        awgTelemetryStatus: RuntimeTelemetryStatus?,
-        tunnelTelemetryStatus: RuntimeTelemetryStatus?,
+        telemetryStatuses: RuntimeTelemetryStatuses = RuntimeTelemetryStatuses(),
         failureReason: FailureReason?,
         xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot?,
     ): ServiceTelemetrySnapshot {
@@ -65,34 +61,34 @@ internal class RuntimeTelemetryProjection(
             status = statusFor(newStatus),
             tunnelStats = tunnelStatsFor(proxyTelemetry, tunnelTelemetry),
             proxyTelemetry = enrichRuntimeSnapshot(proxyTelemetry),
-            proxyTelemetryStatus = proxyTelemetryStatusFor(newStatus, currentTelemetry, proxyTelemetryStatus),
+            proxyTelemetryStatus = proxyTelemetryStatusFor(newStatus, currentTelemetry, telemetryStatuses.proxy),
             relayTelemetry = enrichRuntimeSnapshot(effectiveRelayTelemetry),
             relayTelemetryStatus =
                 telemetryStatusFor(
                     newStatus,
                     currentTelemetry.relayTelemetryStatus,
-                    relayTelemetryStatus,
+                    telemetryStatuses.relay,
                 ),
             warpTelemetry = enrichRuntimeSnapshot(effectiveWarpTelemetry),
             warpTelemetryStatus =
                 telemetryStatusFor(
                     newStatus,
                     currentTelemetry.warpTelemetryStatus,
-                    warpTelemetryStatus,
+                    telemetryStatuses.warp,
                 ),
             awgTelemetry = enrichRuntimeSnapshot(effectiveAwgTelemetry),
             awgTelemetryStatus =
                 telemetryStatusFor(
                     newStatus,
                     currentTelemetry.awgTelemetryStatus,
-                    awgTelemetryStatus,
+                    telemetryStatuses.awg,
                 ),
             tunnelTelemetry = enrichRuntimeSnapshot(tunnelTelemetry),
             tunnelTelemetryStatus =
                 telemetryStatusFor(
                     newStatus,
                     currentTelemetry.tunnelTelemetryStatus,
-                    tunnelTelemetryStatus,
+                    telemetryStatuses.tunnel,
                 ),
             networkHandoverState = currentNetworkHandoverState(),
             runtimeFieldTelemetry =

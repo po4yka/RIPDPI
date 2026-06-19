@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryStatuses
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -222,11 +223,14 @@ class ServiceStatusReporterTest {
             warpTelemetry = NativeRuntimeSnapshot.idle(source = "warp"),
             awgTelemetry = NativeRuntimeSnapshot.idle(source = "awg"),
             tunnelTelemetry = tunnelTelemetry,
-            proxyTelemetryStatus = RuntimeTelemetryStatus.NoData,
-            relayTelemetryStatus = RuntimeTelemetryStatus.NoData,
-            warpTelemetryStatus = RuntimeTelemetryStatus.NoData,
-            awgTelemetryStatus = RuntimeTelemetryStatus.NoData,
-            tunnelTelemetryStatus = RuntimeTelemetryStatus.NoData,
+            telemetryStatuses =
+                RuntimeTelemetryStatuses(
+                    proxy = RuntimeTelemetryStatus.NoData,
+                    relay = RuntimeTelemetryStatus.NoData,
+                    warp = RuntimeTelemetryStatus.NoData,
+                    awg = RuntimeTelemetryStatus.NoData,
+                    tunnel = RuntimeTelemetryStatus.NoData,
+                ),
             tunnelRecoveryRetryCount = 4L,
         )
 

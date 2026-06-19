@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryProjection
+import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryStatuses
 
 internal class ServiceStatusReporter(
     private val mode: Mode,
@@ -47,11 +48,7 @@ internal class ServiceStatusReporter(
         relayTelemetry: NativeRuntimeSnapshot? = null,
         warpTelemetry: NativeRuntimeSnapshot? = null,
         awgTelemetry: NativeRuntimeSnapshot? = null,
-        proxyTelemetryStatus: RuntimeTelemetryStatus? = null,
-        relayTelemetryStatus: RuntimeTelemetryStatus? = null,
-        warpTelemetryStatus: RuntimeTelemetryStatus? = null,
-        awgTelemetryStatus: RuntimeTelemetryStatus? = null,
-        tunnelTelemetryStatus: RuntimeTelemetryStatus? = null,
+        telemetryStatuses: RuntimeTelemetryStatuses = RuntimeTelemetryStatuses(),
         failureReason: FailureReason? = null,
         xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
     ) {
@@ -68,11 +65,7 @@ internal class ServiceStatusReporter(
                 relayTelemetry = relayTelemetry,
                 warpTelemetry = warpTelemetry,
                 awgTelemetry = awgTelemetry,
-                proxyTelemetryStatus = proxyTelemetryStatus,
-                relayTelemetryStatus = relayTelemetryStatus,
-                warpTelemetryStatus = warpTelemetryStatus,
-                awgTelemetryStatus = awgTelemetryStatus,
-                tunnelTelemetryStatus = tunnelTelemetryStatus,
+                telemetryStatuses = telemetryStatuses,
                 failureReason = failureReason,
                 xrayProviderSnapshot = xrayProviderSnapshot,
             ),
@@ -88,11 +81,7 @@ internal class ServiceStatusReporter(
         warpTelemetry: NativeRuntimeSnapshot,
         awgTelemetry: NativeRuntimeSnapshot,
         tunnelTelemetry: NativeRuntimeSnapshot,
-        proxyTelemetryStatus: RuntimeTelemetryStatus,
-        relayTelemetryStatus: RuntimeTelemetryStatus,
-        warpTelemetryStatus: RuntimeTelemetryStatus,
-        awgTelemetryStatus: RuntimeTelemetryStatus,
-        tunnelTelemetryStatus: RuntimeTelemetryStatus,
+        telemetryStatuses: RuntimeTelemetryStatuses,
         tunnelRecoveryRetryCount: Long,
         failureReason: FailureReason? = null,
         xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
@@ -110,11 +99,11 @@ internal class ServiceStatusReporter(
                 warpTelemetry = warpTelemetry,
                 awgTelemetry = awgTelemetry,
                 tunnelTelemetry = tunnelTelemetry,
-                proxyTelemetryStatus = proxyTelemetryStatus,
-                relayTelemetryStatus = relayTelemetryStatus,
-                warpTelemetryStatus = warpTelemetryStatus,
-                awgTelemetryStatus = awgTelemetryStatus,
-                tunnelTelemetryStatus = tunnelTelemetryStatus,
+                proxyTelemetryStatus = telemetryStatuses.proxy ?: RuntimeTelemetryStatus.NoData,
+                relayTelemetryStatus = telemetryStatuses.relay ?: RuntimeTelemetryStatus.NoData,
+                warpTelemetryStatus = telemetryStatuses.warp ?: RuntimeTelemetryStatus.NoData,
+                awgTelemetryStatus = telemetryStatuses.awg ?: RuntimeTelemetryStatus.NoData,
+                tunnelTelemetryStatus = telemetryStatuses.tunnel ?: RuntimeTelemetryStatus.NoData,
                 tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
                 failureReason = failureReason,
                 xrayProviderSnapshot = xrayProviderSnapshot,

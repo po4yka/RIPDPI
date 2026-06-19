@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.toStatus
+import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryStatuses
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 
@@ -39,11 +40,14 @@ internal class ProxyTelemetryCoordinator(
                     warpTelemetry = telemetry.warpTelemetry,
                     awgTelemetry = telemetry.awgTelemetry,
                     tunnelTelemetry = telemetry.tunnelTelemetry,
-                    proxyTelemetryStatus = telemetry.proxyTelemetryStatus,
-                    relayTelemetryStatus = telemetry.relayTelemetryStatus,
-                    warpTelemetryStatus = telemetry.warpTelemetryStatus,
-                    awgTelemetryStatus = telemetry.awgTelemetryStatus,
-                    tunnelTelemetryStatus = telemetry.tunnelTelemetryStatus,
+                    telemetryStatuses =
+                        RuntimeTelemetryStatuses(
+                            proxy = telemetry.proxyTelemetryStatus,
+                            relay = telemetry.relayTelemetryStatus,
+                            warp = telemetry.warpTelemetryStatus,
+                            awg = telemetry.awgTelemetryStatus,
+                            tunnel = telemetry.tunnelTelemetryStatus,
+                        ),
                     tunnelRecoveryRetryCount = 0,
                 )
                 if (statusReporter.startedAt != null && screenStateObserver.isInteractive.value) {

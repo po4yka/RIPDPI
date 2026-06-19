@@ -8,10 +8,7 @@ import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
-import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
-import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
-import com.poyka.ripdpi.seed.SimpleFlavorSeeder
-import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
+import com.poyka.ripdpi.seed.SimpleFlavorStartupHooks
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
@@ -24,7 +21,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
@@ -44,16 +40,14 @@ class AppStartupInitializer
         private val bootSessionRecorder: BootSessionRecorder,
         private val appShortcutsPublisher: AppShortcutsPublisher,
         private val resetEventRecorder: ResetEventRecorder,
-        private val lastExitInspector: LastExitInspector,
-        private val memoryProfilingRegistrar: MemoryProfilingRegistrar,
-        private val simpleFlavorSeeder: Optional<SimpleFlavorSeeder>,
-        private val simpleFlavorSessionWatcher: Optional<SimpleFlavorSessionWatcher>,
+        private val startupDiagnosticsProbes: StartupDiagnosticsProbes,
+        private val simpleFlavorStartupHooks: SimpleFlavorStartupHooks,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
             runCatching { appShortcutsPublisher.start() }
                 .onFailure { error -> Logger.w(error) { "App shortcuts publisher failed to start" } }
-            simpleFlavorSessionWatcher.orElse(null)?.bind(applicationScope)
+            simpleFlavorStartupHooks.sessionWatcher.orElse(null)?.bind(applicationScope)
             applicationScope.launch {
                 val report = initializeSubsystems()
                 Logger.i { report.toLogMessage() }
@@ -61,14 +55,14 @@ class AppStartupInitializer
                 // memory limiter. A pure diagnostics read, isolated from the
                 // subsystem report so a failure here never affects startup.
                 runCatching {
-                    lastExitInspector.recordRecentMemoryLimiterExits()
+                    startupDiagnosticsProbes.lastExitInspector.recordRecentMemoryLimiterExits()
                 }.onFailure { error ->
                     Logger.w(error) { "Memory-limiter exit scan failed" }
                 }
                 // Register Android 17 OOM/anomaly profiling triggers (no-op below
                 // API 37). A captured heap dump is delivered to our result callback.
                 runCatching {
-                    memoryProfilingRegistrar.register()
+                    startupDiagnosticsProbes.memoryProfilingRegistrar.register()
                 }.onFailure { error ->
                     Logger.w(error) { "Memory profiling registration failed" }
                 }
@@ -129,7 +123,7 @@ class AppStartupInitializer
                 }
             val simpleConfigSeed =
                 runSubsystem(AppStartupSubsystem.SimpleConfigSeed) {
-                    simpleFlavorSeeder.orElse(null)?.seed()
+                    simpleFlavorStartupHooks.seeder.orElse(null)?.seed()
                 }
             return AppStartupReport(
                 resetEventConsume = resetEventConsume,

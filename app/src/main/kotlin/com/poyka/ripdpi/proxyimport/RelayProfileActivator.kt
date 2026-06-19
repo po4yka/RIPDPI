@@ -42,16 +42,7 @@ class RelayProfileActivator
     ) {
         suspend fun activate(profile: ProxyProfile): Boolean {
             val profileId = DefaultRelayProfileId
-            val relayKind =
-                when (profile) {
-                    is ProxyProfile.Trojan -> RelayKindTrojan
-                    is ProxyProfile.Shadowsocks -> RelayKindShadowsocks
-                    is ProxyProfile.AnyTls -> RelayKindAnyTls
-                    is ProxyProfile.VlessReality -> RelayKindVlessReality
-                    is ProxyProfile.Hysteria2 -> RelayKindHysteria2
-                    is ProxyProfile.Ssh -> RelayKindSsh
-                    else -> return false
-                }
+            val relayKind = relayKindFor(profile) ?: return false
             val endpoint = relayEndpoint(profile)
             // SSH carries only a `direct-tcpip` TCP channel; every other
             // relay-activatable kind here advertises UDP ASSOCIATE.
@@ -110,6 +101,18 @@ class RelayProfileActivator
             }
             return true
         }
+
+        /** Relay-kind id for a relay-activatable [profile], or `null` for non-relay kinds. */
+        private fun relayKindFor(profile: ProxyProfile): String? =
+            when (profile) {
+                is ProxyProfile.Trojan -> RelayKindTrojan
+                is ProxyProfile.Shadowsocks -> RelayKindShadowsocks
+                is ProxyProfile.AnyTls -> RelayKindAnyTls
+                is ProxyProfile.VlessReality -> RelayKindVlessReality
+                is ProxyProfile.Hysteria2 -> RelayKindHysteria2
+                is ProxyProfile.Ssh -> RelayKindSsh
+                else -> null
+            }
 
         private fun relayEndpoint(profile: ProxyProfile): RelayActivationEndpoint =
             when (profile) {

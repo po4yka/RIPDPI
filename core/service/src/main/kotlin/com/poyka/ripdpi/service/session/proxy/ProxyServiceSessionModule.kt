@@ -94,6 +94,21 @@ internal object ProxyServiceSessionModule {
 
     @Provides
     @ServiceSessionScope
+    fun provideProxyRuntimeSupervisorBundle(
+        upstreamRelaySupervisor: UpstreamRelaySupervisor,
+        warpRuntimeSupervisor: WarpRuntimeSupervisor,
+        amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
+        proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+    ): ProxyRuntimeSupervisorBundle =
+        ProxyRuntimeSupervisorBundle(
+            upstreamRelaySupervisor = upstreamRelaySupervisor,
+            warpRuntimeSupervisor = warpRuntimeSupervisor,
+            amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
+            proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+        )
+
+    @Provides
+    @ServiceSessionScope
     fun provideProxyCoordinator(
         host: ServiceCoordinatorHost,
         connectionPolicyResolver: ConnectionPolicyResolver,
@@ -102,10 +117,7 @@ internal object ProxyServiceSessionModule {
         networkHandoverMonitor: NetworkHandoverMonitor,
         policyHandoverEventStore: PolicyHandoverEventStore,
         permissionWatchdog: PermissionWatchdog,
-        upstreamRelaySupervisor: UpstreamRelaySupervisor,
-        warpRuntimeSupervisor: WarpRuntimeSupervisor,
-        amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
-        proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+        supervisors: ProxyRuntimeSupervisorBundle,
         statusReporter: ServiceStatusReporter,
         screenStateObserver: ScreenStateObserver,
         directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
@@ -119,13 +131,7 @@ internal object ProxyServiceSessionModule {
             networkHandoverMonitor = networkHandoverMonitor,
             policyHandoverEventStore = policyHandoverEventStore,
             permissionWatchdog = permissionWatchdog,
-            supervisors =
-                ProxyRuntimeSupervisorBundle(
-                    upstreamRelaySupervisor = upstreamRelaySupervisor,
-                    warpRuntimeSupervisor = warpRuntimeSupervisor,
-                    amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
-                    proxyRuntimeSupervisor = proxyRuntimeSupervisor,
-                ),
+            supervisors = supervisors,
             statusReporter = statusReporter,
             screenStateObserver = screenStateObserver,
             directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
