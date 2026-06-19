@@ -220,10 +220,12 @@ class ServiceStatusReporterTest {
             proxyTelemetry = proxyTelemetry,
             relayTelemetry = NativeRuntimeSnapshot.idle(source = "relay"),
             warpTelemetry = NativeRuntimeSnapshot.idle(source = "warp"),
+            awgTelemetry = NativeRuntimeSnapshot.idle(source = "awg"),
             tunnelTelemetry = tunnelTelemetry,
             proxyTelemetryStatus = RuntimeTelemetryStatus.NoData,
             relayTelemetryStatus = RuntimeTelemetryStatus.NoData,
             warpTelemetryStatus = RuntimeTelemetryStatus.NoData,
+            awgTelemetryStatus = RuntimeTelemetryStatus.NoData,
             tunnelTelemetryStatus = RuntimeTelemetryStatus.NoData,
             tunnelRecoveryRetryCount = 4L,
         )

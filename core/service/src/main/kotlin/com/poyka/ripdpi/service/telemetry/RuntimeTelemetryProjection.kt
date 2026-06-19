@@ -33,9 +33,11 @@ internal class RuntimeTelemetryProjection(
         tunnelRecoveryRetryCount: Long,
         relayTelemetry: NativeRuntimeSnapshot?,
         warpTelemetry: NativeRuntimeSnapshot?,
+        awgTelemetry: NativeRuntimeSnapshot?,
         proxyTelemetryStatus: RuntimeTelemetryStatus?,
         relayTelemetryStatus: RuntimeTelemetryStatus?,
         warpTelemetryStatus: RuntimeTelemetryStatus?,
+        awgTelemetryStatus: RuntimeTelemetryStatus?,
         tunnelTelemetryStatus: RuntimeTelemetryStatus?,
         failureReason: FailureReason?,
         xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot?,
@@ -52,6 +54,9 @@ internal class RuntimeTelemetryProjection(
         val effectiveWarpTelemetry =
             warpTelemetry
                 ?: statusSnapshot(newStatus, source = "warp", currentTelemetry.warpTelemetry)
+        val effectiveAwgTelemetry =
+            awgTelemetry
+                ?: statusSnapshot(newStatus, source = "awg", currentTelemetry.awgTelemetry)
         val (winningTcpStrategyFamily, winningQuicStrategyFamily, winningDnsStrategyFamily) =
             currentWinningFamilies(activePolicy, currentTelemetry.runtimeFieldTelemetry)
 
@@ -74,6 +79,13 @@ internal class RuntimeTelemetryProjection(
                     newStatus,
                     currentTelemetry.warpTelemetryStatus,
                     warpTelemetryStatus,
+                ),
+            awgTelemetry = enrichRuntimeSnapshot(effectiveAwgTelemetry),
+            awgTelemetryStatus =
+                telemetryStatusFor(
+                    newStatus,
+                    currentTelemetry.awgTelemetryStatus,
+                    awgTelemetryStatus,
                 ),
             tunnelTelemetry = enrichRuntimeSnapshot(tunnelTelemetry),
             tunnelTelemetryStatus =
@@ -111,10 +123,12 @@ internal class RuntimeTelemetryProjection(
         proxyTelemetry: NativeRuntimeSnapshot,
         relayTelemetry: NativeRuntimeSnapshot,
         warpTelemetry: NativeRuntimeSnapshot,
+        awgTelemetry: NativeRuntimeSnapshot,
         tunnelTelemetry: NativeRuntimeSnapshot,
         proxyTelemetryStatus: RuntimeTelemetryStatus,
         relayTelemetryStatus: RuntimeTelemetryStatus,
         warpTelemetryStatus: RuntimeTelemetryStatus,
+        awgTelemetryStatus: RuntimeTelemetryStatus,
         tunnelTelemetryStatus: RuntimeTelemetryStatus,
         tunnelRecoveryRetryCount: Long,
         failureReason: FailureReason?,
@@ -138,6 +152,8 @@ internal class RuntimeTelemetryProjection(
             relayTelemetryStatus = relayTelemetryStatus,
             warpTelemetry = enrichRuntimeSnapshot(warpTelemetry),
             warpTelemetryStatus = warpTelemetryStatus,
+            awgTelemetry = enrichRuntimeSnapshot(awgTelemetry),
+            awgTelemetryStatus = awgTelemetryStatus,
             tunnelTelemetry = enrichRuntimeSnapshot(enrichedTunnelTelemetry),
             tunnelTelemetryStatus = tunnelTelemetryStatus,
             networkHandoverState = currentNetworkHandoverState(),

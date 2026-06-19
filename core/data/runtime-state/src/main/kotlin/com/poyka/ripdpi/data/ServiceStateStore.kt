@@ -51,6 +51,13 @@ data class ServiceTelemetrySnapshot(
     val relayTelemetryStatus: RuntimeTelemetryStatus = RuntimeTelemetryStatus.NoData,
     val warpTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "warp"),
     val warpTelemetryStatus: RuntimeTelemetryStatus = RuntimeTelemetryStatus.NoData,
+    /**
+     * AmneziaWG egress telemetry, populated when AWG is the active VPN-mode egress.
+     * Idle (health = "idle") when the session runs a relay egress instead.
+     * Mirrors [warpTelemetry] structurally; the two WireGuard transports are mutually exclusive.
+     */
+    val awgTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "awg"),
+    val awgTelemetryStatus: RuntimeTelemetryStatus = RuntimeTelemetryStatus.NoData,
     val tunnelTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel"),
     val tunnelTelemetryStatus: RuntimeTelemetryStatus = RuntimeTelemetryStatus.NoData,
     val networkHandoverState: String? = null,

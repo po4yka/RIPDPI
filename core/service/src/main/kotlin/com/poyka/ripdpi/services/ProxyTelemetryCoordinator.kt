@@ -37,10 +37,12 @@ internal class ProxyTelemetryCoordinator(
                     proxyTelemetry = telemetry.proxyTelemetry,
                     relayTelemetry = telemetry.relayTelemetry,
                     warpTelemetry = telemetry.warpTelemetry,
+                    awgTelemetry = telemetry.awgTelemetry,
                     tunnelTelemetry = telemetry.tunnelTelemetry,
                     proxyTelemetryStatus = telemetry.proxyTelemetryStatus,
                     relayTelemetryStatus = telemetry.relayTelemetryStatus,
                     warpTelemetryStatus = telemetry.warpTelemetryStatus,
+                    awgTelemetryStatus = telemetry.awgTelemetryStatus,
                     tunnelTelemetryStatus = telemetry.tunnelTelemetryStatus,
                     tunnelRecoveryRetryCount = 0,
                 )
