@@ -11,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.seed.SimpleFlavorSeeder
+import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchRefreshWorker
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
@@ -46,11 +47,13 @@ class AppStartupInitializer
         private val lastExitInspector: LastExitInspector,
         private val memoryProfilingRegistrar: MemoryProfilingRegistrar,
         private val simpleFlavorSeeder: Optional<SimpleFlavorSeeder>,
+        private val simpleFlavorSessionWatcher: Optional<SimpleFlavorSessionWatcher>,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
             runCatching { appShortcutsPublisher.start() }
                 .onFailure { error -> Logger.w(error) { "App shortcuts publisher failed to start" } }
+            simpleFlavorSessionWatcher.orElse(null)?.bind(applicationScope)
             applicationScope.launch {
                 val report = initializeSubsystems()
                 Logger.i { report.toLogMessage() }

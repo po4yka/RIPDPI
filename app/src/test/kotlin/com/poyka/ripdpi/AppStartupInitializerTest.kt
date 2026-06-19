@@ -21,6 +21,7 @@ import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.seed.SimpleFlavorSeeder
+import com.poyka.ripdpi.seed.SimpleFlavorSessionWatcher
 import com.poyka.ripdpi.services.BootSessionRecorder
 import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
@@ -480,6 +481,7 @@ class AppStartupInitializerTest {
             lastExitInspector = lastExitInspector,
             memoryProfilingRegistrar = memoryProfilingRegistrar,
             simpleFlavorSeeder = Optional.empty(),
+            simpleFlavorSessionWatcher = Optional.empty(),
             appShortcutsPublisher =
                 AppShortcutsPublisher(
                     context = application,
