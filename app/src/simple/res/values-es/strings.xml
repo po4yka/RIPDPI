@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="simple_title">RIPDPI</string>
+    <string name="simple_connect">Conectar</string>
+    <string name="simple_disconnect">Desconectar</string>
+    <string name="simple_run_report">Ejecutar informe de diagnóstico</string>
+    <string name="simple_status_disconnected">Desconectado</string>
+    <string name="simple_status_connecting">Conectando…</string>
+    <string name="simple_status_connected">Conectado</string>
+    <string name="simple_status_error">Error de conexión</string>
+</resources>

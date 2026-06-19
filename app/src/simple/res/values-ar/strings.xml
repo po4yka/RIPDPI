@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="simple_title">RIPDPI</string>
+    <string name="simple_connect">اتصال</string>
+    <string name="simple_disconnect">قطع الاتصال</string>
+    <string name="simple_run_report">تشغيل تقرير التشخيص</string>
+    <string name="simple_status_disconnected">غير متصل</string>
+    <string name="simple_status_connecting">جارٍ الاتصال…</string>
+    <string name="simple_status_connected">متصل</string>
+    <string name="simple_status_error">خطأ في الاتصال</string>
+</resources>

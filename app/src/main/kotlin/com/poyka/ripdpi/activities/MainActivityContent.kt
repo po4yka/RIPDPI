@@ -16,9 +16,6 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.debug.RecompositionReportEffect
-import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
-import com.poyka.ripdpi.ui.navigation.RipDpiNavHostActions
-import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
 import com.poyka.ripdpi.ui.screens.crash.CrashReportDialog
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -55,33 +52,13 @@ internal fun MainActivityContent(
                         .ripDpiAutomationTreeRoot(),
             ) {
                 key(startupState.startDestination) {
-                    RipDpiNavHost(
+                    // Flavor seam: the "full" source set renders the full nav host;
+                    // the "simple" source set renders the two-action SimpleHomeScreen.
+                    AppExperienceContent(
                         startDestination = startupState.startDestination,
-                        mainViewModel = viewModel,
-                        actions =
-                            RipDpiNavHostActions(
-                                onSaveLogs = controller::requestSaveLogs,
-                                onShareDebugBundle = controller::requestShareDebugBundle,
-                                onSaveDiagnosticsArchive = controller::requestSaveDiagnosticsArchive,
-                                onShareDiagnosticsArchive = controller::requestShareDiagnosticsArchive,
-                                onShareDiagnosticsSummary = controller::requestShareDiagnosticsSummary,
-                                onRepairPermission = { permission ->
-                                    viewModel.onRepairPermissionRequested(permission)
-                                },
-                            ),
-                        launchRequests =
-                            RipDpiNavHostLaunchRequests(
-                                launchHomeRequested = shellState.launchHomeRequested,
-                                onLaunchHomeHandled = controller::consumeLaunchHomeRequest,
-                                launchRouteRequested = shellState.launchRouteRequested,
-                                onLaunchRouteHandled = controller::consumeLaunchRouteRequest,
-                                sharedDiagnosticFragmentRequested = shellState.sharedDiagnosticFragmentRequested,
-                                onSharedDiagnosticFragmentHandled = controller::consumeDiagnosticShareFragmentRequest,
-                                importRouteRequested = shellState.importRouteRequested,
-                                onImportRouteHandled = controller::consumeImportRouteRequest,
-                                relockRequested = shellState.relockRequested,
-                                onRelockHandled = controller::consumeRelockRequest,
-                            ),
+                        viewModel = viewModel,
+                        controller = controller,
+                        shellState = shellState,
                         snackbarHostState = snackbarHostState,
                     )
                 }

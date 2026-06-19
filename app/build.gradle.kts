@@ -168,7 +168,11 @@ extensions.configure<ApplicationExtension> {
         buildConfig = true
     }
 
-    flavorDimensions += "distribution"
+    // Two orthogonal dimensions: "distribution" is the store channel; "experience"
+    // is the UI surface. "full" is the standard app; "simple" is a stripped-down
+    // two-action build (connect + diagnostic report) with a compiled-in config.
+    // distribution is declared first so variants read e.g. githubSimpleDebug.
+    flavorDimensions += listOf("distribution", "experience")
     productFlavors {
         create("play") {
             dimension = "distribution"
@@ -187,6 +191,17 @@ extensions.configure<ApplicationExtension> {
             buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"github\"")
             buildConfigField("String", "GITHUB_UPDATE_OWNER", "\"po4yka\"")
             buildConfigField("String", "GITHUB_UPDATE_REPO", "\"RIPDPI\"")
+        }
+        create("full") {
+            dimension = "experience"
+            buildConfigField("String", "APP_EXPERIENCE", "\"full\"")
+        }
+        create("simple") {
+            dimension = "experience"
+            // Side-by-side install with the standard build for field testing.
+            applicationIdSuffix = ".simple"
+            versionNameSuffix = "-simple"
+            buildConfigField("String", "APP_EXPERIENCE", "\"simple\"")
         }
     }
 
