@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindAnyTls
+import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
@@ -47,6 +48,7 @@ class RelayProfileActivator
                     is ProxyProfile.Shadowsocks -> RelayKindShadowsocks
                     is ProxyProfile.AnyTls -> RelayKindAnyTls
                     is ProxyProfile.VlessReality -> RelayKindVlessReality
+                    is ProxyProfile.Hysteria2 -> RelayKindHysteria2
                     is ProxyProfile.Ssh -> RelayKindSsh
                     else -> return false
                 }
@@ -127,6 +129,12 @@ class RelayProfileActivator
                     RelayActivationEndpoint(profile.server, profile.serverPort, profile.serverName)
                 }
 
+                is ProxyProfile.Hysteria2 -> {
+                    // ProxyProfile.Hysteria2 carries no separate SNI field; fall back to
+                    // the server host, matching the Trojan/Shadowsocks endpoint mapping.
+                    RelayActivationEndpoint(profile.server, profile.serverPort, profile.server)
+                }
+
                 is ProxyProfile.Ssh -> {
                     RelayActivationEndpoint(profile.server, profile.serverPort, profile.server)
                 }
@@ -159,6 +167,14 @@ class RelayProfileActivator
 
                 is ProxyProfile.VlessReality -> {
                     RelayCredentialRecord(profileId = profileId, vlessUuid = profile.uuid)
+                }
+
+                is ProxyProfile.Hysteria2 -> {
+                    RelayCredentialRecord(
+                        profileId = profileId,
+                        hysteriaPassword = profile.password,
+                        hysteriaSalamanderKey = profile.obfsPassword,
+                    )
                 }
 
                 is ProxyProfile.Ssh -> {
