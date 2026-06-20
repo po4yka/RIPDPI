@@ -35,8 +35,10 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 // ── Fakes ────────────────────────────────────────────────────────────────────
@@ -771,6 +773,486 @@ class FailoverCoordinatorTest {
             stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed", awgHealth = "failed"))
             advanceUntilIdle()
             assertEquals("No switch 3 — budget exhausted, coordinator backed off", 2, controller.stopCalls.size)
+
+            coordinator.stopObserving()
+        }
+
+    /**
+     * [FailoverCoordinator.bind] drives observation from service status transitions.
+     *
+     * Before any status: activeCandidate is null.
+     * After (Running, VPN): startObserving fires → activeCandidate non-null (Reality).
+     * After (Halted, VPN): stopObserving fires → activeCandidate null again.
+     */
+    @Test
+    fun `bind drives observation from service status`() =
+        runTest {
+            val stateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted)
+            val (coordinator, _, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    relayProfiles =
+                        listOf(
+                            RelayProfileRecord(id = "reality-1", kind = RelayKindVlessReality),
+                            RelayProfileRecord(id = "hysteria-1", kind = RelayKindHysteria2),
+                        ),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.bind(observeScope)
+            advanceUntilIdle()
+
+            assertNull("activeCandidate must be null before Running,VPN", coordinator.activeCandidate.value)
+
+            stateStore.setStatus(AppStatus.Running, Mode.VPN)
+            advanceUntilIdle()
+
+            val candidate = coordinator.activeCandidate.value
+            assertNotNull("activeCandidate must be non-null after Running,VPN", candidate)
+            check(candidate is FailoverCandidate.Relay)
+            assertEquals("Must start at Reality (highest priority)", RelayKindVlessReality, candidate.relayKind)
+
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            advanceUntilIdle()
+
+            assertNull("activeCandidate must be null after Halted,VPN", coordinator.activeCandidate.value)
+        }
+
+    /**
+     * [FailoverCoordinator.bind] must not start observing for non-VPN running status.
+     *
+     * (Running, PROXY) must leave activeCandidate null — failover is VPN-session-only.
+     */
+    @Test
+    fun `bind ignores non-VPN running`() =
+        runTest {
+            val stateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted)
+            val (coordinator, _, _) = buildCoordinator(stateStore = stateStore)
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.bind(observeScope)
+            advanceUntilIdle()
+
+            stateStore.setStatus(AppStatus.Running, Mode.Proxy)
+            advanceUntilIdle()
+
+            assertNull(
+                "activeCandidate must stay null for Running,Proxy",
+                coordinator.activeCandidate.value,
+            )
+        }
+
+    /**
+     * Switching to a relay candidate writes relay settings via [writeConfig].
+     *
+     * After a sustained failure that triggers one Reality→Hysteria2 switch,
+     * [AppSettingsRepository] must reflect relayEnabled=true and relayKind=hysteria2.
+     * This proves [writeConfig] actually persists settings, not just the in-memory StateFlow.
+     *
+     * Timing matches [sustainedFailureTriggersSingleSwitch]:
+     *   4 x 7 s advances; switch fires at t=28 000 ms.
+     */
+    @Test
+    fun `relay switch writes relay settings`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            val (coordinator, _, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+
+            // 4 × 7 s — matches sustainedFailureTriggersSingleSwitch timing.
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            assertTrue("relayEnabled must be true after relay switch", settings.relayEnabled())
+            assertEquals(
+                "relayKind must be Hysteria2 after switch from Reality",
+                RelayKindHysteria2,
+                settings.relayKind(),
+            )
+
+            coordinator.stopObserving()
+        }
+
+    /**
+     * Switching to an AWG candidate disables relay in settings via [writeConfig].
+     *
+     * After driving failover all the way to the AWG candidate (copying the
+     * timing from [budgetSurvivesSelfRestart] up to switch 2), settings must
+     * reflect relayEnabled=false.
+     *
+     * Timing (debounce=20 000 ms, min-interval=30 000 ms):
+     *   t=22 000  SWITCH 1: Reality→Hysteria2
+     *   t=54 000  SWITCH 2: Hysteria2→AWG  → relayEnabled=false
+     */
+    @Test
+    fun `awg switch disables relay in settings`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val settings = FakeAppSettingsRepository()
+            val awgEntity =
+                AwgProfileEntity(
+                    id = "awg-settings",
+                    name = "Settings AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val (coordinator, _, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    awgProfiles = listOf(awgEntity),
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+
+            fun bothFailed() = runningTelemetry(relayHealth = "failed", awgHealth = "failed")
+
+            // ── Switch 1: Reality → Hysteria2 at t=22 000 ────────────────────
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(bothFailed())
+            advanceUntilIdle()
+
+            // ── Switch 2: Hysteria2 → AWG at t=54 000 ─────────────────────────
+            // t=23 000: failingsSince=23 000
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(bothFailed())
+            // t=30 000, 37 000, 44 000: debounce exceeded but min-interval blocks
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(bothFailed())
+            advanceUntilIdle()
+            // t=54 000: 54-22=32s >= 30s min-interval → SWITCH 2
+            clock.advance(10_000L)
+            stateStore.emitTelemetry(bothFailed())
+            advanceUntilIdle()
+
+            val active = coordinator.activeCandidate.value
+            assertNotNull("activeCandidate must be non-null after switch 2", active)
+            check(active is FailoverCandidate.Awg) {
+                "Expected AWG candidate after switch 2, got $active"
+            }
+
+            assertFalse("relayEnabled must be false after AWG switch", settings.relayEnabled())
+
+            coordinator.stopObserving()
+        }
+
+    /**
+     * REGRESSION GUARD for the selfInducedRestart fix.
+     *
+     * A genuine user stop (where selfInducedRestart is false) MUST reset the
+     * back-off budget. Contrast with [budgetSurvivesSelfRestart] where the budget
+     * persists across a self-induced restart.
+     *
+     * The key subtlety: [performSwitch] sets selfInducedRestart=true before calling
+     * serviceController.stop(). That marker is consumed (cleared) by the NEXT
+     * [startObserving] call (the self-induced restart leg). Only AFTER that
+     * consumption is the marker false again, so the subsequent genuine stop resets
+     * the budget.
+     *
+     * Sequence:
+     *   1. startObserving → Reality active.
+     *   2. Sustained failure → SWITCH 1: Reality→Hysteria2 (selfInducedRestart=true set).
+     *   3. Self-induced startObserving: consumes marker → selfInducedRestart=false,
+     *      budget preserved (switchesInCycle=1, lastSwitchAt=22 000).
+     *   4. Genuine stopObserving (selfInducedRestart=false) → budget RESET.
+     *   5. startObserving again → fresh from Reality (index=0, switchesInCycle=0).
+     *   6. Fresh sustained failure burst → switch fires proving budget was reset.
+     *
+     * Timing:
+     *   t=22 000  SWITCH 1 (Reality→Hysteria2); selfInducedRestart=true
+     *   t=22 500  Self-induced startObserving (consumes marker); selfInducedRestart=false
+     *   t=23 000  Genuine stopObserving → budget reset
+     *   t=23 000  startObserving fresh (lastSwitchAt=0, switchesInCycle=0)
+     *   t=44 000  Fresh burst → SWITCH (treated as switch 1 of fresh cycle)
+     */
+    @Test
+    fun `genuine user restart resets back-off budget`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val awgEntity =
+                AwgProfileEntity(
+                    id = "awg-reset",
+                    name = "Reset AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    awgProfiles = listOf(awgEntity),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+
+            // ── Switch 1: Reality → Hysteria2 at t=22 000 ────────────────────
+            // This sets selfInducedRestart=true inside performSwitch.
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+            assertEquals("Switch 1 expected", 1, controller.stopCalls.size)
+
+            // ── Self-induced restart at t=22 500 ──────────────────────────────
+            // Simulates what bind() would do after the self-induced Halted+Running cycle.
+            // startObserving consumes selfInducedRestart=true → clears to false,
+            // preserves budget (switchesInCycle=1, lastSwitchAt=22 000).
+            clock.advance(500L) // t=22 500
+            coordinator.startObserving(observeScope)
+            advanceUntilIdle()
+
+            val afterSelfRestart = coordinator.activeCandidate.value
+            assertNotNull("activeCandidate must be non-null after self-induced restart", afterSelfRestart)
+            check(afterSelfRestart is FailoverCandidate.Relay)
+            assertEquals(
+                "Self-induced restart must preserve Hysteria2 (budget survived)",
+                RelayKindHysteria2,
+                afterSelfRestart.relayKind,
+            )
+
+            // ── Genuine user stop at t=23 000 (selfInducedRestart=false) ─────
+            // selfInducedRestart was consumed by startObserving above → now false.
+            // stopObserving sees it false → resets budget.
+            clock.advance(500L) // t=23 000
+            coordinator.stopObserving()
+
+            // ── Fresh startObserving: budget reset (initialized=false path) ───
+            coordinator.startObserving(observeScope)
+            advanceUntilIdle()
+
+            // resumeIndex() reads settings: relayEnabled=true, relayKind=Hysteria2
+            // (written by writeConfig for switch 1). So index resumes at Hysteria2 (1).
+            // That is fine — the test only verifies the budget (switchesInCycle) was reset,
+            // not the starting index. The budget reset is proven by the switch firing below.
+
+            // ── Fresh failure burst: switch must fire (budget was reset) ──────
+            // lastSwitchAt=0 (reset) → min-interval guard skipped.
+            // Need debounce (20 s) only.
+            // Current telemetry StateFlow holds last failed value → sets failingsSince=23 000.
+            // Advance 4×7s to t=51 000: elapsed=28 000 >= 20 000 → SWITCH (budget fresh).
+            clock.advance(7_000L) // t=30 000
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(7_000L) // t=37 000
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(7_000L) // t=44 000
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(7_000L) // t=51 000: elapsed from 23 000 = 28 000 >= 20 000 → SWITCH
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+
+            assertTrue(
+                "Budget must be reset: switch count must exceed 1 after genuine restart",
+                controller.stopCalls.size > 1,
+            )
+
+            coordinator.stopObserving()
+        }
+
+    /**
+     * After back-off, a genuine stop+startObserving resets the budget so that
+     * a subsequent sustained failure burst can trigger a fresh switch.
+     *
+     * Production note: [onTelemetryUpdate] returns early when backedOff=true
+     * (before the health check), so a healthy telemetry emission alone cannot
+     * clear backedOff. The reset path is stopObserving (genuine, not self-induced)
+     * followed by startObserving, which goes through the "fresh session" branch
+     * that resets switchesInCycle=0, backedOff=false, and lastSwitchAt=0.
+     *
+     * Sequence:
+     *   1. Drive to backedOff (exhaust all 3 candidates).
+     *   2. Consume the selfInducedRestart marker via a self-induced startObserving
+     *      (this mirrors the bind() behaviour after switch 2's stop+start).
+     *   3. Genuine stopObserving (selfInducedRestart=false) → budget reset.
+     *   4. startObserving → fresh cycle (switchesInCycle=0, lastSwitchAt=0).
+     *   5. Sustained failure burst → switch fires, proving back-off was cleared.
+     *
+     * Timing (debounce=20 000 ms, min-interval=30 000 ms):
+     *   t=22 000  SWITCH 1 (Reality→Hysteria2); selfInducedRestart=true set
+     *   t=22 500  Self-induced startObserving → consumes marker, budget preserved
+     *   t=54 500  SWITCH 2 (Hysteria2→AWG); selfInducedRestart=true set again
+     *   t=55 000  Self-induced startObserving → consumes marker, budget preserved
+     *   t=87 000  Back-off attempt (switchesInCycle=2 >= 2) → backedOff=true, no stop
+     *   t=87 500  Genuine stopObserving (selfInducedRestart=false) → budget reset
+     *   t=87 500  startObserving fresh → switchesInCycle=0, lastSwitchAt=0
+     *   t=108 500 Fresh burst → SWITCH fires
+     */
+    @Test
+    fun `backedOff resets on stop and restart`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val awgEntity =
+                AwgProfileEntity(
+                    id = "awg-backoff-reset",
+                    name = "Backoff Reset AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val (coordinator, controller, _) =
+                buildCoordinator(
+                    stateStore = stateStore,
+                    clock = clock,
+                    awgProfiles = listOf(awgEntity),
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+
+            fun bothFailed() = runningTelemetry(relayHealth = "failed", awgHealth = "failed")
+
+            // ── Switch 1: Reality → Hysteria2 at t=22 000 ─────────────────────
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L)
+            stateStore.emitTelemetry(bothFailed())
+            advanceUntilIdle()
+            assertEquals("Switch 1 expected", 1, controller.stopCalls.size)
+
+            // Self-induced restart at t=22 500: consumes selfInducedRestart marker,
+            // preserving budget (switchesInCycle=1, lastSwitchAt=22 000).
+            clock.advance(500L) // t=22 500
+            coordinator.startObserving(observeScope)
+            advanceUntilIdle()
+
+            // ── Switch 2: Hysteria2 → AWG at t=54 500 ─────────────────────────
+            // failingsSince set by the current StateFlow value on startObserving (t=22 500).
+            // Advance to t=54 500: elapsed = 54 500-22 500 = 32 000 >= 20 000
+            // AND 54 500-22 000 = 32 500 >= 30 000 → SWITCH 2.
+            clock.advance(32_000L) // t=54 500
+            stateStore.emitTelemetry(bothFailed())
+            advanceUntilIdle()
+            assertEquals("Switch 2 expected", 2, controller.stopCalls.size)
+
+            // Self-induced restart at t=55 000: consumes selfInducedRestart marker again.
+            clock.advance(500L) // t=55 000
+            coordinator.startObserving(observeScope)
+            advanceUntilIdle()
+
+            // ── Back-off at t=87 000 ───────────────────────────────────────────
+            // switchesInCycle=2 >= candidates.size-1=2 → performSwitch sets backedOff=true.
+            // elapsed from failingsSince (t=55 000 immediate) = 32 000 >= 20 000
+            // AND 87 000-54 500=32 500 >= 30 000 → enters performSwitch → BACKOFF.
+            clock.advance(32_000L) // t=87 000
+            stateStore.emitTelemetry(bothFailed())
+            advanceUntilIdle()
+            assertEquals("No switch 3 — coordinator must back off", 2, controller.stopCalls.size)
+
+            // ── Genuine stop at t=87 500 ──────────────────────────────────────
+            // selfInducedRestart was consumed by the last startObserving → now false.
+            // stopObserving with selfInducedRestart=false → budget RESET.
+            clock.advance(500L) // t=87 500
+            coordinator.stopObserving()
+
+            // ── Fresh startObserving: budget reset ────────────────────────────
+            coordinator.startObserving(observeScope)
+            advanceUntilIdle()
+
+            // ── Fresh failure burst → SWITCH must fire ────────────────────────
+            // lastSwitchAt=0 (reset) → min-interval guard skipped.
+            // Current StateFlow still has bothFailed() → failingsSince=87 500 set immediately.
+            // 4×7 000 ms → t=115 500; elapsed = 115 500-87 500 = 28 000 >= 20 000 → SWITCH.
+            clock.advance(7_000L) // t=94 500
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L) // t=101 500
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L) // t=108 500
+            stateStore.emitTelemetry(bothFailed())
+            clock.advance(7_000L) // t=115 500: elapsed=28 000 >= 20 000 → SWITCH
+            stateStore.emitTelemetry(bothFailed())
+            advanceUntilIdle()
+
+            assertTrue(
+                "Switch must fire after stop+restart clears backedOff",
+                controller.stopCalls.size > 2,
+            )
+
+            coordinator.stopObserving()
+        }
+
+    /**
+     * Manual override (setAutoFailoverEnabled) gates switching symmetrically:
+     * disabled → no switch; re-enabled → sustained failure triggers a switch.
+     *
+     * This is distinct from [manualOverrideSuspendsSwitching] which only tests
+     * the disabled direction. Here we also verify the re-enable path.
+     *
+     * Timing:
+     *   Phase 1 (disabled): 4 × 7 s → no switch expected.
+     *   Re-enable + healthy reset.
+     *   Phase 2 (enabled): advance clock to min-interval boundary + 4 × 7 s → switch fires.
+     */
+    @Test
+    fun `manual override re-enable resumes switching`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            val (coordinator, controller, _) = buildCoordinator(stateStore = stateStore, clock = clock)
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            // Disable auto-failover before starting.
+            coordinator.setAutoFailoverEnabled(false)
+            coordinator.startObserving(observeScope)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+
+            // Phase 1: sustained failure with auto-failover disabled → no switch.
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            assertEquals("No switch while auto-failover disabled", 0, controller.stopCalls.size)
+
+            // Re-enable and emit healthy to reset the debounce window.
+            coordinator.setAutoFailoverEnabled(true)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+
+            // Phase 2: sustained failure with auto-failover enabled → switch must fire.
+            // lastSwitchAt=0 so min-interval guard is skipped; only debounce matters.
+            repeat(4) {
+                clock.advance(7_000L)
+                stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            }
+            advanceUntilIdle()
+
+            assertEquals("Exactly one switch after re-enabling auto-failover", 1, controller.stopCalls.size)
 
             coordinator.stopObserving()
         }
