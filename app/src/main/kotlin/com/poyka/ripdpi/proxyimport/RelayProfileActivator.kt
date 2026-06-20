@@ -30,7 +30,11 @@ import javax.inject.Singleton
  * both reach an identical working tunnel rather than duplicating the mapping.
  *
  * [activate] returns `true` when [profile] is a relay-activatable kind and was
- * applied, `false` (a no-op) for kinds that are not relay outbounds.
+ * applied, `false` (a no-op) for kinds that are not relay outbounds. The optional
+ * `profileId` defaults to [DefaultRelayProfileId] (the single active-relay slot);
+ * callers that must keep several relay profiles side by side in the store — e.g.
+ * the simple-flavor seeder building a multi-transport failover set — pass a
+ * distinct stable id per profile so they do not overwrite one another.
  */
 @Singleton
 class RelayProfileActivator
@@ -40,8 +44,10 @@ class RelayProfileActivator
         private val relayCredentialStore: RelayCredentialStore,
         private val settingsRepository: AppSettingsRepository,
     ) {
-        suspend fun activate(profile: ProxyProfile): Boolean {
-            val profileId = DefaultRelayProfileId
+        suspend fun activate(
+            profile: ProxyProfile,
+            profileId: String = DefaultRelayProfileId,
+        ): Boolean {
             val relayKind = relayKindFor(profile) ?: return false
             val endpoint = relayEndpoint(profile)
             // SSH carries only a `direct-tcpip` TCP channel; every other
