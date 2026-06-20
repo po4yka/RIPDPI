@@ -10,6 +10,8 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
@@ -104,6 +106,8 @@ private val FAKE_BUNDLE =
 class ConfigSeederTest {
     private lateinit var application: Application
     private lateinit var proxyGroupRepository: RecordingProxyGroupRepository
+    private lateinit var relayProfileStore: FakeRelayProfileStore
+    private lateinit var relaySettings: FakeAppSettingsRepository
     private lateinit var relayProfileActivator: RelayProfileActivator
     private lateinit var awgProfileRepository: AwgProfileRepository
     private lateinit var awgDao: InMemoryAwgProfileDao
@@ -113,11 +117,13 @@ class ConfigSeederTest {
     fun setUp() {
         application = RuntimeEnvironment.getApplication()
         proxyGroupRepository = RecordingProxyGroupRepository()
+        relayProfileStore = FakeRelayProfileStore()
+        relaySettings = FakeAppSettingsRepository()
         relayProfileActivator =
             RelayProfileActivator(
-                relayProfileStore = FakeRelayProfileStore(),
+                relayProfileStore = relayProfileStore,
                 relayCredentialStore = FakeRelayCredentialStore(),
-                settingsRepository = FakeAppSettingsRepository(),
+                settingsRepository = relaySettings,
             )
         awgDao = InMemoryAwgProfileDao()
         awgCredentials = InMemoryAwgCredentialStore()
@@ -143,6 +149,8 @@ class ConfigSeederTest {
             // Group was persisted
             assertEquals(1, proxyGroupRepository.addedGroups.size)
             assertEquals(ProxyGroupType.BASIC, proxyGroupRepository.addedGroups.single().type)
+            // Both relay profiles were persisted (VLESS+REALITY and Hysteria2)
+            assertEquals(2, relayProfileStore.list().size)
             // AWG profile was saved
             assertEquals(1, awgDao.rows.value.size)
             assertEquals(
@@ -156,13 +164,24 @@ class ConfigSeederTest {
         }
 
     @Test
-    fun `hysteria2 profile is silently skipped by activator but does not abort seed`() =
+    fun `both relay profiles survive seeding under distinct ids`() =
         runTest {
             val seeder = makeSeeder(FAKE_BUNDLE)
 
             seeder.seed()
 
-            // Seed completed (flag set) even though Hysteria2 is not relay-activatable
+            // RelayProfileActivator defaults to a single shared "default" store slot; the
+            // seeder overrides it with a per-kind id so VLESS+REALITY is NOT overwritten by
+            // Hysteria2 (both are relay-activatable). Both must coexist for 3-way failover.
+            val relayProfiles = relayProfileStore.list()
+            assertEquals("Both relay kinds must persist", 2, relayProfiles.size)
+            assertEquals(
+                setOf(RelayKindVlessReality, RelayKindHysteria2),
+                relayProfiles.map { it.kind }.toSet(),
+            )
+            assertEquals("Store ids must be distinct", 2, relayProfiles.map { it.id }.toSet().size)
+            // VLESS+REALITY is activated last so it is the initial active transport (priority 0).
+            assertEquals(RelayKindVlessReality, relaySettings.snapshot().relayKind)
             assertTrue(seeder.isSeeded())
         }
 
