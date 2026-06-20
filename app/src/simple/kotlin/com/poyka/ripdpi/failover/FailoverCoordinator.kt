@@ -21,6 +21,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -164,6 +166,15 @@ class FailoverCoordinator
          */
         private var initialized: Boolean = false
 
+        /**
+         * `true` while a [performSwitch]-issued restart is in flight. Distinguishes a
+         * self-induced stop+start (which must PRESERVE the back-off budget) from a genuine
+         * user-initiated session end (which must RESET it). Set in [performSwitch] before
+         * the restart, consumed by [startObserving], and the only thing that lets
+         * [stopObserving] tell the two cases apart — both arrive as [AppStatus.Halted].
+         */
+        private var selfInducedRestart: Boolean = false
+
         // ── Public API ──────────────────────────────────────────────────────
 
         /**
@@ -197,7 +208,11 @@ class FailoverCoordinator
                         Logger.i { "FailoverCoordinator: fewer than 2 candidates — staying inert" }
                         return@launch
                     }
-                    val resumed = initialized && rebuilt == candidates
+                    // Only a self-induced restart (same candidate set, marker set by
+                    // performSwitch) preserves the budget. A genuine fresh user start —
+                    // even with an unchanged candidate set — re-initialises.
+                    val resumed = initialized && selfInducedRestart && rebuilt == candidates
+                    selfInducedRestart = false
                     candidates = rebuilt
                     if (!resumed) {
                         // Fresh session or the candidate set changed: initialise from the
@@ -223,7 +238,11 @@ class FailoverCoordinator
         }
 
         /**
-         * Stop observing and reset candidate state. Safe to call from any context.
+         * Stop observing and clear the active candidate. Safe to call from any context.
+         *
+         * On a genuine session end (not a [performSwitch] self-restart) this also clears
+         * the back-off budget so the next fresh start re-evaluates from a clean slate;
+         * a self-induced restart preserves it via [selfInducedRestart].
          *
          * // cancel-safe: cancels the child job only
          */
@@ -232,6 +251,13 @@ class FailoverCoordinator
             observeJob = null
             setActiveCandidate(null)
             failingsSince = null
+            if (!selfInducedRestart) {
+                initialized = false
+                backedOff = false
+                switchesInCycle = 0
+                lastSwitchAt = 0L
+                activeCandidateIndex = 0
+            }
         }
 
         /** Updates [_activeCandidate] and the derived [_activeKind] together. */
@@ -340,9 +366,13 @@ class FailoverCoordinator
          * set [backedOff] and stop switching until a healthy emission resets state.
          *
          * // NOT cancel-safe: contains [delay] and suspending [settingsRepository.update].
-         * If cancelled between [serviceController.stop] and [serviceController.start] the
-         * session is halted; the outer service lifecycle surfaces this as [AppStatus.Halted]
-         * through the normal status flow, which is an acceptable transient state.
+         * The stop→delay→start restart runs inside [NonCancellable] so it completes
+         * atomically: the self-induced [AppStatus.Halted] makes [bind] cancel [observeJob]
+         * (which is running this very function), but the restart must still reach
+         * [serviceController.start] or the session is stranded in [AppStatus.Halted] with
+         * no recovery path. The cooperative cancellation is observed after the restart,
+         * cleanly terminating the old observe loop while [bind]'s next (Running, VPN)
+         * emission relaunches [startObserving].
          */
         private suspend fun performSwitch(now: Long) {
             if (switchesInCycle >= candidates.size - 1) {
@@ -371,13 +401,27 @@ class FailoverCoordinator
             switchesInCycle++
             setActiveCandidate(nextCandidate)
 
+            // Mark the restart as self-induced BEFORE stopping so the bind collector, which
+            // sees the resulting Halted and calls stopObserving, preserves the budget instead
+            // of treating it as a user-initiated session end.
+            selfInducedRestart = true
+
             // Session restart: stop then start. VPN consent is already granted;
-            // start(Mode.VPN) reuses it without prompting.
-            serviceController.stop()
-            // Brief yield so the OS processes the stop intent before the start intent.
-            delay(300L)
-            val result = serviceController.start(Mode.VPN)
+            // start(Mode.VPN) reuses it without prompting. Wrapped in NonCancellable so the
+            // self-induced Halted (which makes bind cancel this job) cannot abort the restart
+            // mid-way and strand the session in Halted.
+            val result =
+                withContext(NonCancellable) {
+                    serviceController.stop()
+                    // Brief yield so the OS processes the stop intent before the start intent.
+                    delay(300L)
+                    serviceController.start(Mode.VPN)
+                }
             if (result is ServiceStartResult.Rejected) {
+                // No (Running, VPN) emission will follow, so bind never relaunches
+                // startObserving to consume the marker — clear it here so a later genuine
+                // user start is treated as fresh and resets the back-off budget.
+                selfInducedRestart = false
                 Logger.w { "FailoverCoordinator: restart rejected — ${result.reason}" }
             }
         }
