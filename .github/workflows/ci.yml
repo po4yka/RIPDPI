@@ -315,9 +315,9 @@ jobs:
             -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt/assetsBin"
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt/assetsBin"
           )
-          ./gradlew :app:assembleGithubDebug "${common_args[@]}"
-          ./gradlew :app:assembleFdroidDebug "${common_args[@]}"
-          ./gradlew :app:assemblePlayDebug "${common_args[@]}"
+          ./gradlew :app:assembleGithubFullDebug "${common_args[@]}"
+          ./gradlew :app:assembleFdroidFullDebug "${common_args[@]}"
+          ./gradlew :app:assemblePlayFullDebug "${common_args[@]}"
 
       - name: Verify packaged native ELFs
         run: python3 scripts/ci/verify_native_elfs.py
@@ -360,16 +360,21 @@ jobs:
       - name: Run JVM unit tests
         run: >-
           ./gradlew testDebugUnitTest
-          -x :app:testFdroidDebugUnitTest
-          -x :app:testGithubDebugUnitTest
-          -x :app:testPlayDebugUnitTest
+          -x :app:testFdroidFullDebugUnitTest
+          -x :app:testFdroidSimpleDebugUnitTest
+          -x :app:testGithubFullDebugUnitTest
+          -x :app:testGithubSimpleDebugUnitTest
+          -x :app:testPlayFullDebugUnitTest
+          -x :app:testPlaySimpleDebugUnitTest
           -Pripdpi.skipNativeBuild=true
 
       - name: Compile app unit tests
         run: >-
           ./gradlew
-          :app:compileGithubDebugUnitTestKotlin
-          :app:hiltJavaCompileGithubDebugUnitTest
+          :app:compileGithubFullDebugUnitTestKotlin
+          :app:compileGithubSimpleDebugUnitTestKotlin
+          :app:hiltJavaCompileGithubFullDebugUnitTest
+          :app:hiltJavaCompileGithubSimpleDebugUnitTest
           -Pripdpi.skipNativeBuild=true
 
       - name: Run diagnostics boundary unit tests
@@ -413,7 +418,7 @@ jobs:
 
       - name: Verify screenshot baselines
         run: >-
-          ./gradlew :app:verifyRoborazziGithubDebug
+          ./gradlew :app:verifyRoborazziGithubFullDebug
           -Pripdpi.skipNativeBuild=true
           -Pripdpi.includeRoborazziUnitTests=true
           --tests 'com.poyka.ripdpi.ui.screenshot.*'

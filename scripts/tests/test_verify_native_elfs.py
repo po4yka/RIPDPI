@@ -78,9 +78,9 @@ class VerifyNativeElfsTest(unittest.TestCase):
             repo_root = Path(temp_dir)
             github_dir = (
                 repo_root
-                / "app/build/intermediates/merged_native_libs/githubDebug/mergeGithubDebugNativeLibs/out/lib"
+                / "app/build/intermediates/merged_native_libs/githubFullDebug/mergeGithubFullDebugNativeLibs/out/lib"
             )
-            play_dir = repo_root / "app/build/intermediates/merged_native_libs/playDebug/mergePlayDebugNativeLibs/out/lib"
+            play_dir = repo_root / "app/build/intermediates/merged_native_libs/playFullDebug/mergePlayFullDebugNativeLibs/out/lib"
             github_dir.mkdir(parents=True)
             play_dir.mkdir(parents=True)
 

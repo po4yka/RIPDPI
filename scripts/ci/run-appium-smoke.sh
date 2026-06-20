@@ -77,7 +77,7 @@ fi
 if [ -f "$APK_PATH" ]; then
   adb install -r -d "$APK_PATH" || { echo "APK install failed" >&2; exit 1; }
 else
-  echo "Error: debug APK not found. Build :app:assembleGithubDebug or set APPIUM_APK_PATH." >&2
+  echo "Error: debug APK not found. Build :app:assembleGithubFullDebug or set APPIUM_APK_PATH." >&2
   exit 1
 fi
 

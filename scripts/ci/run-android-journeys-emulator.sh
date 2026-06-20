@@ -43,8 +43,8 @@ adb wait-for-device
 # github/debug variant (the variant exercised by the connected test lanes).
 apk="${RIPDPI_JOURNEYS_APK:-}"
 if [[ -z "$apk" ]]; then
-  echo "Assembling :app:assembleGithubDebug ..."
-  ( cd "$ROOT_DIR" && ./gradlew --no-daemon :app:assembleGithubDebug )
+  echo "Assembling :app:assembleGithubFullDebug ..."
+  ( cd "$ROOT_DIR" && ./gradlew --no-daemon :app:assembleGithubFullDebug )
   apk="$(find "$ROOT_DIR/app/build/outputs/apk/github/debug" -name '*.apk' -print -quit 2>/dev/null || true)"
 fi
 if [[ -z "$apk" || ! -f "$apk" ]]; then

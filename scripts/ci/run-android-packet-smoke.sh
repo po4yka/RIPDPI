@@ -234,7 +234,7 @@ install_physical_indirect_builds() {
     set +e
     ANDROID_SERIAL="$android_serial" \
     ./gradlew "${gradle_fresh_build_args[@]}" \
-        :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest :app:installGithubDebug :app:installGithubDebugAndroidTest \
+        :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest :app:installGithubFullDebug :app:installGithubFullDebugAndroidTest \
         "-Pripdpi.localNativeAbis=${gradle_abi}" >"$install_log" 2>&1
     status=$?
     set -e
@@ -808,7 +808,7 @@ if [[ "$device_profile" == "physical_indirect" ]]; then
 else
     ANDROID_SERIAL="$android_serial" \
     ./gradlew "${gradle_fresh_build_args[@]}" \
-        :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest "-Pripdpi.localNativeAbis=${gradle_abi}" >/dev/null
+        :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest "-Pripdpi.localNativeAbis=${gradle_abi}" >/dev/null
 fi
 
 jq_selector='.[] | select(.lane == "android_proxy" or .lane == "android_vpn")'

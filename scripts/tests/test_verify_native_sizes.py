@@ -31,8 +31,8 @@ class VerifyNativeSizesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
             merged_native_libs = repo_root / "app/build/intermediates/merged_native_libs"
-            fdroid = merged_native_libs / "fdroidDebug/mergeFdroidDebugNativeLibs/out/lib"
-            github = merged_native_libs / "githubDebug/mergeGithubDebugNativeLibs/out/lib"
+            fdroid = merged_native_libs / "fdroidFullDebug/mergeFdroidFullDebugNativeLibs/out/lib"
+            github = merged_native_libs / "githubFullDebug/mergeGithubFullDebugNativeLibs/out/lib"
             fdroid.mkdir(parents=True)
             github.mkdir(parents=True)
 

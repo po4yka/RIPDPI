@@ -34,7 +34,7 @@ def discover_default_lib_dir(repo_root: Path) -> Path | None:
     if not merged_native_libs.is_dir():
         return None
 
-    preferred = merged_native_libs / "githubDebug/mergeGithubDebugNativeLibs/out/lib"
+    preferred = merged_native_libs / "githubFullDebug/mergeGithubFullDebugNativeLibs/out/lib"
     if preferred.is_dir():
         return preferred
 

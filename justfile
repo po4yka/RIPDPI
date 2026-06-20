@@ -111,7 +111,7 @@ verify-spec-versions:
 # Run :app instrumented tests on all CI managed devices (GMD)
 [group('test')]
 test-instrumented:
-    ./gradlew :app:ciDevicesGroupGithubDebugAndroidTest
+    ./gradlew :app:ciDevicesGroupGithubFullDebugAndroidTest
 
 # ─── Lint ─────────────────────────────────────────────────────────
 

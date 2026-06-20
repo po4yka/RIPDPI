@@ -47,7 +47,7 @@ jobs:
           RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew bundlePlayRelease -Pripdpi.enableAbiSplits=false -Pripdpi.nativeAbiParallelism=1
+        run: ./gradlew bundlePlayFullRelease -Pripdpi.enableAbiSplits=false -Pripdpi.nativeAbiParallelism=1
 
       - name: Build F-Droid release APK
         env:
@@ -56,7 +56,7 @@ jobs:
           RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleFdroidRelease -Pripdpi.nativeAbiParallelism=1
+        run: ./gradlew assembleFdroidFullRelease -Pripdpi.nativeAbiParallelism=1
 
       - name: Build GitHub release APK
         env:
@@ -65,7 +65,7 @@ jobs:
           RIPDPI_SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleGithubRelease -Pripdpi.nativeAbiParallelism=1
+        run: ./gradlew assembleGithubFullRelease -Pripdpi.nativeAbiParallelism=1
 
       - name: Normalize F-Droid release APK names
         run: |
