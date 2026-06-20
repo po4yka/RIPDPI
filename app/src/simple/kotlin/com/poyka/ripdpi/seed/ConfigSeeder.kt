@@ -14,13 +14,20 @@ import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.IOException
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 internal const val SEED_PREFS_NAME = "simple_flavor_seed_state"
 internal const val SEED_KEY_SEEDED = "config_seeded"
 private const val ASSET_NAME = "embedded-relay-bundle.json"
+
+/**
+ * Stable group id for the seeded config. Deterministic (not a random UUID) so that if an
+ * LMK kill lands between [ProxyGroupRepository.add] and the seeded-flag flush, the next
+ * launch's re-seed upserts the SAME group (add() dedupes by id) instead of orphaning an
+ * empty duplicate "Simple Config" group.
+ */
+internal const val SIMPLE_SEED_GROUP_ID = "00000000-0000-4000-8000-simpleflavor1"
 
 /**
  * First-launch seeder for the `simple` product flavor.
@@ -56,7 +63,7 @@ open class ConfigSeeder
 
             val json = readBundle() ?: return
 
-            val groupId = UUID.randomUUID().toString()
+            val groupId = SIMPLE_SEED_GROUP_ID
             val result = SingBoxSubscriptionParser.parse(json, groupId)
 
             when (result) {
