@@ -1082,14 +1082,81 @@ class FailoverCoordinatorTest {
         }
 
     /**
+     * A HEALTHY telemetry emission while the coordinator is backed off must clear back-off
+     * and resume failover WITHOUT a session restart — the in-session recovery path (the other
+     * is [backedOff resets on stop and restart]).
+     *
+     * Two candidates Reality(0) > Hysteria2(1): back-off engages on the 2nd switch attempt
+     * (switchesInCycle >= candidates.size-1 = 1).
+     *
+     * Timing (debounce=20 000 ms, min-interval=30 000 ms):
+     *   t=1 000   failed → failingsSince=1 000
+     *   t=22 000  failed → elapsed 21s ≥ 20s, no prior switch → SWITCH 1; lastSwitchAt=22 000, switchesInCycle=1
+     *   t=23 000  failed → failingsSince=23 000
+     *   t=44 000  failed → 44-22=22s < 30s min-interval → blocked
+     *   t=53 000  failed → 53-22=31s ≥ 30s → performSwitch sees switchesInCycle 1 ≥ 1 → BACKOFF (no stop)
+     *   t=53 500  HEALTHY → backedOff=false, switchesInCycle=0, failingsSince=null
+     *   t=54 000  failed → failingsSince=54 000
+     *   t=75 000  failed → elapsed 21s ≥ 20s, 75-22=53s ≥ 30s → SWITCH 2 (recovery proven)
+     */
+    @Test
+    fun `healthyEmissionWhileBackedOffClearsBackOff`() =
+        runTest {
+            val stateStore = FakeServiceStateStore()
+            val clock = FakeFailoverClock(now = 0L)
+            // Default 2 relay candidates (Reality, Hysteria2), no AWG → back-off after 1 switch.
+            val (coordinator, controller, _) = buildCoordinator(stateStore = stateStore, clock = clock)
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+
+            // ── Drive to back-off: one real switch, then the budget is exhausted ──
+            clock.advance(1_000L)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(21_000L) // t=22 000 → SWITCH 1 (Reality→Hysteria2)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+            assertEquals("Switch 1 expected", 1, controller.stopCalls.size)
+
+            clock.advance(1_000L) // t=23 000
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(21_000L) // t=44 000 → blocked by min-interval
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+            assertEquals("Switch blocked by min-interval", 1, controller.stopCalls.size)
+            clock.advance(9_000L) // t=53 000 → performSwitch → BACKOFF (switchesInCycle 1 >= 1)
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+            assertEquals("No switch — backed off", 1, controller.stopCalls.size)
+
+            // ── Healthy emission while backed off clears back-off ──
+            clock.advance(500L) // t=53 500
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "healthy"))
+
+            // ── Fresh failure burst → switch fires, proving in-session recovery ──
+            clock.advance(500L) // t=54 000
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            clock.advance(21_000L) // t=75 000 → SWITCH 2
+            stateStore.emitTelemetry(runningTelemetry(relayHealth = "failed"))
+            advanceUntilIdle()
+            assertEquals(
+                "Switch must fire: healthy emission while backed off cleared back-off",
+                2,
+                controller.stopCalls.size,
+            )
+
+            coordinator.stopObserving()
+        }
+
+    /**
      * After back-off, a genuine stop+startObserving resets the budget so that
      * a subsequent sustained failure burst can trigger a fresh switch.
      *
-     * Production note: [onTelemetryUpdate] returns early when backedOff=true
-     * (before the health check), so a healthy telemetry emission alone cannot
-     * clear backedOff. The reset path is stopObserving (genuine, not self-induced)
-     * followed by startObserving, which goes through the "fresh session" branch
-     * that resets switchesInCycle=0, backedOff=false, and lastSwitchAt=0.
+     * This test exercises the stop+restart recovery path specifically (it never emits a
+     * healthy snapshot while backed off). A genuine stopObserving + startObserving goes
+     * through the "fresh session" branch that resets switchesInCycle=0, backedOff=false,
+     * and lastSwitchAt=0. (A healthy emission while backed off is the OTHER recovery path —
+     * see [healthyEmissionWhileBackedOffClearsBackOff].)
      *
      * Sequence:
      *   1. Drive to backedOff (exhaust all 3 candidates).

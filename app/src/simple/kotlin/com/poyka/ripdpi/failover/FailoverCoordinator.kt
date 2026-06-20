@@ -325,18 +325,23 @@ class FailoverCoordinator
          */
         private suspend fun onTelemetryUpdate(snapshot: ServiceTelemetrySnapshot) {
             if (!autoFailoverEnabled.value) return
-            if (backedOff) return
 
             val activeHealth = activeEgressHealth(snapshot)
             val now = clock.nowMillis()
 
             if (activeHealth !in FAILING_HEALTH_VALUES) {
-                // Healthy or idle — reset debounce, back-off, and the switch budget.
+                // Healthy or idle — reset debounce, back-off, and the switch budget. This runs
+                // even while backedOff so a transport that heals mid-session clears back-off and
+                // resumes failover without needing a full session restart.
                 failingsSince = null
                 backedOff = false
                 switchesInCycle = 0
                 return
             }
+
+            // Still failing. If every candidate was already tried this cycle with none healthy,
+            // stay quiet until a healthy emission (above) resets the budget.
+            if (backedOff) return
 
             val since = failingsSince
             if (since == null) {
