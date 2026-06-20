@@ -2,12 +2,11 @@ package com.poyka.ripdpi.activities
 
 import android.content.Intent
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -228,7 +227,8 @@ class MainActivityContentTest {
                 .isNotEmpty()
         }
         composeRule.onNodeWithTag(RipDpiTestTags.MainErrorSnackbar).assertIsDisplayed()
-        composeRule.onAllNodesWithText("boom").assertCountEquals(1)
+        // Text lives in a child node of the Surface container; check it exists anywhere in the tree.
+        composeRule.onNodeWithText("boom").assertExists()
     }
 
     private fun createViewModel(

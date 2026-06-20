@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +22,7 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -57,7 +57,7 @@ fun SimpleHomeScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = colors.background,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         Column(
             modifier =
