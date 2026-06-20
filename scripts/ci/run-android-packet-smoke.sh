@@ -859,7 +859,7 @@ for row in "${scenarios[@]}"; do
     else
         set +e
         ANDROID_SERIAL="$android_serial" \
-        ./gradlew :app:connectedGithubDebugAndroidTest \
+        ./gradlew :app:connectedGithubFullDebugAndroidTest \
             "-Pripdpi.localNativeAbis=${gradle_abi}" \
             "-Pandroid.testInstrumentationRunnerArguments.class=${test_selector}" \
             "-Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=${fixture_android_host}" \

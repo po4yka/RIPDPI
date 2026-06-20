@@ -1267,7 +1267,7 @@ jobs:
         env:
           RUSTC_WRAPPER: sccache
         run: |
-          ./gradlew :app:connectedGithubDebugAndroidTest \
+          ./gradlew :app:connectedGithubFullDebugAndroidTest \
             -Pripdpi.nativeAbisOverride=x86_64 \
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-integration/jniLibs" \
             -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-integration/assetsBin" \

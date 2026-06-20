@@ -23,7 +23,7 @@ run_target() {
   echo "$target" | tee "$TARGET_FILE"
   echo "Running Android instrumentation target: $target"
 
-  ./gradlew :app:connectedGithubDebugAndroidTest \
+  ./gradlew :app:connectedGithubFullDebugAndroidTest \
     "$GRADLE_ABI" \
     "$@" \
     -Pandroid.testInstrumentationRunnerArguments.coverage=false
