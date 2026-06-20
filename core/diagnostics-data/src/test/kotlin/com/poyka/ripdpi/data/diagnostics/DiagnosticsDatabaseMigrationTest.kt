@@ -73,5 +73,22 @@ class DiagnosticsDatabaseMigrationTest {
             requiredMigrations,
             DiagnosticsDatabaseMigrations.ALL.size,
         )
+
+        // Count alone is not enough: a mis-ranged Migration(5, 7) would satisfy the size
+        // check while leaving version 6 uncovered. Walk the sorted chain and assert each
+        // migration steps exactly one version, contiguously from firstManagedVersion to
+        // currentDbVersion, so any gap or overlap fails here.
+        val sorted = DiagnosticsDatabaseMigrations.ALL.sortedBy { it.startVersion }
+        var expected = firstManagedVersion
+        for (migration in sorted) {
+            assertEquals("Migration start must be contiguous", expected, migration.startVersion)
+            assertEquals("Migration must step exactly one version", expected + 1, migration.endVersion)
+            expected = migration.endVersion
+        }
+        assertEquals(
+            "Migration chain must reach the current schema version",
+            currentDbVersion,
+            expected,
+        )
     }
 }
