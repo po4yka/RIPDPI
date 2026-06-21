@@ -525,6 +525,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
             ConfigRoute(
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+                onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
                 onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
                 onScanServer = { navController.navigate(Route.QrScanner) },
@@ -540,6 +541,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
             ConfigRoute(
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+                onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
                 onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
                 onScanServer = { navController.navigate(Route.QrScanner) },
@@ -555,6 +557,7 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
             ConfigRoute(
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+                onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
                 onRetestStrategies = { navController.navigate(Route.Diagnostics(autoStartScan = true)) },
                 onScanServer = { navController.navigate(Route.QrScanner) },

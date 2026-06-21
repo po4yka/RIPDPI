@@ -30,8 +30,6 @@ import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.proxyimport.ProxyImportRequest
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
@@ -50,9 +48,15 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+enum class ConfigEditorTarget {
+    Bypass,
+    Resolver,
+}
+
 @Composable
 fun ConfigRoute(
     onOpenModeEditor: () -> Unit,
+    onOpenLocalBypassEditor: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
     onScanServer: () -> Unit,
@@ -98,7 +102,12 @@ fun ConfigRoute(
             viewModel.startEditingPreset(selectedPresetId)
             onOpenModeEditor()
         },
-        onOpenDnsSettings = onOpenDnsSettings,
+        onOpenConfigEditor = { path ->
+            when (path) {
+                ConfigEditorTarget.Bypass -> onOpenLocalBypassEditor()
+                ConfigEditorTarget.Resolver -> onOpenDnsSettings()
+            }
+        },
         onRetestStrategies = onRetestStrategies,
         onPasteServerLink = clipboardImportViewModel::onImportFromClipboard,
         onScanServer = onScanServer,
@@ -115,7 +124,7 @@ fun ConfigScreen(
     onLocalBypassStop: () -> Unit = {},
     onPresetSelected: (ConfigPreset) -> Unit,
     onEditCurrent: () -> Unit,
-    onOpenDnsSettings: () -> Unit,
+    onOpenConfigEditor: (ConfigEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
@@ -172,19 +181,6 @@ fun ConfigScreen(
                 selectedMode = uiState.activeMode,
                 onModeSelected = onModeSelected,
             )
-
-            RipDpiButton(
-                text = stringResource(R.string.config_edit_current),
-                onClick = onEditCurrent,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigEditCurrentButton),
-                variant =
-                    if (selectedPreset.kind == ConfigPresetKind.Custom) {
-                        RipDpiButtonVariant.Primary
-                    } else {
-                        RipDpiButtonVariant.Outline
-                    },
-                trailingIcon = RipDpiIcons.ChevronRight,
-            )
         }
 
         ConfigSelectedModeSection(
@@ -194,7 +190,7 @@ fun ConfigScreen(
             onModeSelected = onModeSelected,
             onLocalBypassStop = onLocalBypassStop,
             onEditCurrent = onEditCurrent,
-            onOpenDnsSettings = onOpenDnsSettings,
+            onOpenConfigEditor = onOpenConfigEditor,
             onRetestStrategies = onRetestStrategies,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
@@ -283,7 +279,7 @@ private fun ConfigSelectedModeSection(
     onModeSelected: (Mode) -> Unit,
     onLocalBypassStop: () -> Unit,
     onEditCurrent: () -> Unit,
-    onOpenDnsSettings: () -> Unit,
+    onOpenConfigEditor: (ConfigEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
@@ -296,8 +292,8 @@ private fun ConfigSelectedModeSection(
                 desyncSummary = desyncSummary,
                 onModeSelected = onModeSelected,
                 onLocalBypassStop = onLocalBypassStop,
-                onOpenDesyncSettings = onEditCurrent,
-                onOpenDnsSettings = onOpenDnsSettings,
+                onOpenDesyncSettings = { onOpenConfigEditor(ConfigEditorTarget.Bypass) },
+                onOpenDnsSettings = { onOpenConfigEditor(ConfigEditorTarget.Resolver) },
                 onRetestStrategies = onRetestStrategies,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassSummary),
             )
@@ -308,7 +304,7 @@ private fun ConfigSelectedModeSection(
                 uiState = uiState,
                 onModeSelected = onModeSelected,
                 onOpenRelaySettings = onEditCurrent,
-                onOpenDnsSettings = onOpenDnsSettings,
+                onOpenDnsSettings = { onOpenConfigEditor(ConfigEditorTarget.Resolver) },
                 onPasteServerLink = onPasteServerLink,
                 onScanServer = onScanServer,
                 onProfileShare = onProfileShare,
@@ -401,7 +397,7 @@ private fun ConfigScreenPreview() {
             onModeSelected = {},
             onPresetSelected = {},
             onEditCurrent = {},
-            onOpenDnsSettings = {},
+            onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
             onScanServer = {},
@@ -433,7 +429,7 @@ private fun ConfigScreenDarkPreview() {
             onModeSelected = {},
             onPresetSelected = {},
             onEditCurrent = {},
-            onOpenDnsSettings = {},
+            onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
             onScanServer = {},
@@ -457,7 +453,7 @@ private fun ConfigScreenLoadingPreview() {
             onModeSelected = {},
             onPresetSelected = {},
             onEditCurrent = {},
-            onOpenDnsSettings = {},
+            onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
             onScanServer = {},

@@ -86,6 +86,7 @@ class ConfigScreenTest {
         setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSimple).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigEditCurrentButton).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassStrategyAuto).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassPrecedenceNote).assertExists()
         composeRule
@@ -143,17 +144,33 @@ class ConfigScreenTest {
 
     @Test
     fun `local bypass desync and dns rows expose actions`() {
+        var legacyEditorClicks = 0
+        var strategyClicks = 0
+        var dnsClicks = 0
         setConfigScreen(
             initialModeSection = ConfigModeSection.LocalBypass,
+            onEditCurrent = { legacyEditorClicks += 1 },
+            onOpenLocalBypassEditor = { strategyClicks += 1 },
+            onOpenDnsSettings = { dnsClicks += 1 },
             uiPersona = "advanced",
         )
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync)
             .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
             .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(0, legacyEditorClicks)
+            assertEquals(1, strategyClicks)
+            assertEquals(1, dnsClicks)
+        }
     }
 
     @Test
@@ -225,7 +242,7 @@ class ConfigScreenTest {
                     onModeSelected = {},
                     onPresetSelected = {},
                     onEditCurrent = {},
-                    onOpenDnsSettings = {},
+                    onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
                     onScanServer = {},
@@ -300,6 +317,7 @@ class ConfigScreenTest {
         onModeSelected: (Mode) -> Unit = {},
         onLocalBypassStop: () -> Unit = {},
         onEditCurrent: () -> Unit = {},
+        onOpenLocalBypassEditor: () -> Unit = {},
         onOpenDnsSettings: () -> Unit = {},
         onRetestStrategies: () -> Unit = {},
         onPasteServerLink: () -> Unit = {},
@@ -321,7 +339,12 @@ class ConfigScreenTest {
                     onLocalBypassStop = onLocalBypassStop,
                     onPresetSelected = {},
                     onEditCurrent = onEditCurrent,
-                    onOpenDnsSettings = onOpenDnsSettings,
+                    onOpenConfigEditor = { path ->
+                        when (path) {
+                            ConfigEditorTarget.Bypass -> onOpenLocalBypassEditor()
+                            ConfigEditorTarget.Resolver -> onOpenDnsSettings()
+                        }
+                    },
                     onRetestStrategies = onRetestStrategies,
                     onPasteServerLink = onPasteServerLink,
                     onScanServer = onScanServer,
