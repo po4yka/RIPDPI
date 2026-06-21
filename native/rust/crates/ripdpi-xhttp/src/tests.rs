@@ -96,14 +96,12 @@ fn protocol_mode_parses_xray_identifiers() {
 
 #[test]
 fn protocol_mode_parse_rejects_unimplemented_modes() {
-    // `packet-up` and `stream-down` are upstream modes but not implemented
-    // here; rejecting them with a named error prevents a
-    // silent downgrade to `stream-up`.
+    // `packet-up` and `stream-down` are upstream modes but not implemented here; rejecting them prevents a silent downgrade to `stream-up`, and the error must not echo user-supplied values.
     for unsupported in ["packet-up", "stream-down", "garbage"] {
         let Err(err) = XhttpProtocolMode::parse(unsupported) else {
             panic!("{unsupported:?} must be rejected");
         };
-        assert!(err.to_string().contains(unsupported), "error must name the offending value: {err}");
+        assert!(!err.to_string().contains(unsupported), "error must redact the offending value: {err}");
     }
 }
 
