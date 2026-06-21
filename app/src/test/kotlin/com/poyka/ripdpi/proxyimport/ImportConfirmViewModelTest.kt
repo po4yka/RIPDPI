@@ -314,6 +314,57 @@ class ImportConfirmViewModelTest {
         }
 
     @Test
+    fun `confirming a vless-reality profile import with host-only xhttp keeps xhttp transport`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val profile =
+                ProxyProfile.VlessReality(
+                    id = "xhttp-host-node",
+                    displayName = "Reality xHTTP host",
+                    groupId = "",
+                    server = "edge.example.com",
+                    serverPort = 443,
+                    uuid = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+                    realityPublicKey = "XHTTPHOSTKEY1234567890abcdefghijk",
+                    realityShortId = "cafe0002",
+                    serverName = "decoy.example.com",
+                    flow = "xtls-rprx-vision",
+                    fingerprint = null,
+                    xhttpPath = null,
+                    xhttpHost = "carrier.example.com",
+                )
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    repository = repository,
+                    relayActivator =
+                        RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+
+            viewModel.setProfile(profile)
+            viewModel.confirm()
+            advanceUntilIdle()
+
+            val settings = settingsRepository.snapshot()
+            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
+            assertEquals(RelayKindVlessReality, settings.relayKind)
+            assertTrue(settings.relayEnabled)
+            assertEquals(RelayVlessTransportXhttp, settings.relayVlessTransport)
+            assertEquals("", settings.relayXhttpPath)
+            assertEquals("carrier.example.com", settings.relayXhttpHost)
+            assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
+            assertEquals("", relayProfile?.xhttpPath)
+            assertEquals("carrier.example.com", relayProfile?.xhttpHost)
+            assertFalse(relayProfile?.udpEnabled ?: true)
+            assertEquals(
+                "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+                relayCredentialStore.load(DefaultRelayProfileId)?.vlessUuid,
+            )
+        }
+
+    @Test
     fun `confirming an ssh password profile import activates the native relay with udp disabled`() =
         runTest {
             val repository = FakeProxyGroupRepository()

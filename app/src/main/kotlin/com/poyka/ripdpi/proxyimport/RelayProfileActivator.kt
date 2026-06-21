@@ -52,7 +52,7 @@ class RelayProfileActivator
             val endpoint = relayEndpoint(profile)
             val udpEnabled = relayUdpEnabled(profile)
             val vlessTransport =
-                if (profile is ProxyProfile.VlessReality && profile.xhttpPath != null) {
+                if (profile is ProxyProfile.VlessReality && profile.hasXhttpTransport()) {
                     RelayVlessTransportXhttp
                 } else {
                     RelayVlessTransportRealityTcp
@@ -117,6 +117,8 @@ class RelayProfileActivator
                 is ProxyProfile.Ssh -> RelayKindSsh
                 else -> null
             }
+
+        private fun ProxyProfile.VlessReality.hasXhttpTransport(): Boolean = xhttpPath != null || xhttpHost != null
 
         private fun relayUdpEnabled(profile: ProxyProfile): Boolean =
             when (profile) {
