@@ -1,23 +1,57 @@
-use base64::prelude::*;
-
 use crate::addons::{FlowParseError, VlessFlow};
 use crate::mux::{MuxConfigError, VlessMuxConfig};
+use base64::prelude::*;
+use std::fmt;
 
 /// Errors that can occur when parsing VLESS+Reality configuration from strings.
-#[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-    #[error("invalid UUID: {0}")]
     InvalidUuid(String),
-    #[error("invalid port: {0}")]
     InvalidPort(i32),
-    #[error("invalid reality public key (base64): {0}")]
     InvalidPublicKey(String),
-    #[error("invalid reality short ID (hex): {0}")]
     InvalidShortId(String),
-    #[error("invalid mux config: {0}")]
-    InvalidMux(#[from] MuxConfigError),
-    #[error("invalid flow: {0}")]
-    InvalidFlow(#[from] FlowParseError),
+    InvalidMux(MuxConfigError),
+    InvalidFlow(FlowParseError),
+}
+
+impl fmt::Debug for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidUuid(_) => f.write_str("invalid UUID"),
+            Self::InvalidPort(port) => write!(f, "invalid port: {port}"),
+            Self::InvalidPublicKey(_) => f.write_str("invalid reality public key (base64)"),
+            Self::InvalidShortId(_) => f.write_str("invalid reality short ID (hex)"),
+            Self::InvalidMux(error) => write!(f, "invalid mux config: {error}"),
+            Self::InvalidFlow(error) => write!(f, "invalid flow: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::InvalidMux(error) => Some(error),
+            Self::InvalidFlow(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<MuxConfigError> for ConfigError {
+    fn from(value: MuxConfigError) -> Self {
+        Self::InvalidMux(value)
+    }
+}
+
+impl From<FlowParseError> for ConfigError {
+    fn from(value: FlowParseError) -> Self {
+        Self::InvalidFlow(value)
+    }
 }
 
 /// Configuration for a VLESS+Reality connection.
@@ -280,6 +314,25 @@ mod tests {
     fn with_flow_str_rejects_unknown_flow() {
         let err = sample_config().with_flow_str("xtls-rprx-direct").expect_err("unknown flow rejected");
         assert!(matches!(err, ConfigError::InvalidFlow(_)), "got {err:?}");
+    }
+
+    #[test]
+    fn config_errors_do_not_echo_supplied_values() {
+        let cases = [
+            (
+                ConfigError::InvalidUuid("550e8400-e29b-41d4-a716-supplied000000".to_owned()),
+                "550e8400-e29b-41d4-a716-supplied000000",
+            ),
+            (ConfigError::InvalidPublicKey("fixture-public-key-value".to_owned()), "fixture-public-key-value"),
+            (ConfigError::InvalidShortId("fixture-short-id-value".to_owned()), "fixture-short-id-value"),
+        ];
+
+        for (error, supplied) in cases {
+            let display = error.to_string();
+            let debug = format!("{error:?}");
+            assert!(!display.contains(supplied), "Display output exposes supplied value: {display}");
+            assert!(!debug.contains(supplied), "Debug output exposes supplied value: {debug}");
+        }
     }
 
     #[test]

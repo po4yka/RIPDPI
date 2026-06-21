@@ -76,9 +76,22 @@ impl XhttpProtocolMode {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("unsupported xHTTP mode {0:?}; expected 'stream-up', 'stream-one', '', or 'auto'")]
+#[derive(Clone, PartialEq, Eq)]
 pub struct ProtocolModeParseError(pub String);
+
+impl fmt::Debug for ProtocolModeParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
+impl fmt::Display for ProtocolModeParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("unsupported xHTTP mode; expected 'stream-up', 'stream-one', '', or 'auto'")
+    }
+}
+
+impl std::error::Error for ProtocolModeParseError {}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FinalmaskConfig {
@@ -246,16 +259,50 @@ impl XhttpTlsConfig {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-    #[error("invalid UUID: {0}")]
     InvalidUuid(String),
-    #[error("invalid port: {0}")]
     InvalidPort(i32),
-    #[error("invalid flow: {0}")]
-    InvalidFlow(#[from] FlowParseError),
-    #[error("invalid xHTTP mode: {0}")]
-    InvalidProtocolMode(#[from] ProtocolModeParseError),
+    InvalidFlow(FlowParseError),
+    InvalidProtocolMode(ProtocolModeParseError),
+}
+
+impl fmt::Debug for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidUuid(_) => f.write_str("invalid UUID"),
+            Self::InvalidPort(port) => write!(f, "invalid port: {port}"),
+            Self::InvalidFlow(error) => write!(f, "invalid flow: {error}"),
+            Self::InvalidProtocolMode(error) => write!(f, "invalid xHTTP mode: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::InvalidFlow(error) => Some(error),
+            Self::InvalidProtocolMode(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl From<FlowParseError> for ConfigError {
+    fn from(value: FlowParseError) -> Self {
+        Self::InvalidFlow(value)
+    }
+}
+
+impl From<ProtocolModeParseError> for ConfigError {
+    fn from(value: ProtocolModeParseError) -> Self {
+        Self::InvalidProtocolMode(value)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -278,4 +325,38 @@ fn parse_uuid(value: &str) -> Result<[u8; 16], ()> {
     let mut uuid = [0u8; 16];
     uuid.copy_from_slice(&bytes);
     Ok(uuid)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn protocol_mode_error_does_not_echo_supplied_mode() {
+        let supplied = "fixture-mode-value";
+        let error = ProtocolModeParseError(supplied.to_owned());
+
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+
+        assert!(!display.contains(supplied), "Display output exposes supplied mode: {display}");
+        assert!(!debug.contains(supplied), "Debug output exposes supplied mode: {debug}");
+    }
+
+    #[test]
+    fn config_errors_do_not_echo_supplied_values() {
+        let uuid = "550e8400-e29b-41d4-a716-supplied000000";
+        let mode = "fixture-mode-value";
+        let cases = [
+            (ConfigError::InvalidUuid(uuid.to_owned()), uuid),
+            (ConfigError::InvalidProtocolMode(ProtocolModeParseError(mode.to_owned())), mode),
+        ];
+
+        for (error, supplied) in cases {
+            let display = error.to_string();
+            let debug = format!("{error:?}");
+            assert!(!display.contains(supplied), "Display output exposes supplied value: {display}");
+            assert!(!debug.contains(supplied), "Debug output exposes supplied value: {debug}");
+        }
+    }
 }
