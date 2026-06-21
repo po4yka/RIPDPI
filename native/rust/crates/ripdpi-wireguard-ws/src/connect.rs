@@ -32,7 +32,7 @@
 //! outbound socket is never handed to the caller.
 
 use std::io;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::os::fd::{AsRawFd, RawFd};
 
 use tokio::net::{TcpSocket, TcpStream};
@@ -109,6 +109,87 @@ where
     protector.protect_socket(socket.as_raw_fd())?;
 
     socket.connect(target).await
+}
+
+/// Connect a protected outbound carrier `TcpStream` to a host/port authority.
+///
+/// For hostnames, this intentionally protects the candidate carrier sockets
+/// before running hostname resolution. That keeps the WSS carrier on the same
+/// fail-closed side of the VPN-protect invariant as address-literal connects:
+/// if protection fails, resolution and connect are never attempted. Resolution
+/// still selects the concrete peer address; the matching already-protected
+/// socket is then connected to it.
+pub async fn connect_protected_carrier_host<P>(host: &str, port: u16, protector: &P) -> io::Result<TcpStream>
+where
+    P: CarrierSocketProtector + ?Sized,
+{
+    connect_protected_carrier_host_with_resolver(host, port, protector, std_resolve_host).await
+}
+
+async fn connect_protected_carrier_host_with_resolver<P, R>(
+    host: &str,
+    port: u16,
+    protector: &P,
+    resolver: R,
+) -> io::Result<TcpStream>
+where
+    P: CarrierSocketProtector + ?Sized,
+    R: FnOnce(&str, u16) -> io::Result<Vec<SocketAddr>>,
+{
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return connect_protected_carrier(SocketAddr::new(ip, port), protector).await;
+    }
+
+    let sockets = ProtectedCarrierSockets::new(protector)?;
+    let target = resolver(host, port)?.into_iter().find(|addr| sockets.supports(*addr)).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved no usable addresses")
+    })?;
+    sockets.connect(target).await
+}
+
+fn std_resolve_host(host: &str, port: u16) -> io::Result<Vec<SocketAddr>> {
+    (host, port).to_socket_addrs().map(Iterator::collect)
+}
+
+struct ProtectedCarrierSockets {
+    ipv4: TcpSocket,
+    ipv6: Option<TcpSocket>,
+}
+
+impl ProtectedCarrierSockets {
+    fn new<P>(protector: &P) -> io::Result<Self>
+    where
+        P: CarrierSocketProtector + ?Sized,
+    {
+        let ipv4 = TcpSocket::new_v4()?;
+        protector.protect_socket(ipv4.as_raw_fd())?;
+        let ipv6 = match TcpSocket::new_v6() {
+            Ok(socket) => {
+                protector.protect_socket(socket.as_raw_fd())?;
+                Some(socket)
+            }
+            Err(error) if matches!(error.kind(), io::ErrorKind::AddrNotAvailable | io::ErrorKind::Unsupported) => None,
+            Err(error) => return Err(error),
+        };
+        Ok(Self { ipv4, ipv6 })
+    }
+
+    fn supports(&self, target: SocketAddr) -> bool {
+        target.is_ipv4() || (target.is_ipv6() && self.ipv6.is_some())
+    }
+
+    async fn connect(self, target: SocketAddr) -> io::Result<TcpStream> {
+        if target.is_ipv4() {
+            self.ipv4.connect(target).await
+        } else {
+            self.ipv6
+                .ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved only IPv6")
+                })?
+                .connect(target)
+                .await
+        }
+    }
 }
 
 #[cfg(test)]
@@ -215,5 +296,60 @@ mod tests {
 
         drop(stream);
         accept.await.expect("listener accept task joins");
+    }
+
+    #[tokio::test]
+    async fn hostname_resolution_runs_after_candidate_sockets_are_protected() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind loopback listener");
+        let addr = listener.local_addr().expect("local addr");
+
+        let protect_count = Arc::new(AtomicI32::new(0));
+        let resolver_saw_protect_count = Arc::new(AtomicI32::new(-1));
+        let protect_count_cb = Arc::clone(&protect_count);
+        let protector = move |_fd: RawFd| -> io::Result<()> {
+            protect_count_cb.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        };
+        let resolver_saw_protect_count_cb = Arc::clone(&resolver_saw_protect_count);
+        let resolver = move |_host: &str, _port: u16| -> io::Result<Vec<SocketAddr>> {
+            resolver_saw_protect_count_cb.store(protect_count.load(Ordering::SeqCst), Ordering::SeqCst);
+            Ok(vec![addr])
+        };
+
+        let accept = tokio::spawn(async move {
+            let _ = listener.accept().await;
+        });
+
+        let stream = connect_protected_carrier_host_with_resolver("carrier.example.test", 443, &protector, resolver)
+            .await
+            .expect("protected hostname connect");
+
+        assert!(
+            resolver_saw_protect_count.load(Ordering::SeqCst) >= 1,
+            "hostname resolution must run only after at least one candidate carrier socket is protected",
+        );
+        assert_eq!(stream.peer_addr().expect("peer addr"), addr, "connected to resolved target");
+
+        drop(stream);
+        accept.await.expect("listener accept task joins");
+    }
+
+    #[tokio::test]
+    async fn failing_protector_aborts_hostname_resolution() {
+        let resolver_called = Arc::new(AtomicBool::new(false));
+        let resolver_called_cb = Arc::clone(&resolver_called);
+        let protector =
+            |_fd: RawFd| -> io::Result<()> { Err(io::Error::new(io::ErrorKind::PermissionDenied, "protect rejected")) };
+        let resolver = move |_host: &str, _port: u16| -> io::Result<Vec<SocketAddr>> {
+            resolver_called_cb.store(true, Ordering::SeqCst);
+            Ok(vec!["127.0.0.1:443".parse().expect("socket addr")])
+        };
+
+        let result =
+            connect_protected_carrier_host_with_resolver("carrier.example.test", 443, &protector, resolver).await;
+
+        let err = result.expect_err("protect failure must abort hostname connect");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied, "protector error propagates");
+        assert!(!resolver_called.load(Ordering::SeqCst), "resolution must not run after protect failure");
     }
 }

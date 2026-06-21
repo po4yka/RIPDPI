@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 use std::io;
-use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 
 use rustls::pki_types::ServerName;
@@ -14,7 +13,7 @@ use tokio_tungstenite::{WebSocketStream, client_async};
 use url::Url;
 
 use crate::WsCarrier;
-use crate::connect::{CarrierSocketProtector, connect_protected_carrier};
+use crate::connect::{CarrierSocketProtector, connect_protected_carrier_host};
 
 const DEFAULT_WSS_PORT: u16 = 443;
 const BINARY_SUBPROTOCOL: &str = "binary";
@@ -93,12 +92,6 @@ impl WssEndpoint {
         Ok(request)
     }
 
-    pub fn connect_addr(&self) -> io::Result<SocketAddr> {
-        (self.host.as_str(), self.port).to_socket_addrs()?.next().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved no addresses")
-        })
-    }
-
     fn authority(&self) -> String {
         let host = if self.host.contains(':') && !self.host.starts_with('[') {
             format!("[{}]", self.host)
@@ -137,8 +130,7 @@ pub async fn connect_wss_carrier<P>(endpoint: &WssEndpoint, protector: &P) -> io
 where
     P: CarrierSocketProtector + ?Sized,
 {
-    let target = endpoint.connect_addr()?;
-    let stream = connect_protected_carrier(target, protector).await?;
+    let stream = connect_protected_carrier_host(endpoint.host(), endpoint.port(), protector).await?;
     stream.set_nodelay(true)?;
     let request =
         endpoint.build_client_request().map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
@@ -214,21 +206,13 @@ mod tests {
     }
 
     #[test]
-    fn connect_addr_comes_from_wss_authority() {
-        let endpoint = WssEndpoint::parse("wss://127.0.0.1:8443/wg").expect("endpoint");
-
-        assert_eq!(endpoint.connect_addr().expect("connect addr"), "127.0.0.1:8443".parse().expect("socket addr"));
-    }
-
-    #[test]
-    fn connect_addr_supports_ipv6_authority() {
+    fn endpoint_supports_ipv6_authority() {
         let endpoint = WssEndpoint::parse("wss://[::1]:9443/wg").expect("endpoint");
         let request = endpoint.build_client_request().expect("request");
 
         assert_eq!(endpoint.host(), "::1");
         assert_eq!(request.uri().to_string(), "wss://[::1]:9443/wg");
         assert_eq!(request.headers().get("Host").and_then(|value| value.to_str().ok()), Some("[::1]:9443"));
-        assert_eq!(endpoint.connect_addr().expect("connect addr"), "[::1]:9443".parse().expect("socket addr"));
     }
 
     #[test]
