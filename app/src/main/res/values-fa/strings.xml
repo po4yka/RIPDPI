@@ -1672,7 +1672,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_skip_confirm_continue">ادامه راه‌اندازی</string>
     <string name="onboarding_validation_failed_generic">حالت انتخاب‌شده قابل اعتبارسنجی نبود.</string>
     <string name="onboarding_validation_finish_disconnected">پایان بدون اتصال</string>
-    <string name="onboarding_validation_notifications_required">اجازه اعلان‌ها را بدهید تا RIPDPI بتواند سرویس اعتبارسنجی را شروع کند.</string>
+    <string name="onboarding_validation_notifications_required">اجازه اعلان‌ها را بدهید تا RIPDPI بتواند وضعیت سرویس اعتبارسنجی را نشان دهد.</string>
     <string name="onboarding_validation_retry">تلاش مجدد اعتبارسنجی</string>
     <string name="onboarding_validation_starting_vpn">در حال شروع حالت VPN…</string>
     <string name="onboarding_validation_switch_to_vpn">تغییر به VPN</string>
@@ -1685,7 +1685,7 @@ fakeddisorder endhost</string>
     <string name="owned_stack_browser_url_placeholder">example.org</string>
     <string name="permissions_background_activity_body_samsung">دستگاه‌های Samsung حتی هنگامی که بهینه‌سازی باتری Android غیرفعال باشد، می‌توانند RIPDPI را در پس‌زمینه متوقف کنند. اگر نشست‌ها متوقف می‌شوند، در اطلاعات برنامه &gt; باتری مقدار را روی Unrestricted تنظیم کنید و RIPDPI را به Never sleeping apps اضافه کنید.</string>
     <string name="permissions_background_activity_title">فعالیت پس‌زمینه</string>
-    <string name="permissions_notifications_denied">مجوز اعلان قبل از اینکه RIPDPI بتواند VPN یا پروکسی محلی خود را شروع کند مورد نیاز است.</string>
+    <string name="permissions_notifications_denied">اعلان‌ها را فعال کنید تا وضعیت RIPDPI و هشدارهای سرویس هنگام اجرای VPN یا پراکسی محلی نمایش داده شود.</string>
     <string name="permissions_vpn_body">Android درخواست ایجاد یک VPN محلی خواهد کرد. این کار ترافیک را از طریق برنامه روی دستگاه شما هدایت می‌کند — چیزی به بیرون ارسال نمی‌شود.</string>
     <string name="permissions_vpn_error_title">هنوز مجوز مورد نیاز است</string>
     <string name="protocol_ipv6_title">IPv6</string>
@@ -2624,7 +2624,7 @@ fakeddisorder endhost</string>
     <string name="settings_permission_action_open_settings">باز کردن تنظیمات</string>
     <string name="settings_permission_status_not_needed">نیاز نیست</string>
     <string name="settings_permission_status_required">ضروری</string>
-    <string name="settings_permissions_notifications_needed">پیش از این‌که اندروید بتواند سرویس پیش‌زمینه VPN یا پراکسی محلی را راه‌اندازی کند، ضروری است.</string>
+    <string name="settings_permissions_notifications_needed">پیشنهاد می‌شود تا اندروید بتواند وضعیت و هشدارهای سرویس VPN یا پراکسی محلی را نشان دهد.</string>
     <string name="settings_permissions_vpn_active">برای حالت VPN محلی انتخاب‌شده فعلی ضروری است.</string>
     <string name="settings_reset_action">بازنشانی</string>
     <string name="settings_reset_dialog_body">این کار تمام تنظیمات را به مقادیر پیش‌فرض بازخواهد گرداند. اتصال شما متوقف می‌شود و تمام شخصی‌سازی‌ها از بین می‌روند.</string>

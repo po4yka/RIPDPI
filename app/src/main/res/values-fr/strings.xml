@@ -434,7 +434,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="settings_full_tunnel_helper">Lorsqu\'activé, tout le trafic passe par le tunnel. Les exclusions par application sont désactivées dans ce mode.</string>
     <string name="settings_permission_action_allow">Autoriser</string>
     <string name="settings_permission_status_optional">Facultatif</string>
-    <string name="settings_permissions_notifications_needed">Requis avant qu\'Android puisse démarrer le service au premier plan du VPN local ou du proxy.</string>
+    <string name="settings_permissions_notifications_needed">Recommandé afin qu\'Android puisse afficher l\'état et les alertes de service du VPN local ou du proxy.</string>
     <string name="settings_permissions_vpn_optional">Nécessaire uniquement si vous souhaitez exécuter RIPDPI en mode VPN local.</string>
     <string name="settings_reset_dialog_title">Réinitialiser tous les paramètres ?</string>
     <string name="settings_strategy_pack_allow_rollback_override_body">Débogage uniquement. Autoriser des séquences téléchargées de packs de stratégies égales ou inférieures pour la validation locale. Les vérifications de signature, de compatibilité et de fraîcheur s\'appliquent toujours.</string>
@@ -1434,7 +1434,7 @@ Source : %2$s</string>
     <string name="owned_stack_browser_trace_h2_retry">Nouvelle tentative avec une pile plateforme H2 uniquement après l\'échec de la tentative compatible QUIC.</string>
     <string name="owned_stack_browser_url_label">URL HTTPS</string>
     <string name="permissions_background_activity_body_samsung">Les appareils Samsung peuvent quand même arrêter RIPDPI en arrière-plan, même quand l\'optimisation de batterie d\'Android est désactivée. Si les sessions s\'arrêtent, réglez Infos de l\'application &gt; Batterie sur Sans restriction et ajoutez RIPDPI aux Applications jamais en veille.</string>
-    <string name="permissions_notifications_denied">L\'autorisation de notification est requise avant que RIPDPI puisse démarrer son VPN local ou son proxy.</string>
+    <string name="permissions_notifications_denied">Autorisez les notifications pour afficher l\'état de RIPDPI et les alertes de service pendant que le VPN local ou le proxy fonctionne.</string>
     <string name="permissions_vpn_error_body">Accordez l\'autorisation VPN Android pour maintenir RIPDPI en fonctionnement local sur cet appareil.</string>
     <string name="proxy_address">%1$s:%2$s</string>
     <string name="qs_tile_subtitle_tap_connect">Appuyer pour se connecter</string>
@@ -1977,7 +1977,7 @@ Source : %2$s</string>
     <string name="onboarding_setup_validate_mode_title">Valider %1$s</string>
     <string name="onboarding_step_progress">Étape %1$d sur %2$d</string>
     <string name="onboarding_validation_failed_generic">Le mode sélectionné n\'a pas pu être validé.</string>
-    <string name="onboarding_validation_notifications_required">Autorisez les notifications afin que RIPDPI puisse démarrer le service de validation.</string>
+    <string name="onboarding_validation_notifications_required">Autorisez les notifications afin que RIPDPI puisse afficher l\'état du service de validation.</string>
     <string name="onboarding_validation_starting_proxy">Démarrage du mode proxy…</string>
     <string name="onboarding_validation_busy_hint">Cela peut prendre un moment. Si Android demande une autorisation, accordez-la pour continuer.</string>
     <string name="onboarding_validation_vpn_permission_denied">L\'autorisation VPN a été refusée, RIPDPI n\'a donc pas pu valider le mode VPN.</string>

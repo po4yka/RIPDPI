@@ -1648,7 +1648,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_validation_success">%1$s validated in %2$d ms.</string>
     <string name="onboarding_validation_failed">Validation failed: %1$s</string>
     <string name="onboarding_validation_failed_generic">The selected mode could not be validated.</string>
-    <string name="onboarding_validation_notifications_required">Allow notifications so RIPDPI can start the validation service.</string>
+    <string name="onboarding_validation_notifications_required">Allow notifications so RIPDPI can show validation service status.</string>
     <string name="onboarding_validation_vpn_permission_denied">VPN permission was denied, so RIPDPI could not validate VPN mode.</string>
     <string name="onboarding_validation_switch_to_vpn">Switch to VPN</string>
     <string name="onboarding_validation_switch_to_proxy">Switch to Proxy</string>
@@ -2073,7 +2073,7 @@ Source: %2$s</string>
     <string name="permissions_vpn_error_title">Permission still required</string>
     <string name="permissions_vpn_error_body">Grant Android VPN permission to keep RIPDPI running locally on this device.</string>
     <string name="permissions_notifications_title">Allow status notifications</string>
-    <string name="permissions_notifications_denied">Notification permission is required before RIPDPI can start its local VPN or proxy.</string>
+    <string name="permissions_notifications_denied">Allow notifications to show RIPDPI status and service alerts while the local VPN or proxy is running.</string>
     <string name="permissions_notifications_open_settings">Notification permission is still blocked. Open app settings and allow notifications for RIPDPI.</string>
     <string name="permissions_battery_title">Battery optimization</string>
     <string name="permissions_battery_body">Allow RIPDPI to ignore Android battery optimization so Doze is less likely to interrupt the local VPN or proxy in the background.</string>
@@ -2094,7 +2094,7 @@ Source: %2$s</string>
     <string name="settings_permission_action_open_settings">Open settings</string>
     <string name="settings_permission_action_review">Review</string>
     <string name="settings_permissions_notifications_ready">Foreground service notifications are available for RIPDPI.</string>
-    <string name="settings_permissions_notifications_needed">Required before Android can start the local VPN or proxy foreground service.</string>
+    <string name="settings_permissions_notifications_needed">Recommended so Android can show status and service alerts for the local VPN or proxy.</string>
     <string name="settings_permissions_vpn_active">Required for the currently selected local VPN mode.</string>
     <string name="settings_permissions_vpn_optional">Only needed when you want to run RIPDPI in local VPN mode.</string>
     <string name="settings_permissions_vpn_needed">Grant Android VPN consent before RIPDPI can start the local VPN path.</string>

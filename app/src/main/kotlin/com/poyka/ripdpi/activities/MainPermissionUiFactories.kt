@@ -82,7 +82,7 @@ internal fun buildNotificationPermissionItem(
                 kind = PermissionKind.Notifications,
                 title = stringResolver.getString(R.string.permissions_notifications_title),
                 subtitle = stringResolver.getString(R.string.settings_permissions_notifications_needed),
-                statusLabel = stringResolver.getString(R.string.settings_permission_status_required),
+                statusLabel = stringResolver.getString(R.string.settings_permission_status_recommended),
                 actionLabel = stringResolver.getString(R.string.settings_permission_action_open_settings),
             )
         }
@@ -95,7 +95,7 @@ internal fun buildNotificationPermissionItem(
                 kind = PermissionKind.Notifications,
                 title = stringResolver.getString(R.string.permissions_notifications_title),
                 subtitle = stringResolver.getString(R.string.settings_permissions_notifications_needed),
-                statusLabel = stringResolver.getString(R.string.settings_permission_status_required),
+                statusLabel = stringResolver.getString(R.string.settings_permission_status_recommended),
                 actionLabel = stringResolver.getString(R.string.settings_permission_action_allow),
             )
         }

@@ -1619,7 +1619,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_validation_success">تمَّ التحقُّق من %1$s في %2$d مللي ثانية.</string>
     <string name="onboarding_validation_failed">فشل التحقُّق: %1$s</string>
     <string name="onboarding_validation_failed_generic">تعذَّر التحقُّق من الوضع المحدَّد.</string>
-    <string name="onboarding_validation_notifications_required">اسمح بالإشعارات حتى يتمكَّن RIPDPI من بدء خدمة التحقُّق.</string>
+    <string name="onboarding_validation_notifications_required">اسمح بالإشعارات حتى يتمكَّن RIPDPI من عرض حالة خدمة التحقُّق.</string>
     <string name="onboarding_validation_vpn_permission_denied">تمَّ رفض إذن VPN، لذا تعذَّر على RIPDPI التحقُّق من وضع VPN.</string>
     <string name="onboarding_validation_switch_to_vpn">التبديل إلى VPN</string>
     <string name="onboarding_validation_switch_to_proxy">التبديل إلى الوكيل</string>
@@ -1978,7 +1978,7 @@ fakeddisorder endhost</string>
     <string name="permissions_vpn_error_title">الإذن مطلوب</string>
     <string name="permissions_vpn_error_body">امنح إذن VPN لنظام Android لاستمرار تشغيل RIPDPI محلياً على هذا الجهاز.</string>
     <string name="permissions_notifications_title">السماح بإشعارات الحالة</string>
-    <string name="permissions_notifications_denied">إذن الإشعارات مطلوب قبل أن يتمكن RIPDPI من تشغيل VPN المحلية أو الوكيل.</string>
+    <string name="permissions_notifications_denied">اسمح بالإشعارات لعرض حالة RIPDPI وتنبيهات الخدمة أثناء تشغيل VPN المحلي أو الوكيل.</string>
     <string name="permissions_notifications_open_settings">إذن الإشعارات لا يزال محظوراً. افتح إعدادات التطبيق وأذّن بالإشعارات لـ RIPDPI.</string>
     <string name="permissions_battery_title">تحسين البطارية</string>
     <string name="permissions_battery_body">اسمح لـ RIPDPI بتجاهل تحسين بطارية Android لتقليل احتمال مقاطعة VPN المحلية أو الوكيل في الخلفية من وضع Doze.</string>
@@ -1999,7 +1999,7 @@ fakeddisorder endhost</string>
     <string name="settings_permission_action_open_settings">فتح الإعدادات</string>
     <string name="settings_permission_action_review">مراجعة</string>
     <string name="settings_permissions_notifications_ready">إشعارات خدمة المقدمة متاحة لـ RIPDPI.</string>
-    <string name="settings_permissions_notifications_needed">مطلوب قبل أن يتمكن Android من تشغيل خدمة VPN المحلية أو الوكيل في المقدمة.</string>
+    <string name="settings_permissions_notifications_needed">موصى به حتى يتمكن Android من عرض حالة وتنبيهات خدمة VPN المحلي أو الوكيل.</string>
     <string name="settings_permissions_vpn_active">مطلوب لوضع VPN المحلية المحدد حالياً.</string>
     <string name="settings_permissions_vpn_optional">مطلوب فقط عند تشغيل RIPDPI في وضع VPN المحلية.</string>
     <string name="settings_permissions_vpn_needed">امنح موافقة VPN لنظام Android قبل أن يتمكن RIPDPI من تشغيل مسار VPN المحلية.</string>

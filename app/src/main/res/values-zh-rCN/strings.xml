@@ -1391,7 +1391,7 @@ fakeddisorder endhost</string>
     <string name="owned_stack_browser_trace_native_platform_unavailable">Android 平台栈在此设备上不可用,因此 RIPDPI 使用了原生自有 TLS。</string>
     <string name="permissions_background_activity_body_huawei">华为设备可能会在后台停止 RIPDPI。前往 设置 &gt; 电池 &gt; 启动管理,找到 RIPDPI,关闭自动管理,然后启用允许自启动、允许关联启动和允许后台活动。</string>
     <string name="permissions_background_activity_body">某些设备在 Android 电池优化之外添加了额外的后台限制。如果 RIPDPI 在后台停止,请查看应用的电池或后台使用设置。</string>
-    <string name="permissions_notifications_denied">RIPDPI 启动本地 VPN 或代理之前需要通知权限。</string>
+    <string name="permissions_notifications_denied">允许通知,以便在本地 VPN 或代理运行时显示 RIPDPI 状态和服务提醒。</string>
     <string name="permissions_vpn_continue">继续</string>
     <string name="permissions_vpn_title">本地 VPN 权限</string>
     <string name="quic_fake_host_builtin_body">现实预设将继续使用 RIPDPI 内置的伪造主机,直到您保存自定义覆盖。</string>
@@ -1941,7 +1941,7 @@ fake_burst 3</string>
     <string name="onboarding_setup_test_success">已在 %1$d 毫秒内连接</string>
     <string name="onboarding_validation_checking_proxy">正在通过代理模式检查流量…</string>
     <string name="onboarding_validation_finish_anyway">仍然完成</string>
-    <string name="onboarding_validation_notifications_required">请允许通知,以便 RIPDPI 启动验证服务。</string>
+    <string name="onboarding_validation_notifications_required">请允许通知,以便 RIPDPI 显示验证服务状态。</string>
     <string name="onboarding_validation_run">验证所选模式</string>
     <string name="onboarding_validation_switch_to_proxy">切换到代理</string>
     <string name="owned_stack_browser_backend_http_engine">Android HttpEngine</string>
@@ -2070,7 +2070,7 @@ fake_burst 3</string>
     <string name="settings_full_tunnel_title">全隧道模式</string>
     <string name="settings_permission_action_review">查看</string>
     <string name="settings_permission_status_recommended">推荐</string>
-    <string name="settings_permissions_notifications_needed">Android 需此权限才能启动本地 VPN 或代理前台服务。</string>
+    <string name="settings_permissions_notifications_needed">建议允许,以便 Android 显示本地 VPN 或代理的状态和服务提醒。</string>
     <string name="settings_permissions_vpn_needed">在 RIPDPI 可启动本地 VPN 路径之前,请先授予 Android VPN 同意。</string>
     <string name="settings_reset_confirm">重置</string>
     <string name="settings_security_section">隐私 &amp; 安全</string>

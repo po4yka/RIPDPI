@@ -1201,7 +1201,7 @@ fakeddisorder endhost</string>
     <string name="onboarding_validation_success">%1$s проверен за %2$d мс.</string>
     <string name="onboarding_validation_failed">Проверка не удалась: %1$s</string>
     <string name="onboarding_validation_failed_generic">Не удалось подтвердить работу выбранного режима.</string>
-    <string name="onboarding_validation_notifications_required">Разрешите уведомления, чтобы RIPDPI смог запустить сервис проверки.</string>
+    <string name="onboarding_validation_notifications_required">Разрешите уведомления, чтобы RIPDPI показывал статус сервиса проверки.</string>
     <string name="onboarding_validation_vpn_permission_denied">Разрешение VPN было отклонено, поэтому RIPDPI не смог подтвердить режим VPN.</string>
     <string name="onboarding_validation_switch_to_vpn">Переключиться на VPN</string>
     <string name="onboarding_validation_switch_to_proxy">Переключиться на Proxy</string>
@@ -1511,7 +1511,7 @@ fakeddisorder endhost</string>
     <string name="permissions_vpn_error_title">Разрешение по-прежнему требуется</string>
     <string name="permissions_vpn_error_body">Предоставьте разрешение VPN Android, чтобы RIPDPI продолжал работать локально на этом устройстве.</string>
     <string name="permissions_notifications_title">Разрешить уведомления о статусе</string>
-    <string name="permissions_notifications_denied">Разрешение на уведомления требуется до запуска локального VPN или прокси RIPDPI.</string>
+    <string name="permissions_notifications_denied">Разрешите уведомления, чтобы RIPDPI показывал статус и предупреждения сервиса во время работы локального VPN или прокси.</string>
     <string name="permissions_notifications_open_settings">Разрешение на уведомления по-прежнему заблокировано. Откройте настройки приложения и разрешите уведомления для RIPDPI.</string>
     <string name="permissions_battery_title">Оптимизация аккумулятора</string>
     <string name="permissions_battery_body">Разрешите RIPDPI игнорировать системную оптимизацию аккумулятора Android, чтобы режим Doze реже прерывал работу локального VPN или прокси в фоне.</string>
@@ -1532,7 +1532,7 @@ fakeddisorder endhost</string>
     <string name="settings_permission_action_open_settings">Открыть настройки</string>
     <string name="settings_permission_action_review">Просмотреть</string>
     <string name="settings_permissions_notifications_ready">Уведомления фонового сервиса доступны для RIPDPI.</string>
-    <string name="settings_permissions_notifications_needed">Требуется до того, как Android сможет запустить фоновый сервис локального VPN или прокси.</string>
+    <string name="settings_permissions_notifications_needed">Рекомендуется, чтобы Android показывал статус и предупреждения сервиса для локального VPN или прокси.</string>
     <string name="settings_permissions_vpn_active">Требуется для выбранного режима локального VPN.</string>
     <string name="settings_permissions_vpn_optional">Нужно только при использовании RIPDPI в режиме локального VPN.</string>
     <string name="settings_permissions_vpn_needed">Предоставьте согласие VPN Android, прежде чем RIPDPI сможет запустить локальный VPN.</string>
