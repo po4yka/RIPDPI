@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.components.cards
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -39,6 +40,31 @@ class SettingsRowTest {
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.ContentDescription,
                     listOf("DNS provider, Encrypted resolver, Cloudflare DoH"),
+                ),
+            )
+    }
+
+    @Test
+    fun clickableValueRowsKeepTrailingValueInMergedAccessibilityNode() {
+        composeRule.setContent {
+            RipDpiTheme {
+                SettingsRow(
+                    title = "Relay server",
+                    subtitle = "Remote endpoint",
+                    value = "relay.example.net:443",
+                    onClick = {},
+                    testTag = "settings-clickable-value-row",
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag("settings-clickable-value-row")
+            .assertHasClickAction()
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.ContentDescription,
+                    listOf("Relay server, Remote endpoint, relay.example.net:443"),
                 ),
             )
     }

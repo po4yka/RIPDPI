@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.ui.components.inputs
 
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -112,6 +114,7 @@ class RipDpiConnectionActuatorTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .assertHasRole(Role.Switch)
             .assertIsOff()
     }
 
@@ -121,6 +124,7 @@ class RipDpiConnectionActuatorTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .assertHasRole(Role.Switch)
             .assertIsOn()
     }
 
@@ -130,6 +134,7 @@ class RipDpiConnectionActuatorTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .assertHasRole(Role.Switch)
             .assert(
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.ToggleableState,
@@ -235,4 +240,7 @@ class RipDpiConnectionActuatorTest {
                 },
             state = state,
         )
+
+    private fun SemanticsNodeInteraction.assertHasRole(expected: Role): SemanticsNodeInteraction =
+        assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, expected))
 }

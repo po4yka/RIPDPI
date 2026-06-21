@@ -7,6 +7,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -83,6 +84,7 @@ class ConfigScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.configModeSection(ConfigModeSection.Vpn.stableKey))
             .assertHasRole(Role.RadioButton)
+            .assertIsNotSelected()
     }
 
     @Test
@@ -96,6 +98,7 @@ class ConfigScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.configMode(Mode.Proxy.name))
             .assertHasRole(Role.RadioButton)
+            .assertIsNotSelected()
     }
 
     @Test
