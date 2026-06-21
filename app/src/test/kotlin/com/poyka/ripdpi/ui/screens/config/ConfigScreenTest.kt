@@ -97,11 +97,11 @@ class ConfigScreenTest {
     @Test
     fun `simple local bypass toggle starts proxy when disabled`() {
         val selectedModes = mutableListOf<Mode>()
-        var stopCalls = 0
+        val runtimeToggles = mutableListOf<Pair<Mode, Boolean>>()
         setConfigScreen(
             initialModeSection = ConfigModeSection.LocalBypass,
             onModeSelected = { selectedModes += it },
-            onLocalBypassStop = { stopCalls++ },
+            onRuntimeModeToggle = { mode, enabled -> runtimeToggles += mode to enabled },
             activeMode = Mode.VPN,
         )
 
@@ -113,20 +113,21 @@ class ConfigScreenTest {
 
         assertEquals(LocalBypassToggleAction.TurnOn, localBypassToggleAction(localBypassEnabled = false))
         composeRule.runOnIdle {
-            assertEquals(listOf(Mode.Proxy), selectedModes)
-            assertEquals(0, stopCalls)
+            assertEquals(emptyList<Mode>(), selectedModes)
+            assertEquals(listOf(Mode.Proxy to true), runtimeToggles)
         }
     }
 
     @Test
     fun `simple local bypass toggle stops proxy when enabled without selecting vpn`() {
         val selectedModes = mutableListOf<Mode>()
-        var stopCalls = 0
+        val runtimeToggles = mutableListOf<Pair<Mode, Boolean>>()
         setConfigScreen(
             initialModeSection = ConfigModeSection.LocalBypass,
             onModeSelected = { selectedModes += it },
-            onLocalBypassStop = { stopCalls++ },
+            onRuntimeModeToggle = { mode, enabled -> runtimeToggles += mode to enabled },
             activeMode = Mode.Proxy,
+            runningMode = Mode.Proxy,
         )
 
         composeRule
@@ -138,7 +139,7 @@ class ConfigScreenTest {
         assertEquals(LocalBypassToggleAction.TurnOff, localBypassToggleAction(localBypassEnabled = true))
         composeRule.runOnIdle {
             assertEquals(emptyList<Mode>(), selectedModes)
-            assertEquals(1, stopCalls)
+            assertEquals(listOf(Mode.Proxy to false), runtimeToggles)
         }
     }
 
@@ -233,6 +234,30 @@ class ConfigScreenTest {
     }
 
     @Test
+    fun `vpn simple toggle stops vpn runtime without selecting local bypass`() {
+        val selectedModes = mutableListOf<Mode>()
+        val runtimeToggles = mutableListOf<Pair<Mode, Boolean>>()
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.Vpn,
+            onModeSelected = { selectedModes += it },
+            onRuntimeModeToggle = { mode, enabled -> runtimeToggles += mode to enabled },
+            activeMode = Mode.VPN,
+            runningMode = Mode.VPN,
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigVpnToggle)
+            .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(emptyList<Mode>(), selectedModes)
+            assertEquals(listOf(Mode.VPN to false), runtimeToggles)
+        }
+    }
+
+    @Test
     fun `mode section selection survives state restoration`() {
         val restorationTester = StateRestorationTester(composeRule)
         restorationTester.setContent {
@@ -315,7 +340,7 @@ class ConfigScreenTest {
     private fun setConfigScreen(
         initialModeSection: ConfigModeSection,
         onModeSelected: (Mode) -> Unit = {},
-        onLocalBypassStop: () -> Unit = {},
+        onRuntimeModeToggle: (Mode, Boolean) -> Unit = { _, _ -> },
         onEditCurrent: () -> Unit = {},
         onOpenLocalBypassEditor: () -> Unit = {},
         onOpenDnsSettings: () -> Unit = {},
@@ -325,6 +350,7 @@ class ConfigScreenTest {
         uiPersona: String = "simple",
         vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
         activeMode: Mode = Mode.VPN,
+        runningMode: Mode? = null,
     ) {
         composeRule.setContent {
             RipDpiTheme {
@@ -334,9 +360,10 @@ class ConfigScreenTest {
                             uiPersona = uiPersona,
                             vpnProfiles = vpnProfiles,
                             activeMode = activeMode,
+                            runningMode = runningMode,
                         ),
                     onModeSelected = onModeSelected,
-                    onLocalBypassStop = onLocalBypassStop,
+                    onRuntimeModeToggle = onRuntimeModeToggle,
                     onPresetSelected = {},
                     onEditCurrent = onEditCurrent,
                     onOpenConfigEditor = { path ->
@@ -358,10 +385,12 @@ class ConfigScreenTest {
         uiPersona: String = "simple",
         vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
         activeMode: Mode = Mode.VPN,
+        runningMode: Mode? = null,
     ): ConfigUiState {
         val draft = AppSettingsSerializer.defaultValue.toConfigDraft()
         return ConfigUiState(
             activeMode = activeMode,
+            runningMode = runningMode,
             uiPersona = uiPersona,
             presets = buildConfigPresets(draft),
             draft = draft,

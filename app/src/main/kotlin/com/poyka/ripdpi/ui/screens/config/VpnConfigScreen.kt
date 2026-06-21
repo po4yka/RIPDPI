@@ -43,7 +43,7 @@ private const val VpnProfilePreviewLimit = 3
 @Composable
 internal fun VpnConfigScreen(
     uiState: ConfigUiState,
-    onModeSelected: (Mode) -> Unit,
+    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onOpenRelaySettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onPasteServerLink: () -> Unit,
@@ -62,7 +62,7 @@ internal fun VpnConfigScreen(
         SettingsCategoryHeader(title = stringResource(R.string.home_mode_remote_vpn))
         VpnSimpleCard(
             uiState = uiState,
-            onModeSelected = onModeSelected,
+            onRuntimeModeToggle = onRuntimeModeToggle,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
             onProfileShare = onProfileShare,
@@ -80,12 +80,12 @@ internal fun VpnConfigScreen(
 @Composable
 private fun VpnSimpleCard(
     uiState: ConfigUiState,
-    onModeSelected: (Mode) -> Unit,
+    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
     onProfileShare: (String) -> Unit,
 ) {
-    val vpnEnabled = uiState.activeMode == Mode.VPN
+    val vpnEnabled = uiState.runningMode == Mode.VPN
 
     RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSimple)) {
         Text(
@@ -115,7 +115,7 @@ private fun VpnSimpleCard(
         )
         VpnSimpleActions(
             vpnEnabled = vpnEnabled,
-            onModeSelected = onModeSelected,
+            onRuntimeModeToggle = onRuntimeModeToggle,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
         )
@@ -168,7 +168,7 @@ private fun VpnProfileList(
 @Composable
 private fun VpnSimpleActions(
     vpnEnabled: Boolean,
-    onModeSelected: (Mode) -> Unit,
+    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
 ) {
@@ -184,7 +184,7 @@ private fun VpnSimpleActions(
                         R.string.config_vpn_turn_on
                     },
                 ),
-            onClick = { onModeSelected(if (vpnEnabled) Mode.Proxy else Mode.VPN) },
+            onClick = { onRuntimeModeToggle(Mode.VPN, !vpnEnabled) },
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -431,12 +431,13 @@ private fun VpnConfigScreenPreview() {
             uiState =
                 ConfigUiState(
                     activeMode = draft.mode,
+                    runningMode = draft.mode,
                     presets = buildConfigPresets(draft),
                     draft = draft,
                 ),
             onOpenRelaySettings = {},
+            onRuntimeModeToggle = { _, _ -> },
             onOpenDnsSettings = {},
-            onModeSelected = {},
             onPasteServerLink = {},
             onScanServer = {},
         )

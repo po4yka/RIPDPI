@@ -84,7 +84,7 @@ fun ConfigRoute(
         route = route,
         topBarActions = { ConfigImportMenu(onProfileImport = onProfileImport) },
         onModeSelected = remember(viewModel) { viewModel::selectMode },
-        onLocalBypassStop = remember(viewModel) { viewModel::stopLocalBypass },
+        onRuntimeModeToggle = remember(viewModel) { viewModel::toggleRuntimeMode },
         onPresetSelected = { preset ->
             when (preset.kind) {
                 ConfigPresetKind.Custom -> {
@@ -121,7 +121,7 @@ fun ConfigRoute(
 fun ConfigScreen(
     uiState: ConfigUiState,
     onModeSelected: (Mode) -> Unit,
-    onLocalBypassStop: () -> Unit = {},
+    onRuntimeModeToggle: (Mode, Boolean) -> Unit = { _, _ -> },
     onPresetSelected: (ConfigPreset) -> Unit,
     onEditCurrent: () -> Unit,
     onOpenConfigEditor: (ConfigEditorTarget) -> Unit,
@@ -187,8 +187,7 @@ fun ConfigScreen(
             section = selectedModeSection,
             uiState = uiState,
             desyncSummary = desyncSummary,
-            onModeSelected = onModeSelected,
-            onLocalBypassStop = onLocalBypassStop,
+            onRuntimeModeToggle = onRuntimeModeToggle,
             onEditCurrent = onEditCurrent,
             onOpenConfigEditor = onOpenConfigEditor,
             onRetestStrategies = onRetestStrategies,
@@ -276,8 +275,7 @@ private fun ConfigSelectedModeSection(
     section: ConfigModeSection,
     uiState: ConfigUiState,
     desyncSummary: String,
-    onModeSelected: (Mode) -> Unit,
-    onLocalBypassStop: () -> Unit,
+    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onEditCurrent: () -> Unit,
     onOpenConfigEditor: (ConfigEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
@@ -290,8 +288,7 @@ private fun ConfigSelectedModeSection(
             LocalBypassConfigScreen(
                 uiState = uiState,
                 desyncSummary = desyncSummary,
-                onModeSelected = onModeSelected,
-                onLocalBypassStop = onLocalBypassStop,
+                onRuntimeModeToggle = onRuntimeModeToggle,
                 onOpenDesyncSettings = { onOpenConfigEditor(ConfigEditorTarget.Bypass) },
                 onOpenDnsSettings = { onOpenConfigEditor(ConfigEditorTarget.Resolver) },
                 onRetestStrategies = onRetestStrategies,
@@ -302,7 +299,7 @@ private fun ConfigSelectedModeSection(
         ConfigModeSection.Vpn -> {
             VpnConfigScreen(
                 uiState = uiState,
-                onModeSelected = onModeSelected,
+                onRuntimeModeToggle = onRuntimeModeToggle,
                 onOpenRelaySettings = onEditCurrent,
                 onOpenDnsSettings = { onOpenConfigEditor(ConfigEditorTarget.Resolver) },
                 onPasteServerLink = onPasteServerLink,

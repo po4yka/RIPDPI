@@ -40,8 +40,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 internal fun LocalBypassConfigScreen(
     uiState: ConfigUiState,
     desyncSummary: String,
-    onModeSelected: (Mode) -> Unit,
-    onLocalBypassStop: () -> Unit,
+    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onOpenDesyncSettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
@@ -58,8 +57,7 @@ internal fun LocalBypassConfigScreen(
         SettingsCategoryHeader(title = stringResource(R.string.home_mode_local_dpi_bypass))
         LocalBypassSimpleCard(
             uiState = uiState,
-            onModeSelected = onModeSelected,
-            onLocalBypassStop = onLocalBypassStop,
+            onRuntimeModeToggle = onRuntimeModeToggle,
             onRetestStrategies = onRetestStrategies,
         )
         AdvancedSection(initiallyExpanded = uiState.uiPersona == "advanced") {
@@ -76,11 +74,10 @@ internal fun LocalBypassConfigScreen(
 @Composable
 private fun LocalBypassSimpleCard(
     uiState: ConfigUiState,
-    onModeSelected: (Mode) -> Unit,
-    onLocalBypassStop: () -> Unit,
+    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onRetestStrategies: () -> Unit,
 ) {
-    val localBypassEnabled = uiState.activeMode == Mode.Proxy
+    val localBypassEnabled = uiState.runningMode == Mode.Proxy
 
     RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassSimple)) {
         Text(
@@ -98,8 +95,7 @@ private fun LocalBypassSimpleCard(
         LocalBypassPrecedenceRow(commandLineOverridesEnabled = uiState.draft.useCommandLineSettings)
         LocalBypassActionButtons(
             localBypassEnabled = localBypassEnabled,
-            onModeSelected = onModeSelected,
-            onLocalBypassStop = onLocalBypassStop,
+            onRuntimeModeToggle = onRuntimeModeToggle,
             onRetestStrategies = onRetestStrategies,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -159,8 +155,7 @@ private fun LocalBypassPrecedenceRow(commandLineOverridesEnabled: Boolean) {
 @Composable
 private fun LocalBypassActionButtons(
     localBypassEnabled: Boolean,
-    onModeSelected: (Mode) -> Unit,
-    onLocalBypassStop: () -> Unit,
+    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -181,8 +176,8 @@ private fun LocalBypassActionButtons(
                 ),
             onClick = {
                 when (localBypassToggleAction(localBypassEnabled)) {
-                    LocalBypassToggleAction.TurnOn -> onModeSelected(Mode.Proxy)
-                    LocalBypassToggleAction.TurnOff -> onLocalBypassStop()
+                    LocalBypassToggleAction.TurnOn -> onRuntimeModeToggle(Mode.Proxy, true)
+                    LocalBypassToggleAction.TurnOff -> onRuntimeModeToggle(Mode.Proxy, false)
                 }
             },
             modifier =
@@ -370,12 +365,12 @@ private fun LocalBypassConfigScreenPreview() {
             uiState =
                 ConfigUiState(
                     activeMode = draft.mode,
+                    runningMode = draft.mode,
                     presets = buildConfigPresets(draft),
                     draft = draft,
                 ),
             desyncSummary = draft.chainSummary,
-            onModeSelected = {},
-            onLocalBypassStop = {},
+            onRuntimeModeToggle = { _, _ -> },
             onOpenDesyncSettings = {},
             onOpenDnsSettings = {},
             onRetestStrategies = {},

@@ -10,8 +10,10 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
+import com.poyka.ripdpi.services.ServiceStartResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.channels.BufferOverflow
@@ -64,9 +66,10 @@ class ConfigViewModel
             combine(
                 appSettingsRepository.settings,
                 editorSession,
+                serviceStateStore.status,
                 serviceStateStore.telemetry,
                 latestDirectModeOutcomeStore.outcome,
-            ) { settings, session, serviceTelemetry, latestDirectModeOutcome ->
+            ) { settings, session, serviceStatus, serviceTelemetry, latestDirectModeOutcome ->
                 val relayPresets = relayPresetCatalog.all()
                 val relayProfileRecords = runCatching { relayArtifacts.listProfiles() }.getOrDefault(emptyList())
                 val networkSnapshot = runCatching { networkSnapshotProvider.capture() }.getOrNull()
@@ -100,6 +103,7 @@ class ConfigViewModel
 
                 ConfigUiState(
                     activeMode = currentDraft.mode,
+                    runningMode = serviceStatus.second.takeIf { serviceStatus.first == AppStatus.Running },
                     uiPersona = settings.uiPersona.ifBlank { "simple" },
                     presets = presets,
                     editingPreset = editingPreset,
@@ -156,8 +160,35 @@ class ConfigViewModel
             }
         }
 
-        fun stopLocalBypass() {
-            if (serviceStateStore.status.value == AppStatus.Running to Mode.Proxy) {
+        fun toggleRuntimeMode(
+            mode: Mode,
+            enabled: Boolean,
+        ) {
+            if (enabled) {
+                startRuntimeMode(mode)
+            } else {
+                stopRuntimeMode(mode)
+            }
+        }
+
+        private fun startRuntimeMode(mode: Mode) {
+            when (val result = serviceController.start(mode)) {
+                is ServiceStartResult.Accepted -> {
+                    return
+                }
+
+                is ServiceStartResult.Rejected -> {
+                    val message =
+                        stringResolver.getString(R.string.failed_to_start, result.mode.startSenderName()) +
+                            ": " +
+                            result.reason.displayMessage(stringResolver)
+                    _effects.tryEmit(ConfigEffect.Message(message))
+                }
+            }
+        }
+
+        private fun stopRuntimeMode(mode: Mode) {
+            if (serviceStateStore.status.value == AppStatus.Running to mode) {
                 serviceController.stop()
             }
         }
@@ -322,4 +353,12 @@ class ConfigViewModel
                 }
             }
         }
+
+        private fun Mode.startSenderName(): String =
+            stringResolver.getString(
+                when (this) {
+                    Mode.VPN -> R.string.home_mode_vpn
+                    Mode.Proxy -> R.string.home_mode_proxy
+                },
+            )
     }

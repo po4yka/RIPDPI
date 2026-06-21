@@ -205,6 +205,7 @@ data class ConfigPreset(
 
 data class ConfigUiState(
     val activeMode: Mode = Mode.VPN,
+    val runningMode: Mode? = null,
     val uiPersona: String = "simple",
     val presets: ImmutableList<ConfigPreset> = buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
     val editingPreset: ConfigPreset? = null,
