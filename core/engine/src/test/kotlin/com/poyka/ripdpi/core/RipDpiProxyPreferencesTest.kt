@@ -823,6 +823,52 @@ class RipDpiProxyPreferencesTest {
     }
 
     @Test
+    fun localProxySessionOverridesPreserveAwgPrecedenceUntilProxyStackConsumesIt() {
+        val request =
+            AwgActivationRequest(
+                profileId = "awg-selected",
+                privateKey = "private",
+                peerPublicKey = "peer",
+                endpointHost = "198.51.100.10",
+                endpointPort = 51820,
+                interfaceAddressV4 = "10.8.0.2/32",
+            )
+        val preferences =
+            RipDpiProxyUIPreferences(
+                relay =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindVlessReality,
+                        profileId = "relay-profile",
+                    ),
+                awg = request,
+            ).withLocalProxySessionOverrides(listenPortOverride = 0, authToken = "token")
+
+        assertEquals(request, preferences.awgConfigOrNull())
+
+        val withLogContext = preferences.withProxyLogContext(RipDpiLogContext(runtimeId = "runtime", mode = "vpn"))
+
+        assertEquals(request, withLogContext.awgConfigOrNull())
+
+        val routed = withLogContext.withAwgEgressPort(10809)
+        val payload = routed.toNativeConfigJson().parseJsonObject()
+        val relay = payload.objectAt("upstreamRelay")
+        val warp = payload.objectAt("warp")
+        val overrides = payload.objectAt("sessionOverrides")
+
+        assertNull(routed.awgConfigOrNull())
+        assertNull(routed.relayConfigOrNull())
+        assertFalse(relay.boolean("enabled"))
+        assertEquals("off", relay.string("kind"))
+        assertTrue(warp.boolean("enabled"))
+        assertEquals(WarpRouteModeRules, warp.string("routeMode"))
+        assertEquals(AmneziaWgAllTrafficRouteHosts, warp.string("routeHosts"))
+        assertEquals(10809, warp.int("localSocksPort"))
+        assertEquals(0, overrides.int("listenPortOverride"))
+        assertEquals("token", overrides.string("authToken"))
+    }
+
+    @Test
     fun decodeUiPreferencesRoundTripsAdaptiveMarkersUnchanged() {
         val original =
             RipDpiProxyUIPreferences(
@@ -866,6 +912,8 @@ private fun String.withTopLevelString(
 private fun JsonObject.objectAt(name: String): JsonObject = getValue(name).jsonObject
 
 private fun JsonObject.string(name: String): String = (getValue(name) as JsonPrimitive).content
+
+private fun JsonObject.boolean(name: String): Boolean = (getValue(name) as JsonPrimitive).content.toBoolean()
 
 private fun JsonObject.int(name: String): Int = (getValue(name) as JsonPrimitive).content.toInt()
 

@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiLogContext
-import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
-import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.withLocalProxySessionOverrides
+import com.poyka.ripdpi.core.withProxyLogContext
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 
 internal fun ServiceRuntimeSession.buildLogContext(
@@ -19,31 +19,15 @@ internal fun ServiceRuntimeSession.buildLogContext(
     )
 
 internal fun RipDpiProxyPreferences.withLogContext(logContext: RipDpiLogContext?): RipDpiProxyPreferences =
-    if (logContext == null) {
-        this
-    } else {
-        when (this) {
-            is RipDpiProxyUIPreferences -> {
-                withSessionOverrides(logContext = logContext)
-            }
-
-            else -> {
-                RipDpiProxyJsonPreferences(
-                    configJson = toNativeConfigJson(),
-                    logContext = logContext,
-                )
-            }
-        }
-    }
+    withProxyLogContext(logContext)
 
 internal fun RipDpiProxyPreferences.withSessionLocalProxyOverrides(
     listenPortOverride: Int? = null,
     authToken: String? = null,
 ): RipDpiProxyPreferences =
-    RipDpiProxyJsonPreferences(
-        configJson = toNativeConfigJson(),
-        localListenPortOverride = listenPortOverride,
-        localAuthToken = authToken,
+    withLocalProxySessionOverrides(
+        listenPortOverride = listenPortOverride,
+        authToken = authToken,
     )
 
 internal fun RipDpiProxyPreferences.withLocalAuthToken(token: String?): RipDpiProxyPreferences =

@@ -26,6 +26,10 @@ fun RipDpiProxyPreferences.warpConfigOrNull(): RipDpiWarpConfig? =
             warp.takeIf { it.enabled }
         }
 
+        is RipDpiProxyUiSessionPreferences -> {
+            preferences.warp.takeIf { it.enabled }
+        }
+
         is RipDpiProxyJsonPreferences -> {
             decodeRipDpiProxyUiPreferences(toNativeConfigJson())?.warp?.takeIf { it.enabled }
         }
@@ -47,6 +51,10 @@ fun RipDpiProxyPreferences.awgConfigOrNull(): AwgActivationRequest? =
             awg
         }
 
+        is RipDpiProxyUiSessionPreferences -> {
+            preferences.awg
+        }
+
         is RipDpiProxyJsonPreferences -> {
             decodeRipDpiProxyUiPreferences(toNativeConfigJson())?.awg
         }
@@ -60,6 +68,10 @@ fun RipDpiProxyPreferences.relayConfigOrNull(): RipDpiRelayConfig? =
     when (this) {
         is RipDpiProxyUIPreferences -> {
             relay.takeIf { it.enabled }
+        }
+
+        is RipDpiProxyUiSessionPreferences -> {
+            preferences.relay.takeIf { it.enabled }
         }
 
         is RipDpiProxyJsonPreferences -> {
@@ -77,6 +89,13 @@ fun RipDpiProxyPreferences.ownedRelayQuicMigrationConfig(): OwnedRelayQuicMigrat
             OwnedRelayQuicMigrationConfig(
                 bindLowPort = fakePackets.quicBindLowPort,
                 migrateAfterHandshake = fakePackets.quicMigrateAfterHandshake,
+            )
+        }
+
+        is RipDpiProxyUiSessionPreferences -> {
+            OwnedRelayQuicMigrationConfig(
+                bindLowPort = preferences.fakePackets.quicBindLowPort,
+                migrateAfterHandshake = preferences.fakePackets.quicMigrateAfterHandshake,
             )
         }
 
@@ -138,6 +157,10 @@ fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences 
             )
         }
 
+        is RipDpiProxyUiSessionPreferences -> {
+            copy(preferences = preferences.withAwgEgressPort(port) as RipDpiProxyUIPreferences)
+        }
+
         is RipDpiProxyJsonPreferences,
         is RipDpiProxyCmdPreferences,
         -> {
@@ -145,7 +168,82 @@ fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences 
         }
     }
 
+fun RipDpiProxyPreferences.withLocalProxySessionOverrides(
+    listenPortOverride: Int? = null,
+    authToken: String? = null,
+): RipDpiProxyPreferences =
+    when (this) {
+        is RipDpiProxyUIPreferences -> {
+            RipDpiProxyUiSessionPreferences(
+                preferences = this,
+                localListenPortOverride = listenPortOverride,
+                localAuthToken = authToken,
+            )
+        }
+
+        is RipDpiProxyUiSessionPreferences -> {
+            copy(
+                localListenPortOverride = listenPortOverride ?: localListenPortOverride,
+                localAuthToken = authToken ?: localAuthToken,
+            )
+        }
+
+        is RipDpiProxyJsonPreferences,
+        is RipDpiProxyCmdPreferences,
+        -> {
+            RipDpiProxyJsonPreferences(
+                configJson = toNativeConfigJson(),
+                localListenPortOverride = listenPortOverride,
+                localAuthToken = authToken,
+            )
+        }
+    }
+
+fun RipDpiProxyPreferences.withProxyLogContext(logContext: RipDpiLogContext?): RipDpiProxyPreferences =
+    if (logContext == null) {
+        this
+    } else {
+        when (this) {
+            is RipDpiProxyUIPreferences -> {
+                withSessionOverrides(logContext = logContext)
+            }
+
+            is RipDpiProxyUiSessionPreferences -> {
+                copy(preferences = preferences.withSessionOverrides(logContext = logContext))
+            }
+
+            is RipDpiProxyJsonPreferences,
+            is RipDpiProxyCmdPreferences,
+            -> {
+                RipDpiProxyJsonPreferences(
+                    configJson = toNativeConfigJson(),
+                    logContext = logContext,
+                )
+            }
+        }
+    }
+
 internal const val AmneziaWgAllTrafficRouteHosts = "__ripdpi_awg_all_traffic__"
+
+private data class RipDpiProxyUiSessionPreferences(
+    val preferences: RipDpiProxyUIPreferences,
+    val localListenPortOverride: Int? = null,
+    override val localAuthToken: String? = null,
+) : RipDpiProxyPreferences {
+    override fun toNativeConfigJson(): String =
+        RipDpiProxyJsonCodec.encodeUiPreferences(
+            NativeProxyCreateRequest(
+                preferences = preferences,
+                rootMode = preferences.rootMode,
+                rootHelperSocketPath = preferences.rootHelperSocketPath,
+                geoipDbPath = preferences.geoipDbPath,
+                geositeDbPath = preferences.geositeDbPath,
+                localListenPortOverride = localListenPortOverride,
+                localAuthToken = localAuthToken,
+                environmentKind = preferences.environmentKind,
+            ),
+        )
+}
 
 class RipDpiProxyJsonPreferences(
     private val configJson: String,
