@@ -224,6 +224,32 @@ class XrayProviderSessionControllerTest {
             assertTrue(tunnel.startCount >= 2)
         }
 
+    @Test
+    fun `delegate restart surfaces failed xray handover`() =
+        runTest {
+            selectionStore.set(XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "default"))
+            profileStore.save("default", profile)
+            val ctrl = controller()
+            val delegate =
+                XrayConnectFlowDelegate(
+                    controller = ctrl,
+                    startParams = { _, _ -> params() },
+                    publishActiveDnsState = { _, _ -> },
+                    applyActiveConnectionPolicy = { _, _, _, _ -> },
+                )
+            assertTrue(delegate.tryStart(VpnRuntimeSession(), sampleResolution()))
+            tunnel.failOnStart = true
+
+            val failure =
+                runCatching {
+                    delegate.tryRestart(VpnRuntimeSession(), sampleResolution(), appliedAt = 2L)
+                }.exceptionOrNull()
+
+            assertTrue(failure is XrayProviderHandoverException)
+            assertTrue(failure?.message?.contains("fake tunnel start failure") == true)
+            assertFalse(delegate.isActive)
+        }
+
     private fun params(): XrayTunnelStartParams =
         XrayTunnelStartParams(
             activeDns =

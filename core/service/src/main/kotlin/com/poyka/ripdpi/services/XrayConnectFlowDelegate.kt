@@ -11,8 +11,9 @@ import com.poyka.ripdpi.core.HandoffOutcome
  * nothing about the native path is affected by this seam.
  *
  * The delegate owns the provider-active state, the per-start params derivation,
- * and the provider-failed-start signalling (via [XrayProviderStartException]), so
- * the coordinator only sees a small, generic delegation surface.
+ * and the provider-failed signalling (via [XrayProviderStartException] /
+ * [XrayProviderHandoverException]), so the coordinator only sees a small,
+ * generic delegation surface.
  *
  * Lifecycle calls are serialized by the coordinator, matching the controller's
  * threading contract.
@@ -95,6 +96,9 @@ internal class XrayConnectFlowDelegate(
      * Restart the active Xray session after a network handover. Returns `true`
      * when an Xray session was active (and was restarted); `false` when no Xray
      * session was active, leaving the coordinator to run the native handover.
+     * Throws [XrayProviderHandoverException] when Xray owned the live session
+     * but the handover failed, so the generic handover retry / failure path sees
+     * the failure instead of marking the handover as successful.
      */
     suspend fun tryRestart(
         session: VpnRuntimeSession,
@@ -108,8 +112,21 @@ internal class XrayConnectFlowDelegate(
         applyActiveConnectionPolicy(session, resolution, "network_handover", appliedAt)
         val outcome = controller.restart(startParams(session, resolution))
         active = outcome is HandoffOutcome.Running
-        if (outcome is HandoffOutcome.Running) {
-            publishActiveDnsState(session, resolution)
+        when (outcome) {
+            is HandoffOutcome.Running -> {
+                publishActiveDnsState(session, resolution)
+            }
+
+            is HandoffOutcome.Failed -> {
+                throw XrayProviderHandoverException(outcome.reason)
+            }
+
+            HandoffOutcome.Stopped -> {
+                // The provider selection changed while this handover was in
+                // flight. Xray has stopped cleanly and the coordinator should
+                // treat the active provider path as handled for this lifecycle
+                // turn, not fall through to a second native restart.
+            }
         }
         return true
     }
@@ -134,6 +151,15 @@ internal class XrayConnectFlowDelegate(
  * rather than silently falling through to the native composition.
  */
 internal class XrayProviderStartException(
+    message: String,
+) : IllegalStateException(message)
+
+/**
+ * Thrown when an already-active Xray provider session fails to restart during a
+ * network handover. This must flow into `NetworkHandoverProcessor` so normal
+ * handover retry and eventual failed-state handling applies.
+ */
+internal class XrayProviderHandoverException(
     message: String,
 ) : IllegalStateException(message)
 
