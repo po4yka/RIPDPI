@@ -58,7 +58,7 @@ class HomeModeCardUiStateTest {
     }
 
     @Test
-    fun `local bypass card is active for connected vpn mode when relay is disabled`() {
+    fun `vpn card is active for connected vpn mode when relay is disabled`() {
         val cards =
             buildCards(
                 settings =
@@ -75,14 +75,14 @@ class HomeModeCardUiStateTest {
 
         val localBypass = cards.single { it.mode == HomeMode.LocalDpiBypass }
         val remoteVpn = cards.single { it.mode == HomeMode.RemoteVpn }
-        assertTrue(localBypass.isActive)
-        assertEquals("Connected 00:00:03", localBypass.secondaryLabel)
-        assertFalse(remoteVpn.isActive)
-        assertEquals("Relay disabled", remoteVpn.primaryLabel)
+        assertFalse(localBypass.isActive)
+        assertTrue(remoteVpn.isActive)
+        assertEquals("Connected 00:00:03", remoteVpn.secondaryLabel)
+        assertEquals("Local VPN", remoteVpn.primaryLabel)
     }
 
     @Test
-    fun `vpn card primary action is disabled when relay is disabled`() {
+    fun `vpn card primary action is enabled when relay is disabled`() {
         val cards =
             buildCards(
                 settings =
@@ -97,9 +97,9 @@ class HomeModeCardUiStateTest {
             )
 
         val remoteVpn = cards.single { it.mode == HomeMode.RemoteVpn }
-        assertEquals("Relay disabled", remoteVpn.primaryLabel)
-        assertFalse(remoteVpn.primaryActionEnabled)
-        assertEquals("Enable a relay in Configure to turn this on", remoteVpn.primaryActionDisabledHint)
+        assertEquals("Local VPN", remoteVpn.primaryLabel)
+        assertTrue(remoteVpn.primaryActionEnabled)
+        assertEquals("", remoteVpn.primaryActionDisabledHint)
     }
 
     @Test

@@ -116,16 +116,16 @@ private fun buildLocalBypassCard(
         secondaryLabel =
             modeStatusLabel(
                 connectionState = connectionState,
-                isActiveMode = isLocalBypassMode(mode = activeMode, relayEnabled = draft.relayEnabled),
-                isConfiguredMode = isLocalBypassMode(mode = configuredMode, relayEnabled = draft.relayEnabled),
+                isActiveMode = isLocalBypassMode(activeMode),
+                isConfiguredMode = isLocalBypassMode(configuredMode),
                 connectionDuration = connectionDuration,
                 stringResolver = stringResolver,
             ),
         statusLine =
             modeStatusLine(
                 connectionState = connectionState,
-                isActiveMode = isLocalBypassMode(mode = activeMode, relayEnabled = draft.relayEnabled),
-                isConfiguredMode = isLocalBypassMode(mode = configuredMode, relayEnabled = draft.relayEnabled),
+                isActiveMode = isLocalBypassMode(activeMode),
+                isConfiguredMode = isLocalBypassMode(configuredMode),
                 connectionDuration = connectionDuration,
                 stringResolver = stringResolver,
             ),
@@ -133,16 +133,16 @@ private fun buildLocalBypassCard(
             connectionActionLabel(
                 isActive =
                     connectionState == ConnectionState.Connected &&
-                        isLocalBypassMode(mode = activeMode, relayEnabled = draft.relayEnabled),
+                        isLocalBypassMode(activeMode),
                 stringResolver = stringResolver,
             ),
         configureLabel = stringResolver.getString(R.string.home_mode_card_configure),
         isActive =
             connectionState == ConnectionState.Connected &&
-                isLocalBypassMode(mode = activeMode, relayEnabled = draft.relayEnabled),
+                isLocalBypassMode(activeMode),
         isLoading =
             connectionState == ConnectionState.Connecting &&
-                isLocalBypassMode(mode = configuredMode, relayEnabled = draft.relayEnabled),
+                isLocalBypassMode(configuredMode),
     )
 
 private fun buildRemoteVpnCard(
@@ -161,16 +161,16 @@ private fun buildRemoteVpnCard(
         secondaryLabel =
             modeStatusLabel(
                 connectionState = connectionState,
-                isActiveMode = isRemoteVpnMode(mode = activeMode, relayEnabled = draft.relayEnabled),
-                isConfiguredMode = isRemoteVpnMode(mode = configuredMode, relayEnabled = draft.relayEnabled),
+                isActiveMode = isRemoteVpnMode(activeMode),
+                isConfiguredMode = isRemoteVpnMode(configuredMode),
                 connectionDuration = connectionDuration,
                 stringResolver = stringResolver,
             ) ?: relaySummary.takeIf { draft.relayEnabled },
         statusLine =
             modeStatusLine(
                 connectionState = connectionState,
-                isActiveMode = isRemoteVpnMode(mode = activeMode, relayEnabled = draft.relayEnabled),
-                isConfiguredMode = isRemoteVpnMode(mode = configuredMode, relayEnabled = draft.relayEnabled),
+                isActiveMode = isRemoteVpnMode(activeMode),
+                isConfiguredMode = isRemoteVpnMode(configuredMode),
                 connectionDuration = connectionDuration,
                 stringResolver = stringResolver,
             ),
@@ -178,18 +178,16 @@ private fun buildRemoteVpnCard(
             connectionActionLabel(
                 isActive =
                     connectionState == ConnectionState.Connected &&
-                        isRemoteVpnMode(mode = activeMode, relayEnabled = draft.relayEnabled),
+                        isRemoteVpnMode(activeMode),
                 stringResolver = stringResolver,
             ),
         configureLabel = stringResolver.getString(R.string.home_mode_card_configure),
         isActive =
             connectionState == ConnectionState.Connected &&
-                isRemoteVpnMode(mode = activeMode, relayEnabled = draft.relayEnabled),
+                isRemoteVpnMode(activeMode),
         isLoading =
             connectionState == ConnectionState.Connecting &&
-                isRemoteVpnMode(mode = configuredMode, relayEnabled = draft.relayEnabled),
-        primaryActionEnabled = draft.relayEnabled,
-        primaryActionDisabledHint = remoteVpnDisabledHint(draft, stringResolver),
+                isRemoteVpnMode(configuredMode),
     )
 }
 
@@ -199,31 +197,15 @@ private fun remoteVpnPrimaryLabel(
 ): String {
     val serverLabel = draft.relayServer.ifBlank { draft.relayServerName }.ifBlank { null }
     return when {
-        !draft.relayEnabled -> stringResolver.getString(R.string.home_mode_card_remote_relay_disabled)
+        !draft.relayEnabled -> stringResolver.getString(R.string.home_mode_vpn)
         serverLabel != null -> serverLabel
         else -> stringResolver.getString(R.string.home_mode_card_remote_server_unknown)
     }
 }
 
-private fun remoteVpnDisabledHint(
-    draft: ConfigDraft,
-    stringResolver: StringResolver,
-): String =
-    if (draft.relayEnabled) {
-        ""
-    } else {
-        stringResolver.getString(R.string.home_mode_card_remote_relay_disabled_hint)
-    }
+private fun isLocalBypassMode(mode: Mode): Boolean = mode == Mode.Proxy
 
-private fun isLocalBypassMode(
-    mode: Mode,
-    relayEnabled: Boolean,
-): Boolean = mode == Mode.Proxy || (mode == Mode.VPN && !relayEnabled)
-
-private fun isRemoteVpnMode(
-    mode: Mode,
-    relayEnabled: Boolean,
-): Boolean = mode == Mode.VPN && relayEnabled
+private fun isRemoteVpnMode(mode: Mode): Boolean = mode == Mode.VPN
 
 internal fun buildDiagnosticCard(
     homeDiagnostics: HomeDiagnosticsUiState,
