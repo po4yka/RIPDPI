@@ -112,6 +112,7 @@ class FailoverCoordinator
         private val relayProfileStore: RelayProfileStore,
         private val awgProfileRepository: AwgProfileRepository,
         private val settingsRepository: AppSettingsRepository,
+        private val awgEgressSelection: SimpleAwgEgressSelection,
         private val clock: FailoverClock,
     ) : SimpleFlavorSessionWatcher,
         ActiveTransportProvider {
@@ -252,6 +253,7 @@ class FailoverCoordinator
             setActiveCandidate(null)
             failingsSince = null
             if (!selfInducedRestart) {
+                awgEgressSelection.clear()
                 initialized = false
                 backedOff = false
                 switchesInCycle = 0
@@ -439,8 +441,10 @@ class FailoverCoordinator
          * [UpstreamRelayRuntimeConfigResolver] reads on session start. The credentials are
          * already in the keystore from the initial seed; only the settings pointer changes.
          *
-         * For AWG candidates: disables relay in settings so [awgConfigOrNull] wins in
-         * [SharedProxyRuntimeStack]. The AWG profile is already in [AwgProfileRepository].
+         * For AWG candidates: disables relay in settings and records the selected AWG
+         * profile in [SimpleAwgEgressSelection] so the next service start can attach the
+         * rehydrated [com.poyka.ripdpi.data.awg.AwgActivationRequest] to
+         * [com.poyka.ripdpi.core.RipDpiProxyUIPreferences.awg].
          *
          * // NOT cancel-safe: contains suspending [settingsRepository.update]. If cancelled
          * after the settings write but before the session restart, the settings remain at the
@@ -449,6 +453,7 @@ class FailoverCoordinator
         private suspend fun writeConfig(candidate: FailoverCandidate) {
             when (candidate) {
                 is FailoverCandidate.Relay -> {
+                    awgEgressSelection.clear()
                     settingsRepository.update {
                         setRelayEnabled(true)
                         setRelayKind(candidate.relayKind)
@@ -458,8 +463,9 @@ class FailoverCoordinator
 
                 is FailoverCandidate.Awg -> {
                     // Disable the relay so the connection policy resolver does not start it.
-                    // AWG is picked up via AwgProfileRepository; the active AWG profile id
-                    // in RipDpiProxyUIPreferences.awg is set by the config resolver on start.
+                    // The selected AWG profile id is kept in memory for this failover cycle
+                    // and resolved into a full activation request on the restart.
+                    awgEgressSelection.select(candidate.awgProfileId)
                     settingsRepository.update {
                         setRelayEnabled(false)
                     }

@@ -44,7 +44,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
-import java.util.Optional
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -168,7 +167,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProvider = Optional.empty(),
+                    awgEgressSelectionProviders = emptySet(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -208,7 +207,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = rootHelper,
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProvider = Optional.empty(),
+                    awgEgressSelectionProviders = emptySet(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -244,7 +243,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProvider = Optional.of(StaticAwgEgressSelectionProvider(selectedAwg)),
+                    awgEgressSelectionProviders = setOf(StaticAwgEgressSelectionProvider(selectedAwg)),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -297,7 +296,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
-                    awgEgressSelectionProvider = Optional.empty(),
+                    awgEgressSelectionProviders = emptySet(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -345,7 +344,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
-                    awgEgressSelectionProvider = Optional.empty(),
+                    awgEgressSelectionProviders = emptySet(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -387,7 +386,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
-                    awgEgressSelectionProvider = Optional.empty(),
+                    awgEgressSelectionProviders = emptySet(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)

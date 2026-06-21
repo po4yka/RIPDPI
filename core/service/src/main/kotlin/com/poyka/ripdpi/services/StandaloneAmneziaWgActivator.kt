@@ -6,6 +6,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -30,6 +31,8 @@ internal class DefaultStandaloneAmneziaWgActivator
         private val serviceController: ServiceController,
     ) : StandaloneAmneziaWgActivator,
         AwgEgressSelectionProvider {
+        override val selectionPriority: Int = 0
+
         private val lifecycleLock = Mutex()
         private var selectedRequest: AwgActivationRequest? = null
 
@@ -75,6 +78,7 @@ internal abstract class StandaloneAmneziaWgActivatorModule {
     ): StandaloneAmneziaWgActivator
 
     @Binds
+    @IntoSet
     @Singleton
     abstract fun bindAwgEgressSelectionProvider(
         activator: DefaultStandaloneAmneziaWgActivator,

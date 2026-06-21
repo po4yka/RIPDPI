@@ -217,8 +217,9 @@ private fun buildCoordinator(
     awgProfiles: List<AwgProfileEntity> = emptyList(),
     clock: FakeFailoverClock = FakeFailoverClock(now = 0L),
     settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
-): Triple<FailoverCoordinator, FakeServiceController, FakeFailoverClock> {
+): CoordinatorFixture {
     val awgRepo = AwgProfileRepository(FakeAwgProfileDao(awgProfiles), FakeAwgCredentialStore())
+    val awgSelection = SimpleAwgEgressSelection(awgRepo)
     val coordinator =
         FailoverCoordinator(
             serviceStateStore = stateStore,
@@ -226,10 +227,18 @@ private fun buildCoordinator(
             relayProfileStore = FakeRelayProfileStore(relayProfiles),
             awgProfileRepository = awgRepo,
             settingsRepository = settings,
+            awgEgressSelection = awgSelection,
             clock = clock,
         )
-    return Triple(coordinator, controller, clock)
+    return CoordinatorFixture(coordinator, controller, clock, awgSelection)
 }
+
+private data class CoordinatorFixture(
+    val coordinator: FailoverCoordinator,
+    val controller: FakeServiceController,
+    val clock: FakeFailoverClock,
+    val awgSelection: SimpleAwgEgressSelection,
+)
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -887,18 +896,20 @@ class FailoverCoordinatorTest {
         }
 
     /**
-     * Switching to an AWG candidate disables relay in settings via [writeConfig].
+     * Switching to an AWG candidate disables relay in settings and selects an AWG
+     * activation request via [SimpleAwgEgressSelection].
      *
      * After driving failover all the way to the AWG candidate (copying the
      * timing from [budgetSurvivesSelfRestart] up to switch 2), settings must
-     * reflect relayEnabled=false.
+     * reflect relayEnabled=false, and the service resolver bridge must expose the
+     * rehydrated AWG request that [SharedProxyRuntimeStack] consumes via awgConfigOrNull.
      *
      * Timing (debounce=20 000 ms, min-interval=30 000 ms):
      *   t=22 000  SWITCH 1: Reality→Hysteria2
      *   t=54 000  SWITCH 2: Hysteria2→AWG  → relayEnabled=false
      */
     @Test
-    fun `awg switch disables relay in settings`() =
+    fun `awg switch disables relay and selects awg egress`() =
         runTest {
             val stateStore = FakeServiceStateStore()
             val clock = FakeFailoverClock(now = 0L)
@@ -910,7 +921,7 @@ class FailoverCoordinatorTest {
                     requestJson = MINIMAL_AWG_REQUEST_JSON,
                     updatedAt = 1L,
                 )
-            val (coordinator, _, _) =
+            val (coordinator, _, _, awgSelection) =
                 buildCoordinator(
                     stateStore = stateStore,
                     clock = clock,
@@ -958,6 +969,9 @@ class FailoverCoordinatorTest {
             }
 
             assertFalse("relayEnabled must be false after AWG switch", settings.relayEnabled())
+            val selectedAwg = awgSelection.selectedAwgEgress()
+            assertNotNull("AWG switch must expose a selected AWG egress", selectedAwg)
+            assertEquals("AWG profile id must be rehydrated from repository", "awg-settings", selectedAwg?.profileId)
 
             coordinator.stopObserving()
         }

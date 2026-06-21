@@ -26,7 +26,6 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -76,7 +75,7 @@ class DefaultConnectionPolicyResolver
         private val startupDnsProbe: VpnStartupDnsProbe,
         private val rootHelperManager: RootHelperManager,
         private val environmentDetector: EnvironmentDetector,
-        private val awgEgressSelectionProvider: Optional<AwgEgressSelectionProvider>,
+        private val awgEgressSelectionProviders: Set<@JvmSuppressWildcards AwgEgressSelectionProvider>,
     ) : ConnectionPolicyResolver {
         private val dnsSelector =
             ConnectionPolicyDnsSelector(
@@ -140,7 +139,7 @@ class DefaultConnectionPolicyResolver
             val hostAutolearnStorePath = runtimeContextAssembler.hostAutolearnStorePath()
             val selectedAwgEgress =
                 if (mode == Mode.VPN && !settings.enableCmdSettings) {
-                    awgEgressSelectionProvider.orElse(null)?.selectedAwgEgress()
+                    selectedAwgEgress()
                 } else {
                     null
                 }
@@ -189,7 +188,16 @@ class DefaultConnectionPolicyResolver
                         resolverFallbackReason = dnsResolution.override?.reason,
                         matchedPolicy = null,
                     ),
-            )
+                )
+        }
+
+        private suspend fun selectedAwgEgress(): AwgActivationRequest? {
+            awgEgressSelectionProviders
+                .sortedBy { it.selectionPriority }
+                .forEach { provider ->
+                    provider.selectedAwgEgress()?.let { return it }
+                }
+            return null
         }
 
         private suspend fun baselineVpnDnsSelection(
