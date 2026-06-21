@@ -56,7 +56,7 @@ fun RipDpiProxyPreferences.awgConfigOrNull(): AwgActivationRequest? =
         }
 
         is RipDpiProxyJsonPreferences -> {
-            decodeRipDpiProxyUiPreferences(toNativeConfigJson())?.awg
+            awg ?: decodeRipDpiProxyUiPreferences(toNativeConfigJson())?.awg
         }
 
         is RipDpiProxyCmdPreferences -> {
@@ -161,7 +161,10 @@ fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences 
             copy(preferences = preferences.withAwgEgressPort(port) as RipDpiProxyUIPreferences)
         }
 
-        is RipDpiProxyJsonPreferences,
+        is RipDpiProxyJsonPreferences -> {
+            withAwgEgressPort(port)
+        }
+
         is RipDpiProxyCmdPreferences,
         -> {
             this
@@ -188,9 +191,16 @@ fun RipDpiProxyPreferences.withLocalProxySessionOverrides(
             )
         }
 
-        is RipDpiProxyJsonPreferences,
-        is RipDpiProxyCmdPreferences,
-        -> {
+        is RipDpiProxyJsonPreferences -> {
+            RipDpiProxyJsonPreferences(
+                configJson = toNativeConfigJson(),
+                localListenPortOverride = listenPortOverride,
+                localAuthToken = authToken,
+                awg = awg,
+            )
+        }
+
+        is RipDpiProxyCmdPreferences -> {
             RipDpiProxyJsonPreferences(
                 configJson = toNativeConfigJson(),
                 localListenPortOverride = listenPortOverride,
@@ -212,9 +222,15 @@ fun RipDpiProxyPreferences.withProxyLogContext(logContext: RipDpiLogContext?): R
                 copy(preferences = preferences.withSessionOverrides(logContext = logContext))
             }
 
-            is RipDpiProxyJsonPreferences,
-            is RipDpiProxyCmdPreferences,
-            -> {
+            is RipDpiProxyJsonPreferences -> {
+                RipDpiProxyJsonPreferences(
+                    configJson = toNativeConfigJson(),
+                    logContext = logContext,
+                    awg = awg,
+                )
+            }
+
+            is RipDpiProxyCmdPreferences -> {
                 RipDpiProxyJsonPreferences(
                     configJson = toNativeConfigJson(),
                     logContext = logContext,
@@ -258,6 +274,7 @@ class RipDpiProxyJsonPreferences(
     private val localListenPortOverride: Int? = null,
     override val localAuthToken: String? = null,
     private val environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
+    internal val awg: AwgActivationRequest? = null,
 ) : RipDpiProxyPreferences {
     override fun toNativeConfigJson(): String =
         RipDpiProxyJsonCodec.rewriteJson(
@@ -274,6 +291,23 @@ class RipDpiProxyJsonPreferences(
             localAuthToken = localAuthToken,
             environmentKind = environmentKind,
         )
+
+    internal fun withAwgEgressPort(port: Int): RipDpiProxyPreferences {
+        val routed =
+            decodeRipDpiProxyUiPreferences(toNativeConfigJson())
+                ?.withAwgEgressPort(port)
+                ?: return this
+        val withSessionOverrides =
+            if (localListenPortOverride != null || localAuthToken != null) {
+                routed.withLocalProxySessionOverrides(
+                    listenPortOverride = localListenPortOverride,
+                    authToken = localAuthToken,
+                )
+            } else {
+                routed
+            }
+        return withSessionOverrides.withProxyLogContext(logContext)
+    }
 }
 
 class RipDpiProxyCmdPreferences(

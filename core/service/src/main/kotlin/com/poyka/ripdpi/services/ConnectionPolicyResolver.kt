@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import android.content.Context
 import com.poyka.ripdpi.core.RipDpiDirectPathCapability
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
+import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
@@ -269,6 +270,7 @@ class DefaultConnectionPolicyResolver
                     networkScopeKey = baseline.networkScopeKey,
                     runtimeContext = effectiveRuntimeContext,
                     settings = baseline.settings,
+                    awg = baseline.baselinePreferences.awgConfigOrNull(),
                 )
             val appliedPolicy =
                 rememberedPolicyMatcher.appliedPolicy(

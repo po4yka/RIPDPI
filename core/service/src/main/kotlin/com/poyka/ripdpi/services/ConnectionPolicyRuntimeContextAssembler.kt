@@ -165,6 +165,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
             networkScopeKey: String?,
             runtimeContext: RipDpiRuntimeContext?,
             settings: AppSettings,
+            awg: AwgActivationRequest? = null,
         ): RipDpiProxyPreferences =
             com.poyka.ripdpi.core.RipDpiProxyJsonPreferences(
                 configJson = configJson,
@@ -174,5 +175,6 @@ internal class ConnectionPolicyRuntimeContextAssembler
                 rootMode = settings.rootModeEnabled,
                 rootHelperSocketPath = rootHelperManager.socketPath,
                 environmentKind = environmentDetector.kind,
+                awg = awg,
             )
     }

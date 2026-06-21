@@ -869,6 +869,54 @@ class RipDpiProxyPreferencesTest {
     }
 
     @Test
+    fun jsonPreferencesPreserveAwgSelectionAndRouteToAwgSocks() {
+        val request =
+            AwgActivationRequest(
+                profileId = "awg-remembered",
+                privateKey = "private",
+                peerPublicKey = "peer",
+                endpointHost = "198.51.100.20",
+                endpointPort = 51820,
+                interfaceAddressV4 = "10.8.0.3/32",
+            )
+        val rememberedJson =
+            RipDpiProxyUIPreferences(
+                relay =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindVlessReality,
+                        profileId = "remembered-relay",
+                    ),
+            ).toNativeConfigJson()
+        val preferences =
+            RipDpiProxyJsonPreferences(
+                configJson = rememberedJson,
+                localListenPortOverride = 0,
+                localAuthToken = "token",
+                awg = request,
+            )
+
+        assertEquals(request, preferences.awgConfigOrNull())
+
+        val routed = preferences.withAwgEgressPort(10809)
+        val payload = routed.toNativeConfigJson().parseJsonObject()
+        val relay = payload.objectAt("upstreamRelay")
+        val warp = payload.objectAt("warp")
+        val overrides = payload.objectAt("sessionOverrides")
+
+        assertNull(routed.awgConfigOrNull())
+        assertNull(routed.relayConfigOrNull())
+        assertFalse(relay.boolean("enabled"))
+        assertEquals("off", relay.string("kind"))
+        assertTrue(warp.boolean("enabled"))
+        assertEquals(WarpRouteModeRules, warp.string("routeMode"))
+        assertEquals(AmneziaWgAllTrafficRouteHosts, warp.string("routeHosts"))
+        assertEquals(10809, warp.int("localSocksPort"))
+        assertEquals(0, overrides.int("listenPortOverride"))
+        assertEquals("token", overrides.string("authToken"))
+    }
+
+    @Test
     fun decodeUiPreferencesRoundTripsAdaptiveMarkersUnchanged() {
         val original =
             RipDpiProxyUIPreferences(

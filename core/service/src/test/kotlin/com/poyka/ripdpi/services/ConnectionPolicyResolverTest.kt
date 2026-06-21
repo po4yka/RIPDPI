@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -27,6 +29,7 @@ import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
 import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
 import com.poyka.ripdpi.data.PreferredStack
 import com.poyka.ripdpi.data.QuicMode
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RootSettingsSection
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.TcpFamily
@@ -248,6 +251,62 @@ class ConnectionPolicyResolverTest {
 
             val resolution = resolver.resolve(mode = Mode.VPN)
 
+            assertEquals("awg-selected", resolution.proxyPreferences.awgConfigOrNull()?.profileId)
+            assertEquals("198.51.100.10", resolution.proxyPreferences.awgConfigOrNull()?.endpointHost)
+        }
+
+    @Test
+    fun `remembered vpn policy replay preserves selected awg egress`() =
+        runTest {
+            val selectedAwg =
+                AwgActivationRequest(
+                    profileId = "awg-selected",
+                    privateKey = "private",
+                    peerPublicKey = "peer",
+                    endpointHost = "198.51.100.10",
+                    endpointPort = 51820,
+                    interfaceAddressV4 = "10.8.0.2/32",
+                )
+            val rememberedStore =
+                TestRememberedNetworkPolicyStore().apply {
+                    validatedMatch =
+                        sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
+                            proxyConfigJson =
+                                RipDpiProxyUIPreferences(
+                                    relay =
+                                        RipDpiRelayConfig(
+                                            enabled = true,
+                                            kind = RelayKindVlessReality,
+                                            profileId = "remembered-relay",
+                                        ),
+                                ).toNativeConfigJson(),
+                        )
+                }
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository =
+                        TestAppSettingsRepository(
+                            AppSettingsSerializer.defaultValue
+                                .toBuilder()
+                                .setNetworkStrategyMemoryEnabled(true)
+                                .build(),
+                        ),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = rememberedStore,
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+
+            assertEquals(true, resolution.rememberedPolicyAppliedByExactMatch)
             assertEquals("awg-selected", resolution.proxyPreferences.awgConfigOrNull()?.profileId)
             assertEquals("198.51.100.10", resolution.proxyPreferences.awgConfigOrNull()?.endpointHost)
         }
