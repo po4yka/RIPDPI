@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.net.Uri
 import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
 import com.poyka.ripdpi.config.relay.toRelayPresetReason
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -12,7 +13,11 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
@@ -29,20 +34,35 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayPresetCatalog
 import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.RelayPresetSuggestion
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
+import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.ServerCapabilityRecord
+import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
+import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
+import com.poyka.ripdpi.security.MasqueClientCredentialImporter
+import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
+import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
+import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import com.poyka.ripdpi.data.FailureClass as RuntimeFailureClass
 
 private const val sampleMasqueValue = "sample-masque-value"
@@ -75,7 +95,12 @@ private fun validNaiveProxyDraft(relayNaivePath: String): ConfigDraft =
         relayNaivePath = relayNaivePath,
     )
 
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class ConfigViewModelTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     @Test
     fun `config draft defaults match canonical encrypted dns settings`() {
         val defaultDns = canonicalDefaultEncryptedDnsSettings()
@@ -369,6 +394,85 @@ class ConfigViewModelTest {
             )
 
         assertEquals("required", errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `saveDraft leaves halted runtime for next start`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Halted to Mode.VPN)
+            val viewModel =
+                createConfigViewModel(
+                    serviceController = serviceController,
+                    serviceStateStore = serviceStateStore,
+                )
+
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertEquals(0, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+        }
+
+    @Test
+    fun `saveDraft restarts running runtime with saved mode`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val viewModel =
+                createConfigViewModel(
+                    serviceController = serviceController,
+                    serviceStateStore = serviceStateStore,
+                )
+
+            viewModel.updateDraft { copy(mode = Mode.Proxy, proxyPort = "1081") }
+            viewModel.saveDraft()
+            runCurrent()
+
+            assertEquals(1, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+        }
+
+    private fun createConfigViewModel(
+        appSettingsRepository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+        serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
+        serviceController: FakeServiceController = FakeServiceController(),
+    ): ConfigViewModel {
+        val relayProfileStore = InMemoryRelayProfileStore()
+        val relayCredentialStore = InMemoryRelayCredentialStore()
+        return ConfigViewModel(
+            dependencies =
+                ConfigViewModelDependencies(
+                    appSettingsRepository = appSettingsRepository,
+                    relayArtifacts =
+                        ConfigRelayArtifactRepository(
+                            relayProfileStore = relayProfileStore,
+                            relayCredentialStore = relayCredentialStore,
+                        ),
+                    relayPresetCatalog = RelayPresetCatalog(RuntimeEnvironment.getApplication()),
+                    networkSnapshotProvider = FakeNativeNetworkSnapshotProvider(),
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                    latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
+                    capabilityObserver =
+                        ConfigCapabilityObserver(
+                            networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                            serverCapabilityStore = NoOpServerCapabilityStore(),
+                        ),
+                ),
+            importDependencies =
+                ConfigImportDependencies(
+                    masqueClientCredentialImporter = NoOpMasqueClientCredentialImporter,
+                    masquePrivacyPassAvailability = NoOpMasquePrivacyPassAvailability,
+                ),
+            stringResolver = ResourceStringResolver(),
+        )
     }
 
     @Test
@@ -811,4 +915,67 @@ private class InMemoryRelayCredentialStore : RelayCredentialStore {
     override suspend fun clear(profileId: String) {
         records.remove(profileId)
     }
+}
+
+private class FakeNativeNetworkSnapshotProvider : NativeNetworkSnapshotProvider {
+    override fun capture(): NativeNetworkSnapshot = NativeNetworkSnapshot()
+}
+
+private class FakeNetworkFingerprintProvider : NetworkFingerprintProvider {
+    override fun capture(): NetworkFingerprint? = null
+}
+
+private class NoOpServerCapabilityStore : ServerCapabilityStore {
+    override suspend fun relayCapabilitiesForFingerprint(fingerprintHash: String): List<ServerCapabilityRecord> =
+        emptyList()
+
+    override suspend fun directPathCapabilitiesForFingerprint(fingerprintHash: String): List<ServerCapabilityRecord> =
+        emptyList()
+
+    override suspend fun rememberRelayObservation(
+        fingerprint: NetworkFingerprint,
+        authority: String,
+        relayProfileId: String?,
+        observation: ServerCapabilityObservation,
+        source: String,
+        recordedAt: Long?,
+    ): ServerCapabilityRecord =
+        ServerCapabilityRecord(
+            scope = "relay",
+            fingerprintHash = fingerprint.scopeKey(),
+            authority = authority,
+            relayProfileId = relayProfileId,
+        )
+
+    override suspend fun rememberDirectPathObservation(
+        fingerprint: NetworkFingerprint,
+        authority: String,
+        observation: ServerCapabilityObservation,
+        source: String,
+        recordedAt: Long?,
+    ): ServerCapabilityRecord =
+        ServerCapabilityRecord(
+            scope = "direct_path",
+            fingerprintHash = fingerprint.scopeKey(),
+            authority = authority,
+        )
+
+    override suspend fun clearAll() = Unit
+}
+
+private object NoOpMasqueClientCredentialImporter : MasqueClientCredentialImporter {
+    override suspend fun importCertificateChainPem(uri: Uri): String = ""
+
+    override suspend fun importPrivateKeyPem(uri: Uri): String = ""
+
+    override suspend fun importPkcs12Identity(
+        uri: Uri,
+        password: String?,
+    ): ImportedMasqueClientIdentity = ImportedMasqueClientIdentity(certificateChainPem = "", privateKeyPem = "")
+}
+
+private object NoOpMasquePrivacyPassAvailability : MasquePrivacyPassAvailability {
+    override fun isAvailable(): Boolean = false
+
+    override fun buildStatus(): MasquePrivacyPassBuildStatus = MasquePrivacyPassBuildStatus.MissingProviderUrl
 }

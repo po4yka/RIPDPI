@@ -24,10 +24,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.seconds
 
 @HiltViewModel
 class ConfigViewModel
@@ -178,8 +181,9 @@ class ConfigViewModel
                 }
 
                 is ServiceStartResult.Rejected -> {
+                    val senderName = result.mode.startSenderName(stringResolver)
                     val message =
-                        stringResolver.getString(R.string.failed_to_start, result.mode.startSenderName()) +
+                        stringResolver.getString(R.string.failed_to_start, senderName) +
                             ": " +
                             result.reason.displayMessage(stringResolver)
                     _effects.tryEmit(ConfigEffect.Message(message))
@@ -317,6 +321,7 @@ class ConfigViewModel
                     applyConfigDraft(persistedDraft)
                 }
                 relayArtifacts.persist(persistedDraft)
+                applySavedDraftToRunningService(persistedDraft)
                 editorSession.value = ConfigEditorSession()
                 _effects.emit(ConfigEffect.SaveSuccess)
             }
@@ -354,11 +359,26 @@ class ConfigViewModel
             }
         }
 
-        private fun Mode.startSenderName(): String =
-            stringResolver.getString(
-                when (this) {
-                    Mode.VPN -> R.string.home_mode_vpn
-                    Mode.Proxy -> R.string.home_mode_proxy
-                },
-            )
+        private suspend fun applySavedDraftToRunningService(draft: ConfigDraft) {
+            if (serviceStateStore.status.value.first != AppStatus.Running) {
+                return
+            }
+            serviceController.stop()
+            val halted =
+                withTimeoutOrNull(10.seconds) {
+                    serviceStateStore.status.first { it.first == AppStatus.Halted }
+                    true
+                } == true
+            if (halted) {
+                startRuntimeMode(draft.mode)
+            }
+        }
     }
+
+private fun Mode.startSenderName(stringResolver: StringResolver): String =
+    stringResolver.getString(
+        when (this) {
+            Mode.VPN -> R.string.home_mode_vpn
+            Mode.Proxy -> R.string.home_mode_proxy
+        },
+    )
