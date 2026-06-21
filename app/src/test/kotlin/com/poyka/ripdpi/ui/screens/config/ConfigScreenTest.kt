@@ -291,6 +291,30 @@ class ConfigScreenTest {
     }
 
     @Test
+    fun `vpn simple toggle starts vpn runtime without selecting local bypass`() {
+        val selectedModes = mutableListOf<Mode>()
+        val runtimeToggles = mutableListOf<Pair<Mode, Boolean>>()
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.Vpn,
+            onModeSelected = { selectedModes += it },
+            onRuntimeModeToggle = { mode, enabled -> runtimeToggles += mode to enabled },
+            activeMode = Mode.Proxy,
+            runningMode = Mode.Proxy,
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigVpnToggle)
+            .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
+
+        composeRule.runOnIdle {
+            assertEquals(emptyList<Mode>(), selectedModes)
+            assertEquals(listOf(Mode.VPN to true), runtimeToggles)
+        }
+    }
+
+    @Test
     fun `mode section selection survives state restoration`() {
         val restorationTester = StateRestorationTester(composeRule)
         restorationTester.setContent {

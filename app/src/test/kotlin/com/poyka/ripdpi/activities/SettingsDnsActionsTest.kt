@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -64,6 +65,29 @@ class SettingsDnsActionsTest {
             advanceUntilIdle()
 
             assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+        }
+
+    @Test
+    fun `built in dns provider save applies after active vpn service halts`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val actions =
+                createActions(
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                )
+
+            actions.selectBuiltInDnsProvider(DnsProviderCloudflare)
+            runCurrent()
+
+            assertEquals(1, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
         }
 
     private fun createActions(

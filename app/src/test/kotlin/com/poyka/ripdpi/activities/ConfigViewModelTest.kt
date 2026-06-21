@@ -439,6 +439,30 @@ class ConfigViewModelTest {
             assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
         }
 
+    @Test
+    fun `saveDraft applies edited vpn mode after active proxy service halts`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy)
+            val viewModel =
+                createConfigViewModel(
+                    serviceController = serviceController,
+                    serviceStateStore = serviceStateStore,
+                )
+
+            viewModel.updateDraft { copy(mode = Mode.VPN, proxyPort = "1081") }
+            viewModel.saveDraft()
+            runCurrent()
+
+            assertEquals(1, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.Proxy)
+            advanceUntilIdle()
+
+            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+        }
+
     private fun createConfigViewModel(
         appSettingsRepository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
