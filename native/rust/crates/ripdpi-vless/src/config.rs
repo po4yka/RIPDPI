@@ -118,8 +118,7 @@ impl VlessRealityConfig {
 
         let uuid = parse_uuid(uuid_str).map_err(|_| ConfigError::InvalidUuid(uuid_str.to_owned()))?;
 
-        let pub_key_bytes = BASE64_STANDARD
-            .decode(reality_public_key_b64)
+        let pub_key_bytes = decode_reality_public_key(reality_public_key_b64)
             .map_err(|_| ConfigError::InvalidPublicKey(reality_public_key_b64.to_owned()))?;
         if pub_key_bytes.len() != 32 {
             return Err(ConfigError::InvalidPublicKey(format!("expected 32 bytes, got {}", pub_key_bytes.len())));
@@ -211,6 +210,13 @@ fn parse_uuid(s: &str) -> Result<[u8; 16], ()> {
     Ok(uuid)
 }
 
+fn decode_reality_public_key(value: &str) -> Result<Vec<u8>, ()> {
+    [BASE64_STANDARD, BASE64_STANDARD_NO_PAD, BASE64_URL_SAFE, BASE64_URL_SAFE_NO_PAD]
+        .into_iter()
+        .find_map(|engine| engine.decode(value).ok())
+        .ok_or(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -246,6 +252,23 @@ mod tests {
         assert_eq!(cfg.reality_short_id.len(), 4);
         // A plain `from_strings` profile carries no mux block by default.
         assert!(cfg.mux.is_none());
+    }
+
+    #[test]
+    fn from_strings_accepts_url_safe_unpadded_reality_public_key() {
+        let key = BASE64_URL_SAFE_NO_PAD.encode([0xFBu8; 32]);
+        let cfg = VlessRealityConfig::from_strings(
+            "example.com",
+            443,
+            "550e8400-e29b-41d4-a716-446655440000",
+            "www.example.com",
+            &key,
+            "abcd1234",
+            "chrome_stable",
+        )
+        .expect("URL-safe unpadded Reality public key is valid");
+
+        assert_eq!(cfg.reality_public_key, [0xFBu8; 32]);
     }
 
     fn sample_config() -> VlessRealityConfig {

@@ -385,9 +385,14 @@ private fun isValidRealityPublicKey(value: String): Boolean {
     if (trimmed.isEmpty()) {
         return false
     }
-    return runCatching { Base64.getDecoder().decode(trimmed) }
-        .getOrNull()
-        ?.size == RealityPublicKeyByteLength
+    return listOf(
+        Base64.getDecoder(),
+        Base64.getUrlDecoder(),
+    ).any { decoder ->
+        runCatching { decoder.decode(trimmed) }
+            .getOrNull()
+            ?.size == RealityPublicKeyByteLength
+    }
 }
 
 private fun isValidRealityShortId(value: String): Boolean {
