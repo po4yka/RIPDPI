@@ -140,6 +140,14 @@ class OnboardingViewModel
                             return@launch
                         }
 
+                        is OnboardingPermissionPrompt.NotificationSettings -> {
+                            _uiState.update {
+                                it.withValidationState(OnboardingValidationState.RequestingNotifications)
+                            }
+                            _effects.emit(OnboardingEffect.RequestNotificationsSettings(prompt.intent))
+                            return@launch
+                        }
+
                         is OnboardingPermissionPrompt.VpnConsent -> {
                             _uiState.update {
                                 it.withValidationState(OnboardingValidationState.RequestingVpnConsent)

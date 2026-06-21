@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.VpnService
 import android.os.Build
@@ -57,6 +60,7 @@ import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
 import com.poyka.ripdpi.activities.OnboardingValidationState
 import com.poyka.ripdpi.activities.OnboardingViewModel
 import com.poyka.ripdpi.activities.isBusy
+import com.poyka.ripdpi.activities.mapNotificationPermissionResult
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -109,14 +113,20 @@ fun OnboardingRoute(
     val context = LocalContext.current
     val notificationsPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val shouldShowRationale =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.findActivity()?.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)
+                        ?: true
+                } else {
+                    true
+                }
             viewModel.onNotificationPermissionResult(
-                result =
-                    if (granted) {
-                        PermissionResult.Granted
-                    } else {
-                        PermissionResult.Denied
-                    },
+                result = mapNotificationPermissionResult(granted, shouldShowRationale),
             )
+        }
+    val notificationsSettingsLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            viewModel.onNotificationPermissionResult(PermissionResult.ReturnedFromSettings)
         }
     val vpnConsentLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -140,6 +150,7 @@ fun OnboardingRoute(
                 viewModel.onNotificationPermissionResult(PermissionResult.Granted)
             }
         },
+        onRequestNotificationsSettings = notificationsSettingsLauncher::launch,
         onRequestVpnConsent = vpnConsentLauncher::launch,
     )
 
@@ -170,10 +181,12 @@ internal fun OnboardingEffectsHandler(
     effects: SharedFlow<OnboardingEffect>,
     onComplete: () -> Unit,
     onRequestNotificationsPermission: () -> Unit,
+    onRequestNotificationsSettings: (Intent) -> Unit,
     onRequestVpnConsent: (Intent) -> Unit,
 ) {
     val currentOnComplete by rememberUpdatedState(onComplete)
     val currentOnRequestNotificationsPermission by rememberUpdatedState(onRequestNotificationsPermission)
+    val currentOnRequestNotificationsSettings by rememberUpdatedState(onRequestNotificationsSettings)
     val currentOnRequestVpnConsent by rememberUpdatedState(onRequestVpnConsent)
 
     LaunchedEffect(effects) {
@@ -181,11 +194,19 @@ internal fun OnboardingEffectsHandler(
             when (effect) {
                 OnboardingEffect.OnboardingComplete -> currentOnComplete()
                 OnboardingEffect.RequestNotificationsPermission -> currentOnRequestNotificationsPermission()
+                is OnboardingEffect.RequestNotificationsSettings -> currentOnRequestNotificationsSettings(effect.intent)
                 is OnboardingEffect.RequestVpnConsent -> currentOnRequestVpnConsent(effect.intent)
             }
         }
     }
 }
+
+private tailrec fun Context.findActivity(): Activity? =
+    when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
+    }
 
 internal data class OnboardingScreenActions(
     val onPageChanged: (Int) -> Unit = {},
@@ -494,8 +515,7 @@ private fun OnboardingFooterCta(
         }
 
         is OnboardingValidationState.Failed -> {
-            val grantPermission =
-                validationState.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION
+            val grantPermission = validationState.recoveryKind.requiresPermissionGrantAction()
             RipDpiButton(
                 text =
                     stringResource(
@@ -535,6 +555,10 @@ private fun OnboardingFooterCta(
         }
     }
 }
+
+private fun OnboardingValidationRecoveryKind.requiresPermissionGrantAction(): Boolean =
+    this == OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION ||
+        this == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS
 
 /** Per-frame parallax + fade values for the swipeable info page, derived once from the page offset. */
 private class OnboardingInfoParallax(

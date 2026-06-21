@@ -28,6 +28,7 @@ class OnboardingEffectsHandlerTest {
                 effects = effects,
                 onComplete = {},
                 onRequestNotificationsPermission = { notificationsRequests += 1 },
+                onRequestNotificationsSettings = {},
                 onRequestVpnConsent = {},
             )
         }
@@ -50,6 +51,7 @@ class OnboardingEffectsHandlerTest {
                 effects = effects,
                 onComplete = {},
                 onRequestNotificationsPermission = {},
+                onRequestNotificationsSettings = {},
                 onRequestVpnConsent = { launchedIntent = it },
             )
         }
@@ -57,6 +59,30 @@ class OnboardingEffectsHandlerTest {
         val intent = Intent("test.vpn")
         runBlocking {
             effects.emit(OnboardingEffect.RequestVpnConsent(intent))
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(intent, launchedIntent)
+    }
+
+    @Test
+    fun `notification settings effect forwards intent to callback`() {
+        val effects = MutableSharedFlow<OnboardingEffect>(extraBufferCapacity = 1)
+        var launchedIntent: Intent? = null
+
+        composeRule.setContent {
+            OnboardingEffectsHandler(
+                effects = effects,
+                onComplete = {},
+                onRequestNotificationsPermission = {},
+                onRequestNotificationsSettings = { launchedIntent = it },
+                onRequestVpnConsent = { launchedIntent = it },
+            )
+        }
+
+        val intent = Intent("test.notification.settings")
+        runBlocking {
+            effects.emit(OnboardingEffect.RequestNotificationsSettings(intent))
         }
         composeRule.waitForIdle()
 

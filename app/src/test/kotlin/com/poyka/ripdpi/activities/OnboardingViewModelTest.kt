@@ -361,6 +361,78 @@ class OnboardingViewModelTest {
         }
 
     @Test
+    fun `permanent notifications denial recovers through settings instead of prompt`() =
+        runTest {
+            val permissionStatusProvider =
+                FakePermissionStatusProvider(
+                    snapshot =
+                        PermissionSnapshot(
+                            vpnConsent = PermissionStatus.Granted,
+                            notifications = PermissionStatus.RequiresSystemPrompt,
+                            batteryOptimization = PermissionStatus.NotApplicable,
+                        ),
+                )
+            val settingsIntent = Intent("test.notification.settings")
+            val permissionPlatformBridge = FakePermissionPlatformBridge(appSettingsIntent = settingsIntent)
+            val vm =
+                createViewModel(
+                    permissionStatusProvider = permissionStatusProvider,
+                    permissionPlatformBridge = permissionPlatformBridge,
+                )
+
+            vm.effects.test {
+                vm.runValidation()
+                assertTrue(awaitItem() is OnboardingEffect.RequestNotificationsPermission)
+                vm.onNotificationPermissionResult(PermissionResult.DeniedPermanently)
+
+                val state = vm.uiState.value.validationState as OnboardingValidationState.Failed
+                assertEquals(OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS, state.recoveryKind)
+
+                vm.runValidation()
+                val settingsEffect = awaitItem() as OnboardingEffect.RequestNotificationsSettings
+                assertEquals(settingsIntent, settingsEffect.intent)
+            }
+        }
+
+    @Test
+    fun `returning from notification settings continues when permission is granted`() =
+        runTest {
+            val permissionStatusProvider =
+                FakePermissionStatusProvider(
+                    snapshot =
+                        PermissionSnapshot(
+                            vpnConsent = PermissionStatus.Granted,
+                            notifications = PermissionStatus.RequiresSystemPrompt,
+                            batteryOptimization = PermissionStatus.NotApplicable,
+                        ),
+                )
+            val settingsIntent = Intent("test.notification.settings")
+            val vm =
+                createViewModel(
+                    permissionStatusProvider = permissionStatusProvider,
+                    permissionPlatformBridge = FakePermissionPlatformBridge(appSettingsIntent = settingsIntent),
+                )
+
+            vm.effects.test {
+                vm.runValidation()
+                assertTrue(awaitItem() is OnboardingEffect.RequestNotificationsPermission)
+                vm.onNotificationPermissionResult(PermissionResult.DeniedPermanently)
+
+                vm.runValidation()
+                val settingsEffect = awaitItem() as OnboardingEffect.RequestNotificationsSettings
+                assertEquals(settingsIntent.action, settingsEffect.intent.action)
+
+                permissionStatusProvider.snapshot =
+                    permissionStatusProvider.snapshot.copy(notifications = PermissionStatus.Granted)
+                vm.onNotificationPermissionResult(PermissionResult.ReturnedFromSettings)
+                advanceUntilIdle()
+                expectNoEvents()
+            }
+
+            assertTrue(vm.uiState.value.validationState is OnboardingValidationState.Success)
+        }
+
+    @Test
     fun `vpn permission denial suggests switching to proxy`() =
         runTest {
             val permissionStatusProvider =

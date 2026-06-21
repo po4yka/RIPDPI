@@ -262,6 +262,8 @@ private fun OnboardingValidationStatusBlock(
             val message =
                 if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION) {
                     stringResource(R.string.onboarding_test_failed_permission)
+                } else if (state.recoveryKind == OnboardingValidationRecoveryKind.REQUEST_NOTIFICATION_SETTINGS) {
+                    stringResource(R.string.onboarding_test_failed_permission)
                 } else {
                     stringResource(R.string.onboarding_validation_failed, state.reason)
                 }
