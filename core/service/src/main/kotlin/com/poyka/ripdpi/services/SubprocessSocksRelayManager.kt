@@ -19,6 +19,7 @@ data class SubprocessSocksRelayLaunchSpec(
     val runtimeKind: String,
     val upstreamAddress: String? = null,
     val environment: Map<String, String> = emptyMap(),
+    val standardInput: ByteArray? = null,
     val managedClientBridge: ManagedClientSocksBridgeSpec? = null,
     val redactedValues: List<String> = emptyList(),
 )

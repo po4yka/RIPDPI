@@ -3,12 +3,13 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NaiveProxyRuntimePolicyTest {
     @Test
-    fun `manager command arguments match final native cli contract`() {
+    fun `manager command arguments do not expose credentials in argv`() {
         val config =
             sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
                 server = "proxy.example",
@@ -33,15 +34,36 @@ class NaiveProxyRuntimePolicyTest {
                 "8443",
                 "--server-name",
                 "sni.example",
-                "--username",
-                "alice",
-                "--password",
-                "secret",
+                "--credentials-stdin",
                 "--path",
                 "/proxy",
             ),
             args,
         )
+        assertFalse(args.contains("alice"))
+        assertFalse(args.contains("secret"))
+    }
+
+    @Test
+    fun `manager writes naive credentials to stdin payload`() {
+        val config =
+            sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
+                naiveUsername = "alice",
+                naivePassword = "secret",
+            )
+
+        assertEquals("YWxpY2U=\nc2VjcmV0\n", naiveProxyCredentialsStdin(config)?.toString(Charsets.UTF_8))
+    }
+
+    @Test
+    fun `manager omits credential stdin payload when auth is absent`() {
+        val config =
+            sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
+                naiveUsername = null,
+                naivePassword = null,
+            )
+
+        assertNull(naiveProxyCredentialsStdin(config))
     }
 
     @Test

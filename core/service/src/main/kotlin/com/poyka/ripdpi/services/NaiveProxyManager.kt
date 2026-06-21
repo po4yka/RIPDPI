@@ -8,10 +8,12 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.delay
+import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val NaiveProxyBinaryName = "ripdpi-naiveproxy"
+private const val NaiveProxyCredentialsStdinFlag = "--credentials-stdin"
 private const val NaiveProxyRestartDelayMs = 750L
 private const val NaiveProxyDnsRestartDelayMs = 1_500L
 private const val NaiveProxyRestartBudgetWindowMs = 60_000L
@@ -53,19 +55,27 @@ internal fun naiveProxyCommandArguments(config: ResolvedRipDpiRelayConfig): List
         add(config.serverPort.toString())
         add("--server-name")
         add(config.serverName)
-        config.naiveUsername?.let {
-            add("--username")
-            add(it)
-        }
-        config.naivePassword?.let {
-            add("--password")
-            add(it)
+        if (config.naiveUsername != null || config.naivePassword != null) {
+            add(NaiveProxyCredentialsStdinFlag)
         }
         config.naivePath.takeIf(String::isNotBlank)?.let {
             add("--path")
             add(it)
         }
     }
+
+internal fun naiveProxyCredentialsStdin(config: ResolvedRipDpiRelayConfig): ByteArray? {
+    if (config.naiveUsername == null && config.naivePassword == null) {
+        return null
+    }
+    val encoder = Base64.getEncoder()
+    return buildString {
+        append(encoder.encodeToString(config.naiveUsername.orEmpty().toByteArray(Charsets.UTF_8)))
+        append('\n')
+        append(encoder.encodeToString(config.naivePassword.orEmpty().toByteArray(Charsets.UTF_8)))
+        append('\n')
+    }.toByteArray(Charsets.UTF_8)
+}
 
 @Singleton
 class NaiveProxyManager
@@ -84,6 +94,7 @@ class NaiveProxyManager
                         upstreamAddress = "${config.server}:${config.serverPort}",
                         redactedValues = listOfNotNull(config.naiveUsername, config.naivePassword),
                         commandArguments = naiveProxyCommandArguments(config),
+                        standardInput = naiveProxyCredentialsStdin(config),
                     ),
             )
         }

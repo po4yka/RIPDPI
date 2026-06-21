@@ -20,6 +20,18 @@ internal class SubprocessRelayProcessSupervisor(
     ): Process {
         val activeProcess = processBuilder.start()
         process = activeProcess
+        try {
+            spec.standardInput?.let { payload ->
+                activeProcess.outputStream.use { input ->
+                    input.write(payload)
+                    input.flush()
+                }
+            }
+        } catch (error: IOException) {
+            activeProcess.destroyForcibly()
+            process = null
+            throw error
+        }
         processOutputThread = startProcessOutputThread(activeProcess, spec, onOutputEvent)
         return activeProcess
     }

@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{self, Read};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -45,10 +45,15 @@ impl std::fmt::Debug for NaiveProxyConfig {
 }
 
 pub(crate) fn parse_config() -> io::Result<NaiveProxyConfig> {
-    parse_config_from(pico_args::Arguments::from_env())
+    let stdin = io::stdin();
+    let mut stdin = stdin.lock();
+    parse_config_from_reader(pico_args::Arguments::from_env(), &mut stdin)
 }
 
-pub(crate) fn parse_config_from(mut args: pico_args::Arguments) -> io::Result<NaiveProxyConfig> {
+pub(crate) fn parse_config_from_reader(
+    mut args: pico_args::Arguments,
+    mut credentials_input: impl Read,
+) -> io::Result<NaiveProxyConfig> {
     let listen = optional_value(&mut args, "--listen")?.unwrap_or_else(|| "127.0.0.1:11980".to_owned());
     let server_value: String = args
         .opt_value_from_str::<_, String>("--server")
@@ -62,8 +67,9 @@ pub(crate) fn parse_config_from(mut args: pico_args::Arguments) -> io::Result<Na
         .map_err(invalid_args)?
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing --server-name"))?;
-    let username = normalize_optional(optional_value(&mut args, "--username")?.as_deref());
-    let password = normalize_optional(optional_value(&mut args, "--password")?.as_deref());
+    let use_credentials_stdin = args.contains("--credentials-stdin");
+    let (username, password) =
+        if use_credentials_stdin { read_credentials_from_stdin(&mut credentials_input)? } else { (None, None) };
     if username.is_some() ^ password.is_some() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -85,6 +91,36 @@ pub(crate) fn parse_config_from(mut args: pico_args::Arguments) -> io::Result<Na
         password,
         path,
         tls_config: default_tls_config(),
+    })
+}
+
+fn read_credentials_from_stdin(input: &mut impl Read) -> io::Result<(Option<String>, Option<String>)> {
+    let mut payload = String::new();
+    input.read_to_string(&mut payload)?;
+    let mut lines = payload.lines();
+    let username = decode_stdin_credential(lines.next(), "username")?;
+    let password = decode_stdin_credential(lines.next(), "password")?;
+    if lines.any(|line| !line.trim().is_empty()) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "NaiveProxy credential stdin contains unexpected extra data",
+        ));
+    }
+    Ok((normalize_optional(username.as_deref()), normalize_optional(password.as_deref())))
+}
+
+fn decode_stdin_credential(value: Option<&str>, field_name: &str) -> io::Result<Option<String>> {
+    let Some(encoded) = value.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let decoded = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, encoded).map_err(|error| {
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("invalid NaiveProxy {field_name} credential encoding: {error}"),
+        )
+    })?;
+    String::from_utf8(decoded).map(Some).map_err(|error| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid NaiveProxy {field_name} credential text: {error}"))
     })
 }
 
