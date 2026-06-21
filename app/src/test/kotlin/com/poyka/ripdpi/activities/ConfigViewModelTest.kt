@@ -248,6 +248,25 @@ class ConfigViewModelTest {
     }
 
     @Test
+    fun `relay validation accepts VLESS Reality without short id`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindVlessReality,
+                    relayServer = "relay.example",
+                    relayServerPort = "443",
+                    relayServerName = "relay.example",
+                    relayRealityPublicKey = "public-key",
+                    relayRealityShortId = "",
+                    relayVlessUuid = "00000000-0000-0000-0000-000000000000",
+                ),
+            )
+
+        assertEquals(null, errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
     fun `relay validation rejects Cloudflare Tunnel UDP mode and missing uuid`() {
         val errors =
             validateConfigDraft(

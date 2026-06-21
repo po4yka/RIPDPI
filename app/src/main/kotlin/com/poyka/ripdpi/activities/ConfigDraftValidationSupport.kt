@@ -70,7 +70,6 @@ internal fun validateConfigDraft(
                     val isVlessRealityIncomplete =
                         draft.relayServerName.isBlank() ||
                             draft.relayRealityPublicKey.isBlank() ||
-                            draft.relayRealityShortId.isBlank() ||
                             draft.relayVlessUuid.isBlank()
                     if (isVlessRealityIncomplete) {
                         put(ConfigFieldRelayCredentials, "required")
