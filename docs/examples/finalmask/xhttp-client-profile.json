@@ -4,7 +4,7 @@
   "presetId": "finalmask-xhttp",
   "server": "origin.example.com",
   "serverName": "edge.example.com",
-  "realityPublicKey": "public-key",
+  "realityPublicKey": "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s=",
   "realityShortId": "abcd1234",
   "vlessTransport": "xhttp",
   "xhttpPath": "/xhttp",

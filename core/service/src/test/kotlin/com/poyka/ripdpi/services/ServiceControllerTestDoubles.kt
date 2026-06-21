@@ -905,6 +905,11 @@ internal class TestUpstreamRelayRuntimeConfigResolver(
     }
 }
 
+internal const val TestVlessRealityPublicKey = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="
+internal const val TestVlessRealityShortId = "abcd1234"
+internal const val TestVlessRealityEntryShortId = "11112222"
+internal const val TestVlessRealityExitShortId = "22223333"
+
 internal fun sampleResolvedRelayConfig(
     kind: String = RelayKindVlessReality,
     profileId: String = "edge",
@@ -916,8 +921,8 @@ internal fun sampleResolvedRelayConfig(
         server = "relay.example",
         serverPort = 443,
         serverName = "relay.example",
-        realityPublicKey = "public-key",
-        realityShortId = "abcd1234",
+        realityPublicKey = TestVlessRealityPublicKey,
+        realityShortId = TestVlessRealityShortId,
         chainEntryServer = "",
         chainEntryPort = 0,
         chainEntryServerName = "",

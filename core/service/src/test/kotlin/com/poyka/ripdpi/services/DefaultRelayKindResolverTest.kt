@@ -12,22 +12,39 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class DefaultRelayKindResolverTest {
     private val resolver = DefaultRelayKindResolver()
 
-    private fun request(config: RipDpiRelayConfig): RelayResolverRequest =
+    private fun request(
+        config: RipDpiRelayConfig,
+        credentials: RelayCredentialRecord? =
+            RelayCredentialRecord(
+                profileId = config.profileId,
+                vlessUuid = ValidVlessUuid,
+            ),
+    ): RelayResolverRequest =
         RelayResolverRequest(
             profileId = config.profileId,
             mergedConfig = config,
-            credentials =
-                RelayCredentialRecord(
-                    profileId = config.profileId,
-                    vlessUuid = "00000000-0000-0000-0000-000000000000",
-                ),
+            credentials = credentials,
             requestedTlsProfile = TlsFingerprintProfileChromeStable,
             featureFlags = emptyMap(),
+        )
+
+    private fun vlessRealityConfig(): RipDpiRelayConfig =
+        RipDpiRelayConfig(
+            enabled = true,
+            kind = RelayKindVlessReality,
+            profileId = "p0",
+            server = "relay.example.com",
+            serverPort = 443,
+            serverName = "relay.example.com",
+            realityPublicKey = ValidRealityPublicKey,
+            realityShortId = ValidRealityShortId,
+            vlessTransport = RelayVlessTransportRealityTcp,
         )
 
     @Test
@@ -42,22 +59,52 @@ class DefaultRelayKindResolverTest {
     fun `resolve routes vless reality tcp through the native vless path`() =
         runTest {
             val config =
-                RipDpiRelayConfig(
-                    enabled = true,
-                    kind = RelayKindVlessReality,
-                    profileId = "p0",
-                    server = "relay.example.com",
-                    serverPort = 443,
-                    serverName = "relay.example.com",
-                    realityPublicKey = "public-key",
-                    realityShortId = "short-id",
-                    vlessTransport = RelayVlessTransportRealityTcp,
-                )
+                vlessRealityConfig()
 
             val result = resolver.resolve(request(config))
 
             assertEquals(RelayKindVlessReality, result.effectiveConfig.kind)
             assertEquals(RelayVlessTransportRealityTcp, result.effectiveConfig.vlessTransport)
+        }
+
+    @Test
+    fun `resolve accepts vless reality without short id`() =
+        runTest {
+            val result = resolver.resolve(request(vlessRealityConfig().copy(realityShortId = "")))
+
+            assertEquals("", result.effectiveConfig.realityShortId)
+        }
+
+    @Test
+    fun `resolve rejects malformed vless reality public key`() =
+        runTest {
+            assertRejectsVlessRealityConfig(
+                config = vlessRealityConfig().copy(realityPublicKey = "public-key"),
+                expectedMessage = "VLESS Reality public key",
+            )
+        }
+
+    @Test
+    fun `resolve rejects malformed vless reality short id`() =
+        runTest {
+            assertRejectsVlessRealityConfig(
+                config = vlessRealityConfig().copy(realityShortId = "short-id"),
+                expectedMessage = "VLESS Reality short ID",
+            )
+        }
+
+    @Test
+    fun `resolve rejects malformed vless uuid`() =
+        runTest {
+            assertRejectsVlessRealityConfig(
+                config = vlessRealityConfig(),
+                credentials =
+                    RelayCredentialRecord(
+                        profileId = "p0",
+                        vlessUuid = "not-a-vless-uuid",
+                    ),
+                expectedMessage = "Relay credentials missing",
+            )
         }
 
     @Test
@@ -93,5 +140,28 @@ class DefaultRelayKindResolverTest {
         assertFalse(LocalPathRelayKindResolver().supports(RelayKindVless))
         // sanity: they still claim their own kinds
         assertTrue(CloudflareTunnelRelayKindResolver().supports(RelayKindCloudflareTunnel))
+    }
+
+    private suspend fun assertRejectsVlessRealityConfig(
+        config: RipDpiRelayConfig,
+        credentials: RelayCredentialRecord? =
+            RelayCredentialRecord(
+                profileId = config.profileId,
+                vlessUuid = ValidVlessUuid,
+            ),
+        expectedMessage: String,
+    ) {
+        try {
+            resolver.resolve(request(config, credentials))
+            fail("Expected VLESS Reality config to be rejected")
+        } catch (exception: IllegalArgumentException) {
+            assertTrue(exception.message.orEmpty().contains(expectedMessage))
+        }
+    }
+
+    private companion object {
+        private const val ValidVlessUuid = "00000000-0000-0000-0000-000000000000"
+        private const val ValidRealityPublicKey = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="
+        private const val ValidRealityShortId = "abcd1234"
     }
 }

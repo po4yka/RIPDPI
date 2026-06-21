@@ -44,8 +44,8 @@ class ChainRelayTrustDomainResolverTest {
                                     server = "entry.example",
                                     serverPort = 443,
                                     serverName = "entry-sni.example",
-                                    realityPublicKey = "entry-public",
-                                    realityShortId = "entry-short",
+                                    realityPublicKey = TestVlessRealityPublicKey,
+                                    realityShortId = TestVlessRealityEntryShortId,
                                 ),
                             )
                             save(
@@ -55,8 +55,8 @@ class ChainRelayTrustDomainResolverTest {
                                     server = "exit.example",
                                     serverPort = 8443,
                                     serverName = "exit-sni.example",
-                                    realityPublicKey = "exit-public",
-                                    realityShortId = "exit-short",
+                                    realityPublicKey = TestVlessRealityPublicKey,
+                                    realityShortId = TestVlessRealityExitShortId,
                                 ),
                             )
                         },
@@ -125,8 +125,8 @@ class ChainRelayTrustDomainResolverTest {
                                     server = "entry.example",
                                     serverPort = 443,
                                     serverName = "entry-sni.example",
-                                    realityPublicKey = "entry-public",
-                                    realityShortId = "entry-short",
+                                    realityPublicKey = TestVlessRealityPublicKey,
+                                    realityShortId = TestVlessRealityEntryShortId,
                                 ),
                             )
                             save(
@@ -202,6 +202,8 @@ class ChainRelayTrustDomainResolverTest {
                                     operatorName = "Entry Transit",
                                     server = "entry.example",
                                     serverName = "entry.example",
+                                    realityPublicKey = TestVlessRealityPublicKey,
+                                    realityShortId = TestVlessRealityEntryShortId,
                                 ),
                             )
                             save(
@@ -250,6 +252,8 @@ class ChainRelayTrustDomainResolverTest {
                                     operatorName = "Acme Relay",
                                     server = "entry.example",
                                     serverName = "entry.example",
+                                    realityPublicKey = TestVlessRealityPublicKey,
+                                    realityShortId = TestVlessRealityEntryShortId,
                                 ),
                             )
                             save(
@@ -292,6 +296,8 @@ class ChainRelayTrustDomainResolverTest {
                                     kind = RelayKindVlessReality,
                                     server = "entry.example",
                                     serverName = "entry.example",
+                                    realityPublicKey = TestVlessRealityPublicKey,
+                                    realityShortId = TestVlessRealityEntryShortId,
                                 ),
                             )
                             save(
@@ -422,8 +428,8 @@ class ChainRelayTrustDomainResolverTest {
             server = server,
             serverPort = port,
             serverName = "$sni.example",
-            realityPublicKey = "$sni-public",
-            realityShortId = "$sni-short",
+            realityPublicKey = TestVlessRealityPublicKey,
+            realityShortId = TestVlessRealityShortId,
         )
 
     private suspend fun threeHopChainCredentialStore(): TestRelayCredentialStore =

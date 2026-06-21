@@ -219,7 +219,15 @@ private suspend fun resolveChainRelayHopSupport(
     require(legacyServerName.isNotBlank() && legacyPublicKey.isNotBlank() && legacyShortId.isNotBlank()) {
         "Chain relay legacy $hopName settings are incomplete"
     }
-    require(!legacyUuid.isNullOrBlank()) { "Relay credentials missing for chain relay $hopName" }
+    val checkedLegacyUuid = legacyUuid.orEmpty()
+    require(isValidVlessUuid(checkedLegacyUuid)) { "Relay credentials missing for chain relay $hopName" }
+    validateVlessRealityFields(
+        server = legacyServer,
+        serverPort = legacyServerPort,
+        serverName = legacyServerName,
+        realityPublicKey = legacyPublicKey,
+        realityShortId = legacyShortId,
+    )
     return ResolvedChainRelayHop(
         profileId = "",
         trustDomain = RelayTrustDomain(),
@@ -228,7 +236,7 @@ private suspend fun resolveChainRelayHopSupport(
         serverName = legacyServerName,
         publicKey = legacyPublicKey,
         shortId = legacyShortId,
-        uuid = legacyUuid,
+        uuid = checkedLegacyUuid,
         config =
             ResolvedChainRelayHopConfig(
                 kind = RelayKindVlessReality,
@@ -238,7 +246,7 @@ private suspend fun resolveChainRelayHopSupport(
                 realityPublicKey = legacyPublicKey,
                 realityShortId = legacyShortId,
                 vlessTransport = RelayVlessTransportRealityTcp,
-                vlessUuid = legacyUuid,
+                vlessUuid = checkedLegacyUuid,
             ),
     )
 }
@@ -373,9 +381,18 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
 
 private fun validateChainHopCredentials(hop: ResolvedChainRelayHopConfig) {
     when (hop.kind) {
-        RelayKindVlessReality,
-        RelayKindCloudflareTunnel,
-        -> {
+        RelayKindVlessReality -> {
+            require(isValidVlessUuid(hop.vlessUuid)) { "Relay credentials missing for profile ${hop.profileId}" }
+            validateVlessRealityFields(
+                server = hop.server,
+                serverPort = hop.serverPort,
+                serverName = hop.serverName,
+                realityPublicKey = hop.realityPublicKey,
+                realityShortId = hop.realityShortId,
+            )
+        }
+
+        RelayKindCloudflareTunnel -> {
             require(!hop.vlessUuid.isNullOrBlank()) { "Relay credentials missing for profile ${hop.profileId}" }
         }
 
