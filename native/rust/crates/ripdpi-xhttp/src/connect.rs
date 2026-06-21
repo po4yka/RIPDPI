@@ -138,7 +138,7 @@ mod tests {
     use tokio::net::TcpListener;
 
     use super::*;
-    use crate::config::XhttpSocketProtector;
+    use crate::config::{FinalmaskConfig, XhttpProtocolMode, XhttpRealityConfig, XhttpSocketProtector, XmuxConfig};
 
     #[tokio::test]
     async fn tcp_connect_invokes_socket_protector_before_connect() {
@@ -200,5 +200,45 @@ mod tests {
 
         assert!(protect_ran.load(Ordering::SeqCst), "the protected DNS bootstrap socket was protected");
         assert!(err.to_string().contains("xHTTP protected resolver sentinel"), "unexpected protected DNS error: {err}",);
+    }
+
+    #[tokio::test]
+    async fn reality_mode_hostname_resolution_uses_socket_protector_before_dns_bootstrap() {
+        let protect_ran = Arc::new(AtomicBool::new(false));
+        let protect_ran_cb = Arc::clone(&protect_ran);
+        let protector = XhttpSocketProtector::new(move |_fd| {
+            protect_ran_cb.store(true, Ordering::SeqCst);
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "xHTTP Reality protected resolver sentinel"))
+        });
+        let vless = ripdpi_vless::config::VlessRealityConfig::from_strings(
+            "relay.invalid",
+            443,
+            "550e8400-e29b-41d4-a716-446655440000",
+            "relay.invalid",
+            "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s=",
+            "abcd",
+            "chrome_stable",
+        )
+        .expect("valid VLESS Reality config");
+        let mode = XhttpMode::Reality(XhttpRealityConfig {
+            vless,
+            path: "/xhttp".to_string(),
+            host: None,
+            bind_ip: None,
+            socket_protector: Some(protector),
+            xmux: XmuxConfig::default(),
+            finalmask: FinalmaskConfig::default(),
+            protocol_mode: XhttpProtocolMode::default(),
+        });
+
+        let Err(err) = create_connection(&mode, 1).await else {
+            panic!("xHTTP Reality hostname resolution must fail through protected DNS bootstrap");
+        };
+
+        assert!(protect_ran.load(Ordering::SeqCst), "the Reality DNS bootstrap socket was protected");
+        assert!(
+            err.to_string().contains("xHTTP Reality protected resolver sentinel"),
+            "unexpected protected DNS error: {err}",
+        );
     }
 }
