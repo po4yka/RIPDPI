@@ -14,6 +14,7 @@ log.workspace = true
 rustls.workspace = true
 serde_json.workspace = true
 ripdpi-apps-script-core.workspace = true
+ripdpi-native-protect.workspace = true
 ripdpi-quality.workspace = true
 ripdpi-relay-core.workspace = true
 serde.workspace = true

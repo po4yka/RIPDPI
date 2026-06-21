@@ -4,6 +4,7 @@ use std::io;
 use std::net::IpAddr;
 
 use ripdpi_relay_mux::RelayPoolConfig;
+use ripdpi_xhttp::XhttpSocketProtector;
 
 use crate::backend::RelayBackend;
 use crate::config::ResolvedRelayRuntimeConfig;
@@ -19,8 +20,16 @@ use crate::transport_descriptor::relay_transport_registration;
 /// kind) yields `RelayBackend::Unsupported` — the relay then runs out-of-process
 /// or fails fast, exactly as before this dispatch moved onto the registry.
 pub(crate) async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayBackend> {
+    build_backend_with_socket_protector(config, None).await
+}
+
+pub(crate) async fn build_backend_with_socket_protector(
+    config: &ResolvedRelayRuntimeConfig,
+    socket_protector: Option<XhttpSocketProtector>,
+) -> io::Result<RelayBackend> {
     let context = BuildContext {
         outbound_bind_ip: parse_outbound_bind_ip(&config.common.outbound_bind_ip)?,
+        socket_protector,
         pool_config: pool_config_for_backend(config),
         quic_migration: QuicMigrationTelemetryState::default(),
     };
@@ -33,6 +42,7 @@ pub(crate) async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Re
 
 pub(crate) struct BuildContext {
     pub(crate) outbound_bind_ip: Option<IpAddr>,
+    pub(crate) socket_protector: Option<XhttpSocketProtector>,
     pub(crate) pool_config: RelayPoolConfig,
     pub(crate) quic_migration: QuicMigrationTelemetryState,
 }

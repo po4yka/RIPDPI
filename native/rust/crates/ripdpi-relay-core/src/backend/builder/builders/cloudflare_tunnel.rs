@@ -21,6 +21,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     )
     .map_err(invalid_input)?;
     tls.bind_ip = context.outbound_bind_ip;
+    tls.socket_protector = context.socket_protector.clone();
     tls.finalmask = finalmask_config(&config.common.finalmask);
 
     Ok(RelayBackend::Xhttp(PooledRelayBackend::new(

@@ -247,11 +247,11 @@ a deliberate follow-up rather than a mechanical refactor:
 - **VPN protect callback** — registered by
   `jniRegisterVpnProtect(vpnService): jlong`, cleared by
   `jniUnregisterVpnProtect(token: jlong)`. These are `@JvmStatic` companion
-  `external fun`s on **both** `RipDpiProxyNativeBindings` and
-  `RipDpiWarpNativeBindings`. Register returns a generation token;
+  `external fun`s on `RipDpiProxyNativeBindings`, `RipDpiRelayNativeBindings`,
+  `RipDpiWarpNativeBindings`, and `RipDpiAmneziaWgNativeBindings`. Register returns a generation token;
   `VpnNativeProtectRegistration`
-  (`core/service/.../services/VpnNativeProtectRegistration.kt`) keeps the proxy
-  and WARP tokens, calls both registers on VPN start, and passes each token
+  (`core/service/.../services/VpnNativeProtectRegistration.kt`) keeps the proxy,
+  relay, WARP, and AWG tokens, calls all registers on VPN start, and passes each token
   back to its unregister on VPN stop. Registration and unregistration must be
   **symmetric** — see [§10](#10-vpnserviceprotect-callback-rules); the
   generation guard makes an *asymmetric* (stale) unregister a safe no-op rather
@@ -362,8 +362,8 @@ returning the generation token (see
 `JniProtectCallback::protect(fd)` (`ripdpi-android-vpn-protect-adapter/src/lib.rs`)
 does `vm.attach_current_thread(|env| env.call_method(vpn_service, "protect",
 "(I)Z", [fd]))`. Result mapping: `true` → `Ok(())`; `false` → `PermissionDenied`;
-JNI error → `io::Error::other`. The same path exists for WARP via
-`ripdpi-warp-android/src/vpn_protect.rs`.
+JNI error → `io::Error::other`. The same path exists for relay xHTTP, WARP, and
+AmneziaWG via the sibling `vpn_protect.rs` modules in their Android cdylib crates.
 
 **Mechanism B — Unix-domain-socket fallback.**
 `VpnProtectSocketServer` (`core/service/.../services/VpnProtectSocketServer.kt`)

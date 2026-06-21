@@ -1,12 +1,13 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr};
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use hyper::client::conn::http2;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use tokio::net::{TcpSocket, TcpStream};
 
-use crate::config::XhttpMode;
+use crate::config::{XhttpMode, XhttpSocketProtector};
 use crate::finalmask;
 use crate::pool::PooledConnection;
 
@@ -22,7 +23,13 @@ pub(crate) async fn create_connection(
     let io = match mode {
         XhttpMode::Reality(config) => {
             let transport = finalmask::wrap_tcp_stream(
-                connect_tcp_stream(&config.vless.server, config.vless.port, config.bind_ip).await?,
+                connect_tcp_stream(
+                    &config.vless.server,
+                    config.vless.port,
+                    config.bind_ip,
+                    config.socket_protector.as_ref(),
+                )
+                .await?,
                 &config.finalmask,
             )?;
             let tls = ripdpi_vless::reality::connect_reality_tls_over(transport, &config.vless).await?;
@@ -30,7 +37,8 @@ pub(crate) async fn create_connection(
         }
         XhttpMode::Tls(config) => {
             let transport = finalmask::wrap_tcp_stream(
-                connect_tcp_stream(&config.server, config.port, config.bind_ip).await?,
+                connect_tcp_stream(&config.server, config.port, config.bind_ip, config.socket_protector.as_ref())
+                    .await?,
                 &config.finalmask,
             )?;
             // Resolve the fingerprint profile per connection: the `rotating`
@@ -85,7 +93,12 @@ pub(crate) async fn create_connection(
     Ok(pooled)
 }
 
-async fn connect_tcp_stream(server: &str, port: u16, bind_ip: Option<IpAddr>) -> io::Result<TcpStream> {
+async fn connect_tcp_stream(
+    server: &str,
+    port: u16,
+    bind_ip: Option<IpAddr>,
+    socket_protector: Option<&XhttpSocketProtector>,
+) -> io::Result<TcpStream> {
     let target = resolve_server_addr(server, port, bind_ip).await?;
     let socket = match target {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
@@ -103,6 +116,9 @@ async fn connect_tcp_stream(server: &str, port: u16, bind_ip: Option<IpAddr>) ->
             }
         };
         socket.bind(bind_addr)?;
+    }
+    if let Some(protector) = socket_protector {
+        protector.protect(socket.as_raw_fd())?;
     }
     let stream = socket.connect(target).await?;
     stream.set_nodelay(true)?;
@@ -126,5 +142,63 @@ async fn resolve_server_addr(server: &str, port: u16, bind_ip: Option<IpAddr>) -
         candidates
             .next()
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "xHTTP server resolved to no addresses"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+    use std::time::Duration;
+
+    use tokio::net::TcpListener;
+
+    use super::*;
+    use crate::config::XhttpSocketProtector;
+
+    #[tokio::test]
+    async fn tcp_connect_invokes_socket_protector_before_connect() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind listener");
+        let port = listener.local_addr().expect("local addr").port();
+        let protect_ran = Arc::new(AtomicBool::new(false));
+        let observed_fd = Arc::new(AtomicI32::new(-1));
+        let protect_ran_cb = Arc::clone(&protect_ran);
+        let observed_fd_cb = Arc::clone(&observed_fd);
+        let protector = XhttpSocketProtector::new(move |fd| {
+            observed_fd_cb.store(fd, Ordering::SeqCst);
+            protect_ran_cb.store(true, Ordering::SeqCst);
+            Ok(())
+        });
+
+        let accept = tokio::spawn(async move { listener.accept().await.expect("accept").0 });
+        let stream =
+            connect_tcp_stream("127.0.0.1", port, None, Some(&protector)).await.expect("protected xHTTP TCP connect");
+
+        assert!(protect_ran.load(Ordering::SeqCst), "the socket protector must run before connect completes");
+        assert!(observed_fd.load(Ordering::SeqCst) >= 0, "the protector saw the real socket fd");
+        drop(stream);
+        drop(accept.await.expect("accept task"));
+    }
+
+    #[tokio::test]
+    async fn tcp_connect_fails_closed_when_socket_protector_rejects() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind listener");
+        let port = listener.local_addr().expect("local addr").port();
+        let protect_ran = Arc::new(AtomicBool::new(false));
+        let protect_ran_cb = Arc::clone(&protect_ran);
+        let protector = XhttpSocketProtector::new(move |_fd| {
+            protect_ran_cb.store(true, Ordering::SeqCst);
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "protect rejected"))
+        });
+
+        let err = connect_tcp_stream("127.0.0.1", port, None, Some(&protector))
+            .await
+            .expect_err("rejecting protector must abort before connect");
+
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied, "protector error propagates");
+        assert!(protect_ran.load(Ordering::SeqCst), "the socket protector was consulted");
+        let accepted = tokio::time::timeout(Duration::from_millis(100), listener.accept()).await;
+        assert!(accepted.is_err(), "no unprotected TCP connection may be established after protect rejection");
     }
 }

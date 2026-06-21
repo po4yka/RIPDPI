@@ -15,7 +15,6 @@ use crate::protocols::{
 use crate::socks::RelayTargetAddr;
 use crate::telemetry::{ChainHopTelemetrySnapshot, ChainHopTelemetryState};
 
-pub(crate) use builder::build_backend;
 pub(crate) use pool::{BoxedIo, PooledRelayBackend};
 
 macro_rules! dispatch_pooled_backend {

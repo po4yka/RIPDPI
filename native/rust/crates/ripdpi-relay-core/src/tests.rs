@@ -18,7 +18,8 @@ mod shutdown_drain;
 mod tls_in_tls_exposure;
 mod transport_registry;
 
-use crate::backend::{RelayBackend, build_backend};
+use crate::backend::RelayBackend;
+use crate::backend::builder::build_backend;
 use crate::bootstrap::{RelayEndpointBootstrapResolver, bootstrap_relay_endpoints_with};
 use crate::config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,

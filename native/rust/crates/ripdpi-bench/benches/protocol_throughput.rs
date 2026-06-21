@@ -117,6 +117,7 @@ fn bench_vless_over_xhttp_reality(c: &mut Criterion, rt: &Runtime) {
         path: "/tunnel".to_string(),
         host: None,
         bind_ip: None,
+        socket_protector: None,
         xmux: ripdpi_xhttp::XmuxConfig::default(),
         finalmask: ripdpi_xhttp::FinalmaskConfig::default(),
         protocol_mode: ripdpi_xhttp::XhttpProtocolMode::default(),

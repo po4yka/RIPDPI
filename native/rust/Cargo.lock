@@ -6216,6 +6216,7 @@ dependencies = [
  "jni",
  "log",
  "ripdpi-apps-script-core",
+ "ripdpi-native-protect",
  "ripdpi-quality",
  "ripdpi-relay-core",
  "rustls",

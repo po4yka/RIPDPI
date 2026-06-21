@@ -64,6 +64,7 @@ mod tests {
     fn build_context() -> BuildContext {
         BuildContext {
             outbound_bind_ip: None,
+            socket_protector: None,
             pool_config: RelayPoolConfig::default(),
             quic_migration: QuicMigrationTelemetryState::default(),
         }

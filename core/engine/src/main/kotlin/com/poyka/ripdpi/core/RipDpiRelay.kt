@@ -35,9 +35,11 @@ import kotlin.coroutines.coroutineContext
  * error code `1` rather than blocking.
  *
  * ## fd ownership
- * The relay adopts no externally supplied file descriptors and exposes no JNI
- * callback channel — it opens a loopback SOCKS listener and its own outbound
- * transport sockets, and closes them within the native session.
+ * The relay adopts no externally supplied file descriptors — it opens a loopback
+ * SOCKS listener and its own outbound transport sockets, and closes them within
+ * the native session. Outbound xHTTP transport sockets are kept off the VPN
+ * tunnel via [RipDpiRelayNativeBindings.jniRegisterVpnProtect]; register before
+ * [create]/[start] so a relay endpoint cannot route back into the TUN.
  *
  * ## Error mapping
  * The relay bindings report failure purely through return values, **not** Java
@@ -103,6 +105,28 @@ class RipDpiRelayNativeBindings
             init {
                 RipDpiRelayNativeLoader.ensureLoaded()
             }
+
+            /**
+             * Register a VPN socket protection callback for the relay library.
+             *
+             * Stores a JNI `GlobalRef` to [vpnService] so native xHTTP relay
+             * transports can call `VpnService.protect(fd)` before connecting
+             * their carrier TCP sockets. Must be called before [create]/[start].
+             *
+             * Returns a generation token. Pass it to [jniUnregisterVpnProtect]
+             * so a stale unregister cannot clear a newer session's callback.
+             * A `0` return means registration failed.
+             */
+            @JvmStatic
+            external fun jniRegisterVpnProtect(vpnService: Any): Long
+
+            /**
+             * Unregister the relay VPN socket protection callback and release
+             * the `GlobalRef` held since [jniRegisterVpnProtect]. A stale token
+             * or `0` token is a safe no-op.
+             */
+            @JvmStatic
+            external fun jniUnregisterVpnProtect(token: Long)
         }
 
         override fun create(configJson: String): Long = jniCreate(configJson)

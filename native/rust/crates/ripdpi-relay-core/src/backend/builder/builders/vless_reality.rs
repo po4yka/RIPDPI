@@ -40,6 +40,7 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
                 path: vless.xhttp_path.clone(),
                 host: if vless.xhttp_host.trim().is_empty() { None } else { Some(vless.xhttp_host.trim().to_owned()) },
                 bind_ip: context.outbound_bind_ip,
+                socket_protector: context.socket_protector.clone(),
                 xmux: ripdpi_xhttp::XmuxConfig::default(),
                 finalmask: finalmask_config(&config.common.finalmask),
                 protocol_mode: ripdpi_xhttp::XhttpProtocolMode::default(),

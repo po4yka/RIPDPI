@@ -12,7 +12,7 @@ mod relay;
 pub use client::{XhttpClient, connect_reality, connect_tls};
 pub use config::{
     AsyncIo, ConfigError, FinalmaskConfig, ProtocolModeParseError, XhttpProtocolMode, XhttpRealityConfig,
-    XhttpTlsConfig, XmuxConfig,
+    XhttpSocketProtector, XhttpTlsConfig, XmuxConfig,
 };
 #[doc(hidden)]
 pub use finalmask::{__fuzz_decode_finalmask_payload, __fuzz_parse_finalmask_spec};

@@ -10,7 +10,9 @@ use std::time::Duration;
 
 use tokio::net::TcpListener;
 
-use crate::backend::build_backend;
+use ripdpi_xhttp::XhttpSocketProtector;
+
+use crate::backend::builder::{build_backend, build_backend_with_socket_protector};
 use crate::bootstrap::bootstrap_relay_endpoints;
 use crate::config::ResolvedRelayRuntimeConfig;
 use crate::runtime::events::{emit_runtime_ready, emit_runtime_stopped};
@@ -31,12 +33,24 @@ const SESSION_DRAIN_GRACE: Duration = Duration::from_secs(5);
 
 pub struct RelayRuntime {
     config: ResolvedRelayRuntimeConfig,
+    socket_protector: Option<XhttpSocketProtector>,
     state: RuntimeState,
 }
 
 impl RelayRuntime {
     pub fn new(config: ResolvedRelayRuntimeConfig) -> Arc<Self> {
-        Arc::new(Self { config, state: RuntimeState::new() })
+        Arc::new(Self { config, socket_protector: None, state: RuntimeState::new() })
+    }
+
+    pub fn with_socket_protector<P>(config: ResolvedRelayRuntimeConfig, protector: P) -> Arc<Self>
+    where
+        P: Fn(std::os::fd::RawFd) -> io::Result<()> + Send + Sync + 'static,
+    {
+        Arc::new(Self {
+            config,
+            socket_protector: Some(XhttpSocketProtector::new(protector)),
+            state: RuntimeState::new(),
+        })
     }
 
     pub fn stop(&self) {
@@ -70,7 +84,12 @@ impl RelayRuntime {
 
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
         let bootstrapped_config = bootstrap_relay_endpoints(&self.config).await?;
-        let backend = Arc::new(build_backend(&bootstrapped_config).await?);
+        let backend = match self.socket_protector.clone() {
+            Some(protector) => {
+                Arc::new(build_backend_with_socket_protector(&bootstrapped_config, Some(protector)).await?)
+            }
+            None => Arc::new(build_backend(&bootstrapped_config).await?),
+        };
         validate_runtime_config(&bootstrapped_config, &backend)?;
         self.state.set_backend(Arc::clone(&backend))?;
 

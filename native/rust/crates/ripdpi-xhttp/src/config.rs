@@ -1,4 +1,8 @@
+use std::fmt;
+use std::io;
 use std::net::IpAddr;
+use std::os::fd::RawFd;
+use std::sync::Arc;
 
 use ripdpi_tls_profiles::OutboundEchConfig;
 use ripdpi_vless::addons::{FlowParseError, VlessFlow};
@@ -10,6 +14,30 @@ const DEFAULT_XMUX_MAX_CONCURRENT_STREAMS: usize = 32;
 
 pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
+
+#[derive(Clone)]
+pub struct XhttpSocketProtector {
+    protect: Arc<dyn Fn(RawFd) -> io::Result<()> + Send + Sync>,
+}
+
+impl XhttpSocketProtector {
+    pub fn new<P>(protect: P) -> Self
+    where
+        P: Fn(RawFd) -> io::Result<()> + Send + Sync + 'static,
+    {
+        Self { protect: Arc::new(protect) }
+    }
+
+    pub(crate) fn protect(&self, fd: RawFd) -> io::Result<()> {
+        (self.protect)(fd)
+    }
+}
+
+impl fmt::Debug for XhttpSocketProtector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("XhttpSocketProtector(..)")
+    }
+}
 
 /// xHTTP transport protocol mode (xray-core `Config.mode`).
 ///
@@ -100,6 +128,7 @@ pub struct XhttpRealityConfig {
     pub path: String,
     pub host: Option<String>,
     pub bind_ip: Option<IpAddr>,
+    pub socket_protector: Option<XhttpSocketProtector>,
     pub xmux: XmuxConfig,
     pub finalmask: FinalmaskConfig,
     /// xHTTP protocol mode. Defaults to [`XhttpProtocolMode::StreamUp`].
@@ -115,6 +144,7 @@ pub struct XhttpTlsConfig {
     pub path: String,
     pub host: Option<String>,
     pub bind_ip: Option<IpAddr>,
+    pub socket_protector: Option<XhttpSocketProtector>,
     pub tls_fingerprint_profile: String,
     pub xmux: XmuxConfig,
     pub finalmask: FinalmaskConfig,
@@ -152,6 +182,7 @@ impl XhttpTlsConfig {
             path: normalize_path(path),
             host: if host.trim().is_empty() { None } else { Some(host.trim().to_owned()) },
             bind_ip: None,
+            socket_protector: None,
             tls_fingerprint_profile: tls_fingerprint_profile.to_owned(),
             xmux: XmuxConfig::default(),
             finalmask: FinalmaskConfig::default(),
@@ -203,6 +234,14 @@ impl XhttpTlsConfig {
 
     pub fn with_ech_config(mut self, ech_config: OutboundEchConfig) -> Self {
         self.ech_config = Some(ech_config);
+        self
+    }
+
+    pub fn with_socket_protector<P>(mut self, protector: P) -> Self
+    where
+        P: Fn(RawFd) -> io::Result<()> + Send + Sync + 'static,
+    {
+        self.socket_protector = Some(XhttpSocketProtector::new(protector));
         self
     }
 }

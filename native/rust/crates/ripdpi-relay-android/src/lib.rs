@@ -14,12 +14,13 @@
 //! `2` (runtime error). `jniStop` signals the blocked `jniStart` to unwind.
 //! `jniDestroy` removes the session from the registry.
 //!
-//! ## Idempotency, fds, errors
+//! ## Idempotency, fds, callbacks, errors
 //! `jniStop` and `jniDestroy` are idempotent — each is a silent no-op on an
-//! unknown handle. The relay adopts no externally supplied fds and registers
-//! no VPN-protect callback (it serves a loopback SOCKS listener and owns its
-//! transport sockets). Failures are reported through return codes only, never
-//! Java exceptions; a contained panic yields the panic-default sentinel.
+//! unknown handle. The relay adopts no externally supplied fds; Android
+//! registers a VPN-protect callback before startup so xHTTP transport sockets
+//! are protected before connect. Failures are reported through return codes
+//! only, never Java exceptions; a contained panic yields the panic-default
+//! sentinel.
 //!
 //! See `docs/architecture/JNI_CONTRACT.md` §4 (handle lifecycle), §6 (panic
 //! containment) and §7 (error mapping).
@@ -39,6 +40,7 @@ mod readiness;
 mod registry;
 mod runtime;
 mod telemetry;
+mod vpn_protect;
 
 use android_support::ffi_boundary;
 use jni::objects::{JObject, JString};
@@ -104,6 +106,28 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniD
 ) {
     ffi_boundary((), move || {
         lifecycle::relay_destroy_entry(env, handle);
+    });
+}
+
+// @JvmStatic in a Kotlin companion object generates the JNI symbol on the
+// class itself (without $Companion / 00024Companion), not on the companion.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniRegisterVpnProtect(
+    env: EnvUnowned<'_>,
+    _thiz: JObject,
+    vpn_service: JObject,
+) -> jni::sys::jlong {
+    ffi_boundary(0, move || vpn_protect::register_from_jni(env, vpn_service))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniUnregisterVpnProtect(
+    _env: EnvUnowned<'_>,
+    _thiz: JObject,
+    token: jni::sys::jlong,
+) {
+    ffi_boundary((), move || {
+        vpn_protect::unregister_entry(token);
     });
 }
 
