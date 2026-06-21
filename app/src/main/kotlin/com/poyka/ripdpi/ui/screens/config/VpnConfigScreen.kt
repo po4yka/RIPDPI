@@ -141,16 +141,26 @@ private fun VpnProfileList(
     }
 
     uiState.vpnProfiles.take(VpnProfilePreviewLimit).forEachIndexed { index, profile ->
-        SettingsRow(
-            title = profile.selectorLabel,
-            subtitle = profile.trustLabel,
-            value = profile.kindLabel,
-            leadingIcon = RipDpiIcons.Public,
-            onClick = { onProfileShare(profile.id) },
-            showChevron = true,
-            showDivider = true,
-            testTag = RipDpiTestTags.configVpnProfileShare(profile.id),
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+            SettingsRow(
+                title = profile.selectorLabel,
+                subtitle = profile.trustLabel,
+                value = profile.kindLabel,
+                leadingIcon = RipDpiIcons.Public,
+                showDivider = false,
+                testTag = RipDpiTestTags.configVpnProfileRow(profile.id),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.profile_share_action),
+                onClick = { onProfileShare(profile.id) },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.configVpnProfileShare(profile.id)),
+                variant = RipDpiButtonVariant.Outline,
+                leadingIcon = RipDpiIcons.Share,
+            )
+        }
         if (index == VpnProfilePreviewLimit - 1 && uiState.vpnProfiles.size > VpnProfilePreviewLimit) {
             Text(
                 text =

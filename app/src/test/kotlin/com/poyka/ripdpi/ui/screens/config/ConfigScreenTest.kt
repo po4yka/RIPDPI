@@ -5,6 +5,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -302,10 +303,12 @@ class ConfigScreenTest {
     fun `vpn simple add server actions are prominent`() {
         var pasteClicks = 0
         var scanClicks = 0
+        val profileShareClicks = mutableListOf<String>()
         setConfigScreen(
             initialModeSection = ConfigModeSection.Vpn,
             onPasteServerLink = { pasteClicks += 1 },
             onScanServer = { scanClicks += 1 },
+            onProfileShare = { profileShareClicks += it },
             vpnProfiles =
                 persistentListOf(
                     RelayProfileUiState(
@@ -321,6 +324,9 @@ class ConfigScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSimple).assertExists()
         composeRule.onNodeWithText("Add profile").assertExists()
         composeRule
+            .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("default"))
+            .assertHasNoClickAction()
+        composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste)
             .assertHasClickAction()
             .performScrollTo()
@@ -330,10 +336,15 @@ class ConfigScreenTest {
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.configVpnProfileShare("default")).assertExists()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configVpnProfileShare("default"))
+            .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
         composeRule.runOnIdle {
             assertEquals("paste action should use the existing clipboard import callback", 1, pasteClicks)
             assertEquals("scan action should use the existing QR scanner callback", 1, scanClicks)
+            assertEquals(listOf("default"), profileShareClicks)
         }
     }
 
@@ -347,6 +358,7 @@ class ConfigScreenTest {
         onRetestStrategies: () -> Unit = {},
         onPasteServerLink: () -> Unit = {},
         onScanServer: () -> Unit = {},
+        onProfileShare: (String) -> Unit = {},
         uiPersona: String = "simple",
         vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
         activeMode: Mode = Mode.VPN,
@@ -375,6 +387,7 @@ class ConfigScreenTest {
                     onRetestStrategies = onRetestStrategies,
                     onPasteServerLink = onPasteServerLink,
                     onScanServer = onScanServer,
+                    onProfileShare = onProfileShare,
                     initialModeSection = initialModeSection,
                 )
             }

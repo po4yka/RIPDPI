@@ -80,6 +80,7 @@ internal object RipDpiTestTags {
     const val ConfigVpnAddServerPaste = "config-vpn-add-server-paste"
     const val ConfigVpnAddServerScan = "config-vpn-add-server-scan"
     const val ConfigVpnProfileList = "config-vpn-profile-list"
+    val configVpnProfileRow: (String) -> String = { profileId -> "config-vpn-profile-row-${sanitize(profileId)}" }
     const val ProfileShareQrCard = "profile-share-qr-card"
     const val ProfileShareQrImage = "profile-share-qr-image"
     const val ProfileShareLinkCard = "profile-share-link-card"
