@@ -96,8 +96,8 @@ classpath. Native-crate dependency direction is enforced separately by
 ## 4. Native Rust artifact map
 
 The Rust workspace is at [`native/rust/`](../../native/rust/Cargo.toml) — a
-Cargo workspace of 114 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
-builds it via the `ripdpi.android.rust-native` convention plugin: **four** JNI
+Cargo workspace of 115 crates. [`:core:engine`](../../core/engine/build.gradle.kts)
+builds it via the `ripdpi.android.rust-native` convention plugin: **five** JNI
 `.so` libraries, three managed Rust helper binaries, and pluggable-transport
 assets are packaged into the APK. See
 [`NATIVE_RUST.md`](NATIVE_RUST.md) for the full crate taxonomy and dependency map.
@@ -107,16 +107,17 @@ assets are packaged into the APK. See
 | `libripdpi.so` | JNI shared library | `crates/ripdpi-android` | `RipDpiProxy.kt`, `NetworkDiagnostics.kt` | Proxy, VPN, diagnostics, strategy engine |
 | `libripdpi-tunnel.so` | JNI shared library | `crates/ripdpi-tunnel-android` | `Tun2SocksTunnel.kt` | VPN-mode TUN-to-SOCKS bridge |
 | `libripdpi-relay.so` | JNI shared library | `crates/ripdpi-relay-android` | `RipDpiRelay.kt` | Encrypted relay transports |
-| `libripdpi-warp.so` | JNI shared library | `crates/ripdpi-warp-android` | `RipDpiWarp.kt` | WARP / AmneziaWG runtime |
+| `libripdpi-warp.so` | JNI shared library | `crates/ripdpi-warp-android` | `RipDpiWarp.kt` | WARP runtime |
+| `libripdpi-amneziawg.so` | JNI shared library | `crates/ripdpi-amneziawg-android` | `RipDpiAmneziaWg.kt` | Standalone and VPN-composed AmneziaWG runtime |
 | `ripdpi-root-helper` | Standalone ELF binary | `crates/ripdpi-root-helper` | `RootHelperManager.kt`, `RootDetector.kt` | Privileged raw-socket ops, rooted devices only |
 | `ripdpi-naiveproxy` | Standalone helper binary | `crates/ripdpi-naiveproxy` | `Subprocess*` services | NaiveProxy relay helper process |
 | `ripdpi-cloudflare-origin` | Standalone helper binary | `crates/ripdpi-cloudflare-origin` | `Cloudflare*` services | Local xHTTP origin helper for Cloudflare Tunnel publish mode |
 | `ripdpi-webtunnel` | Pluggable-transport helper binary | `crates/ripdpi-webtunnel` | Tor PT bootstrap path | WebTunnel managed-client helper |
 
 - `libripdpi.so` is loaded by `RipDpiNativeLoader.kt` via
-  `System.loadLibrary("ripdpi")`. The relay and WARP runtimes ship as
+  `System.loadLibrary("ripdpi")`. The relay, WARP, and AmneziaWG runtimes ship as
   **separate** `.so` files (`crates/ripdpi-relay-android`,
-  `crates/ripdpi-warp-android`) — they are not linked into `libripdpi.so`.
+  `crates/ripdpi-warp-android`, `crates/ripdpi-amneziawg-android`) — they are not linked into `libripdpi.so`.
   The relay transport crates (`ripdpi-relay-core`, `ripdpi-vless`,
   `ripdpi-xhttp`, `ripdpi-tuic`, `ripdpi-shadowtls`, …) link into
   `libripdpi-relay.so`.

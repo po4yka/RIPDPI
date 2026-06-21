@@ -1,7 +1,7 @@
 ---
 title: Add WireGuard-over-WebSocket transport with AmneziaWG disguise
 type: task
-status: backlog
+status: doing
 area: rust-native
 priority: high
 owner: unassigned
@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-16
-updated: 2026-06-05
+updated: 2026-06-21
 ---
 
 ## Summary
@@ -24,11 +24,11 @@ WireGuard's UDP fingerprint is one of the easiest DPI signatures in the wild: a 
 
 ## Acceptance criteria
 
-- [ ] New crate `ripdpi-wireguard-ws` implementing the WireGuard-over-WSS transport adapter (encrypt/decrypt frames, drive WS framing).
-- [ ] AmneziaWG junk-packet generation (Jc/Jmin/Jmax) is wired into the pre-handshake stream.
+- [~] New crate `ripdpi-wireguard-ws` implementing the WireGuard-over-WSS transport adapter (encrypt/decrypt frames, drive WS framing).
+- [~] AmneziaWG junk-packet generation (Jc/Jmin/Jmax) is wired into the pre-handshake stream.
 - [ ] Configuration via existing `core:data:model` typed schema (extend `WireguardOutbound`).
-- [ ] Loopback test exercises a complete WG handshake through a WSS pair without any real internet.
-- [ ] Telemetry: counter increments on successful WG handshake through the WS carrier.
+- [~] Loopback test exercises a complete WG handshake through a WSS pair without any real internet.
+- [x] Telemetry: counter increments on successful WG handshake through the WS carrier.
 
 ## Risks / open questions
 
@@ -51,3 +51,4 @@ WireGuard's UDP fingerprint is one of the easiest DPI signatures in the wild: a 
   - AC4-crypto (`complete WG handshake through a WSS pair`): only structurally met. The loopback test round-trips a synthetic 148-byte datagram + junk over plain-TCP WS with no real boringtun Noise handshake and no TLS. A true crypto-end-to-end test needs a `ripdpi-warp-core` (boringtun) dependency edge the carrier crate deliberately avoids for the minimal slice.
   - AC5 (telemetry counter): no production path drives a real WG handshake through the carrier yet, so a counter has nothing to count and cannot be tested end-to-end. Deferred with the carrier consumer.
   - The in-crate protect seam intentionally does NOT register a real protector: the JNI-backed `VpnService.protect` shim lives in a `*-android` adapter outside this crate (cf. `ripdpi-native-protect` / `ripdpi-warp-core::platform`). The seam takes an injected protector so it is concrete and testable today without pulling JNI into the carrier crate.
+- 2026-06-21: Source refresh. Runtime consumer work has landed: `AmneziaWgProfileConfig` has additive `carrier` / `carrierWsUrl`, `AwgActivationRequest` and `ResolvedRipDpiAmneziaWgConfig` carry the same fields, `DefaultAmneziaWgRuntimeConfigResolver` validates that WS requests have a non-blank carrier URL, and `AmneziaWgRuntime::open_carrier()` uses `connect_ws_carrier()` plus the injected protect callback. `wireguard::carrier::tests::wg_handshake_completes_through_ws_carrier` now runs a real boringtun handshake through a local WS-to-UDP relay, and the runtime increments `wsCarrierHandshakes` / `wsCarrierHandshakeFailures`. Remaining gaps on `main`: the client path still accepts a generic `request_url` through tungstenite and performs a plain WS upgrade over a protected TCP stream, so real `wss://` endpoint parsing/TLS/SNI semantics are not yet represented in this branch; `JunkPrefix` exists in the carrier crate and has loopback coverage, but `AmneziaWgRuntime` does not currently send that prefix before the first real datagram; there is still no `WireguardOutbound` type to extend.

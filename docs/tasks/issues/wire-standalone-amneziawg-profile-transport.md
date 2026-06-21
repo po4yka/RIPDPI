@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-06-13
-updated: 2026-06-18
+updated: 2026-06-21
 source_wiki_pages:
   - "wireguard-rtk-south-amneziawg-bypass"
 linked_task: "wire-amneziawg-rtk-south-jc4-cohort-into-android-client"
@@ -84,11 +84,11 @@ Surface:
       through `app_settings.proto` + `SharedProxyRuntimeStack` is rejected
       (no-go-needs-design); the additive-proto shape, if a decorative flag is
       later wanted, is recorded there.
-- [ ] Service wiring: `AmneziaWgRuntimeSupervisor` + composition coordinator
+- [x] Service wiring: `AmneziaWgRuntimeSupervisor` + composition coordinator
       integration so the runtime's loopback SOCKS endpoint becomes the
       `LocalProxyEndpoint` handed to `Tun2Socks` (mirror `WarpRuntimeSupervisor`
       + `SharedProxyRuntimeStack` + `VpnRuntimeCompositionCoordinator`).
-- [ ] UI connect path: `AmneziaWgProfileViewModel.onSave()/onConnect()` →
+- [x] UI connect path: `AmneziaWgProfileViewModel.onSave()/onConnect()` →
       persist + start the tunnel. Localize new user-facing strings in all 8
       locales.
 - [ ] On-device / loopback-fixture interop smoke test against a real AmneziaWG
@@ -188,6 +188,7 @@ open and gate this.
   composition-fork blocker are recorded in the "Settings-gating design decision
   (D2)" section above. Persisted-profile prerequisite is now met; the
   selection-into-composition seam (AC service-wiring lines) is the gating work.
+- 2026-06-21: Source refresh. The service/composition blocker recorded above is now closed in `main`: `SharedProxyRuntimeStack` accepts `awgConfigOrNull()`, starts `AmneziaWgRuntimeSupervisor`, and rewrites the proxy upstream to `VpnModeAmneziaWgLocalSocksPort`; `VpnServiceRuntimeCoordinator` owns the supervisor and passes it to telemetry and exit handling. The editor path is also closed: `AmneziaWgProfileViewModel.onConnect()` persists through `AwgProfileRepository`, reuses the opaque stable `awg-<UUID>` id, and activates through `StandaloneAmneziaWgActivator`. Remaining open work is external interop: a real/synthetic AmneziaWG endpoint smoke and any probabilistic retry tuning linked to the RTK-South cohort task.
 
 ## References
 

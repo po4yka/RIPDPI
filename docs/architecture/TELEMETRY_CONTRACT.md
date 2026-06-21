@@ -4,7 +4,7 @@ Who owns each telemetry **event** and **snapshot**, the JSON payload rules that
 keep the Rust→Kotlin boundary forward- and backward-safe, and the stable
 identifiers that may never be renamed.
 
-Scope: the **runtime telemetry** surface — the proxy / relay / warp / tunnel
+Scope: the **runtime telemetry** surface — the proxy / relay / warp / AmneziaWG / tunnel
 snapshots and native events Kotlin polls while a session runs. The diagnostics
 **scan** wire contract (`ScanRequest` / `ScanReport`) is a separate, explicitly
 versioned contract — see [`DIAGNOSTICS_ARCHITECTURE.md`](DIAGNOSTICS_ARCHITECTURE.md)
@@ -27,7 +27,7 @@ ripdpi-telemetry recorder (counters/gauges/histograms) ─┤
                                                         ▼
               ripdpi-android-telemetry-adapter  (projects → NativeRuntimeSnapshot)
                                                         ▼  JSON string over JNI (~1 Hz poll)
-              core/engine RipDpi{Proxy,Relay,Warp}.kt / Tun2SocksTunnel.kt  (decode)
+              core/engine RipDpi{Proxy,Relay,Warp,AmneziaWg}.kt / Tun2SocksTunnel.kt  (decode)
                                                         ▼
               core/service RuntimeTelemetryProjection.kt  (enrich)
                                                         ▼
@@ -116,7 +116,7 @@ The telemetry payload is JSON: Rust `serde` serializes, Kotlin
   **and** a defaulted field on the Kotlin side.
 - **Schema version.** The payload carries an additive `schemaVersion` integer
   (currently `1`). Every Rust snapshot producer emits it — the
-  `SNAPSHOT_SCHEMA_VERSION` constant in the proxy / tunnel / warp / relay
+  `SNAPSHOT_SCHEMA_VERSION` constant in the proxy / tunnel / warp / AmneziaWG / relay
   telemetry modules — and the Kotlin `NativeRuntimeSnapshot` defaults the field
   to `1`, so a payload from an older native build that omits the key still
   decodes. It is a *forward marker*, not a gate: no decoder branches on it
@@ -132,7 +132,10 @@ The telemetry payload is JSON: Rust `serde` serializes, Kotlin
   field rename, an event-name change, or a removed field is a contract change
   — re-bless only under [`golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md).
 - **Privacy floor.** Telemetry must never carry raw `BSSID` / `SSID` / `IMEI`
-  / `IMSI` or device IPs — only the SHA-256 fingerprint hash. See
+  / `IMSI` or device IPs — only the SHA-256 fingerprint hash. AmneziaWG
+  endpoint host/port and `carrierWsUrl` are user-supplied server identities and
+  must not be emitted in telemetry JSON; use the opaque profile id and carrier
+  counters instead. See
   [`network-fingerprint-privacy.md`](../../.claude/rules/network-fingerprint-privacy.md)
   and the `rust-android-telemetry` skill.
 
@@ -143,8 +146,9 @@ The telemetry payload is JSON: Rust `serde` serializes, Kotlin
 The runtime-telemetry parsers are **already forward-tolerant**, and that is the
 intended posture:
 
-- **Unknown fields are ignored.** All four engine telemetry decoders —
-  `RipDpiProxy.kt`, `Tun2SocksTunnel.kt`, `RipDpiWarp.kt`, `RipDpiRelay.kt` —
+- **Unknown fields are ignored.** All five engine telemetry decoders —
+  `RipDpiProxy.kt`, `Tun2SocksTunnel.kt`, `RipDpiWarp.kt`,
+  `RipDpiAmneziaWg.kt`, `RipDpiRelay.kt` —
   configure `Json { ignoreUnknownKeys = true }`. A future Rust build that adds
   a snapshot or event field does **not** break an older Kotlin build.
 - **Unknown event kinds are preserved.** `NativeRuntimeEvent.kind` is a plain

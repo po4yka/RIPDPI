@@ -9,7 +9,7 @@ parent: null
 blocks: []
 blocked_by: []
 created: 2026-05-22
-updated: 2026-06-10
+updated: 2026-06-21
 source_wiki_pages:
   - "wireguard-rtk-south-amneziawg-bypass"
 linked_task: null
@@ -38,7 +38,7 @@ Community-tested working parameters at RTK South: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H
 ## Acceptance criteria
 
 - [x] AmneziaWG client support compiles for all 4 Android ABIs.
-- [~] Cohort profile import populates Jc/Jmin/Jmax/S/H/I from server-provided YAML or subscription URL.
+- [x] Cohort profile import populates Jc/Jmin/Jmax/S/H/I from server-provided YAML or subscription URL.
 - [ ] Smoke test against synthetic AWG endpoint with RTK South parameters succeeds.
 - [ ] Probabilistic-retry logic implemented (max 4 attempts, configurable per-cohort).
 - [x] Dedup confirmed: distinct from `add-wireguard-over-websocket-transport-amneziawg-disguise` — this task wires AmneziaWG packet-signature randomization (Jc/Jmin/Jmax/H/S/I) into the existing `ripdpi-warp-core` WG kernel; the other adds a WG-over-WebSocket *tunnel* disguise. Different layers.
@@ -53,6 +53,7 @@ Community-tested working parameters at RTK South: `Jc=4 Jmin=10 Jmax=50 S1-4=0 H
 
 - 2026-06-05: AWG Rust kernel complete — `ripdpi-warp-core/src/amneziawg.rs` implements full Jc/Jmin/Jmax/H1-H4/S1-S4/I1-I5 codec with unit tests; `wireguard/tunnel.rs` wires it into the tunnel; proto fields `warp_amnezia_*` exist in `app_settings.proto`; `WarpAmneziaConfig` struct in config.rs carries all parameters. Remaining work: cohort profile import from server YAML (no Kotlin mapping found), probabilistic-retry logic (not implemented), JNI/Kotlin diagnostic surface for AWG mode (no Kotlin amnezia references found), smoke test against synthetic AWG endpoint.
 - 2026-06-05 (audit): Criterion 1 [x] confirmed — `ripdpi-warp-android` (in workspace targeting all 4 Android ABIs per `rust-toolchain.toml`) depends on `ripdpi-warp-core` which contains the AWG codec; `ResolvedRipDpiWarpConfig.amnezia` passes the config to the native layer via JNI. Criterion 2 upgraded to [~] (partial): bundled asset `core/data/runtime-state/src/main/assets/awg-cohorts.json` ships the `rtk_south` preset with Jc=4/Jmin=10/Jmax=50/H1=1..H4=4 and `applyCohortPreset()` / `matchCohortForConf()` are implemented in `AwgCohortCatalog.kt`; however server-side YAML or subscription URL fetch is explicitly deferred ("out of scope") per `AwgCohortCatalog.kt` KDoc. Criteria 3 (smoke test), 4 (retry logic), and 5 (dedup PR note) remain unimplemented. Status changed from `todo` to `doing`.
+- 2026-06-21: Source refresh. Cohort/subscription import is now closed on the client side: `WireguardIniSubscriptionParser` emits `AmneziaWgSubscriptionProfile`, simple-flavor seeding maps it to `AwgActivationRequest`, and `AwgProfileRepository` persists the resulting profile with an opaque stable id while moving private/preshared keys to `AwgCredentialStore`. `AmneziaWgProfileViewModel` can persist and activate the request, and the service layer maps it into `ResolvedRipDpiAmneziaWgConfig`. Remaining work is not client import plumbing: it is the synthetic/real endpoint smoke with RTK-South parameters plus probabilistic retry-budget tuning after that lab evidence exists.
 
 ## References
 

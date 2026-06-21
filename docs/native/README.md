@@ -19,6 +19,8 @@ This directory documents the in-repository Rust native modules used by RIPDPI an
 | `native/rust/crates/ripdpi-cli` | `ripdpi` binary | Desktop development (macOS/Linux) | N/A -- standalone CLI | `ripdpi_config::parse_cli`, `runtime::run_proxy`, `ProcessGuard::prepare`, `install_runtime_telemetry` |
 | `native/rust/crates/ripdpi-android` | `libripdpi.so` | Proxy mode, VPN mode, diagnostics | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`, `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | `ripdpi_config::parse_cli`, `ripdpi_config::parse_hosts_spec`, `runtime::create_listener`, `runtime::run_proxy_with_embedded_control`, `EmbeddedProxyControl::request_shutdown`, `platform::detect_default_ttl`, `MonitorSession::*`, proxy telemetry polling, `jniRegisterVpnProtect` / `jniUnregisterVpnProtect` for VPN socket protection JNI callback |
 | `native/rust/crates/ripdpi-tunnel-android` | `libripdpi-tunnel.so` | VPN mode only | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt` | `ripdpi_tunnel_core::run_tunnel`, `CancellationToken::cancel`, `Stats::snapshot`, tunnel telemetry polling |
+| `native/rust/crates/ripdpi-warp-android` | `libripdpi-warp.so` | WARP profile runtime | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiWarp.kt` | Cloudflare WARP WireGuard runtime lifecycle, endpoint probe/provisioning, quality telemetry, readiness callback, VPN socket protection |
+| `native/rust/crates/ripdpi-amneziawg-android` | `libripdpi-amneziawg.so` | AmneziaWG profile runtime | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiAmneziaWg.kt` | Generic AmneziaWG lifecycle over the shared `ripdpi-warp-core` data plane, UDP or WS carrier selection, telemetry polling, readiness callback, VPN socket protection |
 | `native/rust/crates/ripdpi-monitor-engine` | linked into `libripdpi.so` | Diagnostics scans | `core/engine/src/main/kotlin/com/poyka/ripdpi/core/NetworkDiagnostics.kt` | DNS integrity probes across UDP and encrypted resolvers, DNS tampering detection (8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (HTTP/TLS/SSH with `FieldObserver` emission), TLS/HTTP reachability probes, TCP fat-header probes, allowlist-SNI retries, strategy-probe progress/report state |
 | `native/rust/crates/ripdpi-dns-resolver` | linked into existing native libraries | Diagnostics scans, VPN-mode encrypted DNS | none directly | `EncryptedDnsResolver::*` through `ripdpi-monitor-engine` and `ripdpi-tunnel-core` for DoH/DoT/DNSCrypt/DoQ exchange, metadata collection, and IP answer extraction |
 | `native/rust/crates/ripdpi-packets` | linked into proxy runtime, monitor engine, and desync crates | Protocol detection, packet mutation, classification | none directly | `ProtocolClassifier` trait + `ClassifierRegistry` for unified protocol detection, `ProtocolField` + `FieldObserver` for callback-based field extraction, TLS/HTTP/QUIC marker info for desync offset resolution |
@@ -62,6 +64,8 @@ The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust
 - `native/rust/crates/ripdpi-naiveproxy` is a standalone helper binary used through the Android subprocess manager rather than JNI embedding.
 - `native/rust/crates/ripdpi-apps-script-core` provides the Rust Apps Script relay runtime used by the `google_apps_script` profile path.
 - `native/rust/crates/ripdpi-warp-core` and `native/rust/crates/ripdpi-warp-android` provide the native WARP runtime used by the Kotlin service and settings stack.
+- `native/rust/crates/ripdpi-amneziawg-android` drives standalone or VPN-composed AmneziaWG profiles through the same `ripdpi-warp-core` WireGuard + AWG codec data plane; the Kotlin service translates `AwgActivationRequest` into the native config and starts `AmneziaWgRuntimeSupervisor`.
+- `native/rust/crates/ripdpi-wireguard-ws` is the JNI-free carrier crate used by `ripdpi-warp-core` when an AmneziaWG profile selects the WS carrier; it owns datagram framing and the protect-before-connect carrier socket seam, while the runtime owns WireGuard/AWG crypto and telemetry counters.
 - PT helper binaries `ripdpi-snowflake`, `ripdpi-webtunnel`, and `ripdpi-obfs4` are launched by `PluggableTransportManager`; WebTunnel is the in-repository Rust helper, while Snowflake intentionally remains the Go binary described in [the Snowflake no-go decision](../architecture/snowflake-native-rust-decision.md).
 
 Recent integration hardening in this layer:
@@ -287,7 +291,8 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-tuic` -- TUIC v5 relay client
 - `native/rust/crates/ripdpi-shadowtls` -- ShadowTLS v3 camouflage client
 - `native/rust/crates/ripdpi-naiveproxy` -- NaiveProxy helper binary used via subprocess management
-- `native/rust/crates/ripdpi-warp-core` -- native WARP runtime and AmneziaWG codec
+- `native/rust/crates/ripdpi-warp-core` -- native WARP runtime plus generic AmneziaWG runtime and codec
+- `native/rust/crates/ripdpi-wireguard-ws` -- WireGuard-over-WebSocket carrier framing and protected-carrier socket seam
 - `native/rust/crates/ripdpi-warp-android` -- JNI bridge for WARP runtime lifecycle
 - `native/rust/crates/ripdpi-ws-tunnel` -- MTProto WebSocket tunnel for Telegram traffic through official web gateways
 - `native/rust/crates/ripdpi-ipfrag` -- IP-level packet fragmentation for path optimization (TCP and UDP/QUIC)

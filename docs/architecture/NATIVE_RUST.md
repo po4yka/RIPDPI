@@ -12,7 +12,7 @@ and the `native/rust/crates/` tree.
 
 ## Workspace facts
 
-- **114 crates**, all under `native/rust/crates/`. Every directory is a declared
+- **115 crates**, all under `native/rust/crates/`. Every directory is a declared
   `[workspace] members` entry — **no orphan directories, no missing members.**
 - `edition = "2021"`, `version = "0.1.0"`, `license = "MIT"` (workspace-inherited).
 - Build profiles: `release` (thin LTO, `panic = "abort"`, stripped),
@@ -90,7 +90,7 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
 | L5 | **platform / privileged** | 8 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
 | L6 | **diagnostics / monitor** | 17 | 13 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-adapter`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
-| L7 | **relay transports** | 21 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel`, `ripdpi-mieru`, `ripdpi-ssh` |
+| L7 | **relay transports** | 22 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-wireguard-ws`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel`, `ripdpi-mieru`, `ripdpi-ssh` |
 | L8 | **Android / JNI adapters** | 13 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android`, `ripdpi-amneziawg-android` |
 
 `ripdpi-diagnostics-contracts` is counted under L2 (it is a wire contract); the
@@ -294,7 +294,8 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-cloudflare-origin` | Local xHTTP origin helper for CF Tunnel publish | `bin` | `ripdpi-vless` | Subprocess helper binary | Keep |
 | `ripdpi-naiveproxy` | NaiveProxy helper | `bin` (`src/main.rs`) | `ripdpi-tls-profiles` | Subprocess helper binary | Keep |
 | `ripdpi-relay-tls-transports` | Shared TLS relay helpers | Library | `ripdpi-relay-mux`, `ripdpi-anytls`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-tor`, `ripdpi-trojan`, `ripdpi-vless` | Shared by TLS-shaped relay transports | Keep |
-| `ripdpi-warp-core` | WARP runtime + AmneziaWG codec | Runtime API | — (leaf) | `smoltcp`; root of `libripdpi-warp.so` | Keep |
+| `ripdpi-warp-core` | WARP runtime + generic AmneziaWG runtime / codec | Runtime API | `ripdpi-wireguard-ws` | `smoltcp`; root of `libripdpi-warp.so` and shared by `libripdpi-amneziawg.so` | Keep |
+| `ripdpi-wireguard-ws` | WireGuard-over-WebSocket carrier framing + protected carrier socket seam | Carrier codec + connect seam | — (leaf) | Used by `ripdpi-warp-core` for AmneziaWG `carrier = ws`; must stay JNI-free | Keep |
 | `ripdpi-apps-script-core` | Google Apps Script relay path | Transport client | — (leaf) | Consumed by `ripdpi-relay-android` | Keep |
 | `ripdpi-ws-tunnel` | MTProto WebSocket tunnel for Telegram | Tunnel client | `ripdpi-tls-profiles` | `boring` | Keep |
 
@@ -321,7 +322,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 ## 5. Crates that must stay Android/JNI-free
 
 Every crate **except the 13 L8 crates** must not depend on `jni`,
-`android-support`, `android_logger`, or any `ndk-*` crate. That is **99 crates**
+`android-support`, `android_logger`, or any `ndk-*` crate. That is **102 crates**
 — all of L0–L7:
 
 > `feature-contract-harness`, `golden-test-support`, `local-network-fixture`,
