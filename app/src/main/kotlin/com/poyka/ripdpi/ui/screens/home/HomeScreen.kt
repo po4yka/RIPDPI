@@ -38,6 +38,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationStrip
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
@@ -133,6 +134,14 @@ fun HomeScreen(
         HomeDegradationStrip(
             quality = uiState.connectionQuality,
             onReprobe = onDiagnosticRun,
+        )
+
+        RipDpiConnectionActuator(
+            state = uiState.connectionActuator,
+            onActivate = onToggleConnection,
+            onDeactivate = onToggleConnection,
+            modifier = Modifier.fillMaxWidth(),
+            testTag = RipDpiTestTags.ConnectionActuatorButton,
         )
 
         HomeConnectionHealthEntry(onOpenConnectionHealth = onOpenConnectionHealth)

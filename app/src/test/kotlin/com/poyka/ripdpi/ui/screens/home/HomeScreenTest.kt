@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.home
 
 import android.content.ClipboardManager
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -11,13 +12,13 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.activities.HardKillSwitchUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
@@ -26,12 +27,6 @@ import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
-import com.poyka.ripdpi.permissions.BackgroundGuidanceUiState
-import com.poyka.ripdpi.permissions.PermissionIssueUiState
-import com.poyka.ripdpi.permissions.PermissionKind
-import com.poyka.ripdpi.permissions.PermissionRecovery
-import com.poyka.ripdpi.permissions.PermissionSummaryUiState
-import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -51,78 +46,6 @@ import org.robolectric.annotation.GraphicsMode
 class HomeScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
-
-    @Test
-    fun `lockdown setup health only appears when vpn is active and opens vpn settings`() {
-        var repairedKind: PermissionKind? = null
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState =
-                        MainUiState(
-                            modeCards = modeCards(activeMode = HomeMode.RemoteVpn),
-                            hardKillSwitch =
-                                HardKillSwitchUiState(
-                                    status = AndroidHardKillSwitchStatus.NOT_ENABLED,
-                                    label = "System lockdown not enabled",
-                                    summary = "Android is not blocking traffic outside the VPN.",
-                                    actionLabel = "Open VPN settings",
-                                    visible = true,
-                                ),
-                        ),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onRepairPermission = { repairedKind = it },
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule
-            .onAllNodesWithTag(RipDpiTestTags.HomeHardKillSwitchBanner)
-            .assertCountEquals(0)
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
-            .assertIsDisplayed()
-            .assertHasClickAction()
-            .performClick()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
-            .assertHasClickAction()
-            .performClick()
-
-        assertEquals(PermissionKind.VpnLockdown, repairedKind)
-    }
-
-    @Test
-    fun `lockdown setup health is hidden while vpn is inactive`() {
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState =
-                        MainUiState(
-                            hardKillSwitch =
-                                HardKillSwitchUiState(
-                                    status = AndroidHardKillSwitchStatus.NOT_ENABLED,
-                                    label = "System lockdown not enabled",
-                                    summary = "Android is not blocking traffic outside the VPN.",
-                                    actionLabel = "Open VPN settings",
-                                    visible = true,
-                                ),
-                        ),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeHardKillSwitchBanner).assertCountEquals(0)
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeSetupHealthRow).assertCountEquals(0)
-    }
 
     @Test
     fun `error banner copies message on click`() {
@@ -162,115 +85,13 @@ class HomeScreenTest {
     }
 
     @Test
-    fun backgroundGuidanceAndBatteryRecommendationUseSetupHealthRow() {
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState = uiStateWithBothBanners(),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule
-            .onAllNodesWithTag(RipDpiTestTags.HomePermissionRecommendationBanner)
-            .assertCountEquals(0)
-        composeRule
-            .onAllNodesWithTag(RipDpiTestTags.HomeBackgroundGuidanceBanner)
-            .assertCountEquals(0)
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
-            .assertIsDisplayed()
-            .performClick()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthDetails)
-            .assertIsDisplayed()
-        composeRule.onNodeWithText("Review →").assertIsDisplayed()
-        composeRule.onAllNodesWithText("Review the Doze exemption.").assertCountEquals(0)
-    }
-
-    @Test
-    fun `setup health has no warning banner dismiss button`() {
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState = uiStateWithBothBanners(),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                    onDismissBatteryBanner = {},
-                    onDismissBackgroundGuidance = {},
-                )
-            }
-        }
-
-        composeRule
-            .onAllNodesWithTag(RipDpiTestTags.HomePermissionRecommendationBanner)
-            .assertCountEquals(0)
-        composeRule
-            .onAllNodesWithTag(RipDpiTestTags.WarningBannerDismiss)
-            .assertCountEquals(0)
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
-            .assertIsDisplayed()
-    }
-
-    @Test
-    fun `clicking battery setup health action invokes callback`() {
-        var dismissed = false
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState =
-                        MainUiState(
-                            permissionSummary =
-                                PermissionSummaryUiState(
-                                    recommendedIssue =
-                                        PermissionIssueUiState(
-                                            kind = PermissionKind.BatteryOptimization,
-                                            title = "Battery optimization",
-                                            message = "Review the Doze exemption.",
-                                            recovery = PermissionRecovery.OpenBatteryOptimizationSettings,
-                                            actionLabel = "Review",
-                                            blocking = false,
-                                        ),
-                                ),
-                        ),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                    onDismissBatteryBanner = { dismissed = true },
-                    onDismissBackgroundGuidance = {},
-                )
-            }
-        }
-
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeSetupHealthRow).assertCountEquals(0)
-        composeRule.onNodeWithText("Battery optimization").assertIsDisplayed()
-        composeRule.onNodeWithText("Review →").assertIsDisplayed()
-        composeRule.onAllNodesWithText("Review the Doze exemption.").assertCountEquals(0)
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
-            .assertIsDisplayed()
-            .performClick()
-        assertTrue("Expected battery dismiss callback to fire", dismissed)
-    }
-
-    @Test
-    fun `home renders the three mode cards in order and removes legacy body sections`() {
+    fun `home renders primary actuator and the three mode cards in order`() {
+        var primaryConnectionToggles = 0
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
                     uiState = MainUiState(modeCards = modeCards()),
-                    onToggleConnection = {},
+                    onToggleConnection = { primaryConnectionToggles++ },
                     onOpenDiagnostics = {},
                     onOpenHistory = {},
                     onRepairPermission = {},
@@ -284,43 +105,24 @@ class HomeScreenTest {
                 .onAllNodesWithTag(RipDpiTestTags.homeModeCard(mode.name))
                 .assertCountEquals(1)
         }
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .assertIsDisplayed()
+            .assertHasClickAction()
+            .performSemanticsAction(SemanticsActions.OnClick)
         composeRule.onNodeWithTag(RipDpiTestTags.homeModeCard(HomeMode.Diagnostic.name)).performScrollTo()
         val bypassTop = cardTop(HomeMode.LocalDpiBypass)
         val vpnTop = cardTop(HomeMode.RemoteVpn)
         val diagnosticTop = cardTop(HomeMode.Diagnostic)
         assertTrue(vpnTop > bypassTop)
         assertTrue(diagnosticTop > vpnTop)
+        assertEquals(1, primaryConnectionToggles)
 
-        composeRule.onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorButton).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeStatusCard).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsCard).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeApproachCard).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeHistoryCard).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.HomeStatsGrid).assertCountEquals(0)
-    }
-
-    @Test
-    fun `setup health remains above mode cards`() {
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState = uiStateWithBothBanners().copy(modeCards = modeCards()),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        val warningBottom =
-            composeRule
-                .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
-                .fetchSemanticsNode()
-                .boundsInRoot
-                .bottom
-        assertTrue(cardTop(HomeMode.LocalDpiBypass) > warningBottom)
     }
 
     @Test
@@ -620,27 +422,6 @@ class HomeScreenTest {
     private fun clickHomeNode(tag: String) {
         composeRule.onNodeWithTag(tag).performScrollTo().performClick()
     }
-
-    private fun uiStateWithBothBanners(): MainUiState =
-        MainUiState(
-            permissionSummary =
-                PermissionSummaryUiState(
-                    recommendedIssue =
-                        PermissionIssueUiState(
-                            kind = PermissionKind.BatteryOptimization,
-                            title = "Battery optimization",
-                            message = "Review the Doze exemption.",
-                            recovery = PermissionRecovery.OpenBatteryOptimizationSettings,
-                            actionLabel = "Review",
-                            blocking = false,
-                        ),
-                    backgroundGuidance =
-                        BackgroundGuidanceUiState(
-                            title = "Background activity",
-                            message = "Vendor limits can still stop RIPDPI in the background.",
-                        ),
-                ),
-        )
 
     private fun modeCards(activeMode: HomeMode? = null) =
         persistentListOf(
