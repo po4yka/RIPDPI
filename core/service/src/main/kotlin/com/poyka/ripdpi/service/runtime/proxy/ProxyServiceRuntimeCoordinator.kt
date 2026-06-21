@@ -107,6 +107,7 @@ internal class ProxyServiceRuntimeCoordinator(
             ioDispatcher = ioDispatcher,
             upstreamRelaySupervisor = upstreamRelaySupervisor,
             warpRuntimeSupervisor = warpRuntimeSupervisor,
+            amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
             updateStatus = ::updateStatus,
             stopService = { skipRuntimeShutdown -> stop(skipRuntimeShutdown = skipRuntimeShutdown) },
@@ -208,7 +209,7 @@ internal class ProxyServiceRuntimeCoordinator(
                 ),
             onRelayExit = supervisorExitHandler::handleRelayExit,
             onWarpExit = supervisorExitHandler::handleWarpExit,
-            onAwgExit = {}, // ponytail: proxy mode never starts AWG
+            onAwgExit = supervisorExitHandler::handleAwgExit,
             onProxyExit = supervisorExitHandler::handleProxyExit,
         )
     }
@@ -244,7 +245,7 @@ internal class ProxyServiceRuntimeCoordinator(
                 ),
             onRelayExit = supervisorExitHandler::handleRelayExit,
             onWarpExit = supervisorExitHandler::handleWarpExit,
-            onAwgExit = {}, // ponytail: proxy mode never starts AWG
+            onAwgExit = supervisorExitHandler::handleAwgExit,
             onProxyExit = supervisorExitHandler::handleProxyExit,
         )
     }

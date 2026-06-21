@@ -1278,22 +1278,41 @@ internal class TestScreenStateObserver(
     override val isInteractive: StateFlow<Boolean> = MutableStateFlow(interactive)
 }
 
-internal class NoOpRipDpiAmneziaWgFactory : RipDpiAmneziaWgFactory {
-    override fun create(): RipDpiAmneziaWgRuntime = NoOpRipDpiAmneziaWgRuntime()
+internal class NoOpRipDpiAmneziaWgFactory(
+    private val runtimeFactory: () -> NoOpRipDpiAmneziaWgRuntime = { NoOpRipDpiAmneziaWgRuntime() },
+) : RipDpiAmneziaWgFactory {
+    val runtimes = mutableListOf<NoOpRipDpiAmneziaWgRuntime>()
+
+    override fun create(): RipDpiAmneziaWgRuntime =
+        runtimeFactory().also { runtime ->
+            runtimes += runtime
+        }
 }
 
-internal class NoOpRipDpiAmneziaWgRuntime : RipDpiAmneziaWgRuntime {
+internal class NoOpRipDpiAmneziaWgRuntime(
+    private val events: MutableList<String> = mutableListOf(),
+) : RipDpiAmneziaWgRuntime {
     private val exitCode = CompletableDeferred<Int>()
 
-    override suspend fun start(config: ResolvedRipDpiAmneziaWgConfig): Int = exitCode.await()
+    override suspend fun start(config: ResolvedRipDpiAmneziaWgConfig): Int {
+        events += "awg:start"
+        return exitCode.await()
+    }
 
     override suspend fun awaitReady(timeoutMillis: Long) = Unit
 
     override suspend fun stop() {
+        events += "awg:stop"
         if (!exitCode.isCompleted) exitCode.complete(0)
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "amneziawg")
+
+    fun complete(code: Int) {
+        if (!exitCode.isCompleted) {
+            exitCode.complete(code)
+        }
+    }
 }
 
 internal class TestAmneziaWgRuntimeConfigResolver : AmneziaWgRuntimeConfigResolver {

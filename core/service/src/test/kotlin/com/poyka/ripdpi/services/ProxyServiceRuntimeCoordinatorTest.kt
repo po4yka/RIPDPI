@@ -3,13 +3,18 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
+import com.poyka.ripdpi.core.awgConfigOrNull
+import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
 import kotlinx.coroutines.CompletableDeferred
@@ -33,7 +38,9 @@ class ProxyServiceRuntimeCoordinatorTest {
         val store: TestServiceStateStore,
         val host: TestProxyServiceHost,
         val factory: TestRipDpiProxyFactory,
+        val relayFactory: TestRipDpiRelayFactory,
         val warpFactory: TestRipDpiWarpFactory,
+        val awgFactory: NoOpRipDpiAmneziaWgFactory,
         val events: MutableList<String>,
         val runtimeRegistry: ServiceRuntimeRegistry,
         val handoverMonitor: TestNetworkHandoverMonitor,
@@ -82,6 +89,80 @@ class ProxyServiceRuntimeCoordinatorTest {
             assertEquals(listOf("warp:start", "proxy:start"), env.events.take(2))
             assertEquals(1, env.warpFactory.runtimes.size)
             assertEquals(1, env.factory.runtimes.size)
+        }
+
+    @Test
+    fun awgEgressTakesPrecedenceOverRelayAndWarp() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.Proxy,
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = RelayKindVlessReality,
+                                                profileId = "relay-profile",
+                                            ),
+                                        warp =
+                                            RipDpiWarpConfig(
+                                                enabled = true,
+                                                routeMode = WarpRouteModeRules,
+                                                routeHosts = "example.com",
+                                            ),
+                                        awg = sampleAwgRequest(),
+                                    ),
+                            ),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            assertTrue(env.events.contains("awg:start"))
+            assertTrue(env.events.contains("proxy:start"))
+            assertEquals(0, env.relayFactory.runtimes.size)
+            assertEquals(0, env.warpFactory.runtimes.size)
+            assertEquals(1, env.awgFactory.runtimes.size)
+            assertEquals(1, env.factory.runtimes.size)
+            assertNull(
+                env.factory.lastRuntime.lastPreferences
+                    ?.relayConfigOrNull(),
+            )
+            assertNull(
+                env.factory.lastRuntime.lastPreferences
+                    ?.awgConfigOrNull(),
+            )
+        }
+
+    @Test
+    fun awgEgressExitFailsAndHaltsProxyService() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.Proxy,
+                                proxyPreferences = RipDpiProxyUIPreferences(awg = sampleAwgRequest()),
+                            ),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            env.awgFactory.runtimes
+                .single()
+                .complete(17)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.Proxy, env.store.status.value)
+            assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
         }
 
     @Test
@@ -481,11 +562,13 @@ class ProxyServiceRuntimeCoordinatorTest {
         resolver.enqueue(*resolutions.toTypedArray())
         val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
         val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
+        val relayFactory = TestRipDpiRelayFactory { TestRelayRuntime(events) }
         val warpFactory = TestRipDpiWarpFactory { TestWarpRuntime(events) }
+        val awgFactory = NoOpRipDpiAmneziaWgFactory { NoOpRipDpiAmneziaWgRuntime(events) }
         val runtimeRegistry = DefaultServiceRuntimeRegistry()
         val handoverMonitor = TestNetworkHandoverMonitor()
         val handoverEvents = TestPolicyHandoverEventStore()
-        val supervisors = buildProxySupervisorBundle(dispatcher, factory, warpFactory)
+        val supervisors = buildProxySupervisorBundle(dispatcher, factory, relayFactory, warpFactory, awgFactory)
         val coordinator =
             ProxyServiceRuntimeCoordinator(
                 host = host,
@@ -518,7 +601,9 @@ class ProxyServiceRuntimeCoordinatorTest {
             store = store,
             host = host,
             factory = factory,
+            relayFactory = relayFactory,
             warpFactory = warpFactory,
+            awgFactory = awgFactory,
             events = events,
             runtimeRegistry = runtimeRegistry,
             handoverMonitor = handoverMonitor,
@@ -527,17 +612,29 @@ class ProxyServiceRuntimeCoordinatorTest {
         )
     }
 
+    private fun sampleAwgRequest(): AwgActivationRequest =
+        AwgActivationRequest(
+            profileId = "awg-profile",
+            privateKey = "private",
+            peerPublicKey = "peer",
+            endpointHost = "198.51.100.10",
+            endpointPort = 51820,
+            interfaceAddressV4 = "10.8.0.2/32",
+        )
+
     private fun TestScope.buildProxySupervisorBundle(
         dispatcher: kotlinx.coroutines.CoroutineDispatcher,
         factory: TestRipDpiProxyFactory,
+        relayFactory: TestRipDpiRelayFactory = TestRipDpiRelayFactory(),
         warpFactory: TestRipDpiWarpFactory,
+        awgFactory: NoOpRipDpiAmneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
     ): ProxyRuntimeSupervisorBundle =
         ProxyRuntimeSupervisorBundle(
             upstreamRelaySupervisor =
                 UpstreamRelaySupervisor(
                     scope = backgroundScope,
                     dispatcher = dispatcher,
-                    relayFactory = TestRipDpiRelayFactory(),
+                    relayFactory = relayFactory,
                     naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore = TestRelayProfileStore(),
                     relayCredentialStore = TestRelayCredentialStore(),
@@ -553,7 +650,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                 AmneziaWgRuntimeSupervisor(
                     scope = backgroundScope,
                     dispatcher = dispatcher,
-                    amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
+                    amneziaWgFactory = awgFactory,
                     runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
                 ),
             proxyRuntimeSupervisor =

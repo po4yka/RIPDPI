@@ -115,7 +115,7 @@ fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences 
                 adaptiveFallback = adaptiveFallback,
                 quic = quic,
                 hosts = hosts,
-                relay = relay,
+                relay = RipDpiRelayConfig(),
                 warp =
                     RipDpiWarpConfig(
                         enabled = true,
@@ -134,7 +134,7 @@ fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences 
                 geoipDbPath = geoipDbPath,
                 geositeDbPath = geositeDbPath,
                 environmentKind = environmentKind,
-                awg = awg,
+                awg = null,
             )
         }
 

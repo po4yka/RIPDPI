@@ -801,10 +801,20 @@ class RipDpiProxyPreferencesTest {
 
     @Test
     fun withAwgEgressPortRoutesAllProxyTrafficToAwgSocks() {
-        val preferences = RipDpiProxyUIPreferences()
+        val preferences =
+            RipDpiProxyUIPreferences(
+                relay =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindVlessReality,
+                        profileId = "relay-profile",
+                    ),
+            )
 
         val routed = preferences.withAwgEgressPort(10809) as RipDpiProxyUIPreferences
 
+        assertNull(routed.awg)
+        assertFalse(routed.relay.enabled)
         assertTrue(routed.warp.enabled)
         assertEquals(WarpRouteModeRules, routed.warp.routeMode)
         assertEquals(AmneziaWgAllTrafficRouteHosts, routed.warp.routeHosts)

@@ -9,7 +9,7 @@ use rustls::{ClientConfig, RootCertStore};
 use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-use tokio_tungstenite::tungstenite::http::HeaderValue;
+use tokio_tungstenite::tungstenite::http::{HeaderMap, HeaderValue};
 use tokio_tungstenite::{WebSocketStream, client_async};
 use url::Url;
 
@@ -114,6 +114,8 @@ pub enum WssEndpointError {
     InvalidRequest(tokio_tungstenite::tungstenite::Error),
     #[error("invalid WSS carrier Host header: {0}")]
     InvalidHostHeader(tokio_tungstenite::tungstenite::http::header::InvalidHeaderValue),
+    #[error("carrier WSS endpoint did not negotiate binary subprotocol")]
+    BinarySubprotocolNotNegotiated,
 }
 
 pub type WssCarrierStream = WebSocketStream<tokio_rustls::client::TlsStream<TcpStream>>;
@@ -133,10 +135,19 @@ where
     let tls = default_tls_connector().connect(server_name, stream).await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("carrier WSS TLS handshake failed: {error}"))
     })?;
-    let (ws, _response) = client_async(request, tls)
+    let (ws, response) = client_async(request, tls)
         .await
         .map_err(|error| io::Error::other(format!("carrier WSS handshake failed: {error}")))?;
+    validate_binary_subprotocol(response.headers())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     Ok(WsCarrier::new(ws))
+}
+
+fn validate_binary_subprotocol(headers: &HeaderMap<HeaderValue>) -> Result<(), WssEndpointError> {
+    match headers.get("Sec-WebSocket-Protocol").and_then(|value| value.to_str().ok()) {
+        Some(BINARY_SUBPROTOCOL) => Ok(()),
+        _ => Err(WssEndpointError::BinarySubprotocolNotNegotiated),
+    }
 }
 
 fn default_tls_connector() -> TlsConnector {
@@ -188,5 +199,17 @@ mod tests {
         assert_eq!(endpoint.port(), DEFAULT_WSS_PORT);
         assert_eq!(request.uri().to_string(), "wss://carrier.example.test/wg");
         assert_eq!(request.headers().get("Host").and_then(|value| value.to_str().ok()), Some("carrier.example.test"));
+    }
+
+    #[test]
+    fn response_must_negotiate_binary_subprotocol() {
+        let mut headers = HeaderMap::new();
+        assert!(matches!(validate_binary_subprotocol(&headers), Err(WssEndpointError::BinarySubprotocolNotNegotiated)));
+
+        headers.insert("Sec-WebSocket-Protocol", HeaderValue::from_static("json"));
+        assert!(matches!(validate_binary_subprotocol(&headers), Err(WssEndpointError::BinarySubprotocolNotNegotiated)));
+
+        headers.insert("Sec-WebSocket-Protocol", HeaderValue::from_static(BINARY_SUBPROTOCOL));
+        assert!(validate_binary_subprotocol(&headers).is_ok());
     }
 }

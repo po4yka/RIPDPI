@@ -12,6 +12,7 @@ internal class ProxySupervisorExitHandler(
     private val ioDispatcher: CoroutineDispatcher,
     private val upstreamRelaySupervisor: UpstreamRelaySupervisor,
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
+    private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val updateStatus: (ServiceStatus, FailureReason?) -> Unit,
     private val stopService: suspend (skipRuntimeShutdown: Boolean) -> Unit,
@@ -118,6 +119,39 @@ internal class ProxySupervisorExitHandler(
 
         reportFailure(failureReason)
         upstreamRelaySupervisor.detach()
+        stopSkippingRuntimeShutdown()
+    }
+
+    suspend fun handleAwgExit(cause: SupervisorExitCause) {
+        if (cause is SupervisorExitCause.ExpectedStop) {
+            return
+        }
+
+        val failureReason =
+            when (cause) {
+                is SupervisorExitCause.Crash -> {
+                    Logger.e { "AmneziaWG stopped with code ${cause.code}" }
+                    FailureReason.NativeError("AmneziaWG exited with code ${cause.code}")
+                }
+
+                is SupervisorExitCause.StartupFailure -> {
+                    val error = cause.throwable
+                    Logger.e(error) { "AmneziaWG failed" }
+                    classifyFailureReason(error)
+                }
+
+                SupervisorExitCause.Cancellation -> {
+                    Logger.e { "AmneziaWG runtime was cancelled unexpectedly" }
+                    FailureReason.NativeError("AmneziaWG runtime was cancelled unexpectedly")
+                }
+
+                SupervisorExitCause.ExpectedStop -> {
+                    null
+                }
+            }
+
+        reportFailure(failureReason)
+        amneziaWgRuntimeSupervisor.detach()
         stopSkippingRuntimeShutdown()
     }
 

@@ -30,11 +30,6 @@ internal class SharedProxyRuntimeStack(
         onAwgExit: suspend (SupervisorExitCause) -> Unit,
         onProxyExit: suspend (SupervisorExitCause) -> Unit,
     ): LocalProxyEndpoint {
-        val relayQuicMigrationConfig = proxyPreferences.ownedRelayQuicMigrationConfig()
-        proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
-            upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, onRelayExit)
-        }
-
         val awgRequest = proxyPreferences.awgConfigOrNull()
         val effectivePreferences: RipDpiProxyPreferences
         if (awgRequest != null) {
@@ -43,6 +38,10 @@ internal class SharedProxyRuntimeStack(
             amneziaWgRuntimeSupervisor.start(awgRequest, onAwgExit)
             effectivePreferences = proxyPreferences.withAwgEgressPort(VpnModeAmneziaWgLocalSocksPort)
         } else {
+            val relayQuicMigrationConfig = proxyPreferences.ownedRelayQuicMigrationConfig()
+            proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
+                upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, onRelayExit)
+            }
             proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
                 warpRuntimeSupervisor.start(warpConfig, onWarpExit)
             }
