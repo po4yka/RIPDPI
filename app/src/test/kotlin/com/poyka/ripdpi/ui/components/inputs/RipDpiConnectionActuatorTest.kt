@@ -1,8 +1,14 @@
 package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performSemanticsAction
@@ -98,6 +104,38 @@ class RipDpiConnectionActuatorTest {
             assertFalse(activated)
             assertFalse(deactivated)
         }
+    }
+
+    @Test
+    fun `open actuator exposes off switch state`() {
+        setActuator(state = actuatorState(HomeConnectionActuatorStatus.Open))
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .assertIsOff()
+    }
+
+    @Test
+    fun `locked actuator exposes on switch state`() {
+        setActuator(state = actuatorState(HomeConnectionActuatorStatus.Locked))
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .assertIsOn()
+    }
+
+    @Test
+    fun `engaging actuator exposes indeterminate switch state`() {
+        setActuator(state = actuatorState(HomeConnectionActuatorStatus.Engaging))
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
+            .assert(
+                SemanticsMatcher.expectValue(
+                    SemanticsProperties.ToggleableState,
+                    ToggleableState.Indeterminate,
+                ),
+            )
     }
 
     @Test

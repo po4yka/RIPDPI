@@ -51,6 +51,8 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
@@ -173,6 +175,7 @@ private fun rememberActuatorInteractionModifier(
         Modifier
             .semantics {
                 role = Role.Switch
+                toggleableState = state.status.toToggleableState()
                 contentDescription = state.statusDescription
                 stateDescription = state.statusDescription
                 liveRegion = LiveRegionMode.Polite
@@ -204,6 +207,19 @@ private fun rememberActuatorInteractionModifier(
         onRailWidthChanged = { widthPx -> railWidthPx = widthPx },
     )
 }
+
+private fun HomeConnectionActuatorStatus.toToggleableState(): ToggleableState =
+    when (this) {
+        HomeConnectionActuatorStatus.Open,
+        HomeConnectionActuatorStatus.Fault,
+        -> ToggleableState.Off
+
+        HomeConnectionActuatorStatus.Locked,
+        HomeConnectionActuatorStatus.Degraded,
+        -> ToggleableState.On
+
+        HomeConnectionActuatorStatus.Engaging -> ToggleableState.Indeterminate
+    }
 
 private fun invokeActuatorClick(
     state: HomeConnectionActuatorUiState,
