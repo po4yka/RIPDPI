@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.diagnostics.BypassApproachId
@@ -197,6 +198,45 @@ class MainViewModelTest {
         assertEquals(HomeConnectionActuatorStatus.Locked, state.status)
         assertEquals(1f, state.carriageFraction)
         assertTrue(state.stages.all { it.state == HomeConnectionActuatorStageState.Complete })
+    }
+
+    @Test
+    fun `connection actuator labels relay backed vpn as vpn`() {
+        val stringResolver = ResourceStringResolver()
+        val directVpn =
+            buildConnectionActuatorUiState(
+                settings =
+                    AppSettings
+                        .newBuilder()
+                        .setRelayEnabled(false)
+                        .build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Disconnected,
+                runtime = ConnectionRuntimeState(),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                stringResolver = stringResolver,
+            )
+        val relayBackedVpn =
+            buildConnectionActuatorUiState(
+                settings =
+                    AppSettings
+                        .newBuilder()
+                        .setRelayEnabled(true)
+                        .setRelayKind(RelayKindVlessReality)
+                        .build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Disconnected,
+                runtime = ConnectionRuntimeState(),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                stringResolver = stringResolver,
+            )
+
+        assertEquals("Local VPN", directVpn.routeLabel)
+        assertEquals("VPN", relayBackedVpn.routeLabel)
     }
 
     @Test

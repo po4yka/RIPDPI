@@ -203,6 +203,16 @@ private fun remoteVpnPrimaryLabel(
     }
 }
 
+internal fun actuatorLabelForRemoteVpn(
+    settings: AppSettings,
+    stringResolver: StringResolver,
+): String =
+    if (settings.toConfigDraft().relayEnabled) {
+        stringResolver.getString(R.string.home_mode_remote_vpn)
+    } else {
+        stringResolver.getString(R.string.home_mode_vpn)
+    }
+
 private fun isLocalBypassMode(mode: Mode): Boolean = mode == Mode.Proxy
 
 private fun isRemoteVpnMode(mode: Mode): Boolean = mode == Mode.VPN
