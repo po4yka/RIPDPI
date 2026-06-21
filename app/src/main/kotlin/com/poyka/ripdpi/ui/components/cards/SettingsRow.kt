@@ -21,12 +21,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.ripDpiClickable
@@ -62,6 +65,16 @@ fun SettingsRow(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
+    val switchStateDescription =
+        checked?.let {
+            stringResource(
+                if (it) {
+                    R.string.semantic_state_on
+                } else {
+                    R.string.semantic_state_off
+                },
+            )
+        }
     val state =
         RipDpiThemeTokens.state.settingsRow.resolve(
             RipDpiThemeTokens.stateRoles.settingsRow.fromVariant(variant),
@@ -72,7 +85,13 @@ fun SettingsRow(
             modifier =
                 Modifier.settingsRowModifier(
                     testTag = testTag,
-                    title = title,
+                    accessibilityDescription =
+                        settingsRowAccessibilityDescription(
+                            title = title,
+                            subtitle = subtitle,
+                            value = value,
+                        ),
+                    stateDescription = switchStateDescription,
                     variant = variant,
                     subtitle = subtitle,
                     enabled = enabled,
@@ -106,7 +125,8 @@ fun SettingsRow(
 @Composable
 private fun Modifier.settingsRowModifier(
     testTag: String?,
-    title: String,
+    accessibilityDescription: String,
+    stateDescription: String?,
     variant: SettingsRowVariant,
     subtitle: String?,
     enabled: Boolean,
@@ -127,7 +147,8 @@ private fun Modifier.settingsRowModifier(
         this
             .ripDpiTestTag(testTag)
             .semantics(mergeDescendants = true) {
-                contentDescription = title
+                contentDescription = accessibilityDescription
+                stateDescription?.let { this.stateDescription = it }
             }.fillMaxWidth()
             .background(state.container, RipDpiThemeTokens.shapes.lg)
             .border(
@@ -167,6 +188,17 @@ private fun Modifier.settingsRowModifier(
         }
     }
 }
+
+private fun settingsRowAccessibilityDescription(
+    title: String,
+    subtitle: String?,
+    value: String?,
+): String =
+    listOfNotNull(
+        title,
+        subtitle?.takeIf { it.isNotBlank() },
+        value?.takeIf { it.isNotBlank() },
+    ).joinToString(separator = ", ")
 
 @Composable
 private fun SettingsRowLeadingIcon(
