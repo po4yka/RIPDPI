@@ -1337,6 +1337,43 @@ fn ws_tunnel_mode_none_enabled_false_maps_to_off() {
 }
 
 #[test]
+fn warp_rules_without_route_hosts_do_not_create_upstream_group() {
+    let mut ui = minimal_ui();
+    ui.warp.enabled = true;
+    ui.warp.route_mode = "rules".to_string();
+    ui.warp.route_hosts = String::new();
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+
+    assert!(
+        config.groups.iter().all(|group| group.policy.label != "warp_routed"),
+        "ordinary empty WARP rules must not route all traffic",
+    );
+}
+
+#[test]
+fn amneziawg_route_marker_creates_all_traffic_upstream_group() {
+    let mut ui = minimal_ui();
+    ui.warp.enabled = true;
+    ui.warp.route_mode = "rules".to_string();
+    ui.warp.route_hosts = "__ripdpi_awg_all_traffic__".to_string();
+    ui.warp.local_socks_port = 10809;
+
+    let config = runtime_config_from_ui(ui).expect("runtime config");
+    let warp_group = config
+        .groups
+        .iter()
+        .find(|group| group.policy.label == "warp_routed")
+        .expect("AWG egress marker must create a WARP-routed upstream group");
+
+    assert!(warp_group.matches.filters.host_filters_empty());
+    assert_eq!(
+        warp_group.policy.ext_socks.map(|upstream| upstream.addr),
+        Some(std::net::SocketAddr::from(([127, 0, 0, 1], 10809))),
+    );
+}
+
+#[test]
 fn ui_http_strategy_enables_delay_connect() {
     let mut ui = minimal_ui();
     ui.protocols.desync_http = true;

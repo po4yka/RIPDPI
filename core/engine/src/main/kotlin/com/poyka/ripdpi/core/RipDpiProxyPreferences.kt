@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.utility.shellSplit
 
@@ -118,6 +119,8 @@ fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences 
                 warp =
                     RipDpiWarpConfig(
                         enabled = true,
+                        routeMode = WarpRouteModeRules,
+                        routeHosts = AmneziaWgAllTrafficRouteHosts,
                         localSocksHost = "127.0.0.1",
                         localSocksPort = port,
                     ),
@@ -141,6 +144,8 @@ fun RipDpiProxyPreferences.withAwgEgressPort(port: Int): RipDpiProxyPreferences 
             this
         }
     }
+
+internal const val AmneziaWgAllTrafficRouteHosts = "__ripdpi_awg_all_traffic__"
 
 class RipDpiProxyJsonPreferences(
     private val configJson: String,

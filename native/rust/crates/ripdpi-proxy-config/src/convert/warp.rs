@@ -6,6 +6,8 @@ use crate::types::{ProxyConfigError, ProxyUiWarpConfig, WARP_ROUTE_MODE_RULES};
 
 use super::shared::parse_hosts;
 
+const AMNEZIAWG_ALL_TRAFFIC_ROUTE_HOSTS: &str = "__ripdpi_awg_all_traffic__";
+
 const WARP_CONTROL_PLANE_HOSTS: &[&str] = &[
     "api.cloudflareclient.com",
     "connectivity.cloudflareclient.com",
@@ -46,8 +48,9 @@ pub(crate) fn append_routed_group(
         return Err(ProxyConfigError::InvalidConfig("Invalid warp.localSocksPort".to_string()));
     }
 
-    let route_hosts = parse_hosts(Some(warp.route_hosts.as_str()))?;
-    if route_hosts.is_empty() {
+    let route_all_hosts = warp.route_hosts.trim() == AMNEZIAWG_ALL_TRAFFIC_ROUTE_HOSTS;
+    let route_hosts = if route_all_hosts { Vec::new() } else { parse_hosts(Some(warp.route_hosts.as_str()))? };
+    if route_hosts.is_empty() && !route_all_hosts {
         return Ok(());
     }
 

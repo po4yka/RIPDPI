@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
+import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -796,6 +797,19 @@ class RipDpiProxyPreferencesTest {
         val preferences = RipDpiProxyCmdPreferences("--port 1081")
 
         assertNull(preferences.awgConfigOrNull())
+    }
+
+    @Test
+    fun withAwgEgressPortRoutesAllProxyTrafficToAwgSocks() {
+        val preferences = RipDpiProxyUIPreferences()
+
+        val routed = preferences.withAwgEgressPort(10809) as RipDpiProxyUIPreferences
+
+        assertTrue(routed.warp.enabled)
+        assertEquals(WarpRouteModeRules, routed.warp.routeMode)
+        assertEquals(AmneziaWgAllTrafficRouteHosts, routed.warp.routeHosts)
+        assertEquals("127.0.0.1", routed.warp.localSocksHost)
+        assertEquals(10809, routed.warp.localSocksPort)
     }
 
     @Test
