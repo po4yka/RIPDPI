@@ -1,6 +1,6 @@
 use std::io;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use hyper::client::conn::http2;
 use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
@@ -18,7 +18,24 @@ pub(crate) struct PooledConnection {
 #[derive(Default)]
 pub(crate) struct PoolState {
     connections: Vec<Arc<PooledConnection>>,
-    creating_connections: usize,
+}
+
+struct CreationSlot {
+    creating_connections: Arc<AtomicUsize>,
+}
+
+impl CreationSlot {
+    fn reserve(creating_connections: Arc<AtomicUsize>) -> Self {
+        creating_connections.fetch_add(1, Ordering::AcqRel);
+        Self { creating_connections }
+    }
+}
+
+impl Drop for CreationSlot {
+    fn drop(&mut self) {
+        let previous = self.creating_connections.fetch_sub(1, Ordering::AcqRel);
+        debug_assert!(previous > 0, "xHTTP creation slot released without a matching reservation");
+    }
 }
 
 impl PooledConnection {
@@ -51,15 +68,14 @@ pub(crate) async fn acquire_connection(
         let should_create = {
             let mut state = inner.state.lock().await;
             state.connections.retain(|connection| !connection.is_closed());
-            if state.connections.len() + state.creating_connections < inner.max_connections {
-                state.creating_connections += 1;
-                true
+            if state.connections.len() + inner.creating_connections.load(Ordering::Acquire) < inner.max_connections {
+                Some(CreationSlot::reserve(inner.creating_connections.clone()))
             } else {
-                false
+                None
             }
         };
 
-        if should_create {
+        if let Some(creation_slot) = should_create {
             match connect::create_connection(&inner.mode, inner.max_concurrent_streams).await {
                 Ok(connection) => {
                     let permit = connection
@@ -68,13 +84,13 @@ pub(crate) async fn acquire_connection(
                         .try_acquire_owned()
                         .map_err(|_| io::Error::other("xHTTP connection created without stream capacity"))?;
                     let mut state = inner.state.lock().await;
-                    state.creating_connections = state.creating_connections.saturating_sub(1);
                     state.connections.push(connection.clone());
+                    drop(creation_slot);
                     return Ok((connection, permit));
                 }
                 Err(error) => {
-                    let mut state = inner.state.lock().await;
-                    state.creating_connections = state.creating_connections.saturating_sub(1);
+                    let state = inner.state.lock().await;
+                    drop(creation_slot);
                     if state.connections.is_empty() {
                         return Err(error);
                     }
@@ -112,4 +128,30 @@ async fn try_acquire_existing(inner: &XhttpClientInner) -> Option<(Arc<PooledCon
         }
         connection.permits.clone().try_acquire_owned().ok().map(|permit| (connection.clone(), permit))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::CreationSlot;
+
+    #[tokio::test]
+    async fn creation_slot_releases_capacity_when_creation_task_is_cancelled() {
+        let creating_connections = Arc::new(AtomicUsize::new(0));
+
+        let task_connections = creating_connections.clone();
+        let task = tokio::spawn(async move {
+            let _slot = CreationSlot::reserve(task_connections);
+            std::future::pending::<()>().await;
+        });
+        while creating_connections.load(Ordering::Acquire) == 0 {
+            tokio::task::yield_now().await;
+        }
+
+        task.abort();
+        let _ = task.await;
+        assert_eq!(0, creating_connections.load(Ordering::Acquire));
+    }
 }

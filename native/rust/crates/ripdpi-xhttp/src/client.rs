@@ -1,5 +1,6 @@
 use std::io;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
 use tokio::sync::Mutex;
 
@@ -16,6 +17,7 @@ pub(crate) struct XhttpClientInner {
     pub(crate) mode: XhttpMode,
     pub(crate) max_connections: usize,
     pub(crate) max_concurrent_streams: usize,
+    pub(crate) creating_connections: Arc<AtomicUsize>,
     pub(crate) state: Mutex<PoolState>,
 }
 
@@ -47,6 +49,7 @@ impl XhttpClient {
                 mode,
                 max_connections: xmux.max_connections.max(1),
                 max_concurrent_streams: xmux.max_concurrent_streams.max(1),
+                creating_connections: Arc::new(AtomicUsize::new(0)),
                 state: Mutex::new(PoolState::default()),
             }),
         }
