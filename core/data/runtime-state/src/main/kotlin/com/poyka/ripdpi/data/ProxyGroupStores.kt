@@ -124,8 +124,8 @@ sealed interface ProxyProfile {
      * VLESS outbound secured with REALITY (XTLS/Vision). Carries the full set of
      * connection-critical parameters that [Vless] intentionally omits for plain
      * proxies. A parser emits this variant IFF reality material is present (sing-box
-     * `tls.reality.enabled == true` or a non-empty `public_key`; URI
-     * `security=reality` or a `pbk` query param).
+     * `tls.reality.enabled == true` with a non-empty `public_key`; URI
+     * import requires a non-empty `pbk` query param.
      */
     @Serializable
     @SerialName("vless-reality")

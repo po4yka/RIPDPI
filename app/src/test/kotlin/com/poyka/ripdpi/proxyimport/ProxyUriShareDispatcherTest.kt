@@ -26,6 +26,17 @@ class ProxyUriShareDispatcherTest {
     }
 
     @Test
+    fun `vless reality uri without pbk is rejected before profile import`() {
+        val request =
+            ProxyUriShareDispatcher.dispatch(
+                "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=reality&sni=cdn.example#Broken",
+            )
+
+        assertTrue(request is ProxyImportRequest.UnsupportedScheme)
+        assertEquals("vless", (request as ProxyImportRequest.UnsupportedScheme).scheme)
+    }
+
+    @Test
     fun `shadowsocks uri resolves to a profile import request`() {
         val request =
             ProxyUriShareDispatcher.dispatch(

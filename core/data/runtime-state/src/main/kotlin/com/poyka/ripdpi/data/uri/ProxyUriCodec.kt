@@ -201,11 +201,13 @@ object ProxyUriCodec {
         val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         val rawQuery = parsed.rawQuery
-        // Detect REALITY: security=reality query param, OR a non-empty pbk param.
+        // Detect REALITY only when usable key material is present. A bare
+        // security=reality flag without pbk cannot complete a REALITY handshake.
         val security = queryValue(rawQuery, "security")
         val pbk = queryValue(rawQuery, "pbk")
         val isReality = security?.lowercase() == "reality" || !pbk.isNullOrBlank()
         return if (isReality) {
+            val realityPublicKey = pbk?.takeIf { it.isNotBlank() } ?: return null
             val sid = queryValue(rawQuery, "sid").orEmpty()
             val sni = queryValue(rawQuery, "sni") ?: host
             val flow = queryValue(rawQuery, "flow") ?: "xtls-rprx-vision"
@@ -220,7 +222,7 @@ object ProxyUriCodec {
                 server = host,
                 serverPort = port,
                 uuid = uuid,
-                realityPublicKey = pbk.orEmpty(),
+                realityPublicKey = realityPublicKey,
                 realityShortId = sid,
                 serverName = sni,
                 flow = flow,

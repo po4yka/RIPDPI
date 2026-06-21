@@ -321,9 +321,8 @@ object XrayConfigImportParser {
         val profile = ProxyUriCodec.parse(line)
         when (profile) {
             is ProxyProfile.VlessReality -> {
-                // ProxyUriCodec treats `security=reality` with no `pbk` as REALITY but
-                // leaves the public key empty; such a node cannot complete a REALITY
-                // handshake, so skip it rather than activate a relay that fails at connect.
+                // Defensive check for malformed profiles from future parser changes:
+                // REALITY cannot complete a handshake without public key material.
                 if (profile.realityPublicKey.isBlank()) {
                     skipped += XraySkippedNode(index, "$scheme link", XraySkipReason.MALFORMED, scheme)
                 } else {
