@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.failover
 
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.services.AwgEgressSelectionSource
@@ -17,6 +18,7 @@ class SimpleAwgEgressSelection
     @Inject
     constructor(
         private val awgProfileRepository: AwgProfileRepository,
+        private val settingsRepository: AppSettingsRepository,
     ) : AwgEgressSelectionSource {
         override val selectionPriority: Int = 10
 
@@ -30,10 +32,17 @@ class SimpleAwgEgressSelection
             selectedProfileId.value = null
         }
 
-        override suspend fun selectedAwgEgress(): AwgActivationRequest? =
-            selectedProfileId.value?.let { profileId ->
-                awgProfileRepository.load(profileId)?.request
-            }
+        override suspend fun selectedAwgEgress(): AwgActivationRequest? {
+            val profileId =
+                selectedProfileId.value
+                    ?: settingsRepository
+                        .snapshot()
+                        .simpleFailoverAwgProfileId
+                        .takeIf { it.isNotBlank() }
+                        ?.also { selectedProfileId.value = it }
+                    ?: return null
+            return awgProfileRepository.load(profileId)?.request
+        }
     }
 
 @Module

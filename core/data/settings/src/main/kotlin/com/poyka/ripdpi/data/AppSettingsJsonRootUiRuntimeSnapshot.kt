@@ -13,6 +13,7 @@ internal data class AppSettingsRootUiRuntimeSnapshot(
     val backupPin: String = "",
     val appIconVariant: String = defaultSettings.appIconVariant,
     val appIconStyle: String = defaultSettings.appIconStyle,
+    val simpleFailoverAwgProfileId: String = defaultSettings.simpleFailoverAwgProfileId,
 )
 
 internal fun JsonObjectBuilder.writeRootUiRuntimeSnapshot(snapshot: AppSettingsRootUiRuntimeSnapshot) {
@@ -23,6 +24,7 @@ internal fun JsonObjectBuilder.writeRootUiRuntimeSnapshot(snapshot: AppSettingsR
     put("biometricEnabled", snapshot.biometricEnabled)
     put("appIconVariant", snapshot.appIconVariant)
     put("appIconStyle", snapshot.appIconStyle)
+    put("simpleFailoverAwgProfileId", snapshot.simpleFailoverAwgProfileId)
 }
 
 internal fun JsonObject.readRootUiRuntimeSnapshot(
@@ -37,4 +39,5 @@ internal fun JsonObject.readRootUiRuntimeSnapshot(
         backupPin = "",
         appIconVariant = stringValue("appIconVariant", defaults.appIconVariant),
         appIconStyle = stringValue("appIconStyle", defaults.appIconStyle),
+        simpleFailoverAwgProfileId = stringValue("simpleFailoverAwgProfileId", defaults.simpleFailoverAwgProfileId),
     )

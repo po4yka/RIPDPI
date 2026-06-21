@@ -463,4 +463,7 @@ message AppSettings {
 
   // UI persona: "simple" | "advanced". Simple is the default user-facing surface.
   string ui_persona = 409;
+
+  // Simple-flavor failover-selected AWG profile id. Empty means no AWG failover egress is selected.
+  string simple_failover_awg_profile_id = 410;
 }

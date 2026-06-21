@@ -458,16 +458,17 @@ class FailoverCoordinator
                         setRelayEnabled(true)
                         setRelayKind(candidate.relayKind)
                         setRelayProfileId(candidate.profileId)
+                        setSimpleFailoverAwgProfileId("")
                     }
                 }
 
                 is FailoverCandidate.Awg -> {
-                    // Disable the relay so the connection policy resolver does not start it.
-                    // The selected AWG profile id is kept in memory for this failover cycle
-                    // and resolved into a full activation request on the restart.
+                    // Disable the relay and persist the AWG selector so the connection policy
+                    // resolver can rehydrate the egress request after a service/process restart.
                     awgEgressSelection.select(candidate.awgProfileId)
                     settingsRepository.update {
                         setRelayEnabled(false)
+                        setSimpleFailoverAwgProfileId(candidate.awgProfileId)
                     }
                     Logger.i { "FailoverCoordinator: switching to AWG profile ${candidate.awgProfileId}" }
                 }
@@ -493,25 +494,28 @@ class FailoverCoordinator
         /**
          * Returns the index in [candidates] that matches the currently persisted transport.
          *
-         * Reads [AppSettingsRepository.snapshot] once. If relay is disabled the active
-         * egress is AWG → find the first [FailoverCandidate.Awg]. If relay is enabled,
-         * match [settings.relayKind] to the relay candidate's [FailoverCandidate.Relay.relayKind].
-         * Falls back to 0 when nothing matches (first-launch, settings cleared, etc.).
+         * Reads [AppSettingsRepository.snapshot] once. If relay is enabled, match
+         * [settings.relayKind] to the relay candidate's [FailoverCandidate.Relay.relayKind].
+         * If relay is disabled and the explicit simple-failover AWG selector is set, resume
+         * that AWG candidate. Falls back to 0 when nothing matches.
          *
          * // NOT cancel-safe: contains suspending [settingsRepository.snapshot].
          * Cancellation leaves [activeCandidateIndex] at 0, which is a safe default.
          */
         private suspend fun resumeIndex(): Int {
-            // Resume on the persisted relay transport. AWG-as-egress is tracked in memory
-            // across self-restarts (see startObserving); inferring it from `!relayEnabled`
-            // is wrong because relay-disabled is also the default-install state. On a cold
-            // start with relay disabled, fall back to the highest-priority candidate and
-            // let health re-evaluation drive any further failover.
+            // Resume on the persisted transport. AWG uses an explicit selector because
+            // relay-disabled is also the default-install state and cannot by itself mean AWG.
             val settings = settingsRepository.snapshot()
             if (settings.relayEnabled) {
                 val idx =
                     candidates.indexOfFirst {
                         it is FailoverCandidate.Relay && it.relayKind == settings.relayKind
+                    }
+                if (idx >= 0) return idx
+            } else if (settings.simpleFailoverAwgProfileId.isNotBlank()) {
+                val idx =
+                    candidates.indexOfFirst {
+                        it is FailoverCandidate.Awg && it.awgProfileId == settings.simpleFailoverAwgProfileId
                     }
                 if (idx >= 0) return idx
             }

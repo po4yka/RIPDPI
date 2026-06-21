@@ -132,6 +132,8 @@ private class FakeAppSettingsRepository : AppSettingsRepository {
     fun relayEnabled(): Boolean = settingsState.value.relayEnabled
 
     fun relayKind(): String = settingsState.value.relayKind
+
+    fun simpleFailoverAwgProfileId(): String = settingsState.value.simpleFailoverAwgProfileId
 }
 
 private class FakeAwgProfileDao(
@@ -219,7 +221,7 @@ private fun buildCoordinator(
     settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
 ): CoordinatorFixture {
     val awgRepo = AwgProfileRepository(FakeAwgProfileDao(awgProfiles), FakeAwgCredentialStore())
-    val awgSelection = SimpleAwgEgressSelection(awgRepo)
+    val awgSelection = SimpleAwgEgressSelection(awgRepo, settings)
     val coordinator =
         FailoverCoordinator(
             serviceStateStore = stateStore,
@@ -887,6 +889,11 @@ class FailoverCoordinatorTest {
 
             assertTrue("relayEnabled must be true after relay switch", settings.relayEnabled())
             assertEquals(
+                "relay switch must clear any durable AWG failover selector",
+                "",
+                settings.simpleFailoverAwgProfileId(),
+            )
+            assertEquals(
                 "relayKind must be Hysteria2 after switch from Reality",
                 RelayKindHysteria2,
                 settings.relayKind(),
@@ -969,9 +976,58 @@ class FailoverCoordinatorTest {
             }
 
             assertFalse("relayEnabled must be false after AWG switch", settings.relayEnabled())
+            assertEquals(
+                "AWG switch must persist the AWG failover selector",
+                "awg-settings",
+                settings.simpleFailoverAwgProfileId(),
+            )
             val selectedAwg = awgSelection.selectedAwgEgress()
             assertNotNull("AWG switch must expose a selected AWG egress", selectedAwg)
             assertEquals("AWG profile id must be rehydrated from repository", "awg-settings", selectedAwg?.profileId)
+
+            coordinator.stopObserving()
+        }
+
+    /**
+     * Cold-start regression: relayEnabled=false alone is ambiguous because a default install also
+     * has relay disabled. When the explicit AWG selector is present, the coordinator must resume on
+     * the AWG candidate and [SimpleAwgEgressSelection] must rehydrate the request from the durable
+     * profile store instead of relying on the process-local cache.
+     */
+    @Test
+    fun `persisted awg selector resumes awg after cold start`() =
+        runTest {
+            val settings = FakeAppSettingsRepository()
+            settings.update {
+                setRelayEnabled(false)
+                setSimpleFailoverAwgProfileId("awg-cold")
+            }
+            val awgEntity =
+                AwgProfileEntity(
+                    id = "awg-cold",
+                    name = "Cold AWG",
+                    requestJson = MINIMAL_AWG_REQUEST_JSON,
+                    updatedAt = 1L,
+                )
+            val (coordinator, _, _, awgSelection) =
+                buildCoordinator(
+                    awgProfiles = listOf(awgEntity),
+                    settings = settings,
+                )
+            val observeScope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+
+            coordinator.startObserving(observeScope)
+
+            val active = coordinator.activeCandidate.value
+            assertNotNull("activeCandidate must be non-null", active)
+            check(active is FailoverCandidate.Awg) {
+                "Expected persisted AWG selector to resume AWG candidate, got $active"
+            }
+            assertEquals("awg-cold", active.awgProfileId)
+
+            val selectedAwg = awgSelection.selectedAwgEgress()
+            assertNotNull("durable AWG selector must rehydrate a request", selectedAwg)
+            assertEquals("awg-cold", selectedAwg?.profileId)
 
             coordinator.stopObserving()
         }

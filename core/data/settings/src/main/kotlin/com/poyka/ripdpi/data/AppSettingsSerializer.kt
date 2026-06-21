@@ -127,6 +127,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setRelayAppsScriptVerifySsl(DefaultRelayAppsScriptVerifySsl)
             .setAppIconVariant("default")
             .setAppIconStyle("themed")
+            .setSimpleFailoverAwgProfileId("")
             .setDiagnosticsMonitorEnabled(true)
             .setDiagnosticsSampleIntervalSeconds(15)
             .setDiagnosticsDefaultScanPathMode("raw_path")

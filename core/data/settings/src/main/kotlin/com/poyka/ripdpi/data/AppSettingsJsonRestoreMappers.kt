@@ -18,5 +18,6 @@ internal fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .applyRelaySnapshot(this)
         .applyRoutingSnapshot(this)
         .applyChainSnapshots(this)
+        .setSimpleFailoverAwgProfileId(rootUiRuntime.simpleFailoverAwgProfileId)
         .build()
 }
