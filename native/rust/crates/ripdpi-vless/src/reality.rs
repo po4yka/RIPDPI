@@ -142,6 +142,6 @@ where
     // / SNI / IP in the event).
     ripdpi_tls_profiles::note_pq_kem_negotiation(tls_stream.ssl().curve());
 
-    tracing::debug!("Reality TLS handshake completed to {}", config.server_name);
+    tracing::debug!("Reality TLS handshake completed");
     Ok(tls_stream)
 }

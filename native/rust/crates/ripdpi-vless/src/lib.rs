@@ -67,8 +67,7 @@ impl VlessRealityClient {
         bind_ip: Option<IpAddr>,
         target: &str,
     ) -> io::Result<VisionStream<SslStream<TcpStream>>> {
-        let addr = format!("{}:{}", config.server, config.port);
-        tracing::debug!(server = %addr, target, ?bind_ip, "VLESS+Reality: connecting");
+        tracing::debug!("VLESS+Reality: connecting");
 
         let tcp = connect_tcp(config, bind_ip).await?;
         let tls = reality::connect_reality_tls(tcp, config).await?;
@@ -88,11 +87,7 @@ impl VlessRealityClient {
     where
         S: AsyncIo + 'static,
     {
-        tracing::debug!(
-            server_name = %config.server_name,
-            target,
-            "VLESS+Reality (chained): connecting over existing transport"
-        );
+        tracing::debug!("VLESS+Reality (chained): connecting over existing transport");
 
         let tls = reality::connect_reality_tls_over(transport, config).await?;
         Self::vless_handshake_and_wrap(tls, config, target).await
@@ -117,7 +112,7 @@ impl VlessRealityClient {
         // Read VLESS response header
         wire::read_response(&mut tls).await?;
 
-        tracing::debug!(target, "VLESS handshake completed");
+        tracing::debug!("VLESS handshake completed");
 
         // Wrap in VisionStream for TLS-in-TLS detection avoidance
         Ok(VisionStream::new(tls))

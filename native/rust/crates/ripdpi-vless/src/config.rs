@@ -22,10 +22,10 @@ pub enum ConfigError {
 
 /// Configuration for a VLESS+Reality connection.
 ///
-/// `Debug` is implemented manually to redact subscriber credentials
-/// (`uuid`, `reality_public_key`). A derived `Debug` would expose them
-/// to any `tracing::debug!(?config)` call or panic message. See
-/// `redacted_debug_omits_uuid_and_reality_key` test for the contract.
+/// `Debug` is implemented manually to redact subscriber credentials and relay
+/// endpoint metadata. A derived `Debug` would expose them to any
+/// `tracing::debug!(?config)` call or panic message. See
+/// `redacted_debug_omits_credentials_and_endpoint_metadata` test for the contract.
 #[derive(Clone)]
 pub struct VlessRealityConfig {
     pub server: String,
@@ -55,10 +55,10 @@ pub struct VlessRealityConfig {
 impl std::fmt::Debug for VlessRealityConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VlessRealityConfig")
-            .field("server", &self.server)
-            .field("port", &self.port)
+            .field("server", &"<redacted>")
+            .field("port", &"<redacted>")
             .field("uuid", &"<redacted>")
-            .field("server_name", &self.server_name)
+            .field("server_name", &"<redacted>")
             .field("tls_fingerprint_profile", &self.tls_fingerprint_profile)
             .field("reality_public_key", &"<redacted>")
             .field("reality_short_id_len", &self.reality_short_id.len())
@@ -290,7 +290,7 @@ mod tests {
     }
 
     #[test]
-    fn redacted_debug_omits_uuid_and_reality_key() {
+    fn redacted_debug_omits_credentials_and_endpoint_metadata() {
         // Credential-redaction contract: the manual Debug impl on
         // VlessRealityConfig must not echo the UUID or REALITY public key
         // bytes. Removing the manual impl (e.g. derive Debug) would expose
@@ -315,10 +315,9 @@ mod tests {
         // derived Debug would emit.
         assert!(!dbg.contains("171, 171, 171, 171"), "Debug output exposes REALITY public key as int array: {dbg}",);
 
-        // Public, non-secret fields should still be visible for log
-        // utility.
-        assert!(dbg.contains("example.com"), "server should be visible in debug");
-        assert!(dbg.contains("443"), "port should be visible in debug");
+        assert!(!dbg.contains("example.com"), "Debug output exposes relay server: {dbg}");
+        assert!(!dbg.contains("www.example.com"), "Debug output exposes Reality SNI: {dbg}");
+        assert!(!dbg.contains("443"), "Debug output exposes relay port: {dbg}");
         assert!(dbg.contains("<redacted>"), "redaction marker should be present");
     }
 
@@ -390,6 +389,9 @@ mod tests {
             !joined.contains("171, 171, 171, 171"),
             "tracing event exposes REALITY public key (int array): {joined}",
         );
+        assert!(!joined.contains("example.com"), "tracing event exposes relay server: {joined}");
+        assert!(!joined.contains("www.example.com"), "tracing event exposes Reality SNI: {joined}");
+        assert!(!joined.contains("443"), "tracing event exposes relay port: {joined}");
         assert!(joined.contains("<redacted>"), "tracing event must carry the redaction marker: {joined}");
     }
 }
