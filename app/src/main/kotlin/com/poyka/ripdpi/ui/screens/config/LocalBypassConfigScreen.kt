@@ -41,6 +41,7 @@ internal fun LocalBypassConfigScreen(
     uiState: ConfigUiState,
     desyncSummary: String,
     onModeSelected: (Mode) -> Unit,
+    onLocalBypassStop: () -> Unit,
     onOpenDesyncSettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
@@ -58,6 +59,7 @@ internal fun LocalBypassConfigScreen(
         LocalBypassSimpleCard(
             uiState = uiState,
             onModeSelected = onModeSelected,
+            onLocalBypassStop = onLocalBypassStop,
             onRetestStrategies = onRetestStrategies,
         )
         AdvancedSection(initiallyExpanded = uiState.uiPersona == "advanced") {
@@ -75,6 +77,7 @@ internal fun LocalBypassConfigScreen(
 private fun LocalBypassSimpleCard(
     uiState: ConfigUiState,
     onModeSelected: (Mode) -> Unit,
+    onLocalBypassStop: () -> Unit,
     onRetestStrategies: () -> Unit,
 ) {
     val localBypassEnabled = uiState.activeMode == Mode.Proxy
@@ -96,6 +99,7 @@ private fun LocalBypassSimpleCard(
         LocalBypassActionButtons(
             localBypassEnabled = localBypassEnabled,
             onModeSelected = onModeSelected,
+            onLocalBypassStop = onLocalBypassStop,
             onRetestStrategies = onRetestStrategies,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -156,6 +160,7 @@ private fun LocalBypassPrecedenceRow(commandLineOverridesEnabled: Boolean) {
 private fun LocalBypassActionButtons(
     localBypassEnabled: Boolean,
     onModeSelected: (Mode) -> Unit,
+    onLocalBypassStop: () -> Unit,
     onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -174,7 +179,12 @@ private fun LocalBypassActionButtons(
                         R.string.config_local_bypass_turn_on
                     },
                 ),
-            onClick = { onModeSelected(localBypassToggleTarget(localBypassEnabled)) },
+            onClick = {
+                when (localBypassToggleAction(localBypassEnabled)) {
+                    LocalBypassToggleAction.TurnOn -> onModeSelected(Mode.Proxy)
+                    LocalBypassToggleAction.TurnOff -> onLocalBypassStop()
+                }
+            },
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -195,11 +205,16 @@ private fun LocalBypassActionButtons(
     }
 }
 
-internal fun localBypassToggleTarget(localBypassEnabled: Boolean): Mode =
+internal enum class LocalBypassToggleAction {
+    TurnOn,
+    TurnOff,
+}
+
+internal fun localBypassToggleAction(localBypassEnabled: Boolean): LocalBypassToggleAction =
     if (localBypassEnabled) {
-        Mode.VPN
+        LocalBypassToggleAction.TurnOff
     } else {
-        Mode.Proxy
+        LocalBypassToggleAction.TurnOn
     }
 
 @Composable
@@ -360,6 +375,7 @@ private fun LocalBypassConfigScreenPreview() {
                 ),
             desyncSummary = draft.chainSummary,
             onModeSelected = {},
+            onLocalBypassStop = {},
             onOpenDesyncSettings = {},
             onOpenDnsSettings = {},
             onRetestStrategies = {},

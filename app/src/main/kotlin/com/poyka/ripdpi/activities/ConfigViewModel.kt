@@ -7,6 +7,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.config.relay.resolveRelayPresetSuggestion
 import com.poyka.ripdpi.config.relay.toUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.platform.StringResolver
@@ -39,6 +40,7 @@ class ConfigViewModel
         private val relayPresetCatalog = dependencies.relayPresetCatalog
         private val networkSnapshotProvider = dependencies.networkSnapshotProvider
         private val serviceStateStore = dependencies.serviceStateStore
+        private val serviceController = dependencies.serviceController
         private val latestDirectModeOutcomeStore = dependencies.latestDirectModeOutcomeStore
         private val capabilityObserver = dependencies.capabilityObserver
         private val masqueClientCredentialImporter = importDependencies.masqueClientCredentialImporter
@@ -151,6 +153,12 @@ class ConfigViewModel
                 appSettingsRepository.update {
                     setRipdpiMode(mode.preferenceValue)
                 }
+            }
+        }
+
+        fun stopLocalBypass() {
+            if (serviceStateStore.status.value == AppStatus.Running to Mode.Proxy) {
+                serviceController.stop()
             }
         }
 

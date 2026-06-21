@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RelayPresetCatalog
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.security.MasqueClientCredentialImporter
 import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
+import com.poyka.ripdpi.services.ServiceController
 import javax.inject.Inject
 
 class ConfigViewModelDependencies
@@ -17,6 +18,7 @@ class ConfigViewModelDependencies
         val relayPresetCatalog: RelayPresetCatalog,
         val networkSnapshotProvider: NativeNetworkSnapshotProvider,
         val serviceStateStore: ServiceStateStore,
+        val serviceController: ServiceController,
         val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
         val capabilityObserver: ConfigCapabilityObserver,
     )

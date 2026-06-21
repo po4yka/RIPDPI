@@ -80,6 +80,7 @@ fun ConfigRoute(
         route = route,
         topBarActions = { ConfigImportMenu(onProfileImport = onProfileImport) },
         onModeSelected = remember(viewModel) { viewModel::selectMode },
+        onLocalBypassStop = remember(viewModel) { viewModel::stopLocalBypass },
         onPresetSelected = { preset ->
             when (preset.kind) {
                 ConfigPresetKind.Custom -> {
@@ -111,6 +112,7 @@ fun ConfigRoute(
 fun ConfigScreen(
     uiState: ConfigUiState,
     onModeSelected: (Mode) -> Unit,
+    onLocalBypassStop: () -> Unit = {},
     onPresetSelected: (ConfigPreset) -> Unit,
     onEditCurrent: () -> Unit,
     onOpenDnsSettings: () -> Unit,
@@ -190,6 +192,7 @@ fun ConfigScreen(
             uiState = uiState,
             desyncSummary = desyncSummary,
             onModeSelected = onModeSelected,
+            onLocalBypassStop = onLocalBypassStop,
             onEditCurrent = onEditCurrent,
             onOpenDnsSettings = onOpenDnsSettings,
             onRetestStrategies = onRetestStrategies,
@@ -278,6 +281,7 @@ private fun ConfigSelectedModeSection(
     uiState: ConfigUiState,
     desyncSummary: String,
     onModeSelected: (Mode) -> Unit,
+    onLocalBypassStop: () -> Unit,
     onEditCurrent: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
@@ -291,6 +295,7 @@ private fun ConfigSelectedModeSection(
                 uiState = uiState,
                 desyncSummary = desyncSummary,
                 onModeSelected = onModeSelected,
+                onLocalBypassStop = onLocalBypassStop,
                 onOpenDesyncSettings = onEditCurrent,
                 onOpenDnsSettings = onOpenDnsSettings,
                 onRetestStrategies = onRetestStrategies,

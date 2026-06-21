@@ -94,15 +94,51 @@ class ConfigScreenTest {
     }
 
     @Test
-    fun `simple local bypass toggle targets the opposite traffic path`() {
-        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
+    fun `simple local bypass toggle starts proxy when disabled`() {
+        val selectedModes = mutableListOf<Mode>()
+        var stopCalls = 0
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.LocalBypass,
+            onModeSelected = { selectedModes += it },
+            onLocalBypassStop = { stopCalls++ },
+            activeMode = Mode.VPN,
+        )
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassToggle)
             .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
 
-        assertEquals(Mode.Proxy, localBypassToggleTarget(localBypassEnabled = false))
-        assertEquals(Mode.VPN, localBypassToggleTarget(localBypassEnabled = true))
+        assertEquals(LocalBypassToggleAction.TurnOn, localBypassToggleAction(localBypassEnabled = false))
+        composeRule.runOnIdle {
+            assertEquals(listOf(Mode.Proxy), selectedModes)
+            assertEquals(0, stopCalls)
+        }
+    }
+
+    @Test
+    fun `simple local bypass toggle stops proxy when enabled without selecting vpn`() {
+        val selectedModes = mutableListOf<Mode>()
+        var stopCalls = 0
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.LocalBypass,
+            onModeSelected = { selectedModes += it },
+            onLocalBypassStop = { stopCalls++ },
+            activeMode = Mode.Proxy,
+        )
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassToggle)
+            .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(LocalBypassToggleAction.TurnOff, localBypassToggleAction(localBypassEnabled = true))
+        composeRule.runOnIdle {
+            assertEquals(emptyList<Mode>(), selectedModes)
+            assertEquals(1, stopCalls)
+        }
     }
 
     @Test
@@ -262,6 +298,7 @@ class ConfigScreenTest {
     private fun setConfigScreen(
         initialModeSection: ConfigModeSection,
         onModeSelected: (Mode) -> Unit = {},
+        onLocalBypassStop: () -> Unit = {},
         onEditCurrent: () -> Unit = {},
         onOpenDnsSettings: () -> Unit = {},
         onRetestStrategies: () -> Unit = {},
@@ -269,12 +306,19 @@ class ConfigScreenTest {
         onScanServer: () -> Unit = {},
         uiPersona: String = "simple",
         vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
+        activeMode: Mode = Mode.VPN,
     ) {
         composeRule.setContent {
             RipDpiTheme {
                 ConfigScreen(
-                    uiState = configUiState(uiPersona = uiPersona, vpnProfiles = vpnProfiles),
+                    uiState =
+                        configUiState(
+                            uiPersona = uiPersona,
+                            vpnProfiles = vpnProfiles,
+                            activeMode = activeMode,
+                        ),
                     onModeSelected = onModeSelected,
+                    onLocalBypassStop = onLocalBypassStop,
                     onPresetSelected = {},
                     onEditCurrent = onEditCurrent,
                     onOpenDnsSettings = onOpenDnsSettings,
@@ -290,10 +334,11 @@ class ConfigScreenTest {
     private fun configUiState(
         uiPersona: String = "simple",
         vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
+        activeMode: Mode = Mode.VPN,
     ): ConfigUiState {
         val draft = AppSettingsSerializer.defaultValue.toConfigDraft()
         return ConfigUiState(
-            activeMode = draft.mode,
+            activeMode = activeMode,
             uiPersona = uiPersona,
             presets = buildConfigPresets(draft),
             draft = draft,
