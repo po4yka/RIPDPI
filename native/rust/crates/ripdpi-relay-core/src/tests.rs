@@ -20,7 +20,7 @@ mod transport_registry;
 
 use crate::backend::RelayBackend;
 use crate::backend::builder::build_backend;
-use crate::bootstrap::{RelayEndpointBootstrapResolver, bootstrap_relay_endpoints_with};
+use crate::bootstrap::bootstrap_relay_endpoints;
 use crate::config::{
     AnyTlsRelayConfig, ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig,
     MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig,
@@ -34,19 +34,6 @@ use crate::runtime_validation::{
     validate_runtime_config,
 };
 use crate::socks::RelayTargetAddr;
-
-#[derive(Default)]
-struct FakeBootstrapResolver {
-    requests: Vec<(String, u16)>,
-}
-
-impl RelayEndpointBootstrapResolver for FakeBootstrapResolver {
-    async fn resolve_direct(&mut self, host: &str, port: u16) -> io::Result<SocketAddr> {
-        self.requests.push((host.to_string(), port));
-        let octet = u8::try_from(self.requests.len()).expect("fixture request count fits u8");
-        Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, octet)), port))
-    }
-}
 
 fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
     let common = CommonRelayConfig {
@@ -162,72 +149,68 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
 }
 
 #[tokio::test]
-async fn relay_endpoint_bootstrap_resolves_common_hostname_once_and_preserves_sni() {
+async fn relay_endpoint_bootstrap_preserves_common_hostname_and_sni_without_direct_dns() {
     let config = sample_config("vless_reality");
-    let mut resolver = FakeBootstrapResolver::default();
 
-    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
 
-    assert_eq!(resolver.requests, vec![("relay.example".to_string(), 443)]);
-    assert_eq!(bootstrapped.common.server, "203.0.113.1");
+    assert_eq!(bootstrapped.common.server, "relay.example");
     assert_eq!(bootstrapped.common.server_name, "relay.example");
 }
 
 #[tokio::test]
-async fn relay_endpoint_bootstrap_emits_direct_lookup_event() {
+async fn relay_endpoint_bootstrap_emits_no_direct_lookup_or_endpoint_event() {
     let buffers = android_support::EventRingBuffers::default();
     let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
     let dispatch = tracing::Dispatch::new(subscriber);
     let _guard = tracing::dispatcher::set_default(&dispatch);
     let config = sample_config("vless_reality");
-    let mut resolver = FakeBootstrapResolver::default();
 
-    let _bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+    let _bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
 
     let events = buffers.drain_relay();
     assert!(
-        events.iter().any(|event| event.kind.as_deref() == Some("relay_endpoint_bootstrap_direct_lookup")),
-        "bootstrap must publish the one allowed direct DNS lookup",
+        events.iter().all(|event| event.kind.as_deref() != Some("relay_endpoint_bootstrap_direct_lookup")),
+        "bootstrap must not publish direct DNS lookup telemetry",
     );
+    let serialized = format!("{events:?}");
+    assert!(!serialized.contains("relay.example"), "bootstrap telemetry leaked relay host: {serialized}");
+    assert!(!serialized.contains("443"), "bootstrap telemetry leaked relay port: {serialized}");
 }
 
 #[tokio::test]
 async fn relay_endpoint_bootstrap_skips_ip_literals() {
     let mut config = sample_config("trojan");
     config.common.server = "198.51.100.8".to_string();
-    let mut resolver = FakeBootstrapResolver::default();
 
-    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
 
-    assert!(resolver.requests.is_empty(), "IP relay endpoints must not trigger bootstrap DNS");
     assert_eq!(bootstrapped.common.server, "198.51.100.8");
     assert_eq!(bootstrapped.common.server_name, "relay.example");
 }
 
 #[tokio::test]
-async fn relay_endpoint_bootstrap_resolves_chain_entry_direct_and_leaves_exit_for_relay_dns() {
+async fn relay_endpoint_bootstrap_preserves_chain_entry_and_exit_hostnames() {
     let mut config = sample_config("chain_relay");
     let chain = chain_config_mut(&mut config);
     chain.entry_server = "entry.example".to_string();
     chain.entry_server_name = "entry.example".to_string();
     chain.exit_server = "exit.example".to_string();
     chain.exit_server_name = "exit.example".to_string();
-    let mut resolver = FakeBootstrapResolver::default();
 
-    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
 
-    assert_eq!(resolver.requests, vec![("entry.example".to_string(), 443)]);
     let RelayBackendConfig::ChainRelay(chain) = bootstrapped.backend else {
         panic!("expected chain config");
     };
-    assert_eq!(chain.entry_server, "203.0.113.1");
+    assert_eq!(chain.entry_server, "entry.example");
     assert_eq!(chain.entry_server_name, "entry.example");
     assert_eq!(chain.exit_server, "exit.example");
     assert_eq!(chain.exit_server_name, "exit.example");
 }
 
 #[tokio::test]
-async fn relay_endpoint_bootstrap_resolves_resolved_chain_entry_and_leaves_resolved_exit_for_relay_dns() {
+async fn relay_endpoint_bootstrap_preserves_resolved_chain_entry_and_exit_hostnames() {
     let mut config = sample_config("chain_relay");
     let chain = chain_config_mut(&mut config);
     chain.entry_server = "stale-entry.example".to_string();
@@ -250,24 +233,22 @@ async fn relay_endpoint_bootstrap_resolves_resolved_chain_entry_and_leaves_resol
         server_name: "exit.example".to_string(),
         ..ResolvedChainRelayHopConfig::default()
     }));
-    let mut resolver = FakeBootstrapResolver::default();
 
-    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
 
-    assert_eq!(resolver.requests, vec![("entry.example".to_string(), 443)]);
     let RelayBackendConfig::ChainRelay(chain) = bootstrapped.backend else {
         panic!("expected chain config");
     };
     let entry = chain.entry.expect("resolved entry");
     let exit = chain.exit.expect("resolved exit");
-    assert_eq!(entry.server, "203.0.113.1");
+    assert_eq!(entry.server, "entry.example");
     assert_eq!(entry.server_name, "entry.example");
     assert_eq!(exit.server, "exit.example");
     assert_eq!(exit.server_name, "exit.example");
 }
 
 #[tokio::test]
-async fn relay_endpoint_bootstrap_resolves_shadowtls_outer_and_inner_endpoints() {
+async fn relay_endpoint_bootstrap_preserves_shadowtls_outer_and_inner_hostnames() {
     let mut config = sample_config("shadowtls_v3");
     config.common.server = "outer.example".to_string();
     config.common.server_name = "outer.example".to_string();
@@ -284,39 +265,35 @@ async fn relay_endpoint_bootstrap_resolves_shadowtls_outer_and_inner_endpoints()
         vless_transport: "reality_tcp".to_string(),
         vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
     });
-    let mut resolver = FakeBootstrapResolver::default();
 
-    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
 
-    assert_eq!(resolver.requests, vec![("outer.example".to_string(), 443), ("inner.example".to_string(), 443)]);
-    assert_eq!(bootstrapped.common.server, "203.0.113.1");
+    assert_eq!(bootstrapped.common.server, "outer.example");
     assert_eq!(bootstrapped.common.server_name, "outer.example");
     let RelayBackendConfig::ShadowTlsV3(shadowtls) = bootstrapped.backend else {
         panic!("expected shadowtls config");
     };
     let inner = shadowtls.inner.expect("inner relay config");
-    assert_eq!(inner.server, "203.0.113.2");
+    assert_eq!(inner.server, "inner.example");
     assert_eq!(inner.server_name, "inner.example");
 }
 
 #[tokio::test]
-async fn relay_endpoint_bootstrap_resolves_masque_url_host_without_rewriting_authority() {
+async fn relay_endpoint_bootstrap_preserves_masque_url_without_proxy_socket_resolution() {
     let mut config = sample_config("masque");
     config.common.server = "unused-common.example".to_string();
     let RelayBackendConfig::Masque(masque) = &mut config.backend else {
         panic!("expected MASQUE config");
     };
     masque.url = "https://masque.example:8443/.well-known/masque/ip".to_string();
-    let mut resolver = FakeBootstrapResolver::default();
 
-    let bootstrapped = bootstrap_relay_endpoints_with(&config, &mut resolver).await.expect("bootstrap endpoints");
+    let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
 
-    assert_eq!(resolver.requests, vec![("masque.example".to_string(), 8443)]);
     let RelayBackendConfig::Masque(masque) = bootstrapped.backend else {
         panic!("expected MASQUE config");
     };
     assert_eq!(masque.url, "https://masque.example:8443/.well-known/masque/ip");
-    assert_eq!(masque.proxy_socket_addr.expect("MASQUE bootstrap addr").to_string(), "203.0.113.1:8443");
+    assert_eq!(masque.proxy_socket_addr, None);
 }
 
 #[test]
