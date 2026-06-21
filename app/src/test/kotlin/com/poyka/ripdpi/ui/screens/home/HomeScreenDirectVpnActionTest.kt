@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.home
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -12,7 +13,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,12 +24,13 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35])
-class HomeScreenDisabledVpnHintTest {
+class HomeScreenDirectVpnActionTest {
     @get:Rule
     val composeRule = createComposeRule()
 
     @Test
-    fun `disabled vpn relay hint opens mode editor`() {
+    fun `direct vpn stays enabled when relay is off`() {
+        var vpnEnabled: Boolean? = null
         var vpnConfigOpened = false
         var modeEditorOpened = false
         composeRule.setContent {
@@ -40,14 +42,15 @@ class HomeScreenDisabledVpnHintTest {
                                 persistentListOf(
                                     card(HomeMode.LocalDpiBypass),
                                     card(HomeMode.RemoteVpn).copy(
-                                        primaryLabel = "Relay disabled",
-                                        primaryActionEnabled = false,
-                                        primaryActionDisabledHint = "Enable a relay in Configure to turn this on",
+                                        primaryLabel = "Local VPN",
+                                        primaryActionEnabled = true,
+                                        primaryActionDisabledHint = "",
                                     ),
                                     card(HomeMode.Diagnostic),
                                 ),
                         ),
                     onToggleConnection = {},
+                    onVpnToggle = { vpnEnabled = it },
                     onVpnCardClick = { vpnConfigOpened = true },
                     onOpenModeEditor = { modeEditorOpened = true },
                     onOpenDiagnostics = {},
@@ -59,14 +62,16 @@ class HomeScreenDisabledVpnHintTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeModeDisabledHint)
+            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name))
             .performScrollTo()
             .assertIsDisplayed()
+            .assertIsEnabled()
             .performClick()
 
         composeRule.runOnIdle {
-            assertTrue(modeEditorOpened)
-            assertEquals(false, vpnConfigOpened)
+            assertEquals(true, vpnEnabled)
+            assertFalse(modeEditorOpened)
+            assertFalse(vpnConfigOpened)
         }
     }
 
