@@ -18,12 +18,16 @@ getrandom = "0.4"
 futures = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+rustls = { workspace = true }
+tokio-rustls = { workspace = true }
 tokio-tungstenite = { workspace = true }
 tungstenite = { workspace = true }
 # tokio's net feature supplies TcpSocket, which exposes the raw fd BEFORE
 # connect() so the protect callback can run on it first (vpnservice-protect
 # invariant). Same workspace-pinned tokio every other crate uses.
 tokio = { workspace = true, features = ["net"] }
+url = { workspace = true }
+webpki-roots = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync"] }

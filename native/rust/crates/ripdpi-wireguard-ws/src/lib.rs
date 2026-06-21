@@ -22,21 +22,18 @@
 //!
 //! * implement the WireGuard Noise handshake or transport crypto — that lives
 //!   in `ripdpi-warp-core` (`boringtun` + `amneziawg.rs`);
-//! * perform the TLS handshake — the carrier is an
-//!   [`AsyncRead`](tokio::io::AsyncRead) + [`AsyncWrite`](tokio::io::AsyncWrite)
-//!   supplied by the caller (a TLS stream in production, a plain TCP stream in
-//!   the loopback test).
+//! * implement an exit server — the production client path opens a protected
+//!   `wss://` endpoint and the peer terminator remains operator-provided.
 //!
 //! The public surface is intentionally tiny: [`frame_datagram`] /
 //! [`unframe_message`] are the pure byte-level codec, [`WsCarrier`] drives them
-//! over an established WebSocket, and [`connect_protected_carrier`] is the one
-//! seam that *creates* the outbound carrier socket — protecting its fd before
-//! `connect()` per the invariant below.
+//! over an established WebSocket, [`WssEndpoint`] validates production endpoint
+//! semantics, and [`connect_wss_carrier`] creates the protected WSS connection.
 //!
 //! # `VpnService.protect` invariant
 //!
-//! Any **production** carrier socket — the `TcpStream` underneath the WSS
-//! stream that this crate frames over — targets a non-loopback exit and MUST
+//! Any **production** carrier socket — the `TcpStream` underneath the WSS stream
+//! that this crate frames over — targets a non-loopback exit and MUST
 //! be `protect_socket(fd)`-ed *before* `connect()` returns, exactly as for any
 //! other RIPDPI outbound socket (see `.claude/rules/vpnservice-protect-invariant.md`).
 //!
@@ -56,8 +53,10 @@ use std::fmt;
 use tokio_tungstenite::tungstenite::Message;
 
 mod connect;
+mod endpoint;
 
 pub use connect::{CarrierSocketProtector, connect_protected_carrier};
+pub use endpoint::{WssCarrier, WssCarrierStream, WssEndpoint, WssEndpointError, connect_wss_carrier};
 
 /// Errors produced by the WireGuard-over-WebSocket carrier.
 #[derive(Debug, thiserror::Error)]

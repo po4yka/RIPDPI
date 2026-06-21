@@ -6876,11 +6876,15 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "getrandom 0.4.2",
+ "rustls",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-rustls",
  "tokio-tungstenite",
  "tracing",
  "tungstenite",
+ "url",
+ "webpki-roots",
 ]
 
 [[package]]
