@@ -29,6 +29,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.Optional
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -114,6 +115,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
+                    awgEgressSelectionProvider = Optional.empty(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -183,6 +185,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
+                    awgEgressSelectionProvider = Optional.empty(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -243,6 +246,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = Optional.empty(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -298,6 +302,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = Optional.empty(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -350,6 +355,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = Optional.empty(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -436,6 +442,7 @@ class ConnectionPolicyResolverDirectPathTest {
             rootHelperManager = RootHelperManager(),
             environmentDetector = EnvironmentDetector(),
             serverCapabilityStore = capabilityStore,
+            awgEgressSelectionProvider = Optional.empty(),
         )
 
     private fun antiCorrelationRoutingPolicy(): AntiCorrelationRoutingPolicy =

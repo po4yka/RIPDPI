@@ -113,6 +113,7 @@ class RipDpiProxyUIPreferences(
             geoipDbPath: String? = null,
             geositeDbPath: String? = null,
             environmentKind: EnvironmentKind = EnvironmentKind.Unknown,
+            awg: AwgActivationRequest? = null,
         ): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
                 listen = buildListenConfig(settings.toSettingsSections().proxy),
@@ -134,6 +135,7 @@ class RipDpiProxyUIPreferences(
                 geoipDbPath = geoipDbPath,
                 geositeDbPath = geositeDbPath,
                 environmentKind = environmentKind,
+                awg = awg,
             )
     }
 }

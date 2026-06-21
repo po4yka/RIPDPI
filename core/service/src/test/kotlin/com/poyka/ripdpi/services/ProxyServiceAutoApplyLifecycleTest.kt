@@ -34,6 +34,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.IOException
+import java.util.Optional
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -189,6 +190,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 rootHelperManager = RootHelperManager(),
                 environmentDetector = EnvironmentDetector(),
                 serverCapabilityStore = TestServerCapabilityStore(),
+                awgEgressSelectionProvider = Optional.empty(),
             )
         val coordinator =
             ProxyServiceRuntimeCoordinator(

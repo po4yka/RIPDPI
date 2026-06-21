@@ -1,98 +1,106 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.awg.AwgActivationObfuscation
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * Tests for [DefaultStandaloneAmneziaWgActivator]: the `:app`-callable hop that maps an
- * [AwgActivationRequest] into the native config and drives the supervisor.
+ * Tests for [DefaultStandaloneAmneziaWgActivator]: the `:app`-callable hop that
+ * selects an [AwgActivationRequest] and starts the owned VPN/protect lifecycle.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StandaloneAmneziaWgActivatorTest {
     @Test
-    fun `activate resolves the request and starts the native runtime with it`() =
+    fun `activate selects request and starts vpn service`() =
         runTest {
-            val dispatcher = StandardTestDispatcher(testScheduler)
-            val factory = TestRipDpiAmneziaWgFactory()
-            val resolver = RecordingAmneziaWgRuntimeConfigResolver()
+            val serviceController = RecordingServiceController()
             val activator =
                 DefaultStandaloneAmneziaWgActivator(
-                    applicationScope = backgroundScope,
-                    dispatchers = dispatchers(dispatcher),
-                    supervisorFactory = AmneziaWgRuntimeSupervisorFactory(factory, resolver),
+                    serviceController = serviceController,
                 )
+            val request = sampleRequest("awg-uuid-A")
 
-            activator.activate(sampleRequest("awg-uuid-A"))
-            advanceUntilIdle()
+            activator.activate(request)
 
-            assertEquals("awg-uuid-A", resolver.lastRequest?.profileId)
-            assertEquals(1, factory.runtimes.size)
-            assertEquals("awg-uuid-A", factory.lastRuntime.lastConfig?.profileId)
-            assertEquals(51820, factory.lastRuntime.lastConfig?.endpointPort)
-            assertEquals(
-                7,
-                factory.lastRuntime.lastConfig
-                    ?.amnezia
-                    ?.s3,
-            )
-
-            activator.deactivate()
-            advanceUntilIdle()
-            assertEquals(1, factory.lastRuntime.stopCount)
+            assertEquals(listOf(Mode.VPN), serviceController.startCalls)
+            assertEquals(request, activator.selectedAwgEgress())
         }
 
     @Test
-    fun `re-activating stops the previous tunnel before starting a new one`() =
+    fun `re-activating replaces selected request and restarts vpn`() =
         runTest {
-            val dispatcher = StandardTestDispatcher(testScheduler)
-            val factory = TestRipDpiAmneziaWgFactory()
+            val serviceController = RecordingServiceController()
             val activator =
                 DefaultStandaloneAmneziaWgActivator(
-                    applicationScope = backgroundScope,
-                    dispatchers = dispatchers(dispatcher),
-                    supervisorFactory =
-                        AmneziaWgRuntimeSupervisorFactory(factory, RecordingAmneziaWgRuntimeConfigResolver()),
+                    serviceController = serviceController,
                 )
 
             activator.activate(sampleRequest("awg-uuid-A"))
-            advanceUntilIdle()
-            activator.activate(sampleRequest("awg-uuid-B"))
-            advanceUntilIdle()
+            val second = sampleRequest("awg-uuid-B")
+            activator.activate(second)
 
-            assertEquals(2, factory.runtimes.size)
-            assertEquals(1, factory.runtimes[0].stopCount)
-            assertEquals("awg-uuid-B", factory.runtimes[1].lastConfig?.profileId)
+            assertEquals(listOf(Mode.VPN, Mode.VPN), serviceController.startCalls)
+            assertEquals(second, activator.selectedAwgEgress())
         }
 
     @Test
-    fun `deactivate without an active tunnel is a no-op`() =
+    fun `deactivate clears selection and stops owned vpn session`() =
         runTest {
-            val dispatcher = StandardTestDispatcher(testScheduler)
-            val factory = TestRipDpiAmneziaWgFactory()
+            val serviceController = RecordingServiceController()
             val activator =
                 DefaultStandaloneAmneziaWgActivator(
-                    applicationScope = backgroundScope,
-                    dispatchers = dispatchers(dispatcher),
-                    supervisorFactory =
-                        AmneziaWgRuntimeSupervisorFactory(factory, RecordingAmneziaWgRuntimeConfigResolver()),
+                    serviceController = serviceController,
+                )
+
+            activator.activate(sampleRequest("awg-uuid-A"))
+            activator.deactivate()
+
+            assertNull(activator.selectedAwgEgress())
+            assertEquals(1, serviceController.stopCalls)
+        }
+
+    @Test
+    fun `deactivate without selected request does not stop vpn service`() =
+        runTest {
+            val serviceController = RecordingServiceController()
+            val activator =
+                DefaultStandaloneAmneziaWgActivator(
+                    serviceController = serviceController,
                 )
 
             activator.deactivate()
-            advanceUntilIdle()
 
-            assertEquals(0, factory.runtimes.size)
+            assertNull(activator.selectedAwgEgress())
+            assertEquals(0, serviceController.stopCalls)
         }
 
-    private fun dispatchers(dispatcher: CoroutineDispatcher): AppCoroutineDispatchers =
-        AppCoroutineDispatchers(default = dispatcher, io = dispatcher, main = dispatcher)
+    @Test
+    fun `rejected vpn start clears selection and fails activation`() =
+        runTest {
+            val serviceController =
+                RecordingServiceController(
+                    startResult = ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.VpnConsentMissing),
+                )
+            val activator =
+                DefaultStandaloneAmneziaWgActivator(
+                    serviceController = serviceController,
+                )
+
+            try {
+                activator.activate(sampleRequest("awg-uuid-A"))
+                fail("Expected rejected VPN start to fail activation")
+            } catch (_: IllegalStateException) {
+            }
+
+            assertNull(activator.selectedAwgEgress())
+            assertEquals(listOf(Mode.VPN), serviceController.startCalls)
+        }
 
     private fun sampleRequest(profileId: String): AwgActivationRequest =
         AwgActivationRequest(
@@ -104,4 +112,20 @@ class StandaloneAmneziaWgActivatorTest {
             interfaceAddressV4 = "10.8.0.2/32",
             obfuscation = AwgActivationObfuscation(jc = 4, s3 = 7, s4 = 9),
         )
+
+    private class RecordingServiceController(
+        private val startResult: ServiceStartResult = ServiceStartResult.Accepted(Mode.VPN),
+    ) : ServiceController {
+        val startCalls = mutableListOf<Mode>()
+        var stopCalls = 0
+
+        override fun start(mode: Mode): ServiceStartResult {
+            startCalls += mode
+            return startResult
+        }
+
+        override fun stop() {
+            stopCalls++
+        }
+    }
 }

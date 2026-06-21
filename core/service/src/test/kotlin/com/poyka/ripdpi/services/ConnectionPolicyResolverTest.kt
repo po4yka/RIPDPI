@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
+import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AsnRoutingMapCatalog
@@ -31,6 +32,7 @@ import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.TcpFamily
 import com.poyka.ripdpi.data.TransportPolicy
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -42,6 +44,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.util.Optional
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -165,6 +168,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = Optional.empty(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -204,6 +208,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = rootHelper,
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = Optional.empty(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -212,6 +217,40 @@ class ConnectionPolicyResolverTest {
             assertEquals(listOf(true), rootHelper.syncCalls)
             assertEquals("/tmp/ripdpi-root-helper.sock", rootHelper.socketPath)
             assertEquals("/tmp/ripdpi-root-helper.sock", uiPreferences?.rootHelperSocketPath)
+        }
+
+    @Test
+    fun `resolver injects selected standalone awg egress into vpn preferences`() =
+        runTest {
+            val selectedAwg =
+                AwgActivationRequest(
+                    profileId = "awg-selected",
+                    privateKey = "private",
+                    peerPublicKey = "peer",
+                    endpointHost = "198.51.100.10",
+                    endpointPort = 51820,
+                    interfaceAddressV4 = "10.8.0.2/32",
+                )
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = Optional.of(StaticAwgEgressSelectionProvider(selectedAwg)),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+
+            assertEquals("awg-selected", resolution.proxyPreferences.awgConfigOrNull()?.profileId)
+            assertEquals("198.51.100.10", resolution.proxyPreferences.awgConfigOrNull()?.endpointHost)
         }
 
     @Test
@@ -258,6 +297,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
+                    awgEgressSelectionProvider = Optional.empty(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -305,6 +345,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
+                    awgEgressSelectionProvider = Optional.empty(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -346,6 +387,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
+                    awgEgressSelectionProvider = Optional.empty(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -440,5 +482,11 @@ class ConnectionPolicyResolverTest {
         override fun stop() {
             activePath = null
         }
+    }
+
+    private class StaticAwgEgressSelectionProvider(
+        private val request: AwgActivationRequest?,
+    ) : AwgEgressSelectionProvider {
+        override suspend fun selectedAwgEgress(): AwgActivationRequest? = request
     }
 }

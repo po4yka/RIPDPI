@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.DirectPolicyEnvironment
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.ServerCapabilityStore
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import com.poyka.ripdpi.data.isRuntimeUsableDirectPolicy
@@ -137,6 +138,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
             hostAutolearnStorePath: String,
             networkScopeKey: String?,
             runtimeContext: RipDpiRuntimeContext?,
+            awg: AwgActivationRequest? = null,
         ): RipDpiProxyPreferences =
             if (settings.enableCmdSettings) {
                 RipDpiProxyCmdPreferences(
@@ -153,6 +155,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     rootMode = settings.rootModeEnabled,
                     rootHelperSocketPath = rootHelperManager.socketPath,
                     environmentKind = environmentDetector.kind,
+                    awg = awg,
                 )
             }
 

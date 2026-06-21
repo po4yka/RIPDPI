@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -25,6 +26,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.util.Optional
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -74,6 +76,7 @@ class DefaultConnectionPolicyResolver
         private val startupDnsProbe: VpnStartupDnsProbe,
         private val rootHelperManager: RootHelperManager,
         private val environmentDetector: EnvironmentDetector,
+        private val awgEgressSelectionProvider: Optional<AwgEgressSelectionProvider>,
     ) : ConnectionPolicyResolver {
         private val dnsSelector =
             ConnectionPolicyDnsSelector(
@@ -135,6 +138,12 @@ class DefaultConnectionPolicyResolver
             val protectPath = runtimeContextAssembler.protectPath(mode)
             val preferredEdges = runtimeContextAssembler.preferredEdges(settings, networkScopeKey)
             val hostAutolearnStorePath = runtimeContextAssembler.hostAutolearnStorePath()
+            val selectedAwgEgress =
+                if (mode == Mode.VPN && !settings.enableCmdSettings) {
+                    awgEgressSelectionProvider.orElse(null)?.selectedAwgEgress()
+                } else {
+                    null
+                }
             val baselinePreferences =
                 baselinePreferences(
                     settings = settings,
@@ -144,6 +153,7 @@ class DefaultConnectionPolicyResolver
                     protectPath = protectPath,
                     preferredEdges = preferredEdges,
                     hostAutolearnStorePath = hostAutolearnStorePath,
+                    awg = selectedAwgEgress,
                 )
             val baselineLaneFamilies =
                 rememberedPolicyMatcher.deriveLaneFamilies(
@@ -203,11 +213,13 @@ class DefaultConnectionPolicyResolver
             protectPath: String?,
             preferredEdges: Map<String, List<PreferredEdgeCandidate>>,
             hostAutolearnStorePath: String,
+            awg: AwgActivationRequest?,
         ): RipDpiProxyPreferences =
             runtimeContextAssembler.baselinePreferences(
                 settings = settings,
                 hostAutolearnStorePath = hostAutolearnStorePath,
                 networkScopeKey = networkScopeKey,
+                awg = awg,
                 runtimeContext =
                     runtimeContextAssembler.runtimeContext(
                         activeDns = baselineVpnDnsSelection.activeDns,
