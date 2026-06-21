@@ -49,6 +49,7 @@ data class ResolvedShadowTlsInnerRelayConfig(
     val serverName: String,
     val realityPublicKey: String = "",
     val realityShortId: String = "",
+    val vlessFlow: String = com.poyka.ripdpi.data.RelayVlessFlowVision,
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val vlessUuid: String? = null,
 )
@@ -62,6 +63,7 @@ data class ResolvedChainRelayHopConfig(
     val serverName: String = "",
     val realityPublicKey: String = "",
     val realityShortId: String = "",
+    val vlessFlow: String = com.poyka.ripdpi.data.RelayVlessFlowVision,
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
@@ -123,6 +125,7 @@ data class ResolvedRipDpiRelayConfig(
     val serverName: String,
     val realityPublicKey: String,
     val realityShortId: String,
+    val vlessFlow: String = com.poyka.ripdpi.data.RelayVlessFlowVision,
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
@@ -288,6 +291,7 @@ data class ResolvedChainRelayHopRef(
     val serverName: String,
     val publicKey: String,
     val shortId: String,
+    val flow: String,
     val profileId: String,
     val uuid: String?,
 )
@@ -342,6 +346,7 @@ private fun ResolvedRipDpiRelayConfig.vlessSection(): RelayVlessSection =
     RelayVlessSection(
         realityPublicKey = realityPublicKey,
         realityShortId = realityShortId,
+        vlessFlow = vlessFlow,
         vlessTransport = vlessTransport,
         xhttpPath = xhttpPath,
         xhttpHost = xhttpHost,
@@ -360,6 +365,7 @@ internal fun ResolvedChainRelayHopConfig.toHopRef(): ResolvedChainRelayHopRef =
         serverName = serverName,
         publicKey = realityPublicKey,
         shortId = realityShortId,
+        flow = vlessFlow,
         profileId = profileId,
         uuid = vlessUuid,
     )
@@ -380,6 +386,7 @@ internal fun ResolvedChainRelayHopRef.toHopConfig(): ResolvedChainRelayHopConfig
             serverName = serverName,
             realityPublicKey = publicKey,
             realityShortId = shortId,
+            vlessFlow = flow,
             vlessUuid = uuid,
         )
 
@@ -515,6 +522,7 @@ private fun ResolvedRipDpiRelayConfig.legacyTwoHopChainRefs(): List<ResolvedChai
             serverName = chainEntryServerName,
             publicKey = chainEntryPublicKey,
             shortId = chainEntryShortId,
+            flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
             profileId = chainEntryProfileId,
             uuid = chainEntryUuid,
         ),
@@ -525,6 +533,7 @@ private fun ResolvedRipDpiRelayConfig.legacyTwoHopChainRefs(): List<ResolvedChai
             serverName = chainExitServerName,
             publicKey = chainExitPublicKey,
             shortId = chainExitShortId,
+            flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
             profileId = chainExitProfileId,
             uuid = chainExitUuid,
         ),
@@ -597,6 +606,7 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         serverName = common.serverName,
         realityPublicKey = vless.realityPublicKey,
         realityShortId = vless.realityShortId,
+        vlessFlow = vless.vlessFlow,
         vlessTransport = vless.vlessTransport,
         xhttpPath = vless.xhttpPath,
         xhttpHost = vless.xhttpHost,

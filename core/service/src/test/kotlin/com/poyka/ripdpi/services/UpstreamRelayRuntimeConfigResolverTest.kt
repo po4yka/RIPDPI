@@ -267,6 +267,7 @@ class UpstreamRelayRuntimeConfigResolverTest {
                                     serverName = "inner.example",
                                     realityPublicKey = "inner-public",
                                     realityShortId = "inner-short",
+                                    vlessFlow = "xtls-rprx-vision-udp443",
                                     vlessTransport = RelayVlessTransportRealityTcp,
                                 ),
                             )
@@ -303,6 +304,7 @@ class UpstreamRelayRuntimeConfigResolverTest {
             assertNotNull(resolved.shadowTlsInner)
             assertEquals("inner", resolved.shadowTlsInner?.profileId)
             assertEquals("inner.example", resolved.shadowTlsInner?.server)
+            assertEquals("xtls-rprx-vision-udp443", resolved.shadowTlsInner?.vlessFlow)
             assertEquals("33333333-3333-3333-3333-333333333333", resolved.shadowTlsInner?.vlessUuid)
         }
 
@@ -398,6 +400,7 @@ class UpstreamRelayRuntimeConfigResolverTest {
                             serverName = "relay.example",
                             realityPublicKey = TestVlessRealityPublicKey,
                             realityShortId = TestVlessRealityShortId,
+                            vlessFlow = "xtls-rprx-vision-udp443",
                             vlessTransport = RelayVlessTransportXhttp,
                             xhttpPath = "/xhttp",
                             xhttpHost = "origin.example",
@@ -406,10 +409,59 @@ class UpstreamRelayRuntimeConfigResolverTest {
                 )
 
             assertEquals(RelayKindVlessReality, resolved.kind)
+            assertEquals("xtls-rprx-vision-udp443", resolved.vlessFlow)
             assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
             assertEquals("/xhttp", resolved.xhttpPath)
             assertEquals("origin.example", resolved.xhttpHost)
             assertEquals("44444444-4444-4444-4444-444444444444", resolved.vlessUuid)
+        }
+
+    @Test
+    fun `resolve stored vless profile preserves explicit empty flow`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "empty-flow",
+                                    kind = RelayKindVlessReality,
+                                    server = "relay.example",
+                                    serverPort = 443,
+                                    serverName = "relay.example",
+                                    realityPublicKey = TestVlessRealityPublicKey,
+                                    realityShortId = TestVlessRealityShortId,
+                                    vlessFlow = "",
+                                    vlessTransport = RelayVlessTransportRealityTcp,
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "empty-flow",
+                                    vlessUuid = "55555555-5555-5555-5555-555555555555",
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindVlessReality,
+                            profileId = "empty-flow",
+                            vlessFlow = "xtls-rprx-vision",
+                        ),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertEquals("", resolved.vlessFlow)
+            assertEquals("55555555-5555-5555-5555-555555555555", resolved.vlessUuid)
         }
 
     @Test

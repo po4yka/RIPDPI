@@ -64,6 +64,7 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             congestion_control: "bbr".to_string(),
         }),
         "vless" => RelayBackendConfig::Vless(VlessRelayConfig {
+            vless_flow: "xtls-rprx-vision".to_string(),
             vless_transport: "xhttp".to_string(),
             xhttp_path: "/xhttp".to_string(),
             xhttp_host: "relay.example".to_string(),
@@ -72,6 +73,7 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
         "vless_reality" => RelayBackendConfig::VlessReality(VlessRealityRelayConfig {
             reality_public_key: String::new(),
             reality_short_id: String::new(),
+            vless_flow: "xtls-rprx-vision".to_string(),
             vless_transport: "reality_tcp".to_string(),
             xhttp_path: String::new(),
             xhttp_host: String::new(),
@@ -331,6 +333,39 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
         assert_eq!(kind, round_trip.kind_id());
         assert_eq!(serialized, serde_json::to_value(&round_trip).expect("reserialize relay config"));
     }
+}
+
+#[test]
+fn vless_flow_round_trips_through_flat_native_config() {
+    let mut config = sample_config("vless_reality");
+    vless_config_mut(&mut config).vless_flow = "xtls-rprx-vision-udp443".to_string();
+
+    let serialized = serde_json::to_value(&config).expect("serialize VLESS config");
+    assert_eq!(
+        serde_json::json!("xtls-rprx-vision-udp443"),
+        serialized["vlessFlow"],
+        "flat native config must carry imported VLESS flow",
+    );
+
+    let mut round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(serialized).expect("deserialize VLESS config");
+    assert_eq!("xtls-rprx-vision-udp443", vless_config_mut(&mut round_trip).vless_flow,);
+}
+
+#[test]
+fn vless_flow_defaults_only_when_flat_native_config_omits_field() {
+    let mut config = sample_config("vless_reality");
+    vless_config_mut(&mut config).vless_flow = String::new();
+    let explicit_empty = serde_json::to_value(&config).expect("serialize VLESS config");
+    let mut explicit_round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(explicit_empty).expect("deserialize explicit empty flow");
+    assert_eq!("", vless_config_mut(&mut explicit_round_trip).vless_flow);
+
+    let mut missing_field = serde_json::to_value(&config).expect("serialize VLESS config");
+    missing_field.as_object_mut().expect("flat relay config object").remove("vlessFlow");
+    let mut legacy_round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(missing_field).expect("deserialize legacy missing flow");
+    assert_eq!("xtls-rprx-vision", vless_config_mut(&mut legacy_round_trip).vless_flow);
 }
 
 #[test]

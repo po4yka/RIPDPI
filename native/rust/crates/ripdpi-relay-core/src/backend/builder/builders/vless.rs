@@ -32,6 +32,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         &config.common.tls_fingerprint_profile,
     )
     .map_err(invalid_input)?;
+    tls = tls.with_flow_str(&vless.vless_flow).map_err(invalid_input)?;
     tls.bind_ip = context.outbound_bind_ip;
     tls.socket_protector = context.socket_protector.clone();
     tls.finalmask = finalmask_config(&config.common.finalmask);

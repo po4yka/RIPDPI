@@ -103,6 +103,7 @@ class RelayNativeConfigTest {
                 serverName = "hop-sni.example",
                 publicKey = "",
                 shortId = "",
+                flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
                 profileId = "hop-profile",
                 uuid = null,
             )

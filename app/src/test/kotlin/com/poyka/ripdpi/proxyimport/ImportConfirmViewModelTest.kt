@@ -220,7 +220,7 @@ class ImportConfirmViewModelTest {
                     realityPublicKey = "PUBLICKEY1234567890abcdefghijklmn",
                     realityShortId = "abcd1234",
                     serverName = "target.example.com",
-                    flow = "xtls-rprx-vision",
+                    flow = "xtls-rprx-vision-udp443",
                     fingerprint = "chrome",
                     xhttpPath = null,
                     xhttpHost = null,
@@ -278,7 +278,7 @@ class ImportConfirmViewModelTest {
                     realityPublicKey = "XHTTPKEY1234567890abcdefghijklmn",
                     realityShortId = "cafe0001",
                     serverName = "cdn.example.com",
-                    flow = "xtls-rprx-vision",
+                    flow = "xtls-rprx-vision-udp443",
                     fingerprint = null,
                     xhttpPath = "/tunnel",
                     xhttpHost = "cdn.example.com",
@@ -306,6 +306,7 @@ class ImportConfirmViewModelTest {
             assertEquals("cafe0001", settings.relayRealityShortId)
             assertFalse(settings.relayUdpEnabled)
             assertEquals(RelayKindVlessReality, relayProfile?.kind)
+            assertEquals("xtls-rprx-vision-udp443", relayProfile?.vlessFlow)
             assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
             assertEquals("/tunnel", relayProfile?.xhttpPath)
             assertEquals("cdn.example.com", relayProfile?.xhttpHost)

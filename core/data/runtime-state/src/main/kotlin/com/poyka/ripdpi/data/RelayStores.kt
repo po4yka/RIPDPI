@@ -14,6 +14,8 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
+const val RelayVlessFlowVision = "xtls-rprx-vision"
+
 @Serializable
 data class RelayProfileRecord(
     val id: String = DefaultRelayProfileId,
@@ -28,6 +30,7 @@ data class RelayProfileRecord(
     val securityLayer: String = RelaySecurityLayerReality,
     val realityPublicKey: String = "",
     val realityShortId: String = "",
+    val vlessFlow: String = RelayVlessFlowVision,
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",

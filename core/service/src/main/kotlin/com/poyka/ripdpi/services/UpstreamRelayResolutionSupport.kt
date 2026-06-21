@@ -158,6 +158,7 @@ internal suspend fun resolveShadowTlsInnerConfigSupport(
                 serverName = innerProfile.serverName,
                 realityPublicKey = innerProfile.realityPublicKey,
                 realityShortId = innerProfile.realityShortId,
+                vlessFlow = innerProfile.vlessFlow,
                 vlessTransport = innerProfile.vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
                 vlessUuid = innerCredentials.vlessUuid,
             )
@@ -245,6 +246,7 @@ private suspend fun resolveChainRelayHopSupport(
                 serverName = legacyServerName,
                 realityPublicKey = legacyPublicKey,
                 realityShortId = legacyShortId,
+                vlessFlow = com.poyka.ripdpi.data.RelayVlessFlowVision,
                 vlessTransport = RelayVlessTransportRealityTcp,
                 vlessUuid = checkedLegacyUuid,
             ),
@@ -333,6 +335,7 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
         serverName = serverName,
         realityPublicKey = realityPublicKey,
         realityShortId = realityShortId,
+        vlessFlow = vlessFlow,
         vlessTransport = vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
         xhttpPath = xhttpPath,
         xhttpHost = xhttpHost,

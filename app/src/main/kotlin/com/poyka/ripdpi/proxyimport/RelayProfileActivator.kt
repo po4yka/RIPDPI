@@ -66,6 +66,12 @@ class RelayProfileActivator
                     serverName = endpoint.serverName,
                     realityPublicKey = if (profile is ProxyProfile.VlessReality) profile.realityPublicKey else "",
                     realityShortId = if (profile is ProxyProfile.VlessReality) profile.realityShortId else "",
+                    vlessFlow =
+                        if (profile is ProxyProfile.VlessReality) {
+                            profile.flow
+                        } else {
+                            com.poyka.ripdpi.data.RelayVlessFlowVision
+                        },
                     vlessTransport = vlessTransport,
                     xhttpPath = if (profile is ProxyProfile.VlessReality) profile.xhttpPath.orEmpty() else "",
                     xhttpHost = if (profile is ProxyProfile.VlessReality) profile.xhttpHost.orEmpty() else "",

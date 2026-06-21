@@ -241,6 +241,7 @@ data class RipDpiRelayConfig(
     val serverName: String = "",
     val realityPublicKey: String = "",
     val realityShortId: String = "",
+    val vlessFlow: String = com.poyka.ripdpi.data.RelayVlessFlowVision,
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",

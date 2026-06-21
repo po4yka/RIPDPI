@@ -25,6 +25,7 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         serverName = config.serverName.trim(),
         realityPublicKey = config.realityPublicKey.trim(),
         realityShortId = config.realityShortId.trim(),
+        vlessFlow = config.vlessFlow.trim().ifBlank { com.poyka.ripdpi.data.RelayVlessFlowVision },
         vlessTransport = normalizeRelayVlessTransport(config.vlessTransport, normalizedKind),
         xhttpPath = config.xhttpPath.trim(),
         xhttpHost = config.xhttpHost.trim(),
