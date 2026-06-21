@@ -233,6 +233,9 @@ pub struct AmneziaWgTelemetry {
     /// TLS, or WS-upgrade failure). Additive; defaults to `0`.
     pub ws_carrier_handshake_failures: u64,
     pub listener_address: Option<String>,
+    /// Redacted for privacy: AWG endpoints are user-supplied server identities.
+    /// Keep the Rust field for shared model parity, but never emit it in JSON.
+    #[serde(skip_serializing)]
     pub upstream_address: Option<String>,
     pub profile_id: Option<String>,
     pub last_error: Option<String>,
@@ -336,7 +339,7 @@ impl AmneziaWgRuntime {
             ws_carrier_handshakes: self.ws_carrier_handshakes.load(Ordering::SeqCst),
             ws_carrier_handshake_failures: self.ws_carrier_handshake_failures.load(Ordering::SeqCst),
             listener_address: self.listener_address.lock().expect("listener address").clone(),
-            upstream_address: Some(format!("{}:{}", self.config.endpoint_host, self.config.endpoint_port)),
+            upstream_address: None,
             profile_id: Some(self.config.profile_id.clone()),
             last_error: self.last_error.lock().expect("last error").clone(),
             captured_at: now_ms(),
@@ -637,11 +640,26 @@ mod tests {
         assert_eq!(t.source, "amneziawg");
         assert_eq!(t.state, "idle");
         assert_eq!(t.profile_id.as_deref(), Some("awg-1"));
-        assert_eq!(t.upstream_address.as_deref(), Some("vpn.example.org:51820"));
+        assert_eq!(t.upstream_address, None, "AWG telemetry must not expose endpoint host:port");
         // Carrier counters start at zero on a runtime that has never opened a
         // WG-over-WebSocket carrier (the plain-UDP / idle path).
         assert_eq!(t.ws_carrier_handshakes, 0);
         assert_eq!(t.ws_carrier_handshake_failures, 0);
+    }
+
+    #[test]
+    fn telemetry_json_does_not_expose_endpoint_host_or_port() {
+        let cfg = AmneziaWgProfileConfig {
+            profile_id: "awg-1".to_string(),
+            endpoint_host: "vpn.example.org".to_string(),
+            endpoint_port: 51820,
+            ..Default::default()
+        };
+        let rt = AmneziaWgRuntime::new(cfg);
+        let json = serde_json::to_string(&rt.telemetry()).expect("serialize telemetry");
+        assert!(!json.contains("vpn.example.org"), "AWG endpoint host leaked in telemetry JSON: {json}");
+        assert!(!json.contains("51820"), "AWG endpoint port leaked in telemetry JSON: {json}");
+        assert!(!json.contains("upstreamAddress"), "AWG telemetry should omit the endpoint field entirely: {json}");
     }
 
     #[test]

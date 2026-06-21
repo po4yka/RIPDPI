@@ -76,11 +76,21 @@ mod tests {
         assert_eq!(value["source"], serde_json::json!("amneziawg"));
         assert_eq!(value["state"], serde_json::json!("running"));
         assert_eq!(value["listenerAddress"], serde_json::json!("127.0.0.1:11090"));
+        assert!(value.get("upstreamAddress").is_none(), "AWG endpoint field must not be serialized");
         assert_eq!(value["profileId"], serde_json::json!("awg-profile"));
         // The WG-over-WebSocket carrier counters are surfaced through the same
         // flattened telemetry channel the Kotlin NativeRuntimeSnapshot consumes.
         assert_eq!(value["wsCarrierHandshakes"], serde_json::json!(3));
         assert_eq!(value["wsCarrierHandshakeFailures"], serde_json::json!(1));
+    }
+
+    #[test]
+    fn snapshot_json_does_not_expose_awg_endpoint_host_or_port() {
+        let snapshot =
+            AmneziaWgNativeRuntimeSnapshot { schema_version: SNAPSHOT_SCHEMA_VERSION, telemetry: sample_telemetry() };
+        let json = serde_json::to_string(&snapshot).expect("serialize snapshot");
+        assert!(!json.contains("vpn.example.test"), "AWG endpoint host leaked in telemetry JSON: {json}");
+        assert!(!json.contains("51820"), "AWG endpoint port leaked in telemetry JSON: {json}");
     }
 
     #[test]
