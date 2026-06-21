@@ -4,7 +4,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 
 _Legacy issue statuses are normalized while their source files are triaged: `in-progress` -> `doing`, `in-review` -> `review`, `device-smoke-pending` -> `blocked`; `done` and `dropped` issue files are omitted._
 
-## Doing (25)
+## Doing (24)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
@@ -14,7 +14,6 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | high | epic | [Epic - June 2026 full-project audit remediation](issues/epic-june-2026-audit-remediation.md) | unassigned | 2026-06-10 |
 | high | outbound | [Bridge TUN traffic through Xray local inbound](issues/bridge-tun-traffic-through-xray-local-inbound.md) | unassigned | 2026-06-05 |
 | high | outbound | [Package libXray for Android ABIs](issues/package-libxray-for-android-abis.md) | unassigned | 2026-06-15 |
-| high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | unassigned | 2026-06-21 |
 | high | testing | [Epic - Orchestration test posture](issues/epic-orchestration-test-posture.md) | unassigned | 2026-06-05 |
 | high | testing | [Operate Phase-16 real-provider SIM runner](issues/operate-phase16-real-provider-sim-runner.md) | unassigned | 2026-06-10 |
 | high | transport | [Make the AmneziaWG profile UI establish a real tunnel (standalone AWG transport)](issues/wire-standalone-amneziawg-profile-transport.md) | unassigned | 2026-06-21 |
@@ -34,10 +33,11 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 | low | testing | [Add cross-stack chain tests (VLESS over xHTTP over Reality)](issues/add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality.md) | unassigned | 2026-06-10 |
 
-## Review (2)
+## Review (3)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
+| high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | unassigned | 2026-06-21 |
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | unassigned | 2026-06-14 |
 | low | rust-native | [Wire ShadowTLS version-mismatch into service telemetry](issues/wire-shadowtls-version-mismatch-into-service-telemetry.md) | unassigned | 2026-06-14 |
 

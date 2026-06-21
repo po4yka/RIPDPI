@@ -76,14 +76,10 @@ Surface:
       guarding the cross-language JSON field names (top-level + nested `amnezia`
       keys, h1-h4 numeric Long, round-trip). `:core:engine`/`:core:engine-api`
       compile + the test pass.
-- [~] AmneziaWG profile persistence + selection. **Persistence: done** — a
-      dedicated AWG profile store (Room, stable opaque `awg-<UUID>` id reused as
-      the runtime `profileId`) landed, taking the recommended low-blast-radius
-      path over a proto bump (see Work log 2026-06-18). **Selection: open** — see
-      the "Settings-gating design decision (D2)" section: gating activation
-      through `app_settings.proto` + `SharedProxyRuntimeStack` is rejected
-      (no-go-needs-design); the additive-proto shape, if a decorative flag is
-      later wanted, is recorded there.
+- [x] AmneziaWG profile persistence + selection. A dedicated AWG profile store
+      (Room, stable opaque `awg-<UUID>` id reused as the runtime `profileId`)
+      persists profiles, and the selected `AwgActivationRequest` now flows into
+      the shared VPN/proxy runtime stack without a proto bump.
 - [x] Service wiring: `AmneziaWgRuntimeSupervisor` + composition coordinator
       integration so the runtime's loopback SOCKS endpoint becomes the
       `LocalProxyEndpoint` handed to `Tun2Socks` (mirror `WarpRuntimeSupervisor`
@@ -95,77 +91,44 @@ Surface:
       server (see the linked RTK-South cohort task for parameters); probabilistic
       retry tuning lives there.
 
-## Verification status (this PR)
+## Verification status
 
 - Native: `cargo test -p ripdpi-warp-core -p ripdpi-amneziawg-android` green
   (incl. the obfuscated-handshake proof); `cargo clippy -D warnings` + `cargo fmt`
   clean; `Cargo.lock` adds only the new local member; native architecture
   contracts pass (0 violations).
-- The end-to-end "device traffic egresses through the AWG tunnel" path depends
-  on the remaining Kotlin service/UI/selection wiring above and a real server
-  for interop; those are explicitly NOT claimed verified here.
+- Kotlin/service: focused resolver and proxy-preference regressions cover standalone
+  AWG selection, shared-stack routing through the AWG SOCKS endpoint, relay
+  precedence, simple-flavor failover persistence, and remembered-policy replay.
+- The remaining unverified item is external interop: an on-device or synthetic
+  AmneziaWG endpoint smoke, plus retry-budget tuning after that lab evidence exists.
 
-## Settings-gating design decision (D2 — settings enable seam)
+## Runtime-composition decision (D2 — resolved)
 
-**Decision: do NOT gate standalone AmneziaWG activation through
-`app_settings.proto` + `SharedProxyRuntimeStack` (no-go-needs-design).**
-The additive proto field is clean in isolation, but folding standalone-AWG
-*activation* into the settings-driven proxy stack is architecturally wrong and
-would introduce a racing second lifecycle. The persistence half of AC line 79
-is now closed by a dedicated AWG profile store (the recommended low-blast-radius
-path — see Work log 2026-06-18); the *selection + composition* half (this
-decision) is what remains open.
+**Current decision:** standalone AWG joins VPN composition as an owned egress
+selection, not as a relay profile and not as a second uncoordinated lifecycle.
+The selected `AwgActivationRequest` remains outside `app_settings.proto`; it is
+session/runtime state supplied by `AwgEgressSelectionProvider` from the profile
+store or simple-flavor failover selector. `SharedProxyRuntimeStack` starts the
+owned `AmneziaWgRuntimeSupervisor`, receives the AWG loopback SOCKS endpoint,
+and rewrites the proxy upstream to that endpoint before `Tun2Socks` starts.
 
-### Why the proxy-stack gate is rejected (verified against source 2026-06-18)
+The 2026-06-18 "no-go-needs-design" note is superseded by the 2026-06-21
+implementation series. Its core concerns were addressed as follows:
 
-1. **Composition mismatch.** `SharedProxyRuntimeStack.start()` composes only the
-   upstream proxy legs (`relayConfigOrNull()`, `warpConfigOrNull()`) into a
-   single `LocalProxyEndpoint` fed to `Tun2Socks` via
-   `VpnRuntimeCompositionCoordinator`. Standalone AWG is a *full WireGuard
-   tunnel* whose `AmneziaWgRuntimeSupervisor` produces no `LocalProxyEndpoint`,
-   so it cannot slot into that composition. (`SharedProxyRuntimeStack.kt` has
-   zero AWG references.)
-2. **No data path for `amneziaWgConfigOrNull()`.** The warp/relay seam reads from
-   decoded `RipDpiProxyUIPreferences` and serializes to the native proxy JSON via
-   `toNativeConfigJson()` (pinned by `NativeConfigContractSnapshotTest`). The AWG
-   path consumes `ResolvedRipDpiAmneziaWgConfig` directly via
-   `RipDpiAmneziaWgRuntime.start()`, bypassing UI-preferences and the contract
-   JSON entirely — there is no source to read from nor sink to write to. (No
-   `amneziaWgConfigOrNull` symbol exists anywhere in the repo.)
-3. **Duplicate / racing entry point.** `StandaloneAmneziaWgActivator` already
-   owns serialized `activate`/`deactivate` behind a `lifecycleLock` Mutex driving
-   `AmneziaWgRuntimeSupervisor`. A settings-gated start inside the proxy stack
-   would be a second uncoordinated entry point to the same native AWG runtime —
-   exactly the "duplicate the activator path" hazard.
-
-### The additive-proto shape, if a settings-visible flag is later wanted
-
-If a settings-surfaced "AWG enabled" *intent* state is desired, the maximal
-additive slice is **decorative only** and must NOT fold activation into the proxy
-stack:
-
-- one additive proto3 bool (e.g. `bool standalone_awg_enabled = <next-free>;` —
-  highest field in use is 409, no monotonic schema-version counter exists in
-  `AppSettingsSerializer`, so this is pure wire-compatible proto evolution: no
-  native schema bump, no migration);
-- a `WarpSettings`-style model projection (`toAwgSettingsModel().enabled`),
-  default `false` (mirroring `warp_enabled` / `relay_enabled` defaults);
-- activation **still** driven by `StandaloneAmneziaWgActivator` + the persisted
-  profile store — the flag records UI intent, it does not start the runtime.
-
-This is decorative until the composition fork below is decided; shipping the bool
-without that decision adds a setting that nothing meaningfully gates.
-
-### Remaining blocker (the actual design work)
-
-Whether standalone AWG **joins VPN composition** (becomes the active egress fed
-to `Tun2Socks`, requiring a `LocalProxyEndpoint`-equivalent or a parallel TUN
-attach path) **or stays an independent out-of-band tunnel** (current activator
-behaviour) is an undecided architectural question. Until that fork is resolved,
-"a persisted profile is the active tunnel across restarts" cannot be wired
-correctly — the persisted-profile prerequisite is met, but the
-selection-into-composition seam is not. AC lines 87-90 (service wiring) remain
-open and gate this.
+1. **Composition mismatch resolved.** `SharedProxyRuntimeStack` now has an AWG
+   arm and treats AWG as the top-precedence local egress endpoint. The relay/WARP
+   proxy legs no longer silently override AWG.
+2. **Data path resolved without a proto bump.** `RipDpiProxyPreferences.awgConfigOrNull()`
+   carries the live AWG selection through proxy wrappers, remembered-policy replay,
+   and simple-failover flows. `ResolvedRipDpiAmneziaWgConfig` remains the native
+   runtime DTO; native proxy JSON is only rewritten to point traffic at the local
+   AWG SOCKS endpoint.
+3. **Lifecycle ownership resolved.** `VpnServiceRuntimeCoordinator` owns the
+   `AmneziaWgRuntimeSupervisor` and passes it into shared-stack start/stop,
+   telemetry, and exit handling. Standalone UI activation and simple failover
+   share the same provider-backed selection instead of binding separate in-memory
+   providers.
 
 ## Work log
 
@@ -179,15 +142,7 @@ open and gate this.
   id satisfies the privacy invariant (never endpoint-derived); the endpoint
   host/port live only inside the persisted user-config blob and must not reach
   telemetry/logs.
-- 2026-06-18: Settings-gating (D2) classified **no-go-needs-design** after a
-  source audit (`SharedProxyRuntimeStack.kt` has no AWG arm; no
-  `amneziaWgConfigOrNull` symbol exists; `StandaloneAmneziaWgActivator` owns a
-  `lifecycleLock` Mutex). No proto field added, no composition path duplicated.
-  The decision, the rejected proxy-stack gate (3 verified reasons), the additive
-  decorative-only proto shape if a flag is later wanted, and the remaining
-  composition-fork blocker are recorded in the "Settings-gating design decision
-  (D2)" section above. Persisted-profile prerequisite is now met; the
-  selection-into-composition seam (AC service-wiring lines) is the gating work.
+- 2026-06-18: Settings-gating (D2) was blocked pending a composition decision, so no proto field was added and no duplicate lifecycle path was introduced. That temporary design state is superseded by the resolved runtime-composition decision above; the durable part of the finding is that AWG selection remains runtime/profile state, not `app_settings.proto` state.
 - 2026-06-21: Source refresh. The service/composition blocker recorded above is now closed in `main`: `SharedProxyRuntimeStack` accepts `awgConfigOrNull()`, starts `AmneziaWgRuntimeSupervisor`, and rewrites the proxy upstream to `VpnModeAmneziaWgLocalSocksPort`; `VpnServiceRuntimeCoordinator` owns the supervisor and passes it to telemetry and exit handling. The editor path is also closed: `AmneziaWgProfileViewModel.onConnect()` persists through `AwgProfileRepository`, reuses the opaque stable `awg-<UUID>` id, and activates through `StandaloneAmneziaWgActivator`. Remaining open work is external interop: a real/synthetic AmneziaWG endpoint smoke and any probabilistic retry tuning linked to the RTK-South cohort task.
 
 ## References
