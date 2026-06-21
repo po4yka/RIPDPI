@@ -116,7 +116,7 @@ impl WgCarrier {
     }
 }
 
-/// Open a protected WG-over-WebSocket carrier to `endpoint`.
+/// Open a protected WG-over-WebSocket carrier to `request_url`.
 ///
 /// The sequence mirrors the UDP `bind_tunnel_socket` fail-closed posture, but for
 /// a TCP carrier socket:
@@ -125,27 +125,24 @@ impl WgCarrier {
 ///    the injected `protector` on its fd *before* `connect()` returns — the
 ///    `VpnService.protect` invariant. On protect failure the socket is dropped
 ///    and the error propagates; no unprotected socket survives.
-/// 2. The WebSocket client handshake opens the parsed `wss://` endpoint over
-///    that stream, performing TLS/SNI and sending the configured Host/path as a
-///    real WSS endpoint request. The production WSS->UDP terminator remains out
-///    of this repo's scope — see the crate docs.
+/// 2. The parsed `wss://` endpoint owns the TCP target, Host header, request
+///    path, and TLS SNI. TLS and the WebSocket client handshake are layered over
+///    the protected stream, so the production carrier behaves like a real WSS
+///    endpoint. The WSS->UDP terminator remains out of this repo's scope — see
+///    the crate docs.
 /// 3. The upgraded stream is wrapped in a [`WsCarrier`] ready to frame WireGuard
 ///    datagrams.
 ///
 // cancel-safe: a dropped future drops the in-flight connect/handshake, closing
 // the carrier socket. No caller-visible state is published before the `Ok`.
-pub(crate) async fn connect_ws_carrier<P>(
-    endpoint: SocketAddr,
-    request_url: &str,
-    protector: &P,
-) -> io::Result<WgCarrier>
+pub(crate) async fn connect_ws_carrier<P>(request_url: &str, protector: &P) -> io::Result<WgCarrier>
 where
     P: CarrierSocketProtector + ?Sized,
 {
     let wss_endpoint = WssEndpoint::parse(request_url).map_err(|error| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("invalid carrier WSS endpoint: {error}"))
     })?;
-    let carrier = connect_wss_carrier(endpoint, &wss_endpoint, protector).await?;
+    let carrier = connect_wss_carrier(&wss_endpoint, protector).await?;
     Ok(WgCarrier::Ws(Box::new(Mutex::new(carrier))))
 }
 

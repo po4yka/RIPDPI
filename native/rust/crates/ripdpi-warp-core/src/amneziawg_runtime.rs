@@ -374,7 +374,7 @@ impl AmneziaWgRuntime {
         // UDP path), upgrades it to a WebSocket, and hands the tunnel the ready
         // carrier. A carrier-open success/failure is recorded on the telemetry
         // counters before the first WireGuard datagram is framed.
-        let carrier = self.open_carrier(endpoint).await?;
+        let carrier = self.open_carrier().await?;
 
         let tunnel = Arc::new(
             WireGuardTunnel::new(
@@ -502,10 +502,11 @@ impl AmneziaWgRuntime {
     ///
     /// * [`AmneziaWgCarrierKind::Udp`] returns `Ok(None)`: the tunnel binds +
     ///   protects its own `UdpSocket` (today's behavior).
-    /// * [`AmneziaWgCarrierKind::Ws`] opens a protected carrier socket to
-    ///   `endpoint` *now* — protect-before-connect via the same
-    ///   `VpnService.protect` callback the UDP path uses — upgrades it to a
-    ///   WebSocket, and returns `Ok(Some(carrier))`. A successful open
+    /// * [`AmneziaWgCarrierKind::Ws`] opens a protected carrier socket to the
+    ///   parsed `carrier_ws_url` authority *now* — protect-before-connect via
+    ///   the same `VpnService.protect` callback the UDP path uses — upgrades it
+    ///   to a WSS WebSocket with URL-derived Host/SNI, and returns
+    ///   `Ok(Some(carrier))`. A successful open
     ///   increments [`Self::record_ws_carrier_handshake`]; a failure increments
     ///   [`Self::record_ws_carrier_handshake_failure`], records the error, and
     ///   propagates so `run` fails closed rather than silently downgrading to
@@ -517,7 +518,7 @@ impl AmneziaWgRuntime {
     /// # Cancel safety
     /// Not cancel-safe in aggregate (it mutates the failure counter on error),
     /// but `run` never selects over it.
-    async fn open_carrier(&self, endpoint: std::net::SocketAddr) -> io::Result<Option<WgCarrier>> {
+    async fn open_carrier(&self) -> io::Result<Option<WgCarrier>> {
         match self.config.carrier {
             AmneziaWgCarrierKind::Udp => Ok(None),
             AmneziaWgCarrierKind::Ws => {
@@ -531,7 +532,7 @@ impl AmneziaWgRuntime {
                     return Err(error);
                 }
                 let protector = self.platform.carrier_protector();
-                match connect_ws_carrier(endpoint, &self.config.carrier_ws_url, &protector).await {
+                match connect_ws_carrier(&self.config.carrier_ws_url, &protector).await {
                     Ok(carrier) => {
                         self.record_ws_carrier_handshake();
                         // Never log the endpoint host/port (privacy): the scope

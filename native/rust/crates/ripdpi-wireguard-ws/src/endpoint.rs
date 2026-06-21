@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::io;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 
 use rustls::pki_types::ServerName;
@@ -45,7 +45,12 @@ impl WssEndpoint {
         if url.fragment().is_some() {
             return Err(WssEndpointError::FragmentUnsupported);
         }
-        let host = url.host_str().ok_or(WssEndpointError::MissingHost)?.to_string();
+        let host = url
+            .host_str()
+            .ok_or(WssEndpointError::MissingHost)?
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .to_string();
         let port = url.port_or_known_default().unwrap_or(DEFAULT_WSS_PORT);
         let mut path_and_query = if url.path().is_empty() { "/".to_string() } else { url.path().to_string() };
         if let Some(query) = url.query() {
@@ -88,6 +93,12 @@ impl WssEndpoint {
         Ok(request)
     }
 
+    pub fn connect_addr(&self) -> io::Result<SocketAddr> {
+        (self.host.as_str(), self.port).to_socket_addrs()?.next().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved no addresses")
+        })
+    }
+
     fn authority(&self) -> String {
         let host = if self.host.contains(':') && !self.host.starts_with('[') {
             format!("[{}]", self.host)
@@ -122,10 +133,11 @@ pub type WssCarrierStream = WebSocketStream<tokio_rustls::client::TlsStream<TcpS
 pub type WssCarrier = WsCarrier<WssCarrierStream>;
 
 /// Open a production WSS WireGuard carrier over a protected TCP socket.
-pub async fn connect_wss_carrier<P>(target: SocketAddr, endpoint: &WssEndpoint, protector: &P) -> io::Result<WssCarrier>
+pub async fn connect_wss_carrier<P>(endpoint: &WssEndpoint, protector: &P) -> io::Result<WssCarrier>
 where
     P: CarrierSocketProtector + ?Sized,
 {
+    let target = endpoint.connect_addr()?;
     let stream = connect_protected_carrier(target, protector).await?;
     stream.set_nodelay(true)?;
     let request =
@@ -199,6 +211,24 @@ mod tests {
         assert_eq!(endpoint.port(), DEFAULT_WSS_PORT);
         assert_eq!(request.uri().to_string(), "wss://carrier.example.test/wg");
         assert_eq!(request.headers().get("Host").and_then(|value| value.to_str().ok()), Some("carrier.example.test"));
+    }
+
+    #[test]
+    fn connect_addr_comes_from_wss_authority() {
+        let endpoint = WssEndpoint::parse("wss://127.0.0.1:8443/wg").expect("endpoint");
+
+        assert_eq!(endpoint.connect_addr().expect("connect addr"), "127.0.0.1:8443".parse().expect("socket addr"));
+    }
+
+    #[test]
+    fn connect_addr_supports_ipv6_authority() {
+        let endpoint = WssEndpoint::parse("wss://[::1]:9443/wg").expect("endpoint");
+        let request = endpoint.build_client_request().expect("request");
+
+        assert_eq!(endpoint.host(), "::1");
+        assert_eq!(request.uri().to_string(), "wss://[::1]:9443/wg");
+        assert_eq!(request.headers().get("Host").and_then(|value| value.to_str().ok()), Some("[::1]:9443"));
+        assert_eq!(endpoint.connect_addr().expect("connect addr"), "[::1]:9443".parse().expect("socket addr"));
     }
 
     #[test]
