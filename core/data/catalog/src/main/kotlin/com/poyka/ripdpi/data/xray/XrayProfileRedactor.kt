@@ -38,7 +38,17 @@ object XrayProfileRedactor {
     /** `"address": "value"` / `"serverName": "value"` — endpoint identifiers. */
     private val addressFieldRegex =
         Regex(
-            "(\"(?:address|serverName|host)\"\\s*:\\s*\")[^\"]*(\")",
+            "(\"(?:address|serverName|host|path)\"\\s*:\\s*\")[^\"]*(\")",
+        )
+
+    /** Full share links can appear in lower-level parse/test errors; hide them as one unit. */
+    private val vlessLinkRegex = Regex("vless://[^\\s\"'<>]+", RegexOption.IGNORE_CASE)
+
+    /** URL query values for VLESS/Reality/xHTTP material when only a fragment is echoed. */
+    private val querySecretRegex =
+        Regex(
+            "((?:^|[?&#\\s])(?:id|uuid|pbk|sid|sni|host|path|password)=)[^&#\\s\"'<>]+",
+            RegexOption.IGNORE_CASE,
         )
 
     /**
@@ -98,5 +108,7 @@ object XrayProfileRedactor {
         text
             .replace(secretFieldRegex) { "${it.groupValues[1]}$REDACTED${it.groupValues[2]}" }
             .replace(addressFieldRegex) { "${it.groupValues[1]}$REDACTED${it.groupValues[2]}" }
+            .replace(vlessLinkRegex) { "vless://$REDACTED" }
+            .replace(querySecretRegex) { "${it.groupValues[1]}$REDACTED" }
             .replace(uuidRegex, REDACTED)
 }

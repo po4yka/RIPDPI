@@ -158,4 +158,30 @@ class XrayImportParserTest {
         assertFalse("message must not leak public key", result.message.contains(pbk))
         assertFalse("message must not leak server address", result.message.contains("edge.example.com"))
     }
+
+    @Test
+    fun invalidXhttpTesterErrorNeverEchoesSuppliedVlessLinkValues() {
+        val xhttpPath = "/secret-carrier-path"
+        val xhttpHost = "carrier.secret.example"
+        val echoedLink =
+            "vless://$uuid@edge.secret.example:443" +
+                "?type=xhttp&security=reality&pbk=$pbk&sni=decoy.secret.example&sid=deadbeef&path=$xhttpPath&host=$xhttpHost#x"
+        val parser =
+            XrayImportParser(
+                renderer =
+                    XrayConfigRenderer(
+                        XrayConfigTester {
+                            XrayConfigTester.TestResult.Invalid("xray-core parse failed near $echoedLink")
+                        },
+                    ),
+            )
+
+        val result = rejected(parser.parse(echoedLink, stableTag))
+
+        assertEquals(XrayImportParser.Reason.FAILED_SAFETY_CHECK, result.reason)
+        listOf(uuid, pbk, "edge.secret.example", "decoy.secret.example", "deadbeef", xhttpPath, xhttpHost).forEach {
+            assertFalse("message leaked supplied value $it", result.message.contains(it))
+        }
+        assertTrue(result.message.contains(XrayProfileRedactor.REDACTED))
+    }
 }

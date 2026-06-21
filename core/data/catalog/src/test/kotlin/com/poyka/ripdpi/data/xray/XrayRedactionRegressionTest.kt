@@ -132,4 +132,20 @@ class XrayRedactionRegressionTest {
             assertFalse("secret leaked in tester error: $secret", msg.contains(secret))
         }
     }
+
+    @Test
+    fun `free-form VLESS query fragments are redacted`() {
+        val carrierPath = "/carrier-secret-path"
+        val carrierHost = "carrier.internal.example"
+        val blob =
+            "invalid params pbk=$secretRealityKey sid=$secretShortId sni=$secretSni " +
+                "host=$carrierHost path=$carrierPath id=$secretUuid"
+
+        val redacted = XrayProfileRedactor.redactText(blob)
+
+        listOf(secretRealityKey, secretShortId, secretSni, carrierHost, carrierPath, secretUuid).forEach {
+            assertFalse("query value leaked after redactText: $it", redacted.contains(it))
+        }
+        assertTrue(redacted.contains(XrayProfileRedactor.REDACTED))
+    }
 }
