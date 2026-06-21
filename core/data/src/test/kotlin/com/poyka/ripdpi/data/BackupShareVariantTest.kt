@@ -23,7 +23,7 @@ class BackupShareVariantTest {
         )
 
     @Test
-    fun `SHARE export of Vless strips uuid and id, keeps server and serverPort`() {
+    fun `SHARE export of Vless strips uuid id and endpoint metadata`() {
         val profile =
             ProxyProfile.Vless(
                 id = "v-1",
@@ -36,15 +36,47 @@ class BackupShareVariantTest {
         val doc = shareExport(listOf(profile))
         val obj = doc.profiles.single()
 
-        // PUBLIC fields present
-        assertTrue("server missing", "server" in obj)
-        assertTrue("serverPort missing", "serverPort" in obj)
         assertTrue("displayName missing", "displayName" in obj)
 
-        // REDACTED field stripped
         assertFalse("uuid must be stripped in SHARE", "uuid" in obj)
+        assertFalse("server must be stripped in SHARE", "server" in obj)
+        assertFalse("serverPort must be stripped in SHARE", "serverPort" in obj)
+        assertFalse("id must be excluded in SHARE", "id" in obj)
+    }
 
-        // EXCLUDED field stripped
+    @Test
+    fun `SHARE export of Vless Reality strips endpoint and carrier metadata`() {
+        val profile =
+            ProxyProfile.VlessReality(
+                id = "vr-1",
+                displayName = "My VLESS Reality",
+                groupId = "g-1",
+                server = "reality.example.com",
+                serverPort = 443,
+                uuid = "secret-uuid",
+                realityPublicKey = "public-key-fixture",
+                realityShortId = "short-id-fixture",
+                serverName = "front.example.com",
+                flow = "xtls-rprx-vision",
+                fingerprint = "chrome",
+                xhttpPath = "/carrier/path",
+                xhttpHost = "cdn.example.com",
+            )
+        val doc = shareExport(listOf(profile))
+        val obj = doc.profiles.single()
+
+        assertTrue("displayName missing", "displayName" in obj)
+        assertTrue("flow missing", "flow" in obj)
+        assertTrue("fingerprint missing", "fingerprint" in obj)
+        assertTrue("realityPublicKey missing", "realityPublicKey" in obj)
+        assertTrue("realityShortId missing", "realityShortId" in obj)
+
+        assertFalse("uuid must be stripped in SHARE", "uuid" in obj)
+        assertFalse("server must be stripped in SHARE", "server" in obj)
+        assertFalse("serverPort must be stripped in SHARE", "serverPort" in obj)
+        assertFalse("serverName must be stripped in SHARE", "serverName" in obj)
+        assertFalse("xhttpHost must be stripped in SHARE", "xhttpHost" in obj)
+        assertFalse("xhttpPath must be stripped in SHARE", "xhttpPath" in obj)
         assertFalse("id must be excluded in SHARE", "id" in obj)
     }
 

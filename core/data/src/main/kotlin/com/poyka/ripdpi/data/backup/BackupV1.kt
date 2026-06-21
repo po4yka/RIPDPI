@@ -41,7 +41,7 @@ enum class BackupVariant {
  * Per-field classification used by the backup allowlist.
  *
  * - [PUBLIC]: field is non-sensitive; exported in both [BackupVariant.SHARE] and [BackupVariant.FULL].
- * - [REDACTED]: field contains a credential; nulled-out in [BackupVariant.SHARE], kept in [BackupVariant.FULL].
+ * - [REDACTED]: field contains a credential or share-sensitive endpoint metadata; stripped in [BackupVariant.SHARE], kept in [BackupVariant.FULL].
  * - [EXCLUDED]: field must never appear in any export (e.g. internal IDs, runtime state).
  */
 enum class Classification {
@@ -121,8 +121,8 @@ object BackupAllowlist {
     private val vlessFields: Map<String, Classification> =
         commonFields +
             mapOf(
-                "server" to Classification.PUBLIC,
-                "serverPort" to Classification.PUBLIC,
+                "server" to Classification.REDACTED,
+                "serverPort" to Classification.REDACTED,
                 "uuid" to Classification.REDACTED,
             )
 
@@ -161,18 +161,18 @@ object BackupAllowlist {
     private val vlessRealityFields: Map<String, Classification> =
         commonFields +
             mapOf(
-                "server" to Classification.PUBLIC,
-                "serverPort" to Classification.PUBLIC,
+                "server" to Classification.REDACTED,
+                "serverPort" to Classification.REDACTED,
                 "uuid" to Classification.REDACTED,
-                // REALITY material is shareable -- it appears verbatim in a
-                // `vless://...?security=reality` link. Only the uuid is a credential.
+                // REALITY keys are not endpoint coordinates, but the host/SNI and
+                // XHTTP carrier route identify the relay and must not survive SHARE.
                 "realityPublicKey" to Classification.PUBLIC,
                 "realityShortId" to Classification.PUBLIC,
-                "serverName" to Classification.PUBLIC,
+                "serverName" to Classification.REDACTED,
                 "flow" to Classification.PUBLIC,
                 "fingerprint" to Classification.PUBLIC,
-                "xhttpPath" to Classification.PUBLIC,
-                "xhttpHost" to Classification.PUBLIC,
+                "xhttpPath" to Classification.REDACTED,
+                "xhttpHost" to Classification.REDACTED,
             )
 
     private val anyTlsFields: Map<String, Classification> =
