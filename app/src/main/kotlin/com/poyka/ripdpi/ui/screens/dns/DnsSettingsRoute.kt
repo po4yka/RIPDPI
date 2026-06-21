@@ -67,12 +67,7 @@ fun DnsSettingsRoute(
             viewModel.setPlainDnsServer(dnsAddress)
         },
         onIpv6Changed = { enabled ->
-            viewModel.updateSetting(
-                key = "ipv6Enable",
-                value = enabled.toString(),
-            ) {
-                setIpv6Enable(enabled)
-            }
+            viewModel.setDnsIpv6Enabled(enabled)
         },
         modifier = modifier,
     )

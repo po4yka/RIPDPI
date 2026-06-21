@@ -1,22 +1,31 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
+import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceStartResult
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.seconds
 
 private const val defaultDnsPort = 443
 
 internal class SettingsDnsActions(
     private val mutations: SettingsMutationRunner,
+    private val serviceStateStore: ServiceStateStore,
+    private val serviceController: ServiceController,
 ) {
     fun selectBuiltInDnsProvider(providerId: String) {
         val resolver = dnsProviderById(providerId) ?: return
-        mutations.updateSetting(
+        updateDnsSetting(
             key = "dnsProviderId",
             value = providerId,
         ) {
@@ -36,7 +45,7 @@ internal class SettingsDnsActions(
     }
 
     fun setEncryptedDnsProtocol(protocol: String) {
-        mutations.updateSetting(
+        updateDnsSetting(
             key = "encryptedDnsProtocol",
             value = protocol,
         ) {
@@ -57,7 +66,7 @@ internal class SettingsDnsActions(
     }
 
     fun setPlainDnsServer(dnsIp: String) {
-        mutations.updateSetting(
+        updateDnsSetting(
             key = "dnsIp",
             value = dnsIp,
         ) {
@@ -80,7 +89,7 @@ internal class SettingsDnsActions(
         bootstrapIps: List<String>,
     ) {
         val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
-        mutations.updateSetting(
+        updateDnsSetting(
             key = "encryptedDnsDohUrl",
             value = dohUrl,
         ) {
@@ -118,7 +127,7 @@ internal class SettingsDnsActions(
         bootstrapIps: List<String>,
     ) {
         val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
-        mutations.updateSetting(
+        updateDnsSetting(
             key = "encryptedDnsHost",
             value = host,
         ) {
@@ -145,7 +154,7 @@ internal class SettingsDnsActions(
         bootstrapIps: List<String>,
     ) {
         val normalizedBootstrapIps = normalizeDnsBootstrapIps(bootstrapIps)
-        mutations.updateSetting(
+        updateDnsSetting(
             key = "encryptedDnsDnscryptProviderName",
             value = providerName,
         ) {
@@ -161,6 +170,45 @@ internal class SettingsDnsActions(
             setEncryptedDnsDohUrl("")
             setEncryptedDnsDnscryptProviderName(providerName.trim())
             setEncryptedDnsDnscryptPublicKey(publicKey.trim())
+        }
+    }
+
+    fun setIpv6Enabled(enabled: Boolean) {
+        updateDnsSetting(
+            key = "ipv6Enable",
+            value = enabled.toString(),
+        ) {
+            setIpv6Enable(enabled)
+        }
+    }
+
+    private fun updateDnsSetting(
+        key: String,
+        value: String,
+        transform: SettingsMutation,
+    ) {
+        mutations.launch {
+            updateSettingAndAwait(key = key, value = value, transform = transform)
+            applySavedDnsToRunningService()
+        }
+    }
+
+    private suspend fun applySavedDnsToRunningService() {
+        val (status, mode) = serviceStateStore.status.value
+        if (status != AppStatus.Running) {
+            return
+        }
+        serviceController.stop()
+        val halted =
+            withTimeoutOrNull(10.seconds) {
+                serviceStateStore.status.first { it.first == AppStatus.Halted }
+                true
+            } == true
+        if (halted) {
+            when (serviceController.start(mode)) {
+                is ServiceStartResult.Accepted -> Unit
+                is ServiceStartResult.Rejected -> Unit
+            }
         }
     }
 }

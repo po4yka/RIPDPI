@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.security.PinVerifyResult
+import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
@@ -29,6 +30,7 @@ class SettingsViewModel
         private val settingsActionDependencies: SettingsActionDependencies,
         private val settingsViewModelBootstrapper: SettingsViewModelBootstrapper,
         settingsUiStateAssembler: SettingsUiStateAssembler,
+        serviceController: ServiceController,
     ) : ViewModel() {
         private val _effects =
             MutableSharedFlow<SettingsEffect>(
@@ -70,7 +72,12 @@ class SettingsViewModel
                         settingsActionDependencies.serviceStateStore.telemetry.value.xrayProviderSnapshot,
                 )
 
-        private val dnsActions = SettingsDnsActions(mutations)
+        private val dnsActions =
+            SettingsDnsActions(
+                mutations = mutations,
+                serviceStateStore = settingsActionDependencies.serviceStateStore,
+                serviceController = serviceController,
+            )
         private val customizationActions by lazy {
             SettingsCustomizationActions(
                 mutations = mutations,
@@ -172,6 +179,8 @@ class SettingsViewModel
             publicKey = publicKey,
             bootstrapIps = bootstrapIps,
         )
+
+        fun setDnsIpv6Enabled(enabled: Boolean) = dnsActions.setIpv6Enabled(enabled)
 
         fun setWebRtcProtectionEnabled(enabled: Boolean) = customizationActions.setWebRtcProtectionEnabled(enabled)
 
