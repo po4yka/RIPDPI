@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.validateNativeRelayProfile
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,6 +49,7 @@ class RelayProfileActivator
             profile: ProxyProfile,
             profileId: String = DefaultRelayProfileId,
         ): Boolean {
+            if (!validateNativeRelayProfile(profile)) return false
             val relayKind = relayKindFor(profile) ?: return false
             val endpoint = relayEndpoint(profile)
             val udpEnabled = relayUdpEnabled(profile)

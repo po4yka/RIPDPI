@@ -29,8 +29,10 @@ import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.detectRelayChainTrustWarning
 import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
+import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.toRelayTrustDomain
+import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
 
 internal data class ResolvedChainRelayHop(
     val profileId: String,
@@ -223,7 +225,7 @@ private suspend fun resolveChainRelayHopSupport(
     }
     val checkedLegacyUuid = legacyUuid.orEmpty()
     require(isValidVlessUuid(checkedLegacyUuid)) { "Relay credentials missing for chain relay $hopName" }
-    validateVlessRealityFields(
+    validateVlessRealityEndpointFields(
         server = legacyServer,
         serverPort = legacyServerPort,
         serverName = legacyServerName,
@@ -389,7 +391,7 @@ private fun validateChainHopCredentials(hop: ResolvedChainRelayHopConfig) {
     when (hop.kind) {
         RelayKindVlessReality -> {
             require(isValidVlessUuid(hop.vlessUuid)) { "Relay credentials missing for profile ${hop.profileId}" }
-            validateVlessRealityFields(
+            validateVlessRealityEndpointFields(
                 server = hop.server,
                 serverPort = hop.serverPort,
                 serverName = hop.serverName,

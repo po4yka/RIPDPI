@@ -25,8 +25,9 @@ import com.poyka.ripdpi.data.StrategyFeatureFinalmask
 import com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect
 import com.poyka.ripdpi.data.StrategyFeatureNaiveProxyWatchdog
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.isValidVlessUuid
+import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
 import java.net.URI
-import java.util.Base64
 
 internal fun validateCloudflareTunnelCredentials(
     profileId: String,
@@ -339,7 +340,7 @@ private fun requireRelayCredentials(
 }
 
 private fun validateVlessRealityFeatures(config: RipDpiRelayConfig) {
-    validateVlessRealityFields(
+    validateVlessRealityEndpointFields(
         server = config.server,
         serverPort = config.serverPort,
         serverName = config.serverName,
@@ -357,58 +358,4 @@ private fun validatePlainVlessFeatures(config: RipDpiRelayConfig) {
     }
 }
 
-internal fun validateVlessRealityFields(
-    server: String,
-    serverPort: Int,
-    serverName: String,
-    realityPublicKey: String,
-    realityShortId: String,
-) {
-    require(server.isNotBlank()) { "VLESS Reality requires a server hostname" }
-    require(serverPort in relayPortRange) { "VLESS Reality requires a valid server port" }
-    require(serverName.isNotBlank()) { "VLESS Reality requires a TLS server name" }
-    require(isValidRealityPublicKey(realityPublicKey)) {
-        "VLESS Reality public key must be base64-encoded 32-byte X25519 key material"
-    }
-    require(isValidRealityShortId(realityShortId)) {
-        "VLESS Reality short ID must be hex-encoded and at most 8 bytes"
-    }
-}
-
-internal fun isValidVlessUuid(value: String?): Boolean {
-    val normalized = value?.trim()?.filterNot { it == '-' } ?: return false
-    return normalized.length == VlessUuidHexLength && normalized.all(Char::isHexDigit)
-}
-
-private fun isValidRealityPublicKey(value: String): Boolean {
-    val trimmed = value.trim()
-    if (trimmed.isEmpty()) {
-        return false
-    }
-    return listOf(
-        Base64.getDecoder(),
-        Base64.getUrlDecoder(),
-    ).any { decoder ->
-        runCatching { decoder.decode(trimmed) }
-            .getOrNull()
-            ?.size == RealityPublicKeyByteLength
-    }
-}
-
-private fun isValidRealityShortId(value: String): Boolean {
-    val trimmed = value.trim()
-    if (trimmed.isEmpty()) {
-        return true
-    }
-    return trimmed.length <= RealityShortIdMaxHexLength &&
-        trimmed.length % 2 == 0 &&
-        trimmed.all(Char::isHexDigit)
-}
-
-private fun Char.isHexDigit(): Boolean = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
-
 private val relayPortRange = 1..65535
-
-private const val VlessUuidHexLength = 32
-private const val RealityPublicKeyByteLength = 32
-private const val RealityShortIdMaxHexLength = 16
