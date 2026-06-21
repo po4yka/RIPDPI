@@ -107,6 +107,9 @@ async fn connect_tcp_stream(
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
     };
+    if let Some(protector) = socket_protector {
+        protector.protect(socket.as_raw_fd())?;
+    }
     if let Some(bind_ip) = bind_ip {
         let bind_addr = match (bind_ip, target) {
             (IpAddr::V4(ip), SocketAddr::V4(_)) => SocketAddr::new(IpAddr::V4(ip), 0),
@@ -119,9 +122,6 @@ async fn connect_tcp_stream(
             }
         };
         socket.bind(bind_addr)?;
-    }
-    if let Some(protector) = socket_protector {
-        protector.protect(socket.as_raw_fd())?;
     }
     let stream = socket.connect(target).await?;
     stream.set_nodelay(true)?;
@@ -183,6 +183,25 @@ mod tests {
         assert!(protect_ran.load(Ordering::SeqCst), "the socket protector was consulted");
         let accepted = tokio::time::timeout(Duration::from_millis(100), listener.accept()).await;
         assert!(accepted.is_err(), "no unprotected TCP connection may be established after protect rejection");
+    }
+
+    #[tokio::test]
+    async fn tcp_connect_invokes_socket_protector_before_optional_bind() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind listener");
+        let port = listener.local_addr().expect("local addr").port();
+        let protect_ran = Arc::new(AtomicBool::new(false));
+        let protect_ran_cb = Arc::clone(&protect_ran);
+        let protector = XhttpSocketProtector::new(move |_fd| {
+            protect_ran_cb.store(true, Ordering::SeqCst);
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "protect before bind sentinel"))
+        });
+
+        let err = connect_tcp_stream("127.0.0.1", port, Some(IpAddr::from([192, 0, 2, 1])), Some(&protector))
+            .await
+            .expect_err("rejecting protector must abort before outbound bind");
+
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied, "protector error must precede bind failure");
+        assert!(protect_ran.load(Ordering::SeqCst), "the socket protector must run before outbound bind");
     }
 
     #[tokio::test]
