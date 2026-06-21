@@ -9,12 +9,10 @@ import com.poyka.ripdpi.proto.AppSettings
  * `settings: Map<String, String>` field.
  *
  * The proto carries ~300 fields including repeated and nested-message values, so a
- * field-per-entry flat map would be lossy and brittle. Instead we reuse the
+ * field-per-entry flat map would be lossy and brittle for FULL exports. Instead we reuse the
  * existing, lossless [AppSettings.toJson] / [appSettingsFromJson] snapshot codec
  * and store its output under a single, versioned map key. The map shape is kept
- * (rather than a raw string) so a future schema can add sibling keys without
- * changing the `BackupV1` wire type, and so SHARE/FULL behaviour can later redact
- * individual settings keys if needed.
+ * (rather than a raw string) so a future schema can add sibling keys without changing the `BackupV1` wire type.
  */
 object BackupSettingsConverter {
     /**
@@ -23,8 +21,19 @@ object BackupSettingsConverter {
      */
     const val SnapshotKey: String = "app_settings.snapshot_json.v1"
 
-    /** Projects [settings] into the backup `settings` map. */
-    fun toMap(settings: AppSettings): Map<String, String> = mapOf(SnapshotKey to settings.toJson())
+    /**
+     * Projects [settings] into the backup `settings` map for [variant].
+     *
+     * SHARE exports intentionally omit settings until settings fields have their own audited allowlist. The live proto includes endpoints, LAN auth tokens, DNS URLs, and diagnostic paths, so carrying the opaque snapshot would make a SHARE backup equivalent to a FULL settings export.
+     */
+    fun toMap(
+        settings: AppSettings,
+        variant: BackupVariant,
+    ): Map<String, String> =
+        when (variant) {
+            BackupVariant.FULL -> mapOf(SnapshotKey to settings.toJson())
+            BackupVariant.SHARE -> emptyMap()
+        }
 
     /**
      * Reconstructs an [AppSettings] from a backup `settings` map.

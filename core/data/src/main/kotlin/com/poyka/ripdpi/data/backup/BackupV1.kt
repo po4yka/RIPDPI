@@ -29,7 +29,7 @@ const val OldestSupportedBackupVersion: Int = 1
  * Backup export variant.
  *
  * - [SHARE]: strips every field classified as [Classification.REDACTED] or
- *   [Classification.EXCLUDED] from each profile; safe to share publicly.
+ *   [Classification.EXCLUDED] from each profile and omits app settings; safe to share publicly.
  * - [FULL]: retains all fields and sets [BackupV1.containsCredentials] = true.
  */
 enum class BackupVariant {
@@ -254,7 +254,7 @@ private val backupJson =
  * Produces a [BackupV1] document from the supplied data.
  *
  * For [BackupVariant.SHARE], each profile's JSON object is stripped of every
- * field classified as [Classification.REDACTED] or [Classification.EXCLUDED].
+ * field classified as [Classification.REDACTED] or [Classification.EXCLUDED], and callers must pass a SHARE-safe settings map.
  * For [BackupVariant.FULL], all fields are kept and [BackupV1.containsCredentials]
  * is set to `true`.
  */

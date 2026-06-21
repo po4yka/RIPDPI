@@ -89,7 +89,7 @@ class BackupExportUseCase
             val profiles = profileProvider.profiles()
             val groups = groupRepository.list()
             val rules = ruleDao.allRules().first()
-            val settings = BackupSettingsConverter.toMap(settingsRepository.snapshot())
+            val settings = BackupSettingsConverter.toMap(settingsRepository.snapshot(), variant)
             return BackupExporter.export(
                 variant = variant,
                 profiles = profiles,

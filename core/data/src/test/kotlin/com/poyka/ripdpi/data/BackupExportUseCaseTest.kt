@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -154,6 +155,39 @@ class BackupExportUseCaseTest {
 
             val restored = BackupSettingsConverter.fromMap(doc.settings)
             assertEquals(1234, restored.proxyPort)
+        }
+
+    @Test
+    fun `SHARE export omits full settings snapshot`() =
+        runTest {
+            val settings =
+                AppSettings
+                    .getDefaultInstance()
+                    .toBuilder()
+                    .setProxyLanAuthToken("share-token-secret")
+                    .setRelayServer("relay-secret.example")
+                    .setRelayServerPort(443)
+                    .setRelayServerName("sni-secret.example")
+                    .setRelayMasqueUrl("https://masque-secret.example/.well-known/masque/udp/")
+                    .setRelayAppsScriptFrontDomain("front-secret.example")
+                    .setEncryptedDnsHost("dns-secret.example")
+                    .setEncryptedDnsDohUrl("https://dns-secret.example/dns-query")
+                    .setDetectionDiagnosticTlsKeylogPath("/tmp/secret-keylog")
+                    .build()
+
+            val full = useCase(settings = settings).gather(BackupVariant.FULL, "1.0.0", 0L)
+            val share = useCase(settings = settings).gather(BackupVariant.SHARE, "1.0.0", 0L)
+            val fullPayload = full.settings.values.joinToString(separator = "\n")
+            val sharePayload = share.settings.values.joinToString(separator = "\n")
+
+            assertTrue(BackupSettingsConverter.SnapshotKey in full.settings)
+            assertTrue("relay-secret.example" in fullPayload)
+            assertTrue(share.settings.isEmpty())
+            assertFalse(BackupSettingsConverter.SnapshotKey in share.settings)
+            assertFalse("relay-secret.example" in sharePayload)
+            assertFalse("share-token-secret" in sharePayload)
+            assertFalse("https://dns-secret.example/dns-query" in sharePayload)
+            assertFalse("/tmp/secret-keylog" in sharePayload)
         }
 
     @Test
