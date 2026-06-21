@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -180,6 +181,11 @@ class HomeScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.Diagnostic.name))
+            .performScrollTo()
+            .performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.homeModeConfigureAction(HomeMode.Diagnostic.name))
+            .assertTextEquals("Open Diagnostics")
             .performScrollTo()
             .performClick()
         composeRule
@@ -456,7 +462,12 @@ class HomeScreenTest {
                     active -> "Disable"
                     else -> "Enable"
                 },
-            configureLabel = "Configure",
+            configureLabel =
+                if (mode == HomeMode.Diagnostic) {
+                    "Open Diagnostics"
+                } else {
+                    "Configure"
+                },
             primaryActionEnabled = true,
             isActive = active,
         )

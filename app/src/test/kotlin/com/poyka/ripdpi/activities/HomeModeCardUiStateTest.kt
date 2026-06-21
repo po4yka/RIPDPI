@@ -267,6 +267,13 @@ class HomeModeCardUiStateTest {
         assertEquals("3/4 stages complete", completeDiagnostic.statusLine)
     }
 
+    @Test
+    fun `diagnostic card secondary action opens diagnostics`() {
+        val diagnostic = buildCards().single { it.mode == HomeMode.Diagnostic }
+
+        assertEquals("Open Diagnostics", diagnostic.configureLabel)
+    }
+
     private fun buildCards(
         settings: AppSettings = AppSettingsSerializer.defaultValue,
         activeMode: Mode = Mode.VPN,

@@ -255,7 +255,7 @@ internal fun buildDiagnosticCard(
                 }
             },
         primaryActionLabel = stringResolver.getString(R.string.home_mode_card_run_scan),
-        configureLabel = stringResolver.getString(R.string.home_mode_card_configure),
+        configureLabel = stringResolver.getString(R.string.home_diagnostics_open_diagnostics_action),
         primaryActionEnabled = homeDiagnostics.analysisAction.enabled && !homeDiagnostics.analysisAction.busy,
         isActive = false,
         isLoading = homeDiagnostics.analysisAction.busy,
