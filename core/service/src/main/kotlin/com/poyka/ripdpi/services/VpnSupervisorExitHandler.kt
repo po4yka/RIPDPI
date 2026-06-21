@@ -127,32 +127,8 @@ internal class VpnSupervisorExitHandler(
             return
         }
 
-        val failureReason =
-            when (cause) {
-                is SupervisorExitCause.Crash -> {
-                    Logger.e { "Relay stopped with code ${cause.code}" }
-                    FailureReason.NativeError("Relay exited with code ${cause.code}")
-                }
-
-                is SupervisorExitCause.StartupFailure -> {
-                    val error = cause.throwable
-                    Logger.e(error) { "Relay failed" }
-                    classifyFailureReason(error, isTunnelContext = true)
-                }
-
-                SupervisorExitCause.Cancellation -> {
-                    Logger.e { "Relay runtime was cancelled unexpectedly" }
-                    FailureReason.NativeError("Relay runtime was cancelled unexpectedly")
-                }
-
-                SupervisorExitCause.ExpectedStop -> {
-                    null
-                }
-            }
-
-        reportFailure(failureReason)
+        logRelayExit(cause)
         upstreamRelaySupervisor.detach()
-        stopSkippingRuntimeShutdown()
     }
 
     private fun reportFailure(failureReason: FailureReason?) {
@@ -163,5 +139,25 @@ internal class VpnSupervisorExitHandler(
 
     private fun stopSkippingRuntimeShutdown() {
         host.serviceScope.launch(ioDispatcher) { stopService(true) }
+    }
+
+    private fun logRelayExit(cause: SupervisorExitCause) {
+        when (cause) {
+            is SupervisorExitCause.Crash -> {
+                Logger.e { "Relay stopped with code ${cause.code}; keeping base VPN runtime active" }
+            }
+
+            is SupervisorExitCause.StartupFailure -> {
+                Logger.e(cause.throwable) { "Relay failed after startup; keeping base VPN runtime active" }
+            }
+
+            SupervisorExitCause.Cancellation -> {
+                Logger.e { "Relay runtime was cancelled unexpectedly; keeping base VPN runtime active" }
+            }
+
+            SupervisorExitCause.ExpectedStop -> {
+                Unit
+            }
+        }
     }
 }

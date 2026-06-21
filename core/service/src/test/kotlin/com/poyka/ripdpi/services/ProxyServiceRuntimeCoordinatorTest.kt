@@ -166,6 +166,39 @@ class ProxyServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun relayExitDetachesRelayWithoutHaltingProxyService() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.Proxy,
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = RelayKindVlessReality,
+                                                profileId = "relay-profile",
+                                            ),
+                                    ),
+                            ),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            env.relayFactory.lastRuntime.complete(17)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertTrue(env.store.eventHistory.none { it is ServiceEvent.Failed })
+            assertEquals(0, env.factory.lastRuntime.stopCount)
+        }
+
+    @Test
     fun duplicateStartIsIgnored() =
         runTest {
             val env = newEnv()
@@ -636,8 +669,7 @@ class ProxyServiceRuntimeCoordinatorTest {
                     dispatcher = dispatcher,
                     relayFactory = relayFactory,
                     naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                    relayProfileStore = TestRelayProfileStore(),
-                    relayCredentialStore = TestRelayCredentialStore(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
                 ),
             warpRuntimeSupervisor =
                 WarpRuntimeSupervisor(

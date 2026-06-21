@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
@@ -13,6 +14,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -40,6 +42,7 @@ class VpnServiceRuntimeCoordinatorTest {
         val store: TestServiceStateStore,
         val host: TestVpnServiceHost,
         val factory: TestRipDpiProxyFactory,
+        val relayFactory: TestRipDpiRelayFactory,
         val warpFactory: TestRipDpiWarpFactory,
         val bridgeFactory: TestTun2SocksBridgeFactory,
         val tunnelProvider: TestVpnTunnelSessionProvider,
@@ -95,6 +98,40 @@ class VpnServiceRuntimeCoordinatorTest {
 
             assertEquals(listOf("warp:start", "proxy:start", "vpn:establish", "tunnel:start"), env.events.take(4))
             assertEquals(1, env.warpFactory.runtimes.size)
+        }
+
+    @Test
+    fun relayExitDetachesRelayWithoutHaltingVpnService() =
+        runTest {
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = RelayKindVlessReality,
+                                                profileId = "relay-profile",
+                                            ),
+                                    ),
+                            ),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+            env.relayFactory.lastRuntime.complete(17)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+            assertTrue(env.store.eventHistory.none { it is ServiceEvent.Failed })
+            assertEquals(0, env.factory.lastRuntime.stopCount)
+            assertEquals(0, env.bridgeFactory.bridge.stopCount)
         }
 
     @Test
@@ -1051,6 +1088,7 @@ class VpnServiceRuntimeCoordinatorTest {
         resolver.enqueue(*resolutions.toTypedArray())
         val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
         val factory = TestRipDpiProxyFactory { runtimeFactory(events) }
+        val relayFactory = TestRipDpiRelayFactory { TestRelayRuntime(events) }
         val warpFactory = TestRipDpiWarpFactory { TestWarpRuntime(events) }
         val bridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events))
         val tunnelProvider =
@@ -1103,10 +1141,9 @@ class VpnServiceRuntimeCoordinatorTest {
                     UpstreamRelaySupervisor(
                         scope = backgroundScope,
                         dispatcher = dispatcher,
-                        relayFactory = TestRipDpiRelayFactory(),
+                        relayFactory = relayFactory,
                         naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                        relayProfileStore = TestRelayProfileStore(),
-                        relayCredentialStore = TestRelayCredentialStore(),
+                        runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
                     ),
                 warpRuntimeSupervisor =
                     WarpRuntimeSupervisor(
@@ -1148,6 +1185,7 @@ class VpnServiceRuntimeCoordinatorTest {
             store = store,
             host = host,
             factory = factory,
+            relayFactory = relayFactory,
             warpFactory = warpFactory,
             bridgeFactory = bridgeFactory,
             tunnelProvider = tunnelProvider,
