@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -68,6 +69,32 @@ class ConfigScreenTest {
         composeRule.runOnIdle {
             assertEquals(emptyList<Mode>(), selectedModes)
         }
+    }
+
+    @Test
+    fun `mode section chips expose radio button semantics`() {
+        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configModeSection(ConfigModeSection.LocalBypass.stableKey))
+            .assertHasRole(Role.RadioButton)
+            .assertIsSelected()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configModeSection(ConfigModeSection.Vpn.stableKey))
+            .assertHasRole(Role.RadioButton)
+    }
+
+    @Test
+    fun `mode chips expose radio button semantics`() {
+        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass)
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configMode(Mode.VPN.name))
+            .assertHasRole(Role.RadioButton)
+            .assertIsSelected()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.configMode(Mode.Proxy.name))
+            .assertHasRole(Role.RadioButton)
     }
 
     @Test
@@ -419,4 +446,7 @@ class ConfigScreenTest {
             ),
         )
     }
+
+    private fun SemanticsNodeInteraction.assertHasRole(expected: Role): SemanticsNodeInteraction =
+        assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, expected))
 }

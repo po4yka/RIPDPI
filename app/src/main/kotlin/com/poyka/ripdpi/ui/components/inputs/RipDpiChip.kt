@@ -49,6 +49,7 @@ fun RipDpiChip(
     enabled: Boolean = true,
     density: RipDpiControlDensity = RipDpiControlDensity.Default,
     leadingIcon: ImageVector? = if (selected) RipDpiIcons.Check else null,
+    role: Role = Role.Checkbox,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Selection,
 ) {
     val components = RipDpiThemeTokens.components
@@ -128,7 +129,7 @@ fun RipDpiChip(
                 .ripDpiSelectable(
                     selected = selected,
                     enabled = enabled,
-                    role = Role.Checkbox,
+                    role = role,
                     interactionSource = interactionSource,
                     hapticFeedback = hapticFeedback,
                     onClick = onClick,

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -255,6 +257,7 @@ internal fun ConfigModeSectionSwitcher(
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
         FlowRow(
+            modifier = Modifier.selectableGroup(),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
@@ -263,6 +266,7 @@ internal fun ConfigModeSectionSwitcher(
                     text = stringResource(configModeSectionTitleRes(section)),
                     selected = selectedSection == section,
                     onClick = { onSectionSelected(section) },
+                    role = Role.RadioButton,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configModeSection(section.stableKey)),
                 )
             }
@@ -320,19 +324,21 @@ internal fun ConfigModeChips(
     val spacing = RipDpiThemeTokens.spacing
 
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         RipDpiChip(
             text = stringResource(modeLabelRes(Mode.VPN)),
             selected = selectedMode == Mode.VPN,
             onClick = { onModeSelected(Mode.VPN) },
+            role = Role.RadioButton,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.VPN.name)),
         )
         RipDpiChip(
             text = stringResource(modeLabelRes(Mode.Proxy)),
             selected = selectedMode == Mode.Proxy,
             onClick = { onModeSelected(Mode.Proxy) },
+            role = Role.RadioButton,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.Proxy.name)),
         )
     }
