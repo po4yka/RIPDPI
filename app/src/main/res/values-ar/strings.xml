@@ -598,7 +598,7 @@
     <string name="config_local_bypass_precedence_cli_value">تجاوزات سطر الأوامر</string>
     <string name="config_local_bypass_turn_on">تشغيل</string>
     <string name="config_local_bypass_turn_off">إيقاف</string>
-    <string name="config_local_bypass_retest_strategies">إعادة اختبار استراتيجيات التجاوز</string>
+    <string name="config_local_bypass_retest_strategies">فتح التشخيصات لإعادة الاختبار</string>
     <string name="config_vpn_section_body">اضبط إعدادات مسار VPN وبروتوكول الترحيل وسلوك DNS.</string>
     <string name="config_vpn_simple_title">VPN</string>
     <string name="config_vpn_simple_body">أضف رابط ملف تعريف وسيستنتج RIPDPI البروتوكول من URI.</string>

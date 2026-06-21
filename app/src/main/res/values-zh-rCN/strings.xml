@@ -1659,7 +1659,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_local_bypass_precedence_cli_value">命令行覆盖</string>
     <string name="config_local_bypass_turn_on">开启</string>
     <string name="config_local_bypass_turn_off">关闭</string>
-    <string name="config_local_bypass_retest_strategies">重新测试绕过策略</string>
+    <string name="config_local_bypass_retest_strategies">打开诊断并重新测试</string>
     <string name="config_mode_summary">本地 VPN 或代理路由路径</string>
     <string name="config_placeholder_chain_dsl">[tcp]
 tlsrec extlen

@@ -2256,7 +2256,7 @@ Source : %2$s</string>
     <string name="config_local_bypass_precedence_cli_value">Remplacements de ligne de commande</string>
     <string name="config_local_bypass_turn_on">Activer</string>
     <string name="config_local_bypass_turn_off">Désactiver</string>
-    <string name="config_local_bypass_retest_strategies">Retester les stratégies de contournement</string>
+    <string name="config_local_bypass_retest_strategies">Ouvrir Diagnostics pour retester</string>
     <string name="config_network_section">Réseau</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>

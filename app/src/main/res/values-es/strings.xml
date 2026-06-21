@@ -2256,7 +2256,7 @@ Origen: %2$s</string>
     <string name="config_local_bypass_precedence_cli_value">Anulaciones de línea de comandos</string>
     <string name="config_local_bypass_turn_on">Activar</string>
     <string name="config_local_bypass_turn_off">Desactivar</string>
-    <string name="config_local_bypass_retest_strategies">Volver a probar estrategias de bypass</string>
+    <string name="config_local_bypass_retest_strategies">Abrir Diagnóstico para volver a probar</string>
     <string name="config_network_section">Red</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>

@@ -2256,7 +2256,7 @@ Quelle: %2$s</string>
     <string name="config_local_bypass_precedence_cli_value">Befehlszeilen-Overrides</string>
     <string name="config_local_bypass_turn_on">Einschalten</string>
     <string name="config_local_bypass_turn_off">Ausschalten</string>
-    <string name="config_local_bypass_retest_strategies">Bypass-Strategien erneut testen</string>
+    <string name="config_local_bypass_retest_strategies">Diagnostik zum erneuten Testen öffnen</string>
     <string name="config_network_section">Netzwerk</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>

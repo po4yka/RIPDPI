@@ -2218,7 +2218,7 @@ fakeddisorder endhost</string>
     <string name="config_local_bypass_precedence_cli_value">Переопределения командной строки</string>
     <string name="config_local_bypass_turn_on">Включить</string>
     <string name="config_local_bypass_turn_off">Выключить</string>
-    <string name="config_local_bypass_retest_strategies">Проверить стратегии обхода снова</string>
+    <string name="config_local_bypass_retest_strategies">Открыть Диагностику для повторной проверки</string>
     <string name="config_mode_sections_title">Сведения о режиме</string>
     <string name="config_relay_body">Направлять прокси-трафик через локальную среду выполнения реле. Секреты остаются в защищённом хранилище, поддерживаемом keystore.</string>
     <string name="config_relay_chain_entry_port">Порт входного узла</string>

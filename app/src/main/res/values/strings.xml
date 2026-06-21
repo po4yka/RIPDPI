@@ -611,7 +611,7 @@
     <string name="config_local_bypass_precedence_cli_value">Command line overrides</string>
     <string name="config_local_bypass_turn_on">Turn on</string>
     <string name="config_local_bypass_turn_off">Turn off</string>
-    <string name="config_local_bypass_retest_strategies">Re-test bypass strategies</string>
+    <string name="config_local_bypass_retest_strategies">Open Diagnostics to re-test</string>
     <string name="config_vpn_section_body">Tune VPN path settings, relay transport, and DNS behavior.</string>
     <string name="config_vpn_simple_title">VPN</string>
     <string name="config_vpn_simple_body">Add a profile link and let RIPDPI infer the protocol from the URI.</string>
