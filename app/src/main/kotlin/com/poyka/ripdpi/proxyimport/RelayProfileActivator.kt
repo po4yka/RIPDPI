@@ -50,9 +50,7 @@ class RelayProfileActivator
         ): Boolean {
             val relayKind = relayKindFor(profile) ?: return false
             val endpoint = relayEndpoint(profile)
-            // SSH carries only a `direct-tcpip` TCP channel; every other
-            // relay-activatable kind here advertises UDP ASSOCIATE.
-            val udpEnabled = profile !is ProxyProfile.Ssh
+            val udpEnabled = relayUdpEnabled(profile)
             val vlessTransport =
                 if (profile is ProxyProfile.VlessReality && profile.xhttpPath != null) {
                     RelayVlessTransportXhttp
@@ -118,6 +116,15 @@ class RelayProfileActivator
                 is ProxyProfile.Hysteria2 -> RelayKindHysteria2
                 is ProxyProfile.Ssh -> RelayKindSsh
                 else -> null
+            }
+
+        private fun relayUdpEnabled(profile: ProxyProfile): Boolean =
+            when (profile) {
+                is ProxyProfile.Ssh,
+                is ProxyProfile.VlessReality,
+                -> false
+
+                else -> true
             }
 
         private fun relayEndpoint(profile: ProxyProfile): RelayActivationEndpoint =

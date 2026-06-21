@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -247,6 +248,7 @@ class ImportConfirmViewModelTest {
             assertEquals("PUBLICKEY1234567890abcdefghijklmn", settings.relayRealityPublicKey)
             assertEquals("abcd1234", settings.relayRealityShortId)
             assertEquals(RelayVlessTransportRealityTcp, settings.relayVlessTransport)
+            assertFalse(settings.relayUdpEnabled)
             assertEquals(RelayKindVlessReality, relayProfile?.kind)
             assertEquals("edge.example.com", relayProfile?.server)
             assertEquals(443, relayProfile?.serverPort)
@@ -254,6 +256,7 @@ class ImportConfirmViewModelTest {
             assertEquals("PUBLICKEY1234567890abcdefghijklmn", relayProfile?.realityPublicKey)
             assertEquals("abcd1234", relayProfile?.realityShortId)
             assertEquals(RelayVlessTransportRealityTcp, relayProfile?.vlessTransport)
+            assertFalse(relayProfile?.udpEnabled ?: true)
             assertEquals("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", relayCredentials?.vlessUuid)
         }
 
@@ -301,10 +304,12 @@ class ImportConfirmViewModelTest {
             assertEquals("cdn.example.com", settings.relayXhttpHost)
             assertEquals("XHTTPKEY1234567890abcdefghijklmn", settings.relayRealityPublicKey)
             assertEquals("cafe0001", settings.relayRealityShortId)
+            assertFalse(settings.relayUdpEnabled)
             assertEquals(RelayKindVlessReality, relayProfile?.kind)
             assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
             assertEquals("/tunnel", relayProfile?.xhttpPath)
             assertEquals("cdn.example.com", relayProfile?.xhttpHost)
+            assertFalse(relayProfile?.udpEnabled ?: true)
             assertEquals("dddddddd-dddd-dddd-dddd-dddddddddddd", relayCredentials?.vlessUuid)
         }
 
