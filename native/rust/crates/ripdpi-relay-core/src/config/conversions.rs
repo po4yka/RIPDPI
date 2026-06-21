@@ -27,6 +27,12 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 zero_rtt: flat.tuic_zero_rtt,
                 congestion_control: flat.tuic_congestion_control,
             }),
+            "vless" => RelayBackendConfig::Vless(VlessRelayConfig {
+                vless_transport: flat.vless_transport,
+                xhttp_path: flat.xhttp_path,
+                xhttp_host: flat.xhttp_host,
+                uuid: flat.vless_uuid,
+            }),
             "vless_reality" => RelayBackendConfig::VlessReality(VlessRealityRelayConfig {
                 reality_public_key: flat.reality_public_key,
                 reality_short_id: flat.reality_short_id,
@@ -245,6 +251,12 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.tuic_password = config.password.clone();
                 flat.tuic_zero_rtt = config.zero_rtt;
                 flat.tuic_congestion_control = config.congestion_control.clone();
+            }
+            RelayBackendConfig::Vless(config) => {
+                flat.vless_transport = config.vless_transport.clone();
+                flat.xhttp_path = config.xhttp_path.clone();
+                flat.xhttp_host = config.xhttp_host.clone();
+                flat.vless_uuid = config.uuid.clone();
             }
             RelayBackendConfig::VlessReality(config) => {
                 flat.reality_public_key = config.reality_public_key.clone();

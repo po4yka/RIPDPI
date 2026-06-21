@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
@@ -409,6 +410,48 @@ class UpstreamRelayRuntimeConfigResolverTest {
             assertEquals("/xhttp", resolved.xhttpPath)
             assertEquals("origin.example", resolved.xhttpHost)
             assertEquals("44444444-4444-4444-4444-444444444444", resolved.vlessUuid)
+        }
+
+    @Test
+    fun `resolve default family routes plain vless xhttp through native config`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "plain-vless",
+                                    vlessUuid = "55555555-5555-5555-5555-555555555555",
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindVless,
+                            profileId = "plain-vless",
+                            server = "relay.example",
+                            serverPort = 443,
+                            serverName = "relay.example",
+                            vlessTransport = RelayVlessTransportXhttp,
+                            xhttpPath = "/xhttp",
+                            xhttpHost = "origin.example",
+                        ),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertEquals(RelayKindVless, resolved.kind)
+            assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
+            assertEquals("/xhttp", resolved.xhttpPath)
+            assertEquals("origin.example", resolved.xhttpHost)
+            assertEquals("55555555-5555-5555-5555-555555555555", resolved.vlessUuid)
+            assertEquals("", resolved.realityPublicKey)
+            assertEquals("", resolved.realityShortId)
         }
 
     @Test

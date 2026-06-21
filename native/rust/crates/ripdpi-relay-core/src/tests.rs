@@ -26,7 +26,7 @@ use crate::config::{
     MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig,
     ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig,
     ShadowsocksRelayConfig, SshRelayConfig, TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig,
-    TuicRelayConfig, VlessRealityRelayConfig,
+    TuicRelayConfig, VlessRealityRelayConfig, VlessRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
@@ -62,6 +62,12 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             password: Some("secret".to_string()),
             zero_rtt: false,
             congestion_control: "bbr".to_string(),
+        }),
+        "vless" => RelayBackendConfig::Vless(VlessRelayConfig {
+            vless_transport: "xhttp".to_string(),
+            xhttp_path: "/xhttp".to_string(),
+            xhttp_host: "relay.example".to_string(),
+            uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
         }),
         "vless_reality" => RelayBackendConfig::VlessReality(VlessRealityRelayConfig {
             reality_public_key: String::new(),
@@ -301,6 +307,7 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
     for kind in [
         "hysteria2",
         "tuic_v5",
+        "vless",
         "vless_reality",
         "mieru",
         "ssh",
@@ -1166,6 +1173,13 @@ fn vless_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut VlessRealit
     }
 }
 
+fn plain_vless_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut VlessRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::Vless(vless) => vless,
+        _ => panic!("expected VLESS config"),
+    }
+}
+
 fn cloudflare_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut CloudflareTunnelRelayConfig {
     match &mut config.backend {
         RelayBackendConfig::CloudflareTunnel(cloudflare) => cloudflare,
@@ -1602,9 +1616,10 @@ fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeCon
 #[test]
 fn relay_planned_capabilities_are_pinned_for_every_kind() {
     // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
-    let pinned: [(&str, bool, bool, bool, bool); 14] = [
+    let pinned: [(&str, bool, bool, bool, bool); 15] = [
         ("hysteria2", true, true, true, false),
         ("tuic_v5", true, true, true, true),
+        ("vless", true, false, true, true),
         ("vless_reality", true, false, false, true),
         ("mieru", true, false, false, false),
         ("ssh", true, false, false, false),

@@ -34,6 +34,7 @@ impl ResolvedRelayRuntimeConfig {
 
     pub(crate) fn xhttp_path(&self) -> &str {
         match &self.backend {
+            RelayBackendConfig::Vless(config) => &config.xhttp_path,
             RelayBackendConfig::VlessReality(config) => &config.xhttp_path,
             RelayBackendConfig::CloudflareTunnel(config) => &config.xhttp_path,
             _ => "",

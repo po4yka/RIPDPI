@@ -32,6 +32,7 @@ fn relay_dispatch_class(kind: RelayKind<'_>) -> RelayDispatchClass {
     match kind {
         RelayKind::Hysteria2
         | RelayKind::TuicV5
+        | RelayKind::Vless { .. }
         | RelayKind::VlessReality { .. }
         | RelayKind::Mieru
         | RelayKind::Ssh
@@ -69,6 +70,7 @@ fn relay_transport_registry_is_consistent() {
     let configs = [
         sample_config("hysteria2"),
         sample_config("tuic_v5"),
+        sample_config("vless"),
         sample_config("vless_reality"),
         vless_xhttp,
         sample_config("mieru"),
@@ -163,6 +165,7 @@ fn relay_transport_registry_is_consistent() {
     for kind_id in [
         "hysteria2",
         "tuic_v5",
+        "vless",
         "vless_reality",
         "mieru",
         "ssh",
@@ -182,6 +185,24 @@ fn relay_transport_registry_is_consistent() {
 
     assert!(relay_transport_registration("off").is_none(), "\"off\" is not a relay transport");
     assert!(relay_transport_registration("totally_unknown").is_none(), "unknown kinds have no registration");
+}
+
+/// The plain `vless` registration is native only for xHTTP/TLS; unsupported
+/// transports fail closed instead of building an inert backend.
+#[tokio::test]
+async fn relay_transport_registry_dispatches_plain_vless_xhttp_only() {
+    let xhttp = sample_config("vless");
+    match build_backend(&xhttp).await.expect("plain vless xhttp backend") {
+        RelayBackend::Xhttp(_) => {}
+        other => panic!("plain vless xhttp must build Xhttp, got {:?}", std::mem::discriminant(&other)),
+    }
+
+    let mut tcp = sample_config("vless");
+    plain_vless_config_mut(&mut tcp).vless_transport = "tcp".to_string();
+    let Err(error) = build_backend(&tcp).await else {
+        panic!("plain vless tcp has no native backend");
+    };
+    assert_eq!(io::ErrorKind::Unsupported, error.kind());
 }
 
 /// The single `vless_reality` registration's builder dispatches by transport
@@ -217,9 +238,10 @@ async fn relay_transport_registry_dispatches_vless_sub_modes() {
 #[test]
 fn relay_planned_runtime_policy_is_pinned_for_every_kind() {
     // kind_id, fallback_mode, pool max_active_leases, pool idle_timeout (secs)
-    let pinned: [(&str, Option<&str>, usize, u64); 14] = [
+    let pinned: [(&str, Option<&str>, usize, u64); 15] = [
         ("hysteria2", None, 64, 45),
         ("tuic_v5", None, 64, 45),
+        ("vless", None, 48, 20),
         ("vless_reality", None, 16, 5), // reality_tcp sub-mode
         ("mieru", None, 16, 5),
         ("ssh", None, 16, 5),

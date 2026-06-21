@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTuicV5
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
@@ -41,7 +42,9 @@ internal fun validateDefaultRelayCredentials(
 ) {
     val hasRequiredCredentials =
         when (relayKind) {
-            RelayKindVlessReality -> {
+            RelayKindVless,
+            RelayKindVlessReality,
+            -> {
                 isValidVlessUuid(credentials?.vlessUuid)
             }
 
@@ -199,8 +202,9 @@ internal fun validateDefaultRelayFeatures(
         require(config.server.isNotBlank()) { "AnyTLS requires a server hostname" }
         require(config.serverName.isNotBlank()) { "AnyTLS requires a TLS server name" }
     }
-    if (config.kind == RelayKindVlessReality) {
-        validateVlessRealityFeatures(config)
+    when (config.kind) {
+        RelayKindVless -> validatePlainVlessFeatures(config)
+        RelayKindVlessReality -> validateVlessRealityFeatures(config)
     }
 }
 
@@ -342,6 +346,15 @@ private fun validateVlessRealityFeatures(config: RipDpiRelayConfig) {
         realityPublicKey = config.realityPublicKey,
         realityShortId = config.realityShortId,
     )
+}
+
+private fun validatePlainVlessFeatures(config: RipDpiRelayConfig) {
+    require(config.server.isNotBlank()) { "VLESS requires a server hostname" }
+    require(config.serverPort in relayPortRange) { "VLESS requires a valid server port" }
+    require(config.serverName.isNotBlank()) { "VLESS requires a TLS server name" }
+    require(config.vlessTransport == RelayVlessTransportXhttp) {
+        "VLESS native backend supports only xHTTP transport"
+    }
 }
 
 internal fun validateVlessRealityFields(

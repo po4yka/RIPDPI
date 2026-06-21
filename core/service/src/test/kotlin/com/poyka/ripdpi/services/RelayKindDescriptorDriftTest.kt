@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -110,6 +111,7 @@ class RelayKindDescriptorDriftTest {
             mapOf(
                 "hysteria2" to listOf(true, true, true, false),
                 "tuic_v5" to listOf(true, true, true, true),
+                "vless" to listOf(true, false, true, true),
                 "vless_reality" to listOf(true, false, false, true),
                 "cloudflare_tunnel" to listOf(true, false, true, true),
                 "chain_relay" to listOf(true, false, false, true),
@@ -145,6 +147,7 @@ class RelayKindDescriptorDriftTest {
     @Test
     fun `kotlin-owned descriptor facts are pinned`() {
         assertEquals(RelayFinalmaskSupport.SUPPORTED, relayKindDescriptor("cloudflare_tunnel")?.finalmaskSupport)
+        assertEquals(RelayFinalmaskSupport.SUPPORTED, relayKindDescriptor("vless")?.finalmaskSupport)
         assertEquals(RelayFinalmaskSupport.SUB_MODE_DEPENDENT, relayKindDescriptor("vless_reality")?.finalmaskSupport)
         assertEquals(RelayFinalmaskSupport.NONE, relayKindDescriptor("hysteria2")?.finalmaskSupport)
 
@@ -172,7 +175,7 @@ class RelayKindDescriptorDriftTest {
 
     @Test
     fun `udp gate rejects udp for tcp-only kinds through the descriptor`() {
-        listOf(RelayKindVlessReality, RelayKindSnowflake, RelayKindTor, RelayKindOff).forEach { kind ->
+        listOf(RelayKindVless, RelayKindVlessReality, RelayKindSnowflake, RelayKindTor, RelayKindOff).forEach { kind ->
             assertThrows(IllegalArgumentException::class.java) {
                 validateSharedRelayTransportFeatures(RipDpiRelayConfig(kind = kind, udpEnabled = true))
             }
