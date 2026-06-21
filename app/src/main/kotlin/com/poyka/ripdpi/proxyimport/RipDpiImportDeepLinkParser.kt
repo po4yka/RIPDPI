@@ -72,7 +72,7 @@ object RipDpiImportDeepLinkParser {
             } else {
                 afterScheme
             }.substringBefore('/')
-        if (host != IMPORT_HOST) return RipDpiImportDeepLinkResult.Error.Unsupported
+        if (!host.equals(IMPORT_HOST, ignoreCase = true)) return RipDpiImportDeepLinkResult.Error.Unsupported
 
         val query = if (querySeparator >= 0) afterScheme.substring(querySeparator + 1) else ""
         val params =
@@ -86,12 +86,12 @@ object RipDpiImportDeepLinkParser {
 
         return when {
             rawSub != null -> {
-                if (!rawSub.startsWith("https://")) return RipDpiImportDeepLinkResult.Error.NonHttps
+                if (!rawSub.startsWith("https://", ignoreCase = true)) return RipDpiImportDeepLinkResult.Error.NonHttps
                 RipDpiImportDeepLinkResult.Success(rawSub, RipDpiImportDeepLinkResult.Success.Kind.Subscription)
             }
 
             rawUrl != null -> {
-                if (!rawUrl.startsWith("https://")) return RipDpiImportDeepLinkResult.Error.NonHttps
+                if (!rawUrl.startsWith("https://", ignoreCase = true)) return RipDpiImportDeepLinkResult.Error.NonHttps
                 RipDpiImportDeepLinkResult.Success(rawUrl, RipDpiImportDeepLinkResult.Success.Kind.OneShot)
             }
 

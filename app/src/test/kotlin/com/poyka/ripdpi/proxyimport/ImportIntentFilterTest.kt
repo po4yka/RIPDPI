@@ -4,6 +4,9 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.activities.MainActivity
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,12 +35,16 @@ class ImportIntentFilterTest {
         }
 
     private fun resolvesToImportHandler(uri: String): Boolean {
-        val matches = packageManager.queryIntentActivities(viewIntent(uri), 0)
-        return matches.any { resolveInfo ->
-            resolveInfo.activityInfo?.packageName == packageName &&
-                resolveInfo.activityInfo?.name == ImportHandlerActivity::class.java.name
-        }
+        val matches = matchingActivityNames(uri)
+        return ImportHandlerActivity::class.java.name in matches
     }
+
+    private fun matchingActivityNames(uri: String): Set<String> =
+        packageManager
+            .queryIntentActivities(viewIntent(uri), 0)
+            .filter { resolveInfo -> resolveInfo.activityInfo?.packageName == packageName }
+            .mapNotNull { resolveInfo -> resolveInfo.activityInfo?.name }
+            .toSet()
 
     @Test
     fun `each single-profile proxy scheme resolves to the import handler`() {
@@ -89,6 +96,27 @@ class ImportIntentFilterTest {
     @Test
     fun `ripdpi import deep link with url parameter resolves to the import handler`() {
         assertTrue(resolvesToImportHandler("ripdpi://import?url=https%3A%2F%2Fhost.example%2Fbundle.json"))
+    }
+
+    @Test
+    fun `ripdpi import deep links are not claimed by main activity catch all filter`() {
+        val matches = matchingActivityNames("ripdpi://import?url=https%3A%2F%2Fhost.example%2Fbundle.json")
+
+        assertEquals(setOf(ImportHandlerActivity::class.java.name), matches)
+        assertFalse(MainActivity::class.java.name in matches)
+    }
+
+    @Test
+    fun `ripdpi app navigation deep links stay on main activity`() {
+        listOf("connect", "config", "diagnostics", "disconnect", "settings", "support-config").forEach { host ->
+            val matches = matchingActivityNames("ripdpi://$host")
+
+            assertTrue("Expected ripdpi://$host to resolve to MainActivity", MainActivity::class.java.name in matches)
+            assertFalse(
+                "Import handler must not claim ripdpi://$host",
+                ImportHandlerActivity::class.java.name in matches,
+            )
+        }
     }
 
     @Test

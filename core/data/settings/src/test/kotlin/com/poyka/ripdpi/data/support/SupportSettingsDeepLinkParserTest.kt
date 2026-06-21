@@ -47,6 +47,16 @@ class SupportSettingsDeepLinkParserTest {
     }
 
     @Test
+    fun `https app link path lookalike is rejected`() {
+        val result =
+            SupportSettingsDeepLinkParser.parse(
+                "https://po4yka.github.io/RIPDPI/support-config-extra#${encode("{}")}",
+            )
+
+        assertEquals(SupportSettingsDeepLinkParseResult.Error.Unsupported, result)
+    }
+
+    @Test
     fun `bad base64 is rejected`() {
         val result = SupportSettingsDeepLinkParser.parse("ripdpi://support-config?payload=%%%")
 

@@ -88,6 +88,16 @@ class SingBoxDeepLinkParserTest {
     }
 
     @Test
+    fun `mixed-case scheme and host parse identically`() {
+        val link = "SingBox://Import-Remote-Profile?url=${enc("https://sub.example.com/c")}"
+
+        val result = SingBoxDeepLinkParser.parse(link)
+
+        assertTrue(result is SingBoxDeepLinkResult.Success)
+        assertEquals("https://sub.example.com/c", (result as SingBoxDeepLinkResult.Success).url)
+    }
+
+    @Test
     fun `non subscription scheme yields a typed unsupported error`() {
         val result = SingBoxDeepLinkParser.parse("vless://uuid@example.com:443")
 

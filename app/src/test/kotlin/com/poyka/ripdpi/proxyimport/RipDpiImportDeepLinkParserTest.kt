@@ -141,6 +141,16 @@ class RipDpiImportDeepLinkParserTest {
     }
 
     @Test
+    fun `mixed-case host and https scheme are accepted`() {
+        val link = "RIPDPI://Import?sub=${enc("HTTPS://host.example/sub/tok")}"
+
+        val result = RipDpiImportDeepLinkParser.parse(link)
+
+        assertTrue(result is RipDpiImportDeepLinkResult.Success)
+        assertEquals("HTTPS://host.example/sub/tok", (result as RipDpiImportDeepLinkResult.Success).targetUrl)
+    }
+
+    @Test
     fun `wrong scheme yields Unsupported error`() {
         val link = "singbox://import?sub=${enc("https://host.example/sub/tok")}"
 

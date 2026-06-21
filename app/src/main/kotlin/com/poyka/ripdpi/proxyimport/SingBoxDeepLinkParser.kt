@@ -67,7 +67,7 @@ object SingBoxDeepLinkParser {
             } else {
                 afterScheme
             }.substringBefore('/')
-        if (host != IMPORT_HOST) return SingBoxDeepLinkResult.Error.Unsupported
+        if (!host.equals(IMPORT_HOST, ignoreCase = true)) return SingBoxDeepLinkResult.Error.Unsupported
 
         val query = if (querySeparator >= 0) afterScheme.substring(querySeparator + 1) else ""
         val params =

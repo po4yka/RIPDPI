@@ -54,7 +54,12 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="ripdpi" />
+                <data android:scheme="ripdpi" android:host="connect" />
+                <data android:scheme="ripdpi" android:host="config" />
+                <data android:scheme="ripdpi" android:host="diagnostics" />
+                <data android:scheme="ripdpi" android:host="disconnect" />
+                <data android:scheme="ripdpi" android:host="settings" />
+                <data android:scheme="ripdpi" android:host="support-config" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

@@ -52,7 +52,8 @@ object SupportSettingsDeepLinkParser {
         val host = afterScheme.substringBefore('/').substringBefore('?').substringBefore('#')
         if (!host.equals(AppLinkHost, ignoreCase = true)) return null
         val pathAndRest = afterScheme.substringAfter(host, missingDelimiterValue = "")
-        if (!pathAndRest.startsWith(AppLinkPath)) return null
+        val path = pathAndRest.substringBefore('?').substringBefore('#')
+        if (path != AppLinkPath) return null
         return pathAndRest.substringAfter('#', missingDelimiterValue = "").takeIf(String::isNotBlank)
             ?: queryParams(
                 pathAndRest.substringAfter('?', missingDelimiterValue = "").substringBefore('#'),
