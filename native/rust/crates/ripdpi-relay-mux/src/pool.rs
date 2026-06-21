@@ -70,14 +70,13 @@ where
         let permit = self.acquire_permit().await;
         let session = self.session_for_open().await?;
         self.mark_lease_started();
+        let guard =
+            LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), self.inner.capabilities.reusable, permit);
 
         match session.open_stream(target).await {
-            Ok(stream) => Ok(MuxStream::new(
-                stream,
-                LeaseGuard::new(self.inner.state.clone(), session, self.inner.capabilities.reusable, permit),
-            )),
+            Ok(stream) => Ok(MuxStream::new(stream, guard)),
             Err(error) => {
-                self.finish_failed_open(Some(&session));
+                self.invalidate_failed_open(Some(&session));
                 Err(error)
             }
         }
@@ -89,14 +88,13 @@ where
         let permit = self.acquire_permit().await;
         let session = self.session_for_open().await?;
         self.mark_lease_started();
+        let guard =
+            LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), self.inner.capabilities.reusable, permit);
 
         match session.open_datagram().await {
-            Ok(datagram) => Ok(MuxLease::new(
-                datagram,
-                LeaseGuard::new(self.inner.state.clone(), session, self.inner.capabilities.reusable, permit),
-            )),
+            Ok(datagram) => Ok(MuxLease::new(datagram, guard)),
             Err(error) => {
-                self.finish_failed_open(Some(&session));
+                self.invalidate_failed_open(Some(&session));
                 Err(error)
             }
         }
@@ -144,12 +142,9 @@ where
         state.active_leases += 1;
     }
 
-    fn finish_failed_open(&self, session: Option<&Arc<F::Session>>) {
+    fn invalidate_failed_open(&self, session: Option<&Arc<F::Session>>) {
         // Recover poison: lease accounting is advisory.
         let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if state.active_leases > 0 {
-            state.active_leases -= 1;
-        }
         if let Some(session) = session {
             invalidate_cached_session(&mut state, session);
         }

@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use tokio::io::duplex;
+use tokio::sync::Notify;
 use tokio::time::sleep;
 
 use crate::{RelayCapabilities, RelayMux, RelayPoolConfig, RelaySession, RelaySessionFactory};
@@ -27,6 +28,43 @@ impl RelaySession for TestSession {
 
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
         Ok(7)
+    }
+}
+
+#[derive(Clone)]
+struct PendingOpenFactory {
+    entered_open: Arc<Notify>,
+}
+
+struct PendingOpenSession {
+    entered_open: Arc<Notify>,
+}
+
+impl RelaySession for PendingOpenSession {
+    type Stream = tokio::io::DuplexStream;
+    type Datagram = usize;
+    type Error = Infallible;
+
+    async fn open_stream(&self, _target: &str) -> Result<Self::Stream, Self::Error> {
+        self.entered_open.notify_one();
+        std::future::pending().await
+    }
+
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        Ok(7)
+    }
+}
+
+impl RelaySessionFactory for PendingOpenFactory {
+    type Session = PendingOpenSession;
+    type Error = Infallible;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: true, reusable: false }
+    }
+
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
+        Ok(Arc::new(PendingOpenSession { entered_open: Arc::clone(&self.entered_open) }))
     }
 }
 
@@ -101,6 +139,32 @@ async fn mux_records_backpressure_when_limit_is_exhausted() {
 
     drop(first);
     drop(waiter.await.expect("waiter join"));
+}
+
+#[tokio::test]
+async fn cancelling_pending_stream_open_releases_lease_accounting() {
+    let entered_open = Arc::new(Notify::new());
+    let mux = RelayMux::new(
+        PendingOpenFactory { entered_open: Arc::clone(&entered_open) },
+        RelayPoolConfig { max_active_leases: 1, idle_timeout: Duration::from_secs(30) },
+    );
+
+    let opener_mux = mux.clone();
+    let opener = tokio::spawn(async move {
+        let _ = opener_mux.open_stream("example.com:443").await;
+    });
+    entered_open.notified().await;
+    assert_eq!(1, mux.health().busy_streams);
+
+    opener.abort();
+    assert!(opener.await.expect_err("aborted open task").is_cancelled());
+
+    assert_eq!(0, mux.health().busy_streams);
+    let datagram = mux.open_datagram().await.expect("cancelled open must release pool capacity");
+    assert_eq!(7, *datagram.get_ref());
+    assert_eq!(1, mux.health().busy_streams);
+    drop(datagram);
+    assert_eq!(0, mux.health().busy_streams);
 }
 
 #[tokio::test]
