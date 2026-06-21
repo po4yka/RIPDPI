@@ -2,7 +2,7 @@ package com.poyka.ripdpi.failover
 
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
-import com.poyka.ripdpi.services.AwgEgressSelectionProvider
+import com.poyka.ripdpi.services.AwgEgressSelectionSource
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -17,7 +17,7 @@ class SimpleAwgEgressSelection
     @Inject
     constructor(
         private val awgProfileRepository: AwgProfileRepository,
-    ) : AwgEgressSelectionProvider {
+    ) : AwgEgressSelectionSource {
         override val selectionPriority: Int = 10
 
         private val selectedProfileId = MutableStateFlow<String?>(null)
@@ -42,5 +42,5 @@ abstract class SimpleAwgEgressSelectionModule {
     @Binds
     @IntoSet
     @Singleton
-    abstract fun bindAwgEgressSelectionProvider(selection: SimpleAwgEgressSelection): AwgEgressSelectionProvider
+    abstract fun bindAwgEgressSelectionSource(selection: SimpleAwgEgressSelection): AwgEgressSelectionSource
 }

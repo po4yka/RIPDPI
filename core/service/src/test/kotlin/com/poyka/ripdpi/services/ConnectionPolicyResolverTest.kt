@@ -167,7 +167,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProviders = emptySet(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -207,7 +207,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = rootHelper,
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProviders = emptySet(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -243,7 +243,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProviders = setOf(StaticAwgEgressSelectionProvider(selectedAwg)),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(selectedAwg),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -296,7 +296,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
-                    awgEgressSelectionProviders = emptySet(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -344,7 +344,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
-                    awgEgressSelectionProviders = emptySet(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -386,7 +386,7 @@ class ConnectionPolicyResolverTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
-                    awgEgressSelectionProviders = emptySet(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 )
 
             val resolution = resolver.resolve(mode = Mode.VPN)
@@ -481,11 +481,5 @@ class ConnectionPolicyResolverTest {
         override fun stop() {
             activePath = null
         }
-    }
-
-    private class StaticAwgEgressSelectionProvider(
-        private val request: AwgActivationRequest?,
-    ) : AwgEgressSelectionProvider {
-        override suspend fun selectedAwgEgress(): AwgActivationRequest? = request
     }
 }

@@ -639,6 +639,12 @@ internal class TestConnectionPolicyResolver(
     }
 }
 
+internal class StaticAwgEgressSelectionProvider(
+    private val request: AwgActivationRequest?,
+) : AwgEgressSelectionProvider {
+    override suspend fun selectedAwgEgress(): AwgActivationRequest? = request
+}
+
 internal class TestNetworkHandoverMonitor : NetworkHandoverMonitor {
     private val eventsState = MutableSharedFlow<NetworkHandoverEvent>(extraBufferCapacity = 8)
     override val events: SharedFlow<NetworkHandoverEvent> = eventsState.asSharedFlow()

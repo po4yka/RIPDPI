@@ -114,7 +114,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
-                    awgEgressSelectionProviders = emptySet(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -184,7 +184,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
-                    awgEgressSelectionProviders = emptySet(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -245,7 +245,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProviders = emptySet(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -301,7 +301,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProviders = emptySet(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -354,7 +354,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rootHelperManager = RootHelperManager(),
                     environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
-                    awgEgressSelectionProviders = emptySet(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -441,7 +441,7 @@ class ConnectionPolicyResolverDirectPathTest {
             rootHelperManager = RootHelperManager(),
             environmentDetector = EnvironmentDetector(),
             serverCapabilityStore = capabilityStore,
-            awgEgressSelectionProviders = emptySet(),
+            awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
         )
 
     private fun antiCorrelationRoutingPolicy(): AntiCorrelationRoutingPolicy =

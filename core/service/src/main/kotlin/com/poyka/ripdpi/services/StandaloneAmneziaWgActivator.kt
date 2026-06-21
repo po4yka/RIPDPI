@@ -30,7 +30,7 @@ internal class DefaultStandaloneAmneziaWgActivator
     constructor(
         private val serviceController: ServiceController,
     ) : StandaloneAmneziaWgActivator,
-        AwgEgressSelectionProvider {
+        AwgEgressSelectionSource {
         override val selectionPriority: Int = 0
 
         private val lifecycleLock = Mutex()
@@ -80,7 +80,5 @@ internal abstract class StandaloneAmneziaWgActivatorModule {
     @Binds
     @IntoSet
     @Singleton
-    abstract fun bindAwgEgressSelectionProvider(
-        activator: DefaultStandaloneAmneziaWgActivator,
-    ): AwgEgressSelectionProvider
+    abstract fun bindAwgEgressSelectionSource(activator: DefaultStandaloneAmneziaWgActivator): AwgEgressSelectionSource
 }

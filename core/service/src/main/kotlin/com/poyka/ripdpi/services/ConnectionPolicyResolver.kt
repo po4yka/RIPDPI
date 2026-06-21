@@ -75,7 +75,7 @@ class DefaultConnectionPolicyResolver
         private val startupDnsProbe: VpnStartupDnsProbe,
         private val rootHelperManager: RootHelperManager,
         private val environmentDetector: EnvironmentDetector,
-        private val awgEgressSelectionProviders: Set<@JvmSuppressWildcards AwgEgressSelectionProvider>,
+        private val awgEgressSelectionProvider: AwgEgressSelectionProvider,
     ) : ConnectionPolicyResolver {
         private val dnsSelector =
             ConnectionPolicyDnsSelector(
@@ -188,17 +188,10 @@ class DefaultConnectionPolicyResolver
                         resolverFallbackReason = dnsResolution.override?.reason,
                         matchedPolicy = null,
                     ),
-                )
+            )
         }
 
-        private suspend fun selectedAwgEgress(): AwgActivationRequest? {
-            awgEgressSelectionProviders
-                .sortedBy { it.selectionPriority }
-                .forEach { provider ->
-                    provider.selectedAwgEgress()?.let { return it }
-                }
-            return null
-        }
+        private suspend fun selectedAwgEgress(): AwgActivationRequest? = awgEgressSelectionProvider.selectedAwgEgress()
 
         private suspend fun baselineVpnDnsSelection(
             mode: Mode,
