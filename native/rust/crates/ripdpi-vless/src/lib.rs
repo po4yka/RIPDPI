@@ -13,6 +13,7 @@
 
 pub mod addons;
 pub mod config;
+pub mod endpoint_resolver;
 pub mod mux;
 pub mod reality;
 pub(crate) mod reality_hook;
@@ -24,7 +25,7 @@ pub mod wire;
 pub use mux::{MuxConfigError, VlessMuxConfig, VlessMuxProtocol};
 
 use std::io;
-use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
+use std::net::{IpAddr, SocketAddr};
 use std::os::fd::AsRawFd;
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
@@ -124,7 +125,13 @@ impl VlessRealityClient {
 }
 
 async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<TcpStream> {
-    let address = resolve_server_addr(config, bind_ip)?;
+    let address = endpoint_resolver::resolve_server_addr(
+        &config.server,
+        config.port,
+        bind_ip,
+        Some(Box::new(ripdpi_native_protect::protect_socket_via_callback)),
+    )
+    .await?;
     let socket = match address {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
@@ -159,21 +166,6 @@ async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io
         .map_err(|e| io::Error::new(e.kind(), format!("VLESS TCP connect to {address}: {e}")))?;
     stream.set_nodelay(true)?;
     Ok(stream)
-}
-
-fn resolve_server_addr(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<SocketAddr> {
-    let mut candidates = (config.server.as_str(), config.port)
-        .to_socket_addrs()
-        .map_err(|e| io::Error::new(e.kind(), format!("resolve {}:{}: {e}", config.server, config.port)))?;
-    if let Some(bind_ip) = bind_ip {
-        candidates.find(|address| address.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "relay server has no address matching outbound bind IP family")
-        })
-    } else {
-        candidates
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "relay server resolved to no addresses"))
-    }
 }
 
 /// Protect a freshly created outbound socket via the registered

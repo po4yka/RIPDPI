@@ -99,7 +99,10 @@ async fn connect_tcp_stream(
     bind_ip: Option<IpAddr>,
     socket_protector: Option<&XhttpSocketProtector>,
 ) -> io::Result<TcpStream> {
-    let target = resolve_server_addr(server, port, bind_ip).await?;
+    let protect = socket_protector.cloned().map(|protector| {
+        Box::new(move |fd| protector.protect(fd)) as Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>
+    });
+    let target = ripdpi_vless::endpoint_resolver::resolve_server_addr(server, port, bind_ip, protect).await?;
     let socket = match target {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
@@ -123,26 +126,6 @@ async fn connect_tcp_stream(
     let stream = socket.connect(target).await?;
     stream.set_nodelay(true)?;
     Ok(stream)
-}
-
-// Cancel safety: cancel-safe. `tokio::net::lookup_host` runs the blocking
-// resolver on tokio's blocking pool; cancellation drops only the address
-// iterator. No caller-visible state mutates across the `.await`.
-async fn resolve_server_addr(server: &str, port: u16, bind_ip: Option<IpAddr>) -> io::Result<SocketAddr> {
-    // Async DNS via the blocking pool — avoids parking a tokio worker thread
-    // in libc `getaddrinfo` on every xHTTP connection establishment.
-    let mut candidates = tokio::net::lookup_host((server, port))
-        .await
-        .map_err(|error| io::Error::new(error.kind(), format!("resolve {server}:{port}: {error}")))?;
-    if let Some(bind_ip) = bind_ip {
-        candidates.find(|address| address.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::InvalidInput, "xHTTP server has no address matching outbound bind IP family")
-        })
-    } else {
-        candidates
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "xHTTP server resolved to no addresses"))
-    }
 }
 
 #[cfg(test)]
@@ -200,5 +183,22 @@ mod tests {
         assert!(protect_ran.load(Ordering::SeqCst), "the socket protector was consulted");
         let accepted = tokio::time::timeout(Duration::from_millis(100), listener.accept()).await;
         assert!(accepted.is_err(), "no unprotected TCP connection may be established after protect rejection");
+    }
+
+    #[tokio::test]
+    async fn hostname_resolution_uses_socket_protector_before_dns_bootstrap() {
+        let protect_ran = Arc::new(AtomicBool::new(false));
+        let protect_ran_cb = Arc::clone(&protect_ran);
+        let protector = XhttpSocketProtector::new(move |_fd| {
+            protect_ran_cb.store(true, Ordering::SeqCst);
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "xHTTP protected resolver sentinel"))
+        });
+
+        let err = connect_tcp_stream("relay.invalid", 443, None, Some(&protector))
+            .await
+            .expect_err("hostname resolution must fail through protected DNS bootstrap");
+
+        assert!(protect_ran.load(Ordering::SeqCst), "the protected DNS bootstrap socket was protected");
+        assert!(err.to_string().contains("xHTTP protected resolver sentinel"), "unexpected protected DNS error: {err}",);
     }
 }
