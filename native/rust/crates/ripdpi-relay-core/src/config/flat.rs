@@ -30,6 +30,10 @@ fn default_vless_flow() -> String {
     "xtls-rprx-vision".to_string()
 }
 
+fn default_xhttp_mode() -> String {
+    "auto".to_string()
+}
+
 /// Rejects a `schemaVersion` envelope value this build does not support.
 ///
 /// Accepts the inclusive range
@@ -94,6 +98,8 @@ struct FlatResolvedRelayRuntimeConfig {
     pub xhttp_path: String,
     #[serde(default)]
     pub xhttp_host: String,
+    #[serde(default = "default_xhttp_mode")]
+    pub xhttp_mode: String,
     #[serde(default)]
     pub cloudflare_tunnel_mode: String,
     #[serde(default)]

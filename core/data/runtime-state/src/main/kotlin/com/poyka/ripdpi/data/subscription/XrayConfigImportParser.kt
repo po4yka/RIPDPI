@@ -419,6 +419,7 @@ private fun buildVlessReality(
         fingerprint = reality.string("fingerprint"),
         xhttpPath = xhttp?.string("path"),
         xhttpHost = xhttp?.string("host"),
+        xhttpMode = xhttp?.string("mode") ?: com.poyka.ripdpi.data.RelayXhttpModeAuto,
     )
 }
 

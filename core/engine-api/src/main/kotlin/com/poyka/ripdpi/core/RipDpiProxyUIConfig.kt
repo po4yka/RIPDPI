@@ -245,6 +245,7 @@ data class RipDpiRelayConfig(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
+    val xhttpMode: String = com.poyka.ripdpi.data.RelayXhttpModeAuto,
     val cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
     val cloudflarePublishLocalOriginUrl: String = "",
     val cloudflareCredentialsRef: String = "",

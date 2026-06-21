@@ -173,6 +173,7 @@ object BackupAllowlist {
                 "fingerprint" to Classification.PUBLIC,
                 "xhttpPath" to Classification.REDACTED,
                 "xhttpHost" to Classification.REDACTED,
+                "xhttpMode" to Classification.PUBLIC,
             )
 
     private val anyTlsFields: Map<String, Classification> =

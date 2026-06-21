@@ -68,6 +68,7 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             vless_transport: "xhttp".to_string(),
             xhttp_path: "/xhttp".to_string(),
             xhttp_host: "relay.example".to_string(),
+            xhttp_mode: "auto".to_string(),
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
         }),
         "vless_reality" => RelayBackendConfig::VlessReality(VlessRealityRelayConfig {
@@ -77,6 +78,7 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             vless_transport: "reality_tcp".to_string(),
             xhttp_path: String::new(),
             xhttp_host: String::new(),
+            xhttp_mode: "auto".to_string(),
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
         }),
         "mieru" => RelayBackendConfig::Mieru(MieruRelayConfig {
@@ -366,6 +368,25 @@ fn vless_flow_defaults_only_when_flat_native_config_omits_field() {
     let mut legacy_round_trip: ResolvedRelayRuntimeConfig =
         serde_json::from_value(missing_field).expect("deserialize legacy missing flow");
     assert_eq!("xtls-rprx-vision", vless_config_mut(&mut legacy_round_trip).vless_flow);
+}
+
+#[test]
+fn vless_xhttp_mode_round_trips_through_flat_native_config() {
+    let mut config = sample_config("vless_reality");
+    let vless = vless_config_mut(&mut config);
+    vless.vless_transport = "xhttp".to_string();
+    vless.xhttp_mode = "stream-one".to_string();
+
+    let serialized = serde_json::to_value(&config).expect("serialize VLESS config");
+    assert_eq!(
+        serde_json::json!("stream-one"),
+        serialized["xhttpMode"],
+        "flat native config must carry imported xHTTP mode",
+    );
+
+    let mut round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(serialized).expect("deserialize VLESS config");
+    assert_eq!("stream-one", vless_config_mut(&mut round_trip).xhttp_mode);
 }
 
 #[test]

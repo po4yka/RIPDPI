@@ -29,6 +29,7 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         vlessTransport = normalizeRelayVlessTransport(config.vlessTransport, normalizedKind),
         xhttpPath = config.xhttpPath.trim(),
         xhttpHost = config.xhttpHost.trim(),
+        xhttpMode = config.xhttpMode.trim().ifBlank { com.poyka.ripdpi.data.RelayXhttpModeAuto },
         chainEntryServer = config.chainEntryServer.trim(),
         chainEntryPort = config.chainEntryPort.takeIf { it in 1..MaxValidPortNumber } ?: 443,
         chainEntryServerName = config.chainEntryServerName.trim(),

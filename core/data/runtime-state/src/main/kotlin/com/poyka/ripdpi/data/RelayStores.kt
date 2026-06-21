@@ -15,6 +15,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 const val RelayVlessFlowVision = "xtls-rprx-vision"
+const val RelayXhttpModeAuto = "auto"
 
 @Serializable
 data class RelayProfileRecord(
@@ -34,6 +35,7 @@ data class RelayProfileRecord(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
+    val xhttpMode: String = RelayXhttpModeAuto,
     val cloudflareTunnelMode: String = RelayCloudflareTunnelModeConsumeExisting,
     val cloudflarePublishLocalOriginUrl: String = "",
     val cloudflareCredentialsRef: String = "",

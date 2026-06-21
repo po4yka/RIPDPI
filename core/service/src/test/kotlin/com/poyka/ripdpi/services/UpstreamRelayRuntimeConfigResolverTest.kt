@@ -404,6 +404,7 @@ class UpstreamRelayRuntimeConfigResolverTest {
                             vlessTransport = RelayVlessTransportXhttp,
                             xhttpPath = "/xhttp",
                             xhttpHost = "origin.example",
+                            xhttpMode = "stream-one",
                         ),
                     quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
                 )
@@ -413,6 +414,7 @@ class UpstreamRelayRuntimeConfigResolverTest {
             assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
             assertEquals("/xhttp", resolved.xhttpPath)
             assertEquals("origin.example", resolved.xhttpHost)
+            assertEquals("stream-one", resolved.xhttpMode)
             assertEquals("44444444-4444-4444-4444-444444444444", resolved.vlessUuid)
         }
 

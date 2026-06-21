@@ -61,6 +61,7 @@ class BackupShareVariantTest {
                 fingerprint = "chrome",
                 xhttpPath = "/carrier/path",
                 xhttpHost = "cdn.example.com",
+                xhttpMode = "stream-one",
             )
         val doc = shareExport(listOf(profile))
         val obj = doc.profiles.single()
@@ -68,6 +69,7 @@ class BackupShareVariantTest {
         assertTrue("displayName missing", "displayName" in obj)
         assertTrue("flow missing", "flow" in obj)
         assertTrue("fingerprint missing", "fingerprint" in obj)
+        assertTrue("xhttpMode missing", "xhttpMode" in obj)
         assertTrue("realityPublicKey missing", "realityPublicKey" in obj)
         assertTrue("realityShortId missing", "realityShortId" in obj)
 

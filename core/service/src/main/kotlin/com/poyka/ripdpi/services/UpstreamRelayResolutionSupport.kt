@@ -160,6 +160,7 @@ internal suspend fun resolveShadowTlsInnerConfigSupport(
                 realityShortId = innerProfile.realityShortId,
                 vlessFlow = innerProfile.vlessFlow,
                 vlessTransport = innerProfile.vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
+                xhttpMode = innerProfile.xhttpMode.ifBlank { com.poyka.ripdpi.data.RelayXhttpModeAuto },
                 vlessUuid = innerCredentials.vlessUuid,
             )
         }
@@ -248,6 +249,7 @@ private suspend fun resolveChainRelayHopSupport(
                 realityShortId = legacyShortId,
                 vlessFlow = com.poyka.ripdpi.data.RelayVlessFlowVision,
                 vlessTransport = RelayVlessTransportRealityTcp,
+                xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
                 vlessUuid = checkedLegacyUuid,
             ),
     )
@@ -339,6 +341,7 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
         vlessTransport = vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
         xhttpPath = xhttpPath,
         xhttpHost = xhttpHost,
+        xhttpMode = xhttpMode.ifBlank { com.poyka.ripdpi.data.RelayXhttpModeAuto },
         cloudflareTunnelMode = cloudflareTunnelMode,
         cloudflarePublishLocalOriginUrl = cloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef = cloudflareCredentialsRef,

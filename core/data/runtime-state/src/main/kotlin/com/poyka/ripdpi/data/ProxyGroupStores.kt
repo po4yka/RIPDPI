@@ -147,6 +147,8 @@ sealed interface ProxyProfile {
         val xhttpPath: String? = null,
         /** xhttp transport host override; `null` when transport is plain TCP. */
         val xhttpHost: String? = null,
+        /** xhttp mode (`auto`, `stream-up`, or `stream-one`); used only when xhttp transport is active. */
+        val xhttpMode: String = RelayXhttpModeAuto,
     ) : ProxyProfile
 
     @Serializable

@@ -51,6 +51,7 @@ data class ResolvedShadowTlsInnerRelayConfig(
     val realityShortId: String = "",
     val vlessFlow: String = com.poyka.ripdpi.data.RelayVlessFlowVision,
     val vlessTransport: String = RelayVlessTransportRealityTcp,
+    val xhttpMode: String = com.poyka.ripdpi.data.RelayXhttpModeAuto,
     val vlessUuid: String? = null,
 )
 
@@ -67,6 +68,7 @@ data class ResolvedChainRelayHopConfig(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
+    val xhttpMode: String = com.poyka.ripdpi.data.RelayXhttpModeAuto,
     val cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
     val cloudflarePublishLocalOriginUrl: String = "",
     val cloudflareCredentialsRef: String = "",
@@ -129,6 +131,7 @@ data class ResolvedRipDpiRelayConfig(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
+    val xhttpMode: String = com.poyka.ripdpi.data.RelayXhttpModeAuto,
     val cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
     val cloudflarePublishLocalOriginUrl: String = "",
     val cloudflareCredentialsRef: String = "",
@@ -292,6 +295,7 @@ data class ResolvedChainRelayHopRef(
     val publicKey: String,
     val shortId: String,
     val flow: String,
+    val xhttpMode: String,
     val profileId: String,
     val uuid: String?,
 )
@@ -350,6 +354,7 @@ private fun ResolvedRipDpiRelayConfig.vlessSection(): RelayVlessSection =
         vlessTransport = vlessTransport,
         xhttpPath = xhttpPath,
         xhttpHost = xhttpHost,
+        xhttpMode = xhttpMode,
         vlessUuid = vlessUuid,
     )
 
@@ -366,6 +371,7 @@ internal fun ResolvedChainRelayHopConfig.toHopRef(): ResolvedChainRelayHopRef =
         publicKey = realityPublicKey,
         shortId = realityShortId,
         flow = vlessFlow,
+        xhttpMode = xhttpMode,
         profileId = profileId,
         uuid = vlessUuid,
     )
@@ -387,6 +393,7 @@ internal fun ResolvedChainRelayHopRef.toHopConfig(): ResolvedChainRelayHopConfig
             realityPublicKey = publicKey,
             realityShortId = shortId,
             vlessFlow = flow,
+            xhttpMode = xhttpMode,
             vlessUuid = uuid,
         )
 
@@ -523,6 +530,7 @@ private fun ResolvedRipDpiRelayConfig.legacyTwoHopChainRefs(): List<ResolvedChai
             publicKey = chainEntryPublicKey,
             shortId = chainEntryShortId,
             flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
+            xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
             profileId = chainEntryProfileId,
             uuid = chainEntryUuid,
         ),
@@ -534,6 +542,7 @@ private fun ResolvedRipDpiRelayConfig.legacyTwoHopChainRefs(): List<ResolvedChai
             publicKey = chainExitPublicKey,
             shortId = chainExitShortId,
             flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
+            xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
             profileId = chainExitProfileId,
             uuid = chainExitUuid,
         ),
@@ -610,6 +619,7 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         vlessTransport = vless.vlessTransport,
         xhttpPath = vless.xhttpPath,
         xhttpHost = vless.xhttpHost,
+        xhttpMode = vless.xhttpMode,
         cloudflareTunnelMode = cloudflare.cloudflareTunnelMode,
         cloudflarePublishLocalOriginUrl = cloudflare.cloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef = cloudflare.cloudflareCredentialsRef,

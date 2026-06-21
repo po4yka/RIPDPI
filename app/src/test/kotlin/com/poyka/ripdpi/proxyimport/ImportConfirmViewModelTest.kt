@@ -282,6 +282,7 @@ class ImportConfirmViewModelTest {
                     fingerprint = null,
                     xhttpPath = "/tunnel",
                     xhttpHost = "cdn.example.com",
+                    xhttpMode = "stream-one",
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
@@ -310,6 +311,7 @@ class ImportConfirmViewModelTest {
             assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
             assertEquals("/tunnel", relayProfile?.xhttpPath)
             assertEquals("cdn.example.com", relayProfile?.xhttpHost)
+            assertEquals("stream-one", relayProfile?.xhttpMode)
             assertFalse(relayProfile?.udpEnabled ?: true)
             assertEquals("dddddddd-dddd-dddd-dddd-dddddddddddd", relayCredentials?.vlessUuid)
         }

@@ -128,6 +128,7 @@ object ProxyUriCodec {
                     add("type=xhttp")
                     profile.xhttpPath?.let { add("path=${encodeQueryValue(it)}") }
                     profile.xhttpHost?.let { add("host=${encodeQueryValue(it)}") }
+                    add("mode=${encodeQueryValue(profile.xhttpMode)}")
                 }
             }.joinToString("&")
         return "vless://${profile.uuid}@${profile.server}:${profile.serverPort}" +
@@ -215,6 +216,7 @@ object ProxyUriCodec {
             val transportType = queryValue(rawQuery, "type")?.lowercase()
             val xhttpPath = if (transportType == "xhttp") queryValue(rawQuery, "path") else null
             val xhttpHost = if (transportType == "xhttp") queryValue(rawQuery, "host") else null
+            val xhttpMode = if (transportType == "xhttp") queryValue(rawQuery, "mode") ?: "auto" else "auto"
             ProxyProfile.VlessReality(
                 id = newId(),
                 displayName = displayName(parsed.fragment, host),
@@ -229,6 +231,7 @@ object ProxyUriCodec {
                 fingerprint = fp,
                 xhttpPath = xhttpPath,
                 xhttpHost = xhttpHost,
+                xhttpMode = xhttpMode,
             )
         } else {
             ProxyProfile.Vless(

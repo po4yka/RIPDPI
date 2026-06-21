@@ -33,6 +33,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 vless_transport: flat.vless_transport,
                 xhttp_path: flat.xhttp_path,
                 xhttp_host: flat.xhttp_host,
+                xhttp_mode: flat.xhttp_mode,
                 uuid: flat.vless_uuid,
             }),
             "vless_reality" => RelayBackendConfig::VlessReality(VlessRealityRelayConfig {
@@ -42,6 +43,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 vless_transport: flat.vless_transport,
                 xhttp_path: flat.xhttp_path,
                 xhttp_host: flat.xhttp_host,
+                xhttp_mode: flat.xhttp_mode,
                 uuid: flat.vless_uuid,
             }),
             "mieru" => RelayBackendConfig::Mieru(MieruRelayConfig {
@@ -169,6 +171,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             vless_transport: String::new(),
             xhttp_path: String::new(),
             xhttp_host: String::new(),
+            xhttp_mode: "auto".to_string(),
             cloudflare_tunnel_mode: String::new(),
             cloudflare_publish_local_origin_url: String::new(),
             cloudflare_credentials_ref: String::new(),
@@ -265,6 +268,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.vless_transport = config.vless_transport.clone();
                 flat.xhttp_path = config.xhttp_path.clone();
                 flat.xhttp_host = config.xhttp_host.clone();
+                flat.xhttp_mode = config.xhttp_mode.clone();
                 flat.vless_uuid = config.uuid.clone();
             }
             RelayBackendConfig::VlessReality(config) => {
@@ -274,6 +278,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.vless_transport = config.vless_transport.clone();
                 flat.xhttp_path = config.xhttp_path.clone();
                 flat.xhttp_host = config.xhttp_host.clone();
+                flat.xhttp_mode = config.xhttp_mode.clone();
                 flat.vless_uuid = config.uuid.clone();
             }
             RelayBackendConfig::Mieru(config) => {

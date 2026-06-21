@@ -75,6 +75,12 @@ class RelayProfileActivator
                     vlessTransport = vlessTransport,
                     xhttpPath = if (profile is ProxyProfile.VlessReality) profile.xhttpPath.orEmpty() else "",
                     xhttpHost = if (profile is ProxyProfile.VlessReality) profile.xhttpHost.orEmpty() else "",
+                    xhttpMode =
+                        if (profile is ProxyProfile.VlessReality) {
+                            profile.xhttpMode
+                        } else {
+                            com.poyka.ripdpi.data.RelayXhttpModeAuto
+                        },
                     sshAuthType = if (profile is ProxyProfile.Ssh) profile.authType else RelaySshAuthTypePassword,
                     sshHostKeyFingerprint =
                         if (profile is ProxyProfile.Ssh) profile.hostKeyFingerprint.orEmpty() else "",

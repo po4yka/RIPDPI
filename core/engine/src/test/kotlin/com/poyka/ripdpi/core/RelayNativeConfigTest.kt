@@ -104,6 +104,7 @@ class RelayNativeConfigTest {
                 publicKey = "",
                 shortId = "",
                 flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
+                xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
                 profileId = "hop-profile",
                 uuid = null,
             )

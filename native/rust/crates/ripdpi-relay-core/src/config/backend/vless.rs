@@ -4,6 +4,7 @@ pub struct VlessRelayConfig {
     pub vless_transport: String,
     pub xhttp_path: String,
     pub xhttp_host: String,
+    pub xhttp_mode: String,
     pub uuid: Option<String>,
 }
 
@@ -15,5 +16,6 @@ pub struct VlessRealityRelayConfig {
     pub vless_transport: String,
     pub xhttp_path: String,
     pub xhttp_host: String,
+    pub xhttp_mode: String,
     pub uuid: Option<String>,
 }
