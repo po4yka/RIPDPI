@@ -404,10 +404,13 @@
     <string name="home_connection_button_connecting">Connecting\u2026</string>
     <string name="home_connection_actuator_open">Open</string>
     <string name="home_connection_actuator_secure">Secure</string>
+    <string name="home_connection_actuator_direct">Direct</string>
     <string name="home_connection_actuator_state_open">Secure line open</string>
     <string name="home_connection_actuator_state_engaging">Secure line engaging</string>
     <string name="home_connection_actuator_state_locked">Secure line locked</string>
+    <string name="home_connection_actuator_state_direct">Direct line locked</string>
     <string name="home_connection_actuator_state_degraded">Secure line locked, warning at %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Direct line locked, warning at %1$s</string>
     <string name="home_connection_actuator_state_fault">Secure line fault at %1$s</string>
     <string name="home_connection_actuator_action_activate">Engage secure line</string>
     <string name="home_connection_actuator_action_deactivate">Release secure line</string>
@@ -2906,6 +2909,7 @@ Source: %2$s</string>
     <string name="import_profile_confirm_empty_body">This link does not contain a usable proxy profile.</string>
     <string name="import_confirm_add_action">Add</string>
     <string name="import_profile_confirm_error">This profile could not be imported. Check that the link is complete and valid.</string>
+    <string name="relay_editor_activation_failed">Couldn\'t activate this profile. Check the details and try again.</string>
     <string name="import_confirm_done_action">Added</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Imported configuration</string>

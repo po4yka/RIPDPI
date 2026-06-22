@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.anytls
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -37,6 +38,11 @@ fun AnyTlsProfileRoute(
     viewModel: AnyTlsProfileViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(uiState.saved) {
+        if (uiState.saved) {
+            onBack()
+        }
+    }
     AnyTlsProfileScreen(
         uiState = uiState,
         onBack = onBack,
@@ -61,13 +67,18 @@ internal fun AnyTlsProfileScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AnyTlsProfile)),
     ) {
+        uiState.errorMessage?.let { errorRes ->
+            RipDpiCard {
+                RipDpiPanelHeader(title = stringResource(errorRes))
+            }
+        }
         EndpointSection(uiState.editor, onFieldChanged)
         TlsSection(uiState.editor, onFieldChanged)
         RipDpiButton(
             text = stringResource(R.string.anytls_save_action),
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
-            enabled = uiState.editor.isComplete,
+            enabled = uiState.editor.isComplete && !uiState.saving,
         )
     }
 }

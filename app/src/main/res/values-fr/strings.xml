@@ -1341,6 +1341,7 @@ fake_burst 3</string>
     <string name="home_approach_cta">Ouvrir Diagnostics et examiner l\'analytique des approches</string>
     <string name="home_connection_actuator_open">Ouvrir</string>
     <string name="home_connection_actuator_state_locked">Ligne sécurisée verrouillée</string>
+    <string name="home_connection_actuator_state_direct">Ligne directe verrouillée</string>
     <string name="home_connection_stage_network">Réseau</string>
     <string name="home_control_plane_health_title">L\'état du plan de contrôle nécessite un examen</string>
     <string name="home_control_plane_host_packs_label">Packs d\'hôtes</string>
@@ -1832,6 +1833,7 @@ Source : %2$s</string>
     <string name="history_filter_clear_all">Tout effacer</string>
     <string name="home_approach_title">Approche d\'optimisation</string>
     <string name="home_connection_actuator_secure">Sécurisé</string>
+    <string name="home_connection_actuator_direct">Direct</string>
     <string name="home_connection_actuator_state_open">Ligne sécurisée ouverte</string>
     <string name="home_connection_stage_route">Route</string>
     <string name="home_control_plane_host_pack_degraded">Utilisation du repli intégré après dégradation de l\'instantané mis en cache.</string>
@@ -2472,6 +2474,7 @@ Source : %2$s</string>
     <string name="history_open_action">Ouvrir l\'historique</string>
     <string name="home_connection_actuator_action_activate">Activer la liaison sécurisée</string>
     <string name="home_connection_actuator_state_degraded">Liaison sécurisée verrouillée, avertissement à %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Liaison directe verrouillée, avertissement à %1$s</string>
     <string name="home_connection_button_connecting">Connexion en cours…</string>
     <string name="home_connection_stage_tunnel">Tunnel</string>
     <string name="home_control_plane_host_pack_download_failed">La dernière actualisation n\'a pas pu télécharger les sources des paquets d\'hôtes.</string>
@@ -2750,6 +2753,7 @@ Source : %2$s</string>
     <string name="import_profile_confirm_empty_body">Ce lien ne contient pas de profil proxy utilisable.</string>
     <string name="import_confirm_add_action">Ajouter</string>
     <string name="import_profile_confirm_error">Ce profil n’a pas pu être importé. Vérifiez que le lien est complet et valide.</string>
+    <string name="relay_editor_activation_failed">Ce profil n’a pas pu être activé. Vérifiez les informations et réessayez.</string>
     <string name="import_confirm_done_action">Ajouté</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Configuration importée</string>

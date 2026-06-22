@@ -5,9 +5,13 @@ import java.util.Base64
 /**
  * Validates profiles before they are persisted as native relay records.
  *
- * Subscription and Xray import parsers are intentionally tolerant enough to show a parsed preview, but activation must fail before any durable group/profile/settings write when the profile cannot build a native relay backend.
+ * Subscription and Xray import parsers are intentionally tolerant enough to show
+ * a parsed preview, but activation must fail before any durable
+ * group/profile/settings write when the profile cannot build a native relay
+ * backend.
  *
- * @return `true` when [profile] is a native-relay profile and was validated, `false` for non-native relay profile kinds.
+ * @return `true` when [profile] is a native-relay profile and was validated,
+ *     `false` for non-native relay profile kinds.
  */
 fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
     when (profile) {
@@ -28,6 +32,7 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
 
         is ProxyProfile.AnyTls,
         is ProxyProfile.Hysteria2,
+        is ProxyProfile.Mieru,
         is ProxyProfile.Shadowsocks,
         is ProxyProfile.Ssh,
         is ProxyProfile.Trojan,

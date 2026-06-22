@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
@@ -126,6 +127,12 @@ class RelayProfileActivator
                         setRelaySshStrictHostKey(profile.strictHostKey)
                     }
 
+                    is ProxyProfile.Mieru -> {
+                        setRelayMieruProtocol(profile.protocol)
+                        setRelayMieruMultiplexing(profile.multiplexing)
+                        setRelayMieruMtu(profile.mtu)
+                    }
+
                     else -> {}
                 }
             }
@@ -140,6 +147,7 @@ class RelayProfileActivator
                 is ProxyProfile.VlessReality -> RelayKindVlessReality
                 is ProxyProfile.Hysteria2 -> RelayKindHysteria2
                 is ProxyProfile.Ssh -> RelayKindSsh
+                is ProxyProfile.Mieru -> RelayKindMieru
                 else -> null
             }
 
@@ -149,6 +157,7 @@ class RelayProfileActivator
             when (profile) {
                 is ProxyProfile.Ssh,
                 is ProxyProfile.VlessReality,
+                is ProxyProfile.Mieru,
                 -> false
 
                 else -> true
@@ -179,6 +188,10 @@ class RelayProfileActivator
                 }
 
                 is ProxyProfile.Ssh -> {
+                    RelayActivationEndpoint(profile.server, profile.serverPort, profile.server)
+                }
+
+                is ProxyProfile.Mieru -> {
                     RelayActivationEndpoint(profile.server, profile.serverPort, profile.server)
                 }
 
@@ -231,6 +244,14 @@ class RelayProfileActivator
                         sshPassword = profile.password?.takeIf { !isKey },
                         sshPrivateKey = profile.privateKey?.takeIf { isKey },
                         sshPrivateKeyPassphrase = profile.privateKeyPassphrase?.takeIf { isKey },
+                    )
+                }
+
+                is ProxyProfile.Mieru -> {
+                    RelayCredentialRecord(
+                        profileId = profileId,
+                        mieruUsername = profile.username,
+                        mieruPassword = profile.password,
                     )
                 }
 

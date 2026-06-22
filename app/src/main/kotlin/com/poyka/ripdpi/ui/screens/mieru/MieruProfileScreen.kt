@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.mieru
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -79,6 +80,11 @@ fun MieruProfileRoute(
     viewModel: MieruProfileViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(uiState.saved) {
+        if (uiState.saved) {
+            onBack()
+        }
+    }
     MieruProfileScreen(
         uiState = uiState,
         onBack = onBack,
@@ -113,6 +119,11 @@ internal fun MieruProfileScreen(
             tone = WarningBannerTone.Warning,
             announce = false,
         )
+        uiState.errorMessage?.let { errorRes ->
+            RipDpiCard {
+                RipDpiPanelHeader(title = stringResource(errorRes))
+            }
+        }
         EndpointSection(uiState.editor, onFieldChanged)
         CredentialsSection(uiState.editor, onFieldChanged)
         TransportSection(uiState.editor, onFieldChanged, onProtocolSelected, onMultiplexingSelected)
@@ -120,7 +131,7 @@ internal fun MieruProfileScreen(
             text = stringResource(R.string.mieru_save_action),
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
-            enabled = uiState.editor.isComplete,
+            enabled = uiState.editor.isComplete && !uiState.saving,
         )
     }
 }

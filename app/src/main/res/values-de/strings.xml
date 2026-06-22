@@ -1341,6 +1341,7 @@ fake_burst 3</string>
     <string name="home_approach_cta">Diagnostik öffnen und Ansatz-Analytik prüfen</string>
     <string name="home_connection_actuator_open">Öffnen</string>
     <string name="home_connection_actuator_state_locked">Sichere Verbindung gesperrt</string>
+    <string name="home_connection_actuator_state_direct">Direkte Verbindung gesperrt</string>
     <string name="home_connection_stage_network">Netzwerk</string>
     <string name="home_control_plane_health_title">Status der Steuerungsebene muss überprüft werden</string>
     <string name="home_control_plane_host_packs_label">Host-Pakete</string>
@@ -1832,6 +1833,7 @@ Quelle: %2$s</string>
     <string name="history_filter_clear_all">Alle löschen</string>
     <string name="home_approach_title">Optimierungsansatz</string>
     <string name="home_connection_actuator_secure">Sicher</string>
+    <string name="home_connection_actuator_direct">Direkt</string>
     <string name="home_connection_actuator_state_open">Sichere Leitung offen</string>
     <string name="home_connection_stage_route">Route</string>
     <string name="home_control_plane_host_pack_degraded">Verwendet gebündeltes Fallback nach Degradierung des Cache-Snapshots.</string>
@@ -2472,6 +2474,7 @@ Quelle: %2$s</string>
     <string name="history_open_action">Verlauf öffnen</string>
     <string name="home_connection_actuator_action_activate">Sichere Leitung aktivieren</string>
     <string name="home_connection_actuator_state_degraded">Sichere Leitung gesperrt, Warnung bei %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Direkte Leitung gesperrt, Warnung bei %1$s</string>
     <string name="home_connection_button_connecting">Verbinden…</string>
     <string name="home_connection_stage_tunnel">Tunnel</string>
     <string name="home_control_plane_host_pack_download_failed">Die letzte Aktualisierung konnte die Host-Pack-Quellen nicht herunterladen.</string>
@@ -2750,6 +2753,7 @@ Quelle: %2$s</string>
     <string name="import_profile_confirm_empty_body">Dieser Link enthält kein verwendbares Proxy-Profil.</string>
     <string name="import_confirm_add_action">Hinzufügen</string>
     <string name="import_profile_confirm_error">Dieses Profil konnte nicht importiert werden. Prüfe, ob der Link vollständig und gültig ist.</string>
+    <string name="relay_editor_activation_failed">Dieses Profil konnte nicht aktiviert werden. Prüfe die Angaben und versuche es erneut.</string>
     <string name="import_confirm_done_action">Hinzugefügt</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Importierte Konfiguration</string>

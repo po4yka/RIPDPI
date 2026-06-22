@@ -225,6 +225,7 @@ internal fun buildConnectionActuatorUiState(
 ): HomeConnectionActuatorUiState {
     val mode = if (connectionState == ConnectionState.Connected) activeMode else configuredMode
     val routeLabel = approachSummary?.title ?: routeLabelForMode(mode, settings, stringResolver)
+    val egressBacked = isForeignExitLive(settings, telemetry)
     val warningStage =
         telemetryWarningStage(telemetry)
             .takeIf { connectionState == ConnectionState.Connected }
@@ -261,11 +262,12 @@ internal fun buildConnectionActuatorUiState(
     return HomeConnectionActuatorUiState(
         status = status,
         leadingLabel = stringResolver.getString(R.string.home_connection_actuator_open),
-        trailingLabel = stringResolver.getString(R.string.home_connection_actuator_secure),
+        trailingLabel = actuatorTrailingLabel(egressBacked, stringResolver),
         routeLabel = routeLabel,
         statusDescription =
             actuatorStatusDescription(
                 status = status,
+                egressBacked = egressBacked,
                 warningStage = warningStage,
                 failedStage = failedStage,
                 stringResolver = stringResolver,
@@ -403,6 +405,7 @@ private fun stageState(
 
 private fun actuatorStatusDescription(
     status: HomeConnectionActuatorStatus,
+    egressBacked: Boolean,
     warningStage: HomeConnectionActuatorStage?,
     failedStage: HomeConnectionActuatorStage?,
     stringResolver: StringResolver,
@@ -417,12 +420,22 @@ private fun actuatorStatusDescription(
         }
 
         HomeConnectionActuatorStatus.Locked -> {
-            stringResolver.getString(R.string.home_connection_actuator_state_locked)
+            stringResolver.getString(
+                if (egressBacked) {
+                    R.string.home_connection_actuator_state_locked
+                } else {
+                    R.string.home_connection_actuator_state_direct
+                },
+            )
         }
 
         HomeConnectionActuatorStatus.Degraded -> {
             stringResolver.getString(
-                R.string.home_connection_actuator_state_degraded,
+                if (egressBacked) {
+                    R.string.home_connection_actuator_state_degraded
+                } else {
+                    R.string.home_connection_actuator_state_direct_degraded
+                },
                 warningStage?.label(stringResolver).orEmpty(),
             )
         }

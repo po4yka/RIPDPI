@@ -2436,10 +2436,13 @@ fakeddisorder endhost</string>
     <string name="home_connection_actuator_action_wait">Защищённая линия замыкается</string>
     <string name="home_connection_actuator_open">Открыто</string>
     <string name="home_connection_actuator_secure">Защищено</string>
+    <string name="home_connection_actuator_direct">Напрямую</string>
     <string name="home_connection_actuator_state_degraded">Защищённая линия заблокирована, предупреждение в %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Прямая линия заблокирована, предупреждение в %1$s</string>
     <string name="home_connection_actuator_state_engaging">Защищённая линия замыкается</string>
     <string name="home_connection_actuator_state_fault">Сбой защищённой линии в %1$s</string>
     <string name="home_connection_actuator_state_locked">Защищённая линия заблокирована</string>
+    <string name="home_connection_actuator_state_direct">Прямая линия заблокирована</string>
     <string name="home_connection_actuator_state_open">Защищённая линия открыта</string>
 
     <!-- gap-fill: home_connection_stage_* -->
@@ -2879,6 +2882,7 @@ fakeddisorder endhost</string>
     <string name="import_profile_confirm_empty_body">Эта ссылка не содержит пригодного профиля прокси.</string>
     <string name="import_confirm_add_action">Добавить</string>
     <string name="import_profile_confirm_error">Не удалось импортировать профиль. Проверьте, что ссылка полная и корректная.</string>
+    <string name="relay_editor_activation_failed">Не удалось активировать профиль. Проверьте данные и повторите попытку.</string>
     <string name="import_confirm_done_action">Добавлено</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Импортированная конфигурация</string>

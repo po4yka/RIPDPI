@@ -240,6 +240,86 @@ class MainViewModelTest {
     }
 
     @Test
+    fun `connection actuator marks direct egress as Direct not Secure`() {
+        val stringResolver = ResourceStringResolver()
+        val state =
+            buildConnectionActuatorUiState(
+                settings =
+                    AppSettings
+                        .newBuilder()
+                        .setRelayEnabled(false)
+                        .build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                stringResolver = stringResolver,
+            )
+
+        assertEquals("Direct", state.trailingLabel)
+        assertEquals("Direct line locked", state.statusDescription)
+    }
+
+    @Test
+    fun `connection actuator marks live relay egress as Secure`() {
+        val stringResolver = ResourceStringResolver()
+        val state =
+            buildConnectionActuatorUiState(
+                settings =
+                    AppSettings
+                        .newBuilder()
+                        .setRelayEnabled(true)
+                        .setRelayKind(RelayKindVlessReality)
+                        .build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry =
+                    ServiceTelemetrySnapshot(
+                        relayTelemetry =
+                            NativeRuntimeSnapshot.idle(source = "relay").copy(
+                                state = "running",
+                                activeSessions = 1,
+                            ),
+                    ),
+                approachSummary = null,
+                stringResolver = stringResolver,
+            )
+
+        assertEquals("Secure", state.trailingLabel)
+        assertEquals("Secure line locked", state.statusDescription)
+    }
+
+    @Test
+    fun `connection actuator treats relay fallback to direct as Direct`() {
+        // relayEnabled=true in settings but relayTelemetry is idle (0 sessions) →
+        // isRelayBackedEgress returns false, so the label must read "Direct".
+        val stringResolver = ResourceStringResolver()
+        val state =
+            buildConnectionActuatorUiState(
+                settings =
+                    AppSettings
+                        .newBuilder()
+                        .setRelayEnabled(true)
+                        .setRelayKind(RelayKindVlessReality)
+                        .build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = ServiceTelemetrySnapshot(), // relayTelemetry stays idle, 0 sessions
+                approachSummary = null,
+                stringResolver = stringResolver,
+            )
+
+        assertEquals("Direct", state.trailingLabel)
+        assertEquals("Direct line locked", state.statusDescription)
+    }
+
+    @Test
     fun `hard kill switch reducer surfaces observed lockdown states`() {
         val stringResolver = FakeStringResolver()
         val notEnabled =

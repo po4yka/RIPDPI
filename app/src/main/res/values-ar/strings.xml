@@ -393,10 +393,13 @@
     <string name="home_connection_button_connecting">جارٍ الاتصال\u2026</string>
     <string name="home_connection_actuator_open">مفتوح</string>
     <string name="home_connection_actuator_secure">آمن</string>
+    <string name="home_connection_actuator_direct">مباشر</string>
     <string name="home_connection_actuator_state_open">الخط الآمن مفتوح</string>
     <string name="home_connection_actuator_state_engaging">الخط الآمن يتصل</string>
     <string name="home_connection_actuator_state_locked">الخط الآمن مقفل</string>
+    <string name="home_connection_actuator_state_direct">الخط المباشر مقفل</string>
     <string name="home_connection_actuator_state_degraded">الخط الآمن مقفل، تحذير عند %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">الخط المباشر مقفل، تحذير عند %1$s</string>
     <string name="home_connection_actuator_state_fault">عطل في الخط الآمن عند %1$s</string>
     <string name="home_connection_actuator_action_activate">تفعيل الخط الآمن</string>
     <string name="home_connection_actuator_action_deactivate">تعطيل الخط الآمن</string>
@@ -2702,6 +2705,7 @@ fakeddisorder endhost</string>
     <string name="import_profile_confirm_empty_body">هذا الرابط لا يحتوي على ملف بروكسي صالح للاستخدام.</string>
     <string name="import_confirm_add_action">إضافة</string>
     <string name="import_profile_confirm_error">تعذّر استيراد هذا الملف الشخصي. تأكد من أن الرابط كامل وصالح.</string>
+    <string name="relay_editor_activation_failed">تعذّر تفعيل هذا الملف الشخصي. تحقق من التفاصيل وأعد المحاولة.</string>
     <string name="import_confirm_done_action">تمت الإضافة</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">إعداد مستورَد</string>
