@@ -3,6 +3,41 @@
   "cadenceDays": 30,
   "entries": [
     {
+      "reviewedAt": "2026-06-22",
+      "channel": "stable",
+      "catalogGeneratedAt": "2026-06-22T08:30:00Z",
+      "reviewer": "codex",
+      "notes": "Cadence review after acceptance artifacts revalidated against catalog v1 profile sets.",
+      "profileSets": [
+        {
+          "id": "browser_family_v2",
+          "catalogVersion": "v1",
+          "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+          "acceptanceReportRef": "tls_template_acceptance_report",
+          "reviewedAt": "2026-06-22",
+          "allowedProfileIds": [
+            "chrome_stable",
+            "chrome_desktop_stable",
+            "firefox_stable",
+            "firefox_ech_stable",
+            "safari_stable",
+            "edge_stable"
+          ]
+        },
+        {
+          "id": "ech_canary_v1",
+          "catalogVersion": "v1",
+          "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+          "acceptanceReportRef": "tls_template_acceptance_report",
+          "reviewedAt": "2026-06-22",
+          "allowedProfileIds": [
+            "firefox_ech_stable",
+            "firefox_stable"
+          ]
+        }
+      ]
+    },
+    {
       "reviewedAt": "2026-04-18",
       "channel": "stable",
       "catalogGeneratedAt": "2026-04-18T13:00:00Z",

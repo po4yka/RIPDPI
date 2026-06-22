@@ -85,6 +85,10 @@ pub const KNOWN_FAMILIES: &[&str] =
 /// itself.
 #[must_use]
 pub fn locate_repo_root() -> PathBuf {
+    if let Some(root) = std::env::var_os("RIPDPI_REPO_ROOT") {
+        return PathBuf::from(root);
+    }
+
     let start = env_path("CARGO_MANIFEST_DIR");
     let mut current = start.as_path();
     loop {

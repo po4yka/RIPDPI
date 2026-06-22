@@ -48,6 +48,7 @@ jobs:
       - name: Run mutation testing
         env:
           MUTANTS_PACKAGES: ${{ github.event.inputs.packages || '' }}
+          RIPDPI_REPO_ROOT: ${{ github.workspace }}
         run: |
           extra_args=()
           if [ "${{ github.event.inputs.in_diff || 'false' }}" = "true" ]; then
