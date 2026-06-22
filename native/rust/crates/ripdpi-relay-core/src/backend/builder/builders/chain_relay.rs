@@ -147,7 +147,12 @@ fn resolved_hop_vless_reality_config(
         &hop.server_name,
         &hop.reality_public_key,
         &hop.reality_short_id,
-        "xtls-rprx-vision",
+        // Chain hops carry the next hop's tunnel and have no per-hop flow field,
+        // so they use no flow control. XTLS Vision really pads the inner stream
+        // now, which would require every intermediate server to speak Vision; a
+        // chain must instead work against any VLESS entry server. (Vision was a
+        // no-op stub when this hardcoded "xtls-rprx-vision", so it was latent.)
+        "none",
         &hop.tls_fingerprint_profile,
     )
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))
