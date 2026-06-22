@@ -49,8 +49,20 @@ class RelayProfileActivator
             profile: ProxyProfile,
             profileId: String = DefaultRelayProfileId,
         ): Boolean {
-            if (!validateNativeRelayProfile(profile)) return false
-            val relayKind = relayKindFor(profile) ?: return false
+            val relayKind = relayKindFor(profile)
+            return if (relayKind == null || !validateNativeRelayProfile(profile)) {
+                false
+            } else {
+                persistRelayActivation(profile = profile, profileId = profileId, relayKind = relayKind)
+                true
+            }
+        }
+
+        private suspend fun persistRelayActivation(
+            profile: ProxyProfile,
+            profileId: String,
+            relayKind: String,
+        ) {
             val endpoint = relayEndpoint(profile)
             val udpEnabled = relayUdpEnabled(profile)
             val vlessTransport =
@@ -117,7 +129,6 @@ class RelayProfileActivator
                     else -> {}
                 }
             }
-            return true
         }
 
         /** Relay-kind id for a relay-activatable [profile], or `null` for non-relay kinds. */

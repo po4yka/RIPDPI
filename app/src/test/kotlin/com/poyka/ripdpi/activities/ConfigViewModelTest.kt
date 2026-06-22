@@ -66,6 +66,8 @@ import org.robolectric.RuntimeEnvironment
 import com.poyka.ripdpi.data.FailureClass as RuntimeFailureClass
 
 private const val sampleMasqueValue = "sample-masque-value"
+private const val validRealityPublicKey = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="
+private const val validVlessUuid = "00000000-0000-0000-0000-000000000000"
 
 private val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
 
@@ -235,11 +237,11 @@ class ConfigViewModelTest {
                     relayServer = "relay.example",
                     relayServerPort = "443",
                     relayServerName = "relay.example",
-                    relayRealityPublicKey = "public-key",
+                    relayRealityPublicKey = validRealityPublicKey,
                     relayRealityShortId = "abcd1234",
                     relayVlessTransport = RelayVlessTransportXhttp,
                     relayXhttpPath = "/xhttp",
-                    relayVlessUuid = "00000000-0000-0000-0000-000000000000",
+                    relayVlessUuid = validVlessUuid,
                     relayUdpEnabled = true,
                 ),
             )
@@ -257,13 +259,70 @@ class ConfigViewModelTest {
                     relayServer = "relay.example",
                     relayServerPort = "443",
                     relayServerName = "relay.example",
-                    relayRealityPublicKey = "public-key",
+                    relayRealityPublicKey = validRealityPublicKey,
                     relayRealityShortId = "",
-                    relayVlessUuid = "00000000-0000-0000-0000-000000000000",
+                    relayVlessUuid = validVlessUuid,
                 ),
             )
 
         assertEquals(null, errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation rejects malformed VLESS Reality public key`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindVlessReality,
+                    relayServer = "relay.example",
+                    relayServerPort = "443",
+                    relayServerName = "relay.example",
+                    relayRealityPublicKey = "not-a-valid-reality-public-key",
+                    relayRealityShortId = "",
+                    relayVlessUuid = validVlessUuid,
+                ),
+            )
+
+        assertEquals("invalid", errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation rejects malformed VLESS Reality short id`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindVlessReality,
+                    relayServer = "relay.example",
+                    relayServerPort = "443",
+                    relayServerName = "relay.example",
+                    relayRealityPublicKey = validRealityPublicKey,
+                    relayRealityShortId = "not-hex",
+                    relayVlessUuid = validVlessUuid,
+                ),
+            )
+
+        assertEquals("invalid", errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation rejects malformed VLESS Reality uuid`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindVlessReality,
+                    relayServer = "relay.example",
+                    relayServerPort = "443",
+                    relayServerName = "relay.example",
+                    relayRealityPublicKey = validRealityPublicKey,
+                    relayRealityShortId = "",
+                    relayVlessUuid = "not-a-uuid",
+                ),
+            )
+
+        assertEquals("invalid", errors[ConfigFieldRelayCredentials])
     }
 
     @Test
