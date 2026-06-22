@@ -149,12 +149,16 @@ Deep-dive architecture references live under `docs/architecture/`: start with [`
 
 - **`:app`** -- Jetpack Compose UI with Material 3, navigation, ViewModels
 - **`:core:data`** -- Aggregator (`api`-exports) over `:core:data:model` (App-settings + geosite protobuf schemas at `core/data/model/src/main/proto/app_settings.proto`), `:core:data:settings` (Jetpack DataStore-backed `AppSettingsRepository`), `:core:data:runtime-state`, and `:core:data:catalog`
+- **`:core:detection`** -- Active network censorship detection pipeline: verdict storage, recommendation generation, and scheduled probe coordination
 - **`:core:diagnostics`** -- Active network diagnostics, passive telemetry collection, diagnostics UI logic
 - **`:core:diagnostics-data`** -- Protobuf schemas and data contracts for diagnostics
 - **`:core:engine`** -- Native proxy and tunnel engine with JNI bridge, built from repo-owned Rust crates
+- **`:core:engine-api`** -- Kotlin API contracts for the native engine: `XrayNativeBridge`, `RelayNativeConfig`, `NetworkDiagnosticsBridge`, and runtime interfaces for xray, relay, AmneziaWG, and host autolearn
+- **`:core:pcap-export`** -- PCAP packet capture controller and reader (`PcapBridge`, `PcapController`, `PcapReader`)
 - **`:core:service`** -- Android VPN and proxy foreground services
 - **`:quality:detekt-rules`** -- Custom detekt rules (DI guardrails, Hilt ViewModel checks)
 - **`:baselineprofile`** -- Baseline profile generation for runtime performance
+- **`:xray-protos`** -- Protobuf definitions for xray VLESS, Reality, and proxy configuration; consumed by the xray handover path
 
 ### Current Diagnostics Surface
 
@@ -278,12 +282,14 @@ JNI native libraries are built from repo-owned Android adapter crates in the nat
 | `libripdpi-tunnel.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-tunnel-android/` | `core/engine/build/generated/jniLibs/` |
 | `libripdpi-relay.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-relay-android/` | `core/engine/build/generated/jniLibs/` |
 | `libripdpi-warp.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-warp-android/` | `core/engine/build/generated/jniLibs/` |
+| `libripdpi-amneziawg.so` | Cargo + Android NDK linker via `:core:engine:buildRustNativeLibs` | `native/rust/crates/ripdpi-amneziawg-android/` | `core/engine/build/generated/jniLibs/` |
 | `ripdpi-root-helper` | Cargo + Android NDK linker via `:core:engine:buildRustRootHelper` | `native/rust/crates/ripdpi-root-helper/` | `core/engine/build/generated/rootHelperAssets/bin/` |
 
 - Kotlin bridge for `libripdpi.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxy.kt`
 - Kotlin bridge for `libripdpi-tunnel.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt`
 - Kotlin bridge for `libripdpi-relay.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`
 - Kotlin bridge for `libripdpi-warp.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiWarp.kt`
+- Kotlin bridge for `libripdpi-amneziawg.so`: `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiAmneziaWg.kt`
 - Kotlin lifecycle for `ripdpi-root-helper`: `core/service/src/main/kotlin/com/poyka/ripdpi/services/RootHelperManager.kt`
 - Supported ABIs: armeabi-v7a, arm64-v8a, x86, x86_64
 - Never edit `.so` files -- they are compiled from source

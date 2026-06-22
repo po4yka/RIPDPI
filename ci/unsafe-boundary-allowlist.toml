@@ -487,6 +487,15 @@ owner = "android-ffi"
 review_date = "2026-11-15"
 
 [[entries]]
+file = "native/rust/crates/ripdpi-relay-android/src/vpn_protect.rs"
+pattern = "raw usize handle in public fn"
+reason = "`unregister_entry(token: i64)` consumes the monotonic generation token returned by relay VPN protect registration; the token is not a pointer"
+preconditions = "Token originates from `ProtectGeneration::token()` or may be forged by Java/test callers; forged, zero, stale, or superseded tokens are accepted as safe no-ops"
+enforcement = "`ProtectGeneration::from_token` wraps the integer and `unregister_protect_callback_if` clears only when the registry generation matches; no raw pointer dereference or unchecked memory access occurs"
+owner = "android-ffi"
+review_date = "2026-11-15"
+
+[[entries]]
 file = "native/rust/crates/ripdpi-tunnel-android/src/flow_attribution.rs"
 pattern = "raw usize handle in public fn"
 reason = "`unregister_flow_attribution(token: i64)` consumes the monotonic generation token returned by flow-attribution registration; the token is not a pointer"

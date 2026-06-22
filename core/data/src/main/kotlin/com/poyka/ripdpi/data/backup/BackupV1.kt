@@ -41,7 +41,8 @@ enum class BackupVariant {
  * Per-field classification used by the backup allowlist.
  *
  * - [PUBLIC]: field is non-sensitive; exported in both [BackupVariant.SHARE] and [BackupVariant.FULL].
- * - [REDACTED]: field contains a credential or share-sensitive endpoint metadata; stripped in [BackupVariant.SHARE], kept in [BackupVariant.FULL].
+ * - [REDACTED]: field contains a credential or share-sensitive endpoint metadata; stripped in [BackupVariant.SHARE],
+ *   kept in [BackupVariant.FULL].
  * - [EXCLUDED]: field must never appear in any export (e.g. internal IDs, runtime state).
  */
 enum class Classification {
@@ -254,7 +255,8 @@ private val backupJson =
  * Produces a [BackupV1] document from the supplied data.
  *
  * For [BackupVariant.SHARE], each profile's JSON object is stripped of every
- * field classified as [Classification.REDACTED] or [Classification.EXCLUDED], and callers must pass a SHARE-safe settings map.
+ * field classified as [Classification.REDACTED] or [Classification.EXCLUDED], and callers must pass a SHARE-safe
+ * settings map.
  * For [BackupVariant.FULL], all fields are kept and [BackupV1.containsCredentials]
  * is set to `true`.
  */
