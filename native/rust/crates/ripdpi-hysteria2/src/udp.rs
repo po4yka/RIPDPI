@@ -311,7 +311,15 @@ fn parse_udp_datagram(datagram: &[u8]) -> Result<ParsedDatagram> {
     let fragment_count = datagram[7];
 
     let (address_len, next_index) = decode_varint(&datagram[8..])?;
-    let address_end = 8 + next_index + address_len as usize;
+    // `address_len` is an untrusted QUIC varint (up to 0x3FFF_FFFF_FFFF_FFFF). Convert
+    // through a checked path and use checked_add so the bounds check below holds on 32-bit
+    // (armv7/i686) targets where `as usize` would truncate and the add could wrap.
+    let address_len = usize::try_from(address_len)
+        .map_err(|_| HysteriaError::InvalidDatagram("Hysteria UDP address length exceeds datagram".to_string()))?;
+    let address_end = 8usize
+        .checked_add(next_index)
+        .and_then(|value| value.checked_add(address_len))
+        .ok_or_else(|| HysteriaError::InvalidDatagram("Hysteria UDP address length exceeds datagram".to_string()))?;
     if datagram.len() < address_end {
         return Err(HysteriaError::InvalidDatagram("Hysteria UDP address length exceeds datagram".to_string()));
     }
@@ -366,6 +374,32 @@ mod tests {
     #[test]
     fn malformed_udp_datagram_returns_invalid_datagram() {
         let error = parse_udp_datagram(&[0, 1, 2]).expect_err("short datagram must fail");
+
+        assert!(matches!(error, HysteriaError::InvalidDatagram(_)));
+    }
+
+    /// A datagram whose 8-byte varint encodes a huge address length must be
+    /// rejected, not panic. On a 64-bit host this asserts the no-panic
+    /// rejection and guards the `datagram.len() < address_end` bounds check
+    /// (removing that check would panic the slice on 64-bit too). The narrower
+    /// 32-bit teeth — `address_len as usize` truncation + add wrap on
+    /// armv7/i686 — only manifest on a 32-bit runtime; CI cross-compiles but
+    /// does not execute the 32-bit targets, so the checked conversion +
+    /// `checked_add` are the load-bearing defense there.
+    #[test]
+    fn oversized_address_length_returns_invalid_datagram_not_panic() {
+        // bytes 0..8: session_id (4) + packet_id (2) + fragment_id (1) + fragment_count (1).
+        // bytes 8..16: 8-byte QUIC varint with tag 3 (0xC0 top bits); all-0xFF decodes
+        // to 0x3FFF_FFFF_FFFF_FFFF — far larger than this 16-byte datagram.
+        let datagram = [
+            0u8, 0, 0, 0, // session_id
+            0, 0, // packet_id
+            0, // fragment_id
+            1, // fragment_count
+            0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, // address_len varint
+        ];
+
+        let error = parse_udp_datagram(&datagram).expect_err("oversized address length must fail");
 
         assert!(matches!(error, HysteriaError::InvalidDatagram(_)));
     }
