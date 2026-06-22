@@ -93,6 +93,55 @@ mod tests {
         packet
     }
 
+    /// Build a minimal TLS ClientHello record carrying a single SNI
+    /// `host_name` extension with the given hostname. All length fields
+    /// are computed so a strict parser would accept it.
+    fn make_client_hello_with_sni(sni: &str) -> Vec<u8> {
+        let host = sni.as_bytes();
+        // server_name extension body: list_len(2) + name_type(1) + name_len(2) + name.
+        let mut sni_ext_body = Vec::new();
+        let entry_len = 1 + 2 + host.len();
+        sni_ext_body.extend_from_slice(&(entry_len as u16).to_be_bytes()); // ServerNameList length
+        sni_ext_body.push(0); // name_type = host_name
+        sni_ext_body.extend_from_slice(&(host.len() as u16).to_be_bytes());
+        sni_ext_body.extend_from_slice(host);
+
+        // extension: type(2)=0x0000 + len(2) + body.
+        let mut extensions = Vec::new();
+        extensions.extend_from_slice(&0x0000u16.to_be_bytes());
+        extensions.extend_from_slice(&(sni_ext_body.len() as u16).to_be_bytes());
+        extensions.extend_from_slice(&sni_ext_body);
+
+        // ClientHello body.
+        let mut body = Vec::new();
+        body.extend_from_slice(&[0x03, 0x03]); // legacy_version TLS 1.2
+        body.extend_from_slice(&[0x11u8; 32]); // random
+        body.push(0); // session_id length = 0
+        body.extend_from_slice(&2u16.to_be_bytes()); // cipher_suites length
+        body.extend_from_slice(&[0x13, 0x01]); // one cipher suite
+        body.push(1); // compression_methods length
+        body.push(0); // null compression
+        body.extend_from_slice(&(extensions.len() as u16).to_be_bytes());
+        body.extend_from_slice(&extensions);
+
+        // Handshake header: type(1)=0x01 + length(3).
+        let mut handshake = Vec::new();
+        handshake.push(0x01);
+        let hs_len = body.len();
+        handshake.push(((hs_len >> 16) & 0xff) as u8);
+        handshake.push(((hs_len >> 8) & 0xff) as u8);
+        handshake.push((hs_len & 0xff) as u8);
+        handshake.extend_from_slice(&body);
+
+        // TLS record header: type(1)=0x16 + version(2) + length(2).
+        let mut record = Vec::new();
+        record.push(0x16);
+        record.extend_from_slice(&[0x03, 0x01]); // record version TLS 1.0
+        record.extend_from_slice(&(handshake.len() as u16).to_be_bytes());
+        record.extend_from_slice(&handshake);
+        record
+    }
+
     /// Verify an IPv4 header's checksum is valid (sum-of-words == 0xffff).
     fn ipv4_header_checksum_valid(bytes: &[u8]) -> bool {
         let ihl = (bytes[0] & 0x0f) as usize * 4;
@@ -262,6 +311,73 @@ mod tests {
         let mut empty: Vec<u8> = Vec::new();
         redact_in_place(&mut empty);
         assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn redact_in_place_scrubs_ipv4_tls_sni() {
+        let sni = "secret-sni.example";
+        let hello = make_client_hello_with_sni(sni);
+        let mut packet = make_ipv4_tcp([192, 168, 1, 100], [8, 8, 8, 8], &hello);
+        // Sanity: the SNI is present before redaction.
+        assert!(packet.windows(sni.len()).any(|w| w == sni.as_bytes()), "SNI should be present pre-redaction");
+        redact_in_place(&mut packet);
+        assert!(!packet.windows(sni.len()).any(|w| w == sni.as_bytes()), "SNI survived redaction: {packet:02x?}");
+        // Endpoint redaction still works and checksum stays valid.
+        assert_eq!(&packet[12..16], &[0u8; 4]);
+        assert_eq!(&packet[16..20], &[0u8; 4]);
+        assert!(ipv4_header_checksum_valid(&packet));
+    }
+
+    #[test]
+    fn redact_in_place_scrubs_ipv6_tls_sni() {
+        let sni = "secret-sni.example";
+        let hello = make_client_hello_with_sni(sni);
+        let src = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01];
+        let dst = [0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x02];
+        // make_ipv6_udp builds a UDP packet; rebuild as TCP for the TLS case.
+        let mut packet = make_ipv6_udp(src, dst, &hello);
+        packet[6] = 6; // next header = TCP
+        // UDP header (8 bytes) -> TCP header must be >= 20 bytes with a
+        // valid data offset for the SNI scrubber to find the payload.
+        let payload_start = 40;
+        // Rebuild a TCP segment: 20-byte header + the TLS record.
+        let mut tcp_seg = vec![0u8; 20];
+        tcp_seg[12] = 0x50; // data offset = 5 * 4 = 20 bytes
+        tcp_seg.extend_from_slice(&hello);
+        packet.truncate(payload_start);
+        packet.extend_from_slice(&tcp_seg);
+        // Fix IPv6 payload length.
+        let plen = (packet.len() - 40) as u16;
+        packet[4..6].copy_from_slice(&plen.to_be_bytes());
+        assert!(packet.windows(sni.len()).any(|w| w == sni.as_bytes()), "SNI should be present pre-redaction");
+        redact_in_place(&mut packet);
+        assert!(!packet.windows(sni.len()).any(|w| w == sni.as_bytes()), "SNI survived IPv6 redaction");
+        assert_eq!(&packet[8..24], &[0u8; 16]);
+        assert_eq!(&packet[24..40], &[0u8; 16]);
+    }
+
+    #[test]
+    fn redact_in_place_leaves_non_tls_tcp_payload_unchanged() {
+        // A TCP payload that is not a TLS handshake must be left intact and
+        // must not panic.
+        let payload = b"GET / HTTP/1.1\r\nHost: secret-sni.example\r\n\r\n";
+        let mut packet = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], payload);
+        let payload_before = packet[40..].to_vec();
+        redact_in_place(&mut packet);
+        // The HTTP body (including its Host header) is not a ClientHello, so
+        // the SNI-scrub leaves it untouched.
+        assert_eq!(&packet[40..], &payload_before[..], "non-TLS payload mutated");
+    }
+
+    #[test]
+    fn redact_tcp_sni_does_not_panic_on_truncated_client_hello() {
+        let sni = "secret-sni.example";
+        let full = make_client_hello_with_sni(sni);
+        // Feed progressively truncated ClientHellos; none may panic.
+        for cut in 0..full.len() {
+            let mut packet = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], &full[..cut]);
+            redact_in_place(&mut packet);
+        }
     }
 
     #[test]
