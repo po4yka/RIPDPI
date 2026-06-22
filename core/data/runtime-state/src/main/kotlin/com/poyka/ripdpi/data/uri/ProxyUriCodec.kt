@@ -113,7 +113,7 @@ object ProxyUriCodec {
         host: String,
         port: Int,
         displayName: String,
-    ): String = "$scheme://$userInfo@$host:$port#${encodeFragment(displayName)}"
+    ): String = "$scheme://$userInfo@${bracketIpv6(host)}:$port#${encodeFragment(displayName)}"
 
     private fun encodeVlessReality(profile: ProxyProfile.VlessReality): String {
         val params =
@@ -131,7 +131,7 @@ object ProxyUriCodec {
                     add("mode=${encodeQueryValue(profile.xhttpMode)}")
                 }
             }.joinToString("&")
-        return "vless://${profile.uuid}@${profile.server}:${profile.serverPort}" +
+        return "vless://${profile.uuid}@${bracketIpv6(profile.server)}:${profile.serverPort}" +
             "?$params#${encodeFragment(profile.displayName)}"
     }
 
@@ -143,7 +143,7 @@ object ProxyUriCodec {
                 add("mtu=${profile.mtu}")
             }.joinToString("&")
         return "mieru://${encodeQueryValue(profile.username)}:${encodeQueryValue(profile.password)}" +
-            "@${profile.server}:${profile.serverPort}?$params#${encodeFragment(profile.displayName)}"
+            "@${bracketIpv6(profile.server)}:${profile.serverPort}?$params#${encodeFragment(profile.displayName)}"
     }
 
     /**
@@ -171,12 +171,16 @@ object ProxyUriCodec {
             } else {
                 encodeQueryValue(profile.username)
             }
-        return "ssh://$userInfo@${profile.server}:${profile.serverPort}?$params#${encodeFragment(profile.displayName)}"
+        return "ssh://$userInfo@${bracketIpv6(
+            profile.server,
+        )}:${profile.serverPort}?$params#${encodeFragment(profile.displayName)}"
     }
 
     private fun encodeAnyTls(profile: ProxyProfile.AnyTls): String {
         val params = "?sni=${encodeQueryValue(profile.serverName)}"
-        return "anytls://${profile.password}@${profile.server}:${profile.serverPort}$params#${encodeFragment(
+        return "anytls://${profile.password}@${bracketIpv6(
+            profile.server,
+        )}:${profile.serverPort}$params#${encodeFragment(
             profile.displayName,
         )}"
     }
@@ -188,7 +192,9 @@ object ProxyUriCodec {
                 .getUrlEncoder()
                 .withoutPadding()
                 .encodeToString(userInfo.toByteArray(Charsets.UTF_8))
-        return "ss://$encoded@${profile.server}:${profile.serverPort}#${encodeFragment(profile.displayName)}"
+        return "ss://$encoded@${bracketIpv6(
+            profile.server,
+        )}:${profile.serverPort}#${encodeFragment(profile.displayName)}"
     }
 
     private fun encodeQueryValue(value: String): String = URLEncoder.encode(value, "UTF-8").replace("+", "%20")
@@ -199,7 +205,7 @@ object ProxyUriCodec {
     private fun parseVless(uri: String): ProxyProfile? {
         val parsed = URI(uri)
         val uuid = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
-        val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
+        val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         val rawQuery = parsed.rawQuery
         // Detect REALITY only when usable key material is present. A bare
@@ -262,7 +268,7 @@ object ProxyUriCodec {
         if (separator <= 0 || separator >= rawUserInfo.length - 1) return null
         val username = percentDecode(rawUserInfo.substring(0, separator)).takeIf { it.isNotBlank() } ?: return null
         val password = percentDecode(rawUserInfo.substring(separator + 1)).takeIf { it.isNotBlank() } ?: return null
-        val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
+        val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         val rawQuery = parsed.rawQuery
         return ProxyProfile.Mieru(
@@ -300,7 +306,7 @@ object ProxyUriCodec {
             username = percentDecode(rawUserInfo.substring(0, separator)).takeIf { it.isNotBlank() } ?: return null
             passwordFromUserInfo = percentDecode(rawUserInfo.substring(separator + 1)).takeIf { it.isNotBlank() }
         }
-        val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
+        val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         val rawQuery = parsed.rawQuery
         val strict = queryValue(rawQuery, "strict")?.let { it == "1" || it.equals("true", ignoreCase = true) } ?: false
@@ -403,7 +409,7 @@ object ProxyUriCodec {
     private fun parseTrojan(uri: String): ProxyProfile? {
         val parsed = URI(uri)
         val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
-        val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
+        val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         return ProxyProfile.Trojan(
             id = newId(),
@@ -419,7 +425,7 @@ object ProxyUriCodec {
     private fun parseHysteria2(uri: String): ProxyProfile? {
         val parsed = URI(uri)
         val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
-        val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
+        val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         return ProxyProfile.Hysteria2(
             id = newId(),
@@ -435,7 +441,7 @@ object ProxyUriCodec {
     private fun parseAnyTls(uri: String): ProxyProfile? {
         val parsed = URI(uri)
         val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
-        val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
+        val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         // RIPDPI's AnyTLS client has no server-side TLS-fallback support (upstream
         // anytls-go fallback is a server-only knob). Reject a node that advertises
@@ -463,7 +469,7 @@ object ProxyUriCodec {
         // TUIC has no first-class ProxyProfile subtype; round-trip as RawConfig
         // while still validating it is a structurally usable node URI.
         val parsed = URI(uri)
-        val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
+        val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         if (parsed.userInfo.isNullOrBlank()) return null
         return ProxyProfile.RawConfig(
@@ -473,6 +479,24 @@ object ProxyUriCodec {
             config = uri,
         )
     }
+
+    /**
+     * Strips the surrounding brackets that [java.net.URI.getHost] keeps on IPv6
+     * literals (e.g. `[2001:db8::1]` -> `2001:db8::1`). The native connect path
+     * (`resolve_server_addr`) parses the stored `server` with `IpAddr::parse`,
+     * which rejects bracketed literals and would fall through to DNS and never
+     * resolve. Hostnames and IPv4 literals have no surrounding brackets, so this
+     * is a no-op for them.
+     */
+    private fun unbracketIpv6(host: String): String = host.removeSurrounding("[", "]")
+
+    /**
+     * Re-adds the brackets an IPv6 literal needs to be unambiguous inside a
+     * `host:port` URI authority. Symmetric with [unbracketIpv6] so that
+     * `parse(encode(profile)) == profile`. Only brackets a bare IPv6 (contains
+     * `:` and is not already bracketed); a no-op for hostnames and IPv4.
+     */
+    private fun bracketIpv6(host: String): String = if (host.contains(':') && !host.startsWith("[")) "[$host]" else host
 
     @Suppress("ReturnCount")
     private fun splitHostPort(hostPort: String): Pair<String, Int>? {
