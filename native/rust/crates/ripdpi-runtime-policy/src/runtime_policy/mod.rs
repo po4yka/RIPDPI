@@ -56,9 +56,25 @@ pub(super) fn now_millis() -> u64 {
 
 pub(super) fn next_temp_file_nonce() -> u64 {
     static TEMP_FILE_NONCE: AtomicU64 = AtomicU64::new(0);
-    let timestamp = now_millis() << 16;
-    let sequence = TEMP_FILE_NONCE.fetch_add(1, Ordering::Relaxed) & 0xFFFF;
-    timestamp | sequence
+    let sequence = TEMP_FILE_NONCE.fetch_add(1, Ordering::Relaxed);
+    mix_temp_file_nonce(now_millis(), std::process::id(), sequence)
+}
+
+/// Derive a temp-file nonce from a millisecond timestamp, the OS process id,
+/// and an in-process monotonic sequence counter.
+///
+/// The in-process `sequence` already guarantees uniqueness across calls within
+/// one process. Folding `pid` in makes the nonce unique *across* processes too:
+/// nextest runs each `#[test]` in its own process, and two processes launched
+/// in the same millisecond would otherwise compute identical `timestamp`/
+/// `sequence` values and collide on a shared temp-file path. The pid occupies
+/// the top 16 bits so each process owns a disjoint nonce space regardless of
+/// wall-clock collisions.
+fn mix_temp_file_nonce(now_ms: u64, pid: u32, sequence: u64) -> u64 {
+    let pid_bits = u64::from(pid) << 48;
+    let timestamp = (now_ms << 16) & 0x0000_FFFF_FFFF_0000;
+    let sequence = sequence & 0xFFFF;
+    pid_bits | timestamp | sequence
 }
 
 #[cfg(test)]
@@ -69,7 +85,28 @@ mod tests {
     use ripdpi_config::DesyncGroup;
 
     use super::test_support::{autolearn_config, sample_dest};
-    use super::{ConnectionRoute, RouteAdvance, RuntimePolicy, TransportProtocol};
+    use super::{ConnectionRoute, RouteAdvance, RuntimePolicy, TransportProtocol, mix_temp_file_nonce};
+
+    #[test]
+    fn temp_file_nonce_is_process_unique_across_same_timestamp() {
+        // nextest runs each `#[test]` in its own process; two processes that
+        // start in the same millisecond compute the same timestamp and the same
+        // initial sequence (the in-process atomic resets to 0 per process).
+        // Without folding the process id in, both would derive the same nonce
+        // and therefore the same temp-file path on the shared filesystem,
+        // producing the order/parallelism-dependent flake this test guards.
+        let now_ms = 1_700_000_000_000;
+        let seq = 0;
+        let a = mix_temp_file_nonce(now_ms, 4242, seq);
+        let b = mix_temp_file_nonce(now_ms, 7777, seq);
+        assert_ne!(a, b, "same timestamp+sequence in distinct processes must yield distinct nonces");
+
+        // Within a single process the monotonic sequence keeps nonces distinct.
+        let same_pid = 4242;
+        let first = mix_temp_file_nonce(now_ms, same_pid, 0);
+        let second = mix_temp_file_nonce(now_ms, same_pid, 1);
+        assert_ne!(first, second, "successive in-process calls must yield distinct nonces");
+    }
 
     #[test]
     fn facade_select_advance_and_note_success_preserves_flow() {
