@@ -253,6 +253,7 @@ fun ModeEditorRoute(
                 onRelayVlessTransportChanged = { viewModel.updateDraft { copy(relayVlessTransport = it) } },
                 onRelayXhttpPathChanged = { viewModel.updateDraft { copy(relayXhttpPath = it) } },
                 onRelayXhttpHostChanged = { viewModel.updateDraft { copy(relayXhttpHost = it) } },
+                onRelayXhttpModeChanged = { viewModel.updateDraft { copy(relayXhttpMode = it) } },
                 onRelayCloudflareTunnelModeChanged = { viewModel.updateDraft { copy(relayCloudflareTunnelMode = it) } },
                 onRelayCloudflarePublishLocalOriginUrlChanged = {
                     viewModel.updateDraft { copy(relayCloudflarePublishLocalOriginUrl = it) }

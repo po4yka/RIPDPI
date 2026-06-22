@@ -22,6 +22,7 @@ internal fun AppSettingsSnapshot.withRelaySnapshot(relaySection: RelaySettingsSe
                     normalizeRelayVlessTransport(relaySection.relayVlessTransport, relaySection.relayKind),
                 relayXhttpPath = relaySection.relayXhttpPath,
                 relayXhttpHost = relaySection.relayXhttpHost,
+                relayXhttpMode = normalizeRelayXhttpMode(relaySection.relayXhttpMode),
                 relayCloudflareTunnelMode = normalizeRelayCloudflareTunnelMode(relaySection.relayCloudflareTunnelMode),
                 relayCloudflarePublishLocalOriginUrl = relaySection.relayCloudflarePublishLocalOriginUrl,
                 relayCloudflareCredentialsRef = relaySection.relayCloudflareCredentialsRef,
@@ -86,6 +87,7 @@ private fun AppSettings.Builder.applyRelaySnapshot(snapshot: AppSettingsRelaySna
         .setRelayVlessTransport(normalizeRelayVlessTransport(snapshot.relayVlessTransport, snapshot.relayKind))
         .setRelayXhttpPath(snapshot.relayXhttpPath)
         .setRelayXhttpHost(snapshot.relayXhttpHost)
+        .setRelayXhttpMode(normalizeRelayXhttpMode(snapshot.relayXhttpMode))
         .setRelayCloudflareTunnelMode(normalizeRelayCloudflareTunnelMode(snapshot.relayCloudflareTunnelMode))
         .setRelayCloudflarePublishLocalOriginUrl(snapshot.relayCloudflarePublishLocalOriginUrl)
         .setRelayCloudflareCredentialsRef(snapshot.relayCloudflareCredentialsRef)

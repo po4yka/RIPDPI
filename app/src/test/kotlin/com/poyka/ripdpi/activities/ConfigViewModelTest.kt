@@ -40,6 +40,7 @@ import com.poyka.ripdpi.data.RelayPresetSuggestion
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.RelayXhttpModeStreamOne
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.ServerCapabilityRecord
@@ -110,6 +111,37 @@ class ConfigViewModelTest {
 
         assertEquals(defaultDns.dnsIp, draft.dnsIp)
         assertEquals(defaultDns.summary(), draft.dnsSummary)
+    }
+
+    @Test
+    fun `manual vless xhttp mode round trips through settings and profile record`() {
+        val draft =
+            defaultDraft.copy(
+                relayEnabled = true,
+                relayKind = RelayKindVlessReality,
+                relayServer = "relay.example",
+                relayServerPort = "443",
+                relayServerName = "relay.example",
+                relayRealityPublicKey = validRealityPublicKey,
+                relayRealityShortId = "",
+                relayVlessTransport = RelayVlessTransportXhttp,
+                relayXhttpPath = "/xhttp",
+                relayXhttpHost = "cdn.example",
+                relayXhttpMode = RelayXhttpModeStreamOne,
+                relayVlessUuid = validVlessUuid,
+            )
+
+        val settings =
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .applyConfigDraft(draft)
+                .build()
+        val restoredDraft = settings.toConfigDraft()
+        val profile = draft.toRelayProfileRecord("manual")
+
+        assertEquals(RelayXhttpModeStreamOne, settings.relayXhttpMode)
+        assertEquals(RelayXhttpModeStreamOne, restoredDraft.relayXhttpMode)
+        assertEquals(RelayXhttpModeStreamOne, profile.xhttpMode)
     }
 
     @Test

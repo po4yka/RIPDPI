@@ -12,6 +12,9 @@ import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.RelayXhttpModeAuto
+import com.poyka.ripdpi.data.RelayXhttpModeStreamOne
+import com.poyka.ripdpi.data.RelayXhttpModeStreamUp
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -73,6 +76,31 @@ private fun XhttpFields(
         onValueChange = actions.onRelayXhttpHostChanged,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_xhttp_host)),
     )
+    Text(
+        text = stringResource(R.string.config_relay_xhttp_mode),
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+        XhttpModeChip(
+            selectedMode = draft.relayXhttpMode,
+            mode = RelayXhttpModeAuto,
+            labelRes = R.string.config_relay_xhttp_mode_auto,
+            onRelayXhttpModeChanged = actions.onRelayXhttpModeChanged,
+        )
+        XhttpModeChip(
+            selectedMode = draft.relayXhttpMode,
+            mode = RelayXhttpModeStreamUp,
+            labelRes = R.string.config_relay_xhttp_mode_stream_up,
+            onRelayXhttpModeChanged = actions.onRelayXhttpModeChanged,
+        )
+        XhttpModeChip(
+            selectedMode = draft.relayXhttpMode,
+            mode = RelayXhttpModeStreamOne,
+            labelRes = R.string.config_relay_xhttp_mode_stream_one,
+            onRelayXhttpModeChanged = actions.onRelayXhttpModeChanged,
+        )
+    }
 }
 
 @Composable
@@ -86,6 +114,21 @@ private fun RowScope.VlessTransportChip(
         text = stringResource(labelRes),
         selected = selectedTransport == transport,
         onClick = { onRelayVlessTransportChanged(transport) },
+        modifier = Modifier.weight(1f),
+    )
+}
+
+@Composable
+private fun RowScope.XhttpModeChip(
+    selectedMode: String,
+    mode: String,
+    labelRes: Int,
+    onRelayXhttpModeChanged: (String) -> Unit,
+) {
+    RipDpiChip(
+        text = stringResource(labelRes),
+        selected = selectedMode == mode,
+        onClick = { onRelayXhttpModeChanged(mode) },
         modifier = Modifier.weight(1f),
     )
 }

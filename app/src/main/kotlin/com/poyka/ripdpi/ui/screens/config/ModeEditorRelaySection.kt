@@ -360,6 +360,7 @@ private fun relayKindFieldActions(actions: ModeEditorActions): RelayKindFieldAct
                 onRelayVlessTransportChanged = actions.onRelayVlessTransportChanged,
                 onRelayXhttpPathChanged = actions.onRelayXhttpPathChanged,
                 onRelayXhttpHostChanged = actions.onRelayXhttpHostChanged,
+                onRelayXhttpModeChanged = actions.onRelayXhttpModeChanged,
                 onRelayCloudflareTunnelModeChanged = actions.onRelayCloudflareTunnelModeChanged,
                 onRelayCloudflarePublishLocalOriginUrlChanged = actions.onRelayCloudflarePublishLocalOriginUrlChanged,
                 onRelayCloudflareCredentialsRefChanged = actions.onRelayCloudflareCredentialsRefChanged,

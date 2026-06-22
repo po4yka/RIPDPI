@@ -687,6 +687,7 @@
     <string name="config_relay_finalmask_noise_help">Send one random byte prelude from the configured range before the real payload.</string>
     <string name="config_relay_xhttp_path">مسار xHTTP</string>
     <string name="config_relay_xhttp_host">تجاوز مضيف xHTTP</string>
+    <string name="config_relay_xhttp_mode">وضع xHTTP</string>
     <string name="config_relay_vless_uuid">UUID لـ VLESS</string>
     <string name="config_relay_hysteria_password">كلمة مرور Hysteria</string>
     <string name="config_relay_hysteria_salamander">مفتاح Salamander</string>

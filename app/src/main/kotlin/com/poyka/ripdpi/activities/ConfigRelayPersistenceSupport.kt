@@ -73,6 +73,7 @@ internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRe
         vlessTransport = relayVlessTransport,
         xhttpPath = relayXhttpPath,
         xhttpHost = relayXhttpHost,
+        xhttpMode = relayXhttpMode,
         cloudflareTunnelMode = normalizeRelayCloudflareTunnelMode(relayCloudflareTunnelMode),
         cloudflarePublishLocalOriginUrl = relayCloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef =

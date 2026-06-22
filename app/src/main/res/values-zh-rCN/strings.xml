@@ -1703,6 +1703,7 @@ fake_burst 3</string>
     <string name="config_relay_reality_public_key">Reality 公钥</string>
     <string name="config_relay_server_port">中继端口</string>
     <string name="config_relay_xhttp_host">xHTTP host 覆盖</string>
+    <string name="config_relay_xhttp_mode">xHTTP 模式</string>
     <string name="config_summary_section">当前值</string>
     <string name="config_validation_banner_title">部分值仍需处理</string>
     <string name="config_vpn_credentials_title">中继凭据</string>

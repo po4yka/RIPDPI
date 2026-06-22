@@ -705,6 +705,10 @@
     <string name="config_relay_finalmask_noise_help">Send one random byte prelude from the configured range before the real payload.</string>
     <string name="config_relay_xhttp_path">xHTTP path</string>
     <string name="config_relay_xhttp_host">xHTTP host override</string>
+    <string name="config_relay_xhttp_mode">xHTTP mode</string>
+    <string name="config_relay_xhttp_mode_auto" translatable="false">auto</string>
+    <string name="config_relay_xhttp_mode_stream_up" translatable="false">stream-up</string>
+    <string name="config_relay_xhttp_mode_stream_one" translatable="false">stream-one</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>
     <string name="config_relay_hysteria_password">Hysteria password</string>
     <string name="config_relay_hysteria_salamander">Salamander key</string>

@@ -23,6 +23,7 @@ internal data class RelayVlessActions(
     val onRelayVlessTransportChanged: (String) -> Unit = {},
     val onRelayXhttpPathChanged: (String) -> Unit = {},
     val onRelayXhttpHostChanged: (String) -> Unit = {},
+    val onRelayXhttpModeChanged: (String) -> Unit = {},
     val onRelayCloudflareTunnelModeChanged: (String) -> Unit = {},
     val onRelayCloudflarePublishLocalOriginUrlChanged: (String) -> Unit = {},
     val onRelayCloudflareCredentialsRefChanged: (String) -> Unit = {},

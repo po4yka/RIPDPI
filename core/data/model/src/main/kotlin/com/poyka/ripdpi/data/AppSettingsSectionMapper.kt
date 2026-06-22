@@ -138,6 +138,7 @@ private fun AppSettings.relaySection(): RelaySettingsSection =
         relayVlessTransport = relayVlessTransport,
         relayXhttpPath = relayXhttpPath,
         relayXhttpHost = relayXhttpHost,
+        relayXhttpMode = relayXhttpMode,
         relayOutboundBindIp = relayOutboundBindIp,
         relayDnsOverTunnelEnabled = effectiveRelayDnsOverTunnelEnabled(),
     )

@@ -21,7 +21,7 @@ internal fun buildRelayConfig(settings: AppSettings): RipDpiRelayConfig {
         vlessTransport = relay.profile.vlessTransport,
         xhttpPath = relay.profile.xhttpPath,
         xhttpHost = relay.profile.xhttpHost,
-        xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
+        xhttpMode = relay.profile.xhttpMode,
         cloudflareTunnelMode = relay.profile.cloudflareTunnelMode,
         cloudflarePublishLocalOriginUrl = relay.profile.cloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef = relay.profile.cloudflareCredentialsRef,
