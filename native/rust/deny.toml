@@ -12,19 +12,6 @@ ignore = [
     #   2. rsa 0.10.0-rc.18 via russh 0.61.1 (ripdpi-ssh SSH outbound engine); SSH publickey auth signs the session identifier (a transcript hash the client did not choose), not attacker-chosen plaintext, so the Marvin timing sidechannel is not practically exploitable here.
     # No safe upgrade exists on either path.
     { id = "RUSTSEC-2023-0071", reason = "rsa enters via Arti 0.43.0 -> ssh-key-fork-arti (rsa 0.9.10) and via russh 0.61.1 (rsa 0.10.0-rc.18). RIPDPI uses Arti only as a Tor client backend; the russh SSH publickey auth path signs the session identifier (not attacker-chosen plaintext), so the Marvin timing sidechannel is not practically exploitable. No safe upgrade exists on either path." },
-    # bincode 2.0.1 -- unmaintained (RUSTSEC-2025-0141, flagged 2025-12-16).
-    # Enters transitively via typed-index-collections -> tor-netdir (Arti 0.43.0 tor client).
-    # RIPDPI does not use bincode directly; no runtime security risk (serialisation library with
-    # no network-reachable code path in our usage). Migration to an alternative requires an
-    # upstream Arti change. Track: https://gitlab.torproject.org/tpo/core/arti/-/issues.
-    { id = "RUSTSEC-2025-0141", reason = "bincode 2.0.1 is an unmaintained transitive dep via typed-index-collections -> tor-netdir (Arti 0.43.0). No RIPDPI code touches bincode directly; the serialisation path is internal to Arti's directory-network cache. No upstream drop-in replacement is available without an Arti upgrade." },
-    # proc-macro-error2 2.0.1 -- unmaintained (RUSTSEC-2026-0173, flagged 2026-06-07).
-    # Enters transitively via defmt-macros -> defmt -> smoltcp (userspace TCP/IP stack).
-    # This is a proc-macro crate: it runs only at compile time and has zero runtime footprint.
-    # The only risk is a supply-chain issue in the proc-macro toolchain, not a runtime
-    # vulnerability. No drop-in replacement accepted by the upstream smoltcp/defmt dependency
-    # chain is currently available.
-    { id = "RUSTSEC-2026-0173", reason = "proc-macro-error2 2.0.1 is a compile-time-only proc-macro crate, unmaintained but with no runtime footprint. Enters via defmt-macros -> defmt -> smoltcp. No replacement available in the smoltcp dependency chain." },
 ]
 
 [licenses]
