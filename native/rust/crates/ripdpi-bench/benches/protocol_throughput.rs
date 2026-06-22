@@ -113,7 +113,11 @@ fn bench_vless_over_xhttp_reality(c: &mut Criterion, rt: &Runtime) {
     let server = rt.block_on(XhttpRealityLoopback::start()).expect("start xHTTP fixture");
     let target = format!("127.0.0.1:{}", server.target_port());
     let config = XhttpRealityConfig {
-        vless: vless_reality_config(server.port(), server.server_name()),
+        // Vision flow is invalid over xHTTP; the production builder clears it and
+        // the loopback fixture now rejects any non-empty addons block, so the
+        // bench must mirror that to connect.
+        vless: vless_reality_config(server.port(), server.server_name())
+            .with_flow(ripdpi_vless::addons::VlessFlow::None),
         path: "/tunnel".to_string(),
         host: None,
         bind_ip: None,
