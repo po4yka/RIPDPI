@@ -34,6 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.emit.outputs.matrix }}
+      run_matrix: ${{ steps.emit.outputs.run_matrix }}
+      skip_reason: ${{ steps.emit.outputs.skip_reason }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
@@ -43,15 +45,33 @@ jobs:
       - id: emit
         name: Emit GitHub matrix
         run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
+            {
+              echo 'matrix={"include":[{"id":"scheduled_lab_matrix_skip","transport":"wifi","ipFamily":"ipv4","rooted":false,"mode":"vpn","networkCondition":"baseline","executionKind":"android_packet_smoke","scenarioFilter":"none","captureMode":"auto","runnerRequired":"lab","evidenceTier":"synthetic-lab","carrierNamespace":"","defaultIncluded":false,"runsOnJson":"[\"ubuntu-latest\"]","artifactName":"phase16-scheduled-lab-matrix-skip"}]}'
+              echo "run_matrix=false"
+              echo "skip_reason=scheduled Phase 16 lab matrix requires self-hosted ripdpi-lab Android runners; use workflow_dispatch when lab runners are online"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           include_real_provider=()
           if [[ "${{ inputs.include_real_provider || false }}" == "true" ]]; then
             include_real_provider+=(--include-real-provider)
           fi
           matrix_json="$(python3 scripts/ci/phase16_matrix.py emit-github-matrix --filter "${{ inputs.matrix_filter || '' }}" "${include_real_provider[@]}")"
           echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
+          echo "run_matrix=true" >> "$GITHUB_OUTPUT"
+
+  phase16-scheduled-skip:
+    needs: define-matrix
+    if: needs.define-matrix.outputs.run_matrix != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report skipped lab matrix
+        run: echo "${{ needs.define-matrix.outputs.skip_reason }}"
 
   phase16-matrix:
     needs: define-matrix
+    if: needs.define-matrix.outputs.run_matrix == 'true'
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.define-matrix.outputs.matrix) }}
