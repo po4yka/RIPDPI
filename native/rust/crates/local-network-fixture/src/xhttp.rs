@@ -268,6 +268,18 @@ async fn proxy(mut upload: Incoming, down_tx: mpsc::Sender<Result<Bytes, io::Err
         }
     };
 
+    // XTLS Vision (and every other VLESS addon) is invalid over an HTTP/2 xHTTP
+    // tunnel; xray-core rejects a non-empty flow on a non-raw transport. The
+    // request header's addons-length byte (index 17, after version + 16-byte
+    // UUID) must therefore be zero. Fail loudly if a regression ships Vision
+    // addons over xHTTP so the cross-stack tests catch it on the wire.
+    if buf.get(17).copied().unwrap_or(0) != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("xHTTP VLESS request carried {} addon byte(s); flow must be empty over HTTP/2", buf[17]),
+        ));
+    }
+
     // 2. Connect to the proxy target, then ACK with the VLESS response header.
     let upstream = TcpStream::connect(header.target.as_str()).await?;
     down_tx
