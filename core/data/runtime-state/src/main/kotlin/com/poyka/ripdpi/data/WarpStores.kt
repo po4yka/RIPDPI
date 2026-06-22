@@ -429,6 +429,11 @@ internal class KeystoreEncryptedPreferences(
                 ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setRandomizedEncryptionRequired(true)
+                // Pin AES-256 to match the documented contract; AndroidKeyStore
+                // silently defaults AES keys to 128-bit when the size is omitted.
+                // Only affects freshly minted aliases -- an existing key is reused
+                // above, so no re-encryption / data migration is triggered.
+                .setKeySize(AesKeySizeBits)
                 .build(),
         )
         return generator.generateKey()
@@ -438,6 +443,7 @@ internal class KeystoreEncryptedPreferences(
         const val KeystoreProvider = "AndroidKeyStore"
         const val AesTransformation = "AES/GCM/NoPadding"
         const val GcmTagLengthBits = 128
+        const val AesKeySizeBits = 256
     }
 }
 
