@@ -228,9 +228,36 @@ async fn write_reply(client: &mut TcpStream, code: u8, bind_addr: SocketAddr) ->
     }
 }
 
+/// Validate that the SOCKS5 listener host is a loopback address before binding.
+///
+/// The config resolver already pins `127.0.0.1`, but the runtime is the last
+/// line of defence: a non-loopback bind would expose the in-tunnel SOCKS proxy
+/// as a routable inbound surface, contrary to RIPDPI's no-inbound posture.
+/// Fails closed -- any non-loopback or non-IP-literal host returns `Err`, so the
+/// tunnel refuses to start rather than open a routable listener.
+pub(crate) fn ensure_loopback_socks_host(host: &str) -> io::Result<()> {
+    let ip: IpAddr = host.parse().map_err(|_| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("SOCKS bind host {host:?} is not an IP literal"))
+    })?;
+    if ip.is_loopback() {
+        Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::InvalidInput, format!("refusing non-loopback SOCKS bind host {host}")))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ensure_loopback_socks_host_accepts_loopback_and_rejects_routable() {
+        assert!(ensure_loopback_socks_host("127.0.0.1").is_ok());
+        assert!(ensure_loopback_socks_host("::1").is_ok());
+        assert!(ensure_loopback_socks_host("0.0.0.0").is_err());
+        assert!(ensure_loopback_socks_host("192.0.2.10").is_err());
+        assert!(ensure_loopback_socks_host("not-an-ip").is_err());
+    }
 
     #[test]
     fn parse_socks_udp_request_extracts_ipv4_target_and_payload() {
