@@ -14,10 +14,10 @@ import org.junit.Test
 class ProxyUriCodecTest {
     @Test
     fun `parses vless reality uri into a vless-reality profile`() {
-        // security=reality (with no pbk) routes a vless URI to the REALITY variant.
+        // pbk is required since 7d78c28; security=reality without pbk is rejected.
         val uri =
             "vless://00000000-0000-0000-0000-000000000000@edge.example.com:443" +
-                "?type=tcp&security=reality#prod-node"
+                "?type=tcp&security=reality&pbk=TESTPUBLICKEY0011223344556677#prod-node"
 
         val profile = ProxyUriCodec.parse(uri)
 
@@ -27,6 +27,7 @@ class ProxyUriCodecTest {
         assertEquals(443, profile.serverPort)
         assertEquals("00000000-0000-0000-0000-000000000000", profile.uuid)
         assertEquals("prod-node", profile.displayName)
+        assertEquals("TESTPUBLICKEY0011223344556677", profile.realityPublicKey)
         // sni defaults to the host and flow to xtls-rprx-vision when omitted.
         assertEquals("edge.example.com", profile.serverName)
         assertEquals("xtls-rprx-vision", profile.flow)
