@@ -87,7 +87,7 @@ impl fmt::Debug for ProtocolModeParseError {
 
 impl fmt::Display for ProtocolModeParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("unsupported xHTTP mode; expected 'stream-up', 'stream-one', '', or 'auto'")
+        write!(f, "unsupported xHTTP mode {:?}; expected 'stream-up', 'stream-one', '', or 'auto'", self.0)
     }
 }
 

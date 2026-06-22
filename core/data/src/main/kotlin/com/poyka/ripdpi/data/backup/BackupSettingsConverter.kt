@@ -24,7 +24,9 @@ object BackupSettingsConverter {
     /**
      * Projects [settings] into the backup `settings` map for [variant].
      *
-     * SHARE exports intentionally omit settings until settings fields have their own audited allowlist. The live proto includes endpoints, LAN auth tokens, DNS URLs, and diagnostic paths, so carrying the opaque snapshot would make a SHARE backup equivalent to a FULL settings export.
+     * SHARE exports intentionally omit settings until settings fields have their own audited allowlist. The live
+     * proto includes endpoints, LAN auth tokens, DNS URLs, and diagnostic paths, so carrying the opaque snapshot
+     * would make a SHARE backup equivalent to a FULL settings export.
      */
     fun toMap(
         settings: AppSettings,
