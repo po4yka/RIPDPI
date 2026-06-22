@@ -74,7 +74,10 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiAmneziaWgNativeBindings_
     _thiz: JObject,
     handle: jlong,
 ) -> jint {
-    ffi_boundary(-1, move || lifecycle::start(handle))
+    // A contained panic maps to the documented runtime-error sentinel `2`
+    // (not an out-of-contract `-1`); see the §7 error-mapping contract above
+    // and `lifecycle::start`, which itself only ever returns 0/1/2.
+    ffi_boundary(2, move || lifecycle::start(handle))
 }
 
 #[unsafe(no_mangle)]
