@@ -1,208 +1,530 @@
+//! XTLS Vision flow-control framing for VLESS (`flow=xtls-rprx-vision`).
+//!
+//! Wraps the proxied application stream — the user's inner TLS-in-TLS — in
+//! Vision padding chunks that mirror xray-core's `XtlsPadding`/`XtlsUnpadding`
+//! (`proxy/proxy.go`), so a standard Xray VLESS+Reality server configured with
+//! `flow=xtls-rprx-vision` interoperates.
+//!
+//! ## Wire format of one padding chunk (integers big-endian)
+//!
+//! ```text
+//! [16-byte UUID]   only on the FIRST chunk written/read on a direction
+//! command (1)      0x00 Continue | 0x01 End | 0x02 Direct
+//! contentLen (u16)
+//! paddingLen (u16)
+//! content (contentLen bytes)
+//! padding (paddingLen zero bytes)
+//! ```
+//!
+//! The receiver reconstructs the byte stream purely from the `content` fields,
+//! so chunk boundaries need not align with TLS records. Padding stops once the
+//! first inner Application-Data (`0x17`) record is observed: that chunk carries
+//! `Direct` (the xtls splice signal), and the stream is raw afterwards in that
+//! direction. The two directions transition independently.
+//!
+//! ## Interop caveat
+//!
+//! Full interop confidence requires a live Vision-enforcing Xray server. Unlike
+//! xray, RIPDPI writes the VLESS request header eagerly *before* this wrapper
+//! engages, so the "hide-header" zero-content chunk is not emitted; the 16-byte
+//! UUID still prefixes the first real chunk, which is what the peer's unpadder
+//! locks onto. The pinned xray tag is recorded in `SPEC_VERSION.md`.
+
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use ring::rand::{SecureRandom, SystemRandom};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-const TLS_RECORD_HEADER_LEN: usize = 5;
+/// Vision command bytes (xray-core `proxy/proxy.go` const block). `End` (0x01)
+/// is a valid terminal command the reader handles generically, but the client
+/// never sends it — it always splices via `Direct` — so it has no named
+/// constant here.
+const CMD_CONTINUE: u8 = 0x00;
+const CMD_DIRECT: u8 = 0x02;
+
+/// TLS record content types used to find the handshake -> application-data
+/// transition that ends padding.
 const TLS_HANDSHAKE: u8 = 0x16;
 const TLS_APPLICATION_DATA: u8 = 0x17;
-const TLS_MAJOR_VERSION: u8 = 0x03;
+const TLS_RECORD_HEADER_LEN: usize = 5;
 
-/// xtls-rprx-vision flow filter.
+/// Maximum content bytes per chunk — xray's `buf.Size - 21` (8192 minus the
+/// 16-byte UUID and the 5-byte command block). Larger writes are split into
+/// multiple chunks; in practice a relay write is <= 8 KiB so this rarely trips.
+const MAX_CHUNK_CONTENT: usize = 8192 - 21;
+
+/// Stop padding a non-TLS stream after this many chunks without a ClientHello,
+/// mirroring xray's bounded TLS-detection window. A real TLS handshake flags
+/// itself on its first record, so this only trips for non-TLS traffic (which
+/// still works — it is simply sent raw after a short padded prefix).
+const NON_TLS_CHUNK_LIMIT: u32 = 4;
+
+/// Scratch size when pulling padded bytes from the inner stream.
+const READ_SCRATCH: usize = 8192;
+
+/// XTLS Vision flow-control wrapper around a VLESS-over-Reality byte stream.
 ///
-/// Monitors the write stream for the transition from inner TLS Handshake records
-/// (type 0x16) to Application Data records (type 0x17), which signals that the
-/// inner TLS handshake is complete. After that transition, switches to zero-copy
-/// pass-through mode.
+/// A single `VisionStream` is driven for both directions by the relay's
+/// `copy_bidirectional`, so it holds independent uplink (write) and downlink
+/// (read) state. With `flow=none` it is a transparent passthrough.
 pub struct VisionStream<S> {
     inner: S,
-    handshake_done: bool,
-    /// Partial TLS record header buffer (up to 5 bytes) for boundary detection.
-    header_buf: [u8; TLS_RECORD_HEADER_LEN],
-    header_buf_len: usize,
-    saw_handshake: bool,
-    /// Bytes of the current TLS record's payload still to skip from
-    /// subsequent writes. Set when a record's declared length exceeds the
-    /// bytes remaining in the current `buf`; consumed on the next call so we
-    /// don't misparse a payload byte as the next record's content type.
-    remaining_payload: usize,
+    /// `false` for `flow=none`: transparent passthrough in both directions.
+    vision: bool,
+    /// 16-byte user UUID, prefixed on the first chunk of each direction.
+    uuid: [u8; 16],
+    rng: SystemRandom,
+
+    // ---- uplink (write) ----
+    w_padding: bool,
+    w_uuid_sent: bool,
+    w_seen_handshake: bool,
+    w_chunks: u32,
+    w_rec_remaining: usize,
+    w_hdr: [u8; TLS_RECORD_HEADER_LEN],
+    w_hdr_len: usize,
+    /// Encoded-but-not-yet-flushed bytes (only used during the padded prefix).
+    w_pending: Vec<u8>,
+
+    // ---- downlink (read) ----
+    r_uuid_checked: bool,
+    r_direct: bool,
+    r_cur_cmd: u8,
+    r_rem_cmd: i32,
+    r_rem_content: i32,
+    r_rem_padding: i32,
+    /// Padded bytes read from the inner stream, awaiting unpadding.
+    r_inbuf: Vec<u8>,
+    /// De-padded payload ready to hand to the caller.
+    r_out: Vec<u8>,
 }
 
 impl<S> VisionStream<S> {
-    pub fn new(inner: S) -> Self {
+    /// Wrap `inner` with real XTLS Vision framing (`flow=xtls-rprx-vision`).
+    /// `uuid` is the binary 16-byte VLESS user id (the same bytes used in the
+    /// VLESS request header).
+    pub fn new_vision(inner: S, uuid: [u8; 16]) -> Self {
+        Self::with_mode(inner, uuid, true)
+    }
+
+    /// Wrap `inner` as a transparent passthrough (`flow=none`).
+    pub fn new_passthrough(inner: S) -> Self {
+        Self::with_mode(inner, [0u8; 16], false)
+    }
+
+    fn with_mode(inner: S, uuid: [u8; 16], vision: bool) -> Self {
         Self {
             inner,
-            handshake_done: false,
-            header_buf: [0u8; TLS_RECORD_HEADER_LEN],
-            header_buf_len: 0,
-            saw_handshake: false,
-            remaining_payload: 0,
+            vision,
+            uuid,
+            rng: SystemRandom::new(),
+            w_padding: vision,
+            w_uuid_sent: false,
+            w_seen_handshake: false,
+            w_chunks: 0,
+            w_rec_remaining: 0,
+            w_hdr: [0u8; TLS_RECORD_HEADER_LEN],
+            w_hdr_len: 0,
+            w_pending: Vec::new(),
+            r_uuid_checked: false,
+            r_direct: false,
+            r_cur_cmd: CMD_CONTINUE,
+            r_rem_cmd: -1,
+            r_rem_content: -1,
+            r_rem_padding: -1,
+            r_inbuf: Vec::new(),
+            r_out: Vec::new(),
         }
     }
 
-    /// Check a slice of data for TLS record headers.
-    /// Returns `true` if we should now switch to pass-through mode.
-    fn check_tls_records(&mut self, buf: &[u8]) -> bool {
-        let mut pos = 0;
+    /// Pick a padding length for `content_len` bytes of content, following
+    /// xray's `longPadding` heuristic. The exact value is interop-free (the
+    /// receiver reads `paddingLen` from the header), so a CSPRNG is used purely
+    /// for traffic-shape obfuscation.
+    fn pick_padding(&self, content_len: usize) -> u16 {
+        let mut bytes = [0u8; 2];
+        // A fill failure (never on supported platforms) degrades to a
+        // deterministic length rather than failing the connection.
+        let _ = self.rng.fill(&mut bytes);
+        let r = usize::from(u16::from_be_bytes(bytes));
+        let raw = if content_len < 900 { r % 500 + 900 - content_len } else { r % 256 };
+        let cap = MAX_CHUNK_CONTENT.saturating_sub(content_len);
+        u16::try_from(raw.min(cap)).unwrap_or(u16::MAX)
+    }
 
-        // Carry-over: skip any payload bytes belonging to a record whose
-        // length field declared more bytes than remained in the previous buf.
-        if self.remaining_payload > 0 {
-            let skip = self.remaining_payload.min(buf.len());
-            self.remaining_payload -= skip;
-            pos += skip;
+    /// Append one padding chunk for `content` with `cmd` to `w_pending`,
+    /// prefixing the UUID exactly once per stream.
+    fn push_chunk(&mut self, content: &[u8], cmd: u8) {
+        let uuid = if self.w_uuid_sent {
+            None
+        } else {
+            self.w_uuid_sent = true;
+            Some(self.uuid)
+        };
+        let padding = self.pick_padding(content.len());
+        encode_padding_chunk(&mut self.w_pending, uuid.as_ref(), cmd, content, padding);
+    }
+
+    /// Encode `buf` into one or more padding chunks. All but the last carry
+    /// `Continue`; the last carries `final_cmd`.
+    fn encode_outgoing(&mut self, buf: &[u8], final_cmd: u8) {
+        if buf.is_empty() {
+            self.push_chunk(&[], final_cmd);
+            return;
         }
+        let mut chunks = buf.chunks(MAX_CHUNK_CONTENT).peekable();
+        while let Some(piece) = chunks.next() {
+            let cmd = if chunks.peek().is_none() { final_cmd } else { CMD_CONTINUE };
+            self.push_chunk(piece, cmd);
+        }
+    }
 
+    /// Walk the outgoing TLS records in `buf`, tracking record boundaries across
+    /// writes. Returns `true` once the first inner application-data record
+    /// (after at least one handshake record) begins in this buffer — the signal
+    /// to stop padding.
+    fn note_records(&mut self, buf: &[u8]) -> bool {
+        let mut pos = 0;
+        let mut reached = false;
         while pos < buf.len() {
-            if self.header_buf_len < TLS_RECORD_HEADER_LEN {
-                self.header_buf[self.header_buf_len] = buf[pos];
-                self.header_buf_len += 1;
-                pos += 1;
+            if self.w_rec_remaining > 0 {
+                let skip = self.w_rec_remaining.min(buf.len() - pos);
+                self.w_rec_remaining -= skip;
+                pos += skip;
                 continue;
             }
+            while self.w_hdr_len < TLS_RECORD_HEADER_LEN && pos < buf.len() {
+                self.w_hdr[self.w_hdr_len] = buf[pos];
+                self.w_hdr_len += 1;
+                pos += 1;
+            }
+            if self.w_hdr_len < TLS_RECORD_HEADER_LEN {
+                break;
+            }
+            let record_type = self.w_hdr[0];
+            let record_len = usize::from(u16::from_be_bytes([self.w_hdr[3], self.w_hdr[4]]));
+            if record_type == TLS_APPLICATION_DATA && self.w_seen_handshake {
+                reached = true;
+            }
+            if record_type == TLS_HANDSHAKE {
+                self.w_seen_handshake = true;
+            }
+            self.w_rec_remaining = record_len;
+            self.w_hdr_len = 0;
+            if reached {
+                break;
+            }
+        }
+        reached
+    }
 
-            // Header complete — parse and act on it.
-            let content_type = self.header_buf[0];
-            let major = self.header_buf[1];
-            if major == TLS_MAJOR_VERSION {
-                if content_type == TLS_HANDSHAKE {
-                    self.saw_handshake = true;
-                    let record_len = u16::from_be_bytes([self.header_buf[3], self.header_buf[4]]) as usize;
-                    let available = buf.len() - pos;
-                    let skip = record_len.min(available);
-                    self.remaining_payload = record_len - skip;
-                    pos += skip;
-                } else if content_type == TLS_APPLICATION_DATA && self.saw_handshake {
-                    return true;
+    /// Run the XtlsUnpadding state machine over `r_inbuf`, moving de-padded
+    /// content into `r_out`. Sets `r_direct` once an End/Direct command is seen
+    /// (padding stops; the remainder is raw). Tolerant of chunk headers and
+    /// content that span multiple reads.
+    fn unpad(&mut self) {
+        if !self.r_uuid_checked {
+            if self.r_inbuf.len() < self.uuid.len() {
+                return;
+            }
+            if self.r_inbuf[..16] == self.uuid[..] {
+                self.r_uuid_checked = true;
+                self.r_inbuf.drain(..16);
+                self.r_rem_cmd = 5;
+                self.r_rem_content = -1;
+                self.r_rem_padding = -1;
+            } else {
+                // Not Vision-padded: deliver verbatim and stop parsing.
+                self.r_direct = true;
+                self.r_out.append(&mut self.r_inbuf);
+                return;
+            }
+        }
+
+        let mut i = 0usize;
+        let n = self.r_inbuf.len();
+        while i < n {
+            if self.r_rem_cmd > 0 {
+                let b = self.r_inbuf[i];
+                i += 1;
+                match self.r_rem_cmd {
+                    5 => self.r_cur_cmd = b,
+                    4 => self.r_rem_content = i32::from(b) << 8,
+                    3 => self.r_rem_content |= i32::from(b),
+                    2 => self.r_rem_padding = i32::from(b) << 8,
+                    1 => self.r_rem_padding |= i32::from(b),
+                    _ => {}
+                }
+                self.r_rem_cmd -= 1;
+            } else if self.r_rem_content > 0 {
+                let take = (n - i).min(self.r_rem_content as usize);
+                self.r_out.extend_from_slice(&self.r_inbuf[i..i + take]);
+                i += take;
+                self.r_rem_content -= take as i32;
+            } else if self.r_rem_padding > 0 {
+                let take = (n - i).min(self.r_rem_padding as usize);
+                i += take;
+                self.r_rem_padding -= take as i32;
+            }
+
+            if self.r_rem_cmd <= 0 && self.r_rem_content <= 0 && self.r_rem_padding <= 0 {
+                if self.r_cur_cmd == CMD_CONTINUE {
+                    self.r_rem_cmd = 5;
+                    self.r_rem_content = -1;
+                    self.r_rem_padding = -1;
                 } else {
-                    // Any other content type with valid major: skip its payload
-                    // like Handshake so we stay aligned to record boundaries.
-                    let record_len = u16::from_be_bytes([self.header_buf[3], self.header_buf[4]]) as usize;
-                    let available = buf.len() - pos;
-                    let skip = record_len.min(available);
-                    self.remaining_payload = record_len - skip;
-                    pos += skip;
+                    // End or Direct: padding stops, the remainder is raw.
+                    self.r_direct = true;
+                    let rest = self.r_inbuf.split_off(i);
+                    self.r_out.extend_from_slice(&rest);
+                    self.r_inbuf.clear();
+                    return;
                 }
             }
-            // Reset header buffer for next record.
-            self.header_buf_len = 0;
         }
-        false
+        self.r_inbuf.drain(..i);
     }
 }
 
+impl<S: AsyncWrite + Unpin> VisionStream<S> {
+    /// Drain `w_pending` into the inner stream. Returns `Ready(Ok(()))` only
+    /// when fully flushed; back-pressures on `Pending`.
+    fn flush_pending(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        while !self.w_pending.is_empty() {
+            match Pin::new(&mut self.inner).poll_write(cx, &self.w_pending) {
+                Poll::Ready(Ok(0)) => {
+                    return Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "vision: inner write returned 0",
+                    )));
+                }
+                Poll::Ready(Ok(n)) => {
+                    self.w_pending.drain(..n);
+                }
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Pending => return Poll::Pending,
+            }
+        }
+        Poll::Ready(Ok(()))
+    }
+}
+
+/// Encode a single Vision padding chunk into `out`. Pure (the padding length is
+/// supplied) so the wire format is golden-testable. `End` is unused by the
+/// client (which always splices via `Direct`) but kept for completeness.
+fn encode_padding_chunk(out: &mut Vec<u8>, uuid: Option<&[u8; 16]>, cmd: u8, content: &[u8], padding: u16) {
+    debug_assert!(content.len() <= usize::from(u16::MAX));
+    if let Some(uuid) = uuid {
+        out.extend_from_slice(uuid);
+    }
+    out.push(cmd);
+    out.extend_from_slice(&(content.len() as u16).to_be_bytes());
+    out.extend_from_slice(&padding.to_be_bytes());
+    out.extend_from_slice(content);
+    out.resize(out.len() + usize::from(padding), 0);
+}
+
 impl<S: AsyncRead + Unpin> AsyncRead for VisionStream<S> {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.get_mut().inner).poll_read(cx, buf)
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, read_buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        if !this.vision {
+            return Pin::new(&mut this.inner).poll_read(cx, read_buf);
+        }
+        loop {
+            if !this.r_out.is_empty() {
+                let n = this.r_out.len().min(read_buf.remaining());
+                read_buf.put_slice(&this.r_out[..n]);
+                this.r_out.drain(..n);
+                return Poll::Ready(Ok(()));
+            }
+            if this.r_direct {
+                // Padding finished: the rest of the downlink is raw.
+                return Pin::new(&mut this.inner).poll_read(cx, read_buf);
+            }
+            let mut scratch = [0u8; READ_SCRATCH];
+            let mut scratch_buf = ReadBuf::new(&mut scratch);
+            match Pin::new(&mut this.inner).poll_read(cx, &mut scratch_buf) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Ready(Ok(())) => {
+                    let filled = scratch_buf.filled();
+                    if filled.is_empty() {
+                        // Inner EOF; r_out is already drained.
+                        return Poll::Ready(Ok(()));
+                    }
+                    this.r_inbuf.extend_from_slice(filled);
+                    this.unpad();
+                }
+            }
+        }
     }
 }
 
 impl<S: AsyncWrite + Unpin> AsyncWrite for VisionStream<S> {
     fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
         let this = self.get_mut();
-
-        if !this.handshake_done && this.check_tls_records(buf) {
-            this.handshake_done = true;
-            tracing::trace!(
-                "vision: inner TLS handshake complete (Application Data detected), switching to pass-through"
-            );
+        if !this.vision {
+            return Pin::new(&mut this.inner).poll_write(cx, buf);
+        }
+        // Flush any padded prefix already encoded before accepting new input.
+        match this.flush_pending(cx) {
+            Poll::Ready(Ok(())) => {}
+            Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+            Poll::Pending => return Poll::Pending,
+        }
+        if !this.w_padding {
+            // Padding finished: the rest of the uplink is raw.
+            return Pin::new(&mut this.inner).poll_write(cx, buf);
+        }
+        if buf.is_empty() {
+            return Poll::Ready(Ok(0));
         }
 
-        Pin::new(&mut this.inner).poll_write(cx, buf)
+        this.w_chunks += 1;
+        let reached_appdata = this.note_records(buf);
+        let stop = reached_appdata || (!this.w_seen_handshake && this.w_chunks >= NON_TLS_CHUNK_LIMIT);
+        let cmd = if stop { CMD_DIRECT } else { CMD_CONTINUE };
+        this.encode_outgoing(buf, cmd);
+        if stop {
+            this.w_padding = false;
+        }
+
+        // Best-effort flush; remaining bytes stay buffered for the next poll.
+        if let Poll::Ready(Err(error)) = this.flush_pending(cx) {
+            return Poll::Ready(Err(error));
+        }
+        Poll::Ready(Ok(buf.len()))
     }
 
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.get_mut().inner).poll_flush(cx)
+        let this = self.get_mut();
+        if this.vision {
+            match this.flush_pending(cx) {
+                Poll::Ready(Ok(())) => {}
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Pending => return Poll::Pending,
+            }
+        }
+        Pin::new(&mut this.inner).poll_flush(cx)
     }
 
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.get_mut().inner).poll_shutdown(cx)
+        let this = self.get_mut();
+        if this.vision {
+            match this.flush_pending(cx) {
+                Poll::Ready(Ok(())) => {}
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Pending => return Poll::Pending,
+            }
+        }
+        Pin::new(&mut this.inner).poll_shutdown(cx)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
     use super::*;
 
-    /// Construct a single TLS record: 5-byte header + payload of zeros of declared length.
-    fn record(content_type: u8, payload_len: u16) -> Vec<u8> {
-        let mut out = vec![content_type, TLS_MAJOR_VERSION, 0x03, (payload_len >> 8) as u8, (payload_len & 0xFF) as u8];
-        out.resize(out.len() + payload_len as usize, 0u8);
-        out
-    }
+    const TEST_UUID: [u8; 16] =
+        [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10];
 
-    fn new_stream() -> VisionStream<()> {
-        VisionStream::new(())
+    #[test]
+    fn encode_padding_chunk_first_chunk_matches_golden() {
+        // Golden 1: first chunk, UUID prefixed, Continue, 5-byte content,
+        // forced paddingLen = 100 (0x0064).
+        let mut out = Vec::new();
+        let content = [0x16, 0x03, 0x01, 0x00, 0x05];
+        encode_padding_chunk(&mut out, Some(&TEST_UUID), CMD_CONTINUE, &content, 100);
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&TEST_UUID);
+        expected.extend_from_slice(&[0x00, 0x00, 0x05, 0x00, 0x64]);
+        expected.extend_from_slice(&content);
+        expected.extend(std::iter::repeat_n(0u8, 100));
+        assert_eq!(out, expected);
+        assert_eq!(out.len(), 16 + 5 + 5 + 100);
     }
 
     #[test]
-    fn handshake_then_appdata_in_one_buf_triggers_transition() {
-        let mut s = new_stream();
-        let mut buf = record(TLS_HANDSHAKE, 32);
-        buf.extend(record(TLS_APPLICATION_DATA, 8));
-        assert!(s.check_tls_records(&buf));
+    fn encode_padding_chunk_later_chunk_matches_golden() {
+        // Golden 2: later chunk (no UUID), End, 13-byte content,
+        // forced paddingLen = 30 (0x001e).
+        let mut out = Vec::new();
+        let content = [0x17, 0x03, 0x03, 0x00, 0x08, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x11, 0x22];
+        let end_command = 0x01;
+        encode_padding_chunk(&mut out, None, end_command, &content, 30);
+
+        let mut expected = vec![0x01, 0x00, 0x0d, 0x00, 0x1e];
+        expected.extend_from_slice(&content);
+        expected.extend(std::iter::repeat_n(0u8, 30));
+        assert_eq!(out, expected);
+    }
+
+    #[tokio::test]
+    async fn vision_round_trip_recovers_payload_and_switches_to_direct() {
+        // Writer pads a fake handshake record then the first application-data
+        // record (which triggers Direct), then writes raw bulk data.
+        let handshake = [TLS_HANDSHAKE, 0x03, 0x01, 0x00, 0x02, 0xaa, 0xbb];
+        let appdata = [TLS_APPLICATION_DATA, 0x03, 0x03, 0x00, 0x03, 0x01, 0x02, 0x03];
+        let bulk = b"raw bytes after the vision splice point";
+
+        let mut sink: Vec<u8> = Vec::new();
+        {
+            let mut writer = VisionStream::new_vision(&mut sink, TEST_UUID);
+            writer.write_all(&handshake).await.expect("write handshake");
+            writer.write_all(&appdata).await.expect("write appdata");
+            writer.write_all(bulk).await.expect("write bulk");
+            writer.flush().await.expect("flush");
+        }
+
+        // The padded prefix must carry the UUID and expand the byte count.
+        assert_eq!(&sink[..16], &TEST_UUID, "first chunk must be UUID-prefixed");
+        assert!(sink.len() > handshake.len() + appdata.len() + bulk.len(), "padding must expand the prefix");
+
+        let mut reader = VisionStream::new_vision(Cursor::new(sink), TEST_UUID);
+        let mut recovered = Vec::new();
+        reader.read_to_end(&mut recovered).await.expect("read");
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&handshake);
+        expected.extend_from_slice(&appdata);
+        expected.extend_from_slice(bulk);
+        assert_eq!(recovered, expected, "round-trip must recover the exact byte stream");
+        assert!(reader.r_direct, "reader must switch to direct after the appdata record");
+    }
+
+    #[tokio::test]
+    async fn passthrough_mode_is_transparent_in_both_directions() {
+        let payload = b"flow=none must not alter the byte stream at all";
+
+        let mut sink: Vec<u8> = Vec::new();
+        {
+            let mut writer = VisionStream::new_passthrough(&mut sink);
+            writer.write_all(payload).await.expect("write");
+            writer.flush().await.expect("flush");
+        }
+        assert_eq!(sink.as_slice(), payload, "passthrough writes must be byte-identical");
+
+        let mut reader = VisionStream::new_passthrough(Cursor::new(payload.to_vec()));
+        let mut recovered = Vec::new();
+        reader.read_to_end(&mut recovered).await.expect("read");
+        assert_eq!(recovered.as_slice(), payload, "passthrough reads must be byte-identical");
     }
 
     #[test]
-    fn appdata_without_prior_handshake_does_not_transition() {
-        let mut s = new_stream();
-        let buf = record(TLS_APPLICATION_DATA, 8);
-        assert!(!s.check_tls_records(&buf));
-        assert!(!s.saw_handshake);
-    }
-
-    /// Regression: a TLS handshake record whose payload spans the boundary
-    /// between two `poll_write` calls must NOT cause the parser to interpret
-    /// the middle of the payload as the next record header.
-    #[test]
-    fn handshake_payload_spanning_buffer_boundary_does_not_misparse() {
-        let mut s = new_stream();
-        let full = record(TLS_HANDSHAKE, 100);
-        // Split inside the payload: first chunk = header + 20 payload bytes,
-        // second chunk = remaining 80 payload bytes, then an AppData record.
-        let (first, rest) = full.split_at(TLS_RECORD_HEADER_LEN + 20);
-
-        assert!(!s.check_tls_records(first));
-        assert_eq!(s.remaining_payload, 80, "must carry the remaining payload across calls");
-        assert!(s.saw_handshake);
-
-        let mut second = rest.to_vec();
-        second.extend(record(TLS_APPLICATION_DATA, 16));
-        // After consuming the carried 80 bytes, the next 5 bytes should be a
-        // real AppData record header, triggering the transition.
-        assert!(s.check_tls_records(&second));
-        assert_eq!(s.remaining_payload, 0);
-    }
-
-    /// Regression: a TLS record header split across two writes must complete
-    /// from the accumulated bytes, not be misparsed.
-    #[test]
-    fn record_header_spanning_buffer_boundary_is_assembled_correctly() {
-        let mut s = new_stream();
-        let full = record(TLS_HANDSHAKE, 50);
-        // Split inside the header.
-        let (first, rest) = full.split_at(3);
-        assert!(!s.check_tls_records(first));
-        assert_eq!(s.header_buf_len, 3);
-
-        // Provide the remaining header bytes plus full payload plus AppData.
-        let mut second = rest.to_vec();
-        second.extend(record(TLS_APPLICATION_DATA, 4));
-        assert!(s.check_tls_records(&second));
-    }
-
-    /// A payload that exactly fills the buffer (no spillover) must leave
-    /// `remaining_payload == 0` and not consume bytes from the next call.
-    #[test]
-    fn payload_exactly_filling_buffer_leaves_zero_carry() {
-        let mut s = new_stream();
-        let buf = record(TLS_HANDSHAKE, 10);
-        assert!(!s.check_tls_records(&buf));
-        assert_eq!(s.remaining_payload, 0);
-
-        // Next call: a fresh AppData record should trigger the transition cleanly.
-        let buf2 = record(TLS_APPLICATION_DATA, 4);
-        assert!(s.check_tls_records(&buf2));
+    fn note_records_detects_appdata_only_after_handshake() {
+        let mut stream = VisionStream::new_vision((), TEST_UUID);
+        // Appdata before any handshake is NOT treated as the transition.
+        assert!(!stream.note_records(&[TLS_APPLICATION_DATA, 0x03, 0x03, 0x00, 0x00]));
+        // A handshake record arms detection...
+        assert!(!stream.note_records(&[TLS_HANDSHAKE, 0x03, 0x01, 0x00, 0x00]));
+        // ...so the next appdata record now trips it.
+        assert!(stream.note_records(&[TLS_APPLICATION_DATA, 0x03, 0x03, 0x00, 0x00]));
     }
 }

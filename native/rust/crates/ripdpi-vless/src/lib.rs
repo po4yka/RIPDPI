@@ -114,8 +114,18 @@ impl VlessRealityClient {
 
         tracing::debug!("VLESS handshake completed");
 
-        // Wrap in VisionStream for TLS-in-TLS detection avoidance
-        Ok(VisionStream::new(tls))
+        // Wrap for the selected flow: real XTLS Vision framing for
+        // `xtls-rprx-vision[-udp443]`, or a transparent passthrough for
+        // `flow=none`. The Vision wrapper pads the inner-TLS handshake and
+        // splices to raw afterwards, mirroring the wire format the server's
+        // `xtls-rprx-vision` reader expects (see [`crate::vision`]).
+        let stream = match config.flow {
+            crate::addons::VlessFlow::None => VisionStream::new_passthrough(tls),
+            crate::addons::VlessFlow::Vision | crate::addons::VlessFlow::VisionUdp443 => {
+                VisionStream::new_vision(tls, config.uuid)
+            }
+        };
+        Ok(stream)
     }
 }
 
