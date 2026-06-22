@@ -192,10 +192,21 @@ fn error_to_nullable_jstring(env: &mut Env<'_>, result: Result<(), String>) -> j
 fn string_array(env: &mut Env<'_>, values: &[String]) -> jni::errors::Result<jobjectArray> {
     let initial = env.new_string("")?;
     let array = JObjectArray::<JString>::new(env, values.len(), &initial)?;
-    for (index, value) in values.iter().enumerate() {
-        let string = env.new_string(value)?;
-        array.set_element(env, index, &string)?;
-    }
+    // The array itself is created in the outer frame so it survives past the
+    // inner frame pop. Each `new_string` below allocates a transient `JString`
+    // local ref that is no longer needed once `set_element` copies it into the
+    // array; without a frame these accumulate and can overflow the JNI local
+    // ReferenceTable for large `values`. Wrapping the loop in a local frame
+    // reclaims every transient ref when the frame pops. Margin of 4 over the
+    // element count for any refs the JNI calls allocate internally.
+    let capacity = values.len().saturating_add(4);
+    env.with_local_frame::<_, (), jni::errors::Error>(capacity, |env| {
+        for (index, value) in values.iter().enumerate() {
+            let string = env.new_string(value)?;
+            array.set_element(env, index, &string)?;
+        }
+        Ok(())
+    })?;
     Ok(array.into_raw())
 }
 
