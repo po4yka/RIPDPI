@@ -419,6 +419,48 @@ class UpstreamRelayRuntimeConfigResolverTest {
         }
 
     @Test
+    fun `resolve default family rejects unsupported vless reality xhttp mode`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "default",
+                                    vlessUuid = "44444444-4444-4444-4444-444444444444",
+                                ),
+                            )
+                        },
+                )
+            val unsupportedMode = "stream-down"
+
+            val error =
+                runCatching {
+                    resolver.resolve(
+                        config =
+                            RipDpiRelayConfig(
+                                enabled = true,
+                                kind = RelayKindVlessReality,
+                                profileId = "default",
+                                server = "relay.example",
+                                serverPort = 443,
+                                serverName = "relay.example",
+                                realityPublicKey = TestVlessRealityPublicKey,
+                                realityShortId = TestVlessRealityShortId,
+                                vlessTransport = RelayVlessTransportXhttp,
+                                xhttpPath = "/xhttp",
+                                xhttpMode = unsupportedMode,
+                            ),
+                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is IllegalArgumentException)
+            assertFalse(error?.message.orEmpty().contains(unsupportedMode))
+        }
+
+    @Test
     fun `resolve stored vless profile preserves explicit empty flow`() =
         runTest {
             val resolver =
@@ -506,6 +548,46 @@ class UpstreamRelayRuntimeConfigResolverTest {
             assertEquals("55555555-5555-5555-5555-555555555555", resolved.vlessUuid)
             assertEquals("", resolved.realityPublicKey)
             assertEquals("", resolved.realityShortId)
+        }
+
+    @Test
+    fun `resolve default family rejects unsupported plain vless xhttp mode`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "plain-vless",
+                                    vlessUuid = "55555555-5555-5555-5555-555555555555",
+                                ),
+                            )
+                        },
+                )
+            val unsupportedMode = "packet-up"
+
+            val error =
+                runCatching {
+                    resolver.resolve(
+                        config =
+                            RipDpiRelayConfig(
+                                enabled = true,
+                                kind = RelayKindVless,
+                                profileId = "plain-vless",
+                                server = "relay.example",
+                                serverPort = 443,
+                                serverName = "relay.example",
+                                vlessTransport = RelayVlessTransportXhttp,
+                                xhttpPath = "/xhttp",
+                                xhttpMode = unsupportedMode,
+                            ),
+                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is IllegalArgumentException)
+            assertFalse(error?.message.orEmpty().contains(unsupportedMode))
         }
 
     @Test

@@ -20,6 +20,9 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
                 realityPublicKey = profile.realityPublicKey,
                 realityShortId = profile.realityShortId,
             )
+            if (profile.xhttpPath != null || profile.xhttpHost != null) {
+                validateRelayXhttpMode(profile.xhttpMode)
+            }
             true
         }
 
@@ -72,6 +75,23 @@ fun validateVlessRealityEndpointFields(
         "VLESS Reality short ID must be hex-encoded and at most 8 bytes"
     }
 }
+
+fun validateRelayXhttpMode(value: String) {
+    require(isValidRelayXhttpMode(value)) {
+        "xHTTP mode must be 'auto', 'stream-up', 'stream-one', or empty"
+    }
+}
+
+fun isValidRelayXhttpMode(value: String): Boolean =
+    when (value.trim()) {
+        "",
+        RelayXhttpModeAuto,
+        RelayXhttpModeStreamUp,
+        RelayXhttpModeStreamOne,
+        -> true
+
+        else -> false
+    }
 
 fun isValidVlessUuid(value: String?): Boolean {
     val normalized = value?.trim()?.filterNot { it == '-' } ?: return false

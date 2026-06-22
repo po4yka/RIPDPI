@@ -16,6 +16,8 @@ import javax.inject.Singleton
 
 const val RelayVlessFlowVision = "xtls-rprx-vision"
 const val RelayXhttpModeAuto = "auto"
+const val RelayXhttpModeStreamUp = "stream-up"
+const val RelayXhttpModeStreamOne = "stream-one"
 
 @Serializable
 data class RelayProfileRecord(

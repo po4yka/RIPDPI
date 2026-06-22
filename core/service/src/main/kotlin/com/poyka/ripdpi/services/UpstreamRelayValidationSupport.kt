@@ -26,6 +26,7 @@ import com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect
 import com.poyka.ripdpi.data.StrategyFeatureNaiveProxyWatchdog
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.isValidVlessUuid
+import com.poyka.ripdpi.data.validateRelayXhttpMode
 import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
 import java.net.URI
 
@@ -347,6 +348,9 @@ private fun validateVlessRealityFeatures(config: RipDpiRelayConfig) {
         realityPublicKey = config.realityPublicKey,
         realityShortId = config.realityShortId,
     )
+    if (config.vlessTransport == RelayVlessTransportXhttp) {
+        validateRelayXhttpMode(config.xhttpMode)
+    }
 }
 
 private fun validatePlainVlessFeatures(config: RipDpiRelayConfig) {
@@ -356,6 +360,7 @@ private fun validatePlainVlessFeatures(config: RipDpiRelayConfig) {
     require(config.vlessTransport == RelayVlessTransportXhttp) {
         "VLESS native backend supports only xHTTP transport"
     }
+    validateRelayXhttpMode(config.xhttpMode)
 }
 
 private val relayPortRange = 1..65535

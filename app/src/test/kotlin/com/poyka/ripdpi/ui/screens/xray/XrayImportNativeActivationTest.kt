@@ -140,6 +140,41 @@ class XrayImportNativeActivationTest {
         }
 
     @Test
+    fun `translated vless reality xhttp with unsupported mode fails before native relay persistence`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val activator =
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+            val unsupportedMode = "packet-up"
+            val config =
+                """
+                { "outbounds": [ {
+                  "tag": "bad-xhttp-mode", "protocol": "vless",
+                  "settings": { "vnext": [ { "address": "edge.example.com", "port": 443,
+                    "users": [ { "id": "$uuid", "flow": "xtls-rprx-vision" } ] } ] },
+                  "streamSettings": { "network": "xhttp", "security": "reality",
+                    "realitySettings": { "publicKey": "$pbk", "serverName": "www.cloudflare.com", "shortId": "ab12" },
+                    "xhttpSettings": { "path": "/tunnel", "mode": "$unsupportedMode" } }
+                } ] }
+                """.trimIndent()
+
+            val error = runCatching { activator.activate(firstProfile(config)) }.exceptionOrNull()
+
+            assertTrue(error is IllegalArgumentException)
+            assertFalse(error?.message.orEmpty().contains(unsupportedMode))
+            assertEquals(0, repository.list().size)
+            assertNull(relayProfileStore.load(DefaultRelayProfileId))
+            assertNull(relayCredentialStore.load(DefaultRelayProfileId))
+            assertFalse(settingsRepository.snapshot().relayEnabled)
+        }
+
+    @Test
     fun `translated vless reality host-only xhttp config keeps xhttp transport`() =
         runTest {
             val repository = FakeProxyGroupRepository()
