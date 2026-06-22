@@ -209,4 +209,54 @@ class AmneziaWgEditorStateTest {
 
         assertEquals("keep.me", after.form.server)
     }
+
+    @Test
+    fun `a consistent identity-complete profile is activatable`() {
+        assertTrue(activatableState().isActivatable())
+    }
+
+    @Test
+    fun `an inverted junk range with junk active blocks activation`() {
+        val state =
+            activatableState()
+                .updateField(AwgEditorField.JC, "4")
+                .updateField(AwgEditorField.JMIN, "70")
+                .updateField(AwgEditorField.JMAX, "40")
+
+        assertFalse(state.obfuscationConsistent())
+        assertFalse(state.isActivatable())
+    }
+
+    @Test
+    fun `an inverted junk range is tolerated when no junk packets are emitted`() {
+        val state =
+            activatableState()
+                .updateField(AwgEditorField.JC, "0")
+                .updateField(AwgEditorField.JMIN, "70")
+                .updateField(AwgEditorField.JMAX, "40")
+
+        assertTrue(state.obfuscationConsistent())
+        assertTrue(state.isActivatable())
+    }
+
+    @Test
+    fun `a junk size above the configured MTU blocks activation`() {
+        val state =
+            activatableState()
+                .updateField(AwgEditorField.MTU, "1280")
+                .updateField(AwgEditorField.JC, "4")
+                .updateField(AwgEditorField.JMIN, "40")
+                .updateField(AwgEditorField.JMAX, "2000")
+
+        assertFalse(state.isActivatable())
+    }
+
+    private fun activatableState(): AmneziaWgEditorState =
+        AmneziaWgEditorState
+            .initial()
+            .updateField(AwgEditorField.SERVER, "vpn.example.com")
+            .updateField(AwgEditorField.SERVER_PORT, "51820")
+            .updateField(AwgEditorField.INTERFACE_PRIVATE_KEY, "privkey==")
+            .updateField(AwgEditorField.PEER_PUBLIC_KEY, "peerpub==")
+            .updateField(AwgEditorField.ADDRESS, "10.8.0.2/32")
 }

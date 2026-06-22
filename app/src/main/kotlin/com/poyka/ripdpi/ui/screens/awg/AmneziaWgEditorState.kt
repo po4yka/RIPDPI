@@ -171,7 +171,32 @@ data class AmneziaWgEditorState(
             form.serverPort > 0 &&
             form.interfacePrivateKey.isNotBlank() &&
             form.peerPublicKey.isNotBlank() &&
-            rawText(AwgEditorField.ADDRESS).isNotBlank()
+            rawText(AwgEditorField.ADDRESS).isNotBlank() &&
+            obfuscationConsistent()
+
+    /**
+     * `true` when the obfuscation knobs are mutually consistent and fit the
+     * configured MTU. A junk packet sized above the tunnel MTU (or per-message
+     * size-padding above it) fragments on the wire -- itself a DPI fingerprint
+     * that can black-hole the junk on restrictive paths -- so a degenerate
+     * `Jmin > Jmax` range or an oversized junk/padding value must block
+     * activation rather than silently ship a fragmenting profile.
+     *
+     * The `Jmin <= Jmax` and `Jmax <= MTU` relationships are gated on `Jc > 0`
+     * (no junk packets are emitted when `Jc == 0`); the `S1..S4` size-padding is
+     * always checked because it applies to every WireGuard message type.
+     */
+    fun obfuscationConsistent(): Boolean {
+        val mtu = effectiveMtu()
+        val junkActive = form.jc > 0
+        if (junkActive && form.jmin > form.jmax) return false
+        if (junkActive && form.jmax > mtu) return false
+        return form.s1 <= mtu && form.s2 <= mtu && form.s3 <= mtu && form.s4 <= mtu
+    }
+
+    /** Effective tunnel MTU, mirroring [toActivationRequest]'s fallback. */
+    private fun effectiveMtu(): Int =
+        rawText(AwgEditorField.MTU).trim().toIntOrNull()?.takeIf { it > 0 } ?: AwgActivationRequest.DEFAULT_MTU
 
     /**
      * Replaces the editor state from a pasted AmneziaWG `.conf`. Parsing reuses
