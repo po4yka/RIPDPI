@@ -2322,6 +2322,7 @@ app:import_error_missing_url
 app:import_error_unsupported
 app:import_profile_confirm_empty_body
 app:import_profile_confirm_empty_title
+app:import_profile_confirm_error
 app:import_profile_confirm_title
 app:import_profile_summary_endpoint
 app:import_profile_summary_raw

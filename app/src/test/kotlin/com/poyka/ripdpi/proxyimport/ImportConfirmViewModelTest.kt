@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.proxyimport
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
@@ -79,6 +80,45 @@ class ImportConfirmViewModelTest {
             assertEquals(1, groups.size)
             assertEquals(ProxyGroupType.BASIC, groups.single().type)
             assertTrue(viewModel.uiState.value.imported)
+        }
+
+    @Test
+    fun `confirming an invalid vless-reality profile surfaces an error instead of importing`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val profile =
+                ProxyProfile.VlessReality(
+                    id = "bad-node",
+                    displayName = "Broken",
+                    groupId = "",
+                    server = "edge.example.com",
+                    serverPort = 443,
+                    uuid = "11111111-2222-3333-4444-555555555555",
+                    // Not base64 32-byte key material -> validation fails.
+                    realityPublicKey = "tooshort",
+                    realityShortId = "",
+                    serverName = "target.example.com",
+                )
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    repository = repository,
+                    relayActivator =
+                        RelayProfileActivator(
+                            FakeRelayProfileStore(),
+                            FakeRelayCredentialStore(),
+                            FakeAppSettingsRepository(),
+                        ),
+                )
+
+            viewModel.setProfile(profile)
+            viewModel.confirm()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse("an invalid profile must not be imported", state.imported)
+            assertFalse(state.importing)
+            assertEquals(R.string.import_profile_confirm_error, state.errorRes)
+            assertTrue("no group is persisted for an invalid import", repository.list().isEmpty())
         }
 
     @Test

@@ -2905,6 +2905,7 @@ Source: %2$s</string>
     <string name="import_profile_confirm_empty_title">Nothing to import</string>
     <string name="import_profile_confirm_empty_body">This link does not contain a usable proxy profile.</string>
     <string name="import_confirm_add_action">Add</string>
+    <string name="import_profile_confirm_error">This profile could not be imported. Check that the link is complete and valid.</string>
     <string name="import_confirm_done_action">Added</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Imported configuration</string>

@@ -2701,6 +2701,7 @@ fakeddisorder endhost</string>
     <string name="import_profile_confirm_empty_title">لا شيء للاستيراد</string>
     <string name="import_profile_confirm_empty_body">هذا الرابط لا يحتوي على ملف بروكسي صالح للاستخدام.</string>
     <string name="import_confirm_add_action">إضافة</string>
+    <string name="import_profile_confirm_error">تعذّر استيراد هذا الملف الشخصي. تأكد من أن الرابط كامل وصالح.</string>
     <string name="import_confirm_done_action">تمت الإضافة</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">إعداد مستورَد</string>

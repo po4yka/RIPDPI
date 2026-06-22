@@ -2745,6 +2745,7 @@ fake_burst 3</string>
     <string name="import_profile_confirm_empty_title">无可导入内容</string>
     <string name="import_profile_confirm_empty_body">此链接不包含可用的代理配置文件。</string>
     <string name="import_confirm_add_action">添加</string>
+    <string name="import_profile_confirm_error">无法导入此配置文件。请检查链接是否完整且有效。</string>
     <string name="import_confirm_done_action">已添加</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">已导入的配置</string>

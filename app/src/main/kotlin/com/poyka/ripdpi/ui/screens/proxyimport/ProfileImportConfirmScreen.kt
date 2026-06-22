@@ -88,6 +88,11 @@ internal fun ProfileImportConfirmScreen(
                 supporting = profileSummary(profile),
             )
         }
+        uiState.errorRes?.let { errorRes ->
+            RipDpiCard {
+                RipDpiPanelHeader(title = stringResource(errorRes))
+            }
+        }
         RipDpiButton(
             text =
                 if (uiState.imported) {

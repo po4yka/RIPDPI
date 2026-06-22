@@ -2749,6 +2749,7 @@ Origen: %2$s</string>
     <string name="import_profile_confirm_empty_title">Nada que importar</string>
     <string name="import_profile_confirm_empty_body">Este enlace no contiene un perfil de proxy utilizable.</string>
     <string name="import_confirm_add_action">Añadir</string>
+    <string name="import_profile_confirm_error">No se pudo importar este perfil. Comprueba que el enlace esté completo y sea válido.</string>
     <string name="import_confirm_done_action">Añadido</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Configuración importada</string>

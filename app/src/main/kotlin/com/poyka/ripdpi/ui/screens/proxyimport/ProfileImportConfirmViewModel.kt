@@ -1,12 +1,14 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.validateNativeRelayProfile
+import com.poyka.ripdpi.data.validateNativeRelayProfileResult
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +24,8 @@ data class ProfileImportConfirmUiState(
     val profile: ProxyProfile? = null,
     val importing: Boolean = false,
     val imported: Boolean = false,
+    /** String resource to show when validation/activation failed; `null` when there is no error. */
+    @StringRes val errorRes: Int? = null,
 )
 
 /**
@@ -58,27 +62,34 @@ class ProfileImportConfirmViewModel
         fun confirm() {
             val profile = _uiState.value.profile ?: return
             if (_uiState.value.importing || _uiState.value.imported) return
-            _uiState.update { it.copy(importing = true) }
+            _uiState.update { it.copy(importing = true, errorRes = null) }
             viewModelScope.launch {
-                try {
-                    validateNativeRelayProfile(profile)
-                    val groupId = UUID.randomUUID().toString()
-                    repository.add(
-                        ProxyGroup(
-                            id = groupId,
-                            name = profile.displayName,
-                            type = ProxyGroupType.BASIC,
-                            order = nextOrder(),
-                            isSelector = false,
-                            subscription = null,
-                        ),
+                // Validation throws IllegalArgumentException on invalid field
+                // material; persistence/activation can also throw. Capture both as
+                // a Result so the failure surfaces in the UI instead of escaping
+                // the coroutine as an uncaught crash. mapCatching is inline, so the
+                // suspend persistence calls run inside this coroutine context.
+                val result =
+                    validateNativeRelayProfileResult(profile).mapCatching {
+                        repository.add(
+                            ProxyGroup(
+                                id = UUID.randomUUID().toString(),
+                                name = profile.displayName,
+                                type = ProxyGroupType.BASIC,
+                                order = nextOrder(),
+                                isSelector = false,
+                                subscription = null,
+                            ),
+                        )
+                        relayActivator.activate(profile)
+                    }
+                _uiState.update {
+                    result.fold(
+                        onSuccess = { _ -> it.copy(importing = false, imported = true) },
+                        onFailure = { _ ->
+                            it.copy(importing = false, errorRes = R.string.import_profile_confirm_error)
+                        },
                     )
-                    relayActivator.activate(profile)
-                    _uiState.update { it.copy(imported = true) }
-                } finally {
-                    // Reset the in-flight flag even if persistence/activation
-                    // throws so the import action can be retried.
-                    _uiState.update { it.copy(importing = false) }
                 }
             }
         }

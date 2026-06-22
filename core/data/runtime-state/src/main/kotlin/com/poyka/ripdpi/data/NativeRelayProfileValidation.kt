@@ -40,6 +40,18 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
         }
     }
 
+/**
+ * Non-throwing variant of [validateNativeRelayProfile] for UI callers that must
+ * surface an invalid import instead of crashing.
+ *
+ * [validateNativeRelayProfile] signals invalid field material by throwing
+ * `IllegalArgumentException` (via `require`), which a coroutine caller cannot
+ * branch on without a try/catch. This wraps it in a [Result] so the caller can
+ * `fold` over success (carrying the is-native-relay boolean) versus failure.
+ */
+fun validateNativeRelayProfileResult(profile: ProxyProfile): Result<Boolean> =
+    runCatching { validateNativeRelayProfile(profile) }
+
 fun validateVlessRealityProfileFields(
     server: String,
     serverPort: Int,

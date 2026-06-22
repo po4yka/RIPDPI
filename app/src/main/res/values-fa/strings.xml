@@ -2754,6 +2754,7 @@ fakeddisorder endhost</string>
     <string name="import_profile_confirm_empty_title">چیزی برای درون‌ریزی نیست</string>
     <string name="import_profile_confirm_empty_body">این پیوند شامل نمایهٔ پراکسی قابل‌استفاده‌ای نیست.</string>
     <string name="import_confirm_add_action">افزودن</string>
+    <string name="import_profile_confirm_error">این نمایه وارد نشد. بررسی کنید که پیوند کامل و معتبر باشد.</string>
     <string name="import_confirm_done_action">افزوده شد</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">پیکربندی درون‌ریزی‌شده</string>
