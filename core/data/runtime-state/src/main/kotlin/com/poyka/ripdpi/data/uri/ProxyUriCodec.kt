@@ -367,7 +367,8 @@ object ProxyUriCodec {
         if (atIndex <= 0) return null
         val userInfoRaw = core.substring(0, atIndex)
         val hostPort = core.substring(atIndex + 1).substringBefore('?').substringBefore('/')
-        val (host, port) = splitHostPort(hostPort) ?: return null
+        val (rawHost, port) = splitHostPort(hostPort) ?: return null
+        val host = unbracketIpv6(rawHost)
 
         val userInfo =
             if (userInfoRaw.contains(':')) {

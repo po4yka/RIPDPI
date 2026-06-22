@@ -92,4 +92,31 @@ class ProxyUriCodecTest {
         // Exercises the shared userInfoUri encode path (Vless / Trojan / Hysteria2).
         assertTrue(ProxyUriCodec.encode(profile).contains("@[2001:db8::1]:443"))
     }
+
+    @Test
+    fun `shadowsocks ipv6 host debrackets on import and round-trips`() {
+        // Shadowsocks parses its host via splitHostPort, not URI.getHost, so it
+        // needs the same unbracketing as the URI.getHost parsers.
+        val original =
+            ProxyProfile.Shadowsocks(
+                id = "ss",
+                displayName = "ss v6",
+                groupId = "",
+                server = "2001:db8::1",
+                serverPort = 8388,
+                method = "aes-256-gcm",
+                password = "fixture-password",
+            )
+
+        val encoded = ProxyUriCodec.encode(original)
+        assertTrue(encoded.contains("@[2001:db8::1]:8388"))
+
+        val reparsed = ProxyUriCodec.parse(encoded)
+        assertTrue(reparsed is ProxyProfile.Shadowsocks)
+        reparsed as ProxyProfile.Shadowsocks
+        assertEquals("2001:db8::1", reparsed.server)
+        assertEquals(8388, reparsed.serverPort)
+        assertEquals("aes-256-gcm", reparsed.method)
+        assertEquals("fixture-password", reparsed.password)
+    }
 }
