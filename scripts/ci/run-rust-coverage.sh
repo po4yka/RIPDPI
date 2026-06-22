@@ -54,6 +54,7 @@ SKIP_PATTERNS=(
 COVERAGE_ONLY_SKIP_PATTERNS=(
     --skip 'runtime::udp::tests::udp_upstream_poll_returns_only_ready_flow_keys'
     --skip 'tests::monitor_session_full_matrix_strategy_probe_reports_audit_assessment'
+    --skip 'quic_handshake_and_echo_round_trip_through_socks5_udp_relay'
 )
 
 # Nightly coverage includes ignored tests for additional low-cost coverage, but
