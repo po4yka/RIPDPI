@@ -42,7 +42,7 @@ internal object VpnNativeProtectRegistration {
 
     @Synchronized
     fun register(service: VpnService) {
-        if (proxyToken != 0L || relayToken != 0L || warpToken != 0L || awgToken != 0L) {
+        if ((proxyToken or relayToken or warpToken or awgToken) != 0L) {
             // Double-registration guard: unregister stale tokens before registering anew.
             proxyUnregister(proxyToken)
             relayUnregister(relayToken)
