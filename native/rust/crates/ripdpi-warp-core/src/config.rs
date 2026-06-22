@@ -15,7 +15,11 @@ pub struct ResolvedWarpRuntimeEndpoint {
     pub source: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+/// `Debug` is implemented manually to redact the WireGuard `private_key`
+/// and the WARP `access_token`. A derived `Debug` would expose them to any
+/// `tracing::debug!(?config)` call or panic message that prints the runtime
+/// config. Public keys are not secrets and stay visible.
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedWarpRuntimeConfig {
     pub enabled: bool,
@@ -44,6 +48,37 @@ pub struct ResolvedWarpRuntimeConfig {
     pub mtu: i32,
 }
 
+impl std::fmt::Debug for ResolvedWarpRuntimeConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ResolvedWarpRuntimeConfig")
+            .field("enabled", &self.enabled)
+            .field("profile_id", &self.profile_id)
+            .field("account_kind", &self.account_kind)
+            .field("device_id", &self.device_id)
+            .field("access_token", &"<redacted>")
+            .field("client_id", &self.client_id)
+            .field("private_key", &"<redacted>")
+            .field("public_key", &self.public_key)
+            .field("peer_public_key", &self.peer_public_key)
+            .field("interface_address_v4", &self.interface_address_v4)
+            .field("interface_address_v6", &self.interface_address_v6)
+            .field("endpoint", &self.endpoint)
+            .field("route_mode", &self.route_mode)
+            .field("route_hosts", &self.route_hosts)
+            .field("built_in_rules_enabled", &self.built_in_rules_enabled)
+            .field("endpoint_selection_mode", &self.endpoint_selection_mode)
+            .field("manual_endpoint", &self.manual_endpoint)
+            .field("scanner_enabled", &self.scanner_enabled)
+            .field("scanner_parallelism", &self.scanner_parallelism)
+            .field("scanner_max_rtt_ms", &self.scanner_max_rtt_ms)
+            .field("amnezia", &self.amnezia)
+            .field("local_socks_host", &self.local_socks_host)
+            .field("local_socks_port", &self.local_socks_port)
+            .field("mtu", &self.mtu)
+            .finish()
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct WarpManualEndpoint {
@@ -61,7 +96,12 @@ fn default_warp_persistent_keepalive() -> u16 {
     WARP_DEFAULT_PERSISTENT_KEEPALIVE
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+/// `Debug` is implemented manually to redact the WireGuard `preshared_key`.
+/// A derived `Debug` would expose it to any `tracing::debug!(?config)` call
+/// or panic message that prints the AmneziaWG config. The `i1..i5` special-junk
+/// frames and the junk-shaping knobs are obfuscation parameters, not secrets,
+/// and stay visible.
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WarpAmneziaConfig {
     pub enabled: bool,
@@ -96,6 +136,32 @@ pub struct WarpAmneziaConfig {
     /// to WARP's historical 25s pin when omitted from the config JSON.
     #[serde(default = "default_warp_persistent_keepalive")]
     pub persistent_keepalive: u16,
+}
+
+impl std::fmt::Debug for WarpAmneziaConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WarpAmneziaConfig")
+            .field("enabled", &self.enabled)
+            .field("jc", &self.jc)
+            .field("jmin", &self.jmin)
+            .field("jmax", &self.jmax)
+            .field("h1", &self.h1)
+            .field("h2", &self.h2)
+            .field("h3", &self.h3)
+            .field("h4", &self.h4)
+            .field("s1", &self.s1)
+            .field("s2", &self.s2)
+            .field("s3", &self.s3)
+            .field("s4", &self.s4)
+            .field("i1", &self.i1)
+            .field("i2", &self.i2)
+            .field("i3", &self.i3)
+            .field("i4", &self.i4)
+            .field("i5", &self.i5)
+            .field("preshared_key", &"<redacted>")
+            .field("persistent_keepalive", &self.persistent_keepalive)
+            .finish()
+    }
 }
 
 impl Default for WarpAmneziaConfig {
@@ -145,7 +211,11 @@ impl WarpAmneziaConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+/// `Debug` is implemented manually to redact the WireGuard `private_key`.
+/// A derived `Debug` would expose it to any `tracing::debug!(?request)` call
+/// or panic message that prints the probe request. The peer public key is not
+/// a secret and stays visible.
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WarpEndpointProbeRequest {
     pub endpoint: ResolvedWarpRuntimeEndpoint,
@@ -155,6 +225,19 @@ pub struct WarpEndpointProbeRequest {
     #[serde(default)]
     pub amnezia: WarpAmneziaConfig,
     pub timeout_ms: u64,
+}
+
+impl std::fmt::Debug for WarpEndpointProbeRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WarpEndpointProbeRequest")
+            .field("endpoint", &self.endpoint)
+            .field("private_key", &"<redacted>")
+            .field("peer_public_key", &self.peer_public_key)
+            .field("client_id", &self.client_id)
+            .field("amnezia", &self.amnezia)
+            .field("timeout_ms", &self.timeout_ms)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -306,5 +389,105 @@ mod tests {
         let again: WarpAmneziaConfig = serde_json::from_str(&json).expect("reparse");
         assert_eq!(again.preshared_key, "abc123");
         assert_eq!(again.persistent_keepalive, 0);
+    }
+
+    // --- credential redaction in Debug ---
+    //
+    // A derived `Debug` on the credential-bearing config structs would echo the
+    // WireGuard `private_key` / `preshared_key` and the WARP `access_token` to
+    // any `tracing::debug!(?config)` call or panic message (logcat). The manual
+    // `Debug` impls render those fields as "<redacted>". These tests fail if the
+    // manual impl is removed (e.g. replaced with `#[derive(Debug)]`).
+
+    const SECRET_PRIVATE_KEY: &str = "wg-private-key-do-not-log-fixture";
+    const SECRET_PRESHARED_KEY: &str = "wg-preshared-key-do-not-log-fixture";
+    const SECRET_ACCESS_TOKEN: &str = "warp-access-token-do-not-log-fixture";
+
+    fn sample_amnezia() -> WarpAmneziaConfig {
+        WarpAmneziaConfig { enabled: true, preshared_key: SECRET_PRESHARED_KEY.to_owned(), ..Default::default() }
+    }
+
+    fn sample_runtime_config() -> ResolvedWarpRuntimeConfig {
+        ResolvedWarpRuntimeConfig {
+            enabled: true,
+            profile_id: "profile-1".to_owned(),
+            account_kind: "free".to_owned(),
+            device_id: "device-1".to_owned(),
+            access_token: SECRET_ACCESS_TOKEN.to_owned(),
+            client_id: Some("client-1".to_owned()),
+            private_key: SECRET_PRIVATE_KEY.to_owned(),
+            public_key: "wg-public-key".to_owned(),
+            peer_public_key: "wg-peer-public-key".to_owned(),
+            interface_address_v4: Some("172.16.0.2/32".to_owned()),
+            interface_address_v6: None,
+            endpoint: endpoint("engage.cloudflareclient.com", Some("162.159.192.1"), None, 2408),
+            route_mode: "all".to_owned(),
+            route_hosts: String::new(),
+            built_in_rules_enabled: true,
+            endpoint_selection_mode: "auto".to_owned(),
+            manual_endpoint: WarpManualEndpoint::default(),
+            scanner_enabled: false,
+            scanner_parallelism: 1,
+            scanner_max_rtt_ms: 1_000,
+            amnezia: sample_amnezia(),
+            local_socks_host: "127.0.0.1".to_owned(),
+            local_socks_port: 1080,
+            mtu: 1280,
+        }
+    }
+
+    fn sample_probe_request() -> WarpEndpointProbeRequest {
+        WarpEndpointProbeRequest {
+            endpoint: endpoint("engage.cloudflareclient.com", Some("162.159.192.1"), None, 2408),
+            private_key: SECRET_PRIVATE_KEY.to_owned(),
+            peer_public_key: "wg-peer-public-key".to_owned(),
+            client_id: Some("client-1".to_owned()),
+            amnezia: sample_amnezia(),
+            timeout_ms: 5_000,
+        }
+    }
+
+    #[test]
+    fn redacted_debug_omits_runtime_config_secrets() {
+        let cfg = sample_runtime_config();
+        // Both the `Debug`-trait render and the `{:?}` format macro must redact.
+        let via_debug = format!("{:?}", &cfg as &dyn std::fmt::Debug);
+        let via_macro = format!("{cfg:?}");
+        for dbg in [&via_debug, &via_macro] {
+            assert!(!dbg.contains(SECRET_PRIVATE_KEY), "Debug exposes private_key: {dbg}");
+            assert!(!dbg.contains(SECRET_ACCESS_TOKEN), "Debug exposes access_token: {dbg}");
+            assert!(!dbg.contains(SECRET_PRESHARED_KEY), "Debug exposes preshared_key: {dbg}");
+            assert!(dbg.contains("<redacted>"), "redaction marker should be present: {dbg}");
+            // Non-secret fields stay visible.
+            assert!(dbg.contains("profile-1"), "profile_id should remain visible: {dbg}");
+            assert!(dbg.contains("wg-public-key"), "public_key should remain visible: {dbg}");
+        }
+    }
+
+    #[test]
+    fn redacted_debug_omits_amnezia_preshared_key() {
+        let cfg = sample_amnezia();
+        let via_debug = format!("{:?}", &cfg as &dyn std::fmt::Debug);
+        let via_macro = format!("{cfg:?}");
+        for dbg in [&via_debug, &via_macro] {
+            assert!(!dbg.contains(SECRET_PRESHARED_KEY), "Debug exposes preshared_key: {dbg}");
+            assert!(dbg.contains("<redacted>"), "redaction marker should be present: {dbg}");
+            // The junk-shaping knobs are not secrets and stay visible.
+            assert!(dbg.contains("enabled: true"), "enabled should remain visible: {dbg}");
+        }
+    }
+
+    #[test]
+    fn redacted_debug_omits_probe_request_private_key() {
+        let cfg = sample_probe_request();
+        let via_debug = format!("{:?}", &cfg as &dyn std::fmt::Debug);
+        let via_macro = format!("{cfg:?}");
+        for dbg in [&via_debug, &via_macro] {
+            assert!(!dbg.contains(SECRET_PRIVATE_KEY), "Debug exposes private_key: {dbg}");
+            // The nested amnezia config's PSK must also stay redacted.
+            assert!(!dbg.contains(SECRET_PRESHARED_KEY), "Debug exposes nested preshared_key: {dbg}");
+            assert!(dbg.contains("<redacted>"), "redaction marker should be present: {dbg}");
+            assert!(dbg.contains("wg-peer-public-key"), "peer_public_key should remain visible: {dbg}");
+        }
     }
 }
