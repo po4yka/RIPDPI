@@ -177,12 +177,13 @@ class XrayConfigImportParserTest {
                 "users": [ { "id": "$uuid" } ] } ] },
               "streamSettings": { "network": "xhttp", "security": "reality",
                 "realitySettings": { "publicKey": "$pbk", "serverName": "cdn.example.com" },
-                "xhttpSettings": { "path": "/tunnel", "host": "cdn.example.com", "mode": "auto" } }
+                "xhttpSettings": { "path": "/tunnel", "host": "cdn.example.com", "mode": "stream-one" } }
             } ] }
             """.trimIndent()
         val profile = translate(config).profiles.single() as ProxyProfile.VlessReality
         assertEquals("/tunnel", profile.xhttpPath)
         assertEquals("cdn.example.com", profile.xhttpHost)
+        assertEquals("stream-one", profile.xhttpMode)
     }
 
     @Test

@@ -19,6 +19,7 @@ mod ssh;
 mod tor;
 mod trojan;
 mod tuic;
+mod vless;
 mod vless_reality;
 
 pub(crate) use anytls::build as build_anytls;
@@ -34,4 +35,5 @@ pub(crate) use ssh::build as build_ssh;
 pub(crate) use tor::build as build_tor;
 pub(crate) use trojan::build as build_trojan;
 pub(crate) use tuic::build as build_tuic;
+pub(crate) use vless::build as build_vless;
 pub(crate) use vless_reality::build as build_vless_reality;

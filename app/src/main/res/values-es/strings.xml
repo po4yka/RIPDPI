@@ -580,6 +580,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_relay_section">Relay</string>
     <string name="config_relay_udp">Habilitar relay UDP</string>
     <string name="config_relay_xhttp_host">Reemplazo de host xHTTP</string>
+    <string name="config_relay_xhttp_mode">Modo xHTTP</string>
     <string name="config_tls_record_marker_helper">Acepta desplazamientos como 0, host, sniext, extlen o host+1.</string>
     <string name="config_vpn_credentials_required">Requiere credenciales</string>
     <string name="config_vpn_relay_server_summary">Endpoint del servidor remoto usado por el perfil de relay</string>

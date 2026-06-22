@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.subscription.XrayConfigImportParser
 import com.poyka.ripdpi.data.subscription.XrayConfigImportResult
 import com.poyka.ripdpi.data.xray.DefaultXrayProfileId
@@ -54,7 +55,7 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore as DurableXrayProvi
 @OptIn(ExperimentalCoroutinesApi::class)
 class XrayImportNativeActivationTest {
     private val uuid = "550e8400-e29b-41d4-a716-446655440000"
-    private val pbk = "AbCdEf0123456789AbCdEf0123456789AbCdEf01234"
+    private val pbk = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="
 
     private fun firstProfile(input: String): ProxyProfile {
         val result = XrayConfigImportParser.parse(input, groupId = "xray-import")
@@ -102,6 +103,115 @@ class XrayImportNativeActivationTest {
             assertEquals(uuid, credentials?.vlessUuid)
             assertEquals(1, repository.list().size)
             assertEquals(ProxyGroupType.BASIC, repository.list().single().type)
+        }
+
+    @Test
+    fun `malformed translated vless reality config fails before native relay persistence`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val activator =
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+            val malformedPublicKey = "not-a-valid-reality-public-key"
+            val config =
+                """
+                { "outbounds": [ {
+                  "tag": "bad-reality", "protocol": "vless",
+                  "settings": { "vnext": [ { "address": "edge.example.com", "port": 443,
+                    "users": [ { "id": "$uuid", "flow": "xtls-rprx-vision" } ] } ] },
+                  "streamSettings": { "network": "tcp", "security": "reality",
+                    "realitySettings": { "publicKey": "$malformedPublicKey", "serverName": "www.cloudflare.com", "shortId": "ab12" } }
+                } ] }
+                """.trimIndent()
+
+            val error = runCatching { activator.activate(firstProfile(config)) }.exceptionOrNull()
+
+            assertTrue(error is IllegalArgumentException)
+            assertFalse(error?.message.orEmpty().contains(malformedPublicKey))
+            assertEquals(0, repository.list().size)
+            assertNull(relayProfileStore.load(DefaultRelayProfileId))
+            assertNull(relayCredentialStore.load(DefaultRelayProfileId))
+            assertFalse(settingsRepository.snapshot().relayEnabled)
+        }
+
+    @Test
+    fun `translated vless reality xhttp with unsupported mode fails before native relay persistence`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val activator =
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+            val unsupportedMode = "packet-up"
+            val config =
+                """
+                { "outbounds": [ {
+                  "tag": "bad-xhttp-mode", "protocol": "vless",
+                  "settings": { "vnext": [ { "address": "edge.example.com", "port": 443,
+                    "users": [ { "id": "$uuid", "flow": "xtls-rprx-vision" } ] } ] },
+                  "streamSettings": { "network": "xhttp", "security": "reality",
+                    "realitySettings": { "publicKey": "$pbk", "serverName": "www.cloudflare.com", "shortId": "ab12" },
+                    "xhttpSettings": { "path": "/tunnel", "mode": "$unsupportedMode" } }
+                } ] }
+                """.trimIndent()
+
+            val error = runCatching { activator.activate(firstProfile(config)) }.exceptionOrNull()
+
+            assertTrue(error is IllegalArgumentException)
+            assertFalse(error?.message.orEmpty().contains(unsupportedMode))
+            assertEquals(0, repository.list().size)
+            assertNull(relayProfileStore.load(DefaultRelayProfileId))
+            assertNull(relayCredentialStore.load(DefaultRelayProfileId))
+            assertFalse(settingsRepository.snapshot().relayEnabled)
+        }
+
+    @Test
+    fun `translated vless reality host-only xhttp config keeps xhttp transport`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val activator =
+                NativeRelayProfileActivator(
+                    repository,
+                    RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+
+            val config =
+                """
+                { "outbounds": [ {
+                  "tag": "host-only-xhttp", "protocol": "vless",
+                  "settings": { "vnext": [ { "address": "edge.example.com", "port": 443,
+                    "users": [ { "id": "$uuid", "flow": "xtls-rprx-vision" } ] } ] },
+                  "streamSettings": { "network": "xhttp", "security": "reality",
+                    "realitySettings": { "publicKey": "$pbk", "serverName": "www.cloudflare.com", "shortId": "ab12" },
+                    "xhttpSettings": { "host": "carrier.example.com" } }
+                } ] }
+                """.trimIndent()
+
+            activator.activate(firstProfile(config))
+
+            val settings = settingsRepository.snapshot()
+            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
+            assertTrue(settings.relayEnabled)
+            assertEquals(RelayKindVlessReality, settings.relayKind)
+            assertEquals(RelayVlessTransportXhttp, settings.relayVlessTransport)
+            assertEquals("", settings.relayXhttpPath)
+            assertEquals("carrier.example.com", settings.relayXhttpHost)
+            assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
+            assertEquals("", relayProfile?.xhttpPath)
+            assertEquals("carrier.example.com", relayProfile?.xhttpHost)
+            assertEquals(uuid, relayCredentialStore.load(DefaultRelayProfileId)?.vlessUuid)
         }
 
     @Test

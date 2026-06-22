@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTuicV5
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
@@ -24,8 +25,10 @@ import com.poyka.ripdpi.data.StrategyFeatureFinalmask
 import com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect
 import com.poyka.ripdpi.data.StrategyFeatureNaiveProxyWatchdog
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.isValidVlessUuid
+import com.poyka.ripdpi.data.validateRelayXhttpMode
+import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
 import java.net.URI
-import java.util.Base64
 
 internal fun validateCloudflareTunnelCredentials(
     profileId: String,
@@ -41,7 +44,9 @@ internal fun validateDefaultRelayCredentials(
 ) {
     val hasRequiredCredentials =
         when (relayKind) {
-            RelayKindVlessReality -> {
+            RelayKindVless,
+            RelayKindVlessReality,
+            -> {
                 isValidVlessUuid(credentials?.vlessUuid)
             }
 
@@ -199,8 +204,9 @@ internal fun validateDefaultRelayFeatures(
         require(config.server.isNotBlank()) { "AnyTLS requires a server hostname" }
         require(config.serverName.isNotBlank()) { "AnyTLS requires a TLS server name" }
     }
-    if (config.kind == RelayKindVlessReality) {
-        validateVlessRealityFeatures(config)
+    when (config.kind) {
+        RelayKindVless -> validatePlainVlessFeatures(config)
+        RelayKindVlessReality -> validateVlessRealityFeatures(config)
     }
 }
 
@@ -335,62 +341,26 @@ private fun requireRelayCredentials(
 }
 
 private fun validateVlessRealityFeatures(config: RipDpiRelayConfig) {
-    validateVlessRealityFields(
+    validateVlessRealityEndpointFields(
         server = config.server,
         serverPort = config.serverPort,
         serverName = config.serverName,
         realityPublicKey = config.realityPublicKey,
         realityShortId = config.realityShortId,
     )
-}
-
-internal fun validateVlessRealityFields(
-    server: String,
-    serverPort: Int,
-    serverName: String,
-    realityPublicKey: String,
-    realityShortId: String,
-) {
-    require(server.isNotBlank()) { "VLESS Reality requires a server hostname" }
-    require(serverPort in relayPortRange) { "VLESS Reality requires a valid server port" }
-    require(serverName.isNotBlank()) { "VLESS Reality requires a TLS server name" }
-    require(isValidRealityPublicKey(realityPublicKey)) {
-        "VLESS Reality public key must be base64-encoded 32-byte X25519 key material"
-    }
-    require(isValidRealityShortId(realityShortId)) {
-        "VLESS Reality short ID must be hex-encoded and at most 8 bytes"
+    if (config.vlessTransport == RelayVlessTransportXhttp) {
+        validateRelayXhttpMode(config.xhttpMode)
     }
 }
 
-internal fun isValidVlessUuid(value: String?): Boolean {
-    val normalized = value?.trim()?.filterNot { it == '-' } ?: return false
-    return normalized.length == VlessUuidHexLength && normalized.all(Char::isHexDigit)
-}
-
-private fun isValidRealityPublicKey(value: String): Boolean {
-    val trimmed = value.trim()
-    if (trimmed.isEmpty()) {
-        return false
+private fun validatePlainVlessFeatures(config: RipDpiRelayConfig) {
+    require(config.server.isNotBlank()) { "VLESS requires a server hostname" }
+    require(config.serverPort in relayPortRange) { "VLESS requires a valid server port" }
+    require(config.serverName.isNotBlank()) { "VLESS requires a TLS server name" }
+    require(config.vlessTransport == RelayVlessTransportXhttp) {
+        "VLESS native backend supports only xHTTP transport"
     }
-    return runCatching { Base64.getDecoder().decode(trimmed) }
-        .getOrNull()
-        ?.size == RealityPublicKeyByteLength
+    validateRelayXhttpMode(config.xhttpMode)
 }
-
-private fun isValidRealityShortId(value: String): Boolean {
-    val trimmed = value.trim()
-    if (trimmed.isEmpty()) {
-        return true
-    }
-    return trimmed.length <= RealityShortIdMaxHexLength &&
-        trimmed.length % 2 == 0 &&
-        trimmed.all(Char::isHexDigit)
-}
-
-private fun Char.isHexDigit(): Boolean = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
 
 private val relayPortRange = 1..65535
-
-private const val VlessUuidHexLength = 32
-private const val RealityPublicKeyByteLength = 32
-private const val RealityShortIdMaxHexLength = 16

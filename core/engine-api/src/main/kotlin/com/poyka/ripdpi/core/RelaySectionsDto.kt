@@ -30,9 +30,11 @@ data class RelayCommonSection(
 data class RelayVlessSection(
     val realityPublicKey: String,
     val realityShortId: String,
+    val vlessFlow: String,
     val vlessTransport: String,
     val xhttpPath: String,
     val xhttpHost: String,
+    val xhttpMode: String,
     val vlessUuid: String?,
 )
 
@@ -85,6 +87,8 @@ private val EmptyChainHopRef =
         serverName = "",
         publicKey = "",
         shortId = "",
+        flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
+        xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
         profileId = "",
         uuid = null,
     )

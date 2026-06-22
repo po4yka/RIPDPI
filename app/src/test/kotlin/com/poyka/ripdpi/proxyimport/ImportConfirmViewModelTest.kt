@@ -217,10 +217,10 @@ class ImportConfirmViewModelTest {
                     server = "edge.example.com",
                     serverPort = 443,
                     uuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                    realityPublicKey = "PUBLICKEY1234567890abcdefghijklmn",
+                    realityPublicKey = ValidRealityPublicKey,
                     realityShortId = "abcd1234",
                     serverName = "target.example.com",
-                    flow = "xtls-rprx-vision",
+                    flow = "xtls-rprx-vision-udp443",
                     fingerprint = "chrome",
                     xhttpPath = null,
                     xhttpHost = null,
@@ -245,7 +245,7 @@ class ImportConfirmViewModelTest {
             assertEquals("edge.example.com", settings.relayServer)
             assertEquals(443, settings.relayServerPort)
             assertEquals("target.example.com", settings.relayServerName)
-            assertEquals("PUBLICKEY1234567890abcdefghijklmn", settings.relayRealityPublicKey)
+            assertEquals(ValidRealityPublicKey, settings.relayRealityPublicKey)
             assertEquals("abcd1234", settings.relayRealityShortId)
             assertEquals(RelayVlessTransportRealityTcp, settings.relayVlessTransport)
             assertFalse(settings.relayUdpEnabled)
@@ -253,7 +253,7 @@ class ImportConfirmViewModelTest {
             assertEquals("edge.example.com", relayProfile?.server)
             assertEquals(443, relayProfile?.serverPort)
             assertEquals("target.example.com", relayProfile?.serverName)
-            assertEquals("PUBLICKEY1234567890abcdefghijklmn", relayProfile?.realityPublicKey)
+            assertEquals(ValidRealityPublicKey, relayProfile?.realityPublicKey)
             assertEquals("abcd1234", relayProfile?.realityShortId)
             assertEquals(RelayVlessTransportRealityTcp, relayProfile?.vlessTransport)
             assertFalse(relayProfile?.udpEnabled ?: true)
@@ -275,13 +275,14 @@ class ImportConfirmViewModelTest {
                     server = "cdn.example.com",
                     serverPort = 443,
                     uuid = "dddddddd-dddd-dddd-dddd-dddddddddddd",
-                    realityPublicKey = "XHTTPKEY1234567890abcdefghijklmn",
+                    realityPublicKey = ValidRealityPublicKey,
                     realityShortId = "cafe0001",
                     serverName = "cdn.example.com",
-                    flow = "xtls-rprx-vision",
+                    flow = "xtls-rprx-vision-udp443",
                     fingerprint = null,
                     xhttpPath = "/tunnel",
                     xhttpHost = "cdn.example.com",
+                    xhttpMode = "stream-one",
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
@@ -302,15 +303,68 @@ class ImportConfirmViewModelTest {
             assertEquals(RelayVlessTransportXhttp, settings.relayVlessTransport)
             assertEquals("/tunnel", settings.relayXhttpPath)
             assertEquals("cdn.example.com", settings.relayXhttpHost)
-            assertEquals("XHTTPKEY1234567890abcdefghijklmn", settings.relayRealityPublicKey)
+            assertEquals(ValidRealityPublicKey, settings.relayRealityPublicKey)
             assertEquals("cafe0001", settings.relayRealityShortId)
             assertFalse(settings.relayUdpEnabled)
             assertEquals(RelayKindVlessReality, relayProfile?.kind)
+            assertEquals("xtls-rprx-vision-udp443", relayProfile?.vlessFlow)
             assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
             assertEquals("/tunnel", relayProfile?.xhttpPath)
             assertEquals("cdn.example.com", relayProfile?.xhttpHost)
+            assertEquals("stream-one", relayProfile?.xhttpMode)
             assertFalse(relayProfile?.udpEnabled ?: true)
             assertEquals("dddddddd-dddd-dddd-dddd-dddddddddddd", relayCredentials?.vlessUuid)
+        }
+
+    @Test
+    fun `confirming a vless-reality profile import with host-only xhttp keeps xhttp transport`() =
+        runTest {
+            val repository = FakeProxyGroupRepository()
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val profile =
+                ProxyProfile.VlessReality(
+                    id = "xhttp-host-node",
+                    displayName = "Reality xHTTP host",
+                    groupId = "",
+                    server = "edge.example.com",
+                    serverPort = 443,
+                    uuid = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+                    realityPublicKey = ValidRealityPublicKey,
+                    realityShortId = "cafe0002",
+                    serverName = "decoy.example.com",
+                    flow = "xtls-rprx-vision",
+                    fingerprint = null,
+                    xhttpPath = null,
+                    xhttpHost = "carrier.example.com",
+                )
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    repository = repository,
+                    relayActivator =
+                        RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository),
+                )
+
+            viewModel.setProfile(profile)
+            viewModel.confirm()
+            advanceUntilIdle()
+
+            val settings = settingsRepository.snapshot()
+            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
+            assertEquals(RelayKindVlessReality, settings.relayKind)
+            assertTrue(settings.relayEnabled)
+            assertEquals(RelayVlessTransportXhttp, settings.relayVlessTransport)
+            assertEquals("", settings.relayXhttpPath)
+            assertEquals("carrier.example.com", settings.relayXhttpHost)
+            assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
+            assertEquals("", relayProfile?.xhttpPath)
+            assertEquals("carrier.example.com", relayProfile?.xhttpHost)
+            assertFalse(relayProfile?.udpEnabled ?: true)
+            assertEquals(
+                "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+                relayCredentialStore.load(DefaultRelayProfileId)?.vlessUuid,
+            )
         }
 
     @Test
@@ -533,3 +587,5 @@ private class FakeAppSettingsRepository : AppSettingsRepository {
 
 private fun relayImportCredentialFixture(label: String): String =
     listOf("relay", "import", "credential", label).joinToString("-")
+
+private const val ValidRealityPublicKey = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="

@@ -14,6 +14,11 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
+const val RelayVlessFlowVision = "xtls-rprx-vision"
+const val RelayXhttpModeAuto = "auto"
+const val RelayXhttpModeStreamUp = "stream-up"
+const val RelayXhttpModeStreamOne = "stream-one"
+
 @Serializable
 data class RelayProfileRecord(
     val id: String = DefaultRelayProfileId,
@@ -28,9 +33,11 @@ data class RelayProfileRecord(
     val securityLayer: String = RelaySecurityLayerReality,
     val realityPublicKey: String = "",
     val realityShortId: String = "",
+    val vlessFlow: String = RelayVlessFlowVision,
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
+    val xhttpMode: String = RelayXhttpModeAuto,
     val cloudflareTunnelMode: String = RelayCloudflareTunnelModeConsumeExisting,
     val cloudflarePublishLocalOriginUrl: String = "",
     val cloudflareCredentialsRef: String = "",

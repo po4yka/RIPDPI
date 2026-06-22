@@ -355,6 +355,7 @@ message AppSettings {
   string relay_vless_transport = 258; // "reality_tcp" | "xhttp"
   string relay_xhttp_path = 259;
   string relay_xhttp_host = 260;
+  string relay_xhttp_mode = 334; // "auto" | "stream-up" | "stream-one"
   // Mieru outbound non-credential config; the username and password are
   // credentials stored in the secure store. Endpoint comes from the common
   // relay_server / relay_server_port.

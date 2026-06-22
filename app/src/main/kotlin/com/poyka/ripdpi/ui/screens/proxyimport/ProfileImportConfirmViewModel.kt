@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.validateNativeRelayProfile
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,6 +61,7 @@ class ProfileImportConfirmViewModel
             _uiState.update { it.copy(importing = true) }
             viewModelScope.launch {
                 try {
+                    validateNativeRelayProfile(profile)
                     val groupId = UUID.randomUUID().toString()
                     repository.add(
                         ProxyGroup(

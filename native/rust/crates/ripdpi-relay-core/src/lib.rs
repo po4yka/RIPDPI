@@ -23,6 +23,7 @@ pub use config::{
     RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
     ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, SshRelayConfig, TorPluggableTransportConfig,
     TorRelayConfig, TrojanRelayConfig, TuicRelayConfig, UnsupportedRelayConfig, VlessRealityRelayConfig,
+    VlessRelayConfig,
 };
 pub use runtime::RelayRuntime;
 pub use telemetry::{RelayTelemetry, TcpConnectObservation};

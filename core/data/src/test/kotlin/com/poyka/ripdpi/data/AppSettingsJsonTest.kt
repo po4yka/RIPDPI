@@ -143,6 +143,7 @@ class AppSettingsJsonTest {
                 .setRelayVlessTransport(RelayVlessTransportXhttp)
                 .setRelayXhttpPath("/xhttp")
                 .setRelayXhttpHost("origin.example.test")
+                .setRelayXhttpMode(RelayXhttpModeStreamOne)
                 .setRelayCloudflareTunnelMode(RelayCloudflareTunnelModePublishLocalOrigin)
                 .setRelayCloudflarePublishLocalOriginUrl("http://127.0.0.1:8080")
                 .setRelayCloudflareCredentialsRef("cf-credentials")

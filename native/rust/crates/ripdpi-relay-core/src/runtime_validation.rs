@@ -58,10 +58,11 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
         RelayKind::Hysteria2 | RelayKind::TuicV5 | RelayKind::Masque | RelayKind::AnyTls => {
             RelayPoolConfig { max_active_leases: 64, idle_timeout: Duration::from_secs(45) }
         }
-        RelayKind::CloudflareTunnel | RelayKind::VlessReality { xhttp: true } => {
+        RelayKind::CloudflareTunnel | RelayKind::Vless { xhttp: true } | RelayKind::VlessReality { xhttp: true } => {
             RelayPoolConfig { max_active_leases: 48, idle_timeout: Duration::from_secs(20) }
         }
-        RelayKind::VlessReality { xhttp: false }
+        RelayKind::Vless { xhttp: false }
+        | RelayKind::VlessReality { xhttp: false }
         | RelayKind::Mieru
         | RelayKind::Ssh
         | RelayKind::ChainRelay
@@ -82,7 +83,7 @@ pub(crate) fn describe_upstream(config: &ResolvedRelayRuntimeConfig) -> String {
             }
             _ => format!("{}:{}", config.common.server, config.common.server_port),
         },
-        RelayKind::VlessReality { xhttp: true } => {
+        RelayKind::Vless { xhttp: true } | RelayKind::VlessReality { xhttp: true } => {
             format!("{}:{}{}", config.common.server, config.common.server_port, normalized_xhttp_path(config))
         }
         RelayKind::CloudflareTunnel => {

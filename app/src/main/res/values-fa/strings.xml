@@ -691,6 +691,7 @@
     <string name="config_relay_finalmask_noise_help">Send one random byte prelude from the configured range before the real payload.</string>
     <string name="config_relay_xhttp_path">مسیر xHTTP</string>
     <string name="config_relay_xhttp_host">جایگزینی میزبان xHTTP</string>
+    <string name="config_relay_xhttp_mode">حالت xHTTP</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>
     <string name="config_relay_hysteria_password">رمز عبور Hysteria</string>
     <string name="config_relay_naive_username">نام کاربری NaiveProxy</string>

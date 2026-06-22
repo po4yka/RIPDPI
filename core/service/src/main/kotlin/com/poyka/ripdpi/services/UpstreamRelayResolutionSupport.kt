@@ -29,8 +29,10 @@ import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.detectRelayChainTrustWarning
 import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
+import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.toRelayTrustDomain
+import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
 
 internal data class ResolvedChainRelayHop(
     val profileId: String,
@@ -158,7 +160,9 @@ internal suspend fun resolveShadowTlsInnerConfigSupport(
                 serverName = innerProfile.serverName,
                 realityPublicKey = innerProfile.realityPublicKey,
                 realityShortId = innerProfile.realityShortId,
+                vlessFlow = innerProfile.vlessFlow,
                 vlessTransport = innerProfile.vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
+                xhttpMode = innerProfile.xhttpMode.ifBlank { com.poyka.ripdpi.data.RelayXhttpModeAuto },
                 vlessUuid = innerCredentials.vlessUuid,
             )
         }
@@ -221,7 +225,7 @@ private suspend fun resolveChainRelayHopSupport(
     }
     val checkedLegacyUuid = legacyUuid.orEmpty()
     require(isValidVlessUuid(checkedLegacyUuid)) { "Relay credentials missing for chain relay $hopName" }
-    validateVlessRealityFields(
+    validateVlessRealityEndpointFields(
         server = legacyServer,
         serverPort = legacyServerPort,
         serverName = legacyServerName,
@@ -245,7 +249,9 @@ private suspend fun resolveChainRelayHopSupport(
                 serverName = legacyServerName,
                 realityPublicKey = legacyPublicKey,
                 realityShortId = legacyShortId,
+                vlessFlow = com.poyka.ripdpi.data.RelayVlessFlowVision,
                 vlessTransport = RelayVlessTransportRealityTcp,
+                xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
                 vlessUuid = checkedLegacyUuid,
             ),
     )
@@ -333,9 +339,11 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
         serverName = serverName,
         realityPublicKey = realityPublicKey,
         realityShortId = realityShortId,
+        vlessFlow = vlessFlow,
         vlessTransport = vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
         xhttpPath = xhttpPath,
         xhttpHost = xhttpHost,
+        xhttpMode = xhttpMode.ifBlank { com.poyka.ripdpi.data.RelayXhttpModeAuto },
         cloudflareTunnelMode = cloudflareTunnelMode,
         cloudflarePublishLocalOriginUrl = cloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef = cloudflareCredentialsRef,
@@ -383,7 +391,7 @@ private fun validateChainHopCredentials(hop: ResolvedChainRelayHopConfig) {
     when (hop.kind) {
         RelayKindVlessReality -> {
             require(isValidVlessUuid(hop.vlessUuid)) { "Relay credentials missing for profile ${hop.profileId}" }
-            validateVlessRealityFields(
+            validateVlessRealityEndpointFields(
                 server = hop.server,
                 serverPort = hop.serverPort,
                 serverName = hop.serverName,

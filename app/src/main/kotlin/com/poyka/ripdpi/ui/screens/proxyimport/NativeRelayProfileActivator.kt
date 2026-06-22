@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.validateNativeRelayProfile
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import java.util.UUID
 import javax.inject.Inject
@@ -47,6 +48,7 @@ class NativeRelayProfileActivator
          * until the group, stores, and settings have been written.
          */
         suspend fun activate(profile: ProxyProfile) {
+            validateNativeRelayProfile(profile)
             val groupId = UUID.randomUUID().toString()
             repository.add(
                 ProxyGroup(

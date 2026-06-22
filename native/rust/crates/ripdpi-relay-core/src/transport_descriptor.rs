@@ -117,6 +117,18 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
     },
     RelayTransportRegistration {
         descriptor: RelayTransportDescriptor {
+            kind_id: "vless",
+            label: "VLESS",
+            tcp: true,
+            udp: false,
+            reusable: true,
+            supports_outbound_bind_ip: true,
+        },
+        builder: Some(builders::build_vless),
+        fallback_mode: None,
+    },
+    RelayTransportRegistration {
+        descriptor: RelayTransportDescriptor {
             kind_id: "vless_reality",
             label: "VLESS Reality",
             tcp: true,

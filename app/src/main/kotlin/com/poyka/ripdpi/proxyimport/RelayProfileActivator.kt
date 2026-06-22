@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.validateNativeRelayProfile
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -48,11 +49,24 @@ class RelayProfileActivator
             profile: ProxyProfile,
             profileId: String = DefaultRelayProfileId,
         ): Boolean {
-            val relayKind = relayKindFor(profile) ?: return false
+            val relayKind = relayKindFor(profile)
+            return if (relayKind == null || !validateNativeRelayProfile(profile)) {
+                false
+            } else {
+                persistRelayActivation(profile = profile, profileId = profileId, relayKind = relayKind)
+                true
+            }
+        }
+
+        private suspend fun persistRelayActivation(
+            profile: ProxyProfile,
+            profileId: String,
+            relayKind: String,
+        ) {
             val endpoint = relayEndpoint(profile)
             val udpEnabled = relayUdpEnabled(profile)
             val vlessTransport =
-                if (profile is ProxyProfile.VlessReality && profile.xhttpPath != null) {
+                if (profile is ProxyProfile.VlessReality && profile.hasXhttpTransport()) {
                     RelayVlessTransportXhttp
                 } else {
                     RelayVlessTransportRealityTcp
@@ -66,9 +80,21 @@ class RelayProfileActivator
                     serverName = endpoint.serverName,
                     realityPublicKey = if (profile is ProxyProfile.VlessReality) profile.realityPublicKey else "",
                     realityShortId = if (profile is ProxyProfile.VlessReality) profile.realityShortId else "",
+                    vlessFlow =
+                        if (profile is ProxyProfile.VlessReality) {
+                            profile.flow
+                        } else {
+                            com.poyka.ripdpi.data.RelayVlessFlowVision
+                        },
                     vlessTransport = vlessTransport,
                     xhttpPath = if (profile is ProxyProfile.VlessReality) profile.xhttpPath.orEmpty() else "",
                     xhttpHost = if (profile is ProxyProfile.VlessReality) profile.xhttpHost.orEmpty() else "",
+                    xhttpMode =
+                        if (profile is ProxyProfile.VlessReality) {
+                            profile.xhttpMode
+                        } else {
+                            com.poyka.ripdpi.data.RelayXhttpModeAuto
+                        },
                     sshAuthType = if (profile is ProxyProfile.Ssh) profile.authType else RelaySshAuthTypePassword,
                     sshHostKeyFingerprint =
                         if (profile is ProxyProfile.Ssh) profile.hostKeyFingerprint.orEmpty() else "",
@@ -103,7 +129,6 @@ class RelayProfileActivator
                     else -> {}
                 }
             }
-            return true
         }
 
         /** Relay-kind id for a relay-activatable [profile], or `null` for non-relay kinds. */
@@ -117,6 +142,8 @@ class RelayProfileActivator
                 is ProxyProfile.Ssh -> RelayKindSsh
                 else -> null
             }
+
+        private fun ProxyProfile.VlessReality.hasXhttpTransport(): Boolean = xhttpPath != null || xhttpHost != null
 
         private fun relayUdpEnabled(profile: ProxyProfile): Boolean =
             when (profile) {

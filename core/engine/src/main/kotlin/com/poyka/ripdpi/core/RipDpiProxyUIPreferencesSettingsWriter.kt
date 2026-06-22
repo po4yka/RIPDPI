@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.entropyModeToProto
 import com.poyka.ripdpi.data.normalizeFakeTlsSource
 import com.poyka.ripdpi.data.normalizeIpIdMode
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
+import com.poyka.ripdpi.data.normalizeRelayXhttpMode
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
@@ -147,42 +148,44 @@ private fun AppSettings.Builder.applyQuicAndHostPreferences(preferences: RipDpiP
 }
 
 private fun AppSettings.Builder.applyRelayPreferences(preferences: RipDpiProxyUIPreferences) {
-    val relay = preferences.relay
-    setRelayEnabled(relay.enabled)
-    setRelayKind(relay.kind)
-    setRelayProfileId(relay.profileId)
-    setRelayOutboundBindIp(relay.outboundBindIp)
-    setRelayServer(relay.server)
-    setRelayServerPort(relay.serverPort)
-    setRelayServerName(relay.serverName)
-    setRelayRealityPublicKey(relay.realityPublicKey)
-    setRelayRealityShortId(relay.realityShortId)
-    setRelayVlessTransport(normalizeRelayVlessTransport(relay.vlessTransport, relay.kind))
-    setRelayXhttpPath(relay.xhttpPath)
-    setRelayXhttpHost(relay.xhttpHost)
-    setRelayChainEntryServer("")
-    setRelayChainEntryPort(DefaultChainHopPort)
-    setRelayChainEntryServerName("")
-    setRelayChainEntryPublicKey("")
-    setRelayChainEntryShortId("")
-    setRelayChainEntryProfileId(if (relay.kind == "chain_relay") relay.chainEntryProfileId else "")
-    setRelayChainExitServer("")
-    setRelayChainExitPort(DefaultChainHopPort)
-    setRelayChainExitServerName("")
-    setRelayChainExitPublicKey("")
-    setRelayChainExitShortId("")
-    setRelayChainExitProfileId(if (relay.kind == "chain_relay") relay.chainExitProfileId else "")
-    clearRelayChainMiddleProfileIds()
-    if (relay.kind == "chain_relay") {
-        addAllRelayChainMiddleProfileIds(relay.chainMiddleProfileIds)
+    with(preferences.relay) {
+        setRelayEnabled(enabled)
+        setRelayKind(kind)
+        setRelayProfileId(profileId)
+        setRelayOutboundBindIp(outboundBindIp)
+        setRelayServer(server)
+        setRelayServerPort(serverPort)
+        setRelayServerName(serverName)
+        setRelayRealityPublicKey(realityPublicKey)
+        setRelayRealityShortId(realityShortId)
+        setRelayVlessTransport(normalizeRelayVlessTransport(vlessTransport, kind))
+        setRelayXhttpPath(xhttpPath)
+        setRelayXhttpHost(xhttpHost)
+        setRelayXhttpMode(normalizeRelayXhttpMode(xhttpMode))
+        setRelayChainEntryServer("")
+        setRelayChainEntryPort(DefaultChainHopPort)
+        setRelayChainEntryServerName("")
+        setRelayChainEntryPublicKey("")
+        setRelayChainEntryShortId("")
+        setRelayChainEntryProfileId(if (kind == "chain_relay") chainEntryProfileId else "")
+        setRelayChainExitServer("")
+        setRelayChainExitPort(DefaultChainHopPort)
+        setRelayChainExitServerName("")
+        setRelayChainExitPublicKey("")
+        setRelayChainExitShortId("")
+        setRelayChainExitProfileId(if (kind == "chain_relay") chainExitProfileId else "")
+        clearRelayChainMiddleProfileIds()
+        if (kind == "chain_relay") {
+            addAllRelayChainMiddleProfileIds(chainMiddleProfileIds)
+        }
+        setRelayMasqueUrl(masqueUrl)
+        setRelayMasqueUseHttp2Fallback(masqueUseHttp2Fallback)
+        setRelayMasqueCloudflareGeohashEnabled(masqueCloudflareGeohashEnabled)
+        setRelayLocalSocksHost(localSocksHost)
+        setRelayLocalSocksPort(localSocksPort)
+        setRelayUdpEnabled(udpEnabled)
+        setRelayTcpFallbackEnabled(tcpFallbackEnabled)
     }
-    setRelayMasqueUrl(relay.masqueUrl)
-    setRelayMasqueUseHttp2Fallback(relay.masqueUseHttp2Fallback)
-    setRelayMasqueCloudflareGeohashEnabled(relay.masqueCloudflareGeohashEnabled)
-    setRelayLocalSocksHost(relay.localSocksHost)
-    setRelayLocalSocksPort(relay.localSocksPort)
-    setRelayUdpEnabled(relay.udpEnabled)
-    setRelayTcpFallbackEnabled(relay.tcpFallbackEnabled)
 }
 
 private fun AppSettings.Builder.applyWarpPreferences(preferences: RipDpiProxyUIPreferences) {

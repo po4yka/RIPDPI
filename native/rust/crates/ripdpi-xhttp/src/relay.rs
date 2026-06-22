@@ -8,6 +8,7 @@ use hyper::StatusCode;
 use rand::{Rng, RngExt};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
 use tokio::sync::{OwnedSemaphorePermit, mpsc};
+use tokio::task::JoinHandle;
 
 use ripdpi_vless::addons::VlessFlow;
 
@@ -161,14 +162,16 @@ impl PooledConnection {
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
-        spawn_upload_pump(transport_upload, outgoing_tx);
-        spawn_download_pump(get_response.into_body(), transport_download, "xHTTP GET stream failed");
+        let mut open_tasks = OpenStreamTaskGuard::new();
+        open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
+        open_tasks.push(spawn_download_pump(get_response.into_body(), transport_download, "xHTTP GET stream failed"));
 
         let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target);
         user_upload.write_all(&request).await?;
 
         let mut stream = XhttpStream { reader: user_download, writer: user_upload, _permit: permit };
         ripdpi_vless::wire::read_response(&mut stream).await?;
+        open_tasks.disarm();
         Ok(stream)
     }
 
@@ -207,19 +210,57 @@ impl PooledConnection {
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
-        spawn_upload_pump(transport_upload, outgoing_tx);
-        spawn_download_pump(post_response.into_body(), transport_download, "xHTTP stream-one body failed");
+        let mut open_tasks = OpenStreamTaskGuard::new();
+        open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
+        open_tasks.push(spawn_download_pump(
+            post_response.into_body(),
+            transport_download,
+            "xHTTP stream-one body failed",
+        ));
 
         let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target);
         user_upload.write_all(&request).await?;
 
         let mut stream = XhttpStream { reader: user_download, writer: user_upload, _permit: permit };
         ripdpi_vless::wire::read_response(&mut stream).await?;
+        open_tasks.disarm();
         Ok(stream)
     }
 }
 
-fn spawn_upload_pump(mut transport_upload: DuplexStream, outgoing_tx: mpsc::Sender<io::Result<Bytes>>) {
+struct OpenStreamTaskGuard {
+    handles: Vec<JoinHandle<()>>,
+    abort_on_drop: bool,
+}
+
+impl OpenStreamTaskGuard {
+    fn new() -> Self {
+        Self { handles: Vec::new(), abort_on_drop: true }
+    }
+
+    fn push(&mut self, handle: JoinHandle<()>) {
+        self.handles.push(handle);
+    }
+
+    fn disarm(mut self) {
+        self.abort_on_drop = false;
+    }
+}
+
+impl Drop for OpenStreamTaskGuard {
+    fn drop(&mut self) {
+        if self.abort_on_drop {
+            for handle in &self.handles {
+                handle.abort();
+            }
+        }
+    }
+}
+
+fn spawn_upload_pump(
+    mut transport_upload: DuplexStream,
+    outgoing_tx: mpsc::Sender<io::Result<Bytes>>,
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut buffer = vec![0u8; BODY_CHUNK_SIZE];
         loop {
@@ -236,10 +277,14 @@ fn spawn_upload_pump(mut transport_upload: DuplexStream, outgoing_tx: mpsc::Send
                 }
             }
         }
-    });
+    })
 }
 
-fn spawn_download_pump<B>(mut body: B, mut transport_download: DuplexStream, error_label: &'static str)
+fn spawn_download_pump<B>(
+    mut body: B,
+    mut transport_download: DuplexStream,
+    error_label: &'static str,
+) -> JoinHandle<()>
 where
     B: hyper::body::Body<Data = Bytes> + Send + Unpin + 'static,
     B::Error: std::fmt::Display + Send,
@@ -260,7 +305,7 @@ where
             }
         }
         let _ = transport_download.shutdown().await;
-    });
+    })
 }
 
 pub(crate) fn random_padding_value() -> String {
@@ -308,4 +353,66 @@ pub(crate) fn referer_padding(host: &str, path: &str) -> String {
 fn random_session_id() -> String {
     let mut rng = rand::rng();
     format!("{:016x}{:016x}", rng.random::<u64>(), rng.random::<u64>())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future;
+    use std::time::Duration;
+
+    use tokio::sync::oneshot;
+
+    use super::OpenStreamTaskGuard;
+
+    struct DropSignal(Option<oneshot::Sender<()>>);
+
+    impl Drop for DropSignal {
+        fn drop(&mut self) {
+            if let Some(sender) = self.0.take() {
+                let _ = sender.send(());
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn open_stream_task_guard_aborts_pumps_when_stream_open_is_cancelled() {
+        let (started_tx, started_rx) = oneshot::channel();
+        let (dropped_tx, dropped_rx) = oneshot::channel();
+        let handle = tokio::spawn(async move {
+            let _drop_signal = DropSignal(Some(dropped_tx));
+            let _ = started_tx.send(());
+            future::pending::<()>().await;
+        });
+        let mut guard = OpenStreamTaskGuard::new();
+        guard.push(handle);
+        started_rx.await.expect("pump task started");
+
+        drop(guard);
+
+        tokio::time::timeout(Duration::from_secs(1), dropped_rx)
+            .await
+            .expect("cancelled stream open must abort owned xHTTP pump tasks")
+            .expect("pump task drop signal");
+    }
+
+    #[tokio::test]
+    async fn open_stream_task_guard_detaches_pumps_after_stream_is_returned() {
+        let (started_tx, started_rx) = oneshot::channel();
+        let (dropped_tx, dropped_rx) = oneshot::channel();
+        let handle = tokio::spawn(async move {
+            let _drop_signal = DropSignal(Some(dropped_tx));
+            let _ = started_tx.send(());
+            future::pending::<()>().await;
+        });
+        let mut guard = OpenStreamTaskGuard::new();
+        guard.push(handle);
+        started_rx.await.expect("pump task started");
+
+        guard.disarm();
+
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), dropped_rx).await.is_err(),
+            "returned xHTTP streams keep their pump tasks alive until stream halves close",
+        );
+    }
 }

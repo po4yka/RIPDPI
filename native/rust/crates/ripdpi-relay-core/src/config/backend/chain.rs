@@ -123,6 +123,10 @@ fn default_chain_hop_vless_transport() -> String {
     "reality_tcp".to_string()
 }
 
+fn default_chain_hop_xhttp_mode() -> String {
+    "auto".to_string()
+}
+
 fn default_chain_hop_cloudflare_tunnel_mode() -> String {
     "consume_existing".to_string()
 }
@@ -162,6 +166,8 @@ pub struct ResolvedChainRelayHopConfig {
     pub xhttp_path: String,
     #[serde(default)]
     pub xhttp_host: String,
+    #[serde(default = "default_chain_hop_xhttp_mode")]
+    pub xhttp_mode: String,
     #[serde(default = "default_chain_hop_cloudflare_tunnel_mode")]
     pub cloudflare_tunnel_mode: String,
     #[serde(default)]
@@ -249,6 +255,7 @@ impl Default for ResolvedChainRelayHopConfig {
             vless_transport: default_chain_hop_vless_transport(),
             xhttp_path: String::new(),
             xhttp_host: String::new(),
+            xhttp_mode: default_chain_hop_xhttp_mode(),
             cloudflare_tunnel_mode: default_chain_hop_cloudflare_tunnel_mode(),
             cloudflare_publish_local_origin_url: String::new(),
             cloudflare_credentials_ref: String::new(),

@@ -249,9 +249,11 @@ private class ResolvedRelayConfigBuilder(
         RelayVlessSection(
             realityPublicKey = effectiveConfig.realityPublicKey,
             realityShortId = effectiveConfig.realityShortId,
+            vlessFlow = effectiveConfig.vlessFlow,
             vlessTransport = effectiveConfig.vlessTransport,
             xhttpPath = effectiveConfig.xhttpPath,
             xhttpHost = effectiveConfig.xhttpHost,
+            xhttpMode = effectiveConfig.xhttpMode,
             vlessUuid = credentials?.vlessUuid,
         )
 
@@ -275,6 +277,8 @@ private class ResolvedRelayConfigBuilder(
                 serverName = hop.serverName,
                 publicKey = hop.publicKey,
                 shortId = hop.shortId,
+                flow = hop.config.vlessFlow,
+                xhttpMode = hop.config.xhttpMode,
                 profileId = hop.profileId,
                 uuid = hop.uuid.ifBlank { null },
             )
@@ -289,6 +293,8 @@ private class ResolvedRelayConfigBuilder(
                 serverName = effectiveConfig.chainEntryServerName,
                 publicKey = effectiveConfig.chainEntryPublicKey,
                 shortId = effectiveConfig.chainEntryShortId,
+                flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
+                xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
                 profileId = effectiveConfig.chainEntryProfileId,
                 uuid = credentials?.chainEntryUuid,
             ),
@@ -299,6 +305,8 @@ private class ResolvedRelayConfigBuilder(
                 serverName = effectiveConfig.chainExitServerName,
                 publicKey = effectiveConfig.chainExitPublicKey,
                 shortId = effectiveConfig.chainExitShortId,
+                flow = com.poyka.ripdpi.data.RelayVlessFlowVision,
+                xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
                 profileId = effectiveConfig.chainExitProfileId,
                 uuid = credentials?.chainExitUuid,
             ),

@@ -1,7 +1,7 @@
 use std::io;
 
 use crate::backend::builder::BuildContext;
-use crate::backend::builder::builders::common::{finalmask_config, vless_reality_config};
+use crate::backend::builder::builders::common::{finalmask_config, invalid_input, vless_reality_config};
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
 use crate::protocols::{VlessRealitySessionFactory, XhttpSessionFactory, XhttpSessionMode};
@@ -35,6 +35,7 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
                     &config.common.server_name,
                     &vless.reality_public_key,
                     &vless.reality_short_id,
+                    &vless.vless_flow,
                     &config.common.tls_fingerprint_profile,
                 )?,
                 path: vless.xhttp_path.clone(),
@@ -43,7 +44,7 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
                 socket_protector: context.socket_protector.clone(),
                 xmux: ripdpi_xhttp::XmuxConfig::default(),
                 finalmask: finalmask_config(&config.common.finalmask),
-                protocol_mode: ripdpi_xhttp::XhttpProtocolMode::default(),
+                protocol_mode: ripdpi_xhttp::XhttpProtocolMode::parse(&vless.xhttp_mode).map_err(invalid_input)?,
             }),
         },
         context.pool_config,
@@ -64,6 +65,7 @@ fn build_reality(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) ->
                 &config.common.server_name,
                 &vless.reality_public_key,
                 &vless.reality_short_id,
+                &vless.vless_flow,
                 &config.common.tls_fingerprint_profile,
             )?,
             outbound_bind_ip: context.outbound_bind_ip,

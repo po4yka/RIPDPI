@@ -165,15 +165,15 @@ object BackupAllowlist {
                 "server" to Classification.REDACTED,
                 "serverPort" to Classification.REDACTED,
                 "uuid" to Classification.REDACTED,
-                // REALITY keys are not endpoint coordinates, but the host/SNI and
-                // XHTTP carrier route identify the relay and must not survive SHARE.
-                "realityPublicKey" to Classification.PUBLIC,
-                "realityShortId" to Classification.PUBLIC,
+                // REALITY key material and carrier route identify the relay and must not survive SHARE.
+                "realityPublicKey" to Classification.REDACTED,
+                "realityShortId" to Classification.REDACTED,
                 "serverName" to Classification.REDACTED,
                 "flow" to Classification.PUBLIC,
                 "fingerprint" to Classification.PUBLIC,
                 "xhttpPath" to Classification.REDACTED,
                 "xhttpHost" to Classification.REDACTED,
+                "xhttpMode" to Classification.PUBLIC,
             )
 
     private val anyTlsFields: Map<String, Classification> =

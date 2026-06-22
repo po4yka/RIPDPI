@@ -291,6 +291,14 @@ private fun mapVlessReality(
     val isXhttp = transportObj?.string("type")?.lowercase() == "xhttp"
     val xhttpPath = if (isXhttp) transportObj.string("path") else null
     val xhttpHost = if (isXhttp) transportObj.string("host") else null
+    val xhttpMode =
+        if (isXhttp) {
+            transportObj.string(
+                "mode",
+            ) ?: com.poyka.ripdpi.data.RelayXhttpModeAuto
+        } else {
+            com.poyka.ripdpi.data.RelayXhttpModeAuto
+        }
     return ProxyProfile.VlessReality(
         id = newId(),
         displayName = name,
@@ -305,6 +313,7 @@ private fun mapVlessReality(
         fingerprint = fingerprint,
         xhttpPath = xhttpPath,
         xhttpHost = xhttpHost,
+        xhttpMode = xhttpMode,
     )
 }
 

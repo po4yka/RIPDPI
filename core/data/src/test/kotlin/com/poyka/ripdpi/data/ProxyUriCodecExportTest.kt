@@ -67,6 +67,7 @@ class ProxyUriCodecExportTest {
                 fingerprint = "chrome",
                 xhttpPath = "/x",
                 xhttpHost = "cdn.example.com",
+                xhttpMode = "stream-one",
             )
 
         val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
@@ -77,6 +78,7 @@ class ProxyUriCodecExportTest {
         assertEquals("public-key", parsed.realityPublicKey)
         assertEquals("/x", parsed.xhttpPath)
         assertEquals("cdn.example.com", parsed.xhttpHost)
+        assertEquals("stream-one", parsed.xhttpMode)
     }
 
     @Test

@@ -26,7 +26,7 @@ use crate::config::{
     MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig,
     ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig,
     ShadowsocksRelayConfig, SshRelayConfig, TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig,
-    TuicRelayConfig, VlessRealityRelayConfig,
+    TuicRelayConfig, VlessRealityRelayConfig, VlessRelayConfig,
 };
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
@@ -63,12 +63,22 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             zero_rtt: false,
             congestion_control: "bbr".to_string(),
         }),
+        "vless" => RelayBackendConfig::Vless(VlessRelayConfig {
+            vless_flow: "xtls-rprx-vision".to_string(),
+            vless_transport: "xhttp".to_string(),
+            xhttp_path: "/xhttp".to_string(),
+            xhttp_host: "relay.example".to_string(),
+            xhttp_mode: "auto".to_string(),
+            uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+        }),
         "vless_reality" => RelayBackendConfig::VlessReality(VlessRealityRelayConfig {
             reality_public_key: String::new(),
             reality_short_id: String::new(),
+            vless_flow: "xtls-rprx-vision".to_string(),
             vless_transport: "reality_tcp".to_string(),
             xhttp_path: String::new(),
             xhttp_host: String::new(),
+            xhttp_mode: "auto".to_string(),
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
         }),
         "mieru" => RelayBackendConfig::Mieru(MieruRelayConfig {
@@ -301,6 +311,7 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
     for kind in [
         "hysteria2",
         "tuic_v5",
+        "vless",
         "vless_reality",
         "mieru",
         "ssh",
@@ -324,6 +335,58 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
         assert_eq!(kind, round_trip.kind_id());
         assert_eq!(serialized, serde_json::to_value(&round_trip).expect("reserialize relay config"));
     }
+}
+
+#[test]
+fn vless_flow_round_trips_through_flat_native_config() {
+    let mut config = sample_config("vless_reality");
+    vless_config_mut(&mut config).vless_flow = "xtls-rprx-vision-udp443".to_string();
+
+    let serialized = serde_json::to_value(&config).expect("serialize VLESS config");
+    assert_eq!(
+        serde_json::json!("xtls-rprx-vision-udp443"),
+        serialized["vlessFlow"],
+        "flat native config must carry imported VLESS flow",
+    );
+
+    let mut round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(serialized).expect("deserialize VLESS config");
+    assert_eq!("xtls-rprx-vision-udp443", vless_config_mut(&mut round_trip).vless_flow,);
+}
+
+#[test]
+fn vless_flow_defaults_only_when_flat_native_config_omits_field() {
+    let mut config = sample_config("vless_reality");
+    vless_config_mut(&mut config).vless_flow = String::new();
+    let explicit_empty = serde_json::to_value(&config).expect("serialize VLESS config");
+    let mut explicit_round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(explicit_empty).expect("deserialize explicit empty flow");
+    assert_eq!("", vless_config_mut(&mut explicit_round_trip).vless_flow);
+
+    let mut missing_field = serde_json::to_value(&config).expect("serialize VLESS config");
+    missing_field.as_object_mut().expect("flat relay config object").remove("vlessFlow");
+    let mut legacy_round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(missing_field).expect("deserialize legacy missing flow");
+    assert_eq!("xtls-rprx-vision", vless_config_mut(&mut legacy_round_trip).vless_flow);
+}
+
+#[test]
+fn vless_xhttp_mode_round_trips_through_flat_native_config() {
+    let mut config = sample_config("vless_reality");
+    let vless = vless_config_mut(&mut config);
+    vless.vless_transport = "xhttp".to_string();
+    vless.xhttp_mode = "stream-one".to_string();
+
+    let serialized = serde_json::to_value(&config).expect("serialize VLESS config");
+    assert_eq!(
+        serde_json::json!("stream-one"),
+        serialized["xhttpMode"],
+        "flat native config must carry imported xHTTP mode",
+    );
+
+    let mut round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(serialized).expect("deserialize VLESS config");
+    assert_eq!("stream-one", vless_config_mut(&mut round_trip).xhttp_mode);
 }
 
 #[test]
@@ -1166,6 +1229,13 @@ fn vless_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut VlessRealit
     }
 }
 
+fn plain_vless_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut VlessRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::Vless(vless) => vless,
+        _ => panic!("expected VLESS config"),
+    }
+}
+
 fn cloudflare_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut CloudflareTunnelRelayConfig {
     match &mut config.backend {
         RelayBackendConfig::CloudflareTunnel(cloudflare) => cloudflare,
@@ -1602,9 +1672,10 @@ fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeCon
 #[test]
 fn relay_planned_capabilities_are_pinned_for_every_kind() {
     // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
-    let pinned: [(&str, bool, bool, bool, bool); 14] = [
+    let pinned: [(&str, bool, bool, bool, bool); 15] = [
         ("hysteria2", true, true, true, false),
         ("tuic_v5", true, true, true, true),
+        ("vless", true, false, true, true),
         ("vless_reality", true, false, false, true),
         ("mieru", true, false, false, false),
         ("ssh", true, false, false, false),
