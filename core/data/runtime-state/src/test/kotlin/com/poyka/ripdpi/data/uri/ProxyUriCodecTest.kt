@@ -29,7 +29,8 @@ class ProxyUriCodecTest {
     fun `vless reality uri with pbk imports reality profile`() {
         val profile =
             ProxyUriCodec.parse(
-                "vless://11111111-2222-3333-4444-555555555555@example.com:443?security=reality&pbk=PUBLICKEY123&sni=cdn.example#ok",
+                "vless://11111111-2222-3333-4444-555555555555@example.com:443" +
+                    "?security=reality&pbk=PUBLICKEY123&sni=cdn.example#ok",
             )
 
         assertTrue(profile is ProxyProfile.VlessReality)
@@ -52,7 +53,8 @@ class ProxyUriCodecTest {
     fun `vless reality ipv6 literal host is stored without brackets`() {
         val profile =
             ProxyUriCodec.parse(
-                "vless://11111111-2222-3333-4444-555555555555@[2001:db8::1]:443?security=reality&pbk=PUBLICKEY123&sni=cdn.example#v6",
+                "vless://11111111-2222-3333-4444-555555555555@[2001:db8::1]:443" +
+                    "?security=reality&pbk=PUBLICKEY123&sni=cdn.example#v6",
             )
 
         assertTrue(profile is ProxyProfile.VlessReality)
@@ -67,7 +69,8 @@ class ProxyUriCodecTest {
     fun `vless reality ipv6 host round-trips through encode and parse`() {
         val original =
             ProxyUriCodec.parse(
-                "vless://11111111-2222-3333-4444-555555555555@[2001:db8::1]:443?security=reality&pbk=PUBLICKEY123&sni=cdn.example#v6",
+                "vless://11111111-2222-3333-4444-555555555555@[2001:db8::1]:443" +
+                    "?security=reality&pbk=PUBLICKEY123&sni=cdn.example#v6",
             )
         assertTrue(original is ProxyProfile.VlessReality)
 
