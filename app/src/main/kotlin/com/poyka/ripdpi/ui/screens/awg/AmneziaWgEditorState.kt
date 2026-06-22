@@ -189,9 +189,10 @@ data class AmneziaWgEditorState(
     fun obfuscationConsistent(): Boolean {
         val mtu = effectiveMtu()
         val junkActive = form.jc > 0
-        if (junkActive && form.jmin > form.jmax) return false
-        if (junkActive && form.jmax > mtu) return false
-        return form.s1 <= mtu && form.s2 <= mtu && form.s3 <= mtu && form.s4 <= mtu
+        val junkRangeOk = !junkActive || form.jmin <= form.jmax
+        val junkSizeFitsMtu = !junkActive || form.jmax <= mtu
+        val paddingFitsMtu = form.s1 <= mtu && form.s2 <= mtu && form.s3 <= mtu && form.s4 <= mtu
+        return junkRangeOk && junkSizeFitsMtu && paddingFitsMtu
     }
 
     /** Effective tunnel MTU, mirroring [toActivationRequest]'s fallback. */
