@@ -27,9 +27,9 @@ class TlsCatalogRefreshTest(unittest.TestCase):
             tls_catalog_refresh.load_json(tls_catalog_refresh.CATALOG_PATH),
             tls_catalog_refresh.load_json(tls_catalog_refresh.ACCEPTANCE_CORPUS_PATH),
             tls_catalog_refresh.load_json(tls_catalog_refresh.ACCEPTANCE_REPORT_PATH),
-            today=date(2026, 4, 18),
+            today=date(2026, 6, 22),
         )
-        self.assertEqual("2026-04-18", summary["latestReviewedAt"])
+        self.assertEqual("2026-06-22", summary["latestReviewedAt"])
         self.assertEqual(["browser_family_v2", "ech_canary_v1"], summary["profileSetIds"])
         self.assertEqual("phase11_tls_template_acceptance", summary["acceptanceCorpusRef"])
         self.assertEqual("tls_template_acceptance_report", summary["acceptanceReportRef"])
