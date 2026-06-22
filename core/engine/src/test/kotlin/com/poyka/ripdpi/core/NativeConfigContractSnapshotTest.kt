@@ -920,9 +920,11 @@ class NativeConfigContractSnapshotTest {
         serverName: String = "",
         realityPublicKey: String = "",
         realityShortId: String = "",
+        vlessFlow: String = com.poyka.ripdpi.data.RelayVlessFlowVision,
         vlessTransport: String = "reality_tcp",
         xhttpPath: String = "",
         xhttpHost: String = "",
+        xhttpMode: String = com.poyka.ripdpi.data.RelayXhttpModeAuto,
         cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
         cloudflarePublishLocalOriginUrl: String = "",
         cloudflareCredentialsRef: String = "",
@@ -975,9 +977,11 @@ class NativeConfigContractSnapshotTest {
             put("serverName", JsonPrimitive(serverName))
             put("realityPublicKey", JsonPrimitive(realityPublicKey))
             put("realityShortId", JsonPrimitive(realityShortId))
+            put("vlessFlow", JsonPrimitive(vlessFlow))
             put("vlessTransport", JsonPrimitive(vlessTransport))
             put("xhttpPath", JsonPrimitive(xhttpPath))
             put("xhttpHost", JsonPrimitive(xhttpHost))
+            put("xhttpMode", JsonPrimitive(xhttpMode))
             put("cloudflareTunnelMode", JsonPrimitive(cloudflareTunnelMode))
             put("cloudflarePublishLocalOriginUrl", JsonPrimitive(cloudflarePublishLocalOriginUrl))
             put("cloudflareCredentialsRef", JsonPrimitive(cloudflareCredentialsRef))

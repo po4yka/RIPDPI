@@ -32,8 +32,8 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class UpstreamRelayRuntimeConfigResolverTest {
-    private fun resolver(
+abstract class UpstreamRelayRuntimeConfigResolverTestFixture {
+    internal fun resolver(
         relayProfileStore: TestRelayProfileStore = TestRelayProfileStore(),
         relayCredentialStore: TestRelayCredentialStore = TestRelayCredentialStore(),
         tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
@@ -72,8 +72,10 @@ class UpstreamRelayRuntimeConfigResolverTest {
     // A quoted `...Password = "..."` literal trips the no-secrets pre-commit
     // scanner; fixture credentials are built at runtime to stay legible
     // without tripping it.
-    private fun credentialFixture(label: String): String = "relay-test-credential-$label"
+    internal fun credentialFixture(label: String): String = "relay-test-credential-$label"
+}
 
+class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRuntimeConfigResolverTestFixture() {
     @Test
     fun `resolve tor family emits state directories bridge lines and managed pt binaries`() =
         runTest {
@@ -371,7 +373,9 @@ class UpstreamRelayRuntimeConfigResolverTest {
             assertEquals("127.0.0.9", resolved.localSocksHost)
             assertEquals(14000, resolved.localSocksPort)
         }
+}
 
+class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntimeConfigResolverTestFixture() {
     @Test
     fun `resolve default family leaves vless settings untouched`() =
         runTest {
