@@ -17,6 +17,12 @@ pub(crate) fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, re
     loop {
         let submitted = drain_submissions(&mut ring, &rx, &mut pending_write_buffers);
         if matches!(submitted, SubmissionDrain::Shutdown) {
+            // Reap any in-flight completions before the ring is dropped. The
+            // kernel may still be reading SQE-referenced buffers (the plain
+            // `Write` payloads owned by `pending_write_buffers`); dropping the
+            // ring without draining would free those buffers while a DMA read
+            // is still pending. Draining is bounded so shutdown cannot hang.
+            drain_in_flight_on_shutdown(&mut ring, &registry, &mut pending_write_buffers);
             return;
         }
 
@@ -148,6 +154,49 @@ fn drain_completions(
         // that the kernel is done with it. No-op for any other opcode.
         pending_write_buffers.remove(&token);
         registry.complete(token, result);
+    }
+}
+
+/// Drain completions for ops still in flight when a `Shutdown` arrives, before
+/// the ring is dropped.
+///
+/// The hazard is the plain `Write` payloads: their `Vec<u8>` backing memory is
+/// owned by `pending_write_buffers` and is freed when that map drops. If the
+/// ring is torn down while the kernel is still DMA-reading one of those
+/// buffers, the freed memory is read by the kernel. Reaping the matching CQEs
+/// first guarantees the kernel has finished with each buffer before its
+/// allocation is released.
+///
+/// The wait is bounded: each `submit_and_wait(1)` blocks only until at least
+/// one CQE is ready, and the loop caps total iterations so a wedged op cannot
+/// hang shutdown forever. Registered-buffer ops (recv/write-fixed) reference
+/// pool memory that outlives the ring, so only the plain-`Write` set gates the
+/// drain.
+fn drain_in_flight_on_shutdown(
+    ring: &mut IoUring,
+    registry: &CompletionRegistry,
+    pending_write_buffers: &mut HashMap<u64, Vec<u8>>,
+) {
+    // First reap anything already completed without blocking.
+    drain_completions(ring, registry, pending_write_buffers);
+
+    // Bound the number of wait cycles: at most one cycle per in-flight buffer,
+    // plus a small slack, so a kernel that never completes an op cannot wedge
+    // the driver thread (and thus `IoUringDriver::drop`) indefinitely.
+    let mut remaining_cycles = pending_write_buffers.len().saturating_add(1);
+    while !pending_write_buffers.is_empty() && remaining_cycles > 0 {
+        remaining_cycles -= 1;
+        match ring.submit_and_wait(1) {
+            Ok(_) => drain_completions(ring, registry, pending_write_buffers),
+            Err(e) => {
+                log::error!("io_uring shutdown drain submit_and_wait failed: {e}");
+                break;
+            }
+        }
+    }
+
+    if !pending_write_buffers.is_empty() {
+        log::warn!("io_uring driver shut down with {} write buffer(s) still in flight", pending_write_buffers.len());
     }
 }
 

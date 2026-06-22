@@ -59,6 +59,17 @@ impl CompletionRegistry {
     }
 
     /// Deliver a completion. Wakes the waiting task if registered.
+    ///
+    /// Idempotent: the **first** completion for a token wins. A second
+    /// completion for the same token while its `Ready` result is still
+    /// unconsumed is dropped rather than overwriting the first result. This
+    /// matters for ops that legitimately raise more than one CQE per token —
+    /// e.g. `IORING_OP_SEND_ZC` emits a result CQE followed by a distinct
+    /// `IORING_CQE_F_NOTIF` CQE. Without this guard the second CQE would
+    /// re-insert a `Ready` slot that no future will ever poll, stranding the
+    /// registry entry (a slow leak). The inbound relay path no longer uses
+    /// SEND_ZC, but keeping `complete` idempotent makes the registry safe for
+    /// any future multi-CQE opcode.
     pub(crate) fn complete(&self, token: u64, result: CompletionResult) {
         if let Ok(mut slots) = self.slots.lock() {
             match slots.remove(&token) {
@@ -66,8 +77,13 @@ impl CompletionRegistry {
                     slots.insert(token, WakerSlot::Ready(result));
                     waker.wake();
                 }
-                _ => {
-                    // Completion arrived before poll -- store it.
+                Some(ready @ WakerSlot::Ready(_)) => {
+                    // A completion already arrived for this token and has not
+                    // been consumed yet -- keep the first result, drop this one.
+                    slots.insert(token, ready);
+                }
+                None => {
+                    // Completion arrived before poll -- store it for pickup.
                     slots.insert(token, WakerSlot::Ready(result));
                 }
             }
@@ -145,5 +161,52 @@ mod tests {
             "poller did not return promptly after completion (took {:?})",
             start.elapsed()
         );
+    }
+
+    /// F12 regression: a second completion for the same token (e.g. the
+    /// `IORING_CQE_F_NOTIF` CQE that follows a `SEND_ZC` result CQE) arriving
+    /// before the future is polled must NOT overwrite the first result and
+    /// must NOT strand an extra registry slot. The first result wins and
+    /// exactly one slot exists.
+    #[test]
+    fn duplicate_completion_before_poll_keeps_first_result_and_one_slot() {
+        let registry = CompletionRegistry::new();
+        let token = 0x1234_u64;
+
+        // First CQE (the result CQE).
+        registry.complete(token, CompletionResult { result: 100, flags: 0 });
+        // Second CQE (the NOTIF CQE) for the same token, still unconsumed.
+        registry.complete(token, CompletionResult { result: 200, flags: 0x8 /* F_NOTIF */ });
+
+        // Only one slot is tracked despite two completions.
+        assert_eq!(registry.slot_count(), 1, "duplicate completion must not strand a second slot");
+
+        // Poll picks up the FIRST result and clears the slot.
+        let noop = waker_fn::waker_fn(|| {});
+        let got = registry.register(token, &noop).expect("ready result must be available");
+        assert_eq!(got.result, 100, "first completion must win");
+        assert_eq!(registry.slot_count(), 0, "slot must be cleared after the result is consumed");
+    }
+
+    /// F12 regression: a late completion arriving AFTER the result was already
+    /// consumed re-stores a single result and never accumulates slots across
+    /// repeated late deliveries (idempotent in aggregate).
+    #[test]
+    fn late_completion_after_consume_does_not_accumulate_slots() {
+        let registry = CompletionRegistry::new();
+        let token = 0x5678_u64;
+
+        registry.complete(token, CompletionResult { result: 7, flags: 0 });
+        let noop = waker_fn::waker_fn(|| {});
+        let got = registry.register(token, &noop).expect("ready result");
+        assert_eq!(got.result, 7);
+        assert_eq!(registry.slot_count(), 0);
+
+        // A late duplicate (re-)stores one result; a second late duplicate is
+        // dropped because a Ready slot already exists. Either way the slot
+        // count never exceeds one.
+        registry.complete(token, CompletionResult { result: 8, flags: 0x8 });
+        registry.complete(token, CompletionResult { result: 9, flags: 0x8 });
+        assert_eq!(registry.slot_count(), 1, "late duplicates must not accumulate slots");
     }
 }
