@@ -139,6 +139,41 @@ fn require_fd(received_fd: Option<RawFd>, error: &'static str) -> Result<RawFd, 
     received_fd.ok_or_else(|| protocol::HelperResponse::error(error))
 }
 
+/// Test-only fd helpers shared by the per-module fd-leak regression tests.
+///
+/// The leak sites (descriptor rejection, `decode_params` failure, and the UDP
+/// `target_addr` parse error) must close the inbound SCM_RIGHTS fd exactly
+/// once. These helpers mint a real owned socket fd and assert it is `EBADF`
+/// (closed) after dispatch, so a reintroduced leak fails the test.
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::os::fd::RawFd;
+
+    /// Mint a real, owned socket fd (one half of a UNIX socketpair) and leak
+    /// ownership of the integer so a dispatch path can adopt and close it. The
+    /// other half is closed immediately — only the returned raw fd matters.
+    pub(crate) fn leak_owned_socket_fd() -> RawFd {
+        let mut fds = [0 as RawFd; 2];
+        // SAFETY: `fds` is a valid 2-element array; `socketpair` fills both
+        // entries with fresh kernel descriptors on success.
+        let rc = unsafe { libc::socketpair(libc::AF_UNIX, libc::SOCK_STREAM, 0, fds.as_mut_ptr()) };
+        assert_eq!(rc, 0, "socketpair failed: {}", std::io::Error::last_os_error());
+        // Close the peer half; the test only hands `fds[0]` to dispatch.
+        // SAFETY: `fds[1]` is a fresh descriptor this test exclusively owns.
+        unsafe { libc::close(fds[1]) };
+        fds[0]
+    }
+
+    /// True when `fd` is no longer a valid descriptor (closed) — `fcntl`
+    /// reports `EBADF`. A still-open fd returns its flags (>= 0).
+    pub(crate) fn fd_is_closed(fd: RawFd) -> bool {
+        // SAFETY: `F_GETFD` only reads the descriptor's flags; it never
+        // mutates process state and tolerates an invalid `fd` (returns -1).
+        let rc = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        rc == -1 && std::io::Error::last_os_error().raw_os_error() == Some(libc::EBADF)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::os::fd::AsRawFd;

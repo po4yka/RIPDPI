@@ -12,10 +12,11 @@ use super::fd_adoption::adopt_tcp_stream;
 
 pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, ttl = params.default_ttl, "send_fake_rst");
-    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
-    // dispatch loop, which guarantees a live TCP socket exclusively owned
-    // by this handler. Every exit path below releases the fd via
-    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper dispatch
+    // loop, which guarantees a live TCP socket exclusively owned by this
+    // handler. This command never returns a reply fd, so the adopted `stream`
+    // drops on every exit path below, closing the descriptor exactly once —
+    // never leaked or double-closed.
     let stream = unsafe { adopt_tcp_stream(fd) };
     match platform::send_fake_rst(
         &stream,
@@ -25,12 +26,13 @@ pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse
         params.ipv4_identification,
     ) {
         Ok(()) => {
-            // Return the fd back to the caller (don't let Drop close it).
-            let _ = stream.into_raw_fd();
+            // No reply fd: the adopted `stream` drops here, closing the
+            // socket exactly once. Dispatch keeps sole fd responsibility,
+            // so the caller never double-closes a `None`-reply descriptor.
             (HelperResponse::success(serde_json::Value::Null), None)
         }
         Err(e) => {
-            let _ = stream.into_raw_fd();
+            // Drop `stream` to close the socket exactly once on the error path.
             error!(%e, "send_fake_rst failed");
             (HelperResponse::error(e.to_string()), None)
         }
@@ -39,10 +41,11 @@ pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse
 
 pub fn handle_send_fake_tcp(fd: RawFd, params: FakeTcpParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, len = params.original_prefix.len(), "send_fake_tcp");
-    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
-    // dispatch loop, which guarantees a live TCP socket exclusively owned
-    // by this handler. Every exit path below releases the fd via
-    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper dispatch
+    // loop, which guarantees a live TCP socket exclusively owned by this
+    // handler. The success path releases the fd via `into_raw_fd` to return it
+    // to the caller; the error path drops the adopted `stream`, closing the
+    // descriptor exactly once — so it is never leaked or double-closed.
     let stream = unsafe { adopt_tcp_stream(fd) };
     let options = platform::FakeTcpOptions {
         secondary_fake_prefix: params.secondary_fake_prefix.as_deref(),
@@ -69,7 +72,7 @@ pub fn handle_send_fake_tcp(fd: RawFd, params: FakeTcpParams) -> (HelperResponse
             (HelperResponse::success(serde_json::Value::Null), Some(out_fd))
         }
         Err(e) => {
-            let _ = stream.into_raw_fd();
+            // Drop `stream` to close the socket exactly once on the error path.
             error!(%e, "send_fake_tcp failed");
             (HelperResponse::error(e.to_string()), None)
         }
@@ -78,10 +81,11 @@ pub fn handle_send_fake_tcp(fd: RawFd, params: FakeTcpParams) -> (HelperResponse
 
 pub fn handle_send_flagged_tcp_payload(fd: RawFd, params: FlaggedTcpPayloadParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, len = params.payload.len(), "send_flagged_tcp_payload");
-    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
-    // dispatch loop, which guarantees a live TCP socket exclusively owned
-    // by this handler. Every exit path below releases the fd via
-    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper dispatch
+    // loop, which guarantees a live TCP socket exclusively owned by this
+    // handler. The success path releases the fd via `into_raw_fd` to return it
+    // to the caller; the error path drops the adopted `stream`, closing the
+    // descriptor exactly once — so it is never leaked or double-closed.
     let stream = unsafe { adopt_tcp_stream(fd) };
     match platform::send_flagged_tcp_payload(
         &stream,
@@ -97,7 +101,7 @@ pub fn handle_send_flagged_tcp_payload(fd: RawFd, params: FlaggedTcpPayloadParam
             (HelperResponse::success(serde_json::Value::Null), Some(out_fd))
         }
         Err(e) => {
-            let _ = stream.into_raw_fd();
+            // Drop `stream` to close the socket exactly once on the error path.
             error!(%e, "send_flagged_tcp_payload failed");
             (HelperResponse::error(e.to_string()), None)
         }
@@ -106,10 +110,11 @@ pub fn handle_send_flagged_tcp_payload(fd: RawFd, params: FlaggedTcpPayloadParam
 
 pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, "send_seqovl_tcp");
-    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
-    // dispatch loop, which guarantees a live TCP socket exclusively owned
-    // by this handler. Every exit path below releases the fd via
-    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper dispatch
+    // loop, which guarantees a live TCP socket exclusively owned by this
+    // handler. The success path releases the fd via `into_raw_fd` to return it
+    // to the caller; the error path drops the adopted `stream`, closing the
+    // descriptor exactly once — so it is never leaked or double-closed.
     let stream = unsafe { adopt_tcp_stream(fd) };
     match platform::send_seqovl_tcp(
         &stream,
@@ -128,7 +133,7 @@ pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperRespons
             (HelperResponse::success(serde_json::Value::Null), Some(out_fd))
         }
         Err(e) => {
-            let _ = stream.into_raw_fd();
+            // Drop `stream` to close the socket exactly once on the error path.
             error!(%e, "send_seqovl_tcp failed");
             (HelperResponse::error(e.to_string()), None)
         }
@@ -137,10 +142,11 @@ pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperRespons
 
 pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, segments = params.segments.len(), "send_multi_disorder_tcp");
-    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
-    // dispatch loop, which guarantees a live TCP socket exclusively owned
-    // by this handler. Every exit path below releases the fd via
-    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper dispatch
+    // loop, which guarantees a live TCP socket exclusively owned by this
+    // handler. The success path releases the fd via `into_raw_fd` to return it
+    // to the caller; the error path drops the adopted `stream`, closing the
+    // descriptor exactly once — so it is never leaked or double-closed.
     let stream = unsafe { adopt_tcp_stream(fd) };
     let segments: Vec<TcpPayloadSegment> =
         params.segments.iter().map(|s| TcpPayloadSegment { start: s.start, end: s.end }).collect();
@@ -161,7 +167,7 @@ pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) ->
             (HelperResponse::success(serde_json::Value::Null), Some(out_fd))
         }
         Err(e) => {
-            let _ = stream.into_raw_fd();
+            // Drop `stream` to close the socket exactly once on the error path.
             error!(%e, "send_multi_disorder_tcp failed");
             (HelperResponse::error(e.to_string()), None)
         }
@@ -173,10 +179,11 @@ pub fn handle_send_ordered_tcp_segments(
     params: OrderedTcpSegmentsParams,
 ) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, segments = params.segments.len(), "send_ordered_tcp_segments");
-    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
-    // dispatch loop, which guarantees a live TCP socket exclusively owned
-    // by this handler. Every exit path below releases the fd via
-    // `into_raw_fd`, so the kernel descriptor is never double-closed.
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper dispatch
+    // loop, which guarantees a live TCP socket exclusively owned by this
+    // handler. The success path releases the fd via `into_raw_fd` to return it
+    // to the caller; the error path drops the adopted `stream`, closing the
+    // descriptor exactly once — so it is never leaked or double-closed.
     let stream = unsafe { adopt_tcp_stream(fd) };
     let segments: Vec<platform::OrderedTcpSegment<'_>> = params
         .segments
@@ -206,7 +213,7 @@ pub fn handle_send_ordered_tcp_segments(
             (HelperResponse::success(serde_json::Value::Null), Some(out_fd))
         }
         Err(e) => {
-            let _ = stream.into_raw_fd();
+            // Drop `stream` to close the socket exactly once on the error path.
             error!(%e, "send_ordered_tcp_segments failed");
             (HelperResponse::error(e.to_string()), None)
         }

@@ -144,20 +144,18 @@ fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()>
 
     info!(command = %request.command, "received command");
 
+    // `dispatch_command` takes sole, total ownership of `received_fd`: it
+    // either closes the inbound fd on every rejection / decode-error / handler
+    // path, or returns it in `reply_fd` to be sent back to the caller. So
+    // `handle_connection` must NOT close `received_fd` here — doing so would
+    // double-close a descriptor dispatch already released (the previous
+    // dead/inverted accounting block, audit F17).
     let dispatch = dispatch::dispatch_command(&request, received_fd);
     if dispatch.shutdown_requested {
         RUNNING.store(false, Ordering::SeqCst);
     }
     let response = dispatch.response;
     let reply_fd = dispatch.reply_fd;
-
-    // Close received fd if we didn't consume it and it wasn't returned.
-    if let Some(fd) = received_fd
-        && reply_fd != Some(fd)
-    {
-        // fd was consumed by the handler (wrapped in FromRawFd + IntoRawFd).
-        // Don't double-close.
-    }
 
     send_response(stream, response, reply_fd)?;
 

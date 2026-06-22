@@ -1,4 +1,4 @@
-use std::os::fd::{IntoRawFd, RawFd};
+use std::os::fd::RawFd;
 
 use ripdpi_privileged_ops as platform;
 use ripdpi_root_helper_protocol::{HelperResponse, IpFragUdpParams};
@@ -9,16 +9,20 @@ use super::fd_adoption::adopt_udp_socket;
 pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, split = params.split_offset, "send_ip_fragmented_udp");
 
+    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper dispatch
+    // loop, which guarantees a live UDP socket exclusively owned by this
+    // handler. Adopting the fd before parsing `target_addr` makes the
+    // parse-error path close it exactly once on `socket` drop. This command
+    // never returns a reply fd, so the adopted `socket` drops on every exit
+    // path below, closing the kernel descriptor exactly once — never leaked
+    // or double-closed.
+    let socket = unsafe { adopt_udp_socket(fd) };
+
     let target: std::net::SocketAddr = match params.target_addr.parse() {
         Ok(addr) => addr,
         Err(e) => return (HelperResponse::error(format!("invalid target_addr: {e}")), None),
     };
 
-    // SAFETY: `fd` was just received over SCM_RIGHTS by the helper
-    // dispatch loop, which guarantees a live UDP socket exclusively owned
-    // by this handler. Every exit path below releases the fd via
-    // `into_raw_fd`, so the kernel descriptor is never double-closed.
-    let socket = unsafe { adopt_udp_socket(fd) };
     match platform::send_ip_fragmented_udp(
         &socket,
         target,
@@ -31,12 +35,11 @@ pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (Hel
         params.ipv4_identification,
     ) {
         Ok(()) => {
-            // Return fd to caller.
-            let _ = socket.into_raw_fd();
+            // Drop `socket` to close the descriptor exactly once.
             (HelperResponse::success(serde_json::Value::Null), None)
         }
         Err(e) => {
-            let _ = socket.into_raw_fd();
+            // Drop `socket` to close the descriptor exactly once on error.
             error!(%e, "send_ip_fragmented_udp failed");
             (HelperResponse::error(e.to_string()), None)
         }
