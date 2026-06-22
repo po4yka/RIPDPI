@@ -2,6 +2,7 @@ package com.poyka.ripdpi.integration
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.automation.AutomationPermissionPreset
 import com.poyka.ripdpi.ui.navigation.Route
@@ -37,6 +38,7 @@ class AutomationPermissionFlowInstrumentedTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.homeModeCard(HomeMode.LocalDpiBypass.name))
+            .performScrollTo()
             .assertIsDisplayed()
     }
 }
