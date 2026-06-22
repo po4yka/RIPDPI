@@ -7,6 +7,14 @@ use tokio::net::TcpStream;
 use crate::domain_fronter::AppsScriptDomainFronter;
 use crate::telemetry::SharedTelemetryState;
 
+/// Hard ceiling on a client-declared request body size. A client speaks to this
+/// loopback proxy over the local SOCKS bridge; an untrusted `Content-Length`
+/// header (e.g. `Content-Length: 9999999999`) must never drive a pre-sized
+/// allocation, or it OOM-kills the VPN process. Requests larger than this are
+/// rejected before any reservation; the read loop still bounds actual reads by
+/// the declared length, so this only caps the up-front `Vec::with_capacity`.
+const MAX_REQUEST_BODY_BYTES: usize = 16 * 1024 * 1024;
+
 // NOT cancel-safe: loops over handle_request, which can be cancelled mid
 // request-read or mid response-write, losing consumed bytes / truncating the
 // response. Cancellation aborts the whole keep-alive connection.
@@ -171,6 +179,9 @@ where
     let Some(content_length) = content_length else {
         return Ok(Vec::new());
     };
+    if content_length > MAX_REQUEST_BODY_BYTES {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "Content-Length exceeds maximum request body size"));
+    }
     let mut body = Vec::with_capacity(content_length);
     body.extend_from_slice(&leftover[..leftover.len().min(content_length)]);
     let mut scratch = [0u8; 8_192];
@@ -285,5 +296,29 @@ mod tests {
         let body = read_chunked_request_body(&mut reader, Vec::new()).await.expect("decode body");
         task.await.expect("writer task");
         assert_eq!(body, b"hello world");
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn read_body_rejects_oversized_content_length() {
+        // A client declaring a multi-GB Content-Length must be rejected before
+        // the body Vec is pre-sized, or the reservation OOM-kills the process.
+        let (_writer, mut reader) = duplex(64);
+        let headers = vec![("Content-Length".to_string(), "9999999999".to_string())];
+
+        let error = read_body(&mut reader, b"", &headers).await.expect_err("oversized length must be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn read_body_accepts_content_length_at_cap_boundary() {
+        // A declared length exactly at the cap is allowed; the read loop bounds
+        // actual reads, so an EOF before the full body yields UnexpectedEof
+        // rather than the InvalidData rejection.
+        let (writer, mut reader) = duplex(64);
+        drop(writer);
+        let headers = vec![("Content-Length".to_string(), MAX_REQUEST_BODY_BYTES.to_string())];
+
+        let error = read_body(&mut reader, b"", &headers).await.expect_err("EOF before full body");
+        assert_eq!(error.kind(), io::ErrorKind::UnexpectedEof);
     }
 }
