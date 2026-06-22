@@ -118,10 +118,10 @@ internal val RelayKindDescriptors: List<RelayKindDescriptor> =
             label = "VLESS (TLS)",
             tcp = true,
             udp = false,
-            reusable = false,
+            reusable = true,
             supportsOutboundBindIp = true,
             subprocessBacked = false,
-            finalmaskSupport = RelayFinalmaskSupport.NONE,
+            finalmaskSupport = RelayFinalmaskSupport.SUPPORTED,
             configBacking = RelayConfigBacking.INLINE_SETTINGS_BACKED,
         ),
         RelayKindDescriptor(

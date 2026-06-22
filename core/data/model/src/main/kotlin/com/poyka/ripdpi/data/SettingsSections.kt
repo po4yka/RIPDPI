@@ -132,6 +132,7 @@ data class RelaySettingsSection(
     val relayVlessTransport: String = "",
     val relayXhttpPath: String = "",
     val relayXhttpHost: String = "",
+    val relayXhttpMode: String = "",
     val relayOutboundBindIp: String = "",
     val relayDnsOverTunnelEnabled: Boolean = true,
 )

@@ -56,6 +56,9 @@ const val DefaultRelayLocalSocksPort = 11980
 const val DefaultRelayAppsScriptVerifySsl = true
 const val DefaultSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/"
 const val DefaultSnowflakeFrontDomain = "cdn.sstatic.net"
+private const val RelayXhttpModeAutoValue = "auto"
+private const val RelayXhttpModeStreamUpValue = "stream-up"
+private const val RelayXhttpModeStreamOneValue = "stream-one"
 
 private val RelayKindsWithNativeSettings =
     setOf(
@@ -217,6 +220,13 @@ fun normalizeRelayFinalmaskType(value: String?): String =
         else -> RelayFinalmaskTypeOff
     }
 
+fun normalizeRelayXhttpMode(value: String?): String =
+    when (value?.trim()?.lowercase()) {
+        RelayXhttpModeStreamUpValue -> RelayXhttpModeStreamUpValue
+        RelayXhttpModeStreamOneValue -> RelayXhttpModeStreamOneValue
+        else -> RelayXhttpModeAutoValue
+    }
+
 data class RelayFinalmaskModel(
     val type: String = RelayFinalmaskTypeOff,
     val headerHex: String = "",
@@ -241,6 +251,7 @@ data class RelayProfileModel(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
+    val xhttpMode: String = RelayXhttpModeAutoValue,
     val cloudflareTunnelMode: String = RelayCloudflareTunnelModeConsumeExisting,
     val cloudflarePublishLocalOriginUrl: String = "",
     val cloudflareCredentialsRef: String = "",
@@ -318,6 +329,7 @@ fun AppSettings.toRelaySettingsModel(): RelaySettingsModel {
                 vlessTransport = normalizeRelayVlessTransport(relayVlessTransport, kind),
                 xhttpPath = relayXhttpPath,
                 xhttpHost = relayXhttpHost,
+                xhttpMode = normalizeRelayXhttpMode(relayXhttpMode),
                 cloudflareTunnelMode = normalizeRelayCloudflareTunnelMode(relayCloudflareTunnelMode),
                 cloudflarePublishLocalOriginUrl = relayCloudflarePublishLocalOriginUrl,
                 cloudflareCredentialsRef = relayCloudflareCredentialsRef,

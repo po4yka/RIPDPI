@@ -147,6 +147,7 @@ fn resolved_hop_vless_reality_config(
         &hop.server_name,
         &hop.reality_public_key,
         &hop.reality_short_id,
+        "xtls-rprx-vision",
         &hop.tls_fingerprint_profile,
     )
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))

@@ -2,6 +2,7 @@
 pub(crate) enum RelayKind<'a> {
     Hysteria2,
     TuicV5,
+    Vless { xhttp: bool },
     VlessReality { xhttp: bool },
     Mieru,
     Ssh,
@@ -22,6 +23,7 @@ impl<'a> RelayKind<'a> {
         match &config.backend {
             RelayBackendConfig::Hysteria2(_) => Self::Hysteria2,
             RelayBackendConfig::TuicV5(_) => Self::TuicV5,
+            RelayBackendConfig::Vless(vless) => Self::Vless { xhttp: vless.vless_transport == "xhttp" },
             RelayBackendConfig::VlessReality(vless) => Self::VlessReality { xhttp: vless.vless_transport == "xhttp" },
             RelayBackendConfig::Mieru(_) => Self::Mieru,
             RelayBackendConfig::Ssh(_) => Self::Ssh,
@@ -44,6 +46,6 @@ impl<'a> RelayKind<'a> {
     /// `xhttp` transport — so this stays a `match RelayKind` decision rather
     /// than a `RelayTransportDescriptor` field.
     pub(crate) fn supports_finalmask(self) -> bool {
-        matches!(self, Self::CloudflareTunnel | Self::VlessReality { xhttp: true })
+        matches!(self, Self::CloudflareTunnel | Self::Vless { xhttp: true } | Self::VlessReality { xhttp: true })
     }
 }

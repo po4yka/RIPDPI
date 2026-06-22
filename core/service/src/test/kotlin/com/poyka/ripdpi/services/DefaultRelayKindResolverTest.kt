@@ -14,6 +14,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.util.Base64
 
 class DefaultRelayKindResolverTest {
     private val resolver = DefaultRelayKindResolver()
@@ -73,6 +74,15 @@ class DefaultRelayKindResolverTest {
             val result = resolver.resolve(request(vlessRealityConfig().copy(realityShortId = "")))
 
             assertEquals("", result.effectiveConfig.realityShortId)
+        }
+
+    @Test
+    fun `resolve accepts url safe unpadded vless reality public key`() =
+        runTest {
+            val publicKey = Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(32) { UrlSafeKeyByte })
+            val result = resolver.resolve(request(vlessRealityConfig().copy(realityPublicKey = publicKey)))
+
+            assertEquals(publicKey, result.effectiveConfig.realityPublicKey)
         }
 
     @Test
@@ -163,5 +173,6 @@ class DefaultRelayKindResolverTest {
         private const val ValidVlessUuid = "00000000-0000-0000-0000-000000000000"
         private const val ValidRealityPublicKey = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s="
         private const val ValidRealityShortId = "abcd1234"
+        private const val UrlSafeKeyByte: Byte = -5
     }
 }

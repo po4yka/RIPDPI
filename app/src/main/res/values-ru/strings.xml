@@ -2319,6 +2319,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_vless_transport">Транспорт VLESS</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>
     <string name="config_relay_xhttp_host">Переопределение хоста xHTTP</string>
+    <string name="config_relay_xhttp_mode">Режим xHTTP</string>
     <string name="config_relay_xhttp_path">Путь xHTTP</string>
     <string name="config_vpn_credentials_required">Нужны учётные данные</string>
     <string name="config_vpn_credentials_summary">Ссылка профиля для защищённых учётных данных</string>

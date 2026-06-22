@@ -70,6 +70,7 @@ object RelayProfileShareMapper {
                         serverName = serverName.ifBlank { server },
                         xhttpPath = xhttpPath.takeIf { vlessTransport == RelayVlessTransportXhttp && it.isNotBlank() },
                         xhttpHost = xhttpHost.takeIf { vlessTransport == RelayVlessTransportXhttp && it.isNotBlank() },
+                        xhttpMode = xhttpMode,
                     ).takeIf { server.isNotBlank() && serverPort > 0 && realityPublicKey.isNotBlank() }
             }
         }

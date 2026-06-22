@@ -16,9 +16,11 @@ internal fun mergeRelayConfig(
         serverName = profile.serverName.ifBlank { config.serverName },
         realityPublicKey = profile.realityPublicKey.ifBlank { config.realityPublicKey },
         realityShortId = profile.realityShortId.ifBlank { config.realityShortId },
+        vlessFlow = profile.vlessFlow,
         vlessTransport = profile.vlessTransport.ifBlank { config.vlessTransport },
         xhttpPath = profile.xhttpPath.ifBlank { config.xhttpPath },
         xhttpHost = profile.xhttpHost.ifBlank { config.xhttpHost },
+        xhttpMode = profile.xhttpMode.ifBlank { config.xhttpMode },
         cloudflareTunnelMode = profile.cloudflareTunnelMode.ifBlank { config.cloudflareTunnelMode },
         cloudflarePublishLocalOriginUrl =
             profile.cloudflarePublishLocalOriginUrl.ifBlank { config.cloudflarePublishLocalOriginUrl },

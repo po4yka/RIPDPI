@@ -233,7 +233,7 @@ class VlessRealityImportTest {
         val uri =
             "vless://dddddddd-dddd-dddd-dddd-dddddddddddd@cdn.example.com:443" +
                 "?security=reality&pbk=XHTTPKEY1234567890abcdefghijklmn&sid=cafe0001" +
-                "&sni=cdn.example.com&type=xhttp&path=%2Ftunnel&host=cdn.example.com" +
+                "&sni=cdn.example.com&type=xhttp&path=%2Ftunnel&host=cdn.example.com&mode=stream-one" +
                 "#xhttp-node"
 
         val profile = ProxyUriCodec.parse(uri)
@@ -242,6 +242,7 @@ class VlessRealityImportTest {
         profile as ProxyProfile.VlessReality
         assertEquals("/tunnel", profile.xhttpPath)
         assertEquals("cdn.example.com", profile.xhttpHost)
+        assertEquals("stream-one", profile.xhttpMode)
     }
 
     // --- Clash parser ----------------------------------------------------------------

@@ -17,6 +17,7 @@ internal data class AppSettingsRelaySnapshot(
     val relayVlessTransport: String = defaultSettings.relayVlessTransport,
     val relayXhttpPath: String = defaultSettings.relayXhttpPath,
     val relayXhttpHost: String = defaultSettings.relayXhttpHost,
+    val relayXhttpMode: String = defaultSettings.relayXhttpMode,
     val relayCloudflareTunnelMode: String = defaultSettings.relayCloudflareTunnelMode,
     val relayCloudflarePublishLocalOriginUrl: String = defaultSettings.relayCloudflarePublishLocalOriginUrl,
     val relayCloudflareCredentialsRef: String = defaultSettings.relayCloudflareCredentialsRef,
@@ -76,6 +77,7 @@ internal fun JsonObjectBuilder.writeRelaySnapshot(snapshot: AppSettingsRelaySnap
     put("relayVlessTransport", snapshot.relayVlessTransport)
     put("relayXhttpPath", snapshot.relayXhttpPath)
     put("relayXhttpHost", snapshot.relayXhttpHost)
+    put("relayXhttpMode", snapshot.relayXhttpMode)
     put("relayCloudflareTunnelMode", snapshot.relayCloudflareTunnelMode)
     put("relayCloudflarePublishLocalOriginUrl", snapshot.relayCloudflarePublishLocalOriginUrl)
     put("relayCloudflareCredentialsRef", snapshot.relayCloudflareCredentialsRef)
@@ -136,6 +138,7 @@ internal fun JsonObject.readRelaySnapshot(defaults: AppSettingsRelaySnapshot): A
         relayVlessTransport = stringValue("relayVlessTransport", defaults.relayVlessTransport),
         relayXhttpPath = stringValue("relayXhttpPath", defaults.relayXhttpPath),
         relayXhttpHost = stringValue("relayXhttpHost", defaults.relayXhttpHost),
+        relayXhttpMode = stringValue("relayXhttpMode", defaults.relayXhttpMode),
         relayCloudflareTunnelMode = stringValue("relayCloudflareTunnelMode", defaults.relayCloudflareTunnelMode),
         relayCloudflarePublishLocalOriginUrl =
             stringValue("relayCloudflarePublishLocalOriginUrl", defaults.relayCloudflarePublishLocalOriginUrl),

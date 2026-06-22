@@ -26,6 +26,7 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayTrustDomainWarning
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.RelayXhttpModeAuto
 import com.poyka.ripdpi.data.StrategyChainSet
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
@@ -83,6 +84,7 @@ data class ConfigDraft(
     val relayVlessTransport: String = RelayVlessTransportRealityTcp,
     val relayXhttpPath: String = "",
     val relayXhttpHost: String = "",
+    val relayXhttpMode: String = RelayXhttpModeAuto,
     val relayCloudflareTunnelMode: String = RelayCloudflareTunnelModeConsumeExisting,
     val relayCloudflarePublishLocalOriginUrl: String = "",
     val relayCloudflareCredentialsRef: String = "",

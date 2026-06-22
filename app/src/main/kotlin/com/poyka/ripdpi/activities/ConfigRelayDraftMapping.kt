@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelaySettingsModel
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
+import com.poyka.ripdpi.data.normalizeRelayXhttpMode
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.collections.immutable.toImmutableList
@@ -28,6 +29,7 @@ internal fun ConfigDraft.withRelaySettings(relay: RelaySettingsModel): ConfigDra
         relayVlessTransport = relay.profile.vlessTransport,
         relayXhttpPath = relay.profile.xhttpPath,
         relayXhttpHost = relay.profile.xhttpHost,
+        relayXhttpMode = relay.profile.xhttpMode,
         relayCloudflareTunnelMode = relay.profile.cloudflareTunnelMode,
         relayCloudflarePublishLocalOriginUrl = relay.profile.cloudflarePublishLocalOriginUrl,
         relayCloudflareCredentialsRef = relay.profile.cloudflareCredentialsRef,
@@ -115,6 +117,7 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConfigDraft): AppSettings
         setRelayVlessTransport(draft.relayVlessTransport)
         setRelayXhttpPath(draft.relayXhttpPath)
         setRelayXhttpHost(draft.relayXhttpHost)
+        setRelayXhttpMode(normalizeRelayXhttpMode(draft.relayXhttpMode))
         setRelayCloudflareTunnelMode(normalizeRelayCloudflareTunnelMode(draft.relayCloudflareTunnelMode))
         setRelayCloudflarePublishLocalOriginUrl(draft.relayCloudflarePublishLocalOriginUrl)
         setRelayCloudflareCredentialsRef(draft.relayCloudflareCredentialsRef)

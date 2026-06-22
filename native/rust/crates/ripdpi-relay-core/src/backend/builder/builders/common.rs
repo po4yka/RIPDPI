@@ -22,6 +22,7 @@ pub(crate) fn vless_reality_config(
     server_name: &str,
     public_key: &str,
     short_id: &str,
+    flow: &str,
     tls_fingerprint_profile: &str,
 ) -> io::Result<ripdpi_vless::config::VlessRealityConfig> {
     ripdpi_vless::config::VlessRealityConfig::from_strings(
@@ -33,6 +34,7 @@ pub(crate) fn vless_reality_config(
         short_id,
         tls_fingerprint_profile,
     )
+    .and_then(|config| config.with_flow_str(flow))
     .map_err(invalid_input)
 }
 

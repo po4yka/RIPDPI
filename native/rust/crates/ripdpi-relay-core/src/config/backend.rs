@@ -18,6 +18,7 @@ include!("backend/unsupported.rs");
 pub enum RelayBackendConfig {
     Hysteria2(Hysteria2RelayConfig),
     TuicV5(TuicRelayConfig),
+    Vless(VlessRelayConfig),
     VlessReality(VlessRealityRelayConfig),
     Mieru(MieruRelayConfig),
     Ssh(SshRelayConfig),
@@ -38,6 +39,7 @@ impl RelayBackendConfig {
         match self {
             Self::Hysteria2(_) => "hysteria2",
             Self::TuicV5(_) => "tuic_v5",
+            Self::Vless(_) => "vless",
             Self::VlessReality(_) => "vless_reality",
             Self::Mieru(_) => "mieru",
             Self::Ssh(_) => "ssh",

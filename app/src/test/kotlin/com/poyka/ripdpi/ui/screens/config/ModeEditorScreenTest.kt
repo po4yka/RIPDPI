@@ -40,6 +40,7 @@ import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.RelayXhttpModeStreamOne
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.ImmutableList
@@ -254,6 +255,28 @@ class ModeEditorScreenTest {
         }
     }
 
+    @Test
+    fun relayXhttpModeIsUserSelectable() {
+        var observedDraft: ConfigDraft? = null
+
+        setScreen(
+            initialDraft =
+                defaultDraft().copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindVlessReality,
+                    relayVlessTransport = RelayVlessTransportXhttp,
+                ),
+            stateful = true,
+            onStatefulDraftChanged = { observedDraft = it },
+        )
+
+        composeRule.onNodeWithText("xHTTP mode").performScrollTo().assertExists()
+        composeRule.onNodeWithText("stream-one").performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        assertEquals(RelayXhttpModeStreamOne, observedDraft?.relayXhttpMode)
+    }
+
     private fun setScreen(
         initialDraft: ConfigDraft = defaultDraft(),
         stateful: Boolean = false,
@@ -284,6 +307,11 @@ class ModeEditorScreenTest {
                             NoOpModeEditorActions.copy(
                                 onChainDslChanged = {
                                     val updatedDraft = draft.withChainDsl(it)
+                                    draft = updatedDraft
+                                    onStatefulDraftChanged(updatedDraft)
+                                },
+                                onRelayXhttpModeChanged = {
+                                    val updatedDraft = draft.copy(relayXhttpMode = it)
                                     draft = updatedDraft
                                     onStatefulDraftChanged(updatedDraft)
                                 },

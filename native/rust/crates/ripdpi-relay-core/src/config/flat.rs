@@ -26,6 +26,14 @@ fn default_native_config_schema_version() -> u32 {
     SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION
 }
 
+fn default_vless_flow() -> String {
+    "xtls-rprx-vision".to_string()
+}
+
+fn default_xhttp_mode() -> String {
+    "auto".to_string()
+}
+
 /// Rejects a `schemaVersion` envelope value this build does not support.
 ///
 /// Accepts the inclusive range
@@ -82,12 +90,16 @@ struct FlatResolvedRelayRuntimeConfig {
     pub reality_public_key: String,
     #[serde(default)]
     pub reality_short_id: String,
+    #[serde(default = "default_vless_flow")]
+    pub vless_flow: String,
     #[serde(default)]
     pub vless_transport: String,
     #[serde(default)]
     pub xhttp_path: String,
     #[serde(default)]
     pub xhttp_host: String,
+    #[serde(default = "default_xhttp_mode")]
+    pub xhttp_mode: String,
     #[serde(default)]
     pub cloudflare_tunnel_mode: String,
     #[serde(default)]

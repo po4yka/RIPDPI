@@ -38,9 +38,10 @@ use super::*;
 #[tokio::test]
 async fn relay_tls_in_tls_exposure_posture_is_pinned_for_every_kind() {
     // kind_id, tls_over_tcp (see the doc comment for the per-family rationale)
-    let tls_over_tcp: [(&str, bool); 14] = [
+    let tls_over_tcp: [(&str, bool); 15] = [
         ("hysteria2", false),
         ("tuic_v5", false),
+        ("vless", true),
         ("vless_reality", true),
         ("mieru", false),
         ("ssh", false),
