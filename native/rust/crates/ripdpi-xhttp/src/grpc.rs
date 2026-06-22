@@ -125,6 +125,12 @@ impl HunkDecoder {
         if message_len > MAX_HUNK_LEN {
             return Err(GrpcFramingError::MessageTooLarge(message_len));
         }
+        // A valid Hunk message is at least a 1-byte tag plus a 1-byte varint, so
+        // a zero-length message is malformed. Reject it here rather than letting
+        // the empty `message.get_u8()` below panic on a wire-controlled frame.
+        if message_len == 0 {
+            return Err(GrpcFramingError::MalformedVarint);
+        }
         if self.buffer.len() < GRPC_PREFIX_LEN + message_len {
             // Partial frame: wait for more bytes.
             return Ok(None);
@@ -508,6 +514,45 @@ mod tests {
         let mut decoder = HunkDecoder::new();
         decoder.extend(&frame);
         let error = decoder.next_hunk().expect_err("malformed varint rejected");
+        assert!(matches!(error, GrpcFramingError::MalformedVarint));
+    }
+
+    #[test]
+    fn zero_length_message_is_rejected_not_panicked() {
+        // A 5-byte all-zero frame declares message_len = 0. Before the fix this
+        // proceeded into `message.get_u8()` on an empty buffer and panicked.
+        let mut decoder = HunkDecoder::new();
+        decoder.extend(&[0x00, 0x00, 0x00, 0x00, 0x00]);
+        let error = decoder.next_hunk().expect_err("zero-length message rejected");
+        assert!(matches!(error, GrpcFramingError::MalformedVarint));
+    }
+
+    #[test]
+    fn tag_only_message_is_rejected_not_panicked() {
+        // message_len = 1: just the Hunk.data tag with no varint following.
+        // The varint decode must hit the empty buffer and return Err, not panic.
+        let mut frame = BytesMut::new();
+        frame.put_u8(GRPC_FLAG_UNCOMPRESSED);
+        frame.put_u32(1); // message length: tag only
+        frame.put_u8(HUNK_DATA_TAG);
+        let mut decoder = HunkDecoder::new();
+        decoder.extend(&frame);
+        let error = decoder.next_hunk().expect_err("tag-only message rejected");
+        assert!(matches!(error, GrpcFramingError::MalformedVarint));
+    }
+
+    #[test]
+    fn truncated_varint_at_message_end_is_rejected_not_panicked() {
+        // message_len = 2: tag + a single continuation-bit varint byte that is
+        // never terminated within the message. decode_varint must return Err.
+        let mut frame = BytesMut::new();
+        frame.put_u8(GRPC_FLAG_UNCOMPRESSED);
+        frame.put_u32(2); // tag + 1 unterminated varint byte
+        frame.put_u8(HUNK_DATA_TAG);
+        frame.put_u8(0x80); // continuation bit set, but nothing follows
+        let mut decoder = HunkDecoder::new();
+        decoder.extend(&frame);
+        let error = decoder.next_hunk().expect_err("truncated varint rejected");
         assert!(matches!(error, GrpcFramingError::MalformedVarint));
     }
 
