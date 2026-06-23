@@ -18,7 +18,8 @@ class TerminologyCanonTest {
                         file.parentFile?.name?.startsWith("values") == true
                 }.toList()
 
-        assertEquals(8, stringFiles.size)
+        // 9 locales: en (values) + ru, es, de, fr, fa, ar, zh-rCN, hi (Hindi added in 9c76d550a).
+        assertEquals(9, stringFiles.size)
 
         val retiredTerms =
             listOf(
