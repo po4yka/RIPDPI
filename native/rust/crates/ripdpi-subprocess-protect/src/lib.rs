@@ -245,4 +245,111 @@ mod tests {
         let stream = protected_tcp_connect_blocking(addr, None).expect("no-path connect must succeed");
         assert_eq!(stream.peer_addr().expect("peer").port(), addr.port());
     }
+
+    // TEST-2: async `protected_tcp_connect` must honor the same loopback-skip /
+    // no-path-no-op semantics as the blocking path — a loopback target never
+    // leaves the device, so protect is skipped even when a (bogus) path is set,
+    // and an unset path connects unprotected. Neither must error for loopback.
+    #[tokio::test]
+    async fn async_loopback_connect_skips_protect_even_with_a_bogus_path() {
+        // A bogus protect path would make protect_fd fail; a loopback target
+        // must skip protect entirely, so the async connect still succeeds.
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let addr = listener.local_addr().expect("addr");
+        let stream = protected_tcp_connect(addr, Some("/definitely/not/a/socket"))
+            .await
+            .expect("async loopback connect must skip protect and succeed");
+        assert_eq!(stream.peer_addr().expect("peer").port(), addr.port());
+    }
+
+    #[tokio::test]
+    async fn async_no_path_connects_unprotected() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let addr = listener.local_addr().expect("addr");
+        let stream =
+            protected_tcp_connect(addr, None).await.expect("async no-path connect must succeed (no-op protect)");
+        assert_eq!(stream.peer_addr().expect("peer").port(), addr.port());
+    }
+
+    // TEST-4: a stale UDS (listener bound then dropped, so the path exists or is
+    // refused but nothing is accepting) must fail closed promptly — never hang.
+    // protect_fd carries a PROTECT_TIMEOUT only on read/write *after* connect; a
+    // dropped listener makes the connect itself fail fast (ConnectionRefused or
+    // NotFound), which is the fail-closed outcome we assert lands well within
+    // PROTECT_TIMEOUT so a stuck parent can't wedge a helper's dial.
+    #[test]
+    fn protect_fd_fails_closed_on_stale_uds_without_hanging() {
+        let path = std::env::temp_dir().join(format!("ripdpi-test-protect-stale-{}.sock", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+
+        // Bind a listener, capture its path, then drop it so nothing accepts.
+        let listener = UnixListener::bind(&path).expect("bind stale uds");
+        drop(listener);
+
+        let (sock, _peer) = UnixStream::pair().expect("socketpair");
+        let started = std::time::Instant::now();
+        let err =
+            protect_fd(sock.as_raw_fd(), path.to_str().expect("utf-8 path")).expect_err("stale uds must fail closed");
+        let elapsed = started.elapsed();
+
+        assert!(
+            matches!(err.kind(), io::ErrorKind::ConnectionRefused | io::ErrorKind::NotFound),
+            "expected ConnectionRefused/NotFound on a stale uds, got {:?}",
+            err.kind(),
+        );
+        // Fail-closed must be prompt, not a hang: the round-trip budget is
+        // PROTECT_TIMEOUT, so generously bound the assertion at twice that.
+        assert!(elapsed < PROTECT_TIMEOUT * 2, "stale-uds protect must not hang (took {elapsed:?})");
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    // TEST-6: byte-compatibility with Kotlin `VpnProtectSocketServer`. The wire
+    // contract is one request byte then one ack byte:
+    //   - request: client sends exactly b"1" (ProtectSocketClientSession reads a
+    //     single byte: `socket.inputStream.read(ByteArray(1))`).
+    //   - ack: server writes `byteArrayOf(if (success) 0 else 1)` — 0 = ok,
+    //     non-zero = deny (`writeAck`). protect_fd fails closed on any non-zero.
+    // This test captures the exact request byte the server receives and exercises
+    // every non-zero ack value to lock the deny semantics.
+    #[test]
+    fn request_byte_is_exactly_one_and_ack_zero_is_ok_nonzero_is_deny() {
+        // The request byte the server receives must be exactly b"1" (0x31).
+        let path = std::env::temp_dir().join(format!("ripdpi-test-protect-wire-{}.sock", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let listener = UnixListener::bind(&path).expect("bind wire uds");
+        let server = thread::spawn(move || {
+            let (conn, _) = listener.accept().expect("accept wire client");
+            let mut buf = [0u8; 1];
+            let mut cmsg_space = nix::cmsg_space!([RawFd; 1]);
+            let cmsg_buf: &mut [u8] = &mut cmsg_space;
+            let mut iov = [IoSliceMut::new(&mut buf)];
+            recvmsg::<()>(conn.as_raw_fd(), &mut iov, Some(cmsg_buf), MsgFlags::empty())
+                .expect("recvmsg from wire client");
+            (&conn).write_all(&[0u8]).expect("write ok ack");
+            buf[0]
+        });
+
+        let (sock, _peer) = UnixStream::pair().expect("socketpair");
+        protect_fd(sock.as_raw_fd(), path.to_str().expect("utf-8 path")).expect("ack 0 must be ok");
+        let request_byte = server.join().expect("wire server thread");
+        assert_eq!(request_byte, b'1', "request payload byte must be exactly b\"1\" (matches VpnProtectSocketServer)");
+        let _ = std::fs::remove_file(&path);
+
+        // ack 0 = success (covered above); every non-zero ack must fail closed.
+        for ack in [1u8, 2, 255] {
+            let deny_path =
+                std::env::temp_dir().join(format!("ripdpi-test-protect-deny-{ack}-{}.sock", std::process::id()));
+            let _ = std::fs::remove_file(&deny_path);
+            let server = spawn_mock_protect_server(deny_path.clone(), ack);
+
+            let (sock, _peer) = UnixStream::pair().expect("socketpair");
+            let err = protect_fd(sock.as_raw_fd(), deny_path.to_str().expect("utf-8 path"))
+                .expect_err("non-zero ack must fail closed");
+            assert_eq!(err.kind(), io::ErrorKind::PermissionDenied, "non-zero ack {ack} must deny");
+
+            let _ = server.join();
+            let _ = std::fs::remove_file(&deny_path);
+        }
+    }
 }
