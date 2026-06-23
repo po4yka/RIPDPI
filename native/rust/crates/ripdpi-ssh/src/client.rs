@@ -133,10 +133,11 @@ impl Handler for SshHandler {
 /// The configuration is fully validated first (port range, non-empty username,
 /// auth material present, strict fingerprint parse), so a malformed profile
 /// fails loudly before any I/O. `russh::client::connect` opens its own TCP
-/// socket; per the relay protect-path audit this is safe because the relay runs
-/// in-process under the app UID, which is excluded from the TUN by UID-level
-/// routing (the same reason `ripdpi-trojan` connects directly). The host key is
-/// checked through [`evaluate_host_key`] before authentication proceeds.
+/// socket, so — unlike the sibling backends, which now build and protect their
+/// fd before connect — SSH cannot apply a per-socket `VpnService.protect()`. It
+/// is kept off the TUN by UID-level routing exclusion: the relay runs in-process
+/// under the app UID, which is excluded from the TUN. The host key is checked
+/// through [`evaluate_host_key`] before authentication proceeds.
 // cancel-safe: every `.await` here (`connect`, `authenticate_*`,
 // `best_supported_rsa_hash`) is a discrete request/response on a fresh session;
 // if the future is dropped mid-handshake the half-open session's `Handle` is
