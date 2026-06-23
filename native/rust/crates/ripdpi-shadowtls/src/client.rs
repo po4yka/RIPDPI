@@ -1,10 +1,11 @@
 use std::io;
-use std::net::ToSocketAddrs;
+use std::net::{SocketAddr, ToSocketAddrs};
+use std::os::fd::AsRawFd;
 
 use rustls::ClientConnection;
 use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpSocket, TcpStream};
 
 use crate::config::Config;
 use crate::frames::{TLS_ALERT, TLS_APPLICATION_DATA, read_tls_frame, verify_handshake_frame};
@@ -12,6 +13,27 @@ use crate::handshake::{build_rustls_config, modify_client_hello, parse_validated
 use crate::hmac::ShadowTlsHmac;
 use crate::stream::ShadowTlsStream;
 use crate::{ShadowTlsFailureKind, ShadowTlsHandshakeError, classify_failure_payload};
+
+/// Protect a freshly created outbound socket via the registered
+/// `VpnService.protect()` callback before it connects to a non-loopback peer.
+///
+/// No-op for loopback. Fails closed for a non-loopback target when no callback
+/// is registered (under a live TUN there is no other per-socket mechanism to
+/// keep the socket out of the tunnel). Mirrors the `ripdpi-vless` gold-standard
+/// helper. REL-1.
+fn protect_outbound_socket<T: AsRawFd>(socket: &T, target: SocketAddr) -> io::Result<()> {
+    if target.ip().is_loopback() {
+        return Ok(());
+    }
+    if !ripdpi_native_protect::has_protect_callback() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotConnected,
+            "no VpnService.protect callback for non-loopback ShadowTLS carrier socket under active TUN",
+        ));
+    }
+    ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd())
+        .map_err(|error| io::Error::new(error.kind(), format!("protect ShadowTLS outbound socket: {error}")))
+}
 
 #[derive(Debug, Clone)]
 pub struct ShadowTlsClient {
@@ -34,13 +56,20 @@ impl ShadowTlsClient {
         let address = (server, port).to_socket_addrs()?.next().ok_or_else(|| {
             io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
         })?;
-        // PROTECT INVARIANT: this bare `TcpStream::connect` is NOT a violation of
-        // `vpnservice-protect-invariant.md`. On Android, ShadowTLS is only reachable as a
-        // relay-chain entry hop, whose outbound socket is bind-protected upstream via
-        // `outbound_bind_ip` in `ripdpi-relay-core` (`reject_bind_for_kind` fails closed
-        // if the kind cannot be bind-protected — see relay-core `chain.rs`). This bare
-        // connect path only runs off-TUN (desktop / CLI), where no protect is required.
-        let stream = TcpStream::connect(address).await?;
+        // PROTECT INVARIANT: the carrier socket is protected before connect via the
+        // in-process VpnService.protect registry (loopback-skipped, fail-closed under
+        // a live TUN) — matching the ripdpi-vless / ripdpi-xhttp gold-standard
+        // pattern. ShadowTLS is a standalone relay kind (transport_descriptor.rs
+        // build_shadowtls), reachable under a live TUN; own-UID exclusion via
+        // computeAppRoutingPlan remains the second layer. `connect_over` carries no
+        // OS socket of its own. REL-1 / REL-3. See
+        // .claude/rules/vpnservice-protect-invariant.md.
+        let socket = match address {
+            SocketAddr::V4(_) => TcpSocket::new_v4()?,
+            SocketAddr::V6(_) => TcpSocket::new_v6()?,
+        };
+        protect_outbound_socket(&socket, address)?;
+        let stream = socket.connect(address).await?;
         stream.set_nodelay(true)?;
         self.connect_over(stream).await
     }
@@ -144,5 +173,67 @@ where
                 ));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod protect_tests {
+    use std::net::{Ipv4Addr, SocketAddr, TcpListener};
+    use std::os::fd::{AsRawFd, RawFd};
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
+
+    use super::{io, protect_outbound_socket};
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    struct RecordingCallback {
+        last_fd: AtomicI32,
+    }
+
+    impl ProtectCallback for RecordingCallback {
+        fn protect(&self, fd: RawFd) -> io::Result<()> {
+            self.last_fd.store(fd, Ordering::Release);
+            Ok(())
+        }
+    }
+
+    fn non_loopback() -> SocketAddr {
+        SocketAddr::from((Ipv4Addr::new(203, 0, 113, 7), 443))
+    }
+
+    #[test]
+    fn non_loopback_without_callback_fails_closed() {
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        let err = protect_outbound_socket(&listener, non_loopback()).expect_err("must fail closed");
+        assert_eq!(err.kind(), io::ErrorKind::NotConnected);
+    }
+
+    #[test]
+    fn non_loopback_is_protected_via_callback() {
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
+        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        protect_outbound_socket(&listener, non_loopback()).expect("protect succeeds");
+        assert_eq!(cb.last_fd.load(Ordering::Acquire), listener.as_raw_fd());
+        unregister_protect_callback();
+    }
+
+    #[test]
+    fn loopback_is_not_protected() {
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
+        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        protect_outbound_socket(&listener, SocketAddr::from((Ipv4Addr::LOCALHOST, 1))).expect("loopback no-op");
+        assert_eq!(cb.last_fd.load(Ordering::Acquire), -1);
+        unregister_protect_callback();
     }
 }

@@ -6443,6 +6443,7 @@ dependencies = [
  "rand 0.10.1",
  "rcgen",
  "ring",
+ "ripdpi-native-protect",
  "rustls",
  "serde",
  "tokio",
