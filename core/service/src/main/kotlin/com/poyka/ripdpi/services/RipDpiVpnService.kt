@@ -54,6 +54,10 @@ class RipDpiVpnService :
     @Inject
     internal lateinit var activeProtectSocketPathProvider: ActiveProtectSocketPathProvider
 
+    @Inject
+    lateinit var selectorRuntimeLifecycleListeners:
+        Set<@JvmSuppressWildcards com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener>
+
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
     private lateinit var shellDelegate: ServiceShellDelegate
     private lateinit var notificationController: VpnForegroundNotificationController
@@ -76,10 +80,14 @@ class RipDpiVpnService :
                 activeProtectSocketPathProvider = activeProtectSocketPathProvider,
             )
         shellDelegate = sessionLifecycle.createShellDelegate()
+        // Start the selector-runtime loops (member hot-reload + latency failover)
+        // for the lifetime of the service. Each listener is idempotent.
+        selectorRuntimeLifecycleListeners.forEach { it.start() }
         refreshHardKillSwitchState()
     }
 
     override fun onDestroy() {
+        selectorRuntimeLifecycleListeners.forEach { it.stop() }
         sessionLifecycle.destroy()
         rootHelperManager.stop()
         super.onDestroy()

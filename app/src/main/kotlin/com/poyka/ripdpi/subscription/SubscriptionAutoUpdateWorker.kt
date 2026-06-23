@@ -13,10 +13,13 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
-import com.poyka.ripdpi.data.subscription.SingBoxParseResult
-import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
+import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
+import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
+import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
@@ -105,7 +108,19 @@ class SubscriptionAutoUpdateWorker
                 if (link.isBlank()) return@forEach
                 when (val outcome = fetchAndParse(link, group.id)) {
                     is RefreshOutcome.Updated -> {
-                        log.i { "refreshed subscription group ${group.id}: ${outcome.profileCount} profiles" }
+                        // Persist the parsed members onto the group so they are
+                        // durably stored and selectable, then report the REAL
+                        // persisted count — never the bare parse count.
+                        val updated =
+                            SubscriptionMemberPersistence.apply(
+                                group = group,
+                                members = outcome.profiles,
+                                failover = outcome.failover,
+                            )
+                        repository.update(updated)
+                        log.i {
+                            "refreshed subscription group ${group.id}: ${updated.members.size} profiles persisted"
+                        }
                     }
 
                     is RefreshOutcome.TransientFailure -> {
@@ -138,13 +153,19 @@ class SubscriptionAutoUpdateWorker
                             return@use RefreshOutcome.TransientFailure("HTTP ${response.code}")
                         }
                         val body = response.body.string()
-                        val singBox = SingBoxSubscriptionParser.parse(body, groupId)
-                        if (singBox is SingBoxParseResult.Success && singBox.profiles.isNotEmpty()) {
-                            return@use RefreshOutcome.Updated(singBox.profiles.size)
+                        // The selector/urltest import wraps SingBoxSubscriptionParser:
+                        // it yields the concrete member profiles plus, for a selector
+                        // bundle, the failover policy. Members are what we persist.
+                        val selector = SelectorUrltestGroupImport.import(body, groupId)
+                        if (selector is SelectorUrltestImportResult.Success && selector.profiles.isNotEmpty()) {
+                            return@use RefreshOutcome.Updated(
+                                profiles = selector.profiles,
+                                failover = selector.failoverPolicy.toSelectorFailover(),
+                            )
                         }
                         val base64 = Base64SubscriptionParser.parse(body, groupId)
                         if (base64.profiles.isNotEmpty()) {
-                            RefreshOutcome.Updated(base64.profiles.size)
+                            RefreshOutcome.Updated(profiles = base64.profiles, failover = null)
                         } else {
                             RefreshOutcome.ParseFailure("no profiles in subscription payload")
                         }
@@ -156,7 +177,8 @@ class SubscriptionAutoUpdateWorker
 
         private sealed interface RefreshOutcome {
             data class Updated(
-                val profileCount: Int,
+                val profiles: List<ProxyProfile>,
+                val failover: SelectorFailover?,
             ) : RefreshOutcome
 
             data class TransientFailure(

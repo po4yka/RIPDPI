@@ -86,6 +86,16 @@ data class Subscription(
  * A user-owned group that organizes [ProxyProfile] records. Replaces NekoBox's
  * `@Entity ProxyGroup`; chaining fields (`frontProxy` / `landingProxy`) are
  * intentionally omitted per project scope.
+ *
+ * [members] are the candidate profiles a selector / subscription group switches
+ * between. A subscription refresh (see `SubscriptionAutoUpdateWorker`) and a
+ * selector/urltest import both write the parsed profiles here so they are durably
+ * stored and selectable rather than discarded. [failover] carries a selector
+ * group's latency-driven failover policy (`null` == manual switching only) so the
+ * urltest prober can run without re-parsing the source bundle. Both fields are
+ * additive with empty/`null` defaults: an older persisted payload that omits them
+ * deserializes unchanged, and `RipDpiJson` (no `encodeDefaults`) omits them when
+ * empty, so existing serialization and backup output are unaffected.
  */
 @Serializable
 data class ProxyGroup(
@@ -95,6 +105,28 @@ data class ProxyGroup(
     val order: Int,
     val isSelector: Boolean,
     val subscription: Subscription? = null,
+    val members: List<ProxyProfile> = emptyList(),
+    val failover: SelectorFailover? = null,
+)
+
+/**
+ * Persisted, serializable mirror of a selector group's latency-driven failover
+ * policy. The import layer's `FailoverPolicy.Urltest` is mapped onto this when a
+ * group is stored; `null` on a [ProxyGroup] means manual switching only
+ * (`FailoverPolicy.Manual`). Kept as a dedicated `@Serializable` type (rather than
+ * making the import-layer sealed interface serializable) so the persistence schema
+ * is decoupled from the parser model.
+ *
+ * @param probeUrl the URL probed for reachability / latency.
+ * @param intervalSeconds probe cadence, in seconds.
+ * @param toleranceMs latency tolerance band, in milliseconds: a candidate must beat
+ *   the current selection's latency by more than this before a switch is made.
+ */
+@Serializable
+data class SelectorFailover(
+    val probeUrl: String,
+    val intervalSeconds: Int,
+    val toleranceMs: Int,
 )
 
 /**

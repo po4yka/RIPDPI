@@ -1,0 +1,96 @@
+package com.poyka.ripdpi.subscription
+
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.SelectorFailover
+import com.poyka.ripdpi.data.Subscription
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Test
+
+/**
+ * (A) Member persistence — the refresh worker must fold parsed members back onto
+ * the group rather than discarding them (audit finding P1-3). These exercise the
+ * pure mapping the worker delegates to.
+ */
+class SubscriptionMemberPersistenceTest {
+    private fun group(
+        members: List<ProxyProfile> = emptyList(),
+        failover: SelectorFailover? = null,
+    ) = ProxyGroup(
+        id = "g1",
+        name = "Group",
+        type = ProxyGroupType.SUBSCRIPTION,
+        order = 0,
+        isSelector = true,
+        subscription = Subscription(link = "https://example.com/g1"),
+        members = members,
+        failover = failover,
+    )
+
+    private fun trojan(id: String) =
+        ProxyProfile.Trojan(
+            id = id,
+            displayName = id,
+            groupId = "g1",
+            server = "$id.example.com",
+            serverPort = 443,
+            password = "pw-$id",
+        )
+
+    @Test
+    fun `parsed members are persisted onto the group`() {
+        val members = listOf(trojan("a"), trojan("b"))
+
+        val updated = SubscriptionMemberPersistence.apply(group(), members)
+
+        assertEquals(members, updated.members)
+    }
+
+    @Test
+    fun `a urltest failover policy is carried onto the group`() {
+        val failover = SelectorFailover(probeUrl = "https://probe", intervalSeconds = 60, toleranceMs = 50)
+
+        val updated = SubscriptionMemberPersistence.apply(group(), listOf(trojan("a")), failover)
+
+        assertEquals(failover, updated.failover)
+    }
+
+    @Test
+    fun `a refresh with no failover preserves the existing group policy`() {
+        val existing = SelectorFailover(probeUrl = "https://probe", intervalSeconds = 30, toleranceMs = 10)
+
+        val updated =
+            SubscriptionMemberPersistence.apply(
+                group(failover = existing),
+                listOf(trojan("a")),
+                failover = null,
+            )
+
+        // A plain base64 refresh must not erase a previously-imported urltest policy.
+        assertEquals(existing, updated.failover)
+    }
+
+    @Test
+    fun `an empty refresh leaves the group untouched`() {
+        val original = group(members = listOf(trojan("a")))
+
+        val updated = SubscriptionMemberPersistence.apply(original, members = emptyList())
+
+        // An empty parse is not a successful update; the good members are kept.
+        assertSame(original, updated)
+    }
+
+    @Test
+    fun `members replace the previous set wholesale`() {
+        val original = group(members = listOf(trojan("old1"), trojan("old2")))
+        val refreshed = listOf(trojan("new1"))
+
+        val updated = SubscriptionMemberPersistence.apply(original, refreshed)
+
+        assertEquals(refreshed, updated.members)
+        assertNull(updated.members.firstOrNull { it.id.startsWith("old") })
+    }
+}

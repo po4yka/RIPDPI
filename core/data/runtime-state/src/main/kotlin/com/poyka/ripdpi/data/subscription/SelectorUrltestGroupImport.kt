@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data.subscription
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.SelectorFailover
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -30,6 +31,26 @@ sealed interface FailoverPolicy {
         val toleranceMs: Int,
     ) : FailoverPolicy
 }
+
+/**
+ * Maps an import-layer [FailoverPolicy] onto the persisted [SelectorFailover]
+ * mirror stored on a [ProxyGroup]. [FailoverPolicy.Manual] has no probe policy and
+ * maps to `null`.
+ */
+fun FailoverPolicy.toSelectorFailover(): SelectorFailover? =
+    when (this) {
+        FailoverPolicy.Manual -> {
+            null
+        }
+
+        is FailoverPolicy.Urltest -> {
+            SelectorFailover(
+                probeUrl = probeUrl,
+                intervalSeconds = intervalSeconds,
+                toleranceMs = toleranceMs,
+            )
+        }
+    }
 
 /** Outcome of a [SelectorUrltestGroupImport] run. */
 sealed interface SelectorUrltestImportResult {
@@ -150,6 +171,11 @@ object SelectorUrltestGroupImport {
                 )
             } ?: FailoverPolicy.Manual
 
+        // Resolve the member tags back to their concrete profiles, in declared
+        // selector order, so the group durably carries its candidate set.
+        val membersByTag = profiles.associateBy { it.displayName }
+        val memberProfiles = memberOrder.mapNotNull(membersByTag::get)
+
         val group =
             ProxyGroup(
                 id = groupId,
@@ -157,6 +183,8 @@ object SelectorUrltestGroupImport {
                 type = ProxyGroupType.SUBSCRIPTION,
                 order = 0,
                 isSelector = true,
+                members = memberProfiles,
+                failover = failoverPolicy.toSelectorFailover(),
             )
         return SelectorUrltestImportResult.Success(
             profiles = profiles,
