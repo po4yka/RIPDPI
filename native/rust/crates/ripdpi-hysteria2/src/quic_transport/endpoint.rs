@@ -174,69 +174,69 @@ mod protect_tests {
     //! `PROTECT_TEST_LOCK` and clear the slot before releasing it.
 
     use super::*;
+    use std::os::fd::RawFd;
     use std::sync::Mutex;
-    use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 
-    use ripdpi_native_protect::{
-        ProtectCallback, has_protect_callback, register_protect_callback, unregister_protect_callback,
-    };
+    use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
 
-    // The protect registry is process-global. These tests register/unregister
-    // a callback, so they must not run concurrently with each other (or with
-    // any other test that observes the registry). The guard never spans an
+    // The protect registry is process-global AND other unit tests in this crate
+    // (the bind / port-hop soak tests) call `build_client_udp_socket`
+    // concurrently. We serialize the two callback-registering tests on
+    // `PROTECT_TEST_LOCK`, but concurrent builds from those other tests can still
+    // invoke a registered callback — so the recording callback collects ALL
+    // protected fds and the assertion checks membership (the carrier socket's own
+    // fd is among them), never an exact call count. The guard never spans an
     // `.await`, so a std `Mutex` is correct here.
     static PROTECT_TEST_LOCK: Mutex<()> = Mutex::new(());
 
     struct RecordingCallback {
-        last_fd: AtomicI32,
-        calls: AtomicUsize,
+        fds: Mutex<Vec<RawFd>>,
     }
 
     impl RecordingCallback {
         fn new() -> Arc<Self> {
-            Arc::new(Self { last_fd: AtomicI32::new(-1), calls: AtomicUsize::new(0) })
+            Arc::new(Self { fds: Mutex::new(Vec::new()) })
         }
     }
 
     impl ProtectCallback for RecordingCallback {
-        fn protect(&self, fd: std::os::fd::RawFd) -> io::Result<()> {
-            self.last_fd.store(fd, Ordering::SeqCst);
-            self.calls.fetch_add(1, Ordering::SeqCst);
+        fn protect(&self, fd: RawFd) -> io::Result<()> {
+            self.fds.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(fd);
             Ok(())
         }
     }
 
     #[test]
     fn carrier_socket_is_protected_with_its_own_fd_before_quinn() {
-        let _guard = PROTECT_TEST_LOCK.lock().expect("protect test lock");
+        let _guard = PROTECT_TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let cb = RecordingCallback::new();
         register_protect_callback(cb.clone());
 
         let socket = build_client_udp_socket(false, false).expect("bind ipv4 carrier socket");
+        let fd = socket.as_raw_fd();
 
-        // The protect callback fired exactly once, and the fd it recorded is
-        // the carrier socket's own fd — proving protect runs on the right fd
-        // before the socket is handed to `quinn`.
-        assert_eq!(cb.calls.load(Ordering::SeqCst), 1, "protect callback must be invoked exactly once");
-        assert_eq!(
-            cb.last_fd.load(Ordering::SeqCst),
-            socket.as_raw_fd(),
-            "protect must be called with the carrier socket's own fd",
-        );
-
+        // Unregister BEFORE asserting so an assertion failure cannot poison the
+        // lock, and so no further concurrent build records into `cb`.
         unregister_protect_callback();
+
+        // The carrier socket's own fd must be among the protected fds — proving
+        // protect ran on it before it reached `quinn`. (Concurrent builds from
+        // sibling tests may have recorded their fds too; membership is robust.)
+        let recorded = cb.fds.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        assert!(recorded.contains(&fd), "protect must be called with the carrier socket's own fd");
         drop(socket);
     }
 
     #[test]
     fn no_callback_is_a_noop_so_host_loopback_tests_still_bind() {
-        let _guard = PROTECT_TEST_LOCK.lock().expect("protect test lock");
+        let _guard = PROTECT_TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         unregister_protect_callback();
-        assert!(!has_protect_callback(), "test precondition: no protect callback registered");
 
         // With no callback registered (the host loopback / e2e posture), the
         // protect step is a no-op and binding must still succeed — this is the
-        // WARP UDP semantics, not the fail-closed TCP posture.
+        // WARP UDP semantics, not the fail-closed TCP posture. (The only other
+        // test that registers a callback holds the same lock, so none is
+        // installed here.)
         let socket = build_client_udp_socket(false, false).expect("bind must succeed without a callback");
         assert_ne!(socket.local_addr().expect("local addr").port(), 0, "socket must be bound");
         drop(socket);
