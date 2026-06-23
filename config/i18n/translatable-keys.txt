@@ -2339,6 +2339,7 @@ app:language_name_en
 app:language_name_es
 app:language_name_fa
 app:language_name_fr
+app:language_name_hi
 app:language_name_ru
 app:language_name_zh_cn
 app:language_picker_native_format
