@@ -85,6 +85,30 @@ class BackupFullVariantTest {
     }
 
     @Test
+    fun `FULL export of Ssh keeps secret key material`() {
+        val profile =
+            ProxyProfile.Ssh(
+                id = "ssh-1",
+                displayName = "My SSH",
+                groupId = "g-1",
+                server = "ssh.example.com",
+                serverPort = 22,
+                username = "operator",
+                authType = "private_key",
+                password = "fixture-password-4",
+                privateKey = "fixture-private-key",
+                privateKeyPassphrase = "fixture-passphrase",
+            )
+        val doc = fullExport(listOf(profile))
+        val obj = doc.profiles.single()
+
+        assertTrue("password missing in FULL", "password" in obj)
+        assertTrue("privateKey missing in FULL", "privateKey" in obj)
+        assertTrue("privateKeyPassphrase missing in FULL", "privateKeyPassphrase" in obj)
+        assertEquals("fixture-private-key", obj.getValue("privateKey").toString().trim('"'))
+    }
+
+    @Test
     fun `FULL export preserves multiple profiles`() {
         val profiles =
             listOf(

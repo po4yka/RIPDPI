@@ -94,6 +94,21 @@ class BackupAllowlistCoverageTest {
                     username = "user",
                     password = "pw",
                 ),
+            "ssh" to
+                ProxyProfile.Ssh(
+                    id = "ssh-1",
+                    displayName = "SSH",
+                    groupId = "g-1",
+                    server = "ssh.example.com",
+                    serverPort = 22,
+                    username = "user",
+                    authType = "password",
+                    password = "pw",
+                    privateKey = "key-material",
+                    privateKeyPassphrase = "passphrase",
+                    hostKeyFingerprint = "SHA256:fixture",
+                    strictHostKey = true,
+                ),
             "raw-config" to
                 ProxyProfile.RawConfig(
                     id = "rc-1",

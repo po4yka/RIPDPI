@@ -147,6 +147,36 @@ class BackupShareVariantTest {
     }
 
     @Test
+    fun `SHARE export of Ssh strips secrets and id, keeps host port and username`() {
+        val profile =
+            ProxyProfile.Ssh(
+                id = "ssh-1",
+                displayName = "My SSH",
+                groupId = "g-1",
+                server = "ssh.example.com",
+                serverPort = 22,
+                username = "operator",
+                authType = "private_key",
+                password = "fixture-password-4",
+                privateKey = "fixture-private-key",
+                privateKeyPassphrase = "fixture-passphrase",
+                hostKeyFingerprint = "SHA256:fixture",
+                strictHostKey = true,
+            )
+        val doc = shareExport(listOf(profile))
+        val obj = doc.profiles.single()
+
+        assertTrue("server missing", "server" in obj)
+        assertTrue("serverPort missing", "serverPort" in obj)
+        assertTrue("username missing", "username" in obj)
+
+        assertFalse("password must be stripped in SHARE", "password" in obj)
+        assertFalse("privateKey must be stripped in SHARE", "privateKey" in obj)
+        assertFalse("privateKeyPassphrase must be stripped in SHARE", "privateKeyPassphrase" in obj)
+        assertFalse("id must be excluded in SHARE", "id" in obj)
+    }
+
+    @Test
     fun `SHARE export of RawConfig strips config and id, keeps displayName`() {
         val profile =
             ProxyProfile.RawConfig(

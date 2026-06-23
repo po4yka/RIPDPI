@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data.backup
 
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
@@ -29,7 +30,9 @@ const val OldestSupportedBackupVersion: Int = 1
  * Backup export variant.
  *
  * - [SHARE]: strips every field classified as [Classification.REDACTED] or
- *   [Classification.EXCLUDED] from each profile and omits app settings; safe to share publicly.
+ *   [Classification.EXCLUDED] from each profile, strips subscription secrets
+ *   (`token` + credentials in the `link`) from each group, and omits app settings;
+ *   safe to share publicly.
  * - [FULL]: retains all fields and sets [BackupV1.containsCredentials] = true.
  */
 enum class BackupVariant {
@@ -199,6 +202,22 @@ object BackupAllowlist {
                 "mtu" to Classification.PUBLIC,
             )
 
+    private val sshFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                "username" to Classification.PUBLIC,
+                "authType" to Classification.PUBLIC,
+                // SSH credential material — must never survive a SHARE export.
+                "password" to Classification.REDACTED,
+                "privateKey" to Classification.REDACTED,
+                "privateKeyPassphrase" to Classification.REDACTED,
+                // Host-key pinning metadata is non-secret transport configuration.
+                "hostKeyFingerprint" to Classification.PUBLIC,
+                "strictHostKey" to Classification.PUBLIC,
+            )
+
     private val rawConfigFields: Map<String, Classification> =
         commonFields +
             mapOf(
@@ -214,6 +233,7 @@ object BackupAllowlist {
             "hysteria2" to hysteria2Fields,
             "anytls" to anyTlsFields,
             "mieru" to mieruFields,
+            "ssh" to sshFields,
             "raw-config" to rawConfigFields,
         )
 
@@ -245,6 +265,84 @@ object BackupAllowlist {
 }
 
 // ---------------------------------------------------------------------------
+// Group redaction (SHARE)
+// ---------------------------------------------------------------------------
+
+/**
+ * Redacts subscription secrets from a [ProxyGroup] before it enters a
+ * publicly-shareable backup ([BackupVariant.SHARE]).
+ *
+ * A [ProxyGroup] can embed a [Subscription] whose [Subscription.token] is a bearer
+ * credential and whose [Subscription.link] URL may carry `user:pass@` userinfo or a
+ * `token=`/`access_token=` query parameter. The profile allowlist already classifies
+ * such material as [Classification.REDACTED]; this is the equivalent for groups so the
+ * two SHARE paths stay consistent — secrets never survive, non-secret metadata does.
+ */
+object BackupGroupRedactor {
+    /** Query-parameter names whose values are bearer credentials and must be dropped. */
+    private val SECRET_QUERY_KEYS: Set<String> =
+        setOf("token", "access_token", "accesstoken", "auth", "key", "apikey", "api_key")
+
+    /** Returns [group] with subscription secrets and member node material stripped (SHARE-safe). */
+    fun redact(group: ProxyGroup): ProxyGroup {
+        // SHARE backups must not carry the member node list. A selector/subscription
+        // group's [ProxyGroup.members] can embed per-node credentials (e.g. AnyTLS/SSH
+        // passwords) and is re-fetchable from the (scrubbed) subscription link on the
+        // recipient device, so it is dropped rather than risk leaking a secret into a
+        // publicly-shared backup. FULL exports keep members verbatim (they bypass this
+        // redactor in [BackupExporter.export]).
+        val base = if (group.members.isEmpty()) group else group.copy(members = emptyList())
+        val sub = base.subscription ?: return base
+        return base.copy(
+            subscription =
+                sub.copy(
+                    token = "",
+                    link = scrubLink(sub.link),
+                ),
+        )
+    }
+
+    /**
+     * Strips credential material from a subscription URL: drops any `user:pass@`
+     * userinfo component and any secret query parameter (see [SECRET_QUERY_KEYS]).
+     * A value that does not parse as a URI is treated as opaque and emptied rather
+     * than risk leaking an embedded secret.
+     */
+    internal fun scrubLink(link: String): String {
+        if (link.isEmpty()) return link
+        // A value that does not parse (or re-encode) as a URI is emptied via the
+        // single getOrDefault below rather than a separate early return.
+        return runCatching {
+            val uri = java.net.URI(link)
+            java.net
+                .URI(
+                    uri.scheme,
+                    // userInfo is always dropped: `user:pass@` carries credentials.
+                    null,
+                    uri.host,
+                    uri.port,
+                    uri.path,
+                    scrubQuery(uri.rawQuery),
+                    uri.fragment,
+                ).toString()
+        }.getOrDefault("")
+    }
+
+    /** Removes secret query parameters; returns `null` when nothing remains. */
+    private fun scrubQuery(rawQuery: String?): String? {
+        if (rawQuery.isNullOrEmpty()) return rawQuery
+        val kept =
+            rawQuery
+                .split("&")
+                .filter { pair ->
+                    val name = pair.substringBefore("=").lowercase()
+                    name !in SECRET_QUERY_KEYS
+                }
+        return kept.takeIf { it.isNotEmpty() }?.joinToString("&")
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Exporter
 // ---------------------------------------------------------------------------
 
@@ -255,8 +353,9 @@ private val backupJson =
  * Produces a [BackupV1] document from the supplied data.
  *
  * For [BackupVariant.SHARE], each profile's JSON object is stripped of every
- * field classified as [Classification.REDACTED] or [Classification.EXCLUDED], and callers must pass a SHARE-safe
- * settings map.
+ * field classified as [Classification.REDACTED] or [Classification.EXCLUDED], each
+ * group's subscription secrets are stripped via [BackupGroupRedactor], and callers
+ * must pass a SHARE-safe settings map.
  * For [BackupVariant.FULL], all fields are kept and [BackupV1.containsCredentials]
  * is set to `true`.
  */
@@ -310,12 +409,21 @@ object BackupExporter {
                     outboundTag = RuleTypeConverters.fromOutboundTag(r.outboundTag),
                 )
             }
+        val groupExports =
+            when (variant) {
+                // FULL is the encrypted/local export: keep subscription secrets verbatim.
+                BackupVariant.FULL -> groups
+
+                // SHARE is documented "safe to share publicly": strip subscription
+                // token + credential-bearing link, mirroring the profile allowlist.
+                BackupVariant.SHARE -> groups.map { BackupGroupRedactor.redact(it) }
+            }
         return BackupV1(
             schemaVersion = BackupSchemaVersion,
             createdAtEpochMillis = createdAtEpochMillis,
             appVersion = appVersion,
             profiles = profileObjects,
-            groups = groups,
+            groups = groupExports,
             rules = ruleExports,
             settings = settings,
             containsCredentials = variant == BackupVariant.FULL,
