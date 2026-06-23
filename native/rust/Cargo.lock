@@ -5914,6 +5914,7 @@ dependencies = [
  "ring",
  "ripdpi-ech-dns",
  "ripdpi-hysteria2",
+ "ripdpi-native-protect",
  "ripdpi-tls-profiles",
  "rustls",
  "serde",

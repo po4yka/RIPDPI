@@ -11,6 +11,7 @@ h3-quinn = { workspace = true, features = ["datagram"] }
 h3-datagram = { workspace = true }
 ripdpi-hysteria2 = { workspace = true }
 ripdpi-ech-dns = { workspace = true }
+ripdpi-native-protect = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 rustls = { workspace = true }

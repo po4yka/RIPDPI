@@ -12,6 +12,13 @@ use crate::config::MasqueConfig;
 /// composable QUIC transport is a module of `ripdpi-hysteria2`, and MASQUE
 /// is one of its consumers.
 pub(super) fn build_client_udp_socket(ipv6: bool, bind_low_port: bool) -> io::Result<std::net::UdpSocket> {
+    // VpnService.protect() invariant: the returned QUIC client socket is
+    // protected INSIDE `ripdpi_hysteria2::build_client_udp_socket` (the WARP
+    // bind-then-protect-before-`.into()` pattern), so the H3 datapath inherits
+    // protection here with no extra call. quinn keeps that exact fd across any
+    // later rebind through the same builder, so the whole H3 endpoint is
+    // covered. The H2 fallback (`crate::h2`) builds its own TCP carrier socket
+    // and protects it there. See .claude/rules/vpnservice-protect-invariant.md.
     ripdpi_hysteria2::build_client_udp_socket(ipv6, bind_low_port)
 }
 
