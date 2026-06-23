@@ -208,6 +208,17 @@ impl EchHandshakeDriver for NoopEchHandshakeDriver {
 /// Generic over the backend [`EchHandshakeDriver`]; the runner itself
 /// is pure dispatcher logic and is exercised by the FakeDriver tests
 /// in `tests/ech_handshake_runner_tdd.rs`.
+///
+/// # ⚠️ Dormant — protect landmine (DIAG-3)
+///
+/// NOT dispatched by `ripdpi-monitor-engine` / `ripdpi-diagnostics-runner`.
+/// With a live driver its connect is **Direct + UNPROTECTED** (no
+/// `VpnService.protect`). Do **not** wire it into the runner registry without
+/// first routing the driver's connect through the protect-aware
+/// `ripdpi-diagnostics-runner` seam, or it reintroduces a DIAG-1/DIAG-2-class
+/// TUN-recursion loop when the VPN is up. See
+/// `.claude/rules/vpnservice-protect-invariant.md`.
+#[doc(hidden)]
 pub struct EchHandshakeRunner<D: EchHandshakeDriver> {
     /// Backend driver responsible for the DNS + TLS I/O.
     pub driver: D,

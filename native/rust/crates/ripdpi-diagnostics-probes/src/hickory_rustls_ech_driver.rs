@@ -38,6 +38,16 @@ use crate::probes::ech_handshake::{EchHandshakeDriver, EchHandshakeOutcome};
 /// The TLS half performs a genuine ECH-enabled TLS 1.3 handshake using
 /// [`EchConfig::new`] with [`ALL_SUPPORTED_SUITES`] (aws-lc-rs HPKE suites)
 /// and reads the outcome from [`EchStatus`] on the completed connection.
+///
+/// # ⚠️ Dormant — protect landmine (DIAG-3)
+///
+/// NOT dispatched by `ripdpi-monitor-engine` / `ripdpi-diagnostics-runner`.
+/// Its TLS connect is **Direct + UNPROTECTED** (no `VpnService.protect`). Do
+/// **not** wire it into the runner registry without first routing the connect
+/// through the protect-aware `ripdpi-diagnostics-runner` seam, or it
+/// reintroduces a DIAG-1/DIAG-2-class TUN-recursion loop when the VPN is up.
+/// See `.claude/rules/vpnservice-protect-invariant.md`.
+#[doc(hidden)]
 pub struct HickoryRustlsEchHandshakeDriver {
     /// Maximum wall-clock time allowed for each HTTPS RR lookup.
     ///

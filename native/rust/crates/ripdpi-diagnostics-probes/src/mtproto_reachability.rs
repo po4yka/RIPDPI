@@ -188,6 +188,17 @@ pub struct DcEndpoint {
 ///
 /// The runner is direct-TCP only. `ctx.relay_hint` is ignored and does not
 /// alter the connect path.
+///
+/// # ⚠️ Dormant — protect landmine (DIAG-3)
+///
+/// NOT dispatched by `ripdpi-monitor-engine` / `ripdpi-diagnostics-runner`.
+/// Its connect is **Direct + UNPROTECTED** (no `VpnService.protect`). Do **not**
+/// wire it into the runner registry without first routing the connect through
+/// the protect-aware `ripdpi-diagnostics-runner` seam
+/// (`connect_transport_observed`), or it reintroduces a DIAG-1/DIAG-2-class
+/// TUN-recursion loop when the VPN is up. See
+/// `.claude/rules/vpnservice-protect-invariant.md`.
+#[doc(hidden)]
 pub struct MtprotoReachabilityRunner {
     /// Per-endpoint connect timeout.
     pub timeout: Duration,
