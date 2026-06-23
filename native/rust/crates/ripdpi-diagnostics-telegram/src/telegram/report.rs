@@ -14,7 +14,7 @@ pub fn run_telegram_probe(
 ) -> ProbeResult {
     let dl = telegram_download_probe(target, transport, key_log);
     let ul = telegram_upload_probe(target, transport, key_log);
-    let dc = telegram_dc_probe(target);
+    let dc = telegram_dc_probe(target, transport);
     let ws = telegram_ws_tunnel_probe(key_log);
 
     let verdict = classify_telegram_verdict(&dl.status, &ul.status, dc.reachable, dc.total);

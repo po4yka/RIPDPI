@@ -1,6 +1,6 @@
-use std::net::{IpAddr, Shutdown, SocketAddr, TcpStream};
-use std::time::Duration;
+use std::net::{IpAddr, Shutdown};
 
+use crate::transport::{TargetAddress, TransportConfig, connect_transport_observed};
 use crate::types::TelegramTarget;
 
 const FALLBACK_MTPROTO_PORT: u16 = 80;
@@ -12,8 +12,7 @@ pub(crate) struct TelegramDcResult {
     pub(crate) results: Vec<String>,
 }
 
-pub(crate) fn telegram_dc_probe(target: &TelegramTarget) -> TelegramDcResult {
-    let dc_timeout = Duration::from_secs(5);
+pub(crate) fn telegram_dc_probe(target: &TelegramTarget, transport: &TransportConfig) -> TelegramDcResult {
     let mut results = Vec::new();
     let mut reachable = 0usize;
     let mut total = 0usize;
@@ -37,12 +36,14 @@ pub(crate) fn telegram_dc_probe(target: &TelegramTarget) -> TelegramDcResult {
         let mut port_results = Vec::new();
         let mut rtts = Vec::new();
         for port in dc_probe_ports(dc.port) {
-            let addr = SocketAddr::new(ip, port);
             let start = std::time::Instant::now();
-            match TcpStream::connect_timeout(&addr, dc_timeout) {
-                Ok(stream) => {
+            // Route through the protect-aware transport seam so the probe fd is
+            // protected before connect when the VPN is up (DIAG-2), matching the
+            // sibling download/upload probes.
+            match connect_transport_observed(std::slice::from_ref(&TargetAddress::Ip(ip)), port, transport) {
+                Ok(result) => {
                     let rtt_ms = start.elapsed().as_millis();
-                    let _ = stream.shutdown(Shutdown::Both);
+                    result.stream.shutdown(Shutdown::Both).ok();
                     rtts.push(rtt_ms);
                     port_results.push(format!("{port}:ok:{rtt_ms}ms"));
                 }
@@ -116,7 +117,7 @@ mod tests {
             upload_size_bytes: 1,
         };
 
-        let result = telegram_dc_probe(&target);
+        let result = telegram_dc_probe(&target, &TransportConfig::Direct { route_experiment: None });
         assert_eq!(result.total, 1);
         assert_eq!(result.reachable, 0);
         assert_eq!(result.results, vec!["dc-test:fail:not_telegram_dc"]);
