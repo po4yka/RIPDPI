@@ -24,8 +24,10 @@ internal class VpnServiceSessionLifecycle(
         val socketServer = entryPoint.protectSocketServer()
         coordinator = runtimeCoordinator
         protectSocketServer = socketServer
-        socketServer.start()
-        activeProtectSocketPathProvider.set(socketServer.socketPath)
+        advertiseProtectPath(
+            startProtectSocketServer = socketServer::start,
+            advertiseProtectPath = { activeProtectSocketPathProvider.set(socketServer.socketPath) },
+        )
         VpnNativeProtectRegistration.register(service)
         return ServiceShellDelegate(
             serviceScope = service.serviceScope,
@@ -59,10 +61,14 @@ internal class VpnServiceSessionLifecycle(
     }
 
     private fun cleanupNativeProtect() {
-        activeProtectSocketPathProvider.clear()
-        cleanup.cleanupNativeProtect(
-            unregisterNativeProtect = VpnNativeProtectRegistration::unregister,
-            stopProtectSocketServer = { protectSocketServer?.stop() },
+        withdrawProtectPath(
+            withdrawProtectPath = activeProtectSocketPathProvider::clear,
+            cleanupNativeProtect = {
+                cleanup.cleanupNativeProtect(
+                    unregisterNativeProtect = VpnNativeProtectRegistration::unregister,
+                    stopProtectSocketServer = { protectSocketServer?.stop() },
+                )
+            },
         )
     }
 
@@ -75,4 +81,43 @@ internal class VpnServiceSessionLifecycle(
                 .build()
         return EntryPoints.get(checkNotNull(sessionComponent), VpnServiceSessionEntryPoint::class.java)
     }
+}
+
+/**
+ * Protect-path advertise ordering seam (session start).
+ *
+ * The protect socket server MUST be listening before the env path is advertised:
+ * a relay helper that reads [ActiveProtectSocketPathProvider.current] fails closed
+ * if the path is set but no server answers. So [startProtectSocketServer] runs
+ * strictly before [advertiseProtectPath].
+ *
+ * Extracted only to pin this ordering in a unit test ([VpnServiceSessionLifecycleTest]);
+ * the runtime effect is identical to the inline `start(); set(path)` it replaced.
+ */
+internal inline fun advertiseProtectPath(
+    startProtectSocketServer: () -> Unit,
+    advertiseProtectPath: () -> Unit,
+) {
+    startProtectSocketServer()
+    advertiseProtectPath()
+}
+
+/**
+ * Protect-path withdraw ordering seam (session teardown / revoke / destroy).
+ *
+ * The env path MUST be withdrawn before the protect socket server stops, so a
+ * relay helper never reads a stale path pointing at a dead UDS. So
+ * [withdrawProtectPath] runs strictly before [cleanupNativeProtect] (which stops
+ * the server).
+ *
+ * Extracted only to pin this ordering in a unit test ([VpnServiceSessionLifecycleTest]);
+ * the runtime effect is identical to the inline `clear(); cleanupNativeProtect(...)`
+ * it replaced.
+ */
+internal inline fun withdrawProtectPath(
+    withdrawProtectPath: () -> Unit,
+    cleanupNativeProtect: () -> Unit,
+) {
+    withdrawProtectPath()
+    cleanupNativeProtect()
 }
