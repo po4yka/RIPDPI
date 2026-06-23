@@ -1,6 +1,6 @@
 mod address;
 mod config;
-mod protect;
+pub(crate) mod protect;
 mod route_experiment;
 mod socks5;
 mod tcp;

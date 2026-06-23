@@ -3,6 +3,8 @@ use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::sync::Arc;
 use std::time::Duration;
 
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+
 use rustls::KeyLog;
 use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
@@ -75,11 +77,20 @@ fn resolve_target_addr(target: &WsOverTlsTarget) -> io::Result<SocketAddr> {
 }
 
 fn connect_tcp(addr: SocketAddr, timeout: Option<Duration>) -> io::Result<TcpStream> {
-    let stream = match timeout {
-        Some(timeout) => TcpStream::connect_timeout(&addr, timeout),
-        None => TcpStream::connect(addr),
+    let socket =
+        Socket::new(if addr.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 }, Type::STREAM, Some(Protocol::TCP))?;
+    // Protect the fd before connect when the VPN is up, so this Telegram WS
+    // probe socket is not captured by the app's own TUN route. The shared
+    // transport helper handles loopback-skip, the no-op when no protect
+    // callback is registered (desktop / VPN down), and fail-closed when a
+    // registered protect fails. DIAG-1.
+    crate::transport::protect::protect_for_target(&socket, addr)?;
+    match timeout {
+        Some(timeout) => socket.connect_timeout(&SockAddr::from(addr), timeout),
+        None => socket.connect(&SockAddr::from(addr)),
     }
     .map_err(|err| io::Error::new(err.kind(), format!("WS over TLS TCP connect to {addr}: {err}")))?;
+    let stream: TcpStream = socket.into();
     stream.set_nodelay(true)?;
     stream.set_read_timeout(timeout)?;
     stream.set_write_timeout(timeout)?;
@@ -130,7 +141,39 @@ fn build_ws_request(target: &WsOverTlsTarget) -> io::Result<tungstenite::http::R
 mod tests {
     use super::*;
 
-    use std::net::{IpAddr, Ipv4Addr};
+    use std::net::{IpAddr, Ipv4Addr, TcpListener};
+    use std::os::fd::RawFd;
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+
+    use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
+
+    // The protect callback slot is process-global; serialize the tests that
+    // register/clear it so a parallel test cannot observe a half-installed
+    // callback.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    struct RecordingCallback {
+        last_fd: AtomicI32,
+    }
+
+    impl ProtectCallback for RecordingCallback {
+        fn protect(&self, fd: RawFd) -> io::Result<()> {
+            self.last_fd.store(fd, Ordering::Release);
+            Ok(())
+        }
+    }
+
+    struct DenyingCallback {
+        called: AtomicBool,
+    }
+
+    impl ProtectCallback for DenyingCallback {
+        fn protect(&self, _fd: RawFd) -> io::Result<()> {
+            self.called.store(true, Ordering::Release);
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "protect denied"))
+        }
+    }
 
     #[test]
     fn target_defaults_to_standard_wss_port() {
@@ -159,5 +202,40 @@ mod tests {
             request.headers().get("Sec-WebSocket-Protocol").and_then(|value| value.to_str().ok()),
             Some("binary"),
         );
+    }
+
+    // DIAG-1 regression: pre-fix `connect_tcp` connected without protecting the
+    // fd. A registered protect callback must be invoked BEFORE connect, and a
+    // protect denial must fail the connect (fail-closed) — not proceed
+    // unprotected into the TUN.
+    #[test]
+    fn non_loopback_connect_attempts_protect_and_fails_closed() {
+        let _lock = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let cb = Arc::new(DenyingCallback { called: AtomicBool::new(false) });
+        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
+
+        let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)), 443);
+        let err =
+            connect_tcp(target, Some(Duration::from_millis(200))).expect_err("a protect denial must fail the connect");
+
+        assert!(cb.called.load(Ordering::Acquire), "protect must be attempted before connect");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        unregister_protect_callback();
+    }
+
+    #[test]
+    fn loopback_connect_is_not_protected() {
+        let _lock = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
+        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
+
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind loopback listener");
+        let addr = listener.local_addr().expect("listener addr");
+        let _stream = connect_tcp(addr, Some(Duration::from_millis(500))).expect("loopback connect succeeds");
+
+        assert_eq!(cb.last_fd.load(Ordering::Acquire), -1, "loopback target must not be protected");
+        unregister_protect_callback();
     }
 }
