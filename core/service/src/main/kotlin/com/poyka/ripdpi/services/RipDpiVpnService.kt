@@ -51,6 +51,9 @@ class RipDpiVpnService :
     @Inject
     internal lateinit var sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>
 
+    @Inject
+    internal lateinit var activeProtectSocketPathProvider: ActiveProtectSocketPathProvider
+
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
     private lateinit var shellDelegate: ServiceShellDelegate
     private lateinit var notificationController: VpnForegroundNotificationController
@@ -70,6 +73,7 @@ class RipDpiVpnService :
                 service = this,
                 serviceStateStore = serviceStateStore,
                 sessionComponentBuilderProvider = sessionComponentBuilderProvider,
+                activeProtectSocketPathProvider = activeProtectSocketPathProvider,
             )
         shellDelegate = sessionLifecycle.createShellDelegate()
         refreshHardKillSwitchState()

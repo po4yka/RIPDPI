@@ -72,6 +72,7 @@ class CloudflarePublishConcurrencyTest {
                     },
                 launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
                 outputReader = CloudflarePublishProcessOutputReader(),
+                protectPathProvider = ActiveProtectSocketPathProvider(),
             ) {
                 override fun launchOriginProcess(
                     config: ResolvedRipDpiRelayConfig,

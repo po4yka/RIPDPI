@@ -11,6 +11,7 @@ internal class VpnServiceSessionLifecycle(
     private val service: RipDpiVpnService,
     private val serviceStateStore: ServiceStateStore,
     private val sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>,
+    private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
 ) {
     private var sessionComponent: VpnServiceSessionComponent? = null
     private var coordinator: VpnServiceRuntimeCoordinator? = null
@@ -24,6 +25,7 @@ internal class VpnServiceSessionLifecycle(
         coordinator = runtimeCoordinator
         protectSocketServer = socketServer
         socketServer.start()
+        activeProtectSocketPathProvider.set(socketServer.socketPath)
         VpnNativeProtectRegistration.register(service)
         return ServiceShellDelegate(
             serviceScope = service.serviceScope,
@@ -57,6 +59,7 @@ internal class VpnServiceSessionLifecycle(
     }
 
     private fun cleanupNativeProtect() {
+        activeProtectSocketPathProvider.clear()
         cleanup.cleanupNativeProtect(
             unregisterNativeProtect = VpnNativeProtectRegistration::unregister,
             stopProtectSocketServer = { protectSocketServer?.stop() },

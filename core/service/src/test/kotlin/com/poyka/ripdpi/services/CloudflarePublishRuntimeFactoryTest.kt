@@ -48,6 +48,7 @@ class CloudflarePublishRuntimeFactoryTest {
                     versionProbe = CloudflarePublishVersionProbe(),
                     launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
                     outputReader = CloudflarePublishProcessOutputReader(),
+                    protectPathProvider = ActiveProtectSocketPathProvider(),
                 ),
             readinessPoller = CloudflarePublishReadinessPoller(),
             telemetryProjector = CloudflarePublishTelemetryProjector(),

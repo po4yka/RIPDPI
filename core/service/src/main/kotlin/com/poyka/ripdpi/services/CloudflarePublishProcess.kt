@@ -41,6 +41,7 @@ internal open class CloudflarePublishProcessSupervisor
         private val versionProbe: CloudflarePublishVersionProbe,
         private val launchPlanBuilder: CloudflaredLaunchPlanBuilder,
         private val outputReader: CloudflarePublishProcessOutputReader,
+        private val protectPathProvider: ActiveProtectSocketPathProvider,
     ) {
         open fun launchOriginProcess(
             config: ResolvedRipDpiRelayConfig,
@@ -52,7 +53,7 @@ internal open class CloudflarePublishProcessSupervisor
             val binary = binaryExtractor.extract(CloudflareOriginBinaryName, config.cloudflareTunnelMode)
             val version = versionProbe.probe(binary, listOf("--version"))
             val redacted = listOfNotNull(config.vlessUuid)
-            val process =
+            val processBuilder =
                 ProcessBuilder(
                     listOf(
                         binary.absolutePath,
@@ -65,7 +66,10 @@ internal open class CloudflarePublishProcessSupervisor
                     ),
                 ).redirectErrorStream(true)
                     .directory(stateDir)
-                    .start()
+            protectPathProvider.current()?.let {
+                processBuilder.environment()[ActiveProtectSocketPathProvider.ENV_VAR] = it
+            }
+            val process = processBuilder.start()
             val outputThread =
                 outputReader.start(process, redacted) { line ->
                     when {

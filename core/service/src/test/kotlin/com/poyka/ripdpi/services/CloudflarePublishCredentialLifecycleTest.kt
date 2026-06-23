@@ -70,6 +70,7 @@ class CloudflarePublishCredentialLifecycleTest {
                     },
                 launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
                 outputReader = CloudflarePublishProcessOutputReader(),
+                protectPathProvider = ActiveProtectSocketPathProvider(),
             ) {
                 override fun launchOriginProcess(
                     config: com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig,

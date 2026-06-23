@@ -79,6 +79,18 @@ class SubprocessRelayComponentsTest {
     }
 
     @Test
+    fun `launch planner advertises RIPDPI_PROTECT_PATH only when a protect path is active`() {
+        val binary = File("/tmp/ripdpi-relay")
+        val spec = launchSpec(commandArguments = listOf("--listen", "127.0.0.1:1080"))
+
+        val active = SubprocessRelayLaunchPlanner().buildMainProcess(binary, spec, "/tmp/protect.sock")
+        assertEquals("/tmp/protect.sock", active.environment()[ActiveProtectSocketPathProvider.ENV_VAR])
+
+        val inactive = SubprocessRelayLaunchPlanner().buildMainProcess(binary, spec, null)
+        assertNull(inactive.environment()[ActiveProtectSocketPathProvider.ENV_VAR])
+    }
+
+    @Test
     fun `readiness probe waits until connector accepts socks handshake`() =
         runTest {
             var attempts = 0

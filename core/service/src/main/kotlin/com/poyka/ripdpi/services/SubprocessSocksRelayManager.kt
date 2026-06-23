@@ -29,6 +29,7 @@ class SubprocessSocksRelayManager
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        private val protectPathProvider: ActiveProtectSocketPathProvider,
     ) {
         private val binaryExtractor = SubprocessRelayBinaryExtractor(context)
         private val launchPlanner = SubprocessRelayLaunchPlanner()
@@ -66,7 +67,7 @@ class SubprocessSocksRelayManager
                 lastError = null
                 lastFailureClass = null
                 processSupervisor.start(
-                    processBuilder = launchPlanner.buildMainProcess(binary, spec),
+                    processBuilder = launchPlanner.buildMainProcess(binary, spec, protectPathProvider.current()),
                     spec = spec,
                     onOutputEvent = ::handleProcessOutputEvent,
                 )
