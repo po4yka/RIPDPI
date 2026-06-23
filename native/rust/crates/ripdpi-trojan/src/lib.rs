@@ -14,12 +14,14 @@
 
 #![forbid(unsafe_code)]
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::io;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::os::fd::AsRawFd;
 
 use boring::x509::X509;
 use sha2::{Digest, Sha224};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpSocket, TcpStream};
 use tokio_boring::SslStream;
 
 /// Trojan command byte.
@@ -247,6 +249,49 @@ pub struct TrojanClientConfig {
     pub root_certificate_pem: Option<String>,
 }
 
+/// Open a protected TCP connection to the Trojan server.
+///
+/// Builds the socket explicitly and protects its fd via the in-process
+/// `VpnService.protect()` registry BEFORE connect, so the non-loopback carrier
+/// socket bypasses the app's own TUN route. Loopback-skip and fail-closed are
+/// handled by [`protect_outbound_socket`]. REL-1.
+async fn connect_server_tcp(config: &TrojanClientConfig) -> io::Result<TcpStream> {
+    let mut addrs = tokio::net::lookup_host((config.server_host.as_str(), config.server_port)).await?;
+    let server_addr = addrs
+        .next()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for trojan server"))?;
+    let socket = match server_addr {
+        SocketAddr::V4(_) => TcpSocket::new_v4()?,
+        SocketAddr::V6(_) => TcpSocket::new_v6()?,
+    };
+    protect_outbound_socket(&socket, server_addr)?;
+    let tcp = socket.connect(server_addr).await?;
+    tcp.set_nodelay(true)?;
+    Ok(tcp)
+}
+
+/// Protect a freshly created outbound socket via the registered
+/// `VpnService.protect()` callback before it connects to a non-loopback peer.
+///
+/// No-op for loopback. Fails closed for a non-loopback target when no callback
+/// is registered: under a live TUN there is no other per-socket mechanism to
+/// keep the socket out of the tunnel, so refusing is safer than dialing
+/// unprotected. (Own-UID TUN exclusion via `computeAppRoutingPlan` remains the
+/// second layer.) Mirrors the `ripdpi-vless` gold-standard helper.
+fn protect_outbound_socket<T: AsRawFd>(socket: &T, target: SocketAddr) -> io::Result<()> {
+    if target.ip().is_loopback() {
+        return Ok(());
+    }
+    if !ripdpi_native_protect::has_protect_callback() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotConnected,
+            "no VpnService.protect callback for non-loopback Trojan carrier socket under active TUN",
+        ));
+    }
+    ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd())
+        .map_err(|error| io::Error::new(error.kind(), format!("protect Trojan outbound socket: {error}")))
+}
+
 impl TrojanClient {
     /// Open a TCP connection to the Trojan server, complete TLS with certificate verification, then send a CONNECT request and optional first payload.
     pub async fn connect_tcp(
@@ -255,8 +300,7 @@ impl TrojanClient {
         target_port: u16,
         first_payload: &[u8],
     ) -> Result<SslStream<TcpStream>, TrojanError> {
-        let tcp = TcpStream::connect((config.server_host.as_str(), config.server_port)).await?;
-        tcp.set_nodelay(true)?;
+        let tcp = connect_server_tcp(config).await?;
         connect_with_request_over(config, tcp, TrojanCommand::TcpConnect, target_addr, target_port, first_payload).await
     }
 
@@ -277,8 +321,7 @@ impl TrojanClient {
 
     /// Open a TCP connection to the Trojan server, complete TLS with certificate verification, then send a UDP ASSOCIATE request.
     pub async fn connect_udp_associate(config: &TrojanClientConfig) -> Result<SslStream<TcpStream>, TrojanError> {
-        let tcp = TcpStream::connect((config.server_host.as_str(), config.server_port)).await?;
-        tcp.set_nodelay(true)?;
+        let tcp = connect_server_tcp(config).await?;
         connect_with_request_over(
             config,
             tcp,
@@ -677,6 +720,68 @@ mod tests {
         let ip: IpAddr = "::1".parse().unwrap();
         let addr = TrojanAddr::from(ip);
         assert_eq!(addr, TrojanAddr::Ipv6(Ipv6Addr::LOCALHOST));
+    }
+}
+
+#[cfg(test)]
+mod protect_tests {
+    use std::net::{Ipv4Addr, SocketAddr, TcpListener};
+    use std::os::fd::{AsRawFd, RawFd};
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
+
+    use super::{io, protect_outbound_socket};
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    struct RecordingCallback {
+        last_fd: AtomicI32,
+    }
+
+    impl ProtectCallback for RecordingCallback {
+        fn protect(&self, fd: RawFd) -> io::Result<()> {
+            self.last_fd.store(fd, Ordering::Release);
+            Ok(())
+        }
+    }
+
+    fn non_loopback() -> SocketAddr {
+        SocketAddr::from((Ipv4Addr::new(203, 0, 113, 7), 443))
+    }
+
+    #[test]
+    fn non_loopback_without_callback_fails_closed() {
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        let err = protect_outbound_socket(&listener, non_loopback()).expect_err("must fail closed");
+        assert_eq!(err.kind(), io::ErrorKind::NotConnected);
+    }
+
+    #[test]
+    fn non_loopback_is_protected_via_callback() {
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
+        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        protect_outbound_socket(&listener, non_loopback()).expect("protect succeeds");
+        assert_eq!(cb.last_fd.load(Ordering::Acquire), listener.as_raw_fd());
+        unregister_protect_callback();
+    }
+
+    #[test]
+    fn loopback_is_not_protected() {
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
+        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        protect_outbound_socket(&listener, SocketAddr::from((Ipv4Addr::LOCALHOST, 1))).expect("loopback no-op");
+        assert_eq!(cb.last_fd.load(Ordering::Acquire), -1);
+        unregister_protect_callback();
     }
 }
 
