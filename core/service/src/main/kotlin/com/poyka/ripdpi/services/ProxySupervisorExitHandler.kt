@@ -15,6 +15,7 @@ internal class ProxySupervisorExitHandler(
     private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val updateStatus: (ServiceStatus, FailureReason?) -> Unit,
+    private val markForeignRelayFailed: () -> Unit,
     private val stopService: suspend (skipRuntimeShutdown: Boolean) -> Unit,
 ) {
     suspend fun handleProxyExit(cause: SupervisorExitCause) {
@@ -94,7 +95,11 @@ internal class ProxySupervisorExitHandler(
             return
         }
 
+        // The foreign relay died after connecting. The base proxy is intentionally kept
+        // alive (traffic now egresses DIRECT), so we do NOT stop the service — instead we
+        // raise a sticky signal that flips the Home actuator from Locked to Degraded.
         logRelayExit(cause)
+        markForeignRelayFailed()
         upstreamRelaySupervisor.detach()
     }
 

@@ -7,6 +7,8 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import java.util.Base64
 import javax.inject.Inject
@@ -78,12 +80,12 @@ internal fun naiveProxyCredentialsStdin(config: ResolvedRipDpiRelayConfig): Byte
 }
 
 @Singleton
-class NaiveProxyManager
+open class NaiveProxyManager
     @Inject
     constructor(
         private val subprocessManager: SubprocessSocksRelayManager,
     ) {
-        suspend fun start(config: ResolvedRipDpiRelayConfig) {
+        open suspend fun start(config: ResolvedRipDpiRelayConfig) {
             subprocessManager.start(
                 config = config,
                 spec =
@@ -99,13 +101,13 @@ class NaiveProxyManager
             )
         }
 
-        suspend fun waitForExit(): Int = subprocessManager.waitForExit()
+        open suspend fun waitForExit(): Int = subprocessManager.waitForExit()
 
-        suspend fun pollTelemetry() = subprocessManager.pollTelemetry()
+        open suspend fun pollTelemetry(): NativeRuntimeSnapshot = subprocessManager.pollTelemetry()
 
-        fun noteRestarting(reason: String) = subprocessManager.noteRestarting(reason)
+        open fun noteRestarting(reason: String) = subprocessManager.noteRestarting(reason)
 
-        suspend fun stop() = subprocessManager.stop()
+        open suspend fun stop() = subprocessManager.stop()
     }
 
 class NaiveProxyRuntime
@@ -115,12 +117,31 @@ class NaiveProxyRuntime
     ) : RipDpiRelayRuntime {
         @Volatile private var stopping = false
 
+        // Completed once the first subprocess launch passes its readiness probe, or
+        // completed exceptionally if that first launch fails. `awaitReady()` blocks on
+        // this so the supervisor only reports Connected after the subprocess has bound.
+        @Volatile private var readySignal = CompletableDeferred<Unit>()
+
         @Suppress("detekt.ReturnCount")
         override suspend fun start(config: ResolvedRipDpiRelayConfig): Int {
             stopping = false
+            val signal = CompletableDeferred<Unit>()
+            readySignal = signal
             val restartAttempts = ArrayDeque<Long>()
             while (true) {
-                manager.start(config)
+                if (signal.isCompleted) {
+                    manager.start(config)
+                } else {
+                    try {
+                        manager.start(config)
+                    } catch (
+                        @Suppress("TooGenericExceptionCaught") readinessError: Exception,
+                    ) {
+                        signal.completeExceptionally(readinessError)
+                        throw readinessError
+                    }
+                    signal.complete(Unit)
+                }
                 val exitCode = manager.waitForExit()
                 if (stopping) {
                     return exitCode
@@ -150,11 +171,14 @@ class NaiveProxyRuntime
         }
 
         override suspend fun awaitReady(timeoutMillis: Long) {
-            // `start()` waits for a successful health check before returning.
+            // Block until the first subprocess launch passes its readiness probe (set in
+            // `start()`); a readiness failure is rethrown here so the supervisor fails honestly.
+            readySignal.await()
         }
 
         override suspend fun stop() {
             stopping = true
+            readySignal.cancel(CancellationException("NaiveProxy runtime stopped before readiness"))
             manager.stop()
         }
 

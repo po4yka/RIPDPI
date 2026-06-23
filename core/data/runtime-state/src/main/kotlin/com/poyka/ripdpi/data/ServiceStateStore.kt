@@ -76,6 +76,15 @@ data class ServiceTelemetrySnapshot(
     val restartCount: Int = 0,
     val lastFailureSender: Sender? = null,
     val lastFailureAt: Long? = null,
+    /**
+     * Sticky "the foreign upstream relay died after connecting" signal. When true, the
+     * base proxy/VPN runtime is intentionally kept alive but traffic egresses DIRECT,
+     * so the Home actuator surfaces a Degraded (not Locked) status. Set by the relay
+     * exit handlers on an unexpected relay exit; cleared on the next relay start and on
+     * service stop. Driven only by an explicit relay-failure event — never inferred from
+     * the absence of live relay sessions (subprocess relays never populate those).
+     */
+    val relayFailed: Boolean = false,
     val updatedAt: Long = 0L,
 )
 

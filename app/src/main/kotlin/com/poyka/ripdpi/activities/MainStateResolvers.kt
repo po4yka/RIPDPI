@@ -477,6 +477,14 @@ private fun HomeConnectionActuatorStage.label(stringResolver: StringResolver): S
 
 private fun telemetryWarningStage(telemetry: ServiceTelemetrySnapshot): HomeConnectionActuatorStage? =
     when {
+        // Foreign exit lost after connecting (audit P1-1): the base stays up but traffic now
+        // egresses direct, so surface a Route-stage warning that flips Locked -> Degraded.
+        // The egress-aware predicate lives in isForeignExitLost (ActuatorEgressHonesty) so
+        // this aggregator stays free of that feature family.
+        isForeignExitLost(telemetry) -> {
+            HomeConnectionActuatorStage.Route
+        }
+
         telemetry.runtimeFieldTelemetry.failureClass == FailureClass.NetworkHandover ||
             telemetry.networkHandoverState != null -> {
             HomeConnectionActuatorStage.Network

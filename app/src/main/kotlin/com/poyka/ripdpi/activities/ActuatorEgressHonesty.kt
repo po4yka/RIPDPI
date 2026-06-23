@@ -31,6 +31,17 @@ internal fun isForeignExitLive(
     return live && relay.activeSessions > 0
 }
 
+/**
+ * Audit P1-1 honest-degradation signal: true when the foreign upstream relay died AFTER
+ * connecting. The base proxy/VPN runtime is intentionally kept alive (traffic now egresses
+ * direct), so the actuator must read Degraded rather than a dishonest secure lock. Driven by
+ * the explicit [ServiceTelemetrySnapshot.relayFailed] failure event — never inferred from the
+ * absence of live sessions, which subprocess relays never populate even while working. Kept
+ * here (the relay-aware actuator helper file) so the MainStateResolvers aggregator does not
+ * take on the relay feature family.
+ */
+internal fun isForeignExitLost(telemetry: ServiceTelemetrySnapshot): Boolean = telemetry.relayFailed
+
 /** Trailing actuator label: "Secure" for a live foreign-relay exit, "Direct" otherwise. */
 internal fun actuatorTrailingLabel(
     egressBacked: Boolean,

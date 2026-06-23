@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryProjection
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetryStatuses
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal class ServiceStatusReporter(
     private val mode: Mode,
@@ -21,6 +22,20 @@ internal class ServiceStatusReporter(
     private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
     private val clock: ServiceClock = SystemServiceClock,
 ) {
+    // Sticky "foreign relay failed after connecting" signal. Set by the relay exit
+    // handlers (via markForeignRelayFailed), cleared on the next relay start and on
+    // service stop (via clearForeignRelayFailed). Read on every telemetry update so the
+    // signal survives the per-poll snapshot rebuild without being silently dropped.
+    private val foreignRelayFailed = AtomicBoolean(false)
+
+    fun markForeignRelayFailed() {
+        foreignRelayFailed.set(true)
+    }
+
+    fun clearForeignRelayFailed() {
+        foreignRelayFailed.set(false)
+    }
+
     private val statusPersistence =
         ServiceStatusPersistence(
             mode = mode,
@@ -55,20 +70,21 @@ internal class ServiceStatusReporter(
         statusPersistence.applyStatus(newStatus, failureReason)
         val currentTelemetry = serviceStateStore.telemetry.value
         serviceStateStore.updateTelemetry(
-            telemetryProjection.statusTelemetry(
-                newStatus = newStatus,
-                currentTelemetry = currentTelemetry,
-                activePolicy = activePolicy,
-                consumePendingNetworkHandoverClass = consumePendingNetworkHandoverClass,
-                currentNetworkHandoverState = currentNetworkHandoverState,
-                tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
-                relayTelemetry = relayTelemetry,
-                warpTelemetry = warpTelemetry,
-                awgTelemetry = awgTelemetry,
-                telemetryStatuses = telemetryStatuses,
-                failureReason = failureReason,
-                xrayProviderSnapshot = xrayProviderSnapshot,
-            ),
+            telemetryProjection
+                .statusTelemetry(
+                    newStatus = newStatus,
+                    currentTelemetry = currentTelemetry,
+                    activePolicy = activePolicy,
+                    consumePendingNetworkHandoverClass = consumePendingNetworkHandoverClass,
+                    currentNetworkHandoverState = currentNetworkHandoverState,
+                    tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+                    relayTelemetry = relayTelemetry,
+                    warpTelemetry = warpTelemetry,
+                    awgTelemetry = awgTelemetry,
+                    telemetryStatuses = telemetryStatuses,
+                    failureReason = failureReason,
+                    xrayProviderSnapshot = xrayProviderSnapshot,
+                ).copy(relayFailed = foreignRelayFailed.get()),
         )
     }
 
@@ -89,25 +105,26 @@ internal class ServiceStatusReporter(
         val currentTelemetry = serviceStateStore.telemetry.value
 
         serviceStateStore.updateTelemetry(
-            telemetryProjection.liveTelemetry(
-                currentTelemetry = currentTelemetry,
-                activePolicy = activePolicy,
-                consumePendingNetworkHandoverClass = consumePendingNetworkHandoverClass,
-                currentNetworkHandoverState = currentNetworkHandoverState,
-                proxyTelemetry = proxyTelemetry,
-                relayTelemetry = relayTelemetry,
-                warpTelemetry = warpTelemetry,
-                awgTelemetry = awgTelemetry,
-                tunnelTelemetry = tunnelTelemetry,
-                proxyTelemetryStatus = telemetryStatuses.proxy ?: RuntimeTelemetryStatus.NoData,
-                relayTelemetryStatus = telemetryStatuses.relay ?: RuntimeTelemetryStatus.NoData,
-                warpTelemetryStatus = telemetryStatuses.warp ?: RuntimeTelemetryStatus.NoData,
-                awgTelemetryStatus = telemetryStatuses.awg ?: RuntimeTelemetryStatus.NoData,
-                tunnelTelemetryStatus = telemetryStatuses.tunnel ?: RuntimeTelemetryStatus.NoData,
-                tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
-                failureReason = failureReason,
-                xrayProviderSnapshot = xrayProviderSnapshot,
-            ),
+            telemetryProjection
+                .liveTelemetry(
+                    currentTelemetry = currentTelemetry,
+                    activePolicy = activePolicy,
+                    consumePendingNetworkHandoverClass = consumePendingNetworkHandoverClass,
+                    currentNetworkHandoverState = currentNetworkHandoverState,
+                    proxyTelemetry = proxyTelemetry,
+                    relayTelemetry = relayTelemetry,
+                    warpTelemetry = warpTelemetry,
+                    awgTelemetry = awgTelemetry,
+                    tunnelTelemetry = tunnelTelemetry,
+                    proxyTelemetryStatus = telemetryStatuses.proxy ?: RuntimeTelemetryStatus.NoData,
+                    relayTelemetryStatus = telemetryStatuses.relay ?: RuntimeTelemetryStatus.NoData,
+                    warpTelemetryStatus = telemetryStatuses.warp ?: RuntimeTelemetryStatus.NoData,
+                    awgTelemetryStatus = telemetryStatuses.awg ?: RuntimeTelemetryStatus.NoData,
+                    tunnelTelemetryStatus = telemetryStatuses.tunnel ?: RuntimeTelemetryStatus.NoData,
+                    tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+                    failureReason = failureReason,
+                    xrayProviderSnapshot = xrayProviderSnapshot,
+                ).copy(relayFailed = foreignRelayFailed.get()),
         )
     }
 }

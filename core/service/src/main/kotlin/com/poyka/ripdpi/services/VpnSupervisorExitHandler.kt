@@ -15,6 +15,7 @@ internal class VpnSupervisorExitHandler(
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val updateStatus: (ServiceStatus, FailureReason?) -> Unit,
+    private val markForeignRelayFailed: () -> Unit,
     private val stopService: suspend (skipRuntimeShutdown: Boolean) -> Unit,
 ) {
     suspend fun handleProxyExit(cause: SupervisorExitCause) {
@@ -127,7 +128,11 @@ internal class VpnSupervisorExitHandler(
             return
         }
 
+        // The foreign relay died after connecting. The base VPN runtime is intentionally
+        // kept alive (traffic now egresses DIRECT), so we do NOT stop the service — instead
+        // we raise a sticky signal that flips the Home actuator from Locked to Degraded.
         logRelayExit(cause)
+        markForeignRelayFailed()
         upstreamRelaySupervisor.detach()
     }
 

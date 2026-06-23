@@ -100,6 +100,7 @@ internal class ProxyServiceRuntimeCoordinator(
             warpRuntimeSupervisor = warpRuntimeSupervisor,
             amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+            clearForeignRelayFailed = statusReporter::clearForeignRelayFailed,
         )
     private val supervisorExitHandler =
         ProxySupervisorExitHandler(
@@ -110,6 +111,7 @@ internal class ProxyServiceRuntimeCoordinator(
             amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
             updateStatus = ::updateStatus,
+            markForeignRelayFailed = statusReporter::markForeignRelayFailed,
             stopService = { skipRuntimeShutdown -> stop(skipRuntimeShutdown = skipRuntimeShutdown) },
         )
     private val telemetryCoordinator =

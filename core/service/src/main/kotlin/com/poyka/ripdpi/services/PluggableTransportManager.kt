@@ -16,6 +16,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import java.io.File
 import java.net.URI
 import javax.inject.Inject
@@ -103,24 +105,24 @@ internal fun splitUrlTarget(rawUrl: String): Pair<String, Int> {
 }
 
 @Singleton
-class PluggableTransportManager
+open class PluggableTransportManager
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
         private val subprocessManager: SubprocessSocksRelayManager,
     ) {
-        suspend fun start(config: ResolvedRipDpiRelayConfig) {
+        open suspend fun start(config: ResolvedRipDpiRelayConfig) {
             subprocessManager.start(
                 config = config,
                 spec = launchSpec(config),
             )
         }
 
-        suspend fun waitForExit(): Int = subprocessManager.waitForExit()
+        open suspend fun waitForExit(): Int = subprocessManager.waitForExit()
 
-        suspend fun pollTelemetry(): NativeRuntimeSnapshot = subprocessManager.pollTelemetry()
+        open suspend fun pollTelemetry(): NativeRuntimeSnapshot = subprocessManager.pollTelemetry()
 
-        suspend fun stop() = subprocessManager.stop()
+        open suspend fun stop() = subprocessManager.stop()
 
         fun torManagedTransports(config: RipDpiRelayConfig): List<ResolvedTorPluggableTransportConfig> =
             buildList {
@@ -253,16 +255,34 @@ class PluggableTransportRuntime
     constructor(
         private val manager: PluggableTransportManager,
     ) : RipDpiRelayRuntime {
+        // Completed once the subprocess launch passes its readiness probe, or completed
+        // exceptionally if the launch fails. `awaitReady()` blocks on this so the supervisor
+        // only reports Connected after the local SOCKS listener answers a probe.
+        @Volatile private var readySignal = CompletableDeferred<Unit>()
+
         override suspend fun start(config: ResolvedRipDpiRelayConfig): Int {
-            manager.start(config)
+            val signal = CompletableDeferred<Unit>()
+            readySignal = signal
+            try {
+                manager.start(config)
+            } catch (
+                @Suppress("TooGenericExceptionCaught") readinessError: Exception,
+            ) {
+                signal.completeExceptionally(readinessError)
+                throw readinessError
+            }
+            signal.complete(Unit)
             return manager.waitForExit()
         }
 
         override suspend fun awaitReady(timeoutMillis: Long) {
-            // `start()` blocks until the local SOCKS listener answers a probe.
+            // Block until the subprocess launch passes its readiness probe (set in `start()`);
+            // a readiness failure is rethrown here so the supervisor fails honestly.
+            readySignal.await()
         }
 
         override suspend fun stop() {
+            readySignal.cancel(CancellationException("Pluggable transport runtime stopped before readiness"))
             manager.stop()
         }
 

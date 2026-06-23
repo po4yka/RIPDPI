@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -442,6 +443,73 @@ class MainViewModelTest {
             HomeConnectionActuatorStageState.Warning,
             state.stages.single { it.stage == HomeConnectionActuatorStage.Dns }.state,
         )
+    }
+
+    @Test
+    fun `foreign relay failure flips locked to degraded direct (audit P1-1)`() {
+        val stringResolver = ResourceStringResolver()
+        val state =
+            buildConnectionActuatorUiState(
+                settings =
+                    AppSettings
+                        .newBuilder()
+                        .setRelayEnabled(true)
+                        .setRelayKind(RelayKindVlessReality)
+                        .build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                // The relay died after connecting: relayTelemetry is idle (0 sessions) and the
+                // explicit relayFailed signal is set. Status must read Degraded + Direct, never
+                // a dishonest Locked/Secure.
+                telemetry = ServiceTelemetrySnapshot(relayFailed = true),
+                approachSummary = null,
+                stringResolver = stringResolver,
+            )
+
+        assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
+        assertEquals("Direct", state.trailingLabel)
+        assertEquals(
+            HomeConnectionActuatorStageState.Warning,
+            state.stages.single { it.stage == HomeConnectionActuatorStage.Route }.state,
+        )
+        assertTrue(
+            "Expected an honest direct-degraded description, was: ${state.statusDescription}",
+            state.statusDescription.startsWith("Direct line locked"),
+        )
+    }
+
+    @Test
+    fun `cleared relay failure signal keeps a working subprocess relay locked (audit P1-1)`() {
+        // A working subprocess relay never populates activeSessions, so isForeignExitLive is
+        // false even when healthy. Without an explicit relayFailed event the status must stay
+        // Locked — the Degraded signal is driven by the failure event, not by missing sessions.
+        val state =
+            buildConnectionActuatorUiState(
+                settings =
+                    AppSettings
+                        .newBuilder()
+                        .setRelayEnabled(true)
+                        .setRelayKind(RelayKindNaiveProxy)
+                        .build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry =
+                    ServiceTelemetrySnapshot(
+                        relayFailed = false,
+                        relayTelemetry =
+                            NativeRuntimeSnapshot
+                                .idle(source = "relay")
+                                .copy(state = "running", activeSessions = 0),
+                    ),
+                approachSummary = null,
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(HomeConnectionActuatorStatus.Locked, state.status)
     }
 
     @Test

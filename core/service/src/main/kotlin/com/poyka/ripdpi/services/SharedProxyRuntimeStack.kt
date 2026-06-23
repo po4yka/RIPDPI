@@ -22,6 +22,9 @@ internal class SharedProxyRuntimeStack(
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+    // Clears the sticky "foreign relay failed" signal. Invoked on every relay (re)start
+    // and on stop so a clean session never inherits a previous session's Degraded state.
+    private val clearForeignRelayFailed: () -> Unit = {},
 ) {
     suspend fun start(
         proxyPreferences: RipDpiProxyPreferences,
@@ -40,6 +43,9 @@ internal class SharedProxyRuntimeStack(
         } else {
             val relayQuicMigrationConfig = proxyPreferences.ownedRelayQuicMigrationConfig()
             proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
+                // A fresh relay start clears any stale foreign-relay-failed signal from a
+                // previous session so this session does not begin in a Degraded state.
+                clearForeignRelayFailed()
                 upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, onRelayExit)
             }
             proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
@@ -57,6 +63,7 @@ internal class SharedProxyRuntimeStack(
             return
         }
 
+        clearForeignRelayFailed()
         proxyRuntimeSupervisor.stop()
         warpRuntimeSupervisor.stop()
         amneziaWgRuntimeSupervisor.stop()
@@ -64,6 +71,7 @@ internal class SharedProxyRuntimeStack(
     }
 
     fun detachAll() {
+        clearForeignRelayFailed()
         upstreamRelaySupervisor.detach()
         warpRuntimeSupervisor.detach()
         amneziaWgRuntimeSupervisor.detach()

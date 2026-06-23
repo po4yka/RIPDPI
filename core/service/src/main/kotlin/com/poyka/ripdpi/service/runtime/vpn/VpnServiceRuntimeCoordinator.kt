@@ -131,6 +131,7 @@ internal class VpnServiceRuntimeCoordinator(
             warpRuntimeSupervisor = warpRuntimeSupervisor,
             amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+            clearForeignRelayFailed = statusReporter::clearForeignRelayFailed,
         )
     private val dnsPolicyCoordinator =
         VpnDnsPolicyCoordinator(
@@ -146,6 +147,7 @@ internal class VpnServiceRuntimeCoordinator(
             warpRuntimeSupervisor = warpRuntimeSupervisor,
             amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             updateStatus = ::updateStatus,
+            markForeignRelayFailed = statusReporter::markForeignRelayFailed,
             stopService = { skipRuntimeShutdown -> stop(skipRuntimeShutdown = skipRuntimeShutdown) },
         )
     private val runtimeCompositionCoordinator =
