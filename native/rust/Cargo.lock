@@ -5863,6 +5863,7 @@ dependencies = [
  "quinn",
  "rand 0.10.1",
  "rcgen",
+ "ripdpi-native-protect",
  "ripdpi-protocol-loopback",
  "rustls",
  "socket2",

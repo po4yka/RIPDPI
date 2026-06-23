@@ -9,8 +9,10 @@
 
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
+use ripdpi_native_protect::{has_protect_callback, protect_socket_via_callback};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use super::config::QuicTransportConfig;
@@ -38,6 +40,23 @@ pub fn build_client_udp_socket(ipv6: bool, bind_low_port: bool) -> io::Result<st
         try_bind_low_port(&socket, bind_addr.ip())?;
     } else {
         socket.bind(&SockAddr::from(bind_addr))?;
+    }
+    // VpnService.protect() invariant: this QUIC carrier socket binds to a
+    // wildcard local address (0.0.0.0:0 / [::]:0) and is connected to the
+    // non-loopback Hysteria2 server later by `quinn` — the remote is not known
+    // here, so the WARP UDP pattern applies rather than the fail-closed TCP
+    // helper. Protect the fd BEFORE handing the socket to `quinn`
+    // (`Endpoint::new` / the Salamander `new_with_abstract_socket` path), so the
+    // datagrams `quinn` later sends on it are kept out of the TUN route instead
+    // of looping back into the tunnel the VPN owns. `quinn` keeps this exact fd
+    // for the endpoint's lifetime, and every migration / port-hopping rebind
+    // re-enters this same function, so protecting here covers them too. A no-op
+    // when no callback is registered (host loopback e2e tests), which is why the
+    // loopback-skip / fail-closed posture of the TCP helper does not apply.
+    // See .claude/rules/vpnservice-protect-invariant.md and
+    // ripdpi-warp-core/src/wireguard/socket.rs.
+    if has_protect_callback() {
+        protect_socket_via_callback(socket.as_raw_fd())?;
     }
     Ok(socket.into())
 }
@@ -144,5 +163,82 @@ mod tests {
         let after = endpoint.local_addr().expect("addr after");
         // A fresh socket is bound; the source port must have changed.
         assert_ne!(after.port(), before.port(), "migration must rebind to a new socket");
+    }
+}
+
+#[cfg(test)]
+mod protect_tests {
+    //! `build_client_udp_socket` must protect the QUIC carrier fd before the
+    //! socket reaches `quinn` (vpnservice-protect-invariant.md). The protect
+    //! callback registry is process-global, so these tests serialize on
+    //! `PROTECT_TEST_LOCK` and clear the slot before releasing it.
+
+    use super::*;
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+
+    use ripdpi_native_protect::{
+        ProtectCallback, has_protect_callback, register_protect_callback, unregister_protect_callback,
+    };
+
+    // The protect registry is process-global. These tests register/unregister
+    // a callback, so they must not run concurrently with each other (or with
+    // any other test that observes the registry). The guard never spans an
+    // `.await`, so a std `Mutex` is correct here.
+    static PROTECT_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    struct RecordingCallback {
+        last_fd: AtomicI32,
+        calls: AtomicUsize,
+    }
+
+    impl RecordingCallback {
+        fn new() -> Arc<Self> {
+            Arc::new(Self { last_fd: AtomicI32::new(-1), calls: AtomicUsize::new(0) })
+        }
+    }
+
+    impl ProtectCallback for RecordingCallback {
+        fn protect(&self, fd: std::os::fd::RawFd) -> io::Result<()> {
+            self.last_fd.store(fd, Ordering::SeqCst);
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn carrier_socket_is_protected_with_its_own_fd_before_quinn() {
+        let _guard = PROTECT_TEST_LOCK.lock().expect("protect test lock");
+        let cb = RecordingCallback::new();
+        register_protect_callback(cb.clone());
+
+        let socket = build_client_udp_socket(false, false).expect("bind ipv4 carrier socket");
+
+        // The protect callback fired exactly once, and the fd it recorded is
+        // the carrier socket's own fd — proving protect runs on the right fd
+        // before the socket is handed to `quinn`.
+        assert_eq!(cb.calls.load(Ordering::SeqCst), 1, "protect callback must be invoked exactly once");
+        assert_eq!(
+            cb.last_fd.load(Ordering::SeqCst),
+            socket.as_raw_fd(),
+            "protect must be called with the carrier socket's own fd",
+        );
+
+        unregister_protect_callback();
+        drop(socket);
+    }
+
+    #[test]
+    fn no_callback_is_a_noop_so_host_loopback_tests_still_bind() {
+        let _guard = PROTECT_TEST_LOCK.lock().expect("protect test lock");
+        unregister_protect_callback();
+        assert!(!has_protect_callback(), "test precondition: no protect callback registered");
+
+        // With no callback registered (the host loopback / e2e posture), the
+        // protect step is a no-op and binding must still succeed — this is the
+        // WARP UDP semantics, not the fail-closed TCP posture.
+        let socket = build_client_udp_socket(false, false).expect("bind must succeed without a callback");
+        assert_ne!(socket.local_addr().expect("local addr").port(), 0, "socket must be bound");
+        drop(socket);
     }
 }
