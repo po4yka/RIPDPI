@@ -114,5 +114,7 @@ private fun languageNameResource(tag: String): Int =
         // Android resource keys forbid hyphens; BCP-47 zh-CN maps to language_name_zh_cn.
         "zh-CN" -> R.string.language_name_zh_cn
 
+        "hi" -> R.string.language_name_hi
+
         else -> R.string.language_name_en
     }
