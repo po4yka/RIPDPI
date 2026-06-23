@@ -9,10 +9,30 @@ ignore = [
     "RUSTSEC-2025-0069",
     # rsa (Marvin timing sidechannel) enters the tree on two paths, neither of which is practically exploitable for RIPDPI:
     #   1. rsa 0.9.10 via Arti 0.43.0 -> ssh-key-fork-arti; RIPDPI uses Arti only as a Tor client backend and does not expose RSA private-key service operations.
-    #   2. rsa 0.10.0-rc.18 via russh 0.61.1 (ripdpi-ssh SSH outbound engine); SSH publickey auth signs the session identifier (a transcript hash the client did not choose), not attacker-chosen plaintext, so the Marvin timing sidechannel is not practically exploitable here.
+    #   2. rsa 0.10.0-rc.18 via russh 0.61.2 (ripdpi-ssh SSH outbound engine); SSH publickey auth signs the session identifier (a transcript hash the client did not choose), not attacker-chosen plaintext, so the Marvin timing sidechannel is not practically exploitable here.
     # No safe upgrade exists on either path.
-    { id = "RUSTSEC-2023-0071", reason = "rsa enters via Arti 0.43.0 -> ssh-key-fork-arti (rsa 0.9.10) and via russh 0.61.1 (rsa 0.10.0-rc.18). RIPDPI uses Arti only as a Tor client backend; the russh SSH publickey auth path signs the session identifier (not attacker-chosen plaintext), so the Marvin timing sidechannel is not practically exploitable. No safe upgrade exists on either path." },
+    { id = "RUSTSEC-2023-0071", reason = "rsa enters via Arti 0.43.0 -> ssh-key-fork-arti (rsa 0.9.10) and via russh 0.61.2 (rsa 0.10.0-rc.18). RIPDPI uses Arti only as a Tor client backend; the russh SSH publickey auth path signs the session identifier (not attacker-chosen plaintext), so the Marvin timing sidechannel is not practically exploitable. No safe upgrade exists on either path." },
 ]
+
+# Known RC-crypto exposure -- tracked, documentation only (no advisory ID to ignore).
+# russh =0.61.2 (the latest published release as of 2026-06) exact-pins ('==')
+# release-candidate RustCrypto primitives and pulls them transitively into the shipped
+# cdylib via ripdpi-ssh -> ripdpi-relay-tls-transports -> ripdpi-relay-core ->
+# ripdpi-relay-android. The SSH relay is an always-on transport (ripdpi-ssh is a
+# non-optional dependency), so there is no SSH-less build variant to feature-gate
+# against -- this crypto ships in every release build:
+#   aead 0.6.0-rc.10, aes-gcm 0.11.0-rc.4, rsa 0.10.0-rc.18, ed25519-dalek 3.0.0-rc.0,
+#   ssh-cipher 0.3.0-rc.9, ssh-encoding 0.3.0-rc.9, ssh-key 0.7.0-rc.10.
+# RC crypto is unstable-by-contract and matches advisory databases weakly. There is no
+# downstream fix: russh pins these with '==' to RC versions, and RustCrypto has not yet
+# shipped stable rsa 0.10 / ed25519-dalek 3.0 / aes-gcm 0.11 / ssh-key 0.7. Upstream
+# tracks the migration (Eugeny/russh #697; merged PR #702 moved the format crates to
+# stable but deliberately left the core primitives on RC pins).
+# Action: document-and-track. TODO(npochaev): re-pin russh upward once a release moves
+# off the RC primitives (watch Eugeny/russh releases + RustCrypto rsa 0.10 / ed25519-dalek
+# 3.0 / aes-gcm 0.11 / ssh-key 0.7 stabilization). The scheduled cargo-deny-advisories job
+# (.github/workflows/ci.yml) re-scans the RustSec DB daily on main so any future advisory
+# against these surfaces promptly.
 
 [licenses]
 confidence-threshold = 0.8

@@ -609,6 +609,26 @@ jobs:
       - name: Run cargo-deny
         run: cargo deny --manifest-path native/rust/Cargo.toml check
 
+  cargo-deny-advisories:
+    # Daily re-scan of the RustSec advisory DB against the pinned Cargo.lock, so
+    # advisories published AFTER a PR merges (e.g. against russh's RC crypto stack,
+    # see native/rust/deny.toml) surface on main without waiting for an unrelated PR.
+    # The PR/push cargo-deny job above already runs advisories as part of `check`;
+    # this job adds the time-based re-scan that a code-change-triggered gate cannot.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@9e1e5806d4a4822de933115878265be9aaa786d9 # v2.82.2
+        with:
+          tool: cargo-deny@0.19.8
+
+      - name: Run cargo-deny advisories
+        run: cargo deny --manifest-path native/rust/Cargo.toml check advisories
+
   diagnostics-probes-facade:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest

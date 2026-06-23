@@ -226,6 +226,11 @@ ripdpi-mieru = { path = "crates/ripdpi-mieru" }
 ripdpi-network-time = { path = "crates/ripdpi-network-time" }
 ripdpi-wireguard-ws = { path = "crates/ripdpi-wireguard-ws" }
 ripdpi-ssh = { path = "crates/ripdpi-ssh" }
+# russh =0.61.2 is the latest release and still exact-pins release-candidate RustCrypto
+# primitives (aes-gcm/rsa/ed25519-dalek/ssh-key/ssh-cipher -rc), which ship in every
+# build via the always-on SSH relay. Tracked, no downstream-fixable bump exists until
+# RustCrypto stabilizes those crates -- see deny.toml [advisories] "Known RC-crypto
+# exposure" and Eugeny/russh #697 / PR #702.
 russh = "=0.61.2"
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
 ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
