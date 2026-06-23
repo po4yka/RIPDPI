@@ -147,8 +147,26 @@ pub fn protect_socket_via_callback(fd: RawFd) -> io::Result<()> {
     }
 }
 
+/// Returns whether a protect callback is registered.
+///
+/// Fail **closed** on lock poison: a poisoned lock is treated as "callback
+/// present / must attempt protect", so the skip-protect consumers that gate on
+/// `if !has_protect_callback() { return Ok(()) }` never silently emit an
+/// unprotected non-loopback connect/bind. The subsequent
+/// [`protect_socket_via_callback`] call then surfaces the poison via its
+/// `.expect(...)` (a crash — still fail-closed) rather than a routing loop into
+/// the TUN. This aligns the accessor's poison policy with
+/// [`protect_socket_via_callback`]. See `.claude/rules/vpnservice-protect-invariant.md`.
 pub fn has_protect_callback() -> bool {
-    PROTECT_CB.read().is_ok_and(|guard| guard.is_some())
+    match PROTECT_CB.read() {
+        Ok(guard) => guard.is_some(),
+        // Poisoned: recover the guard and report its actual state. Under any
+        // live VPN session the last-written value is `Some(callback)`, so this
+        // biases toward "present" → consumers attempt protect (fail-closed)
+        // instead of skipping it (fail-open); a genuinely empty slot still
+        // reports false, preserving desktop / VPN-down no-op semantics.
+        Err(poisoned) => poisoned.into_inner().is_some(),
+    }
 }
 
 #[cfg(test)]
