@@ -15,6 +15,7 @@ ripdpi-mieru = { workspace = true }
 ripdpi-network-time = { workspace = true }
 ripdpi-ssh = { workspace = true }
 ripdpi-vless = { workspace = true }
+ripdpi-native-protect = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net", "sync"] }
 tokio-boring = { workspace = true }

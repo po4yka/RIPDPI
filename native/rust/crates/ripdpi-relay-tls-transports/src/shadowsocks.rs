@@ -76,7 +76,17 @@ impl RelaySession for ShadowsocksSession {
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
         let config = Arc::clone(&self.config);
         let socket = bind_udp(config.outbound_bind_ip).await?;
-        socket.connect((config.server_host.as_str(), config.server_port)).await?;
+        let want_v4 = socket.local_addr()?.is_ipv4();
+        let server_addr = lookup_host((config.server_host.as_str(), config.server_port))
+            .await?
+            .find(|addr| addr.is_ipv4() == want_v4)
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::AddrNotAvailable, "no UDP server address matches socket family")
+            })?;
+        // VpnService.protect() invariant: protect the bound UDP carrier fd before
+        // the first send so it bypasses the app's own TUN route. REL-1.
+        crate::protect::protect_carrier_socket(&socket, server_addr)?;
+        socket.connect(server_addr).await?;
         let codec = if config.cipher.is_aead_2022() {
             let psk = PresharedKey::from_base64(config.cipher, &config.password).map_err(invalid_input)?;
             let mut session_id = [0_u8; 8];
@@ -240,19 +250,28 @@ where
 }
 
 async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStream> {
-    let target = (config.server_host.as_str(), config.server_port);
-    let Some(bind_ip) = config.outbound_bind_ip else {
-        return TcpStream::connect(target).await;
+    let bind_ip = config.outbound_bind_ip;
+    let mut addrs = lookup_host((config.server_host.as_str(), config.server_port)).await?;
+    let server_addr = match bind_ip {
+        Some(ip) => addrs.find(|addr| addr.is_ipv4() == ip.is_ipv4()).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
+        })?,
+        None => addrs.next().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for shadowsocks server")
+        })?,
     };
-    let mut addrs = lookup_host(target).await?;
-    let server_addr = addrs.find(|addr| addr.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
-        io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
-    })?;
-    let socket = match bind_ip {
-        IpAddr::V4(_) => TcpSocket::new_v4()?,
-        IpAddr::V6(_) => TcpSocket::new_v6()?,
+    let socket = match server_addr {
+        SocketAddr::V4(_) => TcpSocket::new_v4()?,
+        SocketAddr::V6(_) => TcpSocket::new_v6()?,
     };
-    socket.bind(SocketAddr::new(bind_ip, 0))?;
+    // VpnService.protect() invariant: protect the carrier fd BEFORE bind/connect
+    // so this non-loopback socket bypasses the app's own TUN route (otherwise it
+    // loops back into the tunnel the VPN owns). Loopback-skip and fail-closed are
+    // handled by the shared helper. REL-1.
+    crate::protect::protect_carrier_socket(&socket, server_addr)?;
+    if let Some(ip) = bind_ip {
+        socket.bind(SocketAddr::new(ip, 0))?;
+    }
     socket.connect(server_addr).await
 }
 

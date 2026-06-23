@@ -64,14 +64,24 @@ impl RelaySessionFactory for MieruSessionFactory {
 
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let config = self.config.clone();
-        // The relay transport layer dials the carrier here with a bare
-        // TcpStream::connect, the same posture as the sibling transports in this
-        // crate (e.g. shadowsocks.rs). The VpnService.protect() invariant for
-        // outbound relay sockets is owned by the relay layer, NOT this crate (see
-        // .claude/rules/vpnservice-protect-invariant.md). TODO: confirm the
-        // Mieru RelayKind is covered by the relay protect chain before shipping
-        // live traffic.
-        let stream = tokio::net::TcpStream::connect((config.server.as_str(), config.port)).await?;
+        // VpnService.protect() invariant: the Mieru carrier socket is protected
+        // before connect via the in-process VpnService.protect registry
+        // (loopback-skipped, fail-closed under a live TUN), matching the
+        // ripdpi-vless / ripdpi-xhttp gold-standard pattern. Mieru is a standalone
+        // relay kind (transport_descriptor.rs build_mieru), reachable under a live
+        // TUN; own-UID exclusion via computeAppRoutingPlan remains the second
+        // layer. (Resolves the prior unverified TODO.) REL-1 / REL-4. See
+        // .claude/rules/vpnservice-protect-invariant.md.
+        let mut addrs = tokio::net::lookup_host((config.server.as_str(), config.port)).await?;
+        let server_addr = addrs.next().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::AddrNotAvailable, "no address resolved for mieru server")
+        })?;
+        let socket = match server_addr {
+            std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
+            std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
+        };
+        crate::protect::protect_carrier_socket(&socket, server_addr)?;
+        let stream = socket.connect(server_addr).await?;
         // Mieru's replay clock comes from the shared network-time provider, never
         // a direct device-clock read. Uncalibrated it falls back to the device
         // clock (first-contact residual; documented in ripdpi-network-time); once

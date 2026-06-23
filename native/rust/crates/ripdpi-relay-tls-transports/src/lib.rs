@@ -2,6 +2,7 @@
 
 mod anytls;
 mod mieru;
+mod protect;
 mod shadowsocks;
 mod shadowtls;
 mod ssh;
