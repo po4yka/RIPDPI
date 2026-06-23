@@ -2,9 +2,11 @@ use std::io;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use ripdpi_relay_mux::{RelayCapabilities, RelayPoolHealth};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::sync::OnceCell;
 
 pub struct TorBridgePtRelayConfig {
     pub state_dir: PathBuf,
@@ -22,6 +24,11 @@ pub struct TorPluggableTransportConfig {
 
 pub struct TorRelayBackend {
     client: ripdpi_tor::TorRelayClient,
+    /// Caches a single successful bootstrap so only the first `connect_tcp` pays
+    /// the bootstrap latency. A failed/timed-out bootstrap is NOT cached, so a
+    /// later connect retries (Arti's `bootstrap()` is documented as retryable).
+    bootstrapped: OnceCell<()>,
+    bootstrap_timeout: Duration,
 }
 
 pub struct TorRelayTarget {
@@ -50,7 +57,7 @@ impl TorRelayBackend {
         })
         .map_err(to_io_error)?;
         let client = ripdpi_tor::TorRelayClient::create_unbootstrapped(arti_config).map_err(to_io_error)?;
-        Ok(Self { client })
+        Ok(Self { client, bootstrapped: OnceCell::new(), bootstrap_timeout: ripdpi_tor::DEFAULT_BOOTSTRAP_TIMEOUT })
     }
 
     pub fn capabilities(&self) -> RelayCapabilities {
@@ -63,7 +70,25 @@ impl TorRelayBackend {
         RelayPoolHealth::default()
     }
 
+    /// Connect through the Tor circuit, ensuring the circuit is bootstrapped
+    /// within [`ripdpi_tor::DEFAULT_BOOTSTRAP_TIMEOUT`] first.
+    ///
+    /// Without this, Arti's `OnDemand` bootstrap is triggered lazily inside
+    /// `connect` with no upper bound, so a censored bridge hangs the first
+    /// connect forever (audit P1-6/TOR-3). Bootstrapping up front converts that
+    /// hang into a bounded, typed `BootstrapTimeout` error.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: both awaited futures (`bootstrap_with_timeout` via the
+    /// `OnceCell` initializer, and `connect_tcp`) are cancel-safe; dropping this
+    /// future cancels the in-flight bootstrap/connect without leaving partial
+    /// state, and a non-cached (failed) bootstrap is retried on the next call.
     pub async fn connect_tcp(&self, target: &TorRelayTarget) -> io::Result<TorRelayStream> {
+        self.bootstrapped
+            .get_or_try_init(|| self.client.bootstrap_with_timeout(self.bootstrap_timeout))
+            .await
+            .map_err(to_io_error)?;
         let stream = self.client.connect_tcp(&target.inner).await?;
         Ok(TorRelayStream(stream))
     }

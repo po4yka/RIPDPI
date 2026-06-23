@@ -8,10 +8,12 @@
 
 use std::fmt;
 use std::fs;
+use std::future::Future;
 use std::io;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Once};
+use std::time::Duration;
 use std::{collections::BTreeSet, result::Result as StdResult};
 
 use arti_client::{
@@ -31,6 +33,30 @@ impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 pub type BoxedIo = Box<dyn AsyncIo>;
 
 static RUSTLS_PROVIDER: Once = Once::new();
+
+/// Default upper bound for an Arti bootstrap attempt.
+///
+/// A censored or blackholed bridge can leave Arti's `OnDemand` bootstrap
+/// pending indefinitely on the first connect; without a bound the relay would
+/// look "connected" forever while never carrying traffic (audit P1-6/TOR-3).
+/// 90 s matches the wrapper already used by `tests/chutney.rs` and gives a slow
+/// but reachable bridge enough headroom to finish a real bootstrap.
+pub const DEFAULT_BOOTSTRAP_TIMEOUT: Duration = Duration::from_secs(90);
+
+#[derive(Debug, thiserror::Error)]
+pub enum TorError {
+    /// Arti bootstrap did not complete within the allotted window. Surfaced as a
+    /// distinct variant (rather than a generic IO error) so the relay layer can
+    /// fail fast with an actionable "bridge unreachable / blocked" signal.
+    #[error("Tor bootstrap did not complete within {timeout:?}")]
+    BootstrapTimeout { timeout: Duration },
+    /// Arti reported a hard bootstrap failure before the timeout elapsed.
+    #[error("Tor bootstrap failed: {source}")]
+    BootstrapFailed {
+        #[source]
+        source: arti_client::Error,
+    },
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TorPluggableTransport {
@@ -306,6 +332,35 @@ impl TorRelayClient {
         Self { inner: Arc::new(inner) }
     }
 
+    /// Proactively drive (and await) Arti's bootstrap, bounded by `timeout`.
+    ///
+    /// `create_unbootstrapped` leaves Arti in `OnDemand` mode where bootstrap is
+    /// triggered lazily by the first `connect_tcp`/`resolve_hostname` with no
+    /// upper bound. A censored bridge therefore hangs that first request
+    /// forever. Calling this first converts that open-ended hang into a bounded,
+    /// typed [`TorError::BootstrapTimeout`]. Calling it after bootstrap already
+    /// succeeded returns immediately (Arti's `bootstrap()` is idempotent).
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the only `.await` is `apply_bootstrap_timeout`, which wraps
+    /// `ArtiTorClient::bootstrap()`. Dropping this future before it resolves
+    /// cancels the in-flight bootstrap attempt without leaving partial state;
+    /// Arti's `bootstrap()` is documented as safely retryable afterwards.
+    pub async fn bootstrap_with_timeout(&self, timeout: Duration) -> Result<(), TorError> {
+        apply_bootstrap_timeout(self.inner.bootstrap(), timeout).await
+    }
+
+    /// Convenience wrapper over [`Self::bootstrap_with_timeout`] using
+    /// [`DEFAULT_BOOTSTRAP_TIMEOUT`].
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: delegates to [`Self::bootstrap_with_timeout`]; see its note.
+    pub async fn bootstrap(&self) -> Result<(), TorError> {
+        self.bootstrap_with_timeout(DEFAULT_BOOTSTRAP_TIMEOUT).await
+    }
+
     pub async fn connect_tcp(&self, target: &TorTarget) -> io::Result<BoxedIo> {
         let stream = self
             .inner
@@ -323,8 +378,73 @@ impl TorRelayClient {
     }
 }
 
+/// Wrap a bootstrap future in `timeout`, mapping the elapsed case to a typed
+/// [`TorError::BootstrapTimeout`] and a hard Arti failure to
+/// [`TorError::BootstrapFailed`].
+///
+/// Factored out (and generic over the future) so the timeout/error mapping can
+/// be unit-tested with a never-completing future, no live Tor network required.
+///
+/// # Cancel safety
+///
+/// cancel-safe: `tokio::time::timeout` is cancel-safe and simply drops the
+/// inner future if this future is dropped; no state escapes.
+async fn apply_bootstrap_timeout<F>(bootstrap: F, timeout: Duration) -> Result<(), TorError>
+where
+    F: Future<Output = arti_client::Result<()>>,
+{
+    match tokio::time::timeout(timeout, bootstrap).await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(source)) => Err(TorError::BootstrapFailed { source }),
+        Err(_elapsed) => Err(TorError::BootstrapTimeout { timeout }),
+    }
+}
+
 fn ensure_rustls_crypto_provider() {
     RUSTLS_PROVIDER.call_once(|| {
         rustls::crypto::aws_lc_rs::default_provider().install_default().expect("install rustls aws-lc provider");
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DEFAULT_BOOTSTRAP_TIMEOUT, TorError, apply_bootstrap_timeout};
+    use std::future::{self, Future};
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+    use std::time::{Duration, Instant};
+
+    /// A future that never resolves, standing in for a censored/blackholed
+    /// bridge whose bootstrap hangs indefinitely. No live Tor network is used.
+    struct NeverBootstrap;
+
+    impl Future for NeverBootstrap {
+        type Output = arti_client::Result<()>;
+
+        fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+            Poll::Pending
+        }
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn blocked_bridge_bootstrap_times_out_within_bound() {
+        let timeout = Duration::from_secs(75);
+        let started = Instant::now();
+
+        let result = apply_bootstrap_timeout(NeverBootstrap, timeout).await;
+
+        // With the tokio test clock paused, the timeout fires deterministically
+        // by advancing virtual time — the test does not actually sleep 75 s.
+        match result {
+            Err(TorError::BootstrapTimeout { timeout: observed }) => assert_eq!(observed, timeout),
+            other => panic!("expected BootstrapTimeout, got {other:?}"),
+        }
+        assert!(started.elapsed() < Duration::from_secs(5), "must not wall-clock sleep for the full timeout");
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn already_bootstrapped_resolves_immediately() {
+        let result = apply_bootstrap_timeout(future::ready(Ok(())), DEFAULT_BOOTSTRAP_TIMEOUT).await;
+        assert!(result.is_ok(), "a ready bootstrap must succeed: {result:?}");
+    }
 }
