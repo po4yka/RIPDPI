@@ -16,6 +16,7 @@ use tracing_subscriber::prelude::*;
 mod cross_stack;
 mod shadowtls_version;
 mod shutdown_drain;
+mod shutdown_leak;
 mod tls_in_tls_exposure;
 mod transport_registry;
 
