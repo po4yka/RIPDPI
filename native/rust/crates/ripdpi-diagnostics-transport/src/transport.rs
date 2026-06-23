@@ -1,5 +1,6 @@
 mod address;
 mod config;
+mod protect;
 mod route_experiment;
 mod socks5;
 mod tcp;

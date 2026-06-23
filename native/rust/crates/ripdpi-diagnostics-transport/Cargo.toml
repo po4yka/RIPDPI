@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-native-protect = { workspace = true }
 ripdpi-socks5-core = { workspace = true }
 libc = { workspace = true }
 socket2 = { workspace = true }

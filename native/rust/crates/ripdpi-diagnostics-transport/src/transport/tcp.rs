@@ -71,7 +71,9 @@ fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, S
         let raced = thread::scope(|scope| {
             let handles = initial_batch
                 .iter()
-                .map(|address| scope.spawn(move || (*address, TcpStream::connect_timeout(address, CONNECT_TIMEOUT))))
+                .map(|address| {
+                    scope.spawn(move || (*address, super::protect::protected_tcp_connect(*address, CONNECT_TIMEOUT)))
+                })
                 .collect::<Vec<_>>();
             let mut winner = None;
             let mut local_last_error = None;
@@ -91,7 +93,7 @@ fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, S
         last_error = raced.1;
     }
     for address in addresses.iter().skip(initial_batch.len()).copied() {
-        match TcpStream::connect_timeout(&address, CONNECT_TIMEOUT) {
+        match super::protect::protected_tcp_connect(address, CONNECT_TIMEOUT) {
             Ok(stream) => return Ok((stream, address)),
             Err(err) => last_error = Some(err.to_string()),
         }
@@ -101,7 +103,7 @@ fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, S
 
 pub fn wait_for_listener(addr: SocketAddr) -> Result<(), String> {
     for _ in 0..40 {
-        if TcpStream::connect_timeout(&addr, Duration::from_millis(50)).is_ok() {
+        if super::protect::protected_tcp_connect(addr, Duration::from_millis(50)).is_ok() {
             return Ok(());
         }
         thread::sleep(Duration::from_millis(25));

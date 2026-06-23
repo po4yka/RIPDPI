@@ -5766,6 +5766,7 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "ripdpi-diagnostics-contracts",
+ "ripdpi-native-protect",
  "ripdpi-socks5-core",
  "rustls",
  "socket2",
@@ -6893,6 +6894,7 @@ dependencies = [
  "futures",
  "nix 0.31.3",
  "rcgen",
+ "ripdpi-native-protect",
  "ripdpi-tls-profiles",
  "socket2",
  "thiserror 2.0.18",

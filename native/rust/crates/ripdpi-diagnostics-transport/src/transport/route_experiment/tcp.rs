@@ -62,6 +62,7 @@ fn connect_bound_tcp(
     let remote = SockAddr::from(address);
     let bind_addr = route_bind_addr(address, port);
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP)).map_err(|err| err.to_string())?;
+    crate::transport::protect::protect_for_target(&socket, address).map_err(|err| err.to_string())?;
     let _ = socket.set_reuse_address(true);
     socket.bind(&SockAddr::from(bind_addr)).map_err(|err| err.to_string())?;
     socket.connect_timeout(&remote, CONNECT_TIMEOUT).map_err(|err| err.to_string())?;

@@ -78,8 +78,16 @@ fn connect_tcp_socket_with_impl(
     };
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
 
-    if let Some(path) = protect_path {
-        protect_socket(&socket, path)?;
+    match protect_path {
+        Some(path) => protect_socket(&socket, path)?,
+        // No UDS protect path configured: fall back to the in-process
+        // VpnService.protect callback registry when the VPN is up, so the
+        // WS-tunnel TCP socket is not captured by the TUN. No-op (and
+        // unprotected) when no callback is registered (desktop / VPN down);
+        // loopback never needs protection. (UDS-first here, unlike
+        // runtime-platform's callback-first vpn_protect — both reach
+        // VpnService.protect; keep the orderings as-is.)
+        None => protect::protect_via_callback_if_active(&socket, target)?,
     }
     connect_socket(&socket, target, connect_timeout)
         .map_err(|e| io::Error::new(e.kind(), format!("WS tunnel TCP connect to {target}: {e}")))?;

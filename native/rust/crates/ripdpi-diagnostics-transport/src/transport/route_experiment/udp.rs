@@ -78,6 +78,7 @@ fn relay_udp_direct_with_bucket(
     let port = route_bucket_port(kind_seed, bucket);
     let bind_addr = route_bind_addr(server, port);
     let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP)).map_err(|err| err.to_string())?;
+    crate::transport::protect::protect_for_target(&socket, server).map_err(|err| err.to_string())?;
     let _ = socket.set_reuse_address(true);
     socket.bind(&SockAddr::from(bind_addr)).map_err(|err| err.to_string())?;
     let udp: UdpSocket = socket.into();

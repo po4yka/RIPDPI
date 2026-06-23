@@ -1,5 +1,5 @@
 use std::io::ErrorKind;
-use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+use std::net::{Ipv4Addr, SocketAddr};
 
 use crate::util::IO_TIMEOUT;
 
@@ -72,7 +72,7 @@ pub fn relay_udp_payload_observed(
 pub fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, SocketAddr), String> {
     let bind_addr: SocketAddr =
         if server.is_ipv4() { (Ipv4Addr::UNSPECIFIED, 0).into() } else { (std::net::Ipv6Addr::UNSPECIFIED, 0).into() };
-    let socket = UdpSocket::bind(bind_addr).map_err(|err| err.to_string())?;
+    let socket = super::protect::protected_udp_bind(bind_addr, server).map_err(|err| err.to_string())?;
     socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     socket.send_to(payload, server).map_err(|err| err.to_string())?;

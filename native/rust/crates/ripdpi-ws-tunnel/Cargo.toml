@@ -8,6 +8,7 @@ license.workspace = true
 aes = { workspace = true }
 boring = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
+ripdpi-native-protect = { workspace = true }
 ctr = "0.10"
 cipher = "0.5"
 futures = { workspace = true }
