@@ -1,10 +1,12 @@
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::sync::Once;
 
 use quinn::congestion::{BbrConfig, CubicConfig, NewRenoConfig};
 use quinn::{ClientConfig, Endpoint, TransportConfig, VarInt};
+use ripdpi_native_protect::{has_protect_callback, protect_socket_via_callback};
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig as RustlsClientConfig, RootCertStore};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
@@ -64,6 +66,25 @@ pub(crate) fn build_client_udp_socket(socket_spec: ClientSocketSpec) -> io::Resu
         try_bind_low_port(&socket, bind_addr.ip())?;
     } else {
         socket.bind(&SockAddr::from(bind_addr))?;
+    }
+    // VpnService.protect() invariant (vpnservice-protect-invariant.md): the TUIC
+    // QUIC carrier is a UDP socket bound locally to 0.0.0.0:0 (or a low port);
+    // its remote server address is NOT known here — quinn connects/sends on it
+    // later. Protect the fd now, AFTER bind and BEFORE handing the socket to
+    // quinn (`.into()`), so the socket is kept out of the TUN route before the
+    // kernel ever uses it. quinn keeps this exact fd for the whole endpoint, and
+    // `Endpoint::rebind` re-enters this same function for migration, so every
+    // carrier socket is covered. The `try_clone()` at the call sites dups this
+    // fd (same kernel socket), so protecting the original protects the clone.
+    //
+    // WARP no-op posture: when no protect callback is registered (host loopback
+    // e2e tests, desktop) this is a no-op so those paths still pass; when a
+    // callback IS registered and rejects the fd, the error propagates and
+    // `socket` is dropped here (closing the fd) rather than leaking an
+    // unprotected socket into the TUN. No loopback-skip: the bind is to the
+    // unspecified address, so the eventual peer is unknown at this site.
+    if has_protect_callback() {
+        protect_socket_via_callback(socket.as_raw_fd())?;
     }
     Ok(socket.into())
 }
@@ -146,4 +167,96 @@ pub(crate) fn resolve_server_addr(server: &str, port: i32) -> io::Result<SocketA
         .to_socket_addrs()?
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server"))
+}
+
+#[cfg(test)]
+mod protect_tests {
+    //! `build_client_udp_socket` must protect the QUIC carrier fd BEFORE quinn
+    //! ever uses it (vpnservice-protect-invariant.md). The carrier binds to
+    //! 0.0.0.0:0 and quinn connects later, so the WARP no-fail-closed-when-absent
+    //! posture applies (no remote is known at the bind site). The protect
+    //! callback registry is process-global, so every test serializes on
+    //! `PROTECT_TEST_LOCK` and clears the slot before releasing it.
+
+    use super::*;
+    use std::os::fd::RawFd;
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+
+    use ripdpi_native_protect::{
+        ProtectCallback, has_protect_callback, register_protect_callback, unregister_protect_callback,
+    };
+
+    // These tests are fully synchronous (no `.await`), so a std Mutex guard is
+    // safe and does not risk clippy `await_holding_lock`.
+    static PROTECT_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    struct RecordingCallback {
+        last_fd: AtomicI32,
+        calls: AtomicUsize,
+        fail_with: Option<io::ErrorKind>,
+    }
+
+    impl RecordingCallback {
+        fn new(fail_with: Option<io::ErrorKind>) -> Arc<Self> {
+            Arc::new(Self { last_fd: AtomicI32::new(-1), calls: AtomicUsize::new(0), fail_with })
+        }
+    }
+
+    impl ProtectCallback for RecordingCallback {
+        fn protect(&self, fd: RawFd) -> io::Result<()> {
+            self.last_fd.store(fd, Ordering::SeqCst);
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            match self.fail_with {
+                Some(kind) => Err(io::Error::new(kind, "test protect failure")),
+                None => Ok(()),
+            }
+        }
+    }
+
+    const SPEC: ClientSocketSpec = ClientSocketSpec { ipv6: false, bind_low_port: false };
+
+    #[test]
+    fn carrier_socket_is_protected_before_quinn_owns_it() {
+        let _guard = PROTECT_TEST_LOCK.lock().expect("test lock");
+        let cb = RecordingCallback::new(None);
+        register_protect_callback(cb.clone());
+
+        let socket = build_client_udp_socket(SPEC).expect("bind + protect carrier socket");
+        // The callback recorded the live fd of the bound socket — proving protect
+        // ran after bind and before the socket was returned to quinn.
+        assert_eq!(cb.calls.load(Ordering::SeqCst), 1, "protect callback must fire exactly once");
+        assert_eq!(
+            cb.last_fd.load(Ordering::SeqCst),
+            socket.as_raw_fd(),
+            "callback must receive the bound carrier socket fd"
+        );
+
+        unregister_protect_callback();
+    }
+
+    #[test]
+    fn protect_failure_fails_socket_build_closed() {
+        let _guard = PROTECT_TEST_LOCK.lock().expect("test lock");
+        let cb = RecordingCallback::new(Some(io::ErrorKind::PermissionDenied));
+        register_protect_callback(cb.clone());
+
+        let err = build_client_udp_socket(SPEC).expect_err("protect rejection must fail the socket build");
+        assert_eq!(cb.calls.load(Ordering::SeqCst), 1, "protect callback must be invoked");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied, "protect error kind must propagate (fail-closed)");
+
+        unregister_protect_callback();
+    }
+
+    #[test]
+    fn no_callback_is_a_noop_so_host_paths_still_bind() {
+        let _guard = PROTECT_TEST_LOCK.lock().expect("test lock");
+        unregister_protect_callback();
+        assert!(!has_protect_callback(), "test precondition: no protect callback registered");
+
+        // WARP posture (semantics #2): with no callback registered the protect is
+        // a no-op and the bind still succeeds, so host loopback e2e tests pass.
+        let socket = build_client_udp_socket(SPEC).expect("carrier bind must succeed with no callback");
+        assert!(socket.local_addr().is_ok(), "socket must be a live, bound UDP socket");
+    }
 }

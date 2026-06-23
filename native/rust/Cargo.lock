@@ -6661,6 +6661,7 @@ dependencies = [
  "local-network-fixture",
  "quinn",
  "rcgen",
+ "ripdpi-native-protect",
  "rustls",
  "serde",
  "serde_json",
