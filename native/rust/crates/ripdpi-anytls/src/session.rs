@@ -1,5 +1,7 @@
 use std::collections::{HashMap, VecDeque};
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::io;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -7,7 +9,7 @@ use boring::ssl::SslVersion;
 use boring::x509::X509;
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{TcpSocket, TcpStream};
 use tokio::sync::{Mutex, mpsc, oneshot};
 use tokio_boring::SslStream;
 
@@ -15,6 +17,45 @@ use crate::frame::{Command, Frame, FrameError};
 use crate::padding::{DEFAULT_PADDING_SCHEME, PaddingAction, PaddingScheme};
 
 const UDP_OVER_TCP_V2_TARGET: &str = "sp.v2.udp-over-tcp.arpa";
+
+/// Open a protected TCP connection to the AnyTLS server.
+///
+/// Builds the socket explicitly and protects its fd via the in-process
+/// `VpnService.protect()` registry BEFORE connect, so the non-loopback carrier
+/// socket bypasses the app's own TUN route. REL-1.
+async fn connect_protected_tcp(host: &str, port: u16) -> io::Result<TcpStream> {
+    let mut addrs = tokio::net::lookup_host((host, port)).await?;
+    let server_addr = addrs
+        .next()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for anytls server"))?;
+    let socket = match server_addr {
+        SocketAddr::V4(_) => TcpSocket::new_v4()?,
+        SocketAddr::V6(_) => TcpSocket::new_v6()?,
+    };
+    protect_outbound_socket(&socket, server_addr)?;
+    let tcp = socket.connect(server_addr).await?;
+    tcp.set_nodelay(true)?;
+    Ok(tcp)
+}
+
+/// Protect a freshly created outbound socket via the registered
+/// `VpnService.protect()` callback before it connects to a non-loopback peer.
+///
+/// No-op for loopback. Fails closed for a non-loopback target when no callback
+/// is registered. Mirrors the `ripdpi-vless` gold-standard helper. REL-1.
+fn protect_outbound_socket<T: AsRawFd>(socket: &T, target: SocketAddr) -> io::Result<()> {
+    if target.ip().is_loopback() {
+        return Ok(());
+    }
+    if !ripdpi_native_protect::has_protect_callback() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotConnected,
+            "no VpnService.protect callback for non-loopback AnyTLS carrier socket under active TUN",
+        ));
+    }
+    ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd())
+        .map_err(|error| io::Error::new(error.kind(), format!("protect AnyTLS outbound socket: {error}")))
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TargetAddr {
@@ -244,14 +285,15 @@ impl AnyTlsClient {
             self.clear_cached_session(&session).await;
         }
 
-        // PROTECT INVARIANT: this bare `TcpStream::connect` is NOT a violation of
-        // `vpnservice-protect-invariant.md`. On Android, AnyTLS is only reachable as a
-        // relay-chain entry hop, whose outbound socket is bind-protected upstream via
-        // `outbound_bind_ip` in `ripdpi-relay-core` (`reject_bind_for_kind` fails closed
-        // if the kind cannot be bind-protected — see relay-core `chain.rs`). This bare
-        // connect path only runs off-TUN (desktop / CLI), where no protect is required.
-        let tcp = TcpStream::connect((self.config.server_host.as_str(), self.config.server_port)).await?;
-        tcp.set_nodelay(true)?;
+        // PROTECT INVARIANT: the carrier socket is protected before connect via the
+        // in-process VpnService.protect registry (loopback-skipped, fail-closed under
+        // a live TUN) — matching the ripdpi-vless / ripdpi-xhttp gold-standard
+        // pattern. AnyTLS is a standalone relay kind (transport_descriptor.rs
+        // build_anytls), reachable under a live TUN; own-UID exclusion via
+        // computeAppRoutingPlan remains the second layer. `establish_session` over an
+        // existing transport carries no OS socket of its own. REL-1 / REL-3. See
+        // .claude/rules/vpnservice-protect-invariant.md.
+        let tcp = connect_protected_tcp(self.config.server_host.as_str(), self.config.server_port).await?;
         self.establish_session(tcp).await
     }
 
@@ -601,5 +643,67 @@ mod redaction_tests {
         config.root_certificate_pem = None;
         let rendered = format!("{config:?}");
         assert!(rendered.contains("root_certificate_pem: None"), "expected None rendering: {rendered}");
+    }
+}
+
+#[cfg(test)]
+mod protect_tests {
+    use std::net::{Ipv4Addr, SocketAddr, TcpListener};
+    use std::os::fd::{AsRawFd, RawFd};
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
+
+    use super::{io, protect_outbound_socket};
+
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    struct RecordingCallback {
+        last_fd: AtomicI32,
+    }
+
+    impl ProtectCallback for RecordingCallback {
+        fn protect(&self, fd: RawFd) -> io::Result<()> {
+            self.last_fd.store(fd, Ordering::Release);
+            Ok(())
+        }
+    }
+
+    fn non_loopback() -> SocketAddr {
+        SocketAddr::from((Ipv4Addr::new(203, 0, 113, 7), 443))
+    }
+
+    #[test]
+    fn non_loopback_without_callback_fails_closed() {
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        let err = protect_outbound_socket(&listener, non_loopback()).expect_err("must fail closed");
+        assert_eq!(err.kind(), io::ErrorKind::NotConnected);
+    }
+
+    #[test]
+    fn non_loopback_is_protected_via_callback() {
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
+        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        protect_outbound_socket(&listener, non_loopback()).expect("protect succeeds");
+        assert_eq!(cb.last_fd.load(Ordering::Acquire), listener.as_raw_fd());
+        unregister_protect_callback();
+    }
+
+    #[test]
+    fn loopback_is_not_protected() {
+        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+        let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
+        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+        protect_outbound_socket(&listener, SocketAddr::from((Ipv4Addr::LOCALHOST, 1))).expect("loopback no-op");
+        assert_eq!(cb.last_fd.load(Ordering::Acquire), -1);
+        unregister_protect_callback();
     }
 }

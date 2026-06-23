@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+ripdpi-native-protect = { workspace = true }
 boring = { workspace = true }
 md5 = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }

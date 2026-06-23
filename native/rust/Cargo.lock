@@ -5451,6 +5451,7 @@ dependencies = [
  "boring",
  "local-network-fixture",
  "md5",
+ "ripdpi-native-protect",
  "ripdpi-tls-profiles",
  "sha2 0.11.0",
  "thiserror 2.0.18",
