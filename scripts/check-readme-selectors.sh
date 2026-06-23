@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Verify README selector-block parity across all 7 README files (per plan i18n-es-de-fr.md v3.1 § J #10).
+# Verify README selector-block parity across all 8 README files (per plan i18n-es-de-fr.md v3.1 § J #10).
 # Asserts:
-#   (a) Each README links to the other 6 (42 link assertions total)
+#   (a) Each README links to the other 7 (56 link assertions total)
 #   (b) Each README has exactly one <b>...</b> wrapping its own native locale name
 # Exit codes: 0 = pass, 1 = fail.
 set -euo pipefail
@@ -18,6 +18,7 @@ declare -A NATIVE_NAME=(
   ["README-fr.md"]="Français"
   ["README-zh-CN.md"]="简体中文"
   ["docs/fa/README.md"]="فارسی"
+  ["README-hi.md"]="हिन्दी"
 )
 
 errors=0
@@ -62,4 +63,4 @@ if [[ "$errors" -gt 0 ]]; then
   exit 1
 fi
 
-echo "All 7 README selector blocks pass parity + bold-tag assertions (42 link + 7 bold assertions)."
+echo "All 8 README selector blocks pass parity + bold-tag assertions (56 link + 8 bold assertions)."
