@@ -24,6 +24,7 @@ import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
 import com.poyka.ripdpi.data.StrategyFeatureFinalmask
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -1043,7 +1044,63 @@ class UpstreamRelaySupervisorTest {
                 )
                 fail("Expected strict TLS policy to reject Hysteria2")
             } catch (error: ServiceStartupRejectedException) {
-                assertTrue(error.reason is FailureReason.RelayFingerprintPolicyRejected)
+                val reason = error.reason
+                assertTrue(reason is FailureReason.RelayFingerprintPolicyRejected)
+                val message = (reason as FailureReason.RelayFingerprintPolicyRejected).message
+                assertTrue(message.contains("non-Chrome TLS fingerprint"))
+                assertTrue(message.contains("Detection resistance"))
             }
+        }
+
+    @Test
+    fun `non chrome fingerprint allows hysteria2 startup`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "edge",
+                                    kind = RelayKindHysteria2,
+                                    server = "relay.example",
+                                    serverPort = 8443,
+                                    serverName = "relay-sni.example",
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "edge",
+                                    hysteriaPassword = "fixture-pass",
+                                ),
+                            )
+                        },
+                    tlsFingerprintProfileProvider =
+                        object : OwnedTlsFingerprintProfileProvider {
+                            override fun currentProfile(): String = TlsFingerprintProfileFirefoxStable
+                        },
+                )
+
+            supervisor.start(
+                config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindHysteria2,
+                        profileId = "edge",
+                    ),
+                onUnexpectedExit = {},
+            )
+
+            assertEquals(RelayKindHysteria2, relayFactory.lastRuntime.lastConfig?.kind)
+
+            supervisor.stop()
         }
 }

@@ -191,7 +191,8 @@ internal fun validateDefaultRelayFeatures(
     if (config.kind == RelayKindHysteria2 && tlsFingerprintProfile == TlsFingerprintProfileChromeStable) {
         throw ServiceStartupRejectedException(
             FailureReason.RelayFingerprintPolicyRejected(
-                "Hysteria2 is blocked until Chrome-like QUIC fingerprinting is implemented",
+                "Hysteria2 requires a non-Chrome TLS fingerprint. Open Settings → Detection resistance → " +
+                    "TLS fingerprint profile and choose Firefox, Safari, Edge, or Chrome desktop, then reconnect.",
             ),
         )
     }
