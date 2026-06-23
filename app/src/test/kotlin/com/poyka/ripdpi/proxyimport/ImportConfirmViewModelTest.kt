@@ -49,8 +49,13 @@ class ImportConfirmViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Test
-    fun `confirming a profile import persists it into a basic group`() =
+    fun `confirming a plain vless import that activates no relay surfaces an error and persists nothing`() =
         runTest {
+            // P1-4: a plain vless:// link (no REALITY material) is not a native
+            // relay backend, so activate() returns false (a no-op). The import
+            // must NOT report success — it is a silent dead-end otherwise — and
+            // the phantom group must be rolled back so the user accumulates no
+            // non-working entry.
             val repository = FakeProxyGroupRepository()
             val profile =
                 ProxyProfile.Vless(
@@ -76,10 +81,46 @@ class ImportConfirmViewModelTest {
             viewModel.confirm()
             advanceUntilIdle()
 
-            val groups = repository.list()
-            assertEquals(1, groups.size)
-            assertEquals(ProxyGroupType.BASIC, groups.single().type)
-            assertTrue(viewModel.uiState.value.imported)
+            val state = viewModel.uiState.value
+            assertFalse("a relay link that activates nothing must not report imported", state.imported)
+            assertFalse(state.importing)
+            assertEquals(R.string.import_profile_confirm_error, state.errorRes)
+            assertTrue("no phantom group is left for a dead-end import", repository.list().isEmpty())
+        }
+
+    @Test
+    fun `confirming a tuic raw-config import that activates no relay surfaces an error and persists nothing`() =
+        runTest {
+            // P1-4: a tuic:// link round-trips as ProxyProfile.RawConfig, which has
+            // no native relay backend, so activate() returns false. Same honest
+            // dead-end rule as plain vless: error, not imported, no phantom group.
+            val repository = FakeProxyGroupRepository()
+            val profile =
+                ProxyProfile.RawConfig(
+                    id = "tuic-node",
+                    displayName = "TUIC Tokyo",
+                    groupId = "",
+                    config = "tuic://uuid:pass@tuic.example:443?sni=tuic.example#TUIC%20Tokyo",
+                )
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    repository = repository,
+                    relayActivator =
+                        RelayProfileActivator(
+                            FakeRelayProfileStore(),
+                            FakeRelayCredentialStore(),
+                            FakeAppSettingsRepository(),
+                        ),
+                )
+
+            viewModel.setProfile(profile)
+            viewModel.confirm()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse("a tuic link that activates nothing must not report imported", state.imported)
+            assertEquals(R.string.import_profile_confirm_error, state.errorRes)
+            assertTrue("no phantom group is left for a dead-end import", repository.list().isEmpty())
         }
 
     @Test
@@ -152,6 +193,11 @@ class ImportConfirmViewModelTest {
             val settings = settingsRepository.snapshot()
             val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
             val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
+            // A genuinely relay-activatable kind reports honest success and keeps
+            // the persisted group (the positive counterpart to the P1-4 dead-end).
+            assertTrue("a relay that activates must report imported", viewModel.uiState.value.imported)
+            assertEquals(1, repository.list().size)
+            assertEquals(ProxyGroupType.BASIC, repository.list().single().type)
             assertEquals(RelayKindTrojan, settings.relayKind)
             assertTrue(settings.relayEnabled)
             assertEquals(DefaultRelayProfileId, settings.relayProfileId)

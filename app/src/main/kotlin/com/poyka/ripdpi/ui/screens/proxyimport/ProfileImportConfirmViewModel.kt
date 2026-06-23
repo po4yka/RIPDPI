@@ -69,11 +69,24 @@ class ProfileImportConfirmViewModel
                 // a Result so the failure surfaces in the UI instead of escaping
                 // the coroutine as an uncaught crash. mapCatching is inline, so the
                 // suspend persistence calls run inside this coroutine context.
+                //
+                // Every profile that reaches this screen was parsed from a
+                // relay-protocol share link (vless/tuic/ss/trojan/ssh/...) and is
+                // expected to tunnel. activate() returns false (a no-op) only for
+                // kinds that build NO native relay backend — plain ProxyProfile.Vless
+                // (no REALITY material) and ProxyProfile.RawConfig (e.g. an imported
+                // tuic:// link with no first-class subtype). There is no legitimate
+                // "store-only, non-relay" import on this surface, so activate()==false
+                // is a dead-end import, NOT a success: we must surface an error and
+                // roll back the just-persisted group instead of leaving a phantom
+                // entry the user thinks is working. Only activate()==true is honest
+                // success.
+                val groupId = UUID.randomUUID().toString()
                 val result =
                     validateNativeRelayProfileResult(profile).mapCatching {
                         repository.add(
                             ProxyGroup(
-                                id = UUID.randomUUID().toString(),
+                                id = groupId,
                                 name = profile.displayName,
                                 type = ProxyGroupType.BASIC,
                                 order = nextOrder(),
@@ -81,11 +94,23 @@ class ProfileImportConfirmViewModel
                                 subscription = null,
                             ),
                         )
-                        relayActivator.activate(profile)
+                        relayActivator.activate(profile).also { activated ->
+                            if (!activated) {
+                                // Roll back the phantom group so a dead-end import
+                                // does not accumulate a non-working entry.
+                                repository.delete(groupId)
+                            }
+                        }
                     }
                 _uiState.update {
                     result.fold(
-                        onSuccess = { _ -> it.copy(importing = false, imported = true) },
+                        onSuccess = { activated ->
+                            if (activated) {
+                                it.copy(importing = false, imported = true)
+                            } else {
+                                it.copy(importing = false, errorRes = R.string.import_profile_confirm_error)
+                            }
+                        },
                         onFailure = { _ ->
                             it.copy(importing = false, errorRes = R.string.import_profile_confirm_error)
                         },
