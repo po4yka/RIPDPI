@@ -2,7 +2,6 @@ use std::io;
 
 use bytes::Bytes;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 
 use crate::errors::join_error_to_io;
@@ -13,6 +12,7 @@ pub(crate) async fn run_session(
     mut inbound_rx: mpsc::Receiver<Bytes>,
     outbound_tx: mpsc::Sender<io::Result<Bytes>>,
     expected_uuid: [u8; 16],
+    protect_path: Option<&str>,
 ) -> io::Result<()> {
     let (decoded, buffered_payload) = read_request_header(&mut inbound_rx).await?;
     if decoded.uuid != expected_uuid {
@@ -22,7 +22,7 @@ pub(crate) async fn run_session(
         ));
     }
 
-    let upstream = TcpStream::connect(decoded.target.as_str())
+    let upstream = ripdpi_subprocess_protect::protected_tcp_connect(decoded.target.as_str(), protect_path)
         .await
         .map_err(|error| io::Error::new(error.kind(), format!("connect {}: {error}", decoded.target)))?;
     upstream.set_nodelay(true)?;

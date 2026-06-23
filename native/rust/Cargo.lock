@@ -5542,6 +5542,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "pico-args",
+ "ripdpi-subprocess-protect",
  "ripdpi-vless",
  "tokio",
  "tracing",
@@ -6013,6 +6014,7 @@ dependencies = [
  "rand 0.10.1",
  "rcgen",
  "ripdpi-packets",
+ "ripdpi-subprocess-protect",
  "ripdpi-tls-profiles",
  "rustls",
  "tokio",
@@ -6569,6 +6571,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-subprocess-protect"
+version = "0.1.0"
+dependencies = [
+ "nix 0.31.3",
+ "socket2",
+ "tokio",
+]
+
+[[package]]
 name = "ripdpi-telemetry"
 version = "0.1.0"
 dependencies = [
@@ -6841,6 +6852,7 @@ dependencies = [
  "golden-test-support",
  "local-network-fixture",
  "ripdpi-packets",
+ "ripdpi-subprocess-protect",
  "ripdpi-tls-profiles",
  "serde",
  "serde_json",

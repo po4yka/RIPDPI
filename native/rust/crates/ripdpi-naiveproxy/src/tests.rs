@@ -33,6 +33,7 @@ async fn socks5_tunnel_round_trip_reaches_target_via_https_proxy() {
         password: Some("naive-pass".to_owned()),
         path: None,
         tls_config: fixture.client_tls_config(),
+        protect_socket_path: None,
     };
 
     let server = tokio::spawn(async move {
@@ -78,6 +79,7 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
         password: Some("naive-pass".to_owned()),
         path: None,
         tls_config: fixture.client_tls_config(),
+        protect_socket_path: None,
     };
 
     let server = tokio::spawn(async move {
@@ -126,6 +128,7 @@ async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
         password: Some("naive-pass".to_owned()),
         path: None,
         tls_config: fixture.client_tls_config(),
+        protect_socket_path: None,
     };
 
     let server = tokio::spawn(async move {
@@ -172,6 +175,7 @@ async fn helper_reconnects_after_upstream_h2_stream_failure() {
         password: Some("naive-pass".to_owned()),
         path: None,
         tls_config: fixture.client_tls_config(),
+        protect_socket_path: None,
     };
 
     let server = tokio::spawn(async move {
@@ -373,6 +377,7 @@ fn naive_config_with_auth() -> NaiveProxyConfig {
         password: Some("pass".to_owned()),
         path: Some("/proxy".to_owned()),
         tls_config: default_tls_config(),
+        protect_socket_path: None,
     }
 }
 

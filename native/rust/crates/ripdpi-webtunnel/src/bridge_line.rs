@@ -16,6 +16,13 @@ pub struct WebTunnelBridgeConfig {
     pub secret_path: String,
     pub cert: Option<String>,
     pub cert_domain: Option<String>,
+    /// Parent's `VpnService.protect` UDS path (`RIPDPI_PROTECT_PATH`), used to
+    /// protect the outbound bridge socket so it bypasses the app TUN. `None`
+    /// when the env is unset (desktop / proxy-only / VPN down). Not part of the
+    /// bridge-line contract, so it is excluded from serialization (goldens,
+    /// telemetry) via `#[serde(skip)]`.
+    #[serde(skip)]
+    pub protect_path: Option<String>,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -90,6 +97,7 @@ pub fn parse_bridge_line(raw_bridge_line: &str) -> Result<WebTunnelBridgeConfig,
         secret_path: url.path().to_owned(),
         cert,
         cert_domain,
+        protect_path: ripdpi_subprocess_protect::protect_path_from_env(),
     })
 }
 

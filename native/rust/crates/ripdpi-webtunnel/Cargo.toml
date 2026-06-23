@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 boring.workspace = true
+ripdpi-subprocess-protect = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror.workspace = true

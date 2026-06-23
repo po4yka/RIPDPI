@@ -131,10 +131,11 @@ impl OriginServer {
             return;
         };
         let expected_uuid = self.config.uuid;
+        let protect_path = self.config.protect_path.clone();
         let sessions = Arc::clone(&self.sessions);
         let outbound_tx = session.outbound_tx.clone();
         tokio::spawn(async move {
-            let result = run_session(inbound_rx, outbound_tx, expected_uuid).await;
+            let result = run_session(inbound_rx, outbound_tx, expected_uuid, protect_path.as_deref()).await;
             if let Err(error) = result {
                 emit_structured_error(classify_error(&error), &error);
             }

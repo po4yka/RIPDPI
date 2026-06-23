@@ -13,6 +13,7 @@ hyper = { workspace = true }
 hyper-util = { workspace = true }
 pico-args.workspace = true
 rand = { workspace = true }
+ripdpi-subprocess-protect = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 rustls.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync"] }

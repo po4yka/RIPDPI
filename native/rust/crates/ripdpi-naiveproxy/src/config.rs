@@ -22,6 +22,11 @@ pub struct NaiveProxyConfig {
     pub(crate) password: Option<String>,
     pub(crate) path: Option<String>,
     pub(crate) tls_config: Arc<RustlsClientConfig>,
+    /// Path to the parent's `VpnService.protect()` Unix domain socket, read
+    /// once from `RIPDPI_PROTECT_PATH`. `None` outside the VPN subprocess
+    /// (desktop / non-VPN), in which case the upstream connect is a plain
+    /// `TcpStream::connect`. See `ripdpi_subprocess_protect`.
+    pub(crate) protect_socket_path: Option<String>,
 }
 
 impl std::fmt::Debug for NaiveProxyConfig {
@@ -40,6 +45,7 @@ impl std::fmt::Debug for NaiveProxyConfig {
             .field("username", &username)
             .field("password", &password)
             .field("path", &self.path)
+            .field("protect_socket_path", &self.protect_socket_path)
             .finish_non_exhaustive()
     }
 }
@@ -91,6 +97,7 @@ pub(crate) fn parse_config_from_reader(
         password,
         path,
         tls_config: default_tls_config(),
+        protect_socket_path: ripdpi_subprocess_protect::protect_path_from_env(),
     })
 }
 
@@ -194,6 +201,7 @@ mod tests {
             password: Some("naive-pass".to_owned()),
             path: Some("/proxy".to_owned()),
             tls_config: default_tls_config(),
+            protect_socket_path: None,
         }
     }
 
@@ -205,6 +213,14 @@ mod tests {
         assert!(!dbg.contains("naive-pass"), "Debug output exposes password: {dbg}",);
         assert!(dbg.contains("<redacted>"), "redaction marker should be present: {dbg}");
         assert!(dbg.contains("example.com"), "server should remain visible: {dbg}");
+    }
+
+    #[test]
+    fn config_carries_protect_socket_path() {
+        let mut cfg = sample_config();
+        assert!(cfg.protect_socket_path.is_none(), "sample config must default to no protect path");
+        cfg.protect_socket_path = Some("/data/local/tmp/ripdpi-protect.sock".to_owned());
+        assert_eq!(cfg.protect_socket_path.as_deref(), Some("/data/local/tmp/ripdpi-protect.sock"));
     }
 
     #[test]

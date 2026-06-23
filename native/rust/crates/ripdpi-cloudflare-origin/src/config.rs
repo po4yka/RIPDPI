@@ -7,6 +7,9 @@ pub(crate) struct OriginConfig {
     pub(crate) listen: String,
     pub(crate) path: String,
     pub(crate) uuid: [u8; 16],
+    /// Parent `VpnService.protect` UDS path (`RIPDPI_PROTECT_PATH`), or `None`
+    /// when unset — outbound connects are then unprotected (desktop / VPN down).
+    pub(crate) protect_path: Option<String>,
 }
 
 pub(crate) fn parse_config() -> io::Result<OriginConfig> {
@@ -29,7 +32,8 @@ fn parse_config_from(mut args: pico_args::Arguments) -> io::Result<OriginConfig>
     if !remaining.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unexpected arguments: {remaining:?}")));
     }
-    Ok(OriginConfig { listen, path, uuid: parse_uuid(&uuid_raw)? })
+    let protect_path = ripdpi_subprocess_protect::protect_path_from_env();
+    Ok(OriginConfig { listen, path, uuid: parse_uuid(&uuid_raw)?, protect_path })
 }
 
 fn invalid_args(error: pico_args::Error) -> io::Error {

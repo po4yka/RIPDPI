@@ -35,7 +35,7 @@ pub fn connect_webtunnel(
     config: &WebTunnelBridgeConfig,
     verify: bool,
 ) -> Result<WebTunnelStream, WebTunnelClientError> {
-    let tcp = TcpStream::connect(&config.addr)
+    let tcp = ripdpi_subprocess_protect::protected_tcp_connect_blocking(&config.addr, config.protect_path.as_deref())
         .map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
     tcp.set_read_timeout(Some(IO_TIMEOUT))
         .map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
@@ -58,7 +58,7 @@ pub async fn connect_webtunnel_async(
     config: &WebTunnelBridgeConfig,
     verify: bool,
 ) -> Result<WebTunnelAsyncStream, WebTunnelClientError> {
-    let tcp = tokio::net::TcpStream::connect(&config.addr)
+    let tcp = ripdpi_subprocess_protect::protected_tcp_connect(&config.addr, config.protect_path.as_deref())
         .await
         .map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
     tcp.set_nodelay(true).map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;

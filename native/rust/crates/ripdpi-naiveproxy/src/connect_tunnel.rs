@@ -8,7 +8,7 @@ use hyper_util::rt::{TokioExecutor, TokioIo};
 use rand::RngExt;
 use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio::net::{TcpStream, lookup_host};
+use tokio::net::lookup_host;
 use tokio_rustls::TlsConnector;
 
 use crate::config::NaiveProxyConfig;
@@ -27,7 +27,8 @@ pub(crate) async fn open_https_connect_tunnel(
     target: &SocksTarget,
 ) -> io::Result<Box<dyn AsyncTunnel>> {
     let upstream_socket = resolve_first(&config.server, config.server_port).await?;
-    let tcp = TcpStream::connect(upstream_socket).await?;
+    let tcp = ripdpi_subprocess_protect::protected_tcp_connect(upstream_socket, config.protect_socket_path.as_deref())
+        .await?;
     tcp.set_nodelay(true)?;
 
     let server_name = ServerName::try_from(config.server_name.clone()).map_err(|error| {
