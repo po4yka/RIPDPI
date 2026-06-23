@@ -27,6 +27,11 @@ pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Re
 
     let mut ack = [0u8; 1];
     (&stream).read_exact(&mut ack)?;
+    // VpnProtectSocketServer writes 0 on success and 1 on denial; fail closed on
+    // a non-zero ack so the caller never proceeds with an unprotected socket.
+    if ack[0] != 0 {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "VpnService.protect denied the socket"));
+    }
     Ok(())
 }
 
