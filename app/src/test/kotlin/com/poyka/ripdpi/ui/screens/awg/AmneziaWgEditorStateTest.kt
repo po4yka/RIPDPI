@@ -174,6 +174,35 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
+    fun `populateFromConf seeds Address, DNS, AllowedIPs, MTU and keepalive (P1-12)`() {
+        val conf =
+            """
+            [Interface]
+            PrivateKey = privkey==
+            Address = 10.0.0.2/32, fd00::2/128
+            DNS = 1.1.1.1, 8.8.8.8
+            MTU = 1280
+            Jc = 7
+
+            [Peer]
+            PublicKey = peerpub==
+            Endpoint = vpn.example.com:51820
+            AllowedIPs = 0.0.0.0/0, ::/0
+            PersistentKeepalive = 25
+            """.trimIndent()
+
+        val state = AmneziaWgEditorState.initial().populateFromConf(conf, catalog)
+
+        // Previously these were silently discarded; a blank Address also blocked
+        // activation. They must now be seeded into the editor raw text.
+        assertEquals("10.0.0.2/32, fd00::2/128", state.rawText(AwgEditorField.ADDRESS))
+        assertEquals("1.1.1.1, 8.8.8.8", state.rawText(AwgEditorField.DNS))
+        assertEquals("1280", state.rawText(AwgEditorField.MTU))
+        assertEquals("0.0.0.0/0, ::/0", state.rawText(AwgEditorField.ALLOWED_IPS))
+        assertEquals("25", state.rawText(AwgEditorField.PERSISTENT_KEEPALIVE))
+    }
+
+    @Test
     fun `populateFromConf with non-matching params lands on custom and stays unlocked`() {
         val conf =
             """

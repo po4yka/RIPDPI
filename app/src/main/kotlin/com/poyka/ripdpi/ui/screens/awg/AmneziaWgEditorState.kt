@@ -217,12 +217,30 @@ data class AmneziaWgEditorState(
             buildFormFromConf(parsed, awg, cohortId)
         // obfuscationRawText() seeds the S/H/I raw text from the freshly-built
         // form, so the I-fields parsed into the form above are covered here too.
-        val nextRaw = nextForm.identityRawText() + nextForm.obfuscationRawText()
+        // transportRawText() seeds the non-column fields (Address/DNS/MTU/
+        // AllowedIPs/Keepalive) that the parser retains but buildFormFromConf does
+        // not carry as form columns — without these a pasted .conf left Address
+        // blank (blocking activation) and silently discarded DNS/AllowedIPs/MTU
+        // (audit P1-12).
+        val nextRaw =
+            nextForm.identityRawText() + nextForm.obfuscationRawText() + transportRawText(parsed)
         return copy(
             form = nextForm,
             rawTextByField = rawTextByField + nextRaw,
             obfuscationLocked = cohortId != AwgProfileForm.CUSTOM_COHORT_ID,
         )
+    }
+
+    private fun transportRawText(parsed: WireGuardConfModel): Map<AwgEditorField, String> {
+        val iface = parsed.interfaceSection
+        val peer = parsed.peers.firstOrNull()
+        return buildMap {
+            iface.address.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.ADDRESS, it.joinToString(", ")) }
+            iface.dns.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.DNS, it.joinToString(", ")) }
+            iface.mtu?.let { put(AwgEditorField.MTU, it.toString()) }
+            peer?.allowedIps?.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.ALLOWED_IPS, it.joinToString(", ")) }
+            peer?.persistentKeepalive?.let { put(AwgEditorField.PERSISTENT_KEEPALIVE, it.toString()) }
+        }
     }
 
     private fun buildFormFromConf(
