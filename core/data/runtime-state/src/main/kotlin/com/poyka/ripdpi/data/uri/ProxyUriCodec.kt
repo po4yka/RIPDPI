@@ -83,7 +83,7 @@ object ProxyUriCodec {
             }
 
             is ProxyProfile.Hysteria2 -> {
-                userInfoUri("hysteria2", profile.password, profile.server, profile.serverPort, profile.displayName)
+                encodeHysteria2(profile)
             }
 
             is ProxyProfile.AnyTls -> {
@@ -191,6 +191,16 @@ object ProxyUriCodec {
         // Insert ?sni=... before the #fragment so parse() round-trips serverName.
         val hashIndex = base.indexOf('#')
         return base.substring(0, hashIndex) + "?sni=${encodeQueryValue(sni)}" + base.substring(hashIndex)
+    }
+
+    private fun encodeHysteria2(profile: ProxyProfile.Hysteria2): String {
+        val base = userInfoUri("hysteria2", profile.password, profile.server, profile.serverPort, profile.displayName)
+        val obfsPassword = profile.obfsPassword ?: return base
+        // Re-emit salamander obfs so parse() round-trips the obfs-password.
+        val hashIndex = base.indexOf('#')
+        return base.substring(0, hashIndex) +
+            "?obfs=salamander&obfs-password=${encodeQueryValue(obfsPassword)}" +
+            base.substring(hashIndex)
     }
 
     private fun encodeShadowsocks(profile: ProxyProfile.Shadowsocks): String {
@@ -452,6 +462,7 @@ object ProxyUriCodec {
         val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
         val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
+        val rawQuery = parsed.rawQuery
         return ProxyProfile.Hysteria2(
             id = newId(),
             displayName = displayName(parsed.fragment, host),
@@ -459,6 +470,10 @@ object ProxyUriCodec {
             server = host,
             serverPort = port,
             password = password,
+            // Salamander obfuscation password. The activator maps obfsPassword ->
+            // hysteriaSalamanderKey, which the native QUIC backend already honours;
+            // dropping it silently disabled the configured censorship-resistance.
+            obfsPassword = queryValue(rawQuery, "obfs-password"),
         )
     }
 

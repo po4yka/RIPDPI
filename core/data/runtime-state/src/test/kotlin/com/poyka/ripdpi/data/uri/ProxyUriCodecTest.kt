@@ -164,4 +164,26 @@ class ProxyUriCodecTest {
         // The native trojan backend is TLS-only; a ws/grpc node must fail loudly.
         assertNull(ProxyUriCodec.parse("trojan://fixture-pw@1.2.3.4:443?type=ws&path=/ws&host=cdn.example.com#t"))
     }
+
+    @Test
+    fun `hysteria2 uri preserves salamander obfs-password and round-trips (P1-8)`() {
+        val parsed =
+            ProxyUriCodec.parse(
+                "hysteria2://fixture-pw@h.example:8443?obfs=salamander&obfs-password=fixture-obfs#n",
+            )
+        assertTrue(parsed is ProxyProfile.Hysteria2)
+        parsed as ProxyProfile.Hysteria2
+        assertEquals("fixture-obfs", parsed.obfsPassword)
+
+        val reparsed = ProxyUriCodec.parse(ProxyUriCodec.encode(parsed))
+        assertTrue(reparsed is ProxyProfile.Hysteria2)
+        assertEquals("fixture-obfs", (reparsed as ProxyProfile.Hysteria2).obfsPassword)
+    }
+
+    @Test
+    fun `hysteria2 uri without obfs leaves obfsPassword null`() {
+        val parsed = ProxyUriCodec.parse("hysteria2://fixture-pw@h.example:8443#n")
+        assertTrue(parsed is ProxyProfile.Hysteria2)
+        assertNull((parsed as ProxyProfile.Hysteria2).obfsPassword)
+    }
 }
