@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
+import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
@@ -162,6 +163,16 @@ class SubscriptionAutoUpdateWorker
                                 profiles = selector.profiles,
                                 failover = selector.failoverPolicy.toSelectorFailover(),
                             )
+                        }
+                        // Clash / Clash.Meta YAML: a real parser existed but had no live
+                        // caller, so a Clash subscription URL silently yielded nothing
+                        // (audit P1-1). Dispatch on the `proxies:` marker before the
+                        // base64 fallback (a Clash document is not base64).
+                        if (ClashSubscriptionParser.looksLikeClash(body)) {
+                            val clash = ClashSubscriptionParser.parse(body, groupId)
+                            if (clash.profiles.isNotEmpty()) {
+                                return@use RefreshOutcome.Updated(profiles = clash.profiles, failover = null)
+                            }
                         }
                         val base64 = Base64SubscriptionParser.parse(body, groupId)
                         if (base64.profiles.isNotEmpty()) {
