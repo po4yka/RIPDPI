@@ -417,7 +417,8 @@ object ProxyUriCodec {
         )
     }
 
-    private fun isSupportedShadowsocksMethod(method: String): Boolean =
+    /** Shared with the subscription parsers so every import path gates the same cipher allowlist. */
+    internal fun isSupportedShadowsocksMethod(method: String): Boolean =
         when (method.trim().lowercase()) {
             "aes-128-gcm",
             "aes-256-gcm",

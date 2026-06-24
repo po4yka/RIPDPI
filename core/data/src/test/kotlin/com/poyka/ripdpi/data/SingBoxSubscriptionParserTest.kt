@@ -192,4 +192,30 @@ class SingBoxSubscriptionParserTest {
 
         assertTrue(parsed.profiles.all { it.groupId == groupId })
     }
+
+    @Test
+    fun `blank or unsupported-cipher nodes degrade to RawConfig, not connectable members (P1-10)`() {
+        val json =
+            """
+            { "outbounds": [
+              { "type": "shadowsocks", "tag": "ss-empty", "server": "ss.example.com",
+                "server_port": 8388, "method": "aes-256-gcm", "password": "" },
+              { "type": "trojan", "tag": "trojan-empty", "server": "t.example.com",
+                "server_port": 443, "password": "" },
+              { "type": "hysteria2", "tag": "hy2-empty", "server": "h.example.com",
+                "server_port": 8443, "password": "" },
+              { "type": "vless", "tag": "vless-empty", "server": "v.example.com",
+                "server_port": 443, "uuid": "" },
+              { "type": "shadowsocks", "tag": "ss-badcipher", "server": "ss.example.com",
+                "server_port": 8388, "method": "rc4-md5", "password": "x" } ] }
+            """.trimIndent()
+
+        val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
+
+        assertEquals(5, parsed.profiles.size)
+        assertTrue(
+            "every credential-less / bad-cipher node must be an inert RawConfig",
+            parsed.profiles.all { it is ProxyProfile.RawConfig },
+        )
+    }
 }

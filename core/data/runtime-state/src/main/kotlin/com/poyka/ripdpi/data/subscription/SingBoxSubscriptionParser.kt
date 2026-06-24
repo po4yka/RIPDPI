@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import kotlinx.serialization.json.Json
@@ -261,14 +262,21 @@ private fun mapVless(
     return if (isReality) {
         mapVlessReality(obj, groupId, server, port, name, tlsObj, realityObj, realityPublicKey)
     } else {
-        ProxyProfile.Vless(
-            id = newId(),
-            displayName = name,
-            groupId = groupId,
-            server = server,
-            serverPort = port,
-            uuid = obj.string("uuid").orEmpty(),
-        )
+        // A plain VLESS node with no UUID cannot connect; keep it as an inert
+        // RawConfig rather than a selectable dead member (audit P1-10).
+        val uuid = obj.string("uuid")
+        if (uuid.isNullOrBlank()) {
+            rawConfig(name, groupId, obj)
+        } else {
+            ProxyProfile.Vless(
+                id = newId(),
+                displayName = name,
+                groupId = groupId,
+                server = server,
+                serverPort = port,
+                uuid = uuid,
+            )
+        }
     }
 }
 
@@ -317,26 +325,33 @@ private fun mapVlessReality(
     )
 }
 
+// A node with a blank/unsupported credential must NOT become a first-class
+// connectable member; round-trip it as an inert RawConfig so the user never sees
+// a selectable member that can never connect (audit P1-10). Mirrors mapAnyTls.
 private fun mapShadowsocks(
     obj: JsonObject,
     groupId: String,
     server: String?,
     port: Int?,
     name: String,
-): ProxyProfile =
-    if (server != null && port != null) {
+): ProxyProfile {
+    if (server == null || port == null) return rawConfig(name, groupId, obj)
+    val method = obj.string("method").orEmpty()
+    val password = obj.string("password").orEmpty()
+    return if (password.isNotEmpty() && ProxyUriCodec.isSupportedShadowsocksMethod(method)) {
         ProxyProfile.Shadowsocks(
             id = newId(),
             displayName = name,
             groupId = groupId,
             server = server,
             serverPort = port,
-            method = obj.string("method").orEmpty(),
-            password = obj.string("password").orEmpty(),
+            method = method,
+            password = password,
         )
     } else {
         rawConfig(name, groupId, obj)
     }
+}
 
 private fun mapTrojan(
     obj: JsonObject,
@@ -344,19 +359,21 @@ private fun mapTrojan(
     server: String?,
     port: Int?,
     name: String,
-): ProxyProfile =
-    if (server != null && port != null) {
+): ProxyProfile {
+    val password = obj.string("password")
+    return if (server != null && port != null && !password.isNullOrBlank()) {
         ProxyProfile.Trojan(
             id = newId(),
             displayName = name,
             groupId = groupId,
             server = server,
             serverPort = port,
-            password = obj.string("password").orEmpty(),
+            password = password,
         )
     } else {
         rawConfig(name, groupId, obj)
     }
+}
 
 private fun mapHysteria2(
     obj: JsonObject,
@@ -364,19 +381,21 @@ private fun mapHysteria2(
     server: String?,
     port: Int?,
     name: String,
-): ProxyProfile =
-    if (server != null && port != null) {
+): ProxyProfile {
+    val password = obj.string("password")
+    return if (server != null && port != null && !password.isNullOrBlank()) {
         ProxyProfile.Hysteria2(
             id = newId(),
             displayName = name,
             groupId = groupId,
             server = server,
             serverPort = port,
-            password = obj.string("password").orEmpty(),
+            password = password,
         )
     } else {
         rawConfig(name, groupId, obj)
     }
+}
 
 private fun mapAnyTls(
     obj: JsonObject,
