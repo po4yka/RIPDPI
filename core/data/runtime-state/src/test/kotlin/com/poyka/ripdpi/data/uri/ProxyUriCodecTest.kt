@@ -186,4 +186,15 @@ class ProxyUriCodecTest {
         assertTrue(parsed is ProxyProfile.Hysteria2)
         assertNull((parsed as ProxyProfile.Hysteria2).obfsPassword)
     }
+
+    @Test
+    fun `hysteria2 uri preserves the insecure flag and round-trips (P1-9)`() {
+        val parsed = ProxyUriCodec.parse("hysteria2://fixture-pw@h.example:8443?insecure=1#n")
+        assertTrue(parsed is ProxyProfile.Hysteria2)
+        assertEquals(true, (parsed as ProxyProfile.Hysteria2).insecure)
+
+        val reparsed = ProxyUriCodec.parse(ProxyUriCodec.encode(parsed))
+        assertTrue(reparsed is ProxyProfile.Hysteria2)
+        assertEquals(true, (reparsed as ProxyProfile.Hysteria2).insecure)
+    }
 }

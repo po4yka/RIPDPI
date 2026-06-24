@@ -197,6 +197,7 @@ data class ResolvedRipDpiRelayConfig(
     val chainExitUuid: String? = null,
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
+    val hysteriaInsecure: Boolean = false,
     @SerialName("anytlsPassword")
     val anyTlsPassword: String? = null,
     val tuicUuid: String? = null,
@@ -448,6 +449,7 @@ private fun ResolvedRipDpiRelayConfig.hysteria2Section(): RelayHysteria2Section 
     RelayHysteria2Section(
         hysteriaPassword = hysteriaPassword,
         hysteriaSalamanderKey = hysteriaSalamanderKey,
+        hysteriaInsecure = hysteriaInsecure,
     )
 
 private fun ResolvedRipDpiRelayConfig.mieruSection(): RelayMieruSection =
@@ -685,6 +687,7 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         chainExitUuid = chain.exitHop.uuid,
         hysteriaPassword = hysteria2.hysteriaPassword,
         hysteriaSalamanderKey = hysteria2.hysteriaSalamanderKey,
+        hysteriaInsecure = hysteria2.hysteriaInsecure,
         anyTlsPassword = anyTls.anyTlsPassword,
         tuicUuid = tuic.tuicUuid,
         tuicPassword = tuic.tuicPassword,

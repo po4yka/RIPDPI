@@ -21,6 +21,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     ))
     .map_err(to_io_error)?;
     client_config.salamander_key = hysteria.salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
+    client_config.insecure = hysteria.insecure;
     client_config.quic_bind_low_port = config.common.quic_bind_low_port;
     client_config.quic_migrate_after_handshake = config.common.quic_migrate_after_handshake;
 

@@ -195,12 +195,17 @@ object ProxyUriCodec {
 
     private fun encodeHysteria2(profile: ProxyProfile.Hysteria2): String {
         val base = userInfoUri("hysteria2", profile.password, profile.server, profile.serverPort, profile.displayName)
-        val obfsPassword = profile.obfsPassword ?: return base
-        // Re-emit salamander obfs so parse() round-trips the obfs-password.
+        val params =
+            buildList {
+                profile.obfsPassword?.let {
+                    add("obfs=salamander")
+                    add("obfs-password=${encodeQueryValue(it)}")
+                }
+                if (profile.insecure == true) add("insecure=1")
+            }
+        if (params.isEmpty()) return base
         val hashIndex = base.indexOf('#')
-        return base.substring(0, hashIndex) +
-            "?obfs=salamander&obfs-password=${encodeQueryValue(obfsPassword)}" +
-            base.substring(hashIndex)
+        return base.substring(0, hashIndex) + "?" + params.joinToString("&") + base.substring(hashIndex)
     }
 
     private fun encodeShadowsocks(profile: ProxyProfile.Shadowsocks): String {
@@ -475,6 +480,9 @@ object ProxyUriCodec {
             // hysteriaSalamanderKey, which the native QUIC backend already honours;
             // dropping it silently disabled the configured censorship-resistance.
             obfsPassword = queryValue(rawQuery, "obfs-password"),
+            // insecure=1 skips TLS cert verification; dropping it silently forced
+            // strict verification and an opaque handshake failure (P1-9).
+            insecure = queryValue(rawQuery, "insecure")?.let { it == "1" || it.equals("true", ignoreCase = true) },
         )
     }
 

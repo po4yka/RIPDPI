@@ -21,6 +21,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
             "hysteria2" => RelayBackendConfig::Hysteria2(Hysteria2RelayConfig {
                 password: flat.hysteria_password,
                 salamander_key: flat.hysteria_salamander_key,
+                insecure: flat.hysteria_insecure,
             }),
             "tuic_v5" => RelayBackendConfig::TuicV5(TuicRelayConfig {
                 uuid: flat.tuic_uuid,
@@ -215,6 +216,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             chain_exit_uuid: None,
             hysteria_password: None,
             hysteria_salamander_key: None,
+            hysteria_insecure: false,
             tuic_uuid: None,
             tuic_password: None,
             shadow_tls_password: None,
@@ -256,6 +258,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             RelayBackendConfig::Hysteria2(config) => {
                 flat.hysteria_password = config.password.clone();
                 flat.hysteria_salamander_key = config.salamander_key.clone();
+                flat.hysteria_insecure = config.insecure;
             }
             RelayBackendConfig::TuicV5(config) => {
                 flat.tuic_uuid = config.uuid.clone();

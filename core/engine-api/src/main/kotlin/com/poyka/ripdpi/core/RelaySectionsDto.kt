@@ -138,6 +138,7 @@ data class RelayShadowsocksSection(
 data class RelayHysteria2Section(
     val hysteriaPassword: String?,
     val hysteriaSalamanderKey: String?,
+    val hysteriaInsecure: Boolean = false,
 )
 
 /** Mieru outbound endpoint, username/password credentials, transport protocol, multiplexing, and MTU. */

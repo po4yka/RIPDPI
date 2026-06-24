@@ -357,6 +357,7 @@ private class ResolvedRelayConfigBuilder(
         RelayHysteria2Section(
             hysteriaPassword = credentials?.hysteriaPassword,
             hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
+            hysteriaInsecure = credentials?.hysteriaInsecure ?: false,
         )
 
     // Mieru reuses the common server/serverPort as its endpoint (the native

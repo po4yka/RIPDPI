@@ -58,6 +58,7 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
         "hysteria2" => RelayBackendConfig::Hysteria2(Hysteria2RelayConfig {
             password: Some("secret".to_string()),
             salamander_key: None,
+            insecure: false,
         }),
         "tuic_v5" => RelayBackendConfig::TuicV5(TuicRelayConfig {
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),

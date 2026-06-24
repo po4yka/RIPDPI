@@ -189,6 +189,8 @@ struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub hysteria_salamander_key: Option<String>,
     #[serde(default)]
+    pub hysteria_insecure: bool,
+    #[serde(default)]
     pub tuic_uuid: Option<String>,
     #[serde(default)]
     pub tuic_password: Option<String>,

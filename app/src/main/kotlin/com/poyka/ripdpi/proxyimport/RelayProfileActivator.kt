@@ -230,6 +230,7 @@ class RelayProfileActivator
                         profileId = profileId,
                         hysteriaPassword = profile.password,
                         hysteriaSalamanderKey = profile.obfsPassword,
+                        hysteriaInsecure = profile.insecure ?: false,
                     )
                 }
 

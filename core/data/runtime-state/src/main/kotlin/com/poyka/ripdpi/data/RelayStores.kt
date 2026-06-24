@@ -132,6 +132,7 @@ data class RelayCredentialRecord(
     val chainExitUuid: String? = null,
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
+    val hysteriaInsecure: Boolean = false,
     val tuicUuid: String? = null,
     val tuicPassword: String? = null,
     val anyTlsPassword: String? = null,
