@@ -115,4 +115,25 @@ class SubscriptionMemberPersistenceTest {
 
         assertSame(original, updated)
     }
+
+    @Test
+    fun `a refreshed member keeps its prior id so the selector selection survives (P1-14)`() {
+        val original = group(members = listOf(trojan("kept-id")))
+        // Same endpoint, fresh (random) id — what a re-parse of the same node produces.
+        val refreshed = listOf(trojan("kept-id").copy(id = "fresh-random-id"))
+
+        val updated = SubscriptionMemberPersistence.apply(original, refreshed)
+
+        assertEquals("kept-id", updated.members.single().id)
+    }
+
+    @Test
+    fun `a member at a new endpoint keeps its own fresh id`() {
+        val original = group(members = listOf(trojan("old")))
+        val refreshed = listOf(trojan("brand-new"))
+
+        val updated = SubscriptionMemberPersistence.apply(original, refreshed)
+
+        assertEquals("brand-new", updated.members.single().id)
+    }
 }

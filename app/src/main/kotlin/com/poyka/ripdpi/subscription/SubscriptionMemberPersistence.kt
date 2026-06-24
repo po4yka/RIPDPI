@@ -39,9 +39,46 @@ object SubscriptionMemberPersistence {
         // group's existing members untouched, matching the original empty guard.
         val activatable = members.filterNot { it is ProxyProfile.RawConfig }
         if (activatable.isEmpty()) return group
+        // Parser member ids are random per parse, so a wholesale replace orphaned
+        // any persisted selector selection (keyed by member id) on every refresh
+        // (audit P1-14). Carry each prior member's id onto its structurally-equal
+        // refreshed counterpart so the user's selection survives.
+        val priorIdByEndpoint = group.members.associate { it.endpointKey() to it.id }
+        val remapped =
+            activatable.map { member ->
+                priorIdByEndpoint[member.endpointKey()]?.let(member::withId) ?: member
+            }
         return group.copy(
-            members = activatable,
+            members = remapped,
             failover = failover ?: group.failover,
         )
     }
 }
+
+/** Structural identity of a node (protocol + endpoint), stable across refreshes. */
+private fun ProxyProfile.endpointKey(): String =
+    when (this) {
+        is ProxyProfile.Vless -> "vless|$server|$serverPort"
+        is ProxyProfile.VlessReality -> "vless-reality|$server|$serverPort"
+        is ProxyProfile.Shadowsocks -> "ss|$server|$serverPort"
+        is ProxyProfile.Trojan -> "trojan|$server|$serverPort"
+        is ProxyProfile.Hysteria2 -> "hysteria2|$server|$serverPort"
+        is ProxyProfile.AnyTls -> "anytls|$server|$serverPort"
+        is ProxyProfile.Mieru -> "mieru|$server|$serverPort"
+        is ProxyProfile.Ssh -> "ssh|$server|$serverPort"
+        is ProxyProfile.RawConfig -> "raw|$id"
+    }
+
+/** Returns a copy of this profile with [newId] as its id. */
+private fun ProxyProfile.withId(newId: String): ProxyProfile =
+    when (this) {
+        is ProxyProfile.Vless -> copy(id = newId)
+        is ProxyProfile.VlessReality -> copy(id = newId)
+        is ProxyProfile.Shadowsocks -> copy(id = newId)
+        is ProxyProfile.Trojan -> copy(id = newId)
+        is ProxyProfile.Hysteria2 -> copy(id = newId)
+        is ProxyProfile.AnyTls -> copy(id = newId)
+        is ProxyProfile.Mieru -> copy(id = newId)
+        is ProxyProfile.Ssh -> copy(id = newId)
+        is ProxyProfile.RawConfig -> copy(id = newId)
+    }
