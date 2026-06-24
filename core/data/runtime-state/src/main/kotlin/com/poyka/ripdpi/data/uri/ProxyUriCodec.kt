@@ -382,6 +382,12 @@ object ProxyUriCodec {
         val password = userInfo.substring(methodSep + 1)
         if (!isSupportedShadowsocksMethod(method)) return null
         if (password.isEmpty()) return null
+        // SIP003 `plugin=` (obfs-local / v2ray-plugin) needs an out-of-process
+        // transport RIPDPI does not bundle. Importing such a node as plain ss would
+        // build a profile that silently fails to connect, so reject it loudly and
+        // let the import surface surface the error.
+        val query = core.substring(atIndex + 1).substringAfter('?', "")
+        if (queryValue(query, "plugin") != null) return null
         return ProxyProfile.Shadowsocks(
             id = newId(),
             displayName = displayName(fragment, host),

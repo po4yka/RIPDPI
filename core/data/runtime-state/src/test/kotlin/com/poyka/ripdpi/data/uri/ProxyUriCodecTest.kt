@@ -122,4 +122,21 @@ class ProxyUriCodecTest {
         assertEquals("aes-256-gcm", reparsed.method)
         assertEquals("fixture-password", reparsed.password)
     }
+
+    @Test
+    fun `shadowsocks uri with a SIP003 plugin is rejected (P1-6)`() {
+        // obfs-local / v2ray-plugin needs an out-of-process transport RIPDPI does
+        // not bundle; importing as plain ss would silently fail to connect.
+        assertNull(
+            ProxyUriCodec.parse(
+                "ss://aes-256-gcm:fixture-pw@host.example.com:8388?plugin=obfs-local%3Bobfs%3Dtls#node",
+            ),
+        )
+    }
+
+    @Test
+    fun `shadowsocks uri without a plugin still parses`() {
+        val parsed = ProxyUriCodec.parse("ss://aes-256-gcm:fixture-pw@host.example.com:8388#node")
+        assertTrue(parsed is ProxyProfile.Shadowsocks)
+    }
 }
