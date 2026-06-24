@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="simple_title">RIPDPI</string>
+    <string name="simple_connect">कनेक्ट करें</string>
+    <string name="simple_disconnect">डिस्कनेक्ट करें</string>
+    <string name="simple_run_report">जाँच रिपोर्ट चलाएँ</string>
+    <string name="simple_status_disconnected">डिस्कनेक्ट है</string>
+    <string name="simple_status_connecting">कनेक्ट हो रहा है…</string>
+    <string name="simple_status_connected">कनेक्ट है</string>
+    <string name="simple_status_error">कनेक्शन त्रुटि</string>
+    <string name="simple_protocol_vless_reality">VLESS+Reality</string>
+    <string name="simple_protocol_hysteria2">Hysteria2</string>
+    <string name="simple_protocol_awg">AmneziaWG</string>
+</resources>
