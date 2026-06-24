@@ -16,10 +16,15 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.subscription.Base64SubscriptionParser
 import com.poyka.ripdpi.data.subscription.ClashSubscriptionParser
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
+import com.poyka.ripdpi.data.subscription.SingBoxParseResult
+import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
+import com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionParser
+import com.poyka.ripdpi.data.subscription.toActivationRequest
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -86,6 +91,7 @@ class SubscriptionAutoUpdateWorker
         @Assisted appContext: Context,
         @Assisted workerParams: WorkerParameters,
         private val repository: ProxyGroupRepository,
+        private val awgProfileRepository: AwgProfileRepository,
     ) : CoroutineWorker(appContext, workerParams) {
         private val log = Logger.withTag("subscription-auto-update")
         private val httpClient = OkHttpClient()
@@ -154,6 +160,14 @@ class SubscriptionAutoUpdateWorker
                             return@use RefreshOutcome.TransientFailure("HTTP ${response.code}")
                         }
                         val body = response.body.string()
+                        // Standalone AmneziaWG / WireGuard nodes (sing-box bundle
+                        // extension or a raw WireGuard-INI payload) carry secrets but
+                        // are NOT ProxyProfile members, so the member dispatch below
+                        // drops them. Persist them here as a side effect — regardless
+                        // of whether the member dispatch yields anything — so a
+                        // subscription-imported AWG/WG profile lands in the FULL
+                        // experience the same way ConfigSeeder persists it in `simple`.
+                        val wireGuardCount = persistWireGuardProfiles(body, groupId)
                         // The selector/urltest import wraps SingBoxSubscriptionParser:
                         // it yields the concrete member profiles plus, for a selector
                         // bundle, the failover policy. Members are what we persist.
@@ -177,6 +191,11 @@ class SubscriptionAutoUpdateWorker
                         val base64 = Base64SubscriptionParser.parse(body, groupId)
                         if (base64.profiles.isNotEmpty()) {
                             RefreshOutcome.Updated(profiles = base64.profiles, failover = null)
+                        } else if (wireGuardCount > 0) {
+                            // A WireGuard-INI body has no ProxyProfile members, but the
+                            // AWG/WG profiles were persisted above — treat the refresh as
+                            // a success (empty member set) rather than a parse failure.
+                            RefreshOutcome.Updated(profiles = emptyList(), failover = null)
                         } else {
                             RefreshOutcome.ParseFailure("no profiles in subscription payload")
                         }
@@ -185,6 +204,45 @@ class SubscriptionAutoUpdateWorker
                     RefreshOutcome.TransientFailure(error.message ?: "network unreachable")
                 }
             }
+
+        /**
+         * Persists every standalone AmneziaWG / WireGuard node parsed from [body]
+         * via [AwgProfileRepository.save] and returns how many were saved.
+         *
+         * Covers two carriers of these nodes: the sing-box bundle extension
+         * (`SingBoxParseResult.Success.amneziaWgProfiles`) and a raw WireGuard-INI
+         * payload (`[Interface]`/`[Peer]`). A vanilla WireGuard node maps to an
+         * AmneziaWG request with zero obfuscation. The save is idempotent on the
+         * repository side, so re-running a refresh re-upserts the same profiles.
+         */
+        private suspend fun persistWireGuardProfiles(
+            body: String,
+            groupId: String,
+        ): Int {
+            var saved = 0
+            val singBox = SingBoxSubscriptionParser.parse(body, groupId)
+            if (singBox is SingBoxParseResult.Success) {
+                singBox.amneziaWgProfiles.forEach { profile ->
+                    awgProfileRepository.save(profile.displayName, profile.toActivationRequest())
+                    saved++
+                }
+            }
+            if (WireGuardIniSubscriptionParser.looksLikeWireGuardIni(body)) {
+                val wireGuardIni = WireGuardIniSubscriptionParser.parse(body, groupId)
+                wireGuardIni.amneziaWgProfiles.forEach { profile ->
+                    awgProfileRepository.save(profile.displayName, profile.toActivationRequest())
+                    saved++
+                }
+                wireGuardIni.profiles.forEach { profile ->
+                    awgProfileRepository.save(profile.displayName, profile.toActivationRequest())
+                    saved++
+                }
+            }
+            if (saved > 0) {
+                log.i { "persisted $saved AmneziaWG/WireGuard profile(s) for subscription group $groupId" }
+            }
+            return saved
+        }
 
         private sealed interface RefreshOutcome {
             data class Updated(
