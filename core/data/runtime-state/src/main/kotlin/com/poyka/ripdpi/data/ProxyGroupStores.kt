@@ -425,9 +425,8 @@ interface ProxyGroupRepository {
 class SharedPreferencesProxyGroupRepository
     @Inject
     constructor(
-        @ApplicationContext context: Context,
+        private val blobStore: ProxyGroupBlobStore,
     ) : ProxyGroupRepository {
-        private val preferences = context.getSharedPreferences(GroupsPrefsName, Context.MODE_PRIVATE)
         private val json = RipDpiJson
         private val listSerializer = ListSerializer(ProxyGroup.serializer())
         private val mutex = Mutex()
@@ -466,30 +465,102 @@ class SharedPreferencesProxyGroupRepository
 
         /** Clears all persisted groups. Intended for tests and reset flows. */
         fun clearAll() {
-            preferences.edit().clear().apply()
+            blobStore.clear()
             state.value = emptyList()
         }
 
-        private fun readGroups(): List<ProxyGroup> {
-            val version = preferences.getInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
-            val raw = preferences.getString(GroupsKey, null) ?: return emptyList()
-            val migrated = ProxyGroupSchema.migrate(raw, version)
-            return json.decodeFromString(listSerializer, migrated)
-        }
+        private fun readGroups(): List<ProxyGroup> =
+            blobStore.read()?.let { json.decodeFromString(listSerializer, it) } ?: emptyList()
 
         private fun writeGroups(groups: List<ProxyGroup>) {
             val ordered = groups.sortedBy(ProxyGroup::order)
+            blobStore.write(json.encodeToString(listSerializer, ordered))
+            state.value = ordered
+        }
+    }
+
+/**
+ * Persistence port for the serialized [ProxyGroup] collection. The blob embeds
+ * member credentials (passwords, VLESS UUIDs, SSH private keys + passphrases) and
+ * the subscription token, so the production binding seals it AES-256-GCM at rest.
+ * Tests bind an in-memory fake, mirroring the `AwgCredentialStore` /
+ * `WarpCredentialStore` split: AndroidKeyStore is unavailable under Robolectric, so
+ * the seal itself is exercised only by instrumented tests while the repository
+ * wiring is unit-tested against the fake.
+ */
+interface ProxyGroupBlobStore {
+    /** The persisted group-list JSON (decrypted + schema-migrated), or `null` when empty. */
+    fun read(): String?
+
+    /** Seals and persists [json] at the current schema version. */
+    fun write(json: String)
+
+    /** Removes all persisted group state. */
+    fun clear()
+}
+
+/**
+ * AndroidKeyStore-backed [ProxyGroupBlobStore]. The group blob is AES-256-GCM
+ * sealed via [KeystoreEncryptedPreferences] (the same primitive the WARP /
+ * AmneziaWG credential stores use) under [SealedGroupsKey] in `proxy_group_cache`.
+ * A pre-encryption install that still holds the legacy plaintext blob under
+ * [GroupsKey] is migrated forward on first read and the plaintext erased.
+ */
+@Singleton
+class KeystoreProxyGroupBlobStore
+    @Inject
+    constructor(
+        @ApplicationContext context: Context,
+    ) : ProxyGroupBlobStore {
+        private val preferences = context.getSharedPreferences(GroupsPrefsName, Context.MODE_PRIVATE)
+        private val secure =
+            KeystoreEncryptedPreferences(
+                preferences = preferences,
+                keyAlias = GroupsKeyAlias,
+            )
+
+        override fun read(): String? {
+            val version = preferences.getInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
+            val raw = secure.getString(SealedGroupsKey) ?: migrateLegacyPlaintext() ?: return null
+            return ProxyGroupSchema.migrate(raw, version)
+        }
+
+        override fun write(json: String) {
+            secure.putString(SealedGroupsKey, json)
             preferences
                 .edit()
-                .putString(GroupsKey, json.encodeToString(listSerializer, ordered))
+                .remove(GroupsKey)
                 .putInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
                 .apply()
-            state.value = ordered
+        }
+
+        override fun clear() {
+            secure.remove(SealedGroupsKey)
+            preferences.edit().clear().apply()
+        }
+
+        /**
+         * One-time upgrade for a pre-encryption install: lifts the legacy plaintext
+         * group blob into the AES-256-GCM [secure] store and deletes the plaintext
+         * key, so credentials never linger unencrypted past the first read. Returns
+         * the raw JSON for [read] to decode, or `null` when no legacy blob exists.
+         */
+        private fun migrateLegacyPlaintext(): String? {
+            val legacy = preferences.getString(GroupsKey, null) ?: return null
+            secure.putString(SealedGroupsKey, legacy)
+            preferences.edit().remove(GroupsKey).apply()
+            return legacy
         }
 
         private companion object {
             const val GroupsPrefsName = "proxy_group_cache"
+
+            /** Legacy plaintext key; read-and-migrate only, never written anew. */
             const val GroupsKey = "proxy-groups"
+
+            /** AES-256-GCM ciphertext of the group blob (members + subscription token). */
+            const val SealedGroupsKey = "proxy-groups-sealed"
+            const val GroupsKeyAlias = "ripdpi_proxy_groups"
             const val SchemaVersionKey = "proxy-groups-schema-version"
         }
     }
@@ -500,4 +571,8 @@ abstract class ProxyGroupStoreModule {
     @Binds
     @Singleton
     abstract fun bindProxyGroupRepository(repository: SharedPreferencesProxyGroupRepository): ProxyGroupRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProxyGroupBlobStore(store: KeystoreProxyGroupBlobStore): ProxyGroupBlobStore
 }

@@ -1,27 +1,16 @@
 package com.poyka.ripdpi.data
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 
 @OptIn(ExperimentalCoroutinesApi::class)
-@RunWith(RobolectricTestRunner::class)
 class ProxyGroupRepositoryTest {
-    private val context: Context
-        get() = ApplicationProvider.getApplicationContext()
-
-    private fun newRepository(): SharedPreferencesProxyGroupRepository {
-        val repository = SharedPreferencesProxyGroupRepository(context)
-        repository.clearAll()
-        return repository
-    }
+    private fun newRepository(): SharedPreferencesProxyGroupRepository =
+        SharedPreferencesProxyGroupRepository(FakeProxyGroupBlobStore())
 
     private fun group(
         id: String,
@@ -89,4 +78,19 @@ class ProxyGroupRepositoryTest {
                 cancelAndIgnoreRemainingEvents()
             }
         }
+}
+
+/** In-memory [ProxyGroupBlobStore]; AndroidKeyStore is unavailable under Robolectric. */
+private class FakeProxyGroupBlobStore : ProxyGroupBlobStore {
+    private var blob: String? = null
+
+    override fun read(): String? = blob
+
+    override fun write(json: String) {
+        blob = json
+    }
+
+    override fun clear() {
+        blob = null
+    }
 }

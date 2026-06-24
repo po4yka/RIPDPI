@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.data
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -25,27 +23,9 @@ class ProxyGroupRepositoryConcurrencyTest {
 
     @Before
     fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        // Use an isolated prefs file; clear before each test for independence.
-        context
-            .getSharedPreferences("proxy_group_concurrency_test", Context.MODE_PRIVATE)
-            .edit()
-            .clear()
-            .commit()
-        repository =
-            SharedPreferencesProxyGroupRepository(
-                context.also { ctx ->
-                    // Shadow the production prefs name by pointing the repository at the
-                    // test-scoped prefs file. Because SharedPreferencesProxyGroupRepository
-                    // uses a fixed companion-object key "proxy_group_cache", we clear that
-                    // prefs file directly to avoid cross-test contamination.
-                    ctx
-                        .getSharedPreferences("proxy_group_cache", Context.MODE_PRIVATE)
-                        .edit()
-                        .clear()
-                        .commit()
-                },
-            )
+        // An in-memory blob store gives each test an isolated, AndroidKeyStore-free
+        // backing for the repository under test.
+        repository = SharedPreferencesProxyGroupRepository(FakeProxyGroupBlobStore())
     }
 
     @Test
