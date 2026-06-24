@@ -64,7 +64,7 @@ review_date = "2026-11-22"
 [[entries]]
 file = "native/rust/crates/ripdpi-shadowtls/src/client.rs"
 pattern = "to_socket_addrs"
-line = 34
+line = 56
 executor_strategy = "review-needed: session-establishment path, called once per ShadowTLS client connect; switch to `tokio::net::lookup_host` when the crate is next touched."
 reason = "ShadowTLS client connect() resolves the configured server address."
 owner = "transport-team"
