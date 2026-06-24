@@ -144,6 +144,9 @@ object BackupAllowlist {
             mapOf(
                 "server" to Classification.PUBLIC,
                 "serverPort" to Classification.PUBLIC,
+                // TLS SNI / masquerade domain; same sensitivity class as the connect
+                // host (PUBLIC), mirroring AnyTls.serverName.
+                "serverName" to Classification.PUBLIC,
                 "password" to Classification.REDACTED,
             )
 
