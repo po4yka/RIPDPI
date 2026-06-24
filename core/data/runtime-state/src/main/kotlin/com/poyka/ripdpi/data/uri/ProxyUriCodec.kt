@@ -79,7 +79,7 @@ object ProxyUriCodec {
             }
 
             is ProxyProfile.Trojan -> {
-                userInfoUri("trojan", profile.password, profile.server, profile.serverPort, profile.displayName)
+                encodeTrojan(profile)
             }
 
             is ProxyProfile.Hysteria2 -> {
@@ -183,6 +183,14 @@ object ProxyUriCodec {
         )}:${profile.serverPort}$params#${encodeFragment(
             profile.displayName,
         )}"
+    }
+
+    private fun encodeTrojan(profile: ProxyProfile.Trojan): String {
+        val base = userInfoUri("trojan", profile.password, profile.server, profile.serverPort, profile.displayName)
+        val sni = profile.serverName ?: return base
+        // Insert ?sni=... before the #fragment so parse() round-trips serverName.
+        val hashIndex = base.indexOf('#')
+        return base.substring(0, hashIndex) + "?sni=${encodeQueryValue(sni)}" + base.substring(hashIndex)
     }
 
     private fun encodeShadowsocks(profile: ProxyProfile.Shadowsocks): String {
@@ -418,6 +426,15 @@ object ProxyUriCodec {
         val password = parsed.userInfo?.takeIf { it.isNotBlank() } ?: return null
         val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
+        val rawQuery = parsed.rawQuery
+        // RIPDPI's trojan backend is TLS-only; it has no WebSocket / gRPC / HTTP2
+        // transport. A node advertising type=ws/grpc/h2 would import as plain TLS
+        // and silently fail to connect, so reject it loudly instead of dropping the
+        // transport.
+        when (queryValue(rawQuery, "type")?.lowercase()) {
+            null, "tcp", "original", "none" -> Unit
+            else -> return null
+        }
         return ProxyProfile.Trojan(
             id = newId(),
             displayName = displayName(parsed.fragment, host),
@@ -425,6 +442,7 @@ object ProxyUriCodec {
             server = host,
             serverPort = port,
             password = password,
+            serverName = queryValue(rawQuery, "sni") ?: queryValue(rawQuery, "serverName"),
         )
     }
 

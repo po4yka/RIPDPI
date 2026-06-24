@@ -166,7 +166,7 @@ class RelayProfileActivator
         private fun relayEndpoint(profile: ProxyProfile): RelayActivationEndpoint =
             when (profile) {
                 is ProxyProfile.Trojan -> {
-                    RelayActivationEndpoint(profile.server, profile.serverPort, profile.server)
+                    RelayActivationEndpoint(profile.server, profile.serverPort, profile.serverName ?: profile.server)
                 }
 
                 is ProxyProfile.Shadowsocks -> {

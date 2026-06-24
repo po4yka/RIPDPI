@@ -204,6 +204,13 @@ sealed interface ProxyProfile {
         val server: String,
         val serverPort: Int,
         val password: String,
+        /**
+         * TLS SNI / server name. `null` falls back to [server] at activation.
+         * A trojan node that fronts a masquerade domain different from its connect
+         * host needs this; mirrors [AnyTls.serverName]. Additive with a `null`
+         * default, so older persisted payloads and backups are byte-stable.
+         */
+        val serverName: String? = null,
     ) : ProxyProfile
 
     @Serializable

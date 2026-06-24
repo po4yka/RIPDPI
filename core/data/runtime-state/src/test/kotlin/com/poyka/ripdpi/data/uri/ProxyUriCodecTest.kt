@@ -139,4 +139,29 @@ class ProxyUriCodecTest {
         val parsed = ProxyUriCodec.parse("ss://aes-256-gcm:fixture-pw@host.example.com:8388#node")
         assertTrue(parsed is ProxyProfile.Shadowsocks)
     }
+
+    @Test
+    fun `trojan uri preserves sni and round-trips (P1-4)`() {
+        val parsed = ProxyUriCodec.parse("trojan://fixture-pw@1.2.3.4:443?sni=mask.example.com#t")
+        assertTrue(parsed is ProxyProfile.Trojan)
+        parsed as ProxyProfile.Trojan
+        assertEquals("mask.example.com", parsed.serverName)
+
+        val reparsed = ProxyUriCodec.parse(ProxyUriCodec.encode(parsed))
+        assertTrue(reparsed is ProxyProfile.Trojan)
+        assertEquals("mask.example.com", (reparsed as ProxyProfile.Trojan).serverName)
+    }
+
+    @Test
+    fun `trojan uri without sni leaves serverName null`() {
+        val parsed = ProxyUriCodec.parse("trojan://fixture-pw@1.2.3.4:443#t")
+        assertTrue(parsed is ProxyProfile.Trojan)
+        assertNull((parsed as ProxyProfile.Trojan).serverName)
+    }
+
+    @Test
+    fun `trojan uri advertising a ws transport is rejected (P1-5)`() {
+        // The native trojan backend is TLS-only; a ws/grpc node must fail loudly.
+        assertNull(ProxyUriCodec.parse("trojan://fixture-pw@1.2.3.4:443?type=ws&path=/ws&host=cdn.example.com#t"))
+    }
 }
