@@ -32,9 +32,15 @@ object SubscriptionMemberPersistence {
         members: List<ProxyProfile>,
         failover: SelectorFailover? = null,
     ): ProxyGroup {
-        if (members.isEmpty()) return group
+        // Drop non-activatable nodes (RawConfig: tuic/vmess/wireguard, or a
+        // blank-credential node mapped to RawConfig upstream) so the user never
+        // gets a selectable member that can never connect (audit P1-3). An empty
+        // refresh — or one that produced only non-activatable nodes — leaves the
+        // group's existing members untouched, matching the original empty guard.
+        val activatable = members.filterNot { it is ProxyProfile.RawConfig }
+        if (activatable.isEmpty()) return group
         return group.copy(
-            members = members,
+            members = activatable,
             failover = failover ?: group.failover,
         )
     }

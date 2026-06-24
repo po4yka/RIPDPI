@@ -40,6 +40,8 @@ class SubscriptionMemberPersistenceTest {
             password = "pw-$id",
         )
 
+    private fun rawConfig(id: String) = ProxyProfile.RawConfig(id = id, displayName = id, groupId = "g1", config = "{}")
+
     @Test
     fun `parsed members are persisted onto the group`() {
         val members = listOf(trojan("a"), trojan("b"))
@@ -92,5 +94,25 @@ class SubscriptionMemberPersistenceTest {
 
         assertEquals(refreshed, updated.members)
         assertNull(updated.members.firstOrNull { it.id.startsWith("old") })
+    }
+
+    @Test
+    fun `non-activatable RawConfig members are dropped from the candidate set (P1-3)`() {
+        val updated =
+            SubscriptionMemberPersistence.apply(
+                group(),
+                listOf(trojan("a"), rawConfig("tuic"), trojan("b"), rawConfig("vmess")),
+            )
+
+        assertEquals(listOf("a", "b"), updated.members.map { it.id })
+    }
+
+    @Test
+    fun `a refresh of only non-activatable nodes leaves the existing members untouched`() {
+        val original = group(members = listOf(trojan("good")))
+
+        val updated = SubscriptionMemberPersistence.apply(original, listOf(rawConfig("tuic"), rawConfig("vmess")))
+
+        assertSame(original, updated)
     }
 }

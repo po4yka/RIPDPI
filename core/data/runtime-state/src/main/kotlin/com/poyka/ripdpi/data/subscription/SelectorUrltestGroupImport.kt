@@ -172,9 +172,15 @@ object SelectorUrltestGroupImport {
             } ?: FailoverPolicy.Manual
 
         // Resolve the member tags back to their concrete profiles, in declared
-        // selector order, so the group durably carries its candidate set.
+        // selector order, so the group durably carries its candidate set. A
+        // non-activatable node (RawConfig: tuic/vmess/wireguard or a
+        // blank-credential node) must not become a selectable member that can
+        // never connect (audit P1-3).
         val membersByTag = profiles.associateBy { it.displayName }
-        val memberProfiles = memberOrder.mapNotNull(membersByTag::get)
+        val memberProfiles =
+            memberOrder
+                .mapNotNull(membersByTag::get)
+                .filterNot { it is ProxyProfile.RawConfig }
 
         val group =
             ProxyGroup(
