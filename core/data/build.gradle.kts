@@ -16,7 +16,7 @@ extensions.configure<LibraryExtension> {
         // Expose the exported Room schema JSONs to the test source set so
         // MigrationTestHelper can create old-version schemas and validate migrations.
         getByName("test") {
-            assets.srcDir("$projectDir/schemas")
+            assets.directories.add("$projectDir/schemas")
         }
     }
     testOptions {
