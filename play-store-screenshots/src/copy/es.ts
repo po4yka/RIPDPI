@@ -13,17 +13,16 @@ export const es: SlideCopy = {
     eyebrow: "Sin root",
     headline: ["Un toque.", "Sin root."],
     cards: [
-      { title: "Funciona en cualquier Android", desc: "Sin desbloqueos ni hacks" },
-      { title: "Conecta con un toque", desc: "Protección al instante" },
-      { title: "VPN o proxy local", desc: "El tráfico no sale de tu dispositivo" },
+      { title: "Evasión de DPI local", desc: "En el dispositivo, sin servidor" },
+      { title: "O tu propio relé", desc: "VLESS, Hysteria2, Tor y más" },
+      { title: "DNS cifrado integrado", desc: "DoH, DoT, DNSCrypt" },
     ],
     bottomBadge: "Compatible con cualquier dispositivo",
   },
 
   slide3: {
-    label: "Privacidad y seguridad",
-    headline: ["Tu privacidad.", "Tus reglas."],
-    pills: ["DNS cifrado", "Bloqueo WebRTC", "Bloqueo bio"],
+    label: "Relés remotos",
+    headline: ["Evasión local", "o tu relé"],
   },
 
   slide4: {
@@ -45,14 +44,14 @@ export const es: SlideCopy = {
   slide6: {
     headline: ["Y mucho", "más."],
     features: [
+      "Túnel dividido",
+      "Reglas de enrutado",
+      "Detección de DPI",
+      "Transparencia de datos",
+      "7 iconos de app",
+      "Copia y restauración",
       "Reglas por red",
-      "Compatible con AdGuard",
-      "Telemetría de sesión",
-      "Protección WebRTC",
       "Bloqueo biométrico",
-      "Historial de conexiones",
-      "Soporte para tethering",
-      "Exportar datos",
     ],
     comingSoonLabel: "Próximamente",
     comingSoon: ["Listas de hosts", "Stats de la comunidad"],

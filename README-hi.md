@@ -94,7 +94,7 @@ RIPDPI का डिज़ाइन सिद्धांत: प्रत्य
   &nbsp;
   <img src="docs/screenshots/02-no-root.png" width="200" alt="root के बिना RIPDPI"/>
   &nbsp;
-  <img src="docs/screenshots/03-privacy.png" width="200" alt="RIPDPI गोपनीयता स्क्रीन"/>
+  <img src="docs/screenshots/03-relays.png" width="200" alt="RIPDPI रिमोट रिले"/>
   &nbsp;
   <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI नियंत्रण"/>
 </p>

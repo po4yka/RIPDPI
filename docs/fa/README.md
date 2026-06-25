@@ -99,7 +99,7 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
   &nbsp;
   <img src="../../docs/screenshots/02-no-root.png" width="200" alt="RIPDPI بدون روت"/>
   &nbsp;
-  <img src="../../docs/screenshots/03-privacy.png" width="200" alt="صفحهٔ حریم خصوصی RIPDPI"/>
+  <img src="../../docs/screenshots/03-relays.png" width="200" alt="رله‌های راه دور RIPDPI"/>
   &nbsp;
   <img src="../../docs/screenshots/04-controls.png" width="200" alt="کنترل‌های RIPDPI"/>
 </p>

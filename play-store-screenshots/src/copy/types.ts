@@ -35,8 +35,8 @@ export interface SlideCopy {
   readonly slide3: {
     readonly label: string;
     readonly headline: HeadlineLines;
-    /** Short pill labels surfaced on the left of the slide. */
-    readonly pills: readonly [string, string, string];
+    // Relay protocol pills (VLESS, Hysteria2, Tor, …) are Latin technical
+    // tokens hardcoded in page.tsx — not part of this dictionary.
   };
 
   readonly slide4: {

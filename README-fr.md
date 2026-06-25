@@ -97,7 +97,7 @@ Principe de conception de RIPDPI : classifier chaque cible et chaque réseau sé
   &nbsp;
   <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI sans root"/>
   &nbsp;
-  <img src="docs/screenshots/03-privacy.png" width="200" alt="Écran de confidentialité RIPDPI"/>
+  <img src="docs/screenshots/03-relays.png" width="200" alt="Relais distants RIPDPI"/>
   &nbsp;
   <img src="docs/screenshots/04-controls.png" width="200" alt="Contrôles RIPDPI"/>
 </p>

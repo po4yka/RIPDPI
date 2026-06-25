@@ -13,17 +13,16 @@ export const zhCN: SlideCopy = {
     eyebrow: "无需 root",
     headline: ["一键开启", "无需 root"],
     cards: [
-      { title: "支持任何 Android", desc: "无需解锁,不用魔改" },
-      { title: "一键连接", desc: "瞬间生效" },
-      { title: "本地 VPN 或代理", desc: "流量不离开你的设备" },
+      { title: "本地 DPI 绕过", desc: "在本机运行,无需服务器" },
+      { title: "或用自有中继", desc: "VLESS、Hysteria2、Tor 等" },
+      { title: "内置加密 DNS", desc: "DoH、DoT、DNSCrypt" },
     ],
     bottomBadge: "任何设备都能用",
   },
 
   slide3: {
-    label: "隐私与安全",
-    headline: ["你的隐私", "你做主"],
-    pills: ["加密 DNS", "拦截 WebRTC", "生物锁"],
+    label: "远程中继",
+    headline: ["本地绕过", "或用中继"],
   },
 
   slide4: {
@@ -45,14 +44,14 @@ export const zhCN: SlideCopy = {
   slide6: {
     headline: ["还有更多", "等你发现"],
     features: [
+      "分流隧道",
+      "路由规则",
+      "DPI 检测",
+      "数据透明",
+      "7 款应用图标",
+      "备份与恢复",
       "分网络策略",
-      "兼容 AdGuard",
-      "会话遥测",
-      "WebRTC 防护",
       "生物锁",
-      "连接历史",
-      "支持热点共享",
-      "数据导出",
     ],
     comingSoonLabel: "即将推出",
     comingSoon: ["主机包", "社区统计"],

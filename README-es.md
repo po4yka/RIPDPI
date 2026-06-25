@@ -97,7 +97,7 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
   &nbsp;
   <img src="docs/screenshots/02-no-root.png" width="200" alt="RIPDPI without root"/>
   &nbsp;
-  <img src="docs/screenshots/03-privacy.png" width="200" alt="RIPDPI privacy screen"/>
+  <img src="docs/screenshots/03-relays.png" width="200" alt="RIPDPI remote relays"/>
   &nbsp;
   <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI controls"/>
 </p>

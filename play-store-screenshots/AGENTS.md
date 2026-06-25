@@ -47,6 +47,9 @@ Expected files in `public/screenshots/`:
 | `dns-settings.png` | DNS settings detail |
 | `config.png` | Config screen |
 | `history.png` | Connection history |
+| `relay.png` | Mode editor — outbound relay protocol picker |
+
+> Slides currently embed `home-light.png` (Slide 1), `relay.png` (Slide 3), and `diagnostics.png` (Slide 5). The other files are kept as Stage-1 inputs for future slides.
 
 Regenerate: install the debug build on a 1080x2400 device, navigate to each screen, capture with `adb shell screencap -p`, copy out with `adb pull`. Light/dark variants come from the system theme toggle.
 
@@ -62,7 +65,7 @@ Defined in `page.tsx:855–862` (`SLIDES` array). The feature graphic is a separ
 |-----|------|-------|----------|
 | 1 | `hero` | Hero | Browse without borders |
 | 2 | `no-root` | No Root | One tap. No root. |
-| 3 | `privacy` | Privacy | Your privacy. Your rules. |
+| 3 | `relays` | Relays | Local bypass or your relay |
 | 4 | `controls` | Controls | Fine-tune every packet |
 | 5 | `diagnostics` | Diagnostics | See what's really happening |
 | 6 | `more` | More Features | And so much more. |

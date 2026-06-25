@@ -97,7 +97,7 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
   &nbsp;
   <img src="docs/screenshots/02-no-root.png" width="200" alt="无需 root 的 RIPDPI"/>
   &nbsp;
-  <img src="docs/screenshots/03-privacy.png" width="200" alt="RIPDPI 隐私屏幕"/>
+  <img src="docs/screenshots/03-relays.png" width="200" alt="RIPDPI 远程中继"/>
   &nbsp;
   <img src="docs/screenshots/04-controls.png" width="200" alt="RIPDPI 控件"/>
 </p>

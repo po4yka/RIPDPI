@@ -393,10 +393,13 @@ function Slide2({ copy }: { copy: SlideCopy }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// SLIDE 3: Core Feature -- "Your privacy. Your rules."
-// Light slide, settings screenshot (1080x2400), right-offset
+// SLIDE 3: Core Feature -- "Local bypass or your relay"
+// Light slide, relay protocol-picker screenshot (1080x2400) right-offset,
+// relay protocol pills on the left. Pills are Latin technical tokens, so
+// they are hardcoded here rather than living in the copy dictionary.
 // ══════════════════════════════════════════════════════════════════════
 function Slide3({ copy }: { copy: SlideCopy }) {
+  const protocols = ["VLESS", "Hysteria2", "TUIC", "ShadowTLS", "Snowflake", "Tor"];
   return (
     <Slide bg={BRAND_LIGHT.bg} dir={copy.dir}>
       <Grid opacity={0.04} />
@@ -405,19 +408,19 @@ function Slide3({ copy }: { copy: SlideCopy }) {
         headline={renderHeadline(copy.slide3.headline)}
       />
 
-      {/* Feature badges on the left — restrained chip-default (muted bg, fg text) */}
+      {/* Relay protocol pills on the left — chip-default (muted bg, fg text) */}
       <div
         style={{
           position: "absolute",
           left: 60,
-          bottom: 180,
+          bottom: 150,
           display: "flex",
           flexDirection: "column",
           gap: 12,
           zIndex: 10,
         }}
       >
-        {copy.slide3.pills.map((f) => (
+        {protocols.map((f) => (
           <div
             key={f}
             style={{
@@ -437,8 +440,8 @@ function Slide3({ copy }: { copy: SlideCopy }) {
       </div>
 
       <Screenshot
-        src="/screenshots/settings.png"
-        alt="Settings"
+        src="/screenshots/relay.png"
+        alt="Remote relay protocols"
         style={{
           position: "absolute",
           top: 400,
@@ -855,7 +858,7 @@ type SlideComponent = React.ComponentType<{ copy: SlideCopy }>;
 const SLIDES: ReadonlyArray<{ id: string; label: string; component: SlideComponent }> = [
   { id: "hero", label: "Hero", component: Slide1 },
   { id: "no-root", label: "No Root", component: Slide2 },
-  { id: "privacy", label: "Privacy", component: Slide3 },
+  { id: "relays", label: "Relays", component: Slide3 },
   { id: "controls", label: "Controls", component: Slide4 },
   { id: "diagnostics", label: "Diagnostics", component: Slide5 },
   { id: "more", label: "More Features", component: Slide6 },

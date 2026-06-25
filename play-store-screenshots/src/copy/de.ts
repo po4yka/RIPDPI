@@ -13,17 +13,16 @@ export const de: SlideCopy = {
     eyebrow: "Kein Root nötig",
     headline: ["Ein Tipp.", "Kein Root."],
     cards: [
-      { title: "Läuft auf jedem Android", desc: "Ohne Entsperren, ohne Hacks" },
-      { title: "Mit einem Tipp verbinden", desc: "Sofort geschützt" },
-      { title: "Lokales VPN oder Proxy", desc: "Daten bleiben auf Ihrem Gerät" },
+      { title: "Lokale DPI-Umgehung", desc: "Auf dem Gerät, ohne Server" },
+      { title: "Oder eigenes Relay", desc: "VLESS, Hysteria2, Tor & mehr" },
+      { title: "Verschlüsseltes DNS", desc: "DoH, DoT, DNSCrypt" },
     ],
     bottomBadge: "Auf jedem Gerät einsetzbar",
   },
 
   slide3: {
-    label: "Privatsphäre & Sicherheit",
-    headline: ["Ihre Daten.", "Ihre Regeln."],
-    pills: ["DNS verschlüsselt", "WebRTC-Sperre", "Biometrie"],
+    label: "Remote-Relays",
+    headline: ["Lokal umgehen", "oder Relay"],
   },
 
   slide4: {
@@ -45,14 +44,14 @@ export const de: SlideCopy = {
   slide6: {
     headline: ["Und vieles", "mehr."],
     features: [
+      "Split-Tunnel",
+      "Routing-Regeln",
+      "DPI-Erkennung",
+      "Datentransparenz",
+      "7 App-Symbole",
+      "Backup & Restore",
       "Regeln pro Netzwerk",
-      "AdGuard-kompatibel",
-      "Sitzungstelemetrie",
-      "WebRTC-Schutz",
       "Biometrische Sperre",
-      "Verbindungsverlauf",
-      "Tethering-Support",
-      "Datenexport",
     ],
     comingSoonLabel: "Demnächst",
     comingSoon: ["Host-Pakete", "Community-Statistiken"],

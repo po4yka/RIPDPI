@@ -1,7 +1,7 @@
 import type { SlideCopy } from "./types";
 
 // French uses narrow no-break space (U+202F) before « : » and « ? ».
-const NBSP = " ";
+const NBSP = " ";
 
 export const fr: SlideCopy = {
   locale: "fr",
@@ -16,17 +16,16 @@ export const fr: SlideCopy = {
     eyebrow: "Sans root",
     headline: ["Un geste.", "Sans root."],
     cards: [
-      { title: "Marche sur tout Android", desc: "Ni déverrouillage, ni hack" },
-      { title: "Connexion en un geste", desc: "Protection immédiate" },
-      { title: "VPN ou proxy local", desc: "Vos données restent sur l’appareil" },
+      { title: "Contournement DPI local", desc: "Sur l’appareil, sans serveur" },
+      { title: "Ou votre propre relais", desc: "VLESS, Hysteria2, Tor & plus" },
+      { title: "DNS chiffré intégré", desc: "DoH, DoT, DNSCrypt" },
     ],
     bottomBadge: "Compatible avec tout appareil",
   },
 
   slide3: {
-    label: "Vie privée & sécurité",
-    headline: ["Votre vie privée.", "Vos règles."],
-    pills: ["DNS chiffré", "Blocage WebRTC", "Verrou bio"],
+    label: "Relais distants",
+    headline: ["Contourner", "ou relayer"],
   },
 
   slide4: {
@@ -48,14 +47,14 @@ export const fr: SlideCopy = {
   slide6: {
     headline: ["Et bien", "plus encore."],
     features: [
+      "Tunnel divisé",
+      "Règles de routage",
+      "Détection DPI",
+      "Transparence des données",
+      "7 icônes d’app",
+      "Sauvegarde & restauration",
       "Règles par réseau",
-      "Compatible AdGuard",
-      "Télémétrie de session",
-      "Protection WebRTC",
       "Verrou biométrique",
-      "Historique des connexions",
-      "Partage de connexion",
-      "Export des données",
     ],
     comingSoonLabel: "Bientôt",
     comingSoon: ["Listes d’hôtes", "Stats communauté"],

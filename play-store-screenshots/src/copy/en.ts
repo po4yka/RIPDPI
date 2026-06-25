@@ -13,17 +13,16 @@ export const en: SlideCopy = {
     eyebrow: "No Root Required",
     headline: ["One tap.", "No root."],
     cards: [
-      { title: "Works on any Android", desc: "No unlocking, no hacks" },
-      { title: "Connect in one tap", desc: "Instant protection" },
-      { title: "Local VPN or Proxy", desc: "Traffic never leaves your device" },
+      { title: "Local DPI bypass", desc: "On-device — no server needed" },
+      { title: "Or your own relay", desc: "VLESS, Hysteria2, Tor & more" },
+      { title: "Encrypted DNS built in", desc: "DoH, DoT, DNSCrypt" },
     ],
     bottomBadge: "Works on any device",
   },
 
   slide3: {
-    label: "Privacy & Security",
-    headline: ["Your privacy.", "Your rules."],
-    pills: ["Encrypted DNS", "WebRTC block", "Bio lock"],
+    label: "Remote Relays",
+    headline: ["Local bypass", "or your relay"],
   },
 
   slide4: {
@@ -45,14 +44,14 @@ export const en: SlideCopy = {
   slide6: {
     headline: ["And so", "much more."],
     features: [
+      "Split tunnel",
+      "Routing rules",
+      "DPI detection",
+      "Data transparency",
+      "7 app icons",
+      "Backup & restore",
       "Per-network policies",
-      "AdGuard compatible",
-      "Session telemetry",
-      "WebRTC protection",
       "Biometric lock",
-      "Connection history",
-      "Tethering support",
-      "Data export",
     ],
     comingSoonLabel: "Coming Soon",
     comingSoon: ["Host packs", "Community stats"],
