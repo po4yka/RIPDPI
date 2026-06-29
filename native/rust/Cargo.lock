@@ -712,7 +712,7 @@ dependencies = [
  "aead 0.5.2",
  "base64 0.22.1",
  "blake2 0.10.6",
- "chacha20poly1305",
+ "chacha20poly1305 0.10.1",
  "hex",
  "hmac 0.12.1",
  "ip_network",
@@ -888,6 +888,18 @@ dependencies = [
  "cipher 0.4.4",
  "poly1305 0.8.0",
  "zeroize",
+]
+
+[[package]]
+name = "chacha20poly1305"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b89e1c441e926b9c82a8d023f6e1b7ae0adcfaa7d621814e4d60789bac751cb"
+dependencies = [
+ "aead 0.6.1",
+ "chacha20 0.10.0",
+ "cipher 0.5.2",
+ "poly1305 0.9.0",
 ]
 
 [[package]]
@@ -2837,7 +2849,7 @@ checksum = "f65d16b699dd1a1fa2d851c970b0c971b388eeeb40f744252b8de48860980c8f"
 dependencies = [
  "aead 0.5.2",
  "aes-gcm 0.10.3",
- "chacha20poly1305",
+ "chacha20poly1305 0.10.1",
  "digest 0.10.7",
  "generic-array 0.14.7",
  "hkdf 0.12.4",
@@ -5932,7 +5944,7 @@ dependencies = [
 name = "ripdpi-mieru"
 version = "0.1.0"
 dependencies = [
- "chacha20poly1305",
+ "chacha20poly1305 0.11.0",
  "ring",
  "ripdpi-network-time",
  "thiserror 2.0.18",
@@ -6428,7 +6440,7 @@ dependencies = [
  "base64 0.22.1",
  "blake3",
  "bytes",
- "chacha20poly1305",
+ "chacha20poly1305 0.11.0",
  "hex",
  "hkdf 0.13.0",
  "md5",
