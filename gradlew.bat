@@ -19,7 +19,7 @@
 @if "%DEBUG%"=="" @echo off
 @rem ##########################################################################
 @rem
-@rem gradlew startup script for Windows
+@rem  gradlew startup script for Windows
 @rem
 @rem ##########################################################################
 
