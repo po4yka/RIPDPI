@@ -712,7 +712,7 @@ dependencies = [
  "aead 0.5.2",
  "base64 0.22.1",
  "blake2 0.10.6",
- "chacha20poly1305",
+ "chacha20poly1305 0.10.1",
  "hex",
  "hmac 0.12.1",
  "ip_network",
@@ -888,6 +888,18 @@ dependencies = [
  "cipher 0.4.4",
  "poly1305 0.8.0",
  "zeroize",
+]
+
+[[package]]
+name = "chacha20poly1305"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b89e1c441e926b9c82a8d023f6e1b7ae0adcfaa7d621814e4d60789bac751cb"
+dependencies = [
+ "aead 0.6.1",
+ "chacha20 0.10.0",
+ "cipher 0.5.2",
+ "poly1305 0.9.0",
 ]
 
 [[package]]
@@ -1623,11 +1635,11 @@ checksum = "1747ed5fb4ab3a9f8253da3401efe7ca8f8e5ec373b2e700ff55c3304d84e31f"
 dependencies = [
  "heck",
  "indexmap 2.14.0",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "proc-macro-crate",
  "proc-macro2",
  "quote",
- "sha3 0.10.9",
+ "sha3 0.11.0",
  "strum",
  "syn 2.0.106",
  "unicode-ident",
@@ -1748,7 +1760,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2019,7 +2031,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2837,7 +2849,7 @@ checksum = "f65d16b699dd1a1fa2d851c970b0c971b388eeeb40f744252b8de48860980c8f"
 dependencies = [
  "aead 0.5.2",
  "aes-gcm 0.10.3",
- "chacha20poly1305",
+ "chacha20poly1305 0.10.1",
  "digest 0.10.7",
  "generic-array 0.14.7",
  "hkdf 0.12.4",
@@ -4003,7 +4015,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4845,7 +4857,7 @@ dependencies = [
  "derive-deftly",
  "libc",
  "paste",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -4918,7 +4930,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -5932,7 +5944,7 @@ dependencies = [
 name = "ripdpi-mieru"
 version = "0.1.0"
 dependencies = [
- "chacha20poly1305",
+ "chacha20poly1305 0.11.0",
  "ring",
  "ripdpi-network-time",
  "thiserror 2.0.18",
@@ -6428,7 +6440,7 @@ dependencies = [
  "base64 0.22.1",
  "blake3",
  "bytes",
- "chacha20poly1305",
+ "chacha20poly1305 0.11.0",
  "hex",
  "hkdf 0.13.0",
  "md5",
@@ -7154,7 +7166,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7213,7 +7225,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8069,7 +8081,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -10014,7 +10026,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -10412,7 +10424,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d6f32a0ff4a9f6f01231eb2059cc85479330739333e0e58cadf03b6af2cca10"
 dependencies = [
  "cfg-if",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
