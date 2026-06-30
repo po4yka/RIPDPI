@@ -19,7 +19,7 @@ use std::collections::{HashMap, HashSet};
 
 use aes::cipher::{BlockCipherDecrypt, BlockCipherEncrypt, KeyInit as AesKeyInit};
 use aes::{Aes128, Aes256};
-use chacha20poly1305::aead::{Aead, KeyInit as ChachaKeyInit};
+use chacha20poly1305::aead::Aead;
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use rand::RngExt;
 
@@ -254,9 +254,8 @@ impl Aead2022UdpSession {
             return Err(CipherError::AeadFailed);
         }
         let cipher = XChaCha20Poly1305::new_from_slice(&self.psk).map_err(|_| CipherError::KeyLength)?;
-        let body = cipher
-            .decrypt(XNonce::from_slice(&packet[..SIP022_XCHACHA_NONCE_LEN]), &packet[SIP022_XCHACHA_NONCE_LEN..])
-            .map_err(|_| CipherError::AeadFailed)?;
+        let nonce = <&XNonce>::try_from(&packet[..SIP022_XCHACHA_NONCE_LEN]).map_err(|_| CipherError::IvLength)?;
+        let body = cipher.decrypt(nonce, &packet[SIP022_XCHACHA_NONCE_LEN..]).map_err(|_| CipherError::AeadFailed)?;
         if body.len() < 8 + 8 + 1 + 8 + 2 {
             return Err(CipherError::InvalidPacket("short SIP022 chacha UDP main header"));
         }
@@ -369,8 +368,8 @@ impl Aead2022UdpSession {
         body.extend_from_slice(&0u16.to_be_bytes());
         body.extend_from_slice(payload);
 
-        let encrypted_body =
-            cipher.encrypt(XNonce::from_slice(&nonce), body.as_slice()).map_err(|_| CipherError::AeadFailed)?;
+        let nonce_ref = <&XNonce>::try_from(nonce.as_slice()).map_err(|_| CipherError::IvLength)?;
+        let encrypted_body = cipher.encrypt(nonce_ref, body.as_slice()).map_err(|_| CipherError::AeadFailed)?;
         let mut packet = Vec::with_capacity(SIP022_XCHACHA_NONCE_LEN + encrypted_body.len());
         packet.extend_from_slice(&nonce);
         packet.extend_from_slice(&encrypted_body);

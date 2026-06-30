@@ -268,7 +268,8 @@ fn load_geoip(path: &Path, warnings: &mut Vec<GeoRuntimeWarning>) -> Result<Opti
     let mapped_version = mapped_version(path, mapping.len());
     let reader = Reader::from_source(mapping)
         .map_err(|source| GeoRuntimeError::GeoipParse { path: path.to_path_buf(), source })?;
-    let version = format!("{mapped_version}:{}:{}", reader.metadata.database_type, reader.metadata.build_epoch);
+    let metadata = reader.metadata();
+    let version = format!("{mapped_version}:{}:{}", metadata.database_type, metadata.build_epoch);
     Ok(Some(GeoipDatabase { reader, version }))
 }
 

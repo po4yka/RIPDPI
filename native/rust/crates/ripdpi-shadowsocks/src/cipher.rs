@@ -308,48 +308,40 @@ impl CipherKey {
 }
 
 fn dispatch_encrypt(cipher: Cipher, key: &[u8], nonce: &[u8], plaintext: &[u8]) -> Result<Vec<u8>, CipherError> {
-    use aes_gcm::aead::generic_array::GenericArray;
     match cipher {
         Cipher::Aead2022Blake3Aes128Gcm | Cipher::AeadAes128Gcm => {
-            let k = aes_gcm::Key::<Aes128Gcm>::from_slice(key);
-            let c = Aes128Gcm::new(k);
-            let n = GenericArray::from_slice(nonce);
+            let c = Aes128Gcm::new_from_slice(key).map_err(|_| CipherError::KeyLength)?;
+            let n = <&aes_gcm::aead::Nonce<Aes128Gcm>>::try_from(nonce).map_err(|_| CipherError::IvLength)?;
             c.encrypt(n, Payload { msg: plaintext, aad: b"" }).map_err(|_| CipherError::AeadFailed)
         }
         Cipher::Aead2022Blake3Aes256Gcm | Cipher::AeadAes256Gcm => {
-            let k = aes_gcm::Key::<Aes256Gcm>::from_slice(key);
-            let c = Aes256Gcm::new(k);
-            let n = GenericArray::from_slice(nonce);
+            let c = Aes256Gcm::new_from_slice(key).map_err(|_| CipherError::KeyLength)?;
+            let n = <&aes_gcm::aead::Nonce<Aes256Gcm>>::try_from(nonce).map_err(|_| CipherError::IvLength)?;
             c.encrypt(n, Payload { msg: plaintext, aad: b"" }).map_err(|_| CipherError::AeadFailed)
         }
         Cipher::Aead2022Blake3Chacha20Poly1305 | Cipher::AeadChacha20IetfPoly1305 => {
-            let k = chacha20poly1305::Key::from_slice(key);
-            let c = ChaCha20Poly1305::new(k);
-            let n = chacha20poly1305::Nonce::from_slice(nonce);
+            let c = ChaCha20Poly1305::new_from_slice(key).map_err(|_| CipherError::KeyLength)?;
+            let n = <&chacha20poly1305::Nonce>::try_from(nonce).map_err(|_| CipherError::IvLength)?;
             c.encrypt(n, Payload { msg: plaintext, aad: b"" }).map_err(|_| CipherError::AeadFailed)
         }
     }
 }
 
 fn dispatch_decrypt(cipher: Cipher, key: &[u8], nonce: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>, CipherError> {
-    use aes_gcm::aead::generic_array::GenericArray;
     match cipher {
         Cipher::Aead2022Blake3Aes128Gcm | Cipher::AeadAes128Gcm => {
-            let k = aes_gcm::Key::<Aes128Gcm>::from_slice(key);
-            let c = Aes128Gcm::new(k);
-            let n = GenericArray::from_slice(nonce);
+            let c = Aes128Gcm::new_from_slice(key).map_err(|_| CipherError::KeyLength)?;
+            let n = <&aes_gcm::aead::Nonce<Aes128Gcm>>::try_from(nonce).map_err(|_| CipherError::IvLength)?;
             c.decrypt(n, Payload { msg: ciphertext, aad: b"" }).map_err(|_| CipherError::AeadFailed)
         }
         Cipher::Aead2022Blake3Aes256Gcm | Cipher::AeadAes256Gcm => {
-            let k = aes_gcm::Key::<Aes256Gcm>::from_slice(key);
-            let c = Aes256Gcm::new(k);
-            let n = GenericArray::from_slice(nonce);
+            let c = Aes256Gcm::new_from_slice(key).map_err(|_| CipherError::KeyLength)?;
+            let n = <&aes_gcm::aead::Nonce<Aes256Gcm>>::try_from(nonce).map_err(|_| CipherError::IvLength)?;
             c.decrypt(n, Payload { msg: ciphertext, aad: b"" }).map_err(|_| CipherError::AeadFailed)
         }
         Cipher::Aead2022Blake3Chacha20Poly1305 | Cipher::AeadChacha20IetfPoly1305 => {
-            let k = chacha20poly1305::Key::from_slice(key);
-            let c = ChaCha20Poly1305::new(k);
-            let n = chacha20poly1305::Nonce::from_slice(nonce);
+            let c = ChaCha20Poly1305::new_from_slice(key).map_err(|_| CipherError::KeyLength)?;
+            let n = <&chacha20poly1305::Nonce>::try_from(nonce).map_err(|_| CipherError::IvLength)?;
             c.decrypt(n, Payload { msg: ciphertext, aad: b"" }).map_err(|_| CipherError::AeadFailed)
         }
     }

@@ -8,7 +8,7 @@
 use std::num::NonZeroU32;
 
 use chacha20poly1305::aead::{Aead, KeyInit};
-use chacha20poly1305::{Key, XChaCha20Poly1305, XNonce};
+use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use ring::digest::{SHA256, digest};
 use ring::pbkdf2;
 use ring::rand::{SecureRandom, SystemRandom};
@@ -113,14 +113,16 @@ impl Nonce {
 
 /// AEAD-seal `plaintext` under `key`/`nonce`; returns ciphertext ‖ 16-byte tag.
 pub(crate) fn seal(key: &[u8; KEY_LEN], nonce: &Nonce, plaintext: &[u8]) -> Result<Vec<u8>> {
-    let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
-    cipher.encrypt(XNonce::from_slice(nonce.as_bytes()), plaintext).map_err(|_| MieruError::Crypto("seal"))
+    let cipher = XChaCha20Poly1305::new_from_slice(key).map_err(|_| MieruError::Crypto("key"))?;
+    let nonce = <&XNonce>::try_from(nonce.as_bytes().as_slice()).map_err(|_| MieruError::Crypto("nonce"))?;
+    cipher.encrypt(nonce, plaintext).map_err(|_| MieruError::Crypto("seal"))
 }
 
 /// AEAD-open `ciphertext` (ciphertext ‖ 16-byte tag) under `key`/`nonce`.
 pub(crate) fn open(key: &[u8; KEY_LEN], nonce: &Nonce, ciphertext: &[u8]) -> Result<Vec<u8>> {
-    let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
-    cipher.decrypt(XNonce::from_slice(nonce.as_bytes()), ciphertext).map_err(|_| MieruError::Crypto("open"))
+    let cipher = XChaCha20Poly1305::new_from_slice(key).map_err(|_| MieruError::Crypto("key"))?;
+    let nonce = <&XNonce>::try_from(nonce.as_bytes().as_slice()).map_err(|_| MieruError::Crypto("nonce"))?;
+    cipher.decrypt(nonce, ciphertext).map_err(|_| MieruError::Crypto("open"))
 }
 
 #[cfg(test)]
