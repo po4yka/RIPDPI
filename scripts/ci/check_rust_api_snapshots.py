@@ -22,6 +22,8 @@ EXPLICIT_SNAPSHOT_CRATES = frozenset({"ripdpi-runtime-api"})
 PUBLIC_API_ARGS = ("-sss",)
 PUBLIC_API_NORMALIZATIONS = {
     "core::io::error::ErrorKind": "std::io::error::ErrorKind",
+    "core::io::error::Error": "std::io::error::Error",
+    "core::io::error::Result": "std::io::error::Result",
 }
 
 
