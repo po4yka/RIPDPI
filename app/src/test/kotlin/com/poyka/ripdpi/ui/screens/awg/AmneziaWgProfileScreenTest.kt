@@ -228,6 +228,7 @@ private fun ScreenUnderTest(viewModel: AmneziaWgProfileViewModel) {
         onBack = {},
         onFieldChanged = viewModel::onFieldChanged,
         onCohortSelected = viewModel::onCohortSelected,
+        onCarrierSelected = viewModel::onCarrierSelected,
         onPasteConf = {},
         onRevealPrivateKey = viewModel::onPrivateKeyRevealAuthorized,
         onRevealPresharedKey = viewModel::onPresharedKeyRevealAuthorized,

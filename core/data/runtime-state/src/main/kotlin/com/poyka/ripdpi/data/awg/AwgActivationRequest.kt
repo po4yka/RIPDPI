@@ -96,10 +96,11 @@ data class AwgActivationObfuscation(
  * ([interfaceAddressV4], [mtu], [persistentKeepalive]).
  *
  * The obfuscation group (including the AWG-2.0 `i1`..`i5` payloads and the full
- * `s1`..`s4` junk-size knobs) and the identity + PSK fields come straight from
- * [form]; `s3`/`s4` carry through to the native runtime alongside `s1`/`s2`. A
- * blank [interfaceAddressV4] yields a request the service layer is expected to
- * reject -- the mapper does not invent a default address.
+ * `s1`..`s4` junk-size knobs), the identity + PSK fields, and the transport
+ * carrier ([AwgProfileForm.carrier] / [AwgProfileForm.carrierWsUrl]) come
+ * straight from [form]; `s3`/`s4` carry through to the native runtime alongside
+ * `s1`/`s2`. A blank [interfaceAddressV4] yields a request the service layer is
+ * expected to reject -- the mapper does not invent a default address.
  */
 fun AwgProfileForm.toActivationRequest(
     profileId: String,
@@ -117,6 +118,8 @@ fun AwgProfileForm.toActivationRequest(
         interfaceAddressV4 = interfaceAddressV4,
         mtu = mtu,
         persistentKeepalive = persistentKeepalive,
+        carrier = carrier,
+        carrierWsUrl = carrierWsUrl,
         obfuscation =
             AwgActivationObfuscation(
                 jc = jc,

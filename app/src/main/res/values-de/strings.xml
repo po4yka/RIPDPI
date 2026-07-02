@@ -2812,6 +2812,12 @@ Quelle: %2$s</string>
     <string name="awg_editor_title">AmneziaWG-Profil</string>
     <string name="awg_section_interface">Schnittstelle</string>
     <string name="awg_section_peer">Peer</string>
+    <string name="awg_section_carrier">Transport</string>
+    <string name="awg_section_carrier_body">Wie die WireGuard-Datagramme das Gerät verlassen. WebSocket verpackt sie für Netzwerke, die einfaches UDP blockieren.</string>
+    <string name="awg_carrier_picker_label">Träger</string>
+    <string name="awg_carrier_udp">UDP (Standard)</string>
+    <string name="awg_carrier_ws">WebSocket</string>
+    <string name="awg_field_carrier_ws_url">WebSocket-URL</string>
     <string name="awg_section_obfuscation">Verschleierung</string>
     <string name="awg_section_obfuscation_body">Mit dem Server abgestimmte Werte. Füge sie unverändert von deinem Anbieter ein oder wähle eine Kohorten-Vorlage.</string>
     <string name="awg_field_server">Server</string>

@@ -15,6 +15,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -33,6 +34,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 /**
@@ -60,6 +62,7 @@ fun AmneziaWgProfileRoute(
         onBack = onBack,
         onFieldChanged = viewModel::onFieldChanged,
         onCohortSelected = viewModel::onCohortSelected,
+        onCarrierSelected = viewModel::onCarrierSelected,
         onPasteConf = { /* clipboard read is wired by the host; no-op in the pure screen */ },
         onRevealPrivateKey = onRequestPrivateKeyReveal ?: viewModel::onPrivateKeyRevealAuthorized,
         onRevealPresharedKey = onRequestPresharedKeyReveal ?: viewModel::onPresharedKeyRevealAuthorized,
@@ -74,6 +77,7 @@ internal fun AmneziaWgProfileScreen(
     onBack: () -> Unit,
     onFieldChanged: (AwgEditorField, String) -> Unit,
     onCohortSelected: (String) -> Unit,
+    onCarrierSelected: (String) -> Unit,
     onPasteConf: () -> Unit,
     onRevealPrivateKey: () -> Unit,
     onRevealPresharedKey: () -> Unit,
@@ -89,12 +93,56 @@ internal fun AmneziaWgProfileScreen(
     ) {
         InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
         PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
+        CarrierSection(uiState, onFieldChanged, onCarrierSelected)
         ObfuscationSection(uiState, onFieldChanged, onCohortSelected, onPasteConf)
         ConnectSection(
             canActivate = uiState.canActivate,
             activationStatus = uiState.activationStatus,
             onConnect = onConnect,
         )
+    }
+}
+
+/**
+ * Transport carrier section: a UDP/WebSocket picker plus a WS request-URL field
+ * that only appears (and is only required by [AmneziaWgEditorState.isActivatable])
+ * when the WebSocket carrier is selected. See `vpnservice-protect-invariant.md` --
+ * the WS carrier still egresses through a protected socket in the native runtime;
+ * this section only chooses which carrier that socket uses.
+ */
+@Composable
+private fun CarrierSection(
+    uiState: AmneziaWgProfileUiState,
+    onFieldChanged: (AwgEditorField, String) -> Unit,
+    onCarrierSelected: (String) -> Unit,
+) {
+    val editor = uiState.editor
+    val udpLabel = stringResource(R.string.awg_carrier_udp)
+    val wsLabel = stringResource(R.string.awg_carrier_ws)
+    RipDpiCard {
+        RipDpiPanelHeader(
+            title = stringResource(R.string.awg_section_carrier),
+            supporting = stringResource(R.string.awg_section_carrier_body),
+        )
+        RipDpiDropdown(
+            options =
+                persistentListOf(
+                    RipDpiDropdownOption(value = AwgActivationRequest.CARRIER_UDP, label = udpLabel),
+                    RipDpiDropdownOption(value = AwgActivationRequest.CARRIER_WS, label = wsLabel),
+                ),
+            selectedValue = editor.form.carrier,
+            onValueSelected = onCarrierSelected,
+            label = stringResource(R.string.awg_carrier_picker_label),
+            testTag = RipDpiTestTags.AwgCarrierPicker,
+        )
+        if (editor.form.carrier == AwgActivationRequest.CARRIER_WS) {
+            PlainField(
+                AwgEditorField.CARRIER_WS_URL,
+                R.string.awg_field_carrier_ws_url,
+                editor,
+                onFieldChanged,
+            )
+        }
     }
 }
 

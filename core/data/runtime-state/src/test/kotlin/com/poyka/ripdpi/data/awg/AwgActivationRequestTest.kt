@@ -78,4 +78,26 @@ class AwgActivationRequestTest {
         assertEquals(AwgActivationRequest.DEFAULT_MTU, request.mtu)
         assertEquals(0, request.persistentKeepalive)
     }
+
+    @Test
+    fun `carrier defaults to UDP with a blank URL`() {
+        val request = form().toActivationRequest(profileId = "awg-1", interfaceAddressV4 = "10.8.0.2/32")
+
+        assertEquals(AwgActivationRequest.CARRIER_UDP, request.carrier)
+        assertEquals("", request.carrierWsUrl)
+    }
+
+    @Test
+    fun `a WS carrier selection and its URL project verbatim`() {
+        val wsForm =
+            form().copy(
+                carrier = AwgActivationRequest.CARRIER_WS,
+                carrierWsUrl = "wss://vpn.example.com:443/path",
+            )
+
+        val request = wsForm.toActivationRequest(profileId = "awg-1", interfaceAddressV4 = "10.8.0.2/32")
+
+        assertEquals(AwgActivationRequest.CARRIER_WS, request.carrier)
+        assertEquals("wss://vpn.example.com:443/path", request.carrierWsUrl)
+    }
 }

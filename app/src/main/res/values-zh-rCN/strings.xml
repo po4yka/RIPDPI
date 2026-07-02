@@ -2808,6 +2808,12 @@ fake_burst 3</string>
     <string name="awg_editor_title">AmneziaWG 配置</string>
     <string name="awg_section_interface">接口</string>
     <string name="awg_section_peer">对端</string>
+    <string name="awg_section_carrier">传输方式</string>
+    <string name="awg_section_carrier_body">WireGuard 数据报离开设备的方式。WebSocket 会将其封装，以应对屏蔽普通 UDP 的网络。</string>
+    <string name="awg_carrier_picker_label">承载方式</string>
+    <string name="awg_carrier_udp">UDP（默认）</string>
+    <string name="awg_carrier_ws">WebSocket</string>
+    <string name="awg_field_carrier_ws_url">WebSocket 地址</string>
     <string name="awg_section_obfuscation">混淆</string>
     <string name="awg_section_obfuscation_body">由服务器协调的值。请从提供商处原样粘贴，或选择一个群组预设。</string>
     <string name="awg_field_server">服务器</string>
