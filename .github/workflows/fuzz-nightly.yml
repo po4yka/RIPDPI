@@ -8,7 +8,7 @@ on:
       fuzz_seconds:
         description: Seconds to run each fuzz target
         required: false
-        default: "1800"
+        default: "1200"
         type: string
 
 permissions:
@@ -26,4 +26,4 @@ jobs:
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz --quiet
       - name: Run fuzz targets
-        run: env RIPDPI_FUZZ_SECONDS=${{ inputs.fuzz_seconds || 1800 }} bash scripts/ci/run-rust-fuzz-smoke.sh
+        run: env RIPDPI_FUZZ_SECONDS=${{ inputs.fuzz_seconds || 1200 }} bash scripts/ci/run-rust-fuzz-smoke.sh

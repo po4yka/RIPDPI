@@ -77,7 +77,7 @@ pre-commit:
 
     pinact-check:
       glob: ".github/workflows/*.yml"
-      run: command -v pinact >/dev/null || exit 0; pinact check
+      run: command -v pinact >/dev/null || exit 0; pinact run --check {staged_files}
 
     rules-drift-check:
       run: bash scripts/ci/check-rules-drift.sh
