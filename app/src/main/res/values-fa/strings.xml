@@ -2817,6 +2817,12 @@ fakeddisorder endhost</string>
     <string name="awg_editor_title">نمایهٔ AmneziaWG</string>
     <string name="awg_section_interface">رابط</string>
     <string name="awg_section_peer">همتا</string>
+    <string name="awg_section_carrier">حامل انتقال</string>
+    <string name="awg_section_carrier_body">چگونگی خروج بسته‌های WireGuard از دستگاه. WebSocket آن‌ها را برای شبکه‌هایی که UDP ساده را مسدود می‌کنند بسته‌بندی می‌کند.</string>
+    <string name="awg_carrier_picker_label">حامل</string>
+    <string name="awg_carrier_udp">UDP (پیش‌فرض)</string>
+    <string name="awg_carrier_ws">WebSocket</string>
+    <string name="awg_field_carrier_ws_url">نشانی WebSocket</string>
     <string name="awg_section_obfuscation">مبهم‌سازی</string>
     <string name="awg_section_obfuscation_body">مقادیر هماهنگ‌شده با کارساز. آن‌ها را عیناً از ارائه‌دهندهٔ خود بچسبانید یا یک پیش‌تنظیم گروه را برگزینید.</string>
     <string name="awg_field_server">کارساز</string>

@@ -34,6 +34,39 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `rejects vless reality uri with unsupported wire transport instead of coercing to tcp`() {
+        // grpc/ws/h2/httpupgrade REALITY transports are not implemented by RIPDPI's
+        // VLESS+REALITY client; the codec must reject them rather than silently
+        // activating a plain-TCP REALITY profile that would speak the wrong wire
+        // transport to the server.
+        val grpc =
+            ProxyUriCodec.parse(
+                "vless://00000000-0000-0000-0000-000000000000@edge.example.com:443" +
+                    "?type=grpc&security=reality#grpc-node",
+            )
+        val ws =
+            ProxyUriCodec.parse(
+                "vless://00000000-0000-0000-0000-000000000000@edge.example.com:443" +
+                    "?type=ws&security=reality#ws-node",
+            )
+        val h2 =
+            ProxyUriCodec.parse(
+                "vless://00000000-0000-0000-0000-000000000000@edge.example.com:443" +
+                    "?type=h2&security=reality#h2-node",
+            )
+        val httpupgrade =
+            ProxyUriCodec.parse(
+                "vless://00000000-0000-0000-0000-000000000000@edge.example.com:443" +
+                    "?type=httpupgrade&security=reality#httpupgrade-node",
+            )
+
+        assertNull("type=grpc must be rejected", grpc)
+        assertNull("type=ws must be rejected", ws)
+        assertNull("type=h2 must be rejected", h2)
+        assertNull("type=httpupgrade must be rejected", httpupgrade)
+    }
+
+    @Test
     fun `removed legacy schemes vmess and trojan-go are rejected`() {
         // VMess and Trojan-Go were removed; their schemes now hit the else -> null
         // arm and are rejected so callers skip the line.

@@ -16,6 +16,11 @@ import kotlinx.serialization.Serializable
  * when they were hand-entered / imported without a match. Applying a preset
  * touches only the obfuscation group and [cohortId]; the identity group is
  * always preserved.
+ *
+ * [carrier] / [carrierWsUrl] select the transport the WireGuard datagrams
+ * egress over -- [AwgActivationRequest.CARRIER_UDP] (the default) or
+ * [AwgActivationRequest.CARRIER_WS] -- and mirror straight through
+ * [toActivationRequest]; see that request type for the wire-token contract.
  */
 @Serializable
 data class AwgProfileForm(
@@ -41,6 +46,8 @@ data class AwgProfileForm(
     val i4: String = "",
     val i5: String = "",
     val cohortId: String = CUSTOM_COHORT_ID,
+    val carrier: String = AwgActivationRequest.CARRIER_UDP,
+    val carrierWsUrl: String = "",
 ) {
     companion object {
         /** The sentinel id for a profile whose obfuscation fields match no preset. */

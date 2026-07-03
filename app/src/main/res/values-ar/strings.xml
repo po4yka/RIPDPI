@@ -2758,6 +2758,12 @@ fakeddisorder endhost</string>
     <string name="awg_editor_title">ملف شخصي AmneziaWG</string>
     <string name="awg_section_interface">الواجهة</string>
     <string name="awg_section_peer">الند</string>
+    <string name="awg_section_carrier">النقل</string>
+    <string name="awg_section_carrier_body">كيفية مغادرة رزم WireGuard للجهاز. تُغلّفها WebSocket من أجل الشبكات التي تحظر UDP العادي.</string>
+    <string name="awg_carrier_picker_label">الناقل</string>
+    <string name="awg_carrier_udp">UDP (الافتراضي)</string>
+    <string name="awg_carrier_ws">WebSocket</string>
+    <string name="awg_field_carrier_ws_url">رابط WebSocket</string>
     <string name="awg_section_obfuscation">التعمية</string>
     <string name="awg_section_obfuscation_body">قيم منسَّقة مع الخادم. الصقها كما هي من مزودك، أو اختر إعداداً مسبقاً لمجموعة.</string>
     <string name="awg_field_server">الخادم</string>

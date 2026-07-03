@@ -243,6 +243,13 @@ object ProxyUriCodec {
             val flow = queryValue(rawQuery, "flow") ?: "xtls-rprx-vision"
             val fp = queryValue(rawQuery, "fp")
             val transportType = queryValue(rawQuery, "type")?.lowercase()
+            // RIPDPI's VLESS+REALITY client only implements the plain-TCP and xhttp
+            // wire transports. A share link advertising grpc/ws/h2/httpupgrade/etc.
+            // must be rejected rather than silently coerced to TCP Reality, which
+            // would activate the wrong wire transport against the server.
+            if (transportType != null && transportType != "tcp" && transportType != "xhttp") {
+                return null
+            }
             val xhttpPath = if (transportType == "xhttp") queryValue(rawQuery, "path") else null
             val xhttpHost = if (transportType == "xhttp") queryValue(rawQuery, "host") else null
             val xhttpMode = if (transportType == "xhttp") queryValue(rawQuery, "mode") ?: "auto" else "auto"

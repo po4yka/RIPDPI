@@ -43,6 +43,13 @@ enum class AwgEditorField(
     PRESHARED_KEY(isObfuscation = false),
     PERSISTENT_KEEPALIVE(isObfuscation = false),
 
+    // WG-over-WebSocket carrier URL -- a first-class AwgProfileForm column,
+    // only consulted (and required by [AmneziaWgEditorState.isActivatable])
+    // when [AwgProfileForm.carrier] is [AwgActivationRequest.CARRIER_WS].
+    // Carrier selection itself is a picker, not a text field -- see
+    // [AmneziaWgEditorState.selectCarrier].
+    CARRIER_WS_URL(isObfuscation = false),
+
     // Obfuscation fields — locked when a cohort preset is selected.
     JC(isObfuscation = true),
     JMIN(isObfuscation = true),
@@ -139,6 +146,15 @@ data class AmneziaWgEditorState(
         )
 
     /**
+     * Selects the transport [carrier] ([AwgActivationRequest.CARRIER_UDP] or
+     * [AwgActivationRequest.CARRIER_WS]). A picker choice, not a text-field edit --
+     * mirrors [selectCohort] / [selectCustom] rather than going through [updateField].
+     * [AwgProfileForm.carrierWsUrl] is left untouched so switching back and forth
+     * does not discard an already-typed URL.
+     */
+    fun selectCarrier(carrier: String): AmneziaWgEditorState = copy(form = form.copy(carrier = carrier))
+
+    /**
      * Projects the editor into an [AwgActivationRequest] for the standalone
      * AmneziaWG runtime. Identity, PSK and obfuscation come from [form]; the
      * transport fields the form does not carry as columns ([AwgEditorField.ADDRESS],
@@ -164,7 +180,9 @@ data class AmneziaWgEditorState(
      * `true` when the identity fields required to open a tunnel are all present:
      * server host + port, interface private key, peer public key, and an
      * interface address. Obfuscation fields are optional (an empty set is a
-     * vanilla WireGuard peer).
+     * vanilla WireGuard peer). When [AwgProfileForm.carrier] is
+     * [AwgActivationRequest.CARRIER_WS], [AwgProfileForm.carrierWsUrl] must also
+     * be present -- the WS carrier cannot connect without a request URL.
      */
     fun isActivatable(): Boolean =
         form.server.isNotBlank() &&
@@ -172,7 +190,8 @@ data class AmneziaWgEditorState(
             form.interfacePrivateKey.isNotBlank() &&
             form.peerPublicKey.isNotBlank() &&
             rawText(AwgEditorField.ADDRESS).isNotBlank() &&
-            obfuscationConsistent()
+            obfuscationConsistent() &&
+            (form.carrier != AwgActivationRequest.CARRIER_WS || form.carrierWsUrl.isNotBlank())
 
     /**
      * `true` when the obfuscation knobs are mutually consistent and fit the
@@ -314,6 +333,8 @@ private fun AwgProfileForm.applyField(
 
         AwgEditorField.PRESHARED_KEY -> copy(presharedKey = parsed as String)
 
+        AwgEditorField.CARRIER_WS_URL -> copy(carrierWsUrl = parsed as String)
+
         AwgEditorField.JC -> copy(jc = parsed as Int)
 
         AwgEditorField.JMIN -> copy(jmin = parsed as Int)
@@ -358,6 +379,7 @@ private fun AwgProfileForm.identityRawText(): Map<AwgEditorField, String> =
         AwgEditorField.INTERFACE_PRIVATE_KEY to interfacePrivateKey,
         AwgEditorField.PEER_PUBLIC_KEY to peerPublicKey,
         AwgEditorField.PRESHARED_KEY to presharedKey,
+        AwgEditorField.CARRIER_WS_URL to carrierWsUrl,
     )
 
 private fun AwgProfileForm.obfuscationRawText(): Map<AwgEditorField, String> =

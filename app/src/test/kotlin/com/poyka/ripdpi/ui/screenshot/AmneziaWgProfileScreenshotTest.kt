@@ -135,6 +135,7 @@ class AmneziaWgProfileScreenshotTest {
                 onBack = {},
                 onFieldChanged = { _, _ -> },
                 onCohortSelected = {},
+                onCarrierSelected = {},
                 onPasteConf = {},
                 onRevealPrivateKey = {},
                 onRevealPresharedKey = {},

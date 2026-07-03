@@ -159,6 +159,14 @@ class AmneziaWgProfileViewModel
         }
 
         /**
+         * Selects the transport carrier ([AwgProfileForm.carrier]) by [carrier] token
+         * ([AwgActivationRequest.CARRIER_UDP] or [AwgActivationRequest.CARRIER_WS]).
+         */
+        fun onCarrierSelected(carrier: String) {
+            mutateEditor { it.selectCarrier(carrier) }
+        }
+
+        /**
          * Replaces the editor state from a pasted AmneziaWG `.conf`. Malformed input or a
          * vanilla WireGuard config leaves the editor unchanged.
          */
