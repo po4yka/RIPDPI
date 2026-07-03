@@ -1075,6 +1075,12 @@
     <string name="awg_editor_title">AmneziaWG प्रोफ़ाइल</string>
     <string name="awg_section_interface">इंटरफ़ेस</string>
     <string name="awg_section_peer">पीयर</string>
+    <string name="awg_section_carrier">ट्रांसपोर्ट</string>
+    <string name="awg_section_carrier_body">WireGuard डेटाग्राम डिवाइस से कैसे निकलते हैं। WebSocket उन्हें उन नेटवर्कों के लिए लपेटता है जो सामान्य UDP को रोकते हैं।</string>
+    <string name="awg_carrier_picker_label">कैरियर</string>
+    <string name="awg_carrier_udp">UDP (डिफ़ॉल्ट)</string>
+    <string name="awg_carrier_ws">WebSocket</string>
+    <string name="awg_field_carrier_ws_url">WebSocket URL</string>
     <string name="awg_section_obfuscation">ऑब्सक्यूरेशन</string>
     <string name="awg_section_obfuscation_body">सर्वर-समन्वित मान। इन्हें अपने प्रदाता से हूबहू पेस्ट करें, या कोई कोहोर्ट प्रीसेट चुनें।</string>
     <string name="awg_field_server">सर्वर</string>

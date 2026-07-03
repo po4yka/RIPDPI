@@ -277,6 +277,9 @@ app:asset_provider_updated_today
 app:asset_provider_uptodate_body
 app:asset_provider_uptodate_title
 app:asset_provider_version_none
+app:awg_carrier_picker_label
+app:awg_carrier_udp
+app:awg_carrier_ws
 app:awg_cohort_custom
 app:awg_cohort_locked_hint
 app:awg_cohort_picker_label
@@ -287,6 +290,7 @@ app:awg_connect_ready_hint
 app:awg_editor_title
 app:awg_field_address
 app:awg_field_allowed_ips
+app:awg_field_carrier_ws_url
 app:awg_field_h1
 app:awg_field_h2
 app:awg_field_h3
@@ -314,6 +318,8 @@ app:awg_field_server_port
 app:awg_paste_conf_action
 app:awg_reveal_secret_action
 app:awg_secret_hidden
+app:awg_section_carrier
+app:awg_section_carrier_body
 app:awg_section_interface
 app:awg_section_obfuscation
 app:awg_section_obfuscation_body
