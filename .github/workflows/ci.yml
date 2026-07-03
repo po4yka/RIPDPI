@@ -486,14 +486,26 @@ jobs:
         env:
           RUSTC_WRAPPER: sccache
         run: |
-          ./gradlew :app:assembleRelease \
-            --max-workers=1 \
-            -Pripdpi.enableAbiSplits=false \
-            -Pripdpi.nativeAbiParallelism=1 \
-            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-release/jniLibs" \
-            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-release/assetsBin" \
-            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-release/assetsBin" \
+          common_args=(
+            --max-workers=1
+            -Pripdpi.enableAbiSplits=false
+            -Pripdpi.nativeAbiParallelism=1
+            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-release/jniLibs"
+            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
+            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
             -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt-release/assetsBin"
+          )
+          for task in \
+            :app:assembleFdroidFullRelease \
+            :app:assembleFdroidSimpleRelease \
+            :app:assembleGithubFullRelease \
+            :app:assembleGithubSimpleRelease \
+            :app:assemblePlayFullRelease \
+            :app:assemblePlaySimpleRelease
+          do
+            ./gradlew "$task" "${common_args[@]}"
+            ./gradlew --stop
+          done
 
       - name: Upload release retrace inputs
         if: always()
