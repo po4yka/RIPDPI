@@ -22,6 +22,7 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.register
 import org.gradle.process.ExecOperations
+import org.gradle.process.ExecSpec
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
@@ -833,22 +834,20 @@ abstract class BuildPluggableTransportAssetsTask
             val repoDir = reposDir.resolve(source.id)
             if (!repoDir.resolve(".git").exists()) {
                 fileSystemOperations.delete { delete(repoDir) }
-                execOperations
-                    .exec {
-                        commandLine(
-                            gitExecutable.get(),
-                            "clone",
-                            "--filter=blob:none",
-                            repoUrl,
-                            repoDir.absolutePath,
-                        )
-                    }.assertNormalExitValue()
+                execWithRetry("Clone ${source.id} pluggable transport source") {
+                    commandLine(
+                        gitExecutable.get(),
+                        "clone",
+                        "--filter=blob:none",
+                        repoUrl,
+                        repoDir.absolutePath,
+                    )
+                }
             }
-            execOperations
-                .exec {
-                    workingDir = repoDir
-                    commandLine(gitExecutable.get(), "fetch", "--depth", "1", "origin", commit)
-                }.assertNormalExitValue()
+            execWithRetry("Fetch ${source.id} pluggable transport source") {
+                workingDir = repoDir
+                commandLine(gitExecutable.get(), "fetch", "--depth", "1", "origin", commit)
+            }
             execOperations
                 .exec {
                     workingDir = repoDir
@@ -860,6 +859,46 @@ abstract class BuildPluggableTransportAssetsTask
                     commandLine(gitExecutable.get(), "clean", "-fdx")
                 }.assertNormalExitValue()
             return repoDir
+        }
+
+        private fun execWithRetry(
+            description: String,
+            attempts: Int = 3,
+            configure: ExecSpec.() -> Unit,
+        ) {
+            var lastExitValue: Int? = null
+            var lastError: RuntimeException? = null
+            repeat(attempts) { attemptIndex ->
+                try {
+                    val result =
+                        execOperations.exec {
+                            isIgnoreExitValue = true
+                            configure()
+                        }
+                    if (result.exitValue == 0) {
+                        return
+                    }
+                    lastExitValue = result.exitValue
+                    logger.warn(
+                        "$description failed with exit ${result.exitValue} (attempt ${attemptIndex + 1}/$attempts)",
+                    )
+                } catch (error: RuntimeException) {
+                    lastError = error
+                    logger.warn(
+                        "$description failed with ${error::class.java.simpleName} (attempt ${attemptIndex + 1}/$attempts): ${error.message}",
+                    )
+                }
+                if (attemptIndex < attempts - 1) {
+                    Thread.sleep(5_000L * (attemptIndex + 1))
+                }
+            }
+            val failureMessage =
+                if (lastExitValue != null) {
+                    "$description failed after $attempts attempts with exit value $lastExitValue"
+                } else {
+                    "$description failed after $attempts attempts"
+                }
+            throw GradleException(failureMessage, lastError)
         }
 
         private fun buildGoBinary(
