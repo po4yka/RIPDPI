@@ -9,9 +9,9 @@ mod enabled {
     use std::path::{Component, Path, PathBuf};
     use std::sync::{Arc, Mutex};
 
+    use mlua::chunk::ChunkMode;
     use mlua::{
-        ChunkMode, Function, HookTriggers, Lua, LuaOptions, RegistryKey, StdLib, String as LuaString, Table, Value,
-        Variadic, VmState,
+        Function, HookTriggers, Lua, LuaOptions, LuaString, RegistryKey, StdLib, Table, Value, Variadic, VmState,
     };
     use ripdpi_strategy_trait::{
         DesyncAction, DesyncPlan, DesyncStrategy, FlowId, L7Protocol, MarkerName, RuntimeCapability, StrategyContext,
