@@ -17,7 +17,7 @@ use std::sync::Arc;
 use russh::Channel;
 use russh::keys::ssh_key::private::Ed25519Keypair;
 use russh::keys::{HashAlg, PrivateKey};
-use russh::server::{Auth, Msg, Session};
+use russh::server::{Auth, ChannelOpenHandle, Msg, Session};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -89,8 +89,10 @@ impl russh::server::Handler for EchoHandler {
         _port_to_connect: u32,
         _originator_address: &str,
         _originator_port: u32,
+        reply: ChannelOpenHandle,
         _session: &mut Session,
-    ) -> Result<bool, russh::Error> {
+    ) -> Result<(), russh::Error> {
+        reply.accept().await;
         tokio::spawn(async move {
             let mut stream = channel.into_stream();
             let mut buf = [0u8; 4096];
@@ -105,7 +107,7 @@ impl russh::server::Handler for EchoHandler {
                 }
             }
         });
-        Ok(true)
+        Ok(())
     }
 }
 
