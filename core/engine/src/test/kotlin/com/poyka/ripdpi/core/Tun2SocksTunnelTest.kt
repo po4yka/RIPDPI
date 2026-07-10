@@ -119,8 +119,23 @@ class Tun2SocksTunnelTest {
             val bindings =
                 FakeTun2SocksBindings().apply {
                     telemetryJson =
-                        """{"source":"tunnel","state":"running","futureSnapshot":{"version":2},"nativeEvents":[""" +
-                        """{"source":"tunnel","level":"info","message":"ready","createdAt":1,"futureEvent":"native"}]}"""
+                        """
+                        {
+                          "source": "tunnel",
+                          "schemaVersion": 2,
+                          "state": "running",
+                          "futureSnapshot": {"version": 2},
+                          "nativeEvents": [
+                            {
+                              "source": "tunnel",
+                              "level": "info",
+                              "message": "ready",
+                              "createdAt": 1,
+                              "futureEvent": "native"
+                            }
+                          ]
+                        }
+                        """.trimIndent()
                 }
             val tunnel = Tun2SocksTunnel(bindings)
             tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 42)
