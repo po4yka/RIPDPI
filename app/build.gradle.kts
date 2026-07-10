@@ -1,11 +1,16 @@
 import com.android.build.api.dsl.ApplicationExtension
+import com.android.build.api.variant.ApplicationAndroidComponentsExtension
+import groovy.json.JsonOutput
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
@@ -54,6 +59,55 @@ abstract class VerifyReleaseVersionTask : DefaultTask() {
                 "Release tag $currentRef does not match app versionName ${versionName.get()} " +
                     "(versionCode ${versionCode.get()}).",
             )
+        }
+    }
+}
+
+abstract class WriteReleaseIdentityManifestTask : DefaultTask() {
+    @get:Input
+    abstract val versionName: Property<String>
+
+    @get:Input
+    abstract val versionCode: Property<Int>
+
+    @get:Input
+    abstract val applicationIds: MapProperty<String, String>
+
+    @get:Input
+    abstract val distributions: MapProperty<String, String>
+
+    @get:Input
+    abstract val experiences: MapProperty<String, String>
+
+    @get:OutputFile
+    abstract val outputFile: RegularFileProperty
+
+    @TaskAction
+    fun writeManifest() {
+        val distributionByVariant = distributions.get()
+        val experienceByVariant = experiences.get()
+        val variants =
+            applicationIds
+                .get()
+                .toSortedMap()
+                .map { (variantName, applicationId) ->
+                    mapOf(
+                        "name" to variantName,
+                        "distribution" to distributionByVariant.getValue(variantName),
+                        "experience" to experienceByVariant.getValue(variantName),
+                        "applicationId" to applicationId,
+                    )
+                }
+        val manifest =
+            mapOf(
+                "schemaVersion" to 1,
+                "versionName" to versionName.get(),
+                "versionCode" to versionCode.get(),
+                "variants" to variants,
+            )
+        outputFile.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(JsonOutput.prettyPrint(JsonOutput.toJson(manifest)) + "\n")
         }
     }
 }
@@ -389,5 +443,25 @@ plugins.withId("com.android.application") {
                 .orElse(providers.gradleProperty("ripdpi.releaseRefName"))
                 .orElse(""),
         )
+    }
+
+    val writeReleaseIdentityManifest =
+        tasks.register<WriteReleaseIdentityManifestTask>("writeReleaseIdentityManifest") {
+            group = "verification"
+            description = "Writes resolved release variant application IDs for the identity review gate."
+            versionName.set(ripdpiVersionName)
+            versionCode.set(ripdpiVersionCode)
+            outputFile.set(layout.buildDirectory.file("reports/app-identity/release-identity.json"))
+        }
+
+    extensions.configure<ApplicationAndroidComponentsExtension> {
+        onVariants(selector().withBuildType("release")) { variant ->
+            val flavors = variant.productFlavors.toMap()
+            writeReleaseIdentityManifest.configure {
+                applicationIds.put(variant.name, variant.applicationId)
+                distributions.put(variant.name, flavors.getValue("distribution"))
+                experiences.put(variant.name, flavors.getValue("experience"))
+            }
+        }
     }
 }

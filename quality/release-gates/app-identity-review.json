@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "description": "Per-release review of resolved RIPDPI Android application IDs against package-based circumvention-tool detection. A current exact catalog non-match is not treated as hidden identity: recognizable package tokens remain targetable through explicit Android package-visibility queries.",
+  "reviewedRelease": {
+    "versionName": "0.1.3",
+    "versionCode": 11,
+    "reviewedAt": "2026-07-10"
+  },
+  "sources": [
+    {
+      "id": "app-level-vpn-detection",
+      "repository": "censorship-bypass",
+      "path": "wikis/mobile-platform-enforcement/wiki/concepts/app-level-vpn-detection.md",
+      "revision": "4209fa2c54a9f548c27b8bdb624665f072ef4d59",
+      "contentSha1": "5ac239e2800f226d76deb0dba8b16025dd36462f",
+      "reviewedAt": "2026-07-10"
+    },
+    {
+      "id": "mintsifry-vpn-detection-methodology",
+      "repository": "censorship-bypass",
+      "path": "wikis/mobile-platform-enforcement/wiki/concepts/mintsifry-vpn-detection-methodology.md",
+      "revision": "ccc2eb2d9a22db12aa547f28131ce3defc2f5384",
+      "contentSha1": "ce98242d0ca0e2c06ef58fee1adb23dbca199c69",
+      "reviewedAt": "2026-07-10"
+    },
+    {
+      "id": "rknhardering-vpn-app-catalog",
+      "repository": "https://github.com/xtclovver/RKNHardering",
+      "path": "app/src/main/java/com/notcvnt/rknhardering/vpn/VpnAppCatalog.kt",
+      "revision": "dd33d2f03f5644f26d119fcc5b166e177624ff85",
+      "contentSha1": "451b7bdc63597249a27f2a37adc12d3f6c79cbd5",
+      "reviewedAt": "2026-07-10"
+    }
+  ],
+  "catalog": {
+    "packageIds": [
+      "app.hiddify.com",
+      "app.husi.singbox",
+      "com.aerobox",
+      "com.avo.vpn",
+      "com.github.dyhkwong.sagernet",
+      "com.github.metacubex.clash.meta",
+      "com.github.shadowsocks",
+      "com.github.shadowsocks.tv",
+      "com.happproxy",
+      "com.nebula.karing",
+      "com.psiphon3",
+      "com.romanvht.byebyedpi",
+      "com.strongswan.android",
+      "com.termux",
+      "com.v2ray.ang",
+      "com.v2raytun.android",
+      "com.wireguard.android",
+      "dev.hexasoftware.v2box",
+      "info.guardianproject.orfox",
+      "io.github.dovecoteescapee.byedpi",
+      "io.github.saeeddev94.xray",
+      "io.nekohasekai.sagernet",
+      "io.nekohasekai.sfa",
+      "moe.nb4a",
+      "org.amnezia.awg",
+      "org.amnezia.vpn",
+      "org.aspect.tgwsproxy",
+      "org.aspect.tgwsproxy.android",
+      "org.getlantern.lantern",
+      "org.outline.android.client",
+      "org.torproject.android",
+      "org.torproject.torbrowser",
+      "uwu.mb4a",
+      "xyz.a202132.app"
+    ],
+    "exactMatches": []
+  },
+  "variants": [
+    {
+      "name": "fdroidFullRelease",
+      "distribution": "fdroid",
+      "experience": "full",
+      "applicationId": "com.poyka.ripdpi",
+      "published": true
+    },
+    {
+      "name": "fdroidSimpleRelease",
+      "distribution": "fdroid",
+      "experience": "simple",
+      "applicationId": "com.poyka.ripdpi.simple",
+      "published": false
+    },
+    {
+      "name": "githubFullRelease",
+      "distribution": "github",
+      "experience": "full",
+      "applicationId": "com.poyka.ripdpi",
+      "published": true
+    },
+    {
+      "name": "githubSimpleRelease",
+      "distribution": "github",
+      "experience": "simple",
+      "applicationId": "com.poyka.ripdpi.simple",
+      "published": false
+    },
+    {
+      "name": "playFullRelease",
+      "distribution": "play",
+      "experience": "full",
+      "applicationId": "com.poyka.ripdpi",
+      "published": true
+    },
+    {
+      "name": "playSimpleRelease",
+      "distribution": "play",
+      "experience": "simple",
+      "applicationId": "com.poyka.ripdpi.simple",
+      "published": false
+    }
+  ],
+  "publishedReleaseTasks": [
+    "assembleFdroidFullRelease",
+    "assembleGithubFullRelease",
+    "bundlePlayFullRelease"
+  ],
+  "assessment": {
+    "riskLevel": "elevated",
+    "identityExposure": "self-identifying",
+    "recognizableTokens": [
+      "dpi",
+      "ripdpi"
+    ],
+    "packageVisibility": "targetable-via-explicit-queries",
+    "upgradeContinuity": "application-id-change-breaks-in-place-updates"
+  },
+  "decision": {
+    "action": "retain-stable-id",
+    "status": "approved",
+    "reviewer": "RIPDPI release maintainers",
+    "approvedAt": "2026-07-10",
+    "rationale": "Retain the published application ID and signing continuity because there is no exact reviewed-catalog match. Treat the recognizable RIPDPI and DPI tokens as exposed and re-evaluate this decision on every release or catalog change."
+  }
+}

@@ -146,6 +146,7 @@ jobs:
           retention-days: 7
 
   # Enforces the machine-readable release-gate policies under quality/release-gates/:
+  #   - Per-release Android application-ID review against package-based VPN detection.
   #   - DNS-leak / IPv6-leak / kill-switch no-ship gates for fleet profiles and
   #     Android client releases.
   #   - Fleet release-gating + cadence policy (daily/weekly/release cadences,
@@ -158,6 +159,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Run app identity review unit tests
+        run: python3 -m unittest scripts.tests.test_app_identity_review
 
       - name: Run DNS/IPv6/kill-switch release-gate unit tests
         run: python3 -m unittest scripts.tests.test_dns_ipv6_killswitch_gates
@@ -843,6 +847,12 @@ jobs:
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Resolve release application IDs
+        run: ./gradlew :app:writeReleaseIdentityManifest
+
+      - name: Run app identity release gate
+        run: python3 scripts/ci/check_app_identity_review.py
 
       - name: Run static analysis
         run: ./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true

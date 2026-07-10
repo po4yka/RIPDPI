@@ -51,6 +51,21 @@ Release signing is still driven by:
 
 The GitHub updater verifies package name, version code, version name, APK file-name safety, and SHA-256 before opening Android installer UI (`GithubUpdateMetadata.isStructurallyValid()`). `minSdk` is carried in the metadata when present but is not independently checked client-side — Android enforces `minSdk` and signing compatibility during installation.
 
+## Application Identity Review
+
+Every app release has a blocking package-identity review in `quality/release-gates/app-identity-review.json`. The review covers every resolved `release` variant, including the non-published `simple` variants, and separately records the `full` variants built by `.github/workflows/release.yml`. `:app:writeReleaseIdentityManifest` obtains final application IDs from the Android Components API, so the gate does not infer them by parsing Gradle source.
+
+The current `com.poyka.ripdpi` identity is not an exact match in the reviewed circumvention-tool catalog, but it is not hidden: `ripdpi` and `dpi` are recognizable tokens, and an Android 11+ detector can make the package visible by naming the exact ID in `<queries>`. The accepted baseline therefore classifies the identity as `elevated` and `self-identifying`, not opaque. Changing the application ID would create a different Android app and break in-place Play, F-Droid, and GitHub update continuity even if signing keys remain unchanged.
+
+For every version bump:
+
+1. Re-read the `app-level-vpn-detection`, `mintsifry-vpn-detection-methodology`, and referenced RKNHardering catalog sources recorded in the review; update each source revision, blob hash, and `reviewedAt` date.
+2. Refresh `catalog.packageIds`, run `./gradlew :app:writeReleaseIdentityManifest`, and compare the generated `app/build/reports/app-identity/release-identity.json` with the checked-in variants.
+3. Update `reviewedRelease`, derived exact matches, recognizable tokens, risk level, and the explicit decision. A known match must use either `accept-known-match` with an accepted-risk rationale or `change-id` with a migration plan.
+4. Run `python3 -m unittest scripts.tests.test_app_identity_review` and `python3 scripts/ci/check_app_identity_review.py`. CI and the tag release workflow repeat both the resolved-identity generation and the blocking check without fetching threat intelligence from the network.
+
+The default decision is `retain-stable-id` only while the reviewed catalog has no exact match. Randomized IDs, automatic rotation, and alternate sideload identities are not part of the release pipeline.
+
 ## Google Play Flow
 
 1. Build `bundlePlayRelease`.

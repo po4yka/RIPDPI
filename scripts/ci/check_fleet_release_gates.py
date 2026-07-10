@@ -86,6 +86,7 @@ REQUIRED_CADENCE_CHECKS = {
         "firewall-drift-check",
         "incident-playbook-ready",
         "fresh-backup-after-deploy",
+        "app-identity-review",
     },
 }
 
@@ -132,6 +133,7 @@ REQUIRED_GATE_SETS = {
         "udp-blocked-network",
         "app-core-schema-migration",
         "package-visibility-per-app-routing",
+        "app-identity-review",
         "logcat-no-secrets",
         "crash-reports-no-secrets",
     },
@@ -154,6 +156,7 @@ REQUIRED_NOSHIP_CONDITIONS = {
     "token-or-full-url-in-logs",
     "public-panel-response",
     "primary-and-fallback-same-burned-provider-or-asn",
+    "app-identity-review",
 }
 
 # Acceptance criteria -> required warn-only conditions.

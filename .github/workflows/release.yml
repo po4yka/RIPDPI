@@ -34,6 +34,12 @@ jobs:
       - name: Check owned-stack TLS fingerprint snapshot
         run: bash scripts/ci/check-owned-stack-tls-fingerprint.sh
 
+      - name: Resolve release application IDs
+        run: ./gradlew :app:writeReleaseIdentityManifest
+
+      - name: Verify app identity review
+        run: python3 scripts/ci/check_app_identity_review.py --report | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Decode keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $GITHUB_WORKSPACE/release.keystore
 

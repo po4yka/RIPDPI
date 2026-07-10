@@ -50,7 +50,8 @@
         "disposable-relay-rebuild",
         "firewall-drift-check",
         "incident-playbook-ready",
-        "fresh-backup-after-deploy"
+        "fresh-backup-after-deploy",
+        "app-identity-review"
       ]
     }
   },
@@ -112,6 +113,7 @@
         "udp-blocked-network",
         "app-core-schema-migration",
         "package-visibility-per-app-routing",
+        "app-identity-review",
         "logcat-no-secrets",
         "crash-reports-no-secrets"
       ]
@@ -134,7 +136,8 @@
       "revoked-credential-still-connecting",
       "token-or-full-url-in-logs",
       "public-panel-response",
-      "primary-and-fallback-same-burned-provider-or-asn"
+      "primary-and-fallback-same-burned-provider-or-asn",
+      "app-identity-review"
     ]
   },
   "warnOnlyPolicy": {
