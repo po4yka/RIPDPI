@@ -34,6 +34,38 @@ fn default_xhttp_mode() -> String {
     "auto".to_string()
 }
 
+fn default_vless_transport() -> String {
+    "reality_tcp".to_string()
+}
+
+fn default_cloudflare_tunnel_mode() -> String {
+    "consume_existing".to_string()
+}
+
+fn default_tuic_congestion_control() -> String {
+    "bbr".to_string()
+}
+
+fn default_tls_fingerprint_profile() -> String {
+    "chrome_stable".to_string()
+}
+
+fn default_mieru_protocol() -> String {
+    "tcp".to_string()
+}
+
+fn default_mieru_multiplexing() -> String {
+    "middle".to_string()
+}
+
+const fn default_mieru_mtu() -> i32 {
+    1400
+}
+
+fn default_ssh_auth_type() -> String {
+    "password".to_string()
+}
+
 /// Rejects a `schemaVersion` envelope value this build does not support.
 ///
 /// Accepts the inclusive range
@@ -82,6 +114,7 @@ struct FlatResolvedRelayRuntimeConfig {
     pub enabled: bool,
     pub kind: String,
     pub profile_id: String,
+    #[serde(default)]
     pub outbound_bind_ip: String,
     pub server: String,
     pub server_port: i32,
@@ -92,7 +125,7 @@ struct FlatResolvedRelayRuntimeConfig {
     pub reality_short_id: String,
     #[serde(default = "default_vless_flow")]
     pub vless_flow: String,
-    #[serde(default)]
+    #[serde(default = "default_vless_transport")]
     pub vless_transport: String,
     #[serde(default)]
     pub xhttp_path: String,
@@ -100,7 +133,7 @@ struct FlatResolvedRelayRuntimeConfig {
     pub xhttp_host: String,
     #[serde(default = "default_xhttp_mode")]
     pub xhttp_mode: String,
-    #[serde(default)]
+    #[serde(default = "default_cloudflare_tunnel_mode")]
     pub cloudflare_tunnel_mode: String,
     #[serde(default)]
     pub cloudflare_publish_local_origin_url: String,
@@ -152,7 +185,7 @@ struct FlatResolvedRelayRuntimeConfig {
     pub masque_cloudflare_geohash_enabled: bool,
     #[serde(default)]
     pub tuic_zero_rtt: bool,
-    #[serde(default)]
+    #[serde(default = "default_tuic_congestion_control")]
     pub tuic_congestion_control: String,
     #[serde(default)]
     pub shadow_tls_inner_profile_id: String,
@@ -176,7 +209,9 @@ struct FlatResolvedRelayRuntimeConfig {
     pub local_socks_port: i32,
     pub udp_enabled: bool,
     pub tcp_fallback_enabled: bool,
+    #[serde(default)]
     pub quic_bind_low_port: bool,
+    #[serde(default)]
     pub quic_migrate_after_handshake: bool,
     #[serde(default)]
     pub vless_uuid: Option<String>,
@@ -208,6 +243,7 @@ struct FlatResolvedRelayRuntimeConfig {
     pub naive_username: Option<String>,
     #[serde(default)]
     pub naive_password: Option<String>,
+    #[serde(default = "default_tls_fingerprint_profile")]
     pub tls_fingerprint_profile: String,
     #[serde(default)]
     pub masque_auth_mode: Option<String>,
@@ -237,11 +273,11 @@ struct FlatResolvedRelayRuntimeConfig {
     pub mieru_username: Option<String>,
     #[serde(default)]
     pub mieru_password: Option<String>,
-    #[serde(default)]
+    #[serde(default = "default_mieru_protocol")]
     pub mieru_protocol: String,
-    #[serde(default)]
+    #[serde(default = "default_mieru_multiplexing")]
     pub mieru_multiplexing: String,
-    #[serde(default)]
+    #[serde(default = "default_mieru_mtu")]
     pub mieru_mtu: i32,
     #[serde(default)]
     pub ssh_host: String,
@@ -249,7 +285,7 @@ struct FlatResolvedRelayRuntimeConfig {
     pub ssh_port: i32,
     #[serde(default)]
     pub ssh_username: Option<String>,
-    #[serde(default)]
+    #[serde(default = "default_ssh_auth_type")]
     pub ssh_auth_type: String,
     #[serde(default)]
     pub ssh_password: Option<String>,
@@ -348,5 +384,61 @@ mod tests {
             err.to_string().contains("unsupported native config schemaVersion 9"),
             "error should name the found version, got: {err}"
         );
+    }
+
+    #[test]
+    fn sparse_kotlin_payload_uses_wire_compatible_defaults() {
+        let mut object = relay_config_json_object();
+        for key in [
+            "outboundBindIp",
+            "vlessTransport",
+            "cloudflareTunnelMode",
+            "tuicCongestionControl",
+            "quicBindLowPort",
+            "quicMigrateAfterHandshake",
+            "tlsFingerprintProfile",
+            "mieruProtocol",
+            "mieruMultiplexing",
+            "mieruMtu",
+            "sshAuthType",
+        ] {
+            object.remove(key);
+        }
+
+        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object.clone()))
+            .expect("sparse Kotlin payload should deserialize");
+        let value = serde_json::to_value(config).expect("serialize migrated config");
+
+        assert_eq!(value["outboundBindIp"], json!(""));
+        assert_eq!(value["quicBindLowPort"], json!(false));
+        assert_eq!(value["quicMigrateAfterHandshake"], json!(false));
+        assert_eq!(value["tlsFingerprintProfile"], json!("chrome_stable"));
+
+        let round_trip_kind = |kind: &str| {
+            let mut payload = object.clone();
+            payload.insert("kind".to_string(), json!(kind));
+            let config: ResolvedRelayRuntimeConfig =
+                serde_json::from_value(Value::Object(payload)).expect("kind-specific sparse payload");
+            serde_json::to_value(config).expect("serialize kind-specific config")
+        };
+        assert_eq!(round_trip_kind("vless")["vlessTransport"], json!("reality_tcp"));
+        assert_eq!(round_trip_kind("cloudflare_tunnel")["cloudflareTunnelMode"], json!("consume_existing"));
+        assert_eq!(round_trip_kind("tuic_v5")["tuicCongestionControl"], json!("bbr"));
+        let mieru = round_trip_kind("mieru");
+        assert_eq!(mieru["mieruProtocol"], json!("tcp"));
+        assert_eq!(mieru["mieruMultiplexing"], json!("middle"));
+        assert_eq!(mieru["mieruMtu"], json!(1400));
+        assert_eq!(round_trip_kind("ssh")["sshAuthType"], json!("password"));
+    }
+
+    #[test]
+    fn payload_below_supported_schema_floor_is_rejected() {
+        let mut object = relay_config_json_object();
+        object.insert("schemaVersion".to_string(), json!(5));
+
+        let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(Value::Object(object))
+            .expect_err("payload with schemaVersion 5 should be rejected");
+
+        assert!(err.to_string().contains("unsupported native config schemaVersion 5"));
     }
 }

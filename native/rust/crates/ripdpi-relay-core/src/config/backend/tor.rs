@@ -9,8 +9,11 @@ pub struct TorRelayConfig {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TorPluggableTransportConfig {
+    #[serde(default)]
     pub protocols: Vec<String>,
     pub binary_path: String,
+    #[serde(default)]
     pub arguments: Vec<String>,
+    #[serde(default)]
     pub run_on_startup: bool,
 }
