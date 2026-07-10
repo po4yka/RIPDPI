@@ -63,12 +63,14 @@ class CloudflarePublishManager
         }
 
         suspend fun start(config: ResolvedRipDpiRelayConfig) {
+            validateRelaySocketProtectionPolicy(config)
             require(config.kind == com.poyka.ripdpi.data.RelayKindCloudflareTunnel) {
                 "Cloudflare publish runtime only supports Cloudflare Tunnel profiles"
             }
             if (!sessionActive.compareAndSet(false, true)) {
                 throw NativeError.AlreadyRunning("CloudflarePublishManager")
             }
+            var partiallyStartedOrigin: ManagedCloudflareProcess? = null
             try {
                 val originSpec = configParser.parseLocalOriginSpec(config.cloudflarePublishLocalOriginUrl)
                 val metricsPort = findLoopbackPort()
@@ -98,6 +100,7 @@ class CloudflarePublishManager
                             }
                         },
                     )
+                partiallyStartedOrigin = originProcess
                 runningState =
                     RunningCloudflarePublish(
                         originProcess = originProcess,
@@ -124,6 +127,7 @@ class CloudflarePublishManager
                 pendingLastError?.let { state.lastError = it }
                 pendingFailureClass?.let { state.lastFailureClass = it }
                 running = state
+                partiallyStartedOrigin = null
                 var ready = false
                 try {
                     readinessPoller.waitForOriginReady(state)
@@ -137,7 +141,11 @@ class CloudflarePublishManager
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
+                partiallyStartedOrigin?.let { origin ->
+                    runCatching { processSupervisor.stop(origin) }
+                }
                 sessionActive.set(false)
+                cleanupStateDir()
                 throw e
             }
         }
@@ -213,7 +221,15 @@ class CloudflarePublishRuntime
                 stopping = false
                 activeConfig = config
                 relayStartSignal = CompletableDeferred()
-                publishManager.start(config)
+                try {
+                    publishManager.start(config)
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") startupError: Exception,
+                ) {
+                    relayStartSignal.completeExceptionally(startupError)
+                    activeConfig = null
+                    throw startupError
+                }
                 val relay = relayFactory.create()
                 relayRuntime = relay
                 relayStartSignal.complete(relay)

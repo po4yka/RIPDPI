@@ -4,6 +4,7 @@ import android.app.Application
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -158,6 +159,69 @@ class CloudflarePublishCredentialLifecycleTest {
                 "Expected no credential files after error-stop, but found: $remaining",
                 remaining.isEmpty(),
             )
+        }
+
+    @Test
+    fun `cloudflared launch failure stops partially started origin and cleans state`() =
+        runBlocking {
+            var stoppedOrigins = 0
+            val fakeProcess =
+                object : Process() {
+                    override fun getOutputStream() = System.out
+
+                    override fun getInputStream() = System.`in`
+
+                    override fun getErrorStream() = System.`in`
+
+                    override fun waitFor() = 0
+
+                    override fun exitValue(): Int = 0
+
+                    override fun destroy() = Unit
+                }
+            val supervisor =
+                object : CloudflarePublishProcessSupervisor(
+                    binaryExtractor = CloudflarePublishBinaryExtractor(context = context),
+                    versionProbe = CloudflarePublishVersionProbe(),
+                    launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
+                    outputReader = CloudflarePublishProcessOutputReader(),
+                    protectPathProvider = ActiveProtectSocketPathProvider(),
+                ) {
+                    override fun launchOriginProcess(
+                        config: com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig,
+                        originSpec: CloudflareLocalOriginSpec,
+                        stateDir: File,
+                        readySignal: CompletableDeferred<String>,
+                        onError: (String, String) -> Unit,
+                    ): ManagedCloudflareProcess = ManagedCloudflareProcess(fakeProcess, null, Thread { })
+
+                    override fun launchCloudflaredProcess(
+                        config: com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig,
+                        originSpec: CloudflareLocalOriginSpec,
+                        metricsAddress: String,
+                        stateDir: File,
+                        lastErrorSink: (String, String) -> Unit,
+                        onRegisteredTunnelConnection: () -> Unit,
+                    ): ManagedCloudflareProcess = error("cloudflared launch failed")
+
+                    override fun stop(process: ManagedCloudflareProcess) {
+                        stoppedOrigins += 1
+                    }
+                }
+            val manager =
+                CloudflarePublishManager(
+                    context = context,
+                    configParser = CloudflarePublishConfigParser(),
+                    processSupervisor = supervisor,
+                    readinessPoller = CloudflarePublishReadinessPoller(),
+                    telemetryProjector = CloudflarePublishTelemetryProjector(),
+                )
+
+            val error = runCatching { manager.start(cfConfig()) }.exceptionOrNull()
+
+            assertTrue(error is IllegalStateException)
+            assertEquals(1, stoppedOrigins)
+            assertTrue(credentialFilesUnderCacheDir().isEmpty())
         }
 
     @Test
