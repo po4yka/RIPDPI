@@ -173,17 +173,17 @@ fn tunnel_snapshot_exposes_dht_trigger_observations() {
 
 #[test]
 fn tunnel_snapshot_marks_relay_dns_route_as_fail_closed() {
-    let subscriber = tracing_subscriber::registry().with(EventRingLayer::global());
-    tracing::subscriber::with_default(subscriber, || {
+    with_tunnel_event_capture(|buffers| {
         let state = TunnelTelemetryState::new(None);
 
         state.mark_relay_dns_route("socks5", true);
         let snapshot = state.snapshot((0, 0, 0, 0), DnsStatsSnapshot::default(), None, None);
+        let native_events = buffers.drain_tunnel().into_iter().map(NativeRuntimeEvent::from).collect::<Vec<_>>();
 
         assert_eq!(snapshot.relay_dns_route.as_deref(), Some("socks5"));
         assert!(snapshot.relay_dns_fail_closed);
         assert!(
-            snapshot.native_events.iter().any(|event| event.kind.as_deref() == Some("relay_dns_route")),
+            native_events.iter().any(|event| event.kind.as_deref() == Some("relay_dns_route")),
             "relay DNS route event must be visible to Android telemetry",
         );
     });
