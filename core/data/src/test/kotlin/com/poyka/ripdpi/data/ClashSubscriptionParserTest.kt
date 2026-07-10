@@ -96,7 +96,7 @@ class ClashSubscriptionParserTest {
                 type: trojan
                 server: trojan.example.com
                 port: 443
-                password: secret
+                password: test-value
                 udp: true
                 sni: trojan.example.com
                 skip-cert-verify: true
@@ -108,6 +108,29 @@ class ClashSubscriptionParserTest {
         assertTrue(result.errors.isEmpty())
         assertEquals(1, result.profiles.size)
         assertTrue(result.profiles.single() is ProxyProfile.Trojan)
+    }
+
+    @Test
+    fun `hysteria identity and salamander fields are preserved`() {
+        val yaml =
+            """
+            proxies:
+              - name: hy2
+                type: hysteria2
+                server: 203.0.113.9
+                port: 443
+                password: test-value
+                sni: hy.example
+                skip-cert-verify: true
+                obfs: salamander
+                obfs-password: obfs-test-value
+            """.trimIndent()
+
+        val profile = ClashSubscriptionParser.parse(yaml, groupId).profiles.single() as ProxyProfile.Hysteria2
+
+        assertEquals("hy.example", profile.serverName)
+        assertEquals(true, profile.insecure)
+        assertEquals("obfs-test-value", profile.obfsPassword)
     }
 
     @Test

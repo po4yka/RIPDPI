@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data
 import com.poyka.ripdpi.data.subscription.FailoverPolicy
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
+import com.poyka.ripdpi.data.subscription.SingBoxSkipReason
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -171,6 +172,25 @@ class SelectorUrltestGroupImportTest {
         assertTrue(result is SelectorUrltestImportResult.Error)
         result as SelectorUrltestImportResult.Error
         assertTrue(result.message.contains("p-missing"))
+    }
+
+    @Test
+    fun `selector member with unsupported transport retains typed rejection`() {
+        val json =
+            """
+            { "outbounds": [
+              { "type": "vless", "tag": "p0", "server": "p0.example.com", "server_port": 443,
+                "uuid": "00000000-0000-0000-0000-000000000000" },
+              { "type": "vless", "tag": "ws-node", "server": "ws.example.com", "server_port": 443,
+                "uuid": "11111111-1111-1111-1111-111111111111", "transport": { "type": "ws" } },
+              { "type": "selector", "tag": "select", "outbounds": ["p0", "ws-node"] } ] }
+            """.trimIndent()
+
+        val result = SelectorUrltestGroupImport.import(json, groupId) as SelectorUrltestImportResult.Error
+
+        assertEquals(SingBoxSkipReason.UNSUPPORTED_TRANSPORT, result.reason)
+        assertEquals("ws", result.detail)
+        assertTrue(result.message.contains("ws-node"))
     }
 
     @Test

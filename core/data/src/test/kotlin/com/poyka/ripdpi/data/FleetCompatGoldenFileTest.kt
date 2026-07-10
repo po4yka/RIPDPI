@@ -66,9 +66,10 @@ class FleetCompatGoldenFileTest {
     }
 
     @Test
-    fun `p2a hysteria port-hop bundle imports with the port range preserved in raw config`() {
+    fun `p2a hysteria port-hop bundle is rejected until native projection supports it`() {
         val result = FleetCompatHarness.run("p2a-hysteria-port-hop")
         assertTrue(result.diff, result.matches)
+        assertTrue(result.importedProfiles.isEmpty())
     }
 
     @Test

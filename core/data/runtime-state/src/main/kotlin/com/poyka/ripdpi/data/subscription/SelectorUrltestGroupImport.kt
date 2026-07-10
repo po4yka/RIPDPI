@@ -69,11 +69,14 @@ sealed interface SelectorUrltestImportResult {
         val memberOrder: List<String>,
         val defaultMemberTag: String?,
         val failoverPolicy: FailoverPolicy,
+        val skipped: List<SingBoxSkippedNode> = emptyList(),
     ) : SelectorUrltestImportResult
 
     /** Import was rejected as a unit (e.g. a selector named a missing tag, or the JSON was malformed). */
     data class Error(
         val message: String,
+        val reason: SingBoxSkipReason? = null,
+        val detail: String? = null,
     ) : SelectorUrltestImportResult
 }
 
@@ -144,6 +147,7 @@ object SelectorUrltestGroupImport {
                 memberOrder = emptyList(),
                 defaultMemberTag = null,
                 failoverPolicy = FailoverPolicy.Manual,
+                skipped = parsed.skipped,
             )
         }
 
@@ -157,6 +161,17 @@ object SelectorUrltestGroupImport {
         val memberOrder = rawMembers.filter { it != urltestTag }
         val missing = memberOrder.filterNot { it in profileTags }
         if (missing.isNotEmpty()) {
+            val rejectedMember = parsed.skipped.firstOrNull { it.label in missing }
+            if (rejectedMember != null) {
+                val message =
+                    "selector member ${rejectedMember.label} uses unsupported " +
+                        rejectedMember.detail.orEmpty()
+                return SelectorUrltestImportResult.Error(
+                    message = message,
+                    reason = rejectedMember.reason,
+                    detail = rejectedMember.detail,
+                )
+            }
             return SelectorUrltestImportResult.Error(
                 "selector references tag(s) absent from the bundle: ${missing.joinToString(", ")}",
             )
@@ -198,6 +213,7 @@ object SelectorUrltestGroupImport {
             memberOrder = memberOrder,
             defaultMemberTag = selectorEntry.string("default"),
             failoverPolicy = failoverPolicy,
+            skipped = parsed.skipped,
         )
     }
 

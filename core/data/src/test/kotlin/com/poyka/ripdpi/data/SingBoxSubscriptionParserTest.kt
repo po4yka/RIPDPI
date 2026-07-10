@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
+import com.poyka.ripdpi.data.subscription.SingBoxSkipReason
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -191,6 +192,94 @@ class SingBoxSubscriptionParserTest {
         val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
 
         assertTrue(parsed.profiles.all { it.groupId == groupId })
+    }
+
+    @Test
+    fun `unsupported vless transports are typed skips`() {
+        val json =
+            """
+            { "outbounds": [
+              { "type": "vless", "tag": "ws-node", "server": "w.example", "server_port": 443,
+                "uuid": "11111111-1111-1111-1111-111111111111", "transport": { "type": "ws" } },
+              { "type": "vless", "tag": "grpc-node", "server": "g.example", "server_port": 443,
+                "uuid": "22222222-2222-2222-2222-222222222222", "transport": { "type": "grpc" } } ] }
+            """.trimIndent()
+
+        val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
+
+        assertTrue(parsed.profiles.isEmpty())
+        assertEquals(listOf("ws", "grpc"), parsed.skipped.map { it.detail })
+        assertTrue(parsed.skipped.all { it.reason == SingBoxSkipReason.UNSUPPORTED_TRANSPORT })
+    }
+
+    @Test
+    fun `unsupported vless fingerprint is a typed skip`() {
+        val json =
+            """
+            { "type": "vless", "tag": "randomized", "server": "edge.example", "server_port": 443,
+              "uuid": "11111111-1111-1111-1111-111111111111",
+              "tls": { "utls": { "fingerprint": "randomized" } } }
+            """.trimIndent()
+
+        val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
+
+        assertTrue(parsed.profiles.isEmpty())
+        assertEquals(SingBoxSkipReason.UNSUPPORTED_FINGERPRINT, parsed.skipped.single().reason)
+    }
+
+    @Test
+    fun `wrapped trojan and shadowsocks transports are typed skips`() {
+        val json =
+            """
+            { "outbounds": [
+              { "type": "trojan", "tag": "trojan-ws", "server": "t.example", "server_port": 443,
+                "password": "p", "transport": { "type": "ws" } },
+              { "type": "shadowsocks", "tag": "ss-grpc", "server": "s.example", "server_port": 8388,
+                "method": "aes-256-gcm", "password": "p", "transport": { "type": "grpc" } } ] }
+            """.trimIndent()
+
+        val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
+
+        assertTrue(parsed.profiles.isEmpty())
+        assertEquals(listOf("ws", "grpc"), parsed.skipped.map { it.detail })
+        assertTrue(parsed.skipped.all { it.reason == SingBoxSkipReason.UNSUPPORTED_TRANSPORT })
+    }
+
+    @Test
+    fun `standard hysteria identity and salamander fields are imported`() {
+        val json =
+            """
+            { "type": "hysteria2", "tag": "hy2", "server": "203.0.113.9", "server_port": 443,
+              "password": "test-value", "tls": { "server_name": "hy.example", "insecure": true },
+              "obfs": { "type": "salamander", "password": "obfs-test-value" } }
+            """.trimIndent()
+
+        val profile =
+            success(
+                SingBoxSubscriptionParser.parse(json, groupId),
+            ).profiles.single() as ProxyProfile.Hysteria2
+
+        assertEquals("hy.example", profile.serverName)
+        assertEquals(true, profile.insecure)
+        assertEquals("obfs-test-value", profile.obfsPassword)
+    }
+
+    @Test
+    fun `unsupported hysteria obfs and port hopping are typed skips`() {
+        val json =
+            """
+            { "outbounds": [
+              { "type": "hysteria2", "tag": "gecko", "server": "h.example", "server_port": 443,
+                "password": "p", "obfs": { "type": "gecko", "password": "test-value" } },
+              { "type": "hysteria2", "tag": "hop", "server": "h.example", "server_port": 443,
+                "server_ports": ["20000:30000"], "password": "p" } ] }
+            """.trimIndent()
+
+        val parsed = success(SingBoxSubscriptionParser.parse(json, groupId))
+
+        assertTrue(parsed.profiles.isEmpty())
+        assertEquals(SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, parsed.skipped[0].reason)
+        assertEquals(SingBoxSkipReason.UNSUPPORTED_PORT_HOPPING, parsed.skipped[1].reason)
     }
 
     @Test

@@ -128,6 +128,12 @@ object BackupAllowlist {
                 "server" to Classification.REDACTED,
                 "serverPort" to Classification.REDACTED,
                 "uuid" to Classification.REDACTED,
+                "serverName" to Classification.REDACTED,
+                "flow" to Classification.PUBLIC,
+                "fingerprint" to Classification.PUBLIC,
+                "xhttpPath" to Classification.REDACTED,
+                "xhttpHost" to Classification.REDACTED,
+                "xhttpMode" to Classification.PUBLIC,
             )
 
     private val shadowsocksFields: Map<String, Classification> =
@@ -155,6 +161,7 @@ object BackupAllowlist {
             mapOf(
                 "server" to Classification.PUBLIC,
                 "serverPort" to Classification.PUBLIC,
+                "serverName" to Classification.PUBLIC,
                 "password" to Classification.REDACTED,
                 "obfsPassword" to Classification.REDACTED,
                 "insecure" to Classification.PUBLIC,

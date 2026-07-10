@@ -138,6 +138,28 @@ class VlessRealityImportTest {
     }
 
     @Test
+    fun `singbox plain vless xhttp preserves tls identity and transport`() {
+        val json =
+            """
+            { "type": "vless", "tag": "plain-xhttp", "server": "203.0.113.4", "server_port": 443,
+              "uuid": "cccccccc-cccc-cccc-cccc-cccccccccccc", "flow": "",
+              "tls": { "enabled": true, "server_name": "cdn.example", "utls": { "fingerprint": "firefox" } },
+              "transport": { "type": "xhttp", "path": "", "host": "", "mode": "auto" } }
+            """.trimIndent()
+
+        val profile =
+            (SingBoxSubscriptionParser.parse(json, groupId) as SingBoxParseResult.Success)
+                .profiles
+                .single() as ProxyProfile.Vless
+
+        assertEquals("cdn.example", profile.serverName)
+        assertEquals("", profile.flow)
+        assertEquals("firefox", profile.fingerprint)
+        assertEquals("", profile.xhttpPath)
+        assertEquals("", profile.xhttpHost)
+    }
+
+    @Test
     fun `singbox vless reality with xhttp transport preserves path and host`() {
         val json =
             """
@@ -172,6 +194,45 @@ class VlessRealityImportTest {
         val profile = (result as SingBoxParseResult.Success).profiles.single() as ProxyProfile.VlessReality
         assertEquals("/tunnel", profile.xhttpPath)
         assertEquals("cdn.example.com", profile.xhttpHost)
+    }
+
+    @Test
+    fun `empty xhttp and empty flow survive uri round trip`() {
+        val uri =
+            "vless://dddddddd-dddd-dddd-dddd-dddddddddddd@cdn.example.com:443" +
+                "?security=reality&pbk=XHTTPKEY1234567890abcdefghijklmn&sni=cdn.example.com" +
+                "&type=xhttp&path=&host=&flow=#empty-xhttp"
+
+        val profile = ProxyUriCodec.parse(uri) as ProxyProfile.VlessReality
+        val reparsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile)) as ProxyProfile.VlessReality
+
+        assertEquals("", reparsed.flow)
+        assertEquals("", reparsed.xhttpPath)
+        assertEquals("", reparsed.xhttpHost)
+    }
+
+    @Test
+    fun `hysteria identity and authentication survive uri round trip`() {
+        val passwordFixture = "test-value"
+        val obfsPasswordFixture = "obfs-test-value"
+        val source =
+            ProxyProfile.Hysteria2(
+                id = "id",
+                displayName = "hy2",
+                groupId = groupId,
+                server = "203.0.113.9",
+                serverPort = 443,
+                password = passwordFixture,
+                serverName = "hy.example",
+                obfsPassword = obfsPasswordFixture,
+                insecure = true,
+            )
+
+        val reparsed = ProxyUriCodec.parse(ProxyUriCodec.encode(source)) as ProxyProfile.Hysteria2
+
+        assertEquals("hy.example", reparsed.serverName)
+        assertEquals(obfsPasswordFixture, reparsed.obfsPassword)
+        assertEquals(true, reparsed.insecure)
     }
 
     // --- URI codec -------------------------------------------------------------------
@@ -226,6 +287,21 @@ class VlessRealityImportTest {
         val profile = ProxyUriCodec.parse(uri)
 
         assertTrue("expected Vless, got ${profile?.javaClass?.simpleName}", profile is ProxyProfile.Vless)
+    }
+
+    @Test
+    fun `plain vless xhttp uri preserves identity and empty transport`() {
+        val uri =
+            "vless://cccccccc-cccc-cccc-cccc-cccccccccccc@203.0.113.4:443" +
+                "?security=tls&sni=cdn.example&type=xhttp&path=&host=&flow=&fp=firefox#plain"
+
+        val reparsed = ProxyUriCodec.parse(ProxyUriCodec.encode(ProxyUriCodec.parse(uri)!!)) as ProxyProfile.Vless
+
+        assertEquals("cdn.example", reparsed.serverName)
+        assertEquals("", reparsed.flow)
+        assertEquals("firefox", reparsed.fingerprint)
+        assertEquals("", reparsed.xhttpPath)
+        assertEquals("", reparsed.xhttpHost)
     }
 
     @Test

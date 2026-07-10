@@ -237,10 +237,11 @@ class XrayImportParser(
     private fun buildXhttp(parsed: VlessUri): XrayProfile.Xhttp =
         XrayProfile.Xhttp(
             path =
-                parsed.params["path"]
-                    ?.let(::safeDecode)
-                    .orEmpty()
-                    .ifBlank { "/" },
+                if ("path" in parsed.params) {
+                    safeDecode(parsed.params.getValue("path"))
+                } else {
+                    "/"
+                },
             mode = parsed.params["mode"].orEmpty().ifBlank { "auto" },
             host = parsed.params["host"].orEmpty(),
         )

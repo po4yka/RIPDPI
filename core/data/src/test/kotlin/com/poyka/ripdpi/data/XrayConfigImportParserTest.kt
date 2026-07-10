@@ -74,6 +74,63 @@ class XrayConfigImportParserTest {
     }
 
     @Test
+    fun `vless websocket and grpc transports are rejected with typed reasons`() {
+        listOf("ws", "grpc").forEach { transport ->
+            val config =
+                """
+                { "outbounds": [ { "protocol": "vless",
+                  "settings": { "vnext": [ { "address": "edge.example", "port": 443,
+                    "users": [ { "id": "$uuid" } ] } ] },
+                  "streamSettings": { "network": "$transport", "security": "reality",
+                    "realitySettings": { "publicKey": "$pbk", "serverName": "edge.example" } } } ] }
+                """.trimIndent()
+
+            val result = translate(config)
+
+            assertTrue(result.profiles.isEmpty())
+            assertEquals(XraySkipReason.UNSUPPORTED_TRANSPORT, result.skipped.single().reason)
+            assertEquals(transport, result.skipped.single().detail)
+        }
+    }
+
+    @Test
+    fun `unsupported vless fingerprint is rejected with a typed reason`() {
+        val config =
+            """
+            { "outbounds": [ { "protocol": "vless",
+              "settings": { "vnext": [ { "address": "edge.example", "port": 443,
+                "users": [ { "id": "$uuid" } ] } ] },
+              "streamSettings": { "network": "tcp", "security": "reality",
+                "realitySettings": { "publicKey": "$pbk", "fingerprint": "randomized" } } } ] }
+            """.trimIndent()
+
+        val skip = translate(config).skipped.single()
+
+        assertEquals(XraySkipReason.UNSUPPORTED_FINGERPRINT, skip.reason)
+        assertEquals("randomized", skip.detail)
+    }
+
+    @Test
+    fun `empty xhttp and flow remain explicit`() {
+        val config =
+            """
+            { "outbounds": [ { "protocol": "vless",
+              "settings": { "vnext": [ { "address": "edge.example", "port": 443,
+                "users": [ { "id": "$uuid", "flow": "" } ] } ] },
+              "streamSettings": { "network": "xhttp", "security": "reality",
+                "realitySettings": { "publicKey": "$pbk", "serverName": "edge.example" },
+                "xhttpSettings": { "path": "", "host": "", "mode": "" } } } ] }
+            """.trimIndent()
+
+        val profile = translate(config).profiles.single() as ProxyProfile.VlessReality
+
+        assertEquals("", profile.flow)
+        assertEquals("", profile.xhttpPath)
+        assertEquals("", profile.xhttpHost)
+        assertEquals("", profile.xhttpMode)
+    }
+
+    @Test
     fun `trojan and shadowsocks json map to their native profiles`() {
         val config =
             """
@@ -92,6 +149,26 @@ class XrayConfigImportParserTest {
         val ss = result.profiles.filterIsInstance<ProxyProfile.Shadowsocks>().single()
         assertEquals("aes-256-gcm", ss.method)
         assertEquals("ss-secret", ss.password)
+    }
+
+    @Test
+    fun `wrapped trojan and shadowsocks transports are rejected`() {
+        val config =
+            """
+            { "outbounds": [
+              { "protocol": "trojan", "settings": { "servers": [
+                { "address": "tj.example", "port": 443, "password": "test-value" } ] },
+                "streamSettings": { "network": "grpc" } },
+              { "protocol": "shadowsocks", "settings": { "servers": [
+                { "address": "ss.example", "port": 8388, "method": "aes-256-gcm", "password": "test-value" } ] },
+                "streamSettings": { "network": "websocket" } } ] }
+            """.trimIndent()
+
+        val result = translate(config)
+
+        assertTrue(result.profiles.isEmpty())
+        assertEquals(listOf("grpc", "websocket"), result.skipped.map { it.detail })
+        assertTrue(result.skipped.all { it.reason == XraySkipReason.UNSUPPORTED_TRANSPORT })
     }
 
     @Test
@@ -115,6 +192,27 @@ class XrayConfigImportParserTest {
         val result = translate(config)
         assertTrue(result.profiles.isEmpty())
         assertEquals(XraySkipReason.VLESS_REQUIRES_REALITY, result.skipped.single().reason)
+    }
+
+    @Test
+    fun `plain tls vless xhttp imports all supported identity fields`() {
+        val config =
+            """
+            { "outbounds": [ { "protocol": "vless", "tag": "plain-xhttp",
+              "settings": { "vnext": [ { "address": "203.0.113.4", "port": 443,
+                "users": [ { "id": "$uuid", "flow": "" } ] } ] },
+              "streamSettings": { "network": "xhttp", "security": "tls",
+                "tlsSettings": { "serverName": "cdn.example", "fingerprint": "firefox" },
+                "xhttpSettings": { "path": "", "host": "", "mode": "auto" } } } ] }
+            """.trimIndent()
+
+        val profile = translate(config).profiles.single() as ProxyProfile.Vless
+
+        assertEquals("cdn.example", profile.serverName)
+        assertEquals("", profile.flow)
+        assertEquals("firefox", profile.fingerprint)
+        assertEquals("", profile.xhttpPath)
+        assertEquals("", profile.xhttpHost)
     }
 
     @Test
@@ -180,6 +278,33 @@ class XrayConfigImportParserTest {
     }
 
     @Test
+    fun `plain tls xhttp share link maps to native Vless`() {
+        val link =
+            "vless://$uuid@203.0.113.4:443?security=tls&sni=cdn.example" +
+                "&type=xhttp&path=&host=&flow=&fp=firefox#plain"
+
+        val profile = translate(link).profiles.single() as ProxyProfile.Vless
+
+        assertEquals("cdn.example", profile.serverName)
+        assertEquals("", profile.flow)
+        assertEquals("firefox", profile.fingerprint)
+        assertEquals("", profile.xhttpPath)
+        assertEquals("", profile.xhttpHost)
+    }
+
+    @Test
+    fun `unsupported share fingerprint is typed`() {
+        val link =
+            "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk" +
+                "&sni=edge.example.com&fp=randomized#node"
+
+        val skip = translate(link).skipped.single()
+
+        assertEquals(XraySkipReason.UNSUPPORTED_FINGERPRINT, skip.reason)
+        assertEquals("randomized", skip.detail)
+    }
+
+    @Test
     fun `trojan and shadowsocks share links map to native profiles`() {
         val trojan = translate("trojan://pw@tj.example:443#t").profiles.single()
         assertTrue(trojan is ProxyProfile.Trojan)
@@ -212,6 +337,15 @@ class XrayConfigImportParserTest {
         val result = translate("vless://$uuid@h.example:443?security=reality#node")
         assertTrue(result.profiles.isEmpty())
         assertEquals(XraySkipReason.MALFORMED, result.skipped.single().reason)
+    }
+
+    @Test
+    fun `unsupported vless share transport is typed`() {
+        val result = translate("vless://$uuid@h.example:443?security=reality&pbk=$pbk&type=grpc#node")
+
+        assertTrue(result.profiles.isEmpty())
+        assertEquals(XraySkipReason.UNSUPPORTED_TRANSPORT, result.skipped.single().reason)
+        assertEquals("grpc", result.skipped.single().detail)
     }
 
     @Test

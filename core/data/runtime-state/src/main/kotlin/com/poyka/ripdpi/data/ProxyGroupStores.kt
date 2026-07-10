@@ -150,6 +150,12 @@ sealed interface ProxyProfile {
         val server: String,
         val serverPort: Int,
         val uuid: String,
+        val serverName: String? = null,
+        val flow: String = "",
+        val fingerprint: String? = null,
+        val xhttpPath: String? = null,
+        val xhttpHost: String? = null,
+        val xhttpMode: String = RelayXhttpModeAuto,
     ) : ProxyProfile
 
     /**
@@ -222,6 +228,8 @@ sealed interface ProxyProfile {
         val server: String,
         val serverPort: Int,
         val password: String,
+        /** TLS SNI. `null` falls back to [server] for legacy persisted profiles. */
+        val serverName: String? = null,
         /**
          * Salamander obfuscation password. `null` means no obfuscation is
          * configured. When delivered via the RIPDPI extended bundle

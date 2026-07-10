@@ -265,6 +265,11 @@ object FleetCompatHarness {
             .mapNotNull { obj ->
                 val type = obj.str("type") ?: return@mapNotNull null
                 if (type in BOILERPLATE_TYPES) return@mapNotNull null
+                // Hysteria2 server_ports changes the dial endpoint set and is not
+                // representable by the native relay DTO. The importer rejects it
+                // instead of silently dialing server_port, so it is intentionally
+                // absent from the re-exported runnable-node set.
+                if (type == "hysteria2" && obj["server_ports"] != null) return@mapNotNull null
                 val server = obj.str("server") ?: return@mapNotNull null
                 val port = obj.intStr("server_port") ?: return@mapNotNull null
                 "$type|$server|$port"

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
@@ -42,6 +43,8 @@ sealed interface SingBoxParseResult {
          * the enforcement point; this is the early-warning copy.
          */
         val expiresAt: String? = null,
+        /** Nodes rejected before mapping because their declared wire mode is unsupported. */
+        val skipped: List<SingBoxSkippedNode> = emptyList(),
     ) : SingBoxParseResult
 
     /** Parsing failed; [message] carries a human-readable, location-aware reason. */
@@ -49,6 +52,22 @@ sealed interface SingBoxParseResult {
         val message: String,
     ) : SingBoxParseResult
 }
+
+/** Stable reason why a sing-box outbound was not made selectable. */
+enum class SingBoxSkipReason {
+    UNSUPPORTED_TRANSPORT,
+    UNSUPPORTED_OBFUSCATION,
+    UNSUPPORTED_PORT_HOPPING,
+    UNSUPPORTED_FINGERPRINT,
+}
+
+/** One rejected sing-box outbound. [detail] is a non-secret protocol identifier. */
+data class SingBoxSkippedNode(
+    val index: Int,
+    val label: String,
+    val reason: SingBoxSkipReason,
+    val detail: String? = null,
+)
 
 /**
  * Transport topology declared by `ripdpi.topology`. Both fields are optional
@@ -126,11 +145,16 @@ object SingBoxSubscriptionParser {
             }
 
             is OutboundExtraction.Outbounds -> {
+                val skipped = mutableListOf<SingBoxSkippedNode>()
                 val baseProfiles =
-                    extracted.entries.mapNotNull { element ->
-                        val obj = element as? JsonObject ?: return@mapNotNull null
-                        val type = obj.string("type") ?: return@mapNotNull null
-                        if (type.lowercase() in GROUP_OUTBOUND_TYPES) return@mapNotNull null
+                    extracted.entries.mapIndexedNotNull { index, element ->
+                        val obj = element as? JsonObject ?: return@mapIndexedNotNull null
+                        val type = obj.string("type") ?: return@mapIndexedNotNull null
+                        if (type.lowercase() in GROUP_OUTBOUND_TYPES) return@mapIndexedNotNull null
+                        unsupportedNode(obj, type, index)?.let {
+                            skipped += it
+                            return@mapIndexedNotNull null
+                        }
                         mapOutbound(type, obj, groupId)
                     }
                 val ripdpi = processRipdpiBlock(rootElement, baseProfiles, groupId)
@@ -139,6 +163,7 @@ object SingBoxSubscriptionParser {
                     amneziaWgProfiles = ripdpi.amneziaWgProfiles,
                     topology = ripdpi.topology,
                     expiresAt = ripdpi.expiresAt,
+                    skipped = skipped,
                 )
             }
         }
@@ -169,6 +194,44 @@ object SingBoxSubscriptionParser {
             }
         return extractOutboundsFromElement(element)
     }
+}
+
+private fun unsupportedNode(
+    obj: JsonObject,
+    type: String,
+    index: Int,
+): SingBoxSkippedNode? {
+    val normalizedType = type.lowercase()
+    val label = obj.string("tag") ?: "$normalizedType outbound ${index + 1}"
+    val transport = (obj["transport"] as? JsonObject)?.string("type")?.lowercase()
+    val allowedTransports =
+        when (normalizedType) {
+            "vless" -> setOf("tcp", "xhttp")
+            "trojan", "shadowsocks" -> setOf("tcp")
+            else -> emptySet()
+        }
+    if (transport != null && normalizedType in setOf("vless", "trojan", "shadowsocks") &&
+        transport !in allowedTransports
+    ) {
+        return SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_TRANSPORT, transport)
+    }
+    if (normalizedType == "vless") {
+        val fingerprint =
+            (((obj["tls"] as? JsonObject)?.get("utls") as? JsonObject)?.string("fingerprint"))
+        if (fingerprint != null && normalizeImportedTlsFingerprint(fingerprint) == null) {
+            return SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_FINGERPRINT, fingerprint.lowercase())
+        }
+    }
+    if (normalizedType == "hysteria2") {
+        if (obj["server_ports"] != null || obj["hop_interval"] != null || obj["hop_interval_max"] != null) {
+            return SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_PORT_HOPPING, "server_ports")
+        }
+        val obfsType = (obj["obfs"] as? JsonObject)?.string("type")?.lowercase()
+        if (obfsType != null && obfsType != "salamander") {
+            return SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, obfsType)
+        }
+    }
+    return null
 }
 
 /** Permissive JSON reader shared by the sing-box parser and its outbound mappers. */
@@ -268,6 +331,7 @@ private fun mapVless(
         if (uuid.isNullOrBlank()) {
             rawConfig(name, groupId, obj)
         } else {
+            val xhttp = obj.xhttpTransport()
             ProxyProfile.Vless(
                 id = newId(),
                 displayName = name,
@@ -275,10 +339,19 @@ private fun mapVless(
                 server = server,
                 serverPort = port,
                 uuid = uuid,
+                serverName = tlsObj?.string("server_name") ?: server,
+                flow = obj.rawString("flow").orEmpty(),
+                fingerprint = (tlsObj?.get("utls") as? JsonObject)?.string("fingerprint"),
+                xhttpPath = if (xhttp != null) xhttp.rawString("path").orEmpty() else null,
+                xhttpHost = xhttp?.rawString("host"),
+                xhttpMode = xhttp?.rawString("mode") ?: com.poyka.ripdpi.data.RelayXhttpModeAuto,
             )
         }
     }
 }
+
+private fun JsonObject.xhttpTransport(): JsonObject? =
+    (this["transport"] as? JsonObject)?.takeIf { it.string("type")?.equals("xhttp", ignoreCase = true) == true }
 
 @Suppress("LongParameterList")
 private fun mapVlessReality(
@@ -293,15 +366,15 @@ private fun mapVlessReality(
 ): ProxyProfile {
     val realityShortId = realityObj?.string("short_id").orEmpty()
     val serverName = tlsObj?.string("server_name") ?: server
-    val flow = obj.string("flow") ?: DefaultRealityFlow
+    val flow = obj.rawString("flow") ?: DefaultRealityFlow
     val fingerprint = (tlsObj?.get("utls") as? JsonObject)?.string("fingerprint")
     val transportObj = obj["transport"] as? JsonObject
     val isXhttp = transportObj?.string("type")?.lowercase() == "xhttp"
-    val xhttpPath = if (isXhttp) transportObj.string("path") else null
-    val xhttpHost = if (isXhttp) transportObj.string("host") else null
+    val xhttpPath = if (isXhttp) transportObj.rawString("path").orEmpty() else null
+    val xhttpHost = if (isXhttp) transportObj.rawString("host") else null
     val xhttpMode =
         if (isXhttp) {
-            transportObj.string(
+            transportObj.rawString(
                 "mode",
             ) ?: com.poyka.ripdpi.data.RelayXhttpModeAuto
         } else {
@@ -361,6 +434,7 @@ private fun mapTrojan(
     name: String,
 ): ProxyProfile {
     val password = obj.string("password")
+    val tls = obj["tls"] as? JsonObject
     return if (server != null && port != null && !password.isNullOrBlank()) {
         ProxyProfile.Trojan(
             id = newId(),
@@ -369,6 +443,7 @@ private fun mapTrojan(
             server = server,
             serverPort = port,
             password = password,
+            serverName = tls?.string("server_name"),
         )
     } else {
         rawConfig(name, groupId, obj)
@@ -383,6 +458,8 @@ private fun mapHysteria2(
     name: String,
 ): ProxyProfile {
     val password = obj.string("password")
+    val tls = obj["tls"] as? JsonObject
+    val obfs = obj["obfs"] as? JsonObject
     return if (server != null && port != null && !password.isNullOrBlank()) {
         ProxyProfile.Hysteria2(
             id = newId(),
@@ -391,6 +468,9 @@ private fun mapHysteria2(
             server = server,
             serverPort = port,
             password = password,
+            serverName = tls?.string("server_name"),
+            obfsPassword = obfs?.rawString("password"),
+            insecure = (tls?.get("insecure") as? JsonPrimitive)?.booleanOrNull,
         )
     } else {
         rawConfig(name, groupId, obj)
@@ -622,6 +702,8 @@ private fun newId(): String = UUID.randomUUID().toString()
 
 private fun JsonObject.string(key: String): String? =
     (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+
+private fun JsonObject.rawString(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 
 private fun JsonObject.nestedString(
     objectKey: String,

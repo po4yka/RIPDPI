@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import kotlinx.serialization.json.JsonArray
@@ -29,6 +30,12 @@ enum class XraySkipReason {
 
     /** A protocol RIPDPI does not implement natively (`socks`, `http`, `wireguard`, `trojan-go`, …). */
     UNSUPPORTED_PROTOCOL,
+
+    /** A protocol transport the native backend does not implement (for example WebSocket or gRPC). */
+    UNSUPPORTED_TRANSPORT,
+
+    /** A uTLS fingerprint alias that has no native fingerprint profile. */
+    UNSUPPORTED_FINGERPRINT,
 
     /** Recognised protocol but the entry is missing a required field (uuid / host / port / key). */
     MALFORMED,
@@ -191,12 +198,33 @@ object XrayConfigImportParser {
         val stream = obj["streamSettings"] as? JsonObject
         val tag = obj.string("tag")
         return when (protocol) {
-            "vless" -> mapVless(settings, stream, tag, groupId)
-            "trojan" -> mapTrojan(settings, tag, groupId)
-            "shadowsocks" -> mapShadowsocks(settings, tag, groupId)
-            "vmess" -> OutboundMapping.Skip(XraySkipReason.VMESS_REMOVED)
-            in NON_PROXY_PROTOCOLS -> OutboundMapping.Skip(XraySkipReason.NON_PROXY_OUTBOUND, protocol)
-            else -> OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_PROTOCOL, protocol)
+            "vless" -> {
+                mapVless(settings, stream, tag, groupId)
+            }
+
+            "trojan" -> {
+                stream.unsupportedTcpOnlyTransport()?.let {
+                    OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, it)
+                } ?: mapTrojan(settings, tag, groupId)
+            }
+
+            "shadowsocks" -> {
+                stream.unsupportedTcpOnlyTransport()?.let {
+                    OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, it)
+                } ?: mapShadowsocks(settings, tag, groupId)
+            }
+
+            "vmess" -> {
+                OutboundMapping.Skip(XraySkipReason.VMESS_REMOVED)
+            }
+
+            in NON_PROXY_PROTOCOLS -> {
+                OutboundMapping.Skip(XraySkipReason.NON_PROXY_OUTBOUND, protocol)
+            }
+
+            else -> {
+                OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_PROTOCOL, protocol)
+            }
         }
     }
 
@@ -213,11 +241,26 @@ object XrayConfigImportParser {
         val uuid = user?.string("id")
         val security = stream?.string("security")?.lowercase()
         val reality = stream?.get("realitySettings") as? JsonObject
+        val tls = stream?.get("tlsSettings") as? JsonObject
         val publicKey = reality?.string("publicKey")
         val isReality = security == "reality" || !publicKey.isNullOrBlank()
+        val transport = stream?.string("network")?.lowercase()
+        val fingerprint = reality?.string("fingerprint") ?: tls?.string("fingerprint")
         return when {
             address == null || port == null || user == null || uuid == null -> {
                 OutboundMapping.Skip(XraySkipReason.MALFORMED)
+            }
+
+            transport != null && transport !in setOf("raw", "tcp", "xhttp") -> {
+                OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, transport)
+            }
+
+            fingerprint != null && normalizeImportedTlsFingerprint(fingerprint) == null -> {
+                OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_FINGERPRINT, fingerprint.lowercase())
+            }
+
+            !isReality && security == "tls" && transport == "xhttp" -> {
+                OutboundMapping.Profile(buildPlainVless(stream, user, address, port, uuid, tag, groupId))
             }
 
             !isReality -> {
@@ -321,10 +364,20 @@ object XrayConfigImportParser {
         val profile = ProxyUriCodec.parse(line)
         when (profile) {
             is ProxyProfile.VlessReality -> {
+                val unsupportedFingerprint =
+                    profile.fingerprint?.takeIf { normalizeImportedTlsFingerprint(it) == null }
                 // Defensive check for malformed profiles from future parser changes:
                 // REALITY cannot complete a handshake without public key material.
                 if (profile.realityPublicKey.isBlank()) {
                     skipped += XraySkippedNode(index, "$scheme link", XraySkipReason.MALFORMED, scheme)
+                } else if (unsupportedFingerprint != null) {
+                    skipped +=
+                        XraySkippedNode(
+                            index,
+                            "$scheme link",
+                            XraySkipReason.UNSUPPORTED_FINGERPRINT,
+                            unsupportedFingerprint.lowercase(),
+                        )
                 } else {
                     profiles += profile.copy(groupId = groupId)
                 }
@@ -343,11 +396,35 @@ object XrayConfigImportParser {
             }
 
             is ProxyProfile.Vless -> {
-                skipped += XraySkippedNode(index, "$scheme link", XraySkipReason.VLESS_REQUIRES_REALITY)
+                when {
+                    profile.fingerprint != null && normalizeImportedTlsFingerprint(profile.fingerprint) == null -> {
+                        skipped +=
+                            XraySkippedNode(
+                                index,
+                                "$scheme link",
+                                XraySkipReason.UNSUPPORTED_FINGERPRINT,
+                                profile.fingerprint.lowercase(),
+                            )
+                    }
+
+                    profile.xhttpPath != null || profile.xhttpHost != null -> {
+                        profiles += profile.copy(groupId = groupId)
+                    }
+
+                    else -> {
+                        skipped += XraySkippedNode(index, "$scheme link", XraySkipReason.VLESS_REQUIRES_REALITY)
+                    }
+                }
             }
 
             null -> {
-                skipped += XraySkippedNode(index, "$scheme link", XraySkipReason.MALFORMED, scheme)
+                val transport = unsupportedVlessLinkTransport(line)
+                skipped +=
+                    if (transport != null) {
+                        XraySkippedNode(index, "$scheme link", XraySkipReason.UNSUPPORTED_TRANSPORT, transport)
+                    } else {
+                        XraySkippedNode(index, "$scheme link", XraySkipReason.MALFORMED, scheme)
+                    }
             }
 
             else -> {
@@ -405,6 +482,7 @@ private fun buildVlessReality(
 ): ProxyProfile.VlessReality {
     val network = stream?.string("network")?.lowercase()
     val xhttp = if (network == "xhttp") stream["xhttpSettings"] as? JsonObject else null
+    val isXhttp = network == "xhttp"
     return ProxyProfile.VlessReality(
         id = newId(),
         displayName = tag ?: address,
@@ -415,12 +493,61 @@ private fun buildVlessReality(
         realityPublicKey = publicKey,
         realityShortId = reality.string("shortId").orEmpty(),
         serverName = reality.string("serverName") ?: address,
-        flow = user.string("flow") ?: DefaultRealityFlow,
+        flow = user.rawString("flow") ?: DefaultRealityFlow,
         fingerprint = reality.string("fingerprint"),
-        xhttpPath = xhttp?.string("path"),
-        xhttpHost = xhttp?.string("host"),
-        xhttpMode = xhttp?.string("mode") ?: com.poyka.ripdpi.data.RelayXhttpModeAuto,
+        xhttpPath = if (isXhttp) xhttp?.rawString("path").orEmpty() else null,
+        xhttpHost = if (isXhttp) xhttp?.rawString("host") else null,
+        xhttpMode = xhttp?.rawString("mode") ?: com.poyka.ripdpi.data.RelayXhttpModeAuto,
     )
+}
+
+private fun buildPlainVless(
+    stream: JsonObject?,
+    user: JsonObject,
+    address: String,
+    port: Int,
+    uuid: String,
+    tag: String?,
+    groupId: String,
+): ProxyProfile.Vless {
+    val tls = stream?.get("tlsSettings") as? JsonObject
+    val xhttp = stream?.get("xhttpSettings") as? JsonObject
+    return ProxyProfile.Vless(
+        id = newId(),
+        displayName = tag ?: address,
+        groupId = groupId,
+        server = address,
+        serverPort = port,
+        uuid = uuid,
+        serverName = tls?.string("serverName") ?: address,
+        flow = user.rawString("flow").orEmpty(),
+        fingerprint = tls?.string("fingerprint"),
+        xhttpPath = xhttp?.rawString("path").orEmpty(),
+        xhttpHost = xhttp?.rawString("host"),
+        xhttpMode = xhttp?.rawString("mode") ?: com.poyka.ripdpi.data.RelayXhttpModeAuto,
+    )
+}
+
+private fun JsonObject?.unsupportedTcpOnlyTransport(): String? =
+    this?.string("network")?.lowercase()?.takeIf { it !in setOf("raw", "tcp") }
+
+private fun unsupportedVlessLinkTransport(line: String): String? {
+    if (!line.startsWith("vless://", ignoreCase = true)) return null
+    val rawQuery = runCatching { java.net.URI(line).rawQuery }.getOrNull() ?: return null
+    val transport =
+        rawQuery
+            .split('&')
+            .firstNotNullOfOrNull { part ->
+                val separator = part.indexOf('=')
+                if (separator > 0 && part.substring(0, separator) == "type") {
+                    java.net.URLDecoder
+                        .decode(part.substring(separator + 1), "UTF-8")
+                        .lowercase()
+                } else {
+                    null
+                }
+            }
+    return transport?.takeIf { it !in setOf("tcp", "xhttp") }
 }
 
 private fun looksLikeJson(text: String): Boolean = text.startsWith("{") || text.startsWith("[")
@@ -503,6 +630,8 @@ private fun JsonArray.firstObject(): JsonObject? = firstOrNull() as? JsonObject
 
 private fun JsonObject.string(key: String): String? =
     (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+
+private fun JsonObject.rawString(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 
 private fun JsonObject.int(key: String): Int? {
     val primitive = this[key] as? JsonPrimitive ?: return null

@@ -256,12 +256,43 @@ private fun skipReasonText(
     detail: String?,
 ): String =
     when (reason) {
-        XraySkipReason.VMESS_REMOVED -> stringResource(R.string.xray_skip_vmess_removed)
-        XraySkipReason.VLESS_REQUIRES_REALITY -> stringResource(R.string.xray_skip_vless_requires_reality)
-        XraySkipReason.NON_PROXY_OUTBOUND -> stringResource(R.string.xray_skip_non_proxy, detail.orEmpty())
-        XraySkipReason.UNSUPPORTED_PROTOCOL -> stringResource(R.string.xray_skip_unsupported_protocol, detail.orEmpty())
-        XraySkipReason.MALFORMED -> stringResource(R.string.xray_skip_malformed)
-        XraySkipReason.SINGLE_RELAY_ONLY -> stringResource(R.string.xray_skip_single_relay_only)
+        XraySkipReason.VMESS_REMOVED -> {
+            stringResource(R.string.xray_skip_vmess_removed)
+        }
+
+        XraySkipReason.VLESS_REQUIRES_REALITY -> {
+            stringResource(R.string.xray_skip_vless_requires_reality)
+        }
+
+        XraySkipReason.NON_PROXY_OUTBOUND -> {
+            stringResource(R.string.xray_skip_non_proxy, detail.orEmpty())
+        }
+
+        XraySkipReason.UNSUPPORTED_PROTOCOL -> {
+            stringResource(R.string.xray_skip_unsupported_protocol, detail.orEmpty())
+        }
+
+        XraySkipReason.UNSUPPORTED_TRANSPORT -> {
+            stringResource(
+                R.string.xray_skip_unsupported_transport,
+                detail.orEmpty(),
+            )
+        }
+
+        XraySkipReason.UNSUPPORTED_FINGERPRINT -> {
+            stringResource(
+                R.string.xray_skip_unsupported_fingerprint,
+                detail.orEmpty(),
+            )
+        }
+
+        XraySkipReason.MALFORMED -> {
+            stringResource(R.string.xray_skip_malformed)
+        }
+
+        XraySkipReason.SINGLE_RELAY_ONLY -> {
+            stringResource(R.string.xray_skip_single_relay_only)
+        }
     }
 
 /**

@@ -70,6 +70,18 @@ class XrayImportParserTest {
     }
 
     @Test
+    fun explicitEmptyXhttpPathRemainsEmpty() {
+        val link =
+            "vless://$uuid@edge.example.com:8443" +
+                "?type=xhttp&security=tls&sni=cdn.example.com&path=&mode=auto#x"
+
+        val profile = accepted(parser.parse(link, stableTag)).profile!!
+
+        assertEquals(XrayProfile.Network.XHTTP, profile.outbound.network)
+        assertEquals("", profile.outbound.xhttp?.path)
+    }
+
+    @Test
     fun rawJsonConfigImportsThroughValidateGate() {
         // Minimal valid xray config: a single direct outbound with a flow'd vless user.
         val rawConfig =

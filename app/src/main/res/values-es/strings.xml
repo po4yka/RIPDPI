@@ -3449,6 +3449,8 @@ Origen: %2$s</string>
     <string name="xray_skip_vless_requires_reality">VLESS simple no es compatible; se requiere REALITY.</string>
     <string name="xray_skip_non_proxy">Saliente de utilidad (%1$s): nada que importar.</string>
     <string name="xray_skip_unsupported_protocol">%1$s no es compatible de forma nativa.</string>
+    <string name="xray_skip_unsupported_transport">El transporte %1$s no es compatible de forma nativa.</string>
+    <string name="xray_skip_unsupported_fingerprint">La huella TLS %1$s no es compatible de forma nativa.</string>
     <string name="xray_skip_malformed">Saliente incompleto o con formato incorrecto.</string>
     <string name="xray_provider_card_title">Proveedor Xray</string>
     <string name="xray_provider_settings_section_title">Proveedor Xray</string>

@@ -35,6 +35,18 @@ fun normalizeTlsFingerprintProfile(value: String): String =
         else -> TlsFingerprintProfileChromeStable
     }
 
+/** Maps imported uTLS fingerprint aliases to supported native profile ids, or rejects unknown aliases. */
+fun normalizeImportedTlsFingerprint(value: String): String? =
+    when (value.trim().lowercase()) {
+        "chrome", TlsFingerprintProfileChromeStable -> TlsFingerprintProfileChromeStable
+        "chrome_desktop", TlsFingerprintProfileChromeDesktopStable -> TlsFingerprintProfileChromeDesktopStable
+        "firefox", TlsFingerprintProfileFirefoxStable -> TlsFingerprintProfileFirefoxStable
+        "firefox_ech", TlsFingerprintProfileFirefoxEchStable -> TlsFingerprintProfileFirefoxEchStable
+        "safari", TlsFingerprintProfileSafariStable -> TlsFingerprintProfileSafariStable
+        "edge", TlsFingerprintProfileEdgeStable -> TlsFingerprintProfileEdgeStable
+        else -> null
+    }
+
 fun tlsFingerprintProfileSummary(value: String): String =
     when (normalizeTlsFingerprintProfile(value)) {
         TlsFingerprintProfileChromeStable -> "Chrome stable"

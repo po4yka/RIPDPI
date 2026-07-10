@@ -71,7 +71,7 @@ object ProxyUriCodec {
     fun encodeOrNull(profile: ProxyProfile): String? =
         when (profile) {
             is ProxyProfile.Vless -> {
-                userInfoUri("vless", profile.uuid, profile.server, profile.serverPort, profile.displayName)
+                encodeVless(profile)
             }
 
             is ProxyProfile.VlessReality -> {
@@ -122,6 +122,24 @@ object ProxyUriCodec {
                 add("pbk=${encodeQueryValue(profile.realityPublicKey)}")
                 if (profile.realityShortId.isNotEmpty()) add("sid=${encodeQueryValue(profile.realityShortId)}")
                 add("sni=${encodeQueryValue(profile.serverName)}")
+                add("flow=${encodeQueryValue(profile.flow)}")
+                profile.fingerprint?.let { add("fp=${encodeQueryValue(it)}") }
+                if (profile.xhttpPath != null || profile.xhttpHost != null) {
+                    add("type=xhttp")
+                    profile.xhttpPath?.let { add("path=${encodeQueryValue(it)}") }
+                    profile.xhttpHost?.let { add("host=${encodeQueryValue(it)}") }
+                    add("mode=${encodeQueryValue(profile.xhttpMode)}")
+                }
+            }.joinToString("&")
+        return "vless://${profile.uuid}@${bracketIpv6(profile.server)}:${profile.serverPort}" +
+            "?$params#${encodeFragment(profile.displayName)}"
+    }
+
+    private fun encodeVless(profile: ProxyProfile.Vless): String {
+        val params =
+            buildList {
+                add("security=tls")
+                profile.serverName?.let { add("sni=${encodeQueryValue(it)}") }
                 add("flow=${encodeQueryValue(profile.flow)}")
                 profile.fingerprint?.let { add("fp=${encodeQueryValue(it)}") }
                 if (profile.xhttpPath != null || profile.xhttpHost != null) {
@@ -197,6 +215,7 @@ object ProxyUriCodec {
         val base = userInfoUri("hysteria2", profile.password, profile.server, profile.serverPort, profile.displayName)
         val params =
             buildList {
+                profile.serverName?.let { add("sni=${encodeQueryValue(it)}") }
                 profile.obfsPassword?.let {
                     add("obfs=salamander")
                     add("obfs-password=${encodeQueryValue(it)}")
@@ -250,7 +269,7 @@ object ProxyUriCodec {
             if (transportType != null && transportType != "tcp" && transportType != "xhttp") {
                 return null
             }
-            val xhttpPath = if (transportType == "xhttp") queryValue(rawQuery, "path") else null
+            val xhttpPath = if (transportType == "xhttp") queryValue(rawQuery, "path").orEmpty() else null
             val xhttpHost = if (transportType == "xhttp") queryValue(rawQuery, "host") else null
             val xhttpMode = if (transportType == "xhttp") queryValue(rawQuery, "mode") ?: "auto" else "auto"
             ProxyProfile.VlessReality(
@@ -277,6 +296,22 @@ object ProxyUriCodec {
                 server = host,
                 serverPort = port,
                 uuid = uuid,
+                serverName = queryValue(rawQuery, "sni") ?: queryValue(rawQuery, "serverName"),
+                flow = queryValue(rawQuery, "flow").orEmpty(),
+                fingerprint = queryValue(rawQuery, "fp"),
+                xhttpPath =
+                    if (queryValue(rawQuery, "type")?.equals("xhttp", ignoreCase = true) == true) {
+                        queryValue(rawQuery, "path").orEmpty()
+                    } else {
+                        null
+                    },
+                xhttpHost =
+                    if (queryValue(rawQuery, "type")?.equals("xhttp", ignoreCase = true) == true) {
+                        queryValue(rawQuery, "host")
+                    } else {
+                        null
+                    },
+                xhttpMode = queryValue(rawQuery, "mode") ?: "auto",
             )
         }
     }
@@ -476,6 +511,8 @@ object ProxyUriCodec {
         val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         val rawQuery = parsed.rawQuery
+        val obfsType = queryValue(rawQuery, "obfs")
+        if (obfsType != null && !obfsType.equals("salamander", ignoreCase = true)) return null
         return ProxyProfile.Hysteria2(
             id = newId(),
             displayName = displayName(parsed.fragment, host),
@@ -483,6 +520,7 @@ object ProxyUriCodec {
             server = host,
             serverPort = port,
             password = password,
+            serverName = queryValue(rawQuery, "sni") ?: queryValue(rawQuery, "serverName"),
             // Salamander obfuscation password. The activator maps obfsPassword ->
             // hysteriaSalamanderKey, which the native QUIC backend already honours;
             // dropping it silently disabled the configured censorship-resistance.
@@ -585,7 +623,7 @@ object ProxyUriCodec {
                 } else {
                     part.substring(0, separator) to part.substring(separator + 1)
                 }
-            }?.firstOrNull { (name, value) -> name == key && value.isNotBlank() }
+            }?.firstOrNull { (name, _) -> name == key }
             ?.second
             ?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrDefault(it) }
 

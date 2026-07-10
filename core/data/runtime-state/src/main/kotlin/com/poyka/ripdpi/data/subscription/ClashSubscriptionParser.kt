@@ -6,6 +6,7 @@ import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlNode
 import com.charleskorn.kaml.yamlMap
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import java.util.UUID
 
 /**
@@ -136,6 +137,10 @@ object ClashSubscriptionParser {
             }
 
             "hysteria2", "hy2" -> {
+                val obfsType = node.string("obfs")
+                require(obfsType == null || obfsType.equals("salamander", ignoreCase = true)) {
+                    "node $index hysteria2 uses unsupported obfs '$obfsType'"
+                }
                 ProxyProfile.Hysteria2(
                     id = newId(),
                     displayName = name,
@@ -143,6 +148,9 @@ object ClashSubscriptionParser {
                     server = node.requireString("server", index),
                     serverPort = node.requirePort("port", index),
                     password = node.requireString("password", index),
+                    serverName = node.string("sni") ?: node.string("servername"),
+                    obfsPassword = node.string("obfs-password"),
+                    insecure = node.string("skip-cert-verify")?.toBooleanStrictOrNull(),
                 )
             }
 
@@ -183,6 +191,10 @@ object ClashSubscriptionParser {
         val uuid = node.requireString("uuid", index)
         // Detect REALITY: reality-opts.public-key is non-empty.
         val realityPublicKey = node.nestedString("reality-opts", "public-key")
+        val fingerprint = node.string("client-fingerprint")
+        require(fingerprint == null || normalizeImportedTlsFingerprint(fingerprint) != null) {
+            "node $index vless uses unsupported client fingerprint"
+        }
         return if (!realityPublicKey.isNullOrBlank()) {
             ProxyProfile.VlessReality(
                 id = newId(),
@@ -195,7 +207,7 @@ object ClashSubscriptionParser {
                 realityShortId = node.nestedString("reality-opts", "short-id").orEmpty(),
                 serverName = node.string("servername") ?: node.string("sni") ?: server,
                 flow = node.string("flow") ?: "xtls-rprx-vision",
-                fingerprint = node.string("client-fingerprint"),
+                fingerprint = fingerprint,
             )
         } else {
             ProxyProfile.Vless(

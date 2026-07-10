@@ -1,8 +1,1 @@
-[
-  {
-    "type": "hysteria2",
-    "name": "p2-hysteria2-hetzner-prod",
-    "server": "198.51.100.40",
-    "port": "443"
-  }
-]
+[]
