@@ -1,3 +1,11 @@
+fn default_shadowtls_inner_vless_flow() -> String {
+    "xtls-rprx-vision".to_string()
+}
+
+fn default_shadowtls_inner_vless_transport() -> String {
+    "reality_tcp".to_string()
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedShadowTlsInnerRelayConfig {
@@ -8,6 +16,9 @@ pub struct ResolvedShadowTlsInnerRelayConfig {
     pub server_name: String,
     pub reality_public_key: String,
     pub reality_short_id: String,
+    #[serde(default = "default_shadowtls_inner_vless_flow")]
+    pub vless_flow: String,
+    #[serde(default = "default_shadowtls_inner_vless_transport")]
     pub vless_transport: String,
     pub vless_uuid: Option<String>,
 }

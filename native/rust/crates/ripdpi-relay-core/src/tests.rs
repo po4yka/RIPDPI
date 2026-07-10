@@ -275,6 +275,7 @@ async fn relay_endpoint_bootstrap_preserves_shadowtls_outer_and_inner_hostnames(
         server_name: "inner.example".to_string(),
         reality_public_key: "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=".to_string(),
         reality_short_id: String::new(),
+        vless_flow: "xtls-rprx-vision".to_string(),
         vless_transport: "reality_tcp".to_string(),
         vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
     });
@@ -946,6 +947,7 @@ async fn chain_relay_builds_shadowtls_entry_shadowsocks_exit_from_resolved_hops(
             server_name: "inner-entry.example".to_string(),
             reality_public_key: valid_reality_public_key(),
             reality_short_id: String::new(),
+            vless_flow: "xtls-rprx-vision".to_string(),
             vless_transport: "reality_tcp".to_string(),
             vless_uuid: Some("33333333-3333-3333-3333-333333333333".to_string()),
         }),
@@ -994,6 +996,7 @@ async fn chain_relay_builds_shadowsocks_entry_shadowtls_exit_from_resolved_hops(
             server_name: "inner-exit.example".to_string(),
             reality_public_key: valid_reality_public_key(),
             reality_short_id: String::new(),
+            vless_flow: "xtls-rprx-vision".to_string(),
             vless_transport: "reality_tcp".to_string(),
             vless_uuid: Some("44444444-4444-4444-4444-444444444444".to_string()),
         }),
@@ -1442,6 +1445,7 @@ async fn relay_runtime_builds_shadowtls_backend_with_inner_vless_profile() {
         server_name: "inner.example".to_string(),
         reality_public_key: "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=".to_string(),
         reality_short_id: String::new(),
+        vless_flow: "xtls-rprx-vision".to_string(),
         vless_transport: "reality_tcp".to_string(),
         vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
     });

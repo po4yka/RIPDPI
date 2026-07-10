@@ -265,6 +265,7 @@ fn resolved_hop_shadowtls_factory(
             server_name: inner.server_name.clone(),
             reality_public_key: inner.reality_public_key.clone(),
             reality_short_id: inner.reality_short_id.clone(),
+            vless_flow: inner.vless_flow.clone(),
             vless_transport: inner.vless_transport.clone(),
             vless_uuid: inner.vless_uuid.clone(),
         },

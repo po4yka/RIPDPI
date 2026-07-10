@@ -441,4 +441,31 @@ mod tests {
 
         assert!(err.to_string().contains("unsupported native config schemaVersion 5"));
     }
+
+    #[test]
+    fn shadowtls_inner_vless_flow_round_trips() {
+        let mut object = relay_config_json_object();
+        object.insert("kind".to_string(), json!("shadowtls_v3"));
+        object.insert(
+            "shadowTlsInner".to_string(),
+            json!({
+                "kind": "vless_reality",
+                "profileId": "inner",
+                "server": "inner.example",
+                "serverPort": 443,
+                "serverName": "inner.example",
+                "realityPublicKey": "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=",
+                "realityShortId": "",
+                "vlessFlow": "xtls-rprx-vision-udp443",
+                "vlessUuid": "00000000-0000-0000-0000-000000000001"
+            }),
+        );
+
+        let config: ResolvedRelayRuntimeConfig =
+            serde_json::from_value(Value::Object(object)).expect("ShadowTLS inner config");
+        let value = serde_json::to_value(config).expect("serialize ShadowTLS config");
+
+        assert_eq!(value["shadowTlsInner"]["vlessFlow"], json!("xtls-rprx-vision-udp443"));
+        assert_eq!(value["shadowTlsInner"]["vlessTransport"], json!("reality_tcp"));
+    }
 }

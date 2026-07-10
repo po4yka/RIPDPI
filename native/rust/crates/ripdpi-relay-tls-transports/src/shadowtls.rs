@@ -14,6 +14,7 @@ pub struct ShadowTlsInnerConfig {
     pub server_name: String,
     pub reality_public_key: String,
     pub reality_short_id: String,
+    pub vless_flow: String,
     pub vless_transport: String,
     pub vless_uuid: Option<String>,
 }
@@ -124,6 +125,7 @@ where
                 &inner.reality_short_id,
                 "chrome_stable",
             )
+            .and_then(|config| config.with_flow_str(&inner.vless_flow))
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("shadowtls inner vless: {error}")))?;
             let stream = ripdpi_vless::VlessRealityClient::connect_over(&config, transport, target).await?;
             let stream: Box<dyn ripdpi_vless::AsyncIo> = Box::new(stream);
