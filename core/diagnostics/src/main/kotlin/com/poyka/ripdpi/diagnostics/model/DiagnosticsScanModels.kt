@@ -85,6 +85,7 @@ data class TcpTarget(
     val asn: String? = null,
     val hostHeader: String? = null,
     val fatHeaderRequests: Int? = null,
+    val altPort: Int? = null,
 )
 
 @Serializable
@@ -257,6 +258,7 @@ enum class TcpProbeStatus {
 
     @SerialName("BLOCKED16_KB")
     BLOCKED_16KB,
+    FREEZE_AFTER_THRESHOLD,
     WHITELIST_SNI_OK,
     ERROR,
 }
@@ -329,16 +331,6 @@ enum class StrategyProbeStatus {
 }
 
 @Serializable
-data class DnsObservationFact(
-    val domain: String,
-    val status: DnsObservationStatus,
-    val udpAddresses: List<String> = emptyList(),
-    val encryptedAddresses: List<String> = emptyList(),
-    val udpLatencyMs: Long? = null,
-    val encryptedLatencyMs: Long? = null,
-)
-
-@Serializable
 data class DomainObservationFact(
     val host: String,
     val httpStatus: HttpProbeStatus = HttpProbeStatus.NOT_RUN,
@@ -354,15 +346,6 @@ data class DomainObservationFact(
     val isControl: Boolean = false,
     val h3Advertised: Boolean = false,
     val altSvc: String? = null,
-)
-
-@Serializable
-data class TcpObservationFact(
-    val provider: String,
-    val status: TcpProbeStatus,
-    val selectedSni: String? = null,
-    val bytesSent: Int? = null,
-    val responsesSeen: Int? = null,
 )
 
 @Serializable
@@ -696,6 +679,21 @@ data class StrategyProbeReport(
     val auditAssessment: StrategyProbeAuditAssessment? = null,
     val targetSelection: StrategyProbeTargetSelection? = null,
     val pilotBucketLabels: List<String> = emptyList(),
+    val domainStrategySeeds: List<StrategyDomainSeed> = emptyList(),
+)
+
+@Serializable
+data class StrategyDomainSeed(
+    val domain: String,
+    val candidateId: String,
+    val candidateLabel: String,
+    val family: String,
+)
+
+@Serializable
+data class StrategyProbeDomainOutcome(
+    val domain: String,
+    val succeeded: Boolean,
 )
 
 @Serializable
@@ -718,6 +716,7 @@ data class StrategyProbeCandidateSummary(
     val notes: List<String> = emptyList(),
     val averageLatencyMs: Long? = null,
     val skipped: Boolean = false,
+    val domainOutcomes: List<StrategyProbeDomainOutcome> = emptyList(),
 )
 
 @Serializable

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.diagnostics.contract.engine.DiagnosticsEngineSchemaVersion
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskFamily
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskWire
@@ -22,10 +23,22 @@ internal fun Json.decodeProfileSpecWire(payload: String): ProfileSpecWire =
     decodeFromString(ProfileSpecWire.serializer(), payload).backfillLegacyProbePersistencePolicy()
 
 internal fun Json.decodeEngineScanReportWire(payload: String): EngineScanReportWire =
-    decodeFromString(EngineScanReportWire.serializer(), payload)
+    decodeFromString(EngineScanReportWire.serializer(), payload).also(::validateDiagnosticsSchemaVersion)
 
 internal fun Json.decodeEngineProgressWire(payload: String): EngineProgressWire =
-    decodeFromString(EngineProgressWire.serializer(), payload)
+    decodeFromString(EngineProgressWire.serializer(), payload).also(::validateDiagnosticsSchemaVersion)
+
+private fun validateDiagnosticsSchemaVersion(report: EngineScanReportWire) {
+    require(report.schemaVersion == DiagnosticsEngineSchemaVersion) {
+        "Unsupported diagnostics report schema version: ${report.schemaVersion}"
+    }
+}
+
+private fun validateDiagnosticsSchemaVersion(progress: EngineProgressWire) {
+    require(progress.schemaVersion == DiagnosticsEngineSchemaVersion) {
+        "Unsupported diagnostics progress schema version: ${progress.schemaVersion}"
+    }
+}
 
 internal fun ProfileSpecWire.normalizedExecutionPolicy(): ProfileExecutionPolicyWire =
     requireNotNull(executionPolicy) {
