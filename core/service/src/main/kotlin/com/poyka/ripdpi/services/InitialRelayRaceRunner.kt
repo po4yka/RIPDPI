@@ -56,8 +56,6 @@ internal class InitialRelayRaceRunner(
                     }
                     val winningSlot = requireNotNull(winningAttempt.slot)
                     val result = winningAttempt.toResult()
-                    promoteCandidate(winningSlot)
-                    retainedSlot = winningSlot
                     onState(
                         raceState(
                             state = RaceStateSelected,
@@ -66,6 +64,8 @@ internal class InitialRelayRaceRunner(
                             selectedCandidate = winningAttempt.candidate,
                         ),
                     )
+                    promoteCandidate(winningSlot)
+                    retainedSlot = winningSlot
                     return@coroutineScope PromotedRelayRuntime(
                         endpoint = requireNotNull(winningSlot.endpoint),
                         result = result,
@@ -80,8 +80,6 @@ internal class InitialRelayRaceRunner(
 
                 cachedFallback(plan, slots)?.let { (cachedCandidate, cachedSlot) ->
                     val result = InitialRelayRaceResult(cachedCandidate, usedCachedFallback = true, latencyMs = null)
-                    promoteCandidate(cachedSlot)
-                    retainedSlot = cachedSlot
                     onState(
                         raceState(
                             state = RaceStateCachedFallback,
@@ -91,6 +89,8 @@ internal class InitialRelayRaceRunner(
                             usedCachedFallback = true,
                         ),
                     )
+                    promoteCandidate(cachedSlot)
+                    retainedSlot = cachedSlot
                     return@coroutineScope PromotedRelayRuntime(
                         endpoint = requireNotNull(cachedSlot.endpoint),
                         result = result,
