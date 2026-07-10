@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiDirectPathCapability
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.awgConfigOrNull
@@ -27,6 +28,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -242,64 +244,72 @@ class DefaultConnectionPolicyResolver
                     mode = mode,
                 ) ?: return null
 
-            val rememberedPolicy = matchedPolicy.toPolicyJson()
-            val rememberedLaneFamilies =
-                rememberedPolicyMatcher.deriveLaneFamilies(
-                    proxyConfigJson = matchedPolicy.proxyConfigJson,
-                    activeDns = baseline.baselineVpnDnsSelection.activeDns,
-                )
-            val vpnDnsSelection =
-                dnsSelector.rememberedSelection(
-                    mode = mode,
-                    baselineSelection = baseline.baselineVpnDnsSelection,
-                    rememberedVpnDnsPolicy = rememberedPolicy?.vpnDnsPolicy,
-                    resolverOverride = baseline.dnsResolution.override,
-                )
-            val effectiveDns = vpnDnsSelection.activeDns
-            val effectiveRuntimeContext =
-                runtimeContextAssembler.runtimeContext(
-                    activeDns = effectiveDns,
-                    protectPath = baseline.protectPath,
-                    preferredEdges = baseline.preferredEdges,
-                    directPathCapabilities = baseline.directPathCapabilities,
-                )
-            val proxyPreferences =
-                runtimeContextAssembler.rememberedPreferences(
-                    configJson = matchedPolicy.proxyConfigJson,
-                    hostAutolearnStorePath = baseline.hostAutolearnStorePath,
-                    networkScopeKey = baseline.networkScopeKey,
-                    runtimeContext = effectiveRuntimeContext,
+            return try {
+                val rememberedPolicy = matchedPolicy.toPolicyJson()
+                val rememberedLaneFamilies =
+                    rememberedPolicyMatcher.deriveLaneFamilies(
+                        proxyConfigJson = matchedPolicy.proxyConfigJson,
+                        activeDns = baseline.baselineVpnDnsSelection.activeDns,
+                    )
+                val vpnDnsSelection =
+                    dnsSelector.rememberedSelection(
+                        mode = mode,
+                        baselineSelection = baseline.baselineVpnDnsSelection,
+                        rememberedVpnDnsPolicy = rememberedPolicy?.vpnDnsPolicy,
+                        resolverOverride = baseline.dnsResolution.override,
+                    )
+                val effectiveDns = vpnDnsSelection.activeDns
+                val effectiveRuntimeContext =
+                    runtimeContextAssembler.runtimeContext(
+                        activeDns = effectiveDns,
+                        protectPath = baseline.protectPath,
+                        preferredEdges = baseline.preferredEdges,
+                        directPathCapabilities = baseline.directPathCapabilities,
+                    )
+                val proxyPreferences =
+                    runtimeContextAssembler.rememberedPreferences(
+                        configJson = matchedPolicy.proxyConfigJson,
+                        hostAutolearnStorePath = baseline.hostAutolearnStorePath,
+                        networkScopeKey = baseline.networkScopeKey,
+                        runtimeContext = effectiveRuntimeContext,
+                        settings = baseline.settings,
+                        awg = baseline.baselinePreferences.awgConfigOrNull(),
+                    )
+                val appliedPolicy =
+                    rememberedPolicyMatcher.appliedPolicy(
+                        rememberedPolicy = rememberedPolicy,
+                        rememberedLaneFamilies = rememberedLaneFamilies,
+                        effectiveDns = effectiveDns,
+                    )
+                val policySignature =
+                    signatureBuilder.build(
+                        mode = mode,
+                        proxyPreferences = proxyPreferences,
+                        activeDns = effectiveDns,
+                        resolverFallbackReason = baseline.dnsResolution.override?.reason,
+                        matchedPolicy = matchedPolicy,
+                    )
+                ConnectionPolicyResolution(
                     settings = baseline.settings,
-                    awg = baseline.baselinePreferences.awgConfigOrNull(),
-                )
-            val appliedPolicy =
-                rememberedPolicyMatcher.appliedPolicy(
-                    rememberedPolicy = rememberedPolicy,
-                    rememberedLaneFamilies = rememberedLaneFamilies,
-                    effectiveDns = effectiveDns,
-                )
-            val policySignature =
-                signatureBuilder.build(
-                    mode = mode,
                     proxyPreferences = proxyPreferences,
                     activeDns = effectiveDns,
+                    vpnDnsOverride = vpnDnsSelection.rememberedVpnDnsPolicy,
+                    matchedNetworkPolicy = matchedPolicy,
+                    rememberedPolicyAppliedByExactMatch = true,
+                    appliedPolicy = appliedPolicy,
+                    networkScopeKey = baseline.networkScopeKey,
+                    fingerprintHash = baseline.networkScopeKey,
+                    policySignature = policySignature,
                     resolverFallbackReason = baseline.dnsResolution.override?.reason,
-                    matchedPolicy = matchedPolicy,
+                    handoverClassification = handoverClassification,
                 )
-            return ConnectionPolicyResolution(
-                settings = baseline.settings,
-                proxyPreferences = proxyPreferences,
-                activeDns = effectiveDns,
-                vpnDnsOverride = vpnDnsSelection.rememberedVpnDnsPolicy,
-                matchedNetworkPolicy = matchedPolicy,
-                rememberedPolicyAppliedByExactMatch = true,
-                appliedPolicy = appliedPolicy,
-                networkScopeKey = baseline.networkScopeKey,
-                fingerprintHash = baseline.networkScopeKey,
-                policySignature = policySignature,
-                resolverFallbackReason = baseline.dnsResolution.override?.reason,
-                handoverClassification = handoverClassification,
-            )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Logger.w(error) { "Rejected invalid remembered connection policy; using baseline" }
+                rememberedNetworkPolicyStore.recordFailure(matchedPolicy)
+                null
+            }
         }
 
         private fun buildBaselineResolution(

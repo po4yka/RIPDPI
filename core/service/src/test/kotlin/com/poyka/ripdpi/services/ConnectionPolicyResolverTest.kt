@@ -312,6 +312,45 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
+    fun `invalid remembered config records failure and falls back to baseline`() =
+        runTest {
+            val rememberedStore =
+                TestRememberedNetworkPolicyStore().apply {
+                    validatedMatch =
+                        sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
+                            proxyConfigJson = """{"kind":"ui","schemaVersion":2,"listen":{}}""",
+                        )
+                }
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository =
+                        TestAppSettingsRepository(
+                            AppSettingsSerializer.defaultValue
+                                .toBuilder()
+                                .setNetworkStrategyMemoryEnabled(true)
+                                .build(),
+                        ),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = rememberedStore,
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                    awgEgressSelectionProvider = StaticAwgEgressSelectionProvider(null),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+
+            assertNull(resolution.matchedNetworkPolicy)
+            assertNull(resolution.rememberedPolicyAppliedByExactMatch)
+            assertEquals(1, rememberedStore.failures.size)
+        }
+
+    @Test
     fun `resolver derives vpn doh primary path from converged direct path dns hints`() =
         runTest {
             val fingerprint = sampleFingerprint()
