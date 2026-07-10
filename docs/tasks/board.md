@@ -33,11 +33,10 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 | low | testing | [Add cross-stack chain tests (VLESS over xHTTP over Reality)](issues/add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality.md) | unassigned | 2026-06-10 |
 
-## Review (4)
+## Review (3)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
-| high | ci | [Self-audit Android app identity against package-based VPN detection](issues/self-audit-android-app-identity.md) | Codex | 2026-07-10 |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | unassigned | 2026-06-21 |
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | unassigned | 2026-06-14 |
 | low | rust-native | [Wire ShadowTLS version-mismatch into service telemetry](issues/wire-shadowtls-version-mismatch-into-service-telemetry.md) | unassigned | 2026-06-14 |

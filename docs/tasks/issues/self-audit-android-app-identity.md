@@ -1,7 +1,7 @@
 ---
 title: Self-audit Android app identity against package-based VPN detection
 type: task
-status: review
+status: done
 area: ci
 priority: high
 owner: Codex
