@@ -136,9 +136,17 @@ Helpers:
 Runtime behavior:
 
 - binaries are extracted under `filesDir/cloudflare-runtime/<abi>/`
-- per-profile state lives under `filesDir/cloudflare-publish/<profileId>/`
-- named-tunnel mode writes: - `cloudflared-credentials.json` - `cloudflared-config.yml`
-- token mode launches `cloudflared tunnel run --token ...`
+- per-session state lives under `cacheDir/cloudflare-publish/cloudflare-publish-session-<profileId>/` and is deleted on stop or startup rollback
+- `ripdpi-cloudflare-origin` launches with only `--config-stdin`; the listener, xHTTP path, and VLESS UUID are transferred in the bounded schema-1 standard-input frame documented by the helper crate
+- named-tunnel mode writes `.cloudflared/cloudflared-credentials.json` and `.cloudflared/config.yml`, sets the session directory as `HOME`, and relies on cloudflared's default configuration discovery
+- token mode writes `.cloudflared/tunnel-token`, passes its path through `TUNNEL_TOKEN_FILE`, and passes the loopback metrics address through `TUNNEL_METRICS`
+- cloudflared launches with the fixed arguments `tunnel --no-autoupdate run`; token, UUID, xHTTP path, credential/config paths, and session paths are absent from both helper argument vectors
+- inherited `TUNNEL_*`, `HOME`, and pinned cloudflared non-prefixed behavior variables are removed from origin, cloudflared, and version-probe environments before the explicit per-session allowlist is applied
+- generated named-tunnel YAML accepts only a canonical tunnel UUID and valid hostname, double-quotes every scalar, and stores its directory/files with owner-only permissions
+- helper output is redacted before telemetry projection using credential, identity, origin, xHTTP, and session-path values
+- helper version probes use a separate absolute 2-second deadline covering process exit and concurrent bounded output capture, cap captured output at 4 KiB, close inherited stdout pipes, and fail closed if a timed-out probe or reader cannot be reaped
+- every post-spawn setup failure rolls back that child; later origin/cloudflared readiness, coroutine cancellation, relay factory, or relay startup failure stops all started helpers and deletes per-session files
+- unexpected exit of either helper is detected without waiting for the surviving child; shutdown attempts both helpers, retains manager/session state when a child cannot be reaped, and permits an explicit cleanup retry
 
 Readiness:
 
@@ -176,6 +184,7 @@ Operational interpretation:
 - Non-`chrome_stable` TLS fingerprint profile: rejected before runtime start.
 - Tunnel hostname or `serverName` missing: rejected before runtime start.
 - Helper readiness timeout: surfaced as startup failure.
+- Helper version probe timeout: the probe child is forcibly terminated and startup continues without a version string; it does not consume the longer publish-readiness budget.
 
 ## Operator Checklist
 
