@@ -312,13 +312,17 @@ class ConnectionPolicyResolverTest {
         }
 
     @Test
-    fun `invalid remembered config records failure and falls back to baseline`() =
+    fun `retired remembered config schema records failure and falls back to baseline`() =
         runTest {
+            val retiredConfig =
+                RipDpiProxyUIPreferences()
+                    .toNativeConfigJson()
+                    .replace("\"schemaVersion\":2", "\"schemaVersion\":1")
             val rememberedStore =
                 TestRememberedNetworkPolicyStore().apply {
                     validatedMatch =
                         sampleRememberedPolicyEntity(mode = Mode.VPN).copy(
-                            proxyConfigJson = """{"kind":"ui","schemaVersion":2,"listen":{}}""",
+                            proxyConfigJson = retiredConfig,
                         )
                 }
             val resolver =
