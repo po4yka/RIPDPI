@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.DefaultRelayAppsScriptVerifySsl
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -70,18 +72,45 @@ class RelayNativeConfigTest {
     }
 
     @Test
-    fun `shadowtls inner fingerprint is additive and round-trips explicitly`() {
+    fun `shadowtls inner fingerprint is required and round-trips explicitly`() {
         val sparse =
-            json.decodeFromString(
-                ResolvedShadowTlsInnerRelayConfig.serializer(),
-                """{"kind":"vless_reality","profileId":"inner","server":"inner.example","serverPort":443,"serverName":"inner.example"}""",
-            )
-        assertEquals("chrome_stable", sparse.tlsFingerprintProfile)
+            """{"kind":"vless_reality","profileId":"inner","server":"inner.example","serverPort":443,"serverName":"inner.example"}"""
+        assertThrows(SerializationException::class.java) {
+            json.decodeFromString(ResolvedShadowTlsInnerRelayConfig.serializer(), sparse)
+        }
 
-        val explicit = sparse.copy(tlsFingerprintProfile = "firefox_stable")
+        val explicit =
+            ResolvedShadowTlsInnerRelayConfig(
+                kind = "vless_reality",
+                profileId = "inner",
+                server = "inner.example",
+                serverPort = 443,
+                serverName = "inner.example",
+                tlsFingerprintProfile = "firefox_stable",
+            )
         val encoded = json.encodeToString(ResolvedShadowTlsInnerRelayConfig.serializer(), explicit)
         assertEquals(explicit, json.decodeFromString(ResolvedShadowTlsInnerRelayConfig.serializer(), encoded))
         assertTrue(encoded.contains("\"tlsFingerprintProfile\":\"firefox_stable\""))
+    }
+
+    @Test
+    fun `chain hop fingerprint is required`() {
+        assertThrows(SerializationException::class.java) {
+            json.decodeFromString(
+                ResolvedChainRelayHopConfig.serializer(),
+                """{"kind":"vless_reality","profileId":"hop"}""",
+            )
+        }
+    }
+
+    @Test
+    fun `top-level relay fingerprint is required`() {
+        val encoded = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), representativeConfigs().first())
+        val withoutFingerprint = encoded.replace(Regex(",?\"tlsFingerprintProfile\":\"[^\"]+\""), "")
+
+        assertThrows(SerializationException::class.java) {
+            json.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), withoutFingerprint)
+        }
     }
 
     @Test
@@ -111,7 +140,7 @@ class RelayNativeConfigTest {
         val encoded = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), config)
         val decoded = json.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), encoded)
 
-        assertTrue(encoded.contains("\"schemaVersion\":9"))
+        assertTrue(encoded.contains("\"schemaVersion\":10"))
         assertEquals(config, decoded.toSections().toResolvedConfig())
     }
 
@@ -212,6 +241,7 @@ class RelayNativeConfigTest {
                 realityPublicKey = "entry-public-key",
                 realityShortId = "entry-short-id",
                 vlessUuid = "chain-entry-uuid",
+                tlsFingerprintProfile = "firefox_stable",
             )
         val middleHop =
             ResolvedChainRelayHopConfig(
@@ -221,6 +251,7 @@ class RelayNativeConfigTest {
                 serverPort = 8388,
                 shadowsocksMethod = "aes-256-gcm",
                 shadowsocksPassword = placeholder(31),
+                tlsFingerprintProfile = "edge_stable",
             )
         val exitHop =
             ResolvedChainRelayHopConfig(
@@ -231,6 +262,7 @@ class RelayNativeConfigTest {
                 masqueUseHttp2Fallback = true,
                 masqueAuthMode = "bearer",
                 masqueAuthToken = placeholder(32),
+                tlsFingerprintProfile = "safari_stable",
             )
         // Seed the legacy scalar mirror to exactly what `toResolvedConfig` derives
         // from hop[0] / hop[last], so the fold/unfold/re-encode cycle is a no-op.
@@ -450,7 +482,7 @@ class RelayNativeConfigTest {
                 ),
         )
 
-    // All 24 required fields, each with a distinct value so a misrouted field
+    // All 25 required fields, each with a distinct value so a misrouted field
     // in toSections/toResolvedConfig changes the round-tripped config.
     private fun baseConfig(kind: String): ResolvedRipDpiRelayConfig =
         ResolvedRipDpiRelayConfig(
@@ -478,6 +510,7 @@ class RelayNativeConfigTest {
             localSocksPort = 1080,
             udpEnabled = true,
             tcpFallbackEnabled = true,
+            tlsFingerprintProfile = "chrome_stable",
         )
 
     // Distinct, non-literal values for `password` / `token` fields so the
@@ -529,6 +562,7 @@ class RelayNativeConfigTest {
                     realityPublicKey = "entry-public-key",
                     realityShortId = "entry-short-id",
                     vlessUuid = "chain-entry-uuid",
+                    tlsFingerprintProfile = "firefox_stable",
                 ),
             chainEntryProfileId = "chain-entry-profile-id",
             chainExit =
@@ -539,6 +573,7 @@ class RelayNativeConfigTest {
                     masqueUseHttp2Fallback = true,
                     masqueAuthMode = "bearer",
                     masqueAuthToken = placeholder(12),
+                    tlsFingerprintProfile = "safari_stable",
                 ),
             chainExitProfileId = "chain-exit-profile-id",
             shadowTlsInner =
@@ -634,10 +669,11 @@ class RelayNativeConfigTest {
                 "localSocksPort",
                 "udpEnabled",
                 "tcpFallbackEnabled",
+                "tlsFingerprintProfile",
                 "schemaVersion",
             )
 
-        // The 57 keys carrying a default; emitted only when set off-default.
+        // The 56 keys carrying a default; emitted only when set off-default.
         private val defaultedWireKeys =
             setOf(
                 "outboundBindIp",
@@ -678,7 +714,6 @@ class RelayNativeConfigTest {
                 "trojanRootCertificatePem",
                 "naiveUsername",
                 "naivePassword",
-                "tlsFingerprintProfile",
                 "masqueAuthMode",
                 "masqueAuthToken",
                 "masqueClientCertificateChainPem",

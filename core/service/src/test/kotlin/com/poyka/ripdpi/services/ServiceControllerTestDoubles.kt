@@ -939,6 +939,7 @@ internal fun sampleResolvedRelayConfig(
         localSocksPort = 1080,
         udpEnabled = false,
         tcpFallbackEnabled = false,
+        tlsFingerprintProfile = "chrome_stable",
     )
 
 internal class TestWarpRuntime(

@@ -345,10 +345,13 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   schema and is not part of this engine envelope.
 - The **strategy-pack** config carries `LoadedStrategyConfig.version: u32`
   (`ripdpi-strategy-config`).
-- The **relay native runtime config** carries required `schemaVersion: 9` on
+- The **relay native runtime config** carries required `schemaVersion: 10` on
   `ResolvedRipDpiRelayConfig`; Kotlin `RelayNativeConfigSchemaVersion` and Rust
-  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` match. Versions 6–8 are retired and
-  missing or future versions are rejected. The current chain-relay model is
+  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` match. Versions 6–9 are retired and
+  missing or future versions are rejected. Version 10 requires explicit
+  `tlsFingerprintProfile` values on the top-level relay config, every resolved
+  chain hop, and every resolved ShadowTLS inner config; omission is a decode
+  error rather than an implicit Chrome selection. The current chain-relay model is
   generalized from the fixed `chainEntry` /
   `chainExit` pair to an ordered, bounded hop list — `RelayChainSection.hops` is
   a `List<ResolvedChainRelayHopRef>` with `RelayChainMinHops = 2` ..
@@ -368,14 +371,14 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   **derived hop[0] / hop[last] mirror** (the
   `toResolvedConfig()` unfold projects it from the first/last hop; the Rust
   serialize path mirrors it the same way).
-  A current two-hop payload may omit `chainHops`; the entry/exit scalars are
-  then folded into the two-element ordered list. This is current sparse
-  serialization behavior, not acceptance of a retired schema. The wire
+  A current two-hop payload may omit `chainHops`, but must carry resolved
+  `chainEntry` and `chainExit` configs; the scalar fields are mirrors and are
+  never synthesized into executable hops. The wire
   round-trip is covered by
   `RelayNativeConfigTest` (Kotlin `chainHops` 3-hop trip) and
   `ripdpi-relay-core::tests` (`chain_relay_three_hop_list_round_trips_through_flat_wire`,
   `chain_relay_wire_rejects_out_of_range_hop_count`).
-- Relay native runtime config also carries the additive `socketProtection` enum (`inactive` / `vpn_required`). It is runtime-owned rather than persisted profile state: the proxy service always writes `inactive`, the VPN service always writes `vpn_required`, and Rust defaults a missing field to `inactive` for legacy payload compatibility. This additive default does not bump schema version 8. Dialers must use the value as policy; callback presence is only lifecycle state and must never decide whether protection is required.
+- Relay native runtime config also carries the additive `socketProtection` enum (`inactive` / `vpn_required`). It is runtime-owned rather than persisted profile state: the proxy service always writes `inactive`, the VPN service always writes `vpn_required`, and Rust defaults a missing field to `inactive`. Schema 10 retains this inert default; only TLS fingerprint identity became mandatory. Dialers must use the value as policy; callback presence is only lifecycle state and must never decide whether protection is required.
 - The **proxy native config** carries `schemaVersion` on every
   `NativeProxyConfig` variant. Kotlin `NativeProxyConfigSchemaVersion` and Rust
   `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `2`; missing, version 1,

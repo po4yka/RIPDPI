@@ -2,7 +2,6 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
-import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
@@ -66,7 +65,7 @@ data class ResolvedShadowTlsInnerRelayConfig(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpMode: String = com.poyka.ripdpi.data.RelayXhttpModeAuto,
     val vlessUuid: String? = null,
-    val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
+    val tlsFingerprintProfile: String,
 )
 
 @Serializable
@@ -109,7 +108,7 @@ data class ResolvedChainRelayHopConfig(
     val shadowsocksPassword: String? = null,
     val naiveUsername: String? = null,
     val naivePassword: String? = null,
-    val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
+    val tlsFingerprintProfile: String,
     val masqueAuthMode: String? = null,
     val masqueAuthToken: String? = null,
     val masqueClientCertificateChainPem: String? = null,
@@ -165,8 +164,9 @@ data class ResolvedRipDpiRelayConfig(
     val chainExitPublicKey: String,
     val chainExitShortId: String,
     val chainExitProfileId: String = "",
-    // Additive v7 ordered N-hop chain list (2..=4); the chainEntry*/chainExit*
-    // scalars above are its derived hop[0]/hop[last] mirror. See CONFIG_CONTRACTS.md §8.
+    // Ordered N-hop chain list for 3- and 4-hop chains; the chainEntry/chainExit
+    // resolved configs carry current 2-hop identity and the scalar fields above
+    // remain their derived hop[0]/hop[last] mirror. See CONFIG_CONTRACTS.md §8.
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val chainHops: List<ResolvedChainRelayHopConfig> = emptyList(),
     val masqueUrl: String,
@@ -224,7 +224,7 @@ data class ResolvedRipDpiRelayConfig(
     val shadowsocksPassword: String? = null,
     val naiveUsername: String? = null,
     val naivePassword: String? = null,
-    val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
+    val tlsFingerprintProfile: String,
     val masqueAuthMode: String? = null,
     val masqueAuthToken: String? = null,
     val masqueClientCertificateChainPem: String? = null,
@@ -250,10 +250,11 @@ data class ResolvedRipDpiRelayConfig(
 /**
  * Current relay native-config wire schema version. Every
  * [ResolvedRipDpiRelayConfig] must carry `schemaVersion`; missing and
- * non-current versions are rejected. Version 9 makes the current-only envelope
- * mandatory after versions 6 through 8 were retired. Mirrors the Rust schema.
+ * non-current versions are rejected. Version 10 requires explicit top-level,
+ * chain-hop, and ShadowTLS-inner TLS fingerprint fields and retires version 9.
+ * Mirrors the Rust schema.
  */
-const val RelayNativeConfigSchemaVersion: Int = 9
+const val RelayNativeConfigSchemaVersion: Int = 10
 
 /** Minimum number of hops a chain-relay section may carry. */
 const val RelayChainMinHops: Int = 2
@@ -357,7 +358,7 @@ private fun ResolvedRipDpiRelayConfig.vlessSection(): RelayVlessSection =
 // A hop reference derived from a wire [ResolvedChainRelayHopConfig]: the rich
 // resolved template is kept in [ResolvedChainRelayHopRef.config], and the scalar
 // mirror fields are projected from it so the entry/exit derived slots and the
-// in-process composition see a consistent view. Inverse of [toHopConfig].
+// in-process composition see a consistent view.
 internal fun ResolvedChainRelayHopConfig.toHopRef(): ResolvedChainRelayHopRef =
     ResolvedChainRelayHopRef(
         config = this,
@@ -372,26 +373,10 @@ internal fun ResolvedChainRelayHopConfig.toHopRef(): ResolvedChainRelayHopRef =
         uuid = vlessUuid,
     )
 
-// A wire [ResolvedChainRelayHopConfig] for an ordered hop. Prefer the rich
-// resolved template carried in [ResolvedChainRelayHopRef.config]; when it is
-// absent (a hop expressed only through the flat scalar mirror) synthesize a
-// VLESS-Reality hop from the scalars, matching the Rust `legacy_*_hop` fold so
-// the entry/exit-only wire path and the chainHops path agree. Inverse of
-// [toHopRef].
 internal fun ResolvedChainRelayHopRef.toHopConfig(): ResolvedChainRelayHopConfig =
-    config
-        ?: ResolvedChainRelayHopConfig(
-            kind = "vless_reality",
-            profileId = profileId,
-            server = server,
-            serverPort = serverPort,
-            serverName = serverName,
-            realityPublicKey = publicKey,
-            realityShortId = shortId,
-            vlessFlow = flow,
-            xhttpMode = xhttpMode,
-            vlessUuid = uuid,
-        )
+    requireNotNull(config) {
+        "Resolved chain hop config with explicit TLS fingerprint is required"
+    }
 
 // Fold the flat wire DTO's chain fields into the ordered hop list. When the
 // additive [ResolvedRipDpiRelayConfig.chainHops] list is populated it is the
@@ -545,9 +530,10 @@ private fun ResolvedRipDpiRelayConfig.legacyTwoHopChainRefs(): List<ResolvedChai
         ),
     )
 
-// Prefer the additive ordered [ResolvedRipDpiRelayConfig.chainHops] list (the
-// N-hop source of truth); fall back to the legacy two-hop entry/exit fold when
-// it is empty (v6 payloads and plain 2-hop chains). Brace-free single
+// Prefer the ordered [ResolvedRipDpiRelayConfig.chainHops] list (the N-hop
+// source of truth); fall back to the resolved two-hop entry/exit fold when it
+// is empty. Scalar fields remain derived mirrors, not executable identity.
+// Brace-free single
 // expression: the empty-list fallback is a bound function reference, so this
 // helper file's brace structure is unchanged from the v6 two-hop shape.
 private fun ResolvedRipDpiRelayConfig.orderedChainHopRefs(): List<ResolvedChainRelayHopRef> =
@@ -557,8 +543,8 @@ private fun ResolvedRipDpiRelayConfig.chainSection(): RelayChainSection =
     RelayChainSection(hops = orderedChainHopRefs())
 
 // The ordered hop list to carry over the wire. Emitted only for genuinely N-hop
-// chains (3 or 4 hops); a plain 2-hop chain stays fully expressed by the derived
-// entry/exit scalars, so its wire object is byte-identical to v6. Single
+// chains (3 or 4 hops); a plain 2-hop chain stays expressed by the required
+// resolved entry/exit configs plus their derived scalar mirrors. Single
 // brace-free expression to keep this helper file's brace structure unchanged.
 internal fun RelayChainSection.wireChainHops(): List<ResolvedChainRelayHopConfig> =
     if (hops.size > RelayChainMinHops) hops.map(ResolvedChainRelayHopRef::toHopConfig) else emptyList()

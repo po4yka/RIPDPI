@@ -14,6 +14,7 @@ impl<'de> Deserialize<'de> for ResolvedRelayRuntimeConfig {
         // value. Runs on every deserialize path (`from_str` / `from_value` /
         // `from_reader`) because they all funnel through this impl.
         validate_schema_version(flat.schema_version).map_err(serde::de::Error::custom)?;
+        validate_required_relay_identity(&flat).map_err(serde::de::Error::custom)?;
         Ok(flat.into())
     }
 }

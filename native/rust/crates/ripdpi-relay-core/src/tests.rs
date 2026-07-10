@@ -359,7 +359,11 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
         "anytls",
         "shadowsocks",
     ] {
-        let config = sample_config(kind);
+        let mut config = sample_config(kind);
+        if let RelayBackendConfig::ChainRelay(chain) = &mut config.backend {
+            chain.entry = Some(Box::new(vless_hop("entry", 443, "entry.example")));
+            chain.exit = Some(Box::new(vless_hop("exit", 443, "exit.example")));
+        }
         let serialized = serde_json::to_value(&config).expect("serialize relay config");
 
         assert_eq!(kind, serialized["kind"].as_str().expect("kind field"));
@@ -449,7 +453,8 @@ fn nested_vless_identity_fields_round_trip_without_coercion() {
     let hop: ResolvedChainRelayHopConfig = serde_json::from_value(serde_json::json!({
         "kind": "vless_reality",
         "profileId": "hop",
-        "vlessFlow": "none"
+        "vlessFlow": "none",
+        "tlsFingerprintProfile": "firefox_stable"
     }))
     .expect("deserialize Kotlin chain hop wire config");
     assert_eq!("none", hop.vless_flow);
@@ -496,18 +501,27 @@ fn chain_relay_heterogeneous_hop_config_round_trips() {
 
 #[test]
 fn chain_relay_hop_config_uses_kotlin_wire_defaults() {
-    let hop: ResolvedChainRelayHopConfig = serde_json::from_value(serde_json::json!({
+    let err = serde_json::from_value::<ResolvedChainRelayHopConfig>(serde_json::json!({
         "kind": "masque",
         "profileId": "masque-exit"
     }))
-    .expect("deserialize sparse Kotlin-style chain hop config");
+    .expect_err("chain hop without tlsFingerprintProfile should be rejected");
+
+    assert!(err.to_string().contains("tlsFingerprintProfile"));
+
+    let hop: ResolvedChainRelayHopConfig = serde_json::from_value(serde_json::json!({
+        "kind": "masque",
+        "profileId": "masque-exit",
+        "tlsFingerprintProfile": "firefox_stable"
+    }))
+    .expect("deserialize explicit Kotlin-style chain hop config");
 
     assert_eq!(443, hop.server_port);
     assert_eq!("reality_tcp", hop.vless_transport);
     assert_eq!("consume_existing", hop.cloudflare_tunnel_mode);
     assert!(hop.masque_use_http2_fallback);
     assert_eq!("bbr", hop.tuic_congestion_control);
-    assert_eq!("chrome_stable", hop.tls_fingerprint_profile);
+    assert_eq!("firefox_stable", hop.tls_fingerprint_profile);
     assert_eq!("off", hop.finalmask.r#type);
 }
 
@@ -885,7 +899,7 @@ fn chain_relay_hop_count_bounds_match_kotlin_model() {
 }
 
 #[test]
-fn chain_relay_ordered_hops_folds_legacy_entry_exit_when_list_is_empty() {
+fn chain_relay_ordered_hops_rejects_scalar_only_legacy_chain() {
     let mut config = sample_config("chain_relay");
     let chain = chain_config_mut(&mut config);
     chain.entry_server = "entry.example".to_string();
@@ -894,9 +908,9 @@ fn chain_relay_ordered_hops_folds_legacy_entry_exit_when_list_is_empty() {
     chain.exit_server_name = "exit.example".to_string();
 
     let ordered = chain.ordered_hops();
-    assert_eq!(2, ordered.len());
-    assert_eq!("entry.example", ordered[0].server);
-    assert_eq!("exit.example", ordered[1].server);
+    assert!(ordered.is_empty());
+    assert_eq!(0, chain.hop_count());
+    assert!(ChainRelayConfig::validate_hop_count(chain.hop_count()).is_err());
 }
 
 #[test]
@@ -1214,6 +1228,7 @@ async fn chain_relay_dead_resolved_entry_does_not_bypass_to_legacy_entry() {
         vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
         ..ResolvedChainRelayHopConfig::default()
     }));
+    chain.exit = Some(Box::new(vless_hop("exit", 443, "exit.example")));
 
     let backend = build_backend(&config).await.expect("chain backend builds from resolved hops");
     let connect_result = tokio::time::timeout(

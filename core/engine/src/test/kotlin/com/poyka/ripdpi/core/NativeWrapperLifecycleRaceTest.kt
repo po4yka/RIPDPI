@@ -186,6 +186,7 @@ class NativeWrapperLifecycleRaceTest {
             localSocksPort = 1080,
             udpEnabled = false,
             tcpFallbackEnabled = true,
+            tlsFingerprintProfile = "chrome_stable",
         )
 
     private fun testWarpConfig(): ResolvedRipDpiWarpConfig =

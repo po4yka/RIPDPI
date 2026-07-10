@@ -80,11 +80,10 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
             }),
             "chain_relay" => RelayBackendConfig::ChainRelay(ChainRelayConfig {
                 // A populated `chain_hops` list is the N-hop (3- or 4-hop)
-                // source of truth carried over the v7 wire; it flows straight
-                // into `ChainRelayConfig::ordered_hops`, which returns it
-                // verbatim. When empty — v6 payloads and any plain 2-hop chain —
-                // the legacy entry/exit scalars below are folded into a
-                // 2-element list on demand instead. The 2..=4 bound is enforced
+                // source of truth and flows straight into
+                // `ChainRelayConfig::ordered_hops`. A plain 2-hop chain carries
+                // required resolved entry/exit configs; scalar-only legacy
+                // payloads are rejected before this conversion. The 2..=4 bound is enforced
                 // downstream by `ChainRelayConfig::validate_hop_count` at build
                 // time (see backend/builder/builders/chain_relay.rs).
                 hops: flat.chain_hops,
@@ -319,8 +318,8 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             RelayBackendConfig::ChainRelay(config) => {
                 // Emit the ordered N-hop list back to the wire so a re-serialized
                 // 3-/4-hop chain stays N-hop instead of being lossily folded
-                // into the legacy two-hop scalars. The entry/exit scalars below
-                // are still mirrored from hop[0]/hop[last] for v6 readers.
+                // into the two-hop mirrors. Resolved entry/exit configs carry
+                // 2-hop identity; scalar fields remain derived diagnostics.
                 flat.chain_hops = config.hops.clone();
                 flat.chain_entry = config.entry.as_deref().cloned();
                 flat.chain_entry_server = config.entry_server.clone();

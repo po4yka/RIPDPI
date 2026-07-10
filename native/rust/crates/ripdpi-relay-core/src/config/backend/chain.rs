@@ -13,13 +13,13 @@ pub const CHAIN_RELAY_MAX_HOPS: usize = 4;
 /// is non-empty the composition folds across it in order (`hops[0]` is the
 /// entry that opens the single real outbound socket; every later hop tunnels
 /// through the prior hop's stream and opens no new OS socket). When `hops` is
-/// empty the legacy two-hop scalar/`entry`+`exit` fields are folded into a
-/// 2-element list by [`ordered_hops`](Self::ordered_hops), preserving the v6
-/// wire shape losslessly.
+/// empty the required resolved `entry`+`exit` fields are folded into a
+/// 2-element list by [`ordered_hops`](Self::ordered_hops). Scalar-only legacy
+/// chain payloads are not composed because they cannot carry per-hop identity.
 #[derive(Debug, Clone, Default)]
 pub struct ChainRelayConfig {
     /// Ordered N-hop list (min 2, max 4 once validated). Empty means "fold the
-    /// legacy entry/exit fields below into a 2-hop list".
+    /// required resolved entry/exit fields below into a 2-hop list".
     pub hops: Vec<ResolvedChainRelayHopConfig>,
     pub entry: Option<Box<ResolvedChainRelayHopConfig>>,
     pub entry_server: String,
@@ -43,8 +43,9 @@ impl ChainRelayConfig {
     /// The effective ordered hop list the composition folds across.
     ///
     /// Returns [`hops`](Self::hops) verbatim when it is non-empty; otherwise
-    /// folds the legacy `entry`/`exit` resolved hops (or, failing those, the
-    /// flat legacy VLESS scalar fields) into an ordered 2-element list. The
+    /// folds the resolved `entry`/`exit` hops into an ordered 2-element list.
+    /// A missing resolved hop produces an empty list so bounds validation fails
+    /// closed instead of synthesizing a fingerprint identity. The
     /// returned list is *not* yet bounds-checked — callers run
     /// [`validate_hop_count`](Self::validate_hop_count).
     #[must_use]
@@ -52,18 +53,17 @@ impl ChainRelayConfig {
         if !self.hops.is_empty() {
             return self.hops.clone();
         }
-        vec![self.legacy_entry_hop(), self.legacy_exit_hop()]
+        match (self.entry.as_deref(), self.exit.as_deref()) {
+            (Some(entry), Some(exit)) => vec![entry.clone(), exit.clone()],
+            _ => Vec::new(),
+        }
     }
 
     /// Number of hops the composition would fold across, for diagnostics and
     /// bounds checks.
     #[must_use]
     pub fn hop_count(&self) -> usize {
-        if self.hops.is_empty() {
-            CHAIN_RELAY_MIN_HOPS
-        } else {
-            self.hops.len()
-        }
+        self.ordered_hops().len()
     }
 
     /// Reject a hop list outside `[CHAIN_RELAY_MIN_HOPS, CHAIN_RELAY_MAX_HOPS]`.
@@ -80,39 +80,6 @@ impl ChainRelayConfig {
         }
     }
 
-    fn legacy_entry_hop(&self) -> ResolvedChainRelayHopConfig {
-        if let Some(entry) = self.entry.as_deref() {
-            return entry.clone();
-        }
-        ResolvedChainRelayHopConfig {
-            kind: "vless_reality".to_string(),
-            profile_id: self.entry_profile_id.clone(),
-            server: self.entry_server.clone(),
-            server_port: self.entry_port,
-            server_name: self.entry_server_name.clone(),
-            reality_public_key: self.entry_public_key.clone(),
-            reality_short_id: self.entry_short_id.clone(),
-            vless_uuid: self.entry_uuid.clone(),
-            ..ResolvedChainRelayHopConfig::default()
-        }
-    }
-
-    fn legacy_exit_hop(&self) -> ResolvedChainRelayHopConfig {
-        if let Some(exit) = self.exit.as_deref() {
-            return exit.clone();
-        }
-        ResolvedChainRelayHopConfig {
-            kind: "vless_reality".to_string(),
-            profile_id: self.exit_profile_id.clone(),
-            server: self.exit_server.clone(),
-            server_port: self.exit_port,
-            server_name: self.exit_server_name.clone(),
-            reality_public_key: self.exit_public_key.clone(),
-            reality_short_id: self.exit_short_id.clone(),
-            vless_uuid: self.exit_uuid.clone(),
-            ..ResolvedChainRelayHopConfig::default()
-        }
-    }
 }
 
 fn default_chain_hop_server_port() -> i32 {
@@ -224,7 +191,6 @@ pub struct ResolvedChainRelayHopConfig {
     pub naive_username: Option<String>,
     #[serde(default)]
     pub naive_password: Option<String>,
-    #[serde(default = "default_chain_hop_tls_fingerprint_profile")]
     pub tls_fingerprint_profile: String,
     #[serde(default)]
     pub masque_auth_mode: Option<String>,

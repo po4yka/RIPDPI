@@ -1,6 +1,6 @@
 /// The only relay native-config wire schema version this build accepts.
 /// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant.
-const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 9;
+const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 10;
 
 fn default_vless_flow() -> String {
     "xtls-rprx-vision".to_string()
@@ -20,10 +20,6 @@ fn default_cloudflare_tunnel_mode() -> String {
 
 fn default_tuic_congestion_control() -> String {
     "bbr".to_string()
-}
-
-fn default_tls_fingerprint_profile() -> String {
-    "chrome_stable".to_string()
 }
 
 fn default_mieru_protocol() -> String {
@@ -52,6 +48,18 @@ fn validate_schema_version(found: u32) -> Result<(), RelayConfigError> {
     }
 }
 
+fn validate_required_relay_identity(flat: &FlatResolvedRelayRuntimeConfig) -> Result<(), RelayConfigError> {
+    if flat.kind == "chain_relay" && flat.chain_hops.is_empty() {
+        if flat.chain_entry.is_none() {
+            return Err(RelayConfigError::MissingResolvedChainHop { role: "entry" });
+        }
+        if flat.chain_exit.is_none() {
+            return Err(RelayConfigError::MissingResolvedChainHop { role: "exit" });
+        }
+    }
+    Ok(())
+}
+
 /// Typed relay config error surfaced through the [`ResolvedRelayRuntimeConfig`]
 /// deserialize path (wrapped in a `serde` error via `Error::custom`).
 ///
@@ -60,6 +68,7 @@ fn validate_schema_version(found: u32) -> Result<(), RelayConfigError> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum RelayConfigError {
     UnsupportedSchemaVersion { found: u32 },
+    MissingResolvedChainHop { role: &'static str },
 }
 
 impl std::fmt::Display for RelayConfigError {
@@ -69,6 +78,10 @@ impl std::fmt::Display for RelayConfigError {
                 formatter,
                 "unsupported native config schemaVersion {found}; this build supports \
                  {SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION}"
+            ),
+            RelayConfigError::MissingResolvedChainHop { role } => write!(
+                formatter,
+                "relay schemaVersion {SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION} requires resolved chain {role} config with explicit tlsFingerprintProfile"
             ),
         }
     }
@@ -214,7 +227,6 @@ struct FlatResolvedRelayRuntimeConfig {
     pub naive_username: Option<String>,
     #[serde(default)]
     pub naive_password: Option<String>,
-    #[serde(default = "default_tls_fingerprint_profile")]
     pub tls_fingerprint_profile: String,
     #[serde(default)]
     pub masque_auth_mode: Option<String>,
@@ -278,7 +290,7 @@ mod tests {
 
     fn relay_config_json_object() -> serde_json::Map<String, Value> {
         let mut value = json!({
-            "schemaVersion": 9,
+            "schemaVersion": 10,
             "enabled": true,
             "kind": "hysteria2",
             "profileId": "default",
@@ -311,7 +323,7 @@ mod tests {
 
     #[test]
     fn retired_schema_versions_are_rejected() {
-        for version in [6, 7, 8] {
+        for version in [6, 7, 8, 9] {
             let mut object = relay_config_json_object();
             object.insert("schemaVersion".to_string(), json!(version));
 
@@ -331,15 +343,64 @@ mod tests {
     }
 
     #[test]
-    fn payload_with_future_schema_version_is_rejected() {
+    fn payload_without_top_level_tls_fingerprint_is_rejected() {
         let mut object = relay_config_json_object();
-        object.insert("schemaVersion".to_string(), json!(10));
+        object.remove("tlsFingerprintProfile");
 
         let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(Value::Object(object))
-            .expect_err("payload with schemaVersion 10 should be rejected");
+            .expect_err("payload without tlsFingerprintProfile should be rejected");
+
+        assert!(err.to_string().contains("tlsFingerprintProfile"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn payload_without_shadowtls_inner_tls_fingerprint_is_rejected() {
+        let mut object = relay_config_json_object();
+        object.insert("kind".to_string(), json!("shadowtls_v3"));
+        object.insert(
+            "shadowTlsInner".to_string(),
+            json!({
+                "kind": "vless_reality",
+                "profileId": "inner",
+                "server": "inner.example",
+                "serverPort": 443,
+                "serverName": "inner.example",
+                "realityPublicKey": "public",
+                "realityShortId": "short",
+                "vlessUuid": "00000000-0000-0000-0000-000000000001"
+            }),
+        );
+
+        let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(Value::Object(object))
+            .expect_err("ShadowTLS inner payload without tlsFingerprintProfile should be rejected");
+
+        assert!(err.to_string().contains("tlsFingerprintProfile"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn scalar_only_chain_payload_is_rejected() {
+        let mut object = relay_config_json_object();
+        object.insert("kind".to_string(), json!("chain_relay"));
+        object.insert("chainEntryServer".to_string(), json!("entry.example"));
+        object.insert("chainExitServer".to_string(), json!("exit.example"));
+
+        let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(Value::Object(object))
+            .expect_err("scalar-only chain payload should be rejected");
+
+        assert!(err.to_string().contains("resolved chain entry config"));
+        assert!(err.to_string().contains("tlsFingerprintProfile"));
+    }
+
+    #[test]
+    fn payload_with_future_schema_version_is_rejected() {
+        let mut object = relay_config_json_object();
+        object.insert("schemaVersion".to_string(), json!(11));
+
+        let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(Value::Object(object))
+            .expect_err("payload with schemaVersion 11 should be rejected");
 
         assert!(
-            err.to_string().contains("unsupported native config schemaVersion 10"),
+            err.to_string().contains("unsupported native config schemaVersion 11"),
             "error should name the found version, got: {err}"
         );
     }
@@ -354,7 +415,6 @@ mod tests {
             "tuicCongestionControl",
             "quicBindLowPort",
             "quicMigrateAfterHandshake",
-            "tlsFingerprintProfile",
             "mieruProtocol",
             "mieruMultiplexing",
             "mieruMtu",
@@ -370,7 +430,6 @@ mod tests {
         assert_eq!(value["outboundBindIp"], json!(""));
         assert_eq!(value["quicBindLowPort"], json!(false));
         assert_eq!(value["quicMigrateAfterHandshake"], json!(false));
-        assert_eq!(value["tlsFingerprintProfile"], json!("chrome_stable"));
 
         let round_trip_kind = |kind: &str| {
             let mut payload = object.clone();
@@ -415,7 +474,8 @@ mod tests {
                 "realityPublicKey": "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=",
                 "realityShortId": "",
                 "vlessFlow": "xtls-rprx-vision-udp443",
-                "vlessUuid": "00000000-0000-0000-0000-000000000001"
+                "vlessUuid": "00000000-0000-0000-0000-000000000001",
+                "tlsFingerprintProfile": "firefox_stable"
             }),
         );
 
@@ -425,6 +485,6 @@ mod tests {
 
         assert_eq!(value["shadowTlsInner"]["vlessFlow"], json!("xtls-rprx-vision-udp443"));
         assert_eq!(value["shadowTlsInner"]["vlessTransport"], json!("reality_tcp"));
-        assert_eq!(value["shadowTlsInner"]["tlsFingerprintProfile"], json!("chrome_stable"));
+        assert_eq!(value["shadowTlsInner"]["tlsFingerprintProfile"], json!("firefox_stable"));
     }
 }

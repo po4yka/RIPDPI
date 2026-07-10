@@ -103,20 +103,20 @@ class NativeConfigSchemaVersionTest {
     fun `relay payload requires and emits current schema version`() {
         val encoded = relayJson.encodeToString(ResolvedRipDpiRelayConfig.serializer(), sampleRelayConfig())
         val current = relayJson.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), encoded)
-        val withoutSchema = encoded.replace(",\"schemaVersion\":9", "")
+        val withoutSchema = encoded.replace(",\"schemaVersion\":10", "")
 
-        assertTrue(encoded.contains("\"schemaVersion\":9"))
+        assertTrue(encoded.contains("\"schemaVersion\":10"))
         assertThrows(SerializationException::class.java) {
             relayJson.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), withoutSchema)
         }
-        assertEquals(9, RelayNativeConfigSchemaVersion)
+        assertEquals(10, RelayNativeConfigSchemaVersion)
         assertEquals(RelayNativeConfigSchemaVersion, current.schemaVersion)
     }
 
     @Test
     fun `relay start rejects retired and future schema versions before JNI`() =
         runTest {
-            for (version in listOf(8, 10)) {
+            for (version in listOf(9, 11)) {
                 val bindings = FakeRipDpiRelayBindings()
                 val relay = RipDpiRelay(bindings)
 
@@ -191,5 +191,6 @@ class NativeConfigSchemaVersionTest {
             localSocksPort = 1080,
             udpEnabled = false,
             tcpFallbackEnabled = true,
+            tlsFingerprintProfile = "chrome_stable",
         )
 }
