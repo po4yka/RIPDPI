@@ -4,7 +4,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 
 _Legacy issue statuses are normalized while their source files are triaged: `in-progress` -> `doing`, `in-review` -> `review`, `device-smoke-pending` -> `blocked`; `done` and `dropped` issue files are omitted._
 
-## Doing (25)
+## Doing (24)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
