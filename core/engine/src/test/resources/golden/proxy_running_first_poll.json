@@ -49,7 +49,6 @@
     "nativeEvents": [
         {
             "createdAt": 0,
-            "diagnosticsSessionId": null,
             "fingerprintHash": null,
             "kind": "runtime_ready",
             "level": "info",
@@ -82,7 +81,7 @@
     "resolverProtocol": null,
     "retryPacedCount": 0,
     "routeChanges": 0,
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "slotExhaustions": 0,
     "source": "proxy",
     "state": "running",

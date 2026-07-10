@@ -292,7 +292,7 @@ class Tun2SocksTunnel(
                     nativeBindings.getTelemetry(currentHandle)
                 }
             }?.takeIf { it.isNotBlank() }
-            ?.let { telemetryJson.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+            ?.let(telemetryJson::decodeNativeRuntimeSnapshot)
             ?: NativeRuntimeSnapshot.idle(source = "tunnel")
 }
 

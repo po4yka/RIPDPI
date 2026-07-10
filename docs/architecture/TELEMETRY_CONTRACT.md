@@ -1,8 +1,8 @@
 # Telemetry Contract
 
 Who owns each telemetry **event** and **snapshot**, the JSON payload rules that
-keep the Rust→Kotlin boundary forward- and backward-safe, and the stable
-identifiers that may never be renamed.
+keep the Rust→Kotlin boundary current-only and additive-field tolerant, and the
+stable identifiers that may never be renamed.
 
 Scope: the **runtime telemetry** surface — the proxy / relay / warp / AmneziaWG / tunnel
 snapshots and native events Kotlin polls while a session runs. The diagnostics
@@ -77,10 +77,9 @@ A bounded per-domain event ring (`android-support/src/events.rs`,
 `RingConfig` — 128 entries per runtime domain, 256 for diagnostics). Each
 `NativeRuntimeEvent` carries `source`, `level`, `message`, `createdAt`, and the
 optional `kind`, `runtimeId`, `mode`, `policySignature`, `fingerprintHash`,
-`diagnosticsSessionId`, and `subsystem`. Drained into
-`NativeRuntimeSnapshot.nativeEvents` on each poll. `diagnosticsSessionId` is
-an opaque correlation identifier, not a network or device identifier; every
-native projection carries it unchanged when present and omits it when absent.
+and `subsystem`. Drained into `NativeRuntimeSnapshot.nativeEvents` on each
+poll. `NativeEventRecord.diagnosticsSessionId` remains internal to the native
+event ring and tracing context; telemetry projections must not serialize it.
 
 ---
 
@@ -108,28 +107,23 @@ The telemetry payload is JSON: Rust `serde` serializes, Kotlin
   "camelCase")]`; Kotlin uses the default field name. A JSON key is a wire
   contract — never rename it (it also names a column in `TelemetrySampleEntity`
   and a field in the golden fixtures).
-- **Absent ⇒ default.** Rust omits empty optionals (`Option<T>` with
+- **Absent optional ⇒ default.** Rust omits empty optionals (`Option<T>` with
   `#[serde(skip_serializing_if = "Option::is_none")]`) and `false` booleans
   (`skip_serializing_if = "is_false"`). Every Kotlin field in
   `NativeRuntimeSnapshot` / `NativeRuntimeEvent` / `LatencyDistributions` /
-  `TunnelStats` therefore has a default (`= null`, `= 0`, `= false`,
-  `= emptyList()`) so an absent key is always safe.
+  `TunnelStats`, except the required snapshot `schemaVersion`, therefore has a
+  default (`= null`, `= 0`, `= false`, `= emptyList()`).
 - **Additive and defaulted.** A new telemetry field is safe only if it is an
   `Option<T>`/`skip_serializing_if` (or otherwise omittable) on the Rust side
   **and** a defaulted field on the Kotlin side.
-- **Schema version.** The payload carries an additive `schemaVersion` integer
-  (currently `1`). Every Rust snapshot producer emits it — the
-  `SNAPSHOT_SCHEMA_VERSION` constant in the proxy / tunnel / warp / AmneziaWG / relay
-  telemetry modules — and the Kotlin `NativeRuntimeSnapshot` defaults the field
-  to `1`, so a payload from an older native build that omits the key still
-  decodes. It is a *forward marker*, not a gate: no decoder branches on it
-  today. Unlike the diagnostics wire contract
-  (`DIAGNOSTICS_ENGINE_SCHEMA_VERSION`, [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md)
-  §8), bumping `schemaVersion` is not wired to any validation — it exists so a
-  future *breaking* telemetry change has an explicit signal to branch on.
-  Routine field additions stay governed by the additive-and-defaulted rule plus
-  the Kotlin parsers' unknown-key tolerance below; they do **not** require a
-  `schemaVersion` bump.
+- **Schema version.** Every payload must carry `schemaVersion: 2`. Each Rust
+  snapshot producer owns a matching `SNAPSHOT_SCHEMA_VERSION` constant, and
+  Kotlin marks the field `@Required`. All five engine wrappers decode through
+  `decodeNativeRuntimeSnapshot`, which rejects missing, older, and future
+  versions. There is no legacy telemetry compatibility path. Routine field
+  additions remain governed by the additive-and-defaulted rule plus Kotlin's
+  unknown-key tolerance and do **not** require a schema bump; breaking shape
+  changes must bump every producer and consumer together.
 - **Golden-locked.** `NativeTelemetryGoldenTest` (`:core:engine`) and
   `ServiceTelemetryGoldenTest` (`:core:service`) pin the payload shape. A
   field rename, an event-name change, or a removed field is a contract change
@@ -144,7 +138,7 @@ The telemetry payload is JSON: Rust `serde` serializes, Kotlin
 
 ---
 
-## Forward compatibility — unknown fields and events
+## Additive compatibility — unknown fields and events
 
 The runtime-telemetry parsers are **already forward-tolerant**, and that is the
 intended posture:
@@ -160,8 +154,9 @@ intended posture:
   `DirectPathLearningSignal.event` decodes into the `DirectPathLearningEvent`
   wire-preserving value class — not an enum — so a new event name decodes
   verbatim (`event.wire`) instead of failing the enclosing snapshot.
-- **Absent fields fall back.** Every telemetry model field is defaulted (see
-  payload rules), so a newer Kotlin build reading older JSON is also safe.
+- **Absent optional fields fall back.** Optional telemetry model fields are
+  defaulted, but `schemaVersion` is mandatory and must equal the current
+  version.
 
 These guarantees are locked by forward-compatibility tests in
 `core/data/src/test/.../data/NativeRuntimeSnapshotTest.kt` — unknown top-level

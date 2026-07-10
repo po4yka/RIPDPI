@@ -30,7 +30,7 @@
   "resolverLatencyMs": null,
   "resolverProtocol": null,
   "routeChanges": 0,
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "source": "tunnel",
   "state": "idle",
   "strategyPackId": null,

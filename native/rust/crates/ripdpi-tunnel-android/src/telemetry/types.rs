@@ -14,9 +14,7 @@ pub(crate) struct TunnelStatsSnapshot {
 }
 
 /// Runtime-telemetry payload schema version emitted on every snapshot.
-/// Additive forward marker — consumers do not branch on it yet. See
-/// `docs/architecture/TELEMETRY_CONTRACT.md`.
-pub(crate) const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
+pub(crate) const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

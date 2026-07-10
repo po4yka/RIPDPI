@@ -436,7 +436,7 @@ class RipDpiProxy(
             }
         return payload
             ?.takeIf { it.isNotBlank() }
-            ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+            ?.let(json::decodeNativeRuntimeSnapshot)
             ?: NativeRuntimeSnapshot.idle(source = "proxy")
     }
 }

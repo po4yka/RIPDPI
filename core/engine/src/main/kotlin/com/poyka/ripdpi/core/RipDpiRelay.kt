@@ -322,7 +322,7 @@ class RipDpiRelay(
             }
         return telemetryJson
             ?.takeIf { it.isNotBlank() }
-            ?.let { relayJson.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+            ?.let(relayJson::decodeNativeRuntimeSnapshot)
             ?: NativeRuntimeSnapshot.idle(source = "relay")
     }
 }

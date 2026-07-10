@@ -425,7 +425,6 @@ fn proxy_snapshot_field_manifest_matches_contract_fixture() {
             mode: Some("auto".to_string()),
             policy_signature: Some("sig".to_string()),
             fingerprint_hash: Some("hash".to_string()),
-            diagnostics_session_id: Some("diag-1".to_string()),
             subsystem: Some("proxy".to_string()),
         }],
         latency_distributions: Some(LatencyDistributions {
@@ -468,7 +467,7 @@ fn proxy_snapshot_field_manifest_matches_contract_fixture() {
 fn proxy_event_field_manifest_matches_contract_fixture() {
     use golden_test_support::{assert_contract_fixture, extract_field_paths};
 
-    let event = NativeRuntimeEvent {
+    let event = NativeRuntimeEvent::from(android_support::NativeEventRecord {
         source: "proxy".to_string(),
         level: "info".to_string(),
         message: "test".to_string(),
@@ -480,10 +479,10 @@ fn proxy_event_field_manifest_matches_contract_fixture() {
         fingerprint_hash: Some("hash".to_string()),
         diagnostics_session_id: Some("diag-1".to_string()),
         subsystem: Some("proxy".to_string()),
-    };
+    });
 
     let json = serde_json::to_value(&event).expect("serialize event");
-    assert_eq!(json["diagnosticsSessionId"], serde_json::json!("diag-1"));
+    assert!(json.get("diagnosticsSessionId").is_none());
     let paths = extract_field_paths(&json);
     let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
     assert_contract_fixture("proxy_event_fields.json", &manifest);
@@ -495,5 +494,5 @@ fn proxy_snapshot_json_carries_schema_version() {
     assert_eq!(snapshot.schema_version, SNAPSHOT_SCHEMA_VERSION);
 
     let json = serde_json::to_value(&snapshot).expect("serialize proxy snapshot");
-    assert_eq!(json["schemaVersion"], serde_json::json!(1));
+    assert_eq!(json["schemaVersion"], serde_json::json!(2));
 }

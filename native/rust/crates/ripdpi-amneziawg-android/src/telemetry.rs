@@ -1,5 +1,5 @@
 //! `jniPollTelemetry` body: serialize the runtime's [`AmneziaWgTelemetry`]
-//! snapshot (plus an additive `schemaVersion` marker) to a JSON `jstring` the
+//! snapshot (plus the required current `schemaVersion`) to a JSON `jstring` the
 //! Kotlin `NativeRuntimeSnapshot` parser consumes. Non-blocking; returns the
 //! idle constant for an unknown handle.
 
@@ -12,11 +12,10 @@ use serde::Serialize;
 use crate::registry;
 
 /// Runtime-telemetry payload schema version emitted on every snapshot.
-/// Additive forward marker -- consumers do not branch on it yet.
-const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
+const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
 
 const IDLE_TELEMETRY_JSON: &str =
-    "{\"source\":\"amneziawg\",\"schemaVersion\":1,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
+    "{\"source\":\"amneziawg\",\"schemaVersion\":2,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -121,7 +120,7 @@ mod tests {
             native_events: vec![],
         };
         let value = serde_json::to_value(&snapshot).expect("serialize snapshot");
-        assert_eq!(value["schemaVersion"], serde_json::json!(1));
+        assert_eq!(value["schemaVersion"], serde_json::json!(2));
         assert_eq!(value["source"], serde_json::json!("amneziawg"));
         assert_eq!(value["state"], serde_json::json!("running"));
         assert_eq!(value["listenerAddress"], serde_json::json!("127.0.0.1:11090"));

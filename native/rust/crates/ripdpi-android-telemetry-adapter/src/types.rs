@@ -25,8 +25,6 @@ pub(crate) struct NativeRuntimeEvent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) fingerprint_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(crate) diagnostics_session_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) subsystem: Option<String>,
 }
 
@@ -51,9 +49,7 @@ pub(crate) struct TunnelStatsSnapshot {
 }
 
 /// Runtime-telemetry payload schema version emitted on every snapshot.
-/// Additive forward marker — consumers do not branch on it yet. See
-/// `docs/architecture/TELEMETRY_CONTRACT.md`.
-pub(crate) const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
+pub(crate) const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -121,8 +117,7 @@ pub struct NativeRuntimeSnapshot {
     pub(crate) last_autolearn_action: Option<String>,
     pub(crate) slot_exhaustions: u64,
     /// Cumulative count of successful WS-tunnel handshakes established with the
-    /// fake-SNI cover active (TLS cert verification disabled). Defaults to 0 on
-    /// older payloads.
+    /// fake-SNI cover active (TLS cert verification disabled).
     #[serde(default)]
     pub(crate) ws_tunnel_fake_sni_active: u64,
     pub(crate) profile_id: Option<String>,
@@ -153,7 +148,6 @@ impl From<NativeEventRecord> for NativeRuntimeEvent {
             mode: value.mode,
             policy_signature: value.policy_signature,
             fingerprint_hash: value.fingerprint_hash,
-            diagnostics_session_id: value.diagnostics_session_id,
             subsystem: value.subsystem,
         }
     }

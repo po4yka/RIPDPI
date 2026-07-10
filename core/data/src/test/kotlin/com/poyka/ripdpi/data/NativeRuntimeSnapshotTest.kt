@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.serialization.SerializationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -102,7 +104,7 @@ class NativeRuntimeSnapshotTest {
         // Rust build that adds a snapshot field must not break an older app build.
         val json =
             """
-            { "source": "proxy", "state": "running", "futureUnknownSnapshotField": 42 }
+            { "source": "proxy", "schemaVersion": 2, "state": "running", "futureUnknownSnapshotField": 42 }
             """.trimIndent()
 
         val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
@@ -117,6 +119,7 @@ class NativeRuntimeSnapshotTest {
             """
             {
               "source": "proxy",
+              "schemaVersion": 2,
               "nativeEvents": [
                 { "source": "proxy", "level": "info", "message": "ready",
                   "createdAt": 1, "futureEventField": "x" }
@@ -138,6 +141,7 @@ class NativeRuntimeSnapshotTest {
             """
             {
               "source": "proxy",
+              "schemaVersion": 2,
               "nativeEvents": [
                 { "source": "proxy", "level": "info", "message": "m",
                   "createdAt": 2, "kind": "future_event_kind_v2" }
@@ -159,6 +163,7 @@ class NativeRuntimeSnapshotTest {
             """
             {
               "source": "proxy",
+              "schemaVersion": 2,
               "directPathLearningSignals": [
                 { "authority": "example.org:443", "ipSetDigest": "deadbeef",
                   "event": "FUTURE_DIRECT_PATH_EVENT_V2", "capturedAt": 99 }
@@ -216,40 +221,36 @@ class NativeRuntimeSnapshotTest {
     }
 
     @Test
-    fun `snapshot without schemaVersion decodes with the default schema version`() {
-        // An older native build emits no schemaVersion key. The defaulted
-        // Kotlin field keeps the payload decodable -- schemaVersion is never
-        // required on the wire. See TELEMETRY_CONTRACT.md.
+    fun `snapshot without schemaVersion is rejected`() {
         val json = """{ "source": "proxy", "state": "running" }"""
 
-        val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
-
-        assertEquals(1, decoded.schemaVersion)
+        assertThrows(SerializationException::class.java) {
+            forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
+        }
     }
 
     @Test
     fun `snapshot with explicit schemaVersion decodes that value`() {
-        val json = """{ "source": "proxy", "state": "running", "schemaVersion": 1 }"""
+        val json = """{ "source": "proxy", "state": "running", "schemaVersion": 2 }"""
 
         val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
 
-        assertEquals(1, decoded.schemaVersion)
+        assertEquals(NativeRuntimeTelemetrySchemaVersion, decoded.schemaVersion)
         assertEquals("proxy", decoded.source)
     }
 
     @Test
     fun `schemaVersion coexists with unknown forward-compatible fields`() {
-        // schemaVersion is additive: it does not gate decoding, and the
-        // existing unknown-key tolerance still holds alongside it.
+        // Unknown additive fields remain tolerated within the current schema.
         val json =
             """
-            { "source": "proxy", "state": "running", "schemaVersion": 1,
+            { "source": "proxy", "state": "running", "schemaVersion": 2,
               "futureUnknownSnapshotField": 42 }
             """.trimIndent()
 
         val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
 
-        assertEquals(1, decoded.schemaVersion)
+        assertEquals(NativeRuntimeTelemetrySchemaVersion, decoded.schemaVersion)
         assertEquals("running", decoded.state)
     }
 
@@ -260,7 +261,7 @@ class NativeRuntimeSnapshotTest {
         // telemetry-channel surface for those counters.
         val json =
             """
-            { "source": "amneziawg", "state": "running",
+            { "source": "amneziawg", "schemaVersion": 2, "state": "running",
               "wsCarrierHandshakes": 4, "wsCarrierHandshakeFailures": 1 }
             """.trimIndent()
 
@@ -272,9 +273,9 @@ class NativeRuntimeSnapshotTest {
 
     @Test
     fun `ws carrier handshake counters default to zero when absent`() {
-        // A native core without the carrier seam omits the keys; the defaulted
-        // Kotlin fields keep the snapshot decodable at 0.
-        val json = """{ "source": "amneziawg", "state": "running" }"""
+        // Current native producers may omit the optional counters; the
+        // defaulted Kotlin fields keep the snapshot decodable at 0.
+        val json = """{ "source": "amneziawg", "schemaVersion": 2, "state": "running" }"""
 
         val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
 
@@ -283,7 +284,7 @@ class NativeRuntimeSnapshotTest {
     }
 
     @Test
-    fun `default snapshot encodes schemaVersion as 1`() {
+    fun `default snapshot encodes current schemaVersion`() {
         val encoded =
             snapshotJson.encodeToString(
                 NativeRuntimeSnapshot.serializer(),
@@ -292,7 +293,7 @@ class NativeRuntimeSnapshotTest {
 
         assertTrue(
             "expected schemaVersion in $encoded",
-            encoded.contains("\"schemaVersion\":1"),
+            encoded.contains("\"schemaVersion\":2"),
         )
     }
 

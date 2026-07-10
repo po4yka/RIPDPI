@@ -51,7 +51,6 @@
   "morphPolicyId",
   "morphRollbackReason",
   "nativeEvents[].createdAt",
-  "nativeEvents[].diagnosticsSessionId",
   "nativeEvents[].fingerprintHash",
   "nativeEvents[].kind",
   "nativeEvents[].level",

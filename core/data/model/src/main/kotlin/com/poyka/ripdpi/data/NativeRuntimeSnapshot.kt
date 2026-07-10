@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
+
+const val NativeRuntimeTelemetrySchemaVersion: Int = 2
 
 @Serializable
 data class LatencyPercentiles(
@@ -44,7 +47,6 @@ data class NativeRuntimeEvent(
     val mode: String? = null,
     val policySignature: String? = null,
     val fingerprintHash: String? = null,
-    val diagnosticsSessionId: String? = null,
     val subsystem: String? = null,
 )
 
@@ -100,12 +102,11 @@ data class DirectPathLearningSignal(
 data class NativeRuntimeSnapshot(
     val source: String,
     /**
-     * Runtime-telemetry payload schema version. Additive forward marker:
-     * no decoder branches on it, and a payload from an older native build
-     * that omits the key falls back to `1` via this default. See
-     * docs/architecture/TELEMETRY_CONTRACT.md.
+     * Required runtime-telemetry payload schema version. Native boundary
+     * decoders reject missing and non-current versions.
      */
-    val schemaVersion: Int = 1,
+    @Required
+    val schemaVersion: Int = NativeRuntimeTelemetrySchemaVersion,
     val state: String = "idle",
     val health: String = "idle",
     val activeSessions: Long = 0,
@@ -186,15 +187,14 @@ data class NativeRuntimeSnapshot(
      * Cumulative count of successful WS-tunnel handshakes established with the
      * fake-SNI cover active (TLS certificate verification disabled). A non-zero
      * value at deploy time signals that insecure-SNI connections are actually
-     * occurring. Defaults to 0 on payloads from older native cores.
+     * occurring. Defaults to 0 when the current producer omits the counter.
      */
     val wsTunnelFakeSniActive: Long = 0,
     /**
      * Cumulative count of successful WG-over-WebSocket carrier handshakes (a
      * protected carrier socket opened, TLS/WS upgraded, and the first real
      * WireGuard datagram framed) reported by the AmneziaWG native runtime. Stays
-     * 0 on the plain-UDP path and on payloads from native cores without the
-     * carrier seam. Additive defaulted field — no schema bump.
+     * 0 on the plain-UDP path. Additive defaulted field — no schema bump.
      */
     val wsCarrierHandshakes: Long = 0,
     /**

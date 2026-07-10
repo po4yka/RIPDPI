@@ -17,6 +17,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.encodeToJsonElement
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -283,7 +284,6 @@ class NativeBinaryContractTest {
                             mode = "auto",
                             policySignature = "sig",
                             fingerprintHash = "hash",
-                            diagnosticsSessionId = "diag-1",
                             subsystem = "proxy",
                         ),
                     ),
@@ -337,12 +337,11 @@ class NativeBinaryContractTest {
                 mode = "auto",
                 policySignature = "sig",
                 fingerprintHash = "hash",
-                diagnosticsSessionId = "diag-1",
                 subsystem = "proxy",
             )
 
         val json = contractJson.encodeToJsonElement(event)
-        assertEquals("diag-1", ((json as JsonObject)["diagnosticsSessionId"] as JsonPrimitive).content)
+        assertFalse((json as JsonObject).containsKey("diagnosticsSessionId"))
         return extractFieldPaths(json)
     }
 

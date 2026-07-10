@@ -313,7 +313,7 @@ class RipDpiAmneziaWg(
             }
         return telemetryJson
             ?.takeIf { it.isNotBlank() }
-            ?.let { amneziaWgJson.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+            ?.let(amneziaWgJson::decodeNativeRuntimeSnapshot)
             ?: NativeRuntimeSnapshot.idle(source = Source)
     }
 }

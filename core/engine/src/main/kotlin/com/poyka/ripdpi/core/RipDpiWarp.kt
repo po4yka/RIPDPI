@@ -432,7 +432,7 @@ class RipDpiWarp(
             }
         return telemetryJson
             ?.takeIf { it.isNotBlank() }
-            ?.let { warpJson.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+            ?.let(warpJson::decodeNativeRuntimeSnapshot)
             ?: NativeRuntimeSnapshot.idle(source = "warp")
     }
 }
