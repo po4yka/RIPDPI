@@ -83,14 +83,18 @@ pub(crate) fn describe_upstream(config: &ResolvedRelayRuntimeConfig) -> String {
             }
             _ => format!("{}:{}", config.common.server, config.common.server_port),
         },
-        RelayKind::Vless { xhttp: true } | RelayKind::VlessReality { xhttp: true } => {
-            format!("{}:{}{}", config.common.server, config.common.server_port, normalized_xhttp_path(config))
-        }
-        RelayKind::CloudflareTunnel => {
-            format!("{}:{}{}", config.common.server, config.common.server_port, normalized_xhttp_path(config))
+        RelayKind::Vless { xhttp: true } | RelayKind::VlessReality { xhttp: true } | RelayKind::CloudflareTunnel => {
+            format!("{}:{}", config.common.server, config.common.server_port)
         }
         RelayKind::Masque => match &config.backend {
-            RelayBackendConfig::Masque(masque) => masque.url.clone(),
+            RelayBackendConfig::Masque(masque) => url::Url::parse(&masque.url)
+                .ok()
+                .and_then(|url| {
+                    let host = url.host_str()?;
+                    let port = url.port_or_known_default()?;
+                    Some(format!("{host}:{port}"))
+                })
+                .unwrap_or_else(|| format!("{}:{}", config.common.server, config.common.server_port)),
             _ => format!("{}:{}", config.common.server, config.common.server_port),
         },
         _ => format!("{}:{}", config.common.server, config.common.server_port),
@@ -105,11 +109,6 @@ pub(crate) fn describe_runtime_health(state: &str, backend: Option<&RelayBackend
         "{state} (pool busy={} idle={} evictions={} backpressure={})",
         pool_health.busy_streams, pool_health.idle_streams, pool_health.evictions, pool_health.backpressure_events,
     )
-}
-
-pub(crate) fn normalized_xhttp_path(config: &ResolvedRelayRuntimeConfig) -> String {
-    let trimmed = config.xhttp_path().trim().trim_matches('/');
-    if trimmed.is_empty() { "/".to_owned() } else { format!("/{trimmed}") }
 }
 
 pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayBackend) -> io::Result<()> {

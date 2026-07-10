@@ -1410,6 +1410,19 @@ fn relay_telemetry_reports_tls_catalog_version() {
 }
 
 #[test]
+fn upstream_telemetry_omits_masque_credentials_path_and_query() {
+    let mut config = sample_config("masque");
+    let RelayBackendConfig::Masque(masque) = &mut config.backend else {
+        panic!("expected MASQUE config");
+    };
+    masque.url = "https://user:sentinel-password@masque.example:8443/secret-path?token=sentinel-query".to_string();
+
+    let upstream = describe_upstream(&config);
+    assert_eq!("masque.example:8443", upstream);
+    assert!(!upstream.contains("sentinel"));
+}
+
+#[test]
 fn relay_runtime_routes_vless_xhttp_through_tcp_only_backend() {
     let mut config = sample_config("vless_reality");
     let vless = vless_config_mut(&mut config);
@@ -1418,7 +1431,7 @@ fn relay_runtime_routes_vless_xhttp_through_tcp_only_backend() {
 
     let capabilities = planned_backend_capabilities(&config);
     assert_eq!((true, false), (capabilities.tcp, capabilities.udp));
-    assert_eq!("relay.example:443/api/v1/stream", describe_upstream(&config));
+    assert_eq!("relay.example:443", describe_upstream(&config));
 }
 
 #[test]
@@ -1446,7 +1459,7 @@ async fn relay_runtime_routes_cloudflare_tunnel_through_xhttp_backend() {
 
     let backend = build_backend(&config).await;
     assert!(backend.is_ok(), "cloudflare tunnel backend should resolve");
-    assert_eq!("edge.example.com:443/cdn/api", describe_upstream(&config));
+    assert_eq!("edge.example.com:443", describe_upstream(&config));
 }
 
 #[test]
