@@ -430,6 +430,7 @@ class ChainRelayTrustDomainResolverTest {
                                         id = "middle-hop",
                                         kind = RelayKindMasque,
                                         masqueUrl = "https://masque.example/.well-known/masque/tcp/",
+                                        masqueTcpProtocol = "http3",
                                         masqueUseHttp2Fallback = false,
                                     ),
                                 )
@@ -446,6 +447,49 @@ class ChainRelayTrustDomainResolverTest {
             val reason = (error as? ServiceStartupRejectedException)?.reason as? FailureReason.RelayConfigRejected
             assertTrue(reason?.message.orEmpty().contains("MASQUE"))
             assertTrue(reason?.message.orEmpty().contains("HTTP/2"))
+        }
+
+    @Test
+    fun `resolve chain relay rejects h3-only masque entry before native startup`() =
+        runTest {
+            val error =
+                runCatching {
+                    resolver(
+                        relayProfileStore =
+                            TestRelayProfileStore().apply {
+                                save(
+                                    RelayProfileRecord(
+                                        id = "chain",
+                                        kind = RelayKindChainRelay,
+                                        chainEntryProfileId = "entry-hop",
+                                        chainExitProfileId = "exit-hop",
+                                    ),
+                                )
+                                save(
+                                    RelayProfileRecord(
+                                        id = "entry-hop",
+                                        kind = RelayKindMasque,
+                                        masqueUrl = "https://masque.example/",
+                                        masqueTcpProtocol = "http3",
+                                        masqueUseHttp2Fallback = false,
+                                    ),
+                                )
+                                save(vlessRealityHopRecord("exit-hop", "exit.example", 443, "exit"))
+                            },
+                        relayCredentialStore =
+                            TestRelayCredentialStore().apply {
+                                save(vlessCredential("exit-hop", "22222222-2222-2222-2222-222222222222"))
+                            },
+                    ).resolve(
+                        config = chainRelayConfig(),
+                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is ServiceStartupRejectedException)
+            val reason = (error as? ServiceStartupRejectedException)?.reason as? FailureReason.RelayConfigRejected
+            assertTrue(reason?.message.orEmpty().contains("entry"))
+            assertTrue(reason?.message.orEmpty().contains("HTTP/3 TCP"))
         }
 
     @Test

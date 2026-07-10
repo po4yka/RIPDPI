@@ -7,15 +7,14 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::{Mutex, mpsc};
 
 use crate::auth::PrivacyPassCache;
-use crate::config::MasqueConfig;
+use crate::config::{MasqueConfig, MasqueTcpProtocol};
 use crate::h2::{attempt_h2_connect_tcp, attempt_h2_connect_tcp_over_transport};
-use crate::h3::attempt_h3_connect_tcp;
 use crate::migration::QuicMigrationSnapshot;
-use crate::response::{AttemptError, classify_attempt_failure};
+use crate::response::AttemptError;
 use crate::udp::MasqueUdpRelay;
 use crate::validation::validate_config;
 
-const H3_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const H3_TCP_UNSUPPORTED_TOKEN: &str = "masque_h3_tcp_unsupported";
 
 pub trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -65,50 +64,20 @@ impl MasqueClient {
     }
 
     pub async fn connect_tcp(&self, target: &str) -> io::Result<Box<dyn AsyncIo>> {
-        if !self.inner.config.use_http2_fallback {
-            return self.connect_tcp_h3(target).await;
-        }
-
-        match tokio::time::timeout(H3_CONNECT_TIMEOUT, self.connect_tcp_h3(target)).await {
-            Ok(Ok(stream)) => Ok(stream),
-            Ok(Err(error)) => {
-                let fallback_reason = format!("http3_connect_failed_{}", classify_attempt_failure(&error));
-                tracing::info!(target, error = %error, "MASQUE H3 TCP connect failed, falling back to HTTP/2");
-                match self.connect_tcp_h2(target).await {
-                    Ok(stream) => {
-                        self.inner.record_quic_migration_status("http2_fallback", Some(&fallback_reason)).await;
-                        Ok(stream)
-                    }
-                    Err(fallback_error) => {
-                        self.inner
-                            .record_quic_migration_status(
-                                "failed",
-                                Some("http3_connect_failed_and_http2_fallback_failed"),
-                            )
-                            .await;
-                        Err(fallback_error)
-                    }
+        match self.inner.config.tcp_protocol {
+            MasqueTcpProtocol::Http2 => match self.connect_tcp_h2(target).await {
+                Ok(stream) => {
+                    self.inner.record_quic_migration_status("http2_selected", Some("rfc9113_classic_connect")).await;
+                    Ok(stream)
                 }
-            }
-            Err(_) => {
-                tracing::info!(target, "MASQUE H3 TCP connect timed out, falling back to HTTP/2");
-                match self.connect_tcp_h2(target).await {
-                    Ok(stream) => {
-                        self.inner
-                            .record_quic_migration_status("http2_fallback", Some("http3_connect_timed_out"))
-                            .await;
-                        Ok(stream)
-                    }
-                    Err(error) => {
-                        self.inner
-                            .record_quic_migration_status(
-                                "failed",
-                                Some("http3_connect_timed_out_and_http2_fallback_failed"),
-                            )
-                            .await;
-                        Err(error)
-                    }
+                Err(error) => {
+                    self.inner.record_quic_migration_status("failed", Some("http2_connect_failed")).await;
+                    Err(error)
                 }
+            },
+            MasqueTcpProtocol::Http3 => {
+                self.inner.record_quic_migration_status("failed", Some(H3_TCP_UNSUPPORTED_TOKEN)).await;
+                Err(h3_tcp_unsupported())
             }
         }
     }
@@ -117,6 +86,10 @@ impl MasqueClient {
     where
         S: AsyncIo + 'static,
     {
+        if self.inner.config.tcp_protocol == MasqueTcpProtocol::Http3 {
+            self.inner.record_quic_migration_status("failed", Some(H3_TCP_UNSUPPORTED_TOKEN)).await;
+            return Err(h3_tcp_unsupported());
+        }
         let auth_header = self.inner.request_auth_header(target).await?;
         match attempt_h2_connect_tcp_over_transport(&self.inner.config, transport, target, auth_header.as_ref()).await {
             Ok(stream) => {
@@ -145,50 +118,6 @@ impl MasqueClient {
         self.inner.quic_migration_snapshot()
     }
 
-    async fn connect_tcp_h3(&self, target: &str) -> io::Result<Box<dyn AsyncIo>> {
-        let auth_header = self.inner.request_auth_header(target).await?;
-        match attempt_h3_connect_tcp(&self.inner.config, target, auth_header.as_ref()).await {
-            Ok(stream) => {
-                let reason = if self.inner.config.quic_migrate_after_handshake {
-                    Some("path_validated_after_http3_connect")
-                } else {
-                    Some("http3_transport_without_rebind")
-                };
-                let status = if self.inner.config.quic_migrate_after_handshake { "validated" } else { "not_attempted" };
-                self.inner.record_quic_migration_status(status, reason).await;
-                Ok(Box::new(stream))
-            }
-            Err(AttemptError::PrivacyPassChallenge(challenge)) => {
-                let retry_header = self.inner.fetch_privacy_pass_header(target, &challenge).await?;
-                match attempt_h3_connect_tcp(&self.inner.config, target, Some(&retry_header)).await {
-                    Ok(stream) => {
-                        let reason = if self.inner.config.quic_migrate_after_handshake {
-                            Some("path_validated_after_http3_connect_retry")
-                        } else {
-                            Some("http3_transport_without_rebind")
-                        };
-                        let status =
-                            if self.inner.config.quic_migrate_after_handshake { "validated" } else { "not_attempted" };
-                        self.inner.record_quic_migration_status(status, reason).await;
-                        Ok(Box::new(stream))
-                    }
-                    Err(AttemptError::Io(error)) => {
-                        self.inner.record_quic_migration_status("failed", Some("http3_connect_failed")).await;
-                        Err(error)
-                    }
-                    Err(AttemptError::PrivacyPassChallenge(_)) => Err(io::Error::new(
-                        io::ErrorKind::PermissionDenied,
-                        "MASQUE proxy requested Privacy Pass credentials again after retry",
-                    )),
-                }
-            }
-            Err(AttemptError::Io(error)) => {
-                self.inner.record_quic_migration_status("failed", Some("http3_connect_failed")).await;
-                Err(error)
-            }
-        }
-    }
-
     async fn connect_tcp_h2(&self, target: &str) -> io::Result<Box<dyn AsyncIo>> {
         let auth_header = self.inner.request_auth_header(target).await?;
         match attempt_h2_connect_tcp(&self.inner.config, target, auth_header.as_ref()).await {
@@ -207,4 +136,13 @@ impl MasqueClient {
             Err(AttemptError::Io(error)) => Err(error),
         }
     }
+}
+
+fn h3_tcp_unsupported() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::Unsupported,
+        format!(
+            "{H3_TCP_UNSUPPORTED_TOKEN}: HTTP/3 TCP requires RFC 9114 classic CONNECT, which the pinned H3 encoder cannot emit; select HTTP/2"
+        ),
+    )
 }

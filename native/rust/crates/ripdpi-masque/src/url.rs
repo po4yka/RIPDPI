@@ -8,7 +8,6 @@ use crate::config::MasqueConfig;
 pub(crate) struct ProxyOrigin {
     pub(crate) host: String,
     pub(crate) authority: String,
-    pub(crate) request_uri: String,
     pub(crate) udp_base_path: String,
 }
 
@@ -37,11 +36,10 @@ pub(crate) fn parse_proxy_origin(config: &MasqueConfig) -> io::Result<ProxyOrigi
         .host_str()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL is missing a host"))?
         .to_string();
-    let request_uri = build_request_uri(&parsed);
     let udp_base_path = derive_udp_base_path(parsed.path());
     let port = parsed.port().unwrap_or(443);
     let authority = if port == 443 { host.clone() } else { format!("{host}:{port}") };
-    Ok(ProxyOrigin { host, authority, request_uri, udp_base_path })
+    Ok(ProxyOrigin { host, authority, udp_base_path })
 }
 
 pub(crate) fn resolve_proxy_socket_addr(config: &MasqueConfig, proxy_origin: &ProxyOrigin) -> io::Result<SocketAddr> {
@@ -53,13 +51,6 @@ pub(crate) fn resolve_proxy_socket_addr(config: &MasqueConfig, proxy_origin: &Pr
         .to_socket_addrs()?
         .next()
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "failed to resolve MASQUE proxy host"))
-}
-
-fn build_request_uri(parsed: &Url) -> String {
-    match parsed.query().filter(|value| !value.is_empty()) {
-        Some(query) => format!("{}?{query}", normalized_url_path(parsed.path())),
-        None => normalized_url_path(parsed.path()),
-    }
 }
 
 fn normalized_url_path(path: &str) -> String {

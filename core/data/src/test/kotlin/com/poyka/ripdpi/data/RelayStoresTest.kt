@@ -40,6 +40,24 @@ class RelayStoresTest {
     }
 
     @Test
+    fun `relay profile record preserves independent masque protocol policies`() {
+        val json = Json { ignoreUnknownKeys = true }
+        val record =
+            RelayProfileRecord(
+                id = "masque-h3-tcp",
+                kind = RelayKindMasque,
+                masqueUrl = "https://masque.example/",
+                masqueTcpProtocol = "http3",
+                masqueUseHttp2Fallback = false,
+            )
+
+        val encoded = json.encodeToString(RelayProfileRecord.serializer(), record)
+        val decoded = json.decodeFromString(RelayProfileRecord.serializer(), encoded)
+
+        assertEquals(record, decoded)
+    }
+
+    @Test
     fun `relay credential record preserves tuic shadowtls and naive credentials`() {
         val json = Json { ignoreUnknownKeys = true }
         val record =

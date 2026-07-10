@@ -43,7 +43,7 @@ RIPDPI एक Android नेटवर्क-पाथ डायग्नोस�
 | `cloudflare_tunnel` | Native xHTTP relay पाथ साथ ही वैकल्पिक Cloudflare publish रनटाइम | Client relay / local-origin publish | TCP |
 | `hysteria2` | Native relay-core बैकएंड (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
 | `tuic_v5` | Native relay-core बैकएंड (`ripdpi-tuic`) | Client relay | TCP + UDP |
-| `masque` | HTTP/3 और HTTP/2 फ़ॉलबैक के साथ Native relay-core बैकएंड (`ripdpi-masque`) | Client relay | TCP + UDP |
+| `masque` | Native relay-core बैकएंड (`ripdpi-masque`): TCP के लिए HTTP/2 classic CONNECT, UDP के लिए HTTP/3 CONNECT-UDP | Client relay | TCP + UDP |
 | `shadowtls_v3` | profile-समर्थित आंतरिक relay के साथ Native relay-core बैकएंड (`ripdpi-shadowtls`) | Client relay | TCP |
 | `trojan` | Native relay-core बैकएंड (`ripdpi-trojan`) | Client relay | TCP + UDP |
 | `anytls` | Native relay-core बैकएंड (`ripdpi-anytls`) | Client relay | TCP + UDP |

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.ResolvedTorPluggableTransportConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindAnyTls
@@ -23,6 +24,7 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.test.runTest
@@ -176,7 +178,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
         }
 
     @Test
-    fun `resolve masque family includes privacy pass runtime and chrome fallback`() =
+    fun `resolve masque family includes privacy pass runtime and explicit h2 selection`() =
         runTest {
             val resolver =
                 resolver(
@@ -221,6 +223,67 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
             assertEquals("https://issuer.example/token", resolved.masquePrivacyPassProviderUrl)
             assertEquals(null, resolved.masquePrivacyPassProviderAuthToken)
             assertTrue(resolved.masqueUseHttp2Fallback)
+        }
+
+    @Test
+    fun `h2 tcp remains supported when udp fallback is disabled`() {
+        validateMasqueTcpProtocolSupport(
+            RipDpiRelayConfig(
+                masqueTcpProtocol = "http2",
+                masqueUseHttp2Fallback = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `unknown masque tcp protocol is rejected instead of coerced`() {
+        val error =
+            runCatching {
+                validateMasqueTcpProtocolSupport(
+                    RipDpiRelayConfig(masqueTcpProtocol = "auto"),
+                )
+            }.exceptionOrNull()
+
+        assertTrue(error is ServiceStartupRejectedException)
+        val reason = (error as? ServiceStartupRejectedException)?.reason as? FailureReason.RelayConfigRejected
+        assertTrue(reason?.message.orEmpty().contains("Unsupported MASQUE TCP protocol"))
+    }
+
+    @Test
+    fun `resolve masque family rejects h3 tcp instead of coercing chrome to h2`() =
+        runTest {
+            val error =
+                runCatching {
+                    resolver(
+                        relayProfileStore =
+                            TestRelayProfileStore().apply {
+                                save(
+                                    RelayProfileRecord(
+                                        id = "masque-h3",
+                                        kind = RelayKindMasque,
+                                        masqueUrl = "https://masque.example/",
+                                        masqueTcpProtocol = "http3",
+                                        masqueUseHttp2Fallback = false,
+                                    ),
+                                )
+                            },
+                    ).resolve(
+                        config =
+                            RipDpiRelayConfig(
+                                enabled = true,
+                                kind = RelayKindMasque,
+                                profileId = "masque-h3",
+                                masqueTcpProtocol = "http3",
+                                masqueUseHttp2Fallback = false,
+                            ),
+                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is ServiceStartupRejectedException)
+            val reason = (error as? ServiceStartupRejectedException)?.reason as? FailureReason.RelayConfigRejected
+            assertTrue(reason?.message.orEmpty().contains("HTTP/3 TCP"))
+            assertTrue(reason?.message.orEmpty().contains("HTTP/2"))
         }
 
     @Test

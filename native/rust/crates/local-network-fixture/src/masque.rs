@@ -22,7 +22,6 @@ use tokio_rustls::TlsAcceptor;
 use crate::util::percent_decode;
 
 const CONNECT_UDP_PROTOCOL: &str = "connect-udp";
-const CONNECT_TCP_PROTOCOL: &str = "connect-tcp";
 const CAPSULE_PROTOCOL: &str = "?1";
 const DATAGRAM_CAPSULE_TYPE: u64 = 0x00;
 const MASQUE_PATH_PREFIX: &str = "/.well-known/masque/udp/";
@@ -191,10 +190,7 @@ async fn handle_request(
     let path = request.uri().path().to_string();
     let udp_target = parse_connect_udp_target(&path);
     let tcp_target = request.uri().authority().and_then(|authority| authority.as_str().parse::<SocketAddr>().ok());
-    let observed_target = match protocol.as_deref() {
-        Some(CONNECT_TCP_PROTOCOL) => tcp_target.as_ref(),
-        _ => udp_target.as_ref(),
-    };
+    let observed_target = if protocol.is_none() { tcp_target.as_ref() } else { udp_target.as_ref() };
     observed.lock().expect("MASQUE fixture observations").push(MasqueObservedRequest {
         method: request.method().to_string(),
         path,
@@ -208,7 +204,7 @@ async fn handle_request(
     if request.method() != Method::CONNECT {
         return Ok(response(StatusCode::METHOD_NOT_ALLOWED));
     }
-    if protocol.as_deref() == Some(CONNECT_TCP_PROTOCOL) {
+    if protocol.is_none() {
         let Some(target) = tcp_target else {
             return Ok(response(StatusCode::BAD_REQUEST));
         };

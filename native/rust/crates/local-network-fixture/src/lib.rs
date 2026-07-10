@@ -20,6 +20,7 @@ mod http;
 mod http_types;
 mod hysteria2;
 mod masque;
+mod masque_h3;
 mod naive;
 mod shadowsocks;
 mod socks;
@@ -44,7 +45,14 @@ pub use self::trojan::*;
 pub use self::types::*;
 // Grouped to keep the crate root within the architecture-health root-facade
 // export budget (`check_architecture_health.py` ROOT_FACADE_EXPORT_LIMIT).
-pub use self::{hysteria2::*, tuic::*, vless::*, webtunnel::*, xhttp::*};
+pub use self::{
+    hysteria2::*,
+    masque_h3::{MasqueH3ClassicConnectFixture, MasqueH3ObservedRequest},
+    tuic::*,
+    vless::*,
+    webtunnel::*,
+    xhttp::*,
+};
 
 #[cfg(test)]
 mod tests {

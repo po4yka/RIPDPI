@@ -60,6 +60,7 @@ data class RelayProfileRecord(
     // chains; the entry/exit profile IDs above are hop 0 / hop last.
     val chainMiddleProfileIds: List<String> = emptyList(),
     val masqueUrl: String = "",
+    val masqueTcpProtocol: String = "http2",
     val masqueUseHttp2Fallback: Boolean = true,
     val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,

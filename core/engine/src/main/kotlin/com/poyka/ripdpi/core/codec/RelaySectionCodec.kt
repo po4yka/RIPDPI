@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core.codec
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFinalmaskConfig
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -50,6 +51,8 @@ internal data class NativeRelayConfig(
     val chainExitProfileId: String = "",
     val chainMiddleProfileIds: List<String> = emptyList(),
     val masqueUrl: String = "",
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val masqueTcpProtocol: String = "http2",
     val masqueUseHttp2Fallback: Boolean = true,
     val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,
@@ -110,6 +113,7 @@ internal object RelaySectionCodec {
             chainExitProfileId = value.chainExitProfileId,
             chainMiddleProfileIds = value.chainMiddleProfileIds,
             masqueUrl = value.masqueUrl,
+            masqueTcpProtocol = value.masqueTcpProtocol,
             masqueUseHttp2Fallback = value.masqueUseHttp2Fallback,
             masqueCloudflareGeohashEnabled = value.masqueCloudflareGeohashEnabled,
             tuicZeroRtt = value.tuicZeroRtt,
@@ -179,6 +183,7 @@ internal object RelaySectionCodec {
             chainExitProfileId = value.chainExitProfileId,
             chainMiddleProfileIds = value.chainMiddleProfileIds,
             masqueUrl = value.masqueUrl,
+            masqueTcpProtocol = value.masqueTcpProtocol,
             masqueUseHttp2Fallback = value.masqueUseHttp2Fallback,
             masqueCloudflareGeohashEnabled = value.masqueCloudflareGeohashEnabled,
             tuicZeroRtt = value.tuicZeroRtt,

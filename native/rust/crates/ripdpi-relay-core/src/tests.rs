@@ -378,6 +378,25 @@ fn relay_runtime_config_round_trips_flattened_backend_fields() {
 }
 
 #[test]
+fn masque_tcp_protocol_round_trips_independently_from_udp_fallback() {
+    let mut config = sample_config("masque");
+    let masque = masque_config_mut(&mut config);
+    masque.tcp_protocol = "http3".to_string();
+    masque.use_http2_fallback = false;
+
+    let serialized = serde_json::to_value(&config).expect("serialize MASQUE config");
+    assert_eq!(serde_json::json!("http3"), serialized["masqueTcpProtocol"]);
+    assert_eq!(serde_json::json!(false), serialized["masqueUseHttp2Fallback"]);
+
+    let round_trip: ResolvedRelayRuntimeConfig = serde_json::from_value(serialized).expect("deserialize MASQUE config");
+    let RelayBackendConfig::Masque(masque) = round_trip.backend else {
+        panic!("expected MASQUE config");
+    };
+    assert_eq!("http3", masque.tcp_protocol);
+    assert!(!masque.use_http2_fallback);
+}
+
+#[test]
 fn vless_flow_round_trips_through_flat_native_config() {
     let mut config = sample_config("vless_reality");
     vless_config_mut(&mut config).vless_flow = "xtls-rprx-vision-udp443".to_string();

@@ -517,7 +517,7 @@ class RelayNativeConfigTest {
     // secret-scanner pre-commit hook is not tripped by fake test credentials.
     private fun placeholder(slot: Int): String = "relay-fixture-placeholder-$slot"
 
-    // Every defaulted field set to a non-default value so all 78 wire keys
+    // Every defaulted field set to a non-default value so all wire keys
     // appear and every field exercises the section round-trip.
     private fun fullyPopulatedRelayConfig(): ResolvedRipDpiRelayConfig =
         baseConfig("vless_reality")
@@ -535,6 +535,7 @@ class RelayNativeConfigTest {
             cloudflareTunnelMode = "publish_managed",
             cloudflarePublishLocalOriginUrl = "http://origin.local",
             cloudflareCredentialsRef = "credentials-ref",
+            masqueTcpProtocol = "http3",
             masqueCloudflareGeohashEnabled = true,
             tuicZeroRtt = true,
             tuicCongestionControl = "cubic",
@@ -673,7 +674,7 @@ class RelayNativeConfigTest {
                 "schemaVersion",
             )
 
-        // The 56 keys carrying a default; emitted only when set off-default.
+        // The 57 keys carrying a default; emitted only when set off-default.
         private val defaultedWireKeys =
             setOf(
                 "outboundBindIp",
@@ -687,6 +688,7 @@ class RelayNativeConfigTest {
                 "chainEntryProfileId",
                 "chainExit",
                 "chainExitProfileId",
+                "masqueTcpProtocol",
                 "masqueCloudflareGeohashEnabled",
                 "tuicZeroRtt",
                 "tuicCongestionControl",
@@ -734,7 +736,7 @@ class RelayNativeConfigTest {
                 "finalmask",
             )
 
-        // The complete flat wire object: required + defaulted = 82 keys.
+        // The complete flat wire object: required + defaulted = 83 keys.
         private val expectedWireKeys = requiredWireKeys + defaultedWireKeys
     }
 }

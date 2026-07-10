@@ -154,7 +154,7 @@ class ConfigContractRoundTripTest {
     // ---------------------------------------------------------------------------
     // Scenario 3: Relay-heavy config
     // Exercises three relay kinds' field groups in one payload:
-    //   - MASQUE: masqueUrl, masqueUseHttp2Fallback, masqueCloudflareGeohashEnabled
+    //   - MASQUE: masqueUrl, masqueTcpProtocol, masqueUseHttp2Fallback, masqueCloudflareGeohashEnabled
     //   - Cloudflare Tunnel (consume_existing): cloudflareTunnelMode +
     //     cloudflareCredentialsRef (ref to RelayCredentialStore, NOT inline)
     //   - NaiveProxy: naivePath
@@ -179,6 +179,7 @@ class ConfigContractRoundTripTest {
         assertEquals("relay kind", relay.kind, actual.kind)
         // MASQUE fields
         assertEquals("masqueUrl", relay.masqueUrl, actual.masqueUrl)
+        assertEquals("masqueTcpProtocol", relay.masqueTcpProtocol, actual.masqueTcpProtocol)
         assertEquals("masqueUseHttp2Fallback", relay.masqueUseHttp2Fallback, actual.masqueUseHttp2Fallback)
         assertEquals(
             "masqueCloudflareGeohashEnabled",

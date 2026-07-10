@@ -36,6 +36,13 @@ fn build_masque_client_config_with_ech_lookup(
     let RelayBackendConfig::Masque(masque) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected MASQUE config"));
     };
+    let tcp_protocol = ripdpi_masque::config::MasqueTcpProtocol::from_wire(&masque.tcp_protocol)?;
+    if tcp_protocol == ripdpi_masque::config::MasqueTcpProtocol::Http3 {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "masque_h3_tcp_unsupported: HTTP/3 TCP requires RFC 9114 classic CONNECT; select HTTP/2",
+        ));
+    }
     if config.common.socket_protection == crate::config::SocketProtection::VpnRequired
         && masque.auth_mode.as_deref().is_some_and(|mode| mode.trim().eq_ignore_ascii_case("privacy_pass"))
     {
@@ -49,6 +56,7 @@ fn build_masque_client_config_with_ech_lookup(
         socket_protection: config.common.socket_protection.into(),
         url: masque.url.clone(),
         proxy_socket_addr: masque.proxy_socket_addr,
+        tcp_protocol,
         use_http2_fallback: masque.use_http2_fallback,
         auth_mode: masque.auth_mode.clone(),
         auth_token: masque.auth_token.clone(),
@@ -121,6 +129,23 @@ mod tests {
 
         assert_eq!(error.kind(), io::ErrorKind::Unsupported);
         assert!(lookup.requests().is_empty(), "VPN rejection must precede encrypted-DNS network I/O");
+    }
+
+    #[test]
+    fn masque_h3_tcp_rejection_precedes_ech_lookup() {
+        let lookup = FakeEchLookup::available("ech.com", BORING_ECH_CONFIG_LIST);
+        let mut config = sample_masque_runtime_config();
+        let RelayBackendConfig::Masque(masque) = &mut config.backend else {
+            panic!("expected MASQUE config");
+        };
+        masque.tcp_protocol = "http3".to_string();
+
+        let error = build_masque_client_config_with_ech_lookup(&config, |host| lookup.lookup(host))
+            .expect_err("H3 TCP must fail before ECH lookup");
+
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+        assert!(error.to_string().contains("masque_h3_tcp_unsupported"));
+        assert!(lookup.requests().is_empty(), "H3 TCP rejection must precede encrypted-DNS network I/O");
     }
 
     fn sample_masque_runtime_config() -> ResolvedRelayRuntimeConfig {

@@ -106,6 +106,10 @@ fn default_chain_hop_masque_use_http2_fallback() -> bool {
     true
 }
 
+fn default_chain_hop_masque_tcp_protocol() -> String {
+    "http2".to_string()
+}
+
 fn default_chain_hop_tuic_congestion_control() -> String {
     "bbr".to_string()
 }
@@ -149,6 +153,8 @@ pub struct ResolvedChainRelayHopConfig {
     pub cloudflare_credentials_ref: String,
     #[serde(default)]
     pub masque_url: String,
+    #[serde(default = "default_chain_hop_masque_tcp_protocol")]
+    pub masque_tcp_protocol: String,
     #[serde(default = "default_chain_hop_masque_use_http2_fallback")]
     pub masque_use_http2_fallback: bool,
     #[serde(default)]
@@ -233,6 +239,7 @@ impl Default for ResolvedChainRelayHopConfig {
             cloudflare_publish_local_origin_url: String::new(),
             cloudflare_credentials_ref: String::new(),
             masque_url: String::new(),
+            masque_tcp_protocol: default_chain_hop_masque_tcp_protocol(),
             masque_use_http2_fallback: default_chain_hop_masque_use_http2_fallback(),
             masque_cloudflare_geohash_enabled: false,
             tuic_zero_rtt: false,

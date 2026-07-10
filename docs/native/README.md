@@ -60,7 +60,7 @@ The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust
 - `native/rust/crates/ripdpi-shadowtls` implements ShadowTLS v3 stream camouflage.
 - `native/rust/crates/ripdpi-trojan`, `native/rust/crates/ripdpi-anytls`, and `native/rust/crates/ripdpi-shadowsocks` implement native relay-core backends for their matching `relay_kind` values.
 - `native/rust/crates/ripdpi-tor` implements the opt-in Arti-backed Tor relay backend with bridge and pluggable-transport bootstrap support.
-- `native/rust/crates/ripdpi-masque` implements MASQUE TCP and UDP relay behavior with HTTP/3 and HTTP/2 fallback.
+- `native/rust/crates/ripdpi-masque` implements HTTP/2 classic CONNECT for MASQUE TCP and HTTP/3 CONNECT-UDP for MASQUE UDP; HTTP/3 TCP fails closed until a conformant classic-CONNECT encoder is available.
 - `native/rust/crates/ripdpi-naiveproxy` is a standalone helper binary used through the Android subprocess manager rather than JNI embedding.
 - `native/rust/crates/ripdpi-apps-script-core` provides the Rust Apps Script relay runtime used by the `google_apps_script` profile path.
 - `native/rust/crates/ripdpi-warp-core` and `native/rust/crates/ripdpi-warp-android` provide the native WARP runtime used by the Kotlin service and settings stack.
@@ -74,7 +74,7 @@ Recent integration hardening in this layer:
 - Cloudflare Tunnel publish mode now runs through a bundled `cloudflared` sidecar plus the local `ripdpi-cloudflare-origin` helper instead of stopping at control-plane modeling.
 - `ripdpi-xhttp` now applies Finalmask directly on the outbound xHTTP transport for VLESS xHTTP and Cloudflare Tunnel profiles; `ripdpi-relay-core` rejects unsupported relay and mode combinations early rather than dropping them silently.
 - `ripdpi-xhttp` now supports the `noise` Finalmask mode in addition to `header_custom`, `fragment`, and `sudoku` for xHTTP-backed relays.
-- `ripdpi-masque` preserves configured endpoint paths for HTTP/3 and HTTP/2, reports HTTP/3 to HTTP/2 fallback in telemetry, and classifies Cloudflare direct auth failures by their actual cause.
+- `ripdpi-masque` preserves CONNECT-UDP endpoint paths, reports explicit TCP protocol selection and failures in telemetry, rejects unsupported HTTP/3 TCP before dialing, and classifies Cloudflare direct auth failures by their actual cause.
 - `ripdpi-masque` includes provider-adapter support for bearer/preshared-key auth, deployer-supplied Privacy Pass provider retrieval, and TLS client-certificate auth; the legacy Cloudflare geohash field is retained for config compatibility but the generic adapter does not emit proprietary `sec-ch-geohash` headers.
 - `ripdpi-naiveproxy` emits structured readiness and failure events (`RIPDPI-READY`, `RIPDPI-ERROR`) so the Android service can classify DNS/TLS/HTTP CONNECT/auth failures and expose watchdog state.
 - The Android subprocess supervisor now probes helper versions, redacts configured secrets from surfaced error text, and performs reason-aware bounded restart attempts for NaiveProxy helper failures.

@@ -26,7 +26,7 @@ Make MASQUE TCP protocol selection explicit so the runtime never treats a defect
 ## Ship definition
 
 - [ ] A focused regression test reproduces the current defective HTTP/3 TCP behavior before the source fix.
-- [ ] A standards-specific local HTTP/3 fixture proves method, pseudo-header/authority/path semantics, response handling, and bidirectional TCP stream behavior.
+- [ ] A standards-specific H3-only fixture proves method, pseudo-header/authority/path semantics and rejects the pinned encoder's malformed request without any H2 listener; positive stream behavior is intentionally unavailable while H3 TCP is rejected.
 - [ ] TCP protocol selection is explicit and fail-closed; HTTP/2 fallback cannot hide an HTTP/3 TCP defect.
 - [ ] Focused MASQUE and relay-core tests, clippy, formatting, architecture checks, and relay interoperability gates pass.
 

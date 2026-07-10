@@ -6188,6 +6188,7 @@ dependencies = [
  "ripdpi-failure-classifier",
  "ripdpi-hysteria2",
  "ripdpi-masque",
+ "ripdpi-native-protect",
  "ripdpi-relay-mux",
  "ripdpi-relay-tls-transports",
  "ripdpi-shadowtls",

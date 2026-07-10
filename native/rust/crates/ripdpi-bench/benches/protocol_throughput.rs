@@ -197,6 +197,7 @@ fn bench_masque_h2_connect_tcp(c: &mut Criterion, rt: &Runtime) {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::default(),
         url: masque_url,
         proxy_socket_addr: None,
+        tcp_protocol: ripdpi_masque::config::MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: None,
         auth_token: None,

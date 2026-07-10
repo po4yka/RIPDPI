@@ -18,6 +18,10 @@ fn default_cloudflare_tunnel_mode() -> String {
     "consume_existing".to_string()
 }
 
+fn default_masque_tcp_protocol() -> String {
+    "http2".to_string()
+}
+
 fn default_tuic_congestion_control() -> String {
     "bbr".to_string()
 }
@@ -163,6 +167,8 @@ struct FlatResolvedRelayRuntimeConfig {
     pub chain_hops: Vec<ResolvedChainRelayHopConfig>,
     #[serde(default)]
     pub masque_url: String,
+    #[serde(default = "default_masque_tcp_protocol")]
+    pub masque_tcp_protocol: String,
     #[serde(default)]
     pub masque_use_http2_fallback: bool,
     #[serde(default)]

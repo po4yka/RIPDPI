@@ -5,7 +5,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use http::{HeaderMap, Request, StatusCode};
 use hyper::ext::Protocol as H2Protocol;
-use local_network_fixture::MasqueH2ConnectUdpFixture;
+use local_network_fixture::{MasqueH2ConnectUdpFixture, MasqueH3ClassicConnectFixture};
 use serde_json::to_string;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 
 use super::*;
 use crate::auth::PrivacyPassProviderResponse;
-use crate::config::{MasqueAuthMode, MasqueConfig};
+use crate::config::{MasqueAuthMode, MasqueConfig, MasqueTcpProtocol};
 use crate::h2::{build_h2_connect_udp_request, decode_h2_datagram_capsules, encode_h2_datagram_capsule};
 use crate::h3::decode_udp_payload;
 use crate::migration::{H3FallbackReason, MigrationStatus};
@@ -45,6 +45,7 @@ fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&s
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: false,
         auth_mode: Some("privacy_pass".to_string()),
         auth_token: None,
@@ -169,7 +170,6 @@ fn connect_udp_path_percent_encodes_ipv6_hosts() {
         &ProxyOrigin {
             host: "masque.example".to_string(),
             authority: "masque.example".to_string(),
-            request_uri: "/.well-known/masque/ip".to_string(),
             udp_base_path: "/.well-known/masque".to_string(),
         },
         &TargetAuthority { host: "2001:db8::42".to_string(), port: 443 },
@@ -184,6 +184,7 @@ fn new_client_starts_with_not_attempted_quic_snapshot() {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: Some("bearer".to_string()),
         auth_token: Some("secret".to_string()),
@@ -210,6 +211,7 @@ fn masque_config_accepts_ech_and_boring_h2_backend_can_apply_it() {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: None,
         auth_token: None,
@@ -233,11 +235,12 @@ fn masque_config_accepts_ech_and_boring_h2_backend_can_apply_it() {
 }
 
 #[test]
-fn parse_proxy_origin_preserves_request_path_and_query() {
+fn parse_proxy_origin_derives_connect_udp_base_path() {
     let origin = parse_proxy_origin(&MasqueConfig {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/.well-known/masque/ip?cf=1".to_string(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: Some("bearer".to_string()),
         auth_token: Some("secret".to_string()),
@@ -254,7 +257,6 @@ fn parse_proxy_origin_preserves_request_path_and_query() {
     })
     .expect("origin");
 
-    assert_eq!("/.well-known/masque/ip?cf=1", origin.request_uri);
     assert_eq!("/.well-known/masque", origin.udp_base_path);
 }
 
@@ -264,6 +266,7 @@ fn proxy_socket_addr_prefers_bootstrapped_endpoint_without_rewriting_origin_host
     let config = MasqueConfig {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example:8443/.well-known/masque/ip".to_string(),
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: Some("bearer".to_string()),
         auth_token: Some("secret".to_string()),
@@ -308,6 +311,7 @@ fn apply_request_headers_does_not_add_proprietary_geohash() {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: Some("cloudflare_mtls".to_string()),
         auth_token: None,
@@ -408,7 +412,6 @@ fn h2_connect_udp_request_uses_extended_connect_and_capsule_protocol() {
     let proxy_origin = ProxyOrigin {
         host: "masque.example".to_string(),
         authority: "masque.example".to_string(),
-        request_uri: "/.well-known/masque/ip".to_string(),
         udp_base_path: "/.well-known/masque".to_string(),
     };
     let target = TargetAuthority { host: "example.com".to_string(), port: 443 };
@@ -472,6 +475,7 @@ async fn quic_migration_snapshot_records_http2_fallback_reason() {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: Some("bearer".to_string()),
         auth_token: Some("secret".to_string()),
@@ -501,6 +505,7 @@ fn fallback_snapshot_test_client() -> MasqueClient {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: Some("bearer".to_string()),
         auth_token: Some("secret".to_string()),
@@ -598,6 +603,7 @@ async fn udp_session_round_trips_through_conformant_h2_connect_udp_fixture() {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: fixture.masque_url(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: None,
         auth_token: None,
@@ -648,6 +654,7 @@ async fn adapter_selected_http_auth_lands_on_connect_udp_request() {
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             url: fixture.masque_url(),
             proxy_socket_addr: None,
+            tcp_protocol: MasqueTcpProtocol::Http2,
             use_http2_fallback: true,
             auth_mode: Some(auth_mode.to_string()),
             auth_token: Some(token.to_string()),
@@ -701,6 +708,7 @@ async fn connect_over_h2_transport_tunnels_tcp_to_target() {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: fixture.masque_url(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: None,
         auth_token: None,
@@ -731,8 +739,122 @@ async fn connect_over_h2_transport_tunnels_tcp_to_target() {
 
     assert_eq!(&reply, b"chain-ping");
     let observed = fixture.observed_requests();
-    assert_eq!(observed[0].protocol.as_deref(), Some("connect-tcp"));
+    assert_eq!(observed[0].method, "CONNECT");
+    assert_eq!(observed[0].path, "");
+    assert_eq!(observed[0].protocol, None);
     assert_eq!(observed[0].target.as_deref(), Some(fixture.tcp_echo_target().as_str()));
+}
+
+#[tokio::test]
+async fn h2_tcp_selection_uses_classic_connect_without_h3_fallback() {
+    let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+    let config = MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        url: fixture.masque_url(),
+        proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
+        use_http2_fallback: false,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: Some(fixture.certificate_pem().to_string()),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    };
+
+    let client = MasqueClient::new(config).expect("client");
+    let mut stream = client.connect_tcp(&fixture.tcp_echo_target()).await.expect("connect TCP through H2");
+    stream.write_all(b"classic-connect").await.expect("write H2 tunnel");
+    let mut reply = [0_u8; 15];
+    stream.read_exact(&mut reply).await.expect("read H2 tunnel");
+
+    assert_eq!(&reply, b"classic-connect");
+    assert_eq!(
+        client.quic_migration_snapshot(),
+        (Some("http2_selected".to_string()), Some("rfc9113_classic_connect".to_string()))
+    );
+    let observed = fixture.observed_requests();
+    assert_eq!(observed.len(), 1);
+    assert_eq!(observed[0].method, "CONNECT");
+    assert_eq!(observed[0].path, "");
+    assert_eq!(observed[0].protocol, None);
+    assert_eq!(observed[0].target.as_deref(), Some(fixture.tcp_echo_target().as_str()));
+}
+
+#[tokio::test]
+async fn h3_tcp_selection_fails_unsupported_before_quic_dial() {
+    let fixture = MasqueH3ClassicConnectFixture::start().await.expect("start H3 classic CONNECT fixture");
+    let config = MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        url: fixture.masque_url(),
+        proxy_socket_addr: Some(fixture.proxy_address()),
+        tcp_protocol: MasqueTcpProtocol::Http3,
+        use_http2_fallback: true,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: None,
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    };
+
+    let error = MasqueClient::connect(&config, fixture.tcp_target())
+        .await
+        .err()
+        .expect("H3 TCP must fail until classic CONNECT can be encoded");
+
+    assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    assert!(error.to_string().contains("masque_h3_tcp_unsupported"));
+    assert_eq!(fixture.accepted_connection_count(), 0, "unsupported H3 TCP must fail before QUIC network I/O");
+    assert!(fixture.observed_requests().is_empty());
+}
+
+#[tokio::test]
+async fn h3_classic_connect_fixture_rejects_scheme_and_path_from_pinned_encoder() {
+    let fixture = MasqueH3ClassicConnectFixture::start().await.expect("start H3 classic CONNECT fixture");
+    let mut endpoint =
+        quinn::Endpoint::client("127.0.0.1:0".parse().expect("client address")).expect("create QUIC client endpoint");
+    endpoint.set_default_client_config(fixture.client_config().expect("fixture client config"));
+    let connection = endpoint
+        .connect(fixture.proxy_address(), "localhost")
+        .expect("start QUIC connect")
+        .await
+        .expect("QUIC handshake");
+    let (mut driver, mut sender) = ::h3::client::new(h3_quinn::Connection::new(connection)).await.expect("H3 client");
+    let request = Request::builder()
+        .method("CONNECT")
+        .uri(format!("https://{}/", fixture.tcp_target()))
+        .body(())
+        .expect("request representable by h3 0.0.8");
+    let mut stream = sender.send_request(request).await.expect("send nonconforming H3 request");
+    let response = tokio::time::timeout(std::time::Duration::from_secs(3), stream.recv_response())
+        .await
+        .expect("H3 response timeout")
+        .expect("H3 response");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let observed = fixture.observed_requests();
+    assert_eq!(observed.len(), 1);
+    assert_eq!(observed[0].method, "CONNECT");
+    assert_eq!(observed[0].scheme.as_deref(), Some("https"));
+    assert_eq!(observed[0].path_and_query.as_deref(), Some("/"));
+    assert_eq!(observed[0].protocol, None);
+    assert!(!observed[0].accepted);
+
+    endpoint.close(0_u32.into(), b"test complete");
+    let _ = std::future::poll_fn(|cx| driver.poll_close(cx)).await;
 }
 
 /// `root_certificate_pem` PINS the proxy's self-signed cert as a trust anchor
@@ -747,6 +869,7 @@ async fn connect_over_h2_with_pinned_root_certificate_verifies_and_tunnels() {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: fixture.masque_url(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: None,
         auth_token: None,
@@ -788,6 +911,7 @@ async fn connect_over_h2_with_unrelated_root_certificate_fails_verification() {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: fixture.masque_url(),
         proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
         use_http2_fallback: true,
         auth_mode: None,
         auth_token: None,

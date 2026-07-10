@@ -86,6 +86,8 @@ data class ResolvedChainRelayHopConfig(
     val cloudflarePublishLocalOriginUrl: String = "",
     val cloudflareCredentialsRef: String = "",
     val masqueUrl: String = "",
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val masqueTcpProtocol: String = "http2",
     val masqueUseHttp2Fallback: Boolean = true,
     val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,
@@ -170,6 +172,8 @@ data class ResolvedRipDpiRelayConfig(
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val chainHops: List<ResolvedChainRelayHopConfig> = emptyList(),
     val masqueUrl: String,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val masqueTcpProtocol: String = "http2",
     val masqueUseHttp2Fallback: Boolean,
     val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,
@@ -387,6 +391,7 @@ internal fun ResolvedChainRelayHopRef.toHopConfig(): ResolvedChainRelayHopConfig
 private fun ResolvedRipDpiRelayConfig.masqueSection(): RelayMasqueSection =
     RelayMasqueSection(
         masqueUrl = masqueUrl,
+        masqueTcpProtocol = masqueTcpProtocol,
         masqueUseHttp2Fallback = masqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = masqueCloudflareGeohashEnabled,
         masqueAuthMode = masqueAuthMode,
@@ -626,6 +631,7 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         // entry/exit scalars above, keeping its wire shape byte-identical to v6.
         chainHops = chain.wireChainHops(),
         masqueUrl = masque.masqueUrl,
+        masqueTcpProtocol = masque.masqueTcpProtocol,
         masqueUseHttp2Fallback = masque.masqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = masque.masqueCloudflareGeohashEnabled,
         tuicZeroRtt = tuic.tuicZeroRtt,

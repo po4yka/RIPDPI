@@ -365,10 +365,23 @@ private fun rejectUnsupportedChainRelayHopMode(
     hopName: String,
     profile: RelayProfileRecord,
 ) {
-    if (hopName != "entry" && profile.kind == RelayKindMasque && !profile.masqueUseHttp2Fallback) {
-        rejectRelayConfig(
-            "chain relay $hopName MASQUE profile requires HTTP/2 fallback; H3-only MASQUE is valid only as the entry hop",
-        )
+    if (profile.kind != RelayKindMasque) {
+        return
+    }
+    when (profile.masqueTcpProtocol.trim().lowercase()) {
+        "http2" -> {
+            return
+        }
+
+        "http3" -> {
+            rejectRelayConfig(
+                "chain relay $hopName MASQUE profile requires HTTP/2 classic CONNECT; HTTP/3 TCP is unsupported",
+            )
+        }
+
+        else -> {
+            rejectRelayConfig("chain relay $hopName MASQUE profile has an unsupported TCP protocol")
+        }
     }
 }
 
@@ -408,6 +421,7 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
         cloudflarePublishLocalOriginUrl = cloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef = cloudflareCredentialsRef,
         masqueUrl = masqueUrl,
+        masqueTcpProtocol = masqueTcpProtocol,
         masqueUseHttp2Fallback = masqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = masqueCloudflareGeohashEnabled,
         tuicZeroRtt = tuicZeroRtt,

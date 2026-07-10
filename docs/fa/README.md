@@ -48,7 +48,7 @@ RIPDPI یک جعبه‌ابزار اندرویدی برای تشخیص و بهی
 | `cloudflare_tunnel` | Native xHTTP relay path plus optional Cloudflare publish runtime | Client relay / local-origin publish | TCP |
 | `hysteria2` | Native relay-core backend (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
 | `tuic_v5` | Native relay-core backend (`ripdpi-tuic`) | Client relay | TCP + UDP |
-| `masque` | Native relay-core backend (`ripdpi-masque`) with HTTP/3 and HTTP/2 fallback | Client relay | TCP + UDP |
+| `masque` | Native relay-core backend (`ripdpi-masque`): HTTP/2 classic CONNECT for TCP, HTTP/3 CONNECT-UDP for UDP | Client relay | TCP + UDP |
 | `shadowtls_v3` | Native relay-core backend (`ripdpi-shadowtls`) with a profile-backed inner relay | Client relay | TCP |
 | `trojan` | Native relay-core backend (`ripdpi-trojan`) | Client relay | TCP + UDP |
 | `anytls` | Native relay-core backend (`ripdpi-anytls`) | Client relay | TCP + UDP |

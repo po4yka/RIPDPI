@@ -321,6 +321,7 @@ private class ResolvedRelayConfigBuilder(
     private fun masqueSection(): RelayMasqueSection =
         RelayMasqueSection(
             masqueUrl = effectiveConfig.masqueUrl,
+            masqueTcpProtocol = effectiveConfig.masqueTcpProtocol,
             masqueUseHttp2Fallback = effectiveConfig.masqueUseHttp2Fallback,
             masqueCloudflareGeohashEnabled = effectiveConfig.masqueCloudflareGeohashEnabled,
             masqueAuthMode = resolution.masqueAuthMode,

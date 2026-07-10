@@ -2,14 +2,14 @@
 
 ## Scope
 
-MASQUE client supporting HTTP/3 and HTTP/2 transports, including CONNECT (TCP) and CONNECT-UDP. Includes generic/self-hosted RFC 9298 provider authentication with bearer tokens or TLS client certificates, plus the deployer-supplied Privacy Pass token flow.
+MASQUE client supporting HTTP/3 CONNECT-UDP and HTTP/2 classic CONNECT for TCP. Includes generic/self-hosted RFC 9298 provider authentication with bearer tokens or TLS client certificates, plus the deployer-supplied Privacy Pass token flow.
 
 ## Standards
 
 - **RFC 9298** — Proxying UDP in HTTP (CONNECT-UDP)
 - **RFC 9000** — QUIC (post-handshake path validation on rebind)
 - **RFC 9114** — HTTP/3 framing
-- **RFC 9113** — HTTP/2 framing (fallback path)
+- **RFC 9113** — HTTP/2 framing and classic CONNECT for TCP
 - **RFC 6750** — Bearer auth
 
 Provider extensions:
@@ -29,20 +29,21 @@ Provider extensions:
 
 ## Transport selection
 
-- H3 first (`h3.rs`)
-- H2 fallback (`h2.rs`) when H3 is unreachable; reason captured in the migration snapshot
+- UDP attempts HTTP/3 CONNECT-UDP (`h3.rs`) and may fall back to HTTP/2 CONNECT-UDP capsules when `use_http2_fallback` is true.
+- TCP uses the independent `tcp_protocol` policy. `http2` selects HTTP/2 classic CONNECT (`h2.rs`) directly; it is not a fallback from a defective H3 attempt.
+- TCP configurations that request HTTP/3 are rejected with `Unsupported` before DNS, socket creation, or QUIC establishment. The pinned H3 encoder emits scheme and path pseudo-fields for every request and therefore cannot encode the RFC 9114 classic CONNECT request shape.
 
 ## URL validation
 
-Non-HTTPS URLs are rejected before native startup. Endpoint path and query are preserved through H3 and H2 request construction.
+Non-HTTPS URLs are rejected before native startup. CONNECT-UDP derives its URI-template base from the configured endpoint path; endpoint query templates are not supported. TCP classic CONNECT uses the target authority form required by RFC 9113.
 
-## Known divergences from standards
+## Known unsupported modes
 
-- H3-to-H2 fallback telemetry is incomplete; see `docs/tasks/issues/add-h3-to-h2-fallback-telemetry-rollout-validation.md`.
+- HTTP/3 TCP is intentionally unsupported until the client has an encoder that can emit RFC 9114 classic CONNECT without scheme, path, or an Extended CONNECT protocol token.
 
 ## Non-goals
 
 - Server-side MASQUE.
-- Pure HTTP/2 MASQUE without the H3 attempt (the H2 fallback is reactive, not primary).
+- Silent H3-to-H2 fallback for TCP.
 - Commercial-relay provider adapters such as iCloud Private Relay or Cloudflare proprietary auth.
 - CONNECT-IP from RFC 9484.

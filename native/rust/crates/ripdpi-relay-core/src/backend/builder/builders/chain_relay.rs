@@ -179,10 +179,19 @@ fn resolved_hop_masque_config(
     if hop.masque_url.trim().is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: MASQUE URL is required")));
     }
+    let tcp_protocol = ripdpi_masque::config::MasqueTcpProtocol::from_wire(&hop.masque_tcp_protocol)
+        .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))?;
+    if tcp_protocol == ripdpi_masque::config::MasqueTcpProtocol::Http3 {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!("chain {label}: masque_h3_tcp_unsupported; select HTTP/2 classic CONNECT"),
+        ));
+    }
     Ok(ripdpi_masque::config::MasqueConfig {
         socket_protection,
         url: hop.masque_url.clone(),
         proxy_socket_addr: None,
+        tcp_protocol,
         use_http2_fallback: hop.masque_use_http2_fallback,
         auth_mode: hop.masque_auth_mode.clone(),
         auth_token: hop.masque_auth_token.clone(),

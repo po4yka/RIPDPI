@@ -16,6 +16,8 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayMasqueTcpProtocolHttp2
+import com.poyka.ripdpi.data.RelayMasqueTcpProtocolHttp3
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
@@ -230,6 +232,29 @@ internal fun validateMasqueRelayFeatures(
     if (masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
         requireNotNull(privacyPassRuntime) {
             masquePrivacyPassReadinessMessage(profileId, privacyPassReadiness)
+        }
+    }
+}
+
+internal fun validateMasqueTcpProtocolSupport(config: RipDpiRelayConfig) {
+    when (config.masqueTcpProtocol.trim().lowercase()) {
+        RelayMasqueTcpProtocolHttp2 -> {
+            return
+        }
+
+        RelayMasqueTcpProtocolHttp3 -> {
+            throw ServiceStartupRejectedException(
+                FailureReason.RelayConfigRejected(
+                    "MASQUE HTTP/3 TCP is unsupported until the native H3 encoder can emit RFC 9114 classic CONNECT; " +
+                        "select HTTP/2 classic CONNECT",
+                ),
+            )
+        }
+
+        else -> {
+            throw ServiceStartupRejectedException(
+                FailureReason.RelayConfigRejected("Unsupported MASQUE TCP protocol"),
+            )
         }
     }
 }

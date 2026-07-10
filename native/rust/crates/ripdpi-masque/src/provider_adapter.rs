@@ -206,6 +206,7 @@ mod tests {
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             url: "https://masque.example/".to_string(),
             proxy_socket_addr: None,
+            tcp_protocol: crate::config::MasqueTcpProtocol::Http2,
             use_http2_fallback: true,
             auth_mode: auth_mode.map(ToOwned::to_owned),
             auth_token: auth_token.map(ToOwned::to_owned),

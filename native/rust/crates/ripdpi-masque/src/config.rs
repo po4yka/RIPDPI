@@ -12,6 +12,22 @@ pub enum MasqueAuthMode {
     CloudflareMtls,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MasqueTcpProtocol {
+    Http2,
+    Http3,
+}
+
+impl MasqueTcpProtocol {
+    pub fn from_wire(value: &str) -> io::Result<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "http2" | "h2" => Ok(Self::Http2),
+            "http3" | "h3" => Ok(Self::Http3),
+            _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "unsupported MASQUE TCP protocol")),
+        }
+    }
+}
+
 /// Configuration for a MASQUE proxy connection.
 #[derive(Clone)]
 pub struct MasqueConfig {
@@ -21,7 +37,9 @@ pub struct MasqueConfig {
     pub url: String,
     /// Pre-resolved proxy socket address from relay bootstrap; leaves URL host available for SNI and HTTP authority.
     pub proxy_socket_addr: Option<SocketAddr>,
-    /// Whether to fall back to HTTP/2 CONNECT if HTTP/3 (QUIC) fails.
+    /// Explicit TCP carrier protocol, independent of UDP fallback policy.
+    pub tcp_protocol: MasqueTcpProtocol,
+    /// Whether an H3 CONNECT-UDP failure may fall back to H2 capsules.
     pub use_http2_fallback: bool,
     /// Auth mode: `"bearer"`, `"preshared"`, `"privacy_pass"`, or legacy `"token"`.
     pub auth_mode: Option<String>,
@@ -37,7 +55,7 @@ pub struct MasqueConfig {
     pub privacy_pass_provider_url: Option<String>,
     /// Optional bearer token used to authenticate to the deployer-supplied Privacy Pass provider.
     pub privacy_pass_provider_auth_token: Option<String>,
-    /// TLS fingerprint profile used for HTTP/2 fallback handshakes.
+    /// TLS fingerprint profile used for HTTP/2 handshakes.
     pub tls_fingerprint_profile: String,
     /// Optional PEM trust anchor for the H2 proxy's TLS certificate. When set,
     /// the certificate is added to the connector's trust store (verification
@@ -61,6 +79,7 @@ impl fmt::Debug for MasqueConfig {
             .field("socket_protection", &self.socket_protection)
             .field("url", &"<redacted>")
             .field("proxy_socket_addr", &self.proxy_socket_addr)
+            .field("tcp_protocol", &self.tcp_protocol)
             .field("use_http2_fallback", &self.use_http2_fallback)
             .field("auth_mode", &self.auth_mode)
             .field("auth_token", &self.auth_token.as_ref().map(|_| "<redacted>"))
@@ -100,5 +119,18 @@ impl MasqueConfig {
             None if self.auth_token.as_deref().is_some_and(|value| !value.trim().is_empty()) => MasqueAuthMode::Bearer,
             None => MasqueAuthMode::None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tcp_protocol_wire_values_are_explicit_and_unknown_values_fail_closed() {
+        assert_eq!(MasqueTcpProtocol::from_wire("http2").expect("HTTP/2"), MasqueTcpProtocol::Http2);
+        assert_eq!(MasqueTcpProtocol::from_wire("http3").expect("HTTP/3"), MasqueTcpProtocol::Http3);
+        let error = MasqueTcpProtocol::from_wire("auto").expect_err("unknown protocol must fail");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
     }
 }

@@ -43,6 +43,7 @@ internal fun mergeRelayConfig(
                 it.isNotEmpty()
             } ?: config.chainMiddleProfileIds,
         masqueUrl = profile.masqueUrl.ifBlank { config.masqueUrl },
+        masqueTcpProtocol = profile.masqueTcpProtocol.ifBlank { config.masqueTcpProtocol },
         masqueUseHttp2Fallback = profile.masqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = profile.masqueCloudflareGeohashEnabled,
         tuicZeroRtt = profile.tuicZeroRtt,

@@ -255,6 +255,7 @@ The Docker-backed lab in [`test-lab/`](../test-lab/README.md) provides a MacBook
 - Caddy HTTPS with a generated local debug certificate
 - TCP and UDP echo endpoints
 - QUIC/HTTP3 server for host validation and future Android HTTP/3 probes
+- In-process `MasqueH3ClassicConnectFixture` for H3-only RFC 9114 classic-CONNECT request-shape tests; the proxy port has no TCP/H2 listener, so fallback cannot mask a malformed H3 request
 - Toxiproxy and optional netem scripts for fault scenarios
 - debug-only ADB probe output as app-private JSON
 

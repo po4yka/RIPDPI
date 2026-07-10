@@ -97,6 +97,7 @@ private val EmptyChainHopRef =
 /** MASQUE endpoint, auth, and Privacy Pass fields. */
 data class RelayMasqueSection(
     val masqueUrl: String,
+    val masqueTcpProtocol: String = "http2",
     val masqueUseHttp2Fallback: Boolean,
     val masqueCloudflareGeohashEnabled: Boolean,
     val masqueAuthMode: String?,

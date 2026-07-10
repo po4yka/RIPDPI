@@ -54,18 +54,12 @@ fn build_h2_connect_tcp_request(
     config: &MasqueConfig,
     auth_header: Option<&AuthHeader>,
 ) -> io::Result<hyper::Request<http_body_util::Empty<Bytes>>> {
-    let mut request = apply_request_headers(
-        hyper::Request::builder().method("CONNECT").uri(format!("https://{target}")),
-        config,
-        auth_header,
-    )?
-    .body(http_body_util::Empty::<Bytes>::new())
-    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H2 CONNECT request: {error}")))?;
-    request.extensions_mut().insert(Protocol::from_static("connect-tcp"));
-    Ok(request)
+    apply_request_headers(hyper::Request::builder().method("CONNECT").uri(target), config, auth_header)?
+        .body(http_body_util::Empty::<Bytes>::new())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H2 CONNECT request: {error}")))
 }
 
-/// Open a protected TCP carrier to the MASQUE proxy for the H2 fallback.
+/// Open a protected TCP carrier to the MASQUE proxy for HTTP/2.
 ///
 /// Builds the socket explicitly and protects its fd via the in-process
 /// `VpnService.protect()` registry BEFORE connect, so the non-loopback carrier

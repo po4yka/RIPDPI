@@ -19,6 +19,8 @@ pub(crate) struct QuicMigrationSnapshot {
 pub enum MigrationStatus {
     /// Initial state; no migration or fallback yet.
     NotAttempted,
+    /// HTTP/2 classic CONNECT was selected explicitly for TCP.
+    Http2Selected,
     /// Client fell back to HTTP/2 after the H3 attempt failed.
     Http2Fallback,
     /// Migration or fallback ultimately failed; cooldown engaged.
@@ -32,6 +34,7 @@ impl MigrationStatus {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::NotAttempted => "not_attempted",
+            Self::Http2Selected => "http2_selected",
             Self::Http2Fallback => "http2_fallback",
             Self::Failed => "failed",
             Self::Reverted => "reverted",
@@ -98,6 +101,7 @@ mod typed_status_tests {
         // String values must match CONFORMANCE.md
         // § QUIC Migration Telemetry Vocabulary exactly.
         assert_eq!(MigrationStatus::NotAttempted.as_str(), "not_attempted");
+        assert_eq!(MigrationStatus::Http2Selected.as_str(), "http2_selected");
         assert_eq!(MigrationStatus::Http2Fallback.as_str(), "http2_fallback");
         assert_eq!(MigrationStatus::Failed.as_str(), "failed");
         assert_eq!(MigrationStatus::Reverted.as_str(), "reverted");
