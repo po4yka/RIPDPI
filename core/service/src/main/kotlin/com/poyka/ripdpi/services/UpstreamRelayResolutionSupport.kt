@@ -29,8 +29,11 @@ import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.detectRelayChainTrustWarning
 import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
+import com.poyka.ripdpi.data.isSupportedChainNonEntryHop
 import com.poyka.ripdpi.data.isValidVlessUuid
+import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
+import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import com.poyka.ripdpi.data.toRelayTrustDomain
 import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
 
@@ -72,6 +75,7 @@ internal suspend fun resolveChainRelayConfigSupport(
     credentials: RelayCredentialRecord?,
     relayProfileStore: RelayProfileStore,
     relayCredentialStore: RelayCredentialStore,
+    fallbackTlsFingerprintProfile: String,
 ): ResolvedChainRelayConfig {
     val entry =
         resolveChainRelayHopSupport(
@@ -86,11 +90,11 @@ internal suspend fun resolveChainRelayConfigSupport(
             legacyUuid = credentials?.chainEntryUuid,
             relayProfileStore = relayProfileStore,
             relayCredentialStore = relayCredentialStore,
+            fallbackTlsFingerprintProfile = fallbackTlsFingerprintProfile,
         )
     // Intermediate hops are always referenced-profile hops (no legacy inline
-    // fallback exists for them); each resolves through the entry-hop support
-    // contract — the entry role is the superset of the exit role for kind
-    // support, so a middle hop accepts every kind a chain may tunnel through.
+    // fallback exists for them). They must support connect-over just like exit
+    // hops; QUIC-only carriers are valid only at index zero.
     val middle =
         config.chainMiddleProfileIds
             .filter(String::isNotBlank)
@@ -107,6 +111,7 @@ internal suspend fun resolveChainRelayConfigSupport(
                     legacyUuid = null,
                     relayProfileStore = relayProfileStore,
                     relayCredentialStore = relayCredentialStore,
+                    fallbackTlsFingerprintProfile = fallbackTlsFingerprintProfile,
                 )
             }
     val exit =
@@ -122,6 +127,7 @@ internal suspend fun resolveChainRelayConfigSupport(
             legacyUuid = credentials?.chainExitUuid,
             relayProfileStore = relayProfileStore,
             relayCredentialStore = relayCredentialStore,
+            fallbackTlsFingerprintProfile = fallbackTlsFingerprintProfile,
         )
     return ResolvedChainRelayConfig(
         hops =
@@ -140,17 +146,18 @@ internal suspend fun resolveShadowTlsInnerConfigSupport(
     innerProfileId: String,
     relayProfileStore: RelayProfileStore,
     relayCredentialStore: RelayCredentialStore,
+    fallbackTlsFingerprintProfile: String,
 ): ResolvedShadowTlsInnerRelayConfig {
     val innerProfile = loadShadowTlsInnerProfile(innerProfileId, relayProfileStore)
     rejectSelfReferentialShadowTlsProfile(innerProfile.id, outerProfileId)
     val innerCredentials = relayCredentialStore.load(innerProfileId)
     return when (innerProfile.kind) {
         RelayKindVlessReality -> {
-            require(innerProfile.vlessTransport != RelayVlessTransportXhttp) {
-                "ShadowTLS currently supports only VLESS Reality TCP as an inner profile"
+            if (innerProfile.vlessTransport == RelayVlessTransportXhttp) {
+                rejectRelayConfig("ShadowTLS currently supports only VLESS Reality TCP as an inner profile")
             }
-            require(!innerCredentials?.vlessUuid.isNullOrBlank()) {
-                "Relay credentials missing for profile $innerProfileId"
+            if (innerCredentials?.vlessUuid.isNullOrBlank()) {
+                rejectRelayConfig("Relay credentials missing for profile $innerProfileId")
             }
             ResolvedShadowTlsInnerRelayConfig(
                 kind = innerProfile.kind,
@@ -164,6 +171,7 @@ internal suspend fun resolveShadowTlsInnerConfigSupport(
                 vlessTransport = innerProfile.vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
                 xhttpMode = innerProfile.xhttpMode.ifBlank { com.poyka.ripdpi.data.RelayXhttpModeAuto },
                 vlessUuid = innerCredentials.vlessUuid,
+                tlsFingerprintProfile = resolveProfileTlsFingerprint(innerProfile, fallbackTlsFingerprintProfile),
             )
         }
 
@@ -200,13 +208,32 @@ private suspend fun resolveChainRelayHopSupport(
     legacyUuid: String?,
     relayProfileStore: RelayProfileStore,
     relayCredentialStore: RelayCredentialStore,
+    fallbackTlsFingerprintProfile: String,
 ): ResolvedChainRelayHop {
     if (profileId.isNotBlank()) {
         val profile = loadChainRelayHopProfile(hopName, profileId, relayProfileStore)
         rejectSelfReferentialChainRelayHop(hopName, profile.id, chainProfileId)
         rejectUnsupportedChainRelayHopKind(hopName, profile)
         val hopCredentials = relayCredentialStore.load(profileId)
-        val hopConfig = profile.toResolvedChainRelayHopConfig(hopCredentials)
+        val tlsFingerprintProfile = resolveProfileTlsFingerprint(profile, fallbackTlsFingerprintProfile)
+        val shadowTlsInner =
+            if (profile.kind == RelayKindShadowTlsV3) {
+                resolveShadowTlsInnerConfigSupport(
+                    outerProfileId = profile.id,
+                    innerProfileId = profile.shadowTlsInnerProfileId,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
+                    fallbackTlsFingerprintProfile = fallbackTlsFingerprintProfile,
+                )
+            } else {
+                null
+            }
+        val hopConfig =
+            profile.toResolvedChainRelayHopConfig(
+                credentials = hopCredentials,
+                tlsFingerprintProfile = tlsFingerprintProfile,
+                shadowTlsInner = shadowTlsInner,
+            )
         return ResolvedChainRelayHop(
             profileId = hopConfig.profileId,
             trustDomain = profile.toRelayTrustDomain(),
@@ -253,6 +280,7 @@ private suspend fun resolveChainRelayHopSupport(
                 vlessTransport = RelayVlessTransportRealityTcp,
                 xhttpMode = com.poyka.ripdpi.data.RelayXhttpModeAuto,
                 vlessUuid = checkedLegacyUuid,
+                tlsFingerprintProfile = normalizeTlsFingerprintProfile(fallbackTlsFingerprintProfile),
             ),
     )
 }
@@ -305,20 +333,25 @@ private fun rejectUnsupportedChainRelayHopKind(
 ) {
     val isSupported =
         when (hopName) {
-            // An intermediate hop tunnels traffic onward (like an entry hop) and
-            // is never the chain terminus, so it uses the entry-role kind support.
-            "entry", "intermediate" -> profile.isSupportedChainEntryHop()
+            "entry" -> profile.isSupportedChainEntryHop()
+
+            // Every non-entry hop must implement connect-over; QUIC-only
+            // carriers open an independent socket and are entry-only.
+            "intermediate" -> profile.isSupportedChainNonEntryHop()
 
             "exit" -> profile.isSupportedChainExitHop()
 
             else -> false
         }
     if (isSupported) {
+        rejectUnsupportedChainRelayHopMode(hopName, profile)
         return
     }
     val isSupportedInOtherRole = profile.isSupportedChainEntryHop() || profile.isSupportedChainExitHop()
     val message =
-        if (isSupportedInOtherRole) {
+        if (profile.isSupportedChainEntryHop() && !profile.isSupportedChainNonEntryHop()) {
+            "chain relay $hopName profile kind ${profile.kind} is entry-only because it requires an independent QUIC carrier"
+        } else if (isSupportedInOtherRole) {
             "chain relay $hopName profile kind ${profile.kind} is not supported by chain relay as $hopName hop"
         } else {
             "chain relay $hopName profile kind ${profile.kind} is not supported by chain relay"
@@ -328,8 +361,35 @@ private fun rejectUnsupportedChainRelayHopKind(
     )
 }
 
+private fun rejectUnsupportedChainRelayHopMode(
+    hopName: String,
+    profile: RelayProfileRecord,
+) {
+    if (hopName != "entry" && profile.kind == RelayKindMasque && !profile.masqueUseHttp2Fallback) {
+        rejectRelayConfig(
+            "chain relay $hopName MASQUE profile requires HTTP/2 fallback; H3-only MASQUE is valid only as the entry hop",
+        )
+    }
+}
+
+private fun resolveProfileTlsFingerprint(
+    profile: RelayProfileRecord,
+    fallbackTlsFingerprintProfile: String,
+): String {
+    if (profile.vlessFingerprint.isBlank()) {
+        return normalizeTlsFingerprintProfile(fallbackTlsFingerprintProfile)
+    }
+    return normalizeImportedTlsFingerprint(profile.vlessFingerprint)
+        ?: rejectRelayConfig("Relay profile ${profile.id} has an unsupported TLS fingerprint")
+}
+
+private fun rejectRelayConfig(message: String): Nothing =
+    throw ServiceStartupRejectedException(FailureReason.RelayConfigRejected(message))
+
 private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
     credentials: RelayCredentialRecord?,
+    tlsFingerprintProfile: String,
+    shadowTlsInner: ResolvedShadowTlsInnerRelayConfig?,
 ): ResolvedChainRelayHopConfig =
     ResolvedChainRelayHopConfig(
         kind = kind,
@@ -353,6 +413,7 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
         tuicZeroRtt = tuicZeroRtt,
         tuicCongestionControl = tuicCongestionControl,
         shadowTlsInnerProfileId = shadowTlsInnerProfileId,
+        shadowTlsInner = shadowTlsInner,
         naivePath = naivePath,
         vlessUuid = credentials?.vlessUuid,
         hysteriaPassword = credentials?.hysteriaPassword,
@@ -366,6 +427,7 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
         shadowsocksPassword = credentials?.shadowsocksPassword,
         naiveUsername = credentials?.naiveUsername,
         naivePassword = credentials?.naivePassword,
+        tlsFingerprintProfile = tlsFingerprintProfile,
         masqueAuthMode = resolveMasqueAuthModeSupport(credentials),
         masqueAuthToken = credentials?.masqueAuthToken,
         masqueClientCertificateChainPem = credentials?.masqueClientCertificateChainPem,

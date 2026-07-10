@@ -66,6 +66,7 @@ data class ResolvedShadowTlsInnerRelayConfig(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpMode: String = com.poyka.ripdpi.data.RelayXhttpModeAuto,
     val vlessUuid: String? = null,
+    val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
 )
 
 @Serializable

@@ -18,6 +18,7 @@ pub struct ShadowTlsInnerConfig {
     pub vless_transport: String,
     pub xhttp_mode: String,
     pub vless_uuid: Option<String>,
+    pub tls_fingerprint_profile: String,
 }
 
 #[derive(Clone)]
@@ -112,22 +113,7 @@ where
                     "ShadowTLS inner VLESS xHTTP transport is not supported yet",
                 ));
             }
-            let uuid = inner
-                .vless_uuid
-                .as_ref()
-                .filter(|value| !value.trim().is_empty())
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner VLESS UUID"))?;
-            let config = ripdpi_vless::config::VlessRealityConfig::from_strings(
-                &inner.server,
-                inner.server_port,
-                uuid,
-                &inner.server_name,
-                &inner.reality_public_key,
-                &inner.reality_short_id,
-                "chrome_stable",
-            )
-            .and_then(|config| config.with_flow_str(&inner.vless_flow))
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("shadowtls inner vless: {error}")))?;
+            let config = inner_vless_config(inner)?;
             let stream = ripdpi_vless::VlessRealityClient::connect_over(&config, transport, target).await?;
             let stream: Box<dyn ripdpi_vless::AsyncIo> = Box::new(stream);
             Ok(stream)
@@ -137,6 +123,25 @@ where
             format!("ShadowTLS inner relay kind {other} is not supported"),
         )),
     }
+}
+
+fn inner_vless_config(inner: &ShadowTlsInnerConfig) -> io::Result<ripdpi_vless::config::VlessRealityConfig> {
+    let uuid = inner
+        .vless_uuid
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner VLESS UUID"))?;
+    ripdpi_vless::config::VlessRealityConfig::from_strings(
+        &inner.server,
+        inner.server_port,
+        uuid,
+        &inner.server_name,
+        &inner.reality_public_key,
+        &inner.reality_short_id,
+        &inner.tls_fingerprint_profile,
+    )
+    .and_then(|config| config.with_flow_str(&inner.vless_flow))
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("shadowtls inner vless: {error}")))
 }
 
 impl RelaySessionFactory for ShadowTlsSessionFactory {
@@ -153,5 +158,30 @@ impl RelaySessionFactory for ShadowTlsSessionFactory {
         let outer_server_port = self.outer_server_port;
         let inner = self.inner.clone();
         Ok(Arc::new(ShadowTlsSession { client_config, outer_server, outer_server_port, inner }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inner_vless_config_preserves_selected_tls_fingerprint() {
+        let config = inner_vless_config(&ShadowTlsInnerConfig {
+            kind: "vless_reality".to_string(),
+            server: "inner.example".to_string(),
+            server_port: 443,
+            server_name: "inner.example".to_string(),
+            reality_public_key: "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=".to_string(),
+            reality_short_id: String::new(),
+            vless_flow: "xtls-rprx-vision".to_string(),
+            vless_transport: "reality_tcp".to_string(),
+            xhttp_mode: "auto".to_string(),
+            vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
+            tls_fingerprint_profile: "firefox_stable".to_string(),
+        })
+        .expect("valid inner VLESS config");
+
+        assert_eq!("firefox_stable", config.tls_fingerprint_profile);
     }
 }

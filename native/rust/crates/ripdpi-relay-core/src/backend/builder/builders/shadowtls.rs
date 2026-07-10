@@ -40,6 +40,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 vless_flow: inner.vless_flow.clone(),
                 xhttp_mode: inner.xhttp_mode.clone(),
                 vless_uuid: inner.vless_uuid.clone(),
+                tls_fingerprint_profile: inner.tls_fingerprint_profile.clone(),
             },
         },
         context.pool_config,

@@ -25,6 +25,7 @@ internal class ShadowTlsRelayKindResolver
                     innerProfileId = request.mergedConfig.shadowTlsInnerProfileId,
                     relayProfileStore = relayProfileStore,
                     relayCredentialStore = relayCredentialStore,
+                    fallbackTlsFingerprintProfile = request.requestedTlsProfile,
                 )
 
             return RelayResolverResult(

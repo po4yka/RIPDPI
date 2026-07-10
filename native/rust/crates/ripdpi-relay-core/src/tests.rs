@@ -309,6 +309,7 @@ async fn relay_endpoint_bootstrap_preserves_shadowtls_outer_and_inner_hostnames(
         vless_transport: "reality_tcp".to_string(),
         xhttp_mode: "auto".to_string(),
         vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+        tls_fingerprint_profile: "firefox_stable".to_string(),
     });
 
     let bootstrapped = bootstrap_relay_endpoints(&config).await.expect("bootstrap endpoints");
@@ -437,11 +438,13 @@ fn nested_vless_identity_fields_round_trip_without_coercion() {
         "vlessTransport": "reality_tcp",
         "vlessFlow": "xtls-rprx-vision-udp443",
         "xhttpMode": "stream-one",
-        "vlessUuid": "11111111-1111-1111-1111-111111111111"
+        "vlessUuid": "11111111-1111-1111-1111-111111111111",
+        "tlsFingerprintProfile": "firefox_stable"
     }))
     .expect("deserialize Kotlin ShadowTLS inner wire config");
     assert_eq!("xtls-rprx-vision-udp443", inner.vless_flow);
     assert_eq!("stream-one", inner.xhttp_mode);
+    assert_eq!("firefox_stable", inner.tls_fingerprint_profile);
 
     let hop: ResolvedChainRelayHopConfig = serde_json::from_value(serde_json::json!({
         "kind": "vless_reality",
@@ -1013,6 +1016,7 @@ async fn chain_relay_builds_shadowtls_entry_shadowsocks_exit_from_resolved_hops(
             vless_transport: "reality_tcp".to_string(),
             xhttp_mode: "auto".to_string(),
             vless_uuid: Some("33333333-3333-3333-3333-333333333333".to_string()),
+            tls_fingerprint_profile: "firefox_stable".to_string(),
         }),
         ..ResolvedChainRelayHopConfig::default()
     }));
@@ -1063,6 +1067,7 @@ async fn chain_relay_builds_shadowsocks_entry_shadowtls_exit_from_resolved_hops(
             vless_transport: "reality_tcp".to_string(),
             xhttp_mode: "auto".to_string(),
             vless_uuid: Some("44444444-4444-4444-4444-444444444444".to_string()),
+            tls_fingerprint_profile: "safari_stable".to_string(),
         }),
         ..ResolvedChainRelayHopConfig::default()
     }));
@@ -1526,6 +1531,7 @@ async fn relay_runtime_builds_shadowtls_backend_with_inner_vless_profile() {
         vless_transport: "reality_tcp".to_string(),
         xhttp_mode: "auto".to_string(),
         vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+        tls_fingerprint_profile: "chrome_stable".to_string(),
     });
 
     let backend = build_backend(&config).await.expect("shadowtls backend");

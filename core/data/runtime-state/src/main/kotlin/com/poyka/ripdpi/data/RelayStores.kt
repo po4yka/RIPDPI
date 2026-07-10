@@ -112,7 +112,7 @@ fun RelayProfileRecord.isSupportedChainEntryHop(): Boolean =
         else -> false
     }
 
-fun RelayProfileRecord.isSupportedChainExitHop(): Boolean =
+fun RelayProfileRecord.isSupportedChainNonEntryHop(): Boolean =
     when (kind) {
         RelayKindVlessReality -> normalizeRelayVlessTransport(vlessTransport, kind) == RelayVlessTransportRealityTcp
 
@@ -125,6 +125,8 @@ fun RelayProfileRecord.isSupportedChainExitHop(): Boolean =
 
         else -> false
     }
+
+fun RelayProfileRecord.isSupportedChainExitHop(): Boolean = isSupportedChainNonEntryHop()
 
 @Serializable
 data class RelayCredentialRecord(

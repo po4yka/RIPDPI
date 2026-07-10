@@ -271,6 +271,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                                     realityShortId = "inner-short",
                                     vlessFlow = "xtls-rprx-vision-udp443",
                                     vlessTransport = RelayVlessTransportRealityTcp,
+                                    vlessFingerprint = "safari",
                                 ),
                             )
                         },
@@ -308,6 +309,10 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
             assertEquals("inner.example", resolved.shadowTlsInner?.server)
             assertEquals("xtls-rprx-vision-udp443", resolved.shadowTlsInner?.vlessFlow)
             assertEquals("33333333-3333-3333-3333-333333333333", resolved.shadowTlsInner?.vlessUuid)
+            assertEquals(
+                com.poyka.ripdpi.data.TlsFingerprintProfileSafariStable,
+                resolved.shadowTlsInner?.tlsFingerprintProfile,
+            )
         }
 
     @Test

@@ -70,6 +70,21 @@ class RelayNativeConfigTest {
     }
 
     @Test
+    fun `shadowtls inner fingerprint is additive and round-trips explicitly`() {
+        val sparse =
+            json.decodeFromString(
+                ResolvedShadowTlsInnerRelayConfig.serializer(),
+                """{"kind":"vless_reality","profileId":"inner","server":"inner.example","serverPort":443,"serverName":"inner.example"}""",
+            )
+        assertEquals("chrome_stable", sparse.tlsFingerprintProfile)
+
+        val explicit = sparse.copy(tlsFingerprintProfile = "firefox_stable")
+        val encoded = json.encodeToString(ResolvedShadowTlsInnerRelayConfig.serializer(), explicit)
+        assertEquals(explicit, json.decodeFromString(ResolvedShadowTlsInnerRelayConfig.serializer(), encoded))
+        assertTrue(encoded.contains("\"tlsFingerprintProfile\":\"firefox_stable\""))
+    }
+
+    @Test
     fun `chain section folds the flat two-hop wire fields into an ordered hop list`() {
         val section = chainRelayConfig().toSections().chain
 
@@ -365,6 +380,7 @@ class RelayNativeConfigTest {
                     realityShortId = "inner-short-id",
                     vlessTransport = "xhttp",
                     vlessUuid = "inner-uuid",
+                    tlsFingerprintProfile = "firefox_stable",
                 ),
         )
 
@@ -380,6 +396,7 @@ class RelayNativeConfigTest {
                     realityPublicKey = "entry-public-key",
                     realityShortId = "entry-short-id",
                     vlessUuid = "chain-entry-uuid",
+                    tlsFingerprintProfile = "firefox_stable",
                 ),
             chainEntryProfileId = "chain-entry-profile-id",
             chainEntryUuid = "chain-entry-uuid",
@@ -391,6 +408,7 @@ class RelayNativeConfigTest {
                     masqueUseHttp2Fallback = true,
                     masqueAuthMode = "bearer",
                     masqueAuthToken = placeholder(12),
+                    tlsFingerprintProfile = "safari_stable",
                 ),
             chainExitProfileId = "chain-exit-profile-id",
             chainExitUuid = "chain-exit-uuid",
@@ -534,6 +552,7 @@ class RelayNativeConfigTest {
                     realityShortId = "inner-short-id",
                     vlessTransport = "xhttp",
                     vlessUuid = "inner-uuid",
+                    tlsFingerprintProfile = "edge_stable",
                 ),
         )
 

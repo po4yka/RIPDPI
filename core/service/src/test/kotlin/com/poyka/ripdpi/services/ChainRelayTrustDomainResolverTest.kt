@@ -8,11 +8,16 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayTrustDomain
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.TlsFingerprintProfileEdgeStable
+import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
+import com.poyka.ripdpi.data.TlsFingerprintProfileSafariStable
 import com.poyka.ripdpi.data.detectRelayChainTrustWarning
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -217,6 +222,7 @@ class ChainRelayTrustDomainResolverTest {
                             )
                         },
                     relayCredentialStore = entryCredentialStore(),
+                    fallbackTlsFingerprintProfile = TlsFingerprintProfileChromeStable,
                 )
 
             assertEquals("RU", resolved.entry.trustDomain.jurisdiction)
@@ -267,6 +273,7 @@ class ChainRelayTrustDomainResolverTest {
                             )
                         },
                     relayCredentialStore = entryCredentialStore(),
+                    fallbackTlsFingerprintProfile = TlsFingerprintProfileChromeStable,
                 )
 
             assertEquals(null, resolved.trustWarning?.sharedJurisdiction)
@@ -310,15 +317,255 @@ class ChainRelayTrustDomainResolverTest {
                             )
                         },
                     relayCredentialStore = entryCredentialStore(),
+                    fallbackTlsFingerprintProfile = TlsFingerprintProfileChromeStable,
                 )
                 fail("Expected QUIC exit profile to be rejected")
             } catch (error: ServiceStartupRejectedException) {
                 val reason = error.reason as? FailureReason.RelayConfigRejected
                 assertTrue(reason != null)
                 assertTrue(
-                    reason?.message?.contains("chain relay exit profile kind hysteria2 is not supported") == true,
+                    reason?.message?.contains("chain relay exit profile kind hysteria2 is entry-only") == true,
                 )
             }
+        }
+
+    @Test
+    fun `resolve chain relay config rejects quic-only intermediate profiles before native launch`() =
+        runTest {
+            listOf(RelayKindHysteria2, RelayKindTuicV5).forEach { quicKind ->
+                val error =
+                    runCatching {
+                        resolver(
+                            relayProfileStore =
+                                TestRelayProfileStore().apply {
+                                    save(threeHopChainRecord())
+                                    save(vlessRealityHopRecord("entry-hop", "entry.example", 443, "entry"))
+                                    save(
+                                        RelayProfileRecord(
+                                            id = "middle-hop",
+                                            kind = quicKind,
+                                            server = "middle.example",
+                                            serverName = "middle.example",
+                                        ),
+                                    )
+                                    save(vlessRealityHopRecord("exit-hop", "exit.example", 443, "exit"))
+                                },
+                            relayCredentialStore = threeHopChainCredentialStore(),
+                        ).resolve(
+                            config = chainRelayConfig(),
+                            quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                        )
+                    }.exceptionOrNull()
+
+                assertTrue(error is ServiceStartupRejectedException)
+                val reason = (error as? ServiceStartupRejectedException)?.reason as? FailureReason.RelayConfigRejected
+                assertNotNull(reason)
+                assertTrue(reason?.message.orEmpty().contains("intermediate"))
+                assertTrue(reason?.message.orEmpty().contains(quicKind))
+                assertTrue(reason?.message.orEmpty().contains("entry"))
+            }
+        }
+
+    @Test
+    fun `resolve chain relay keeps quic-only profiles valid at the entry hop`() =
+        runTest {
+            listOf(RelayKindHysteria2, RelayKindTuicV5).forEach { quicKind ->
+                val profileStore =
+                    TestRelayProfileStore().apply {
+                        save(
+                            RelayProfileRecord(
+                                id = "chain",
+                                kind = RelayKindChainRelay,
+                                chainEntryProfileId = "entry-hop",
+                                chainExitProfileId = "exit-hop",
+                            ),
+                        )
+                        save(
+                            RelayProfileRecord(
+                                id = "entry-hop",
+                                kind = quicKind,
+                                server = "entry.example",
+                                serverName = "entry.example",
+                            ),
+                        )
+                        save(vlessRealityHopRecord("exit-hop", "exit.example", 443, "exit"))
+                    }
+                val credentialStore =
+                    TestRelayCredentialStore().apply {
+                        save(
+                            RelayCredentialRecord(
+                                profileId = "entry-hop",
+                                hysteriaPassword =
+                                    credentialFixture("hysteria").takeIf { quicKind == RelayKindHysteria2 },
+                                tuicUuid =
+                                    "33333333-3333-3333-3333-333333333333".takeIf { quicKind == RelayKindTuicV5 },
+                                tuicPassword = credentialFixture("tuic").takeIf { quicKind == RelayKindTuicV5 },
+                            ),
+                        )
+                        save(vlessCredential("exit-hop", "22222222-2222-2222-2222-222222222222"))
+                    }
+
+                val resolved =
+                    resolver(profileStore, credentialStore).resolve(
+                        config = chainRelayConfig(),
+                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    )
+
+                assertEquals(quicKind, resolved.chainEntry?.kind)
+            }
+        }
+
+    @Test
+    fun `resolve chain relay rejects h3-only masque intermediate instead of coercing it to h2`() =
+        runTest {
+            val error =
+                runCatching {
+                    resolver(
+                        relayProfileStore =
+                            TestRelayProfileStore().apply {
+                                save(threeHopChainRecord())
+                                save(vlessRealityHopRecord("entry-hop", "entry.example", 443, "entry"))
+                                save(
+                                    RelayProfileRecord(
+                                        id = "middle-hop",
+                                        kind = RelayKindMasque,
+                                        masqueUrl = "https://masque.example/.well-known/masque/tcp/",
+                                        masqueUseHttp2Fallback = false,
+                                    ),
+                                )
+                                save(vlessRealityHopRecord("exit-hop", "exit.example", 443, "exit"))
+                            },
+                        relayCredentialStore = threeHopChainCredentialStore(),
+                    ).resolve(
+                        config = chainRelayConfig(),
+                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is ServiceStartupRejectedException)
+            val reason = (error as? ServiceStartupRejectedException)?.reason as? FailureReason.RelayConfigRejected
+            assertTrue(reason?.message.orEmpty().contains("MASQUE"))
+            assertTrue(reason?.message.orEmpty().contains("HTTP/2"))
+        }
+
+    @Test
+    fun `resolve chain relay fully resolves shadowtls intermediate profile`() =
+        runTest {
+            val profileStore =
+                TestRelayProfileStore().apply {
+                    save(threeHopChainRecord())
+                    save(vlessRealityHopRecord("entry-hop", "entry.example", 443, "entry"))
+                    save(
+                        RelayProfileRecord(
+                            id = "middle-hop",
+                            kind = RelayKindShadowTlsV3,
+                            server = "shadow.example",
+                            serverName = "shadow.example",
+                            shadowTlsInnerProfileId = "shadow-inner",
+                        ),
+                    )
+                    save(
+                        vlessRealityHopRecord("shadow-inner", "inner.example", 8443, "inner").copy(
+                            vlessFlow = "xtls-rprx-vision-udp443",
+                            vlessFingerprint = "firefox",
+                        ),
+                    )
+                    save(vlessRealityHopRecord("exit-hop", "exit.example", 443, "exit"))
+                }
+            val credentialStore =
+                threeHopChainCredentialStore().apply {
+                    save(
+                        RelayCredentialRecord(
+                            profileId = "middle-hop",
+                            shadowTlsPassword = credentialFixture("shadowtls"),
+                        ),
+                    )
+                    save(vlessCredential("shadow-inner", "55555555-5555-5555-5555-555555555555"))
+                }
+
+            val resolved =
+                resolver(profileStore, credentialStore).resolve(
+                    config = chainRelayConfig(),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            val shadowHop = resolved.chainHops[1]
+            assertEquals(RelayKindShadowTlsV3, shadowHop.kind)
+            assertEquals("middle-hop", shadowHop.profileId)
+            assertEquals("shadow-inner", shadowHop.shadowTlsInnerProfileId)
+            assertEquals(credentialFixture("shadowtls"), shadowHop.shadowTlsPassword)
+            assertNotNull(shadowHop.shadowTlsInner)
+            assertEquals("shadow-inner", shadowHop.shadowTlsInner?.profileId)
+            assertEquals("inner.example", shadowHop.shadowTlsInner?.server)
+            assertEquals("xtls-rprx-vision-udp443", shadowHop.shadowTlsInner?.vlessFlow)
+            assertEquals("55555555-5555-5555-5555-555555555555", shadowHop.shadowTlsInner?.vlessUuid)
+            assertEquals(TlsFingerprintProfileFirefoxStable, shadowHop.shadowTlsInner?.tlsFingerprintProfile)
+        }
+
+    @Test
+    fun `resolve chain relay preserves explicit fingerprints and uses selected fallback per hop`() =
+        runTest {
+            val profileStore =
+                TestRelayProfileStore().apply {
+                    save(threeHopChainRecord())
+                    save(
+                        vlessRealityHopRecord("entry-hop", "entry.example", 443, "entry").copy(
+                            vlessFingerprint = "firefox",
+                        ),
+                    )
+                    save(vlessRealityHopRecord("middle-hop", "middle.example", 8443, "middle"))
+                    save(
+                        vlessRealityHopRecord("exit-hop", "exit.example", 9443, "exit").copy(
+                            vlessFingerprint = "safari",
+                        ),
+                    )
+                }
+
+            val resolved =
+                resolver(
+                    relayProfileStore = profileStore,
+                    relayCredentialStore = threeHopChainCredentialStore(),
+                    tlsFingerprintProfile = TlsFingerprintProfileEdgeStable,
+                ).resolve(
+                    config = chainRelayConfig(),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertEquals(
+                listOf(
+                    TlsFingerprintProfileFirefoxStable,
+                    TlsFingerprintProfileEdgeStable,
+                    TlsFingerprintProfileSafariStable,
+                ),
+                resolved.chainHops.map { it.tlsFingerprintProfile },
+            )
+        }
+
+    @Test
+    fun `resolve chain relay rejects unknown stored hop fingerprint with typed error`() =
+        runTest {
+            val profileStore =
+                TestRelayProfileStore().apply {
+                    save(threeHopChainRecord())
+                    save(
+                        vlessRealityHopRecord("entry-hop", "entry.example", 443, "entry").copy(
+                            vlessFingerprint = "unsupported-browser",
+                        ),
+                    )
+                    save(vlessRealityHopRecord("middle-hop", "middle.example", 8443, "middle"))
+                    save(vlessRealityHopRecord("exit-hop", "exit.example", 9443, "exit"))
+                }
+
+            val error =
+                runCatching {
+                    resolver(profileStore, threeHopChainCredentialStore()).resolve(
+                        config = chainRelayConfig(),
+                        quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(error is ServiceStartupRejectedException)
+            assertTrue((error as? ServiceStartupRejectedException)?.reason is FailureReason.RelayConfigRejected)
         }
 
     @Test
@@ -471,6 +718,7 @@ class ChainRelayTrustDomainResolverTest {
     private fun resolver(
         relayProfileStore: TestRelayProfileStore,
         relayCredentialStore: TestRelayCredentialStore,
+        tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
     ): DefaultUpstreamRelayRuntimeConfigResolver =
         DefaultUpstreamRelayRuntimeConfigResolver(
             relayProfileStore = relayProfileStore,
@@ -487,7 +735,7 @@ class ChainRelayTrustDomainResolverTest {
                 ),
             tlsFingerprintProfileProvider =
                 object : OwnedTlsFingerprintProfileProvider {
-                    override fun currentProfile(): String = TlsFingerprintProfileChromeStable
+                    override fun currentProfile(): String = tlsFingerprintProfile
                 },
             runtimeExperimentSelectionProvider =
                 object : RuntimeExperimentSelectionProvider {

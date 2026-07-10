@@ -425,5 +425,6 @@ mod tests {
 
         assert_eq!(value["shadowTlsInner"]["vlessFlow"], json!("xtls-rprx-vision-udp443"));
         assert_eq!(value["shadowTlsInner"]["vlessTransport"], json!("reality_tcp"));
+        assert_eq!(value["shadowTlsInner"]["tlsFingerprintProfile"], json!("chrome_stable"));
     }
 }

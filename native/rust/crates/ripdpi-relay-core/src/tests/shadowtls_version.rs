@@ -21,6 +21,7 @@ fn shadowtls_inner_fixture() -> ResolvedShadowTlsInnerRelayConfig {
         vless_transport: "reality_tcp".to_string(),
         xhttp_mode: "auto".to_string(),
         vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
+        tls_fingerprint_profile: "firefox_stable".to_string(),
     }
 }
 

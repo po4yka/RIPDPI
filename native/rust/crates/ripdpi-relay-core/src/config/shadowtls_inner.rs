@@ -10,6 +10,10 @@ fn default_shadowtls_inner_xhttp_mode() -> String {
     "auto".to_string()
 }
 
+fn default_shadowtls_inner_tls_fingerprint_profile() -> String {
+    "chrome_stable".to_string()
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedShadowTlsInnerRelayConfig {
@@ -27,4 +31,6 @@ pub struct ResolvedShadowTlsInnerRelayConfig {
     #[serde(default = "default_shadowtls_inner_xhttp_mode")]
     pub xhttp_mode: String,
     pub vless_uuid: Option<String>,
+    #[serde(default = "default_shadowtls_inner_tls_fingerprint_profile")]
+    pub tls_fingerprint_profile: String,
 }

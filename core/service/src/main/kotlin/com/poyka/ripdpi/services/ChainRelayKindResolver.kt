@@ -21,6 +21,7 @@ internal class ChainRelayKindResolver
                     credentials = request.credentials,
                     relayProfileStore = relayProfileStore,
                     relayCredentialStore = relayCredentialStore,
+                    fallbackTlsFingerprintProfile = request.requestedTlsProfile,
                 )
 
             validateSharedRelayTransportFeatures(request.mergedConfig)

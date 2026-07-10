@@ -292,6 +292,7 @@ fn resolved_hop_shadowtls_factory(
             vless_transport: inner.vless_transport.clone(),
             xhttp_mode: inner.xhttp_mode.clone(),
             vless_uuid: inner.vless_uuid.clone(),
+            tls_fingerprint_profile: inner.tls_fingerprint_profile.clone(),
         },
     })
 }
