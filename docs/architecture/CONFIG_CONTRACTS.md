@@ -1,8 +1,8 @@
 # Configuration Contracts
 
 How a user setting travels from the protobuf schema, through Kotlin mappers and
-the native JSON codec, into the Rust runtime config — and the **compatibility
-rules** that keep every hop backward- and forward-safe.
+the native JSON codec, into the Rust runtime config — and the **contract rules**
+that keep every hop current-only, fail-closed, and additive-field tolerant.
 
 Companion docs: [`ARCHITECTURE.md`](ARCHITECTURE.md) §6 (config flow overview),
 [`FEATURE_EXTENSION_GUIDE.md`](FEATURE_EXTENSION_GUIDE.md) §5 (adding a setting),
@@ -85,6 +85,11 @@ The settings store is Jetpack DataStore — a wire-format change is a
 - A `string` field that historically held a migration counter,
   `settings_migration_level` (number 130), is **reserved/removed** — settings
   migration is handled by DataStore migrations now, not an in-message counter.
+- Retired relay xHTTP tag numbers 215 and 216 remain reserved. There is no
+  raw-wire semantic migration from historical tags 214–216 to the current
+  fields 258–260: tag 214 is the current `strategy_chain_yaml` field, and
+  persisted bytes are decoded strictly according to the current protobuf.
+  Standard protobuf unknown-field preservation remains enabled.
 
 Use the `protobuf-schema-evolution` and `protobuf-datastore` skills.
 
@@ -117,9 +122,8 @@ consumed by Rust `serde` — the two serializers must agree on every key.
   null, so the Rust side **must** default them.
 - **Additive and defaulted, both sides.** A new JSON key must have a default in
   the Kotlin codec model *and* a `#[serde(default)]` on the Rust struct. The
-  Rust proxy/tunnel structs are **not** `#[serde(deny_unknown_fields)]`, so an
-  older Rust build silently ignores a key it does not know — additive keys are
-  forward-safe.
+  Rust proxy/tunnel structs are **not** `#[serde(deny_unknown_fields)]`, so a
+  current-schema consumer silently ignores an additive key it does not know.
 - `environmentKind` is carried as the `EnvironmentKind` enum **variant name**
   string (`"Field"` / `"Emulator"` / `"Unknown"`); Rust parses it back into
   `ripdpi_config::EnvironmentKind`, defaulting unknown to `Unknown`.
@@ -130,7 +134,7 @@ consumed by Rust `serde` — the two serializers must agree on every key.
 
 The "System HTTP proxy service mode" feature adds two `listen`-section keys and
 a set of `AppSettings` proto fields. All are additive (Kotlin default + Rust
-`#[serde(default)]`), so older builds ignore them safely.
+`#[serde(default)]`) within the current schema.
 
 - **`listen.mixed`** (`bool`, default `false`) → `RuntimeConfig.network.mixed`.
   Turns the single local listener into a *mixed* inbound that serves SOCKS5,
@@ -166,33 +170,33 @@ Owner: `ripdpi-proxy-config` (entry points `parse_proxy_config_json`,
 `runtime_config_from_payload`), `ripdpi-config` (`src/model/`,
 `src/model/defaults.rs`), `ripdpi-tunnel-config`.
 
-- **Every field is defaulted.** The config crates carry ~235 `#[serde(default)]`
-  attributes — effectively every deserialized field. A new field **must** be
-  `#[serde(default)]` or `Option<T>`; a missing field must never fail
-  deserialization on the proxy/tunnel path.
+- **Every optional field is defaulted.** The config crates carry ~235
+  `#[serde(default)]` attributes. A new optional field **must** be
+  `#[serde(default)]` or `Option<T>`; the required current `schemaVersion`
+  envelope is the deliberate exception and must fail deserialization when
+  absent.
 - **Custom defaults are named functions.** `#[serde(default = "fn")]` — e.g.
   `default_relay_server_port`, `default_tcp_chain_steps`,
   `default_seqovl_fake_mode`, `default_ipv6_extension_profile`,
   `default_fake_payload_profile`, `default_true`. The default must reproduce
-  the *inert / pre-existing* behavior so an old config keeps working.
+  the inert current behavior when a current-version producer omits that field.
 - **Unknown fields are tolerated** for proxy / tunnel / diagnostics config — no
   `#[serde(deny_unknown_fields)]`. The single exception is
   `ripdpi-strategy-config` (`src/lib.rs`, `#![forbid(unsafe_code)]`), which
   uses `deny_unknown_fields` for strict strategy-pack YAML/TOML parsing — a
   typo there is an error, by design.
-- **Rename → keep an alias.** When a wire name must change, add
-  `#[serde(alias = "oldName")]` rather than a hard rename. Precedent in the
-  crates: `#[serde(rename = "tls_rec", alias = "tlsRec")]` and the matching
-  `tls_rand_rec` / `tlsRandRec`.
+- **Do not rename wire fields.** Current-only schema enforcement does not make
+  silent key renames safe; a breaking rename requires a coordinated version
+  bump and producer/consumer update.
 - **The normalized shape is `RuntimeConfig`**, wrapped by `RuntimeConfigEnvelope
   { config, runtime_context, log_context, native_log_level }`
   (`ripdpi-proxy-config/src/types/payload.rs`).
-- **String → enum parsing must fall back, not panic.** The `parse_*` helpers
+- **Strategy string → enum parsing must reject unknown identifiers.** The `parse_*` helpers
   (`parse_desync_mode`, `parse_tcp_chain_step_kind`, `parse_tls_fake_profile`,
   `parse_quic_fake_profile`, `parse_quic_initial_mode`, `parse_http_fake_profile`,
   `parse_udp_chain_step_kind`, `parse_udp_fake_profile`) decode the stable
-  identifier strings from §5; an unrecognized value must resolve to a
-  documented safe default, never abort the whole config.
+  identifier strings from §5; an unrecognized executable strategy identifier
+  must reject the config rather than silently change strategy semantics.
 
 ---
 
@@ -203,22 +207,26 @@ Per-network winners are persisted and replayed verbatim — see
 Memory.
 
 - **What is persisted:** `remembered_network_policies` stores the exact
-  normalized `proxyConfigJson` (plus an optional VPN DNS override and the
-  TCP/QUIC/DNS strategy-family labels) for a validated network winner. On
-  reconnect that JSON is replayed.
+  normalized current-schema `proxyConfigJson` (plus an optional VPN DNS
+  override and the TCP/QUIC/DNS strategy-family labels) for a validated network
+  winner. On reconnect that JSON is replayed.
 - **The strategy body is the identity; the context is not.** Before persistence
   the volatile context is stripped — `RipDpiProxyJsonCodec.stripRuntimeContext`
   removes `runtimeContext` and `logContext`. On replay,
-  `RipDpiProxyJsonCodec.rewriteJson` decodes the stored JSON and re-applies the
-  *current* `hostAutolearnStorePath`, `networkScopeKey`, `runtimeContext`,
+  `RipDpiProxyJsonCodec.rewriteJson` patches the stored JSON tree and re-applies
+  the *current* `hostAutolearnStorePath`, `networkScopeKey`, `runtimeContext`,
   `logContext`, `rootMode`, geo-DB paths, and session overrides, then
   re-encodes. Session overrides (local listen-port override, auth token) are
   merged fresh via `SessionOverrideCodec.merge` — they are never part of the
   persisted identity.
-- **Replay invariant:** a stored `proxyConfigJson` must decode and re-encode to
+- **Replay invariant:** a stored current-schema `proxyConfigJson` must preserve
   the same strategy semantics on the current build. This is why §2's
   no-rename rule is absolute — a renamed key silently drops persisted strategy
   state for every remembered network.
+- **Retired replay fails closed:** missing or non-current proxy schemas and
+  otherwise invalid remembered payloads are not migrated. The match records a
+  policy failure, participates in suppression accounting, and falls back to
+  the baseline configuration instead of aborting startup.
 - `networkScopeKey` segments host autolearn (`host-autolearn-v2.json`); it is a
   replay *input*, re-applied by `rewriteJson`, not a stored identity field.
 - Full-matrix audit results are manual-apply; only validated recommendations
@@ -281,15 +289,16 @@ A new setting is **safe** only if all of the following hold:
    with a Kotlin default; for a UI section, the section already has a default
    in `NativeProxyConfig.Ui` (`= NativeXxxConfig()`).
 3. **Rust:** added to the consuming struct with `#[serde(default)]` (or a named
-   `#[serde(default = "fn")]`) so older JSON without the field still loads (§3).
-4. **Both downgrade and upgrade work:** an old config (field absent) loads with
-   the inert default; an old binary (field unknown) ignores it — true today
-   because the proxy/tunnel structs are not `deny_unknown_fields`.
+   `#[serde(default = "fn")]`) so a current-schema payload without the optional
+   field receives the inert default (§3).
+4. **Additive tolerance holds within the current schema:** an absent optional
+   field loads with the inert default and an unknown field is ignored because
+   the proxy/tunnel structs are not `deny_unknown_fields`.
 
 **Never:** make a new field required; change an existing field's type, number,
 name, or meaning; or change a default such that existing users' behavior
 shifts silently. A new chain step *kind* is additive without a proto field (it
-is a `kind` string) — but an old Rust build will drop it (§5).
+is a `kind` string), but unknown executable kinds remain rejected (§5).
 
 ---
 
@@ -306,14 +315,14 @@ is a `kind` string) — but an old Rust build will drop it (§5).
    nested section of the `ui` payload in `RipDpiProxyJsonCodec`.
 4. **Rust struct.** Add the field to the `ripdpi-proxy-config` /
    `ripdpi-config` / `ripdpi-tunnel-config` struct with `#[serde(default)]`;
-   the default must reproduce pre-existing behavior.
+   the default must preserve current inert behavior.
 5. **Consume it.** Wire the field into `RuntimeConfig` construction
    (`ripdpi-proxy-config/src/convert/`) and the runtime that reads it.
-6. **Replay.** Confirm `RipDpiProxyJsonCodec.rewriteJson` round-trips the new
-   field — a remembered policy persisted before this change must still load
-   (the field reads as its default), and one persisted after must replay it.
+6. **Replay.** Confirm `RipDpiProxyJsonCodec.rewriteJson` preserves the new
+   field and unknown subtrees for current-schema remembered policies.
 7. **Identifiers.** If the setting introduces a new enum-like string, register
-   it per §5 and add the Rust `parse_*` arm with a safe fallback.
+   it per §5 and add the Rust `parse_*` arm; unknown executable identifiers
+   remain fail-closed.
 8. **Goldens.** Update the config-translation goldens under human supervision;
    if it touches diagnostics or telemetry payloads, follow those contracts'
    governance (see §9 and `DiagnosticsContractGovernanceTest`).
@@ -321,7 +330,8 @@ is a `kind` string) — but an old Rust build will drop it (§5).
    commit.
 10. **Support link.** Confirm the generated support-settings registry test covers the new top-level path; add explicit preview/apply tests for sensitive, repeated, or protobuf-message settings.
 11. **Tests.** Protobuf round-trip test; codec/mapper test; Rust deserialization
-    test proving an old config (field absent) still loads.
+    test proving a current-schema config with the optional field absent uses
+    the inert default.
 
 ---
 
@@ -329,18 +339,17 @@ is a `kind` string) — but an old Rust build will drop it (§5).
 
 **Current state.** Versioning is explicit for native-facing JSON contracts:
 
-- The **diagnostics** wire contract is explicitly versioned —
-  `DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 2`
-  (`ripdpi-diagnostics-contracts/src/wire.rs`), serialized as `schemaVersion`
-  with a `default_schema_version()` serde default, mirrored Kotlin-side by
-  `DiagnosticsEngineSchemaVersion` and `BundledDiagnosticsCatalogSchemaVersion`,
-  and policed by `DiagnosticsContractGovernanceTest`. Missing versions default to the current value for legacy compatibility; explicit old or future report/progress versions are rejected by the Kotlin boundary decoder.
+- The **diagnostics engine** request/report/progress wire uses schema `3` on
+  both Kotlin and Rust. `schemaVersion` is required; missing, older, and future
+  versions are rejected. The bundled diagnostics catalog has an independent
+  schema and is not part of this engine envelope.
 - The **strategy-pack** config carries `LoadedStrategyConfig.version: u32`
   (`ripdpi-strategy-config`).
-- The **relay native runtime config** carries `schemaVersion` on
+- The **relay native runtime config** carries required `schemaVersion: 9` on
   `ResolvedRipDpiRelayConfig`; Kotlin `RelayNativeConfigSchemaVersion` and Rust
-  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `8`. **Version 7**
-  generalized the chain-relay section model from the fixed `chainEntry` /
+  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` match. Versions 6–8 are retired and
+  missing or future versions are rejected. The current chain-relay model is
+  generalized from the fixed `chainEntry` /
   `chainExit` pair to an ordered, bounded hop list — `RelayChainSection.hops` is
   a `List<ResolvedChainRelayHopRef>` with `RelayChainMinHops = 2` ..
   `RelayChainMaxHops = 4`; a count outside that range raises the typed
@@ -355,35 +364,25 @@ is a `kind` string) — but an old Rust build will drop it (§5).
   truth, so **3-/4-hop chains are expressible and consumed end-to-end across the
   wire**: `chainSection()` folds the list directly and
   `ChainRelayConfig::ordered_hops` returns it verbatim to the native builder. The
-  legacy `chainEntry*` / `chainExit*` scalar pair stays on the wire as the
-  **derived hop[0] / hop[last] mirror** for backward compatibility (the
+  `chainEntry*` / `chainExit*` scalar pair stays on the current wire as the
+  **derived hop[0] / hop[last] mirror** (the
   `toResolvedConfig()` unfold projects it from the first/last hop; the Rust
   serialize path mirrors it the same way).
-  Because the field is additive, **legacy v6 payloads migrate forward
-  losslessly**: a v6 payload (and any plain 2-hop chain) omits `chainHops`, so
-  the entry/exit scalars are folded into a 2-element list exactly as before —
-  the 2-hop wire object is byte-identical to v6. Kotlin
-  `RelayNativeConfigMinSchemaVersion = 6` and the Rust `validate_schema_version`
-  accept the inclusive range `6..=8`; a legacy relay payload with no
-  `schemaVersion` defaults to the current value (`8`), while any value outside
-  `6..=8` is rejected by `ripdpi-relay-core`. (**Version 8** removed the legacy
-  VMess / Trojan-Go / Hysteria-v1 relay kinds per
-  `docs/adr/0004-protocol-support-policy.md`; the flat wire field set is
-  unchanged across v6/v7/v8, so the chain hop-list and migration behavior above
-  are identical at v8.) The wire round-trip is covered by
+  A current two-hop payload may omit `chainHops`; the entry/exit scalars are
+  then folded into the two-element ordered list. This is current sparse
+  serialization behavior, not acceptance of a retired schema. The wire
+  round-trip is covered by
   `RelayNativeConfigTest` (Kotlin `chainHops` 3-hop trip) and
   `ripdpi-relay-core::tests` (`chain_relay_three_hop_list_round_trips_through_flat_wire`,
   `chain_relay_wire_rejects_out_of_range_hop_count`).
 - The **proxy native config** carries `schemaVersion` on every
   `NativeProxyConfig` variant. Kotlin `NativeProxyConfigSchemaVersion` and Rust
-  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `1`; absent legacy payloads
-  default to version `1`, while explicit unsupported values are rejected by
-  `ripdpi-proxy-config`.
+  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `2`; missing, version 1,
+  and future payloads are rejected by `ripdpi-proxy-config`.
 - The **tunnel native config** carries `schemaVersion` on `Tun2SocksConfig`.
   Kotlin `Tun2SocksConfigSchemaVersion` and Rust
-  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `1`; absent legacy payloads
-  default to version `1`, while explicit unsupported values are rejected by
-  `ripdpi-tunnel-config`.
+  `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `2`; missing, version 1,
+  and future payloads are rejected by `ripdpi-tunnel-config`.
 
 For proxy and tunnel payloads, `schemaVersion` is bumped **only** on a genuinely
 breaking shape change — a field whose meaning changed, or a removed section —
