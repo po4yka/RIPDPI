@@ -202,6 +202,7 @@ open class PluggableTransportManager
                         binaryName = Obfs4BinaryName,
                         runtimeKind = config.kind,
                         upstreamAddress = "${bridgeLine.host}:${bridgeLine.port}",
+                        redactedValues = listOf(bridgeLine.cert),
                         commandArguments = emptyList(),
                         environment = managedTransportEnvironment(config, methodName = RelayKindObfs4),
                         managedClientBridge =

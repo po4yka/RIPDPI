@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -242,6 +243,32 @@ class SubprocessRelayComponentsTest {
         assertEquals("webtunnel 1.0", telemetry.ptRuntimeVersion)
         assertEquals("upstream.example:443", telemetry.upstreamAddress)
         assertEquals("bind", telemetry.lastFailureClass)
+    }
+
+    @Test
+    fun `telemetry projector strips url credentials path and query`() {
+        val credentialBearingUrl =
+            "wss://user:sentinel-password@upstream.example/secret?token=sentinel-query"
+        val telemetry =
+            SubprocessRelayTelemetryProjector()
+                .project(
+                    SubprocessRelayTelemetryInputs(
+                        config = sampleResolvedRelayConfig(kind = RelayKindWebTunnel),
+                        launchSpec =
+                            launchSpec(
+                                runtimeKind = RelayKindWebTunnel,
+                                upstreamAddress = credentialBearingUrl,
+                            ),
+                        running = true,
+                        runtimeVersion = null,
+                        lastError = null,
+                        lastFailureClass = null,
+                        runtimeStateOverride = null,
+                    ),
+                )
+
+        assertEquals("upstream.example:443", telemetry.upstreamAddress)
+        assertFalse(telemetry.upstreamAddress.orEmpty().contains("sentinel"))
     }
 
     private fun launchSpec(
