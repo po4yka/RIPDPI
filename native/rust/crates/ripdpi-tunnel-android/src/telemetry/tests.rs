@@ -304,7 +304,6 @@ fn tunnel_snapshot_field_manifest_matches_contract_fixture() {
             mode: Some("auto".to_string()),
             policy_signature: Some("sig".to_string()),
             fingerprint_hash: Some("hash".to_string()),
-            diagnostics_session_id: None,
             subsystem: Some("tunnel".to_string()),
         }],
         latency_distributions: Some(ripdpi_telemetry::LatencyDistributions {
@@ -365,7 +364,6 @@ fn tunnel_event_field_manifest_matches_contract_fixture() {
         mode: Some("auto".to_string()),
         policy_signature: Some("sig".to_string()),
         fingerprint_hash: Some("hash".to_string()),
-        diagnostics_session_id: None,
         subsystem: Some("tunnel".to_string()),
     };
 

@@ -44,7 +44,6 @@ data class NativeRuntimeEvent(
     val mode: String? = null,
     val policySignature: String? = null,
     val fingerprintHash: String? = null,
-    val diagnosticsSessionId: String? = null,
     val subsystem: String? = null,
 )
 
