@@ -24,7 +24,7 @@ pub(crate) async fn run_session(
 
     let upstream = ripdpi_subprocess_protect::protected_tcp_connect(decoded.target.as_str(), protect_path)
         .await
-        .map_err(|error| io::Error::new(error.kind(), format!("connect {}: {error}", decoded.target)))?;
+        .map_err(redact_upstream_connect_error)?;
     upstream.set_nodelay(true)?;
     if outbound_tx.send(Ok(Bytes::from(ripdpi_vless::wire::encode_response(&[])))).await.is_err() {
         return Ok(());
@@ -59,6 +59,10 @@ pub(crate) async fn run_session(
     Ok(())
 }
 
+fn redact_upstream_connect_error(error: io::Error) -> io::Error {
+    io::Error::new(error.kind(), "upstream connect failed")
+}
+
 async fn read_request_header(
     inbound_rx: &mut mpsc::Receiver<Bytes>,
 ) -> io::Result<(ripdpi_vless::wire::DecodedRequestHeader, Vec<u8>)> {
@@ -84,5 +88,23 @@ async fn read_request_header(
                 return Err(io::Error::new(io::ErrorKind::InvalidData, message));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::redact_upstream_connect_error;
+
+    #[test]
+    fn upstream_connect_error_does_not_export_destination_or_provider_text() {
+        let error = std::io::Error::new(
+            std::io::ErrorKind::ConnectionRefused,
+            "connect private.example:443 with credential-shaped-provider-text",
+        );
+
+        let redacted = redact_upstream_connect_error(error);
+
+        assert_eq!(redacted.kind(), std::io::ErrorKind::ConnectionRefused);
+        assert_eq!(redacted.to_string(), "upstream connect failed");
     }
 }

@@ -2,9 +2,15 @@ package com.poyka.ripdpi.services
 
 import android.app.Application
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+import com.poyka.ripdpi.core.RipDpiRelayFactory
+import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.NativeError
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
@@ -38,21 +44,12 @@ class CloudflarePublishConcurrencyTest {
      * Builds a [CloudflarePublishManager] whose [CloudflarePublishReadinessPoller.waitForCloudflaredReady]
      * suspends until [releaseSignal] is completed, allowing the test to hold a session open.
      */
-    private fun hangingManager(releaseSignal: CompletableDeferred<Unit>): CloudflarePublishManager {
-        val fakeProcess =
-            object : Process() {
-                override fun getOutputStream() = System.out
-
-                override fun getInputStream() = System.`in`
-
-                override fun getErrorStream() = System.`in`
-
-                override fun waitFor() = 0
-
-                override fun exitValue(): Int = throw IllegalThreadStateException("still running")
-
-                override fun destroy() = Unit
-            }
+    private fun hangingManager(
+        releaseSignal: CompletableDeferred<Unit>,
+        onStop: (Process) -> Unit = {},
+    ): CloudflarePublishManager {
+        val originProcess = hangingProcess()
+        val cloudflaredProcess = hangingProcess()
 
         val fakeSupervisor =
             object : CloudflarePublishProcessSupervisor(
@@ -67,7 +64,7 @@ class CloudflarePublishConcurrencyTest {
                     object : CloudflarePublishVersionProbe() {
                         override fun probe(
                             binary: File,
-                            args: List<String>,
+                            versionArguments: List<String>,
                         ): String? = null
                     },
                 launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
@@ -83,7 +80,7 @@ class CloudflarePublishConcurrencyTest {
                 ): ManagedCloudflareProcess {
                     readySignal.complete("127.0.0.1:43128")
                     return ManagedCloudflareProcess(
-                        process = fakeProcess,
+                        process = originProcess,
                         version = null,
                         outputThread = Thread { },
                     )
@@ -98,12 +95,12 @@ class CloudflarePublishConcurrencyTest {
                     onRegisteredTunnelConnection: () -> Unit,
                 ): ManagedCloudflareProcess =
                     ManagedCloudflareProcess(
-                        process = fakeProcess,
+                        process = cloudflaredProcess,
                         version = null,
                         outputThread = Thread { },
                     )
 
-                override fun stop(process: ManagedCloudflareProcess) = Unit
+                override fun stop(process: ManagedCloudflareProcess) = onStop(process.process)
             }
 
         val fakePoller =
@@ -127,6 +124,21 @@ class CloudflarePublishConcurrencyTest {
             telemetryProjector = CloudflarePublishTelemetryProjector(),
         )
     }
+
+    private fun hangingProcess(): Process =
+        object : Process() {
+            override fun getOutputStream() = System.out
+
+            override fun getInputStream() = System.`in`
+
+            override fun getErrorStream() = System.`in`
+
+            override fun waitFor() = 0
+
+            override fun exitValue(): Int = throw IllegalThreadStateException("still running")
+
+            override fun destroy() = Unit
+        }
 
     @Test
     fun `first start succeeds`() =
@@ -224,5 +236,59 @@ class CloudflarePublishConcurrencyTest {
             secondJob.join()
 
             assertNull("second start after stop should succeed, got $secondError", secondError)
+        }
+
+    @Test
+    fun `cancelling readiness rolls back both helpers`() =
+        runBlocking {
+            val release = CompletableDeferred<Unit>()
+            var stopCalls = 0
+            val manager = hangingManager(release) { stopCalls += 1 }
+
+            val startJob = launch { manager.start(cfConfig()) }
+            repeat(10) { yield() }
+            startJob.cancelAndJoin()
+
+            assertEquals(2, stopCalls)
+            release.complete(Unit)
+            val restartError = runCatching { manager.start(cfConfig()) }.exceptionOrNull()
+            assertNull("manager remained active after readiness cancellation", restartError)
+            manager.stop()
+        }
+
+    @Test
+    fun `runtime stop cleans helpers when caller is already cancelled`() =
+        runBlocking {
+            val release = CompletableDeferred<Unit>().apply { complete(Unit) }
+            var stopCalls = 0
+            val manager = hangingManager(release) { stopCalls += 1 }
+            manager.start(cfConfig())
+            val runtime =
+                CloudflarePublishRuntime(
+                    relayFactory =
+                        object : RipDpiRelayFactory {
+                            override fun create(): RipDpiRelayRuntime =
+                                object : RipDpiRelayRuntime {
+                                    override suspend fun start(config: ResolvedRipDpiRelayConfig): Int = 0
+
+                                    override suspend fun awaitReady(timeoutMillis: Long) = Unit
+
+                                    override suspend fun stop() = Unit
+
+                                    override suspend fun pollTelemetry(): NativeRuntimeSnapshot =
+                                        NativeRuntimeSnapshot(source = "relay")
+                                }
+                        },
+                    publishManager = manager,
+                )
+
+            val stopJob =
+                launch {
+                    currentCoroutineContext().cancel()
+                    runtime.stop()
+                }
+            stopJob.join()
+
+            assertEquals(2, stopCalls)
         }
 }

@@ -13,21 +13,26 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
-class CloudflarePublishManager
+open class CloudflarePublishManager
     @Inject
     internal constructor(
         @param:ApplicationContext private val context: Context,
@@ -42,6 +47,8 @@ class CloudflarePublishManager
 
         @Volatile private var activeStateDir: File? = null
 
+        @Volatile private var pendingOrigin: ManagedCloudflareProcess? = null
+
         init {
             evictStaleCredentialDirs()
         }
@@ -54,11 +61,18 @@ class CloudflarePublishManager
             root
                 .listFiles()
                 ?.filter { it.isDirectory && it.name.startsWith("cloudflare-publish-session-") }
-                ?.forEach { it.deleteRecursively() }
+                ?.forEach { staleDir ->
+                    check(staleDir.deleteRecursively()) {
+                        "Unable to delete stale Cloudflare publish state"
+                    }
+                }
         }
 
         private fun cleanupStateDir() {
-            activeStateDir?.deleteRecursively()
+            val stateDir = activeStateDir ?: return
+            check(!stateDir.exists() || deleteStateDirectory(stateDir)) {
+                "Unable to delete Cloudflare publish state"
+            }
             activeStateDir = null
         }
 
@@ -70,7 +84,6 @@ class CloudflarePublishManager
             if (!sessionActive.compareAndSet(false, true)) {
                 throw NativeError.AlreadyRunning("CloudflarePublishManager")
             }
-            var partiallyStartedOrigin: ManagedCloudflareProcess? = null
             try {
                 val originSpec = configParser.parseLocalOriginSpec(config.cloudflarePublishLocalOriginUrl)
                 val metricsPort = findLoopbackPort()
@@ -100,7 +113,7 @@ class CloudflarePublishManager
                             }
                         },
                     )
-                partiallyStartedOrigin = originProcess
+                pendingOrigin = originProcess
                 runningState =
                     RunningCloudflarePublish(
                         originProcess = originProcess,
@@ -127,25 +140,18 @@ class CloudflarePublishManager
                 pendingLastError?.let { state.lastError = it }
                 pendingFailureClass?.let { state.lastFailureClass = it }
                 running = state
-                partiallyStartedOrigin = null
-                var ready = false
-                try {
-                    readinessPoller.waitForOriginReady(state)
-                    state.originReady = true
-                    readinessPoller.waitForCloudflaredReady(state)
-                    state.cloudflaredReady = true
-                    ready = true
-                } finally {
-                    if (!ready) runCatching { stop() }
-                }
+                pendingOrigin = null
+                readinessPoller.waitForOriginReady(state)
+                state.originReady = true
+                readinessPoller.waitForCloudflaredReady(state)
+                state.cloudflaredReady = true
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
-                partiallyStartedOrigin?.let { origin ->
-                    runCatching { processSupervisor.stop(origin) }
+                withContext(NonCancellable) {
+                    val cleanupResult = runCatching { stop() }
+                    cleanupResult.exceptionOrNull()?.let(e::addSuppressed)
                 }
-                sessionActive.set(false)
-                cleanupStateDir()
                 throw e
             }
         }
@@ -153,16 +159,18 @@ class CloudflarePublishManager
         suspend fun waitForUnexpectedExit(): Int =
             coroutineScope {
                 val active = running ?: return@coroutineScope 0
-                val originExit = async(Dispatchers.IO) { active.originProcess.process.waitFor() to "origin" }
+                val originExit = async { awaitProcessExit(active.originProcess.process) to "origin" }
                 val cloudflaredExit =
-                    async(Dispatchers.IO) {
-                        active.cloudflaredProcess.process.waitFor() to "cloudflared"
+                    async {
+                        awaitProcessExit(active.cloudflaredProcess.process) to "cloudflared"
                     }
                 val (exitCode, source) =
                     select<Pair<Int, String>> {
                         originExit.onAwait { it }
                         cloudflaredExit.onAwait { it }
                     }
+                originExit.cancelAndJoin()
+                cloudflaredExit.cancelAndJoin()
                 if (exitCode != 0) {
                     active.lastFailureClass = "helper_exit"
                     active.lastError = "Cloudflare publish $source exited with code $exitCode"
@@ -171,19 +179,31 @@ class CloudflarePublishManager
             }
 
         suspend fun stop() {
-            withContext(Dispatchers.IO) {
-                try {
-                    val active = running
-                    running = null
-                    sessionActive.set(false)
-                    if (active == null) {
-                        return@withContext
+            withContext(NonCancellable + Dispatchers.IO) {
+                val active = running
+                var stopFailure: Throwable? = null
+                buildList {
+                    pendingOrigin?.let(::add)
+                    active?.let { runningState ->
+                        add(runningState.cloudflaredProcess)
+                        add(runningState.originProcess)
                     }
-                    processSupervisor.stop(active.cloudflaredProcess)
-                    processSupervisor.stop(active.originProcess)
-                } finally {
-                    cleanupStateDir()
-                }
+                }.distinctBy { it.process }
+                    .forEach { process ->
+                        runCatching { processSupervisor.stop(process) }
+                            .onFailure { error ->
+                                if (stopFailure == null) stopFailure = error
+                            }
+                    }
+                runCatching { processSupervisor.stopOutstandingProcesses() }
+                    .onFailure { error ->
+                        if (stopFailure == null) stopFailure = error
+                    }
+                stopFailure?.let { throw it }
+                cleanupStateDir()
+                running = null
+                pendingOrigin = null
+                sessionActive.set(false)
             }
         }
 
@@ -200,7 +220,25 @@ class CloudflarePublishManager
                 socket.localPort
             }
 
+        private suspend fun awaitProcessExit(process: Process): Int =
+            withContext(Dispatchers.IO) {
+                while (true) {
+                    currentCoroutineContext().ensureActive()
+                    if (process.waitFor(CloudflareProcessExitPollMs, TimeUnit.MILLISECONDS)) {
+                        return@withContext process.exitValue()
+                    }
+                }
+                @Suppress("UNREACHABLE_CODE")
+                error("unreachable")
+            }
+
         private fun sanitizeSegment(raw: String): String = raw.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+
+        internal open fun deleteStateDirectory(stateDir: File): Boolean = stateDir.deleteRecursively()
+
+        private companion object {
+            const val CloudflareProcessExitPollMs = 100L
+        }
     }
 
 class CloudflarePublishRuntime
@@ -209,8 +247,6 @@ class CloudflarePublishRuntime
         private val relayFactory: RipDpiRelayFactory,
         private val publishManager: CloudflarePublishManager,
     ) : RipDpiRelayRuntime {
-        @Volatile private var stopping = false
-
         @Volatile private var relayRuntime: RipDpiRelayRuntime? = null
 
         @Volatile private var activeConfig: ResolvedRipDpiRelayConfig? = null
@@ -218,39 +254,39 @@ class CloudflarePublishRuntime
 
         override suspend fun start(config: ResolvedRipDpiRelayConfig): Int =
             coroutineScope {
-                stopping = false
                 activeConfig = config
                 relayStartSignal = CompletableDeferred()
+                var publishStarted = false
+                var relay: RipDpiRelayRuntime? = null
                 try {
                     publishManager.start(config)
+                    publishStarted = true
+                    relay = relayFactory.create()
+                    relayRuntime = relay
+                    relayStartSignal.complete(relay)
+                    val relayExit = async { relay.start(config) }
+                    val helperExit = async { publishManager.waitForUnexpectedExit() }
+                    select<Int> {
+                        relayExit.onAwait { it }
+                        helperExit.onAwait { it }
+                    }
                 } catch (
                     @Suppress("TooGenericExceptionCaught") startupError: Exception,
                 ) {
-                    relayStartSignal.completeExceptionally(startupError)
-                    activeConfig = null
+                    if (!relayStartSignal.isCompleted) {
+                        relayStartSignal.completeExceptionally(startupError)
+                    }
                     throw startupError
-                }
-                val relay = relayFactory.create()
-                relayRuntime = relay
-                relayStartSignal.complete(relay)
-                val relayExit = async { relay.start(config) }
-                val helperExit = async { publishManager.waitForUnexpectedExit() }
-                val exitCode =
-                    select<Int> {
-                        relayExit.onAwait { code ->
-                            publishManager.stop()
-                            code
-                        }
-                        helperExit.onAwait { code ->
-                            if (!stopping) {
-                                relay.stop()
-                            }
-                            code
+                } finally {
+                    withContext(NonCancellable) {
+                        runCatching { relay?.stop() }
+                        if (publishStarted) {
+                            runCatching { publishManager.stop() }
                         }
                     }
-                relayRuntime = null
-                activeConfig = null
-                exitCode
+                    relayRuntime = null
+                    activeConfig = null
+                }
             }
 
         override suspend fun awaitReady(timeoutMillis: Long) {
@@ -261,11 +297,15 @@ class CloudflarePublishRuntime
         }
 
         override suspend fun stop() {
-            stopping = true
-            runCatching { relayRuntime?.stop() }
-            publishManager.stop()
-            relayRuntime = null
-            activeConfig = null
+            withContext(NonCancellable) {
+                try {
+                    runCatching { relayRuntime?.stop() }
+                    publishManager.stop()
+                } finally {
+                    relayRuntime = null
+                    activeConfig = null
+                }
+            }
         }
 
         override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
@@ -292,7 +332,7 @@ class DefaultCloudflarePublishRuntimeFactory
         private val runtimeProvider: Provider<CloudflarePublishRuntime>,
     ) : CloudflarePublishRuntimeFactory {
         // Each session receives a fresh CloudflarePublishRuntime; its per-session mutable state
-        // (relayRuntime, activeConfig, stopping, relayStartSignal) never leaks into the next
+        // (relayRuntime, activeConfig, relayStartSignal) never leaks into the next
         // session. The shared @Singleton CloudflarePublishManager remains intentionally
         // process-wide: it is the concurrency gate that rejects overlapping start() calls and
         // resets its own session state (running, activeStateDir, sessionActive) on stop().

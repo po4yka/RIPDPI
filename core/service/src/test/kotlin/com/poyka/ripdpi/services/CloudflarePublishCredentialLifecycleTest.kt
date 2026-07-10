@@ -1,11 +1,17 @@
 package com.poyka.ripdpi.services
 
 import android.app.Application
+import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+import com.poyka.ripdpi.core.RipDpiRelayFactory
+import com.poyka.ripdpi.core.RipDpiRelayRuntime
+import com.poyka.ripdpi.data.NativeError
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -13,6 +19,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import java.io.File
+import java.util.concurrent.TimeUnit
+import kotlin.system.measureTimeMillis
 
 /**
  * Verifies credential-file lifecycle for [CloudflarePublishManager]:
@@ -33,11 +41,11 @@ class CloudflarePublishCredentialLifecycleTest {
             .copy(
                 cloudflarePublishLocalOriginUrl = "http://localhost:43129",
                 cloudflareTunnelCredentialsJson =
-                    """{"TunnelID":"fixture-tunnel-id","AccountTag":"fixture-account",""" +
+                    """{"TunnelID":"550e8400-e29b-41d4-a716-446655440000","AccountTag":"fixture-account",""" +
                         """"TunnelSecret":"fixture-secret-value"}""",
             )
 
-    private fun instantManager(): CloudflarePublishManager {
+    private fun instantManager(deleteStateDirectory: ((File) -> Boolean)? = null): CloudflarePublishManager {
         val fakeProcess =
             object : Process() {
                 override fun getOutputStream() = System.out
@@ -66,7 +74,7 @@ class CloudflarePublishCredentialLifecycleTest {
                     object : CloudflarePublishVersionProbe() {
                         override fun probe(
                             binary: File,
-                            args: List<String>,
+                            versionArguments: List<String>,
                         ): String? = null
                     },
                 launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
@@ -91,7 +99,14 @@ class CloudflarePublishCredentialLifecycleTest {
                     stateDir: File,
                     lastErrorSink: (String, String) -> Unit,
                     onRegisteredTunnelConnection: () -> Unit,
-                ): ManagedCloudflareProcess = ManagedCloudflareProcess(fakeProcess, null, Thread { })
+                ): ManagedCloudflareProcess {
+                    stateDir
+                        .resolve(".cloudflared")
+                        .also(File::mkdirs)
+                        .resolve("cloudflared-credentials.json")
+                        .writeText("""{"TunnelID":"550e8400-e29b-41d4-a716-446655440000"}""")
+                    return ManagedCloudflareProcess(fakeProcess, null, Thread { })
+                }
 
                 override fun stop(process: ManagedCloudflareProcess) = Unit
             }
@@ -108,13 +123,16 @@ class CloudflarePublishCredentialLifecycleTest {
                 }
             }
 
-        return CloudflarePublishManager(
+        return object : CloudflarePublishManager(
             context = context,
             configParser = CloudflarePublishConfigParser(),
             processSupervisor = fakeSupervisor,
             readinessPoller = fakePoller,
             telemetryProjector = CloudflarePublishTelemetryProjector(),
-        )
+        ) {
+            override fun deleteStateDirectory(stateDir: File): Boolean =
+                deleteStateDirectory?.invoke(stateDir) ?: super.deleteStateDirectory(stateDir)
+        }
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -126,7 +144,7 @@ class CloudflarePublishCredentialLifecycleTest {
             .walkTopDown()
             .filter {
                 it.isFile &&
-                    (it.name == "cloudflared-credentials.json" || it.name == "cloudflared-config.yml")
+                    it.name in setOf("cloudflared-credentials.json", "config.yml", "tunnel-token")
             }.toList()
     }
 
@@ -147,18 +165,96 @@ class CloudflarePublishCredentialLifecycleTest {
         }
 
     @Test
-    fun `credential files are deleted even when stop encounters an error`() =
+    fun `state deletion failure blocks restart and is retried on stop`() =
         runBlocking {
-            val manager = instantManager()
+            var deleteAttempts = 0
+            val manager =
+                instantManager { stateDir ->
+                    deleteAttempts += 1
+                    deleteAttempts > 1 && stateDir.deleteRecursively()
+                }
             manager.start(cfConfig())
 
-            runCatching { manager.stop() }
+            val stopError = runCatching { manager.stop() }.exceptionOrNull()
 
-            val remaining = credentialFilesUnderCacheDir()
-            assertTrue(
-                "Expected no credential files after error-stop, but found: $remaining",
-                remaining.isEmpty(),
-            )
+            assertTrue(stopError is IllegalStateException)
+            assertTrue(credentialFilesUnderCacheDir().isNotEmpty())
+            val restartError = runCatching { manager.start(cfConfig()) }.exceptionOrNull()
+            assertTrue(restartError is NativeError.AlreadyRunning)
+            manager.stop()
+            assertEquals(2, deleteAttempts)
+            assertTrue(credentialFilesUnderCacheDir().isEmpty())
+        }
+
+    @Test
+    fun `stop attempts both helpers and retains state for retry when termination fails`() =
+        runBlocking {
+            val originProcess = inertProcess()
+            val cloudflaredProcess = inertProcess()
+            val stopped = mutableListOf<Process>()
+            var failCloudflaredStop = true
+            val supervisor =
+                object : CloudflarePublishProcessSupervisor(
+                    binaryExtractor = CloudflarePublishBinaryExtractor(context = context),
+                    versionProbe = CloudflarePublishVersionProbe(),
+                    launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
+                    outputReader = CloudflarePublishProcessOutputReader(),
+                    protectPathProvider = ActiveProtectSocketPathProvider(),
+                ) {
+                    override fun launchOriginProcess(
+                        config: ResolvedRipDpiRelayConfig,
+                        originSpec: CloudflareLocalOriginSpec,
+                        stateDir: File,
+                        readySignal: CompletableDeferred<String>,
+                        onError: (String, String) -> Unit,
+                    ): ManagedCloudflareProcess {
+                        readySignal.complete("127.0.0.1:43129")
+                        return ManagedCloudflareProcess(originProcess, null, Thread { })
+                    }
+
+                    override fun launchCloudflaredProcess(
+                        config: ResolvedRipDpiRelayConfig,
+                        originSpec: CloudflareLocalOriginSpec,
+                        metricsAddress: String,
+                        stateDir: File,
+                        lastErrorSink: (String, String) -> Unit,
+                        onRegisteredTunnelConnection: () -> Unit,
+                    ): ManagedCloudflareProcess {
+                        stateDir
+                            .resolve(".cloudflared")
+                            .also(File::mkdirs)
+                            .resolve("cloudflared-credentials.json")
+                            .writeText("""{"TunnelID":"550e8400-e29b-41d4-a716-446655440000"}""")
+                        return ManagedCloudflareProcess(cloudflaredProcess, null, Thread { })
+                    }
+
+                    override fun stop(process: ManagedCloudflareProcess) {
+                        stopped += process.process
+                        if (process.process === cloudflaredProcess && failCloudflaredStop) {
+                            failCloudflaredStop = false
+                            error("cloudflared stop failed")
+                        }
+                    }
+                }
+            val manager =
+                CloudflarePublishManager(
+                    context = context,
+                    configParser = CloudflarePublishConfigParser(),
+                    processSupervisor = supervisor,
+                    readinessPoller = instantReadinessPoller(),
+                    telemetryProjector = CloudflarePublishTelemetryProjector(),
+                )
+            manager.start(cfConfig())
+
+            val error = runCatching { manager.stop() }.exceptionOrNull()
+
+            assertTrue(error is IllegalStateException)
+            assertEquals(listOf(cloudflaredProcess, originProcess), stopped)
+            assertTrue(credentialFilesUnderCacheDir().isNotEmpty())
+            val restartError = runCatching { manager.start(cfConfig()) }.exceptionOrNull()
+            assertTrue(restartError is NativeError.AlreadyRunning)
+            manager.stop()
+            assertTrue(credentialFilesUnderCacheDir().isEmpty())
         }
 
     @Test
@@ -225,13 +321,194 @@ class CloudflarePublishCredentialLifecycleTest {
         }
 
     @Test
+    fun `unreaped partial origin is retained for explicit cleanup retry`() =
+        runBlocking {
+            val fakeProcess = inertProcess()
+            var cloudLaunchFails = true
+            var originStopFails = true
+            var stopCalls = 0
+            val supervisor =
+                object : CloudflarePublishProcessSupervisor(
+                    binaryExtractor = CloudflarePublishBinaryExtractor(context = context),
+                    versionProbe = CloudflarePublishVersionProbe(),
+                    launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
+                    outputReader = CloudflarePublishProcessOutputReader(),
+                    protectPathProvider = ActiveProtectSocketPathProvider(),
+                ) {
+                    override fun launchOriginProcess(
+                        config: ResolvedRipDpiRelayConfig,
+                        originSpec: CloudflareLocalOriginSpec,
+                        stateDir: File,
+                        readySignal: CompletableDeferred<String>,
+                        onError: (String, String) -> Unit,
+                    ): ManagedCloudflareProcess {
+                        readySignal.complete("127.0.0.1:43129")
+                        return ManagedCloudflareProcess(fakeProcess, null, Thread { })
+                    }
+
+                    override fun launchCloudflaredProcess(
+                        config: ResolvedRipDpiRelayConfig,
+                        originSpec: CloudflareLocalOriginSpec,
+                        metricsAddress: String,
+                        stateDir: File,
+                        lastErrorSink: (String, String) -> Unit,
+                        onRegisteredTunnelConnection: () -> Unit,
+                    ): ManagedCloudflareProcess {
+                        if (cloudLaunchFails) {
+                            cloudLaunchFails = false
+                            error("cloudflared launch failed")
+                        }
+                        return ManagedCloudflareProcess(fakeProcess, null, Thread { })
+                    }
+
+                    override fun stop(process: ManagedCloudflareProcess) {
+                        stopCalls += 1
+                        if (originStopFails) {
+                            originStopFails = false
+                            error("origin could not be reaped")
+                        }
+                    }
+                }
+            val manager =
+                CloudflarePublishManager(
+                    context = context,
+                    configParser = CloudflarePublishConfigParser(),
+                    processSupervisor = supervisor,
+                    readinessPoller = instantReadinessPoller(),
+                    telemetryProjector = CloudflarePublishTelemetryProjector(),
+                )
+
+            val startError = runCatching { manager.start(cfConfig()) }.exceptionOrNull()
+
+            assertTrue(startError is IllegalStateException)
+            assertTrue(startError?.suppressed?.isNotEmpty() == true)
+            assertTrue(runCatching { manager.start(cfConfig()) }.exceptionOrNull() is NativeError.AlreadyRunning)
+            manager.stop()
+            assertTrue(credentialFilesUnderCacheDir().isEmpty())
+            manager.start(cfConfig())
+            manager.stop()
+            assertTrue(stopCalls >= 3)
+        }
+
+    @Test
+    fun `one helper exit is reported without waiting for the surviving child`() =
+        runBlocking {
+            val originProcess = ExitProcess(exitCode = 17, exitsImmediately = true)
+            val cloudflaredProcess = ExitProcess(exitCode = 0, exitsImmediately = false)
+            val supervisor =
+                object : CloudflarePublishProcessSupervisor(
+                    binaryExtractor = CloudflarePublishBinaryExtractor(context = context),
+                    versionProbe = CloudflarePublishVersionProbe(),
+                    launchPlanBuilder = CloudflaredLaunchPlanBuilder(CloudflarePublishConfigParser()),
+                    outputReader = CloudflarePublishProcessOutputReader(),
+                    protectPathProvider = ActiveProtectSocketPathProvider(),
+                ) {
+                    override fun launchOriginProcess(
+                        config: ResolvedRipDpiRelayConfig,
+                        originSpec: CloudflareLocalOriginSpec,
+                        stateDir: File,
+                        readySignal: CompletableDeferred<String>,
+                        onError: (String, String) -> Unit,
+                    ): ManagedCloudflareProcess {
+                        readySignal.complete("127.0.0.1:43129")
+                        return ManagedCloudflareProcess(originProcess, null, Thread { })
+                    }
+
+                    override fun launchCloudflaredProcess(
+                        config: ResolvedRipDpiRelayConfig,
+                        originSpec: CloudflareLocalOriginSpec,
+                        metricsAddress: String,
+                        stateDir: File,
+                        lastErrorSink: (String, String) -> Unit,
+                        onRegisteredTunnelConnection: () -> Unit,
+                    ): ManagedCloudflareProcess = ManagedCloudflareProcess(cloudflaredProcess, null, Thread { })
+                }
+            val manager =
+                CloudflarePublishManager(
+                    context = context,
+                    configParser = CloudflarePublishConfigParser(),
+                    processSupervisor = supervisor,
+                    readinessPoller = instantReadinessPoller(),
+                    telemetryProjector = CloudflarePublishTelemetryProjector(),
+                )
+            manager.start(cfConfig())
+            var exitCode: Int? = null
+
+            val elapsedMillis = measureTimeMillis { exitCode = manager.waitForUnexpectedExit() }
+
+            assertEquals(17, exitCode)
+            assertTrue("surviving helper delayed exit propagation for ${elapsedMillis}ms", elapsedMillis < 500)
+            manager.stop()
+            assertTrue(cloudflaredProcess.destroyed)
+        }
+
+    @Test
+    fun `relay factory failure rolls back ready publish helpers and credentials`() =
+        runBlocking {
+            val manager = instantManager()
+            val runtime =
+                CloudflarePublishRuntime(
+                    relayFactory =
+                        object : RipDpiRelayFactory {
+                            override fun create(): RipDpiRelayRuntime = error("relay factory failed")
+                        },
+                    publishManager = manager,
+                )
+
+            val error = runCatching { runtime.start(cfConfig()) }.exceptionOrNull()
+
+            assertTrue(error is IllegalStateException)
+            assertTrue(credentialFilesUnderCacheDir().isEmpty())
+            val restartError = runCatching { manager.start(cfConfig()) }.exceptionOrNull()
+            assertNull("publish manager remained active after relay factory failure", restartError)
+            manager.stop()
+        }
+
+    @Test
+    fun `relay start failure rolls back ready publish helpers and credentials`() =
+        runBlocking {
+            val manager = instantManager()
+            val runtime =
+                CloudflarePublishRuntime(
+                    relayFactory =
+                        object : RipDpiRelayFactory {
+                            override fun create(): RipDpiRelayRuntime =
+                                object : RipDpiRelayRuntime {
+                                    override suspend fun start(config: ResolvedRipDpiRelayConfig): Int =
+                                        error("relay start failed")
+
+                                    override suspend fun awaitReady(timeoutMillis: Long) = Unit
+
+                                    override suspend fun stop() = Unit
+
+                                    override suspend fun pollTelemetry(): NativeRuntimeSnapshot =
+                                        NativeRuntimeSnapshot(source = "relay")
+                                }
+                        },
+                    publishManager = manager,
+                )
+
+            val error = runCatching { runtime.start(cfConfig()) }.exceptionOrNull()
+
+            assertTrue(error is IllegalStateException)
+            assertTrue(credentialFilesUnderCacheDir().isEmpty())
+            val restartError = runCatching { manager.start(cfConfig()) }.exceptionOrNull()
+            assertNull("publish manager remained active after relay start failure", restartError)
+            manager.stop()
+        }
+
+    @Test
     fun `stale credential dirs from a crashed previous session are wiped at construction`() {
         val staleDir =
             context.cacheDir
                 .resolve("cloudflare-publish")
                 .resolve("cloudflare-publish-session-stale")
                 .also { it.mkdirs() }
-        staleDir.resolve("cloudflared-credentials.json").writeText("""{"TunnelID":"fixture-stale"}""")
+        staleDir
+            .resolve(".cloudflared")
+            .also(File::mkdirs)
+            .resolve("cloudflared-credentials.json")
+            .writeText("""{"TunnelID":"fixture-stale"}""")
 
         assertTrue("Precondition: stale dir should exist", staleDir.exists())
 
@@ -295,14 +572,76 @@ class CloudflarePublishCredentialLifecycleTest {
 
             assertTrue(
                 "Expected cloudflared-credentials.json to be written",
-                stateDir.resolve("cloudflared-credentials.json").exists(),
+                stateDir.resolve(".cloudflared/cloudflared-credentials.json").exists(),
             )
             assertTrue(
                 "Expected cloudflared-config.yml to be written",
-                stateDir.resolve("cloudflared-config.yml").exists(),
+                stateDir.resolve(".cloudflared/config.yml").exists(),
             )
         } finally {
             stateDir.deleteRecursively()
+        }
+    }
+
+    private fun inertProcess(): Process =
+        object : Process() {
+            override fun getOutputStream() = System.out
+
+            override fun getInputStream() = System.`in`
+
+            override fun getErrorStream() = System.`in`
+
+            override fun waitFor() = 0
+
+            override fun exitValue(): Int = 0
+
+            override fun destroy() = Unit
+        }
+
+    private fun instantReadinessPoller(): CloudflarePublishReadinessPoller =
+        object : CloudflarePublishReadinessPoller() {
+            override suspend fun waitForOriginReady(state: RunningCloudflarePublish) {
+                state.originReady = true
+                state.originListenerAddress = "127.0.0.1:43129"
+            }
+
+            override suspend fun waitForCloudflaredReady(state: RunningCloudflarePublish) {
+                state.cloudflaredReady = true
+            }
+        }
+
+    private class ExitProcess(
+        private val exitCode: Int,
+        private val exitsImmediately: Boolean,
+    ) : Process() {
+        var destroyed = false
+
+        override fun getOutputStream() = System.out
+
+        override fun getInputStream() = System.`in`
+
+        override fun getErrorStream() = System.`in`
+
+        override fun waitFor(): Int {
+            if (!exitsImmediately && !destroyed) Thread.sleep(750)
+            return exitCode
+        }
+
+        override fun waitFor(
+            timeout: Long,
+            unit: TimeUnit,
+        ): Boolean {
+            if (!exitsImmediately && !destroyed) {
+                Thread.sleep(minOf(unit.toMillis(timeout), 25L))
+            }
+            return exitsImmediately || destroyed
+        }
+
+        override fun exitValue(): Int =
+            if (exitsImmediately || destroyed) exitCode else throw IllegalThreadStateException("still running")
+
+        override fun destroy() {
+            destroyed = true
         }
     }
 }

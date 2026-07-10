@@ -17,7 +17,9 @@ const VERSION_FLAG: &str = "--version";
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> io::Result<()> {
-    if std::env::args().skip(1).any(|value| value == VERSION_FLAG) {
+    let mut arguments = std::env::args_os().skip(1);
+    let version_only = arguments.next().is_some_and(|value| value == VERSION_FLAG) && arguments.next().is_none();
+    if version_only {
         println!("ripdpi-cloudflare-origin {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
