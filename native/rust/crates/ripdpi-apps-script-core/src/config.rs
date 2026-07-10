@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::env;
+use std::fmt;
 use std::io;
 use std::path::PathBuf;
 
@@ -10,7 +11,7 @@ const DEFAULT_FRONT_DOMAIN: &str = "www.google.com";
 const DEFAULT_LISTEN_HOST: &str = "127.0.0.1";
 const DEFAULT_LISTEN_PORT: u16 = 11_980;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AppsScriptRuntimeConfig {
     pub kind: String,
     pub profile_id: String,
@@ -27,12 +28,33 @@ pub struct AppsScriptRuntimeConfig {
     pub hosts: HashMap<String, String>,
 }
 
+impl fmt::Debug for AppsScriptRuntimeConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AppsScriptRuntimeConfig")
+            .field("kind", &self.kind)
+            .field("profile_id", &self.profile_id)
+            .field("listen_host", &self.listen_host)
+            .field("listen_port", &self.listen_port)
+            .field("google_ip", &self.google_ip)
+            .field("front_domain", &self.front_domain)
+            .field("script_ids", &"<redacted>")
+            .field("sni_hosts", &"<redacted>")
+            .field("auth_key", &"<redacted>")
+            .field("parallel_relay", &self.parallel_relay)
+            .field("direct_host_count", &self.direct_hosts.len())
+            .field("data_dir", &self.data_dir)
+            .field("host_override_count", &self.hosts.len())
+            .finish()
+    }
+}
+
 impl AppsScriptRuntimeConfig {
     pub fn from_json(json: &str) -> io::Result<Self> {
         let raw: RawAppsScriptRuntimeConfig =
             serde_json::from_str(json).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
 
-        if raw.socket_protection.as_deref() == Some("vpn_required") {
+        if raw.socket_protection == RawSocketProtection::VpnRequired {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "Apps Script relay cannot protect its HTTP client sockets in VPN mode",
@@ -108,7 +130,7 @@ impl AppsScriptRuntimeConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(untagged)]
 enum ScriptIdsField {
     One(String),
@@ -124,11 +146,19 @@ impl ScriptIdsField {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum RawSocketProtection {
+    #[default]
+    Inactive,
+    VpnRequired,
+}
+
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RawAppsScriptRuntimeConfig {
     #[serde(default)]
-    socket_protection: Option<String>,
+    socket_protection: RawSocketProtection,
     #[serde(default, alias = "kind")]
     kind: Option<String>,
     #[serde(default, alias = "profile_id")]
@@ -233,6 +263,38 @@ mod tests {
         .expect_err("unprotectable VPN transport must fail closed");
 
         assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    }
+
+    #[test]
+    fn unknown_socket_protection_is_rejected_instead_of_falling_back() {
+        let error = AppsScriptRuntimeConfig::from_json(
+            r#"{"socketProtection":"best_effort","scriptIds":["script-id"],"authKey":"secret"}"#,
+        )
+        .expect_err("unknown protection policy must not silently become inactive");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn missing_socket_protection_preserves_legacy_proxy_config() {
+        AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-id"],"authKey":"secret"}"#)
+            .expect("legacy payload without socketProtection");
+    }
+
+    #[test]
+    fn debug_output_redacts_auth_key_and_deployment_ids() {
+        let auth_key = "fixture-auth-secret";
+        let deployment_id = "fixture-deployment-id";
+        let config = AppsScriptRuntimeConfig::from_json(&format!(
+            r#"{{"scriptIds":["{deployment_id}"],"authKey":"{auth_key}"}}"#,
+        ))
+        .expect("config");
+
+        let debug = format!("{config:?}");
+
+        assert!(!debug.contains(auth_key));
+        assert!(!debug.contains(deployment_id));
+        assert!(debug.contains("<redacted>"));
     }
 
     #[test]

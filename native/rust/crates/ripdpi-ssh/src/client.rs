@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{io, net};
 
 use russh::client::{self, Config, Handler};
 use russh::keys::{HashAlg, PrivateKeyWithHashAlg, PublicKey, decode_secret_key};
@@ -155,20 +156,27 @@ pub async fn connect_with_socket_protection(
     let handler = SshHandler { policy: config.host_key_policy.clone(), rejection: Arc::clone(&rejection) };
     let client_config = Arc::new(Config::default());
 
-    let server_addr = tokio::net::lookup_host((config.host.as_str(), config.port))
-        .await
-        .map_err(|error| SshError::Ssh(error.to_string()))?
-        .next()
-        .ok_or_else(|| SshError::Ssh("SSH server resolved to no addresses".to_string()))?;
+    let server_addr = match config.host.parse::<net::IpAddr>() {
+        Ok(ip) => net::SocketAddr::new(ip, config.port),
+        Err(_) if socket_protection == ripdpi_native_protect::SocketProtectionPolicy::VpnRequired => {
+            return Err(SshError::Io(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "SSH hostnames are unavailable in VPN mode until the resolver supports protected sockets",
+            )));
+        }
+        Err(_) => tokio::net::lookup_host((config.host.as_str(), config.port))
+            .await
+            .map_err(|error| SshError::Ssh(error.to_string()))?
+            .next()
+            .ok_or_else(|| SshError::Ssh("SSH server resolved to no addresses".to_string()))?,
+    };
     let socket = match server_addr {
         std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4(),
         std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6(),
     }
     .map_err(|error| SshError::Ssh(error.to_string()))?;
     use std::os::fd::AsRawFd as _;
-    socket_protection
-        .protect_non_loopback(socket.as_raw_fd(), server_addr)
-        .map_err(|error| SshError::Ssh(format!("protect SSH carrier socket: {error}")))?;
+    socket_protection.protect_non_loopback(socket.as_raw_fd(), server_addr).map_err(SshError::Io)?;
     let stream = socket.connect(server_addr).await.map_err(|error| SshError::Ssh(error.to_string()))?;
 
     let mut handle = match client::connect_stream(client_config, stream, handler).await {
@@ -323,6 +331,7 @@ fn parse_target(target: &str) -> Result<(&str, u16)> {
 mod tests {
     use super::*;
     use crate::config::SshAuth;
+    use std::io;
 
     const FP_A: &str = "SHA256:n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg";
     const FP_B: &str = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -344,6 +353,37 @@ mod tests {
         config.username = String::new();
         let error = connect(&config).await.expect_err("invalid config must fail validation");
         assert!(matches!(error, SshError::EmptyUsername));
+    }
+
+    #[tokio::test]
+    async fn vpn_required_hostname_fails_before_resolver_io() {
+        let mut config = valid_config();
+        config.host = "must-not-resolve.invalid".to_string();
+
+        let error = connect_with_socket_protection(&config, ripdpi_native_protect::SocketProtectionPolicy::VpnRequired)
+            .await
+            .expect_err("VPN SSH hostname must fail before system DNS");
+
+        let SshError::Io(error) = error else {
+            panic!("expected typed I/O error");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    }
+
+    #[tokio::test]
+    async fn vpn_required_ip_without_callback_fails_before_connect() {
+        ripdpi_native_protect::unregister_protect_callback();
+        let mut config = valid_config();
+        config.host = "192.0.2.1".to_string();
+
+        let error = connect_with_socket_protection(&config, ripdpi_native_protect::SocketProtectionPolicy::VpnRequired)
+            .await
+            .expect_err("missing callback must fail before connect");
+
+        let SshError::Io(error) = error else {
+            panic!("expected typed I/O error");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::NotConnected);
     }
 
     #[tokio::test]

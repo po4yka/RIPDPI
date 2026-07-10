@@ -42,7 +42,12 @@ impl RelaySessionFactory for SshSessionFactory {
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let config = self.config.clone();
         let client =
-            ripdpi_ssh::connect_with_socket_protection(&config, self.socket_protection).await.map_err(to_io_error)?;
+            ripdpi_ssh::connect_with_socket_protection(&config, self.socket_protection).await.map_err(|error| {
+                match error {
+                    ripdpi_ssh::SshError::Io(error) => error,
+                    other => to_io_error(other),
+                }
+            })?;
         Ok(Arc::new(SshSession { client }))
     }
 }

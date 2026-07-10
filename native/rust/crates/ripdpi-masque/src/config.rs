@@ -1,4 +1,5 @@
 pub use ripdpi_tls_profiles::OutboundEchConfig;
+use std::fmt;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 
@@ -12,7 +13,7 @@ pub enum MasqueAuthMode {
 }
 
 /// Configuration for a MASQUE proxy connection.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MasqueConfig {
     /// Runtime-owned policy for keeping carrier sockets outside the app TUN.
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
@@ -51,6 +52,33 @@ pub struct MasqueConfig {
     pub quic_migrate_after_handshake: bool,
     /// Optional ECH config for owned MASQUE outbounds.
     pub ech_config: Option<OutboundEchConfig>,
+}
+
+impl fmt::Debug for MasqueConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("MasqueConfig")
+            .field("socket_protection", &self.socket_protection)
+            .field("url", &"<redacted>")
+            .field("proxy_socket_addr", &self.proxy_socket_addr)
+            .field("use_http2_fallback", &self.use_http2_fallback)
+            .field("auth_mode", &self.auth_mode)
+            .field("auth_token", &self.auth_token.as_ref().map(|_| "<redacted>"))
+            .field("client_certificate_chain_pem", &self.client_certificate_chain_pem.as_ref().map(|_| "<redacted>"))
+            .field("client_private_key_pem", &self.client_private_key_pem.as_ref().map(|_| "<redacted>"))
+            .field("cloudflare_geohash_header", &self.cloudflare_geohash_header.as_ref().map(|_| "<redacted>"))
+            .field("privacy_pass_provider_url", &self.privacy_pass_provider_url.as_ref().map(|_| "<redacted>"))
+            .field(
+                "privacy_pass_provider_auth_token",
+                &self.privacy_pass_provider_auth_token.as_ref().map(|_| "<redacted>"),
+            )
+            .field("tls_fingerprint_profile", &self.tls_fingerprint_profile)
+            .field("root_certificate_pem", &self.root_certificate_pem.as_ref().map(|_| "<redacted>"))
+            .field("quic_bind_low_port", &self.quic_bind_low_port)
+            .field("quic_migrate_after_handshake", &self.quic_migrate_after_handshake)
+            .field("ech_config_present", &self.ech_config.is_some())
+            .finish()
+    }
 }
 
 pub fn resolve_ech_config_via_encrypted_dns(

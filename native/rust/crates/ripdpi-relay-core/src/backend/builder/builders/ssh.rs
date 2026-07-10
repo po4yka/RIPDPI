@@ -15,11 +15,9 @@ use crate::protocols::SshSessionFactory;
 /// authenticates by password or private key, and opens one `direct-tcpip`
 /// channel per relay flow.
 ///
-/// The outbound socket `russh` opens needs no per-socket `VpnService.protect()`
-/// call: the relay runs in-process under the app UID, which is excluded from
-/// the TUN by UID-level routing — the same socket-safety model the sibling
-/// `ripdpi-trojan` backend relies on (see the `ripdpi-ssh` crate doc and
-/// `.claude/rules/vpnservice-protect-invariant.md`).
+/// The relay policy is propagated to the SSH session factory. VPN mode accepts
+/// only IP-literal carriers and protects the TCP fd before connect; proxy mode
+/// retains hostname resolution without requiring a protection callback.
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::Ssh(ssh) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected SSH config"));

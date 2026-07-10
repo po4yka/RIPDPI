@@ -72,6 +72,22 @@ fn privacy_pass_vpn_mode_fails_before_unprotectable_provider_dial() {
     assert_eq!(error.kind(), io::ErrorKind::Unsupported);
 }
 
+#[test]
+fn debug_output_redacts_masque_credentials_and_urls() {
+    let mut config =
+        privacy_pass_test_config("https://provider.example/token?query-secret".to_string(), Some("provider-secret"));
+    config.url = "https://masque.example/path?relay-secret".to_string();
+    config.auth_token = Some("proxy-secret".to_string());
+    config.client_private_key_pem = Some("private-key-secret".to_string());
+
+    let debug = format!("{config:?}");
+
+    for secret in ["query-secret", "relay-secret", "provider-secret", "proxy-secret", "private-key-secret"] {
+        assert!(!debug.contains(secret), "Debug output leaked {secret}");
+    }
+    assert!(debug.contains("<redacted>"));
+}
+
 async fn start_provider_stub(
     responses: Vec<(u16, PrivacyPassProviderResponse)>,
 ) -> io::Result<(String, Arc<Mutex<Vec<String>>>, tokio::task::JoinHandle<io::Result<()>>)> {

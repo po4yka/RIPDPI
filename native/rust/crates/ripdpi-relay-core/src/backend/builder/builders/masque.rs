@@ -36,6 +36,14 @@ fn build_masque_client_config_with_ech_lookup(
     let RelayBackendConfig::Masque(masque) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected MASQUE config"));
     };
+    if config.common.socket_protection == crate::config::SocketProtection::VpnRequired
+        && masque.auth_mode.as_deref().is_some_and(|mode| mode.trim().eq_ignore_ascii_case("privacy_pass"))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "MASQUE Privacy Pass provider fetch cannot protect its HTTP client sockets in VPN mode",
+        ));
+    }
     let ech_config = resolve_masque_ech_config(&masque.url, ech_lookup)?;
     Ok(ripdpi_masque::config::MasqueConfig {
         socket_protection: config.common.socket_protection.into(),
@@ -95,6 +103,24 @@ mod tests {
             )
         );
         assert_eq!(lookup.requests(), vec!["masque.example".to_string()]);
+    }
+
+    #[test]
+    fn masque_privacy_pass_vpn_rejection_precedes_ech_lookup() {
+        let lookup = FakeEchLookup::available("ech.com", BORING_ECH_CONFIG_LIST);
+        let mut config = sample_masque_runtime_config();
+        config.common.socket_protection = crate::config::SocketProtection::VpnRequired;
+        let RelayBackendConfig::Masque(masque) = &mut config.backend else {
+            panic!("expected MASQUE config");
+        };
+        masque.auth_mode = Some("privacy_pass".to_string());
+        masque.privacy_pass_provider_url = Some("https://provider.example/token".to_string());
+
+        let error = build_masque_client_config_with_ech_lookup(&config, |host| lookup.lookup(host))
+            .expect_err("unprotectable Privacy Pass provider must fail before ECH lookup");
+
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+        assert!(lookup.requests().is_empty(), "VPN rejection must precede encrypted-DNS network I/O");
     }
 
     fn sample_masque_runtime_config() -> ResolvedRelayRuntimeConfig {

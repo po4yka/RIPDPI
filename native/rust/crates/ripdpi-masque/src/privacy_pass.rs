@@ -53,10 +53,9 @@ impl MasqueClientInner {
             request = request.bearer_auth(token);
         }
 
-        let response = request
-            .send()
-            .await
-            .map_err(|error| io::Error::other(format!("Privacy Pass provider request failed: {error}")))?;
+        let response = request.send().await.map_err(|error| {
+            io::Error::other(format!("Privacy Pass provider request failed: {}", error.without_url()))
+        })?;
         if !response.status().is_success() {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
@@ -65,7 +64,10 @@ impl MasqueClientInner {
         }
 
         let response: PrivacyPassProviderResponse = response.json().await.map_err(|error| {
-            io::Error::new(io::ErrorKind::InvalidData, format!("invalid Privacy Pass provider body: {error}"))
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("invalid Privacy Pass provider body: {}", error.without_url()),
+            )
         })?;
         let expires_at_epoch_ms = response.expires_at_epoch_ms;
         let mut headers = response.into_headers();
