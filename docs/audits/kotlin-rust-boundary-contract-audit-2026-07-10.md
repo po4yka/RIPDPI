@@ -14,18 +14,17 @@ This audit covered the Kotlin external-function declarations and Rust JNI export
 6. Sparse relay JSON omitted by Kotlin's `encodeDefaults = false` now receives matching Rust defaults for outbound bind, QUIC flags, TLS fingerprint, VLESS transport, Cloudflare mode, TUIC congestion control, Mieru fields, SSH auth, and Tor pluggable-transport fields. Relay versions below 6 and above 8 remain rejected.
 7. ShadowTLS nested VLESS config now carries `vlessFlow` through the flat relay DTO, backend builders, and TLS transport client; absent nested flow defaults to Vision and explicit `xtls-rprx-vision-udp443` is preserved.
 8. Kotlin diagnostics models now cover Rust's `FREEZE_AFTER_THRESHOLD`, all emitted DNS/TCP evidence fields, TCP alternate ports, per-domain strategy seeds, and per-candidate domain outcomes. Report and progress decoders accept absent/current schema v2 and reject explicit old/future versions.
-9. Runtime telemetry decoding is tolerant of additive top-level and nested event fields. The `amneziawg` routing domain is accepted on the process-local WARP-family ring and AWG snapshots drain their native events without exposing endpoint host or port.
+9. Runtime telemetry decoding is tolerant of additive top-level and nested event fields. The `amneziawg` routing domain is accepted on the process-local WARP-family ring, AWG snapshots drain their native events without exposing endpoint host or port, and the approved additive migration now projects the opaque `diagnosticsSessionId` correlation field through proxy, tunnel, relay, WARP, AWG, and Kotlin event models.
 10. A matched remembered policy that fails materialization or validation now records a policy failure and falls back to the baseline configuration instead of bypassing suppression accounting and aborting startup.
 
 ## Findings intentionally not fixed
 
-- `NativeEventRecord.diagnostics_session_id` remains captured internally but is not added to the serialized Kotlin event DTOs. The full engine suite proved that adding it changes the approved proxy/tunnel golden field manifests; the golden-bless discipline requires a separate human-approved contract migration.
 - Diagnostics field-manifest samples still do not populate every optional report branch, and telemetry release fixtures still focus on proxy/tunnel rather than adding relay/WARP/AWG golden families. Expanding those committed fixture surfaces would intentionally change shared goldens, so this audit records the gap without running `RIPDPI_BLESS_GOLDENS=1`.
 - The JNI audit gate proves 76 Kotlin external functions match 76 Rust `Java_*` exports across five libraries, but there is no separate checked-in exact symbol manifest for every library. No mismatch or meaningful orphan export was found, so adding a second manifest mechanism was left as an advisory hardening task.
 
 ## Migration and backward compatibility
 
-No stable JSON key, JNI method, telemetry domain/kind, protobuf field name, or protocol identifier was renamed, and no schema version was bumped. Proxy payloads with an absent schema version or version 1 remain accepted; explicit other versions are rejected on both sides. Relay payloads with absent schema version default to 8, versions 6 through 8 remain accepted, and values outside that range are rejected. Diagnostics report/progress payloads with absent/current version decode as v2 while explicit v1/future versions fail closed. Old protobuf relay xHTTP bytes migrate only under strong legacy evidence, current fields always win, legitimate current `strategy_chain_yaml` content is preserved, and unknown protobuf fields remain round-trippable. New or previously omitted JSON fields are defaulted on both Kotlin and Rust sides. Non-root behavior, root capability gates, credentials, signing configuration, user data, and release secrets were not changed.
+No stable JSON key, JNI method, telemetry domain/kind, protobuf field name, or protocol identifier was renamed, and no schema version was bumped. Proxy payloads with an absent schema version or version 1 remain accepted; explicit other versions are rejected on both sides. Relay payloads with absent schema version default to 8, versions 6 through 8 remain accepted, and values outside that range are rejected. Diagnostics report/progress payloads with absent/current version decode as v2 while explicit v1/future versions fail closed. Old protobuf relay xHTTP bytes migrate only under strong legacy evidence, current fields always win, legitimate current `strategy_chain_yaml` content is preserved, and unknown protobuf fields remain round-trippable. New or previously omitted JSON fields are defaulted on both Kotlin and Rust sides. `diagnosticsSessionId` is an additive optional telemetry field: Kotlin defaults an absent value to `null`, Rust omits it when absent, and old payloads therefore remain decodable without behavior changes. Non-root behavior, root capability gates, credentials, signing configuration, user data, and release secrets were not changed.
 
 ## Tests and reproducibility
 
@@ -40,16 +39,21 @@ python3 scripts/ci/check_unsafe_boundaries.py
 ./gradlew :core:data:settings:testDebugUnitTest --tests 'com.poyka.ripdpi.data.AppSettingsSerializerMigrationTest' -Pripdpi.skipNativeBuild=true
 ./gradlew :core:engine:testDebugUnitTest -Pripdpi.skipNativeBuild=true
 ./gradlew :core:data:testDebugUnitTest -Pripdpi.skipNativeBuild=true
+./gradlew :core:service:testDebugUnitTest --tests 'com.poyka.ripdpi.services.ServiceTelemetryGoldenTest' -Pripdpi.skipNativeBuild=true
 ./gradlew :core:service:testDebugUnitTest --tests 'com.poyka.ripdpi.services.ConnectionPolicyResolverTest' -Pripdpi.skipNativeBuild=true
+./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.RuntimeHistoryMonitorTest' -Pripdpi.skipNativeBuild=true
 ./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.Diagnostics*Contract*Test' --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsEngineSchemaValidationTest' -Pripdpi.skipNativeBuild=true
+cargo fmt --manifest-path native/rust/Cargo.toml --all -- --check
 cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-proxy-config --lib
 cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-relay-core --lib
 cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-contracts --lib
 cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-telemetry --lib
 cargo test --locked --manifest-path native/rust/Cargo.toml -p android-support -p ripdpi-android-telemetry-adapter -p ripdpi-relay-android -p ripdpi-warp-android -p ripdpi-tunnel-android -p ripdpi-amneziawg-android --lib
+cargo metadata --locked --manifest-path native/rust/Cargo.toml --no-deps
+python3 scripts/ci/check_architecture_health.py
 ```
 
-The four requested Rust suites passed with 118, 104, 50, and 39 tests respectively. The cross-language script validated 5 surfaces and 17 gates; its Python suite ran 10 tests. FFI checks found 71 extern definitions, 66 contained panic boundaries plus 5 reviewed `JNI_OnLoad` exceptions, no unwind ABI, no header hygiene violation, and no unallowlisted unsafe-boundary pattern. The broad engine suite initially failed exactly as intended when an unapproved telemetry field changed a golden manifest; that field projection was removed and the unchanged golden suite then passed.
+The four requested Rust suites passed with 118, 104, 50, and 39 tests respectively. The cross-language script validated 5 surfaces and 17 gates; its Python suite ran 10 tests. FFI checks found 71 extern definitions, 66 contained panic boundaries plus 5 reviewed `JNI_OnLoad` exceptions, no unwind ABI, no header hygiene violation, and no unallowlisted unsafe-boundary pattern. The approved telemetry migration intentionally changed four shared field manifests and two engine snapshot goldens only by adding `diagnosticsSessionId`; focused Rust/Kotlin assertions prove a non-null correlation value survives projection, and the broad 261-test engine suite passes with the reviewed goldens.
 
 ## Residual risks
 
@@ -60,4 +64,4 @@ The four requested Rust suites passed with 118, 104, 50, and 39 tests respective
 
 ## Files changed
 
-Changes are confined to `core/engine`, `core/engine-api` consumption paths, `core/data/model`, `core/data/settings`, `core/diagnostics`, `core/service`, the scoped Rust crates under `native/rust/crates/`, contract documentation, and task/audit records. No baseline, golden fixture, credential, signing, secret, or user-data file was modified.
+Changes are confined to `core/engine`, `core/engine-api` consumption paths, `core/data/model`, `core/data/settings`, `core/diagnostics`, `core/service`, the scoped Rust crates under `native/rust/crates/`, contract documentation, task/audit records, and the explicitly approved telemetry contract fixtures and engine goldens. No baseline, credential, signing, secret, or user-data file was modified.

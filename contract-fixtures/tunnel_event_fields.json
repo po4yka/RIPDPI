@@ -1,5 +1,6 @@
 [
   "createdAt",
+  "diagnosticsSessionId",
   "fingerprintHash",
   "kind",
   "level",

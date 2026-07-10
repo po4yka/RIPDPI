@@ -304,6 +304,7 @@ fn tunnel_snapshot_field_manifest_matches_contract_fixture() {
             mode: Some("auto".to_string()),
             policy_signature: Some("sig".to_string()),
             fingerprint_hash: Some("hash".to_string()),
+            diagnostics_session_id: Some("diag-1".to_string()),
             subsystem: Some("tunnel".to_string()),
         }],
         latency_distributions: Some(ripdpi_telemetry::LatencyDistributions {
@@ -364,10 +365,12 @@ fn tunnel_event_field_manifest_matches_contract_fixture() {
         mode: Some("auto".to_string()),
         policy_signature: Some("sig".to_string()),
         fingerprint_hash: Some("hash".to_string()),
+        diagnostics_session_id: Some("diag-1".to_string()),
         subsystem: Some("tunnel".to_string()),
     };
 
     let json = serde_json::to_value(&event).expect("serialize event");
+    assert_eq!(json["diagnosticsSessionId"], serde_json::json!("diag-1"));
     let paths = extract_field_paths(&json);
     let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
     assert_contract_fixture("tunnel_event_fields.json", &manifest);

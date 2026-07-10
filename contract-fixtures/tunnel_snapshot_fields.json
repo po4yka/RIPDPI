@@ -43,6 +43,7 @@
   "listenerAddress",
   "morphPolicyId",
   "nativeEvents[].createdAt",
+  "nativeEvents[].diagnosticsSessionId",
   "nativeEvents[].fingerprintHash",
   "nativeEvents[].kind",
   "nativeEvents[].level",

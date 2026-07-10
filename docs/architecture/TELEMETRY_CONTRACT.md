@@ -77,7 +77,10 @@ A bounded per-domain event ring (`android-support/src/events.rs`,
 `RingConfig` — 128 entries per runtime domain, 256 for diagnostics). Each
 `NativeRuntimeEvent` carries `source`, `level`, `message`, `createdAt`, and the
 optional `kind`, `runtimeId`, `mode`, `policySignature`, `fingerprintHash`,
-`subsystem`. Drained into `NativeRuntimeSnapshot.nativeEvents` on each poll.
+`diagnosticsSessionId`, and `subsystem`. Drained into
+`NativeRuntimeSnapshot.nativeEvents` on each poll. `diagnosticsSessionId` is
+an opaque correlation identifier, not a network or device identifier; every
+native projection carries it unchanged when present and omits it when absent.
 
 ---
 

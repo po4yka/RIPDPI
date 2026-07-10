@@ -40,6 +40,8 @@ struct NativeRuntimeEvent {
     #[serde(skip_serializing_if = "Option::is_none")]
     fingerprint_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    diagnostics_session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     subsystem: Option<String>,
 }
 
@@ -66,6 +68,7 @@ impl From<NativeEventRecord> for NativeRuntimeEvent {
             mode: value.mode,
             policy_signature: value.policy_signature,
             fingerprint_hash: value.fingerprint_hash,
+            diagnostics_session_id: value.diagnostics_session_id,
             subsystem: value.subsystem,
         }
     }

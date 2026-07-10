@@ -283,6 +283,7 @@ class NativeBinaryContractTest {
                             mode = "auto",
                             policySignature = "sig",
                             fingerprintHash = "hash",
+                            diagnosticsSessionId = "diag-1",
                             subsystem = "proxy",
                         ),
                     ),
@@ -336,10 +337,12 @@ class NativeBinaryContractTest {
                 mode = "auto",
                 policySignature = "sig",
                 fingerprintHash = "hash",
+                diagnosticsSessionId = "diag-1",
                 subsystem = "proxy",
             )
 
         val json = contractJson.encodeToJsonElement(event)
+        assertEquals("diag-1", ((json as JsonObject)["diagnosticsSessionId"] as JsonPrimitive).content)
         return extractFieldPaths(json)
     }
 

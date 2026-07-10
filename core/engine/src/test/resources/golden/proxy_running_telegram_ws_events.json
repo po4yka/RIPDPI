@@ -49,6 +49,7 @@
     "nativeEvents": [
         {
             "createdAt": 0,
+            "diagnosticsSessionId": null,
             "fingerprintHash": null,
             "kind": "runtime_ready",
             "level": "info",
@@ -61,6 +62,7 @@
         },
         {
             "createdAt": 1,
+            "diagnosticsSessionId": null,
             "fingerprintHash": null,
             "kind": null,
             "level": "info",
@@ -73,6 +75,7 @@
         },
         {
             "createdAt": 2,
+            "diagnosticsSessionId": null,
             "fingerprintHash": null,
             "kind": null,
             "level": "warn",
