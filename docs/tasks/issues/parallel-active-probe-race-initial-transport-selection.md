@@ -1,7 +1,7 @@
 ---
 title: Add a parallel active-probe race for initial transport selection
 type: task
-status: doing
+status: review
 area: transport
 priority: high
 owner: Codex
@@ -30,13 +30,21 @@ Race the simple flavor's seeded VLESS+Reality and Hysteria2+Salamander relay pat
 
 ## Acceptance criteria
 
-- [ ] A stalled Reality application exchange does not delay selection of a healthy Hysteria2 path until the legacy timeout.
-- [ ] A blocked UDP path selects healthy Reality.
-- [ ] The TUN is not established before a probe-confirmed winner or eligible cached fallback exists.
-- [ ] The first valid HTTP 2xx response wins and the losing runtime is stopped without surfacing an unexpected-exit event.
-- [ ] Cached fallback is scoped by hashed network identity and candidate signature, expires after 24 hours, and is not refreshed by fallback use.
-- [ ] Handover re-races; self-induced post-connection failover restart does not.
-- [ ] Focused Rust, Kotlin, simple-flavor, architecture, static-analysis, and controlled relay-lab gates pass.
+- [x] A stalled Reality application exchange does not delay selection of a healthy Hysteria2 path until the legacy timeout.
+- [x] A blocked UDP path selects healthy Reality.
+- [x] The TUN is not established before a probe-confirmed winner or eligible cached fallback exists.
+- [x] The first valid HTTP 2xx response wins and the losing runtime is stopped without surfacing an unexpected-exit event.
+- [x] Cached fallback is scoped by hashed network identity and candidate signature, expires after 24 hours, and is not refreshed by fallback use.
+- [x] Handover re-races; self-induced post-connection failover restart does not.
+- [~] Focused Rust, Kotlin, simple-flavor, architecture, static-analysis, and controlled relay-lab gates pass. Feature-focused gates and architecture health pass; repository-wide Gradle gates remain blocked by unrelated existing failures recorded below.
+
+## Work log
+
+- 2026-07-10: Added a simple-flavor-only policy that derives a two-candidate race from the embedded selector URL test group, scopes confirmed-winner cache entries to the hashed network and candidate signature, and suppresses races for post-connection failover restarts.
+- 2026-07-10: Added isolated concurrent relay runtime slots on ephemeral listeners, application-level SOCKS URL probes, first-2xx promotion, loser cancellation and cleanup, cached fallback, typed startup failure, and privacy-safe service telemetry.
+- 2026-07-10: Preserved the promoted runtime and its pooled transport for real traffic, rewrote only session-local proxy preferences, and notified failover state before the service reports `Running` or starts the TUN.
+- 2026-07-10: Added deterministic service and simple-flavor coverage, relay-core ephemeral-listener coverage, and owner-controlled TCP-blackhole/UDP-drop lab scenarios.
+- 2026-07-10: `cargo nextest run -p ripdpi-relay-core -p ripdpi-relay-android --locked`, the complete relay interoperability script, focused Kotlin tests, the relay-lab config self-test, and architecture health pass. The full Gradle unit-test command has one reproducible unrelated failure in `DiagnosticsViewModelTest`; `staticAnalysis` reaches the pre-existing `ripdpi-relay-core/src/tests.rs` LoC violation, and the branch does not change that file.
 
 ## References
 
