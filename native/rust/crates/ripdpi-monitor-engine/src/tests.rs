@@ -123,7 +123,7 @@ fn strategy_probe_request_with_runtime_context(
                     log_context: None,
                     session_overrides: None,
                     // Current native-config wire schema version.
-                    schema_version: 1,
+                    schema_version: 2,
                 })
                 .expect("serialize probe ui config"),
             ),
@@ -568,7 +568,7 @@ fn strategy_probe_request_rejects_command_line_config_payload() {
                 log_context: None,
                 session_overrides: None,
                 // Current native-config wire schema version.
-                schema_version: 1,
+                schema_version: 2,
             })
             .expect("serialize command line payload"),
         ),

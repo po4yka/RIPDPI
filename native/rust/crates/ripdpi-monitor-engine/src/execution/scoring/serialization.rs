@@ -10,7 +10,7 @@ pub fn candidate_proxy_config_json(spec: &StrategyCandidateSpec) -> Option<Strin
         log_context: None,
         session_overrides: None,
         // Current native-config wire schema version.
-        schema_version: 1,
+        schema_version: 2,
     })
     .ok()
 }

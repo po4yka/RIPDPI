@@ -5,22 +5,26 @@ use proptest::prelude::*;
 use crate::{Config, ConfigError};
 
 const MINIMAL_VALID: &str = r#"
+schemaVersion: 2
 socks5:
   port: 1080
   address: 127.0.0.1
 "#;
 
 const NO_PORT: &str = r#"
+schemaVersion: 2
 socks5:
   address: 127.0.0.1
 "#;
 
 const NO_ADDRESS: &str = r#"
+schemaVersion: 2
 socks5:
   port: 1080
 "#;
 
 const USER_NO_PASS: &str = r#"
+schemaVersion: 2
 socks5:
   port: 1080
   address: 127.0.0.1
@@ -28,6 +32,7 @@ socks5:
 "#;
 
 const PASS_NO_USER: &str = r#"
+schemaVersion: 2
 socks5:
   port: 1080
   address: 127.0.0.1
@@ -35,6 +40,7 @@ socks5:
 "#;
 
 const FULL_YAML: &str = r#"
+schemaVersion: 2
 tunnel:
   name: tun0
   mtu: 1500
@@ -178,13 +184,6 @@ fn test_config_is_send_sync() {
 
 // --- schemaVersion envelope tests ---
 
-const SCHEMA_VERSION_ONE: &str = r#"
-schemaVersion: 1
-socks5:
-  port: 1080
-  address: 127.0.0.1
-"#;
-
 const SCHEMA_VERSION_TWO: &str = r#"
 schemaVersion: 2
 socks5:
@@ -192,37 +191,57 @@ socks5:
   address: 127.0.0.1
 "#;
 
-#[test]
-fn legacy_payload_without_schema_version_parses() {
-    // `MINIMAL_VALID` carries no `schemaVersion` key -- a legacy payload.
-    let result = Config::from_str(MINIMAL_VALID);
+const SCHEMA_VERSION_ONE: &str = r#"
+schemaVersion: 1
+socks5:
+  port: 1080
+  address: 127.0.0.1
+"#;
 
-    assert!(result.is_ok(), "legacy YAML without schemaVersion should parse: {result:?}");
+const SCHEMA_VERSION_THREE: &str = r#"
+schemaVersion: 3
+socks5:
+  port: 1080
+  address: 127.0.0.1
+"#;
+
+#[test]
+fn payload_without_schema_version_is_rejected() {
+    let err = Config::from_str("socks5:\n  port: 1080\n  address: 127.0.0.1\n")
+        .expect_err("payload without schemaVersion should be rejected");
+
+    assert!(err.to_string().contains("schemaVersion"), "error should name schemaVersion: {err}");
 }
 
 #[test]
-fn payload_with_explicit_schema_version_one_parses() {
-    let result = Config::from_str(SCHEMA_VERSION_ONE);
+fn payload_with_explicit_schema_version_two_parses() {
+    let result = Config::from_str(SCHEMA_VERSION_TWO);
 
-    assert!(result.is_ok(), "YAML with schemaVersion 1 should parse: {result:?}");
+    assert!(result.is_ok(), "YAML with schemaVersion 2 should parse: {result:?}");
 }
 
 #[test]
-fn payload_with_unsupported_schema_version_is_rejected() {
-    let err = Config::from_str(SCHEMA_VERSION_TWO).expect_err("schemaVersion 2 should be rejected");
+fn payload_with_old_schema_version_is_rejected() {
+    let err = Config::from_str(SCHEMA_VERSION_ONE).expect_err("schemaVersion 1 should be rejected");
 
     assert!(
-        matches!(err, ConfigError::UnsupportedSchemaVersion { found: 2 }),
-        "expected UnsupportedSchemaVersion {{ found: 2 }}, got: {err:?}"
+        matches!(err, ConfigError::UnsupportedSchemaVersion { found: 1 }),
+        "expected UnsupportedSchemaVersion {{ found: 1 }}, got: {err:?}"
     );
+}
+
+#[test]
+fn payload_with_future_schema_version_is_rejected() {
+    let err = Config::from_str(SCHEMA_VERSION_THREE).expect_err("schemaVersion 3 should be rejected");
+
     assert!(
-        err.to_string().contains("unsupported native config schemaVersion 2"),
+        err.to_string().contains("unsupported native config schemaVersion 3"),
         "error should name the found version, got: {err}"
     );
 }
 
 fn build_minimal_yaml(port: u16, address: &str) -> String {
-    format!("socks5:\n  port: {port}\n  address: \"{address}\"\n")
+    format!("schemaVersion: 2\nsocks5:\n  port: {port}\n  address: \"{address}\"\n")
 }
 
 proptest! {
@@ -242,14 +261,14 @@ proptest! {
 
     #[test]
     fn prop_missing_port_fails(address in "[a-zA-Z0-9._]{1,30}") {
-        let yaml = format!("socks5:\n  address: \"{address}\"\n");
+        let yaml = format!("schemaVersion: 2\nsocks5:\n  address: \"{address}\"\n");
 
         prop_assert!(Config::from_str(&yaml).is_err());
     }
 
     #[test]
     fn prop_missing_address_fails(port in 1u16..=65535u16) {
-        let yaml = format!("socks5:\n  port: {port}\n");
+        let yaml = format!("schemaVersion: 2\nsocks5:\n  port: {port}\n");
 
         prop_assert!(Config::from_str(&yaml).is_err());
     }
@@ -261,7 +280,7 @@ proptest! {
         username in "[a-zA-Z0-9]{1,20}",
     ) {
         let yaml = format!(
-            "socks5:\n  port: {port}\n  address: \"{address}\"\n  username: \"{username}\"\n"
+            "schemaVersion: 2\nsocks5:\n  port: {port}\n  address: \"{address}\"\n  username: \"{username}\"\n"
         );
 
         prop_assert!(Config::from_str(&yaml).is_err());
@@ -274,7 +293,7 @@ proptest! {
         password in "[a-zA-Z0-9]{1,20}",
     ) {
         let yaml = format!(
-            "socks5:\n  port: {port}\n  address: \"{address}\"\n  password: \"{password}\"\n"
+            "schemaVersion: 2\nsocks5:\n  port: {port}\n  address: \"{address}\"\n  password: \"{password}\"\n"
         );
 
         prop_assert!(Config::from_str(&yaml).is_err());
@@ -288,7 +307,7 @@ proptest! {
         password in "[a-zA-Z0-9]{1,20}",
     ) {
         let yaml = format!(
-            "socks5:\n  port: {port}\n  address: \"{address}\"\n  username: \"{username}\"\n  password: \"{password}\"\n"
+            "schemaVersion: 2\nsocks5:\n  port: {port}\n  address: \"{address}\"\n  username: \"{username}\"\n  password: \"{password}\"\n"
         );
         let result = Config::from_str(&yaml);
 

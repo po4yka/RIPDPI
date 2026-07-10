@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.codec
 
 import com.poyka.ripdpi.data.EnvironmentKind
 import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -24,7 +25,7 @@ internal sealed interface NativeProxyConfig {
         val runtimeContext: NativeRuntimeContext? = null,
         val logContext: NativeLogContext? = null,
         val sessionOverrides: NativeSessionLocalProxyOverrides? = null,
-        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        @Required
         val schemaVersion: Int = NativeProxyConfigSchemaVersion,
     ) : NativeProxyConfig
 
@@ -61,19 +62,18 @@ internal sealed interface NativeProxyConfig {
         val runtimeContext: NativeRuntimeContext? = null,
         val logContext: NativeLogContext? = null,
         val sessionOverrides: NativeSessionLocalProxyOverrides? = null,
-        @EncodeDefault(EncodeDefault.Mode.NEVER)
+        @Required
         val schemaVersion: Int = NativeProxyConfigSchemaVersion,
     ) : NativeProxyConfig
 }
 
 /**
- * Current native-config wire schema version. Carried as the additive
- * `schemaVersion` field on every [NativeProxyConfig] variant. A payload with no
- * `schemaVersion` is a legacy payload — the Rust side defaults it to this same
- * value. Bumped only on a genuinely breaking shape change; an additive field
- * does not bump it. See `docs/architecture/CONFIG_CONTRACTS.md` §8.
+ * Current native-config wire schema version. Every [NativeProxyConfig] variant
+ * must carry `schemaVersion`; missing and non-current versions are rejected.
+ * Bumped only on a genuinely breaking shape change. See
+ * `docs/architecture/CONFIG_CONTRACTS.md` §8.
  */
-internal const val NativeProxyConfigSchemaVersion: Int = 1
+internal const val NativeProxyConfigSchemaVersion: Int = 2
 
 /**
  * Parses the wire form of [NativeProxyConfig.Ui.environmentKind] back into an

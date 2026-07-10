@@ -13,7 +13,6 @@ import kotlinx.serialization.json.jsonPrimitive
  * returns control to callers).
  */
 internal object NativeProxyConfigValidation {
-    private const val SupportedSchemaVersion = 1
     private val groupedUiKeys =
         setOf(
             "listen",
@@ -124,7 +123,7 @@ internal object NativeProxyConfigValidation {
                 is NativeProxyConfig.CommandLine -> payload.schemaVersion
                 is NativeProxyConfig.Ui -> payload.schemaVersion
             }
-        require(schemaVersion == SupportedSchemaVersion) {
+        require(schemaVersion == NativeProxyConfigSchemaVersion) {
             "Unsupported native proxy config schema version: $schemaVersion"
         }
         when (payload) {

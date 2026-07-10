@@ -66,6 +66,7 @@ class NativeConfigContractSnapshotTest {
                     put("hostAutolearnStorePath", JsonNull)
                     put("logContext", JsonNull)
                     put("runtimeContext", JsonNull)
+                    put("schemaVersion", JsonPrimitive(2))
                     put("sessionOverrides", JsonNull)
                 },
         )
@@ -596,7 +597,8 @@ class NativeConfigContractSnapshotTest {
                   "tcpReadWriteTimeoutMs": 6000,
                   "udpReadWriteTimeoutMs": 7000,
                   "logLevel": "info",
-                  "limitNofile": 4096
+                  "limitNofile": 4096,
+                  "schemaVersion": 2
                 }
                 """,
         )
@@ -635,6 +637,7 @@ class NativeConfigContractSnapshotTest {
             put("rootMode", JsonPrimitive(false))
             put("logContext", JsonNull)
             put("runtimeContext", JsonNull)
+            put("schemaVersion", JsonPrimitive(2))
             put("sessionOverrides", JsonNull)
         }
 

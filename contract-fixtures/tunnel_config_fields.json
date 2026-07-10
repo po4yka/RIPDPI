@@ -42,6 +42,7 @@
   "resolverFallbackReason",
   "rootHelperSocketPath",
   "routeDnsThroughSocks5",
+  "schemaVersion",
   "socks5Address",
   "socks5Pipeline",
   "socks5Port",

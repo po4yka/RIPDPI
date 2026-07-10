@@ -1,5 +1,6 @@
 # Main configuration for the RIPDPI tunnel runtime
 
+schemaVersion: 2
 tunnel:
   # Interface name
   name: tun0

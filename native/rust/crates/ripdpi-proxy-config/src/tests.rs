@@ -119,7 +119,7 @@ fn ui_payload(config: ProxyUiConfig) -> ProxyConfigPayload {
         runtime_context: None,
         log_context: None,
         session_overrides: None,
-        schema_version: 1,
+        schema_version: 2,
     }
 }
 
@@ -623,51 +623,59 @@ fn grouped_ui_json_requires_at_least_one_nested_section() {
 
 // --- schemaVersion envelope tests ---
 
-/// Serializes `ui_payload(minimal_ui())` to a JSON object. The base UI payload
-/// does NOT carry a `schemaVersion` key (the Rust serializer always emits the
-/// field; this helper strips it so the legacy-payload case is exercised too).
+/// Serializes `ui_payload(minimal_ui())` to a current-version JSON object.
 fn ui_payload_json_object() -> serde_json::Map<String, serde_json::Value> {
     let mut payload = serde_json::to_value(ui_payload(minimal_ui())).expect("serialize ui payload");
     let object = payload.as_object_mut().expect("ui payload object");
-    object.remove("schemaVersion");
     object.clone()
 }
 
 #[test]
-fn legacy_payload_without_schema_version_defaults_to_one() {
-    let object = ui_payload_json_object();
-    assert!(!object.contains_key("schemaVersion"), "legacy payload must not carry schemaVersion");
-
-    let parsed = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
-        .expect("legacy payload without schemaVersion should parse");
-
-    assert_eq!(parsed.schema_version(), 1, "absent schemaVersion defaults to 1");
-}
-
-#[test]
-fn payload_with_explicit_schema_version_one_parses() {
+fn payload_without_schema_version_is_rejected() {
     let mut object = ui_payload_json_object();
-    object.insert("schemaVersion".to_string(), serde_json::json!(1));
+    object.remove("schemaVersion");
 
-    let parsed = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
-        .expect("payload with schemaVersion 1 should parse");
+    let err = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
+        .expect_err("payload without schemaVersion should be rejected");
 
-    assert_eq!(parsed.schema_version(), 1);
+    assert!(err.to_string().contains("schemaVersion"), "error should name schemaVersion: {err}");
 }
 
 #[test]
-fn payload_with_unsupported_schema_version_is_rejected() {
+fn payload_with_explicit_schema_version_two_parses() {
     let mut object = ui_payload_json_object();
     object.insert("schemaVersion".to_string(), serde_json::json!(2));
 
-    let err = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
-        .expect_err("payload with schemaVersion 2 should be rejected");
+    let parsed = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
+        .expect("payload with schemaVersion 2 should parse");
 
-    assert_eq!(err, ProxyConfigError::UnsupportedSchemaVersion { found: 2 });
+    assert_eq!(parsed.schema_version(), 2);
+}
+
+#[test]
+fn payload_with_old_schema_version_is_rejected() {
+    let mut object = ui_payload_json_object();
+    object.insert("schemaVersion".to_string(), serde_json::json!(1));
+
+    let err = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
+        .expect_err("payload with schemaVersion 1 should be rejected");
+
+    assert_eq!(err, ProxyConfigError::UnsupportedSchemaVersion { found: 1 });
     assert!(
-        err.to_string().contains("unsupported native config schemaVersion 2"),
+        err.to_string().contains("unsupported native config schemaVersion 1"),
         "error should name the found version, got: {err}"
     );
+}
+
+#[test]
+fn payload_with_future_schema_version_is_rejected() {
+    let mut object = ui_payload_json_object();
+    object.insert("schemaVersion".to_string(), serde_json::json!(3));
+
+    let err = parse_proxy_config_json(&serde_json::Value::Object(object).to_string())
+        .expect_err("payload with schemaVersion 3 should be rejected");
+
+    assert_eq!(err, ProxyConfigError::UnsupportedSchemaVersion { found: 3 });
 }
 
 #[test]
@@ -680,12 +688,12 @@ fn runtime_config_envelope_rejects_unsupported_schema_version() {
         runtime_context: None,
         log_context: None,
         session_overrides: None,
-        schema_version: 2,
+        schema_version: 3,
     };
 
-    let err = runtime_config_envelope_from_payload(payload).expect_err("schemaVersion 2 should be rejected");
+    let err = runtime_config_envelope_from_payload(payload).expect_err("schemaVersion 3 should be rejected");
 
-    assert_eq!(err, ProxyConfigError::UnsupportedSchemaVersion { found: 2 });
+    assert_eq!(err, ProxyConfigError::UnsupportedSchemaVersion { found: 3 });
 }
 
 #[test]
@@ -696,7 +704,7 @@ fn command_line_payload_requires_runnable_config() {
         runtime_context: None,
         log_context: None,
         session_overrides: None,
-        schema_version: 1,
+        schema_version: 2,
     })
     .expect_err("help should not produce runnable config");
 
@@ -714,7 +722,7 @@ fn command_line_session_overrides_apply_ephemeral_port_and_auth_token() {
             listen_port_override: Some(0),
             auth_token: Some("alpha-123".to_string()),
         }),
-        schema_version: 1,
+        schema_version: 2,
     })
     .expect("runtime config envelope");
 
@@ -727,6 +735,7 @@ fn kotlin_ui_json_session_overrides_apply_ephemeral_port_and_auth_token() {
     let mut payload = serde_json::to_value(minimal_ui()).expect("serialize minimal ui");
     let object = payload.as_object_mut().expect("minimal ui object");
     object.insert("kind".to_string(), serde_json::json!("ui"));
+    object.insert("schemaVersion".to_string(), serde_json::json!(2));
     object.insert("strategyPreset".to_string(), serde_json::json!("ripdpi_default"));
     object.insert(
         "runtimeContext".to_string(),
@@ -769,7 +778,7 @@ fn invalid_session_override_listen_port_is_rejected() {
             listen_port_override: Some(-1),
             auth_token: Some("alpha-123".to_string()),
         }),
-        schema_version: 1,
+        schema_version: 2,
     })
     .expect_err("invalid listen port override");
 
@@ -840,7 +849,7 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
         }),
         log_context: None,
         session_overrides: None,
-        schema_version: 1,
+        schema_version: 2,
     })
     .expect("runtime config envelope");
 
@@ -1125,7 +1134,7 @@ fn preset_field_in_ui_config_round_trips_json() {
         runtime_context: None,
         log_context: None,
         session_overrides: None,
-        schema_version: 1,
+        schema_version: 2,
     };
     let json = serde_json::to_string(&payload).unwrap();
     let decoded: ProxyConfigPayload = serde_json::from_str(&json).unwrap();
@@ -1688,6 +1697,7 @@ fn ui_config_maps_quic_migrate() {
 fn ui_payload_maps_strategy_evolution_settings() {
     let payload = serde_json::json!({
         "kind": "ui",
+        "schemaVersion": 2,
         "adaptiveFallback": {
             "strategyEvolution": true,
             "evolutionEpsilon": 0.2,
@@ -1712,8 +1722,9 @@ fn ui_payload_maps_strategy_evolution_settings() {
 }
 
 #[test]
-fn missing_strategy_evolution_settings_keep_legacy_defaults() {
-    let parsed = parse_proxy_config_json(r#"{"kind":"ui","adaptiveFallback":{}}"#).expect("legacy config");
+fn missing_strategy_evolution_settings_keep_current_defaults() {
+    let parsed = parse_proxy_config_json(r#"{"kind":"ui","schemaVersion":2,"adaptiveFallback":{}}"#)
+        .expect("current sparse config");
     let config = runtime_config_envelope_from_payload(parsed).expect("runtime config").config;
 
     assert!(!config.adaptive.strategy_evolution);

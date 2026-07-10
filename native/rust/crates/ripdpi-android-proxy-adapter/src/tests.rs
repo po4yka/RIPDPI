@@ -57,7 +57,7 @@ fn jni_create_does_not_probe_bind_listener_port() {
         runtime_context: None,
         log_context: None,
         session_overrides: None,
-        schema_version: 1,
+        schema_version: 2,
     })
     .expect("proxy config json");
 
@@ -453,7 +453,7 @@ fn minimal_proxy_config_json() -> String {
         log_context: None,
         session_overrides: None,
         // Current native-config wire schema version.
-        schema_version: 1,
+        schema_version: 2,
     })
     .expect("proxy config json")
 }

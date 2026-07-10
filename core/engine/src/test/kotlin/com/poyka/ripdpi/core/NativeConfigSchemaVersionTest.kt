@@ -2,22 +2,18 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.core.codec.NativeProxyConfig
 import com.poyka.ripdpi.core.codec.NativeProxyConfigSchemaVersion
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Golden coverage for the additive `schemaVersion` envelope field on the
- * proxy, relay, and tunnel native-config wire DTOs.
- *
- * The field is `@EncodeDefault(NEVER)`, so the current version never reaches
- * the wire when the default value is used. These tests pin both halves of the
- * contract: a legacy relay payload that omits `schemaVersion` decodes to the
- * current relay schema version, a payload that carries the current version
- * decodes to the same, and the encoder emits no `schemaVersion` key for
- * defaulted payloads. See `docs/architecture/CONFIG_CONTRACTS.md` §8.
+ * Coverage for the required `schemaVersion` envelope on proxy, relay, and
+ * tunnel native-config wire DTOs. Current producers must emit it and consumers
+ * must reject missing, older, and future versions.
  */
 class NativeConfigSchemaVersionTest {
     private val proxyJson =
@@ -33,31 +29,35 @@ class NativeConfigSchemaVersionTest {
     private val relayJson = Json { encodeDefaults = true }
 
     @Test
-    fun `proxy ui payload — legacy and versioned forms both decode to version 1`() {
-        val legacy = proxyJson.decodeFromString(NativeProxyConfig.serializer(), """{"kind":"ui"}""")
-        val versioned =
-            proxyJson.decodeFromString(NativeProxyConfig.serializer(), """{"kind":"ui","schemaVersion":1}""")
+    fun `proxy ui payload requires current schema version`() {
+        assertThrows(SerializationException::class.java) {
+            proxyJson.decodeFromString(NativeProxyConfig.serializer(), """{"kind":"ui"}""")
+        }
+        val current =
+            proxyJson.decodeFromString(NativeProxyConfig.serializer(), """{"kind":"ui","schemaVersion":2}""")
 
-        assertEquals(NativeProxyConfigSchemaVersion, (legacy as NativeProxyConfig.Ui).schemaVersion)
-        assertEquals(NativeProxyConfigSchemaVersion, (versioned as NativeProxyConfig.Ui).schemaVersion)
+        assertEquals(NativeProxyConfigSchemaVersion, (current as NativeProxyConfig.Ui).schemaVersion)
     }
 
     @Test
-    fun `proxy command-line payload — legacy and versioned forms both decode to version 1`() {
-        val legacy =
-            proxyJson.decodeFromString(NativeProxyConfig.serializer(), """{"kind":"command_line","args":["ripdpi"]}""")
-        val versioned =
+    fun `proxy command-line payload requires current schema version`() {
+        assertThrows(SerializationException::class.java) {
             proxyJson.decodeFromString(
                 NativeProxyConfig.serializer(),
-                """{"kind":"command_line","args":["ripdpi"],"schemaVersion":1}""",
+                """{"kind":"command_line","args":["ripdpi"]}""",
+            )
+        }
+        val current =
+            proxyJson.decodeFromString(
+                NativeProxyConfig.serializer(),
+                """{"kind":"command_line","args":["ripdpi"],"schemaVersion":2}""",
             )
 
-        assertEquals(NativeProxyConfigSchemaVersion, (legacy as NativeProxyConfig.CommandLine).schemaVersion)
-        assertEquals(NativeProxyConfigSchemaVersion, (versioned as NativeProxyConfig.CommandLine).schemaVersion)
+        assertEquals(NativeProxyConfigSchemaVersion, (current as NativeProxyConfig.CommandLine).schemaVersion)
     }
 
     @Test
-    fun `proxy payloads omit schemaVersion on the wire`() {
+    fun `proxy payloads emit schemaVersion on the wire`() {
         val ui = proxyJson.encodeToString(NativeProxyConfig.serializer(), NativeProxyConfig.Ui())
         val cmd =
             proxyJson.encodeToString(
@@ -65,37 +65,38 @@ class NativeConfigSchemaVersionTest {
                 NativeProxyConfig.CommandLine(args = listOf("ripdpi")),
             )
 
-        assertFalse("ui payload must not carry schemaVersion at v1", ui.contains("schemaVersion"))
-        assertFalse("command-line payload must not carry schemaVersion at v1", cmd.contains("schemaVersion"))
+        assertTrue("ui payload must carry schemaVersion", ui.contains("\"schemaVersion\":2"))
+        assertTrue("command-line payload must carry schemaVersion", cmd.contains("\"schemaVersion\":2"))
     }
 
     @Test
     fun `proxy codec rejects unsupported schema versions`() {
         assertThrows(IllegalArgumentException::class.java) {
-            RipDpiProxyJsonCodec.stripRuntimeContext("""{"kind":"ui","schemaVersion":2,"listen":{}}""")
+            RipDpiProxyJsonCodec.stripRuntimeContext("""{"kind":"ui","schemaVersion":1,"listen":{}}""")
         }
         assertThrows(IllegalArgumentException::class.java) {
             RipDpiProxyJsonCodec.stripRuntimeContext(
-                """{"kind":"command_line","args":["ripdpi"],"schemaVersion":0}""",
+                """{"kind":"command_line","args":["ripdpi"],"schemaVersion":3}""",
             )
         }
     }
 
     @Test
-    fun `tunnel payload — legacy and versioned forms both decode to version 1`() {
-        val legacy = tunnelJson.decodeFromString(Tun2SocksConfig.serializer(), """{"socks5Port":1080}""")
-        val versioned =
-            tunnelJson.decodeFromString(Tun2SocksConfig.serializer(), """{"socks5Port":1080,"schemaVersion":1}""")
+    fun `tunnel payload requires current schema version`() {
+        assertThrows(SerializationException::class.java) {
+            tunnelJson.decodeFromString(Tun2SocksConfig.serializer(), """{"socks5Port":1080}""")
+        }
+        val current =
+            tunnelJson.decodeFromString(Tun2SocksConfig.serializer(), """{"socks5Port":1080,"schemaVersion":2}""")
 
-        assertEquals(Tun2SocksConfigSchemaVersion, legacy.schemaVersion)
-        assertEquals(Tun2SocksConfigSchemaVersion, versioned.schemaVersion)
+        assertEquals(Tun2SocksConfigSchemaVersion, current.schemaVersion)
     }
 
     @Test
-    fun `tunnel payload omits schemaVersion on the wire`() {
+    fun `tunnel payload emits schemaVersion on the wire`() {
         val encoded = tunnelJson.encodeToString(Tun2SocksConfig.serializer(), Tun2SocksConfig(socks5Port = 1080))
 
-        assertFalse("tunnel payload must not carry schemaVersion at v1", encoded.contains("schemaVersion"))
+        assertTrue("tunnel payload must carry schemaVersion", encoded.contains("\"schemaVersion\":2"))
     }
 
     @Test

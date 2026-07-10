@@ -18,16 +18,7 @@ pub enum ProxyConfigError {
 ///
 /// Mirrors the Kotlin `NativeProxyConfigSchemaVersion` constant. A payload
 /// carrying any other version is rejected by [`validate_schema_version`].
-pub(crate) const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 1;
-
-/// `serde(default)` provider for the additive `schemaVersion` envelope field.
-///
-/// A legacy payload with no `schemaVersion` key is treated as version 1, which
-/// matches the Kotlin encoder: at version 1 the field is `@EncodeDefault(NEVER)`
-/// and never reaches the wire.
-pub(crate) fn default_native_config_schema_version() -> u32 {
-    SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION
-}
+pub(crate) const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case", rename_all_fields = "camelCase")]
@@ -43,7 +34,6 @@ pub enum ProxyConfigPayload {
         log_context: Option<ProxyLogContext>,
         #[serde(default)]
         session_overrides: Option<ProxySessionOverrides>,
-        #[serde(default = "default_native_config_schema_version")]
         schema_version: u32,
     },
     Ui {
@@ -57,14 +47,12 @@ pub enum ProxyConfigPayload {
         log_context: Option<ProxyLogContext>,
         #[serde(default)]
         session_overrides: Option<ProxySessionOverrides>,
-        #[serde(default = "default_native_config_schema_version")]
         schema_version: u32,
     },
 }
 
 impl ProxyConfigPayload {
-    /// The `schemaVersion` envelope value carried by this payload (defaulted to
-    /// [`SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION`] for legacy payloads).
+    /// The required `schemaVersion` envelope value carried by this payload.
     pub(crate) fn schema_version(&self) -> u32 {
         match self {
             ProxyConfigPayload::CommandLine { schema_version, .. } | ProxyConfigPayload::Ui { schema_version, .. } => {

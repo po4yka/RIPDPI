@@ -8,7 +8,7 @@ pub fn strategy_probe_config_json(config: &ProxyUiConfig) -> String {
         log_context: None,
         session_overrides: None,
         // Current native-config wire schema version.
-        schema_version: 1,
+        schema_version: 2,
     })
     .expect("serialize ui proxy config")
 }
