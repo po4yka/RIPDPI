@@ -14,11 +14,14 @@ import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
-import com.poyka.ripdpi.data.subscription.SubscriptionUserinfo
 import com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionParser
 import com.poyka.ripdpi.data.subscription.toActivationRequest
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import com.poyka.ripdpi.data.subscription.withUserinfoHeader
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -32,6 +35,18 @@ internal enum class SubscriptionRefreshRunResult {
     RETRY,
 }
 
+/** Result of one manual or automatic subscription refresh. */
+sealed interface SubscriptionRefreshResult {
+    data class Updated(
+        val memberCount: Int,
+    ) : SubscriptionRefreshResult
+
+    data class Failed(
+        val failure: SubscriptionRefreshFailure,
+        val retryable: Boolean,
+    ) : SubscriptionRefreshResult
+}
+
 internal fun interface SubscriptionSignalPublisher {
     fun publish(
         groups: List<ProxyGroup>,
@@ -40,7 +55,7 @@ internal fun interface SubscriptionSignalPublisher {
 }
 
 @Singleton
-internal class SubscriptionRefreshCoordinator private constructor(
+class SubscriptionRefreshCoordinator private constructor(
     private val repository: ProxyGroupRepository,
     private val awgProfileRepository: AwgProfileRepository,
     private val signalPublisher: SubscriptionSignalPublisher,
@@ -48,16 +63,17 @@ internal class SubscriptionRefreshCoordinator private constructor(
     private val clockMillis: () -> Long,
 ) {
     @Inject
-    constructor(
+    internal constructor(
         repository: ProxyGroupRepository,
         awgProfileRepository: AwgProfileRepository,
         signalPublisher: SubscriptionStatusNotifier,
+        expiryClock: SubscriptionExpiryClock,
     ) : this(
         repository = repository,
         awgProfileRepository = awgProfileRepository,
         signalPublisher = signalPublisher,
         httpClient = OkHttpClient(),
-        clockMillis = System::currentTimeMillis,
+        clockMillis = expiryClock::nowMillis,
     )
 
     @Suppress("LongParameterList")
@@ -72,44 +88,81 @@ internal class SubscriptionRefreshCoordinator private constructor(
 
     private val log = Logger.withTag("subscription-auto-update")
 
-    suspend fun refreshAll(): SubscriptionRefreshRunResult {
+    internal suspend fun refreshAll(): SubscriptionRefreshRunResult {
         val allGroups = repository.list()
-        val due = subscriptionsDueForAutoUpdate(allGroups)
+        val due = subscriptionsDueForAutoUpdate(allGroups, clockMillis())
         if (due.isEmpty()) {
             signalPublisher.publish(allGroups, clockMillis())
             return SubscriptionRefreshRunResult.SUCCESS
         }
         var retry = false
         for (group in due) {
-            val attemptedAt = clockMillis()
-            val subscription = group.subscription ?: continue
-            val outcome =
-                if (subscription.link.isBlank()) {
-                    RefreshOutcome.Failure(
-                        failure = SubscriptionRefreshFailure.UNAVAILABLE,
-                        lifecycleState = SubscriptionLifecycleState.UNAVAILABLE,
-                        retry = false,
-                    )
-                } else {
-                    fetchAndParse(
-                        url = subscription.link,
-                        customUserAgent = subscription.customUserAgent,
-                        groupId = group.id,
-                    )
-                }
-            when (outcome) {
-                is RefreshOutcome.Updated -> {
-                    persistSuccess(group.id, attemptedAt, outcome)
-                }
-
-                is RefreshOutcome.Failure -> {
-                    persistFailure(group.id, attemptedAt, outcome)
-                    retry = retry || outcome.retry
-                }
+            when (val result = refreshGroup(group)) {
+                is SubscriptionRefreshResult.Updated -> Unit
+                is SubscriptionRefreshResult.Failed -> retry = retry || result.retryable
             }
         }
         signalPublisher.publish(repository.list(), clockMillis())
         return if (retry) SubscriptionRefreshRunResult.RETRY else SubscriptionRefreshRunResult.SUCCESS
+    }
+
+    /** Refreshes one group through the same persistence path used by WorkManager. */
+    suspend fun refresh(groupId: String): SubscriptionRefreshResult {
+        val group =
+            repository.list().firstOrNull { it.id == groupId }
+                ?: return SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.UNREACHABLE, retryable = false)
+        val result = refreshGroup(group)
+        signalPublisher.publish(repository.list(), clockMillis())
+        return result
+    }
+
+    private suspend fun refreshGroup(group: ProxyGroup): SubscriptionRefreshResult {
+        val attemptedAt = clockMillis()
+        val subscription =
+            group.subscription
+                ?: return SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.UNREACHABLE, retryable = false)
+        val priorFailure = subscription.lastRefreshFailure
+        return if (priorFailure?.isTerminal == true) {
+            SubscriptionRefreshResult.Failed(priorFailure, retryable = false)
+        } else {
+            val outcome =
+                when {
+                    subscription.tokenExpiresAtEpochMillis?.let { attemptedAt >= it } == true -> {
+                        RefreshOutcome.Failure(
+                            failure = SubscriptionRefreshFailure.EXPIRED,
+                            lifecycleState = SubscriptionLifecycleState.EXPIRED,
+                            retry = false,
+                        )
+                    }
+
+                    subscription.link.isBlank() -> {
+                        RefreshOutcome.Failure(
+                            failure = SubscriptionRefreshFailure.UNREACHABLE,
+                            lifecycleState = null,
+                            retry = false,
+                        )
+                    }
+
+                    else -> {
+                        fetchAndParse(
+                            group = group,
+                            url = subscription.link,
+                            customUserAgent = subscription.customUserAgent,
+                        )
+                    }
+                }
+            when (outcome) {
+                is RefreshOutcome.Updated -> {
+                    persistSuccess(group.id, attemptedAt, outcome)
+                    SubscriptionRefreshResult.Updated(outcome.profiles.size)
+                }
+
+                is RefreshOutcome.Failure -> {
+                    persistFailure(group.id, attemptedAt, outcome)
+                    SubscriptionRefreshResult.Failed(outcome.failure, outcome.retry)
+                }
+            }
+        }
     }
 
     private suspend fun persistSuccess(
@@ -117,8 +170,6 @@ internal class SubscriptionRefreshCoordinator private constructor(
         attemptedAt: Long,
         outcome: RefreshOutcome.Updated,
     ) {
-        val userinfo = SubscriptionUserinfo.parse(outcome.subscriptionUserinfo)
-        val expired = userinfo.isExpired(attemptedAt / MillisPerSecond)
         val updated =
             repository.updateGroup(groupId) { current ->
                 val subscription = current.subscription ?: return@updateGroup current
@@ -134,14 +185,9 @@ internal class SubscriptionRefreshCoordinator private constructor(
                                 .copy(
                                     lastUpdated = attemptedAt,
                                     lastRefreshAttemptAtEpochMillis = attemptedAt,
-                                    lifecycleState =
-                                        if (expired) {
-                                            SubscriptionLifecycleState.EXPIRED
-                                        } else {
-                                            SubscriptionLifecycleState.ACTIVE
-                                        },
-                                    lastRefreshFailure =
-                                        if (expired) SubscriptionRefreshFailure.EXPIRED else null,
+                                    tokenExpiresAtEpochMillis = outcome.tokenExpiresAtEpochMillis,
+                                    lifecycleState = SubscriptionLifecycleState.ACTIVE,
+                                    lastRefreshFailure = null,
                                 ),
                     )
             }
@@ -166,9 +212,9 @@ internal class SubscriptionRefreshCoordinator private constructor(
     }
 
     private suspend fun fetchAndParse(
+        group: ProxyGroup,
         url: String,
         customUserAgent: String,
-        groupId: String,
     ): RefreshOutcome =
         withContext(Dispatchers.IO) {
             val request =
@@ -181,15 +227,15 @@ internal class SubscriptionRefreshCoordinator private constructor(
                     }.build()
             try {
                 httpClient.newCall(request).execute().use { response ->
-                    classifyHttpFailure(response.code)?.let { return@use it }
+                    classifyHttpFailure(response.code, group)?.let { return@use it }
                     val body = response.body.string()
-                    val wireGuardCount = persistWireGuardProfiles(body, groupId)
-                    val profiles = parseProfiles(body, groupId, wireGuardCount)
+                    val wireGuardCount = persistWireGuardProfiles(body, group.id)
+                    val profiles = parseProfiles(body, group.id, wireGuardCount)
                     if (profiles != null) {
                         profiles.copy(subscriptionUserinfo = response.header(SubscriptionUserinfoHeader).orEmpty())
                     } else {
                         RefreshOutcome.Failure(
-                            failure = SubscriptionRefreshFailure.INVALID_PAYLOAD,
+                            failure = SubscriptionRefreshFailure.PARSE_ERROR,
                             lifecycleState = null,
                             retry = false,
                         )
@@ -197,14 +243,17 @@ internal class SubscriptionRefreshCoordinator private constructor(
                 }
             } catch (_: IOException) {
                 RefreshOutcome.Failure(
-                    failure = SubscriptionRefreshFailure.NETWORK_ERROR,
+                    failure = SubscriptionRefreshFailure.UNREACHABLE,
                     lifecycleState = null,
                     retry = true,
                 )
             }
         }
 
-    private fun classifyHttpFailure(code: Int): RefreshOutcome.Failure? =
+    private fun classifyHttpFailure(
+        code: Int,
+        group: ProxyGroup,
+    ): RefreshOutcome.Failure? =
         when {
             code in HttpSuccessStart..HttpSuccessEnd -> {
                 null
@@ -219,11 +268,20 @@ internal class SubscriptionRefreshCoordinator private constructor(
             }
 
             code == HttpGone -> {
-                RefreshOutcome.Failure(
-                    SubscriptionRefreshFailure.EXPIRED,
-                    SubscriptionLifecycleState.EXPIRED,
-                    false,
-                )
+                val expiry = group.subscription?.tokenExpiresAtEpochMillis
+                if (expiry != null && clockMillis() >= expiry) {
+                    RefreshOutcome.Failure(
+                        SubscriptionRefreshFailure.EXPIRED,
+                        SubscriptionLifecycleState.EXPIRED,
+                        false,
+                    )
+                } else {
+                    RefreshOutcome.Failure(
+                        SubscriptionRefreshFailure.INVALIDATED,
+                        SubscriptionLifecycleState.UNAVAILABLE,
+                        false,
+                    )
+                }
             }
 
             code == HttpTooManyRequests -> {
@@ -236,8 +294,8 @@ internal class SubscriptionRefreshCoordinator private constructor(
 
             else -> {
                 RefreshOutcome.Failure(
-                    SubscriptionRefreshFailure.UNAVAILABLE,
-                    SubscriptionLifecycleState.UNAVAILABLE,
+                    SubscriptionRefreshFailure.UNREACHABLE,
+                    null,
                     false,
                 )
             }
@@ -248,10 +306,15 @@ internal class SubscriptionRefreshCoordinator private constructor(
         groupId: String,
         wireGuardCount: Int,
     ): RefreshOutcome.Updated? {
+        val singBox = SingBoxSubscriptionParser.parse(body, groupId) as? SingBoxParseResult.Success
         val selector = SelectorUrltestGroupImport.import(body, groupId)
         var parsed =
             if (selector is SelectorUrltestImportResult.Success && selector.profiles.isNotEmpty()) {
-                RefreshOutcome.Updated(selector.profiles, selector.failoverPolicy.toSelectorFailover())
+                RefreshOutcome.Updated(
+                    selector.profiles,
+                    selector.failoverPolicy.toSelectorFailover(),
+                    tokenExpiresAtEpochMillis = singBox?.tokenExpiresAtEpochMillis,
+                )
             } else {
                 null
             }
@@ -263,7 +326,14 @@ internal class SubscriptionRefreshCoordinator private constructor(
             val base64 = Base64SubscriptionParser.parse(body, groupId)
             if (base64.profiles.isNotEmpty()) parsed = RefreshOutcome.Updated(base64.profiles, null)
         }
-        if (parsed == null && wireGuardCount > 0) parsed = RefreshOutcome.Updated(emptyList(), null)
+        if (parsed == null && wireGuardCount > 0) {
+            parsed =
+                RefreshOutcome.Updated(
+                    emptyList(),
+                    null,
+                    tokenExpiresAtEpochMillis = singBox?.tokenExpiresAtEpochMillis,
+                )
+        }
         return parsed
     }
 
@@ -298,6 +368,7 @@ internal class SubscriptionRefreshCoordinator private constructor(
             val profiles: List<ProxyProfile>,
             val failover: SelectorFailover?,
             val subscriptionUserinfo: String = "",
+            val tokenExpiresAtEpochMillis: Long? = null,
         ) : RefreshOutcome
 
         data class Failure(
@@ -315,7 +386,14 @@ internal class SubscriptionRefreshCoordinator private constructor(
         const val HttpTooManyRequests = 429
         const val HttpServerErrorStart = 500
         const val HttpServerErrorEnd = 599
-        const val MillisPerSecond = 1_000L
         const val SubscriptionUserinfoHeader = "Subscription-Userinfo"
     }
+}
+
+@Module
+@InstallIn(SingletonComponent::class)
+object SubscriptionRefreshModule {
+    @Provides
+    @Singleton
+    fun provideSubscriptionExpiryClock(): SubscriptionExpiryClock = SubscriptionExpiryClock(System::currentTimeMillis)
 }

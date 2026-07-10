@@ -4114,4 +4114,33 @@ fakeddisorder endhost</string>
         <item quantity="many">%d اشتراكًا يحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
         <item quantity="other">%d اشتراك يحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
     </plurals>
++    <string name="subscription_status_title">حالة الاشتراكات</string>
+    <string name="settings_subscription_status_body">راجع انتهاء الصلاحية والتحديث والملفات المستوردة.</string>
+    <string name="subscription_status_empty_title">لا توجد اشتراكات</string>
+    <string name="subscription_status_empty_body">ستظهر تفاصيل الاشتراكات المستوردة هنا.</string>
+    <string name="subscription_status_reveal_secrets">إظهار أسرار الاشتراك</string>
+    <string name="subscription_status_hide_secrets">إخفاء أسرار الاشتراك</string>
+    <string name="subscription_status_profiles_format">%1$d ملفات معيّنة</string>
+    <string name="subscription_status_last_refresh_format">آخر تحديث: %1$s</string>
+    <string name="subscription_status_token_expiry_format">انتهاء الرمز: %1$s</string>
+    <string name="subscription_status_credential_expiry_format">انتهاء بيانات الاعتماد: %1$s</string>
+    <string name="subscription_status_replacement_help">تبقى الملفات المحفوظة قابلة للاستخدام. استورد رابط اشتراك بديلاً لاستئناف التحديثات.</string>
+    <string name="subscription_status_refresh_action">تحديث الآن</string>
+    <string name="subscription_status_active">نشط</string>
+    <string name="subscription_status_expiring_days">ينتهي خلال %1$d أيام</string>
+    <string name="subscription_status_expired">منتهي الصلاحية</string>
+    <string name="subscription_status_invalidated">منتهي أو ملغى</string>
+    <string name="subscription_status_unknown">لم يُحدّد انتهاء</string>
+    <string name="subscription_status_refresh_format">حالة التحديث: %1$s</string>
+    <string name="subscription_status_refresh_ready">جاهز</string>
+    <string name="subscription_status_refresh_failed">فشل التحديث</string>
+    <string name="subscription_status_url_format">رابط الاشتراك: %1$s</string>
+    <string name="subscription_status_token_format">الرمز: %1$s</string>
+    <string name="subscription_home_multiple_title">%1$d اشتراكات تحتاج إلى الانتباه</string>
+    <string name="subscription_home_expiring_title">سينتهي الاشتراك قريبًا</string>
+    <string name="subscription_home_expiring_body">سينتهي %1$s خلال %2$d أيام. حدّثه أو جهّز رابطًا بديلاً.</string>
+    <string name="subscription_home_expired_title">انتهى الاشتراك</string>
+    <string name="subscription_home_expired_body">لم يعد بالإمكان تحديث %1$s. تبقى الملفات الحالية متاحة.</string>
+    <string name="subscription_home_invalidated_title">الاشتراك غير متاح</string>
+    <string name="subscription_home_invalidated_body">انتهى %1$s أو أُلغي. تبقى الملفات الحالية متاحة.</string>
 </resources>

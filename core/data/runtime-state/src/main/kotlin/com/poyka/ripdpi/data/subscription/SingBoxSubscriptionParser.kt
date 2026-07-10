@@ -14,6 +14,9 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.UUID
 
 /** Outcome of a [SingBoxSubscriptionParser] run. */
@@ -42,7 +45,7 @@ sealed interface SingBoxParseResult {
          * later `/sub` fetch returns 410. The `.meta` sidecar / `410` remains
          * the enforcement point; this is the early-warning copy.
          */
-        val expiresAt: String? = null,
+        val tokenExpiresAtEpochMillis: Long? = null,
         /** Nodes rejected before mapping because their declared wire mode is unsupported. */
         val skipped: List<SingBoxSkippedNode> = emptyList(),
     ) : SingBoxParseResult
@@ -162,7 +165,7 @@ object SingBoxSubscriptionParser {
                     profiles = ripdpi.profiles,
                     amneziaWgProfiles = ripdpi.amneziaWgProfiles,
                     topology = ripdpi.topology,
-                    expiresAt = ripdpi.expiresAt,
+                    tokenExpiresAtEpochMillis = ripdpi.tokenExpiresAtEpochMillis,
                     skipped = skipped,
                 )
             }
@@ -521,7 +524,7 @@ private data class RipdpiBlockResult(
     val profiles: List<ProxyProfile>,
     val amneziaWgProfiles: List<AmneziaWgSubscriptionProfile>,
     val topology: RipdpiTopology? = null,
-    val expiresAt: String? = null,
+    val tokenExpiresAtEpochMillis: Long? = null,
 )
 
 /**
@@ -550,8 +553,26 @@ private fun processRipdpiBlock(
         profiles = patchedProfiles,
         amneziaWgProfiles = awgProfiles,
         topology = parseRipdpiTopology(versioned["topology"] as? JsonObject),
-        expiresAt = versioned.string("expires"),
+        tokenExpiresAtEpochMillis = parseRipdpiExpiry(versioned.string("expires")),
     )
+}
+
+/** Normalizes date-only or RFC 3339 expiry text to epoch milliseconds. */
+private const val IsoDateLength = 10
+
+private fun parseRipdpiExpiry(raw: String?): Long? {
+    val value = raw?.trim()?.takeIf(String::isNotEmpty) ?: return null
+    return runCatching {
+        if (value.length == IsoDateLength) {
+            LocalDate
+                .parse(value)
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli()
+        } else {
+            OffsetDateTime.parse(value).toInstant().toEpochMilli()
+        }
+    }.getOrNull()
 }
 
 /**

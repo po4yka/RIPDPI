@@ -1603,6 +1603,10 @@ class MainViewModelTest {
                             stateStore = hostPackCatalogUiStateStore,
                         ),
                     strategyPackStateStore = strategyPackStateStore,
+                    proxyGroupRepository = TestEmptyProxyGroupRepository,
+                    subscriptionExpiryClock =
+                        com.poyka.ripdpi.subscription
+                            .SubscriptionExpiryClock { 0L },
                 ),
             mainLifecycleDependencies =
                 MainLifecycleDependencies(

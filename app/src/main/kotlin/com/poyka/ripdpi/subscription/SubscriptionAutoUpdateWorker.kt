@@ -21,13 +21,18 @@ import java.util.concurrent.TimeUnit
 const val WorkManagerMinIntervalMinutes: Long = 15L
 
 /** Long-lived subscription groups eligible for an automatic refresh pass. */
-fun subscriptionsDueForAutoUpdate(groups: List<ProxyGroup>): List<ProxyGroup> =
+fun subscriptionsDueForAutoUpdate(
+    groups: List<ProxyGroup>,
+    nowMillis: Long = System.currentTimeMillis(),
+): List<ProxyGroup> =
     groups.filter { group ->
         val subscription = group.subscription
         group.type == ProxyGroupType.SUBSCRIPTION &&
             subscription != null &&
             subscription.autoUpdate &&
-            subscription.kind != SubscriptionKind.BOOTSTRAP
+            subscription.kind != SubscriptionKind.BOOTSTRAP &&
+            subscription.lastRefreshFailure?.isTerminal != true &&
+            subscription.tokenExpiresAtEpochMillis?.let { nowMillis >= it } != true
     }
 
 /** Shortest configured refresh delay, clamped to WorkManager's 15-minute floor. */

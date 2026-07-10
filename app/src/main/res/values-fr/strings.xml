@@ -4083,4 +4083,33 @@ Source : %2$s</string>
         <item quantity="one">%d abonnement nécessite votre attention. Les relais enregistrés sont peut-être obsolètes.</item>
         <item quantity="other">%d abonnements nécessitent votre attention. Les relais enregistrés sont peut-être obsolètes.</item>
     </plurals>
++    <string name="subscription_status_title">État des abonnements</string>
+    <string name="settings_subscription_status_body">Consultez l’expiration, l’actualisation et les profils importés.</string>
+    <string name="subscription_status_empty_title">Aucun abonnement</string>
+    <string name="subscription_status_empty_body">Les détails des abonnements importés apparaîtront ici.</string>
+    <string name="subscription_status_reveal_secrets">Afficher les secrets de l’abonnement</string>
+    <string name="subscription_status_hide_secrets">Masquer les secrets de l’abonnement</string>
+    <string name="subscription_status_profiles_format">%1$d profils attribués</string>
+    <string name="subscription_status_last_refresh_format">Dernière actualisation : %1$s</string>
+    <string name="subscription_status_token_expiry_format">Expiration du jeton : %1$s</string>
+    <string name="subscription_status_credential_expiry_format">Expiration des identifiants : %1$s</string>
+    <string name="subscription_status_replacement_help">Les profils enregistrés restent utilisables. Importez un nouveau lien pour reprendre les actualisations.</string>
+    <string name="subscription_status_refresh_action">Actualiser maintenant</string>
+    <string name="subscription_status_active">Actif</string>
+    <string name="subscription_status_expiring_days">Expire dans %1$d jours</string>
+    <string name="subscription_status_expired">Expiré</string>
+    <string name="subscription_status_invalidated">Expiré ou révoqué</string>
+    <string name="subscription_status_unknown">Aucune expiration indiquée</string>
+    <string name="subscription_status_refresh_format">État de l’actualisation : %1$s</string>
+    <string name="subscription_status_refresh_ready">Prêt</string>
+    <string name="subscription_status_refresh_failed">Échec de l’actualisation</string>
+    <string name="subscription_status_url_format">URL d’abonnement : %1$s</string>
+    <string name="subscription_status_token_format">Jeton : %1$s</string>
+    <string name="subscription_home_multiple_title">%1$d abonnements nécessitent votre attention</string>
+    <string name="subscription_home_expiring_title">L’abonnement expire bientôt</string>
+    <string name="subscription_home_expiring_body">%1$s expire dans %2$d jours. Actualisez-le ou préparez un nouveau lien.</string>
+    <string name="subscription_home_expired_title">Abonnement expiré</string>
+    <string name="subscription_home_expired_body">%1$s ne peut plus être actualisé. Les profils existants restent disponibles.</string>
+    <string name="subscription_home_invalidated_title">Abonnement indisponible</string>
+    <string name="subscription_home_invalidated_body">%1$s a expiré ou a été révoqué. Les profils existants restent disponibles.</string>
 </resources>

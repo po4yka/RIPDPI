@@ -71,7 +71,7 @@ The authoritative contract is the **executable JSON Schema** `contract/ripdpi-bu
 - **`amneziawg[].cohort_fingerprint`** — `"sha256:…"` over the resolved obfuscation params; `AmneziaWgParameters.cohortFingerprint()` recomputes it, so a bundle whose params have drifted from the server's current cohort is detectable up front instead of stalling the AWG handshake.
 - **`hysteria_extras.<tag>.salamander_upstream_tag`** — the server's Hysteria2 release; compare to the bundled obfuscator version to warn on a Salamander skew.
 - **`topology`** — `split_hop_egress` / `hysteria_realm`, surfaced on `SingBoxParseResult.Success.topology`.
-- **`expires`** — RFC-3339 instant, surfaced on `SingBoxParseResult.Success.expiresAt` so the client can warn before the subscription lapses.
+- **`expires`** — date-only or RFC-3339 instant normalized onto `SingBoxParseResult.Success.tokenExpiresAtEpochMillis`; the client persists it separately from `Subscription-Userinfo` credential expiry, warns seven days ahead, and stops automatic refresh after the enforcement point without deleting imported profiles.
 
 ## The one manual step: AmneziaWG device key
 

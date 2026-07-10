@@ -76,6 +76,14 @@ internal fun SettingsConnectivitySection(
                 showDivider = true,
             )
             SettingsRow(
+                title = stringResource(R.string.subscription_status_title),
+                subtitle = stringResource(R.string.settings_subscription_status_body),
+                value = stringResource(R.string.settings_manage_action),
+                onClick = actions.onOpenSubscriptionStatus,
+                showDivider = true,
+                testTag = RipDpiTestTags.SettingsSubscriptionStatus,
+            )
+            SettingsRow(
                 title = stringResource(R.string.title_subscription_failover),
                 subtitle = stringResource(R.string.settings_subscription_failover_body),
                 value = stringResource(R.string.settings_manage_action),

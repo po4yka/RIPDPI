@@ -4083,4 +4083,33 @@ Quelle: %2$s</string>
         <item quantity="one">%d Abonnement erfordert Aufmerksamkeit. Gespeicherte Relays könnten veraltet sein.</item>
         <item quantity="other">%d Abonnements erfordern Aufmerksamkeit. Gespeicherte Relays könnten veraltet sein.</item>
     </plurals>
++    <string name="subscription_status_title">Abonnementstatus</string>
+    <string name="settings_subscription_status_body">Ablauf, Aktualisierung und importierte Profile prüfen.</string>
+    <string name="subscription_status_empty_title">Keine Abonnements</string>
+    <string name="subscription_status_empty_body">Importierte Abonnementdetails werden hier angezeigt.</string>
+    <string name="subscription_status_reveal_secrets">Abonnementgeheimnisse anzeigen</string>
+    <string name="subscription_status_hide_secrets">Abonnementgeheimnisse ausblenden</string>
+    <string name="subscription_status_profiles_format">%1$d zugewiesene Profile</string>
+    <string name="subscription_status_last_refresh_format">Letzte Aktualisierung: %1$s</string>
+    <string name="subscription_status_token_expiry_format">Tokenablauf: %1$s</string>
+    <string name="subscription_status_credential_expiry_format">Zugangsdatenablauf: %1$s</string>
+    <string name="subscription_status_replacement_help">Gespeicherte Profile bleiben nutzbar. Importiere einen neuen Abonnementlink, um Aktualisierungen fortzusetzen.</string>
+    <string name="subscription_status_refresh_action">Jetzt aktualisieren</string>
+    <string name="subscription_status_active">Aktiv</string>
+    <string name="subscription_status_expiring_days">Läuft in %1$d Tagen ab</string>
+    <string name="subscription_status_expired">Abgelaufen</string>
+    <string name="subscription_status_invalidated">Abgelaufen oder widerrufen</string>
+    <string name="subscription_status_unknown">Kein Ablauf angegeben</string>
+    <string name="subscription_status_refresh_format">Aktualisierungsstatus: %1$s</string>
+    <string name="subscription_status_refresh_ready">Bereit</string>
+    <string name="subscription_status_refresh_failed">Aktualisierung fehlgeschlagen</string>
+    <string name="subscription_status_url_format">Abonnement-URL: %1$s</string>
+    <string name="subscription_status_token_format">Token: %1$s</string>
+    <string name="subscription_home_multiple_title">%1$d Abonnements erfordern Aufmerksamkeit</string>
+    <string name="subscription_home_expiring_title">Abonnement läuft bald ab</string>
+    <string name="subscription_home_expiring_body">%1$s läuft in %2$d Tagen ab. Aktualisiere es oder bereite einen neuen Link vor.</string>
+    <string name="subscription_home_expired_title">Abonnement abgelaufen</string>
+    <string name="subscription_home_expired_body">%1$s kann nicht mehr aktualisiert werden. Vorhandene Profile bleiben verfügbar.</string>
+    <string name="subscription_home_invalidated_title">Abonnement nicht verfügbar</string>
+    <string name="subscription_home_invalidated_body">%1$s ist abgelaufen oder wurde widerrufen. Vorhandene Profile bleiben verfügbar.</string>
 </resources>

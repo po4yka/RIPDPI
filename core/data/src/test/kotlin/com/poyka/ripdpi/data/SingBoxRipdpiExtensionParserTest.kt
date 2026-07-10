@@ -362,7 +362,7 @@ class SingBoxRipdpiExtensionParserTest {
 
         // Additive metadata is absent when the block is ignored.
         assertNull(result.topology)
-        assertNull(result.expiresAt)
+        assertNull(result.tokenExpiresAtEpochMillis)
     }
 
     // -------------------------------------------------------------------------
@@ -448,7 +448,7 @@ class SingBoxRipdpiExtensionParserTest {
     }
 
     @Test
-    fun `ripdpi expires is parsed into the result`() {
+    fun `ripdpi RFC3339 expiry is normalized to epoch milliseconds`() {
         val json =
             """
             {
@@ -461,6 +461,40 @@ class SingBoxRipdpiExtensionParserTest {
             """.trimIndent()
 
         val result = success(SingBoxSubscriptionParser.parse(json, groupId))
-        assertEquals("2026-12-31T23:59:59Z", result.expiresAt)
+        assertEquals(1_798_761_599_000L, result.tokenExpiresAtEpochMillis)
+    }
+
+    @Test
+    fun `ripdpi date-only expiry is midnight UTC`() {
+        val json =
+            """
+            {
+              "outbounds": [],
+              "ripdpi": {
+                "schema_version": 1,
+                "expires": "2026-12-31"
+              }
+            }
+            """.trimIndent()
+
+        val result = success(SingBoxSubscriptionParser.parse(json, groupId))
+        assertEquals(1_798_675_200_000L, result.tokenExpiresAtEpochMillis)
+    }
+
+    @Test
+    fun `malformed ripdpi expiry does not reject otherwise valid bundle`() {
+        val json =
+            """
+            {
+              "outbounds": [],
+              "ripdpi": {
+                "schema_version": 1,
+                "expires": "not-a-date"
+              }
+            }
+            """.trimIndent()
+
+        val result = success(SingBoxSubscriptionParser.parse(json, groupId))
+        assertNull(result.tokenExpiresAtEpochMillis)
     }
 }

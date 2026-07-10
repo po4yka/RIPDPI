@@ -12,6 +12,7 @@ private const val HttpTooManyRequests = 429
 
 /** Number of leading characters kept when redacting a secret for display. */
 private const val RedactPrefixLength = 8
+private const val MillisPerSecond = 1_000L
 
 /**
  * Detail view-state for a single subscription, treated as a device-scoped
@@ -32,8 +33,8 @@ data class SubscriptionDetailUiState(
     val refreshable: Boolean,
     val consumedAtMillis: Long?,
     val lastUpdatedMillis: Long,
-    val tokenExpiryMillis: Long,
-    val credentialExpiryMillis: Long,
+    val tokenExpiryMillis: Long?,
+    val credentialExpiryMillis: Long?,
 )
 
 /**
@@ -56,8 +57,8 @@ fun subscriptionDetailUiState(
         refreshable = !isBootstrap,
         consumedAtMillis = subscription.consumedAt,
         lastUpdatedMillis = subscription.lastUpdated,
-        tokenExpiryMillis = subscription.expiryDate,
-        credentialExpiryMillis = subscription.expiryDate,
+        tokenExpiryMillis = subscription.tokenExpiresAtEpochMillis,
+        credentialExpiryMillis = subscription.expiryDate.takeIf { it > 0L }?.times(MillisPerSecond),
     )
 }
 
@@ -129,15 +130,41 @@ private fun extractUuid(line: String): String? = uuidRegex.find(line)?.value?.lo
 fun classifyRefreshFailure(
     httpCode: Int?,
     url: String,
+    knownTokenExpiresAtEpochMillis: Long? = null,
+    nowMillis: Long = System.currentTimeMillis(),
 ): SubscriptionRefreshFailure =
     when (httpCode) {
-        HttpGone -> SubscriptionRefreshFailure.EXPIRED
-        HttpForbidden -> SubscriptionRefreshFailure.REVOKED
-        HttpNotFound -> SubscriptionRefreshFailure.UNAVAILABLE
-        HttpTooManyRequests -> SubscriptionRefreshFailure.RATE_LIMITED
-        null -> SubscriptionRefreshFailure.NETWORK_ERROR
-        in HttpServerErrorStart..HttpServerErrorEnd -> SubscriptionRefreshFailure.SERVER_ERROR
-        else -> SubscriptionRefreshFailure.UNAVAILABLE
+        HttpGone -> {
+            if (knownTokenExpiresAtEpochMillis != null && nowMillis >= knownTokenExpiresAtEpochMillis) {
+                SubscriptionRefreshFailure.EXPIRED
+            } else {
+                SubscriptionRefreshFailure.INVALIDATED
+            }
+        }
+
+        HttpForbidden -> {
+            SubscriptionRefreshFailure.REVOKED
+        }
+
+        HttpNotFound -> {
+            SubscriptionRefreshFailure.UNAVAILABLE
+        }
+
+        HttpTooManyRequests -> {
+            SubscriptionRefreshFailure.RATE_LIMITED
+        }
+
+        null -> {
+            SubscriptionRefreshFailure.NETWORK_ERROR
+        }
+
+        in HttpServerErrorStart..HttpServerErrorEnd -> {
+            SubscriptionRefreshFailure.SERVER_ERROR
+        }
+
+        else -> {
+            SubscriptionRefreshFailure.UNAVAILABLE
+        }
     }
 
 private const val HttpServerErrorStart = 500

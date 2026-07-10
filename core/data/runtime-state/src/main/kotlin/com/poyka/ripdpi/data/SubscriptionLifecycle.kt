@@ -6,12 +6,20 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class SubscriptionRefreshFailure {
     EXPIRED,
+    INVALIDATED,
     REVOKED,
     UNAVAILABLE,
     RATE_LIMITED,
     SERVER_ERROR,
     NETWORK_ERROR,
     INVALID_PAYLOAD,
+    UNREACHABLE,
+    PARSE_ERROR,
+    ;
+
+    /** Terminal failures must not trigger another automatic refresh attempt. */
+    val isTerminal: Boolean
+        get() = this == EXPIRED || this == INVALIDATED || this == REVOKED
 }
 
 /** Actionable client-facing state derived from persisted subscription metadata. */
@@ -33,6 +41,8 @@ private val TransientFailures =
         SubscriptionRefreshFailure.SERVER_ERROR,
         SubscriptionRefreshFailure.NETWORK_ERROR,
         SubscriptionRefreshFailure.INVALID_PAYLOAD,
+        SubscriptionRefreshFailure.UNREACHABLE,
+        SubscriptionRefreshFailure.PARSE_ERROR,
     )
 
 /** Returns a client signal at [nowEpochMillis], or `null` when no action is needed. */
@@ -41,6 +51,8 @@ fun Subscription.clientSignalAt(nowEpochMillis: Long): SubscriptionClientSignal?
 
 private fun Subscription.terminalSignalAt(nowEpochMillis: Long): SubscriptionClientSignal? =
     when {
+        tokenExpiresAtEpochMillis?.let { nowEpochMillis >= it } == true -> SubscriptionClientSignal.EXPIRED
+
         expiryDate > 0L && expiryDate <= nowEpochMillis / MillisPerSecond -> SubscriptionClientSignal.EXPIRED
 
         lifecycleState == SubscriptionLifecycleState.EXPIRED -> SubscriptionClientSignal.EXPIRED
@@ -55,6 +67,8 @@ private fun Subscription.terminalSignalAt(nowEpochMillis: Long): SubscriptionCli
         lastRefreshFailure == SubscriptionRefreshFailure.REVOKED -> SubscriptionClientSignal.REVOKED
 
         lastRefreshFailure == SubscriptionRefreshFailure.UNAVAILABLE -> SubscriptionClientSignal.UNAVAILABLE
+
+        lastRefreshFailure == SubscriptionRefreshFailure.INVALIDATED -> SubscriptionClientSignal.UNAVAILABLE
 
         else -> null
     }

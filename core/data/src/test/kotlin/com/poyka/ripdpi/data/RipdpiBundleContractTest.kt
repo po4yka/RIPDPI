@@ -143,7 +143,7 @@ class RipdpiBundleContractTest {
         assertNotNull(result.topology)
         assertEquals(false, result.topology!!.splitHopEgress)
         assertEquals(null, result.topology!!.hysteriaRealm)
-        assertEquals("2026-12-31T23:59:59Z", result.expiresAt)
+        assertEquals(1_798_761_599_000L, result.tokenExpiresAtEpochMillis)
     }
 
     // -------------------------------------------------------------------------
@@ -180,7 +180,7 @@ class RipdpiBundleContractTest {
         // Non-default topology + expiry surfaced.
         assertEquals(true, result.topology!!.splitHopEgress)
         assertEquals("realm-a", result.topology!!.hysteriaRealm)
-        assertEquals("2026-12-31T23:59:59Z", result.expiresAt)
+        assertEquals(1_798_761_599_000L, result.tokenExpiresAtEpochMillis)
     }
 
     // -------------------------------------------------------------------------

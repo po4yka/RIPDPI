@@ -4088,4 +4088,33 @@ fakeddisorder endhost</string>
         <item quantity="one">%d اشتراک نیاز به بررسی دارد. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</item>
         <item quantity="other">%d اشتراک نیاز به بررسی دارند. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</item>
     </plurals>
++    <string name="subscription_status_title">وضعیت اشتراک‌ها</string>
+    <string name="settings_subscription_status_body">انقضا، به‌روزرسانی و نمایه‌های واردشده را بررسی کنید.</string>
+    <string name="subscription_status_empty_title">اشتراکی وجود ندارد</string>
+    <string name="subscription_status_empty_body">جزئیات اشتراک‌های واردشده اینجا نمایش داده می‌شود.</string>
+    <string name="subscription_status_reveal_secrets">نمایش اطلاعات محرمانه اشتراک</string>
+    <string name="subscription_status_hide_secrets">پنهان کردن اطلاعات محرمانه اشتراک</string>
+    <string name="subscription_status_profiles_format">%1$d نمایه اختصاص‌یافته</string>
+    <string name="subscription_status_last_refresh_format">آخرین به‌روزرسانی: %1$s</string>
+    <string name="subscription_status_token_expiry_format">انقضای توکن: %1$s</string>
+    <string name="subscription_status_credential_expiry_format">انقضای اعتبارنامه: %1$s</string>
+    <string name="subscription_status_replacement_help">نمایه‌های ذخیره‌شده قابل استفاده می‌مانند. برای ادامه به‌روزرسانی‌ها پیوند جایگزین وارد کنید.</string>
+    <string name="subscription_status_refresh_action">اکنون به‌روزرسانی شود</string>
+    <string name="subscription_status_active">فعال</string>
+    <string name="subscription_status_expiring_days">تا %1$d روز دیگر منقضی می‌شود</string>
+    <string name="subscription_status_expired">منقضی‌شده</string>
+    <string name="subscription_status_invalidated">منقضی یا لغوشده</string>
+    <string name="subscription_status_unknown">زمان انقضا مشخص نیست</string>
+    <string name="subscription_status_refresh_format">وضعیت تازه‌سازی: %1$s</string>
+    <string name="subscription_status_refresh_ready">آماده</string>
+    <string name="subscription_status_refresh_failed">تازه‌سازی ناموفق بود</string>
+    <string name="subscription_status_url_format">نشانی اشتراک: %1$s</string>
+    <string name="subscription_status_token_format">توکن: %1$s</string>
+    <string name="subscription_home_multiple_title">%1$d اشتراک نیاز به توجه دارد</string>
+    <string name="subscription_home_expiring_title">اشتراک به‌زودی منقضی می‌شود</string>
+    <string name="subscription_home_expiring_body">%1$s تا %2$d روز دیگر منقضی می‌شود. آن را به‌روزرسانی یا پیوند جایگزین آماده کنید.</string>
+    <string name="subscription_home_expired_title">اشتراک منقضی شد</string>
+    <string name="subscription_home_expired_body">%1$s دیگر به‌روزرسانی نمی‌شود. نمایه‌های موجود همچنان در دسترس‌اند.</string>
+    <string name="subscription_home_invalidated_title">اشتراک در دسترس نیست</string>
+    <string name="subscription_home_invalidated_body">%1$s منقضی یا لغو شده است. نمایه‌های موجود همچنان در دسترس‌اند.</string>
 </resources>

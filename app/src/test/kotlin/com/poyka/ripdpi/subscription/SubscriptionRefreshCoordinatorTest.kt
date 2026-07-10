@@ -80,7 +80,32 @@ class SubscriptionRefreshCoordinatorTest {
         }
 
     @Test
-    fun `past userinfo expiry is terminal even with a valid payload`() =
+    fun `manual refresh atomically persists token and credential expiry`() =
+        runTest {
+            val now = 1_700_000_000_000L
+            server.enqueue(
+                MockResponse
+                    .Builder()
+                    .code(200)
+                    .setHeader("Subscription-Userinfo", "expire=1893456000")
+                    .body(RipdpiPayload)
+                    .build(),
+            )
+            val fixture = fixture(now)
+
+            val result = fixture.coordinator.refresh("subscription-group")
+            val stored = fixture.repository.list().single()
+
+            assertTrue(result is SubscriptionRefreshResult.Updated)
+            assertEquals(1_798_761_599_000L, stored.subscription?.tokenExpiresAtEpochMillis)
+            assertEquals(1_893_456_000L, stored.subscription?.expiryDate)
+            assertEquals(now, stored.subscription?.lastUpdated)
+            assertNull(stored.subscription?.lastRefreshFailure)
+            assertEquals(1, stored.members.size)
+        }
+
+    @Test
+    fun `past userinfo expiry remains separate from token refresh state`() =
         runTest {
             server.enqueue(
                 MockResponse
@@ -99,8 +124,9 @@ class SubscriptionRefreshCoordinatorTest {
                     .list()
                     .single()
                     .subscription!!
-            assertEquals(SubscriptionLifecycleState.EXPIRED, subscription.lifecycleState)
-            assertEquals(SubscriptionRefreshFailure.EXPIRED, subscription.lastRefreshFailure)
+            assertEquals(SubscriptionLifecycleState.ACTIVE, subscription.lifecycleState)
+            assertNull(subscription.lastRefreshFailure)
+            assertEquals(1_700_000_000L, subscription.expiryDate)
         }
 
     @Test
@@ -116,14 +142,14 @@ class SubscriptionRefreshCoordinatorTest {
                     ),
                     FailureCase(
                         404,
-                        SubscriptionLifecycleState.UNAVAILABLE,
-                        SubscriptionRefreshFailure.UNAVAILABLE,
+                        SubscriptionLifecycleState.ACTIVE,
+                        SubscriptionRefreshFailure.UNREACHABLE,
                         SubscriptionRefreshRunResult.SUCCESS,
                     ),
                     FailureCase(
                         410,
-                        SubscriptionLifecycleState.EXPIRED,
-                        SubscriptionRefreshFailure.EXPIRED,
+                        SubscriptionLifecycleState.UNAVAILABLE,
+                        SubscriptionRefreshFailure.INVALIDATED,
                         SubscriptionRefreshRunResult.SUCCESS,
                     ),
                     FailureCase(
@@ -171,7 +197,7 @@ class SubscriptionRefreshCoordinatorTest {
                     .subscription!!
             assertEquals(SubscriptionRefreshRunResult.SUCCESS, result)
             assertEquals(SubscriptionLifecycleState.ACTIVE, subscription.lifecycleState)
-            assertEquals(SubscriptionRefreshFailure.INVALID_PAYLOAD, subscription.lastRefreshFailure)
+            assertEquals(SubscriptionRefreshFailure.PARSE_ERROR, subscription.lastRefreshFailure)
             assertEquals(0L, subscription.lastUpdated)
         }
 
@@ -190,7 +216,7 @@ class SubscriptionRefreshCoordinatorTest {
                     .subscription!!
             assertEquals(SubscriptionRefreshRunResult.RETRY, result)
             assertEquals(SubscriptionLifecycleState.ACTIVE, subscription.lifecycleState)
-            assertEquals(SubscriptionRefreshFailure.NETWORK_ERROR, subscription.lastRefreshFailure)
+            assertEquals(SubscriptionRefreshFailure.UNREACHABLE, subscription.lastRefreshFailure)
         }
 
     @Test
@@ -211,7 +237,7 @@ class SubscriptionRefreshCoordinatorTest {
 
             assertEquals(SubscriptionRefreshRunResult.RETRY, result)
             assertEquals(
-                setOf(SubscriptionRefreshFailure.UNAVAILABLE, SubscriptionRefreshFailure.SERVER_ERROR),
+                setOf(SubscriptionRefreshFailure.UNREACHABLE, SubscriptionRefreshFailure.SERVER_ERROR),
                 fixture.repository
                     .list()
                     .mapNotNull { it.subscription?.lastRefreshFailure }
@@ -317,6 +343,16 @@ class SubscriptionRefreshCoordinatorTest {
 
     private companion object {
         const val TrojanPayload = "trojan://fixture-password@relay.example.com:443#fixture"
+        val RipdpiPayload =
+            """
+            {
+              "outbounds": [
+                {"type":"shadowsocks","tag":"Fresh","server":"fresh.example","server_port":443,
+                 "method":"aes-256-gcm","password":"fixture"}
+              ],
+              "ripdpi": {"schema_version":1,"amneziawg":[],"hysteria_extras":{},"expires":"2026-12-31T23:59:59Z"}
+            }
+            """.trimIndent()
     }
 }
 

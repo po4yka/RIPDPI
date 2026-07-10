@@ -48,7 +48,9 @@ class ProxyGroupTest {
                         subscriptionUserinfo = "upload=0; download=12345; total=99999",
                         bytesUsed = 12_345L,
                         bytesRemaining = 87_654L,
-                        expiryDate = 1_800_000_000_000L,
+                        expiryDate = 1_800_000_000L,
+                        tokenExpiresAtEpochMillis = 1_900_000_000_000L,
+                        lastRefreshFailure = SubscriptionRefreshFailure.INVALIDATED,
                     ),
             )
 
@@ -57,6 +59,8 @@ class ProxyGroupTest {
 
         assertEquals(group, decoded)
         assertEquals(group.subscription, decoded.subscription)
+        assertEquals(1_900_000_000_000L, decoded.subscription?.tokenExpiresAtEpochMillis)
+        assertEquals(SubscriptionRefreshFailure.INVALIDATED, decoded.subscription?.lastRefreshFailure)
     }
 
     @Test

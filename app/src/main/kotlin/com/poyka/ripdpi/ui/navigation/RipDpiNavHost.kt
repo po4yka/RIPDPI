@@ -79,6 +79,7 @@ import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import com.poyka.ripdpi.ui.screens.ssh.SshProfileRoute
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverRoute
+import com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusRoute
 import com.poyka.ripdpi.ui.screens.support.SupportSettingsRoute
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerRoute
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerTopBarAction
@@ -438,6 +439,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
         ConnectionHealthRoute(onBack = { navController.popBackStack() })
     }
     addSubscriptionFailoverRoute(navController)
+    addSubscriptionStatusRoute(navController)
     composable<Route.StrategyTuner> {
         StrategyTunerRoute(onBack = { navController.popBackStack() })
     }
@@ -472,6 +474,7 @@ private fun NavGraphBuilder.addHomeRoute(
             },
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
             onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
+            onOpenSubscriptionStatus = { navController.navigate(Route.SubscriptionStatus) { launchSingleTop = true } },
             onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
             onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
             onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
@@ -488,6 +491,12 @@ private fun NavGraphBuilder.addSubscriptionFailoverRoute(navController: NavHostC
         deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://subscription-failover" }),
     ) {
         SubscriptionFailoverRoute(onBack = { navController.popBackStack() })
+    }
+}
+
+private fun NavGraphBuilder.addSubscriptionStatusRoute(navController: NavHostController) {
+    composable<Route.SubscriptionStatus> {
+        SubscriptionStatusRoute(onBack = { navController.popBackStack() })
     }
 }
 
@@ -621,6 +630,7 @@ private fun SettingsHomeRoute(
         onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
         onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
         onOpenSubscriptionFailover = { navController.navigate(Route.SubscriptionFailover) },
+        onOpenSubscriptionStatus = { navController.navigate(Route.SubscriptionStatus) },
         onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
         onOpenRoutingRules = { navController.navigate(Route.Routes) },
         onOpenSplitTunnel = { navController.navigate(Route.SplitTunnel) },
@@ -938,6 +948,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
         Route.ProfileImportConfirm().stableRoute to { hasRoute<Route.ProfileImportConfirm>() },
         Route.SubscriptionImportConfirm().stableRoute to { hasRoute<Route.SubscriptionImportConfirm>() },
+        Route.SubscriptionStatus.stableRoute to { hasRoute<Route.SubscriptionStatus>() },
         Route.SupportSettings().stableRoute to { hasRoute<Route.SupportSettings>() },
         Route.ProfileShare().stableRoute to { hasRoute<Route.ProfileShare>() },
         Route.QrScanner.stableRoute to { hasRoute<Route.QrScanner>() },

@@ -28,6 +28,7 @@ import com.poyka.ripdpi.data.ConnectionQualitySnapshot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
+import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -60,6 +61,7 @@ fun HomeScreen(
     uiState: MainUiState,
     homeDiagnostics: HomeDiagnosticsUiState = uiState.homeDiagnostics,
     diagnosticCard: HomeModeCardUiState = uiState.diagnosticCard,
+    subscriptionExpiry: SubscriptionExpirySummaryUiState = SubscriptionExpirySummaryUiState(),
     onToggleConnection: () -> Unit,
     onBypassToggle: (Boolean) -> Unit = { onToggleConnection() },
     onVpnToggle: (Boolean) -> Unit = { onToggleConnection() },
@@ -70,6 +72,7 @@ fun HomeScreen(
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenConnectionHealth: () -> Unit = {},
+    onOpenSubscriptionStatus: () -> Unit = {},
     onOpenAdvancedSettings: () -> Unit = {},
     onOpenModeEditor: () -> Unit = {},
     onOpenOwnedStackBrowser: (String) -> Unit = {},
@@ -129,6 +132,11 @@ fun HomeScreen(
         HomeNetworkConditionBanner(
             condition = uiState.networkCondition,
             onCaptivePortalSignIn = onCaptivePortalSignIn,
+        )
+
+        HomeSubscriptionExpiryBanner(
+            state = subscriptionExpiry,
+            onOpenStatus = onOpenSubscriptionStatus,
         )
 
         HomeDegradationStrip(

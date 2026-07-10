@@ -12,6 +12,8 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
+import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -20,7 +22,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -133,6 +137,17 @@ class MainViewModel
         val startupState: StateFlow<MainStartupState> = lifecycleOwner.startupState
         val homeDiagnosticsUiState: StateFlow<HomeDiagnosticsUiState> = homeDiagnostics.uiState
         val homeDiagnosticCard: StateFlow<HomeModeCardUiState> = homeDiagnostics.diagnosticCard
+        val subscriptionExpiryUiState: StateFlow<SubscriptionExpirySummaryUiState> =
+            combine(
+                mainControlPlaneDependencies.proxyGroupRepository.groups(),
+                mainControlPlaneDependencies.subscriptionExpiryClock.ticks(),
+            ) { groups, nowMillis ->
+                subscriptionExpiryUiState(groups, nowMillis)
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = SubscriptionExpirySummaryUiState(),
+            )
 
         /**
          * Raw protocol kind of the currently active transport (e.g. `"vless_reality"`,

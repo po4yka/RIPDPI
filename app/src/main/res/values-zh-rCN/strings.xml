@@ -4071,4 +4071,33 @@ fake_burst 3</string>
     <plurals name="subscription_signal_notification_multiple">
         <item quantity="other">%d 个订阅需要处理。缓存的中继节点可能已过时。</item>
     </plurals>
++    <string name="subscription_status_title">订阅状态</string>
+    <string name="settings_subscription_status_body">查看订阅到期时间、更新状态和已导入配置。</string>
+    <string name="subscription_status_empty_title">没有订阅</string>
+    <string name="subscription_status_empty_body">已导入订阅的详情会显示在这里。</string>
+    <string name="subscription_status_reveal_secrets">显示订阅机密</string>
+    <string name="subscription_status_hide_secrets">隐藏订阅机密</string>
+    <string name="subscription_status_profiles_format">已分配 %1$d 个配置</string>
+    <string name="subscription_status_last_refresh_format">上次更新：%1$s</string>
+    <string name="subscription_status_token_expiry_format">令牌到期：%1$s</string>
+    <string name="subscription_status_credential_expiry_format">凭据到期：%1$s</string>
+    <string name="subscription_status_replacement_help">已保存的配置仍可使用。请导入新的订阅链接以恢复更新。</string>
+    <string name="subscription_status_refresh_action">立即更新</string>
+    <string name="subscription_status_active">有效</string>
+    <string name="subscription_status_expiring_days">将在 %1$d 天后到期</string>
+    <string name="subscription_status_expired">已到期</string>
+    <string name="subscription_status_invalidated">已到期或已撤销</string>
+    <string name="subscription_status_unknown">未提供到期时间</string>
+    <string name="subscription_status_refresh_format">刷新状态：%1$s</string>
+    <string name="subscription_status_refresh_ready">就绪</string>
+    <string name="subscription_status_refresh_failed">刷新失败</string>
+    <string name="subscription_status_url_format">订阅网址：%1$s</string>
+    <string name="subscription_status_token_format">令牌：%1$s</string>
+    <string name="subscription_home_multiple_title">有 %1$d 个订阅需要处理</string>
+    <string name="subscription_home_expiring_title">订阅即将到期</string>
+    <string name="subscription_home_expiring_body">%1$s 将在 %2$d 天后到期。请更新或准备新的订阅链接。</string>
+    <string name="subscription_home_expired_title">订阅已到期</string>
+    <string name="subscription_home_expired_body">%1$s 已无法更新。现有配置仍可使用。</string>
+    <string name="subscription_home_invalidated_title">订阅不可用</string>
+    <string name="subscription_home_invalidated_body">%1$s 已到期或被撤销。现有配置仍可使用。</string>
 </resources>

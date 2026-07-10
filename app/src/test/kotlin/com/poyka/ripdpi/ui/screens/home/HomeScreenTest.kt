@@ -27,7 +27,11 @@ import com.poyka.ripdpi.activities.HomeDiagnosticsVerificationSheetUiState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
+import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -47,6 +51,33 @@ import org.robolectric.annotation.GraphicsMode
 class HomeScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun `subscription expiry banner opens status`() {
+        var opened = false
+        val now = 1_000L
+        val group =
+            ProxyGroup(
+                id = "phone",
+                name = "Phone",
+                type = ProxyGroupType.SUBSCRIPTION,
+                order = 0,
+                isSelector = false,
+                subscription = Subscription(tokenExpiresAtEpochMillis = now + 24L * 60L * 60L * 1_000L),
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeSubscriptionExpiryBanner(
+                    state = subscriptionExpiryUiState(listOf(group), now),
+                    onOpenStatus = { opened = true },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeSubscriptionExpiryBanner).performClick()
+
+        assertTrue(opened)
+    }
 
     @Test
     fun `error banner copies message on click`() {

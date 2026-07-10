@@ -12,6 +12,7 @@ fun HomeRoute(
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenConnectionHealth: () -> Unit,
+    onOpenSubscriptionStatus: () -> Unit = {},
     onOpenAdvancedSettings: () -> Unit,
     onOpenModeEditor: () -> Unit,
     onOpenOwnedStackBrowser: (String) -> Unit,
@@ -23,10 +24,12 @@ fun HomeRoute(
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
     val homeDiagnostics = viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle().value
     val homeDiagnosticCard = viewModel.homeDiagnosticCard.collectAsStateWithLifecycle().value
+    val subscriptionExpiry = viewModel.subscriptionExpiryUiState.collectAsStateWithLifecycle().value
     HomeScreen(
         uiState = uiState,
         homeDiagnostics = homeDiagnostics,
         diagnosticCard = homeDiagnosticCard,
+        subscriptionExpiry = subscriptionExpiry,
         modifier = modifier,
         onToggleConnection = remember(viewModel) { { viewModel.onPrimaryConnectionAction() } },
         onBypassToggle = remember(viewModel) { { enabled -> viewModel.onToggleLocalBypass(enabled) } },
@@ -38,6 +41,7 @@ fun HomeRoute(
         onOpenDiagnostics = onOpenDiagnostics,
         onOpenHistory = onOpenHistory,
         onOpenConnectionHealth = onOpenConnectionHealth,
+        onOpenSubscriptionStatus = onOpenSubscriptionStatus,
         onOpenAdvancedSettings = onOpenAdvancedSettings,
         onOpenModeEditor = onOpenModeEditor,
         onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,

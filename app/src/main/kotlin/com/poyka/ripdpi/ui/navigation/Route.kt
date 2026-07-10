@@ -119,6 +119,13 @@ sealed class Route {
     }
 
     @Serializable
+    data object SubscriptionStatus : Route() {
+        override val stableRoute = "subscription_status"
+        override val titleRes = R.string.subscription_status_title
+        override val icon: ImageVector? = RipDpiIcons.NetworkCheck
+    }
+
+    @Serializable
     data object StrategyTuner : Route() {
         override val stableRoute = "strategy_tuner"
         override val titleRes = R.string.title_strategy_tuner

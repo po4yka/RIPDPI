@@ -4228,4 +4228,33 @@ fakeddisorder endhost</string>
         <item quantity="many">%d подписок требуют внимания. Сохранённые ретрансляторы могут устареть.</item>
         <item quantity="other">%d подписки требуют внимания. Сохранённые ретрансляторы могут устареть.</item>
     </plurals>
++    <string name="subscription_status_title">Статус подписок</string>
+    <string name="settings_subscription_status_body">Срок действия, обновления и импортированные профили.</string>
+    <string name="subscription_status_empty_title">Нет подписок</string>
+    <string name="subscription_status_empty_body">Здесь появятся сведения об импортированных подписках.</string>
+    <string name="subscription_status_reveal_secrets">Показать секреты подписки</string>
+    <string name="subscription_status_hide_secrets">Скрыть секреты подписки</string>
+    <string name="subscription_status_profiles_format">Назначено профилей: %1$d</string>
+    <string name="subscription_status_last_refresh_format">Последнее обновление: %1$s</string>
+    <string name="subscription_status_token_expiry_format">Срок токена: %1$s</string>
+    <string name="subscription_status_credential_expiry_format">Срок учётных данных: %1$s</string>
+    <string name="subscription_status_replacement_help">Сохранённые профили продолжат работать. Импортируйте новую ссылку подписки, чтобы возобновить обновления.</string>
+    <string name="subscription_status_refresh_action">Обновить сейчас</string>
+    <string name="subscription_status_active">Активна</string>
+    <string name="subscription_status_expiring_days">Истекает через %1$d дн.</string>
+    <string name="subscription_status_expired">Истекла</string>
+    <string name="subscription_status_invalidated">Истекла или отозвана</string>
+    <string name="subscription_status_unknown">Срок не указан</string>
+    <string name="subscription_status_refresh_format">Статус обновления: %1$s</string>
+    <string name="subscription_status_refresh_ready">Готово</string>
+    <string name="subscription_status_refresh_failed">Обновление не удалось</string>
+    <string name="subscription_status_url_format">Ссылка подписки: %1$s</string>
+    <string name="subscription_status_token_format">Токен: %1$s</string>
+    <string name="subscription_home_multiple_title">Требуют внимания: %1$d</string>
+    <string name="subscription_home_expiring_title">Подписка скоро истечёт</string>
+    <string name="subscription_home_expiring_body">%1$s истекает через %2$d дн. Обновите её или подготовьте новую ссылку.</string>
+    <string name="subscription_home_expired_title">Подписка истекла</string>
+    <string name="subscription_home_expired_body">%1$s больше не обновляется. Существующие профили сохранены.</string>
+    <string name="subscription_home_invalidated_title">Подписка недоступна</string>
+    <string name="subscription_home_invalidated_body">%1$s истекла или отозвана. Существующие профили сохранены.</string>
 </resources>

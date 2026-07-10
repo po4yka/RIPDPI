@@ -1839,4 +1839,34 @@ fakeddisorder endhost</string>
         <item quantity="one">%d सदस्यता पर ध्यान देना आवश्यक है। सहेजे गए रिले पुराने हो सकते हैं।</item>
         <item quantity="other">%d सदस्यताओं पर ध्यान देना आवश्यक है। सहेजे गए रिले पुराने हो सकते हैं।</item>
     </plurals>
++    <!-- Subscription expiry -->
+    <string name="subscription_status_title">सदस्यता की स्थिति</string>
+    <string name="settings_subscription_status_body">सदस्यता की समाप्ति, रीफ़्रेश स्थिति और आयातित प्रोफ़ाइल देखें।</string>
+    <string name="subscription_status_empty_title">कोई सदस्यता नहीं</string>
+    <string name="subscription_status_empty_body">आयातित सदस्यता का विवरण यहाँ दिखाई देगा।</string>
+    <string name="subscription_status_reveal_secrets">सदस्यता के गुप्त मान दिखाएँ</string>
+    <string name="subscription_status_hide_secrets">सदस्यता के गुप्त मान छिपाएँ</string>
+    <string name="subscription_status_profiles_format">%1$d असाइन की गई प्रोफ़ाइल</string>
+    <string name="subscription_status_last_refresh_format">अंतिम रीफ़्रेश: %1$s</string>
+    <string name="subscription_status_token_expiry_format">टोकन समाप्ति: %1$s</string>
+    <string name="subscription_status_credential_expiry_format">क्रेडेंशियल समाप्ति: %1$s</string>
+    <string name="subscription_status_replacement_help">सहेजी गई प्रोफ़ाइल उपयोग योग्य रहेंगी। अपडेट फिर से शुरू करने के लिए नई सदस्यता लिंक आयात करें।</string>
+    <string name="subscription_status_refresh_action">अभी रीफ़्रेश करें</string>
+    <string name="subscription_status_active">सक्रिय</string>
+    <string name="subscription_status_expiring_days">%1$d दिनों में समाप्त होगी</string>
+    <string name="subscription_status_expired">समाप्त</string>
+    <string name="subscription_status_invalidated">समाप्त या निरस्त</string>
+    <string name="subscription_status_unknown">समाप्ति नहीं दी गई</string>
+    <string name="subscription_status_refresh_format">रीफ़्रेश स्थिति: %1$s</string>
+    <string name="subscription_status_refresh_ready">तैयार</string>
+    <string name="subscription_status_refresh_failed">रीफ़्रेश विफल</string>
+    <string name="subscription_status_url_format">सदस्यता URL: %1$s</string>
+    <string name="subscription_status_token_format">टोकन: %1$s</string>
+    <string name="subscription_home_multiple_title">%1$d सदस्यताओं पर ध्यान देना आवश्यक है</string>
+    <string name="subscription_home_expiring_title">सदस्यता जल्द समाप्त होगी</string>
+    <string name="subscription_home_expiring_body">%1$s %2$d दिनों में समाप्त होगी। इसे रीफ़्रेश करें या नई लिंक तैयार रखें।</string>
+    <string name="subscription_home_expired_title">सदस्यता समाप्त हो गई</string>
+    <string name="subscription_home_expired_body">%1$s अब रीफ़्रेश नहीं हो सकती। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
+    <string name="subscription_home_invalidated_title">सदस्यता उपलब्ध नहीं है</string>
+    <string name="subscription_home_invalidated_body">%1$s समाप्त या निरस्त हो गई। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
 </resources>

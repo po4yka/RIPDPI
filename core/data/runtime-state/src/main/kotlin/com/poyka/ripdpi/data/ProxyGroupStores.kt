@@ -73,8 +73,10 @@ data class Subscription(
     val subscriptionUserinfo: String = "",
     val bytesUsed: Long = 0L,
     val bytesRemaining: Long = 0L,
-    /** Unix epoch seconds from the `Subscription-Userinfo` `expire` field; `0` means unknown. */
+    /** Credential/account expiry from `Subscription-Userinfo`, in Unix epoch seconds. */
     val expiryDate: Long = 0L,
+    /** Delivery-token expiry from `ripdpi.expires`, in Unix epoch milliseconds. */
+    val tokenExpiresAtEpochMillis: Long? = null,
     val lifecycleState: SubscriptionLifecycleState = SubscriptionLifecycleState.UNKNOWN,
     val lastRefreshAttemptAtEpochMillis: Long = 0L,
     val lastRefreshFailure: SubscriptionRefreshFailure? = null,

@@ -4083,4 +4083,33 @@ Origen: %2$s</string>
         <item quantity="one">%d suscripción requiere atención. Los relés guardados pueden estar desactualizados.</item>
         <item quantity="other">%d suscripciones requieren atención. Los relés guardados pueden estar desactualizados.</item>
     </plurals>
++    <string name="subscription_status_title">Estado de suscripciones</string>
+    <string name="settings_subscription_status_body">Revisa la caducidad, las actualizaciones y los perfiles importados.</string>
+    <string name="subscription_status_empty_title">No hay suscripciones</string>
+    <string name="subscription_status_empty_body">Aquí aparecerán los detalles de las suscripciones importadas.</string>
+    <string name="subscription_status_reveal_secrets">Mostrar secretos de la suscripción</string>
+    <string name="subscription_status_hide_secrets">Ocultar secretos de la suscripción</string>
+    <string name="subscription_status_profiles_format">%1$d perfiles asignados</string>
+    <string name="subscription_status_last_refresh_format">Última actualización: %1$s</string>
+    <string name="subscription_status_token_expiry_format">Caducidad del token: %1$s</string>
+    <string name="subscription_status_credential_expiry_format">Caducidad de credenciales: %1$s</string>
+    <string name="subscription_status_replacement_help">Los perfiles guardados siguen disponibles. Importa un enlace de reemplazo para reanudar las actualizaciones.</string>
+    <string name="subscription_status_refresh_action">Actualizar ahora</string>
+    <string name="subscription_status_active">Activa</string>
+    <string name="subscription_status_expiring_days">Caduca en %1$d días</string>
+    <string name="subscription_status_expired">Caducada</string>
+    <string name="subscription_status_invalidated">Caducada o revocada</string>
+    <string name="subscription_status_unknown">Sin fecha de caducidad</string>
+    <string name="subscription_status_refresh_format">Estado de actualización: %1$s</string>
+    <string name="subscription_status_refresh_ready">Listo</string>
+    <string name="subscription_status_refresh_failed">Falló la actualización</string>
+    <string name="subscription_status_url_format">URL de suscripción: %1$s</string>
+    <string name="subscription_status_token_format">Token: %1$s</string>
+    <string name="subscription_home_multiple_title">%1$d suscripciones requieren atención</string>
+    <string name="subscription_home_expiring_title">La suscripción caduca pronto</string>
+    <string name="subscription_home_expiring_body">%1$s caduca en %2$d días. Actualízala o prepara un enlace de reemplazo.</string>
+    <string name="subscription_home_expired_title">Suscripción caducada</string>
+    <string name="subscription_home_expired_body">%1$s ya no puede actualizarse. Los perfiles existentes siguen disponibles.</string>
+    <string name="subscription_home_invalidated_title">Suscripción no disponible</string>
+    <string name="subscription_home_invalidated_body">%1$s caducó o fue revocada. Los perfiles existentes siguen disponibles.</string>
 </resources>

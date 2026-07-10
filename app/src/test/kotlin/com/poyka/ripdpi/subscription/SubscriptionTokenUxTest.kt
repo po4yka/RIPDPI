@@ -107,8 +107,17 @@ class SubscriptionTokenUxTest {
     @Test
     fun `refresh failure classification maps http codes without carrying the url`() {
         assertEquals(
-            SubscriptionRefreshFailure.EXPIRED,
+            SubscriptionRefreshFailure.INVALIDATED,
             classifyRefreshFailure(httpCode = 410, url = "https://secret.example.com/sub/x"),
+        )
+        assertEquals(
+            SubscriptionRefreshFailure.EXPIRED,
+            classifyRefreshFailure(
+                httpCode = 410,
+                url = "u",
+                knownTokenExpiresAtEpochMillis = 1_000L,
+                nowMillis = 1_000L,
+            ),
         )
         assertEquals(SubscriptionRefreshFailure.REVOKED, classifyRefreshFailure(httpCode = 403, url = "u"))
         assertEquals(SubscriptionRefreshFailure.UNAVAILABLE, classifyRefreshFailure(httpCode = 404, url = "u"))

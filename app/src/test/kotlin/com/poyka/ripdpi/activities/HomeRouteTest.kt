@@ -148,6 +148,10 @@ private fun homeRouteControlPlaneDependencies(): MainControlPlaneDependencies =
         strategyPackStateStore =
             com.poyka.ripdpi.data
                 .InMemoryStrategyPackStateStore(),
+        proxyGroupRepository = TestEmptyProxyGroupRepository,
+        subscriptionExpiryClock =
+            com.poyka.ripdpi.subscription
+                .SubscriptionExpiryClock { 0L },
     )
 
 private fun homeRouteLifecycleDependencies(

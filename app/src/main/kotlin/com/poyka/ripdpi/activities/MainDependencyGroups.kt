@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
+import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
@@ -14,6 +15,7 @@ import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.subscription.SubscriptionExpiryClock
 import javax.inject.Inject
 
 class MainServiceDependencies
@@ -49,6 +51,8 @@ class MainControlPlaneDependencies
         val hostPackCatalogUiStateStore: HostPackCatalogUiStateStore,
         val hostPackCatalogUiStateCoordinator: HostPackCatalogUiStateCoordinator,
         val strategyPackStateStore: StrategyPackStateStore,
+        val proxyGroupRepository: ProxyGroupRepository,
+        val subscriptionExpiryClock: SubscriptionExpiryClock,
     )
 
 class MainLifecycleDependencies

@@ -4212,4 +4212,34 @@ Source: %2$s</string>
         <item quantity="one">%d subscription needs attention. Cached relay entries may be outdated.</item>
         <item quantity="other">%d subscriptions need attention. Cached relay entries may be outdated.</item>
     </plurals>
++    <!-- Subscription expiry -->
+    <string name="subscription_status_title">Subscription status</string>
+    <string name="settings_subscription_status_body">Review subscription expiry, refresh state, and imported profiles.</string>
+    <string name="subscription_status_empty_title">No subscriptions</string>
+    <string name="subscription_status_empty_body">Imported subscription details will appear here.</string>
+    <string name="subscription_status_reveal_secrets">Reveal subscription secrets</string>
+    <string name="subscription_status_hide_secrets">Hide subscription secrets</string>
+    <string name="subscription_status_profiles_format">%1$d assigned profiles</string>
+    <string name="subscription_status_last_refresh_format">Last refresh: %1$s</string>
+    <string name="subscription_status_token_expiry_format">Token expiry: %1$s</string>
+    <string name="subscription_status_credential_expiry_format">Credential expiry: %1$s</string>
+    <string name="subscription_status_replacement_help">The saved profiles remain usable. Import a replacement subscription link to resume updates.</string>
+    <string name="subscription_status_refresh_action">Refresh now</string>
+    <string name="subscription_status_active">Active</string>
+    <string name="subscription_status_expiring_days">Expires in %1$d days</string>
+    <string name="subscription_status_expired">Expired</string>
+    <string name="subscription_status_invalidated">Expired or revoked</string>
+    <string name="subscription_status_unknown">No expiry supplied</string>
+    <string name="subscription_status_refresh_format">Refresh status: %1$s</string>
+    <string name="subscription_status_refresh_ready">Ready</string>
+    <string name="subscription_status_refresh_failed">Refresh failed</string>
+    <string name="subscription_status_url_format">Subscription URL: %1$s</string>
+    <string name="subscription_status_token_format">Token: %1$s</string>
+    <string name="subscription_home_multiple_title">%1$d subscriptions need attention</string>
+    <string name="subscription_home_expiring_title">Subscription expires soon</string>
+    <string name="subscription_home_expiring_body">%1$s expires in %2$d days. Refresh it or prepare a replacement link.</string>
+    <string name="subscription_home_expired_title">Subscription expired</string>
+    <string name="subscription_home_expired_body">%1$s can no longer refresh. Existing profiles remain available.</string>
+    <string name="subscription_home_invalidated_title">Subscription unavailable</string>
+    <string name="subscription_home_invalidated_body">%1$s expired or was revoked. Existing profiles remain available.</string>
 </resources>

@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -114,5 +115,29 @@ class SubscriptionAutoUpdateWorkerTest {
     @Test
     fun `interval clamp falls back to the floor when no eligible groups exist`() {
         assertEquals(15L, autoUpdateIntervalMinutes(emptyList()))
+    }
+
+    @Test
+    fun `enumeration excludes locally expired subscriptions`() {
+        val group =
+            subscriptionGroup("expired").copy(
+                subscription =
+                    subscriptionGroup("expired").subscription?.copy(tokenExpiresAtEpochMillis = 1_000L),
+            )
+
+        assertTrue(subscriptionsDueForAutoUpdate(listOf(group), nowMillis = 1_000L).isEmpty())
+    }
+
+    @Test
+    fun `enumeration excludes terminally invalidated subscriptions`() {
+        val group =
+            subscriptionGroup("invalidated").copy(
+                subscription =
+                    subscriptionGroup("invalidated").subscription?.copy(
+                        lastRefreshFailure = SubscriptionRefreshFailure.INVALIDATED,
+                    ),
+            )
+
+        assertTrue(subscriptionsDueForAutoUpdate(listOf(group), nowMillis = 1_000L).isEmpty())
     }
 }
