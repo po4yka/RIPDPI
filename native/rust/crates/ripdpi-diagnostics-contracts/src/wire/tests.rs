@@ -1,9 +1,11 @@
 use std::collections::BTreeMap;
 
 use crate::types::{
+    ConfirmGoodDpiEvidence, ConfirmGoodDpiEvidenceSource, ConfirmGoodDpiVerdict, ConfirmGoodDpiVerdictStatus,
     STRATEGY_PROBE_METHODOLOGY_VERSION, ScanPathMode, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence,
     StrategyProbeAuditConfidenceLevel, StrategyProbeAuditCoverage, StrategyProbeCandidateSummary,
     StrategyProbeCompletionKind, StrategyProbeRecommendation, StrategyProbeReport, StrategyProbeTargetSelection,
+    TransportFamily, TransportPivotRecommendation, TransportPivotViability,
 };
 
 use super::{
@@ -147,6 +149,12 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
                     "dns_tampering classified before fallback; keep current strategy and prefer resolver override"
                         .to_string(),
                 recommended_proxy_config_json: "{}".to_string(),
+                transport_pivot: Some(TransportPivotRecommendation {
+                    reason_code: "confirm_good_dpi_suspected".to_string(),
+                    preferred_family: TransportFamily::UdpQuic,
+                    viability: TransportPivotViability::Confirmed,
+                    selected_relay_role: Some("hysteria2".to_string()),
+                }),
             },
             completion_kind: StrategyProbeCompletionKind::DnsShortCircuited,
             audit_assessment: Some(StrategyProbeAuditAssessment {
@@ -187,6 +195,18 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
             }),
             pilot_bucket_labels: vec!["foreign:google:ech=yes".to_string(), "foreign:direct:ech=no".to_string()],
             domain_strategy_seeds: vec![],
+        }),
+        confirm_good_dpi_verdict: Some(ConfirmGoodDpiVerdict {
+            status: ConfirmGoodDpiVerdictStatus::Suspected,
+            evidence: ConfirmGoodDpiEvidence {
+                source: ConfirmGoodDpiEvidenceSource::Mixed,
+                stalled_flow_count: 2,
+                distinct_target_count: 2,
+                catalog_profile_validated: true,
+                reality_handshake_confirmed: true,
+                application_response_bytes: 0,
+                quic_control_succeeded: true,
+            },
         }),
         observations: vec![],
         engine_analysis_version: Some("1.0".to_string()),

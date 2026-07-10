@@ -159,6 +159,9 @@ pub struct RelayTelemetry {
     pub quic_migration_reason: Option<String>,
     pub pt_runtime_kind: Option<String>,
     pub pt_runtime_state: Option<String>,
+    pub confirm_good_dpi_eligible: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirm_good_dpi_evidence: Option<ripdpi_failure_classifier::ConfirmGoodDpiEvidence>,
     pub captured_at: u64,
 }
 

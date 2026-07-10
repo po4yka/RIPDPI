@@ -1,6 +1,9 @@
 use crate::classification::pack_versions_from_refs;
 use crate::observations::ENGINE_ANALYSIS_VERSION;
-use crate::types::{ProbeObservation, ProbeResult, ScanReport, ScanRequest, StrategyProbeReport};
+use crate::types::{
+    ConfirmGoodDpiVerdict, ConfirmGoodDpiVerdictStatus, Diagnosis, ProbeObservation, ProbeResult, ScanReport,
+    ScanRequest, StrategyProbeReport,
+};
 use crate::util::{ProbeOutcomeBucket, classify_probe_outcome};
 use ripdpi_telemetry::recorder;
 use std::collections::HashSet;
@@ -15,6 +18,33 @@ pub(in crate::engine) fn build_report(
     strategy_probe_report: Option<StrategyProbeReport>,
     classifier_version: Option<String>,
 ) -> ScanReport {
+    let confirm_good_dpi_verdict = strategy_probe_report
+        .as_ref()
+        .and_then(|report| report.recommendation.transport_pivot.as_ref())
+        .and_then(|_| request.confirm_good_dpi_evidence.clone())
+        .map(|mut evidence| {
+            evidence.quic_control_succeeded = true;
+            ConfirmGoodDpiVerdict { status: ConfirmGoodDpiVerdictStatus::Suspected, evidence }
+        });
+    let diagnoses = confirm_good_dpi_verdict.as_ref().map_or_else(Vec::new, |_| {
+        vec![Diagnosis {
+            code: "confirm_good_dpi_suspected".to_string(),
+            summary:
+                "Reality handshakes succeeded, but application data did not establish while QUIC remained reachable"
+                    .to_string(),
+            severity: "warning".to_string(),
+            target: None,
+            evidence: vec![
+                "two distinct Reality application flows stalled after handshake".to_string(),
+                "same-network QUIC control succeeded".to_string(),
+            ],
+            recommendation: Some(
+                "Use a tested UDP/QUIC relay; changing TLS fingerprints is unlikely to address this behavior"
+                    .to_string(),
+            ),
+            control_validated: Some(true),
+        }]
+    });
     ScanReport {
         session_id,
         profile_id: request.profile_id,
@@ -25,10 +55,11 @@ pub(in crate::engine) fn build_report(
         results,
         observations,
         engine_analysis_version: Some(ENGINE_ANALYSIS_VERSION.to_string()),
-        diagnoses: Vec::new(),
+        diagnoses,
         classifier_version,
         pack_versions: pack_versions_from_refs(&request.pack_refs),
         strategy_probe_report,
+        confirm_good_dpi_verdict,
         metrics_summary: recorder::snapshot(),
     }
 }

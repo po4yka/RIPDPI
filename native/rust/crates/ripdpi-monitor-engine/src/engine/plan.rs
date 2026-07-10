@@ -18,13 +18,7 @@ pub(super) fn build_execution_plan(
     };
     let stage_order = match request.kind {
         ScanKind::Connectivity => connectivity_stage_order(&request),
-        ScanKind::StrategyProbe => vec![
-            ExecutionStageId::Environment,
-            ExecutionStageId::StrategyDnsBaseline,
-            ExecutionStageId::StrategyTcpCandidates,
-            ExecutionStageId::StrategyQuicCandidates,
-            ExecutionStageId::StrategyRecommendation,
-        ],
+        ScanKind::StrategyProbe => strategy_stage_order(&request),
     };
     let runtime_context = strategy.as_ref().and_then(|plan| plan.runtime_context.as_ref());
     let probe_context =
@@ -39,6 +33,19 @@ pub(super) fn build_execution_plan(
         stage_order,
         strategy,
     })
+}
+
+pub(super) fn strategy_stage_order(request: &ScanRequest) -> Vec<ExecutionStageId> {
+    let mut stages = vec![ExecutionStageId::Environment, ExecutionStageId::StrategyDnsBaseline];
+    if request.confirm_good_dpi_evidence.is_some() {
+        stages.push(ExecutionStageId::StrategyQuicCandidates);
+        stages.push(ExecutionStageId::StrategyTcpCandidates);
+    } else {
+        stages.push(ExecutionStageId::StrategyTcpCandidates);
+        stages.push(ExecutionStageId::StrategyQuicCandidates);
+    }
+    stages.push(ExecutionStageId::StrategyRecommendation);
+    stages
 }
 
 pub(super) fn connectivity_stage_order(request: &ScanRequest) -> Vec<ExecutionStageId> {

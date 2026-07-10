@@ -5,6 +5,7 @@ use crate::candidates::{
 use crate::engine::runtime::{ExecutionPlan, ExecutionRuntime};
 use crate::types::{
     STRATEGY_PROBE_METHODOLOGY_VERSION, StrategyProbeCompletionKind, StrategyProbeRecommendation, StrategyProbeReport,
+    TransportFamily, TransportPivotRecommendation, TransportPivotViability,
 };
 
 use super::super::support::{
@@ -58,17 +59,30 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         runtime.strategy.summary = Some("Automatic probing finished".to_string());
         return false;
     };
+    let confirm_good_corroborated =
+        plan.request.confirm_good_dpi_evidence.is_some() && quic_w.succeeded_targets > 0 && !quic_w.skipped;
     let recommendation = StrategyProbeRecommendation {
         tcp_candidate_id: tcp_w.id.clone(),
         tcp_candidate_label: tcp_w.label.clone(),
         quic_candidate_id: quic_w.id.clone(),
         quic_candidate_label: quic_w.label.clone(),
         quic_candidate_layout_family: quic_w.quic_layout_family.clone(),
-        rationale: format!(
-            "{} with {} weighted TCP success and {} weighted QUIC success",
-            tcp_w.label, tcp_w.weighted_success_score, quic_w.weighted_success_score,
-        ),
+        rationale: if confirm_good_corroborated {
+            "Reality application data stalled after successful handshakes; QUIC succeeded, so pivot transport family"
+                .to_string()
+        } else {
+            format!(
+                "{} with {} weighted TCP success and {} weighted QUIC success",
+                tcp_w.label, tcp_w.weighted_success_score, quic_w.weighted_success_score,
+            )
+        },
         recommended_proxy_config_json: resolve_recommended_proxy_config_json(quic_w, quic_winner_spec),
+        transport_pivot: confirm_good_corroborated.then(|| TransportPivotRecommendation {
+            reason_code: "confirm_good_dpi_suspected".to_string(),
+            preferred_family: TransportFamily::UdpQuic,
+            viability: TransportPivotViability::Confirmed,
+            selected_relay_role: None,
+        }),
     };
     let is_dns_tampered = runtime.strategy.dns_override_domain_targets.is_some();
     let audit_assessment = resolve_strategy_probe_audit_assessment(

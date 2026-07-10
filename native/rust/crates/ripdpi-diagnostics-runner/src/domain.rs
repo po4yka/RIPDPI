@@ -200,6 +200,7 @@ mod tests {
                 route_probe: None,
                 scan_deadline_ms: None,
                 diagnostic_tls_keylog_path: None,
+                confirm_good_dpi_evidence: None,
             },
             started_at: 0,
             total_steps: 1,

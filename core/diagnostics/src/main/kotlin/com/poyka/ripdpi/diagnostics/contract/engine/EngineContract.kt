@@ -3,6 +3,8 @@ package com.poyka.ripdpi.diagnostics.contract.engine
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.CircumventionTarget
+import com.poyka.ripdpi.diagnostics.ConfirmGoodDpiEvidence
+import com.poyka.ripdpi.diagnostics.ConfirmGoodDpiVerdict
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
@@ -27,9 +29,9 @@ import com.poyka.ripdpi.diagnostics.ThroughputTarget
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
-// v3: requires an explicit current-only schemaVersion envelope. Must stay in
+// v4: adds confirm-good DPI evidence/verdict envelopes. Must stay in
 // sync with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
-const val DiagnosticsEngineSchemaVersion = 3
+const val DiagnosticsEngineSchemaVersion = 4
 
 @Serializable
 enum class EngineProbeTaskFamily {
@@ -75,6 +77,7 @@ data class EngineScanRequestWire(
     val whitelistSni: List<String> = emptyList(),
     val telegramTarget: TelegramTarget? = null,
     val strategyProbe: StrategyProbeRequest? = null,
+    val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
     val networkSnapshot: NativeNetworkSnapshot? = null,
     val routeProbe: RouteProbeConfig? = null,
     val nativeLogLevel: String? = null,
@@ -107,6 +110,7 @@ data class EngineScanReportWire(
     val strategyRecommendation: StrategyRecommendation? = null,
     val directModeVerdict: DirectModeVerdict? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
+    val confirmGoodDpiVerdict: ConfirmGoodDpiVerdict? = null,
     val observations: List<ObservationFact> = emptyList(),
     val engineAnalysisVersion: String? = null,
     val diagnoses: List<Diagnosis> = emptyList(),

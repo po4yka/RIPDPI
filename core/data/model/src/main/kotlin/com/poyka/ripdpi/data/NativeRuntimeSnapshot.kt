@@ -3,7 +3,25 @@ package com.poyka.ripdpi.data
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
-const val NativeRuntimeTelemetrySchemaVersion: Int = 2
+const val NativeRuntimeTelemetrySchemaVersion: Int = 3
+
+@Serializable
+enum class NativeConfirmGoodDpiEvidenceSource {
+    ACTIVE,
+    PASSIVE,
+    MIXED,
+}
+
+@Serializable
+data class NativeConfirmGoodDpiEvidence(
+    val source: NativeConfirmGoodDpiEvidenceSource,
+    val stalledFlowCount: Int,
+    val distinctTargetCount: Int,
+    val catalogProfileValidated: Boolean,
+    val realityHandshakeConfirmed: Boolean,
+    val applicationResponseBytes: Long,
+    val quicControlSucceeded: Boolean = false,
+)
 
 @Serializable
 data class LatencyPercentiles(
@@ -158,6 +176,8 @@ data class NativeRuntimeSnapshot(
     val ptRuntimeKind: String? = null,
     val ptRuntimeState: String? = null,
     val ptRuntimeVersion: String? = null,
+    val confirmGoodDpiEligible: Boolean = false,
+    val confirmGoodDpiEvidence: NativeConfirmGoodDpiEvidence? = null,
     val lastTarget: String? = null,
     val lastHost: String? = null,
     val lastError: String? = null,

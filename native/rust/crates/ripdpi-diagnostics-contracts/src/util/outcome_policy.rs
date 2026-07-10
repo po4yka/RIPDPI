@@ -133,6 +133,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             _ => legacy_outcome_bucket(outcome),
         },
         "strategy_failure_classification" => match outcome {
+            "confirm_good_dpi_suspected" => ProbeOutcomeBucket::Attention,
             "unknown"
             | "dns_tampering"
             | "tcp_reset"

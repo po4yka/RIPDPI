@@ -1820,4 +1820,8 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_safe_title">सुरक्षित पार्सर समायोजन तैयार हैं</string>
     <string name="ripdpi_http_parser_safe_body">RIPDPI HTTP ट्रैफ़िक पर चुने गए कम-जोखिम वाले Host हेडर समायोजन लागू करेगा।</string>
     <string name="ripdpi_http_parser_default_title">डिफ़ॉल्ट HTTP पार्सर हैंडलिंग</string>
+    <string name="diagnostics_confirm_good_dpi_summary">संभावित confirm-good DPI: Reality हैंडशेक सफल रहे, लेकिन उपयोगी डेटा नहीं पहुँचा।</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_reality">दो अलग Reality प्रवाह हैंडशेक के बाद रुक गए।</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">उसी नेटवर्क पर QUIC नियंत्रण सफल रहा।</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">परीक्षित UDP/QUIC रिले का उपयोग करें। TLS फिंगरप्रिंट बदलने से शायद मदद नहीं मिलेगी।</string>
 </resources>

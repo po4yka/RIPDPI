@@ -18,6 +18,7 @@ pub(super) fn spawn_socks_session(runtime: Arc<RelayRuntime>, backend: Arc<Relay
         let socks_config = SocksSessionConfig {
             local_socks_host: runtime.config.common.local_socks_host.clone(),
             backend_kind: runtime.config.kind_id().to_string(),
+            confirm_good_eligible: runtime.confirm_good_dpi_eligible(),
         };
         // `handle_client` owns the shutdown token and honors it at the right
         // boundaries: it abandons pre-reply negotiation by drop, but once a

@@ -14,10 +14,10 @@ static QUALITY_WINDOW: LazyLock<Arc<QualityWindow>> =
     LazyLock::new(|| Arc::new(QualityWindow::new(TransportKind::UdpRelay)));
 
 pub(crate) const IDLE_TELEMETRY_JSON: &str =
-    "{\"source\":\"relay\",\"schemaVersion\":2,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
+    "{\"source\":\"relay\",\"schemaVersion\":3,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
 
 /// Runtime-telemetry payload schema version emitted on every snapshot.
-const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
+const SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -160,6 +160,8 @@ mod tests {
             quic_migration_reason: None,
             pt_runtime_kind: None,
             pt_runtime_state: None,
+            confirm_good_dpi_eligible: false,
+            confirm_good_dpi_evidence: None,
             captured_at: 0,
         }
     }
@@ -182,7 +184,7 @@ mod tests {
             connection_quality: None,
         };
         let value = serde_json::to_value(&snapshot).expect("serialize relay snapshot");
-        assert_eq!(value["schemaVersion"], serde_json::json!(2));
+        assert_eq!(value["schemaVersion"], serde_json::json!(3));
     }
 
     #[test]

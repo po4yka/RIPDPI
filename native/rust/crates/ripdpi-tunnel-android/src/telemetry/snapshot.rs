@@ -56,6 +56,8 @@ impl TunnelTelemetryState {
             quic_migration_reason: None,
             pt_runtime_kind: None,
             pt_runtime_state: None,
+            confirm_good_dpi_eligible: false,
+            confirm_good_dpi_evidence: None,
             last_target: None,
             last_host: dns_stats.last_host,
             last_error: self.last_error.load().as_ref().map(|a| (**a).clone()),

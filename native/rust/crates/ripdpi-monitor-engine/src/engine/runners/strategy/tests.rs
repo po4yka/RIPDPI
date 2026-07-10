@@ -128,6 +128,7 @@ fn recommendation() -> StrategyProbeRecommendation {
         quic_candidate_layout_family: None,
         rationale: s("best"),
         recommended_proxy_config_json: s("{}"),
+        transport_pivot: None,
     }
 }
 
@@ -718,6 +719,7 @@ fn test_audit_assessment_penalizes_all_tied_candidates() {
         quic_candidate_layout_family: None,
         rationale: s("all tied"),
         recommended_proxy_config_json: String::new(),
+        transport_pivot: None,
     };
     let a =
         resolve_strategy_probe_audit_assessment(STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, &tcp, &quic, &rec, 15, 3, false)
@@ -746,6 +748,7 @@ fn test_audit_assessment_high_when_baseline_tied_high_coverage() {
         quic_candidate_layout_family: None,
         rationale: s("all tied"),
         recommended_proxy_config_json: String::new(),
+        transport_pivot: None,
     };
     let a =
         resolve_strategy_probe_audit_assessment(STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, &tcp, &quic, &rec, 3, 2, false)
@@ -774,6 +777,7 @@ fn test_audit_assessment_low_when_baseline_tied_low_coverage() {
         quic_candidate_layout_family: None,
         rationale: s("all tied"),
         recommended_proxy_config_json: String::new(),
+        transport_pivot: None,
     };
     let a =
         resolve_strategy_probe_audit_assessment(STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, &tcp, &quic, &rec, 2, 2, false)

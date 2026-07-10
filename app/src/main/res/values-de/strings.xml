@@ -4064,4 +4064,8 @@ Quelle: %2$s</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
+    <string name="diagnostics_confirm_good_dpi_summary">Mögliche Confirm-Good-DPI: Reality-Handshakes waren erfolgreich, aber nutzbare Daten kamen nicht an.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_reality">Zwei verschiedene Reality-Verbindungen blieben nach dem Handshake stehen.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">Eine QUIC-Kontrollprüfung im selben Netzwerk war erfolgreich.</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">Verwende einen getesteten UDP/QUIC-Relay. Eine andere TLS-Signatur hilft wahrscheinlich nicht.</string>
 </resources>

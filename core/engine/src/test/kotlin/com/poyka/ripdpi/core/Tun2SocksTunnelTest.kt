@@ -122,7 +122,7 @@ class Tun2SocksTunnelTest {
                         """
                         {
                           "source": "tunnel",
-                          "schemaVersion": 2,
+                          "schemaVersion": 3,
                           "state": "running",
                           "futureSnapshot": {"version": 2},
                           "nativeEvents": [

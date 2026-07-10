@@ -19,9 +19,12 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::*;
-    use crate::types::{ProbeDetail, ProbeResult, ProbeTaskFamily, ScanKind, ScanRequest, SharedState};
+    use crate::types::{
+        ConfirmGoodDpiEvidence, ConfirmGoodDpiEvidenceSource, ProbeDetail, ProbeResult, ProbeTaskFamily, ScanKind,
+        ScanRequest, SharedState,
+    };
 
-    use plan::connectivity_stage_order;
+    use plan::{connectivity_stage_order, strategy_stage_order};
     use report::{connectivity_analytics_summary, connectivity_summary};
     use runtime::{ExecutionStageId, cancelled_run_summary};
 
@@ -229,6 +232,31 @@ mod tests {
     }
 
     #[test]
+    fn confirm_good_candidate_runs_quic_before_tcp() {
+        let mut request = scan_request(ScanKind::StrategyProbe, Vec::new(), None);
+        request.confirm_good_dpi_evidence = Some(ConfirmGoodDpiEvidence {
+            source: ConfirmGoodDpiEvidenceSource::Active,
+            stalled_flow_count: 2,
+            distinct_target_count: 2,
+            catalog_profile_validated: true,
+            reality_handshake_confirmed: true,
+            application_response_bytes: 0,
+            quic_control_succeeded: false,
+        });
+
+        assert_eq!(
+            strategy_stage_order(&request),
+            vec![
+                ExecutionStageId::Environment,
+                ExecutionStageId::StrategyDnsBaseline,
+                ExecutionStageId::StrategyQuicCandidates,
+                ExecutionStageId::StrategyTcpCandidates,
+                ExecutionStageId::StrategyRecommendation,
+            ],
+        );
+    }
+
+    #[test]
     fn run_engine_scan_records_planning_errors_in_report_and_progress() {
         let shared = Arc::new(Mutex::new(SharedState::default()));
         let cancel = Arc::new(AtomicBool::new(false));
@@ -323,6 +351,7 @@ mod tests {
             whitelist_sni: Vec::new(),
             telegram_target: None,
             strategy_probe,
+            confirm_good_dpi_evidence: None,
             network_snapshot: None,
             route_probe: None,
             scan_deadline_ms: None,

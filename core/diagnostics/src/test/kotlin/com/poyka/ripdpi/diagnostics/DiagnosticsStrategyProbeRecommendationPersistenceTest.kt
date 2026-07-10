@@ -132,6 +132,54 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
         }
 
     @Test
+    fun `transport pivot verdict never persists a TLS strategy recommendation`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val settings =
+                defaultDiagnosticsAppSettings()
+                    .toBuilder()
+                    .setNetworkStrategyMemoryEnabled(true)
+                    .build()
+            val prepared =
+                preparedStrategyProbeScan(
+                    sessionId = "session-transport-pivot",
+                    settings = settings,
+                    fingerprint = networkFingerprint(ssid = "pivot-network"),
+                )
+            val report =
+                strategyProbeReport(
+                    sessionId = prepared.sessionId,
+                    proxyConfigJson = validRecommendedProxyConfigJson(),
+                    tcpFamily = "hostfake",
+                    quicFamily = "quic_realistic_burst",
+                    auditAssessment = auditAssessment(),
+                )
+            val strategyProbe = requireNotNull(report.strategyProbeReport)
+            val pivotReport =
+                report.copy(
+                    strategyProbeReport =
+                        strategyProbe.copy(
+                            recommendation =
+                                strategyProbe.recommendation.copy(
+                                    transportPivot =
+                                        TransportPivotRecommendation(
+                                            reasonCode = "confirm_good_dpi_suspected",
+                                            preferredFamily = TransportFamily.UDP_QUIC,
+                                            viability = TransportPivotViability.CONFIRMED,
+                                        ),
+                                ),
+                        ),
+                )
+
+            scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+                prepared,
+                json.encodeToString(pivotReport.toEngineScanReportWire()),
+            )
+
+            assertTrue(stores.rememberedPoliciesState.value.isEmpty())
+        }
+
+    @Test
     fun `background finalization preserves engine diagnoses and classifier version`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

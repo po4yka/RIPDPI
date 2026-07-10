@@ -49,7 +49,7 @@ pub(crate) struct TunnelStatsSnapshot {
 }
 
 /// Runtime-telemetry payload schema version emitted on every snapshot.
-pub(crate) const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
+pub(crate) const SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

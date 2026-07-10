@@ -74,6 +74,7 @@
     {"probeType": "strategy_quic", "pathMode": "RAW_PATH", "outcome": "quic_empty", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},
     {"probeType": "strategy_quic", "pathMode": "RAW_PATH", "outcome": "quic_error", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},
     {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "unknown", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},
+    {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "confirm_good_dpi_suspected", "bucket": "Attention", "uiTone": "Warning", "eventLevel": "warn", "healthyEnoughForSummary": false},
     {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "dns_tampering", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "warn", "healthyEnoughForSummary": false},
     {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "tcp_reset", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},
     {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "silent_drop", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},

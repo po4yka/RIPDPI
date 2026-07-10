@@ -4207,4 +4207,8 @@ fakeddisorder endhost</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
+    <string name="diagnostics_confirm_good_dpi_summary">Возможно применение confirm-good DPI: рукопожатия Reality завершились, но передача полезных данных не началась.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_reality">Два разных соединения Reality зависли после рукопожатия.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">Контрольная проверка QUIC в той же сети прошла успешно.</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">Используйте проверенный UDP/QUIC-ретранслятор. Смена TLS-отпечатка вряд ли поможет.</string>
 </resources>

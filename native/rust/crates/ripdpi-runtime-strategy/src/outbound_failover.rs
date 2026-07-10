@@ -255,6 +255,16 @@ pub enum UdpViability {
     Blocked,
 }
 
+/// Non-mutating answer to a request to leave the TLS transport family after
+/// a behavioral post-handshake failure. The caller decides whether and when
+/// to apply the recommendation; evaluating it never interrupts traffic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransportPivotDecision {
+    Use(OutboundRole),
+    NoHealthyCandidate,
+    ManualOverride(OutboundRole),
+}
+
 impl UdpViability {
     /// `true` only when UDP has been *confirmed* viable. `Unknown` is not
     /// good enough: a fast-but-fragile UDP path is never chosen blind.
@@ -324,6 +334,21 @@ impl OutboundFailover {
     /// `true` when a user-pinned manual override is in effect.
     pub fn is_manual(&self) -> bool {
         self.manual_override.is_some()
+    }
+
+    /// Recommend a configured UDP/QUIC role only when both network viability
+    /// and the role's own health have been confirmed. Manual overrides remain
+    /// authoritative, and this method never changes the active state.
+    pub fn recommend_udp_quic_pivot(&self) -> TransportPivotDecision {
+        if let Some(role) = self.manual_override {
+            return TransportPivotDecision::ManualOverride(role);
+        }
+        let hysteria = &self.roles[OutboundRole::Hysteria2.priority_rank() as usize];
+        if self.udp_viability.allows_hysteria2() && hysteria.health == RoleHealth::Healthy {
+            TransportPivotDecision::Use(OutboundRole::Hysteria2)
+        } else {
+            TransportPivotDecision::NoHealthyCandidate
+        }
     }
 
     /// The user-pinned role, if any.
@@ -761,6 +786,25 @@ mod tests {
         // The override suspends *transitions*, not health bookkeeping, so a
         // later clear_manual_override sees the recorded health.
         assert_eq!(fo.role_health(OutboundRole::HttpsFallback), RoleHealth::Healthy);
+    }
+
+    #[test]
+    fn udp_quic_pivot_requires_viability_and_healthy_hysteria() {
+        let mut fo = OutboundFailover::with_defaults();
+        assert_eq!(fo.recommend_udp_quic_pivot(), TransportPivotDecision::NoHealthyCandidate);
+        fo.set_udp_viability(UdpViability::Viable);
+        assert_eq!(fo.recommend_udp_quic_pivot(), TransportPivotDecision::NoHealthyCandidate);
+        fo.on_probe(healthy(OutboundRole::Hysteria2), FailoverTrigger::HealthProbe);
+        assert_eq!(fo.recommend_udp_quic_pivot(), TransportPivotDecision::Use(OutboundRole::Hysteria2));
+    }
+
+    #[test]
+    fn udp_quic_pivot_respects_manual_override() {
+        let mut fo = OutboundFailover::with_defaults();
+        fo.set_udp_viability(UdpViability::Viable);
+        fo.on_probe(healthy(OutboundRole::Hysteria2), FailoverTrigger::HealthProbe);
+        fo.set_manual_override(OutboundRole::Primary);
+        assert_eq!(fo.recommend_udp_quic_pivot(), TransportPivotDecision::ManualOverride(OutboundRole::Primary));
     }
 
     // --- URL-test scoring ---------------------------------------------------

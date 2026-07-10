@@ -66,3 +66,8 @@ pub fn selected_profile_metadata(profile: &str) -> ProfileMetadata {
 pub fn selected_profile_config(profile: &str) -> &'static ProfileConfig {
     profile::lookup_profile(profile)
 }
+
+pub fn profile_invariants_pass(profile: &str) -> bool {
+    AVAILABLE_PROFILES.contains(&profile)
+        && invariants::validate_profile_config(profile::lookup_profile(profile)).is_ok()
+}

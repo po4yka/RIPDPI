@@ -284,6 +284,8 @@ fn tunnel_snapshot_field_manifest_matches_contract_fixture() {
         quic_migration_reason: None,
         pt_runtime_kind: None,
         pt_runtime_state: None,
+        confirm_good_dpi_eligible: false,
+        confirm_good_dpi_evidence: None,
         last_target: Some("203.0.113.10:443".to_string()),
         last_host: dns_stats.last_host,
         last_error: Some("connection reset".to_string()),
@@ -382,7 +384,7 @@ fn tunnel_snapshot_json_carries_schema_version() {
     assert_eq!(snapshot.schema_version, SNAPSHOT_SCHEMA_VERSION);
 
     let value = serde_json::to_value(&snapshot).expect("serialize tunnel snapshot");
-    assert_eq!(value["schemaVersion"], json!(2));
+    assert_eq!(value["schemaVersion"], json!(3));
 }
 
 #[test]

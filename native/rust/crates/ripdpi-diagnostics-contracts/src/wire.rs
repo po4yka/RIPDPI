@@ -15,7 +15,7 @@ pub use request_wire::EngineScanRequestWire;
 pub use resolver_recommendation::ResolverRecommendationWire;
 
 // v3: requires an explicit current-only schemaVersion envelope.
-pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 3;
+pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 4;
 
 pub type EngineProbeTaskFamily = ProbeTaskFamily;
 pub type EngineProbeTaskWire = ProbeTask;

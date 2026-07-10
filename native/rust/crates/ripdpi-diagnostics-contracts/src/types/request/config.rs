@@ -2,8 +2,9 @@ use ripdpi_proxy_config::NetworkSnapshot;
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
-    CircumventionTarget, DiagnosticProfileFamily, DnsTarget, DomainTarget, ProbeTask, QuicTarget, ScanKind,
-    ScanPathMode, ServiceTarget, StrategyProbeRequest, TcpTarget, TelegramTarget, ThroughputTarget,
+    CircumventionTarget, ConfirmGoodDpiEvidence, DiagnosticProfileFamily, DnsTarget, DomainTarget, ProbeTask,
+    QuicTarget, ScanKind, ScanPathMode, ServiceTarget, StrategyProbeRequest, TcpTarget, TelegramTarget,
+    ThroughputTarget,
 };
 use crate::util::{default_diagnostic_profile_family, default_scan_kind};
 
@@ -54,6 +55,11 @@ pub struct ScanRequest {
     pub telegram_target: Option<TelegramTarget>,
     #[serde(default)]
     pub strategy_probe: Option<StrategyProbeRequest>,
+    /// Provisional Reality post-handshake evidence captured before this scan.
+    /// QUIC corroboration is performed by the strategy engine before a verdict
+    /// can be finalized.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirm_good_dpi_evidence: Option<ConfirmGoodDpiEvidence>,
     /// Optional OS-level network state snapshot from Android ConnectivityManager/TelephonyManager.
     /// When present, used to short-circuit probes when the OS reports no network, annotate
     /// results with transport context, and emit environment metadata in the scan report.

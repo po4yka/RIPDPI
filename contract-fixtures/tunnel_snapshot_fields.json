@@ -1,6 +1,8 @@
 [
   "activeSessions",
   "capturedAt",
+  "confirmGoodDpiEligible",
+  "confirmGoodDpiEvidence",
   "connectionQuality.jitterMs",
   "connectionQuality.lossPct",
   "connectionQuality.rttP50Ms",

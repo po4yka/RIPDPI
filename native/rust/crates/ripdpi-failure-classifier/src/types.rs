@@ -36,6 +36,10 @@ pub enum FailureClass {
     /// budget. The engine must jump straight to owned-stack arms (A10/A9);
     /// TLS-family arms must not be attempted in this state.
     IpBlockSuspect,
+    /// A classic VLESS Reality flow completed its catalog-validated TLS/VLESS
+    /// handshake but repeatedly established no application response bytes,
+    /// while a same-network QUIC control succeeded.
+    ConfirmGoodDpiSuspected,
 }
 
 impl FailureClass {
@@ -57,6 +61,7 @@ impl FailureClass {
             Self::TuicVersionUnsupported => "tuic_version_unsupported",
             Self::ShadowTlsVersionMismatch => "shadowtls_version_mismatch",
             Self::IpBlockSuspect => "ip_block_suspect",
+            Self::ConfirmGoodDpiSuspected => "confirm_good_dpi_suspected",
         }
     }
 }
@@ -111,6 +116,7 @@ pub enum FailureStage {
     QuicProbe,
     Diagnostic,
     Relay,
+    PostHandshake,
 }
 
 impl FailureStage {
@@ -125,6 +131,7 @@ impl FailureStage {
             Self::QuicProbe => "quic_probe",
             Self::Diagnostic => "diagnostic",
             Self::Relay => "relay",
+            Self::PostHandshake => "post_handshake",
         }
     }
 }
@@ -137,6 +144,7 @@ pub enum FailureAction {
     ResolverOverrideRecommended,
     DiagnosticsOnly,
     SurfaceOnly,
+    PivotTransportFamily,
 }
 
 impl FailureAction {
@@ -147,6 +155,7 @@ impl FailureAction {
             Self::ResolverOverrideRecommended => "resolver_override_recommended",
             Self::DiagnosticsOnly => "diagnostics_only",
             Self::SurfaceOnly => "surface_only",
+            Self::PivotTransportFamily => "pivot_transport_family",
         }
     }
 }
@@ -219,6 +228,7 @@ mod tests {
             (FailureClass::TuicVersionUnsupported, "tuic_version_unsupported"),
             (FailureClass::ShadowTlsVersionMismatch, "shadowtls_version_mismatch"),
             (FailureClass::IpBlockSuspect, "ip_block_suspect"),
+            (FailureClass::ConfirmGoodDpiSuspected, "confirm_good_dpi_suspected"),
         ];
         for (variant, expected) in cases {
             assert_eq!(variant.as_str(), expected, "{variant:?} should map to {expected:?}");
@@ -259,6 +269,7 @@ mod tests {
             (FailureStage::QuicProbe, "quic_probe"),
             (FailureStage::Diagnostic, "diagnostic"),
             (FailureStage::Relay, "relay"),
+            (FailureStage::PostHandshake, "post_handshake"),
         ];
         for (variant, expected) in cases {
             assert_eq!(variant.as_str(), expected, "{variant:?} should map to {expected:?}");
@@ -273,6 +284,7 @@ mod tests {
             (FailureAction::ResolverOverrideRecommended, "resolver_override_recommended"),
             (FailureAction::DiagnosticsOnly, "diagnostics_only"),
             (FailureAction::SurfaceOnly, "surface_only"),
+            (FailureAction::PivotTransportFamily, "pivot_transport_family"),
         ];
         for (variant, expected) in cases {
             assert_eq!(variant.as_str(), expected, "{variant:?} should map to {expected:?}");
@@ -296,6 +308,7 @@ mod tests {
             FailureClass::ConnectionFreeze,
             FailureClass::CapabilitySkipped,
             FailureClass::IpBlockSuspect,
+            FailureClass::ConfirmGoodDpiSuspected,
         ] {
             let json = serde_json::to_string(&class).unwrap();
             let deserialized: FailureClass = serde_json::from_str(&json).unwrap();
@@ -324,6 +337,7 @@ mod tests {
             FailureStage::QuicProbe,
             FailureStage::Diagnostic,
             FailureStage::Relay,
+            FailureStage::PostHandshake,
         ] {
             let json = serde_json::to_string(&stage).unwrap();
             let deserialized: FailureStage = serde_json::from_str(&json).unwrap();
@@ -339,6 +353,7 @@ mod tests {
             FailureAction::ResolverOverrideRecommended,
             FailureAction::DiagnosticsOnly,
             FailureAction::SurfaceOnly,
+            FailureAction::PivotTransportFamily,
         ] {
             let json = serde_json::to_string(&action).unwrap();
             let deserialized: FailureAction = serde_json::from_str(&json).unwrap();

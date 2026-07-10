@@ -50,9 +50,25 @@ pub ripdpi_failure_classifier::BlockSignal::TcpRetransmissions
 pub ripdpi_failure_classifier::BlockSignal::TlsAlert
 impl ripdpi_failure_classifier::BlockSignal
 pub const fn ripdpi_failure_classifier::BlockSignal::as_str(self) -> &'static str
+pub enum ripdpi_failure_classifier::ConfirmGoodEvidenceSource
+pub ripdpi_failure_classifier::ConfirmGoodEvidenceSource::Active
+pub ripdpi_failure_classifier::ConfirmGoodEvidenceSource::Mixed
+pub ripdpi_failure_classifier::ConfirmGoodEvidenceSource::Passive
+pub enum ripdpi_failure_classifier::ConfirmGoodFlowSource
+pub ripdpi_failure_classifier::ConfirmGoodFlowSource::Active
+pub ripdpi_failure_classifier::ConfirmGoodFlowSource::Passive
+pub enum ripdpi_failure_classifier::ConfirmGoodTerminalReason
+pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::ActiveDeadline
+pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::GracefulClose
+pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::IoError
+pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::PassiveStall
+pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::PassiveTimeout
+pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::ServiceShutdown
+pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::UserCancelled
 pub enum ripdpi_failure_classifier::FailureAction
 pub ripdpi_failure_classifier::FailureAction::DiagnosticsOnly
 pub ripdpi_failure_classifier::FailureAction::None
+pub ripdpi_failure_classifier::FailureAction::PivotTransportFamily
 pub ripdpi_failure_classifier::FailureAction::ResolverOverrideRecommended
 pub ripdpi_failure_classifier::FailureAction::RetryWithMatchingGroup
 pub ripdpi_failure_classifier::FailureAction::SurfaceOnly
@@ -60,6 +76,7 @@ impl ripdpi_failure_classifier::FailureAction
 pub const fn ripdpi_failure_classifier::FailureAction::as_str(self) -> &'static str
 pub enum ripdpi_failure_classifier::FailureClass
 pub ripdpi_failure_classifier::FailureClass::CapabilitySkipped
+pub ripdpi_failure_classifier::FailureClass::ConfirmGoodDpiSuspected
 pub ripdpi_failure_classifier::FailureClass::ConnectFailure
 pub ripdpi_failure_classifier::FailureClass::ConnectionFreeze
 pub ripdpi_failure_classifier::FailureClass::DnsTampering
@@ -84,6 +101,7 @@ pub ripdpi_failure_classifier::FailureStage::Dns
 pub ripdpi_failure_classifier::FailureStage::FirstResponse
 pub ripdpi_failure_classifier::FailureStage::FirstWrite
 pub ripdpi_failure_classifier::FailureStage::HttpResponse
+pub ripdpi_failure_classifier::FailureStage::PostHandshake
 pub ripdpi_failure_classifier::FailureStage::QuicProbe
 pub ripdpi_failure_classifier::FailureStage::Relay
 pub ripdpi_failure_classifier::FailureStage::TlsHandshake
@@ -134,6 +152,30 @@ pub ripdpi_failure_classifier::ClassifiedFailure::stage: ripdpi_failure_classifi
 impl ripdpi_failure_classifier::ClassifiedFailure
 pub fn ripdpi_failure_classifier::ClassifiedFailure::new(ripdpi_failure_classifier::FailureClass, ripdpi_failure_classifier::FailureStage, ripdpi_failure_classifier::FailureAction, impl core::convert::Into<alloc::string::String>) -> Self
 pub fn ripdpi_failure_classifier::ClassifiedFailure::with_tag(self, &str, impl core::convert::Into<alloc::string::String>) -> Self
+pub struct ripdpi_failure_classifier::ConfirmGoodDpiAccumulator
+impl ripdpi_failure_classifier::ConfirmGoodDpiAccumulator
+pub fn ripdpi_failure_classifier::ConfirmGoodDpiAccumulator::candidate_evidence(&mut self, u64) -> core::option::Option<ripdpi_failure_classifier::ConfirmGoodDpiEvidence>
+pub fn ripdpi_failure_classifier::ConfirmGoodDpiAccumulator::classify(&mut self, u64, bool) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
+pub fn ripdpi_failure_classifier::ConfirmGoodDpiAccumulator::record(&mut self, ripdpi_failure_classifier::ConfirmGoodFlowObservation, u64)
+pub struct ripdpi_failure_classifier::ConfirmGoodDpiEvidence
+pub ripdpi_failure_classifier::ConfirmGoodDpiEvidence::application_response_bytes: u64
+pub ripdpi_failure_classifier::ConfirmGoodDpiEvidence::catalog_profile_validated: bool
+pub ripdpi_failure_classifier::ConfirmGoodDpiEvidence::distinct_target_count: usize
+pub ripdpi_failure_classifier::ConfirmGoodDpiEvidence::quic_control_succeeded: bool
+pub ripdpi_failure_classifier::ConfirmGoodDpiEvidence::reality_handshake_confirmed: bool
+pub ripdpi_failure_classifier::ConfirmGoodDpiEvidence::source: ripdpi_failure_classifier::ConfirmGoodEvidenceSource
+pub ripdpi_failure_classifier::ConfirmGoodDpiEvidence::stalled_flow_count: usize
+pub struct ripdpi_failure_classifier::ConfirmGoodFlowObservation
+pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::application_bytes_sent: u64
+pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::application_response_bytes: u64
+pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::classic_vless_reality: bool
+pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::network_scope: alloc::string::String
+pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::observed_at_ms: u64
+pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::profile_catalog_validated: bool
+pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::reality_handshake_completed: bool
+pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::source: ripdpi_failure_classifier::ConfirmGoodFlowSource
+pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::target_digest: alloc::string::String
+pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::terminal_reason: ripdpi_failure_classifier::ConfirmGoodTerminalReason
 pub struct ripdpi_failure_classifier::FailureEvidence
 pub ripdpi_failure_classifier::FailureEvidence::summary: alloc::string::String
 pub ripdpi_failure_classifier::FailureEvidence::tags: alloc::vec::Vec<alloc::string::String>
@@ -168,6 +210,8 @@ pub ripdpi_failure_classifier::TransportPolicyCacheKey::ip_set: alloc::vec::Vec<
 pub ripdpi_failure_classifier::TransportPolicyCacheKey::net_profile: ripdpi_failure_classifier::NetProfileKey
 impl ripdpi_failure_classifier::TransportPolicyCacheKey
 pub fn ripdpi_failure_classifier::TransportPolicyCacheKey::new(impl core::convert::Into<alloc::string::String>, alloc::vec::Vec<core::net::ip_addr::IpAddr>, impl core::convert::Into<alloc::string::String>, ripdpi_failure_classifier::NetProfileKey) -> Self
+pub const ripdpi_failure_classifier::CONFIRM_GOOD_EVIDENCE_WINDOW_MS: u64
+pub const ripdpi_failure_classifier::CONFIRM_GOOD_MAX_OBSERVATIONS: usize
 pub const ripdpi_failure_classifier::DEFAULT_TTL_SECS: u64
 pub fn ripdpi_failure_classifier::block_signal_from_failure(&ripdpi_failure_classifier::ClassifiedFailure, core::option::Option<u32>) -> core::option::Option<ripdpi_failure_classifier::BlockSignalObservation>
 pub fn ripdpi_failure_classifier::bundled_blockpage_fingerprints() -> &'static [ripdpi_failure_classifier::BlockpageFingerprint]

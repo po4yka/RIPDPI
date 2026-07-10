@@ -54,6 +54,24 @@ internal object StrategyRecommendationEngine {
         report: ScanReport,
         currentTcpFamily: String?,
     ): StrategyRecommendation? {
+        report.confirmGoodDpiVerdict?.let { verdict ->
+            return StrategyRecommendation(
+                triggerOutcomes = listOf("confirm_good_dpi_suspected"),
+                recommendedFamily = "udp_quic",
+                blockingPattern = "post_handshake_behavioral_block",
+                rationale =
+                    "Reality handshakes completed on ${verdict.evidence.distinctTargetCount} distinct targets " +
+                        "without application data while QUIC succeeded.",
+                evidence =
+                    listOf(
+                        "stalledRealityFlows=${verdict.evidence.stalledFlowCount}",
+                        "quicControlSucceeded=${verdict.evidence.quicControlSucceeded}",
+                    ),
+                actionable = true,
+                confidence = StrategyRecommendationConfidence.HIGH,
+                evidenceScore = HighConfidenceEvidenceScore,
+            )
+        }
         val signals = collectBlockingSignals(report.results)
         return if (signals.isEmpty() || !report.hasActionableStrategyEvidence(signals)) {
             null

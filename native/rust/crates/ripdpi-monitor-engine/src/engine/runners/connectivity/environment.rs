@@ -105,6 +105,7 @@ mod tests {
             whitelist_sni: Vec::new(),
             telegram_target: None,
             strategy_probe: None,
+            confirm_good_dpi_evidence: None,
             network_snapshot: snapshot,
             route_probe: None,
             scan_deadline_ms: None,

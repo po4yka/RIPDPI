@@ -14,7 +14,7 @@ class NativeRuntimeTelemetryCodecTest {
     fun `current schema accepts unknown additive fields`() {
         val snapshot =
             json.decodeNativeRuntimeSnapshot(
-                """{"source":"proxy","schemaVersion":2,"futureField":true}""",
+                """{"source":"proxy","schemaVersion":3,"futureField":true}""",
             )
 
         assertEquals(NativeRuntimeTelemetrySchemaVersion, snapshot.schemaVersion)
@@ -30,7 +30,7 @@ class NativeRuntimeTelemetryCodecTest {
 
     @Test
     fun `non-current schema versions are rejected`() {
-        listOf(1, 3).forEach { version ->
+        listOf(1, 2, 4).forEach { version ->
             assertThrows(IllegalArgumentException::class.java) {
                 json.decodeNativeRuntimeSnapshot(
                     """{"source":"proxy","schemaVersion":$version}""",

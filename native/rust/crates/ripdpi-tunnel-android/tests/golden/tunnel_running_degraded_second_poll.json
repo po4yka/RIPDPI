@@ -1,6 +1,8 @@
 {
   "activeSessions": 1,
   "capturedAt": 0,
+  "confirmGoodDpiEligible": false,
+  "confirmGoodDpiEvidence": null,
   "dnsCacheHits": 0,
   "dnsCacheMisses": 0,
   "dnsFailuresTotal": 0,
@@ -30,7 +32,7 @@
   "resolverLatencyMs": null,
   "resolverProtocol": null,
   "routeChanges": 0,
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "source": "tunnel",
   "state": "running",
   "strategyPackId": null,

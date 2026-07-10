@@ -1,9 +1,11 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 use std::time::Instant;
 
-use tokio::io::{AsyncWriteExt, copy_bidirectional};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf, copy_bidirectional};
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 
@@ -12,6 +14,57 @@ use crate::socks::reply::write_reply;
 use crate::socks::target::RelayTargetAddr;
 use crate::socks::telemetry::SocksTelemetry;
 use crate::telemetry::TcpConnectObservation;
+
+struct CountingIo<S> {
+    inner: S,
+    read_bytes: u64,
+    written_bytes: u64,
+}
+
+impl<S> CountingIo<S> {
+    const fn new(inner: S) -> Self {
+        Self { inner, read_bytes: 0, written_bytes: 0 }
+    }
+}
+
+impl<S> AsyncRead for CountingIo<S>
+where
+    S: AsyncRead + Unpin,
+{
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let before = buf.filled().len();
+        match Pin::new(&mut self.inner).poll_read(cx, buf) {
+            Poll::Ready(Ok(())) => {
+                self.read_bytes = self.read_bytes.saturating_add((buf.filled().len() - before) as u64);
+                Poll::Ready(Ok(()))
+            }
+            other => other,
+        }
+    }
+}
+
+impl<S> AsyncWrite for CountingIo<S>
+where
+    S: AsyncWrite + Unpin,
+{
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        match Pin::new(&mut self.inner).poll_write(cx, buf) {
+            Poll::Ready(Ok(written)) => {
+                self.written_bytes = self.written_bytes.saturating_add(written as u64);
+                Poll::Ready(Ok(written))
+            }
+            other => other,
+        }
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
 
 /// Drive a SOCKS5 `CONNECT`: dial the upstream, send the reply, then relay.
 ///
@@ -42,6 +95,7 @@ pub(crate) async fn handle_connect<T>(
     mut client: TcpStream,
     backend: Arc<RelayBackend>,
     target: RelayTargetAddr,
+    confirm_good_eligible: bool,
     telemetry: &T,
     cancel: CancellationToken,
 ) -> io::Result<()>
@@ -57,7 +111,7 @@ where
     };
     let rtt_ms = connect_start.elapsed().as_millis() as u64;
 
-    let mut upstream = match upstream_result {
+    let upstream = match upstream_result {
         Ok(stream) => {
             telemetry.emit_connect_observation(TcpConnectObservation { rtt_ms, succeeded: true });
             stream
@@ -74,6 +128,9 @@ where
     // cancel-aware relay are not separated by any drop point a canceller can
     // observe. A confirmed `CONNECT` therefore always implies the relay started.
     write_reply(&mut client, 0x00, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
+    let target_label = target.to_string();
+    let mut client = CountingIo::new(client);
+    let mut upstream = CountingIo::new(upstream);
     tokio::select! {
         biased;
         () = cancel.cancelled() => {
@@ -84,6 +141,44 @@ where
             let _ = client.shutdown().await;
             Ok(())
         }
-        result = copy_bidirectional(&mut client, &mut upstream) => result.map(|_| ()),
+        result = copy_bidirectional(&mut client, &mut upstream) => {
+            match result {
+                Ok(_) => Ok(()),
+                Err(error) => {
+                    if confirm_good_eligible && matches!(error.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock) {
+                        telemetry.record_confirm_good_passive_stall(
+                            &target_label,
+                            upstream.written_bytes,
+                            upstream.read_bytes,
+                            true,
+                        );
+                    }
+                    Err(error)
+                }
+            }
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn counting_io_tracks_read_and_written_bytes_independently() {
+        let (stream, mut peer) = tokio::io::duplex(64);
+        let mut counted = CountingIo::new(stream);
+
+        peer.write_all(b"response").await.expect("write response fixture");
+        let mut response = [0_u8; 8];
+        counted.read_exact(&mut response).await.expect("read response fixture");
+        counted.write_all(b"request").await.expect("write request fixture");
+        let mut request = [0_u8; 7];
+        peer.read_exact(&mut request).await.expect("read request fixture");
+
+        assert_eq!(counted.read_bytes, 8);
+        assert_eq!(counted.written_bytes, 7);
     }
 }

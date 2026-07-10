@@ -15,10 +15,10 @@ static QUALITY_WINDOW: LazyLock<Arc<QualityWindow>> =
     LazyLock::new(|| Arc::new(QualityWindow::new(TransportKind::TcpProxy)));
 
 const IDLE_TELEMETRY_JSON: &str =
-    "{\"source\":\"warp\",\"schemaVersion\":2,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
+    "{\"source\":\"warp\",\"schemaVersion\":3,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
 
 /// Runtime-telemetry payload schema version emitted on every snapshot.
-const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
+const SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -164,7 +164,7 @@ mod tests {
             connection_quality: None,
         };
         let value = serde_json::to_value(&snapshot).expect("serialize warp snapshot");
-        assert_eq!(value["schemaVersion"], serde_json::json!(2));
+        assert_eq!(value["schemaVersion"], serde_json::json!(3));
     }
 
     #[test]

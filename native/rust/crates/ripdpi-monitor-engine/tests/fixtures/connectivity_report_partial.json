@@ -1,5 +1,6 @@
 {
   "classifierVersion": null,
+  "confirmGoodDpiVerdict": null,
   "diagnoses": [],
   "engineAnalysisVersion": "observations_v1",
   "finishedAt": 1700000000123,
@@ -151,7 +152,7 @@
       "target": "fixture-quic-one.example.test"
     }
   ],
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "sessionId": "connectivity-partial-contract",
   "startedAt": 1700000000000,
   "strategyProbeReport": null,

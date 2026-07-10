@@ -262,7 +262,7 @@ class NativeTelemetryGoldenTest {
         """
         {
           "source": "proxy",
-          "schemaVersion": 2,
+          "schemaVersion": 3,
           "state": "running",
           "health": "healthy",
           "listenerAddress": "127.0.0.1:<port>",

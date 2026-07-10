@@ -14,7 +14,7 @@ pub(crate) struct TunnelStatsSnapshot {
 }
 
 /// Runtime-telemetry payload schema version emitted on every snapshot.
-pub(crate) const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
+pub(crate) const SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,6 +55,8 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) quic_migration_reason: Option<String>,
     pub(crate) pt_runtime_kind: Option<String>,
     pub(crate) pt_runtime_state: Option<String>,
+    pub(crate) confirm_good_dpi_eligible: bool,
+    pub(crate) confirm_good_dpi_evidence: Option<()>,
     pub(crate) last_target: Option<String>,
     pub(crate) last_host: Option<String>,
     pub(crate) last_error: Option<String>,

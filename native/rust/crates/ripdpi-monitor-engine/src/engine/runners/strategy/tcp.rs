@@ -11,14 +11,16 @@ use std::time::Duration;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::candidates::candidate_pause_ms;
-use crate::execution::{CandidateRuntimeLauncher, DefaultStrategyLaneExecutor};
+use crate::candidates::{
+    candidate_pause_ms, probe_fake_ttl_capability, probe_ip_fragmentation_capabilities, probe_tcp_fast_open_capability,
+};
+use crate::execution::{CandidateRuntimeLauncher, DefaultStrategyLaneExecutor, skipped_candidate_summary};
 use crate::types::StrategyProbeProgressLane;
 
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerOutcome,
 };
-use super::support::FamilyFailureTracker;
+use super::support::{FamilyFailureTracker, select_promotable_candidate_index};
 
 use self::baseline::run_baseline_candidate;
 use self::batch_execution::{ROUND2_PARALLELISM, execute_candidate_batch, select_next_candidate_batch};
@@ -63,6 +65,33 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         };
         let tcp_specs = &strategy_plan.suite.tcp_candidates;
         if tcp_specs.is_empty() {
+            return RunnerOutcome::Completed;
+        }
+        let quic_pivot_candidate = select_promotable_candidate_index(
+            &runtime.strategy.quic_candidates,
+            &strategy_plan.suite.quic_candidates,
+            probe_fake_ttl_capability(),
+            probe_tcp_fast_open_capability(),
+            probe_ip_fragmentation_capabilities(),
+        );
+        if plan.request.confirm_good_dpi_evidence.is_some() && quic_pivot_candidate.is_some() {
+            let rationale =
+                "Post-handshake Reality stalls were corroborated by QUIC; fingerprint tuning is not applicable";
+            for (index, spec) in tcp_specs.iter().enumerate() {
+                let summary = skipped_candidate_summary(spec, plan.request.domain_targets.len(), 2, rationale);
+                runtime.strategy.tcp_candidates.push(summary.clone());
+                runtime.record_skipped_strategy_probe_candidate(
+                    plan,
+                    self.phase(),
+                    StrategyProbeProgressLane::Tcp,
+                    index + 1,
+                    tcp_specs.len(),
+                    &summary.id,
+                    &summary.label,
+                    Some(summary.outcome.clone()),
+                    format!("Skipped {}", summary.label),
+                );
+            }
             return RunnerOutcome::Completed;
         }
         // Use encrypted-DNS-resolved targets when DNS tampering was detected.

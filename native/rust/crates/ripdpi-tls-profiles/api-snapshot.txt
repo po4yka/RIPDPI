@@ -257,6 +257,7 @@ pub fn ripdpi_tls_profiles::pq_kem_negotiated_count() -> u64
 pub fn ripdpi_tls_profiles::prepare_ech_retry(&ripdpi_tls_profiles::ech::EchRejectedHandshake, &impl ripdpi_tls_profiles::ech::EchPublicNameVerifier, &mut ripdpi_tls_profiles::ech::EchRetryState) -> core::result::Result<ripdpi_tls_profiles::ech::EchSetup, ripdpi_tls_profiles::ech::EchFacadeError>
 pub fn ripdpi_tls_profiles::profile_catalog() -> &'static ripdpi_tls_profiles::ProfileCatalog
 pub fn ripdpi_tls_profiles::profile_catalog_version() -> &'static str
+pub fn ripdpi_tls_profiles::profile_invariants_pass(&str) -> bool
 pub fn ripdpi_tls_profiles::profile_metadata(&str) -> ripdpi_tls_profiles::ProfileMetadata
 pub fn ripdpi_tls_profiles::reality_ech_parity(&ripdpi_tls_profiles::ProfileConfig, &str, ripdpi_tls_profiles::CoverEchEvidence) -> ripdpi_tls_profiles::RealityEchParity
 pub fn ripdpi_tls_profiles::require_ech_backend_support(ripdpi_tls_profiles::ech::OutboundEchBackend, core::option::Option<&ripdpi_tls_profiles::ech::OutboundEchConfig>) -> core::result::Result<(), ripdpi_tls_profiles::ech::EchOutboundError>

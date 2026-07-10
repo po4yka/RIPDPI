@@ -1,5 +1,11 @@
 pub mod ripdpi_diagnostics_contracts
 pub mod ripdpi_diagnostics_contracts::types
+pub enum ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidenceSource
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidenceSource::Active
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidenceSource::Mixed
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidenceSource::Passive
+pub enum ripdpi_diagnostics_contracts::types::ConfirmGoodDpiVerdictStatus
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiVerdictStatus::Suspected
 pub enum ripdpi_diagnostics_contracts::types::DiagnosticProfileFamily
 pub ripdpi_diagnostics_contracts::types::DiagnosticProfileFamily::AutomaticAudit
 pub ripdpi_diagnostics_contracts::types::DiagnosticProfileFamily::AutomaticProbing
@@ -130,6 +136,12 @@ pub ripdpi_diagnostics_contracts::types::TransportFailureKind::None
 pub ripdpi_diagnostics_contracts::types::TransportFailureKind::Other
 pub ripdpi_diagnostics_contracts::types::TransportFailureKind::Reset
 pub ripdpi_diagnostics_contracts::types::TransportFailureKind::Timeout
+pub enum ripdpi_diagnostics_contracts::types::TransportFamily
+pub ripdpi_diagnostics_contracts::types::TransportFamily::UdpQuic
+pub enum ripdpi_diagnostics_contracts::types::TransportPivotViability
+pub ripdpi_diagnostics_contracts::types::TransportPivotViability::Blocked
+pub ripdpi_diagnostics_contracts::types::TransportPivotViability::Confirmed
+pub ripdpi_diagnostics_contracts::types::TransportPivotViability::Unknown
 pub struct ripdpi_diagnostics_contracts::types::CircumventionObservationFact
 pub ripdpi_diagnostics_contracts::types::CircumventionObservationFact::bootstrap_status: ripdpi_diagnostics_contracts::HttpProbeStatus
 pub ripdpi_diagnostics_contracts::types::CircumventionObservationFact::handshake_failure: ripdpi_diagnostics_contracts::TransportFailureKind
@@ -143,6 +155,17 @@ pub ripdpi_diagnostics_contracts::types::CircumventionTarget::handshake_port: u1
 pub ripdpi_diagnostics_contracts::types::CircumventionTarget::id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::CircumventionTarget::tls_server_name: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::CircumventionTarget::tool: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence::application_response_bytes: u64
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence::catalog_profile_validated: bool
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence::distinct_target_count: usize
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence::quic_control_succeeded: bool
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence::reality_handshake_confirmed: bool
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence::source: ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence::stalled_flow_count: usize
+pub struct ripdpi_diagnostics_contracts::types::ConfirmGoodDpiVerdict
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiVerdict::evidence: ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence
+pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiVerdict::status: ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdictStatus
 pub struct ripdpi_diagnostics_contracts::types::Diagnosis
 pub ripdpi_diagnostics_contracts::types::Diagnosis::code: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::Diagnosis::control_validated: core::option::Option<bool>
@@ -269,6 +292,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::types::ScanReport
 pub ripdpi_diagnostics_contracts::types::ScanReport::classifier_version: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::ScanReport::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
 pub ripdpi_diagnostics_contracts::types::ScanReport::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
 pub ripdpi_diagnostics_contracts::types::ScanReport::engine_analysis_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ScanReport::finished_at: u64
@@ -286,6 +310,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_di
 pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::types::ScanRequest
 pub ripdpi_diagnostics_contracts::types::ScanRequest::circumvention_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::CircumventionTarget>
+pub ripdpi_diagnostics_contracts::types::ScanRequest::confirm_good_dpi_evidence: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::diagnostic_tls_keylog_path: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ScanRequest::display_name: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ScanRequest::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DnsTarget>
@@ -421,6 +446,7 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::rationale:
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::recommended_proxy_config_json: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::tcp_candidate_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::tcp_candidate_label: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::transport_pivot: core::option::Option<ripdpi_diagnostics_contracts::TransportPivotRecommendation>
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeReport
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::audit_assessment: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::completion_kind: ripdpi_diagnostics_contracts::StrategyProbeCompletionKind
@@ -511,6 +537,11 @@ pub ripdpi_diagnostics_contracts::types::ThroughputTarget::port: core::option::O
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::runs: usize
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::url: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::window_bytes: usize
+pub struct ripdpi_diagnostics_contracts::types::TransportPivotRecommendation
+pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::preferred_family: ripdpi_diagnostics_contracts::TransportFamily
+pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::reason_code: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::selected_relay_role: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::viability: ripdpi_diagnostics_contracts::TransportPivotViability
 pub const ripdpi_diagnostics_contracts::types::STRATEGY_PROBE_METHODOLOGY_VERSION: &str
 pub mod ripdpi_diagnostics_contracts::util
 pub enum ripdpi_diagnostics_contracts::util::DnsAnswerOverlap
@@ -599,6 +630,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::wire::EngineScanReportWire
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::classifier_version: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::engine_analysis_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::wire::EngineScanReportWire::finished_at: u64
@@ -617,6 +649,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_di
 pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::wire::EngineScanRequestWire
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::circumvention_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::CircumventionTarget>
+pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::confirm_good_dpi_evidence: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::diagnostic_tls_keylog_path: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::display_name: alloc::string::String
 pub ripdpi_diagnostics_contracts::wire::EngineScanRequestWire::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DnsTarget>
@@ -666,6 +699,12 @@ pub const ripdpi_diagnostics_contracts::wire::DIAGNOSTICS_ENGINE_SCHEMA_VERSION:
 pub type ripdpi_diagnostics_contracts::wire::EngineObservationWire = ripdpi_diagnostics_contracts::ProbeObservation
 pub type ripdpi_diagnostics_contracts::wire::EngineProbeTaskFamily = ripdpi_diagnostics_contracts::ProbeTaskFamily
 pub type ripdpi_diagnostics_contracts::wire::EngineProbeTaskWire = ripdpi_diagnostics_contracts::ProbeTask
+pub enum ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource::Active
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource::Mixed
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource::Passive
+pub enum ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdictStatus
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdictStatus::Suspected
 pub enum ripdpi_diagnostics_contracts::DiagnosticProfileFamily
 pub ripdpi_diagnostics_contracts::DiagnosticProfileFamily::AutomaticAudit
 pub ripdpi_diagnostics_contracts::DiagnosticProfileFamily::AutomaticProbing
@@ -796,6 +835,12 @@ pub ripdpi_diagnostics_contracts::TransportFailureKind::None
 pub ripdpi_diagnostics_contracts::TransportFailureKind::Other
 pub ripdpi_diagnostics_contracts::TransportFailureKind::Reset
 pub ripdpi_diagnostics_contracts::TransportFailureKind::Timeout
+pub enum ripdpi_diagnostics_contracts::TransportFamily
+pub ripdpi_diagnostics_contracts::TransportFamily::UdpQuic
+pub enum ripdpi_diagnostics_contracts::TransportPivotViability
+pub ripdpi_diagnostics_contracts::TransportPivotViability::Blocked
+pub ripdpi_diagnostics_contracts::TransportPivotViability::Confirmed
+pub ripdpi_diagnostics_contracts::TransportPivotViability::Unknown
 pub struct ripdpi_diagnostics_contracts::CircumventionObservationFact
 pub ripdpi_diagnostics_contracts::CircumventionObservationFact::bootstrap_status: ripdpi_diagnostics_contracts::HttpProbeStatus
 pub ripdpi_diagnostics_contracts::CircumventionObservationFact::handshake_failure: ripdpi_diagnostics_contracts::TransportFailureKind
@@ -809,6 +854,17 @@ pub ripdpi_diagnostics_contracts::CircumventionTarget::handshake_port: u16
 pub ripdpi_diagnostics_contracts::CircumventionTarget::id: alloc::string::String
 pub ripdpi_diagnostics_contracts::CircumventionTarget::tls_server_name: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::CircumventionTarget::tool: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence::application_response_bytes: u64
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence::catalog_profile_validated: bool
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence::distinct_target_count: usize
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence::quic_control_succeeded: bool
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence::reality_handshake_confirmed: bool
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence::source: ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence::stalled_flow_count: usize
+pub struct ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict::evidence: ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence
+pub ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict::status: ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdictStatus
 pub struct ripdpi_diagnostics_contracts::Diagnosis
 pub ripdpi_diagnostics_contracts::Diagnosis::code: alloc::string::String
 pub ripdpi_diagnostics_contracts::Diagnosis::control_validated: core::option::Option<bool>
@@ -894,6 +950,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::EngineScanReportWire
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::classifier_version: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::EngineScanReportWire::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::engine_analysis_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::EngineScanReportWire::finished_at: u64
@@ -912,6 +969,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_di
 pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::EngineScanRequestWire
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::circumvention_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::CircumventionTarget>
+pub ripdpi_diagnostics_contracts::EngineScanRequestWire::confirm_good_dpi_evidence: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::diagnostic_tls_keylog_path: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::display_name: alloc::string::String
 pub ripdpi_diagnostics_contracts::EngineScanRequestWire::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DnsTarget>
@@ -1021,6 +1079,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanProgress> for ripdpi_
 pub fn ripdpi_diagnostics_contracts::EngineProgressWire::from(ripdpi_diagnostics_contracts::ScanProgress) -> Self
 pub struct ripdpi_diagnostics_contracts::ScanReport
 pub ripdpi_diagnostics_contracts::ScanReport::classifier_version: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::ScanReport::confirm_good_dpi_verdict: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict>
 pub ripdpi_diagnostics_contracts::ScanReport::diagnoses: alloc::vec::Vec<ripdpi_diagnostics_contracts::Diagnosis>
 pub ripdpi_diagnostics_contracts::ScanReport::engine_analysis_version: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ScanReport::finished_at: u64
@@ -1038,6 +1097,7 @@ impl core::convert::From<ripdpi_diagnostics_contracts::ScanReport> for ripdpi_di
 pub fn ripdpi_diagnostics_contracts::EngineScanReportWire::from(ripdpi_diagnostics_contracts::ScanReport) -> Self
 pub struct ripdpi_diagnostics_contracts::ScanRequest
 pub ripdpi_diagnostics_contracts::ScanRequest::circumvention_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::CircumventionTarget>
+pub ripdpi_diagnostics_contracts::ScanRequest::confirm_good_dpi_evidence: core::option::Option<ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence>
 pub ripdpi_diagnostics_contracts::ScanRequest::diagnostic_tls_keylog_path: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ScanRequest::display_name: alloc::string::String
 pub ripdpi_diagnostics_contracts::ScanRequest::dns_targets: alloc::vec::Vec<ripdpi_diagnostics_contracts::DnsTarget>
@@ -1173,6 +1233,7 @@ pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::rationale: alloc:
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::recommended_proxy_config_json: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::tcp_candidate_id: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::tcp_candidate_label: alloc::string::String
+pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::transport_pivot: core::option::Option<ripdpi_diagnostics_contracts::TransportPivotRecommendation>
 pub struct ripdpi_diagnostics_contracts::StrategyProbeReport
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::audit_assessment: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::completion_kind: ripdpi_diagnostics_contracts::StrategyProbeCompletionKind
@@ -1263,6 +1324,11 @@ pub ripdpi_diagnostics_contracts::ThroughputTarget::port: core::option::Option<u
 pub ripdpi_diagnostics_contracts::ThroughputTarget::runs: usize
 pub ripdpi_diagnostics_contracts::ThroughputTarget::url: alloc::string::String
 pub ripdpi_diagnostics_contracts::ThroughputTarget::window_bytes: usize
+pub struct ripdpi_diagnostics_contracts::TransportPivotRecommendation
+pub ripdpi_diagnostics_contracts::TransportPivotRecommendation::preferred_family: ripdpi_diagnostics_contracts::TransportFamily
+pub ripdpi_diagnostics_contracts::TransportPivotRecommendation::reason_code: alloc::string::String
+pub ripdpi_diagnostics_contracts::TransportPivotRecommendation::selected_relay_role: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::TransportPivotRecommendation::viability: ripdpi_diagnostics_contracts::TransportPivotViability
 pub const ripdpi_diagnostics_contracts::DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32
 pub const ripdpi_diagnostics_contracts::STRATEGY_PROBE_METHODOLOGY_VERSION: &str
 pub type ripdpi_diagnostics_contracts::EngineObservationWire = ripdpi_diagnostics_contracts::ProbeObservation

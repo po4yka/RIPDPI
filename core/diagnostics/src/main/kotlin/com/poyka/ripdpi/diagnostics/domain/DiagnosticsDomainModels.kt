@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.diagnostics.CircumventionTarget
+import com.poyka.ripdpi.diagnostics.ConfirmGoodDpiEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
@@ -91,6 +92,7 @@ internal data class ScanContext(
     val serviceMode: String,
     val contextSnapshot: DiagnosticContextModel,
     val approachSnapshot: StoredApproachSnapshot,
+    val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
 )
 
 internal data class ScanPlan(
@@ -104,6 +106,7 @@ internal data class ScanPlan(
     val throughputTargets: List<ThroughputTarget> = emptyList(),
     val routeProbe: RouteProbeConfig? = null,
     val probeTasks: List<ProbeTask>,
+    val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
 )
 
 internal data class RawScanReport(

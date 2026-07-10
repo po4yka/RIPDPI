@@ -61,6 +61,20 @@ impl RelayRuntime {
         telemetry::build_telemetry(self)
     }
 
+    pub(super) fn profile_catalog_validated(&self) -> bool {
+        ripdpi_xhttp::catalog_validated_tls_profile(
+            &self.config.common.tls_fingerprint_profile,
+            &self.config.common.server_name,
+        )
+    }
+
+    pub(super) fn confirm_good_dpi_eligible(&self) -> bool {
+        matches!(
+            crate::config::RelayKind::from_config(&self.config),
+            crate::config::RelayKind::VlessReality { xhttp: false }
+        ) && self.profile_catalog_validated()
+    }
+
     /// Install a quality observer invoked for every upstream TCP connect
     /// attempt. Replaces any previously installed observer. Delegates to
     /// `RuntimeState::set_quality_observer`.
@@ -131,5 +145,20 @@ impl SocksTelemetry for RelayRuntime {
 
     fn emit_connect_observation(&self, obs: TcpConnectObservation) {
         self.state.emit_connect_observation(obs);
+    }
+
+    fn record_confirm_good_passive_stall(
+        &self,
+        target: &str,
+        application_bytes_sent: u64,
+        application_response_bytes: u64,
+        profile_catalog_validated: bool,
+    ) {
+        self.state.record_confirm_good_passive_stall(
+            target,
+            application_bytes_sent,
+            application_response_bytes,
+            profile_catalog_validated,
+        );
     }
 }

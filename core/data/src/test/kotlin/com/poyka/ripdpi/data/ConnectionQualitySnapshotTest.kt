@@ -52,7 +52,7 @@ class ConnectionQualitySnapshotTest {
             """
             {
               "source": "tunnel",
-              "schemaVersion": 2,
+              "schemaVersion": 3,
               "state": "running",
               "connectionQuality": {
                 "lossPct": 0.5,
@@ -85,7 +85,7 @@ class ConnectionQualitySnapshotTest {
         // #[serde(skip_serializing_if = "Option::is_none")] so an idle runtime
         // emits no key at all. The Kotlin default must keep the snapshot
         // decodable in that case.
-        val json = """{ "source": "tunnel", "schemaVersion": 2, "state": "running" }"""
+        val json = """{ "source": "tunnel", "schemaVersion": 3, "state": "running" }"""
 
         val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
 

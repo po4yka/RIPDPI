@@ -56,6 +56,8 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
         quic_migration_reason,
         pt_runtime_kind: None,
         pt_runtime_state: None,
+        confirm_good_dpi_eligible: runtime.confirm_good_dpi_eligible(),
+        confirm_good_dpi_evidence: runtime.state.confirm_good_dpi_evidence(),
         captured_at: now_ms(),
     }
 }

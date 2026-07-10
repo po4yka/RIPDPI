@@ -147,6 +147,7 @@ internal class DefaultScanContextCollector
                     ?.let { fingerprintHash -> networkEdgePreferenceStore.getPreferredEdgesForRuntime(fingerprintHash) }
                     .orEmpty()
             val contextSnapshot = diagnosticsContextProvider.captureContext()
+            val confirmGoodDpiEvidence = collectConfirmGoodDpiEvidence(intent, networkFingerprint, serviceStateStore)
             val profile = profileCatalog.getProfile(intent.profileId)
             val pathMode =
                 if (intent.executionPolicy.requiresRawPath) {
@@ -176,6 +177,7 @@ internal class DefaultScanContextCollector
                 serviceMode = serviceStatus.second.name,
                 contextSnapshot = contextSnapshot,
                 approachSnapshot = createStoredApproachSnapshot(json, intent.settings, profile, contextSnapshot),
+                confirmGoodDpiEvidence = confirmGoodDpiEvidence,
             )
         }
     }
@@ -241,6 +243,7 @@ internal class DefaultDiagnosticsPlanner
                 throughputTargets = throughputTargets,
                 routeProbe = intent.routeProbe,
                 probeTasks = probeTasks,
+                confirmGoodDpiEvidence = context.confirmGoodDpiEvidence,
             )
         }
     }

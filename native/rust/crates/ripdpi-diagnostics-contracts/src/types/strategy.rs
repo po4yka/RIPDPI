@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::types::TransportPivotRecommendation;
+
 pub const STRATEGY_PROBE_METHODOLOGY_VERSION: &str = "strategy_learning_v3";
 
 fn default_strategy_probe_methodology_version() -> String {
@@ -125,6 +127,8 @@ pub struct StrategyProbeRecommendation {
     pub quic_candidate_layout_family: Option<String>,
     pub rationale: String,
     pub recommended_proxy_config_json: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transport_pivot: Option<TransportPivotRecommendation>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]

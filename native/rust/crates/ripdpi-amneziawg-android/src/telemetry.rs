@@ -12,10 +12,10 @@ use serde::Serialize;
 use crate::registry;
 
 /// Runtime-telemetry payload schema version emitted on every snapshot.
-const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
+const SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 
 const IDLE_TELEMETRY_JSON: &str =
-    "{\"source\":\"amneziawg\",\"schemaVersion\":2,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
+    "{\"source\":\"amneziawg\",\"schemaVersion\":3,\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -120,7 +120,7 @@ mod tests {
             native_events: vec![],
         };
         let value = serde_json::to_value(&snapshot).expect("serialize snapshot");
-        assert_eq!(value["schemaVersion"], serde_json::json!(2));
+        assert_eq!(value["schemaVersion"], serde_json::json!(3));
         assert_eq!(value["source"], serde_json::json!("amneziawg"));
         assert_eq!(value["state"], serde_json::json!("running"));
         assert_eq!(value["listenerAddress"], serde_json::json!("127.0.0.1:11090"));

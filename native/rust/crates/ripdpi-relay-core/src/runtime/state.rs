@@ -8,6 +8,10 @@ use tokio_util::task::TaskTracker;
 
 use crate::backend::RelayBackend;
 use crate::telemetry::TcpConnectObservation;
+use ripdpi_failure_classifier::{
+    ConfirmGoodDpiAccumulator, ConfirmGoodDpiEvidence, ConfirmGoodFlowObservation, ConfirmGoodFlowSource,
+    ConfirmGoodTerminalReason,
+};
 
 pub(super) struct RuntimeState {
     stop_requested: AtomicBool,
@@ -21,6 +25,7 @@ pub(super) struct RuntimeState {
     last_handshake_error: ArcSwapOption<String>,
     quality_observer: Mutex<Option<Arc<dyn Fn(TcpConnectObservation) + Send + Sync>>>,
     readiness_observer: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
+    confirm_good_dpi: Mutex<ConfirmGoodDpiAccumulator>,
     /// Parent cancellation token. `request_stop` cancels it so every in-flight
     /// SOCKS5 session — racing its `child_token().cancelled()` future against
     /// the session work — wakes promptly and unwinds instead of leaking its
@@ -45,6 +50,7 @@ impl RuntimeState {
             last_handshake_error: ArcSwapOption::empty(),
             quality_observer: Mutex::new(None),
             readiness_observer: Mutex::new(None),
+            confirm_good_dpi: Mutex::new(ConfirmGoodDpiAccumulator::default()),
             shutdown_token: CancellationToken::new(),
             session_tracker: TaskTracker::new(),
         }
@@ -180,6 +186,40 @@ impl RuntimeState {
         }
     }
 
+    pub(super) fn record_confirm_good_passive_stall(
+        &self,
+        target: &str,
+        application_bytes_sent: u64,
+        application_response_bytes: u64,
+        profile_catalog_validated: bool,
+    ) {
+        let now_ms = crate::telemetry::now_ms();
+        if let Ok(mut accumulator) = self.confirm_good_dpi.lock() {
+            accumulator.record(
+                ConfirmGoodFlowObservation {
+                    network_scope: "relay-runtime".to_string(),
+                    target_digest: ripdpi_xhttp::reality_target_digest(target),
+                    observed_at_ms: now_ms,
+                    source: ConfirmGoodFlowSource::Passive,
+                    classic_vless_reality: true,
+                    profile_catalog_validated,
+                    reality_handshake_completed: true,
+                    application_bytes_sent,
+                    application_response_bytes,
+                    terminal_reason: ConfirmGoodTerminalReason::PassiveTimeout,
+                },
+                now_ms,
+            );
+        }
+    }
+
+    pub(super) fn confirm_good_dpi_evidence(&self) -> Option<ConfirmGoodDpiEvidence> {
+        self.confirm_good_dpi
+            .lock()
+            .ok()
+            .and_then(|mut accumulator| accumulator.candidate_evidence(crate::telemetry::now_ms()))
+    }
+
     /// Install a readiness observer fired exactly once when the runtime has
     /// bound its listener and is about to serve. Replaces any previously
     /// installed observer. The adapter layer wires this to a native readiness
@@ -217,6 +257,16 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     use super::*;
+
+    #[test]
+    fn target_digest_never_exposes_the_target() {
+        let target = "private.example:443";
+        let digest = ripdpi_xhttp::reality_target_digest(target);
+
+        assert_eq!(digest.len(), 64);
+        assert!(!digest.contains(target));
+        assert_eq!(digest, ripdpi_xhttp::reality_target_digest(target));
+    }
 
     /// Smoke: observer is invoked when `emit_connect_observation` is called.
     #[test]

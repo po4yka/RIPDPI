@@ -122,6 +122,11 @@ class DiagnosticsWireContractTest {
                     cooldownUntil = 2600,
                 ),
             strategyProbeReport = buildSampleStrategyProbeReport(dnsShortCircuitRationale),
+            confirmGoodDpiVerdict =
+                ConfirmGoodDpiVerdict(
+                    status = ConfirmGoodDpiVerdictStatus.SUSPECTED,
+                    evidence = confirmGoodEvidence(),
+                ),
             engineAnalysisVersion = "1.0",
             classifierVersion = "1.0",
             packVersions = mapOf("core" to 1),
@@ -161,6 +166,13 @@ class DiagnosticsWireContractTest {
                     quicCandidateLabel = "Current QUIC strategy",
                     rationale = "Resolver override recommended",
                     recommendedProxyConfigJson = "{}",
+                    transportPivot =
+                        TransportPivotRecommendation(
+                            reasonCode = "confirm_good_dpi_suspected",
+                            preferredFamily = TransportFamily.UDP_QUIC,
+                            viability = TransportPivotViability.CONFIRMED,
+                            selectedRelayRole = "hysteria2",
+                        ),
                 ),
             completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
             auditAssessment =
@@ -198,6 +210,17 @@ class DiagnosticsWireContractTest {
                     domainHosts = listOf("www.youtube.com", "discord.com"),
                     quicHosts = listOf("www.youtube.com"),
                 ),
+        )
+
+    private fun confirmGoodEvidence() =
+        ConfirmGoodDpiEvidence(
+            source = ConfirmGoodDpiEvidenceSource.MIXED,
+            stalledFlowCount = 2,
+            distinctTargetCount = 2,
+            catalogProfileValidated = true,
+            realityHandshakeConfirmed = true,
+            applicationResponseBytes = 0,
+            quicControlSucceeded = true,
         )
 
     private fun extractFieldPaths(

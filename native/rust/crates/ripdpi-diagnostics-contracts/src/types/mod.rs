@@ -1,9 +1,11 @@
+mod confirm_good;
 mod observation;
 mod request;
 mod scan;
 mod strategy;
 mod target;
 
+pub use confirm_good::*;
 pub use observation::*;
 pub use request::*;
 pub use scan::*;

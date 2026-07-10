@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::types::{Diagnosis, ProbeDetail, ScanPathMode, StrategyProbeReport};
+use crate::types::{ConfirmGoodDpiVerdict, Diagnosis, ProbeDetail, ScanPathMode, StrategyProbeReport};
 
 use super::{EngineObservationWire, ResolverRecommendationWire};
 
@@ -34,6 +34,8 @@ pub struct EngineScanReportWire {
     pub resolver_recommendation: Option<ResolverRecommendationWire>,
     #[serde(default)]
     pub strategy_probe_report: Option<StrategyProbeReport>,
+    #[serde(default)]
+    pub confirm_good_dpi_verdict: Option<ConfirmGoodDpiVerdict>,
     #[serde(default)]
     pub observations: Vec<EngineObservationWire>,
     #[serde(default)]

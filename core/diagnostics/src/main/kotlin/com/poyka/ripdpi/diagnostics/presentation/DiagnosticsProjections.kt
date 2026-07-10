@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.presentation
 
+import com.poyka.ripdpi.diagnostics.ConfirmGoodDpiVerdict
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
@@ -43,6 +44,7 @@ data class DiagnosticsSessionProjection(
     val strategyRecommendation: StrategyRecommendation? = null,
     val directModeVerdict: DirectModeVerdict? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
+    val confirmGoodDpiVerdict: ConfirmGoodDpiVerdict? = null,
     val observations: List<ObservationFact> = emptyList(),
     val engineAnalysisVersion: String? = null,
     val diagnoses: List<Diagnosis> = emptyList(),

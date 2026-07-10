@@ -13,8 +13,13 @@ class DiagnosticsEngineSchemaValidationTest {
     @Test
     fun `report decoder requires current schema version`() {
         val body =
-            """{"schemaVersion":3,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH","startedAt":1,"finishedAt":2,"summary":"ok"}"""
-        val missing = body.replace("\"schemaVersion\":3,", "")
+            """
+            {
+                "schemaVersion":4,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH",
+                "startedAt":1,"finishedAt":2,"summary":"ok"
+            }
+            """.trimIndent()
+        val missing = body.replace("\"schemaVersion\":4,", "")
 
         assertEquals(DiagnosticsEngineSchemaVersion, json.decodeEngineScanReportWire(body).schemaVersion)
         assertThrows(SerializationException::class.java) { json.decodeEngineScanReportWire(missing) }
@@ -23,27 +28,37 @@ class DiagnosticsEngineSchemaValidationTest {
     @Test
     fun `report decoder rejects old and future schema versions`() {
         val body =
-            """{"schemaVersion":2,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH","startedAt":1,"finishedAt":2,"summary":"old"}"""
+            """
+            {
+                "schemaVersion":3,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH",
+                "startedAt":1,"finishedAt":2,"summary":"old"
+            }
+            """.trimIndent()
 
         assertThrows(IllegalArgumentException::class.java) { json.decodeEngineScanReportWire(body) }
         assertThrows(IllegalArgumentException::class.java) {
-            json.decodeEngineScanReportWire(body.replace("\"schemaVersion\":2", "\"schemaVersion\":4"))
+            json.decodeEngineScanReportWire(body.replace("\"schemaVersion\":3", "\"schemaVersion\":5"))
         }
     }
 
     @Test
     fun `progress decoder requires current schema version`() {
         val body =
-            """{"schemaVersion":3,"sessionId":"s","phase":"RUNNING","completedSteps":0,"totalSteps":1,"message":"wait"}"""
-        val missing = body.replace("\"schemaVersion\":3,", "")
+            """
+            {
+                "schemaVersion":4,"sessionId":"s","phase":"RUNNING",
+                "completedSteps":0,"totalSteps":1,"message":"wait"
+            }
+            """.trimIndent()
+        val missing = body.replace("\"schemaVersion\":4,", "")
 
         assertEquals(DiagnosticsEngineSchemaVersion, json.decodeEngineProgressWire(body).schemaVersion)
         assertThrows(SerializationException::class.java) { json.decodeEngineProgressWire(missing) }
         assertThrows(IllegalArgumentException::class.java) {
-            json.decodeEngineProgressWire(body.replace("\"schemaVersion\":3", "\"schemaVersion\":2"))
+            json.decodeEngineProgressWire(body.replace("\"schemaVersion\":4", "\"schemaVersion\":3"))
         }
         assertThrows(IllegalArgumentException::class.java) {
-            json.decodeEngineProgressWire(body.replace("\"schemaVersion\":3", "\"schemaVersion\":4"))
+            json.decodeEngineProgressWire(body.replace("\"schemaVersion\":4", "\"schemaVersion\":5"))
         }
     }
 }

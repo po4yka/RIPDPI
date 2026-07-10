@@ -64,7 +64,7 @@ where
     telemetry.record_target(target.to_string());
 
     match command {
-        0x01 => handle_connect(client, backend, target, telemetry, cancel).await,
+        0x01 => handle_connect(client, backend, target, config.confirm_good_eligible, telemetry, cancel).await,
         0x03 => handle_udp_associate(client, backend, config, telemetry, cancel).await,
         _ => {
             write_reply(&mut client, 0x07, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;

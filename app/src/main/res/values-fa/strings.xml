@@ -4069,4 +4069,8 @@ fakeddisorder endhost</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
+    <string name="diagnostics_confirm_good_dpi_summary">احتمال DPI از نوع confirm-good: دست‌دهی‌های Reality موفق بودند، اما دادهٔ قابل استفاده دریافت نشد.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_reality">دو جریان متفاوت Reality پس از دست‌دهی متوقف شدند.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">آزمون QUIC در همان شبکه موفق بود.</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">از یک رلهٔ آزموده‌شدهٔ UDP/QUIC استفاده کنید. تغییر اثرانگشت TLS احتمالاً کمکی نمی‌کند.</string>
 </resources>

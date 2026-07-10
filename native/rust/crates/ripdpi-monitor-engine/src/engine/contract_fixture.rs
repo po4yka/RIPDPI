@@ -62,6 +62,7 @@ fn parity_fixture_plan() -> super::runtime::ExecutionPlan {
         whitelist_sni: Vec::new(),
         telegram_target: None,
         strategy_probe: None,
+        confirm_good_dpi_evidence: None,
         network_snapshot: None,
         route_probe: None,
         scan_deadline_ms: None,
@@ -214,6 +215,7 @@ fn connectivity_partial_report_request() -> ScanRequest {
         whitelist_sni: vec!["fixture.example.test".to_string()],
         telegram_target: None,
         strategy_probe: None,
+        confirm_good_dpi_evidence: None,
         network_snapshot: Some(ripdpi_monitor_adapter::proxy_config::NetworkSnapshot {
             transport: "wifi".to_string(),
             validated: true,

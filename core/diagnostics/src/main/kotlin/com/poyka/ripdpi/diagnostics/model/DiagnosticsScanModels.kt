@@ -463,6 +463,7 @@ data class ScanRequest(
     val whitelistSni: List<String> = emptyList(),
     val telegramTarget: TelegramTarget? = null,
     val strategyProbe: StrategyProbeRequest? = null,
+    val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
     val networkSnapshot: NativeNetworkSnapshot? = null,
     val routeProbe: RouteProbeConfig? = null,
 )
@@ -585,6 +586,7 @@ data class ScanReport(
     val strategyRecommendation: StrategyRecommendation? = null,
     val directModeVerdict: DirectModeVerdict? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
+    val confirmGoodDpiVerdict: ConfirmGoodDpiVerdict? = null,
     val observations: List<ObservationFact> = emptyList(),
     val engineAnalysisVersion: String? = null,
     val diagnoses: List<Diagnosis> = emptyList(),
@@ -736,4 +738,5 @@ data class StrategyProbeRecommendation(
     val tlsPathSuppressed: Boolean = false,
     val tlsPathSuppressionReason: String? = null,
     val tlsPathSuppressionSummary: String? = null,
+    val transportPivot: TransportPivotRecommendation? = null,
 )

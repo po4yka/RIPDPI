@@ -4064,4 +4064,8 @@ Origen: %2$s</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
+    <string name="diagnostics_confirm_good_dpi_summary">Posible DPI de confirmación positiva: los handshakes de Reality terminaron, pero no llegaron datos útiles.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_reality">Dos flujos Reality distintos se bloquearon después del handshake.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">Una prueba QUIC en la misma red tuvo éxito.</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">Usa un relé UDP/QUIC comprobado. Cambiar la huella TLS probablemente no ayudará.</string>
 </resources>

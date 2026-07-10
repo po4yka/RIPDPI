@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use ripdpi_telemetry::recorder::RecorderSnapshot;
 use serde::{Deserialize, Serialize};
 
-use crate::types::{Diagnosis, ProbeObservation, ScanPathMode, StrategyProbeReport};
+use crate::types::{ConfirmGoodDpiVerdict, Diagnosis, ProbeObservation, ScanPathMode, StrategyProbeReport};
 
 use super::result::ProbeResult;
 
@@ -29,6 +29,8 @@ pub struct ScanReport {
     pub pack_versions: BTreeMap<String, u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub strategy_probe_report: Option<StrategyProbeReport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confirm_good_dpi_verdict: Option<ConfirmGoodDpiVerdict>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metrics_summary: Option<RecorderSnapshot>,
 }

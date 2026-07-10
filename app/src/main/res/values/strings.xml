@@ -4193,4 +4193,8 @@ Source: %2$s</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
+    <string name="diagnostics_confirm_good_dpi_summary">Possible confirm-good DPI: Reality handshakes succeeded, but usable data never arrived.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_reality">Two distinct Reality flows stalled after the handshake.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">A same-network QUIC control succeeded.</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">Use a tested UDP/QUIC relay. Changing TLS fingerprints is unlikely to help.</string>
 </resources>

@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod block_detection;
+mod confirm_good;
 mod connection_freeze;
 mod dns;
 pub mod field_classifier;
@@ -27,6 +28,11 @@ pub use types::{
     IpBlockVerdict,
 };
 pub use {
+    confirm_good::{
+        CONFIRM_GOOD_EVIDENCE_WINDOW_MS, CONFIRM_GOOD_MAX_OBSERVATIONS, ConfirmGoodDpiAccumulator,
+        ConfirmGoodDpiEvidence, ConfirmGoodEvidenceSource, ConfirmGoodFlowObservation, ConfirmGoodFlowSource,
+        ConfirmGoodTerminalReason,
+    },
     connection_freeze::classify_connection_freeze,
     dns::confirm_dns_tampering,
     transport_policy_cache::{

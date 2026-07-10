@@ -270,8 +270,10 @@ internal object DiagnosticsScanWorkflow {
         val suppression = detectTlsPathSuppression(settings, winningTcpCandidate)
         val preferences = decodeRipDpiProxyUiPreferences(baseRecommendation.recommendedProxyConfigJson)
 
+        val inputsPresent =
+            baseRecommendation.transportPivot == null && preferences != null
         val validInputs =
-            if (preferences != null && winningTcpCandidate != null && winningQuicCandidate != null) {
+            if (inputsPresent && winningTcpCandidate != null && winningQuicCandidate != null) {
                 val laneFamilies = preferences.deriveStrategyLaneFamilies(activeDns = activeDns)
                 val familiesMatch =
                     laneFamilyMatches(

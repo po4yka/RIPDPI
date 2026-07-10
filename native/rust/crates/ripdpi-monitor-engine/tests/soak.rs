@@ -264,6 +264,7 @@ fn scan_request(manifest: &FixtureManifest, http_port: u16) -> ScanRequest {
         whitelist_sni: vec![manifest.fixture_domain.clone()],
         telegram_target: None,
         strategy_probe: None,
+        confirm_good_dpi_evidence: None,
         network_snapshot: None,
         route_probe: None,
         scan_deadline_ms: None,

@@ -104,7 +104,7 @@ class NativeRuntimeSnapshotTest {
         // Rust build that adds a snapshot field must not break an older app build.
         val json =
             """
-            { "source": "proxy", "schemaVersion": 2, "state": "running", "futureUnknownSnapshotField": 42 }
+            { "source": "proxy", "schemaVersion": 3, "state": "running", "futureUnknownSnapshotField": 42 }
             """.trimIndent()
 
         val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
@@ -119,7 +119,7 @@ class NativeRuntimeSnapshotTest {
             """
             {
               "source": "proxy",
-              "schemaVersion": 2,
+              "schemaVersion": 3,
               "nativeEvents": [
                 { "source": "proxy", "level": "info", "message": "ready",
                   "createdAt": 1, "futureEventField": "x" }
@@ -141,7 +141,7 @@ class NativeRuntimeSnapshotTest {
             """
             {
               "source": "proxy",
-              "schemaVersion": 2,
+              "schemaVersion": 3,
               "nativeEvents": [
                 { "source": "proxy", "level": "info", "message": "m",
                   "createdAt": 2, "kind": "future_event_kind_v2" }
@@ -163,7 +163,7 @@ class NativeRuntimeSnapshotTest {
             """
             {
               "source": "proxy",
-              "schemaVersion": 2,
+              "schemaVersion": 3,
               "directPathLearningSignals": [
                 { "authority": "example.org:443", "ipSetDigest": "deadbeef",
                   "event": "FUTURE_DIRECT_PATH_EVENT_V2", "capturedAt": 99 }
@@ -231,7 +231,7 @@ class NativeRuntimeSnapshotTest {
 
     @Test
     fun `snapshot with explicit schemaVersion decodes that value`() {
-        val json = """{ "source": "proxy", "state": "running", "schemaVersion": 2 }"""
+        val json = """{ "source": "proxy", "state": "running", "schemaVersion": 3 }"""
 
         val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
 
@@ -244,7 +244,7 @@ class NativeRuntimeSnapshotTest {
         // Unknown additive fields remain tolerated within the current schema.
         val json =
             """
-            { "source": "proxy", "state": "running", "schemaVersion": 2,
+            { "source": "proxy", "state": "running", "schemaVersion": 3,
               "futureUnknownSnapshotField": 42 }
             """.trimIndent()
 
@@ -261,7 +261,7 @@ class NativeRuntimeSnapshotTest {
         // telemetry-channel surface for those counters.
         val json =
             """
-            { "source": "amneziawg", "schemaVersion": 2, "state": "running",
+            { "source": "amneziawg", "schemaVersion": 3, "state": "running",
               "wsCarrierHandshakes": 4, "wsCarrierHandshakeFailures": 1 }
             """.trimIndent()
 
@@ -275,7 +275,7 @@ class NativeRuntimeSnapshotTest {
     fun `ws carrier handshake counters default to zero when absent`() {
         // Current native producers may omit the optional counters; the
         // defaulted Kotlin fields keep the snapshot decodable at 0.
-        val json = """{ "source": "amneziawg", "schemaVersion": 2, "state": "running" }"""
+        val json = """{ "source": "amneziawg", "schemaVersion": 3, "state": "running" }"""
 
         val decoded = forwardCompatJson.decodeFromString(NativeRuntimeSnapshot.serializer(), json)
 
@@ -293,7 +293,7 @@ class NativeRuntimeSnapshotTest {
 
         assertTrue(
             "expected schemaVersion in $encoded",
-            encoded.contains("\"schemaVersion\":2"),
+            encoded.contains("\"schemaVersion\":3"),
         )
     }
 

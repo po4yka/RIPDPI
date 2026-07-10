@@ -4092,4 +4092,8 @@ fakeddisorder endhost</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
+    <string name="diagnostics_confirm_good_dpi_summary">احتمال وجود DPI من نوع confirm-good: اكتملت مصافحات Reality ولكن لم تصل بيانات قابلة للاستخدام.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_reality">توقف مساران مختلفان من Reality بعد المصافحة.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">نجح اختبار QUIC على الشبكة نفسها.</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">استخدم مرحّل UDP/QUIC مختبراً. من غير المرجح أن يساعد تغيير بصمة TLS.</string>
 </resources>

@@ -4064,4 +4064,8 @@ Source : %2$s</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
+    <string name="diagnostics_confirm_good_dpi_summary">DPI confirm-good possible : les négociations Reality ont réussi, mais aucune donnée utile n’est arrivée.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_reality">Deux flux Reality distincts se sont bloqués après la négociation.</string>
+    <string name="diagnostics_confirm_good_dpi_evidence_quic">Un contrôle QUIC sur le même réseau a réussi.</string>
+    <string name="diagnostics_confirm_good_dpi_recommendation">Utilisez un relais UDP/QUIC testé. Changer l’empreinte TLS ne devrait pas aider.</string>
 </resources>

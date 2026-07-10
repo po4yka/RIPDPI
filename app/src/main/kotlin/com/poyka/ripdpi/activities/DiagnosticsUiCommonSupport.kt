@@ -76,10 +76,16 @@ internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
     reportResults: List<com.poyka.ripdpi.diagnostics.ProbeResult> = emptyList(),
 ): DiagnosticsProbeResultUiModel = core.toProbeResultUiModel(index, pathMode, result, reportResults)
 
-internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis): DiagnosticsDiagnosisUiModel =
-    DiagnosticsDiagnosisUiModel(
+internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis): DiagnosticsDiagnosisUiModel {
+    val isConfirmGood = diagnosis.code == "confirm_good_dpi_suspected"
+    return DiagnosticsDiagnosisUiModel(
         code = diagnosis.code,
-        summary = diagnosis.summary,
+        summary =
+            if (isConfirmGood) {
+                context.getString(R.string.diagnostics_confirm_good_dpi_summary)
+            } else {
+                diagnosis.summary
+            },
         severity = diagnosis.severity,
         target = diagnosis.target,
         tone =
@@ -89,9 +95,23 @@ internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis
                 "positive", "ok" -> DiagnosticsTone.Positive
                 else -> DiagnosticsTone.Info
             },
-        evidence = diagnosis.evidence,
-        recommendation = diagnosis.recommendation,
+        evidence =
+            if (isConfirmGood) {
+                listOf(
+                    context.getString(R.string.diagnostics_confirm_good_dpi_evidence_reality),
+                    context.getString(R.string.diagnostics_confirm_good_dpi_evidence_quic),
+                )
+            } else {
+                diagnosis.evidence
+            },
+        recommendation =
+            if (isConfirmGood) {
+                context.getString(R.string.diagnostics_confirm_good_dpi_recommendation)
+            } else {
+                diagnosis.recommendation
+            },
     )
+}
 
 internal fun DiagnosticsUiFactorySupport.toRememberedNetworkUiModel(
     policy: DiagnosticsRememberedPolicy,
