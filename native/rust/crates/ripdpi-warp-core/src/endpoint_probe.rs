@@ -25,6 +25,9 @@ pub enum WarpProbeError {
     Resolve(std::io::Error),
     /// A configured key (private or peer-public) could not be decoded.
     InvalidKey(&'static str),
+    /// The configured AWG parameters are blocked by an active platform
+    /// compatibility policy.
+    Compatibility { s3: i32, s4: i32 },
     /// The WireGuard handshake initiation could not be produced.
     Handshake(String),
     /// A socket or datagram I/O operation failed.
@@ -38,6 +41,9 @@ impl std::fmt::Display for WarpProbeError {
         match self {
             Self::Resolve(error) => write!(f, "resolve WARP endpoint: {error}"),
             Self::InvalidKey(which) => write!(f, "invalid WARP {which}"),
+            Self::Compatibility { s3, s4 } => {
+                write!(f, "AmneziaWG S3/S4 are incompatible with Android arm64 (S3={s3}, S4={s4})")
+            }
             Self::Handshake(detail) => write!(f, "WARP handshake initiation failed: {detail}"),
             Self::Io(error) => write!(f, "WARP probe I/O: {error}"),
             Self::Timeout => f.write_str("WARP endpoint probe timed out"),
@@ -49,7 +55,7 @@ impl std::error::Error for WarpProbeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Resolve(error) | Self::Io(error) => Some(error),
-            Self::InvalidKey(_) | Self::Handshake(_) | Self::Timeout => None,
+            Self::InvalidKey(_) | Self::Compatibility { .. } | Self::Handshake(_) | Self::Timeout => None,
         }
     }
 }
@@ -67,7 +73,12 @@ pub async fn probe_endpoint_with_platform(
     let peer_public_key =
         decode_key(&request.peer_public_key).map_err(|_| WarpProbeError::InvalidKey("peer public key"))?;
     let reserved = reserved_bytes_from_client_id(request.client_id.as_deref());
-    let amnezia = build_awg_codec(&request.amnezia, &request.amnezia.special_junk_hex());
+    let amnezia = build_awg_codec(&request.amnezia, &request.amnezia.special_junk_hex()).map_err(|error| {
+        let crate::amneziawg::AwgParamsError::Arm64S34VersionFloor { s3, s4 } = error else {
+            unreachable!("build_awg_codec only propagates compatibility errors");
+        };
+        WarpProbeError::Compatibility { s3, s4 }
+    })?;
     // Fail-closed on a malformed PSK rather than silently probing without it:
     // a probe that succeeds without the PSK the live tunnel will use is a false
     // positive. An empty PSK (the WARP default) is `None`, not an error.

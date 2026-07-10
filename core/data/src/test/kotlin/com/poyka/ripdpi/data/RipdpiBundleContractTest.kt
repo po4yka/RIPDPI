@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
@@ -40,6 +41,7 @@ class RipdpiBundleContractTest {
     private val schema: JsonObject get() = json.parseToJsonElement(resource(SCHEMA)).jsonObject
     private val example: JsonObject get() = json.parseToJsonElement(resource(EXAMPLE)).jsonObject
     private val golden: JsonObject get() = json.parseToJsonElement(resource(GOLDEN)).jsonObject
+    private val awgArm64Floor: JsonObject get() = json.parseToJsonElement(resource(AWG_ARM64_FLOOR)).jsonObject
 
     // -------------------------------------------------------------------------
     // Cross-repo drift pin: the vendored schema's contract version must equal
@@ -56,6 +58,19 @@ class RipdpiBundleContractTest {
                 .jsonObject["const"]!!
                 .jsonPrimitive.int
         assertEquals(SingBoxSubscriptionParser.RIPDPI_SCHEMA_VERSION, constVersion)
+    }
+
+    @Test
+    fun `arm64 S3-S4 policy remains fail closed without a verified floor`() {
+        assertEquals(true, awgArm64Floor["guard_required"]!!.jsonPrimitive.content.toBoolean())
+        assertTrue(awgArm64Floor["candidate_safe_floor"] is JsonNull)
+        assertTrue(awgArm64Floor["verified_safe_floor"] is JsonNull)
+        assertEquals(
+            "v0.2.18",
+            awgArm64Floor["ripdpi_reference"]!!
+                .jsonObject["upstream_semantics_version"]!!
+                .jsonPrimitive.content,
+        )
     }
 
     // -------------------------------------------------------------------------
@@ -223,6 +238,7 @@ class RipdpiBundleContractTest {
         const val EXAMPLE = "/contract/ripdpi-bundle.example.json"
         const val GOLDEN = "/contract/cohort-fingerprint.golden.json"
         const val GOLDEN_FULL = "/contract/ripdpi-bundle.golden-full.json"
+        const val AWG_ARM64_FLOOR = "/contract/amneziawg-arm64-version-floor.json"
         const val NEGATIVE_DIR = "/contract/negative"
     }
 }

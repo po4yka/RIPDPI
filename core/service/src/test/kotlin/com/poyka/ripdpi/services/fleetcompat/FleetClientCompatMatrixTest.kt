@@ -210,6 +210,7 @@ class FleetClientCompatMatrixTest {
                 CompatDimension.CUSTOM_FOREGROUND_SERVICE_RESILIENCE,
                 CompatDimension.CUSTOM_NO_LOG_SECRETS,
                 CompatDimension.CUSTOM_PROFILE_SIGNATURE_EXPIRY_REVOCATION,
+                CompatDimension.CUSTOM_AWG_ARM64_S34_VERSION_FLOOR,
             )
         assertEquals(required, custom)
     }

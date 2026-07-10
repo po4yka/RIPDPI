@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "policy_id": "amneziawg-arm64-s3-s4-version-floor",
+  "guard_required": true,
+  "candidate_safe_floor": null,
+  "verified_safe_floor": null,
+  "expected_issue_states": [
+    {
+      "repository": "amnezia-vpn/amneziawg-go",
+      "number": 110,
+      "state": "open",
+      "url": "https://github.com/amnezia-vpn/amneziawg-go/issues/110"
+    },
+    {
+      "repository": "amnezia-vpn/amnezia-client",
+      "number": 2582,
+      "state": "closed",
+      "url": "https://github.com/amnezia-vpn/amnezia-client/issues/2582"
+    }
+  ],
+  "release_watch": {
+    "repository": "amnezia-vpn/amnezia-client",
+    "last_reviewed_release": "4.8.19.0",
+    "direct_references": [
+      "https://github.com/amnezia-vpn/amneziawg-go/issues/110",
+      "amnezia-vpn/amneziawg-go#110",
+      "amneziawg-go#110",
+      "https://github.com/amnezia-vpn/amnezia-client/issues/2582",
+      "amnezia-vpn/amnezia-client#2582",
+      "amnezia-client#2582"
+    ]
+  },
+  "rejected_fix_claim": {
+    "amnezia_client_version": "4.8.12.9",
+    "reason": "A later arm64 Android reproduction confirmed that non-zero S3/S4 still dropped transport data."
+  },
+  "last_confirmed_broken": {
+    "platform": "android-arm64",
+    "amnezia_client_version": "4.8.15.5",
+    "amneziawg_go_version": "v0.2.16"
+  },
+  "ripdpi_reference": {
+    "implementation": "ripdpi-warp-core",
+    "upstream_semantics_version": "v0.2.18"
+  },
+  "known_non_fix_observations": [
+    {
+      "amneziawg_go_version": "v0.2.19",
+      "scope": "empty I1-I5 receive-path handling",
+      "reason": "This does not claim to fix the non-zero S3/S4 arm64 H4 corruption."
+    }
+  ],
+  "revalidation_requirements": [
+    "Use the same server and network path for non-zero S3/S4 and S3=S4=0 control profiles.",
+    "Complete at least three reconnect cycles on physical Android arm64 hardware.",
+    "Verify bidirectional data flow, DNS, and a sustained transfer.",
+    "Capture outbound packets and verify H4 bytes and offsets.",
+    "Record app version, embedded core version and commit, ABI, Android version, and results."
+  ]
+}

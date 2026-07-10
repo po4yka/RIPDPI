@@ -117,6 +117,7 @@ enum class CompatDimension(
     CUSTOM_FOREGROUND_SERVICE_RESILIENCE(DimensionScope.CUSTOM_ANDROID),
     CUSTOM_NO_LOG_SECRETS(DimensionScope.CUSTOM_ANDROID),
     CUSTOM_PROFILE_SIGNATURE_EXPIRY_REVOCATION(DimensionScope.CUSTOM_ANDROID),
+    CUSTOM_AWG_ARM64_S34_VERSION_FLOOR(DimensionScope.CUSTOM_ANDROID),
 }
 
 /** Whether a [CompatDimension] is shared by all clients or scoped to one family. */
@@ -261,6 +262,7 @@ object FleetClientCompatMatrix {
                         CompatDimension.CUSTOM_NO_ALLOW_BYPASS,
                         CompatDimension.CUSTOM_NO_LOG_SECRETS,
                         CompatDimension.CUSTOM_PROFILE_SIGNATURE_EXPIRY_REVOCATION,
+                        CompatDimension.CUSTOM_AWG_ARM64_S34_VERSION_FLOOR,
                     )
                 if (!custom.containsAll(mustHave)) {
                     issues += MatrixValidationIssue(client, "custom Android client missing a fail-closed invariant")

@@ -9,7 +9,7 @@ use super::carrier::WgCarrier;
 use super::keys::{apply_reserved_bytes, decode_key};
 use super::routing::route_protocol;
 use super::socket::bind_tunnel_socket;
-use crate::amneziawg::{AwgParams, AwgWireCodec, rand_u32};
+use crate::amneziawg::{AwgParams, AwgParamsError, AwgWireCodec, rand_u32};
 use crate::config::WarpAmneziaConfig;
 use crate::platform::WarpPlatform;
 use crate::support::MAX_PACKET;
@@ -24,16 +24,29 @@ use crate::virtual_iface::{Bus, Event};
 /// here; empty strings mean unset. An invalid config (e.g. inverted junk range,
 /// colliding headers, malformed `I*` hex) is logged and treated as disabled
 /// rather than failing tunnel construction -- a malformed obfuscation knob must
-/// not take the whole runtime down.
-pub(crate) fn build_awg_codec(cfg: &WarpAmneziaConfig, special_junk_hex: &[&str]) -> Option<AwgWireCodec> {
+/// not take the whole runtime down. Platform compatibility errors are the
+/// exception and propagate so activation fails closed.
+pub(crate) fn build_awg_codec(
+    cfg: &WarpAmneziaConfig,
+    special_junk_hex: &[&str],
+) -> Result<Option<AwgWireCodec>, AwgParamsError> {
+    build_awg_codec_for_platform(cfg, special_junk_hex, cfg!(all(target_os = "android", target_arch = "aarch64")))
+}
+
+fn build_awg_codec_for_platform(
+    cfg: &WarpAmneziaConfig,
+    special_junk_hex: &[&str],
+    is_android_arm64: bool,
+) -> Result<Option<AwgWireCodec>, AwgParamsError> {
     if !cfg.enabled {
-        return None;
+        return Ok(None);
     }
-    match AwgParams::from_config(cfg, special_junk_hex) {
-        Ok(params) => Some(AwgWireCodec::new(params)),
+    match AwgParams::from_config_for_platform(cfg, special_junk_hex, is_android_arm64) {
+        Ok(params) => Ok(Some(AwgWireCodec::new(params))),
+        Err(error @ AwgParamsError::Arm64S34VersionFloor { .. }) => Err(error),
         Err(error) => {
             tracing::warn!("invalid AmneziaWG config, obfuscation disabled: {error}");
-            None
+            Ok(None)
         }
     }
 }
@@ -119,7 +132,7 @@ impl WireGuardTunnel {
             Some(carrier) => carrier,
             None => WgCarrier::Udp(bind_tunnel_socket(endpoint, platform)?),
         };
-        let amnezia = build_awg_codec(amnezia_cfg, &special_junk_hex);
+        let amnezia = build_awg_codec(amnezia_cfg, &special_junk_hex)?;
         Ok(Self { peer: tokio::sync::Mutex::new(peer), carrier, endpoint, source_peer_ip, reserved, amnezia })
     }
 
@@ -303,5 +316,14 @@ mod tests {
         // Decodes cleanly from base64 but yields fewer than 32 bytes.
         let error = build_error(Some("AAAA")).expect("short PSK must fail closed");
         assert!(error.contains("invalid WireGuard preshared key"), "error must be the PSK context, got: {error}");
+    }
+
+    #[test]
+    fn shared_codec_propagates_android_arm64_compatibility_error() {
+        let config = WarpAmneziaConfig { enabled: true, s3: 1, ..WarpAmneziaConfig::default() };
+
+        let result = build_awg_codec_for_platform(&config, &[""; 5], true);
+
+        assert!(matches!(result, Err(AwgParamsError::Arm64S34VersionFloor { s3: 1, s4: 0 })));
     }
 }
