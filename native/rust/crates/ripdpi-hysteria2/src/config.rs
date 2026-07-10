@@ -49,6 +49,7 @@ impl Config {
             salamander_key: None,
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             hop_interval: None,
             min_hop_interval: None,
             max_hop_interval: None,

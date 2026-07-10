@@ -290,7 +290,6 @@ fn resolved_hop_shadowtls_factory(
             reality_short_id: inner.reality_short_id.clone(),
             vless_flow: inner.vless_flow.clone(),
             vless_transport: inner.vless_transport.clone(),
-            vless_flow: inner.vless_flow.clone(),
             xhttp_mode: inner.xhttp_mode.clone(),
             vless_uuid: inner.vless_uuid.clone(),
         },

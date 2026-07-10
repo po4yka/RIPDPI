@@ -19,7 +19,6 @@ fn shadowtls_inner_fixture() -> ResolvedShadowTlsInnerRelayConfig {
         reality_short_id: String::new(),
         vless_flow: "xtls-rprx-vision".to_string(),
         vless_transport: "reality_tcp".to_string(),
-        vless_flow: "xtls-rprx-vision".to_string(),
         xhttp_mode: "auto".to_string(),
         vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
     }

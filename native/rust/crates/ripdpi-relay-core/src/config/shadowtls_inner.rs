@@ -6,6 +6,10 @@ fn default_shadowtls_inner_vless_transport() -> String {
     "reality_tcp".to_string()
 }
 
+fn default_shadowtls_inner_xhttp_mode() -> String {
+    "auto".to_string()
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedShadowTlsInnerRelayConfig {
@@ -20,9 +24,7 @@ pub struct ResolvedShadowTlsInnerRelayConfig {
     pub vless_flow: String,
     #[serde(default = "default_shadowtls_inner_vless_transport")]
     pub vless_transport: String,
-    #[serde(default = "default_vless_flow")]
-    pub vless_flow: String,
-    #[serde(default = "default_xhttp_mode")]
+    #[serde(default = "default_shadowtls_inner_xhttp_mode")]
     pub xhttp_mode: String,
     pub vless_uuid: Option<String>,
 }

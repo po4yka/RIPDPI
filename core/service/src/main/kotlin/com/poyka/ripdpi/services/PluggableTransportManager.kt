@@ -206,7 +206,6 @@ open class PluggableTransportManager
                         redactedValues = listOf(bridgeLine.cert),
                         commandArguments = emptyList(),
                         environment = managedTransportEnvironment(config, methodName = RelayKindObfs4),
-                        redactedValues = listOf(bridgeLine.cert),
                         managedClientBridge =
                             ManagedClientSocksBridgeSpec(
                                 methodName = RelayKindObfs4,

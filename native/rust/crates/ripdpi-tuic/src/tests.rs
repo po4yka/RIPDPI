@@ -27,6 +27,7 @@ fn unsupported_congestion_control_fails_before_connect() {
         udp_enabled: true,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         keepalive_interval_ms: 0,
         root_certificate_pem: None,
     };
