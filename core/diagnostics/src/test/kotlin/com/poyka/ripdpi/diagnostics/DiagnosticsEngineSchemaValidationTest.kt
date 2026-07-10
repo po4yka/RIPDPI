@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.diagnostics.contract.engine.DiagnosticsEngineSchemaVersion
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -10,33 +11,39 @@ class DiagnosticsEngineSchemaValidationTest {
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
-    fun `report decoder accepts current and missing schema versions`() {
+    fun `report decoder requires current schema version`() {
         val body =
-            """{"sessionId":"s","profileId":"p","pathMode":"RAW_PATH","startedAt":1,"finishedAt":2,"summary":"ok"}"""
+            """{"schemaVersion":3,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH","startedAt":1,"finishedAt":2,"summary":"ok"}"""
+        val missing = body.replace("\"schemaVersion\":3,", "")
 
         assertEquals(DiagnosticsEngineSchemaVersion, json.decodeEngineScanReportWire(body).schemaVersion)
-        assertEquals(
-            DiagnosticsEngineSchemaVersion,
-            json.decodeEngineScanReportWire(body.replaceFirst("{", "{\"schemaVersion\":2,")).schemaVersion,
-        )
+        assertThrows(SerializationException::class.java) { json.decodeEngineScanReportWire(missing) }
     }
 
     @Test
     fun `report decoder rejects old and future schema versions`() {
         val body =
-            """{"schemaVersion":1,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH","startedAt":1,"finishedAt":2,"summary":"old"}"""
+            """{"schemaVersion":2,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH","startedAt":1,"finishedAt":2,"summary":"old"}"""
 
         assertThrows(IllegalArgumentException::class.java) { json.decodeEngineScanReportWire(body) }
         assertThrows(IllegalArgumentException::class.java) {
-            json.decodeEngineScanReportWire(body.replace("\"schemaVersion\":1", "\"schemaVersion\":3"))
+            json.decodeEngineScanReportWire(body.replace("\"schemaVersion\":2", "\"schemaVersion\":4"))
         }
     }
 
     @Test
-    fun `progress decoder rejects unsupported schema versions`() {
+    fun `progress decoder requires current schema version`() {
         val body =
             """{"schemaVersion":3,"sessionId":"s","phase":"RUNNING","completedSteps":0,"totalSteps":1,"message":"wait"}"""
+        val missing = body.replace("\"schemaVersion\":3,", "")
 
-        assertThrows(IllegalArgumentException::class.java) { json.decodeEngineProgressWire(body) }
+        assertEquals(DiagnosticsEngineSchemaVersion, json.decodeEngineProgressWire(body).schemaVersion)
+        assertThrows(SerializationException::class.java) { json.decodeEngineProgressWire(missing) }
+        assertThrows(IllegalArgumentException::class.java) {
+            json.decodeEngineProgressWire(body.replace("\"schemaVersion\":3", "\"schemaVersion\":2"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            json.decodeEngineProgressWire(body.replace("\"schemaVersion\":3", "\"schemaVersion\":4"))
+        }
     }
 }

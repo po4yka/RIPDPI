@@ -2,12 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::StrategyProbeLiveProgress;
 
-use super::default_schema_version;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineProgressWire {
-    #[serde(default = "default_schema_version")]
     pub schema_version: u32,
     pub session_id: String,
     pub phase: String,

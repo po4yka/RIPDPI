@@ -8,7 +8,7 @@ use crate::types::{
 
 use super::{
     DIAGNOSTICS_ENGINE_SCHEMA_VERSION, EngineProbeResultWire, EngineProgressWire, EngineScanReportWire,
-    ResolverRecommendationWire,
+    EngineScanRequestWire, ResolverRecommendationWire,
 };
 
 #[test]
@@ -21,6 +21,17 @@ fn diagnostics_schema_version_matches_contract_fixture() {
     });
     let actual = serde_json::to_string_pretty(&fixture).expect("serialize");
     assert_contract_fixture("diagnostics_schema_version.json", &actual);
+}
+
+#[test]
+fn diagnostics_wire_payloads_require_schema_version() {
+    let request = serde_json::from_value::<EngineScanRequestWire>(serde_json::json!({}));
+    let report = serde_json::from_value::<EngineScanReportWire>(serde_json::json!({}));
+    let progress = serde_json::from_value::<EngineProgressWire>(serde_json::json!({}));
+
+    for error in [request.unwrap_err(), report.unwrap_err(), progress.unwrap_err()] {
+        assert!(error.to_string().contains("schemaVersion"), "error should name schemaVersion: {error}");
+    }
 }
 
 #[test]

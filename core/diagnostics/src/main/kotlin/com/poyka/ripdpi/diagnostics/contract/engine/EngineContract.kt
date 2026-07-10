@@ -24,11 +24,12 @@ import com.poyka.ripdpi.diagnostics.StrategyRecommendation
 import com.poyka.ripdpi.diagnostics.TcpTarget
 import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
+import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
-// v2: added the DOH_JSON_SURVEY probe family / engine stage. Must stay in sync
-// with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
-const val DiagnosticsEngineSchemaVersion = 2
+// v3: requires an explicit current-only schemaVersion envelope. Must stay in
+// sync with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
+const val DiagnosticsEngineSchemaVersion = 3
 
 @Serializable
 enum class EngineProbeTaskFamily {
@@ -52,6 +53,7 @@ data class EngineProbeTaskWire(
 
 @Serializable
 data class EngineScanRequestWire(
+    @Required
     val schemaVersion: Int = DiagnosticsEngineSchemaVersion,
     val profileId: String,
     val displayName: String,
@@ -92,6 +94,7 @@ data class EngineProbeResultWire(
 
 @Serializable
 data class EngineScanReportWire(
+    @Required
     val schemaVersion: Int = DiagnosticsEngineSchemaVersion,
     val sessionId: String,
     val profileId: String,
@@ -114,6 +117,7 @@ data class EngineScanReportWire(
 
 @Serializable
 data class EngineProgressWire(
+    @Required
     val schemaVersion: Int = DiagnosticsEngineSchemaVersion,
     val sessionId: String,
     val phase: String,

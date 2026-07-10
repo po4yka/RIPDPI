@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{Diagnosis, ProbeDetail, ScanPathMode, StrategyProbeReport};
 
-use super::{EngineObservationWire, ResolverRecommendationWire, default_schema_version};
+use super::{EngineObservationWire, ResolverRecommendationWire};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,7 +21,6 @@ pub struct EngineProbeResultWire {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineScanReportWire {
-    #[serde(default = "default_schema_version")]
     pub schema_version: u32,
     pub session_id: String,
     pub profile_id: String,

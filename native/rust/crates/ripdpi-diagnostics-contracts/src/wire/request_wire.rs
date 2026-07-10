@@ -5,12 +5,11 @@ use crate::types::{
     ScanPathMode, ServiceTarget, StrategyProbeRequest, TcpTarget, TelegramTarget, ThroughputTarget,
 };
 
-use super::{EngineProbeTaskWire, default_diagnostic_profile_family, default_scan_kind, default_schema_version};
+use super::{EngineProbeTaskWire, default_diagnostic_profile_family, default_scan_kind};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineScanRequestWire {
-    #[serde(default = "default_schema_version")]
     pub schema_version: u32,
     pub profile_id: String,
     pub display_name: String,

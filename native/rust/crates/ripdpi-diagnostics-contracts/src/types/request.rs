@@ -63,6 +63,7 @@ mod tests {
     #[test]
     fn scan_request_preserves_diagnostic_tls_keylog_path_through_wire_conversion() {
         let json = r#"{
+            "schemaVersion": 3,
             "profileId": "test",
             "displayName": "Test",
             "pathMode": "RAW_PATH",
