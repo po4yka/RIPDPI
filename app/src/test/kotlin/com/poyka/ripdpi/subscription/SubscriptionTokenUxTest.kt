@@ -2,6 +2,7 @@ package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -110,9 +111,10 @@ class SubscriptionTokenUxTest {
             classifyRefreshFailure(httpCode = 410, url = "https://secret.example.com/sub/x"),
         )
         assertEquals(SubscriptionRefreshFailure.REVOKED, classifyRefreshFailure(httpCode = 403, url = "u"))
+        assertEquals(SubscriptionRefreshFailure.UNAVAILABLE, classifyRefreshFailure(httpCode = 404, url = "u"))
         assertEquals(SubscriptionRefreshFailure.RATE_LIMITED, classifyRefreshFailure(httpCode = 429, url = "u"))
-        assertEquals(SubscriptionRefreshFailure.UNREACHABLE, classifyRefreshFailure(httpCode = null, url = "u"))
-        assertEquals(SubscriptionRefreshFailure.UNREACHABLE, classifyRefreshFailure(httpCode = 500, url = "u"))
+        assertEquals(SubscriptionRefreshFailure.NETWORK_ERROR, classifyRefreshFailure(httpCode = null, url = "u"))
+        assertEquals(SubscriptionRefreshFailure.SERVER_ERROR, classifyRefreshFailure(httpCode = 500, url = "u"))
     }
 
     @Test

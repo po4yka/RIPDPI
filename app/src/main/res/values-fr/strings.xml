@@ -4068,4 +4068,19 @@ Source : %2$s</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Deux flux Reality distincts se sont bloqués après la négociation.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">Un contrôle QUIC sur le même réseau a réussi.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">Utilisez un relais UDP/QUIC testé. Changer l’empreinte TLS ne devrait pas aider.</string>
+    <string name="subscription_signal_notification_channel">État de l’abonnement</string>
+    <string name="subscription_signal_notification_title">L’abonnement nécessite votre attention</string>
+    <string name="subscription_signal_notification_expired">%1$s a expiré. Les relais enregistrés sont peut-être obsolètes.</string>
+    <string name="subscription_signal_notification_revoked">%1$s a été révoqué. Les relais enregistrés risquent de ne plus fonctionner.</string>
+    <string name="subscription_signal_notification_unavailable">%1$s est indisponible. Les relais enregistrés sont peut-être obsolètes.</string>
+    <string name="subscription_signal_notification_stale">Impossible d’actualiser %1$s. Les relais enregistrés sont peut-être obsolètes.</string>
+    <string name="subscription_signal_banner_expired_title">Abonnement expiré</string>
+    <string name="subscription_signal_banner_revoked_title">Abonnement révoqué</string>
+    <string name="subscription_signal_banner_unavailable_title">Abonnement indisponible</string>
+    <string name="subscription_signal_banner_stale_title">Le groupe de relais est peut-être obsolète</string>
+    <string name="subscription_signal_banner_multiple_message">%1$d abonnements nécessitent votre attention. Les relais enregistrés sont peut-être obsolètes.</string>
+    <plurals name="subscription_signal_notification_multiple">
+        <item quantity="one">%d abonnement nécessite votre attention. Les relais enregistrés sont peut-être obsolètes.</item>
+        <item quantity="other">%d abonnements nécessitent votre attention. Les relais enregistrés sont peut-être obsolètes.</item>
+    </plurals>
 </resources>

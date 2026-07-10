@@ -4057,4 +4057,18 @@ fake_burst 3</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">两个不同的 Reality 流在握手后停滞。</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">同一网络上的 QUIC 对照测试成功。</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">请使用经过测试的 UDP/QUIC 中继。更改 TLS 指纹不太可能有帮助。</string>
+    <string name="subscription_signal_notification_channel">订阅状态</string>
+    <string name="subscription_signal_notification_title">订阅需要处理</string>
+    <string name="subscription_signal_notification_expired">%1$s 已过期。缓存的中继节点可能已过时。</string>
+    <string name="subscription_signal_notification_revoked">%1$s 已被撤销。缓存的中继节点可能无法继续使用。</string>
+    <string name="subscription_signal_notification_unavailable">%1$s 不可用。缓存的中继节点可能已过时。</string>
+    <string name="subscription_signal_notification_stale">无法刷新 %1$s。缓存的中继节点可能已过时。</string>
+    <string name="subscription_signal_banner_expired_title">订阅已过期</string>
+    <string name="subscription_signal_banner_revoked_title">订阅已撤销</string>
+    <string name="subscription_signal_banner_unavailable_title">订阅不可用</string>
+    <string name="subscription_signal_banner_stale_title">中继池可能已过时</string>
+    <string name="subscription_signal_banner_multiple_message">%1$d 个订阅需要处理。缓存的中继节点可能已过时。</string>
+    <plurals name="subscription_signal_notification_multiple">
+        <item quantity="other">%d 个订阅需要处理。缓存的中继节点可能已过时。</item>
+    </plurals>
 </resources>

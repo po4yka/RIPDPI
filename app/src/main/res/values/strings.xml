@@ -4197,4 +4197,19 @@ Source: %2$s</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Two distinct Reality flows stalled after the handshake.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">A same-network QUIC control succeeded.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">Use a tested UDP/QUIC relay. Changing TLS fingerprints is unlikely to help.</string>
+    <string name="subscription_signal_notification_channel">Subscription status</string>
+    <string name="subscription_signal_notification_title">Subscription needs attention</string>
+    <string name="subscription_signal_notification_expired">%1$s has expired. Cached relay entries may be outdated.</string>
+    <string name="subscription_signal_notification_revoked">%1$s was revoked. Cached relay entries may no longer work.</string>
+    <string name="subscription_signal_notification_unavailable">%1$s is unavailable. Cached relay entries may be outdated.</string>
+    <string name="subscription_signal_notification_stale">%1$s could not refresh. Cached relay entries may be stale.</string>
+    <string name="subscription_signal_banner_expired_title">Subscription expired</string>
+    <string name="subscription_signal_banner_revoked_title">Subscription revoked</string>
+    <string name="subscription_signal_banner_unavailable_title">Subscription unavailable</string>
+    <string name="subscription_signal_banner_stale_title">Relay pool may be stale</string>
+    <string name="subscription_signal_banner_multiple_message">%1$d subscriptions need attention. Cached relay entries may be outdated.</string>
+    <plurals name="subscription_signal_notification_multiple">
+        <item quantity="one">%d subscription needs attention. Cached relay entries may be outdated.</item>
+        <item quantity="other">%d subscriptions need attention. Cached relay entries may be outdated.</item>
+    </plurals>
 </resources>

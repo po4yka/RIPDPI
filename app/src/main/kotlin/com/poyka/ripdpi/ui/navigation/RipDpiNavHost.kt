@@ -484,7 +484,9 @@ private fun NavGraphBuilder.addHomeRoute(
 }
 
 private fun NavGraphBuilder.addSubscriptionFailoverRoute(navController: NavHostController) {
-    composable<Route.SubscriptionFailover> {
+    composable<Route.SubscriptionFailover>(
+        deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://subscription-failover" }),
+    ) {
         SubscriptionFailoverRoute(onBack = { navController.popBackStack() })
     }
 }

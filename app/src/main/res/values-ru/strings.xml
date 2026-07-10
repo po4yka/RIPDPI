@@ -4211,4 +4211,21 @@ fakeddisorder endhost</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Два разных соединения Reality зависли после рукопожатия.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">Контрольная проверка QUIC в той же сети прошла успешно.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">Используйте проверенный UDP/QUIC-ретранслятор. Смена TLS-отпечатка вряд ли поможет.</string>
+    <string name="subscription_signal_notification_channel">Состояние подписки</string>
+    <string name="subscription_signal_notification_title">Подписка требует внимания</string>
+    <string name="subscription_signal_notification_expired">Срок действия %1$s истёк. Сохранённые ретрансляторы могут устареть.</string>
+    <string name="subscription_signal_notification_revoked">Подписка %1$s отозвана. Сохранённые ретрансляторы могут больше не работать.</string>
+    <string name="subscription_signal_notification_unavailable">Подписка %1$s недоступна. Сохранённые ретрансляторы могут устареть.</string>
+    <string name="subscription_signal_notification_stale">Не удалось обновить %1$s. Пул сохранённых ретрансляторов может устареть.</string>
+    <string name="subscription_signal_banner_expired_title">Срок подписки истёк</string>
+    <string name="subscription_signal_banner_revoked_title">Подписка отозвана</string>
+    <string name="subscription_signal_banner_unavailable_title">Подписка недоступна</string>
+    <string name="subscription_signal_banner_stale_title">Пул ретрансляторов может быть устаревшим</string>
+    <string name="subscription_signal_banner_multiple_message">%1$d подписок требуют внимания. Сохранённые ретрансляторы могут устареть.</string>
+    <plurals name="subscription_signal_notification_multiple">
+        <item quantity="one">%d подписка требует внимания. Сохранённые ретрансляторы могут устареть.</item>
+        <item quantity="few">%d подписки требуют внимания. Сохранённые ретрансляторы могут устареть.</item>
+        <item quantity="many">%d подписок требуют внимания. Сохранённые ретрансляторы могут устареть.</item>
+        <item quantity="other">%d подписки требуют внимания. Сохранённые ретрансляторы могут устареть.</item>
+    </plurals>
 </resources>

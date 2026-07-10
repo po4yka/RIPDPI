@@ -4073,4 +4073,19 @@ fakeddisorder endhost</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">دو جریان متفاوت Reality پس از دست‌دهی متوقف شدند.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">آزمون QUIC در همان شبکه موفق بود.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">از یک رلهٔ آزموده‌شدهٔ UDP/QUIC استفاده کنید. تغییر اثرانگشت TLS احتمالاً کمکی نمی‌کند.</string>
+    <string name="subscription_signal_notification_channel">وضعیت اشتراک</string>
+    <string name="subscription_signal_notification_title">اشتراک نیاز به بررسی دارد</string>
+    <string name="subscription_signal_notification_expired">اعتبار %1$s تمام شده است. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</string>
+    <string name="subscription_signal_notification_revoked">%1$s لغو شده است. رله‌های ذخیره‌شده ممکن است دیگر کار نکنند.</string>
+    <string name="subscription_signal_notification_unavailable">%1$s در دسترس نیست. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</string>
+    <string name="subscription_signal_notification_stale">به‌روزرسانی %1$s انجام نشد. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</string>
+    <string name="subscription_signal_banner_expired_title">اشتراک منقضی شده است</string>
+    <string name="subscription_signal_banner_revoked_title">اشتراک لغو شده است</string>
+    <string name="subscription_signal_banner_unavailable_title">اشتراک در دسترس نیست</string>
+    <string name="subscription_signal_banner_stale_title">مجموعهٔ رله‌ها ممکن است قدیمی باشد</string>
+    <string name="subscription_signal_banner_multiple_message">%1$d اشتراک نیاز به بررسی دارند. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</string>
+    <plurals name="subscription_signal_notification_multiple">
+        <item quantity="one">%d اشتراک نیاز به بررسی دارد. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</item>
+        <item quantity="other">%d اشتراک نیاز به بررسی دارند. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</item>
+    </plurals>
 </resources>

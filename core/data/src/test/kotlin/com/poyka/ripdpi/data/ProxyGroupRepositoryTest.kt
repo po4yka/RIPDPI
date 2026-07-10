@@ -46,6 +46,35 @@ class ProxyGroupRepositoryTest {
         }
 
     @Test
+    fun `atomic subscription update preserves concurrent group fields`() =
+        runTest {
+            val repository = newRepository()
+            repository.add(
+                group("g1").copy(
+                    type = ProxyGroupType.SUBSCRIPTION,
+                    subscription = Subscription(autoUpdate = true),
+                ),
+            )
+            repository.update(
+                group(
+                    "g1",
+                ).copy(
+                    name = "renamed",
+                    type = ProxyGroupType.SUBSCRIPTION,
+                    subscription = Subscription(autoUpdate = true),
+                ),
+            )
+
+            repository.updateSubscription("g1") {
+                it.copy(lastRefreshFailure = SubscriptionRefreshFailure.NETWORK_ERROR)
+            }
+
+            val stored = repository.list().single()
+            assertEquals("renamed", stored.name)
+            assertEquals(SubscriptionRefreshFailure.NETWORK_ERROR, stored.subscription?.lastRefreshFailure)
+        }
+
+    @Test
     fun `delete removes a group`() =
         runTest {
             val repository = newRepository()

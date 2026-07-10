@@ -391,6 +391,7 @@ dependencies {
     testImplementation(libs.bundles.unit.test)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.okhttp.mockwebserver)
     testImplementation(project(":core:diagnostics-data"))
     androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.test.ext.junit)

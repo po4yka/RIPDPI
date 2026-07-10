@@ -4068,4 +4068,19 @@ Quelle: %2$s</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Zwei verschiedene Reality-Verbindungen blieben nach dem Handshake stehen.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">Eine QUIC-Kontrollprüfung im selben Netzwerk war erfolgreich.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">Verwende einen getesteten UDP/QUIC-Relay. Eine andere TLS-Signatur hilft wahrscheinlich nicht.</string>
+    <string name="subscription_signal_notification_channel">Abonnementstatus</string>
+    <string name="subscription_signal_notification_title">Abonnement erfordert Aufmerksamkeit</string>
+    <string name="subscription_signal_notification_expired">%1$s ist abgelaufen. Gespeicherte Relays könnten veraltet sein.</string>
+    <string name="subscription_signal_notification_revoked">%1$s wurde widerrufen. Gespeicherte Relays funktionieren möglicherweise nicht mehr.</string>
+    <string name="subscription_signal_notification_unavailable">%1$s ist nicht verfügbar. Gespeicherte Relays könnten veraltet sein.</string>
+    <string name="subscription_signal_notification_stale">%1$s konnte nicht aktualisiert werden. Gespeicherte Relays könnten veraltet sein.</string>
+    <string name="subscription_signal_banner_expired_title">Abonnement abgelaufen</string>
+    <string name="subscription_signal_banner_revoked_title">Abonnement widerrufen</string>
+    <string name="subscription_signal_banner_unavailable_title">Abonnement nicht verfügbar</string>
+    <string name="subscription_signal_banner_stale_title">Relay-Pool könnte veraltet sein</string>
+    <string name="subscription_signal_banner_multiple_message">%1$d Abonnements erfordern Aufmerksamkeit. Gespeicherte Relays könnten veraltet sein.</string>
+    <plurals name="subscription_signal_notification_multiple">
+        <item quantity="one">%d Abonnement erfordert Aufmerksamkeit. Gespeicherte Relays könnten veraltet sein.</item>
+        <item quantity="other">%d Abonnements erfordern Aufmerksamkeit. Gespeicherte Relays könnten veraltet sein.</item>
+    </plurals>
 </resources>

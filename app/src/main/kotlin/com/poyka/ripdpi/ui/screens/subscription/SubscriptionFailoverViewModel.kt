@@ -6,9 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.SubscriptionClientSignal
+import com.poyka.ripdpi.data.actionableSubscriptionSignals
 import com.poyka.ripdpi.platform.StringResolver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,11 +30,23 @@ data class SubscriptionFailoverUiState(
     val summary: String = "",
     val lastCheck: String = "",
     val activeServerLabel: String = "",
+    val subscriptionAlert: SubscriptionAlertUiState? = null,
     val servers: List<SubscriptionServerUiState> = emptyList(),
     val events: List<SubscriptionFailoverEventUiState> = emptyList(),
 ) {
     val hasServers: Boolean
         get() = servers.isNotEmpty()
+}
+
+data class SubscriptionAlertUiState(
+    val title: String,
+    val message: String,
+    val tone: SubscriptionAlertTone,
+)
+
+enum class SubscriptionAlertTone {
+    ERROR,
+    WARNING,
 }
 
 data class SubscriptionServerUiState(
@@ -61,15 +77,21 @@ class SubscriptionFailoverViewModel
     @Inject
     constructor(
         serviceStateStore: ServiceStateStore,
+        proxyGroupRepository: ProxyGroupRepository,
         private val relayProfileStore: RelayProfileStore,
         private val stringResolver: StringResolver,
     ) : ViewModel() {
         private val profiles = MutableStateFlow<List<RelayProfileRecord>>(emptyList())
 
         val uiState: StateFlow<SubscriptionFailoverUiState> =
-            combine(profiles, serviceStateStore.telemetry) { relayProfiles, telemetry ->
+            combine(
+                profiles,
+                serviceStateStore.telemetry,
+                proxyGroupRepository.groups(),
+            ) { relayProfiles, telemetry, groups ->
                 SubscriptionFailoverMapper.toUiState(
                     profiles = relayProfiles,
+                    groups = groups,
                     snapshot = telemetry.relayTelemetry,
                     nowMillis = System.currentTimeMillis(),
                     strings = stringResolver,
@@ -97,13 +119,15 @@ internal object SubscriptionFailoverMapper {
 
     fun toUiState(
         profiles: List<RelayProfileRecord>,
+        groups: List<ProxyGroup>,
         snapshot: NativeRuntimeSnapshot,
         nowMillis: Long,
         strings: StringResolver,
     ): SubscriptionFailoverUiState {
+        val subscriptionAlert = subscriptionAlert(groups, nowMillis, strings)
         val orderedProfiles = profiles.sortedBy { it.id }
         if (orderedProfiles.isEmpty()) {
-            return emptyUiState(strings)
+            return emptyUiState(strings).copy(subscriptionAlert = subscriptionAlert)
         }
         val activeIndex =
             orderedProfiles
@@ -143,6 +167,7 @@ internal object SubscriptionFailoverMapper {
                     activePosition,
                     activeProfile.displayLabel(),
                 ),
+            subscriptionAlert = subscriptionAlert,
             servers =
                 orderedProfiles.mapIndexed { index, profile ->
                     val isActive = index == activeIndex
@@ -323,3 +348,60 @@ internal object SubscriptionFailoverMapper {
             "route change",
         )
 }
+
+private fun subscriptionAlert(
+    groups: List<ProxyGroup>,
+    nowMillis: Long,
+    strings: StringResolver,
+): SubscriptionAlertUiState? {
+    val signals = actionableSubscriptionSignals(groups, nowMillis)
+    return if (signals.isEmpty()) {
+        null
+    } else {
+        val highestSignal = signals.first().second
+        val tone =
+            if (highestSignal == SubscriptionClientSignal.STALE) {
+                SubscriptionAlertTone.WARNING
+            } else {
+                SubscriptionAlertTone.ERROR
+            }
+        if (signals.size > 1) {
+            SubscriptionAlertUiState(
+                title = strings.getString(highestSignal.titleResource),
+                message = strings.getString(R.string.subscription_signal_banner_multiple_message, signals.size),
+                tone = tone,
+            )
+        } else {
+            singleSubscriptionAlert(signals.single(), tone, strings)
+        }
+    }
+}
+
+private fun singleSubscriptionAlert(
+    affected: Pair<ProxyGroup, SubscriptionClientSignal>,
+    tone: SubscriptionAlertTone,
+    strings: StringResolver,
+): SubscriptionAlertUiState {
+    val (group, signal) = affected
+    val message =
+        when (signal) {
+            SubscriptionClientSignal.EXPIRED -> R.string.subscription_signal_notification_expired
+            SubscriptionClientSignal.REVOKED -> R.string.subscription_signal_notification_revoked
+            SubscriptionClientSignal.UNAVAILABLE -> R.string.subscription_signal_notification_unavailable
+            SubscriptionClientSignal.STALE -> R.string.subscription_signal_notification_stale
+        }
+    return SubscriptionAlertUiState(
+        title = strings.getString(signal.titleResource),
+        message = strings.getString(message, group.name),
+        tone = tone,
+    )
+}
+
+private val SubscriptionClientSignal.titleResource: Int
+    get() =
+        when (this) {
+            SubscriptionClientSignal.EXPIRED -> R.string.subscription_signal_banner_expired_title
+            SubscriptionClientSignal.REVOKED -> R.string.subscription_signal_banner_revoked_title
+            SubscriptionClientSignal.UNAVAILABLE -> R.string.subscription_signal_banner_unavailable_title
+            SubscriptionClientSignal.STALE -> R.string.subscription_signal_banner_stale_title
+        }

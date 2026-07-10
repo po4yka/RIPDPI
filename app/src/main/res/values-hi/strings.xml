@@ -1824,4 +1824,19 @@ fakeddisorder endhost</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">दो अलग Reality प्रवाह हैंडशेक के बाद रुक गए।</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">उसी नेटवर्क पर QUIC नियंत्रण सफल रहा।</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">परीक्षित UDP/QUIC रिले का उपयोग करें। TLS फिंगरप्रिंट बदलने से शायद मदद नहीं मिलेगी।</string>
+    <string name="subscription_signal_notification_channel">सदस्यता की स्थिति</string>
+    <string name="subscription_signal_notification_title">सदस्यता पर ध्यान देना आवश्यक है</string>
+    <string name="subscription_signal_notification_expired">%1$s की समय-सीमा समाप्त हो गई है। सहेजे गए रिले पुराने हो सकते हैं।</string>
+    <string name="subscription_signal_notification_revoked">%1$s रद्द कर दिया गया है। सहेजे गए रिले अब काम नहीं कर सकते हैं।</string>
+    <string name="subscription_signal_notification_unavailable">%1$s उपलब्ध नहीं है। सहेजे गए रिले पुराने हो सकते हैं।</string>
+    <string name="subscription_signal_notification_stale">%1$s रीफ़्रेश नहीं हो सका। सहेजे गए रिले पुराने हो सकते हैं।</string>
+    <string name="subscription_signal_banner_expired_title">सदस्यता की समय-सीमा समाप्त</string>
+    <string name="subscription_signal_banner_revoked_title">सदस्यता रद्द की गई</string>
+    <string name="subscription_signal_banner_unavailable_title">सदस्यता उपलब्ध नहीं है</string>
+    <string name="subscription_signal_banner_stale_title">रिले पूल पुराना हो सकता है</string>
+    <string name="subscription_signal_banner_multiple_message">%1$d सदस्यताओं पर ध्यान देना आवश्यक है। सहेजे गए रिले पुराने हो सकते हैं।</string>
+    <plurals name="subscription_signal_notification_multiple">
+        <item quantity="one">%d सदस्यता पर ध्यान देना आवश्यक है। सहेजे गए रिले पुराने हो सकते हैं।</item>
+        <item quantity="other">%d सदस्यताओं पर ध्यान देना आवश्यक है। सहेजे गए रिले पुराने हो सकते हैं।</item>
+    </plurals>
 </resources>

@@ -17,6 +17,8 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.feedback.WarningBanner
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -51,6 +53,18 @@ fun SubscriptionFailoverScreen(
         onNavigationClick = onBack,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.SubscriptionFailover)),
     ) {
+        uiState.subscriptionAlert?.let { alert ->
+            WarningBanner(
+                title = alert.title,
+                message = alert.message,
+                tone =
+                    when (alert.tone) {
+                        SubscriptionAlertTone.ERROR -> WarningBannerTone.Error
+                        SubscriptionAlertTone.WARNING -> WarningBannerTone.Warning
+                    },
+                testTag = RipDpiTestTags.SubscriptionLifecycleBanner,
+            )
+        }
         SubscriptionFailoverSummary(uiState)
         if (uiState.hasServers) {
             uiState.servers.forEach { server ->
@@ -174,6 +188,12 @@ fun previewSubscriptionFailoverUiState(): SubscriptionFailoverUiState =
         summary = "server 2/4 up · switched to backup · last check 30s ago",
         lastCheck = "last check 30s ago",
         activeServerLabel = "Server 2: backup.example.net",
+        subscriptionAlert =
+            SubscriptionAlertUiState(
+                title = "Relay pool may be stale",
+                message = "Disposable VPS pool could not refresh. Cached relay entries may be stale.",
+                tone = SubscriptionAlertTone.WARNING,
+            ),
         servers =
             listOf(
                 SubscriptionServerUiState(

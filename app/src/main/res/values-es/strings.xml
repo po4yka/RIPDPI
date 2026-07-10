@@ -4068,4 +4068,19 @@ Origen: %2$s</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Dos flujos Reality distintos se bloquearon después del handshake.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">Una prueba QUIC en la misma red tuvo éxito.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">Usa un relé UDP/QUIC comprobado. Cambiar la huella TLS probablemente no ayudará.</string>
+    <string name="subscription_signal_notification_channel">Estado de la suscripción</string>
+    <string name="subscription_signal_notification_title">La suscripción requiere atención</string>
+    <string name="subscription_signal_notification_expired">%1$s ha caducado. Los relés guardados pueden estar desactualizados.</string>
+    <string name="subscription_signal_notification_revoked">Se revocó %1$s. Es posible que los relés guardados ya no funcionen.</string>
+    <string name="subscription_signal_notification_unavailable">%1$s no está disponible. Los relés guardados pueden estar desactualizados.</string>
+    <string name="subscription_signal_notification_stale">No se pudo actualizar %1$s. Los relés guardados pueden estar obsoletos.</string>
+    <string name="subscription_signal_banner_expired_title">Suscripción caducada</string>
+    <string name="subscription_signal_banner_revoked_title">Suscripción revocada</string>
+    <string name="subscription_signal_banner_unavailable_title">Suscripción no disponible</string>
+    <string name="subscription_signal_banner_stale_title">El grupo de relés puede estar obsoleto</string>
+    <string name="subscription_signal_banner_multiple_message">%1$d suscripciones requieren atención. Los relés guardados pueden estar desactualizados.</string>
+    <plurals name="subscription_signal_notification_multiple">
+        <item quantity="one">%d suscripción requiere atención. Los relés guardados pueden estar desactualizados.</item>
+        <item quantity="other">%d suscripciones requieren atención. Los relés guardados pueden estar desactualizados.</item>
+    </plurals>
 </resources>

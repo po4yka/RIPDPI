@@ -2,9 +2,11 @@ package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 
 /** HTTP status codes that classify a subscription refresh failure. */
 private const val HttpForbidden = 403
+private const val HttpNotFound = 404
 private const val HttpGone = 410
 private const val HttpTooManyRequests = 429
 
@@ -118,27 +120,6 @@ private val uuidRegex =
 private fun extractUuid(line: String): String? = uuidRegex.find(line)?.value?.lowercase()
 
 /**
- * Typed classification of a subscription refresh failure.
- *
- * Each variant is a bare enum constant carrying no URL or token, so a failure
- * can be surfaced to the user and logged without leaking the subscription
- * source.
- */
-enum class SubscriptionRefreshFailure {
-    /** The subscription token or credential window has expired (HTTP 410). */
-    EXPIRED,
-
-    /** The subscription token was revoked server-side (HTTP 403). */
-    REVOKED,
-
-    /** The provider is rate-limiting refreshes (HTTP 429). */
-    RATE_LIMITED,
-
-    /** The subscription host was unreachable, or answered an unexpected code. */
-    UNREACHABLE,
-}
-
-/**
  * Classifies a refresh failure from its [httpCode] (or `null` for a transport
  * failure). [url] is accepted only so callers do not have to strip it before
  * calling — it is never read into the result, which keeps the URL out of logs
@@ -152,6 +133,12 @@ fun classifyRefreshFailure(
     when (httpCode) {
         HttpGone -> SubscriptionRefreshFailure.EXPIRED
         HttpForbidden -> SubscriptionRefreshFailure.REVOKED
+        HttpNotFound -> SubscriptionRefreshFailure.UNAVAILABLE
         HttpTooManyRequests -> SubscriptionRefreshFailure.RATE_LIMITED
-        else -> SubscriptionRefreshFailure.UNREACHABLE
+        null -> SubscriptionRefreshFailure.NETWORK_ERROR
+        in HttpServerErrorStart..HttpServerErrorEnd -> SubscriptionRefreshFailure.SERVER_ERROR
+        else -> SubscriptionRefreshFailure.UNAVAILABLE
     }
+
+private const val HttpServerErrorStart = 500
+private const val HttpServerErrorEnd = 599

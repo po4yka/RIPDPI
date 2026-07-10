@@ -73,7 +73,11 @@ data class Subscription(
     val subscriptionUserinfo: String = "",
     val bytesUsed: Long = 0L,
     val bytesRemaining: Long = 0L,
+    /** Unix epoch seconds from the `Subscription-Userinfo` `expire` field; `0` means unknown. */
     val expiryDate: Long = 0L,
+    val lifecycleState: SubscriptionLifecycleState = SubscriptionLifecycleState.UNKNOWN,
+    val lastRefreshAttemptAtEpochMillis: Long = 0L,
+    val lastRefreshFailure: SubscriptionRefreshFailure? = null,
     val kind: SubscriptionKind = SubscriptionKind.LONG_LIVED,
     val consumedAt: Long? = null,
 ) {
@@ -411,6 +415,27 @@ interface ProxyGroupRepository {
     /** Replaces the stored group sharing [ProxyGroup.id] with [group]. */
     suspend fun update(group: ProxyGroup)
 
+    /** Atomically transforms [id] in production storage and returns the stored result, or `null` when absent. */
+    suspend fun updateGroup(
+        id: String,
+        transform: (ProxyGroup) -> ProxyGroup,
+    ): ProxyGroup? {
+        val current = list().firstOrNull { it.id == id } ?: return null
+        val updated = transform(current)
+        update(updated)
+        return updated
+    }
+
+    /** Atomically updates only the subscription metadata attached to [id]. */
+    suspend fun updateSubscription(
+        id: String,
+        transform: (Subscription) -> Subscription,
+    ): ProxyGroup? =
+        updateGroup(id) { group ->
+            val subscription = group.subscription ?: return@updateGroup group
+            group.copy(subscription = transform(subscription))
+        }
+
     /** Removes the group identified by [id]. No-op when absent. */
     suspend fun delete(id: String)
 
@@ -460,6 +485,18 @@ class SharedPreferencesProxyGroupRepository
                 writeGroups(next)
             }
         }
+
+        override suspend fun updateGroup(
+            id: String,
+            transform: (ProxyGroup) -> ProxyGroup,
+        ): ProxyGroup? =
+            mutex.withLock {
+                val groups = readGroups()
+                val current = groups.firstOrNull { it.id == id } ?: return@withLock null
+                val updated = transform(current)
+                writeGroups(groups.map { if (it.id == id) updated else it })
+                updated
+            }
 
         override suspend fun delete(id: String) {
             mutex.withLock {

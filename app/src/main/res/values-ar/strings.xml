@@ -4096,4 +4096,22 @@ fakeddisorder endhost</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">توقف مساران مختلفان من Reality بعد المصافحة.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">نجح اختبار QUIC على الشبكة نفسها.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">استخدم مرحّل UDP/QUIC مختبراً. من غير المرجح أن يساعد تغيير بصمة TLS.</string>
+    <string name="subscription_signal_notification_channel">حالة الاشتراك</string>
+    <string name="subscription_signal_notification_title">الاشتراك يحتاج إلى انتباه</string>
+    <string name="subscription_signal_notification_expired">انتهت صلاحية %1$s. قد تكون المرحّلات المحفوظة قديمة.</string>
+    <string name="subscription_signal_notification_revoked">تم إلغاء %1$s. قد لا تعمل المرحّلات المحفوظة بعد الآن.</string>
+    <string name="subscription_signal_notification_unavailable">%1$s غير متاح. قد تكون المرحّلات المحفوظة قديمة.</string>
+    <string name="subscription_signal_notification_stale">تعذّر تحديث %1$s. قد تكون المرحّلات المحفوظة قديمة.</string>
+    <string name="subscription_signal_banner_expired_title">انتهت صلاحية الاشتراك</string>
+    <string name="subscription_signal_banner_revoked_title">تم إلغاء الاشتراك</string>
+    <string name="subscription_signal_banner_unavailable_title">الاشتراك غير متاح</string>
+    <string name="subscription_signal_banner_stale_title">قد تكون مجموعة المرحّلات قديمة</string>
+    <string name="subscription_signal_banner_multiple_message">هناك %1$d اشتراكات تحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</string>
+    <plurals name="subscription_signal_notification_multiple">
+        <item quantity="one">اشتراك واحد يحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+        <item quantity="two">اشتراكان يحتاجان إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+        <item quantity="few">%d اشتراكات تحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+        <item quantity="many">%d اشتراكًا يحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+        <item quantity="other">%d اشتراك يحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
+    </plurals>
 </resources>

@@ -244,6 +244,7 @@ enum class SubscriptionLifecycleState {
     ACTIVE,
     EXPIRED,
     SUSPENDED,
+    UNAVAILABLE,
     UNKNOWN,
 }
 
