@@ -28,6 +28,32 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn from_parts(auth: String, server_host: &str, server_port: i32, server_name: String) -> Result<Self> {
+        if server_host.trim().is_empty() {
+            return Err(HysteriaError::InvalidAddress("missing hysteria host".to_string()));
+        }
+        let port = u16::try_from(server_port)
+            .map_err(|_| HysteriaError::InvalidAddress("hysteria port must fit u16".to_string()))?;
+        let host = server_host.trim();
+        let server_addr = if host.contains(':') && !(host.starts_with('[') && host.ends_with(']')) {
+            format!("[{host}]:{port}")
+        } else {
+            format!("{host}:{port}")
+        };
+        Ok(Self {
+            auth,
+            server_addr,
+            server_name,
+            insecure: false,
+            salamander_key: None,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            hop_interval: None,
+            min_hop_interval: None,
+            max_hop_interval: None,
+        })
+    }
+
     pub fn from_url(url: &str) -> Result<Self> {
         let parsed = url::Url::parse(&url.replace("hysteria2://", "http://"))?;
         let host =
@@ -135,5 +161,15 @@ mod tests {
         let error = Config::from_url("hysteria2://secret@example.com:443/?hopInterval=0")
             .expect_err("zero hop interval must fail");
         assert!(matches!(error, HysteriaError::InvalidAddress(_)));
+    }
+
+    #[test]
+    fn from_parts_preserves_reserved_auth_characters() {
+        let auth = "p@ss:/?#%word".to_string();
+        let config = Config::from_parts(auth.clone(), "2001:db8::1", 443, "cover.example".to_string())
+            .expect("construct config without URL coercion");
+        assert_eq!(auth, config.auth);
+        assert_eq!("[2001:db8::1]:443", config.server_addr);
+        assert_eq!("cover.example", config.server_name);
     }
 }

@@ -8,6 +8,17 @@ use crate::tls::{apply_h2_client_auth, load_client_identity};
 use crate::url::parse_proxy_origin;
 
 pub(crate) fn validate_config(config: &MasqueConfig) -> io::Result<()> {
+    if let Some(mode) = config.auth_mode.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+        match mode.to_ascii_lowercase().as_str() {
+            "bearer" | "token" | "preshared" | "privacy_pass" | "cloudflare_mtls" => {}
+            _ => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("unsupported MASQUE auth mode {mode:?}"),
+                ));
+            }
+        }
+    }
     let _ = parse_proxy_origin(config)?;
     let _ = build_static_auth_header(config)?;
     match config.effective_auth_mode() {

@@ -9,6 +9,16 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     let RelayBackendConfig::ShadowTlsV3(shadowtls) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected ShadowTLS config"));
     };
+    let inner = shadowtls
+        .inner
+        .as_ref()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner relay config"))?;
+    if inner.kind != "vless_reality" || inner.vless_transport != "reality_tcp" {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "ShadowTLS supports only a VLESS Reality TCP inner relay",
+        ));
+    }
     Ok(RelayBackend::ShadowTls(PooledRelayBackend::new(
         ShadowTlsSessionFactory {
             client_config: ripdpi_relay_tls_transports::ShadowTlsClientConfig {
@@ -18,21 +28,18 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
             },
             outer_server: config.common.server.clone(),
             outer_server_port: config.common.server_port,
-            inner: shadowtls
-                .inner
-                .as_ref()
-                .map(|inner| ripdpi_relay_tls_transports::ShadowTlsInnerConfig {
-                    kind: inner.kind.clone(),
-                    server: inner.server.clone(),
-                    server_port: inner.server_port,
-                    server_name: inner.server_name.clone(),
-                    reality_public_key: inner.reality_public_key.clone(),
-                    reality_short_id: inner.reality_short_id.clone(),
-                    vless_flow: inner.vless_flow.clone(),
-                    vless_transport: inner.vless_transport.clone(),
-                    vless_uuid: inner.vless_uuid.clone(),
-                })
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner relay config"))?,
+            inner: ripdpi_relay_tls_transports::ShadowTlsInnerConfig {
+                kind: inner.kind.clone(),
+                server: inner.server.clone(),
+                server_port: inner.server_port,
+                server_name: inner.server_name.clone(),
+                reality_public_key: inner.reality_public_key.clone(),
+                reality_short_id: inner.reality_short_id.clone(),
+                vless_transport: inner.vless_transport.clone(),
+                vless_flow: inner.vless_flow.clone(),
+                xhttp_mode: inner.xhttp_mode.clone(),
+                vless_uuid: inner.vless_uuid.clone(),
+            },
         },
         context.pool_config,
         None,

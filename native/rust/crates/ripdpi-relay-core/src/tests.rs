@@ -277,6 +277,8 @@ async fn relay_endpoint_bootstrap_preserves_shadowtls_outer_and_inner_hostnames(
         reality_short_id: String::new(),
         vless_flow: "xtls-rprx-vision".to_string(),
         vless_transport: "reality_tcp".to_string(),
+        vless_flow: "xtls-rprx-vision".to_string(),
+        xhttp_mode: "auto".to_string(),
         vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
     });
 
@@ -394,6 +396,35 @@ fn vless_xhttp_mode_round_trips_through_flat_native_config() {
 }
 
 #[test]
+fn nested_vless_identity_fields_round_trip_without_coercion() {
+    let inner: ResolvedShadowTlsInnerRelayConfig = serde_json::from_value(serde_json::json!({
+        "kind": "vless_reality",
+        "profileId": "inner",
+        "server": "inner.example",
+        "serverPort": 443,
+        "serverName": "inner.example",
+        "realityPublicKey": "public",
+        "realityShortId": "short",
+        "vlessTransport": "reality_tcp",
+        "vlessFlow": "xtls-rprx-vision-udp443",
+        "xhttpMode": "stream-one",
+        "vlessUuid": "11111111-1111-1111-1111-111111111111"
+    }))
+    .expect("deserialize Kotlin ShadowTLS inner wire config");
+    assert_eq!("xtls-rprx-vision-udp443", inner.vless_flow);
+    assert_eq!("stream-one", inner.xhttp_mode);
+
+    let hop: ResolvedChainRelayHopConfig = serde_json::from_value(serde_json::json!({
+        "kind": "vless_reality",
+        "profileId": "hop",
+        "vlessFlow": "none"
+    }))
+    .expect("deserialize Kotlin chain hop wire config");
+    assert_eq!("none", hop.vless_flow);
+    assert_eq!(serde_json::json!("none"), serde_json::to_value(hop).expect("serialize hop")["vlessFlow"]);
+}
+
+#[test]
 fn chain_relay_heterogeneous_hop_config_round_trips() {
     let mut config = sample_config("chain_relay");
     let chain = chain_config_mut(&mut config);
@@ -460,6 +491,7 @@ async fn chain_relay_builds_vless_entry_masque_exit_from_resolved_hops() {
         server_name: "entry.example".to_string(),
         reality_public_key: valid_reality_public_key(),
         reality_short_id: String::new(),
+        vless_flow: "none".to_string(),
         vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
         ..ResolvedChainRelayHopConfig::default()
     }));
@@ -595,6 +627,7 @@ fn vless_hop(profile_id: &str, port: u16, server_name: &str) -> ResolvedChainRel
         server_name: server_name.to_string(),
         reality_public_key: valid_reality_public_key(),
         reality_short_id: String::new(),
+        vless_flow: "none".to_string(),
         vless_uuid: Some("11111111-1111-1111-1111-111111111111".to_string()),
         ..ResolvedChainRelayHopConfig::default()
     }
@@ -949,6 +982,8 @@ async fn chain_relay_builds_shadowtls_entry_shadowsocks_exit_from_resolved_hops(
             reality_short_id: String::new(),
             vless_flow: "xtls-rprx-vision".to_string(),
             vless_transport: "reality_tcp".to_string(),
+            vless_flow: "xtls-rprx-vision".to_string(),
+            xhttp_mode: "auto".to_string(),
             vless_uuid: Some("33333333-3333-3333-3333-333333333333".to_string()),
         }),
         ..ResolvedChainRelayHopConfig::default()
@@ -998,6 +1033,8 @@ async fn chain_relay_builds_shadowsocks_entry_shadowtls_exit_from_resolved_hops(
             reality_short_id: String::new(),
             vless_flow: "xtls-rprx-vision".to_string(),
             vless_transport: "reality_tcp".to_string(),
+            vless_flow: "xtls-rprx-vision".to_string(),
+            xhttp_mode: "auto".to_string(),
             vless_uuid: Some("44444444-4444-4444-4444-444444444444".to_string()),
         }),
         ..ResolvedChainRelayHopConfig::default()
@@ -1447,6 +1484,8 @@ async fn relay_runtime_builds_shadowtls_backend_with_inner_vless_profile() {
         reality_short_id: String::new(),
         vless_flow: "xtls-rprx-vision".to_string(),
         vless_transport: "reality_tcp".to_string(),
+        vless_flow: "xtls-rprx-vision".to_string(),
+        xhttp_mode: "auto".to_string(),
         vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
     });
 

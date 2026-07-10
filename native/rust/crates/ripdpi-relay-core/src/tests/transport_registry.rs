@@ -191,7 +191,8 @@ fn relay_transport_registry_is_consistent() {
 /// transports fail closed instead of building an inert backend.
 #[tokio::test]
 async fn relay_transport_registry_dispatches_plain_vless_xhttp_only() {
-    let xhttp = sample_config("vless");
+    let mut xhttp = sample_config("vless");
+    plain_vless_config_mut(&mut xhttp).vless_flow = "none".to_string();
     match build_backend(&xhttp).await.expect("plain vless xhttp backend") {
         RelayBackend::Xhttp(_) => {}
         other => panic!("plain vless xhttp must build Xhttp, got {:?}", std::mem::discriminant(&other)),
@@ -219,7 +220,9 @@ async fn relay_transport_registry_dispatches_vless_sub_modes() {
     }
 
     let mut xhttp = reality.clone();
-    vless_config_mut(&mut xhttp).vless_transport = "xhttp".to_string();
+    let vless = vless_config_mut(&mut xhttp);
+    vless.vless_transport = "xhttp".to_string();
+    vless.vless_flow = "none".to_string();
     match build_backend(&xhttp).await.expect("vless xhttp backend") {
         RelayBackend::Xhttp(_) => {}
         other => panic!("xhttp must build Xhttp, got {:?}", std::mem::discriminant(&other)),

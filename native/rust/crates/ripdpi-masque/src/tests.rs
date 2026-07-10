@@ -30,6 +30,16 @@ const BORING_ECH_CONFIG_LIST: &[u8] = &[
     0x68, 0x2e, 0x63, 0x6f, 0x6d, 0x00, 0x00,
 ];
 
+#[test]
+fn unsupported_auth_mode_fails_before_connect() {
+    let mut config = privacy_pass_test_config("https://provider.example/token".to_string(), None);
+    config.auth_mode = Some("silent-fallback".to_string());
+    config.privacy_pass_provider_url = None;
+    let error = MasqueClient::new(config).err().expect("unknown auth mode must not become unauthenticated");
+    assert_eq!(io::ErrorKind::InvalidInput, error.kind());
+    assert!(error.to_string().contains("unsupported MASQUE auth mode"));
+}
+
 fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&str>) -> MasqueConfig {
     MasqueConfig {
         url: "https://masque.example/".to_string(),

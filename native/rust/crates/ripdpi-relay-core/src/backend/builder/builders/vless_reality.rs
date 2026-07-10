@@ -25,12 +25,7 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
     let RelayBackendConfig::VlessReality(vless) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected VLESS Reality config"));
     };
-    // XTLS Vision flow control is only valid over a raw TCP transport. xray-core
-    // rejects `xtls-rprx-vision` carried inside an HTTP/2 (xHTTP) tunnel, and the
-    // xHTTP datapath performs no Vision framing regardless. Force the inner VLESS
-    // request to advertise no flow so a default/Vision profile imported with an
-    // xHTTP transport produces a config the server accepts instead of one that
-    // looks valid but cannot connect.
+    reject_xhttp_flow(&vless.vless_flow)?;
     let vless_config = vless_reality_config(
         &config.common.server,
         config.common.server_port,
@@ -40,8 +35,7 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
         &vless.reality_short_id,
         &vless.vless_flow,
         &config.common.tls_fingerprint_profile,
-    )?
-    .with_flow(ripdpi_vless::addons::VlessFlow::None);
+    )?;
     Ok(RelayBackend::Xhttp(PooledRelayBackend::new(
         XhttpSessionFactory {
             mode: XhttpSessionMode::Reality(ripdpi_xhttp::XhttpRealityConfig {
@@ -58,6 +52,13 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
         context.pool_config,
         None,
     )))
+}
+
+fn reject_xhttp_flow(flow: &str) -> io::Result<()> {
+    match ripdpi_vless::addons::VlessFlow::parse(flow).map_err(invalid_input)? {
+        ripdpi_vless::addons::VlessFlow::None => Ok(()),
+        _ => Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS xHTTP does not support XTLS Vision flow")),
+    }
 }
 
 fn build_reality(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {

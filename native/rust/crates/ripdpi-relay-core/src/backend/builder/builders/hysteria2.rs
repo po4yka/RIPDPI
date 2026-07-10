@@ -15,10 +15,12 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         .as_ref()
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing Hysteria2 password"))?;
-    let mut client_config = ripdpi_hysteria2::Config::from_url(&format!(
-        "hysteria2://{password}@{}:{}/?sni={}",
-        config.common.server, config.common.server_port, config.common.server_name,
-    ))
+    let mut client_config = ripdpi_hysteria2::Config::from_parts(
+        password.clone(),
+        &config.common.server,
+        config.common.server_port,
+        config.common.server_name.clone(),
+    )
     .map_err(to_io_error)?;
     client_config.salamander_key = hysteria.salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
     client_config.insecure = hysteria.insecure;

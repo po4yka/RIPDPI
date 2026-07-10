@@ -21,6 +21,12 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
             "plain VLESS native backend supports only xHTTP transport",
         ));
     }
+    match ripdpi_vless::addons::VlessFlow::parse(&vless.vless_flow).map_err(invalid_input)? {
+        ripdpi_vless::addons::VlessFlow::None => {}
+        _ => {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS xHTTP does not support XTLS Vision flow"));
+        }
+    }
 
     let mut tls = ripdpi_xhttp::XhttpTlsConfig::from_strings(
         &config.common.server,

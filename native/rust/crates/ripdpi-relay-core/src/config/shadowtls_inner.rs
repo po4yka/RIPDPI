@@ -20,5 +20,9 @@ pub struct ResolvedShadowTlsInnerRelayConfig {
     pub vless_flow: String,
     #[serde(default = "default_shadowtls_inner_vless_transport")]
     pub vless_transport: String,
+    #[serde(default = "default_vless_flow")]
+    pub vless_flow: String,
+    #[serde(default = "default_xhttp_mode")]
+    pub xhttp_mode: String,
     pub vless_uuid: Option<String>,
 }

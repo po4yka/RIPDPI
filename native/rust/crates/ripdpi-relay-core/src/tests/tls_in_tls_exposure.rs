@@ -96,6 +96,7 @@ async fn relay_tls_in_tls_exposure_posture_is_pinned_for_every_kind() {
     let vless = vless_config_mut(&mut xhttp);
     vless.reality_public_key = key;
     vless.vless_transport = "xhttp".to_string();
+    vless.vless_flow = "none".to_string();
     vless.xhttp_path = "/api/v1/stream".to_string();
     let backend = build_backend(&xhttp).await.expect("VLESS xhttp backend builds");
     assert!(matches!(backend, RelayBackend::Xhttp(_)), "VLESS xhttp sub-mode must build the xmux Xhttp backend");

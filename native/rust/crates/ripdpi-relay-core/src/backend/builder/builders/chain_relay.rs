@@ -147,12 +147,7 @@ fn resolved_hop_vless_reality_config(
         &hop.server_name,
         &hop.reality_public_key,
         &hop.reality_short_id,
-        // Chain hops carry the next hop's tunnel and have no per-hop flow field,
-        // so they use no flow control. XTLS Vision really pads the inner stream
-        // now, which would require every intermediate server to speak Vision; a
-        // chain must instead work against any VLESS entry server. (Vision was a
-        // no-op stub when this hardcoded "xtls-rprx-vision", so it was latent.)
-        "none",
+        &hop.vless_flow,
         &hop.tls_fingerprint_profile,
     )
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))
@@ -267,6 +262,8 @@ fn resolved_hop_shadowtls_factory(
             reality_short_id: inner.reality_short_id.clone(),
             vless_flow: inner.vless_flow.clone(),
             vless_transport: inner.vless_transport.clone(),
+            vless_flow: inner.vless_flow.clone(),
+            xhttp_mode: inner.xhttp_mode.clone(),
             vless_uuid: inner.vless_uuid.clone(),
         },
     })
@@ -280,11 +277,9 @@ fn resolved_hop_hysteria2_factory(
     let password = hop.hysteria_password.as_ref().filter(|value| !value.trim().is_empty()).ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Hysteria2 password is required"))
     })?;
-    let mut config = ripdpi_hysteria2::Config::from_url(&format!(
-        "hysteria2://{password}@{}:{}/?sni={}",
-        hop.server, hop.server_port, hop.server_name,
-    ))
-    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))?;
+    let mut config =
+        ripdpi_hysteria2::Config::from_parts(password.clone(), &hop.server, hop.server_port, hop.server_name.clone())
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))?;
     config.salamander_key = hop.hysteria_salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
     config.quic_bind_low_port = false;
     config.quic_migrate_after_handshake = false;

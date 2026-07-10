@@ -15,6 +15,27 @@ use crate::endpoint::{build_tls_config, ensure_crypto_provider};
 use crate::protocol::{COMMAND_AUTHENTICATE, COMMAND_CONNECT, PacketHeader, TUIC_VERSION, TuicAddress};
 
 #[test]
+fn unsupported_congestion_control_fails_before_connect() {
+    let config = Config {
+        server: "relay.example".to_owned(),
+        server_port: 443,
+        server_name: "relay.example".to_owned(),
+        uuid: "00000000-0000-0000-0000-000000000000".to_owned(),
+        password: "secret".to_owned(),
+        zero_rtt: false,
+        congestion_control: "silent-fallback".to_owned(),
+        udp_enabled: true,
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        keepalive_interval_ms: 0,
+        root_certificate_pem: None,
+    };
+    let error = crate::endpoint::validate_config(&config).expect_err("unknown mode must be rejected");
+    assert_eq!(std::io::ErrorKind::InvalidInput, error.kind());
+    assert!(error.to_string().contains("unsupported TUIC congestion control"));
+}
+
+#[test]
 fn packet_header_round_trips() {
     let header = PacketHeader {
         assoc_id: 7,

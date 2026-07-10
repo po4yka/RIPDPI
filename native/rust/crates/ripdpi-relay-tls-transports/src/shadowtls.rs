@@ -16,6 +16,7 @@ pub struct ShadowTlsInnerConfig {
     pub reality_short_id: String,
     pub vless_flow: String,
     pub vless_transport: String,
+    pub xhttp_mode: String,
     pub vless_uuid: Option<String>,
 }
 

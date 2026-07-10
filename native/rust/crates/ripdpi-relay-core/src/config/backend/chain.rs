@@ -127,6 +127,10 @@ fn default_chain_hop_xhttp_mode() -> String {
     "auto".to_string()
 }
 
+fn default_chain_hop_vless_flow() -> String {
+    "xtls-rprx-vision".to_string()
+}
+
 fn default_chain_hop_cloudflare_tunnel_mode() -> String {
     "consume_existing".to_string()
 }
@@ -162,6 +166,8 @@ pub struct ResolvedChainRelayHopConfig {
     pub reality_short_id: String,
     #[serde(default = "default_chain_hop_vless_transport")]
     pub vless_transport: String,
+    #[serde(default = "default_chain_hop_vless_flow")]
+    pub vless_flow: String,
     #[serde(default)]
     pub xhttp_path: String,
     #[serde(default)]
@@ -253,6 +259,7 @@ impl Default for ResolvedChainRelayHopConfig {
             reality_public_key: String::new(),
             reality_short_id: String::new(),
             vless_transport: default_chain_hop_vless_transport(),
+            vless_flow: default_chain_hop_vless_flow(),
             xhttp_path: String::new(),
             xhttp_host: String::new(),
             xhttp_mode: default_chain_hop_xhttp_mode(),

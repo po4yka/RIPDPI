@@ -159,6 +159,15 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
     if config.password.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "missing TUIC password"));
     }
+    match config.congestion_control.trim().to_ascii_lowercase().as_str() {
+        "bbr" | "cubic" | "new_reno" | "newreno" => {}
+        other => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("unsupported TUIC congestion control {other:?}"),
+            ));
+        }
+    }
     Ok(())
 }
 
