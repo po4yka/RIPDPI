@@ -129,6 +129,9 @@ class NaiveProxyRuntime
             readySignal = signal
             val restartAttempts = ArrayDeque<Long>()
             while (true) {
+                if (stopping) {
+                    return 0
+                }
                 if (signal.isCompleted) {
                     manager.start(config)
                 } else {
@@ -167,6 +170,9 @@ class NaiveProxyRuntime
                             "after ${restartDecision.reasonLabel}",
                 )
                 delay(restartDecision.delayMillis)
+                if (stopping) {
+                    return exitCode
+                }
             }
         }
 

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.RelayKindWebTunnel
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -141,6 +142,23 @@ class SubprocessRelayReadinessSignalTest {
             assertTrue("awaitReady() should surface an IOException", readyError is IOException)
             assertEquals(failure.message, readyError?.message)
             assertEquals("manager.start should run exactly once on a readiness failure", 1, manager.startCount)
+        }
+
+    @Test
+    fun `naive runtime stop during restart delay cannot relaunch helper`() =
+        runTest {
+            val manager = FakeNaiveProxyManager(subprocessManager(), startGate = CompletableDeferred(Unit))
+            manager.exit.complete(1)
+            val runtime = NaiveProxyRuntime(manager)
+            val startJob = launch { runtime.start(sampleResolvedRelayConfig(kind = RelayKindNaiveProxy)) }
+
+            runCurrent()
+            runtime.stop()
+            advanceTimeBy(2_000)
+            runCurrent()
+            startJob.join()
+
+            assertEquals("stop during backoff must not launch a new helper", 1, manager.startCount)
         }
 
     @Test

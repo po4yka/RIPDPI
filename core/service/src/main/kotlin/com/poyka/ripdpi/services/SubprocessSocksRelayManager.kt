@@ -58,44 +58,51 @@ class SubprocessSocksRelayManager
             config: ResolvedRipDpiRelayConfig,
             spec: SubprocessSocksRelayLaunchSpec,
         ) {
-            withContext(Dispatchers.IO) {
-                stopInternal()
-                runtimeStateOverride = "starting"
-                val binary = binaryExtractor.extract(spec.binaryName)
-                this@SubprocessSocksRelayManager.config = config
-                this@SubprocessSocksRelayManager.launchSpec = spec
-                lastError = null
-                lastFailureClass = null
-                processSupervisor.start(
-                    processBuilder = launchPlanner.buildMainProcess(binary, spec, protectPathProvider.current()),
-                    spec = spec,
-                    onOutputEvent = ::handleProcessOutputEvent,
-                )
-                runtimeVersion = versionProbe.probe(binary, spec)
-            }
-            val managedClientBridgeSpec = spec.managedClientBridge
-            if (managedClientBridgeSpec != null) {
-                val listener =
-                    readinessProbe.waitForManagedClientListener(
-                        bridgeSpec = managedClientBridgeSpec,
-                        currentListener = bridgeOrchestrator::currentManagedClientListener,
-                        isRunning = processSupervisor::isRunning,
-                        onFailure = ::markFailed,
-                    )
+            try {
                 withContext(Dispatchers.IO) {
-                    bridgeOrchestrator.startBridge(
-                        config = config,
-                        bridgeSpec = managedClientBridgeSpec,
-                        listener = listener,
+                    stopInternal()
+                    runtimeStateOverride = "starting"
+                    val binary = binaryExtractor.extract(spec.binaryName)
+                    this@SubprocessSocksRelayManager.config = config
+                    this@SubprocessSocksRelayManager.launchSpec = spec
+                    lastError = null
+                    lastFailureClass = null
+                    processSupervisor.start(
+                        processBuilder = launchPlanner.buildMainProcess(binary, spec, protectPathProvider.current()),
+                        spec = spec,
+                        onOutputEvent = ::handleProcessOutputEvent,
                     )
+                    runtimeVersion = versionProbe.probe(binary, spec)
                 }
+                val managedClientBridgeSpec = spec.managedClientBridge
+                if (managedClientBridgeSpec != null) {
+                    val listener =
+                        readinessProbe.waitForManagedClientListener(
+                            bridgeSpec = managedClientBridgeSpec,
+                            currentListener = bridgeOrchestrator::currentManagedClientListener,
+                            isRunning = processSupervisor::isRunning,
+                            onFailure = ::markFailed,
+                        )
+                    withContext(Dispatchers.IO) {
+                        bridgeOrchestrator.startBridge(
+                            config = config,
+                            bridgeSpec = managedClientBridgeSpec,
+                            listener = listener,
+                        )
+                    }
+                }
+                readinessProbe.waitUntilReady(
+                    config = config,
+                    isRunning = processSupervisor::isRunning,
+                    onFailure = ::markFailed,
+                )
+                runtimeStateOverride = null
+            } catch (error: Exception) {
+                withContext(Dispatchers.IO) {
+                    stopInternal()
+                }
+                throw error
             }
-            readinessProbe.waitUntilReady(
-                config = config,
-                isRunning = processSupervisor::isRunning,
-                onFailure = ::markFailed,
-            )
-            runtimeStateOverride = null
         }
 
         suspend fun waitForExit(): Int =

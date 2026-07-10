@@ -20,12 +20,12 @@ internal class SubprocessRelayVersionProbe {
                     },
                 ).redirectErrorStream(true)
                     .start()
-            val output =
-                process.inputStream
-                    .bufferedReader()
-                    .readText()
-                    .trim()
-            process.waitFor(2, TimeUnit.SECONDS)
+            if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                process.waitFor(2, TimeUnit.SECONDS)
+                return@runCatching null
+            }
+            val output = process.inputStream.bufferedReader().use { it.readText().trim() }
             output.ifBlank { null }
         }.getOrNull()
     }
