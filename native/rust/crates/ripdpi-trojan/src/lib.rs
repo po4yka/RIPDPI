@@ -247,6 +247,7 @@ pub struct TrojanClientConfig {
     pub password: String,
     pub tls_fingerprint_profile: String,
     pub root_certificate_pem: Option<String>,
+    pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 }
 
 /// Open a protected TCP connection to the Trojan server.
@@ -264,7 +265,7 @@ async fn connect_server_tcp(config: &TrojanClientConfig) -> io::Result<TcpStream
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
     };
-    protect_outbound_socket(&socket, server_addr)?;
+    protect_outbound_socket(&socket, server_addr, config.socket_protection)?;
     let tcp = socket.connect(server_addr).await?;
     tcp.set_nodelay(true)?;
     Ok(tcp)
@@ -278,17 +279,13 @@ async fn connect_server_tcp(config: &TrojanClientConfig) -> io::Result<TcpStream
 /// keep the socket out of the tunnel, so refusing is safer than dialing
 /// unprotected. (Own-UID TUN exclusion via `computeAppRoutingPlan` remains the
 /// second layer.) Mirrors the `ripdpi-vless` gold-standard helper.
-fn protect_outbound_socket<T: AsRawFd>(socket: &T, target: SocketAddr) -> io::Result<()> {
-    if target.ip().is_loopback() {
-        return Ok(());
-    }
-    if !ripdpi_native_protect::has_protect_callback() {
-        return Err(io::Error::new(
-            io::ErrorKind::NotConnected,
-            "no VpnService.protect callback for non-loopback Trojan carrier socket under active TUN",
-        ));
-    }
-    ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd())
+fn protect_outbound_socket<T: AsRawFd>(
+    socket: &T,
+    target: SocketAddr,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<()> {
+    socket_protection
+        .protect_non_loopback(socket.as_raw_fd(), target)
         .map_err(|error| io::Error::new(error.kind(), format!("protect Trojan outbound socket: {error}")))
 }
 
@@ -756,7 +753,12 @@ mod protect_tests {
         let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         unregister_protect_callback();
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        let err = protect_outbound_socket(&listener, non_loopback()).expect_err("must fail closed");
+        let err = protect_outbound_socket(
+            &listener,
+            non_loopback(),
+            ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
+        )
+        .expect_err("must fail closed");
         assert_eq!(err.kind(), io::ErrorKind::NotConnected);
     }
 
@@ -767,7 +769,8 @@ mod protect_tests {
         let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
         register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        protect_outbound_socket(&listener, non_loopback()).expect("protect succeeds");
+        protect_outbound_socket(&listener, non_loopback(), ripdpi_native_protect::SocketProtectionPolicy::VpnRequired)
+            .expect("protect succeeds");
         assert_eq!(cb.last_fd.load(Ordering::Acquire), listener.as_raw_fd());
         unregister_protect_callback();
     }
@@ -779,7 +782,12 @@ mod protect_tests {
         let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
         register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        protect_outbound_socket(&listener, SocketAddr::from((Ipv4Addr::LOCALHOST, 1))).expect("loopback no-op");
+        protect_outbound_socket(
+            &listener,
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 1)),
+            ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
+        )
+        .expect("loopback no-op");
         assert_eq!(cb.last_fd.load(Ordering::Acquire), -1);
         unregister_protect_callback();
     }
@@ -968,6 +976,7 @@ mod client_hello_parity_tests {
             password: "parity-password".to_owned(),
             tls_fingerprint_profile: PROFILE.to_owned(),
             root_certificate_pem: None,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         };
         // connect_tcp opens the TCP socket, builds the BoringSSL connector from
         // the profile, and writes the ClientHello before the handshake fails on

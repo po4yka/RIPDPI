@@ -21,6 +21,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
                 root_certificate_pem: anytls.root_certificate_pem.clone(),
                 client_name: "ripdpi-anytls/0.1.0".to_string(),
+                socket_protection: context.socket_protection,
             },
         },
         context.pool_config,

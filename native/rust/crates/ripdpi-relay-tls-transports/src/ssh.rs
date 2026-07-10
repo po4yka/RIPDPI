@@ -10,6 +10,7 @@ pub use ripdpi_ssh::{SshAuth, SshChannelStream, SshConfig, SshHostKeyPolicy};
 #[derive(Clone)]
 pub struct SshSessionFactory {
     pub config: ripdpi_ssh::SshConfig,
+    pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 }
 
 pub struct SshSession {
@@ -40,7 +41,8 @@ impl RelaySessionFactory for SshSessionFactory {
 
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let config = self.config.clone();
-        let client = ripdpi_ssh::connect(&config).await.map_err(to_io_error)?;
+        let client =
+            ripdpi_ssh::connect_with_socket_protection(&config, self.socket_protection).await.map_err(to_io_error)?;
         Ok(Arc::new(SshSession { client }))
     }
 }

@@ -39,6 +39,7 @@ struct ShadowsocksClientConfig {
     cipher: Cipher,
     password: String,
     outbound_bind_ip: Option<IpAddr>,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 }
 
 enum ShadowsocksUdpCodec {
@@ -53,13 +54,21 @@ impl ShadowsocksSessionFactory {
         method: String,
         password: String,
         outbound_bind_ip: Option<IpAddr>,
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
     ) -> io::Result<Self> {
         let cipher = Cipher::from_name(&method).map_err(invalid_input)?;
         if cipher.is_aead_2022() {
             PresharedKey::from_base64(cipher, &password).map_err(invalid_input)?;
         }
         Ok(Self {
-            config: Arc::new(ShadowsocksClientConfig { server_host, server_port, cipher, password, outbound_bind_ip }),
+            config: Arc::new(ShadowsocksClientConfig {
+                server_host,
+                server_port,
+                cipher,
+                password,
+                outbound_bind_ip,
+                socket_protection,
+            }),
         })
     }
 }
@@ -85,7 +94,7 @@ impl RelaySession for ShadowsocksSession {
             })?;
         // VpnService.protect() invariant: protect the bound UDP carrier fd before
         // the first send so it bypasses the app's own TUN route. REL-1.
-        crate::protect::protect_carrier_socket(&socket, server_addr)?;
+        crate::protect::protect_carrier_socket(&socket, server_addr, config.socket_protection)?;
         socket.connect(server_addr).await?;
         let codec = if config.cipher.is_aead_2022() {
             let psk = PresharedKey::from_base64(config.cipher, &config.password).map_err(invalid_input)?;
@@ -268,7 +277,7 @@ async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStrea
     // so this non-loopback socket bypasses the app's own TUN route (otherwise it
     // loops back into the tunnel the VPN owns). Loopback-skip and fail-closed are
     // handled by the shared helper. REL-1.
-    crate::protect::protect_carrier_socket(&socket, server_addr)?;
+    crate::protect::protect_carrier_socket(&socket, server_addr, config.socket_protection)?;
     if let Some(ip) = bind_ip {
         socket.bind(SocketAddr::new(ip, 0))?;
     }

@@ -24,6 +24,7 @@ data class RelayCommonSection(
     val quicBindLowPort: Boolean,
     val quicMigrateAfterHandshake: Boolean,
     val tlsFingerprintProfile: String,
+    val socketProtection: RelaySocketProtection = RelaySocketProtection.Inactive,
 )
 
 /** VLESS Reality identity and transport (`reality_tcp` / `xhttp`). */

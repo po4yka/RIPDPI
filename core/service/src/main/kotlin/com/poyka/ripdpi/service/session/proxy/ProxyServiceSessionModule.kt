@@ -19,6 +19,7 @@ import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.ProxyServiceSessionComponent
+import com.poyka.ripdpi.services.RelayRuntimeNetworkMode
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceCoordinatorHost
@@ -44,7 +45,12 @@ internal object ProxyServiceSessionModule {
         host: ServiceCoordinatorHost,
         factory: UpstreamRelaySupervisorFactory,
         dispatchers: AppCoroutineDispatchers,
-    ): UpstreamRelaySupervisor = factory.create(scope = host.serviceScope, dispatcher = dispatchers.io)
+    ): UpstreamRelaySupervisor =
+        factory.create(
+            scope = host.serviceScope,
+            dispatcher = dispatchers.io,
+            networkMode = RelayRuntimeNetworkMode.Proxy,
+        )
 
     @Provides
     @ServiceSessionScope

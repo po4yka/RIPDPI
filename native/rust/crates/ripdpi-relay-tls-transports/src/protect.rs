@@ -19,17 +19,13 @@ use std::os::fd::AsRawFd;
 /// than proceeding unprotected. (Own-UID TUN exclusion via `computeAppRoutingPlan`
 /// remains the second layer.) Mirrors the `ripdpi-vless` / `ripdpi-xhttp`
 /// gold-standard pattern.
-pub(crate) fn protect_carrier_socket<T: AsRawFd>(socket: &T, target: SocketAddr) -> io::Result<()> {
-    if target.ip().is_loopback() {
-        return Ok(());
-    }
-    if !ripdpi_native_protect::has_protect_callback() {
-        return Err(io::Error::new(
-            io::ErrorKind::NotConnected,
-            "no VpnService.protect callback registered for non-loopback relay carrier socket under active TUN",
-        ));
-    }
-    ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd())
+pub(crate) fn protect_carrier_socket<T: AsRawFd>(
+    socket: &T,
+    target: SocketAddr,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<()> {
+    socket_protection
+        .protect_non_loopback(socket.as_raw_fd(), target)
         .map_err(|error| io::Error::new(error.kind(), format!("protect relay carrier socket: {error}")))
 }
 
@@ -71,7 +67,12 @@ mod tests {
         register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
 
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        protect_carrier_socket(&listener, SocketAddr::from((Ipv4Addr::LOCALHOST, 1))).expect("loopback no-op");
+        protect_carrier_socket(
+            &listener,
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 1)),
+            ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
+        )
+        .expect("loopback no-op");
 
         assert_eq!(cb.last_fd.load(Ordering::Acquire), -1, "loopback target must not be protected");
         unregister_protect_callback();
@@ -83,7 +84,12 @@ mod tests {
         unregister_protect_callback();
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
 
-        let err = protect_carrier_socket(&listener, non_loopback()).expect_err("must fail closed");
+        let err = protect_carrier_socket(
+            &listener,
+            non_loopback(),
+            ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
+        )
+        .expect_err("must fail closed");
         assert_eq!(err.kind(), io::ErrorKind::NotConnected);
     }
 
@@ -95,7 +101,8 @@ mod tests {
         register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
 
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        protect_carrier_socket(&listener, non_loopback()).expect("protect succeeds");
+        protect_carrier_socket(&listener, non_loopback(), ripdpi_native_protect::SocketProtectionPolicy::VpnRequired)
+            .expect("protect succeeds");
 
         assert_eq!(cb.last_fd.load(Ordering::Acquire), listener.as_raw_fd(), "non-loopback fd must be protected");
         unregister_protect_callback();

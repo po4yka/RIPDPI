@@ -6,10 +6,16 @@ use crate::backend::builder::BuildContext;
 use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::{TorBridgePtRelayConfig, TorPluggableTransportConfig, TorRelayBackend};
 
-pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, _context: &BuildContext) -> io::Result<RelayBackend> {
+pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::Tor(tor) = &config.backend else {
         unreachable!("tor builder only called for tor configs");
     };
+    if context.socket_protection == ripdpi_relay_tls_transports::SocketProtectionPolicy::VpnRequired {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "Tor relay cannot protect Arti-owned carrier sockets in VPN mode",
+        ));
+    }
 
     let backend = TorRelayBackend::from_bridge_pt_config(TorBridgePtRelayConfig {
         state_dir: PathBuf::from(&tor.state_dir),

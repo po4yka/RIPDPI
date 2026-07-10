@@ -4,6 +4,7 @@ use std::io;
 use std::net::IpAddr;
 
 use ripdpi_relay_mux::RelayPoolConfig;
+use ripdpi_relay_tls_transports::SocketProtectionPolicy;
 use ripdpi_xhttp::XhttpSocketProtector;
 
 use crate::backend::RelayBackend;
@@ -27,9 +28,15 @@ pub(crate) async fn build_backend_with_socket_protector(
     config: &ResolvedRelayRuntimeConfig,
     socket_protector: Option<XhttpSocketProtector>,
 ) -> io::Result<RelayBackend> {
+    let socket_protection: SocketProtectionPolicy = config.common.socket_protection.into();
+    let socket_protector = socket_protector.or_else(|| match socket_protection {
+        SocketProtectionPolicy::Inactive => None,
+        SocketProtectionPolicy::VpnRequired => Some(XhttpSocketProtector::new(move |fd| socket_protection.protect(fd))),
+    });
     let context = BuildContext {
         outbound_bind_ip: parse_outbound_bind_ip(&config.common.outbound_bind_ip)?,
         socket_protector,
+        socket_protection,
         pool_config: pool_config_for_backend(config),
         quic_migration: QuicMigrationTelemetryState::default(),
     };
@@ -43,6 +50,7 @@ pub(crate) async fn build_backend_with_socket_protector(
 pub(crate) struct BuildContext {
     pub(crate) outbound_bind_ip: Option<IpAddr>,
     pub(crate) socket_protector: Option<XhttpSocketProtector>,
+    pub(crate) socket_protection: SocketProtectionPolicy,
     pub(crate) pool_config: RelayPoolConfig,
     pub(crate) quic_migration: QuicMigrationTelemetryState,
 }

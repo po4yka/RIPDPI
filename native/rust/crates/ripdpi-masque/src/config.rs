@@ -14,6 +14,8 @@ pub enum MasqueAuthMode {
 /// Configuration for a MASQUE proxy connection.
 #[derive(Debug, Clone)]
 pub struct MasqueConfig {
+    /// Runtime-owned policy for keeping carrier sockets outside the app TUN.
+    pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
     /// MASQUE server URL, e.g. `"https://masque.example.com/"`.
     pub url: String,
     /// Pre-resolved proxy socket address from relay bootstrap; leaves URL host available for SNI and HTTP authority.

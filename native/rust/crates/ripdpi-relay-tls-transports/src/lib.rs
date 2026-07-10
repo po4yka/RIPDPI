@@ -15,6 +15,9 @@ pub use anytls::{
     connect_anytls_tcp_over,
 };
 pub use mieru::{MieruConfig, MieruMux, MieruProtocol, MieruSession, MieruSessionFactory};
+/// Shared explicit policy re-exported through the relay transport facade so
+/// relay-core does not depend on Android callback registry implementation details.
+pub use ripdpi_native_protect::SocketProtectionPolicy;
 /// Re-exported so `ripdpi-relay-core` can downcast/classify the ShadowTLS
 /// version-mismatch handshake error into `FailureClass::ShadowTlsVersionMismatch`
 /// without taking a direct dependency on `ripdpi-shadowtls`.

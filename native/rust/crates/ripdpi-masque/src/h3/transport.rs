@@ -54,7 +54,7 @@ pub(super) async fn connect_h3_transport(
     ));
 
     let proxy_addr = resolve_proxy_socket_addr(config, &proxy_origin)?;
-    let socket = build_client_udp_socket(proxy_addr.is_ipv6(), config.quic_bind_low_port)
+    let socket = build_client_udp_socket(proxy_addr.is_ipv6(), config.quic_bind_low_port, config.socket_protection)
         .map_err(|error| io::Error::other(format!("failed to bind QUIC client socket: {error}")))?;
     let mut endpoint =
         quinn::Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime))

@@ -89,6 +89,10 @@ class ServiceSessionModuleTest {
             assertEquals(1, warpFactory.createCalls)
             assertSame(dispatchers.io, proxyFactory.createdDispatchers.single())
             assertSame(dispatchers.io, relayFactory.createdDispatchers.single())
+            assertEquals(
+                RelayRuntimeNetworkMode.Proxy,
+                relayFactory.networkModes.single(),
+            )
             assertSame(dispatchers.io, warpFactory.createdDispatchers.single())
             assertEquals(Mode.Proxy, statusFactory.createdModes.single())
             assertEquals(Sender.Proxy, statusFactory.createdSenders.single())
@@ -229,6 +233,10 @@ class ServiceSessionModuleTest {
         assertEquals(1, warpFactory.createCalls)
         assertSame(dispatchers.io, proxyFactory.createdDispatchers.single())
         assertSame(dispatchers.io, relayFactory.createdDispatchers.single())
+        assertEquals(
+            RelayRuntimeNetworkMode.Vpn,
+            relayFactory.networkModes.single(),
+        )
         assertSame(dispatchers.io, warpFactory.createdDispatchers.single())
         assertEquals(Mode.VPN, statusFactory.createdModes.single())
         assertEquals(Sender.VPN, statusFactory.createdSenders.single())
@@ -338,13 +346,16 @@ class ServiceSessionModuleTest {
         ) {
         var createCalls: Int = 0
         val createdDispatchers = mutableListOf<CoroutineDispatcher>()
+        val networkModes = mutableListOf<RelayRuntimeNetworkMode>()
 
         override fun create(
             scope: CoroutineScope,
             dispatcher: CoroutineDispatcher,
+            networkMode: RelayRuntimeNetworkMode,
         ): UpstreamRelaySupervisor {
             createCalls += 1
             createdDispatchers += dispatcher
+            networkModes += networkMode
             return UpstreamRelaySupervisor(
                 scope = scope,
                 dispatcher = dispatcher,
@@ -352,6 +363,7 @@ class ServiceSessionModuleTest {
                 naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                 relayProfileStore = TestRelayProfileStore(),
                 relayCredentialStore = TestRelayCredentialStore(),
+                networkMode = networkMode,
             )
         }
     }

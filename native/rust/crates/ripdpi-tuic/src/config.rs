@@ -15,6 +15,8 @@ pub struct Config {
     pub udp_enabled: bool,
     pub quic_bind_low_port: bool,
     pub quic_migrate_after_handshake: bool,
+    #[serde(skip, default)]
+    pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
     /// QUIC application-level keepalive interval in milliseconds.
     ///
     /// `0` disables keepalive. Mobile NATs aggressively reclaim UDP
@@ -52,6 +54,7 @@ impl std::fmt::Debug for Config {
             .field("udp_enabled", &self.udp_enabled)
             .field("quic_bind_low_port", &self.quic_bind_low_port)
             .field("quic_migrate_after_handshake", &self.quic_migrate_after_handshake)
+            .field("socket_protection", &self.socket_protection)
             .field("keepalive_interval_ms", &self.keepalive_interval_ms)
             .field("root_certificate_pem", &self.root_certificate_pem.as_ref().map(|_| "<pinned>"))
             .finish()
@@ -74,6 +77,7 @@ mod tests {
             udp_enabled: true,
             quic_bind_low_port: false,
             quic_migrate_after_handshake: true,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             keepalive_interval_ms: 15_000,
             root_certificate_pem: None,
         }

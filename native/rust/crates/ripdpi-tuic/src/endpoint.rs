@@ -6,7 +6,7 @@ use std::sync::Once;
 
 use quinn::congestion::{BbrConfig, CubicConfig, NewRenoConfig};
 use quinn::{ClientConfig, Endpoint, TransportConfig, VarInt};
-use ripdpi_native_protect::{has_protect_callback, protect_socket_via_callback};
+use ripdpi_native_protect::SocketProtectionPolicy;
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig as RustlsClientConfig, RootCertStore};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
@@ -20,6 +20,7 @@ static RUSTLS_PROVIDER: Once = Once::new();
 pub(crate) struct ClientSocketSpec {
     pub(crate) ipv6: bool,
     pub(crate) bind_low_port: bool,
+    pub(crate) socket_protection: SocketProtectionPolicy,
 }
 
 pub(crate) fn build_endpoint(
@@ -77,15 +78,10 @@ pub(crate) fn build_client_udp_socket(socket_spec: ClientSocketSpec) -> io::Resu
     // carrier socket is covered. The `try_clone()` at the call sites dups this
     // fd (same kernel socket), so protecting the original protects the clone.
     //
-    // WARP no-op posture: when no protect callback is registered (host loopback
-    // e2e tests, desktop) this is a no-op so those paths still pass; when a
-    // callback IS registered and rejects the fd, the error propagates and
-    // `socket` is dropped here (closing the fd) rather than leaking an
-    // unprotected socket into the TUN. No loopback-skip: the bind is to the
-    // unspecified address, so the eventual peer is unknown at this site.
-    if has_protect_callback() {
-        protect_socket_via_callback(socket.as_raw_fd())?;
-    }
+    // The explicit inactive policy is a no-op for proxy/host paths. The
+    // VPN-required policy consults the callback and propagates missing/rejected
+    // protection, dropping the socket here before Quinn can perform I/O.
+    socket_spec.socket_protection.protect(socket.as_raw_fd())?;
     Ok(socket.into())
 }
 
@@ -223,7 +219,11 @@ mod protect_tests {
         }
     }
 
-    const SPEC: ClientSocketSpec = ClientSocketSpec { ipv6: false, bind_low_port: false };
+    const SPEC: ClientSocketSpec =
+        ClientSocketSpec { ipv6: false, bind_low_port: false, socket_protection: SocketProtectionPolicy::VpnRequired };
+
+    const INACTIVE_SPEC: ClientSocketSpec =
+        ClientSocketSpec { socket_protection: SocketProtectionPolicy::Inactive, ..SPEC };
 
     #[test]
     fn carrier_socket_is_protected_before_quinn_owns_it() {
@@ -263,9 +263,17 @@ mod protect_tests {
         unregister_protect_callback();
         assert!(!has_protect_callback(), "test precondition: no protect callback registered");
 
-        // WARP posture (semantics #2): with no callback registered the protect is
-        // a no-op and the bind still succeeds, so host loopback e2e tests pass.
-        let socket = build_client_udp_socket(SPEC).expect("carrier bind must succeed with no callback");
+        // The inactive proxy/host policy does not depend on callback presence.
+        let socket = build_client_udp_socket(INACTIVE_SPEC).expect("carrier bind must succeed with no callback");
         assert!(socket.local_addr().is_ok(), "socket must be a live, bound UDP socket");
+    }
+
+    #[test]
+    fn vpn_required_without_callback_fails_closed() {
+        let _guard = PROTECT_TEST_LOCK.lock().expect("test lock");
+        unregister_protect_callback();
+
+        let error = build_client_udp_socket(SPEC).expect_err("VPN mode must reject a missing callback");
+        assert_eq!(error.kind(), io::ErrorKind::NotConnected);
     }
 }

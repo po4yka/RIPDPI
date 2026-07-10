@@ -316,6 +316,7 @@ mod tests {
             password: password.to_string(),
             server_name: "localhost".to_string(),
             inner_profile_id: "default".to_string(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         }
     }
 

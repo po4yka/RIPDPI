@@ -50,7 +50,11 @@ impl TuicClient {
     pub(crate) async fn connect_with_tls(config: Config, tls_config: RustlsClientConfig) -> io::Result<Self> {
         validate_config(&config)?;
         let server_addr = resolve_server_addr(&config.server, config.server_port)?;
-        let socket_spec = ClientSocketSpec { ipv6: server_addr.is_ipv6(), bind_low_port: config.quic_bind_low_port };
+        let socket_spec = ClientSocketSpec {
+            ipv6: server_addr.is_ipv6(),
+            bind_low_port: config.quic_bind_low_port,
+            socket_protection: config.socket_protection,
+        };
         let (endpoint, current_socket) = build_endpoint(&config, tls_config, socket_spec)?;
         let connection = establish_connection(&endpoint, &config, server_addr).await?;
         // A v4 server completes QUIC/TLS but rejects this client's v5 auth frame,

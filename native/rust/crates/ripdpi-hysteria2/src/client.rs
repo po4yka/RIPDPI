@@ -41,6 +41,7 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         ipv6: server_addr.is_ipv6(),
         bind_low_port: config.quic_bind_low_port,
         salamander_key: config.salamander_key.clone(),
+        socket_protection: config.socket_protection,
     };
     let (endpoint, current_socket) = build_endpoint(config, tls_config, socket_spec.clone())?;
     let connection = endpoint.connect(server_addr, &config.server_name)?.await?;

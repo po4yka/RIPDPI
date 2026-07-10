@@ -8,6 +8,18 @@ import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** Runtime-owned policy for protecting relay carrier sockets from the app TUN. */
+@Serializable
+enum class RelaySocketProtection {
+    /** Proxy mode or another runtime with no TUN routing loop risk. */
+    @SerialName("inactive")
+    Inactive,
+
+    /** VPN mode: every non-loopback carrier socket must be protected or fail closed. */
+    @SerialName("vpn_required")
+    VpnRequired,
+}
+
 /**
  * Relay native runtime configuration — the payload [RipDpiRelay] encodes to
  * JSON and hands to `libripdpi-relay.so` (Rust crate `ripdpi-relay-android`).
@@ -123,6 +135,8 @@ data class ResolvedRipDpiRelayConfig(
     val kind: String,
     val profileId: String,
     val outboundBindIp: String = "",
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val socketProtection: RelaySocketProtection = RelaySocketProtection.Inactive,
     val server: String,
     val serverPort: Int,
     val serverName: String,
@@ -324,6 +338,7 @@ private fun ResolvedRipDpiRelayConfig.commonSection(): RelayCommonSection =
         quicBindLowPort = quicBindLowPort,
         quicMigrateAfterHandshake = quicMigrateAfterHandshake,
         tlsFingerprintProfile = tlsFingerprintProfile,
+        socketProtection = socketProtection,
     )
 
 private fun ResolvedRipDpiRelayConfig.vlessSection(): RelayVlessSection =
@@ -591,6 +606,7 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         kind = common.kind,
         profileId = common.profileId,
         outboundBindIp = common.outboundBindIp,
+        socketProtection = common.socketProtection,
         server = common.server,
         serverPort = common.serverPort,
         serverName = common.serverName,

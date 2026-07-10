@@ -18,6 +18,7 @@ async fn tls_client_sends_connect_request_and_pipes_payload_to_target() {
         password: PASSWORD.to_owned(),
         tls_fingerprint_profile: "chrome_stable".to_owned(),
         root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
     };
     let target = TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST);
 
@@ -54,6 +55,7 @@ async fn tls_client_can_connect_over_existing_transport() {
         password: PASSWORD.to_owned(),
         tls_fingerprint_profile: "chrome_stable".to_owned(),
         root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
     };
     let transport = TcpStream::connect(("127.0.0.1", fixture.port())).await.expect("connect fixture transport");
     let target = TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST);

@@ -91,6 +91,7 @@ mod tests {
                 enabled: true,
                 profile_id: "chain".to_string(),
                 outbound_bind_ip: String::new(),
+                socket_protection: crate::config::SocketProtection::Inactive,
                 server: "relay.example".to_string(),
                 server_port: 443,
                 server_name: "relay.example".to_string(),

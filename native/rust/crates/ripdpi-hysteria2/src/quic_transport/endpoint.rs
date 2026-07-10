@@ -12,7 +12,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
-use ripdpi_native_protect::{has_protect_callback, protect_socket_via_callback};
+use ripdpi_native_protect::SocketProtectionPolicy;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use super::config::QuicTransportConfig;
@@ -30,6 +30,15 @@ const LOW_PORT_CANDIDATES: [u16; 7] = [2048, 2053, 2080, 2443, 3000, 3074, 4096]
 /// IPv6 socket is configured dual-stack (`set_only_v6(false)`) where the OS
 /// allows it.
 pub fn build_client_udp_socket(ipv6: bool, bind_low_port: bool) -> io::Result<std::net::UdpSocket> {
+    build_client_udp_socket_with_policy(ipv6, bind_low_port, SocketProtectionPolicy::Inactive)
+}
+
+/// Build a client UDP socket and apply the explicit runtime protection policy.
+pub fn build_client_udp_socket_with_policy(
+    ipv6: bool,
+    bind_low_port: bool,
+    socket_protection: SocketProtectionPolicy,
+) -> io::Result<std::net::UdpSocket> {
     let bind_addr =
         if ipv6 { SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)) } else { SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)) };
     let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
@@ -50,14 +59,12 @@ pub fn build_client_udp_socket(ipv6: bool, bind_low_port: bool) -> io::Result<st
     // datagrams `quinn` later sends on it are kept out of the TUN route instead
     // of looping back into the tunnel the VPN owns. `quinn` keeps this exact fd
     // for the endpoint's lifetime, and every migration / port-hopping rebind
-    // re-enters this same function, so protecting here covers them too. A no-op
-    // when no callback is registered (host loopback e2e tests), which is why the
-    // loopback-skip / fail-closed posture of the TCP helper does not apply.
+    // re-enters this same function, so protecting here covers them too. The
+    // explicit runtime policy is a no-op outside VPN mode and fails closed when
+    // VPN mode has no registered callback.
     // See .claude/rules/vpnservice-protect-invariant.md and
     // ripdpi-warp-core/src/wireguard/socket.rs.
-    if has_protect_callback() {
-        protect_socket_via_callback(socket.as_raw_fd())?;
-    }
+    socket_protection.protect(socket.as_raw_fd())?;
     Ok(socket.into())
 }
 
@@ -81,7 +88,7 @@ fn try_bind_low_port(socket: &Socket, bind_ip: IpAddr) -> io::Result<()> {
 /// client config installed as the default, so the caller only has to
 /// `endpoint.connect(addr, server_name)`.
 pub fn build_quic_endpoint(config: &QuicTransportConfig, ipv6: bool) -> Result<quinn::Endpoint> {
-    let socket = build_client_udp_socket(ipv6, config.bind_low_port)?;
+    let socket = build_client_udp_socket_with_policy(ipv6, config.bind_low_port, config.socket_protection)?;
     let mut endpoint =
         quinn::Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime))?;
     endpoint.set_default_client_config(config.build_quinn_client_config()?);
@@ -95,7 +102,7 @@ pub fn maybe_rebind_endpoint(config: &QuicTransportConfig, endpoint: &quinn::End
     if !config.migrate_after_handshake {
         return Ok(());
     }
-    let replacement = build_client_udp_socket(ipv6, config.bind_low_port)?;
+    let replacement = build_client_udp_socket_with_policy(ipv6, config.bind_low_port, config.socket_protection)?;
     endpoint.rebind(replacement)
 }
 
@@ -212,7 +219,8 @@ mod protect_tests {
         let cb = RecordingCallback::new();
         register_protect_callback(cb.clone());
 
-        let socket = build_client_udp_socket(false, false).expect("bind ipv4 carrier socket");
+        let socket = build_client_udp_socket_with_policy(false, false, SocketProtectionPolicy::VpnRequired)
+            .expect("bind ipv4 carrier socket");
         let fd = socket.as_raw_fd();
 
         // Unregister BEFORE asserting so an assertion failure cannot poison the
@@ -228,17 +236,24 @@ mod protect_tests {
     }
 
     #[test]
-    fn no_callback_is_a_noop_so_host_loopback_tests_still_bind() {
+    fn inactive_policy_is_a_noop_so_host_loopback_tests_still_bind() {
         let _guard = PROTECT_TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         unregister_protect_callback();
 
-        // With no callback registered (the host loopback / e2e posture), the
-        // protect step is a no-op and binding must still succeed — this is the
-        // WARP UDP semantics, not the fail-closed TCP posture. (The only other
-        // test that registers a callback holds the same lock, so none is
-        // installed here.)
+        // The inactive proxy/host policy does not consult callback lifecycle
+        // state, so binding succeeds with no callback registered.
         let socket = build_client_udp_socket(false, false).expect("bind must succeed without a callback");
         assert_ne!(socket.local_addr().expect("local addr").port(), 0, "socket must be bound");
         drop(socket);
+    }
+
+    #[test]
+    fn vpn_required_without_callback_fails_closed() {
+        let _guard = PROTECT_TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        unregister_protect_callback();
+
+        let error = build_client_udp_socket_with_policy(false, false, SocketProtectionPolicy::VpnRequired)
+            .expect_err("VPN mode must reject a missing callback before QUIC owns the socket");
+        assert_eq!(error.kind(), io::ErrorKind::NotConnected);
     }
 }

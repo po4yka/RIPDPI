@@ -77,12 +77,15 @@ fn build_h2_connect_tcp_request(
 // cancel-safe: holds no cross-await state and owns the freshly built socket; if
 // the caller is dropped at the `.connect().await` point the socket fd is closed
 // on drop, so no protected-but-leaked fd survives cancellation.
-async fn connect_proxy_tcp(proxy_addr: SocketAddr) -> io::Result<tokio::net::TcpStream> {
+async fn connect_proxy_tcp(
+    proxy_addr: SocketAddr,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<tokio::net::TcpStream> {
     let socket = match proxy_addr {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
     };
-    protect_outbound_socket(&socket, proxy_addr)?;
+    protect_outbound_socket(&socket, proxy_addr, socket_protection)?;
     let tcp = socket
         .connect(proxy_addr)
         .await
@@ -99,17 +102,13 @@ async fn connect_proxy_tcp(proxy_addr: SocketAddr) -> io::Result<tokio::net::Tcp
 /// keep the socket out of the tunnel, so refusing is safer than dialing
 /// unprotected. Mirrors the `ripdpi-vless` / `ripdpi-trojan` gold-standard
 /// helper. See .claude/rules/vpnservice-protect-invariant.md.
-fn protect_outbound_socket<T: AsRawFd>(socket: &T, target: SocketAddr) -> io::Result<()> {
-    if target.ip().is_loopback() {
-        return Ok(());
-    }
-    if !ripdpi_native_protect::has_protect_callback() {
-        return Err(io::Error::new(
-            io::ErrorKind::NotConnected,
-            "no VpnService.protect callback for non-loopback MASQUE H2 carrier socket under active TUN",
-        ));
-    }
-    ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd())
+fn protect_outbound_socket<T: AsRawFd>(
+    socket: &T,
+    target: SocketAddr,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<()> {
+    socket_protection
+        .protect_non_loopback(socket.as_raw_fd(), target)
         .map_err(|error| io::Error::new(error.kind(), format!("protect MASQUE H2 outbound socket: {error}")))
 }
 
@@ -119,7 +118,7 @@ pub(crate) async fn attempt_h2_connect_tcp(
     auth_header: Option<&AuthHeader>,
 ) -> Result<impl AsyncIo + use<>, AttemptError> {
     let proxy_origin = parse_proxy_origin(config)?;
-    let tcp = connect_proxy_tcp(resolve_proxy_socket_addr(config, &proxy_origin)?).await?;
+    let tcp = connect_proxy_tcp(resolve_proxy_socket_addr(config, &proxy_origin)?, config.socket_protection).await?;
     attempt_h2_connect_tcp_over_transport(config, tcp, target, auth_header).await
 }
 
@@ -192,7 +191,7 @@ pub(crate) async fn attempt_h2_connect_udp(
     let target = crate::url::parse_target(target)?;
     let target_label = target.authority();
     let proxy_origin = parse_proxy_origin(config)?;
-    let tcp = connect_proxy_tcp(resolve_proxy_socket_addr(config, &proxy_origin)?).await?;
+    let tcp = connect_proxy_tcp(resolve_proxy_socket_addr(config, &proxy_origin)?, config.socket_protection).await?;
 
     let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
@@ -349,7 +348,12 @@ mod protect_tests {
         let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         unregister_protect_callback();
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        let err = protect_outbound_socket(&listener, non_loopback()).expect_err("must fail closed");
+        let err = protect_outbound_socket(
+            &listener,
+            non_loopback(),
+            ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
+        )
+        .expect_err("must fail closed");
         assert_eq!(err.kind(), io::ErrorKind::NotConnected);
     }
 
@@ -360,7 +364,8 @@ mod protect_tests {
         let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
         register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        protect_outbound_socket(&listener, non_loopback()).expect("protect succeeds");
+        protect_outbound_socket(&listener, non_loopback(), ripdpi_native_protect::SocketProtectionPolicy::VpnRequired)
+            .expect("protect succeeds");
         // The exact fd handed to the callback must be the carrier socket's fd.
         assert_eq!(cb.last_fd.load(Ordering::Acquire), listener.as_raw_fd());
         unregister_protect_callback();
@@ -373,7 +378,12 @@ mod protect_tests {
         let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
         register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        protect_outbound_socket(&listener, SocketAddr::from((Ipv4Addr::LOCALHOST, 1))).expect("loopback no-op");
+        protect_outbound_socket(
+            &listener,
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 1)),
+            ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
+        )
+        .expect("loopback no-op");
         // Loopback skip: the callback must never have been invoked.
         assert_eq!(cb.last_fd.load(Ordering::Acquire), -1);
         unregister_protect_callback();

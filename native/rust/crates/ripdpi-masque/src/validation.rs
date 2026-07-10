@@ -31,6 +31,12 @@ pub(crate) fn validate_config(config: &MasqueConfig) -> io::Result<()> {
             }
         }
         MasqueAuthMode::PrivacyPass => {
+            if config.socket_protection == ripdpi_native_protect::SocketProtectionPolicy::VpnRequired {
+                return Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "MASQUE Privacy Pass provider fetch cannot protect its HTTP client sockets in VPN mode",
+                ));
+            }
             let provider_url =
                 config.privacy_pass_provider_url.as_ref().filter(|value| !value.trim().is_empty()).ok_or_else(
                     || {

@@ -38,6 +38,7 @@ fn build_masque_client_config_with_ech_lookup(
     };
     let ech_config = resolve_masque_ech_config(&masque.url, ech_lookup)?;
     Ok(ripdpi_masque::config::MasqueConfig {
+        socket_protection: config.common.socket_protection.into(),
         url: masque.url.clone(),
         proxy_socket_addr: masque.proxy_socket_addr,
         use_http2_fallback: masque.use_http2_fallback,
@@ -102,6 +103,7 @@ mod tests {
                 enabled: true,
                 profile_id: "default".to_string(),
                 outbound_bind_ip: String::new(),
+                socket_protection: crate::config::SocketProtection::Inactive,
                 server: "relay.example".to_string(),
                 server_port: 443,
                 server_name: "relay.example".to_string(),

@@ -51,6 +51,7 @@ ripdpi-runtime-strategy = { workspace = true }
 # loopback server fixture.
 ripdpi-hysteria2 = { workspace = true }
 ripdpi-masque = { workspace = true }
+ripdpi-native-protect = { workspace = true }
 ripdpi-shadowtls = { workspace = true, features = ["test-server"] }
 ripdpi-tuic = { workspace = true }
 ripdpi-vless = { workspace = true }

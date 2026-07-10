@@ -203,6 +203,7 @@ mod tests {
         client_private_key_pem: Option<&str>,
     ) -> MasqueConfig {
         MasqueConfig {
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             url: "https://masque.example/".to_string(),
             proxy_socket_addr: None,
             use_http2_fallback: true,

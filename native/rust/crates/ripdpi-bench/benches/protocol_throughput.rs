@@ -157,6 +157,7 @@ fn bench_shadowtls(c: &mut Criterion, rt: &Runtime) {
             password: PASSWORD.to_string(),
             server_name: "localhost".to_string(),
             inner_profile_id: "default".to_string(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::default(),
         });
         client.connect_over(tcp).await.expect("ShadowTLS handshake")
     });
@@ -193,6 +194,7 @@ fn bench_masque_h2_connect_tcp(c: &mut Criterion, rt: &Runtime) {
     };
     let target = server.tcp_echo_target();
     let config = MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::default(),
         url: masque_url,
         proxy_socket_addr: None,
         use_http2_fallback: true,
@@ -300,6 +302,7 @@ fn bench_tuic(c: &mut Criterion, rt: &Runtime) {
         udp_enabled: false,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::default(),
         keepalive_interval_ms: 0,
         // Pin the fixture's self-signed cert; TLS verification stays ON.
         root_certificate_pem: Some(server.certificate_pem().to_string()),

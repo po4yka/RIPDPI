@@ -16,9 +16,10 @@
 //!
 //! ## Idempotency, fds, callbacks, errors
 //! `jniStop` and `jniDestroy` are idempotent — each is a silent no-op on an
-//! unknown handle. The relay adopts no externally supplied fds; Android
-//! registers a VPN-protect callback before startup so xHTTP transport sockets
-//! are protected before connect. Failures are reported through return codes
+//! unknown handle. The relay adopts no externally supplied fds; the JNI JSON
+//! carries an explicit inactive/VPN-required protection policy, and VPN mode
+//! registers the callback that required dialers invoke before network I/O.
+//! Failures are reported through return codes
 //! only, never Java exceptions; a contained panic yields the panic-default
 //! sentinel.
 //!

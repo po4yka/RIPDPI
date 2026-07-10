@@ -381,6 +381,7 @@ ack.
 
 **Rules.**
 
+- Protection requirement is explicit per runtime. Relay JSON crossing JNI carries `socketProtection=inactive|vpn_required`; proxy mode selects `inactive` even if a stale callback happens to exist, while VPN mode selects `vpn_required` and fails closed if the callback is absent or rejects an fd. Callback presence must never be used as a proxy for runtime mode.
 - `protect()` **must succeed before `connect`/`bind` returns** control to the
   caller; on failure the socket is closed and the connection fails — never
   proceed unprotected.

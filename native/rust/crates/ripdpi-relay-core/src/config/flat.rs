@@ -85,6 +85,8 @@ struct FlatResolvedRelayRuntimeConfig {
     pub profile_id: String,
     #[serde(default)]
     pub outbound_bind_ip: String,
+    #[serde(default)]
+    pub socket_protection: SocketProtection,
     pub server: String,
     pub server_port: i32,
     pub server_name: String,

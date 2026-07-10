@@ -42,7 +42,9 @@ pub mod stream;
 
 pub use config::{ALPN_H3, QuicTransportConfig};
 pub use datagram::QuicDatagramTransport;
-pub use endpoint::{build_client_udp_socket, build_quic_endpoint, maybe_rebind_endpoint};
+pub use endpoint::{
+    build_client_udp_socket, build_client_udp_socket_with_policy, build_quic_endpoint, maybe_rebind_endpoint,
+};
 pub use h3::{H3ClientParts, H3ConnectKind, H3Transport, build_connect_request};
 pub use stream::{QuicBiStream, QuicTransport};
 

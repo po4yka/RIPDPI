@@ -5458,6 +5458,7 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-hysteria2",
  "ripdpi-masque",
+ "ripdpi-native-protect",
  "ripdpi-proxy-config",
  "ripdpi-proxy-runtime",
  "ripdpi-runtime-adaptive",
@@ -6451,6 +6452,7 @@ name = "ripdpi-ssh"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "ripdpi-native-protect",
  "russh",
  "thiserror 2.0.18",
  "tokio",

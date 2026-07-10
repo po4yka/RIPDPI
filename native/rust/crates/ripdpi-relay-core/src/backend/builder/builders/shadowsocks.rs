@@ -25,6 +25,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         shadowsocks.method.clone(),
         password,
         context.outbound_bind_ip,
+        context.socket_protection,
     )?;
     Ok(RelayBackend::Shadowsocks(PooledRelayBackend::new(factory, context.pool_config, None)))
 }
@@ -42,6 +43,7 @@ mod tests {
                 enabled: true,
                 profile_id: "default".to_string(),
                 outbound_bind_ip: String::new(),
+                socket_protection: crate::config::SocketProtection::Inactive,
                 server: "relay.example".to_string(),
                 server_port: 8388,
                 server_name: "relay.example".to_string(),
@@ -65,6 +67,7 @@ mod tests {
         BuildContext {
             outbound_bind_ip: None,
             socket_protector: None,
+            socket_protection: ripdpi_relay_tls_transports::SocketProtectionPolicy::Inactive,
             pool_config: RelayPoolConfig::default(),
             quic_migration: QuicMigrationTelemetryState::default(),
         }

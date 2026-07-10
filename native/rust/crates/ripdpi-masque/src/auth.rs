@@ -181,6 +181,7 @@ mod tests {
     #[test]
     fn preshared_header_uses_proxy_authorization() {
         let header = build_static_auth_header(&MasqueConfig {
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             url: "https://masque.example/".to_string(),
             proxy_socket_addr: None,
             use_http2_fallback: true,
@@ -206,6 +207,7 @@ mod tests {
     #[test]
     fn privacy_pass_mode_does_not_require_static_secret() {
         let header = build_static_auth_header(&MasqueConfig {
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             url: "https://masque.example/".to_string(),
             proxy_socket_addr: None,
             use_http2_fallback: false,
@@ -230,6 +232,7 @@ mod tests {
     #[test]
     fn cloudflare_mtls_mode_does_not_emit_static_auth_headers() {
         let header = build_static_auth_header(&MasqueConfig {
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             url: "https://masque.example/".to_string(),
             proxy_socket_addr: None,
             use_http2_fallback: true,

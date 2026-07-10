@@ -1,3 +1,4 @@
+use ripdpi_relay_tls_transports::SocketProtectionPolicy;
 use std::io;
 use std::net::IpAddr;
 
@@ -29,7 +30,13 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         .enumerate()
         .map(|(index, hop)| {
             let position = HopPosition::new(index, last_index);
-            chain_hop_connector(hop, position, context.outbound_bind_ip, context.quic_migration.clone())
+            chain_hop_connector(
+                hop,
+                position,
+                context.outbound_bind_ip,
+                context.socket_protection,
+                context.quic_migration.clone(),
+            )
         })
         .collect::<io::Result<Vec<_>>>()?;
 
@@ -80,27 +87,35 @@ fn chain_hop_connector(
     hop: &ResolvedChainRelayHopConfig,
     position: HopPosition,
     outbound_bind_ip: Option<IpAddr>,
+    socket_protection: SocketProtectionPolicy,
     quic_migration: QuicMigrationTelemetryState,
 ) -> io::Result<ChainHopConnector> {
     let label = position.label();
     // Only the entry hop creates a real outbound socket, so only it may carry an
     // outbound bind IP. Hand `None` to every later hop's factory.
     let hop_bind_ip = if position.is_entry() { outbound_bind_ip } else { None };
+    let hop_socket_protection = if position.is_entry() { socket_protection } else { SocketProtectionPolicy::Inactive };
 
     match hop.kind.as_str() {
-        "vless_reality" => resolved_hop_vless_reality_config(hop, &label).map(ChainHopConnector::VlessReality),
-        "masque" => resolved_hop_masque_config(hop, &label).map(ChainHopConnector::Masque),
-        "trojan" => resolved_hop_trojan_config(hop, &label).map(ChainHopConnector::Trojan),
-        "anytls" => resolved_hop_anytls_config(hop, &label).map(ChainHopConnector::AnyTls),
-        "shadowsocks" => resolved_hop_shadowsocks_factory(hop, &label, hop_bind_ip).map(ChainHopConnector::Shadowsocks),
-        "shadowtls_v3" => resolved_hop_shadowtls_factory(hop, &label).map(ChainHopConnector::ShadowTls),
+        "vless_reality" => {
+            resolved_hop_vless_reality_config(hop, &label, hop_socket_protection).map(ChainHopConnector::VlessReality)
+        }
+        "masque" => resolved_hop_masque_config(hop, &label, hop_socket_protection).map(ChainHopConnector::Masque),
+        "trojan" => resolved_hop_trojan_config(hop, &label, hop_socket_protection).map(ChainHopConnector::Trojan),
+        "anytls" => resolved_hop_anytls_config(hop, &label, hop_socket_protection).map(ChainHopConnector::AnyTls),
+        "shadowsocks" => resolved_hop_shadowsocks_factory(hop, &label, hop_bind_ip, hop_socket_protection)
+            .map(ChainHopConnector::Shadowsocks),
+        "shadowtls_v3" => {
+            resolved_hop_shadowtls_factory(hop, &label, hop_socket_protection).map(ChainHopConnector::ShadowTls)
+        }
         "hysteria2" => {
             reject_quic_non_entry(position, &label, "Hysteria2")?;
-            resolved_hop_hysteria2_factory(hop, &label, quic_migration).map(ChainHopConnector::Hysteria2)
+            resolved_hop_hysteria2_factory(hop, &label, hop_socket_protection, quic_migration)
+                .map(ChainHopConnector::Hysteria2)
         }
         "tuic_v5" => {
             reject_quic_non_entry(position, &label, "TUIC")?;
-            resolved_hop_tuic_factory(hop, &label, quic_migration).map(ChainHopConnector::Tuic)
+            resolved_hop_tuic_factory(hop, &label, hop_socket_protection, quic_migration).map(ChainHopConnector::Tuic)
         }
         other => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -124,6 +139,7 @@ fn reject_quic_non_entry(position: HopPosition, label: &str, kind: &str) -> io::
 fn resolved_hop_vless_reality_config(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    socket_protection: SocketProtectionPolicy,
 ) -> io::Result<ripdpi_vless::config::VlessRealityConfig> {
     if hop.kind != "vless_reality" {
         return Err(io::Error::new(
@@ -140,7 +156,7 @@ fn resolved_hop_vless_reality_config(
             ),
         ));
     }
-    vless_reality_config(
+    let mut config = vless_reality_config(
         &hop.server,
         hop.server_port,
         hop.vless_uuid.as_deref().unwrap_or_default(),
@@ -150,17 +166,21 @@ fn resolved_hop_vless_reality_config(
         &hop.vless_flow,
         &hop.tls_fingerprint_profile,
     )
-    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: {error}")))?;
+    config.socket_protection = socket_protection;
+    Ok(config)
 }
 
 fn resolved_hop_masque_config(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    socket_protection: SocketProtectionPolicy,
 ) -> io::Result<ripdpi_masque::config::MasqueConfig> {
     if hop.masque_url.trim().is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: MASQUE URL is required")));
     }
     Ok(ripdpi_masque::config::MasqueConfig {
+        socket_protection,
         url: hop.masque_url.clone(),
         proxy_socket_addr: None,
         use_http2_fallback: hop.masque_use_http2_fallback,
@@ -182,6 +202,7 @@ fn resolved_hop_masque_config(
 fn resolved_hop_trojan_config(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    socket_protection: SocketProtectionPolicy,
 ) -> io::Result<ripdpi_relay_tls_transports::TrojanClientConfig> {
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Trojan server port must fit u16"))
@@ -193,12 +214,14 @@ fn resolved_hop_trojan_config(
         password: hop.trojan_password.clone().unwrap_or_default(),
         tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
         root_certificate_pem: hop.trojan_root_certificate_pem.clone(),
+        socket_protection,
     })
 }
 
 fn resolved_hop_anytls_config(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    socket_protection: SocketProtectionPolicy,
 ) -> io::Result<ripdpi_relay_tls_transports::AnyTlsClientConfig> {
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: AnyTLS server port must fit u16"))
@@ -211,6 +234,7 @@ fn resolved_hop_anytls_config(
         tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
         root_certificate_pem: hop.anytls_root_certificate_pem.clone(),
         client_name: "ripdpi-anytls/0.1.0".to_string(),
+        socket_protection,
     })
 }
 
@@ -218,6 +242,7 @@ fn resolved_hop_shadowsocks_factory(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
     outbound_bind_ip: Option<IpAddr>,
+    socket_protection: SocketProtectionPolicy,
 ) -> io::Result<ripdpi_relay_tls_transports::ShadowsocksSessionFactory> {
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: Shadowsocks server port must fit u16"))
@@ -234,6 +259,7 @@ fn resolved_hop_shadowsocks_factory(
         method,
         password,
         outbound_bind_ip,
+        socket_protection,
     )
     .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))
 }
@@ -241,6 +267,7 @@ fn resolved_hop_shadowsocks_factory(
 fn resolved_hop_shadowtls_factory(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    socket_protection: SocketProtectionPolicy,
 ) -> io::Result<ripdpi_relay_tls_transports::ShadowTlsSessionFactory> {
     let inner = hop.shadow_tls_inner.as_ref().ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: ShadowTLS inner relay config is required"))
@@ -250,6 +277,7 @@ fn resolved_hop_shadowtls_factory(
             password: hop.shadow_tls_password.clone().unwrap_or_default(),
             server_name: hop.server_name.clone(),
             inner_profile_id: hop.shadow_tls_inner_profile_id.clone(),
+            socket_protection,
         },
         outer_server: hop.server.clone(),
         outer_server_port: hop.server_port,
@@ -272,6 +300,7 @@ fn resolved_hop_shadowtls_factory(
 fn resolved_hop_hysteria2_factory(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    socket_protection: SocketProtectionPolicy,
     quic_migration: QuicMigrationTelemetryState,
 ) -> io::Result<crate::protocols::Hysteria2SessionFactory> {
     let password = hop.hysteria_password.as_ref().filter(|value| !value.trim().is_empty()).ok_or_else(|| {
@@ -283,12 +312,14 @@ fn resolved_hop_hysteria2_factory(
     config.salamander_key = hop.hysteria_salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
     config.quic_bind_low_port = false;
     config.quic_migrate_after_handshake = false;
+    config.socket_protection = socket_protection;
     Ok(crate::protocols::Hysteria2SessionFactory { config, migration: quic_migration })
 }
 
 fn resolved_hop_tuic_factory(
     hop: &ResolvedChainRelayHopConfig,
     label: &str,
+    socket_protection: SocketProtectionPolicy,
     quic_migration: QuicMigrationTelemetryState,
 ) -> io::Result<crate::protocols::TuicSessionFactory> {
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
@@ -306,6 +337,7 @@ fn resolved_hop_tuic_factory(
             udp_enabled: false,
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
+            socket_protection,
             keepalive_interval_ms: 0,
             root_certificate_pem: None,
         },

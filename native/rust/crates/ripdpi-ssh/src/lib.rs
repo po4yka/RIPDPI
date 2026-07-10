@@ -16,22 +16,14 @@
 //! socket to bypass the VPN's own TUN device, or the kernel routes the SSH
 //! transport back into the tunnel — an infinite packet loop.
 //!
-//! Relay outbound has TWO protect layers. The sibling backends (trojan, anytls,
-//! shadowtls, shadowsocks, mieru, and the QUIC transports) now build their
-//! outbound socket explicitly and call `VpnService.protect()` on the fd BEFORE
-//! connect — the per-socket layer. SSH cannot do this directly:
-//! `russh::client::connect()` opens its OWN socket internally, so there is no fd
-//! to protect before connect. SSH therefore relies on the SECOND layer,
-//! **UID-level routing exclusion**: the app's own package is always excluded
-//! from the TUN (`computeAppRoutingPlan`), so every in-process relay socket
-//! carries the app UID and bypasses the TUN without a per-socket call. This
-//! keeps SSH safe under a live TUN today; it could adopt per-socket protect if
-//! `russh` exposes a `connect_stream`-style API accepting a caller-built,
-//! pre-protected `TcpStream`.
+//! The relay runtime carries an explicit socket-protection policy. SSH creates
+//! and protects its TCP socket before passing it to `russh::client::connect_stream`;
+//! VPN-required mode fails closed if protection is unavailable or rejected,
+//! while the legacy public `connect` entry point selects the inactive policy.
 //!
 //! ## Engine shape
 //!
-//! [`connect`] validates the config, dials via `russh::client::connect`, drives
+//! [`connect`] validates the config, dials via the policy-aware stream path, drives
 //! host-key verification through [`evaluate_host_key`] (TOFU pin-match / strict
 //! pin / first-use surfacing), authenticates by password or private key, and
 //! returns an [`SshClient`]. [`SshClient::tcp_connect`] opens a single

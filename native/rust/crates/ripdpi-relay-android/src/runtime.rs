@@ -45,10 +45,7 @@ pub(crate) fn create_session(config_json: &str) -> Option<SessionRuntime> {
         Some(SessionRuntime::AppsScript(AppsScriptRelayRuntime::new(config)))
     } else {
         let config = serde_json::from_str::<ResolvedRelayRuntimeConfig>(config_json).ok()?;
-        Some(SessionRuntime::Standard(StandardRelayRuntime::with_socket_protector(
-            config,
-            ripdpi_native_protect::protect_socket_via_callback,
-        )))
+        Some(SessionRuntime::Standard(StandardRelayRuntime::new(config)))
     }
 }
 

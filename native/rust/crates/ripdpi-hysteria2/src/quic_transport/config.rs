@@ -53,6 +53,7 @@ pub struct QuicTransportConfig {
     /// Rebind the QUIC endpoint after the handshake so `quinn` performs an
     /// RFC 9000 path validation (mirrors `quic_migrate_after_handshake`).
     pub migrate_after_handshake: bool,
+    pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 }
 
 impl QuicTransportConfig {
@@ -66,6 +67,7 @@ impl QuicTransportConfig {
             insecure: false,
             bind_low_port: false,
             migrate_after_handshake: false,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         }
     }
 

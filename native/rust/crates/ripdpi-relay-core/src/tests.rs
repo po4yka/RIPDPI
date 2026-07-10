@@ -42,6 +42,7 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
         enabled: true,
         profile_id: "default".to_string(),
         outbound_bind_ip: String::new(),
+        socket_protection: crate::config::SocketProtection::Inactive,
         server: "relay.example".to_string(),
         server_port: 443,
         server_name: "relay.example".to_string(),
@@ -159,6 +160,35 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
         other => RelayBackendConfig::Unsupported(crate::config::UnsupportedRelayConfig { kind: other.to_string() }),
     };
     ResolvedRelayRuntimeConfig { common, backend }
+}
+
+#[test]
+fn socket_protection_wire_defaults_inactive_and_accepts_vpn_required() {
+    let proxy = sample_config("vless_reality");
+    let proxy_json = serde_json::to_value(&proxy).expect("serialize proxy relay config");
+    assert_eq!(proxy_json["socketProtection"], serde_json::json!("inactive"));
+
+    let mut vpn_json = proxy_json;
+    vpn_json["socketProtection"] = serde_json::json!("vpn_required");
+    let vpn: ResolvedRelayRuntimeConfig = serde_json::from_value(vpn_json).expect("deserialize VPN relay config");
+    assert_eq!(vpn.common.socket_protection, crate::config::SocketProtection::VpnRequired);
+
+    let mut legacy_json = serde_json::to_value(proxy).expect("serialize legacy relay config");
+    legacy_json.as_object_mut().expect("object").remove("socketProtection");
+    let legacy: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(legacy_json).expect("deserialize legacy relay config");
+    assert_eq!(legacy.common.socket_protection, crate::config::SocketProtection::Inactive);
+}
+
+#[tokio::test]
+async fn tor_vpn_mode_fails_before_arti_can_open_unprotected_sockets() {
+    let mut config = sample_config("tor");
+    config.common.socket_protection = crate::config::SocketProtection::VpnRequired;
+
+    let Err(error) = build_backend(&config).await else {
+        panic!("Tor VPN mode must fail closed");
+    };
+    assert_eq!(error.kind(), io::ErrorKind::Unsupported);
 }
 
 #[tokio::test]

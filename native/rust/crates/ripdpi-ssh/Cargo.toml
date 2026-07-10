@@ -6,9 +6,10 @@ license.workspace = true
 
 [dependencies]
 base64 = { workspace = true }
+ripdpi-native-protect = { workspace = true }
 russh = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["io-util", "macros", "rt", "sync"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "time", "macros", "io-util"] }

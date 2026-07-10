@@ -130,11 +130,12 @@ impl VlessRealityClient {
 }
 
 async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<TcpStream> {
+    let socket_protection = config.socket_protection;
     let address = endpoint_resolver::resolve_server_addr(
         &config.server,
         config.port,
         bind_ip,
-        Some(Box::new(ripdpi_native_protect::protect_socket_via_callback)),
+        Some(Box::new(move |fd| socket_protection.protect(fd))),
     )
     .await?;
     let socket = match address {
@@ -150,7 +151,7 @@ async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io
     // socket-creation site that needs this. See
     // .claude/rules/vpnservice-protect-invariant.md.
     if !address.ip().is_loopback() {
-        protect_outbound_socket(&socket)?;
+        protect_outbound_socket(&socket, config.socket_protection)?;
     }
     if let Some(bind_ip) = bind_ip {
         let bind_addr = match (bind_ip, address) {
@@ -176,23 +177,17 @@ async fn connect_tcp(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io
 /// Protect a freshly created outbound socket via the registered
 /// `VpnService.protect()` callback before it connects to a non-loopback peer.
 ///
-/// Fails closed: under an active TUN there is no other mechanism to keep the
-/// socket out of the tunnel route, so a missing callback refuses the
-/// connection rather than dialing unprotected. The Android relay datapath
-/// always runs with the callback installed by the VPN-protect adapter; a
-/// missing callback means a non-Android/host context where a non-loopback dial
-/// would be unprotected — refusing there is the safe outcome (host integration
-/// tests dial loopback, which never reaches this helper). See
+/// The explicit inactive policy is a no-op for proxy/host runtimes. The
+/// VPN-required policy fails closed when the callback is missing or rejects
+/// the fd, before bind/connect can touch the network. See
 /// `ripdpi_native_protect` and
 /// .claude/rules/vpnservice-protect-invariant.md.
-fn protect_outbound_socket<T: AsRawFd>(socket: &T) -> io::Result<()> {
-    if !ripdpi_native_protect::has_protect_callback() {
-        return Err(io::Error::new(
-            io::ErrorKind::NotConnected,
-            "no VpnService.protect callback registered for non-loopback VLESS socket under active TUN",
-        ));
-    }
-    ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd())
+fn protect_outbound_socket<T: AsRawFd>(
+    socket: &T,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<()> {
+    socket_protection
+        .protect(socket.as_raw_fd())
         .map_err(|error| io::Error::new(error.kind(), format!("protect VLESS outbound socket: {error}")))
 }
 
@@ -243,7 +238,7 @@ mod protect_tests {
 
     fn config_for(server: &str, port: u16) -> VlessRealityConfig {
         let key = BASE64_STANDARD.encode([0xABu8; 32]);
-        VlessRealityConfig::from_strings(
+        let mut config = VlessRealityConfig::from_strings(
             server,
             i32::from(port),
             "550e8400-e29b-41d4-a716-446655440000",
@@ -252,13 +247,25 @@ mod protect_tests {
             "abcd1234",
             "chrome_stable",
         )
-        .expect("valid base config")
+        .expect("valid base config");
+        config.socket_protection = ripdpi_native_protect::SocketProtectionPolicy::VpnRequired;
+        config
     }
 
     // TEST-NET-1 (RFC 5737) is a guaranteed-unroutable literal: it parses
     // without DNS and the protect failure aborts before any connect attempt,
     // so the test never actually dials it.
     const NON_LOOPBACK: &str = "192.0.2.1";
+
+    #[tokio::test]
+    async fn proxy_mode_allows_nonloopback_socket_without_callback() {
+        let _guard = PROTECT_TEST_LOCK.lock().await;
+        unregister_protect_callback();
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test socket");
+
+        protect_outbound_socket(&listener, ripdpi_native_protect::SocketProtectionPolicy::Inactive)
+            .expect("proxy mode must not require VpnService protection");
+    }
 
     #[tokio::test]
     async fn nonloopback_socket_is_protected_before_connect() {

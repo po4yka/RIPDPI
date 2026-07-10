@@ -32,6 +32,13 @@ impl AppsScriptRuntimeConfig {
         let raw: RawAppsScriptRuntimeConfig =
             serde_json::from_str(json).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
 
+        if raw.socket_protection.as_deref() == Some("vpn_required") {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "Apps Script relay cannot protect its HTTP client sockets in VPN mode",
+            ));
+        }
+
         if raw.verify_ssl == Some(false) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -120,6 +127,8 @@ impl ScriptIdsField {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RawAppsScriptRuntimeConfig {
+    #[serde(default)]
+    socket_protection: Option<String>,
     #[serde(default, alias = "kind")]
     kind: Option<String>,
     #[serde(default, alias = "profile_id")]
@@ -215,6 +224,16 @@ fn normalize_string_list(values: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn vpn_required_socket_protection_is_rejected_before_startup() {
+        let error = AppsScriptRuntimeConfig::from_json(
+            r#"{"kind":"google_apps_script","socketProtection":"vpn_required","appsScriptScriptIds":["script-id"]}"#,
+        )
+        .expect_err("unprotectable VPN transport must fail closed");
+
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    }
 
     #[test]
     fn parses_explicit_apps_script_fields() {

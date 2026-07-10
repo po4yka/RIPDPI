@@ -26,6 +26,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     client_config.insecure = hysteria.insecure;
     client_config.quic_bind_low_port = config.common.quic_bind_low_port;
     client_config.quic_migrate_after_handshake = config.common.quic_migrate_after_handshake;
+    client_config.socket_protection = context.socket_protection;
 
     Ok(RelayBackend::Hysteria2(PooledRelayBackend::new(
         Hysteria2SessionFactory { config: client_config, migration: context.quic_migration.clone() },

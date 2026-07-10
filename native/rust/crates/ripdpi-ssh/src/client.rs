@@ -132,24 +132,46 @@ impl Handler for SshHandler {
 ///
 /// The configuration is fully validated first (port range, non-empty username,
 /// auth material present, strict fingerprint parse), so a malformed profile
-/// fails loudly before any I/O. `russh::client::connect` opens its own TCP
-/// socket, so — unlike the sibling backends, which now build and protect their
-/// fd before connect — SSH cannot apply a per-socket `VpnService.protect()`. It
-/// is kept off the TUN by UID-level routing exclusion: the relay runs in-process
-/// under the app UID, which is excluded from the TUN. The host key is checked
-/// through [`evaluate_host_key`] before authentication proceeds.
+/// fails loudly before any I/O. The policy-aware path creates and protects the
+/// TCP socket before handing it to `russh::client::connect_stream`; the legacy
+/// [`connect`] entry point explicitly selects the inactive non-VPN policy. The
+/// host key is checked through [`evaluate_host_key`] before authentication.
 // cancel-safe: every `.await` here (`connect`, `authenticate_*`,
 // `best_supported_rsa_hash`) is a discrete request/response on a fresh session;
 // if the future is dropped mid-handshake the half-open session's `Handle` is
 // dropped with it, tearing down the russh IO task. No partial state escapes.
 pub async fn connect(config: &SshConfig) -> Result<SshClient> {
+    connect_with_socket_protection(config, ripdpi_native_protect::SocketProtectionPolicy::Inactive).await
+}
+
+/// Connect with an explicit per-runtime socket-protection policy.
+pub async fn connect_with_socket_protection(
+    config: &SshConfig,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> Result<SshClient> {
     config.validate()?;
 
     let rejection: Arc<Mutex<Option<SshError>>> = Arc::new(Mutex::new(None));
     let handler = SshHandler { policy: config.host_key_policy.clone(), rejection: Arc::clone(&rejection) };
     let client_config = Arc::new(Config::default());
 
-    let mut handle = match client::connect(client_config, (config.host.as_str(), config.port), handler).await {
+    let server_addr = tokio::net::lookup_host((config.host.as_str(), config.port))
+        .await
+        .map_err(|error| SshError::Ssh(error.to_string()))?
+        .next()
+        .ok_or_else(|| SshError::Ssh("SSH server resolved to no addresses".to_string()))?;
+    let socket = match server_addr {
+        std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4(),
+        std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6(),
+    }
+    .map_err(|error| SshError::Ssh(error.to_string()))?;
+    use std::os::fd::AsRawFd as _;
+    socket_protection
+        .protect_non_loopback(socket.as_raw_fd(), server_addr)
+        .map_err(|error| SshError::Ssh(format!("protect SSH carrier socket: {error}")))?;
+    let stream = socket.connect(server_addr).await.map_err(|error| SshError::Ssh(error.to_string()))?;
+
+    let mut handle = match client::connect_stream(client_config, stream, handler).await {
         Ok(handle) => handle,
         Err(russh::Error::UnknownKey) => {
             // `check_server_key` returned Ok(false); recover the precise typed

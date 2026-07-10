@@ -47,6 +47,7 @@ internal class UpstreamRelaySupervisor(
             override fun create(): RipDpiRelayRuntime = error("Pluggable transport runtime factory is not configured")
         },
     private val runtimeConfigResolver: UpstreamRelayRuntimeConfigResolver,
+    private val networkMode: RelayRuntimeNetworkMode = RelayRuntimeNetworkMode.Proxy,
     private val stopTimeoutMillis: Long = 5_000L,
 ) {
     constructor(
@@ -85,6 +86,7 @@ internal class UpstreamRelaySupervisor(
                 override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
             },
         torRuntimeProviders: TorRelayRuntimeProviders = TorRelayRuntimeProviders(),
+        networkMode: RelayRuntimeNetworkMode = RelayRuntimeNetworkMode.Proxy,
     ) : this(
         scope = scope,
         dispatcher = dispatcher,
@@ -104,6 +106,7 @@ internal class UpstreamRelaySupervisor(
                 torRuntimePathProvider = torRuntimeProviders.pathProvider,
                 torPluggableTransportProvider = torRuntimeProviders.pluggableTransportProvider,
             ),
+        networkMode = networkMode,
     )
 
     private var relayRuntime: RipDpiRelayRuntime? = null
@@ -119,7 +122,8 @@ internal class UpstreamRelaySupervisor(
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
         check(relayJob == null) { "Relay fields not null" }
-        val resolvedConfig = runtimeConfigResolver.resolve(config, quicMigrationConfig)
+        val resolvedConfig =
+            runtimeConfigResolver.resolve(config, quicMigrationConfig).withNetworkMode(networkMode)
         val runtime =
             if (resolvedConfig.kind == RelayKindNaiveProxy) {
                 naiveProxyRuntimeFactory.create()
@@ -299,6 +303,7 @@ internal open class UpstreamRelaySupervisorFactory
         open fun create(
             scope: CoroutineScope,
             dispatcher: CoroutineDispatcher,
+            networkMode: RelayRuntimeNetworkMode = RelayRuntimeNetworkMode.Proxy,
         ): UpstreamRelaySupervisor =
             UpstreamRelaySupervisor(
                 scope = scope,
@@ -309,6 +314,7 @@ internal open class UpstreamRelaySupervisorFactory
                 cloudflarePublishRuntimeFactory = cloudflarePublishRuntimeFactory,
                 pluggableTransportRuntimeFactory = pluggableTransportRuntimeFactory,
                 runtimeConfigResolver = runtimeConfigResolver,
+                networkMode = networkMode,
             )
     }
 

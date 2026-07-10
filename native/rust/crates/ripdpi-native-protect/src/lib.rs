@@ -36,12 +36,45 @@
 #![forbid(unsafe_code)]
 
 use std::io;
+use std::net::SocketAddr;
 use std::os::fd::RawFd;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
 pub trait ProtectCallback: Send + Sync {
     fn protect(&self, fd: RawFd) -> io::Result<()>;
+}
+
+/// Per-runtime policy for outbound sockets created by a relay dialer.
+///
+/// Callback registration is process-global lifecycle state; it is not a safe
+/// proxy for whether a particular runtime is inside an Android VPN. Callers
+/// must carry this policy from their runtime configuration to every dialer.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum SocketProtectionPolicy {
+    /// No TUN is active for this runtime, so outbound sockets connect directly.
+    #[default]
+    Inactive,
+    /// A TUN is active and every non-loopback outbound socket must be protected.
+    VpnRequired,
+}
+
+impl SocketProtectionPolicy {
+    /// Apply the configured policy before any connect, bind, or network I/O.
+    pub fn protect(self, fd: RawFd) -> io::Result<()> {
+        match self {
+            Self::Inactive => Ok(()),
+            Self::VpnRequired => protect_socket_via_callback(fd),
+        }
+    }
+
+    /// Apply the configured policy, preserving the documented loopback exemption.
+    pub fn protect_non_loopback(self, fd: RawFd, target: SocketAddr) -> io::Result<()> {
+        if target.ip().is_loopback() {
+            return Ok(());
+        }
+        self.protect(fd)
+    }
 }
 
 /// Monotonic token identifying one [`register_protect_callback_versioned`]
@@ -202,6 +235,41 @@ mod tests {
         let result = protect_socket_via_callback(42);
         assert!(result.is_err());
         assert_eq!(result.expect_err("missing callback").kind(), io::ErrorKind::NotConnected);
+    }
+
+    #[test]
+    fn inactive_policy_allows_proxy_mode_without_callback() {
+        let _lock = TEST_MUTEX.lock().expect("test mutex");
+        unregister_protect_callback();
+
+        assert!(SocketProtectionPolicy::Inactive.protect(42).is_ok());
+    }
+
+    #[test]
+    fn vpn_required_policy_rejects_missing_callback() {
+        let _lock = TEST_MUTEX.lock().expect("test mutex");
+        unregister_protect_callback();
+
+        let error = SocketProtectionPolicy::VpnRequired.protect(42).expect_err("must fail closed");
+        assert_eq!(error.kind(), io::ErrorKind::NotConnected);
+    }
+
+    struct RejectingCallback;
+
+    impl ProtectCallback for RejectingCallback {
+        fn protect(&self, _fd: RawFd) -> io::Result<()> {
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "test rejection"))
+        }
+    }
+
+    #[test]
+    fn vpn_required_policy_propagates_callback_rejection() {
+        let _lock = TEST_MUTEX.lock().expect("test mutex");
+        register_protect_callback(Arc::new(RejectingCallback));
+
+        let error = SocketProtectionPolicy::VpnRequired.protect(42).expect_err("must fail closed");
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        unregister_protect_callback();
     }
 
     #[test]

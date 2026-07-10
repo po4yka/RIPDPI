@@ -20,6 +20,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 password: trojan.password.clone().unwrap_or_default(),
                 tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
                 root_certificate_pem: trojan.root_certificate_pem.clone(),
+                socket_protection: context.socket_protection,
             },
         },
         context.pool_config,

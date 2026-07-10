@@ -15,6 +15,7 @@ fn client_config(fixture: &AnyTlsLoopback, password: &str) -> AnyTlsClientConfig
         tls_fingerprint_profile: "chrome".to_owned(),
         root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
         client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
     }
 }
 

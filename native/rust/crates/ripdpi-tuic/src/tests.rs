@@ -149,6 +149,7 @@ async fn tuic_client_relays_tcp_and_udp() {
             udp_enabled: true,
             quic_bind_low_port: false,
             quic_migrate_after_handshake: true,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             keepalive_interval_ms: 0,
             root_certificate_pem: None,
         },

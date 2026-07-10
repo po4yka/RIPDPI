@@ -23,9 +23,7 @@ separate from `libripdpi.so`.
 - A relay session is a `jlong` handle; lifecycle is
   `create → start → stop → destroy`. `jniStart` returns an `Int` status
   (non-zero = failure); `jniPollTelemetry` returns a `jstring`.
-- `jniRegisterVpnProtect` / `jniUnregisterVpnProtect` own the relay library's
-  protect slot; register before `jniCreate` / `jniStart` so xHTTP carrier
-  sockets are protected before connect.
+- `jniRegisterVpnProtect` / `jniUnregisterVpnProtect` own the relay library's protect slot. Kotlin additionally carries `socketProtection=inactive|vpn_required` in the session JSON: proxy mode never requires the callback, while VPN mode fails closed if registration is absent or protection is rejected.
 - Exports use `android_support::ffi_boundary` with the standard sentinels.
 
 ## Plane

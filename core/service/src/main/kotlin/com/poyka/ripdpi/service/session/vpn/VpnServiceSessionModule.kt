@@ -22,6 +22,7 @@ import com.poyka.ripdpi.services.InMemoryVpnProtectFailureMonitor
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
+import com.poyka.ripdpi.services.RelayRuntimeNetworkMode
 import com.poyka.ripdpi.services.RootHelperManager
 import com.poyka.ripdpi.services.ServiceSessionScope
 import com.poyka.ripdpi.services.ServiceStatusReporter
@@ -111,7 +112,12 @@ internal object VpnServiceSessionModule {
         host: VpnCoordinatorHost,
         factory: UpstreamRelaySupervisorFactory,
         dispatchers: AppCoroutineDispatchers,
-    ): UpstreamRelaySupervisor = factory.create(scope = host.serviceScope, dispatcher = dispatchers.io)
+    ): UpstreamRelaySupervisor =
+        factory.create(
+            scope = host.serviceScope,
+            dispatcher = dispatchers.io,
+            networkMode = RelayRuntimeNetworkMode.Vpn,
+        )
 
     @Provides
     @ServiceSessionScope

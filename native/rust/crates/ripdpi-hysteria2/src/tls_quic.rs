@@ -16,6 +16,7 @@ pub(crate) struct ClientSocketSpec {
     pub(crate) ipv6: bool,
     pub(crate) bind_low_port: bool,
     pub(crate) salamander_key: Option<String>,
+    pub(crate) socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 }
 
 pub(crate) async fn authenticate_connection(config: &Config, connection: &quinn::Connection) -> Result<bool> {
@@ -87,7 +88,11 @@ pub(crate) fn build_endpoint(
 /// copy. The `salamander_key` field of [`ClientSocketSpec`] is applied later
 /// by [`build_endpoint`] / [`rebind_endpoint`], not here.
 pub(crate) fn build_client_udp_socket(socket_spec: &ClientSocketSpec) -> io::Result<std::net::UdpSocket> {
-    quic_transport::build_client_udp_socket(socket_spec.ipv6, socket_spec.bind_low_port)
+    quic_transport::build_client_udp_socket_with_policy(
+        socket_spec.ipv6,
+        socket_spec.bind_low_port,
+        socket_spec.socket_protection,
+    )
 }
 
 pub(crate) fn rebind_endpoint(

@@ -84,6 +84,7 @@ pub struct VlessRealityConfig {
     /// profile's static curve list before the connector is built. `None`
     /// (default) keeps the profile's curve template.
     pub kem_groups: Option<Vec<String>>,
+    pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 }
 
 impl std::fmt::Debug for VlessRealityConfig {
@@ -99,6 +100,7 @@ impl std::fmt::Debug for VlessRealityConfig {
             .field("mux", &self.mux)
             .field("flow", &self.flow)
             .field("kem_groups", &self.kem_groups)
+            .field("socket_protection", &self.socket_protection)
             .finish()
     }
 }
@@ -147,6 +149,7 @@ impl VlessRealityConfig {
             mux: None,
             flow: VlessFlow::default(),
             kem_groups: None,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         })
     }
 

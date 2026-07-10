@@ -12,6 +12,7 @@ pub use ripdpi_mieru::{MieruConfig, MieruMux, MieruProtocol};
 #[derive(Clone)]
 pub struct MieruSessionFactory {
     pub config: ripdpi_mieru::MieruConfig,
+    pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 }
 
 /// A Mieru relay session. With multiplexing `off` it is one client over one
@@ -80,7 +81,7 @@ impl RelaySessionFactory for MieruSessionFactory {
             std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
             std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
         };
-        crate::protect::protect_carrier_socket(&socket, server_addr)?;
+        crate::protect::protect_carrier_socket(&socket, server_addr, self.socket_protection)?;
         let stream = socket.connect(server_addr).await?;
         // Mieru's replay clock comes from the shared network-time provider, never
         // a direct device-clock read. Uncalibrated it falls back to the device

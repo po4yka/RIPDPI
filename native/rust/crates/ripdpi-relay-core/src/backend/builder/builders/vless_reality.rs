@@ -65,20 +65,19 @@ fn build_reality(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) ->
     let RelayBackendConfig::VlessReality(vless) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected VLESS Reality config"));
     };
+    let mut vless_config = vless_reality_config(
+        &config.common.server,
+        config.common.server_port,
+        vless.uuid.as_deref().unwrap_or_default(),
+        &config.common.server_name,
+        &vless.reality_public_key,
+        &vless.reality_short_id,
+        &vless.vless_flow,
+        &config.common.tls_fingerprint_profile,
+    )?;
+    vless_config.socket_protection = context.socket_protection;
     Ok(RelayBackend::VlessReality(PooledRelayBackend::new(
-        VlessRealitySessionFactory {
-            config: vless_reality_config(
-                &config.common.server,
-                config.common.server_port,
-                vless.uuid.as_deref().unwrap_or_default(),
-                &config.common.server_name,
-                &vless.reality_public_key,
-                &vless.reality_short_id,
-                &vless.vless_flow,
-                &config.common.tls_fingerprint_profile,
-            )?,
-            outbound_bind_ip: context.outbound_bind_ip,
-        },
+        VlessRealitySessionFactory { config: vless_config, outbound_bind_ip: context.outbound_bind_ip },
         context.pool_config,
         None,
     )))

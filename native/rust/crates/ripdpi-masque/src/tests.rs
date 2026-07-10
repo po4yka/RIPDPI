@@ -42,6 +42,7 @@ fn unsupported_auth_mode_fails_before_connect() {
 
 fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&str>) -> MasqueConfig {
     MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
         use_http2_fallback: false,
@@ -58,6 +59,17 @@ fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&s
         quic_migrate_after_handshake: false,
         ech_config: None,
     }
+}
+
+#[test]
+fn privacy_pass_vpn_mode_fails_before_unprotectable_provider_dial() {
+    let mut config = privacy_pass_test_config("https://provider.example/token".to_string(), None);
+    config.socket_protection = ripdpi_native_protect::SocketProtectionPolicy::VpnRequired;
+
+    let Err(error) = MasqueClient::new(config) else {
+        panic!("unprotectable provider fetch must fail closed");
+    };
+    assert_eq!(error.kind(), io::ErrorKind::Unsupported);
 }
 
 async fn start_provider_stub(
@@ -153,6 +165,7 @@ fn connect_udp_path_percent_encodes_ipv6_hosts() {
 #[test]
 fn new_client_starts_with_not_attempted_quic_snapshot() {
     let client = MasqueClient::new(MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
         use_http2_fallback: true,
@@ -178,6 +191,7 @@ fn new_client_starts_with_not_attempted_quic_snapshot() {
 fn masque_config_accepts_ech_and_boring_h2_backend_can_apply_it() {
     let ech = ripdpi_tls_profiles::OutboundEchConfig::new("ech.com", BORING_ECH_CONFIG_LIST.to_vec()).expect("ech");
     let config = MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
         use_http2_fallback: true,
@@ -205,6 +219,7 @@ fn masque_config_accepts_ech_and_boring_h2_backend_can_apply_it() {
 #[test]
 fn parse_proxy_origin_preserves_request_path_and_query() {
     let origin = parse_proxy_origin(&MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/.well-known/masque/ip?cf=1".to_string(),
         proxy_socket_addr: None,
         use_http2_fallback: true,
@@ -231,6 +246,7 @@ fn parse_proxy_origin_preserves_request_path_and_query() {
 fn proxy_socket_addr_prefers_bootstrapped_endpoint_without_rewriting_origin_host() {
     let bootstrapped_addr: SocketAddr = "203.0.113.8:8443".parse().expect("socket addr");
     let config = MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example:8443/.well-known/masque/ip".to_string(),
         use_http2_fallback: true,
         auth_mode: Some("bearer".to_string()),
@@ -273,6 +289,7 @@ fn parse_target_supports_domain_and_ipv6_authorities() {
 #[test]
 fn apply_request_headers_does_not_add_proprietary_geohash() {
     let config = MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
         use_http2_fallback: true,
@@ -436,6 +453,7 @@ async fn privacy_pass_provider_fetch_caches_spare_headers() {
 #[tokio::test]
 async fn quic_migration_snapshot_records_http2_fallback_reason() {
     let client = MasqueClient::new(MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
         use_http2_fallback: true,
@@ -464,6 +482,7 @@ async fn quic_migration_snapshot_records_http2_fallback_reason() {
 
 fn fallback_snapshot_test_client() -> MasqueClient {
     MasqueClient::new(MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),
         proxy_socket_addr: None,
         use_http2_fallback: true,
@@ -560,6 +579,7 @@ async fn privacy_pass_provider_non_success_is_permission_denied() {
 async fn udp_session_round_trips_through_conformant_h2_connect_udp_fixture() {
     let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
     let client = MasqueClient::new(MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: fixture.masque_url(),
         proxy_socket_addr: None,
         use_http2_fallback: true,
@@ -609,6 +629,7 @@ async fn adapter_selected_http_auth_lands_on_connect_udp_request() {
     for (auth_mode, token) in [("bearer", "bearer-secret"), ("preshared", "preshared-secret")] {
         let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
         let config = MasqueConfig {
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             url: fixture.masque_url(),
             proxy_socket_addr: None,
             use_http2_fallback: true,
@@ -661,6 +682,7 @@ async fn adapter_selected_http_auth_lands_on_connect_udp_request() {
 async fn connect_over_h2_transport_tunnels_tcp_to_target() {
     let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
     let config = MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: fixture.masque_url(),
         proxy_socket_addr: None,
         use_http2_fallback: true,
@@ -706,6 +728,7 @@ async fn connect_over_h2_transport_tunnels_tcp_to_target() {
 async fn connect_over_h2_with_pinned_root_certificate_verifies_and_tunnels() {
     let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
     let config = MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: fixture.masque_url(),
         proxy_socket_addr: None,
         use_http2_fallback: true,
@@ -746,6 +769,7 @@ async fn connect_over_h2_with_unrelated_root_certificate_fails_verification() {
     // A syntactically valid but unrelated self-signed cert: a second fixture's.
     let other = MasqueH2ConnectUdpFixture::start().await.expect("start second MASQUE fixture");
     let config = MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: fixture.masque_url(),
         proxy_socket_addr: None,
         use_http2_fallback: true,

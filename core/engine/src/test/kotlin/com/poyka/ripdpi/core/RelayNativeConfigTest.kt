@@ -51,6 +51,25 @@ class RelayNativeConfigTest {
     }
 
     @Test
+    fun `socket protection is additive and uses stable wire names`() {
+        val proxyJson = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), representativeConfigs().first())
+        assertTrue("legacy proxy payload shape omits the inert default", "socketProtection" !in proxyJson)
+
+        val vpnJson =
+            json.encodeToString(
+                ResolvedRipDpiRelayConfig.serializer(),
+                representativeConfigs().first().copy(socketProtection = RelaySocketProtection.VpnRequired),
+            )
+        assertEquals(
+            "vpn_required",
+            (json.parseToJsonElement(vpnJson) as JsonObject).getValue("socketProtection").jsonPrimitive.content,
+        )
+
+        val legacy = json.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), proxyJson)
+        assertEquals(RelaySocketProtection.Inactive, legacy.socketProtection)
+    }
+
+    @Test
     fun `chain section folds the flat two-hop wire fields into an ordered hop list`() {
         val section = chainRelayConfig().toSections().chain
 

@@ -375,6 +375,7 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   `RelayNativeConfigTest` (Kotlin `chainHops` 3-hop trip) and
   `ripdpi-relay-core::tests` (`chain_relay_three_hop_list_round_trips_through_flat_wire`,
   `chain_relay_wire_rejects_out_of_range_hop_count`).
+- Relay native runtime config also carries the additive `socketProtection` enum (`inactive` / `vpn_required`). It is runtime-owned rather than persisted profile state: the proxy service always writes `inactive`, the VPN service always writes `vpn_required`, and Rust defaults a missing field to `inactive` for legacy payload compatibility. This additive default does not bump schema version 8. Dialers must use the value as policy; callback presence is only lifecycle state and must never decide whether protection is required.
 - The **proxy native config** carries `schemaVersion` on every
   `NativeProxyConfig` variant. Kotlin `NativeProxyConfigSchemaVersion` and Rust
   `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `2`; missing, version 1,

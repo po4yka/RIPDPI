@@ -39,6 +39,7 @@ pub struct CommonRelayConfig {
     pub enabled: bool,
     pub profile_id: String,
     pub outbound_bind_ip: String,
+    pub socket_protection: SocketProtection,
     pub server: String,
     pub server_port: i32,
     pub server_name: String,
@@ -51,4 +52,22 @@ pub struct CommonRelayConfig {
     pub tls_fingerprint_profile: String,
     #[serde(default)]
     pub finalmask: ResolvedRelayFinalmaskConfig,
+}
+
+/// Wire representation of the runtime-owned socket-protection policy.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SocketProtection {
+    #[default]
+    Inactive,
+    VpnRequired,
+}
+
+impl From<SocketProtection> for ripdpi_relay_tls_transports::SocketProtectionPolicy {
+    fn from(value: SocketProtection) -> Self {
+        match value {
+            SocketProtection::Inactive => Self::Inactive,
+            SocketProtection::VpnRequired => Self::VpnRequired,
+        }
+    }
 }

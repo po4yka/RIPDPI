@@ -13,6 +13,7 @@ pub struct Config {
     pub salamander_key: Option<String>,
     pub quic_bind_low_port: bool,
     pub quic_migrate_after_handshake: bool,
+    pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
     /// Legacy fixed port-hopping cadence (`hopInterval`). When set and the
     /// `min`/`max` window below is unset, every hop waits exactly this long --
     /// the pre-Hysteria-2.8.0 behavior. `None` (the default) means no fixed
@@ -69,6 +70,7 @@ impl Config {
             salamander_key: query.get("obfs-password").cloned(),
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             hop_interval: parse_hop_interval(&query, "hopInterval")?,
             min_hop_interval: parse_hop_interval(&query, "minHopInterval")?,
             max_hop_interval: parse_hop_interval(&query, "maxHopInterval")?,

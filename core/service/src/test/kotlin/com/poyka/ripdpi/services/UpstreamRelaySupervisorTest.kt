@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
+import com.poyka.ripdpi.core.RelaySocketProtection
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
@@ -47,6 +48,30 @@ class UpstreamRelaySupervisorTest {
     }
 
     private fun providerAuthFixture(): String = listOf("provider", "auth").joinToString("-")
+
+    @Test
+    fun `runtime-owned socket protection policy is applied after profile resolution`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                    networkMode = RelayRuntimeNetworkMode.Vpn,
+                )
+
+            supervisor.start(
+                config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
+                onUnexpectedExit = {},
+            )
+
+            assertEquals(RelaySocketProtection.VpnRequired, relayFactory.lastRuntime.lastConfig?.socketProtection)
+            supervisor.stop()
+        }
 
     @Test
     fun `explicit stop reports expected relay exit cause`() =

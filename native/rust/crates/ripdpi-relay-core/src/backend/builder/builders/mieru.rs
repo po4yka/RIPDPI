@@ -48,7 +48,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     client_config.validate().map_err(to_io_error)?;
 
     Ok(RelayBackend::Mieru(PooledRelayBackend::new(
-        MieruSessionFactory { config: client_config },
+        MieruSessionFactory { config: client_config, socket_protection: context.socket_protection },
         context.pool_config,
         None,
     )))
