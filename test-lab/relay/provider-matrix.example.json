@@ -1,6 +1,20 @@
 {
   "version": 1,
   "description": "Placeholder manifest shape for private provider-backed relay validation. Keep live endpoints and secrets outside the repository.",
+  "initialTransportRaceScenarios": [
+    {
+      "id": "tcp_application_blackhole_udp_healthy",
+      "tlsCandidateRef": "vless_reality",
+      "udpCandidateRef": "hysteria2",
+      "expectedWinner": "udp_obfuscation"
+    },
+    {
+      "id": "udp_drop_reality_healthy",
+      "tlsCandidateRef": "vless_reality",
+      "udpCandidateRef": "hysteria2",
+      "expectedWinner": "tls_mimicry"
+    }
+  ],
   "relays": [
     {
       "id": "mock_relay",

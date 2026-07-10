@@ -64,6 +64,11 @@ Run `test-lab/scripts/check-relay-matrix-config.sh --config <private-matrix>` be
 | snowflake | | | | | | | | | | | |
 | google_apps_script | | | | | | | | | | | |
 
+| Initial transport race scenario | Expected selected class | Observed selected class | Bounded latency | Result |
+| --- | --- | --- | --- | --- |
+| `tcp_application_blackhole_udp_healthy` | udp_obfuscation | | | |
+| `udp_drop_reality_healthy` | tls_mimicry | | | |
+
 ## TalkBack
 
 | Check | Evidence | Result |

@@ -38,6 +38,11 @@ required_scenarios=(
   network_handover
 )
 
+required_initial_race_scenarios=(
+  tcp_application_blackhole_udp_healthy
+  udp_drop_reality_healthy
+)
+
 usage() {
   cat <<USAGE
 Usage: $0 --config PATH
@@ -98,7 +103,7 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 2
 fi
 
-jq -e '.version == 1 and (.relays | type == "array")' "$config_path" >/dev/null
+jq -e '.version == 1 and (.relays | type == "array") and (.initialTransportRaceScenarios | type == "array")' "$config_path" >/dev/null
 
 missing_paths=()
 for path in "${required_paths[@]}"; do
@@ -115,6 +120,38 @@ for scenario in "${required_scenarios[@]}"; do
     missing_scenarios+=("$scenario")
   fi
 done
+
+missing_initial_race_scenarios=()
+for scenario in "${required_initial_race_scenarios[@]}"; do
+  if ! jq -e --arg scenario "$scenario" '
+    .initialTransportRaceScenarios[]? | select(.id == $scenario)
+  ' "$config_path" >/dev/null; then
+    missing_initial_race_scenarios+=("$scenario")
+  fi
+done
+
+invalid_initial_race_scenarios="$(
+  jq -r '
+    .initialTransportRaceScenarios[]?
+    | select(
+        (.id | type != "string") or
+        (.tlsCandidateRef != "vless_reality") or
+        (.udpCandidateRef != "hysteria2") or
+        ((.expectedWinner == "tls_mimicry" or .expectedWinner == "udp_obfuscation") | not)
+      )
+    | .id // "<missing-id>"
+  ' "$config_path"
+)"
+
+duplicate_initial_race_scenarios="$(
+  jq -r '
+    [.initialTransportRaceScenarios[]?.id | select(type == "string")]
+    | group_by(.)
+    | .[]
+    | select(length > 1)
+    | .[0]
+  ' "$config_path"
+)"
 
 invalid_entries="$(
   jq -r '
@@ -196,6 +233,18 @@ if [[ "${#missing_paths[@]}" -gt 0 ]]; then
 fi
 if [[ "${#missing_scenarios[@]}" -gt 0 ]]; then
   printf 'One or more relay entries is missing scenarios: %s\n' "${missing_scenarios[*]}" >&2
+  exit 1
+fi
+if [[ "${#missing_initial_race_scenarios[@]}" -gt 0 ]]; then
+  printf 'Missing initial transport race scenarios: %s\n' "${missing_initial_race_scenarios[*]}" >&2
+  exit 1
+fi
+if [[ -n "$invalid_initial_race_scenarios" ]]; then
+  printf 'Invalid initial transport race scenarios:\n%s\n' "$invalid_initial_race_scenarios" >&2
+  exit 1
+fi
+if [[ -n "$duplicate_initial_race_scenarios" ]]; then
+  printf 'Duplicate initial transport race scenarios:\n%s\n' "$duplicate_initial_race_scenarios" >&2
   exit 1
 fi
 if [[ -n "$invalid_entries" ]]; then

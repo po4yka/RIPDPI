@@ -19,6 +19,7 @@ grep -Fxq "mock_relay" "$tmpdir/required-paths.txt"
 grep -Fxq "google_apps_script" "$tmpdir/required-paths.txt"
 grep -Fxq "proxy" "$tmpdir/required-scenarios.txt"
 grep -Fxq "network_handover" "$tmpdir/required-scenarios.txt"
+jq -e '.initialTransportRaceScenarios | map(.id) | sort == ["tcp_application_blackhole_udp_healthy", "udp_drop_reality_healthy"]' "$example" >/dev/null
 
 "$python_bin" - "$repo_root/docs/feature-test-manual-evidence-template.md" \
   "$tmpdir/required-paths.txt" <<'PY'
@@ -93,6 +94,16 @@ duplicate_scenario="$tmpdir/duplicate-scenario.json"
 jq '.relays[0].scenarios += ["proxy"]' "$example" > "$duplicate_scenario"
 expect_failure "$duplicate_scenario" "Duplicate relay scenarios:"
 grep -F "mock_relay.proxy" "$output"
+
+missing_initial_race="$tmpdir/missing-initial-race.json"
+jq 'del(.initialTransportRaceScenarios[0])' "$example" > "$missing_initial_race"
+expect_failure "$missing_initial_race" "Missing initial transport race scenarios:"
+grep -F "tcp_application_blackhole_udp_healthy" "$output"
+
+invalid_initial_winner="$tmpdir/invalid-initial-winner.json"
+jq '.initialTransportRaceScenarios[0].expectedWinner = "unknown"' "$example" > "$invalid_initial_winner"
+expect_failure "$invalid_initial_winner" "Invalid initial transport race scenarios:"
+grep -F "tcp_application_blackhole_udp_healthy" "$output"
 
 literal_endpoint="$tmpdir/literal-endpoint.json"
 jq '.relays[1].endpointRef = "https://relay.example.test/path"' "$example" > "$literal_endpoint"

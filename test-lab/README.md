@@ -156,6 +156,8 @@ RIPDPI_RELAY_MATRIX_CONFIG=/path/to/private-relay-matrix.json \
 
 For each relay ID in the private manifest, record proxy, VPN, diagnostics, restart, invalid-credential, reset, timeout, malformed-response, DNS fallback, and handover outcomes in the manual evidence template. Store provider secrets and endpoint material outside the repository; committed docs should reference only redacted relay IDs such as `relay-masque-primary`. The manifest validator rejects duplicate relay IDs, unknown scenario names, literal URL/userinfo refs, and sensitive-looking literal values before any provider-backed run starts.
 
+The private matrix must also retain the two paired initial-transport scenarios from the example manifest: `tcp_application_blackhole_udp_healthy` completes the Reality handshake and then blackholes application data while Hysteria2 remains healthy, and `udp_drop_reality_healthy` drops the Hysteria2 path while Reality remains healthy. Record the selected transport class and bounded race latency; do not copy provider endpoints, probe URLs, credentials, or payloads into artifacts.
+
 ### TalkBack Manual Pass
 
 Do not enable or disable accessibility services from repository scripts. The operator should enable TalkBack manually, then capture a settings dump and a screen recording or transcript:
