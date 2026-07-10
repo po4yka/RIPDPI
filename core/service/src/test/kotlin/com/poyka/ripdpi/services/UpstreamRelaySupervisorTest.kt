@@ -14,6 +14,9 @@ import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindObfs4
+import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
@@ -71,6 +74,57 @@ class UpstreamRelaySupervisorTest {
 
             assertEquals(RelaySocketProtection.VpnRequired, relayFactory.lastRuntime.lastConfig?.socketProtection)
             supervisor.stop()
+        }
+
+    @Test
+    fun `vpn incompatibility is rejected before any relay runtime is created`() =
+        runTest {
+            val unsupported =
+                listOf(
+                    sampleResolvedRelayConfig(kind = RelayKindGoogleAppsScript),
+                    sampleResolvedRelayConfig(kind = RelayKindTor),
+                    sampleResolvedRelayConfig(kind = RelayKindMasque).copy(
+                        masqueAuthMode = RelayMasqueAuthModePrivacyPass,
+                    ),
+                    sampleResolvedRelayConfig(kind = RelayKindSnowflake),
+                    sampleResolvedRelayConfig(kind = RelayKindObfs4),
+                    sampleResolvedRelayConfig(kind = RelayKindCloudflareTunnel).copy(
+                        cloudflareTunnelMode = RelayCloudflareTunnelModePublishLocalOrigin,
+                    ),
+                )
+
+            unsupported.forEach { resolvedConfig ->
+                val relayFactory = TestRipDpiRelayFactory()
+                val appsScriptFactory = TestGoogleAppsScriptRelayRuntimeFactory()
+                val cloudflareFactory = TestCloudflarePublishRuntimeFactory()
+                val pluggableTransportFactory = TestPluggableTransportRuntimeFactory()
+                val supervisor =
+                    UpstreamRelaySupervisor(
+                        scope = backgroundScope,
+                        dispatcher = StandardTestDispatcher(testScheduler),
+                        relayFactory = relayFactory,
+                        naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                        googleAppsScriptRelayRuntimeFactory = appsScriptFactory,
+                        cloudflarePublishRuntimeFactory = cloudflareFactory,
+                        pluggableTransportRuntimeFactory = pluggableTransportFactory,
+                        runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(resolvedConfig),
+                        networkMode = RelayRuntimeNetworkMode.Vpn,
+                    )
+
+                val error =
+                    runCatching {
+                        supervisor.start(
+                            config = RipDpiRelayConfig(enabled = true, kind = resolvedConfig.kind),
+                            onUnexpectedExit = {},
+                        )
+                    }.exceptionOrNull()
+
+                assertTrue(error is ServiceStartupRejectedException)
+                assertEquals(0, relayFactory.runtimes.size)
+                assertEquals(0, appsScriptFactory.runtimes.size)
+                assertEquals(0, cloudflareFactory.runtimes.size)
+                assertEquals(0, pluggableTransportFactory.runtimes.size)
+            }
         }
 
     @Test

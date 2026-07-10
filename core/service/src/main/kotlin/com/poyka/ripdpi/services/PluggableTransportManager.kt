@@ -179,6 +179,7 @@ open class PluggableTransportManager
                     SubprocessSocksRelayLaunchSpec(
                         binaryName = WebTunnelBinaryName,
                         runtimeKind = config.kind,
+                        protectionCapability = SubprocessSocketProtectionCapability.ProtectSocketPath,
                         upstreamAddress = config.ptWebTunnelUrl,
                         commandArguments = emptyList(),
                         environment = managedTransportEnvironment(config, methodName = RelayKindWebTunnel),
@@ -205,6 +206,7 @@ open class PluggableTransportManager
                         redactedValues = listOf(bridgeLine.cert),
                         commandArguments = emptyList(),
                         environment = managedTransportEnvironment(config, methodName = RelayKindObfs4),
+                        redactedValues = listOf(bridgeLine.cert),
                         managedClientBridge =
                             ManagedClientSocksBridgeSpec(
                                 methodName = RelayKindObfs4,

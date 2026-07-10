@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RelaySocketProtection
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindWebTunnel
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
@@ -89,6 +92,48 @@ class SubprocessRelayComponentsTest {
 
         val inactive = SubprocessRelayLaunchPlanner().buildMainProcess(binary, spec, null)
         assertNull(inactive.environment()[ActiveProtectSocketPathProvider.ENV_VAR])
+    }
+
+    @Test
+    fun `inactive subprocess policy ignores a stale active protect path`() {
+        val path =
+            resolveSubprocessProtectPath(
+                config = sampleResolvedRelayConfig().copy(socketProtection = RelaySocketProtection.Inactive),
+                spec = launchSpec(protectionCapability = SubprocessSocketProtectionCapability.ProtectSocketPath),
+                activeProtectPath = "/tmp/stale-protect.sock",
+            )
+
+        assertNull(path)
+    }
+
+    @Test
+    fun `vpn subprocess policy requires an active protect path before launch`() {
+        val error =
+            runCatching {
+                resolveSubprocessProtectPath(
+                    config = sampleResolvedRelayConfig().copy(socketProtection = RelaySocketProtection.VpnRequired),
+                    spec = launchSpec(protectionCapability = SubprocessSocketProtectionCapability.ProtectSocketPath),
+                    activeProtectPath = null,
+                )
+            }.exceptionOrNull()
+
+        assertTrue(error is ServiceStartupRejectedException)
+        assertTrue((error as ServiceStartupRejectedException).reason is FailureReason.RelayConfigRejected)
+    }
+
+    @Test
+    fun `vpn subprocess policy rejects unsupported helper even when protect path exists`() {
+        val error =
+            runCatching {
+                resolveSubprocessProtectPath(
+                    config = sampleResolvedRelayConfig().copy(socketProtection = RelaySocketProtection.VpnRequired),
+                    spec = launchSpec(protectionCapability = SubprocessSocketProtectionCapability.Unsupported),
+                    activeProtectPath = "/tmp/protect.sock",
+                )
+            }.exceptionOrNull()
+
+        assertTrue(error is ServiceStartupRejectedException)
+        assertTrue((error as ServiceStartupRejectedException).reason is FailureReason.RelayConfigRejected)
     }
 
     @Test
@@ -278,6 +323,7 @@ class SubprocessRelayComponentsTest {
         environment: Map<String, String> = emptyMap(),
         managedClientBridge: ManagedClientSocksBridgeSpec? = null,
         redactedValues: List<String> = emptyList(),
+        protectionCapability: SubprocessSocketProtectionCapability = SubprocessSocketProtectionCapability.Unsupported,
     ): SubprocessSocksRelayLaunchSpec =
         SubprocessSocksRelayLaunchSpec(
             binaryName = "webtunnel",
@@ -287,5 +333,6 @@ class SubprocessRelayComponentsTest {
             environment = environment,
             managedClientBridge = managedClientBridge,
             redactedValues = redactedValues,
+            protectionCapability = protectionCapability,
         )
 }
