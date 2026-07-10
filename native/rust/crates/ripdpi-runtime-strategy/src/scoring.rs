@@ -2,7 +2,9 @@
 //!
 //! Score formula:
 //! ```text
-//! posterior = alpha / (alpha + beta)
+//! posterior = alpha / (alpha + beta + threat_beta)
+//! threat_beta = 3.0 for an unexpired, exact-scope `active_broad` match;
+//!               0.0 otherwise
 //! score = posterior
 //!       - 0.10 * normalized_ttfb
 //!       - 0.08 * normalized_bytes_overhead
@@ -13,6 +15,7 @@
 //! All penalty terms are in [0, 1]. The final score may be negative.
 
 use crate::profiles::{AccessType, ArmStats, HostProfile, NetProfile};
+pub use ripdpi_shared_priors::ProtocolThreatPriors;
 
 // ── Penalty weights ──────────────────────────────────────────────────────────
 
@@ -49,13 +52,25 @@ const RARITY_WINDOW_MS: u64 = 5 * 60 * 1_000;
 /// `now_ms` is the evolver's monotonic millisecond offset (same epoch as
 /// [`ArmStats::last_success_at`]).
 ///
+/// `now_unix_secs` is wall-clock time used only to reject expired threat
+/// records. `network_scope_key` and `protocol_threats` must come from the
+/// verified shared-priors path. A missing scope or empty snapshot is neutral.
+///
 /// `run_seed` is a caller-supplied u64 seed used for tie-break jitter so
 /// that callers in production can pass a per-run random seed while tests
 /// can pass a fixed value for deterministic ordering.
 #[derive(Debug, Clone, Copy)]
-pub struct ScoringContext {
+pub struct ScoringContext<'a> {
     /// Current evolver-monotonic millisecond offset.
     pub now_ms: u64,
+    /// Current Unix timestamp in seconds, used only for threat expiry.
+    pub now_unix_secs: i64,
+    /// Opaque SHA-256 network scope. Missing scopes never receive a threat
+    /// prior.
+    pub network_scope_key: Option<&'a str>,
+    /// Immutable verified threat snapshot for this scoring run. An empty
+    /// snapshot preserves the historical neutral behavior.
+    pub protocol_threats: &'a ProtocolThreatPriors,
     /// Per-run seed for tie-break jitter.
     pub run_seed: u64,
 }
@@ -69,8 +84,8 @@ pub struct ScoringContext {
 /// deterministic jitter derived from `arm_id` XOR `ctx.run_seed` so that
 /// sort order is stable across identical arms without favouring any fixed
 /// arm.
-pub fn score_arm(stats: &ArmStats, net: &NetProfile, _host: &HostProfile, ctx: &ScoringContext) -> f64 {
-    let posterior = compute_posterior(stats);
+pub fn score_arm(stats: &ArmStats, net: &NetProfile, _host: &HostProfile, ctx: &ScoringContext<'_>) -> f64 {
+    let posterior = compute_posterior_with_threat(stats, protocol_threat_beta(stats, ctx));
     let ttfb_penalty = WEIGHT_TTFB * normalized_ttfb(stats, net);
     let bytes_penalty = WEIGHT_BYTES * normalized_bytes_overhead(stats, net);
     let repeated_penalty = WEIGHT_REPEATED * repeated_attempt_penalty(stats);
@@ -85,7 +100,12 @@ pub fn score_arm(stats: &ArmStats, net: &NetProfile, _host: &HostProfile, ctx: &
 /// `alpha / (alpha + beta)` — Beta posterior mean.
 #[inline]
 pub fn compute_posterior(stats: &ArmStats) -> f64 {
-    let denom = stats.alpha + stats.beta;
+    compute_posterior_with_threat(stats, 0.0)
+}
+
+#[inline]
+fn compute_posterior_with_threat(stats: &ArmStats, threat_beta: f64) -> f64 {
+    let denom = stats.alpha + stats.beta + threat_beta;
     if denom <= 0.0 {
         return 0.5; // degenerate prior: fall back to 50 %
     }
@@ -118,7 +138,7 @@ pub fn repeated_attempt_penalty(stats: &ArmStats) -> f64 {
 /// Full rarity penalty (1.0) when the arm has never succeeded or its last
 /// success was outside [`RARITY_WINDOW_MS`]; 0.0 otherwise.
 #[inline]
-pub fn rarity_penalty(stats: &ArmStats, ctx: &ScoringContext) -> f64 {
+pub fn rarity_penalty(stats: &ArmStats, ctx: &ScoringContext<'_>) -> f64 {
     match stats.last_success_at {
         None => 1.0,
         Some(t) => {
@@ -129,6 +149,14 @@ pub fn rarity_penalty(stats: &ArmStats, ctx: &ScoringContext) -> f64 {
             }
         }
     }
+}
+
+fn protocol_threat_beta(stats: &ArmStats, ctx: &ScoringContext<'_>) -> f64 {
+    let (Some(protocol_class), Some(network_scope_key)) = (stats.protocol_class.as_deref(), ctx.network_scope_key)
+    else {
+        return 0.0;
+    };
+    ctx.protocol_threats.beta_pseudo_failures(protocol_class, network_scope_key, ctx.now_unix_secs)
 }
 
 // ── Private helpers ──────────────────────────────────────────────────────────
@@ -169,6 +197,9 @@ fn tie_break_jitter(arm_id: &str, run_seed: u64) -> f64 {
 mod tests {
     use super::*;
     use crate::profiles::{AccessType, AppFamily, ArmStats, DnsClass, HostProfile, IpFamily, NetProfile};
+    use std::sync::OnceLock;
+
+    const SCOPE_KEY: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
     // ── Fixtures ─────────────────────────────────────────────────────────────
 
@@ -201,6 +232,7 @@ mod tests {
     fn base_stats() -> ArmStats {
         ArmStats {
             arm_id: "split".to_owned(),
+            protocol_class: None,
             alpha: 3.0,
             beta: 1.0,
             p50_ttfb_ms: 0,
@@ -210,8 +242,31 @@ mod tests {
         }
     }
 
-    fn ctx_at(now_ms: u64) -> ScoringContext {
-        ScoringContext { now_ms, run_seed: 42 }
+    fn ctx_at(now_ms: u64) -> ScoringContext<'static> {
+        static EMPTY: OnceLock<ProtocolThreatPriors> = OnceLock::new();
+        ScoringContext {
+            now_ms,
+            now_unix_secs: 0,
+            network_scope_key: None,
+            protocol_threats: EMPTY.get_or_init(ProtocolThreatPriors::default),
+            run_seed: 42,
+        }
+    }
+
+    fn threat_priors(expires_at_unix: i64) -> ProtocolThreatPriors {
+        let input = format!(
+            "{{\"record_type\":\"protocol_threat\",\"protocol_class\":\"vless\",\"network_scope_key\":\"{SCOPE_KEY}\",\"state\":\"active_broad\",\"expires_at_unix\":{expires_at_unix}}}\n"
+        );
+        ripdpi_shared_priors::parser::parse(&input).expect("valid threat fixture").protocol_threats
+    }
+
+    fn ctx_with_threats<'a>(
+        priors: &'a ProtocolThreatPriors,
+        scope_key: Option<&'a str>,
+        now_ms: u64,
+        now_unix_secs: i64,
+    ) -> ScoringContext<'a> {
+        ScoringContext { now_ms, now_unix_secs, network_scope_key: scope_key, protocol_threats: priors, run_seed: 42 }
     }
 
     // ── posterior = alpha / (alpha + beta) ───────────────────────────────────
@@ -245,6 +300,7 @@ mod tests {
         // last_success_at recent enough for no rarity penalty.
         let high_ttfb = ArmStats {
             arm_id: "ttfb-arm".to_owned(),
+            protocol_class: None,
             alpha: 1.0,
             beta: 0.0,
             p50_ttfb_ms: 300, // = wifi baseline => normalized=1.0 => penalty=0.10
@@ -272,6 +328,7 @@ mod tests {
     fn bytes_overhead_penalty_term_moves_score_by_expected_magnitude() {
         let high_bytes = ArmStats {
             arm_id: "bytes-arm".to_owned(),
+            protocol_class: None,
             alpha: 1.0,
             beta: 0.0,
             p50_ttfb_ms: 0,
@@ -297,6 +354,7 @@ mod tests {
         // on cellular baseline (600) it normalizes to 0.5.
         let stats = ArmStats {
             arm_id: "ttfb-norm-arm".to_owned(),
+            protocol_class: None,
             alpha: 1.0,
             beta: 0.0,
             p50_ttfb_ms: 300,
@@ -317,6 +375,7 @@ mod tests {
         // 800 bytes: on cellular baseline (800) => 1.0; on wifi baseline (1500) => 0.533.
         let stats = ArmStats {
             arm_id: "bytes-norm-arm".to_owned(),
+            protocol_class: None,
             alpha: 1.0,
             beta: 0.0,
             p50_ttfb_ms: 0,
@@ -361,6 +420,7 @@ mod tests {
     fn repeated_penalty_term_moves_score_by_expected_magnitude() {
         let full_repeat = ArmStats {
             arm_id: "repeat-arm".to_owned(),
+            protocol_class: None,
             alpha: 1.0,
             beta: 0.0,
             p50_ttfb_ms: 0,
@@ -404,6 +464,7 @@ mod tests {
     fn rarity_penalty_term_moves_score_by_expected_magnitude() {
         let never_seen = ArmStats {
             arm_id: "rarity-arm".to_owned(),
+            protocol_class: None,
             alpha: 1.0,
             beta: 0.0,
             p50_ttfb_ms: 0,
@@ -420,12 +481,126 @@ mod tests {
         assert!((diff - WEIGHT_RARITY).abs() < 1e-6, "expected rarity delta {WEIGHT_RARITY}, got {diff}");
     }
 
+    // ── Protocol threat prior ────────────────────────────────────────────────
+
+    #[test]
+    fn matching_active_broad_prior_lowers_score_before_local_failures() {
+        let priors = threat_priors(2_000);
+        let stats = ArmStats {
+            protocol_class: Some("vless".to_owned()),
+            alpha: 1.0,
+            beta: 1.0,
+            last_success_at: Some(0),
+            ..base_stats()
+        };
+        let neutral = ctx_at(0);
+        let active = ctx_with_threats(&priors, Some(SCOPE_KEY), 0, 1_000);
+        let net = wifi_net();
+        let host = sample_host();
+
+        let neutral_score = score_arm(&stats, &net, &host, &neutral);
+        let active_score = score_arm(&stats, &net, &host, &active);
+
+        assert!(active_score < neutral_score, "active-broad prior must lower the initial score");
+        assert!((neutral_score - active_score - 0.3).abs() < 1e-12);
+    }
+
+    #[test]
+    fn wrong_class_scope_missing_scope_and_expiry_are_neutral() {
+        let priors = threat_priors(2_000);
+        let stats = ArmStats {
+            protocol_class: Some("vless".to_owned()),
+            alpha: 1.0,
+            beta: 1.0,
+            last_success_at: Some(0),
+            ..base_stats()
+        };
+        let wrong_class = ArmStats { protocol_class: Some("quic".to_owned()), ..stats.clone() };
+        let neutral = ctx_at(0);
+        let wrong_scope = ctx_with_threats(
+            &priors,
+            Some("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+            0,
+            1_000,
+        );
+        let missing_scope = ctx_with_threats(&priors, None, 0, 1_000);
+        let expired = ctx_with_threats(&priors, Some(SCOPE_KEY), 0, 2_000);
+        let net = wifi_net();
+        let host = sample_host();
+        let expected = score_arm(&stats, &net, &host, &neutral);
+
+        assert_eq!(
+            score_arm(&wrong_class, &net, &host, &ctx_with_threats(&priors, Some(SCOPE_KEY), 0, 1_000)),
+            expected
+        );
+        assert_eq!(score_arm(&stats, &net, &host, &wrong_scope), expected);
+        assert_eq!(score_arm(&stats, &net, &host, &missing_scope), expected);
+        assert_eq!(score_arm(&stats, &net, &host, &expired), expected);
+    }
+
+    #[test]
+    fn local_success_evidence_can_outweigh_active_broad_prior() {
+        let priors = threat_priors(2_000);
+        let threatened = ArmStats {
+            protocol_class: Some("vless".to_owned()),
+            alpha: 100.0,
+            beta: 1.0,
+            last_success_at: Some(0),
+            ..base_stats()
+        };
+        let weak_unthreatened = ArmStats {
+            protocol_class: Some("quic".to_owned()),
+            alpha: 1.0,
+            beta: 1.0,
+            last_success_at: Some(0),
+            ..base_stats()
+        };
+        let ctx = ctx_with_threats(&priors, Some(SCOPE_KEY), 0, 1_000);
+        let net = wifi_net();
+        let host = sample_host();
+
+        assert!(
+            score_arm(&threatened, &net, &host, &ctx) > score_arm(&weak_unthreatened, &net, &host, &ctx),
+            "strong local evidence must eventually outweigh the bounded threat prior"
+        );
+    }
+
+    #[test]
+    fn threat_prior_and_rarity_penalty_are_algebraically_independent() {
+        let priors = threat_priors(2_000);
+        let recent = ArmStats {
+            protocol_class: Some("vless".to_owned()),
+            alpha: 3.0,
+            beta: 1.0,
+            last_success_at: Some(0),
+            ..base_stats()
+        };
+        let rare = ArmStats { last_success_at: None, ..recent.clone() };
+        let neutral = ctx_at(0);
+        let active = ctx_with_threats(&priors, Some(SCOPE_KEY), 0, 1_000);
+        let net = wifi_net();
+        let host = sample_host();
+
+        let threat_delta_recent = score_arm(&recent, &net, &host, &neutral) - score_arm(&recent, &net, &host, &active);
+        let threat_delta_rare = score_arm(&rare, &net, &host, &neutral) - score_arm(&rare, &net, &host, &active);
+        let rarity_delta_active = score_arm(&recent, &net, &host, &active) - score_arm(&rare, &net, &host, &active);
+
+        assert!((threat_delta_recent - threat_delta_rare).abs() < 1e-12);
+        assert!((rarity_delta_active - WEIGHT_RARITY).abs() < 1e-12);
+    }
+
     // ── Tie-break: consistent ordering with bounded jitter ───────────────────
 
     #[test]
     fn tie_break_is_deterministic_for_same_arm_and_seed() {
         let stats = base_stats();
-        let ctx = ScoringContext { now_ms: 0, run_seed: 99 };
+        let ctx = ScoringContext {
+            now_ms: 0,
+            now_unix_secs: 0,
+            network_scope_key: None,
+            protocol_threats: ctx_at(0).protocol_threats,
+            run_seed: 99,
+        };
         let net = wifi_net();
         let host = sample_host();
 
@@ -455,7 +630,13 @@ mod tests {
         // Two arms with alpha=beta produce posterior=0.5, same penalties.
         let arm_a = ArmStats { arm_id: "arm-a".to_owned(), alpha: 2.0, beta: 2.0, ..base_stats() };
         let arm_b = ArmStats { arm_id: "arm-b".to_owned(), alpha: 2.0, beta: 2.0, ..base_stats() };
-        let ctx = ScoringContext { now_ms: 0, run_seed: 7 };
+        let ctx = ScoringContext {
+            now_ms: 0,
+            now_unix_secs: 0,
+            network_scope_key: None,
+            protocol_threats: ctx_at(0).protocol_threats,
+            run_seed: 7,
+        };
         let net = wifi_net();
         let host = sample_host();
 

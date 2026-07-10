@@ -83,9 +83,10 @@ pub use probe_results::{
     clear_global_probe_results_for_tests, latest_global_probe_results, probe_combo_for_strategy_id,
 };
 pub use shared_priors::{
-    AppliedPriors, ApplyError, ManifestError, SHARED_PRIORS_PUB_KEY, SharedPriorsError, SharedPriorsManifest,
-    apply_global_shared_priors, apply_global_shared_priors_with_embedded_key, apply_priors,
-    apply_priors_with_embedded_key, canonical_combo_hash, global_shared_priors_len, is_production_key_set,
+    ACTIVE_BROAD_BETA_PSEUDO_FAILURES, AppliedPriors, ApplyError, ManifestError, ProtocolThreatPriors,
+    SHARED_PRIORS_PUB_KEY, SharedPriorsError, SharedPriorsManifest, apply_global_shared_priors,
+    apply_global_shared_priors_with_embedded_key, apply_priors, apply_priors_with_embedded_key, canonical_combo_hash,
+    global_protocol_threat_priors_len, global_shared_priors_len, is_production_key_set, latest_protocol_threat_priors,
     latest_shared_priors,
 };
 

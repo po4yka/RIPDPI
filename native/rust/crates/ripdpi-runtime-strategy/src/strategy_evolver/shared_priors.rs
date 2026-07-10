@@ -1,9 +1,11 @@
 //! Strategy-facing shared-priors helpers.
 
 pub use ripdpi_shared_priors::{
-    AppliedPriors, ApplyError, ManifestError, SHARED_PRIORS_PUB_KEY, SharedPriorsError, SharedPriorsManifest,
-    apply_global_shared_priors, apply_global_shared_priors_with_embedded_key, apply_priors,
-    apply_priors_with_embedded_key, global_shared_priors_len, is_production_key_set, latest_shared_priors,
+    ACTIVE_BROAD_BETA_PSEUDO_FAILURES, AppliedPriors, ApplyError, ManifestError, ProtocolThreatPriors,
+    SHARED_PRIORS_PUB_KEY, SharedPriorsError, SharedPriorsManifest, apply_global_shared_priors,
+    apply_global_shared_priors_with_embedded_key, apply_priors, apply_priors_with_embedded_key,
+    global_protocol_threat_priors_len, global_shared_priors_len, is_production_key_set, latest_protocol_threat_priors,
+    latest_shared_priors,
 };
 
 use crate::strategy_evolver::types::{

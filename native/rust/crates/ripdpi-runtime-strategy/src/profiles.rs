@@ -3,7 +3,7 @@
 /// Bump this constant whenever a field is added, removed, or its serialized
 /// representation changes. Consumers should reject records whose
 /// `schema_version` differs from this value.
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 // ── Network-level context ────────────────────────────────────────────────────
 
@@ -131,8 +131,12 @@ pub struct HostProfile {
 /// as an opaque `u64` epoch-relative millisecond offset.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ArmStats {
-    /// Stable identifier for this desync strategy arm.
+    /// Stable identifier for this strategy arm.
     pub arm_id: String,
+    /// Canonical wire-protocol class used for network-scoped threat lookup.
+    /// Missing values preserve the neutral behavior of schema version 1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub protocol_class: Option<String>,
     /// Beta-distribution shape parameter α (successes + prior).
     pub alpha: f64,
     /// Beta-distribution shape parameter β (failures + prior).
@@ -157,8 +161,8 @@ mod tests {
     // ── SCHEMA_VERSION ───────────────────────────────────────────────────────
 
     #[test]
-    fn schema_version_constant_exists_and_is_nonzero() {
-        const { assert!(SCHEMA_VERSION > 0, "SCHEMA_VERSION must be a positive integer") };
+    fn schema_version_is_two() {
+        assert_eq!(SCHEMA_VERSION, 2);
     }
 
     #[test]
@@ -239,6 +243,7 @@ mod tests {
     fn sample_arm_stats() -> ArmStats {
         ArmStats {
             arm_id: "split".to_owned(),
+            protocol_class: Some("tls".to_owned()),
             alpha: 3.0,
             beta: 1.5,
             p50_ttfb_ms: 120,
@@ -262,6 +267,14 @@ mod tests {
         let json = serde_json::to_string(&stats).expect("serialize");
         let decoded: ArmStats = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(decoded.last_success_at, None);
+    }
+
+    #[test]
+    fn arm_stats_v1_json_defaults_protocol_class_to_neutral() {
+        let json = r#"{"arm_id":"split","alpha":3.0,"beta":1.5,"p50_ttfb_ms":120,"bytes_overhead":48,"repeated_failures":0,"last_success_at":90000}"#;
+        let decoded: ArmStats = serde_json::from_str(json).expect("deserialize schema-v1 ArmStats");
+
+        assert_eq!(decoded.protocol_class, None);
     }
 
     // ── Enum exhaustiveness snapshots ────────────────────────────────────────

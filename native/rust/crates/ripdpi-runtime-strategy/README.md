@@ -34,6 +34,10 @@ The evolver and scoring types are consumed by `ripdpi-runtime-services`; keep
 the selection/ranking surface stable. `ripdpi-shared-priors` integration is
 fail-secure — preserve that contract when changing prior consumption.
 
+## Bayesian arm score
+
+The standalone arm scorer uses `alpha / (alpha + beta + threat_beta)` before subtracting the TTFB, byte-overhead, repeated-attempt, and rarity terms. `threat_beta` is exactly `3.0` only when the signed shared-priors snapshot contains an unexpired `active_broad` record matching both the arm's canonical protocol class and the current opaque SHA-256 network scope; otherwise it is zero. This bounded pseudo-failure prior acts before local failures accumulate and is diluted by later empirical successes. It is independent of the existing `0.20 * rarity_penalty`, which is still applied once based on recent local success history. The separate UCB1 combo scorer and its attempt-based rarity logic are unchanged.
+
 ---
 Part of the RIPDPI native Rust workspace — see
 [`docs/architecture/NATIVE_RUST.md`](../../../../docs/architecture/NATIVE_RUST.md)
