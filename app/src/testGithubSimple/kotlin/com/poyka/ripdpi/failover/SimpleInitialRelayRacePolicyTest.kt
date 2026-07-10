@@ -1,0 +1,246 @@
+package com.poyka.ripdpi.failover
+
+import android.app.Application
+import android.content.Context
+import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.seed.SEED_RELAY_PROFILE_ID_PREFIX
+import com.poyka.ripdpi.services.InitialRelayRaceResult
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+
+@RunWith(RobolectricTestRunner::class)
+class SimpleInitialRelayRacePolicyTest {
+    private lateinit var application: Application
+    private lateinit var clock: MutableFailoverClock
+    private lateinit var failoverBridge: RecordingInitialRaceFailoverCoordinator
+    private lateinit var policy: SimpleInitialRelayRacePolicy
+
+    @Before
+    fun setUp() {
+        application = RuntimeEnvironment.getApplication()
+        application
+            .getSharedPreferences("simple_initial_relay_race", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+        clock = MutableFailoverClock(1_000L)
+        failoverBridge = RecordingInitialRaceFailoverCoordinator()
+        policy =
+            SimpleInitialRelayRacePolicy(
+                context = application,
+                bundleSource = SimpleRelayBundleSource { validBundle() },
+                relayProfileStore = seededProfileStore(),
+                relayCredentialStore = seededCredentialStore(),
+                serviceStateStore = DefaultServiceStateStore(),
+                failoverCoordinator = failoverBridge,
+                clock = clock,
+            )
+    }
+
+    @Test
+    fun `winner cache is network scoped and expires without cached fallback refresh`() =
+        runTest {
+            val first = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")!!
+            assertNull(first.cachedFallbackProfileId)
+            policy.onSelected(
+                InitialRelayRaceResult(
+                    selectedCandidate = first.candidates[1],
+                    usedCachedFallback = false,
+                    latencyMs = 40L,
+                ),
+            )
+
+            assertEquals(
+                HysteriaProfileId,
+                policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")?.cachedFallbackProfileId,
+            )
+            assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-b")?.cachedFallbackProfileId)
+
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource = SimpleRelayBundleSource { validBundle("https://probe.example/changed") },
+                    relayProfileStore = seededProfileStore(),
+                    relayCredentialStore = seededCredentialStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+            assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")?.cachedFallbackProfileId)
+
+            clock.now = 23L * HourMillis
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource = SimpleRelayBundleSource { validBundle() },
+                    relayProfileStore = seededProfileStore(),
+                    relayCredentialStore = seededCredentialStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+            val cached = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")!!
+            policy.onSelected(
+                InitialRelayRaceResult(
+                    selectedCandidate = cached.candidates[1],
+                    usedCachedFallback = true,
+                    latencyMs = null,
+                ),
+            )
+            clock.now = 25L * HourMillis
+            assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")?.cachedFallbackProfileId)
+        }
+
+    @Test
+    fun `missing network scope still races but cannot use a cache`() =
+        runTest {
+            val plan = policy.plan(RealityProfileId, RelayKindVlessReality, null)
+
+            assertEquals(2, plan?.candidates?.size)
+            assertNull(plan?.cachedFallbackProfileId)
+        }
+
+    @Test
+    fun `failover induced restart and malformed url disable the race`() =
+        runTest {
+            failoverBridge.skip = true
+            assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a"))
+
+            failoverBridge.skip = false
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource = SimpleRelayBundleSource { validBundle(probeUrl = "file:///not-http") },
+                    relayProfileStore = seededProfileStore(),
+                    relayCredentialStore = seededCredentialStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+            assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a"))
+        }
+
+    @Test
+    fun `successful selection notifies failover coordinator before running`() =
+        runTest {
+            val plan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")!!
+
+            policy.onSelected(InitialRelayRaceResult(plan.candidates[1], false, 50L))
+
+            assertEquals(HysteriaProfileId, failoverBridge.profileId)
+            assertEquals(RelayKindHysteria2, failoverBridge.relayKind)
+            assertFalse(failoverBridge.skip)
+        }
+
+    private fun seededProfileStore(): RelayProfileStore =
+        InMemoryRelayProfileStore(
+            RelayProfileRecord(id = RealityProfileId, kind = RelayKindVlessReality),
+            RelayProfileRecord(id = HysteriaProfileId, kind = RelayKindHysteria2),
+        )
+
+    private fun seededCredentialStore(): RelayCredentialStore =
+        InMemoryRelayCredentialStore(
+            RelayCredentialRecord(
+                profileId = HysteriaProfileId,
+                hysteriaPassword = "fixture-value",
+                hysteriaSalamanderKey = "fixture-obfs-value",
+            ),
+        )
+
+    private fun validBundle(probeUrl: String = "https://probe.example/generate_204"): String =
+        """
+        {
+          "outbounds": [
+            {
+              "type": "vless", "tag": "reality", "server": "192.0.2.10", "server_port": 443,
+              "uuid": "00000000-0000-0000-0000-000000000001", "flow": "xtls-rprx-vision",
+              "tls": { "enabled": true, "server_name": "example.test",
+                "reality": { "enabled": true,
+                  "public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "short_id": "deadbeef" } }
+            },
+            {
+              "type": "hysteria2", "tag": "hysteria", "server": "192.0.2.20", "server_port": 8443,
+              "password": "fixture-value", "obfs": { "type": "salamander", "password": "fixture-obfs-value" }
+            },
+            { "type": "selector", "tag": "select", "outbounds": ["reality", "hysteria", "auto"] },
+            { "type": "urltest", "tag": "auto", "outbounds": ["reality", "hysteria"], "url": "$probeUrl" }
+          ]
+        }
+        """.trimIndent()
+
+    private companion object {
+        const val RealityProfileId = "${SEED_RELAY_PROFILE_ID_PREFIX}VlessReality"
+        const val HysteriaProfileId = "${SEED_RELAY_PROFILE_ID_PREFIX}Hysteria2"
+        const val HourMillis = 60L * 60L * 1_000L
+    }
+}
+
+private class MutableFailoverClock(
+    var now: Long,
+) : FailoverClock {
+    override fun nowMillis(): Long = now
+}
+
+private class RecordingInitialRaceFailoverCoordinator : InitialRaceFailoverCoordinator {
+    var skip = false
+    var profileId: String? = null
+    var relayKind: String? = null
+
+    override fun shouldSkipInitialRelayRace(): Boolean = skip
+
+    override fun recordInitialRelaySelection(
+        profileId: String,
+        relayKind: String,
+    ) {
+        this.profileId = profileId
+        this.relayKind = relayKind
+    }
+}
+
+private class InMemoryRelayProfileStore(
+    vararg profiles: RelayProfileRecord,
+) : RelayProfileStore {
+    private val values = profiles.associateByTo(linkedMapOf(), RelayProfileRecord::id)
+
+    override suspend fun load(profileId: String): RelayProfileRecord? = values[profileId]
+
+    override suspend fun list(): List<RelayProfileRecord> = values.values.toList()
+
+    override suspend fun save(profile: RelayProfileRecord) {
+        values[profile.id] = profile
+    }
+
+    override suspend fun clear(profileId: String) {
+        values.remove(profileId)
+    }
+}
+
+private class InMemoryRelayCredentialStore(
+    vararg credentials: RelayCredentialRecord,
+) : RelayCredentialStore {
+    private val values = credentials.associateByTo(linkedMapOf(), RelayCredentialRecord::profileId)
+
+    override suspend fun load(profileId: String): RelayCredentialRecord? = values[profileId]
+
+    override suspend fun save(credentials: RelayCredentialRecord) {
+        values[credentials.profileId] = credentials
+    }
+
+    override suspend fun clear(profileId: String) {
+        values.remove(profileId)
+    }
+}

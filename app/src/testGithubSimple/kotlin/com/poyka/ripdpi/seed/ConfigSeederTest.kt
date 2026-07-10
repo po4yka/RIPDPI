@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
@@ -151,6 +152,10 @@ class ConfigSeederTest {
             assertEquals(ProxyGroupType.BASIC, proxyGroupRepository.addedGroups.single().type)
             // Both relay profiles were persisted (VLESS+REALITY and Hysteria2)
             assertEquals(2, relayProfileStore.list().size)
+            assertEquals(
+                TlsFingerprintProfileFirefoxStable,
+                relayProfileStore.list().single { it.kind == RelayKindHysteria2 }.vlessFingerprint,
+            )
             // AWG profile was saved
             assertEquals(1, awgDao.rows.value.size)
             assertEquals(

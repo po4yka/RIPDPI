@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
 import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
@@ -18,7 +19,7 @@ import javax.inject.Singleton
 
 internal const val SEED_PREFS_NAME = "simple_flavor_seed_state"
 internal const val SEED_KEY_SEEDED = "config_seeded"
-private const val ASSET_NAME = "embedded-relay-bundle.json"
+internal const val SIMPLE_RELAY_BUNDLE_ASSET_NAME = "embedded-relay-bundle.json"
 
 /**
  * Stable group id for the seeded config. Deterministic (not a random UUID) so that if an
@@ -37,10 +38,13 @@ internal const val SIMPLE_SEED_GROUP_ID = "00000000-0000-4000-8000-simpleflavor1
  */
 internal const val SEED_RELAY_PROFILE_ID_PREFIX = "simple-seed-"
 
+internal fun seedRelayProfileId(profile: ProxyProfile): String =
+    "$SEED_RELAY_PROFILE_ID_PREFIX${profile::class.simpleName}"
+
 /**
  * First-launch seeder for the `simple` product flavor.
  *
- * Reads a compiled-in sing-box bundle from [ASSET_NAME] in assets, parses it
+ * Reads a compiled-in sing-box bundle from [SIMPLE_RELAY_BUNDLE_ASSET_NAME] in assets, parses it
  * with [SingBoxSubscriptionParser], and persists each profile via the shared
  * reuse points ([ProxyGroupRepository], [RelayProfileActivator],
  * [AwgProfileRepository]). A boolean flag in [SEED_PREFS_NAME] guards against
@@ -102,7 +106,15 @@ open class ConfigSeeder
                     var activatedCount = 0
                     var skippedCount = 0
                     for (profile in orderedProfiles) {
-                        val applied = relayProfileActivator.activate(profile, seedRelayProfileId(profile))
+                        val applied =
+                            relayProfileActivator.activate(
+                                profile = profile,
+                                profileId = seedRelayProfileId(profile),
+                                tlsFingerprintOverride =
+                                    TlsFingerprintProfileFirefoxStable.takeIf {
+                                        profile is ProxyProfile.Hysteria2
+                                    },
+                            )
                         if (applied) {
                             activatedCount++
                         } else {
@@ -131,28 +143,21 @@ open class ConfigSeeder
         }
 
         /**
-         * Stable, collision-free store id for a seeded relay, keyed by its concrete
-         * [ProxyProfile] kind so distinct relay kinds never share the default slot.
-         */
-        private fun seedRelayProfileId(profile: ProxyProfile): String =
-            "$SEED_RELAY_PROFILE_ID_PREFIX${profile::class.simpleName}"
-
-        /**
          * Reads the embedded bundle JSON. Returns `null` when the asset is
          * absent or blank — no flag is set so a later drop-in triggers a seed.
          * Protected open so unit tests can inject an in-memory string.
          */
         protected open fun readBundle(): String? =
             try {
-                context.assets.open(ASSET_NAME).use { stream ->
+                context.assets.open(SIMPLE_RELAY_BUNDLE_ASSET_NAME).use { stream ->
                     stream.bufferedReader(Charsets.UTF_8).readText().takeIf { it.isNotBlank() }
                         ?: run {
-                            Logger.i { "ConfigSeeder: $ASSET_NAME is blank; skipping seed" }
+                            Logger.i { "ConfigSeeder: $SIMPLE_RELAY_BUNDLE_ASSET_NAME is blank; skipping seed" }
                             null
                         }
                 }
             } catch (_: IOException) {
-                Logger.i { "ConfigSeeder: no $ASSET_NAME asset found; skipping seed" }
+                Logger.i { "ConfigSeeder: no $SIMPLE_RELAY_BUNDLE_ASSET_NAME asset found; skipping seed" }
                 null
             }
     }

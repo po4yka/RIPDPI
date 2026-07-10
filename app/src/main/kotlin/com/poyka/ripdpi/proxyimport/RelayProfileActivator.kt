@@ -52,12 +52,18 @@ class RelayProfileActivator
         suspend fun activate(
             profile: ProxyProfile,
             profileId: String = DefaultRelayProfileId,
+            tlsFingerprintOverride: String? = null,
         ): Boolean {
             val relayKind = relayKindFor(profile)
             return if (relayKind == null || !validateNativeRelayProfile(profile)) {
                 false
             } else {
-                persistRelayActivation(profile = profile, profileId = profileId, relayKind = relayKind)
+                persistRelayActivation(
+                    profile = profile,
+                    profileId = profileId,
+                    relayKind = relayKind,
+                    tlsFingerprintOverride = tlsFingerprintOverride,
+                )
                 true
             }
         }
@@ -66,6 +72,7 @@ class RelayProfileActivator
             profile: ProxyProfile,
             profileId: String,
             relayKind: String,
+            tlsFingerprintOverride: String?,
         ) {
             val endpoint = relayEndpoint(profile)
             val udpEnabled = relayUdpEnabled(profile)
@@ -91,7 +98,7 @@ class RelayProfileActivator
                     realityPublicKey = if (profile is ProxyProfile.VlessReality) profile.realityPublicKey else "",
                     realityShortId = if (profile is ProxyProfile.VlessReality) profile.realityShortId else "",
                     vlessFlow = profile.vlessFlow(),
-                    vlessFingerprint = profile.vlessFingerprint(),
+                    vlessFingerprint = tlsFingerprintOverride ?: profile.vlessFingerprint(),
                     vlessTransport = vlessTransport,
                     xhttpPath = profile.vlessXhttpPath(),
                     xhttpHost = profile.vlessXhttpHost(),

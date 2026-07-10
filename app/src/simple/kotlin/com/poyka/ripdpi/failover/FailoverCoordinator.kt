@@ -58,6 +58,15 @@ interface FailoverClock {
     fun nowMillis(): Long
 }
 
+internal interface InitialRaceFailoverCoordinator {
+    fun shouldSkipInitialRelayRace(): Boolean
+
+    fun recordInitialRelaySelection(
+        profileId: String,
+        relayKind: String,
+    )
+}
+
 /** Production clock backed by [System.currentTimeMillis]. */
 object SystemFailoverClock : FailoverClock {
     override fun nowMillis(): Long = System.currentTimeMillis()
@@ -115,7 +124,8 @@ class FailoverCoordinator
         private val awgEgressSelection: SimpleAwgEgressSelection,
         private val clock: FailoverClock,
     ) : SimpleFlavorSessionWatcher,
-        ActiveTransportProvider {
+        ActiveTransportProvider,
+        InitialRaceFailoverCoordinator {
         // ── Public state ────────────────────────────────────────────────────
 
         private val _activeCandidate = MutableStateFlow<FailoverCandidate?>(null)
@@ -176,6 +186,8 @@ class FailoverCoordinator
          */
         private var selfInducedRestart: Boolean = false
 
+        private var initialRaceSelection: FailoverCandidate.Relay? = null
+
         // ── Public API ──────────────────────────────────────────────────────
 
         /**
@@ -186,6 +198,21 @@ class FailoverCoordinator
          */
         fun setAutoFailoverEnabled(enabled: Boolean) {
             autoFailoverEnabled.value = enabled
+        }
+
+        override fun shouldSkipInitialRelayRace(): Boolean = selfInducedRestart
+
+        override fun recordInitialRelaySelection(
+            profileId: String,
+            relayKind: String,
+        ) {
+            initialRaceSelection =
+                FailoverCandidate.Relay(
+                    priority = if (relayKind == RelayKindVlessReality) 0 else 1,
+                    profileId = profileId,
+                    relayKind = relayKind,
+                )
+            setActiveCandidate(initialRaceSelection)
         }
 
         /**
@@ -219,12 +246,17 @@ class FailoverCoordinator
                         // Fresh session or the candidate set changed: initialise from the
                         // persisted transport. A self-induced restart (same set, already
                         // initialised) instead preserves the index and back-off budget.
-                        activeCandidateIndex = resumeIndex()
+                        val racedIndex =
+                            initialRaceSelection?.let { selection ->
+                                rebuilt.indexOfFirst { it == selection }.takeIf { it >= 0 }
+                            }
+                        activeCandidateIndex = racedIndex ?: resumeIndex()
                         switchesInCycle = 0
                         backedOff = false
                         lastSwitchAt = 0L
                         initialized = true
                     }
+                    initialRaceSelection = null
                     // The debounce window always restarts for a new session.
                     failingsSince = null
                     setActiveCandidate(candidates[activeCandidateIndex])
@@ -590,4 +622,9 @@ abstract class FailoverCoordinatorBindsModule {
 
     @Binds
     abstract fun bindActiveTransportProvider(coordinator: FailoverCoordinator): ActiveTransportProvider
+
+    @Binds
+    internal abstract fun bindInitialRaceFailoverCoordinator(
+        coordinator: FailoverCoordinator,
+    ): InitialRaceFailoverCoordinator
 }
