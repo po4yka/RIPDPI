@@ -204,6 +204,9 @@ class RipDpiRelay(
     @Suppress("TooGenericExceptionCaught")
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override suspend fun start(config: ResolvedRipDpiRelayConfig): Int {
+        require(config.schemaVersion == RelayNativeConfigSchemaVersion) {
+            "Unsupported relay native config schema version: ${config.schemaVersion}"
+        }
         val startupSignal = CompletableDeferred<Unit>()
         val createdHandle =
             reservations.withExclusive {

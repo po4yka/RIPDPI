@@ -1,30 +1,6 @@
-/// The current relay native-config wire schema version this build emits and
-/// treats as the default.
-///
-/// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant. Version 7
-/// generalized the chain-relay section model to an ordered, bounded hop list
-/// (2..=4 hops); version 8 removed the legacy VMess / Trojan-Go / Hysteria-v1
-/// relay kinds (ADR 0004). The flat wire field set is unchanged across
-/// v6/v7/v8, so legacy v6 payloads migrate forward losslessly and are still
-/// accepted — see [`MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION`].
-const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 8;
-
-/// The oldest relay native-config wire schema version this build still accepts.
-///
-/// Mirrors the Kotlin `RelayNativeConfigMinSchemaVersion` constant. A v6
-/// payload carries the same flat two-hop field set as v7, so it deserializes
-/// without conversion and is folded into the 2-element hop list on the Kotlin
-/// side. Any version below this floor or above
-/// [`SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION`] is rejected.
-const MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 6;
-
-/// `serde(default)` provider for the additive `schemaVersion` envelope field.
-///
-/// A legacy payload with no `schemaVersion` key is treated as this build's
-/// current relay schema version, matching the Kotlin default.
-fn default_native_config_schema_version() -> u32 {
-    SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION
-}
+/// The only relay native-config wire schema version this build accepts.
+/// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant.
+const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 9;
 
 fn default_vless_flow() -> String {
     "xtls-rprx-vision".to_string()
@@ -68,14 +44,8 @@ fn default_ssh_auth_type() -> String {
 
 /// Rejects a `schemaVersion` envelope value this build does not support.
 ///
-/// Accepts the inclusive range
-/// `[MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION, SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION]`
-/// — the v6→v7 chain-relay generalization left the flat wire shape unchanged,
-/// so both versions deserialize identically.
 fn validate_schema_version(found: u32) -> Result<(), RelayConfigError> {
-    if (MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION..=SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION)
-        .contains(&found)
-    {
+    if found == SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION {
         Ok(())
     } else {
         Err(RelayConfigError::UnsupportedSchemaVersion { found })
@@ -98,7 +68,7 @@ impl std::fmt::Display for RelayConfigError {
             RelayConfigError::UnsupportedSchemaVersion { found } => write!(
                 formatter,
                 "unsupported native config schemaVersion {found}; this build supports \
-                 {MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION}..={SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION}"
+                 {SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION}"
             ),
         }
     }
@@ -109,7 +79,6 @@ impl std::error::Error for RelayConfigError {}
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FlatResolvedRelayRuntimeConfig {
-    #[serde(default = "default_native_config_schema_version")]
     pub schema_version: u32,
     pub enabled: bool,
     pub kind: String,
@@ -307,6 +276,7 @@ mod tests {
 
     fn relay_config_json_object() -> serde_json::Map<String, Value> {
         let mut value = json!({
+            "schemaVersion": 9,
             "enabled": true,
             "kind": "hysteria2",
             "profileId": "default",
@@ -327,61 +297,47 @@ mod tests {
     }
 
     #[test]
-    fn legacy_payload_without_schema_version_defaults_to_current_version() {
-        let object = relay_config_json_object();
-        assert!(!object.contains_key("schemaVersion"), "legacy payload must not carry schemaVersion");
-
-        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object))
-            .expect("legacy payload without schemaVersion should deserialize");
-
-        assert_eq!("hysteria2", config.kind_id());
-        let reserialized = serde_json::to_value(&config).expect("reserialize relay config");
-        assert_eq!(reserialized["schemaVersion"], json!(8), "absent schemaVersion defaults to 8");
-    }
-
-    #[test]
-    fn payload_with_explicit_schema_version_six_deserializes() {
+    fn payload_without_schema_version_is_rejected() {
         let mut object = relay_config_json_object();
-        object.insert("schemaVersion".to_string(), json!(6));
-
-        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object))
-            .expect("legacy payload with schemaVersion 6 should still deserialize");
-
-        assert_eq!("hysteria2", config.kind_id());
-    }
-
-    #[test]
-    fn payload_with_explicit_schema_version_seven_deserializes() {
-        let mut object = relay_config_json_object();
-        object.insert("schemaVersion".to_string(), json!(7));
-
-        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object))
-            .expect("payload with schemaVersion 7 should deserialize");
-
-        assert_eq!("hysteria2", config.kind_id());
-    }
-
-    #[test]
-    fn payload_with_explicit_schema_version_eight_deserializes() {
-        let mut object = relay_config_json_object();
-        object.insert("schemaVersion".to_string(), json!(8));
-
-        let config: ResolvedRelayRuntimeConfig = serde_json::from_value(Value::Object(object))
-            .expect("payload with schemaVersion 8 should deserialize");
-
-        assert_eq!("hysteria2", config.kind_id());
-    }
-
-    #[test]
-    fn payload_with_unsupported_schema_version_is_rejected() {
-        let mut object = relay_config_json_object();
-        object.insert("schemaVersion".to_string(), json!(9));
+        object.remove("schemaVersion");
 
         let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(Value::Object(object))
-            .expect_err("payload with schemaVersion 9 should be rejected");
+            .expect_err("payload without schemaVersion should be rejected");
+
+        assert!(err.to_string().contains("schemaVersion"), "error should name schemaVersion: {err}");
+    }
+
+    #[test]
+    fn retired_schema_versions_are_rejected() {
+        for version in [6, 7, 8] {
+            let mut object = relay_config_json_object();
+            object.insert("schemaVersion".to_string(), json!(version));
+
+            let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(Value::Object(object))
+                .expect_err("retired schema version should be rejected");
+
+            assert!(err.to_string().contains(&format!("schemaVersion {version}")));
+        }
+    }
+
+    #[test]
+    fn payload_with_current_schema_version_deserializes() {
+        let config: ResolvedRelayRuntimeConfig =
+            serde_json::from_value(Value::Object(relay_config_json_object())).expect("current payload");
+
+        assert_eq!("hysteria2", config.kind_id());
+    }
+
+    #[test]
+    fn payload_with_future_schema_version_is_rejected() {
+        let mut object = relay_config_json_object();
+        object.insert("schemaVersion".to_string(), json!(10));
+
+        let err = serde_json::from_value::<ResolvedRelayRuntimeConfig>(Value::Object(object))
+            .expect_err("payload with schemaVersion 10 should be rejected");
 
         assert!(
-            err.to_string().contains("unsupported native config schemaVersion 9"),
+            err.to_string().contains("unsupported native config schemaVersion 10"),
             "error should name the found version, got: {err}"
         );
     }
@@ -432,7 +388,7 @@ mod tests {
     }
 
     #[test]
-    fn payload_below_supported_schema_floor_is_rejected() {
+    fn payload_below_current_schema_version_is_rejected() {
         let mut object = relay_config_json_object();
         object.insert("schemaVersion".to_string(), json!(5));
 

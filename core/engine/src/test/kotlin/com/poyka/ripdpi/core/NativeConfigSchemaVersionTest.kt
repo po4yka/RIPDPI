@@ -2,10 +2,10 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.core.codec.NativeProxyConfig
 import com.poyka.ripdpi.core.codec.NativeProxyConfigSchemaVersion
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -100,21 +100,37 @@ class NativeConfigSchemaVersionTest {
     }
 
     @Test
-    fun `relay payload — legacy and versioned forms both decode to current relay schema version`() {
+    fun `relay payload requires and emits current schema version`() {
         val encoded = relayJson.encodeToString(ResolvedRipDpiRelayConfig.serializer(), sampleRelayConfig())
-        assertFalse("relay payload must not carry schemaVersion at current default", encoded.contains("schemaVersion"))
+        val current = relayJson.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), encoded)
+        val withoutSchema = encoded.replace(",\"schemaVersion\":9", "")
 
-        val legacy = relayJson.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), encoded)
-        val versioned =
-            relayJson.decodeFromString(
-                ResolvedRipDpiRelayConfig.serializer(),
-                encoded.replaceFirst("{", """{"schemaVersion":8,"""),
-            )
-
-        assertEquals(RelayNativeConfigSchemaVersion, legacy.schemaVersion)
-        assertEquals(8, RelayNativeConfigSchemaVersion)
-        assertEquals(RelayNativeConfigSchemaVersion, versioned.schemaVersion)
+        assertTrue(encoded.contains("\"schemaVersion\":9"))
+        assertThrows(SerializationException::class.java) {
+            relayJson.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), withoutSchema)
+        }
+        assertEquals(9, RelayNativeConfigSchemaVersion)
+        assertEquals(RelayNativeConfigSchemaVersion, current.schemaVersion)
     }
+
+    @Test
+    fun `relay start rejects retired and future schema versions before JNI`() =
+        runTest {
+            for (version in listOf(8, 10)) {
+                val bindings = FakeRipDpiRelayBindings()
+                val relay = RipDpiRelay(bindings)
+
+                val error =
+                    runCatching {
+                        relay.start(
+                            sampleRelayConfig().copy(schemaVersion = version),
+                        )
+                    }.exceptionOrNull()
+
+                assertTrue(error is IllegalArgumentException)
+                assertEquals(null, bindings.lastCreatePayload)
+            }
+        }
 
     @Test
     fun `relay tor payload carries bridge pt bootstrap fields`() {

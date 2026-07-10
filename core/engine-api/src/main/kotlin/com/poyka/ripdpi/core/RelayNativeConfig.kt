@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -227,39 +228,17 @@ data class ResolvedRipDpiRelayConfig(
     val appsScriptDirectHosts: List<String> = emptyList(),
     val appsScriptAuthKey: String? = null,
     val finalmask: ResolvedRelayFinalmaskConfig = ResolvedRelayFinalmaskConfig(),
-    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    @Required
     val schemaVersion: Int = RelayNativeConfigSchemaVersion,
 )
 
 /**
- * Current relay native-config wire schema version — carried as the additive
- * `schemaVersion` field on [ResolvedRipDpiRelayConfig]. A payload with no
- * `schemaVersion` is a legacy payload; the Rust side defaults it to this same
- * value. Bumped only on a genuinely breaking shape change. See
- * `docs/architecture/CONFIG_CONTRACTS.md` §8.
- *
- * Version 7 generalizes the chain-relay section model from a fixed
- * entry/exit pair to an ordered, bounded hop list ([RelayChainSection]).
- * The flat wire field set is unchanged (the two hops still serialize as the
- * `chainEntry*` / `chainExit*` scalars), so the Rust deserializer accepts both
- * v6 (legacy two-hop) and v7 payloads — see
- * [com.poyka.ripdpi.core.RelayChainSection].
- *
- * Version 8 removes the legacy VMess, Trojan-Go, and Hysteria-v1 relay kinds
- * and their wire fields. A persisted payload that names a removed kind is
- * rejected by the Rust `Unsupported` catch-all. Mirrors the Rust envelope
- * schema ceiling.
+ * Current relay native-config wire schema version. Every
+ * [ResolvedRipDpiRelayConfig] must carry `schemaVersion`; missing and
+ * non-current versions are rejected. Version 9 makes the current-only envelope
+ * mandatory after versions 6 through 8 were retired. Mirrors the Rust schema.
  */
-const val RelayNativeConfigSchemaVersion: Int = 8
-
-/**
- * The lowest relay native-config wire schema version this build still accepts.
- * Legacy v6 payloads carry the same flat two-hop field set as v7 and migrate
- * forward losslessly into the [RelayChainSection] 2-element list, so they are
- * accepted without conversion on the wire. Mirrors the Rust
- * `MIN_SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` constant.
- */
-const val RelayNativeConfigMinSchemaVersion: Int = 6
+const val RelayNativeConfigSchemaVersion: Int = 9
 
 /** Minimum number of hops a chain-relay section may carry. */
 const val RelayChainMinHops: Int = 2

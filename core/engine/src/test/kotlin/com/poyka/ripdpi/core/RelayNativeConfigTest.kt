@@ -72,25 +72,13 @@ class RelayNativeConfigTest {
     }
 
     @Test
-    fun `legacy v6 chain config migrates to the current hop-list shape without data loss`() {
-        // A v6 payload carries the same flat two-hop fields and omits
-        // `schemaVersion` (encodeDefaults is off). Decoding it, folding into the
-        // ordered hop list, then flattening back must reproduce the original wire
-        // object byte-for-byte and stamp the current default schema version.
-        val v6Encoded =
-            json
-                .encodeToString(ResolvedRipDpiRelayConfig.serializer(), chainRelayConfig())
-                .replaceFirst("{", """{"schemaVersion":6,""")
+    fun `current chain config carries required schema and round trips`() {
+        val config = chainRelayConfig()
+        val encoded = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), config)
+        val decoded = json.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), encoded)
 
-        val decoded = json.decodeFromString(ResolvedRipDpiRelayConfig.serializer(), v6Encoded)
-        val migrated = decoded.toSections().toResolvedConfig()
-
-        assertEquals("migration defaults the payload to the current schema version", 8, migrated.schemaVersion)
-        assertEquals("the two hops survive the fold/unfold migration", chainRelayConfig(), migrated)
-
-        val reserialized = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), migrated)
-        val original = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), chainRelayConfig())
-        assertEquals("migrated config re-serializes to the unchanged flat wire object", original, reserialized)
+        assertTrue(encoded.contains("\"schemaVersion\":9"))
+        assertEquals(config, decoded.toSections().toResolvedConfig())
     }
 
     @Test
@@ -581,7 +569,7 @@ class RelayNativeConfigTest {
         )
 
     private companion object {
-        // The 24 always-emitted (no-default) keys of ResolvedRipDpiRelayConfig.
+        // The 25 always-emitted keys of ResolvedRipDpiRelayConfig.
         private val requiredWireKeys =
             setOf(
                 "enabled",
@@ -608,6 +596,7 @@ class RelayNativeConfigTest {
                 "localSocksPort",
                 "udpEnabled",
                 "tcpFallbackEnabled",
+                "schemaVersion",
             )
 
         // The 57 keys carrying a default; emitted only when set off-default.
@@ -672,7 +661,7 @@ class RelayNativeConfigTest {
                 "finalmask",
             )
 
-        // The complete flat wire object: required + defaulted = 81 keys.
+        // The complete flat wire object: required + defaulted = 82 keys.
         private val expectedWireKeys = requiredWireKeys + defaultedWireKeys
     }
 }

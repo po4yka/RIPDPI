@@ -158,7 +158,7 @@ fn normalize_vless_flow(flow: String) -> String {
 impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
     fn from(config: &ResolvedRelayRuntimeConfig) -> Self {
         let mut flat = Self {
-            schema_version: default_native_config_schema_version(),
+            schema_version: SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION,
             enabled: config.common.enabled,
             kind: config.kind_id().to_string(),
             profile_id: config.common.profile_id.clone(),
