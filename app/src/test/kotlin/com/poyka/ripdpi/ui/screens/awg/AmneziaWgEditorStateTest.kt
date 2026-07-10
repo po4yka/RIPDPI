@@ -108,6 +108,14 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
+    fun `s3 and s4 accept only zero`() {
+        assertEquals(0, AwgEditorField.S3.validate("0"))
+        assertEquals(0, AwgEditorField.S4.validate("0"))
+        assertNull(AwgEditorField.S3.validate("1"))
+        assertNull(AwgEditorField.S4.validate("1"))
+    }
+
+    @Test
     fun `h-field rejects a value over the 4-byte unsigned ceiling`() {
         assertNull(AwgEditorField.H1.validate("4294967296"))
         assertNull(AwgEditorField.H1.validate("-1"))
@@ -240,8 +248,51 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
+    fun `populateFromConf with non-zero S3 or S4 leaves the state unchanged`() {
+        val before = AmneziaWgEditorState.initial().updateField(AwgEditorField.SERVER, "keep.me")
+        val unsafe =
+            """
+            [Interface]
+            PrivateKey = privkey==
+            S3 = 1
+            S4 = 0
+
+            [Peer]
+            PublicKey = peerpub==
+            Endpoint = host.example.com:443
+            """.trimIndent()
+
+        val after = before.populateFromConf(unsafe, catalog)
+
+        assertEquals(before, after)
+    }
+
+    @Test
     fun `a consistent identity-complete profile is activatable`() {
         assertTrue(activatableState().isActivatable())
+    }
+
+    @Test
+    fun `non-zero raw S3 or S4 is invalid and blocks activation`() {
+        val s3 = activatableState().updateField(AwgEditorField.S3, "1")
+        val s4 = activatableState().updateField(AwgEditorField.S4, "1")
+
+        assertTrue(s3.hasFieldError(AwgEditorField.S3))
+        assertTrue(s4.hasFieldError(AwgEditorField.S4))
+        assertFalse(s3.isActivatable())
+        assertFalse(s4.isActivatable())
+    }
+
+    @Test
+    fun `non-zero projected S3 or S4 blocks activation`() {
+        val safe = activatableState()
+        val s3 = safe.copy(form = safe.form.copy(s3 = 1))
+        val s4 = safe.copy(form = safe.form.copy(s4 = 1))
+
+        assertFalse(s3.obfuscationConsistent())
+        assertFalse(s4.obfuscationConsistent())
+        assertFalse(s3.isActivatable())
+        assertFalse(s4.isActivatable())
     }
 
     @Test

@@ -179,6 +179,7 @@ object WireGuardConfParser {
         return if (awg.isEmpty) {
             WireGuardConfig(interfaceSection = interfaceSection, peers = peers)
         } else {
+            awg.requireArm64Safe()
             AmneziaWgConfig(interfaceSection = interfaceSection, awg = awg, peers = peers)
         }
     }

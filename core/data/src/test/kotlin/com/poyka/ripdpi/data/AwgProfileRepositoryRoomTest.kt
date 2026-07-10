@@ -207,6 +207,19 @@ class AwgProfileRepositoryRoomTest {
             repository.delete("awg-does-not-exist")
             assertNull(repository.load("awg-does-not-exist"))
         }
+
+    @Test
+    fun `save rejects non-zero S3 or S4 before persisting secrets or a row`() =
+        runTest {
+            val unsafe = sampleRequest().copy(obfuscation = sampleRequest().obfuscation.copy(s4 = 1))
+
+            val error = runCatching { repository.save(name = "unsafe", request = unsafe) }.exceptionOrNull()
+
+            assertTrue(error is IllegalArgumentException)
+            assertTrue(error?.message.orEmpty().contains("amneziawg-go#110"))
+            assertTrue(repository.observeProfiles().first().isEmpty())
+            assertTrue(credentialStore.isEmpty())
+        }
 }
 
 /**
@@ -229,4 +242,6 @@ private class FakeAwgCredentialStore : AwgCredentialStore {
     override suspend fun clear(profileId: String) {
         secrets.remove(profileId)
     }
+
+    fun isEmpty(): Boolean = secrets.isEmpty()
 }

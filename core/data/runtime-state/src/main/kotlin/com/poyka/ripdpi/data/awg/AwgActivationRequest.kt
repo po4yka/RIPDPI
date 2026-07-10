@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.data.wireguard.requireAmneziaWgArm64Safe
 import kotlinx.serialization.Serializable
 
 /**
@@ -68,7 +69,8 @@ data class AwgActivationRequest(
  * handshake-init/response prefixes, `s3`/`s4` the AWG-2.x cookie/transport
  * padding), `h1`..`h4` the 64-bit magic headers, and `i1`..`i5` the optional
  * AWG-2.0 special-junk templates (empty = unused). All knobs carry through to
- * the native runtime; the additive `s3`/`s4` default to `0`.
+ * the native runtime; the additive `s3`/`s4` default to `0` and must remain
+ * zero for Android arm64 safety (amneziawg-go#110).
  */
 @Serializable
 data class AwgActivationObfuscation(
@@ -88,7 +90,12 @@ data class AwgActivationObfuscation(
     val i3: String = "",
     val i4: String = "",
     val i5: String = "",
-)
+) {
+    /** Rejects the known Android arm64 transport-drop configuration from amneziawg-go#110. */
+    fun requireArm64Safe() {
+        requireAmneziaWgArm64Safe(s3 = s3, s4 = s4)
+    }
+}
 
 /**
  * Builds an [AwgActivationRequest] from an [AwgProfileForm] plus the editor-only
@@ -98,9 +105,10 @@ data class AwgActivationObfuscation(
  * The obfuscation group (including the AWG-2.0 `i1`..`i5` payloads and the full
  * `s1`..`s4` junk-size knobs), the identity + PSK fields, and the transport
  * carrier ([AwgProfileForm.carrier] / [AwgProfileForm.carrierWsUrl]) come
- * straight from [form]; `s3`/`s4` carry through to the native runtime alongside
- * `s1`/`s2`. A blank [interfaceAddressV4] yields a request the service layer is
- * expected to reject -- the mapper does not invent a default address.
+ * straight from [form]; `s3`/`s4` remain in the wire shape, but the service
+ * layer rejects non-zero values before native startup. A blank
+ * [interfaceAddressV4] yields a request the service layer is expected to reject
+ * -- the mapper does not invent a default address.
  */
 fun AwgProfileForm.toActivationRequest(
     profileId: String,

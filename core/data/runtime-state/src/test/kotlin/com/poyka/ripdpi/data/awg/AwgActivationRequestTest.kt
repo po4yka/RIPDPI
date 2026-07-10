@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.data.awg
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -99,5 +101,30 @@ class AwgActivationRequestTest {
 
         assertEquals(AwgActivationRequest.CARRIER_WS, request.carrier)
         assertEquals("wss://vpn.example.com:443/path", request.carrierWsUrl)
+    }
+
+    @Test
+    fun `arm64 safety accepts zero s3 and s4`() {
+        AwgActivationObfuscation(s3 = 0, s4 = 0).requireArm64Safe()
+    }
+
+    @Test
+    fun `arm64 safety rejects non-zero s3 or s4 with the upstream issue`() {
+        val s3Error =
+            assertThrows(IllegalArgumentException::class.java) {
+                AwgActivationObfuscation(s3 = 1).requireArm64Safe()
+            }
+        val s4Error =
+            assertThrows(IllegalArgumentException::class.java) {
+                AwgActivationObfuscation(s4 = 1).requireArm64Safe()
+            }
+        val bothError =
+            assertThrows(IllegalArgumentException::class.java) {
+                AwgActivationObfuscation(s3 = 1, s4 = 1).requireArm64Safe()
+            }
+
+        assertTrue(s3Error.message.orEmpty().contains("amneziawg-go#110"))
+        assertTrue(s4Error.message.orEmpty().contains("amneziawg-go#110"))
+        assertTrue(bothError.message.orEmpty().contains("amneziawg-go#110"))
     }
 }

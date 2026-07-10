@@ -88,8 +88,8 @@ class WireGuardConfParserTest {
             Jmax = 70
             S1 = 30
             S2 = 50
-            S3 = 60
-            S4 = 80
+            S3 = 0
+            S4 = 0
             H1 = 1234567
             H2 = 2345678
             H3 = 3456789
@@ -115,8 +115,8 @@ class WireGuardConfParserTest {
         assertEquals(70, parsed.awg.jmax)
         assertEquals(30, parsed.awg.s1)
         assertEquals(50, parsed.awg.s2)
-        assertEquals(60, parsed.awg.s3)
-        assertEquals(80, parsed.awg.s4)
+        assertEquals(0, parsed.awg.s3)
+        assertEquals(0, parsed.awg.s4)
         assertEquals(1234567L, parsed.awg.h1)
         assertEquals(2345678L, parsed.awg.h2)
         assertEquals(3456789L, parsed.awg.h3)
@@ -130,6 +130,29 @@ class WireGuardConfParserTest {
         assertEquals(listOf("10.8.0.2/32"), parsed.interfaceSection.address)
         assertEquals(1280, parsed.interfaceSection.mtu)
         assertEquals(1, parsed.peers.size)
+    }
+
+    @Test
+    fun `conf rejects non-zero S3 or S4 for Android arm64 safety`() {
+        fun conf(
+            s3: Int,
+            s4: Int,
+        ) = """
+            [Interface]
+            PrivateKey = YXdnLXByaXZhdGUta2V5LWFybTY0LWZpeHR1cmU=
+            S3 = $s3
+            S4 = $s4
+
+            [Peer]
+            PublicKey = YXdnLXBlZXItcHVibGljLWtleS1hcm02NC1maXh0dXJl
+            Endpoint = awg.example.com:51820
+            """.trimIndent()
+
+        val s3Error = assertThrows(IllegalArgumentException::class.java) { WireGuardConfParser.parse(conf(1, 0)) }
+        val s4Error = assertThrows(IllegalArgumentException::class.java) { WireGuardConfParser.parse(conf(0, 1)) }
+
+        assertTrue(s3Error.message.orEmpty().contains("amneziawg-go#110"))
+        assertTrue(s4Error.message.orEmpty().contains("amneziawg-go#110"))
     }
 
     @Test

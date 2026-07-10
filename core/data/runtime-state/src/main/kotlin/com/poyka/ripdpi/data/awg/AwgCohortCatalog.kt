@@ -19,11 +19,10 @@ private const val AwgCohortAssetPath = "awg-cohorts.json"
 /**
  * The set of object keys a well-formed cohort preset is allowed to carry.
  *
- * `s3`/`s4` and `i1`..`i5` are AmneziaWG v1.5 obfuscation extensions: allowed so
- * a preset may pin them, but intentionally NOT in [REQUIRED_PRESET_KEYS] — the
- * shipped presets predate these fields and default to absent (see
- * [AwgCohortPreset]), so requiring them would force needless asset churn and
- * break the existing presets' strict validation.
+ * `s3`/`s4` and `i1`..`i5` are AmneziaWG v1.5 obfuscation extensions. They are
+ * intentionally NOT in [REQUIRED_PRESET_KEYS] because the shipped presets
+ * predate them. `s3`/`s4` remain recognized for compatibility, but strict
+ * validation accepts only absent or zero values (amneziawg-go#110).
  */
 private val ALLOWED_PRESET_KEYS =
     setOf(
@@ -86,7 +85,8 @@ private val awgCohortStrictJson =
  * default to `null` (not pinned) so the shipped presets — which predate the
  * extension — decode unchanged; only a preset that explicitly pins them carries
  * a value, and a `null` field is excluded from cohort matching (see
- * [matchCohortForConf]).
+ * [matchCohortForConf]). Build validation permits only absent or zero `s3`/`s4`
+ * while amneziawg-go#110 remains open.
  *
  * [displayNameKey] / [descriptionKey] are `strings.xml` resource keys, never
  * literal localized text — the asset JSON carries no human-readable labels.
@@ -216,8 +216,8 @@ fun matchCohortForConf(
  * compared. The AmneziaWG v1.5 extension params (`s3`/`s4`/`i1`..`i5`) are
  * nullable on the preset and are constrained only when the preset pins them —
  * a preset that predates the extension (all-`null`) keeps matching a `.conf`
- * regardless of whether that `.conf` carries S3/S4/I values, preserving the
- * pre-extension matching behaviour.
+ * regardless of whether that `.conf` carries safe zero S3/S4 or I values,
+ * preserving the pre-extension matching behaviour.
  */
 private fun AwgCohortPreset.matches(awg: com.poyka.ripdpi.data.wireguard.AmneziaWgParameters): Boolean =
     // Legacy params (predate the v1.5 extension) are always compared.
@@ -332,6 +332,14 @@ class AwgCohortCatalog
                         val primitive = obj[key] as? JsonPrimitive
                         if (primitive != null && primitive.longOrNull == null) {
                             errors += "preset '$label' field '$key' is not an integer"
+                        }
+                    }
+                    listOf("s3", "s4").forEach { key ->
+                        val value = (obj[key] as? JsonPrimitive)?.intOrNull
+                        if (value != null && value != 0) {
+                            errors +=
+                                "preset '$label' field '$key' must be 0 for Android arm64 safety " +
+                                "(amneziawg-go#110)"
                         }
                     }
                 }

@@ -17,7 +17,7 @@ amneziawg://<private-key>@<host>:<port>
   &allowed_ips=<cidr,cidr>
   &dns=<ip,ip>
   &mtu=<n>
-  &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>
+  &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>&s3=0&s4=0
   &h1=<n>&h2=<n>&h3=<n>&h4=<n>
   &i1=<hex>&i2=<hex>&i3=<hex>&i4=<hex>&i5=<hex>
   #<name>
@@ -31,6 +31,7 @@ amneziawg://<private-key>@<host>:<port>
 - **`dns`** — comma-separated DNS server list.
 - **`mtu`** — interface MTU.
 - **`jc` `jmin` `jmax` `s1` `s2`** — AmneziaWG junk-packet obfuscation parameters (non-negative integers).
+- **`s3` `s4`** — retained for configuration compatibility but must be absent or zero. RIPDPI rejects non-zero values because amneziawg-go#110 can silently drop all transport data on Android arm64 after a successful handshake.
 - **`h1`..`h4`** — AmneziaWG magic-header values (4-byte unsigned).
 - **`i1`..`i5`** — AmneziaWG special-junk payloads (lowercase hex strings).
 - **fragment** — the profile display name (percent-encoded). When absent, the host is used as the name.
@@ -47,5 +48,6 @@ The codec (`AmneziaWgUriCodec`) never throws on `decode`:
 
 - An unrecognised scheme, a structurally broken URI, or a missing mandatory field (private key, public key, host, port) yields `null`.
 - A malformed *optional* numeric param (e.g. `mtu=not-a-number`) is silently dropped — the rest of the profile still decodes.
+- Non-zero `s3` or `s4` yields `null`; `encode` rejects an unsafe in-memory profile instead of silently changing it.
 
-`encode` followed by `decode` round-trips an `AmneziaWgProfile` losslessly.
+For arm64-safe profiles, `encode` followed by `decode` round-trips an `AmneziaWgProfile` losslessly.

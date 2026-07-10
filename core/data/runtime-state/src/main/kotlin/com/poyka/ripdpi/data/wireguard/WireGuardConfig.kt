@@ -2,6 +2,16 @@ package com.poyka.ripdpi.data.wireguard
 
 import kotlinx.serialization.Serializable
 
+internal fun requireAmneziaWgArm64Safe(
+    s3: Int?,
+    s4: Int?,
+) {
+    require((s3 ?: 0) == 0 && (s4 ?: 0) == 0) {
+        "AmneziaWG S3/S4 must be 0: non-zero values can silently drop transport data on Android arm64 " +
+            "(amneziawg-go#110)"
+    }
+}
+
 /*
  * Kotlin config model for the WireGuard `.conf` INI format and its AmneziaWG
  * extension.
@@ -50,8 +60,10 @@ data class WireGuardPeer(
  * vanilla [WireGuardConfig]; a `.conf` with any of these keys parses as an
  * [AmneziaWgConfig].
  *
- * - `jc`, `jmin`, `jmax`, `s1`, `s2`, `s3`, `s4`: non-negative integers (junk
- *   packet counts / sizes).
+ * - `jc`, `jmin`, `jmax`, `s1`, `s2`: non-negative integers (junk packet
+ *   counts / sizes).
+ * - `s3`, `s4`: retained for wire compatibility but must resolve to zero for
+ *   Android arm64 safety; [requireArm64Safe] enforces amneziawg-go#110.
  * - `h1`..`h4`: 4-byte unsigned magic-header values, stored as [Long] in the
  *   `0..0xFFFFFFFF` range.
  * - `i1`..`i5`: special-junk payloads, stored as lowercase hex strings.
@@ -75,6 +87,11 @@ data class AmneziaWgParameters(
     val i4: String? = null,
     val i5: String? = null,
 ) {
+    /** Rejects the known Android arm64 transport-drop configuration from amneziawg-go#110. */
+    fun requireArm64Safe() {
+        requireAmneziaWgArm64Safe(s3 = s3, s4 = s4)
+    }
+
     /** True when no AmneziaWG key was present. */
     val isEmpty: Boolean
         get() =

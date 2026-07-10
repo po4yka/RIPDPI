@@ -33,8 +33,8 @@ class AmneziaWgRuntimeConfigResolverTest {
                     jmax = 70,
                     s1 = 50,
                     s2 = 100,
-                    s3 = 7,
-                    s4 = 9,
+                    s3 = 0,
+                    s4 = 0,
                     h1 = 1_000_000_001L,
                     h4 = 1_000_000_004L,
                     i1 = "deadbeef",
@@ -60,7 +60,7 @@ class AmneziaWgRuntimeConfigResolverTest {
     }
 
     @Test
-    fun `the obfuscation group including S3-S4 and I1-I5 copies through`() {
+    fun `the safe obfuscation group including zero S3-S4 and I1-I5 copies through`() {
         val amnezia = resolver.resolve(request()).amnezia
 
         assertEquals(4, amnezia.jc)
@@ -68,8 +68,8 @@ class AmneziaWgRuntimeConfigResolverTest {
         assertEquals(70, amnezia.jmax)
         assertEquals(50, amnezia.s1)
         assertEquals(100, amnezia.s2)
-        assertEquals(7, amnezia.s3)
-        assertEquals(9, amnezia.s4)
+        assertEquals(0, amnezia.s3)
+        assertEquals(0, amnezia.s4)
         assertEquals(1_000_000_001L, amnezia.h1)
         assertEquals(1_000_000_004L, amnezia.h4)
         assertEquals("deadbeef", amnezia.i1)
@@ -131,5 +131,20 @@ class AmneziaWgRuntimeConfigResolverTest {
         assertThrows(IllegalArgumentException::class.java) {
             resolver.resolve(request().copy(carrier = AwgActivationRequest.CARRIER_WS, carrierWsUrl = ""))
         }
+    }
+
+    @Test
+    fun `non-zero S3 or S4 is rejected before runtime config creation`() {
+        val s3Error =
+            assertThrows(IllegalArgumentException::class.java) {
+                resolver.resolve(request().copy(obfuscation = request().obfuscation.copy(s3 = 1)))
+            }
+        val s4Error =
+            assertThrows(IllegalArgumentException::class.java) {
+                resolver.resolve(request().copy(obfuscation = request().obfuscation.copy(s4 = 1)))
+            }
+
+        assertEquals(true, s3Error.message.orEmpty().contains("amneziawg-go#110"))
+        assertEquals(true, s4Error.message.orEmpty().contains("amneziawg-go#110"))
     }
 }

@@ -22,7 +22,7 @@ import java.net.URLEncoder
  *   &allowed_ips=<cidr,cidr>
  *   &dns=<ip,ip>
  *   &mtu=<n>
- *   &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>&s3=<n>&s4=<n>
+ *   &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>&s3=0&s4=0
  *   &h1=<n>&h2=<n>&h3=<n>&h4=<n>
  *   &i1=<hex>&i2=<hex>&i3=<hex>&i4=<hex>&i5=<hex>
  *   #<name>
@@ -32,7 +32,8 @@ import java.net.URLEncoder
  * userinfo and query positions, so the URI is always structurally valid and
  * the round-trip is lossless. [decode] never throws: an unrecognised scheme, a
  * structurally broken URI, or a missing mandatory field yields `null`; a
- * malformed *optional* numeric param is simply dropped.
+ * malformed *optional* numeric param is simply dropped. A profile with non-zero
+ * `s3` or `s4` is rejected for Android arm64 safety (amneziawg-go#110).
  */
 object AmneziaWgUriCodec {
     private const val SCHEME = "amneziawg"
@@ -40,6 +41,7 @@ object AmneziaWgUriCodec {
 
     /** Encodes [profile] into an `amneziawg://` share URI. */
     fun encode(profile: AmneziaWgProfile): String {
+        profile.awg.requireArm64Safe()
         val query =
             (baseParams(profile) + awgParams(profile.awg))
                 .joinToString("&") { (key, value) -> "$key=${urlEncode(value)}" }
@@ -95,20 +97,10 @@ object AmneziaWgUriCodec {
      * scheme is not `amneziawg://`, the URI is structurally broken, or a
      * mandatory field (private key, public key, host, port) is missing.
      */
-    fun decode(uri: String): AmneziaWgProfile? {
-        val mandatory = extractMandatory(uri) ?: return null
-        val params = mandatory.params
-        return AmneziaWgProfile(
-            name = mandatory.name,
-            host = mandatory.host,
-            port = mandatory.port,
-            privateKey = mandatory.privateKey,
-            publicKey = mandatory.publicKey,
-            presharedKey = params["preshared_key"]?.takeIf { it.isNotBlank() },
-            allowedIps = splitList(params["allowed_ips"]),
-            dns = splitList(params["dns"]),
-            mtu = params["mtu"]?.toIntOrNull(),
-            awg =
+    fun decode(uri: String): AmneziaWgProfile? =
+        extractMandatory(uri)?.let { mandatory ->
+            val params = mandatory.params
+            val awg =
                 AmneziaWgParameters(
                     jc = params["jc"]?.toIntOrNull(),
                     jmin = params["jmin"]?.toIntOrNull(),
@@ -126,9 +118,23 @@ object AmneziaWgUriCodec {
                     i3 = params["i3"]?.takeIf { it.isNotBlank() },
                     i4 = params["i4"]?.takeIf { it.isNotBlank() },
                     i5 = params["i5"]?.takeIf { it.isNotBlank() },
-                ),
-        )
-    }
+                )
+            runCatching {
+                awg.requireArm64Safe()
+                AmneziaWgProfile(
+                    name = mandatory.name,
+                    host = mandatory.host,
+                    port = mandatory.port,
+                    privateKey = mandatory.privateKey,
+                    publicKey = mandatory.publicKey,
+                    presharedKey = params["preshared_key"]?.takeIf { it.isNotBlank() },
+                    allowedIps = splitList(params["allowed_ips"]),
+                    dns = splitList(params["dns"]),
+                    mtu = params["mtu"]?.toIntOrNull(),
+                    awg = awg,
+                )
+            }.getOrNull()
+        }
 
     /** The mandatory fields of an `amneziawg://` URI plus its decoded query map. */
     private data class MandatoryFields(

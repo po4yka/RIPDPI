@@ -10,7 +10,8 @@ import kotlinx.serialization.Serializable
  *   [peerPublicKey], [presharedKey]: the per-device material, owned by the user.
  * - **obfuscation** — [jc], [jmin], [jmax], [s1], [s2], [s3], [s4], [h1]..[h4],
  *   [i1]..[i5]: server-coordinated, rewritten wholesale by [applyCohortPreset]
- *   when a cohort preset is selected.
+ *   when a cohort preset is selected. `s3`/`s4` remain in the model for wire
+ *   compatibility but activation requires both to be zero (amneziawg-go#110).
  *
  * [cohortId] tags which preset the obfuscation fields came from, or `"Custom"`
  * when they were hand-entered / imported without a match. Applying a preset

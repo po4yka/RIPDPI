@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -41,8 +42,8 @@ class AmneziaWgUriCodecTest {
                     jmax = 70,
                     s1 = 30,
                     s2 = 50,
-                    s3 = 60,
-                    s4 = 80,
+                    s3 = 0,
+                    s4 = 0,
                     h1 = 1234567L,
                     h2 = 2345678L,
                     h3 = 3456789L,
@@ -75,16 +76,34 @@ class AmneziaWgUriCodecTest {
     }
 
     @Test
-    fun `encode emits the s3 and s4 junk-size params and decode restores them`() {
+    fun `encode emits safe zero s3 and s4 params and decode restores them`() {
         val original = fullProfile()
 
         val uri = AmneziaWgUriCodec.encode(original)
-        assertTrue("s3 param present", uri.contains("s3=60"))
-        assertTrue("s4 param present", uri.contains("s4=80"))
+        assertTrue("s3 param present", uri.contains("s3=0"))
+        assertTrue("s4 param present", uri.contains("s4=0"))
 
         val decoded = AmneziaWgUriCodec.decode(uri)
-        assertEquals(60, decoded?.awg?.s3)
-        assertEquals(80, decoded?.awg?.s4)
+        assertEquals(0, decoded?.awg?.s3)
+        assertEquals(0, decoded?.awg?.s4)
+    }
+
+    @Test
+    fun `encode rejects non-zero s3 or s4`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AmneziaWgUriCodec.encode(fullProfile().copy(awg = fullProfile().awg.copy(s3 = 1)))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AmneziaWgUriCodec.encode(fullProfile().copy(awg = fullProfile().awg.copy(s4 = 1)))
+        }
+    }
+
+    @Test
+    fun `decode returns null for non-zero s3 or s4`() {
+        val safe = AmneziaWgUriCodec.encode(fullProfile())
+
+        assertNull(AmneziaWgUriCodec.decode(safe.replace("s3=0", "s3=1")))
+        assertNull(AmneziaWgUriCodec.decode(safe.replace("s4=0", "s4=1")))
     }
 
     @Test

@@ -192,6 +192,34 @@ class WireGuardIniSubscriptionAmneziaWgTest {
     }
 
     @Test
+    fun `non-zero S3 or S4 fails the interface block with a typed warning`() {
+        val unsafeAwg =
+            """
+            [Interface]
+            PrivateKey = dW5zYWZlLWF3Zy1wcml2YXRlLWtleS1maXh0dXJl
+            Address = 10.0.0.2/32
+            S3 = 0
+            S4 = 1
+
+            [Peer]
+            PublicKey = dW5zYWZlLWF3Zy1wZWVyLXB1YmxpYy1rZXktZml4
+            Endpoint = unsafe.example.com:51820
+            """.trimIndent()
+
+        val result = WireGuardIniSubscriptionParser.parse(unsafeAwg, groupId)
+
+        assertTrue(result.profiles.isEmpty())
+        assertTrue(result.amneziaWgProfiles.isEmpty())
+        assertEquals(1, result.warnings.size)
+        assertTrue(
+            result.warnings
+                .single()
+                .reason
+                .contains("amneziawg-go#110"),
+        )
+    }
+
+    @Test
     fun `mixed multi-interface payload routes each interface to the right bean type`() {
         // An INI file with both an AWG interface and a vanilla interface.
         // splitSections keeps the first [Interface]; we assert the parser still

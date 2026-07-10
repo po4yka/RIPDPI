@@ -174,13 +174,13 @@ class AwgCohortCatalogLoadTest {
     }
 
     @Test
-    fun `a preset carrying the v1_5 s3 s4 and i1-i5 extensions strict-validates`() {
+    fun `a preset carrying safe zero s3 s4 and i1-i5 extensions strict-validates`() {
         // s3/s4 and i1..i5 are allowed (not required) keys: a preset may pin them.
         val withExtensions =
             """
             { "presets": [
               { "id": "ext", "displayNameKey": "awg_cohort_ext_name", "descriptionKey": "awg_cohort_ext_desc",
-                "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100, "s3": 25, "s4": 35,
+                "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100, "s3": 0, "s4": 0,
                 "h1": 1, "h2": 2, "h3": 3, "h4": 4,
                 "i1": "deadbeef", "i2": "cafebabe", "i3": "0badf00d", "i4": "feedface", "i5": "8badf00d",
                 "randomizeHeaders": false } ] }
@@ -191,10 +191,29 @@ class AwgCohortCatalogLoadTest {
 
         val catalog = decodeAwgCohortCatalog(withExtensions)
         val ext = catalog.find("ext")!!
-        assertEquals(25, ext.s3)
-        assertEquals(35, ext.s4)
+        assertEquals(0, ext.s3)
+        assertEquals(0, ext.s4)
         assertEquals("deadbeef", ext.i1)
         assertEquals("8badf00d", ext.i5)
+    }
+
+    @Test
+    fun `strict validation rejects non-zero s3 or s4`() {
+        fun catalog(
+            s3: Int,
+            s4: Int,
+        ) = """
+            { "presets": [
+              { "id": "unsafe", "displayNameKey": "awg_cohort_unsafe_name", "descriptionKey": "awg_cohort_unsafe_desc",
+                "jc": 4, "jmin": 40, "jmax": 70, "s1": 50, "s2": 100, "s3": $s3, "s4": $s4,
+                "h1": 1, "h2": 2, "h3": 3, "h4": 4, "randomizeHeaders": false } ] }
+            """.trimIndent()
+
+        val s3Errors = AwgCohortCatalog.strictValidate(catalog(s3 = 1, s4 = 0))
+        val s4Errors = AwgCohortCatalog.strictValidate(catalog(s3 = 0, s4 = 1))
+
+        assertTrue(s3Errors.any { it.contains("amneziawg-go#110") })
+        assertTrue(s4Errors.any { it.contains("amneziawg-go#110") })
     }
 
     @Test

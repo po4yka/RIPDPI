@@ -636,6 +636,7 @@ private fun mapRipdpiAwg(
             i4 = obj.string("i4"),
             i5 = obj.string("i5"),
         )
+    runCatching { awg.requireArm64Safe() }.getOrElse { return null }
 
     // `private_key_placeholder: true` means no usable private key is present.
     // Use an empty string as the placeholder so the AWG editor can detect it.

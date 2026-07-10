@@ -32,6 +32,7 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
     @Inject
     constructor() : AmneziaWgRuntimeConfigResolver {
         override fun resolve(request: AwgActivationRequest): ResolvedRipDpiAmneziaWgConfig {
+            request.obfuscation.requireArm64Safe()
             require(request.privateKey.isNotBlank()) { "AmneziaWG interface private key missing" }
             require(request.peerPublicKey.isNotBlank()) { "AmneziaWG peer public key missing" }
             require(request.endpointHost.isNotBlank()) { "AmneziaWG endpoint host missing" }

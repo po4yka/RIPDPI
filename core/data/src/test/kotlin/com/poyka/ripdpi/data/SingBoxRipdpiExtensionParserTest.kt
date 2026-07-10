@@ -170,6 +170,35 @@ class SingBoxRipdpiExtensionParserTest {
         assertEquals(0, result.amneziaWgProfiles.size)
     }
 
+    @Test
+    fun `ripdpi amneziawg with non-zero S3 or S4 skips that entry`() {
+        val json =
+            """
+            {
+              "outbounds": [],
+              "ripdpi": {
+                "schema_version": 1,
+                "amneziawg": [
+                  {
+                    "tag": "arm64-unsafe",
+                    "s3": 1,
+                    "s4": 0,
+                    "private_key_placeholder": true,
+                    "peer": {
+                      "public_key": "pub==",
+                      "endpoint": "10.0.0.3:51820"
+                    }
+                  }
+                ]
+              }
+            }
+            """.trimIndent()
+
+        val result = success(SingBoxSubscriptionParser.parse(json, groupId))
+
+        assertTrue(result.amneziaWgProfiles.isEmpty())
+    }
+
     // -------------------------------------------------------------------------
     // Hysteria2 extras — salamander obfs
     // -------------------------------------------------------------------------

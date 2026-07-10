@@ -92,6 +92,7 @@ class AwgProfileRepository
             request: AwgActivationRequest,
             existingId: String? = null,
         ): String {
+            request.obfuscation.requireArm64Safe()
             val id = existingId ?: generateProfileId()
             // Strip the id and the two secrets from the Room blob; secrets go to the keystore.
             val sanitized = request.copy(profileId = "", privateKey = "", presharedKey = "")

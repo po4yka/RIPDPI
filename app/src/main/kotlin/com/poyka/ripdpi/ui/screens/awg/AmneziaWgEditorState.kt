@@ -23,9 +23,9 @@ private val HexRegex = Regex("[0-9a-fA-F]+")
  * - **obfuscation** ([JC]..[I5]): server-coordinated, locked whenever a cohort preset is
  *   selected (see [AmneziaWgEditorState.obfuscationLocked]).
  *
- * [validate] mirrors `WireGuardConfParser`: integer ranges for `Jc`/`Jmin`/`Jmax`/`S1`-`S4`,
- * 4-byte unsigned for `H1`-`H4`, hex strings for `I1`-`I5`. A `null` return means the raw
- * text is not a legal value for the field.
+ * [validate] mirrors `WireGuardConfParser`: non-negative integers for `Jc`/`Jmin`/`Jmax`/`S1`/`S2`,
+ * zero-only `S3`/`S4` for Android arm64 safety, 4-byte unsigned for `H1`-`H4`, and hex strings for
+ * `I1`-`I5`. A `null` return means the raw text is not a legal value for the field.
  */
 enum class AwgEditorField(
     val isObfuscation: Boolean,
@@ -75,7 +75,8 @@ enum class AwgEditorField(
      */
     fun validate(raw: String): Any? =
         when (this) {
-            JC, JMIN, JMAX, S1, S2, S3, S4 -> raw.toIntOrNull()?.takeIf { it >= 0 }
+            JC, JMIN, JMAX, S1, S2 -> raw.toIntOrNull()?.takeIf { it >= 0 }
+            S3, S4 -> raw.toIntOrNull()?.takeIf { it == 0 }
             H1, H2, H3, H4 -> raw.toLongOrNull()?.takeIf { it in 0L..FourByteUnsignedMax }
             I1, I2, I3, I4, I5 -> raw.takeIf { it.isNotEmpty() && HexRegex.matches(it) }?.lowercase()
             else -> raw
@@ -190,6 +191,8 @@ data class AmneziaWgEditorState(
             form.interfacePrivateKey.isNotBlank() &&
             form.peerPublicKey.isNotBlank() &&
             rawText(AwgEditorField.ADDRESS).isNotBlank() &&
+            !hasFieldError(AwgEditorField.S3) &&
+            !hasFieldError(AwgEditorField.S4) &&
             obfuscationConsistent() &&
             (form.carrier != AwgActivationRequest.CARRIER_WS || form.carrierWsUrl.isNotBlank())
 
@@ -211,7 +214,8 @@ data class AmneziaWgEditorState(
         val junkRangeOk = !junkActive || form.jmin <= form.jmax
         val junkSizeFitsMtu = !junkActive || form.jmax <= mtu
         val paddingFitsMtu = form.s1 <= mtu && form.s2 <= mtu && form.s3 <= mtu && form.s4 <= mtu
-        return junkRangeOk && junkSizeFitsMtu && paddingFitsMtu
+        val arm64Safe = form.s3 == 0 && form.s4 == 0
+        return junkRangeOk && junkSizeFitsMtu && paddingFitsMtu && arm64Safe
     }
 
     /** Effective tunnel MTU, mirroring [toActivationRequest]'s fallback. */
