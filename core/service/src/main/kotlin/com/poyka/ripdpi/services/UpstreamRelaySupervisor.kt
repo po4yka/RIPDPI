@@ -3,9 +3,11 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
+import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
+import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
@@ -48,6 +50,7 @@ internal class UpstreamRelaySupervisor(
         },
     private val runtimeConfigResolver: UpstreamRelayRuntimeConfigResolver,
     private val networkMode: RelayRuntimeNetworkMode = RelayRuntimeNetworkMode.Proxy,
+    private val initialRelayRaceRunnerFactory: InitialRelayRaceRunnerFactory = InitialRelayRaceRunnerFactory(),
     private val stopTimeoutMillis: Long = 5_000L,
 ) {
     constructor(
@@ -109,126 +112,150 @@ internal class UpstreamRelaySupervisor(
         networkMode = networkMode,
     )
 
-    private var relayRuntime: RipDpiRelayRuntime? = null
-    private var relayJob: Job? = null
-
-    @Volatile
-    private var stopRequested: Boolean = false
-    private var exitReporting: AtomicBoolean? = null
+    private var activeSlot: RelayRuntimeSlot? = null
 
     suspend fun start(
         config: RipDpiRelayConfig,
         quicMigrationConfig: OwnedRelayQuicMigrationConfig = OwnedRelayQuicMigrationConfig(),
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
-        check(relayJob == null) { "Relay fields not null" }
+        check(activeSlot == null) { "Relay runtime is already active" }
+        val slot =
+            startSlot(
+                config = config,
+                quicMigrationConfig = quicMigrationConfig,
+                localPortOverride = null,
+                onUnexpectedExit = onUnexpectedExit,
+            )
+        promoteSlot(slot)
+    }
+
+    suspend fun startRace(
+        plan: InitialRelayRacePlan,
+        quicMigrationConfig: OwnedRelayQuicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+        onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
+        onState: (InitialTransportRaceSnapshot) -> Unit = {},
+    ): PromotedRelayRuntime =
+        initialRelayRaceRunnerFactory
+            .create(
+                startCandidate = { candidate ->
+                    startSlot(
+                        config =
+                            RipDpiRelayConfig(
+                                enabled = true,
+                                kind = candidate.relayKind,
+                                profileId = candidate.profileId,
+                            ),
+                        quicMigrationConfig = quicMigrationConfig,
+                        localPortOverride = EphemeralPort,
+                        onUnexpectedExit = onUnexpectedExit,
+                    )
+                },
+                promoteCandidate = ::promoteSlot,
+                stopDiscardedCandidates = ::stopDiscardedSlots,
+            ).run(plan, onState)
+
+    private suspend fun startSlot(
+        config: RipDpiRelayConfig,
+        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+        localPortOverride: Int?,
+        onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
+    ): RelayRuntimeSlot {
         val resolvedConfig =
-            runtimeConfigResolver.resolve(config, quicMigrationConfig).withNetworkMode(networkMode)
-        val runtime =
-            if (resolvedConfig.kind == RelayKindNaiveProxy) {
-                naiveProxyRuntimeFactory.create()
-            } else if (resolvedConfig.kind == RelayKindGoogleAppsScript) {
-                googleAppsScriptRelayRuntimeFactory.create()
-            } else if (
-                resolvedConfig.kind == RelayKindCloudflareTunnel &&
-                resolvedConfig.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin
-            ) {
-                cloudflarePublishRuntimeFactory.create()
-            } else if (isPluggableTransportRelay(resolvedConfig.kind)) {
-                pluggableTransportRuntimeFactory.create()
-            } else {
-                relayFactory.create()
-            }
-        relayRuntime = runtime
-        stopRequested = false
-        val shouldReportExit = AtomicBoolean(true)
-        exitReporting = shouldReportExit
+            runtimeConfigResolver
+                .resolve(config, quicMigrationConfig)
+                .let { resolved ->
+                    if (localPortOverride == null) resolved else resolved.copy(localSocksPort = localPortOverride)
+                }.withNetworkMode(networkMode)
+        val runtime = createRuntime(resolvedConfig)
+        val stopRequested = AtomicBoolean(false)
+        val shouldReportExit = AtomicBoolean(false)
 
         val exitCause = CompletableDeferred<SupervisorExitCause>()
         val job =
             scope.launch(dispatcher, start = CoroutineStart.UNDISPATCHED) {
                 try {
                     val result = runCatching { runtime.start(resolvedConfig) }
-                    exitCause.complete(result.toSupervisorExitCause(stopRequested = stopRequested))
+                    exitCause.complete(result.toSupervisorExitCause(stopRequested = stopRequested.get()))
                 } finally {
                     if (!exitCause.isCompleted) {
                         exitCause.complete(
                             Result
                                 .failure<Int>(CancellationException("Relay job cancelled"))
-                                .toSupervisorExitCause(stopRequested = stopRequested),
+                                .toSupervisorExitCause(stopRequested = stopRequested.get()),
                         )
                     }
                 }
             }
-        relayJob = job
+        val slot =
+            RelayRuntimeSlot(
+                runtime = runtime,
+                job = job,
+                exitCause = exitCause,
+                stopRequested = stopRequested,
+                shouldReportExit = shouldReportExit,
+                exitReported = AtomicBoolean(false),
+                onUnexpectedExit = onUnexpectedExit,
+            )
 
         job.invokeOnCompletion {
             scope.launch(dispatcher) {
-                if (relayRuntime !== runtime) {
+                if (activeSlot !== slot) {
                     return@launch
                 }
                 if (!shouldReportExit.get()) {
                     return@launch
                 }
-                onUnexpectedExit(exitCause.await())
+                reportExitIfNeeded(slot)
             }
         }
 
         @Suppress("TooGenericExceptionCaught")
         try {
             runtime.awaitReady()
+            if (localPortOverride != null) {
+                slot.endpoint = resolveLocalProxyEndpoint(runtime.pollTelemetry(), authToken = null)
+            }
+            return slot
         } catch (readinessError: Exception) {
             shouldReportExit.set(false)
-            try {
-                stopRequested = true
-                runCatching { runtime.stop() }
-                job.join()
-            } finally {
-                relayJob = null
-                relayRuntime = null
-                exitReporting = null
-                stopRequested = false
-            }
+            stopRequested.set(true)
+            runCatching { runtime.stop() }
+            job.join()
             val startupCause =
                 (exitCause.await() as? SupervisorExitCause.StartupFailure)
                     ?: SupervisorExitCause.StartupFailure(readinessError)
+            if (readinessError is CancellationException) {
+                throw readinessError
+            }
             throw SupervisorStartupFailureException(startupCause)
         }
     }
 
     suspend fun stop() {
-        val runtime = relayRuntime
-        if (runtime == null) {
-            relayJob = null
-            exitReporting = null
-            stopRequested = false
-            return
-        }
+        val slot = activeSlot ?: return
 
         try {
-            stopRequested = true
-            runtime.stop()
+            slot.stopRequested.set(true)
+            slot.runtime.stop()
             withTimeoutOrNull(stopTimeoutMillis) {
-                relayJob?.join()
+                slot.job.join()
             }
+            reportExitIfNeeded(slot)
         } finally {
-            relayJob = null
-            relayRuntime = null
-            exitReporting = null
-            stopRequested = false
+            if (activeSlot === slot) {
+                activeSlot = null
+            }
         }
     }
 
     fun detach() {
-        exitReporting?.set(false)
-        relayJob = null
-        relayRuntime = null
-        exitReporting = null
-        stopRequested = false
+        activeSlot?.shouldReportExit?.set(false)
+        activeSlot = null
     }
 
     suspend fun pollTelemetry(): RuntimeTelemetryOutcome {
-        val runtime = relayRuntime ?: return RuntimeTelemetryOutcome.NoData
+        val runtime = activeSlot?.runtime ?: return RuntimeTelemetryOutcome.NoData
         return runCatching { runtime.pollTelemetry() }
             .fold(
                 onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
@@ -239,6 +266,56 @@ internal class UpstreamRelaySupervisor(
                     )
                 },
             )
+    }
+
+    private fun createRuntime(config: ResolvedRipDpiRelayConfig): RipDpiRelayRuntime =
+        if (config.kind == RelayKindNaiveProxy) {
+            naiveProxyRuntimeFactory.create()
+        } else if (config.kind == RelayKindGoogleAppsScript) {
+            googleAppsScriptRelayRuntimeFactory.create()
+        } else if (
+            config.kind == RelayKindCloudflareTunnel &&
+            config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin
+        ) {
+            cloudflarePublishRuntimeFactory.create()
+        } else if (isPluggableTransportRelay(config.kind)) {
+            pluggableTransportRuntimeFactory.create()
+        } else {
+            relayFactory.create()
+        }
+
+    private suspend fun promoteSlot(slot: RelayRuntimeSlot) {
+        slot.shouldReportExit.set(true)
+        activeSlot = slot
+        if (!slot.job.isActive) {
+            reportExitIfNeeded(slot)
+        }
+    }
+
+    private suspend fun reportExitIfNeeded(slot: RelayRuntimeSlot) {
+        if (
+            activeSlot === slot &&
+            slot.shouldReportExit.get() &&
+            slot.exitReported.compareAndSet(false, true)
+        ) {
+            slot.onUnexpectedExit(slot.exitCause.await())
+        }
+    }
+
+    private suspend fun stopDiscardedSlots(
+        slots: Collection<RelayRuntimeSlot>,
+        winner: RelayRuntimeSlot?,
+    ) {
+        slots.filter { it !== winner }.forEach { slot ->
+            slot.shouldReportExit.set(false)
+            slot.stopRequested.set(true)
+            runCatching { slot.runtime.stop() }
+            withTimeoutOrNull(stopTimeoutMillis) { slot.job.join() }
+        }
+    }
+
+    private companion object {
+        const val EphemeralPort = 0
     }
 }
 

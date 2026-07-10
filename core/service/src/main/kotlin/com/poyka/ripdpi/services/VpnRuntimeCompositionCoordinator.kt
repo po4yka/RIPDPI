@@ -32,6 +32,7 @@ internal class VpnRuntimeCompositionCoordinator(
      * handover and only takes over when it reports it handled the call.
      */
     providerController: XrayProviderSessionController? = null,
+    private val initialRelayRacePolicy: InitialRelayRacePolicy? = null,
 ) {
     var currentLocalProxyEndpoint: LocalProxyEndpoint? = null
         private set
@@ -135,6 +136,13 @@ internal class VpnRuntimeCompositionCoordinator(
                 .randomUUID()
                 .toString()
                 .replace("-", "")
+        val configuredRelay = resolution.proxyPreferences.relayConfigOrNull()
+        val racePlan =
+            initialRelayRacePolicy?.plan(
+                configuredRelayProfileId = configuredRelay?.profileId,
+                configuredRelayKind = configuredRelay?.kind,
+                networkScopeKey = resolution.networkScopeKey,
+            )
         val localProxyEndpoint =
             proxyRuntimeStack.start(
                 proxyPreferences =
@@ -146,6 +154,9 @@ internal class VpnRuntimeCompositionCoordinator(
                 onWarpExit = supervisorExitHandler::handleWarpExit,
                 onAwgExit = supervisorExitHandler::handleAwgExit,
                 onProxyExit = supervisorExitHandler::handleProxyExit,
+                initialRelayRacePlan = racePlan,
+                onInitialRelayRaceState = { state -> initialRelayRacePolicy?.onStateChanged(state) },
+                onInitialRelaySelected = { result -> initialRelayRacePolicy?.onSelected(result) },
             )
         currentLocalProxyEndpoint = localProxyEndpoint
         vpnTunnelRuntime.start(

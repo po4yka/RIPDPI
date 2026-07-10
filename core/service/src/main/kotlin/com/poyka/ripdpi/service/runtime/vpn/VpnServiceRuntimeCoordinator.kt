@@ -23,6 +23,7 @@ import com.poyka.ripdpi.services.BaseServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.ConnectionPolicyResolution
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
+import com.poyka.ripdpi.services.InitialRelayRacePolicy
 import com.poyka.ripdpi.services.LocalProxyEndpoint
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.NoOpDirectPathPolicyTelemetryConsumer
@@ -113,6 +114,7 @@ internal class VpnServiceRuntimeCoordinator(
      * untouched otherwise.
      */
     private val xrayProviderSessionController: XrayProviderSessionController? = null,
+    private val initialRelayRacePolicy: InitialRelayRacePolicy? = null,
 ) : BaseServiceRuntimeCoordinator<VpnRuntimeSession>(
         mode = Mode.VPN,
         host = vpnHost,
@@ -157,6 +159,7 @@ internal class VpnServiceRuntimeCoordinator(
             supervisorExitHandler = supervisorExitHandler,
             applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
             providerController = xrayProviderSessionController,
+            initialRelayRacePolicy = initialRelayRacePolicy,
         )
     private val telemetryCoordinator =
         VpnTelemetryCoordinator(

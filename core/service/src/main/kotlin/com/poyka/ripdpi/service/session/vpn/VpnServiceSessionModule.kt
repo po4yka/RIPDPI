@@ -19,6 +19,7 @@ import com.poyka.ripdpi.services.AmneziaWgRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
 import com.poyka.ripdpi.services.FlowAttributionBridge
 import com.poyka.ripdpi.services.InMemoryVpnProtectFailureMonitor
+import com.poyka.ripdpi.services.InitialRelayRacePolicy
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
@@ -48,6 +49,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import java.io.File
+import java.util.Optional
 
 @Module
 @InstallIn(VpnServiceSessionComponent::class)
@@ -247,6 +249,7 @@ internal object VpnServiceSessionModule {
         directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
         rootHelperManager: RootHelperManager,
         xrayProviderSessionController: XrayProviderSessionController,
+        initialRelayRacePolicy: Optional<InitialRelayRacePolicy> = Optional.empty(),
     ): VpnServiceRuntimeCoordinator =
         VpnServiceRuntimeCoordinator(
             vpnHost = host,
@@ -271,5 +274,6 @@ internal object VpnServiceSessionModule {
             directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
             rootHelperManager = rootHelperManager,
             xrayProviderSessionController = xrayProviderSessionController,
+            initialRelayRacePolicy = initialRelayRacePolicy.orElse(null),
         )
 }

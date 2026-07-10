@@ -6,6 +6,8 @@ import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.RelaySocketProtection
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.InitialTransportSelectionException
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
@@ -32,7 +34,12 @@ import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExit
 import com.poyka.ripdpi.services.testsupport.ScriptedSupervisorExitSequence
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -48,9 +55,149 @@ class UpstreamRelaySupervisorTest {
     private companion object {
         const val SampleCloudflareValue = "sample-cloudflare-value"
         const val SampleMasqueValue = "sample-masque-value"
+        const val RealityProfileId = "reality"
+        const val HysteriaProfileId = "hysteria"
+        const val RealityRacePort = 19_001
+        const val HysteriaRacePort = 19_002
     }
 
     private fun providerAuthFixture(): String = listOf("provider", "auth").joinToString("-")
+
+    @Test
+    fun `application-stalled reality loses initial race to healthy hysteria2`() =
+        runTest {
+            val relayFactory = raceRelayFactory()
+            val supervisor =
+                raceSupervisor(relayFactory) { endpoint, _ ->
+                    if (endpoint.port == RealityRacePort) {
+                        delay(5_000L)
+                        RelayActiveProbeResult(false, latencyMs = 5_000L, failure = "timeout")
+                    } else {
+                        delay(100L)
+                        RelayActiveProbeResult(true, statusCode = 204, latencyMs = 100L)
+                    }
+                }
+
+            val promoted = supervisor.startRace(racePlan(), onUnexpectedExit = {})
+
+            assertEquals(InitialRelayTransportClass.UdpObfuscation, promoted.result.selectedCandidate.transportClass)
+            assertEquals(HysteriaRacePort, promoted.endpoint.port)
+            assertEquals(1, relayFactory.runtimes[0].stopCount)
+            assertEquals(0, relayFactory.runtimes[1].stopCount)
+            assertTrue(relayFactory.runtimes.all { it.lastConfig?.localSocksPort == 0 })
+            supervisor.stop()
+        }
+
+    @Test
+    fun `both failed probes promote still-ready cached winner without restarting runtime`() =
+        runTest {
+            val relayFactory = raceRelayFactory()
+            val supervisor =
+                raceSupervisor(relayFactory) { _, _ ->
+                    RelayActiveProbeResult(false, statusCode = 503, latencyMs = 10L, failure = "http_status")
+                }
+
+            val promoted =
+                supervisor.startRace(
+                    racePlan(cachedFallbackProfileId = RealityProfileId),
+                    onUnexpectedExit = {},
+                )
+
+            assertTrue(promoted.result.usedCachedFallback)
+            assertEquals(RealityProfileId, promoted.result.selectedCandidate.profileId)
+            assertEquals(2, relayFactory.runtimes.size)
+            assertEquals(0, relayFactory.runtimes[0].stopCount)
+            assertEquals(1, relayFactory.runtimes[1].stopCount)
+            supervisor.stop()
+        }
+
+    @Test
+    fun `both failed probes stop contenders and reject startup without cache`() =
+        runTest {
+            val relayFactory = raceRelayFactory()
+            val supervisor =
+                raceSupervisor(relayFactory) { _, _ ->
+                    RelayActiveProbeResult(false, latencyMs = 10L, failure = "io_error")
+                }
+
+            val error = runCatching { supervisor.startRace(racePlan(), onUnexpectedExit = {}) }.exceptionOrNull()
+
+            assertTrue(error is InitialTransportSelectionException)
+            assertEquals(listOf(1, 1), relayFactory.runtimes.map(TestRelayRuntime::stopCount))
+        }
+
+    @Test
+    fun `cancelling initial race stops both ready contenders without exit callbacks`() =
+        runTest {
+            val relayFactory = raceRelayFactory()
+            val exits = mutableListOf<SupervisorExitCause>()
+            val supervisor =
+                raceSupervisor(relayFactory) { _, _ ->
+                    awaitCancellation()
+                }
+            val race = async { supervisor.startRace(racePlan(), onUnexpectedExit = exits::add) }
+            runCurrent()
+
+            race.cancelAndJoin()
+            advanceUntilIdle()
+
+            assertEquals(listOf(1, 1), relayFactory.runtimes.map(TestRelayRuntime::stopCount))
+            assertTrue(exits.isEmpty())
+        }
+
+    private fun TestScope.raceSupervisor(
+        relayFactory: TestRipDpiRelayFactory,
+        probe: RelayActiveProbe,
+    ): UpstreamRelaySupervisor =
+        UpstreamRelaySupervisor(
+            scope = backgroundScope,
+            dispatcher = StandardTestDispatcher(testScheduler),
+            relayFactory = relayFactory,
+            naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+            runtimeConfigResolver =
+                object : UpstreamRelayRuntimeConfigResolver {
+                    override suspend fun resolve(
+                        config: RipDpiRelayConfig,
+                        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+                    ) = sampleResolvedRelayConfig(kind = config.kind, profileId = config.profileId)
+                },
+            initialRelayRaceRunnerFactory = InitialRelayRaceRunnerFactory(probe),
+        )
+
+    private fun raceRelayFactory(): TestRipDpiRelayFactory {
+        var port = RealityRacePort
+        return TestRipDpiRelayFactory {
+            TestRelayRuntime().apply {
+                telemetry =
+                    NativeRuntimeSnapshot(
+                        source = "relay",
+                        state = "running",
+                        health = "healthy",
+                        listenerAddress = "127.0.0.1:$port",
+                    )
+                port = HysteriaRacePort
+            }
+        }
+    }
+
+    private fun racePlan(cachedFallbackProfileId: String? = null): InitialRelayRacePlan =
+        InitialRelayRacePlan(
+            probeUrl = "https://probe.example/generate_204",
+            candidates =
+                listOf(
+                    InitialRelayCandidate(
+                        InitialRelayTransportClass.TlsMimicry,
+                        RealityProfileId,
+                        RelayKindVlessReality,
+                    ),
+                    InitialRelayCandidate(
+                        InitialRelayTransportClass.UdpObfuscation,
+                        HysteriaProfileId,
+                        RelayKindHysteria2,
+                    ),
+                ),
+            cachedFallbackProfileId = cachedFallbackProfileId,
+        )
 
     @Test
     fun `runtime-owned socket protection policy is applied after profile resolution`() =

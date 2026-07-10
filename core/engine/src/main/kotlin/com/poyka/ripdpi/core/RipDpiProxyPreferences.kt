@@ -83,6 +83,50 @@ fun RipDpiProxyPreferences.relayConfigOrNull(): RipDpiRelayConfig? =
         }
     }
 
+fun RipDpiProxyPreferences.withRelayRuntimeSelection(
+    selectedConfig: RipDpiRelayConfig,
+    localSocksHost: String,
+    localSocksPort: Int,
+): RipDpiProxyPreferences {
+    val relay =
+        selectedConfig.copy(
+            enabled = true,
+            localSocksHost = localSocksHost,
+            localSocksPort = localSocksPort,
+        )
+    return when (this) {
+        is RipDpiProxyUIPreferences -> withRelayConfig(relay)
+        is RipDpiProxyUiSessionPreferences -> copy(preferences = preferences.withRelayConfig(relay))
+        is RipDpiProxyJsonPreferences -> this
+        is RipDpiProxyCmdPreferences -> this
+    }
+}
+
+private fun RipDpiProxyUIPreferences.withRelayConfig(relayConfig: RipDpiRelayConfig): RipDpiProxyUIPreferences =
+    RipDpiProxyUIPreferences(
+        listen = listen,
+        protocols = protocols,
+        chains = chains,
+        fakePackets = fakePackets,
+        parserEvasions = parserEvasions,
+        adaptiveFallback = adaptiveFallback,
+        quic = quic,
+        hosts = hosts,
+        relay = relayConfig,
+        warp = warp,
+        hostAutolearn = hostAutolearn,
+        wsTunnel = wsTunnel,
+        nativeLogLevel = nativeLogLevel,
+        runtimeContext = runtimeContext,
+        logContext = logContext,
+        rootMode = rootMode,
+        rootHelperSocketPath = rootHelperSocketPath,
+        geoipDbPath = geoipDbPath,
+        geositeDbPath = geositeDbPath,
+        environmentKind = environmentKind,
+        awg = awg,
+    )
+
 fun RipDpiProxyPreferences.ownedRelayQuicMigrationConfig(): OwnedRelayQuicMigrationConfig =
     when (this) {
         is RipDpiProxyUIPreferences -> {

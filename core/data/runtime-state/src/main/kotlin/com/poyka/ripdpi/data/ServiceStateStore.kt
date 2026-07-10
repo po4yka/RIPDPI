@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -62,6 +63,7 @@ data class ServiceTelemetrySnapshot(
     val tunnelTelemetryStatus: RuntimeTelemetryStatus = RuntimeTelemetryStatus.NoData,
     val networkHandoverState: String? = null,
     val runtimeFieldTelemetry: RuntimeFieldTelemetry = RuntimeFieldTelemetry(),
+    val initialTransportRaceSnapshot: InitialTransportRaceSnapshot? = null,
     /**
      * Live Xray provider engine snapshot, populated only when the active session
      * runs the Xray provider. Additive runtime DTO field (no proto/schema bump):
@@ -86,6 +88,21 @@ data class ServiceTelemetrySnapshot(
      */
     val relayFailed: Boolean = false,
     val updatedAt: Long = 0L,
+)
+
+@Serializable
+data class InitialTransportRaceCandidateSnapshot(
+    val transportClass: String,
+    val outcome: String,
+    val latencyMs: Long? = null,
+)
+
+@Serializable
+data class InitialTransportRaceSnapshot(
+    val state: String,
+    val candidates: List<InitialTransportRaceCandidateSnapshot> = emptyList(),
+    val selectedTransportClass: String? = null,
+    val usedCachedFallback: Boolean = false,
 )
 
 interface ServiceStateStore {

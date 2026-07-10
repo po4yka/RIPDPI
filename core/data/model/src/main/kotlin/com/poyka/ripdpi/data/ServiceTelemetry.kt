@@ -255,6 +255,10 @@ private fun classifyFailureReasonDirectly(failureReason: FailureReason?): Failur
             classifyFailureText(failureReason.message) ?: FailureClass.NativeIo
         }
 
+        is FailureReason.InitialTransportSelectionFailed -> {
+            FailureClass.Timeout
+        }
+
         is FailureReason.NativeError -> {
             classifyFailureText(failureReason.message) ?: FailureClass.NativeIo
         }

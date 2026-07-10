@@ -105,6 +105,7 @@ internal class RuntimeTelemetryProjection(
                     tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
                     failureReason = failureReason,
                 ),
+            initialTransportRaceSnapshot = currentTelemetry.initialTransportRaceSnapshot,
             xrayProviderSnapshot = xrayProviderSnapshot ?: currentTelemetry.xrayProviderSnapshot,
             updatedAt = clock.nowMillis(),
         )
@@ -167,6 +168,7 @@ internal class RuntimeTelemetryProjection(
                     tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
                     failureReason = failureReason,
                 ),
+            initialTransportRaceSnapshot = currentTelemetry.initialTransportRaceSnapshot,
             xrayProviderSnapshot = xrayProviderSnapshot ?: currentTelemetry.xrayProviderSnapshot,
             updatedAt =
                 maxOf(

@@ -27,6 +27,10 @@ sealed interface FailureReason {
         val message: String,
     ) : FailureReason
 
+    data class InitialTransportSelectionFailed(
+        val message: String,
+    ) : FailureReason
+
     data class Unexpected(
         val cause: Throwable,
     ) : FailureReason
@@ -50,6 +54,7 @@ val FailureReason.displayMessage: String
             is FailureReason.WarpRuntimeFailed -> message
             is FailureReason.RelayFingerprintPolicyRejected -> message
             is FailureReason.RelayConfigRejected -> message
+            is FailureReason.InitialTransportSelectionFailed -> message
             is FailureReason.Unexpected -> cause.message ?: "Unexpected error"
             is FailureReason.PermissionLost -> "Required permission revoked: $permission"
         }
@@ -85,3 +90,7 @@ fun classifyFailureReason(
             FailureReason.Unexpected(e)
         }
     }
+
+class InitialTransportSelectionException(
+    message: String,
+) : ServiceStartupRejectedException(FailureReason.InitialTransportSelectionFailed(message))

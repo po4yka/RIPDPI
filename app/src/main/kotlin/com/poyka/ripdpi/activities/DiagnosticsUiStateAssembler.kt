@@ -379,6 +379,7 @@ internal fun buildCurrentServiceTelemetry(
         txBytes = telemetry.tunnelStats.txBytes,
         rxPackets = telemetry.tunnelStats.rxPackets,
         rxBytes = telemetry.tunnelStats.rxBytes,
+        initialTransportRace = telemetry.initialTransportRaceSnapshot,
         createdAt = createdAt,
     )
 }

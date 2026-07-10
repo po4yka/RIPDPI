@@ -1,11 +1,14 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
+import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.ownedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.core.withAwgEgressPort
+import com.poyka.ripdpi.core.withRelayRuntimeSelection
+import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
 import com.poyka.ripdpi.service.awg.VpnModeAmneziaWgLocalSocksPort
 
 /**
@@ -32,9 +35,12 @@ internal class SharedProxyRuntimeStack(
         onWarpExit: suspend (SupervisorExitCause) -> Unit,
         onAwgExit: suspend (SupervisorExitCause) -> Unit,
         onProxyExit: suspend (SupervisorExitCause) -> Unit,
+        initialRelayRacePlan: InitialRelayRacePlan? = null,
+        onInitialRelayRaceState: (InitialTransportRaceSnapshot) -> Unit = {},
+        onInitialRelaySelected: (InitialRelayRaceResult) -> Unit = {},
     ): LocalProxyEndpoint {
         val awgRequest = proxyPreferences.awgConfigOrNull()
-        val effectivePreferences: RipDpiProxyPreferences
+        var effectivePreferences: RipDpiProxyPreferences = proxyPreferences
         if (awgRequest != null) {
             // AWG is the egress: start the AWG supervisor and point the proxy
             // upstream at the AWG loopback port. WARP is not started — AWG wins.
@@ -46,12 +52,33 @@ internal class SharedProxyRuntimeStack(
                 // A fresh relay start clears any stale foreign-relay-failed signal from a
                 // previous session so this session does not begin in a Degraded state.
                 clearForeignRelayFailed()
-                upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, onRelayExit)
+                if (initialRelayRacePlan == null) {
+                    upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, onRelayExit)
+                } else {
+                    val promoted =
+                        upstreamRelaySupervisor.startRace(
+                            plan = initialRelayRacePlan,
+                            quicMigrationConfig = relayQuicMigrationConfig,
+                            onUnexpectedExit = onRelayExit,
+                            onState = onInitialRelayRaceState,
+                        )
+                    onInitialRelaySelected(promoted.result)
+                    effectivePreferences =
+                        proxyPreferences.withRelayRuntimeSelection(
+                            selectedConfig =
+                                RipDpiRelayConfig(
+                                    enabled = true,
+                                    kind = promoted.result.selectedCandidate.relayKind,
+                                    profileId = promoted.result.selectedCandidate.profileId,
+                                ),
+                            localSocksHost = promoted.endpoint.host,
+                            localSocksPort = promoted.endpoint.port,
+                        )
+                }
             }
             proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
                 warpRuntimeSupervisor.start(warpConfig, onWarpExit)
             }
-            effectivePreferences = proxyPreferences
         }
 
         return proxyRuntimeSupervisor.start(effectivePreferences, onProxyExit)

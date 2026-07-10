@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
@@ -190,6 +191,7 @@ data class DiagnosticTelemetrySample(
     val nativeHeapBytes: Long? = null,
     val processRssBytes: Long? = null,
     val relayProtocolKind: String? = null,
+    val initialTransportRace: InitialTransportRaceSnapshot? = null,
     val createdAt: Long,
 )
 
