@@ -135,6 +135,30 @@ class SimpleInitialRelayRacePolicyTest {
         }
 
     @Test
+    fun `manual profile and incomplete seeded pair preserve legacy startup`() =
+        runTest {
+            assertNull(policy.plan("manual-profile", RelayKindVlessReality, "network-a"))
+
+            policy =
+                SimpleInitialRelayRacePolicy(
+                    context = application,
+                    bundleSource =
+                        SimpleRelayBundleSource {
+                            validBundle().replace(
+                                "\"type\": \"hysteria2\"",
+                                "\"type\": \"trojan\"",
+                            )
+                        },
+                    relayProfileStore = seededProfileStore(),
+                    relayCredentialStore = seededCredentialStore(),
+                    serviceStateStore = DefaultServiceStateStore(),
+                    failoverCoordinator = failoverBridge,
+                    clock = clock,
+                )
+            assertNull(policy.plan(RealityProfileId, RelayKindVlessReality, "network-a"))
+        }
+
+    @Test
     fun `successful selection notifies failover coordinator before running`() =
         runTest {
             val plan = policy.plan(RealityProfileId, RelayKindVlessReality, "network-a")!!

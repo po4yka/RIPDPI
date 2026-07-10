@@ -89,6 +89,81 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
+    fun `udp-stalled hysteria2 loses initial race to healthy reality`() =
+        runTest {
+            val relayFactory = raceRelayFactory()
+            val supervisor =
+                raceSupervisor(relayFactory) { endpoint, _ ->
+                    if (endpoint.port == HysteriaRacePort) {
+                        delay(5_000L)
+                        RelayActiveProbeResult(false, latencyMs = 5_000L, failure = "timeout")
+                    } else {
+                        delay(100L)
+                        RelayActiveProbeResult(true, statusCode = 200, latencyMs = 100L)
+                    }
+                }
+
+            val promoted = supervisor.startRace(racePlan(), onUnexpectedExit = {})
+
+            assertEquals(InitialRelayTransportClass.TlsMimicry, promoted.result.selectedCandidate.transportClass)
+            assertEquals(RealityRacePort, promoted.endpoint.port)
+            assertEquals(0, relayFactory.runtimes[0].stopCount)
+            assertEquals(1, relayFactory.runtimes[1].stopCount)
+            supervisor.stop()
+        }
+
+    @Test
+    fun `first valid response wins when both candidates pass`() =
+        runTest {
+            val relayFactory = raceRelayFactory()
+            val supervisor =
+                raceSupervisor(relayFactory) { endpoint, _ ->
+                    val latency = if (endpoint.port == HysteriaRacePort) 50L else 100L
+                    delay(latency)
+                    RelayActiveProbeResult(true, statusCode = 204, latencyMs = latency)
+                }
+
+            val promoted = supervisor.startRace(racePlan(), onUnexpectedExit = {})
+
+            assertEquals(InitialRelayTransportClass.UdpObfuscation, promoted.result.selectedCandidate.transportClass)
+            assertEquals(50L, promoted.result.latencyMs)
+            supervisor.stop()
+        }
+
+    @Test
+    fun `runtime start failure is isolated while healthy contender wins`() =
+        runTest {
+            var first = true
+            val relayFactory =
+                TestRipDpiRelayFactory {
+                    TestRelayRuntime().apply {
+                        if (first) {
+                            startFailure = IOException("fixture start failure")
+                            first = false
+                        } else {
+                            telemetry =
+                                NativeRuntimeSnapshot(
+                                    source = "relay",
+                                    state = "running",
+                                    health = "healthy",
+                                    listenerAddress = "127.0.0.1:$HysteriaRacePort",
+                                )
+                        }
+                    }
+                }
+            val supervisor =
+                raceSupervisor(relayFactory) { _, _ ->
+                    RelayActiveProbeResult(true, statusCode = 200, latencyMs = 20L)
+                }
+
+            val promoted = supervisor.startRace(racePlan(), onUnexpectedExit = {})
+
+            assertEquals(HysteriaProfileId, promoted.result.selectedCandidate.profileId)
+            assertEquals(2, relayFactory.runtimes.size)
+            supervisor.stop()
+        }
+
+    @Test
     fun `both failed probes promote still-ready cached winner without restarting runtime`() =
         runTest {
             val relayFactory = raceRelayFactory()
