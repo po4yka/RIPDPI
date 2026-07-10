@@ -34,6 +34,8 @@ data class RelayProfileRecord(
     val realityPublicKey: String = "",
     val realityShortId: String = "",
     val vlessFlow: String = RelayVlessFlowVision,
+    /** Source uTLS fingerprint alias retained for per-profile native TLS selection and export. */
+    val vlessFingerprint: String = "",
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",

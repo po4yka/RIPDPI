@@ -68,8 +68,10 @@ object RelayProfileShareMapper {
                         realityPublicKey = realityPublicKey,
                         realityShortId = realityShortId,
                         serverName = serverName.ifBlank { server },
-                        xhttpPath = xhttpPath.takeIf { vlessTransport == RelayVlessTransportXhttp && it.isNotBlank() },
-                        xhttpHost = xhttpHost.takeIf { vlessTransport == RelayVlessTransportXhttp && it.isNotBlank() },
+                        flow = vlessFlow,
+                        fingerprint = vlessFingerprint.ifBlank { null },
+                        xhttpPath = xhttpPath.takeIf { vlessTransport == RelayVlessTransportXhttp },
+                        xhttpHost = xhttpHost.takeIf { vlessTransport == RelayVlessTransportXhttp },
                         xhttpMode = xhttpMode,
                     ).takeIf { server.isNotBlank() && serverPort > 0 && realityPublicKey.isNotBlank() }
             }
@@ -100,6 +102,12 @@ object RelayProfileShareMapper {
                             server = server,
                             serverPort = serverPort,
                             uuid = uuid,
+                            serverName = serverName.ifBlank { server },
+                            flow = vlessFlow,
+                            fingerprint = vlessFingerprint.ifBlank { null },
+                            xhttpPath = xhttpPath.takeIf { vlessTransport == RelayVlessTransportXhttp },
+                            xhttpHost = xhttpHost.takeIf { vlessTransport == RelayVlessTransportXhttp },
+                            xhttpMode = xhttpMode,
                         )
                     }
                 }
@@ -140,7 +148,9 @@ object RelayProfileShareMapper {
                         server = server,
                         serverPort = serverPort,
                         password = password,
+                        serverName = serverName.ifBlank { null },
                         obfsPassword = credentials.hysteriaSalamanderKey,
+                        insecure = credentials.hysteriaInsecure,
                     ).takeIf { server.isNotBlank() && serverPort > 0 }
             }
         }

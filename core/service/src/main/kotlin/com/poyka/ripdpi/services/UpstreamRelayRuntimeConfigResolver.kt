@@ -32,6 +32,7 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import dagger.Binds
 import dagger.Module
@@ -148,7 +149,12 @@ internal class DefaultUpstreamRelayRuntimeConfigResolver
         ): ResolvedRipDpiRelayConfig {
             val profileId = config.profileId.ifBlank { DefaultRelayProfileId }
             val storedProfile = relayProfileStore.load(profileId)
-            val requestedTlsProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfileProvider.currentProfile())
+            val requestedTlsProfile =
+                storedProfile
+                    ?.vlessFingerprint
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(::normalizeImportedTlsFingerprint)
+                    ?: normalizeTlsFingerprintProfile(tlsFingerprintProfileProvider.currentProfile())
             val credentials = relayCredentialStore.load(profileId)
             val resolution =
                 relayKindResolverRegistry.resolve(

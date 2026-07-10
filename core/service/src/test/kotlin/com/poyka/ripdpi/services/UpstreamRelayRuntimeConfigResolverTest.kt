@@ -513,6 +513,97 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
         }
 
     @Test
+    fun `resolve stored xhttp profile preserves explicit empty path and host`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "empty-xhttp",
+                                    kind = RelayKindVlessReality,
+                                    server = "relay.example",
+                                    serverPort = 443,
+                                    serverName = "relay.example",
+                                    realityPublicKey = TestVlessRealityPublicKey,
+                                    realityShortId = TestVlessRealityShortId,
+                                    vlessTransport = RelayVlessTransportXhttp,
+                                    xhttpPath = "",
+                                    xhttpHost = "",
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "empty-xhttp",
+                                    vlessUuid = "55555555-5555-5555-5555-555555555555",
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindVlessReality,
+                            profileId = "empty-xhttp",
+                            xhttpPath = "/stale",
+                            xhttpHost = "stale.example",
+                        ),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
+            assertEquals("", resolved.xhttpPath)
+            assertEquals("", resolved.xhttpHost)
+        }
+
+    @Test
+    fun `resolve stored vless fingerprint overrides the global profile`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "fingerprint",
+                                    kind = RelayKindVlessReality,
+                                    server = "relay.example",
+                                    serverPort = 443,
+                                    serverName = "relay.example",
+                                    realityPublicKey = TestVlessRealityPublicKey,
+                                    realityShortId = TestVlessRealityShortId,
+                                    vlessFingerprint = "safari",
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "fingerprint",
+                                    vlessUuid = "55555555-5555-5555-5555-555555555555",
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config = RipDpiRelayConfig(enabled = true, profileId = "fingerprint"),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertEquals(com.poyka.ripdpi.data.TlsFingerprintProfileSafariStable, resolved.tlsFingerprintProfile)
+        }
+
+    @Test
     fun `resolve default family routes plain vless xhttp through native config`() =
         runTest {
             val resolver =

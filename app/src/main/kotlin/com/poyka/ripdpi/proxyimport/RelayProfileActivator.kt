@@ -11,9 +11,12 @@ import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RelaySecurityLayerReality
+import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
@@ -67,7 +70,7 @@ class RelayProfileActivator
             val endpoint = relayEndpoint(profile)
             val udpEnabled = relayUdpEnabled(profile)
             val vlessTransport =
-                if (profile is ProxyProfile.VlessReality && profile.hasXhttpTransport()) {
+                if (profile.hasXhttpTransport()) {
                     RelayVlessTransportXhttp
                 } else {
                     RelayVlessTransportRealityTcp
@@ -79,23 +82,20 @@ class RelayProfileActivator
                     server = endpoint.server,
                     serverPort = endpoint.serverPort,
                     serverName = endpoint.serverName,
+                    securityLayer =
+                        if (profile is ProxyProfile.Vless) {
+                            RelaySecurityLayerTls
+                        } else {
+                            RelaySecurityLayerReality
+                        },
                     realityPublicKey = if (profile is ProxyProfile.VlessReality) profile.realityPublicKey else "",
                     realityShortId = if (profile is ProxyProfile.VlessReality) profile.realityShortId else "",
-                    vlessFlow =
-                        if (profile is ProxyProfile.VlessReality) {
-                            profile.flow
-                        } else {
-                            com.poyka.ripdpi.data.RelayVlessFlowVision
-                        },
+                    vlessFlow = profile.vlessFlow(),
+                    vlessFingerprint = profile.vlessFingerprint(),
                     vlessTransport = vlessTransport,
-                    xhttpPath = if (profile is ProxyProfile.VlessReality) profile.xhttpPath.orEmpty() else "",
-                    xhttpHost = if (profile is ProxyProfile.VlessReality) profile.xhttpHost.orEmpty() else "",
-                    xhttpMode =
-                        if (profile is ProxyProfile.VlessReality) {
-                            profile.xhttpMode
-                        } else {
-                            com.poyka.ripdpi.data.RelayXhttpModeAuto
-                        },
+                    xhttpPath = profile.vlessXhttpPath(),
+                    xhttpHost = profile.vlessXhttpHost(),
+                    xhttpMode = profile.vlessXhttpMode(),
                     sshAuthType = if (profile is ProxyProfile.Ssh) profile.authType else RelaySshAuthTypePassword,
                     sshHostKeyFingerprint =
                         if (profile is ProxyProfile.Ssh) profile.hostKeyFingerprint.orEmpty() else "",
@@ -116,6 +116,12 @@ class RelayProfileActivator
                     is ProxyProfile.VlessReality -> {
                         setRelayRealityPublicKey(profile.realityPublicKey)
                         setRelayRealityShortId(profile.realityShortId)
+                        setRelayVlessTransport(vlessTransport)
+                        setRelayXhttpPath(profile.xhttpPath.orEmpty())
+                        setRelayXhttpHost(profile.xhttpHost.orEmpty())
+                    }
+
+                    is ProxyProfile.Vless -> {
                         setRelayVlessTransport(vlessTransport)
                         setRelayXhttpPath(profile.xhttpPath.orEmpty())
                         setRelayXhttpHost(profile.xhttpHost.orEmpty())
@@ -145,17 +151,59 @@ class RelayProfileActivator
                 is ProxyProfile.Shadowsocks -> RelayKindShadowsocks
                 is ProxyProfile.AnyTls -> RelayKindAnyTls
                 is ProxyProfile.VlessReality -> RelayKindVlessReality
+                is ProxyProfile.Vless -> if (profile.hasXhttpTransport()) RelayKindVless else null
                 is ProxyProfile.Hysteria2 -> RelayKindHysteria2
                 is ProxyProfile.Ssh -> RelayKindSsh
                 is ProxyProfile.Mieru -> RelayKindMieru
                 else -> null
             }
 
-        private fun ProxyProfile.VlessReality.hasXhttpTransport(): Boolean = xhttpPath != null || xhttpHost != null
+        private fun ProxyProfile.hasXhttpTransport(): Boolean =
+            when (this) {
+                is ProxyProfile.Vless -> xhttpPath != null || xhttpHost != null
+                is ProxyProfile.VlessReality -> xhttpPath != null || xhttpHost != null
+                else -> false
+            }
+
+        private fun ProxyProfile.vlessFlow(): String =
+            when (this) {
+                is ProxyProfile.Vless -> flow
+                is ProxyProfile.VlessReality -> flow
+                else -> com.poyka.ripdpi.data.RelayVlessFlowVision
+            }
+
+        private fun ProxyProfile.vlessFingerprint(): String =
+            when (this) {
+                is ProxyProfile.Vless -> fingerprint.orEmpty()
+                is ProxyProfile.VlessReality -> fingerprint.orEmpty()
+                else -> ""
+            }
+
+        private fun ProxyProfile.vlessXhttpPath(): String =
+            when (this) {
+                is ProxyProfile.Vless -> xhttpPath.orEmpty()
+                is ProxyProfile.VlessReality -> xhttpPath.orEmpty()
+                else -> ""
+            }
+
+        private fun ProxyProfile.vlessXhttpHost(): String =
+            when (this) {
+                is ProxyProfile.Vless -> xhttpHost.orEmpty()
+                is ProxyProfile.VlessReality -> xhttpHost.orEmpty()
+                else -> ""
+            }
+
+        private fun ProxyProfile.vlessXhttpMode(): String =
+            when (this) {
+                is ProxyProfile.Vless -> xhttpMode
+                is ProxyProfile.VlessReality -> xhttpMode
+                else -> com.poyka.ripdpi.data.RelayXhttpModeAuto
+            }
 
         private fun relayUdpEnabled(profile: ProxyProfile): Boolean =
             when (profile) {
                 is ProxyProfile.Ssh,
+                is ProxyProfile.Vless,
                 is ProxyProfile.VlessReality,
                 is ProxyProfile.Mieru,
                 -> false
@@ -181,10 +229,12 @@ class RelayProfileActivator
                     RelayActivationEndpoint(profile.server, profile.serverPort, profile.serverName)
                 }
 
+                is ProxyProfile.Vless -> {
+                    RelayActivationEndpoint(profile.server, profile.serverPort, profile.serverName ?: profile.server)
+                }
+
                 is ProxyProfile.Hysteria2 -> {
-                    // ProxyProfile.Hysteria2 carries no separate SNI field; fall back to
-                    // the server host, matching the Trojan/Shadowsocks endpoint mapping.
-                    RelayActivationEndpoint(profile.server, profile.serverPort, profile.server)
+                    RelayActivationEndpoint(profile.server, profile.serverPort, profile.serverName ?: profile.server)
                 }
 
                 is ProxyProfile.Ssh -> {
@@ -222,6 +272,10 @@ class RelayProfileActivator
                 }
 
                 is ProxyProfile.VlessReality -> {
+                    RelayCredentialRecord(profileId = profileId, vlessUuid = profile.uuid)
+                }
+
+                is ProxyProfile.Vless -> {
                     RelayCredentialRecord(profileId = profileId, vlessUuid = profile.uuid)
                 }
 

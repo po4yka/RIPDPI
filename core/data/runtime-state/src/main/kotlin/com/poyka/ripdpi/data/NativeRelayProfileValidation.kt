@@ -30,6 +30,18 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             true
         }
 
+        is ProxyProfile.Vless -> {
+            require(profile.server.isNotBlank()) { "VLESS requires a server hostname" }
+            require(profile.serverPort in RelayPortRange) { "VLESS requires a valid server port" }
+            require(!profile.serverName.isNullOrBlank()) { "VLESS requires a TLS server name" }
+            require(isValidVlessUuid(profile.uuid)) { "VLESS requires a valid UUID" }
+            require(profile.xhttpPath != null || profile.xhttpHost != null) {
+                "VLESS native backend supports only xHTTP transport"
+            }
+            validateRelayXhttpMode(profile.xhttpMode)
+            true
+        }
+
         is ProxyProfile.AnyTls,
         is ProxyProfile.Hysteria2,
         is ProxyProfile.Mieru,

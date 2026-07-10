@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 
 internal fun mergeRelayConfig(
     config: RipDpiRelayConfig,
@@ -18,8 +19,8 @@ internal fun mergeRelayConfig(
         realityShortId = profile.realityShortId.ifBlank { config.realityShortId },
         vlessFlow = profile.vlessFlow,
         vlessTransport = profile.vlessTransport.ifBlank { config.vlessTransport },
-        xhttpPath = profile.xhttpPath.ifBlank { config.xhttpPath },
-        xhttpHost = profile.xhttpHost.ifBlank { config.xhttpHost },
+        xhttpPath = if (profile.vlessTransport == RelayVlessTransportXhttp) profile.xhttpPath else config.xhttpPath,
+        xhttpHost = if (profile.vlessTransport == RelayVlessTransportXhttp) profile.xhttpHost else config.xhttpHost,
         xhttpMode = profile.xhttpMode.ifBlank { config.xhttpMode },
         cloudflareTunnelMode = profile.cloudflareTunnelMode.ifBlank { config.cloudflareTunnelMode },
         cloudflarePublishLocalOriginUrl =

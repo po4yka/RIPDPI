@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -211,6 +212,106 @@ class XrayImportNativeActivationTest {
             assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
             assertEquals("", relayProfile?.xhttpPath)
             assertEquals("carrier.example.com", relayProfile?.xhttpHost)
+            assertEquals(uuid, relayCredentialStore.load(DefaultRelayProfileId)?.vlessUuid)
+        }
+
+    @Test
+    fun `translated empty xhttp and flow remain authoritative at activation`() =
+        runTest {
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val activator = RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository)
+            val profile =
+                ProxyProfile.VlessReality(
+                    id = "id",
+                    displayName = "empty-xhttp",
+                    groupId = "group",
+                    server = "edge.example.com",
+                    serverPort = 443,
+                    uuid = uuid,
+                    realityPublicKey = pbk,
+                    realityShortId = "ab12",
+                    serverName = "edge.example.com",
+                    flow = "",
+                    fingerprint = "firefox",
+                    xhttpPath = "",
+                    xhttpHost = "",
+                )
+
+            assertTrue(activator.activate(profile))
+
+            val stored = relayProfileStore.load(DefaultRelayProfileId)!!
+            assertEquals(RelayVlessTransportXhttp, stored.vlessTransport)
+            assertEquals("", stored.vlessFlow)
+            assertEquals("firefox", stored.vlessFingerprint)
+            assertEquals("", stored.xhttpPath)
+            assertEquals("", stored.xhttpHost)
+        }
+
+    @Test
+    fun `hysteria identity and authentication survive activation`() =
+        runTest {
+            val passwordFixture = "test-value"
+            val obfsPasswordFixture = "obfs-test-value"
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val settingsRepository = FakeAppSettingsRepository()
+            val activator = RelayProfileActivator(relayProfileStore, relayCredentialStore, settingsRepository)
+            val profile =
+                ProxyProfile.Hysteria2(
+                    id = "id",
+                    displayName = "hy2",
+                    groupId = "group",
+                    server = "203.0.113.9",
+                    serverPort = 443,
+                    password = passwordFixture,
+                    serverName = "hy.example",
+                    obfsPassword = obfsPasswordFixture,
+                    insecure = true,
+                )
+
+            assertTrue(activator.activate(profile))
+
+            val stored = relayProfileStore.load(DefaultRelayProfileId)!!
+            val credentials = relayCredentialStore.load(DefaultRelayProfileId)!!
+            assertEquals(RelayKindHysteria2, stored.kind)
+            assertEquals("hy.example", stored.serverName)
+            assertEquals(passwordFixture, credentials.hysteriaPassword)
+            assertEquals(obfsPasswordFixture, credentials.hysteriaSalamanderKey)
+            assertEquals(true, credentials.hysteriaInsecure)
+        }
+
+    @Test
+    fun `plain vless xhttp identity survives activation`() =
+        runTest {
+            val relayProfileStore = FakeRelayProfileStore()
+            val relayCredentialStore = FakeRelayCredentialStore()
+            val activator = RelayProfileActivator(relayProfileStore, relayCredentialStore, FakeAppSettingsRepository())
+            val profile =
+                ProxyProfile.Vless(
+                    id = "id",
+                    displayName = "plain-xhttp",
+                    groupId = "group",
+                    server = "203.0.113.4",
+                    serverPort = 443,
+                    uuid = uuid,
+                    serverName = "cdn.example",
+                    flow = "",
+                    fingerprint = "firefox",
+                    xhttpPath = "",
+                    xhttpHost = "",
+                )
+
+            assertTrue(activator.activate(profile))
+
+            val stored = relayProfileStore.load(DefaultRelayProfileId)!!
+            assertEquals(com.poyka.ripdpi.data.RelayKindVless, stored.kind)
+            assertEquals(com.poyka.ripdpi.data.RelaySecurityLayerTls, stored.securityLayer)
+            assertEquals(RelayVlessTransportXhttp, stored.vlessTransport)
+            assertEquals("cdn.example", stored.serverName)
+            assertEquals("", stored.vlessFlow)
+            assertEquals("firefox", stored.vlessFingerprint)
             assertEquals(uuid, relayCredentialStore.load(DefaultRelayProfileId)?.vlessUuid)
         }
 
