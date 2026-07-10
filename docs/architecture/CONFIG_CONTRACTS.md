@@ -238,15 +238,12 @@ values; never rename or repurpose an existing one.**
 | **UDP chain step kind** | `StrategyUdpStep.kind` string | `UdpChainStepKind.wireName`; Rust `parse_udp_chain_step_kind` |
 | **Fake/fingerprint profiles** | `tls_fake_profile`, `http_fake_profile`, `udp_fake_profile`, `quic_fake_profile`, `tls_fingerprint_profile` strings (value lists in `app_settings.proto` comments) | Rust `parse_*`; `ripdpi-tls-profiles` catalog |
 | **Root-helper commands** | `CMD_*` constants in `ripdpi-root-helper-protocol/src/commands.rs`: `probe_capabilities`, `send_fake_tcp`, `send_fake_rst`, `send_flagged_tcp_payload`, `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ordered_tcp_segments`, `send_ip_fragmented_tcp`, `send_ip_fragmented_udp`, `send_syn_hide_tcp`, `send_icmp_wrapped_udp`, `recv_icmp_wrapped_udp`, `send_raw_ip_packet`, `shutdown` | Helper binary `ripdpi-root-helper`; client `ripdpi-runtime-platform` |
-| **Telemetry event domains** | `proxy`, `relay`, `warp`, `tunnel`, `diagnostics`, `monitor` (`android-support/src/events.rs`) | `NativeEventRecord` ring; Kotlin telemetry coordinators |
+| **Telemetry event domains** | `proxy`, `relay`, `warp`, `amneziawg`, `tunnel`, `diagnostics`, `monitor` (`android-support/src/events.rs`; `amneziawg` routes to the process-local WARP-family ring) | `NativeEventRecord` ring; Kotlin telemetry coordinators |
 | **Telemetry event `kind`** | per-event `kind` strings, e.g. `runtime_ready` (read by Kotlin `NativeRuntimeSnapshot.nativeEvents`) | `ripdpi-telemetry`; Kotlin |
 
 **Important compatibility behaviors:**
 
-- An **unknown TCP/UDP step kind is silently dropped** — `StrategyChainProtobuf.kt`
-  decodes via `TcpChainStepKind.fromWireName(...)` inside a `mapNotNull`. An old
-  app build will quietly skip a step kind a newer build wrote. Account for this
-  when persisting strategies that must survive a downgrade.
+- An **unknown TCP/UDP step kind is rejected** by both Kotlin and Rust. Strategy steps are security-sensitive executable identifiers, so accepting the surrounding config while silently dropping an unknown step could change bypass semantics. Environment-classification strings remain tolerant and fall back to `Unknown`; do not generalize that behavior to strategy identifiers.
 - Some Rust wire names carry `#[serde(alias = …)]` so a historic spelling still
   decodes — preserve aliases when touching those structs.
 - Telemetry payloads are golden-locked; an event-name or field change is a
@@ -337,7 +334,7 @@ is a `kind` string) — but an old Rust build will drop it (§5).
   (`ripdpi-diagnostics-contracts/src/wire.rs`), serialized as `schemaVersion`
   with a `default_schema_version()` serde default, mirrored Kotlin-side by
   `DiagnosticsEngineSchemaVersion` and `BundledDiagnosticsCatalogSchemaVersion`,
-  and policed by `DiagnosticsContractGovernanceTest`.
+  and policed by `DiagnosticsContractGovernanceTest`. Missing versions default to the current value for legacy compatibility; explicit old or future report/progress versions are rejected by the Kotlin boundary decoder.
 - The **strategy-pack** config carries `LoadedStrategyConfig.version: u32`
   (`ripdpi-strategy-config`).
 - The **relay native runtime config** carries `schemaVersion` on

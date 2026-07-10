@@ -16,7 +16,7 @@ Derived from current source; exact paths and crate names are used throughout.
 
 ## 1. Native library map
 
-Four JNI `cdylib` libraries are loaded into the app process. Each has its own
+Five JNI `cdylib` libraries are loaded into the app process. Each has its own
 `JNI_OnLoad`.
 
 | Library | Source crate | Loaded by (Kotlin) | `JNI_OnLoad` location |
@@ -25,10 +25,11 @@ Four JNI `cdylib` libraries are loaded into the app process. Each has its own
 | `libripdpi-tunnel.so` | `ripdpi-tunnel-android` | `Tun2SocksNativeBindings` companion → `System.loadLibrary("ripdpi-tunnel")` | `native/rust/crates/ripdpi-tunnel-android/src/lib.rs` |
 | `libripdpi-relay.so` | `ripdpi-relay-android` | `RipDpiRelayNativeLoader` → `System.loadLibrary("ripdpi-relay")` | `native/rust/crates/ripdpi-relay-android/src/lib.rs` |
 | `libripdpi-warp.so` | `ripdpi-warp-android` | `RipDpiWarpNativeLoader` → `System.loadLibrary("ripdpi-warp")` | `native/rust/crates/ripdpi-warp-android/src/lib.rs` |
+| `libripdpi-amneziawg.so` | `ripdpi-amneziawg-android` | `RipDpiAmneziaWgNativeLoader` → `System.loadLibrary("ripdpi-amneziawg")` | `native/rust/crates/ripdpi-amneziawg-android/src/lib.rs` |
 
 `JNI_OnLoad` behavior:
 
-- **All four** wrap their body in `std::panic::catch_unwind` and return
+- **All five** wrap their body in `std::panic::catch_unwind` and return
   `jni::sys::JNI_ERR` on panic; on success they return `android_support::JNI_VERSION`
   (`JNI_VERSION_1_6`).
 - `libripdpi.so` `JNI_OnLoad` (`ripdpi-android/src/lib.rs`): stores the
@@ -36,7 +37,7 @@ Four JNI `cdylib` libraries are loaded into the app process. Each has its own
   `android_support::ignore_sigpipe()`, `init_android_logging("ripdpi-native")`,
   `android_support::install_panic_hook()`, and
   `ripdpi_android_telemetry_adapter::install_recorder()`.
-- `libripdpi-tunnel.so` and `libripdpi-warp.so` **do not** store the `JavaVM`
+- `libripdpi-tunnel.so`, `libripdpi-warp.so`, and `libripdpi-amneziawg.so` **do not** store the `JavaVM`
   passed to `JNI_OnLoad`; they call `ignore_sigpipe` + `init_android_logging`
   + `install_panic_hook`. `libripdpi-relay.so` routes through
   `lifecycle::jni_on_load_entry(vm)`.
