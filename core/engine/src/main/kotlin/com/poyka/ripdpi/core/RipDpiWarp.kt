@@ -323,17 +323,17 @@ class RipDpiWarp(
                 }
             }
 
-        // Install the native readiness push (ADR 0003) before the blocking
-        // start() so the listener completes the startup signal the moment the
-        // tunnel binds, instead of waiting out a poll interval. Falls back to
-        // polling when the native push is unavailable (returns 0).
-        withContext(Dispatchers.IO) {
-            nativeBindings.registerReadinessListener(createdHandle) { startupSignal.complete(Unit) }
-        }
-
-        yield()
-
         try {
+            // Install the native readiness push (ADR 0003) before the blocking
+            // start() so the listener completes the startup signal the moment the
+            // tunnel binds, instead of waiting out a poll interval. Falls back to
+            // polling when the native push is unavailable (returns 0).
+            withContext(Dispatchers.IO) {
+                nativeBindings.registerReadinessListener(createdHandle) { startupSignal.complete(Unit) }
+            }
+
+            yield()
+
             val completionHandle =
                 currentCoroutineContext().job.invokeOnCompletion {
                     try {

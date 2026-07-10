@@ -319,21 +319,21 @@ class RipDpiProxy(
                 }
             }
 
-        // Install the native readiness push (ADR 0003): the listener completes
-        // the startup signal the moment the runtime binds its listener, so
-        // awaitReady need not wait out a poll interval. Registered before the
-        // blocking start() so the observer is in place before readiness can
-        // fire; falls back to polling when the native push is unavailable
-        // (registerReadinessListener returns 0).
-        withContext(Dispatchers.IO) {
-            nativeBindings.registerReadinessListener(handle) { startupSignal.complete(Unit) }
-        }
-
-        // Yield to allow the UNDISPATCHED caller to regain control before
-        // the blocking native event loop occupies this thread.
-        yield()
-
         try {
+            // Install the native readiness push (ADR 0003): the listener completes
+            // the startup signal the moment the runtime binds its listener, so
+            // awaitReady need not wait out a poll interval. Registered before the
+            // blocking start() so the observer is in place before readiness can
+            // fire; falls back to polling when the native push is unavailable
+            // (registerReadinessListener returns 0).
+            withContext(Dispatchers.IO) {
+                nativeBindings.registerReadinessListener(handle) { startupSignal.complete(Unit) }
+            }
+
+            // Yield to allow the UNDISPATCHED caller to regain control before
+            // the blocking native event loop occupies this thread.
+            yield()
+
             val capturedHandle = handle
             val completionHandle =
                 currentCoroutineContext().job.invokeOnCompletion {

@@ -88,6 +88,7 @@ class Tun2SocksTunnelTest {
             val error = runCatching { tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 42) }.exceptionOrNull()
 
             assertTrue(error is IOException)
+            assertEquals(listOf(1L), bindings.stoppedHandles)
             assertEquals(listOf(1L), bindings.destroyedHandles)
             assertEquals(TunnelStats(), tunnel.stats())
             assertEquals("idle", tunnel.telemetry().state)

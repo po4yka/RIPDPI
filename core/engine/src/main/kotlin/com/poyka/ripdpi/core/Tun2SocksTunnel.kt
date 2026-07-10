@@ -210,7 +210,9 @@ class Tun2SocksTunnel(
             Logger.d { "Tunnel native session created: handle=$createdHandle" }
 
             handle = createdHandle
+            var startAttempted = false
             try {
+                startAttempted = true
                 withContext(Dispatchers.IO) {
                     nativeBindings.start(createdHandle, tunFd)
                 }
@@ -221,20 +223,23 @@ class Tun2SocksTunnel(
                             nativeBindings.registerFlowAttribution(flowAttributionBridge)
                         }
                 }
-            } catch (e: CancellationException) {
+            } catch (error: Exception) {
                 withContext(NonCancellable) {
-                    withContext(Dispatchers.IO) {
-                        nativeBindings.destroy(createdHandle)
+                    if (flowAttributionToken != 0L) {
+                        runCatching {
+                            withContext(Dispatchers.IO) {
+                                nativeBindings.unregisterFlowAttribution(flowAttributionToken)
+                            }
+                        }
+                        flowAttributionToken = 0L
                     }
+                    if (startAttempted) {
+                        runCatching { withContext(Dispatchers.IO) { nativeBindings.stop(createdHandle) } }
+                    }
+                    runCatching { withContext(Dispatchers.IO) { nativeBindings.destroy(createdHandle) } }
                 }
                 handle = 0L
-                throw e
-            } catch (e: Exception) {
-                withContext(Dispatchers.IO) {
-                    nativeBindings.destroy(createdHandle)
-                }
-                handle = 0L
-                throw e
+                throw error
             }
         }
     }
