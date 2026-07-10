@@ -1683,3 +1683,43 @@ fn ui_config_maps_quic_migrate() {
 
     assert!(config.groups[0].actions.quic_migrate_after_handshake);
 }
+
+#[test]
+fn ui_payload_maps_strategy_evolution_settings() {
+    let payload = serde_json::json!({
+        "kind": "ui",
+        "adaptiveFallback": {
+            "strategyEvolution": true,
+            "evolutionEpsilon": 0.2,
+            "evolutionExperimentTtlMs": 45_000,
+            "evolutionDecayHalfLifeMs": 1_800_000,
+            "evolutionCooldownAfterFailures": 5,
+            "evolutionCooldownMs": 120_000,
+            "futureAdaptiveField": { "version": 2 }
+        },
+        "futureTopLevel": true
+    });
+
+    let parsed = parse_proxy_config_json(&payload.to_string()).expect("additive config");
+    let config = runtime_config_envelope_from_payload(parsed).expect("runtime config").config;
+
+    assert!(config.adaptive.strategy_evolution);
+    assert_eq!(config.adaptive.evolution_epsilon_permil, 200);
+    assert_eq!(config.adaptive.evolution_experiment_ttl_ms, 45_000);
+    assert_eq!(config.adaptive.evolution_decay_half_life_ms, 1_800_000);
+    assert_eq!(config.adaptive.evolution_cooldown_after_failures, 5);
+    assert_eq!(config.adaptive.evolution_cooldown_ms, 120_000);
+}
+
+#[test]
+fn missing_strategy_evolution_settings_keep_legacy_defaults() {
+    let parsed = parse_proxy_config_json(r#"{"kind":"ui","adaptiveFallback":{}}"#).expect("legacy config");
+    let config = runtime_config_envelope_from_payload(parsed).expect("runtime config").config;
+
+    assert!(!config.adaptive.strategy_evolution);
+    assert_eq!(config.adaptive.evolution_epsilon_permil, 100);
+    assert_eq!(config.adaptive.evolution_experiment_ttl_ms, 30_000);
+    assert_eq!(config.adaptive.evolution_decay_half_life_ms, 3_600_000);
+    assert_eq!(config.adaptive.evolution_cooldown_after_failures, 3);
+    assert_eq!(config.adaptive.evolution_cooldown_ms, 300_000);
+}

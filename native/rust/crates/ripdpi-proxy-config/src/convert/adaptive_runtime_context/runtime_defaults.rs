@@ -41,4 +41,11 @@ pub(crate) fn apply_runtime_section(
     }
     config.adaptive.cache_ttl = adaptive_fallback.cache_ttl_seconds.max(0);
     config.adaptive.cache_prefix = (32 - adaptive_fallback.cache_prefix_v4.clamp(1, 32)).max(1);
+    config.adaptive.strategy_evolution = adaptive_fallback.strategy_evolution;
+    config.adaptive.evolution_epsilon_permil = adaptive_fallback.evolution_epsilon_permil.min(1000);
+    config.adaptive.evolution_experiment_ttl_ms = adaptive_fallback.evolution_experiment_ttl_ms.max(0) as u64;
+    config.adaptive.evolution_decay_half_life_ms = adaptive_fallback.evolution_decay_half_life_ms.max(0) as u64;
+    config.adaptive.evolution_cooldown_after_failures =
+        adaptive_fallback.evolution_cooldown_after_failures.max(0) as u32;
+    config.adaptive.evolution_cooldown_ms = adaptive_fallback.evolution_cooldown_ms.max(0) as u64;
 }
