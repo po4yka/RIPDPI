@@ -9,6 +9,35 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use super::{sample_config, shadowsocks_config_mut};
 use crate::runtime::RelayRuntime;
 
+#[tokio::test]
+pub(super) async fn relay_runtime_reports_actual_address_for_ephemeral_listener() {
+    let fixture = ShadowsocksLoopback::start("aes-256-gcm", "secret").await.expect("start shadowsocks fixture");
+
+    let mut config = sample_config("shadowsocks");
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    config.common.local_socks_host = "127.0.0.1".to_string();
+    config.common.local_socks_port = 0;
+    shadowsocks_config_mut(&mut config).method = "aes-256-gcm".to_string();
+
+    let runtime = RelayRuntime::new(config);
+    let run_handle = tokio::spawn(Arc::clone(&runtime).run());
+
+    wait_until(Duration::from_secs(5), || runtime.telemetry().listener_address.is_some())
+        .await
+        .expect("relay listener must bind");
+    let listener_address = runtime.telemetry().listener_address.expect("listener address");
+    let socket_address: SocketAddr = listener_address.parse().expect("listener address must be a socket address");
+    assert_ne!(0, socket_address.port(), "ephemeral bind must publish the kernel-assigned port");
+
+    runtime.stop();
+    let run_result = tokio::time::timeout(Duration::from_secs(10), run_handle)
+        .await
+        .expect("run() must stop")
+        .expect("run task must not panic");
+    run_result.expect("run() returns Ok after a clean stop");
+}
+
 /// Reproduce-before-fix for the `RelayRuntime::stop()` session leak
 /// (`fix-relay-core-session-leak-on-shutdown`): before the fix
 /// `spawn_socks_session` used a bare `tokio::spawn` with no `CancellationToken`

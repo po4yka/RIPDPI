@@ -109,9 +109,10 @@ impl RelayRuntime {
 
         let bind_addr = format!("{}:{}", self.config.common.local_socks_host, self.config.common.local_socks_port);
         let listener = TcpListener::bind(&bind_addr).await?;
-        self.state.set_listener_address(bind_addr.clone())?;
+        let listener_address = listener.local_addr()?.to_string();
+        self.state.set_listener_address(listener_address.clone())?;
         self.state.set_running(true);
-        emit_runtime_ready(&bind_addr);
+        emit_runtime_ready(&listener_address);
         // Push readiness to any installed observer (native readiness event,
         // ADR 0003) at the same point the `runtime_ready` telemetry fires, so
         // the Kotlin wrapper need not poll. No-op when no observer is set.
