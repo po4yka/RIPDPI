@@ -2,7 +2,9 @@ package com.poyka.ripdpi.data
 
 import androidx.datastore.core.CorruptionException
 import androidx.datastore.core.Serializer
+import com.google.protobuf.CodedInputStream
 import com.google.protobuf.InvalidProtocolBufferException
+import com.google.protobuf.WireFormat
 import com.poyka.ripdpi.proto.AppSettings
 import java.io.InputStream
 import java.io.OutputStream
@@ -165,7 +167,8 @@ object AppSettingsSerializer : Serializer<AppSettings> {
 
     override suspend fun readFrom(input: InputStream): AppSettings {
         try {
-            return AppSettings.parseFrom(input)
+            val bytes = input.readBytes()
+            return migrateLegacyRelayXhttpFields(AppSettings.parseFrom(bytes), bytes)
         } catch (e: InvalidProtocolBufferException) {
             throw CorruptionException("Cannot read proto.", e)
         }
@@ -177,4 +180,64 @@ object AppSettingsSerializer : Serializer<AppSettings> {
     ) {
         t.writeTo(output)
     }
+
+    private fun migrateLegacyRelayXhttpFields(
+        settings: AppSettings,
+        bytes: ByteArray,
+    ): AppSettings {
+        val legacy = readLegacyRelayXhttpFields(bytes)
+        val legacyTransport = legacy.transport?.takeIf { it == "xhttp" || it == "reality_tcp" }
+        val hasLegacyCompanionField = legacy.path != null || legacy.host != null
+        val compatibleRelay =
+            settings.relayEnabled &&
+                (settings.relayKind == RelayKindVless || settings.relayKind == RelayKindVlessReality)
+        val isLegacyPayload = hasLegacyCompanionField || (legacyTransport != null && compatibleRelay)
+        if (!isLegacyPayload) return settings
+
+        return settings
+            .toBuilder()
+            .apply {
+                if (settings.relayVlessTransport.isEmpty() && legacyTransport != null) {
+                    relayVlessTransport = legacyTransport
+                }
+                if (settings.relayXhttpPath.isEmpty() && legacy.path != null) {
+                    relayXhttpPath = legacy.path
+                }
+                if (settings.relayXhttpHost.isEmpty() && legacy.host != null) {
+                    relayXhttpHost = legacy.host
+                }
+                if (legacyTransport != null && settings.strategyChainYaml == legacyTransport) {
+                    clearStrategyChainYaml()
+                }
+            }.build()
+    }
+
+    private fun readLegacyRelayXhttpFields(bytes: ByteArray): LegacyRelayXhttpFields {
+        val input = CodedInputStream.newInstance(bytes)
+        var transport: String? = null
+        var path: String? = null
+        var host: String? = null
+        while (!input.isAtEnd) {
+            val tag = input.readTag()
+            if (tag == 0) break
+            val fieldNumber = WireFormat.getTagFieldNumber(tag)
+            val wireType = WireFormat.getTagWireType(tag)
+            if (wireType != WireFormat.WIRETYPE_LENGTH_DELIMITED || fieldNumber !in 214..216) {
+                input.skipField(tag)
+                continue
+            }
+            when (fieldNumber) {
+                214 -> transport = input.readStringRequireUtf8()
+                215 -> path = input.readStringRequireUtf8()
+                216 -> host = input.readStringRequireUtf8()
+            }
+        }
+        return LegacyRelayXhttpFields(transport = transport, path = path, host = host)
+    }
+
+    private data class LegacyRelayXhttpFields(
+        val transport: String?,
+        val path: String?,
+        val host: String?,
+    )
 }

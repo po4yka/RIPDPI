@@ -46,7 +46,7 @@ message StrategyUdpStep {
 }
 
 message AppSettings {
-  reserved 15, 16, 17, 29, 30, 31, 32, 69, 71, 93, 94, 130, 190;
+  reserved 15, 16, 17, 29, 30, 31, 32, 69, 71, 93, 94, 130, 190, 215, 216;
   reserved
       "desync_method",
       "split_position",
