@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.UdpChainStepModel
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
@@ -474,5 +475,98 @@ class RipDpiProxyJsonCodecCharacterizationTest {
                 ?.jsonPrimitive
                 ?.int,
         )
+    }
+
+    @Test
+    fun `remembered config rewrite preserves additive fields and refreshes context`() {
+        val encoded = encode(RipDpiProxyUIPreferences())
+        val chains =
+            JsonObject(
+                encoded.getValue("chains").jsonObject +
+                    ("futureChainField" to JsonObject(mapOf("mode" to JsonPrimitive("future")))),
+            )
+        val config =
+            JsonObject(
+                encoded +
+                    mapOf(
+                        "chains" to chains,
+                        "futureTopLevel" to JsonPrimitive(17),
+                    ),
+            ).toString()
+
+        val rewritten =
+            Json
+                .parseToJsonElement(
+                    RipDpiProxyJsonCodec.rewriteJson(
+                        configJson = config,
+                        hostAutolearnStorePath = "/new/store.json",
+                        networkScopeKey = "network:new",
+                        runtimeContext = RipDpiRuntimeContext(protectPath = "/new/protect.sock"),
+                        logContext = RipDpiLogContext(runtimeId = "runtime-new", mode = "VPN"),
+                    ),
+                ).jsonObject
+
+        assertEquals(17, rewritten.getValue("futureTopLevel").jsonPrimitive.int)
+        assertEquals(
+            "future",
+            rewritten
+                .getValue("chains")
+                .jsonObject
+                .getValue("futureChainField")
+                .jsonObject
+                .getValue("mode")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "/new/store.json",
+            rewritten
+                .getValue("hostAutolearn")
+                .jsonObject
+                .getValue("storePath")
+                .jsonPrimitive.content,
+        )
+    }
+
+    @Test
+    fun `persisted config strip removes ephemeral context without dropping additive fields`() {
+        val encoded = encode(RipDpiProxyUIPreferences())
+        val config = JsonObject(encoded + ("futureTopLevel" to JsonPrimitive(true))).toString()
+        val stripped = Json.parseToJsonElement(RipDpiProxyJsonCodec.stripRuntimeContext(config)).jsonObject
+
+        assertTrue(stripped.getValue("futureTopLevel").jsonPrimitive.boolean)
+        assertNull(stripped["runtimeContext"]?.jsonPrimitive?.contentOrNull)
+        assertNull(stripped["logContext"]?.jsonPrimitive?.contentOrNull)
+        assertNull(stripped["sessionOverrides"]?.jsonPrimitive?.contentOrNull)
+        assertNull(
+            stripped
+                .getValue("hostAutolearn")
+                .jsonObject["storePath"]
+                ?.jsonPrimitive
+                ?.contentOrNull,
+        )
+        assertNull(
+            stripped
+                .getValue("hostAutolearn")
+                .jsonObject["networkScopeKey"]
+                ?.jsonPrimitive
+                ?.contentOrNull,
+        )
+    }
+
+    @Test
+    fun `unknown chain step kinds fail closed`() {
+        val encoded = encode(RipDpiProxyUIPreferences())
+        val chains = encoded.getValue("chains").jsonObject
+        val tcpStep =
+            chains
+                .getValue("tcpSteps")
+                .jsonArray
+                .first()
+                .jsonObject
+        val invalidStep = JsonObject(tcpStep + ("kind" to JsonPrimitive("future_unreviewed_step")))
+        val invalidChains = JsonObject(chains + ("tcpSteps" to JsonArray(listOf(invalidStep))))
+        val config = JsonObject(encoded + ("chains" to invalidChains)).toString()
+
+        assertNull(RipDpiProxyJsonCodec.decodeUiPreferences(config))
     }
 }

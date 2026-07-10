@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.codec.NativeProxyConfigSchemaVersion
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 /**
@@ -66,6 +67,18 @@ class NativeConfigSchemaVersionTest {
 
         assertFalse("ui payload must not carry schemaVersion at v1", ui.contains("schemaVersion"))
         assertFalse("command-line payload must not carry schemaVersion at v1", cmd.contains("schemaVersion"))
+    }
+
+    @Test
+    fun `proxy codec rejects unsupported schema versions`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            RipDpiProxyJsonCodec.stripRuntimeContext("""{"kind":"ui","schemaVersion":2,"listen":{}}""")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            RipDpiProxyJsonCodec.stripRuntimeContext(
+                """{"kind":"command_line","args":["ripdpi"],"schemaVersion":0}""",
+            )
+        }
     }
 
     @Test

@@ -14,7 +14,12 @@ import com.poyka.ripdpi.core.codec.WarpSectionCodec
 import com.poyka.ripdpi.core.codec.WsTunnelSectionCodec
 import com.poyka.ripdpi.core.codec.decodeEnvironmentKind
 import com.poyka.ripdpi.serialization.RipDpiNativeProxyJson
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 
 internal object RipDpiProxyJsonCodec {
     private val json =
@@ -119,11 +124,24 @@ internal object RipDpiProxyJsonCodec {
         }.getOrNull()
     }
 
-    fun stripRuntimeContext(configJson: String): String =
-        when (val payload = decode(configJson)) {
-            is NativeProxyConfig.CommandLine -> encode(payload.copy(runtimeContext = null, logContext = null))
-            is NativeProxyConfig.Ui -> encode(payload.copy(runtimeContext = null, logContext = null))
+    fun stripRuntimeContext(configJson: String): String {
+        val payload = decode(configJson)
+        val original = json.parseToJsonElement(configJson).jsonObject
+        val updates =
+            mutableMapOf<String, JsonElement>(
+                "runtimeContext" to JsonNull,
+                "logContext" to JsonNull,
+                "sessionOverrides" to JsonNull,
+            )
+        if (payload is NativeProxyConfig.Ui) {
+            updates["hostAutolearn"] =
+                patchObject(
+                    original["hostAutolearn"]?.jsonObject ?: JsonObject(emptyMap()),
+                    mapOf("storePath" to JsonNull, "networkScopeKey" to JsonNull),
+                )
         }
+        return patchObject(original, updates).toString()
+    }
 
     fun rewriteJson(
         configJson: String,
@@ -138,47 +156,74 @@ internal object RipDpiProxyJsonCodec {
         localListenPortOverride: Int? = null,
         localAuthToken: String? = null,
         environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
-    ): String =
-        when (val payload = decode(configJson)) {
-            is NativeProxyConfig.CommandLine -> {
-                encode(
-                    payload.copy(
-                        runtimeContext = ProxyRuntimeContextCodec.toNative(runtimeContext) ?: payload.runtimeContext,
-                        logContext = ProxyLogContextCodec.toNative(logContext) ?: payload.logContext,
-                        sessionOverrides =
-                            SessionOverrideCodec.merge(
-                                existing = payload.sessionOverrides,
-                                listenPortOverride = localListenPortOverride,
-                                authToken = localAuthToken,
-                            ),
-                    ),
-                )
-            }
-
-            is NativeProxyConfig.Ui -> {
-                val preferences =
-                    requireNotNull(decodeUiPreferences(configJson)) {
-                        "Unable to decode proxy UI preferences"
-                    }.withSessionOverrides(
-                        hostAutolearnStorePath = hostAutolearnStorePath ?: payload.hostAutolearn.storePath,
-                        networkScopeKey = networkScopeKey ?: payload.hostAutolearn.networkScopeKey,
-                        runtimeContext = runtimeContext ?: ProxyRuntimeContextCodec.toModel(payload.runtimeContext),
-                        logContext = logContext ?: ProxyLogContextCodec.toModel(payload.logContext),
+    ): String {
+        val payload = decode(configJson)
+        val original = json.parseToJsonElement(configJson).jsonObject
+        val rewritten =
+            when (payload) {
+                is NativeProxyConfig.CommandLine -> {
+                    val nextRuntimeContext =
+                        ProxyRuntimeContextCodec.toNative(runtimeContext) ?: payload.runtimeContext
+                    val nextLogContext = ProxyLogContextCodec.toNative(logContext) ?: payload.logContext
+                    patchObject(
+                        original,
+                        mapOf(
+                            "runtimeContext" to encodeNullable(nextRuntimeContext),
+                            "logContext" to encodeNullable(nextLogContext),
+                            "sessionOverrides" to
+                                encodeNullable(
+                                    SessionOverrideCodec.merge(
+                                        existing = payload.sessionOverrides,
+                                        listenPortOverride = localListenPortOverride,
+                                        authToken = localAuthToken,
+                                    ),
+                                ),
+                        ),
                     )
-                encodeUiPreferences(
-                    preferences,
-                    strategyPreset = payload.strategyPreset,
-                    rootMode = rootMode,
-                    rootHelperSocketPath = rootHelperSocketPath ?: payload.rootHelperSocketPath,
-                    geoipDbPath = geoipDbPath ?: payload.geoipDbPath,
-                    geositeDbPath = geositeDbPath ?: payload.geositeDbPath,
-                    listenAuthToken = payload.listen.authToken,
-                    localListenPortOverride = localListenPortOverride ?: payload.sessionOverrides?.listenPortOverride,
-                    localAuthToken = localAuthToken ?: payload.sessionOverrides?.authToken,
-                    environmentKind = environmentKind,
-                )
+                }
+
+                is NativeProxyConfig.Ui -> {
+                    requireNotNull(decodeUiPreferences(configJson)) { "Unable to decode proxy UI preferences" }
+                    val hostAutolearn =
+                        patchObject(
+                            original["hostAutolearn"]?.jsonObject ?: JsonObject(emptyMap()),
+                            mapOf(
+                                "storePath" to
+                                    jsonPrimitiveOrNull(hostAutolearnStorePath ?: payload.hostAutolearn.storePath),
+                                "networkScopeKey" to
+                                    jsonPrimitiveOrNull(networkScopeKey ?: payload.hostAutolearn.networkScopeKey),
+                            ),
+                        )
+                    val nextRuntimeContext =
+                        ProxyRuntimeContextCodec.toNative(runtimeContext) ?: payload.runtimeContext
+                    val nextLogContext = ProxyLogContextCodec.toNative(logContext) ?: payload.logContext
+                    patchObject(
+                        original,
+                        mapOf(
+                            "hostAutolearn" to hostAutolearn,
+                            "rootMode" to JsonPrimitive(rootMode),
+                            "rootHelperSocketPath" to
+                                jsonPrimitiveOrNull(rootHelperSocketPath ?: payload.rootHelperSocketPath),
+                            "geoipDbPath" to jsonPrimitiveOrNull(geoipDbPath ?: payload.geoipDbPath),
+                            "geositeDbPath" to
+                                jsonPrimitiveOrNull(geositeDbPath ?: payload.geositeDbPath),
+                            "environmentKind" to JsonPrimitive(environmentKind.name),
+                            "runtimeContext" to encodeNullable(nextRuntimeContext),
+                            "logContext" to encodeNullable(nextLogContext),
+                            "sessionOverrides" to
+                                encodeNullable(
+                                    SessionOverrideCodec.merge(
+                                        existing = payload.sessionOverrides,
+                                        listenPortOverride = localListenPortOverride,
+                                        authToken = localAuthToken,
+                                    ),
+                                ),
+                        ),
+                    )
+                }
             }
-        }
+        return rewritten.toString()
+    }
 
     private fun decode(configJson: String): NativeProxyConfig {
         val element = json.parseToJsonElement(configJson)
@@ -194,4 +239,14 @@ internal object RipDpiProxyJsonCodec {
         payload
             .also(NativeProxyConfigValidation::validateSupportedPayload)
             .let(json::encodeToString)
+
+    private inline fun <reified T> encodeNullable(value: T?): JsonElement =
+        value?.let(json::encodeToJsonElement) ?: JsonNull
+
+    private fun jsonPrimitiveOrNull(value: String?): JsonElement = value?.let(::JsonPrimitive) ?: JsonNull
+
+    private fun patchObject(
+        source: JsonObject,
+        updates: Map<String, JsonElement>,
+    ): JsonObject = JsonObject(source.toMutableMap().apply { putAll(updates) })
 }

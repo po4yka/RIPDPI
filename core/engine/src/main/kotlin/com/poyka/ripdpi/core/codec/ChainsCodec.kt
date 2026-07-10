@@ -165,8 +165,11 @@ internal object RangeCodec {
 }
 
 internal object ChainCodec {
-    private fun nativeTcpStepToModel(step: NativeTcpChainStep): TcpChainStepModel? {
-        val kind = TcpChainStepKind.fromWireName(step.kind) ?: return null
+    private fun nativeTcpStepToModel(step: NativeTcpChainStep): TcpChainStepModel {
+        val kind =
+            requireNotNull(TcpChainStepKind.fromWireName(step.kind)) {
+                "Unsupported TCP chain step kind: ${step.kind}"
+            }
         return TcpChainStepModel(
             kind = kind,
             marker = step.marker,
@@ -215,7 +218,7 @@ internal object ChainCodec {
         RipDpiChainConfig(
             groupActivationFilter =
                 value.groupActivationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
-            tcpSteps = value.tcpSteps.mapNotNull(::nativeTcpStepToModel),
+            tcpSteps = value.tcpSteps.map(::nativeTcpStepToModel),
             tcpRotation =
                 value.tcpRotation?.let { rotation ->
                     RipDpiTcpRotationConfig(
@@ -227,15 +230,18 @@ internal object ChainCodec {
                         candidates =
                             rotation.candidates.map { candidate ->
                                 RipDpiTcpRotationCandidateConfig(
-                                    tcpSteps = candidate.tcpSteps.mapNotNull(::nativeTcpStepToModel),
+                                    tcpSteps = candidate.tcpSteps.map(::nativeTcpStepToModel),
                                 )
                             },
                         cancelOnFailure = rotation.cancelOnFailure ?: true,
                     )
                 },
             udpSteps =
-                value.udpSteps.mapNotNull { step ->
-                    val kind = UdpChainStepKind.fromWireName(step.kind) ?: return@mapNotNull null
+                value.udpSteps.map { step ->
+                    val kind =
+                        requireNotNull(UdpChainStepKind.fromWireName(step.kind)) {
+                            "Unsupported UDP chain step kind: ${step.kind}"
+                        }
                     UdpChainStepModel(
                         kind = kind,
                         count = step.count,

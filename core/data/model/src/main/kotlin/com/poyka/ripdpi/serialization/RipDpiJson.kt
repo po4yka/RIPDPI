@@ -79,4 +79,5 @@ val RipDpiNativeProxyJson: Json =
     Json {
         classDiscriminator = "kind"
         encodeDefaults = true
+        ignoreUnknownKeys = true
     }
