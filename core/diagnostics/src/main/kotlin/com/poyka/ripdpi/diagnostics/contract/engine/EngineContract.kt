@@ -29,9 +29,9 @@ import com.poyka.ripdpi.diagnostics.ThroughputTarget
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
-// v4: adds confirm-good DPI evidence/verdict envelopes. Must stay in
+// v5: adds the non-backward-decodable CONNECTION_CONCURRENCY observation kind. Must stay in
 // sync with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
-const val DiagnosticsEngineSchemaVersion = 4
+const val DiagnosticsEngineSchemaVersion = 5
 
 @Serializable
 enum class EngineProbeTaskFamily {

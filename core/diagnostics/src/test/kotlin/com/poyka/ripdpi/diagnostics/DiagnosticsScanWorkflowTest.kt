@@ -747,13 +747,14 @@ private fun resolverRecommendation(): ResolverRecommendation =
         rationale = "DNS tampering detected",
     )
 
-private fun scanReportWithStrategyProbe(
+internal fun scanReportWithStrategyProbe(
     proxyConfigJson: String,
     tcpFamily: String,
     quicFamily: String,
     suiteId: String = "quick_v1",
     auditAssessment: StrategyProbeAuditAssessment? = null,
     completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
+    connectionConcurrencyAssessment: ConnectionConcurrencyAssessment? = null,
     tcpSucceededTargets: Int = 1,
     quicSucceededTargets: Int = 1,
 ): ScanReport =
@@ -796,6 +797,7 @@ private fun scanReportWithStrategyProbe(
                     ),
                 completionKind = completionKind,
                 auditAssessment = auditAssessment,
+                connectionConcurrencyAssessment = connectionConcurrencyAssessment,
             ),
     )
 
@@ -818,7 +820,7 @@ private fun strategyCandidateSummary(
         qualityScore = 10,
     )
 
-private fun validRecommendedProxyConfigJson(): String =
+internal fun validRecommendedProxyConfigJson(): String =
     RipDpiProxyUIPreferences(
         protocols = RipDpiProtocolConfig(desyncUdp = true),
         chains =

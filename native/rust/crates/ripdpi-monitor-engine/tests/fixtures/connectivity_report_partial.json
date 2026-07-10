@@ -152,7 +152,7 @@
       "target": "fixture-quic-one.example.test"
     }
   ],
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "sessionId": "connectivity-partial-contract",
   "startedAt": 1700000000000,
   "strategyProbeReport": null,

@@ -18,6 +18,8 @@ import com.poyka.ripdpi.data.normalizePreferredEdgeCandidates
 import kotlinx.serialization.Serializable
 import java.util.Locale
 
+private const val MaxConnectionConcurrency = 8
+
 @Serializable
 data class RipDpiEncryptedDnsContext(
     val resolverId: String? = null,
@@ -82,6 +84,13 @@ data class RipDpiRuntimeContext(
     val preferredEdges: Map<String, List<PreferredEdgeCandidate>> = emptyMap(),
     val directPathCapabilities: List<RipDpiDirectPathCapability> = emptyList(),
     val morphPolicy: RipDpiMorphPolicy? = null,
+    val connectionConcurrency: RipDpiConnectionConcurrencyPolicy? = null,
+)
+
+@Serializable
+data class RipDpiConnectionConcurrencyPolicy(
+    val selectedProfileId: String,
+    val perProfileCaps: Map<String, Int> = emptyMap(),
 )
 
 fun StrategyPackMorphPolicy.toRipDpiMorphPolicy(): RipDpiMorphPolicy =
@@ -207,18 +216,39 @@ internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): Rip
                     fakePacketShapeProfile = policy.fakePacketShapeProfile.trim().lowercase(Locale.US),
                 )
             }
+        val connectionConcurrency =
+            ctx.connectionConcurrency?.let { policy ->
+                val selectedProfile =
+                    policy.selectedProfileId
+                        .trim()
+                        .lowercase(Locale.US)
+                        .takeIf { it.isNotEmpty() }
+                        ?: return@let null
+                RipDpiConnectionConcurrencyPolicy(
+                    selectedProfileId = selectedProfile,
+                    perProfileCaps =
+                        policy.perProfileCaps
+                            .mapNotNull { (profile, cap) ->
+                                profile.trim().lowercase(Locale.US).takeIf { it.isNotEmpty() }?.let {
+                                    it to cap.coerceIn(1, MaxConnectionConcurrency)
+                                }
+                            }.toMap(),
+                )
+            }
         RipDpiRuntimeContext(
             encryptedDns = encryptedDns,
             protectPath = protectPath,
             preferredEdges = preferredEdges,
             directPathCapabilities = directPathCapabilities,
             morphPolicy = morphPolicy,
+            connectionConcurrency = connectionConcurrency,
         ).takeIf {
             encryptedDns != null ||
                 protectPath != null ||
                 preferredEdges.isNotEmpty() ||
                 directPathCapabilities.isNotEmpty() ||
-                morphPolicy != null
+                morphPolicy != null ||
+                connectionConcurrency != null
         }
     }
 

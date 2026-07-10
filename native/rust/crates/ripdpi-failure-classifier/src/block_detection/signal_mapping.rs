@@ -1,10 +1,18 @@
-use crate::{ClassifiedFailure, FailureClass};
+use crate::{ClassifiedFailure, FailureClass, FailureEvidenceContext};
 
 use super::signal_types::{BlockSignal, BlockSignalObservation};
 
 pub fn block_signal_from_failure(
     failure: &ClassifiedFailure,
     tcp_total_retransmissions: Option<u32>,
+) -> Option<BlockSignalObservation> {
+    block_signal_from_failure_with_context(failure, tcp_total_retransmissions, FailureEvidenceContext::default())
+}
+
+pub fn block_signal_from_failure_with_context(
+    failure: &ClassifiedFailure,
+    tcp_total_retransmissions: Option<u32>,
+    context: FailureEvidenceContext,
 ) -> Option<BlockSignalObservation> {
     let provider = failure_tag(failure, "provider").map(ToOwned::to_owned);
     let signal = match failure.class {
@@ -23,7 +31,7 @@ pub fn block_signal_from_failure(
         FailureClass::QuicBreakage => BlockSignal::QuicBreakage,
         _ => return None,
     };
-    Some(BlockSignalObservation { signal, provider })
+    Some(BlockSignalObservation { signal, provider, context })
 }
 
 fn failure_tag<'a>(failure: &'a ClassifiedFailure, key: &str) -> Option<&'a str> {

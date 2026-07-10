@@ -90,6 +90,7 @@ mod tests {
             http_port: None,
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         };
         match domain_connect_target(&target) {
             TargetAddress::Ip(ip) => assert_eq!(ip, "1.2.3.4".parse::<IpAddr>().unwrap()),
@@ -107,6 +108,7 @@ mod tests {
             http_port: None,
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         };
         match domain_connect_target(&target) {
             TargetAddress::Host(host) => assert_eq!(host, "example.com"),
@@ -124,6 +126,7 @@ mod tests {
             http_port: None,
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         };
 
         let targets = domain_connect_targets(&target);

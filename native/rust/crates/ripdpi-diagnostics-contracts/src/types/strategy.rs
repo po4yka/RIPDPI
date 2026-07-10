@@ -4,6 +4,42 @@ use crate::types::TransportPivotRecommendation;
 
 pub const STRATEGY_PROBE_METHODOLOGY_VERSION: &str = "strategy_learning_v3";
 
+pub const CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str = "connection_concurrency_v1";
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ConnectionConcurrencyVerdict {
+    NoInteraction,
+    FingerprintOnly,
+    ConcurrencyOnly,
+    ConjunctionSuspected,
+    ConjunctionConfirmed,
+    Inconclusive,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionConcurrencyAssessment {
+    #[serde(default = "default_connection_concurrency_classifier_version")]
+    pub classifier_version: String,
+    pub verdict: ConnectionConcurrencyVerdict,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_profile_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_cap: Option<u16>,
+    pub planned_cells: usize,
+    pub clean_cells: usize,
+    pub affected_targets: usize,
+    #[serde(default)]
+    pub healthy_caps_by_profile: std::collections::BTreeMap<String, u16>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
+fn default_connection_concurrency_classifier_version() -> String {
+    CONNECTION_CONCURRENCY_CLASSIFIER_VERSION.to_string()
+}
+
 fn default_strategy_probe_methodology_version() -> String {
     STRATEGY_PROBE_METHODOLOGY_VERSION.to_string()
 }
@@ -51,6 +87,8 @@ pub struct StrategyProbeReport {
     pub completion_kind: StrategyProbeCompletionKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audit_assessment: Option<StrategyProbeAuditAssessment>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection_concurrency_assessment: Option<ConnectionConcurrencyAssessment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_selection: Option<StrategyProbeTargetSelection>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

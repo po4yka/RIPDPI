@@ -41,6 +41,7 @@ fn direct_path_capability_matches_host_and_target_authorities() {
         preferred_edges: BTreeMap::default(),
         direct_path_capabilities: vec![capability("example.org:443"), capability("203.0.113.10:443")],
         morph_policy: None,
+        connection_concurrency: None,
     };
 
     let host_match = direct_path_capability_for_route(
@@ -148,6 +149,7 @@ fn direct_path_capability_matches_targets_with_ip_set_digest() {
             ..capability("example.org:443")
         }],
         morph_policy: None,
+        connection_concurrency: None,
     };
 
     let matched =
@@ -172,6 +174,7 @@ fn preferred_targets_selects_matching_edges_and_appends_original_target() {
         )]),
         direct_path_capabilities: Vec::new(),
         morph_policy: None,
+        connection_concurrency: None,
     };
 
     let decision = preferred_targets_for_transport(
@@ -205,6 +208,7 @@ fn preferred_targets_suppresses_udp_when_direct_path_capability_blocks_quic() {
             ..capability("example.org:443")
         }],
         morph_policy: None,
+        connection_concurrency: None,
     };
 
     let decision = preferred_targets_for_transport(

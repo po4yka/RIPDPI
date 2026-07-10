@@ -224,6 +224,14 @@ data class RememberedNetworkPolicyJson(
     val winningTcpStrategyFamily: String? = null,
     val winningQuicStrategyFamily: String? = null,
     val winningDnsStrategyFamily: String? = null,
+    val connectionConcurrencyPolicy: RememberedConnectionConcurrencyPolicyJson? = null,
+)
+
+@Serializable
+data class RememberedConnectionConcurrencyPolicyJson(
+    val classifierVersion: String = "connection_concurrency_v1",
+    val selectedProfileId: String,
+    val perProfileCaps: Map<String, Int> = emptyMap(),
 )
 
 private fun String.normalizeFingerprintValue(): String = trim().lowercase(Locale.US)

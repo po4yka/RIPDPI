@@ -17,6 +17,7 @@ pub(crate) fn base_observation(result: &ProbeResult, kind: ObservationKind) -> P
         telegram: None,
         throughput: None,
         strategy: None,
+        connection_concurrency: None,
         evidence: vec![result.outcome.clone()],
     }
 }

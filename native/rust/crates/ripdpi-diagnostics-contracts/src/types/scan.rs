@@ -63,6 +63,7 @@ pub enum ObservationKind {
     Telegram,
     Throughput,
     Strategy,
+    ConnectionConcurrency,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

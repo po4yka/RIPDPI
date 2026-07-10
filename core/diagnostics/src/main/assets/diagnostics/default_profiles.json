@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedAt": "2026-04-20",
   "packs": [
     {
@@ -153,7 +153,7 @@
     {
       "id": "automatic-probing",
       "name": "Automatic probing",
-      "version": 3,
+      "version": 4,
       "request": {
         "profileId": "automatic-probing",
         "displayName": "Automatic probing",
@@ -170,13 +170,16 @@
         "packRefs": [],
         "domainTargets": [
           {
-            "host": "www.youtube.com"
+            "host": "www.youtube.com",
+            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
           },
           {
-            "host": "discord.com"
+            "host": "discord.com",
+            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
           },
           {
-            "host": "proton.me"
+            "host": "proton.me",
+            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
           }
         ],
         "dnsTargets": [],
@@ -203,7 +206,7 @@
     {
       "id": "automatic-audit",
       "name": "Automatic audit",
-      "version": 3,
+      "version": 4,
       "request": {
         "profileId": "automatic-audit",
         "displayName": "Automatic audit",
@@ -220,13 +223,16 @@
         "packRefs": [],
         "domainTargets": [
           {
-            "host": "www.youtube.com"
+            "host": "www.youtube.com",
+            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
           },
           {
-            "host": "discord.com"
+            "host": "discord.com",
+            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
           },
           {
-            "host": "proton.me"
+            "host": "proton.me",
+            "concurrencyProbe": { "cohortId": "global-platform-control-v1", "maxParallelism": 8 }
           }
         ],
         "dnsTargets": [],

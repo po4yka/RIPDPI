@@ -74,6 +74,7 @@ data class RememberedNetworkPolicyEntity(
     val strategySignatureJson: String? = null,
     val winningTcpStrategyFamily: String? = null,
     val winningQuicStrategyFamily: String? = null,
+    val connectionConcurrencyPolicyJson: String? = null,
     val source: String,
     val status: String,
     val successCount: Int = 0,

@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::types::scan::ObservationKind;
 
 use super::{
-    CircumventionObservationFact, DnsObservationFact, DomainObservationFact, QuicObservationFact,
-    ServiceObservationFact, StrategyObservationFact, TcpObservationFact, TelegramObservationFact,
+    CircumventionObservationFact, ConnectionConcurrencyObservationFact, DnsObservationFact, DomainObservationFact,
+    QuicObservationFact, ServiceObservationFact, StrategyObservationFact, TcpObservationFact, TelegramObservationFact,
     ThroughputObservationFact,
 };
 
@@ -31,6 +31,8 @@ pub struct ProbeObservation {
     pub throughput: Option<ThroughputObservationFact>,
     #[serde(default)]
     pub strategy: Option<StrategyObservationFact>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub connection_concurrency: Option<ConnectionConcurrencyObservationFact>,
     #[serde(default)]
     pub evidence: Vec<String>,
 }

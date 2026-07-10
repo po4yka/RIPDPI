@@ -57,6 +57,13 @@ data class DomainTarget(
     val httpPort: Int? = null,
     val httpPath: String = "/",
     val isControl: Boolean = false,
+    val concurrencyProbe: ConcurrencyProbeTargetMetadata? = null,
+)
+
+@Serializable
+data class ConcurrencyProbeTargetMetadata(
+    val cohortId: String,
+    val maxParallelism: Int,
 )
 
 @Serializable
@@ -191,6 +198,7 @@ enum class ObservationKind {
     TELEGRAM,
     THROUGHPUT,
     STRATEGY,
+    CONNECTION_CONCURRENCY,
 }
 
 @Serializable
@@ -431,6 +439,7 @@ data class ObservationFact(
     val telegram: TelegramObservationFact? = null,
     val throughput: ThroughputObservationFact? = null,
     val strategy: StrategyObservationFact? = null,
+    val connectionConcurrency: ConnectionConcurrencyObservationFact? = null,
     val evidence: List<String> = emptyList(),
 )
 
@@ -679,6 +688,7 @@ data class StrategyProbeReport(
     val recommendation: StrategyProbeRecommendation,
     val completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
     val auditAssessment: StrategyProbeAuditAssessment? = null,
+    val connectionConcurrencyAssessment: ConnectionConcurrencyAssessment? = null,
     val targetSelection: StrategyProbeTargetSelection? = null,
     val pilotBucketLabels: List<String> = emptyList(),
     val domainStrategySeeds: List<StrategyDomainSeed> = emptyList(),

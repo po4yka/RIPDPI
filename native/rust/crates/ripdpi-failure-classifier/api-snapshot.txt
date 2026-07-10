@@ -19,6 +19,7 @@ pub ripdpi_failure_classifier::block_detection::PatternType::Contains
 pub ripdpi_failure_classifier::block_detection::PatternType::Full
 pub ripdpi_failure_classifier::block_detection::PatternType::Prefix
 pub struct ripdpi_failure_classifier::block_detection::BlockSignalObservation
+pub ripdpi_failure_classifier::block_detection::BlockSignalObservation::context: ripdpi_failure_classifier::FailureEvidenceContext
 pub ripdpi_failure_classifier::block_detection::BlockSignalObservation::provider: core::option::Option<alloc::string::String>
 pub ripdpi_failure_classifier::block_detection::BlockSignalObservation::signal: ripdpi_failure_classifier::BlockSignal
 pub struct ripdpi_failure_classifier::block_detection::BlockpageFingerprint
@@ -29,6 +30,7 @@ pub ripdpi_failure_classifier::block_detection::BlockpageFingerprint::pattern: a
 pub ripdpi_failure_classifier::block_detection::BlockpageFingerprint::pattern_type: ripdpi_failure_classifier::PatternType
 pub ripdpi_failure_classifier::block_detection::BlockpageFingerprint::scope: alloc::string::String
 pub fn ripdpi_failure_classifier::block_detection::block_signal_from_failure(&ripdpi_failure_classifier::ClassifiedFailure, core::option::Option<u32>) -> core::option::Option<ripdpi_failure_classifier::BlockSignalObservation>
+pub fn ripdpi_failure_classifier::block_detection::block_signal_from_failure_with_context(&ripdpi_failure_classifier::ClassifiedFailure, core::option::Option<u32>, ripdpi_failure_classifier::FailureEvidenceContext) -> core::option::Option<ripdpi_failure_classifier::BlockSignalObservation>
 pub fn ripdpi_failure_classifier::block_detection::bundled_blockpage_fingerprints() -> &'static [ripdpi_failure_classifier::BlockpageFingerprint]
 pub fn ripdpi_failure_classifier::block_detection::classify_http_response_block(&[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
 pub fn ripdpi_failure_classifier::block_detection::load_blockpage_fingerprints() -> alloc::vec::Vec<ripdpi_failure_classifier::BlockpageFingerprint>
@@ -65,6 +67,19 @@ pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::PassiveStall
 pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::PassiveTimeout
 pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::ServiceShutdown
 pub ripdpi_failure_classifier::ConfirmGoodTerminalReason::UserCancelled
+pub enum ripdpi_failure_classifier::ConnectionConcurrencyCellStatus
+pub ripdpi_failure_classifier::ConnectionConcurrencyCellStatus::Blocked
+pub ripdpi_failure_classifier::ConnectionConcurrencyCellStatus::Contaminated
+pub ripdpi_failure_classifier::ConnectionConcurrencyCellStatus::Healthy
+pub ripdpi_failure_classifier::ConnectionConcurrencyCellStatus::Mixed
+pub ripdpi_failure_classifier::ConnectionConcurrencyCellStatus::Skipped
+pub enum ripdpi_failure_classifier::ConnectionConcurrencyVerdict
+pub ripdpi_failure_classifier::ConnectionConcurrencyVerdict::ConcurrencyOnly
+pub ripdpi_failure_classifier::ConnectionConcurrencyVerdict::ConjunctionConfirmed
+pub ripdpi_failure_classifier::ConnectionConcurrencyVerdict::ConjunctionSuspected
+pub ripdpi_failure_classifier::ConnectionConcurrencyVerdict::FingerprintOnly
+pub ripdpi_failure_classifier::ConnectionConcurrencyVerdict::Inconclusive
+pub ripdpi_failure_classifier::ConnectionConcurrencyVerdict::NoInteraction
 pub enum ripdpi_failure_classifier::FailureAction
 pub ripdpi_failure_classifier::FailureAction::DiagnosticsOnly
 pub ripdpi_failure_classifier::FailureAction::None
@@ -131,6 +146,7 @@ pub fn ripdpi_failure_classifier::AtomicFile::new(impl core::convert::Into<std::
 pub fn ripdpi_failure_classifier::AtomicFile::path(&self) -> &std::path::Path
 pub fn ripdpi_failure_classifier::AtomicFile::write(&self, &[u8]) -> std::io::error::Result<()>
 pub struct ripdpi_failure_classifier::BlockSignalObservation
+pub ripdpi_failure_classifier::BlockSignalObservation::context: ripdpi_failure_classifier::FailureEvidenceContext
 pub ripdpi_failure_classifier::BlockSignalObservation::provider: core::option::Option<alloc::string::String>
 pub ripdpi_failure_classifier::BlockSignalObservation::signal: ripdpi_failure_classifier::BlockSignal
 pub struct ripdpi_failure_classifier::BlockpageFingerprint
@@ -176,12 +192,44 @@ pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::reality_handshake_com
 pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::source: ripdpi_failure_classifier::ConfirmGoodFlowSource
 pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::target_digest: alloc::string::String
 pub ripdpi_failure_classifier::ConfirmGoodFlowObservation::terminal_reason: ripdpi_failure_classifier::ConfirmGoodTerminalReason
+pub struct ripdpi_failure_classifier::ConnectionConcurrencyAssessment
+pub ripdpi_failure_classifier::ConnectionConcurrencyAssessment::affected_target_count: u16
+pub ripdpi_failure_classifier::ConnectionConcurrencyAssessment::classifier_version: alloc::string::String
+pub ripdpi_failure_classifier::ConnectionConcurrencyAssessment::clean_cells: u16
+pub ripdpi_failure_classifier::ConnectionConcurrencyAssessment::healthy_caps_by_profile: alloc::collections::btree::map::BTreeMap<alloc::string::String, u16>
+pub ripdpi_failure_classifier::ConnectionConcurrencyAssessment::planned_cells: u16
+pub ripdpi_failure_classifier::ConnectionConcurrencyAssessment::recommended_max_parallel_handshakes: core::option::Option<u16>
+pub ripdpi_failure_classifier::ConnectionConcurrencyAssessment::recommended_tls_profile_id: core::option::Option<alloc::string::String>
+pub ripdpi_failure_classifier::ConnectionConcurrencyAssessment::verdict: ripdpi_failure_classifier::ConnectionConcurrencyVerdict
+pub ripdpi_failure_classifier::ConnectionConcurrencyAssessment::warnings: alloc::vec::Vec<alloc::string::String>
+pub struct ripdpi_failure_classifier::ConnectionConcurrencyCell
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::block_signals: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::burst_window_ms: u32
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::contaminated: bool
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::failure_count: u16
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::launch_spread_ms: u32
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::observed_peak_parallelism: u16
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::requested_parallelism: u16
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::skip_reason: core::option::Option<alloc::string::String>
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::status: ripdpi_failure_classifier::ConnectionConcurrencyCellStatus
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::success_count: u16
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::target_cohort: alloc::string::String
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::target_id: alloc::string::String
+pub ripdpi_failure_classifier::ConnectionConcurrencyCell::tls_profile_id: alloc::string::String
+pub struct ripdpi_failure_classifier::ConnectionConcurrencyEvidence
+pub ripdpi_failure_classifier::ConnectionConcurrencyEvidence::burst_window_ms: u32
+pub ripdpi_failure_classifier::ConnectionConcurrencyEvidence::launch_spread_ms: u32
+pub ripdpi_failure_classifier::ConnectionConcurrencyEvidence::observed_peak_parallelism: u16
+pub ripdpi_failure_classifier::ConnectionConcurrencyEvidence::requested_parallelism: u16
+pub ripdpi_failure_classifier::ConnectionConcurrencyEvidence::tls_profile_id: alloc::string::String
 pub struct ripdpi_failure_classifier::FailureEvidence
 pub ripdpi_failure_classifier::FailureEvidence::summary: alloc::string::String
 pub ripdpi_failure_classifier::FailureEvidence::tags: alloc::vec::Vec<alloc::string::String>
 impl ripdpi_failure_classifier::FailureEvidence
 pub fn ripdpi_failure_classifier::FailureEvidence::new(impl core::convert::Into<alloc::string::String>) -> Self
 pub fn ripdpi_failure_classifier::FailureEvidence::with_tag(self, &str, impl core::convert::Into<alloc::string::String>) -> Self
+pub struct ripdpi_failure_classifier::FailureEvidenceContext
+pub ripdpi_failure_classifier::FailureEvidenceContext::connection_concurrency: core::option::Option<ripdpi_failure_classifier::ConnectionConcurrencyEvidence>
 pub struct ripdpi_failure_classifier::IpBlockSuspectVerdict
 pub ripdpi_failure_classifier::IpBlockSuspectVerdict::arm_gate: ripdpi_failure_classifier::ArmGate
 pub ripdpi_failure_classifier::IpBlockSuspectVerdict::verdict: ripdpi_failure_classifier::IpBlockVerdict
@@ -212,9 +260,12 @@ impl ripdpi_failure_classifier::TransportPolicyCacheKey
 pub fn ripdpi_failure_classifier::TransportPolicyCacheKey::new(impl core::convert::Into<alloc::string::String>, alloc::vec::Vec<core::net::ip_addr::IpAddr>, impl core::convert::Into<alloc::string::String>, ripdpi_failure_classifier::NetProfileKey) -> Self
 pub const ripdpi_failure_classifier::CONFIRM_GOOD_EVIDENCE_WINDOW_MS: u64
 pub const ripdpi_failure_classifier::CONFIRM_GOOD_MAX_OBSERVATIONS: usize
+pub const ripdpi_failure_classifier::CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str
 pub const ripdpi_failure_classifier::DEFAULT_TTL_SECS: u64
 pub fn ripdpi_failure_classifier::block_signal_from_failure(&ripdpi_failure_classifier::ClassifiedFailure, core::option::Option<u32>) -> core::option::Option<ripdpi_failure_classifier::BlockSignalObservation>
+pub fn ripdpi_failure_classifier::block_signal_from_failure_with_context(&ripdpi_failure_classifier::ClassifiedFailure, core::option::Option<u32>, ripdpi_failure_classifier::FailureEvidenceContext) -> core::option::Option<ripdpi_failure_classifier::BlockSignalObservation>
 pub fn ripdpi_failure_classifier::bundled_blockpage_fingerprints() -> &'static [ripdpi_failure_classifier::BlockpageFingerprint]
+pub fn ripdpi_failure_classifier::classify_connection_concurrency_matrix(&[ripdpi_failure_classifier::ConnectionConcurrencyCell], core::option::Option<&str>) -> ripdpi_failure_classifier::ConnectionConcurrencyAssessment
 pub fn ripdpi_failure_classifier::classify_connection_freeze(usize, u32, u32) -> ripdpi_failure_classifier::ClassifiedFailure
 pub fn ripdpi_failure_classifier::classify_http_blockpage(&[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>
 pub fn ripdpi_failure_classifier::classify_http_response_block(&[u8]) -> core::option::Option<ripdpi_failure_classifier::ClassifiedFailure>

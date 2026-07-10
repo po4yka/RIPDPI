@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::FailureEvidenceContext;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BlockSignal {
@@ -17,6 +19,7 @@ pub enum BlockSignal {
 pub struct BlockSignalObservation {
     pub signal: BlockSignal,
     pub provider: Option<String>,
+    pub context: FailureEvidenceContext,
 }
 
 impl BlockSignal {

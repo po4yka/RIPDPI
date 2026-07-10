@@ -8,6 +8,7 @@ internal object DiagnosticsDatabaseMigrations {
     val ALL: Array<Migration> =
         arrayOf(
             migration5To6,
+            migration6To7,
         )
 }
 
@@ -22,5 +23,13 @@ private val migration5To6 =
             db.execSQL(
                 "ALTER TABLE telemetry_samples ADD COLUMN relayProtocolKind TEXT",
             )
+        }
+    }
+
+/** v6 → v7: persist the confirmed per-network TLS profile/concurrency policy. */
+private val migration6To7 =
+    object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE remembered_network_policies ADD COLUMN connectionConcurrencyPolicyJson TEXT")
         }
     }

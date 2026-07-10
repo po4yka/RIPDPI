@@ -1,12 +1,11 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use ripdpi_monitor_adapter::failure::ClassifiedFailure;
+mod strategy_state;
 
-use crate::types::{
-    DomainTarget, ProbeObservation, ProbeResult, QuicTarget, ScanReport, SharedState, StrategyProbeCandidateSummary,
-    StrategyProbeReport,
-};
+use crate::types::{ProbeObservation, ProbeResult, ScanReport, SharedState};
+
+use strategy_state::StrategyExecutionState;
 
 pub(in crate::engine) struct ExecutionRuntime {
     pub(in crate::engine) shared: Arc<Mutex<SharedState>>,
@@ -52,17 +51,4 @@ impl ExecutionRuntime {
     pub(in crate::engine) fn finish_with_report(&mut self, report: ScanReport) {
         self.final_report = Some(report);
     }
-}
-
-#[derive(Default)]
-pub(in crate::engine) struct StrategyExecutionState {
-    pub(in crate::engine) baseline_failure: Option<ClassifiedFailure>,
-    pub(in crate::engine) tcp_candidates: Vec<StrategyProbeCandidateSummary>,
-    pub(in crate::engine) quic_candidates: Vec<StrategyProbeCandidateSummary>,
-    pub(in crate::engine) summary: Option<String>,
-    pub(in crate::engine) strategy_probe_report: Option<StrategyProbeReport>,
-    /// When DNS tampering is detected, holds domain targets with `connect_ip`
-    /// set to encrypted-DNS-resolved addresses, bypassing poisoned system DNS.
-    pub(in crate::engine) dns_override_domain_targets: Option<Vec<DomainTarget>>,
-    pub(in crate::engine) dns_override_quic_targets: Option<Vec<QuicTarget>>,
 }

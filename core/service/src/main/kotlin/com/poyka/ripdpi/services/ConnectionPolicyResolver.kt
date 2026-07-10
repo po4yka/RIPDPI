@@ -2,8 +2,10 @@ package com.poyka.ripdpi.services
 
 import android.content.Context
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.RipDpiConnectionConcurrencyPolicy
 import com.poyka.ripdpi.core.RipDpiDirectPathCapability
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
+import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -259,13 +261,15 @@ class DefaultConnectionPolicyResolver
                         resolverOverride = baseline.dnsResolution.override,
                     )
                 val effectiveDns = vpnDnsSelection.activeDns
-                val effectiveRuntimeContext =
+                val baseRuntimeContext =
                     runtimeContextAssembler.runtimeContext(
                         activeDns = effectiveDns,
                         protectPath = baseline.protectPath,
                         preferredEdges = baseline.preferredEdges,
                         directPathCapabilities = baseline.directPathCapabilities,
                     )
+                val effectiveRuntimeContext =
+                    applyRememberedConnectionConcurrencyPolicy(baseRuntimeContext, rememberedPolicy)
                 val proxyPreferences =
                     runtimeContextAssembler.rememberedPreferences(
                         configJson = matchedPolicy.proxyConfigJson,
@@ -310,6 +314,20 @@ class DefaultConnectionPolicyResolver
                 rememberedNetworkPolicyStore.recordFailure(matchedPolicy)
                 null
             }
+        }
+
+        private fun applyRememberedConnectionConcurrencyPolicy(
+            baseRuntimeContext: RipDpiRuntimeContext?,
+            rememberedPolicy: RememberedNetworkPolicyJson?,
+        ): RipDpiRuntimeContext? {
+            val policy = rememberedPolicy?.connectionConcurrencyPolicy ?: return baseRuntimeContext
+            return (baseRuntimeContext ?: RipDpiRuntimeContext()).copy(
+                connectionConcurrency =
+                    RipDpiConnectionConcurrencyPolicy(
+                        selectedProfileId = policy.selectedProfileId,
+                        perProfileCaps = policy.perProfileCaps,
+                    ),
+            )
         }
 
         private fun buildBaselineResolution(

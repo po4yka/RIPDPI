@@ -55,6 +55,7 @@ fn relay_upstream(
     // this connection as in-flight; it is freed when `_cap_guard` drops at the
     // end of this function, after `relay()` returns.
     let _cap_guard = upstream_route.cap_guard;
+    let _same_sni_guard = upstream_route.same_sni_guard;
     super::super::super::relay::relay(
         client.try_clone().map_err(|err| ConnectRelayError::new(err, success_reply_sent))?,
         upstream_route.upstream,

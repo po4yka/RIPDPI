@@ -44,6 +44,9 @@ pub ripdpi_proxy_config::NetworkSnapshot::transport: alloc::string::String
 pub ripdpi_proxy_config::NetworkSnapshot::validated: bool
 pub ripdpi_proxy_config::NetworkSnapshot::vpn_service_was_active: bool
 pub ripdpi_proxy_config::NetworkSnapshot::wifi: core::option::Option<ripdpi_proxy_config::WifiSnapshot>
+pub struct ripdpi_proxy_config::ProxyConnectionConcurrencyPolicy
+pub ripdpi_proxy_config::ProxyConnectionConcurrencyPolicy::per_profile_caps: alloc::collections::btree::map::BTreeMap<alloc::string::String, u16>
+pub ripdpi_proxy_config::ProxyConnectionConcurrencyPolicy::selected_profile_id: alloc::string::String
 pub struct ripdpi_proxy_config::ProxyDirectPathCapability
 pub ripdpi_proxy_config::ProxyDirectPathCapability::authority: alloc::string::String
 pub ripdpi_proxy_config::ProxyDirectPathCapability::cooldown_until: core::option::Option<i64>
@@ -93,6 +96,7 @@ pub struct ripdpi_proxy_config::ProxyPreferredEdge
 pub ripdpi_proxy_config::ProxyPreferredEdge::ip: alloc::string::String
 pub ripdpi_proxy_config::ProxyPreferredEdge::transport_kind: alloc::string::String
 pub struct ripdpi_proxy_config::ProxyRuntimeContext
+pub ripdpi_proxy_config::ProxyRuntimeContext::connection_concurrency: core::option::Option<ripdpi_proxy_config::ProxyConnectionConcurrencyPolicy>
 pub ripdpi_proxy_config::ProxyRuntimeContext::direct_path_capabilities: alloc::vec::Vec<ripdpi_proxy_config::ProxyDirectPathCapability>
 pub ripdpi_proxy_config::ProxyRuntimeContext::encrypted_dns: core::option::Option<ripdpi_proxy_config::ProxyEncryptedDnsContext>
 pub ripdpi_proxy_config::ProxyRuntimeContext::morph_policy: core::option::Option<ripdpi_proxy_config::ProxyMorphPolicy>

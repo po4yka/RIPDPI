@@ -11,7 +11,7 @@ pub use fingerprint_catalog::{
 };
 pub use http_classification::classify_http_response_block;
 pub use response_fingerprint::match_blockpage_response;
-pub use signal_mapping::block_signal_from_failure;
+pub use signal_mapping::{block_signal_from_failure, block_signal_from_failure_with_context};
 pub use signal_types::{BlockSignal, BlockSignalObservation};
 
 #[cfg(test)]

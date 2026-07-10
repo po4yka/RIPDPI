@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsPackWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -14,6 +15,48 @@ import org.junit.Test
 
 class BundledDiagnosticsProfileImporterTest {
     private val json = diagnosticsTestJson()
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `catalog rejects concurrency targets that are not safe or bounded for the suite`() =
+        runTest {
+            val catalog =
+                BundledDiagnosticsCatalogWire(
+                    schemaVersion = 2,
+                    profiles =
+                        listOf(
+                            BundledDiagnosticProfileWire(
+                                id = "unsafe-axis-m",
+                                name = "Unsafe axis M",
+                                version = 1,
+                                request =
+                                    ProfileSpecWire(
+                                        profileId = "unsafe-axis-m",
+                                        displayName = "Unsafe axis M",
+                                        legalSafety = DiagnosticsLegalSafety.SENSITIVE,
+                                        strategyProbe = StrategyProbeRequest(suiteId = "full_matrix_v1"),
+                                        domainTargets =
+                                            listOf(
+                                                DomainTarget(
+                                                    host = "example.test",
+                                                    concurrencyProbe =
+                                                        ConcurrencyProbeTargetMetadata(
+                                                            cohortId = "fixture",
+                                                            maxParallelism = 4,
+                                                        ),
+                                                ),
+                                            ),
+                                    ),
+                            ),
+                        ),
+                )
+            BundledDiagnosticsProfileImporter(
+                profileSource = StaticBundledDiagnosticsProfileSource(json.encodeToString(catalog)),
+                overrideSource = EmptyBundledDiagnosticsCatalogOverrideSource,
+                profileCatalog = FakeDiagnosticsHistoryStores(),
+                clock = TestDiagnosticsHistoryClock(),
+                json = json,
+            ).importProfiles()
+        }
 
     @Test
     fun `importer loads bundled profiles into an empty repository`() =

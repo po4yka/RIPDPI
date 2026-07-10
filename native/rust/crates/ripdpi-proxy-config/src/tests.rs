@@ -846,6 +846,7 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
                 quic_burst_profile: " Compat_Burst ".to_string(),
                 fake_packet_shape_profile: " Compat_Default ".to_string(),
             }),
+            connection_concurrency: None,
         }),
         log_context: None,
         session_overrides: None,

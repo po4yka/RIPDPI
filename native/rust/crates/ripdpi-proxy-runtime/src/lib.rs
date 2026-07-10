@@ -12,6 +12,7 @@ mod sync;
 mod exit_ip_cap;
 mod process;
 mod runtime;
+mod same_sni_cap;
 
 pub use exit_ip_cap::{DEFAULT_EXIT_IP_SESSION_CAP, ExitIpSessionCaps, ExitIpSessionGuard, ExitIpSessionLimiter};
 pub use process::{ProcessGuard, ProcessSettings, prepare_embedded, process_settings};
@@ -19,3 +20,4 @@ pub use runtime::{
     RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, create_listener, load_geo_database_versions, load_geoip_metadata,
     run_proxy, run_proxy_with_embedded_control, run_proxy_with_listener, validate_proxy_config,
 };
+pub use same_sni_cap::{SameSniProfileCaps, SameSniProfileGuard, SameSniProfileLimiter};

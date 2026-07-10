@@ -5,7 +5,10 @@ mod strategy;
 
 use std::sync::Arc;
 
-use strategy::{StrategyDnsBaselineRunner, StrategyQuicRunner, StrategyRecommendationRunner, StrategyTcpRunner};
+use strategy::{
+    StrategyConnectionConcurrencyRunner, StrategyDnsBaselineRunner, StrategyQuicRunner, StrategyRecommendationRunner,
+    StrategyTcpRunner,
+};
 
 use crate::CandidateRuntimeLauncher;
 
@@ -29,6 +32,7 @@ pub(super) fn execution_coordinator(
     runners.push(Box::new(StrategyDnsBaselineRunner));
     runners.push(Box::new(StrategyTcpRunner::new(candidate_runtime_launcher.clone())));
     runners.push(Box::new(StrategyQuicRunner::new(candidate_runtime_launcher)));
+    runners.push(Box::new(StrategyConnectionConcurrencyRunner));
     runners.push(Box::new(StrategyRecommendationRunner));
     ExecutionCoordinator::new(runners)
 }

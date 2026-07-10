@@ -104,6 +104,7 @@ fn strategy_probe_request_with_runtime_context(
             http_port: Some(8080),
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         }],
         dns_targets: vec![],
         tcp_targets: vec![],
@@ -343,6 +344,7 @@ fn domain_probe_reports_tls_certificate_anomaly() {
         http_port: Some(9),
         http_path: "/".to_string(),
         is_control: false,
+        concurrency_probe: None,
     };
 
     let result = run_domain_probe(&target, &direct_transport(), None);
@@ -454,6 +456,7 @@ fn domain_probe_reports_http_blockpage() {
         http_port: Some(server.port()),
         http_path: "/".to_string(),
         is_control: false,
+        concurrency_probe: None,
     };
 
     let result = run_domain_probe(&target, &direct_transport(), None);
@@ -796,6 +799,7 @@ fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
         preferred_edges: std::collections::BTreeMap::default(),
         direct_path_capabilities: Vec::new(),
         morph_policy: None,
+        connection_concurrency: None,
     };
 
     let baseline = detect_strategy_probe_dns_tampering(
@@ -807,6 +811,7 @@ fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
             http_port: Some(80),
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         }],
         Some(&runtime_context),
     )
@@ -918,6 +923,7 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
         preferred_edges: std::collections::BTreeMap::default(),
         direct_path_capabilities: Vec::new(),
         morph_policy: None,
+        connection_concurrency: None,
     };
     let mut request = strategy_probe_request_with_runtime_context(
         minimal_ui_config(),
@@ -934,6 +940,7 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
         http_port: Some(80),
         http_path: "/".to_string(),
         is_control: false,
+        concurrency_probe: None,
     }];
     let session = monitor_session_with_direct_candidate_runtime();
 
@@ -959,6 +966,7 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
             http_port: Some(server.port()),
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         },
         DomainTarget {
             host: "discord.com".to_string(),
@@ -968,6 +976,7 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
             http_port: Some(server.port()),
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         },
         DomainTarget {
             host: "proton.me".to_string(),
@@ -977,6 +986,7 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
             http_port: Some(server.port()),
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         },
     ];
     request.quic_targets = vec![
@@ -1052,6 +1062,7 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
         preferred_edges: std::collections::BTreeMap::default(),
         direct_path_capabilities: Vec::new(),
         morph_policy: None,
+        connection_concurrency: None,
     };
     let mut request = strategy_probe_request_with_runtime_context(
         minimal_ui_config(),
@@ -1068,6 +1079,7 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
         http_port: Some(9),
         http_path: "/".to_string(),
         is_control: false,
+        concurrency_probe: None,
     }];
     request.quic_targets = vec![QuicTarget {
         host: "blocked.example".to_string(),
@@ -1179,6 +1191,7 @@ fn strategy_probe_report_serializes_normal_completion_kind() {
         },
         completion_kind: StrategyProbeCompletionKind::Normal,
         audit_assessment: None,
+        connection_concurrency_assessment: None,
         target_selection: None,
         pilot_bucket_labels: vec!["foreign:direct:ech=no".to_string()],
         domain_strategy_seeds: vec![],
@@ -1213,6 +1226,7 @@ fn monitor_session_drains_passive_events_with_probe_details() {
             http_port: Some(server.port()),
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         }],
         dns_targets: vec![],
         tcp_targets: vec![],
@@ -1337,6 +1351,7 @@ fn monitor_json_contracts_match_goldens() {
             http_port: Some(server.port()),
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         }],
         dns_targets: vec![],
         tcp_targets: vec![],

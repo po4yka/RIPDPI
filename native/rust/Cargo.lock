@@ -5938,6 +5938,7 @@ dependencies = [
  "ripdpi-packets",
  "ripdpi-runtime-platform",
  "ripdpi-telemetry",
+ "ripdpi-tls-profiles",
  "rustls",
  "serde",
  "serde_json",

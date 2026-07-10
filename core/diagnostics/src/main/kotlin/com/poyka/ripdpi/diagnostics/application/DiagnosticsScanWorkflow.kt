@@ -2,15 +2,18 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.core.RipDpiConnectionConcurrencyPolicy
 import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.core.stripRipDpiRuntimeContext
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
+import com.poyka.ripdpi.core.withConnectionConcurrencyPolicy
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.RememberedConnectionConcurrencyPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxEchStable
@@ -25,6 +28,7 @@ import kotlinx.serialization.json.Json
 
 @Suppress("detekt.TooManyFunctions")
 internal object DiagnosticsScanWorkflow {
+    private const val MaxConnectionConcurrency = 8
     private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
     private const val BackgroundAutoPersistMinMatrixCoveragePercent = 75
     private const val BackgroundAutoPersistMinWinnerCoveragePercent = 50
@@ -103,7 +107,10 @@ internal object DiagnosticsScanWorkflow {
             report.strategyProbeReport?.let { strategyProbe ->
                 val recommendation = resolveValidatedStrategyProbeRecommendation(strategyProbe, settings)
                 strategyProbe.copy(
-                    recommendation = recommendation.recommendation,
+                    recommendation =
+                        recommendation.recommendation.withConnectionConcurrencyAssessment(
+                            strategyProbe.connectionConcurrencyAssessment,
+                        ),
                 )
             }
         val resolverRecommendation =
@@ -118,12 +125,61 @@ internal object DiagnosticsScanWorkflow {
                 currentTcpFamily = settings.deriveStrategyLaneFamilies().tcpStrategyFamily,
             )
         val directModeVerdict = deriveDirectModeVerdict(report)
+        val concurrencyDiagnosis =
+            strategyProbe?.connectionConcurrencyAssessment?.let { assessment ->
+                Diagnosis(
+                    code = "connection_concurrency_interaction",
+                    summary = "TLS fingerprint × same-SNI parallelism: ${assessment.verdict}",
+                    severity =
+                        if (assessment.verdict == ConnectionConcurrencyVerdict.CONJUNCTION_CONFIRMED) {
+                            "warning"
+                        } else {
+                            "info"
+                        },
+                    evidence =
+                        listOf(
+                            "verdict=${assessment.verdict}",
+                            "coverage=${assessment.cleanCells}/${assessment.plannedCells}",
+                            "safeCap=${assessment.safeCap ?: "unknown"}",
+                            "selectedProfile=${assessment.selectedProfileId ?: "unknown"}",
+                        ),
+                    recommendation =
+                        "A confirmed interaction applies the learned owned-stack profile and cap on the next " +
+                            "service start; browser-originated TLS in proxy mode may bypass this control.",
+                )
+            }
         return report.copy(
             strategyProbeReport = strategyProbe,
             resolverRecommendation = resolverRecommendation,
             strategyRecommendation = strategyRecommendation,
             directModeVerdict = directModeVerdict,
+            diagnoses = report.diagnoses + listOfNotNull(concurrencyDiagnosis),
         )
+    }
+
+    private fun StrategyProbeRecommendation.withConnectionConcurrencyAssessment(
+        assessment: ConnectionConcurrencyAssessment?,
+    ): StrategyProbeRecommendation {
+        val confirmed = assessment?.takeIf { it.verdict == ConnectionConcurrencyVerdict.CONJUNCTION_CONFIRMED }
+        val selectedProfile = confirmed?.selectedProfileId
+        val preferences = decodeRipDpiProxyUiPreferences(recommendedProxyConfigJson)
+        return if (confirmed != null && selectedProfile != null && preferences != null) {
+            copy(
+                recommendedProxyConfigJson =
+                    preferences
+                        .withConnectionConcurrencyPolicy(
+                            RipDpiConnectionConcurrencyPolicy(
+                                selectedProfileId = selectedProfile,
+                                perProfileCaps =
+                                    confirmed.healthyCapsByProfile.mapValues { (_, cap) ->
+                                        cap.coerceIn(1, MaxConnectionConcurrency)
+                                    },
+                            ),
+                        ).toNativeConfigJson(),
+            )
+        } else {
+            this
+        }
     }
 
     fun shouldApplyTemporaryResolverOverride(
@@ -224,10 +280,38 @@ internal object DiagnosticsScanWorkflow {
         if (!isEligible) return null
         val activeDns = settings.activeDnsSettings()
         val networkScopeKey = fingerprint.scopeKey()
+        val concurrencyAssessment = strategyProbe.connectionConcurrencyAssessment
+        val concurrencyPolicy =
+            concurrencyAssessment
+                ?.takeIf { it.verdict == ConnectionConcurrencyVerdict.CONJUNCTION_CONFIRMED }
+                ?.selectedProfileId
+                ?.let { selectedProfile ->
+                    RememberedConnectionConcurrencyPolicyJson(
+                        classifierVersion = concurrencyAssessment.classifierVersion,
+                        selectedProfileId = selectedProfile,
+                        perProfileCaps =
+                            concurrencyAssessment.healthyCapsByProfile.mapValues { (_, cap) ->
+                                cap.coerceIn(1, MaxConnectionConcurrency)
+                            },
+                    )
+                }
+        val recommendationConfigJson =
+            if (concurrencyPolicy == null) {
+                recommendation.recommendation.recommendedProxyConfigJson
+            } else {
+                decodeRipDpiProxyUiPreferences(recommendation.recommendation.recommendedProxyConfigJson)
+                    ?.withConnectionConcurrencyPolicy(
+                        RipDpiConnectionConcurrencyPolicy(
+                            selectedProfileId = concurrencyPolicy.selectedProfileId,
+                            perProfileCaps = concurrencyPolicy.perProfileCaps,
+                        ),
+                    )?.toNativeConfigJson()
+                    ?: recommendation.recommendation.recommendedProxyConfigJson
+            }
         val normalizedProxyConfigJson =
             stripRipDpiRuntimeContext(
                 RipDpiProxyJsonPreferences(
-                    configJson = recommendation.recommendation.recommendedProxyConfigJson,
+                    configJson = recommendationConfigJson,
                     hostAutolearnStorePath = hostAutolearnStorePath,
                     networkScopeKey = networkScopeKey,
                     runtimeContext = activeDns.toRipDpiRuntimeContext(),
@@ -254,6 +338,7 @@ internal object DiagnosticsScanWorkflow {
             winningQuicStrategyFamily = recommendation.winningQuicCandidate?.family,
             winningDnsStrategyFamily =
                 recommendation.recommendation.dnsStrategyFamily ?: activeDns.strategyFamily(),
+            connectionConcurrencyPolicy = concurrencyPolicy,
         )
     }
 

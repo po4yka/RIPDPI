@@ -30,6 +30,7 @@ fn domain_probe_appends_http_trigger_fuzzing_details() {
         http_port: Some(server.port()),
         http_path: "/".to_string(),
         is_control: false,
+        concurrency_probe: None,
     };
 
     let result = run_domain_probe(&target, &direct_transport(), None);
@@ -53,6 +54,7 @@ fn domain_probe_appends_tls_trigger_fuzzing_details() {
         http_port: Some(9),
         http_path: "/".to_string(),
         is_control: false,
+        concurrency_probe: None,
     };
 
     let result = run_domain_probe(&target, &direct_transport(), None);

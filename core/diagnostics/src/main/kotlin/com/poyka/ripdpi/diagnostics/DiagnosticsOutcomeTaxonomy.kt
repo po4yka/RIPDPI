@@ -139,6 +139,7 @@ private fun bucketForProbeOutcome(
         "strategy_https" -> bucketStrategyHttps(outcome)
         "strategy_quic" -> bucketStrategyQuic(outcome)
         "strategy_failure_classification" -> bucketStrategyFailureClassification(outcome)
+        "connection_concurrency" -> bucketConnectionConcurrency(outcome)
         else -> legacyBucketForOutcome(outcome)
     }
 
@@ -317,6 +318,14 @@ private fun bucketStrategyFailureClassification(outcome: String): DiagnosticsOut
         // as Inconclusive so the UI does not show a false negative outcome.
         "capability_skipped" -> DiagnosticsOutcomeBucket.Inconclusive
 
+        else -> DiagnosticsOutcomeBucket.Inconclusive
+    }
+
+private fun bucketConnectionConcurrency(outcome: String): DiagnosticsOutcomeBucket =
+    when (outcome) {
+        "healthy" -> DiagnosticsOutcomeBucket.Healthy
+        "blocked" -> DiagnosticsOutcomeBucket.Attention
+        "mixed", "contaminated", "skipped" -> DiagnosticsOutcomeBucket.Inconclusive
         else -> DiagnosticsOutcomeBucket.Inconclusive
     }
 

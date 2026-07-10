@@ -30,6 +30,7 @@ import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
 import com.poyka.ripdpi.data.PreferredStack
 import com.poyka.ripdpi.data.QuicMode
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RememberedConnectionConcurrencyPolicyJson
 import com.poyka.ripdpi.data.RootSettingsSection
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.TcpFamily
@@ -38,6 +39,7 @@ import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -280,6 +282,13 @@ class ConnectionPolicyResolverTest {
                                             profileId = "remembered-relay",
                                         ),
                                 ).toNativeConfigJson(),
+                            connectionConcurrencyPolicyJson =
+                                Json.encodeToString(
+                                    RememberedConnectionConcurrencyPolicyJson(
+                                        selectedProfileId = "firefox_stable",
+                                        perProfileCaps = mapOf("firefox_stable" to 4),
+                                    ),
+                                ),
                         )
                 }
             val resolver =
@@ -309,6 +318,12 @@ class ConnectionPolicyResolverTest {
             assertEquals(true, resolution.rememberedPolicyAppliedByExactMatch)
             assertEquals("awg-selected", resolution.proxyPreferences.awgConfigOrNull()?.profileId)
             assertEquals("198.51.100.10", resolution.proxyPreferences.awgConfigOrNull()?.endpointHost)
+            val concurrencyPolicy =
+                decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+                    ?.runtimeContext
+                    ?.connectionConcurrency
+            assertEquals("firefox_stable", concurrencyPolicy?.selectedProfileId)
+            assertEquals(4, concurrencyPolicy?.perProfileCaps?.get("firefox_stable"))
         }
 
     @Test

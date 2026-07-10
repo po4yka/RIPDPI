@@ -1821,6 +1821,8 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_safe_body">RIPDPI HTTP ट्रैफ़िक पर चुने गए कम-जोखिम वाले Host हेडर समायोजन लागू करेगा।</string>
     <string name="ripdpi_http_parser_default_title">डिफ़ॉल्ट HTTP पार्सर हैंडलिंग</string>
     <string name="diagnostics_confirm_good_dpi_summary">संभावित confirm-good DPI: Reality हैंडशेक सफल रहे, लेकिन उपयोगी डेटा नहीं पहुँचा।</string>
+    <string name="diagnostics_connection_concurrency_summary">TLS फ़िंगरप्रिंट और एक ही साइट के समानांतर कनेक्शन का आकलन</string>
+    <string name="diagnostics_connection_concurrency_recommendation">सीखी गई ब्राउज़र प्रोफ़ाइल और सुरक्षित सीमा अगली सेवा शुरुआत पर लागू होंगी। प्रॉक्सी मोड में ब्राउज़र का TLS इस नियंत्रण को छोड़ सकता है।</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">दो अलग Reality प्रवाह हैंडशेक के बाद रुक गए।</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">उसी नेटवर्क पर QUIC नियंत्रण सफल रहा।</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">परीक्षित UDP/QUIC रिले का उपयोग करें। TLS फिंगरप्रिंट बदलने से शायद मदद नहीं मिलेगी।</string>

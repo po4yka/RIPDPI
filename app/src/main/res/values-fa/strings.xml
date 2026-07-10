@@ -4070,6 +4070,8 @@ fakeddisorder endhost</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>
     <string name="diagnostics_confirm_good_dpi_summary">احتمال DPI از نوع confirm-good: دست‌دهی‌های Reality موفق بودند، اما دادهٔ قابل استفاده دریافت نشد.</string>
+    <string name="diagnostics_connection_concurrency_summary">ارزیابی اثر انگشت TLS و اتصال‌های هم‌زمان به یک سایت</string>
+    <string name="diagnostics_connection_concurrency_recommendation">نمایهٔ مرورگر آموخته‌شده و سقف امن در شروع بعدی سرویس اعمال می‌شوند. TLS مرورگر در حالت پراکسی ممکن است این کنترل را دور بزند.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_reality">دو جریان متفاوت Reality پس از دست‌دهی متوقف شدند.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">آزمون QUIC در همان شبکه موفق بود.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">از یک رلهٔ آزموده‌شدهٔ UDP/QUIC استفاده کنید. تغییر اثرانگشت TLS احتمالاً کمکی نمی‌کند.</string>

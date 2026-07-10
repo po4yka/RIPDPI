@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.RipDpiChainConfig
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiQuicConfig
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
@@ -18,6 +19,7 @@ import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.decodedSource
+import com.poyka.ripdpi.data.diagnostics.toPolicyJson
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
@@ -36,6 +38,54 @@ import java.util.UUID
 
 class DiagnosticsStrategyProbeRecommendationPersistenceTest {
     private val json = diagnosticsTestJson()
+
+    @Test
+    fun `confirmed quick matrix persists profile caps without raw target names`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val settings = defaultDiagnosticsAppSettings().toBuilder().setNetworkStrategyMemoryEnabled(true).build()
+            val fingerprint = networkFingerprint(ssid = "axis-m-network")
+            val prepared = preparedStrategyProbeScan("session-axis-m", settings, fingerprint)
+            val report =
+                strategyProbeReport(
+                    sessionId = prepared.sessionId,
+                    proxyConfigJson = validPersistenceProxyConfigJson(),
+                    tcpFamily = "hostfake",
+                    quicFamily = "quic_realistic_burst",
+                    auditAssessment = auditAssessment(),
+                    connectionConcurrencyAssessment =
+                        ConnectionConcurrencyAssessment(
+                            verdict = ConnectionConcurrencyVerdict.CONJUNCTION_CONFIRMED,
+                            selectedProfileId = "firefox_stable",
+                            safeCap = 4,
+                            plannedCells = 36,
+                            cleanCells = 34,
+                            affectedTargets = 2,
+                            healthyCapsByProfile = mapOf("firefox_stable" to 4, "safari_stable" to 8),
+                        ),
+                )
+            scanFinalizationService(stores, TestDiagnosticsHistoryClock()).finalize(
+                prepared,
+                json.encodeToString(report.toEngineScanReportWire()),
+            )
+
+            val remembered = stores.rememberedPoliciesState.value.single()
+            val policy = requireNotNull(remembered.toPolicyJson())
+            assertEquals("firefox_stable", policy.connectionConcurrencyPolicy?.selectedProfileId)
+            assertEquals(4, policy.connectionConcurrencyPolicy?.perProfileCaps?.get("firefox_stable"))
+            assertEquals(
+                "firefox_stable",
+                decodeRipDpiProxyUiPreferences(policy.proxyConfigJson)?.fakePackets?.tlsFingerprintProfile,
+            )
+            val persistedPayload =
+                listOfNotNull(
+                    remembered.proxyConfigJson,
+                    remembered.connectionConcurrencyPolicyJson,
+                ).joinToString()
+            assertFalse(persistedPayload.contains("youtube.com"))
+            assertFalse(persistedPayload.contains("discord.com"))
+            assertFalse(persistedPayload.contains("proton.me"))
+        }
 
     @Test
     fun `background finalization remembers validated recommendation with matching families and signature`() =
@@ -60,7 +110,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                 json.encodeToString(
                     strategyProbeReport(
                         sessionId = prepared.sessionId,
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
+                        proxyConfigJson = validPersistenceProxyConfigJson(),
                         tcpFamily = "hostfake",
                         quicFamily = "quic_realistic_burst",
                         auditAssessment = auditAssessment(),
@@ -105,7 +155,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                 json.encodeToString(
                     strategyProbeReport(
                         sessionId = prepared.sessionId,
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
+                        proxyConfigJson = validPersistenceProxyConfigJson(),
                         tcpFamily = "split",
                         quicFamily = "quic_burst",
                         auditAssessment = auditAssessment(),
@@ -149,7 +199,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             val report =
                 strategyProbeReport(
                     sessionId = prepared.sessionId,
-                    proxyConfigJson = validRecommendedProxyConfigJson(),
+                    proxyConfigJson = validPersistenceProxyConfigJson(),
                     tcpFamily = "hostfake",
                     quicFamily = "quic_realistic_burst",
                     auditAssessment = auditAssessment(),
@@ -201,7 +251,7 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
                 json.encodeToString(
                     strategyProbeReport(
                         sessionId = prepared.sessionId,
-                        proxyConfigJson = validRecommendedProxyConfigJson(),
+                        proxyConfigJson = validPersistenceProxyConfigJson(),
                         tcpFamily = "hostfake",
                         quicFamily = "quic_multi_initial_realistic",
                         auditAssessment = auditAssessment(),
@@ -390,6 +440,7 @@ private fun strategyProbeReport(
     tcpFamily: String,
     quicFamily: String,
     auditAssessment: StrategyProbeAuditAssessment? = null,
+    connectionConcurrencyAssessment: ConnectionConcurrencyAssessment? = null,
 ): ScanReport =
     ScanReport(
         sessionId = sessionId,
@@ -441,10 +492,11 @@ private fun strategyProbeReport(
                         recommendedProxyConfigJson = proxyConfigJson,
                     ),
                 auditAssessment = auditAssessment,
+                connectionConcurrencyAssessment = connectionConcurrencyAssessment,
             ),
     )
 
-private fun validRecommendedProxyConfigJson(): String =
+private fun validPersistenceProxyConfigJson(): String =
     RipDpiProxyUIPreferences(
         protocols = RipDpiProtocolConfig(desyncUdp = true),
         chains =

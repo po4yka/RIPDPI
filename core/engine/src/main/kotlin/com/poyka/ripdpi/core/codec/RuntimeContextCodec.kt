@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.codec
 
+import com.poyka.ripdpi.core.RipDpiConnectionConcurrencyPolicy
 import com.poyka.ripdpi.core.RipDpiDirectPathCapability
 import com.poyka.ripdpi.core.RipDpiEncryptedDnsContext
 import com.poyka.ripdpi.core.RipDpiLogContext
@@ -51,6 +52,13 @@ internal data class NativeRuntimeContext(
     val preferredEdges: Map<String, List<NativePreferredEdge>> = emptyMap(),
     val directPathCapabilities: List<NativeDirectPathCapability> = emptyList(),
     val morphPolicy: NativeMorphPolicy? = null,
+    val connectionConcurrency: NativeConnectionConcurrencyPolicy? = null,
+)
+
+@Serializable
+internal data class NativeConnectionConcurrencyPolicy(
+    val selectedProfileId: String,
+    val perProfileCaps: Map<String, Int> = emptyMap(),
 )
 
 @Serializable
@@ -203,6 +211,10 @@ internal object ProxyRuntimeContextCodec {
                                 fakePacketShapeProfile = policy.fakePacketShapeProfile,
                             )
                         },
+                    connectionConcurrency =
+                        it.connectionConcurrency?.let { policy ->
+                            RipDpiConnectionConcurrencyPolicy(policy.selectedProfileId, policy.perProfileCaps)
+                        },
                 )
             },
         )
@@ -277,6 +289,10 @@ internal object ProxyRuntimeContextCodec {
                             quicBurstProfile = policy.quicBurstProfile,
                             fakePacketShapeProfile = policy.fakePacketShapeProfile,
                         )
+                    },
+                connectionConcurrency =
+                    context.connectionConcurrency?.let { policy ->
+                        NativeConnectionConcurrencyPolicy(policy.selectedProfileId, policy.perProfileCaps)
                     },
             )
         }

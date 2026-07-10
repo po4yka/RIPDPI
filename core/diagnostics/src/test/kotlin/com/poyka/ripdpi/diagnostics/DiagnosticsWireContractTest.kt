@@ -127,11 +127,32 @@ class DiagnosticsWireContractTest {
                     status = ConfirmGoodDpiVerdictStatus.SUSPECTED,
                     evidence = confirmGoodEvidence(),
                 ),
+            observations = listOf(connectionConcurrencyObservation()),
             engineAnalysisVersion = "1.0",
             classifierVersion = "1.0",
             packVersions = mapOf("core" to 1),
         )
     }
+
+    private fun connectionConcurrencyObservation() =
+        ObservationFact(
+            kind = ObservationKind.CONNECTION_CONCURRENCY,
+            target = "control.example",
+            connectionConcurrency =
+                ConnectionConcurrencyObservationFact(
+                    cohortId = "global-platform-control-v1",
+                    tlsProfileId = "firefox_stable",
+                    requestedParallelism = 4,
+                    observedPeakParallelism = 4,
+                    launchSpreadMs = 20,
+                    burstWindowMs = 400,
+                    successes = 0,
+                    failures = 4,
+                    blockSignals = listOf("silent_drop"),
+                    status = ConnectionConcurrencyCellStatus.BLOCKED,
+                ),
+            evidence = listOf("same_profile_parallel_failure"),
+        )
 
     private fun skippedCandidate(
         id: String,
@@ -175,6 +196,17 @@ class DiagnosticsWireContractTest {
                         ),
                 ),
             completionKind = StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED,
+            connectionConcurrencyAssessment =
+                ConnectionConcurrencyAssessment(
+                    verdict = ConnectionConcurrencyVerdict.CONJUNCTION_CONFIRMED,
+                    selectedProfileId = "firefox_stable",
+                    safeCap = 4,
+                    plannedCells = 36,
+                    cleanCells = 30,
+                    affectedTargets = 2,
+                    healthyCapsByProfile = mapOf("firefox_stable" to 4),
+                    warnings = listOf("Cohort-scoped evidence only"),
+                ),
             auditAssessment =
                 StrategyProbeAuditAssessment(
                     dnsShortCircuited = true,

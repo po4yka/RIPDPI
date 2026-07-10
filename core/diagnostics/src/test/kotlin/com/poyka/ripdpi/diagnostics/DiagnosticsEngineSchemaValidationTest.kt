@@ -15,11 +15,11 @@ class DiagnosticsEngineSchemaValidationTest {
         val body =
             """
             {
-                "schemaVersion":4,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH",
+                "schemaVersion":5,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH",
                 "startedAt":1,"finishedAt":2,"summary":"ok"
             }
             """.trimIndent()
-        val missing = body.replace("\"schemaVersion\":4,", "")
+        val missing = body.replace("\"schemaVersion\":5,", "")
 
         assertEquals(DiagnosticsEngineSchemaVersion, json.decodeEngineScanReportWire(body).schemaVersion)
         assertThrows(SerializationException::class.java) { json.decodeEngineScanReportWire(missing) }
@@ -30,14 +30,14 @@ class DiagnosticsEngineSchemaValidationTest {
         val body =
             """
             {
-                "schemaVersion":3,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH",
+                "schemaVersion":4,"sessionId":"s","profileId":"p","pathMode":"RAW_PATH",
                 "startedAt":1,"finishedAt":2,"summary":"old"
             }
             """.trimIndent()
 
         assertThrows(IllegalArgumentException::class.java) { json.decodeEngineScanReportWire(body) }
         assertThrows(IllegalArgumentException::class.java) {
-            json.decodeEngineScanReportWire(body.replace("\"schemaVersion\":3", "\"schemaVersion\":5"))
+            json.decodeEngineScanReportWire(body.replace("\"schemaVersion\":4", "\"schemaVersion\":6"))
         }
     }
 
@@ -46,19 +46,19 @@ class DiagnosticsEngineSchemaValidationTest {
         val body =
             """
             {
-                "schemaVersion":4,"sessionId":"s","phase":"RUNNING",
+                "schemaVersion":5,"sessionId":"s","phase":"RUNNING",
                 "completedSteps":0,"totalSteps":1,"message":"wait"
             }
             """.trimIndent()
-        val missing = body.replace("\"schemaVersion\":4,", "")
+        val missing = body.replace("\"schemaVersion\":5,", "")
 
         assertEquals(DiagnosticsEngineSchemaVersion, json.decodeEngineProgressWire(body).schemaVersion)
         assertThrows(SerializationException::class.java) { json.decodeEngineProgressWire(missing) }
         assertThrows(IllegalArgumentException::class.java) {
-            json.decodeEngineProgressWire(body.replace("\"schemaVersion\":4", "\"schemaVersion\":3"))
+            json.decodeEngineProgressWire(body.replace("\"schemaVersion\":5", "\"schemaVersion\":4"))
         }
         assertThrows(IllegalArgumentException::class.java) {
-            json.decodeEngineProgressWire(body.replace("\"schemaVersion\":4", "\"schemaVersion\":5"))
+            json.decodeEngineProgressWire(body.replace("\"schemaVersion\":5", "\"schemaVersion\":6"))
         }
     }
 }

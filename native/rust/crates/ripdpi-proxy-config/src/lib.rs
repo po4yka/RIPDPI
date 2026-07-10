@@ -59,12 +59,12 @@ pub use active_network_scope::{active_network_scope, set_active_network_scope};
 pub use types::{
     ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, ADAPTIVE_FAKE_TTL_DEFAULT_MAX,
     ADAPTIVE_FAKE_TTL_DEFAULT_MIN, CellularSnapshot, FAKE_TLS_SNI_MODE_RANDOMIZED, NetworkSnapshot, ProxyConfigError,
-    ProxyConfigPayload, ProxyDirectPathCapability, ProxyEncryptedDnsContext, ProxyLogContext, ProxyMorphPolicy,
-    ProxyPreferredEdge, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiChainConfig, ProxyUiConfig,
-    ProxyUiFakePacketConfig, ProxyUiHostAutolearnConfig, ProxyUiHostsConfig, ProxyUiListenConfig, ProxyUiNumericRange,
-    ProxyUiParserEvasionConfig, ProxyUiProtocolConfig, ProxyUiQuicConfig, ProxyUiTcpChainStep,
-    ProxyUiTcpRotationCandidate, ProxyUiTcpRotationConfig, ProxyUiUdpChainStep, QUIC_FAKE_PROFILE_DISABLED,
-    RuntimeConfigEnvelope, WifiSnapshot,
+    ProxyConfigPayload, ProxyConnectionConcurrencyPolicy, ProxyDirectPathCapability, ProxyEncryptedDnsContext,
+    ProxyLogContext, ProxyMorphPolicy, ProxyPreferredEdge, ProxyRuntimeContext, ProxyUiActivationFilter,
+    ProxyUiChainConfig, ProxyUiConfig, ProxyUiFakePacketConfig, ProxyUiHostAutolearnConfig, ProxyUiHostsConfig,
+    ProxyUiListenConfig, ProxyUiNumericRange, ProxyUiParserEvasionConfig, ProxyUiProtocolConfig, ProxyUiQuicConfig,
+    ProxyUiTcpChainStep, ProxyUiTcpRotationCandidate, ProxyUiTcpRotationConfig, ProxyUiUdpChainStep,
+    QUIC_FAKE_PROFILE_DISABLED, RuntimeConfigEnvelope, WifiSnapshot,
 };
 
 // Public API re-exports -- conversion functions.

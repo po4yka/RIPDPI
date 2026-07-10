@@ -1,5 +1,6 @@
 use crate::exit_ip_cap::{ExitIpSessionCaps, ExitIpSessionGuard, ExitIpSessionLimiter};
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
+use crate::{SameSniProfileCaps, SameSniProfileGuard, SameSniProfileLimiter};
 use std::collections::BTreeMap;
 use std::io::{self, Read};
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
@@ -148,6 +149,12 @@ pub(super) struct RuntimeState {
     /// `Arc`-backed, so every `RuntimeState` clone shares one session counter —
     /// required for the cap to be enforced across all worker threads.
     exit_ip_session_limiter: ExitIpSessionLimiter,
+    same_sni_profile_limiter: SameSniProfileLimiter,
+    #[allow(
+        dead_code,
+        reason = "owned-stack connectors use the learned profile key; browser pass-through routes intentionally use the fallback key"
+    )]
+    selected_tls_profile: String,
     pcap_hook: Option<super::desync::PcapHook>,
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
@@ -246,6 +253,7 @@ impl RuntimeState {
         } = runtime_session_projection(&config);
         let RuntimeDesyncProjection { tcp_desync_executor, udp_desync_planner } = runtime_desync_projection(&config);
         let RuntimeResponseProjection { first_response_exchange_policy } = runtime_response_projection(&config);
+        let (selected_tls_profile, same_sni_caps) = connection_concurrency_runtime_state(runtime_context.as_ref());
 
         Self {
             listener_settings,
@@ -280,6 +288,8 @@ impl RuntimeState {
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(NetworkReprobeTracker::new()),
             exit_ip_session_limiter: ExitIpSessionLimiter::new(ExitIpSessionCaps::default()),
+            same_sni_profile_limiter: SameSniProfileLimiter::new(same_sni_caps),
+            selected_tls_profile,
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,
@@ -292,11 +302,35 @@ impl RuntimeState {
         self.exit_ip_session_limiter.try_acquire(exit_ip, EXIT_SESSION_TRANSPORT_TCP)
     }
 
+    #[allow(
+        dead_code,
+        reason = "owned-stack connectors use this entry point; browser pass-through routes intentionally retain the fallback cap"
+    )]
+    pub(super) fn try_acquire_owned_sni_session(&self, sni: &str) -> Option<SameSniProfileGuard> {
+        self.same_sni_profile_limiter.try_acquire(sni, &self.selected_tls_profile)
+    }
+
+    pub(super) fn try_acquire_pass_through_sni_session(&self, sni: &str) -> Option<SameSniProfileGuard> {
+        self.same_sni_profile_limiter.try_acquire(sni, "pass-through")
+    }
+
     /// Number of in-flight outbound sessions counted for `exit_ip` (test/diagnostic).
     #[cfg(all(test, not(feature = "loom")))]
     pub(super) fn active_exit_sessions(&self, exit_ip: IpAddr) -> usize {
         self.exit_ip_session_limiter.active(exit_ip, EXIT_SESSION_TRANSPORT_TCP)
     }
+}
+
+fn connection_concurrency_runtime_state(runtime_context: Option<&ProxyRuntimeContext>) -> (String, SameSniProfileCaps) {
+    let policy = runtime_context.and_then(|context| context.connection_concurrency.as_ref());
+    let selected_profile = policy.map_or_else(|| "unknown".to_string(), |policy| policy.selected_profile_id.clone());
+    let caps = policy.map_or_else(SameSniProfileCaps::default, |policy| {
+        policy
+            .per_profile_caps
+            .iter()
+            .fold(SameSniProfileCaps::default(), |caps, (profile, cap)| caps.with_profile(profile, usize::from(*cap)))
+    });
+    (selected_profile, caps)
 }
 
 #[cfg(test)]
@@ -309,6 +343,33 @@ mod state_coverage_tests {
 
     fn state() -> RuntimeState {
         RuntimeState::test(RuntimeConfig::default())
+    }
+
+    #[test]
+    fn runtime_context_configures_selected_profile_cap_without_changing_exit_ip_cap() {
+        let mut caps = BTreeMap::new();
+        caps.insert("firefox_stable".to_string(), 2);
+        let context = ProxyRuntimeContext {
+            connection_concurrency: Some(
+                ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyConnectionConcurrencyPolicy {
+                    selected_profile_id: "firefox_stable".to_string(),
+                    per_profile_caps: caps,
+                },
+            ),
+            ..ProxyRuntimeContext::default()
+        };
+        let state = RuntimeState::test_with_context(RuntimeConfig::default(), Some(context));
+
+        let first = state.try_acquire_owned_sni_session("Example.COM.").expect("first profile slot");
+        let second = state.try_acquire_owned_sni_session("example.com").expect("second profile slot");
+        assert!(state.try_acquire_owned_sni_session("example.com").is_none());
+        let pass_through = (0..8)
+            .map(|_| state.try_acquire_pass_through_sni_session("example.com").expect("pass-through slot"))
+            .collect::<Vec<_>>();
+        assert!(state.try_acquire_pass_through_sni_session("example.com").is_none());
+        let exit_ip = IpAddr::V4(Ipv4Addr::new(198, 51, 100, 7));
+        let exit_guard = state.try_acquire_exit_session(exit_ip).expect("exit-IP admission remains independent");
+        drop((first, second, pass_through, exit_guard));
     }
 
     #[test]

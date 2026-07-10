@@ -251,6 +251,7 @@ mod tests {
                 ExecutionStageId::StrategyDnsBaseline,
                 ExecutionStageId::StrategyQuicCandidates,
                 ExecutionStageId::StrategyTcpCandidates,
+                ExecutionStageId::StrategyConnectionConcurrency,
                 ExecutionStageId::StrategyRecommendation,
             ],
         );

@@ -22,6 +22,7 @@ pub(in crate::engine) enum ExecutionStageId {
     StrategyDnsBaseline,
     StrategyTcpCandidates,
     StrategyQuicCandidates,
+    StrategyConnectionConcurrency,
     StrategyRecommendation,
 }
 

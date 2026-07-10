@@ -1,7 +1,7 @@
 ---
 title: Add connection-concurrency as an independent evidence axis
 type: task
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Codex
@@ -33,3 +33,10 @@ This task owns the serialized lane for `native/rust/Cargo.lock`, diagnostics wir
 - Synthetic network tests cover launch barriers, observed peak, post-check freeze handling, rotation, cancellation, and partial results.
 - Runtime tests cover per-network/profile persistence, next-start-only application, independent same-SNI counters, exit-IP coexistence, RAII release, pass-through fallback, and raw-SNI privacy.
 - Requested Rust, Kotlin, static-analysis, architecture, boundary, metadata, API-snapshot, and locale gates pass, with unrelated baseline failures documented separately.
+
+## Work log
+
+- Added the schema-versioned axis-M evidence, catalog eligibility metadata, six-profile quick/audit matrix runner, conjunction classifier, report/export projection, remembered-network policy, next-start runtime context, and same-SNI/profile limiter.
+- Added classifier, real TLS fixture, freeze/cancellation/partial recovery, Kotlin wire/catalog/persistence, and runtime limiter regression coverage.
+- Feature-specific tests, diagnostics boundary verification, architecture health, Cargo metadata, and locale-key parity pass. Full-tree diagnostics/static-analysis gates still expose unrelated `origin/main` baseline drift in the confirm-good taxonomy fixture, existing engine/service detekt findings, and the host-dependent runtime-platform API snapshot.
+- The classifier confirms replicated evidence across two eligible targets in one scan. Cross-scan target-rotation history is not persisted, so the alternative two-scan confirmation path remains follow-up work; a single clean target remains non-actionable `CONJUNCTION_SUSPECTED`.

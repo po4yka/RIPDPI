@@ -17,6 +17,7 @@ ripdpi-monitor-lane-adapter = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-telemetry = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
 libc = { workspace = true }
 md5 = { workspace = true }
 metrics = { workspace = true }

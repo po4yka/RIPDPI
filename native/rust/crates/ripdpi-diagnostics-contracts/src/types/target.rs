@@ -3,6 +3,13 @@ use serde::{Deserialize, Serialize};
 use super::strategy::StrategyProbeTargetSelection;
 use crate::util::*;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConcurrencyProbeTargetMetadata {
+    pub cohort_id: String,
+    pub max_parallelism: u16,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DomainTarget {
@@ -19,6 +26,10 @@ pub struct DomainTarget {
     pub http_path: String,
     #[serde(default)]
     pub is_control: bool,
+    /// Presence explicitly opts this safe catalog target into the bounded
+    /// same-SNI connection-concurrency matrix.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub concurrency_probe: Option<ConcurrencyProbeTargetMetadata>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

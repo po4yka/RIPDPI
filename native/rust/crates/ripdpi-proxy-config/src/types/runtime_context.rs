@@ -13,6 +13,16 @@ pub struct ProxyRuntimeContext {
     pub direct_path_capabilities: Vec<ProxyDirectPathCapability>,
     #[serde(default)]
     pub morph_policy: Option<ProxyMorphPolicy>,
+    #[serde(default)]
+    pub connection_concurrency: Option<ProxyConnectionConcurrencyPolicy>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyConnectionConcurrencyPolicy {
+    pub selected_profile_id: String,
+    #[serde(default)]
+    pub per_profile_caps: std::collections::BTreeMap<String, u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -65,6 +65,11 @@ class BundledDiagnosticsProfileImporter
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
+        private companion object {
+            const val QuickRequiredParallelism = 4
+            const val AuditRequiredParallelism = 8
+        }
+
         suspend fun importProfiles() {
             val bundledCatalog = decodeCatalog(profileSource.readProfilesJson())
             val catalog =
@@ -109,7 +114,28 @@ class BundledDiagnosticsProfileImporter
         }
 
         private fun decodeCatalog(payload: String): BundledDiagnosticsCatalogWire =
-            json.decodeFromString(BundledDiagnosticsCatalogWire.serializer(), payload)
+            json
+                .decodeFromString(BundledDiagnosticsCatalogWire.serializer(), payload)
+                .also(::validateConcurrencyTargets)
+
+        private fun validateConcurrencyTargets(catalog: BundledDiagnosticsCatalogWire) {
+            catalog.profiles.forEach { profile ->
+                val requiredParallelism =
+                    if (profile.request.strategyProbe?.suiteId == "full_matrix_v1") {
+                        AuditRequiredParallelism
+                    } else {
+                        QuickRequiredParallelism
+                    }
+                profile.request.domainTargets.filter { it.concurrencyProbe != null }.forEach { target ->
+                    require(profile.request.legalSafety == DiagnosticsLegalSafety.SAFE) {
+                        "Concurrency probe target ${target.host} must belong to a SAFE profile"
+                    }
+                    require(target.concurrencyProbe!!.maxParallelism >= requiredParallelism) {
+                        "Concurrency probe target ${target.host} limit is below $requiredParallelism"
+                    }
+                }
+            }
+        }
     }
 
 @dagger.Module

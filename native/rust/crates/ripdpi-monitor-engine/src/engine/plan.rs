@@ -44,6 +44,7 @@ pub(super) fn strategy_stage_order(request: &ScanRequest) -> Vec<ExecutionStageI
         stages.push(ExecutionStageId::StrategyTcpCandidates);
         stages.push(ExecutionStageId::StrategyQuicCandidates);
     }
+    stages.push(ExecutionStageId::StrategyConnectionConcurrency);
     stages.push(ExecutionStageId::StrategyRecommendation);
     stages
 }

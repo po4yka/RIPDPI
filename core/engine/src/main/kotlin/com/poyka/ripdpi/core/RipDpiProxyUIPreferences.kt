@@ -140,6 +140,33 @@ class RipDpiProxyUIPreferences(
     }
 }
 
+fun RipDpiProxyUIPreferences.withConnectionConcurrencyPolicy(
+    policy: RipDpiConnectionConcurrencyPolicy,
+): RipDpiProxyUIPreferences =
+    RipDpiProxyUIPreferences(
+        listen = listen,
+        protocols = protocols,
+        chains = chains,
+        fakePackets = fakePackets.copy(tlsFingerprintProfile = policy.selectedProfileId),
+        parserEvasions = parserEvasions,
+        adaptiveFallback = adaptiveFallback,
+        quic = quic,
+        hosts = hosts,
+        relay = relay,
+        warp = warp,
+        hostAutolearn = hostAutolearn,
+        wsTunnel = wsTunnel,
+        nativeLogLevel = nativeLogLevel,
+        runtimeContext = (runtimeContext ?: RipDpiRuntimeContext()).copy(connectionConcurrency = policy),
+        logContext = logContext,
+        rootMode = rootMode,
+        rootHelperSocketPath = rootHelperSocketPath,
+        geoipDbPath = geoipDbPath,
+        geositeDbPath = geositeDbPath,
+        environmentKind = environmentKind,
+        awg = awg,
+    )
+
 fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(activeDns: ActiveDnsSettings? = null): StrategyLaneFamilies =
     deriveStrategyLaneFamilies(
         tcpSteps = chains.tcpSteps,

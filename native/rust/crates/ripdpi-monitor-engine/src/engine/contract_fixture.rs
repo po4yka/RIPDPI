@@ -169,6 +169,7 @@ fn connectivity_partial_report_request() -> ScanRequest {
             http_port: Some(80),
             http_path: "/".to_string(),
             is_control: false,
+            concurrency_probe: None,
         }],
         dns_targets: vec![crate::types::DnsTarget {
             domain: "fixture.example.test".to_string(),

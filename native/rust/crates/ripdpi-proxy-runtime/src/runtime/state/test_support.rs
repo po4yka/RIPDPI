@@ -53,6 +53,7 @@ impl RuntimeState {
         } = runtime_session_projection(&config);
         let RuntimeDesyncProjection { tcp_desync_executor, udp_desync_planner } = runtime_desync_projection(&config);
         let RuntimeResponseProjection { first_response_exchange_policy } = runtime_response_projection(&config);
+        let (selected_tls_profile, same_sni_caps) = connection_concurrency_runtime_state(runtime_context.as_ref());
 
         Self {
             listener_settings,
@@ -87,6 +88,8 @@ impl RuntimeState {
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(NetworkReprobeTracker::new()),
             exit_ip_session_limiter: ExitIpSessionLimiter::new(ExitIpSessionCaps::default()),
+            same_sni_profile_limiter: SameSniProfileLimiter::new(same_sni_caps),
+            selected_tls_profile,
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,

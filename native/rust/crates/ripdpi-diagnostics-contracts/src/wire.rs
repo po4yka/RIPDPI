@@ -14,8 +14,8 @@ pub use report_wire::{EngineProbeResultWire, EngineScanReportWire};
 pub use request_wire::EngineScanRequestWire;
 pub use resolver_recommendation::ResolverRecommendationWire;
 
-// v3: requires an explicit current-only schemaVersion envelope.
-pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 4;
+// v5: adds the non-backward-decodable CONNECTION_CONCURRENCY observation kind.
+pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 5;
 
 pub type EngineProbeTaskFamily = ProbeTaskFamily;
 pub type EngineProbeTaskWire = ProbeTask;

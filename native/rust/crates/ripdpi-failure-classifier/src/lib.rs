@@ -2,6 +2,7 @@
 
 pub mod block_detection;
 mod confirm_good;
+mod connection_concurrency;
 mod connection_freeze;
 mod dns;
 pub mod field_classifier;
@@ -15,8 +16,8 @@ mod types;
 
 pub use block_detection::{
     BlockSignal, BlockSignalObservation, BlockpageFingerprint, FingerprintLocation, PatternType,
-    block_signal_from_failure, bundled_blockpage_fingerprints, classify_http_response_block,
-    load_blockpage_fingerprints, match_blockpage_response,
+    block_signal_from_failure, block_signal_from_failure_with_context, bundled_blockpage_fingerprints,
+    classify_http_response_block, load_blockpage_fingerprints, match_blockpage_response,
 };
 pub use http::classify_http_blockpage;
 pub use quic::classify_quic_probe;
@@ -32,6 +33,11 @@ pub use {
         CONFIRM_GOOD_EVIDENCE_WINDOW_MS, CONFIRM_GOOD_MAX_OBSERVATIONS, ConfirmGoodDpiAccumulator,
         ConfirmGoodDpiEvidence, ConfirmGoodEvidenceSource, ConfirmGoodFlowObservation, ConfirmGoodFlowSource,
         ConfirmGoodTerminalReason,
+    },
+    connection_concurrency::{
+        CONNECTION_CONCURRENCY_CLASSIFIER_VERSION, ConnectionConcurrencyAssessment, ConnectionConcurrencyCell,
+        ConnectionConcurrencyCellStatus, ConnectionConcurrencyEvidence, ConnectionConcurrencyVerdict,
+        FailureEvidenceContext, classify_connection_concurrency_matrix,
     },
     connection_freeze::classify_connection_freeze,
     dns::confirm_dns_tampering,

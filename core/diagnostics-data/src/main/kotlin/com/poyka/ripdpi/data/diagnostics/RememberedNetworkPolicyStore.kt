@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data.diagnostics
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
+import com.poyka.ripdpi.data.RememberedConnectionConcurrencyPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
@@ -231,6 +232,10 @@ class DefaultRememberedNetworkPolicyStore
                         strategySignatureJson = policy.strategySignatureJson,
                         winningTcpStrategyFamily = policy.winningTcpStrategyFamily,
                         winningQuicStrategyFamily = policy.winningQuicStrategyFamily,
+                        connectionConcurrencyPolicyJson =
+                            policy.connectionConcurrencyPolicy?.let {
+                                json.encodeToString(RememberedConnectionConcurrencyPolicyJson.serializer(), it)
+                            },
                         source = source.encodeStorageValue(),
                         status = status,
                         successCount = if (status == RememberedNetworkPolicyStatusValidated) 1 else 0,
@@ -258,6 +263,10 @@ class DefaultRememberedNetworkPolicyStore
                         winningTcpStrategyFamily = policy.winningTcpStrategyFamily ?: existing.winningTcpStrategyFamily,
                         winningQuicStrategyFamily =
                             policy.winningQuicStrategyFamily ?: existing.winningQuicStrategyFamily,
+                        connectionConcurrencyPolicyJson =
+                            policy.connectionConcurrencyPolicy?.let {
+                                json.encodeToString(RememberedConnectionConcurrencyPolicyJson.serializer(), it)
+                            } ?: existing.connectionConcurrencyPolicyJson,
                         source = source.encodeStorageValue(),
                         status = status,
                         successCount =
@@ -295,7 +304,11 @@ class DefaultRememberedNetworkPolicyStore
                 } &&
                 strategySignatureJson == policy.strategySignatureJson &&
                 winningTcpStrategyFamily == policy.winningTcpStrategyFamily &&
-                winningQuicStrategyFamily == policy.winningQuicStrategyFamily
+                winningQuicStrategyFamily == policy.winningQuicStrategyFamily &&
+                connectionConcurrencyPolicyJson ==
+                policy.connectionConcurrencyPolicy?.let {
+                    json.encodeToString(RememberedConnectionConcurrencyPolicyJson.serializer(), it)
+                }
     }
 
 fun RememberedNetworkPolicyEntity.decodedSource(): RememberedNetworkPolicySource =
@@ -323,6 +336,12 @@ fun RememberedNetworkPolicyEntity.toPolicyJson(json: Json = RipDpiJson): Remembe
                     )
                 }.onFailure { Logger.w(it) { "Failed to decode VPN DNS policy" } }.getOrNull()
             }
+    val connectionConcurrencyPolicy =
+        connectionConcurrencyPolicyJson?.takeIf(String::isNotBlank)?.let { payload ->
+            runCatching {
+                json.decodeFromString(RememberedConnectionConcurrencyPolicyJson.serializer(), payload)
+            }.onFailure { Logger.w(it) { "Failed to decode connection concurrency policy" } }.getOrNull()
+        }
     return RememberedNetworkPolicyJson(
         fingerprintHash = fingerprintHash,
         mode = mode,
@@ -333,6 +352,7 @@ fun RememberedNetworkPolicyEntity.toPolicyJson(json: Json = RipDpiJson): Remembe
         winningTcpStrategyFamily = winningTcpStrategyFamily,
         winningQuicStrategyFamily = winningQuicStrategyFamily,
         winningDnsStrategyFamily = dnsPolicy?.toActiveDnsSettings()?.strategyFamily(),
+        connectionConcurrencyPolicy = connectionConcurrencyPolicy,
     )
 }
 

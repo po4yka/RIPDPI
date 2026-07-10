@@ -47,8 +47,8 @@ pub use protocol::ProxyUiProtocolConfig;
 pub use quic::ProxyUiQuicConfig;
 pub use relay::ProxyUiRelayConfig;
 pub use runtime_context::{
-    ProxyDirectPathCapability, ProxyEncryptedDnsContext, ProxyLogContext, ProxyMorphPolicy, ProxyPreferredEdge,
-    ProxyRuntimeContext,
+    ProxyConnectionConcurrencyPolicy, ProxyDirectPathCapability, ProxyEncryptedDnsContext, ProxyLogContext,
+    ProxyMorphPolicy, ProxyPreferredEdge, ProxyRuntimeContext,
 };
 pub use ui::{ProxyUiConfig, ProxyUiWsTunnelConfig};
 pub use warp::ProxyUiWarpConfig;

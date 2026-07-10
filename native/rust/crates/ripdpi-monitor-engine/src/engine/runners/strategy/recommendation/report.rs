@@ -119,6 +119,7 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
             _ => StrategyProbeCompletionKind::Normal,
         },
         audit_assessment,
+        connection_concurrency_assessment: runtime.strategy.connection_concurrency_assessment.clone(),
         target_selection: plan.request.strategy_probe.as_ref().and_then(|p| p.target_selection.clone()),
         pilot_bucket_labels,
         domain_strategy_seeds: Vec::new(),

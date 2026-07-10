@@ -1,9 +1,11 @@
+mod connection_concurrency;
 mod dns_baseline;
 mod quic;
 mod recommendation;
 mod support;
 mod tcp;
 
+pub(super) use connection_concurrency::StrategyConnectionConcurrencyRunner;
 pub(super) use dns_baseline::StrategyDnsBaselineRunner;
 pub(super) use quic::StrategyQuicRunner;
 pub(super) use recommendation::StrategyRecommendationRunner;

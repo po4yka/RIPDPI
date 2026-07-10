@@ -78,11 +78,14 @@ internal fun DiagnosticsUiFactorySupport.toProbeResultUiModel(
 
 internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis): DiagnosticsDiagnosisUiModel {
     val isConfirmGood = diagnosis.code == "confirm_good_dpi_suspected"
+    val isConnectionConcurrency = diagnosis.code == "connection_concurrency_interaction"
     return DiagnosticsDiagnosisUiModel(
         code = diagnosis.code,
         summary =
             if (isConfirmGood) {
                 context.getString(R.string.diagnostics_confirm_good_dpi_summary)
+            } else if (isConnectionConcurrency) {
+                context.getString(R.string.diagnostics_connection_concurrency_summary)
             } else {
                 diagnosis.summary
             },
@@ -101,12 +104,16 @@ internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis
                     context.getString(R.string.diagnostics_confirm_good_dpi_evidence_reality),
                     context.getString(R.string.diagnostics_confirm_good_dpi_evidence_quic),
                 )
+            } else if (isConnectionConcurrency) {
+                diagnosis.evidence
             } else {
                 diagnosis.evidence
             },
         recommendation =
             if (isConfirmGood) {
                 context.getString(R.string.diagnostics_confirm_good_dpi_recommendation)
+            } else if (isConnectionConcurrency && diagnosis.severity == "warning") {
+                context.getString(R.string.diagnostics_connection_concurrency_recommendation)
             } else {
                 diagnosis.recommendation
             },

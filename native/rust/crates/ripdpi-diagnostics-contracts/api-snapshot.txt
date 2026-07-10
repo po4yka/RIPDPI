@@ -6,6 +6,19 @@ pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidenceSource::Mixed
 pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidenceSource::Passive
 pub enum ripdpi_diagnostics_contracts::types::ConfirmGoodDpiVerdictStatus
 pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiVerdictStatus::Suspected
+pub enum ripdpi_diagnostics_contracts::types::ConnectionConcurrencyCellStatus
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyCellStatus::Blocked
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyCellStatus::Contaminated
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyCellStatus::Healthy
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyCellStatus::Mixed
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyCellStatus::Skipped
+pub enum ripdpi_diagnostics_contracts::types::ConnectionConcurrencyVerdict
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyVerdict::ConcurrencyOnly
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyVerdict::ConjunctionConfirmed
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyVerdict::ConjunctionSuspected
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyVerdict::FingerprintOnly
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyVerdict::Inconclusive
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyVerdict::NoInteraction
 pub enum ripdpi_diagnostics_contracts::types::DiagnosticProfileFamily
 pub ripdpi_diagnostics_contracts::types::DiagnosticProfileFamily::AutomaticAudit
 pub ripdpi_diagnostics_contracts::types::DiagnosticProfileFamily::AutomaticProbing
@@ -37,6 +50,7 @@ pub ripdpi_diagnostics_contracts::types::HttpProbeStatus::Ok
 pub ripdpi_diagnostics_contracts::types::HttpProbeStatus::Unreachable
 pub enum ripdpi_diagnostics_contracts::types::ObservationKind
 pub ripdpi_diagnostics_contracts::types::ObservationKind::Circumvention
+pub ripdpi_diagnostics_contracts::types::ObservationKind::ConnectionConcurrency
 pub ripdpi_diagnostics_contracts::types::ObservationKind::Dns
 pub ripdpi_diagnostics_contracts::types::ObservationKind::Domain
 pub ripdpi_diagnostics_contracts::types::ObservationKind::Quic
@@ -155,6 +169,9 @@ pub ripdpi_diagnostics_contracts::types::CircumventionTarget::handshake_port: u1
 pub ripdpi_diagnostics_contracts::types::CircumventionTarget::id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::CircumventionTarget::tls_server_name: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::CircumventionTarget::tool: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::types::ConcurrencyProbeTargetMetadata
+pub ripdpi_diagnostics_contracts::types::ConcurrencyProbeTargetMetadata::cohort_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::ConcurrencyProbeTargetMetadata::max_parallelism: u16
 pub struct ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence
 pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence::application_response_bytes: u64
 pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence::catalog_profile_validated: bool
@@ -166,6 +183,29 @@ pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiEvidence::stalled_flow_co
 pub struct ripdpi_diagnostics_contracts::types::ConfirmGoodDpiVerdict
 pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiVerdict::evidence: ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence
 pub ripdpi_diagnostics_contracts::types::ConfirmGoodDpiVerdict::status: ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdictStatus
+pub struct ripdpi_diagnostics_contracts::types::ConnectionConcurrencyAssessment
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyAssessment::affected_targets: usize
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyAssessment::classifier_version: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyAssessment::clean_cells: usize
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyAssessment::healthy_caps_by_profile: alloc::collections::btree::map::BTreeMap<alloc::string::String, u16>
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyAssessment::planned_cells: usize
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyAssessment::safe_cap: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyAssessment::selected_profile_id: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyAssessment::verdict: ripdpi_diagnostics_contracts::ConnectionConcurrencyVerdict
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyAssessment::warnings: alloc::vec::Vec<alloc::string::String>
+pub struct ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::block_signals: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::burst_window_ms: u32
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::cohort_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::contaminated: bool
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::failures: u16
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::launch_spread_ms: u32
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::observed_peak_parallelism: u16
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::requested_parallelism: u16
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::skip_reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::status: ripdpi_diagnostics_contracts::ConnectionConcurrencyCellStatus
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::successes: u16
+pub ripdpi_diagnostics_contracts::types::ConnectionConcurrencyObservationFact::tls_profile_id: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::types::Diagnosis
 pub ripdpi_diagnostics_contracts::types::Diagnosis::code: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::Diagnosis::control_validated: core::option::Option<bool>
@@ -221,6 +261,7 @@ pub ripdpi_diagnostics_contracts::types::DomainObservationFact::tls_ech_version:
 pub ripdpi_diagnostics_contracts::types::DomainObservationFact::tls_error: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::DomainObservationFact::transport_failure: ripdpi_diagnostics_contracts::TransportFailureKind
 pub struct ripdpi_diagnostics_contracts::types::DomainTarget
+pub ripdpi_diagnostics_contracts::types::DomainTarget::concurrency_probe: core::option::Option<ripdpi_diagnostics_contracts::ConcurrencyProbeTargetMetadata>
 pub ripdpi_diagnostics_contracts::types::DomainTarget::connect_ip: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::DomainTarget::connect_ips: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::DomainTarget::host: alloc::string::String
@@ -243,6 +284,7 @@ pub ripdpi_diagnostics_contracts::types::ProbeDetail::key: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ProbeDetail::value: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::types::ProbeObservation
 pub ripdpi_diagnostics_contracts::types::ProbeObservation::circumvention: core::option::Option<ripdpi_diagnostics_contracts::CircumventionObservationFact>
+pub ripdpi_diagnostics_contracts::types::ProbeObservation::connection_concurrency: core::option::Option<ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact>
 pub ripdpi_diagnostics_contracts::types::ProbeObservation::dns: core::option::Option<ripdpi_diagnostics_contracts::DnsObservationFact>
 pub ripdpi_diagnostics_contracts::types::ProbeObservation::domain: core::option::Option<ripdpi_diagnostics_contracts::DomainObservationFact>
 pub ripdpi_diagnostics_contracts::types::ProbeObservation::evidence: alloc::vec::Vec<alloc::string::String>
@@ -450,6 +492,7 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::transport_
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeReport
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::audit_assessment: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::completion_kind: ripdpi_diagnostics_contracts::StrategyProbeCompletionKind
+pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::connection_concurrency_assessment: core::option::Option<ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::domain_strategy_seeds: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyDomainSeed>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::methodology_version: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::pilot_bucket_labels: alloc::vec::Vec<alloc::string::String>
@@ -542,6 +585,7 @@ pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::preferred
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::reason_code: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::selected_relay_role: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::TransportPivotRecommendation::viability: ripdpi_diagnostics_contracts::TransportPivotViability
+pub const ripdpi_diagnostics_contracts::types::CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str
 pub const ripdpi_diagnostics_contracts::types::STRATEGY_PROBE_METHODOLOGY_VERSION: &str
 pub mod ripdpi_diagnostics_contracts::util
 pub enum ripdpi_diagnostics_contracts::util::DnsAnswerOverlap
@@ -705,6 +749,19 @@ pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource::Mixed
 pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidenceSource::Passive
 pub enum ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdictStatus
 pub ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdictStatus::Suspected
+pub enum ripdpi_diagnostics_contracts::ConnectionConcurrencyCellStatus
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyCellStatus::Blocked
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyCellStatus::Contaminated
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyCellStatus::Healthy
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyCellStatus::Mixed
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyCellStatus::Skipped
+pub enum ripdpi_diagnostics_contracts::ConnectionConcurrencyVerdict
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyVerdict::ConcurrencyOnly
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyVerdict::ConjunctionConfirmed
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyVerdict::ConjunctionSuspected
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyVerdict::FingerprintOnly
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyVerdict::Inconclusive
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyVerdict::NoInteraction
 pub enum ripdpi_diagnostics_contracts::DiagnosticProfileFamily
 pub ripdpi_diagnostics_contracts::DiagnosticProfileFamily::AutomaticAudit
 pub ripdpi_diagnostics_contracts::DiagnosticProfileFamily::AutomaticProbing
@@ -736,6 +793,7 @@ pub ripdpi_diagnostics_contracts::HttpProbeStatus::Ok
 pub ripdpi_diagnostics_contracts::HttpProbeStatus::Unreachable
 pub enum ripdpi_diagnostics_contracts::ObservationKind
 pub ripdpi_diagnostics_contracts::ObservationKind::Circumvention
+pub ripdpi_diagnostics_contracts::ObservationKind::ConnectionConcurrency
 pub ripdpi_diagnostics_contracts::ObservationKind::Dns
 pub ripdpi_diagnostics_contracts::ObservationKind::Domain
 pub ripdpi_diagnostics_contracts::ObservationKind::Quic
@@ -854,6 +912,9 @@ pub ripdpi_diagnostics_contracts::CircumventionTarget::handshake_port: u16
 pub ripdpi_diagnostics_contracts::CircumventionTarget::id: alloc::string::String
 pub ripdpi_diagnostics_contracts::CircumventionTarget::tls_server_name: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::CircumventionTarget::tool: alloc::string::String
+pub struct ripdpi_diagnostics_contracts::ConcurrencyProbeTargetMetadata
+pub ripdpi_diagnostics_contracts::ConcurrencyProbeTargetMetadata::cohort_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::ConcurrencyProbeTargetMetadata::max_parallelism: u16
 pub struct ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence
 pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence::application_response_bytes: u64
 pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence::catalog_profile_validated: bool
@@ -865,6 +926,29 @@ pub ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence::stalled_flow_count: us
 pub struct ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict
 pub ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict::evidence: ripdpi_diagnostics_contracts::ConfirmGoodDpiEvidence
 pub ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdict::status: ripdpi_diagnostics_contracts::ConfirmGoodDpiVerdictStatus
+pub struct ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment::affected_targets: usize
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment::classifier_version: alloc::string::String
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment::clean_cells: usize
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment::healthy_caps_by_profile: alloc::collections::btree::map::BTreeMap<alloc::string::String, u16>
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment::planned_cells: usize
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment::safe_cap: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment::selected_profile_id: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment::verdict: ripdpi_diagnostics_contracts::ConnectionConcurrencyVerdict
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment::warnings: alloc::vec::Vec<alloc::string::String>
+pub struct ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::block_signals: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::burst_window_ms: u32
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::cohort_id: alloc::string::String
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::contaminated: bool
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::failures: u16
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::launch_spread_ms: u32
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::observed_peak_parallelism: u16
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::requested_parallelism: u16
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::skip_reason: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::status: ripdpi_diagnostics_contracts::ConnectionConcurrencyCellStatus
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::successes: u16
+pub ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact::tls_profile_id: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::Diagnosis
 pub ripdpi_diagnostics_contracts::Diagnosis::code: alloc::string::String
 pub ripdpi_diagnostics_contracts::Diagnosis::control_validated: core::option::Option<bool>
@@ -920,6 +1004,7 @@ pub ripdpi_diagnostics_contracts::DomainObservationFact::tls_ech_version: core::
 pub ripdpi_diagnostics_contracts::DomainObservationFact::tls_error: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::DomainObservationFact::transport_failure: ripdpi_diagnostics_contracts::TransportFailureKind
 pub struct ripdpi_diagnostics_contracts::DomainTarget
+pub ripdpi_diagnostics_contracts::DomainTarget::concurrency_probe: core::option::Option<ripdpi_diagnostics_contracts::ConcurrencyProbeTargetMetadata>
 pub ripdpi_diagnostics_contracts::DomainTarget::connect_ip: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::DomainTarget::connect_ips: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_diagnostics_contracts::DomainTarget::host: alloc::string::String
@@ -1015,6 +1100,7 @@ pub ripdpi_diagnostics_contracts::ProbeDetail::key: alloc::string::String
 pub ripdpi_diagnostics_contracts::ProbeDetail::value: alloc::string::String
 pub struct ripdpi_diagnostics_contracts::ProbeObservation
 pub ripdpi_diagnostics_contracts::ProbeObservation::circumvention: core::option::Option<ripdpi_diagnostics_contracts::CircumventionObservationFact>
+pub ripdpi_diagnostics_contracts::ProbeObservation::connection_concurrency: core::option::Option<ripdpi_diagnostics_contracts::ConnectionConcurrencyObservationFact>
 pub ripdpi_diagnostics_contracts::ProbeObservation::dns: core::option::Option<ripdpi_diagnostics_contracts::DnsObservationFact>
 pub ripdpi_diagnostics_contracts::ProbeObservation::domain: core::option::Option<ripdpi_diagnostics_contracts::DomainObservationFact>
 pub ripdpi_diagnostics_contracts::ProbeObservation::evidence: alloc::vec::Vec<alloc::string::String>
@@ -1237,6 +1323,7 @@ pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::transport_pivot: 
 pub struct ripdpi_diagnostics_contracts::StrategyProbeReport
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::audit_assessment: core::option::Option<ripdpi_diagnostics_contracts::StrategyProbeAuditAssessment>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::completion_kind: ripdpi_diagnostics_contracts::StrategyProbeCompletionKind
+pub ripdpi_diagnostics_contracts::StrategyProbeReport::connection_concurrency_assessment: core::option::Option<ripdpi_diagnostics_contracts::ConnectionConcurrencyAssessment>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::domain_strategy_seeds: alloc::vec::Vec<ripdpi_diagnostics_contracts::StrategyDomainSeed>
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::methodology_version: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::pilot_bucket_labels: alloc::vec::Vec<alloc::string::String>
@@ -1329,6 +1416,7 @@ pub ripdpi_diagnostics_contracts::TransportPivotRecommendation::preferred_family
 pub ripdpi_diagnostics_contracts::TransportPivotRecommendation::reason_code: alloc::string::String
 pub ripdpi_diagnostics_contracts::TransportPivotRecommendation::selected_relay_role: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::TransportPivotRecommendation::viability: ripdpi_diagnostics_contracts::TransportPivotViability
+pub const ripdpi_diagnostics_contracts::CONNECTION_CONCURRENCY_CLASSIFIER_VERSION: &str
 pub const ripdpi_diagnostics_contracts::DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32
 pub const ripdpi_diagnostics_contracts::STRATEGY_PROBE_METHODOLOGY_VERSION: &str
 pub type ripdpi_diagnostics_contracts::EngineObservationWire = ripdpi_diagnostics_contracts::ProbeObservation

@@ -1,4 +1,5 @@
 mod aggregate;
+mod connection_concurrency;
 mod defaults;
 mod dns;
 mod domain;
@@ -12,6 +13,7 @@ mod throughput;
 mod tls;
 
 pub use aggregate::ProbeObservation;
+pub use connection_concurrency::{ConnectionConcurrencyCellStatus, ConnectionConcurrencyObservationFact};
 pub use dns::{DnsObservationFact, DnsObservationStatus};
 pub use domain::DomainObservationFact;
 pub use endpoint::{CircumventionObservationFact, EndpointProbeStatus, ServiceObservationFact};

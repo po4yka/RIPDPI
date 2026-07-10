@@ -291,6 +291,7 @@ mod tests {
                 quic_burst_profile: "compat_burst".to_string(),
                 fake_packet_shape_profile: "compat_default".to_string(),
             }),
+            connection_concurrency: None,
         }
     }
 

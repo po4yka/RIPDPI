@@ -16,7 +16,7 @@ import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
 import kotlinx.serialization.Serializable
 
-const val BundledDiagnosticsCatalogSchemaVersion = 1
+const val BundledDiagnosticsCatalogSchemaVersion = 2
 
 @Serializable
 enum class ProbePersistencePolicyWire {
