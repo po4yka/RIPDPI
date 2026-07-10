@@ -15,8 +15,10 @@
       "sourcePaths": [
         "native/rust/crates/ripdpi-diagnostics-contracts/src/types/strategy.rs",
         "native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs",
+        "native/rust/crates/ripdpi-diagnostics-contracts/src/wire/tests.rs",
         "native/rust/crates/ripdpi-monitor-engine/tests/contract_fixtures.rs",
         "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/contract/engine/EngineContract.kt",
+        "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsEngineSchemaValidationTest.kt",
         "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsWireContractTest.kt",
         "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContractGovernanceTest.kt"
       ],
@@ -38,6 +40,11 @@
           "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-monitor-engine --test contract_fixtures"
         },
         {
+          "id": "rust-diagnostics-schema-contract",
+          "path": "native/rust/crates/ripdpi-diagnostics-contracts/src/wire/tests.rs",
+          "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-diagnostics-contracts --lib"
+        },
+        {
           "id": "kotlin-diagnostics-wire-contract",
           "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsWireContractTest.kt",
           "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsWireContractTest' -Pripdpi.skipNativeBuild=true"
@@ -46,6 +53,11 @@
           "id": "kotlin-diagnostics-governance-contract",
           "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsContractGovernanceTest.kt",
           "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsContractGovernanceTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
+          "id": "kotlin-diagnostics-schema-contract",
+          "path": "core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsEngineSchemaValidationTest.kt",
+          "command": "./gradlew :core:diagnostics:testDebugUnitTest --tests 'com.poyka.ripdpi.diagnostics.DiagnosticsEngineSchemaValidationTest' -Pripdpi.skipNativeBuild=true"
         }
       ],
       "invariants": [
@@ -68,6 +80,7 @@
       "sourcePaths": [
         "core/data/model/src/main/proto/app_settings.proto",
         "core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/AppSettingsSerializer.kt",
+        "core/data/settings/src/test/kotlin/com/poyka/ripdpi/data/AppSettingsSerializerUnknownFieldTest.kt",
         "core/data/src/test/kotlin/com/poyka/ripdpi/data/AppSettingsJsonTest.kt",
         "core/data/model/src/test/kotlin/com/poyka/ripdpi/data/ProxySettingFeatureContractTest.kt",
         "native/rust/crates/feature-contract-harness/tests/proxy_setting.rs"
@@ -82,6 +95,11 @@
           "command": "./gradlew :core:data:testDebugUnitTest --tests 'com.poyka.ripdpi.data.AppSettingsJsonTest'"
         },
         {
+          "id": "kotlin-app-settings-unknown-fields",
+          "path": "core/data/settings/src/test/kotlin/com/poyka/ripdpi/data/AppSettingsSerializerUnknownFieldTest.kt",
+          "command": "./gradlew :core:data:settings:testDebugUnitTest --tests 'com.poyka.ripdpi.data.AppSettingsSerializerUnknownFieldTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
           "id": "kotlin-proxy-setting-feature-contract",
           "path": "core/data/model/src/test/kotlin/com/poyka/ripdpi/data/ProxySettingFeatureContractTest.kt",
           "command": "./gradlew :core:data:model:testDebugUnitTest --tests 'com.poyka.ripdpi.data.ProxySettingFeatureContractTest'"
@@ -94,14 +112,15 @@
       ],
       "invariants": [
         "Removed AppSettings fields stay listed in reserved field numbers and names.",
-        "Every non-zero/non-empty persisted default is represented in AppSettingsSerializer.defaultValue or an explicit compatibility mapper.",
+        "Every non-zero/non-empty persisted default is represented in AppSettingsSerializer.defaultValue; historical tag semantics are not custom-migrated.",
+        "Standard protobuf unknown fields survive DataStore serializer round trips.",
         "Feature manifests include a proto layer and at least one Rust-consuming layer for each cross-layer setting family."
       ]
     },
     {
       "id": "native-config-json",
       "area": "native-config",
-      "description": "Kotlin native config JSON encoders and Rust proxy-config decoders must round-trip the same UI command/config fixtures.",
+      "description": "Kotlin proxy, tunnel, and relay native config JSON encoders and Rust decoders must require their current schema and preserve current payload semantics.",
       "changeTriggers": [
         "RipDpiProxyUIPreferences field or default changes",
         "Native proxy config serde field or default changes",
@@ -109,10 +128,16 @@
       ],
       "sourcePaths": [
         "core/engine/src/main/kotlin/com/poyka/ripdpi/core/codec/NativeProxyConfigValidation.kt",
+        "core/engine/src/main/kotlin/com/poyka/ripdpi/core/codec/NativeProxyConfig.kt",
         "core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyUIPreferences.kt",
+        "core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt",
+        "core/engine/src/main/kotlin/com/poyka/ripdpi/core/Tun2SocksTunnel.kt",
+        "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigSchemaVersionTest.kt",
         "core/engine/src/test/kotlin/com/poyka/ripdpi/core/ConfigContractRoundTripTest.kt",
         "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigContractSnapshotTest.kt",
         "native/rust/crates/ripdpi-proxy-config/src/lib.rs",
+        "native/rust/crates/ripdpi-tunnel-config/src/raw.rs",
+        "native/rust/crates/ripdpi-relay-core/src/config/flat.rs",
         "native/rust/crates/ripdpi-proxy-config/tests/round_trip.rs"
       ],
       "fixturePaths": [
@@ -132,13 +157,29 @@
           "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeConfigContractSnapshotTest' -Pripdpi.skipNativeBuild=true"
         },
         {
+          "id": "kotlin-native-config-schema",
+          "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeConfigSchemaVersionTest.kt",
+          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeConfigSchemaVersionTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
           "id": "rust-proxy-config-round-trip",
           "path": "native/rust/crates/ripdpi-proxy-config/tests/round_trip.rs",
           "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-proxy-config --test round_trip"
+        },
+        {
+          "id": "rust-tunnel-config-schema",
+          "path": "native/rust/crates/ripdpi-tunnel-config/src/tests.rs",
+          "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-config --lib"
+        },
+        {
+          "id": "rust-relay-config-schema",
+          "path": "native/rust/crates/ripdpi-relay-core/src/config/flat.rs",
+          "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-relay-core --lib"
         }
       ],
       "invariants": [
         "Kotlin-generated native config fixtures decode and re-encode through Rust without losing fields.",
+        "Proxy schema 2, tunnel schema 2, and relay schema 9 are required; missing, older, and future versions fail closed.",
         "Native config defaults and explicit nulls remain stable across command_line and ui payloads.",
         "Fixture scenarios cover TCP-heavy, UDP/QUIC, and relay-heavy config branches."
       ]
@@ -204,7 +245,7 @@
     {
       "id": "runtime-telemetry-json",
       "area": "telemetry",
-      "description": "Rust native telemetry snapshots/events and Kotlin NativeRuntimeSnapshot models must keep JSON fields, event payloads, and golden exports compatible.",
+      "description": "All Rust native telemetry snapshot producers and Kotlin NativeRuntimeSnapshot consumers must require schema 2, keep public JSON fields stable, and golden-lock internal-only fields out of payloads.",
       "changeTriggers": [
         "Rust NativeRuntimeSnapshot or NativeRuntimeEvent field/default changes",
         "Kotlin NativeRuntimeSnapshot or NativeRuntimeEvent field/default changes",
@@ -214,7 +255,12 @@
       "sourcePaths": [
         "native/rust/crates/ripdpi-android-telemetry-adapter/src/types.rs",
         "native/rust/crates/ripdpi-tunnel-android/src/telemetry/types.rs",
+        "native/rust/crates/ripdpi-relay-android/src/telemetry.rs",
+        "native/rust/crates/ripdpi-warp-android/src/telemetry.rs",
+        "native/rust/crates/ripdpi-amneziawg-android/src/telemetry.rs",
         "core/data/model/src/main/kotlin/com/poyka/ripdpi/data/NativeRuntimeSnapshot.kt",
+        "core/engine/src/main/kotlin/com/poyka/ripdpi/core/NativeRuntimeTelemetryCodec.kt",
+        "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeRuntimeTelemetryCodecTest.kt",
         "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeTelemetryGoldenTest.kt",
         "core/service/src/test/kotlin/com/poyka/ripdpi/services/ServiceTelemetryGoldenTest.kt"
       ],
@@ -228,13 +274,26 @@
         "core/engine/src/test/resources/golden/proxy_running_first_poll.json",
         "core/engine/src/test/resources/golden/proxy_running_second_poll.json",
         "core/engine/src/test/resources/golden/proxy_running_telegram_ws_events.json",
-        "core/engine/src/test/resources/golden/tunnel_ready.json"
+        "core/engine/src/test/resources/golden/tunnel_ready.json",
+        "native/rust/crates/ripdpi-android-telemetry-adapter/tests/golden/proxy_idle.json",
+        "native/rust/crates/ripdpi-android-telemetry-adapter/tests/golden/proxy_running_degraded_first_poll.json",
+        "native/rust/crates/ripdpi-android-telemetry-adapter/tests/golden/proxy_running_degraded_second_poll.json",
+        "native/rust/crates/ripdpi-android-telemetry-adapter/tests/golden/proxy_stopped.json",
+        "native/rust/crates/ripdpi-tunnel-android/tests/golden/tunnel_ready.json",
+        "native/rust/crates/ripdpi-tunnel-android/tests/golden/tunnel_running_degraded_first_poll.json",
+        "native/rust/crates/ripdpi-tunnel-android/tests/golden/tunnel_running_degraded_second_poll.json",
+        "native/rust/crates/ripdpi-tunnel-android/tests/golden/tunnel_stopped.json"
       ],
       "gateTests": [
         {
           "id": "kotlin-native-telemetry-goldens",
           "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeTelemetryGoldenTest.kt",
           "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeTelemetryGoldenTest' -Pripdpi.skipNativeBuild=true"
+        },
+        {
+          "id": "kotlin-native-telemetry-schema",
+          "path": "core/engine/src/test/kotlin/com/poyka/ripdpi/core/NativeRuntimeTelemetryCodecTest.kt",
+          "command": "./gradlew :core:engine:testDebugUnitTest --tests 'com.poyka.ripdpi.core.NativeRuntimeTelemetryCodecTest' -Pripdpi.skipNativeBuild=true"
         },
         {
           "id": "kotlin-service-telemetry-goldens",
@@ -250,11 +309,18 @@
           "id": "rust-tunnel-telemetry-contracts",
           "path": "native/rust/crates/ripdpi-tunnel-android/src/telemetry/tests.rs",
           "command": "cargo test --manifest-path native/rust/Cargo.toml -p ripdpi-tunnel-android telemetry"
+        },
+        {
+          "id": "rust-auxiliary-telemetry-contracts",
+          "path": "native/rust/crates/ripdpi-amneziawg-android/src/telemetry.rs",
+          "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-relay-android -p ripdpi-warp-android -p ripdpi-amneziawg-android --lib"
         }
       ],
       "invariants": [
         "Kotlin NativeRuntimeSnapshot is a compatible superset of Rust proxy and tunnel snapshot field manifests.",
         "NativeRuntimeEvent fields match the Rust event manifest exactly.",
+        "NativeEventRecord.diagnosticsSessionId remains internal and is absent from public telemetry event manifests and JSON.",
+        "Every telemetry producer emits schema 2; Kotlin rejects missing, older, and future telemetry schemas.",
         "Telemetry golden files cover first poll, subsequent poll, Telegram WS events, and tunnel-ready states.",
         "TunnelStats array indices remain fixture-backed."
       ]
