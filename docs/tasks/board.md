@@ -4,13 +4,12 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 
 _Legacy issue statuses are normalized while their source files are triaged: `in-progress` -> `doing`, `in-review` -> `review`, `device-smoke-pending` -> `blocked`; `done` and `dropped` issue files are omitted._
 
-## Doing (25)
+## Doing (24)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
 | critical | relay | [Epic - Remove Cloudflare from critical path](issues/epic-remove-cloudflare-from-critical-path.md) | unassigned | 2026-06-11 |
 | critical | vpn | [Epic - Fail-closed Android VPN policy engine](issues/epic-fail-closed-android-vpn-policy-engine.md) | unassigned | 2026-06-11 |
-| high | ci | [Self-audit Android app identity against package-based VPN detection](issues/self-audit-android-app-identity.md) | Codex | 2026-07-10 |
 | high | epic | [Epic - Extended outbound protocol support](issues/epic-extended-outbound-protocol-support.md) | unassigned | 2026-06-10 |
 | high | epic | [Epic - June 2026 full-project audit remediation](issues/epic-june-2026-audit-remediation.md) | unassigned | 2026-06-10 |
 | high | outbound | [Bridge TUN traffic through Xray local inbound](issues/bridge-tun-traffic-through-xray-local-inbound.md) | unassigned | 2026-06-05 |
@@ -34,10 +33,11 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
 | low | testing | [Add cross-stack chain tests (VLESS over xHTTP over Reality)](issues/add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality.md) | unassigned | 2026-06-10 |
 
-## Review (3)
+## Review (4)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
+| high | ci | [Self-audit Android app identity against package-based VPN detection](issues/self-audit-android-app-identity.md) | Codex | 2026-07-10 |
 | high | rust-native | [Add WireGuard-over-WebSocket transport with AmneziaWG disguise](issues/add-wireguard-over-websocket-transport-amneziawg-disguise.md) | unassigned | 2026-06-21 |
 | medium | rust-native | [Annotate and harden async cancel-safety in relay-core and tunnel-core](issues/annotate-and-harden-async-cancel-safety.md) | unassigned | 2026-06-14 |
 | low | rust-native | [Wire ShadowTLS version-mismatch into service telemetry](issues/wire-shadowtls-version-mismatch-into-service-telemetry.md) | unassigned | 2026-06-14 |
