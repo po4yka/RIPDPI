@@ -549,6 +549,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
     use golden_test_support::{assert_contract_fixture, extract_field_paths};
 
     let payload_json = r#"{
+        "schemaVersion": 2,
         "tunnelName": "tun0",
         "tunnelMtu": 1500,
         "multiQueue": false,
