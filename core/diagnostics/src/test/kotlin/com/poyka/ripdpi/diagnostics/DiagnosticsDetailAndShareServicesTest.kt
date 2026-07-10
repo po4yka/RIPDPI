@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
@@ -220,7 +221,7 @@ class DiagnosticsDetailAndShareServicesTest {
         ).copy(
             reportJson =
                 json.encodeToString(
-                    ScanReport.serializer(),
+                    EngineScanReportWire.serializer(),
                     ScanReport(
                         sessionId = "session-1",
                         profileId = "default",
@@ -239,7 +240,7 @@ class DiagnosticsDetailAndShareServicesTest {
                             ),
                         classifierVersion = "ru_ooni_v1",
                         packVersions = mapOf("ru-independent-media" to 1),
-                    ),
+                    ).toEngineScanReportWire(),
                 ),
         )
 

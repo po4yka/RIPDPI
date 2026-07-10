@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,7 +36,7 @@ class DiagnosticsTimelineSourceTest {
                             summary = "blocked",
                             reportJson =
                                 json.encodeToString(
-                                    ScanReport.serializer(),
+                                    EngineScanReportWire.serializer(),
                                     ScanReport(
                                         sessionId = "scan-1",
                                         profileId = "default",
@@ -51,7 +52,7 @@ class DiagnosticsTimelineSourceTest {
                                                     outcome = "dns_blocked",
                                                 ),
                                             ),
-                                    ),
+                                    ).toEngineScanReportWire(),
                                 ),
                         ).copy(
                             approachProfileId = "profile-fast",

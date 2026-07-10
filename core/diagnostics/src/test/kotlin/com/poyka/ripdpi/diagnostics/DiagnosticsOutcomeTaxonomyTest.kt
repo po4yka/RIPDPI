@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.Serializable
@@ -422,7 +423,7 @@ class DiagnosticsOutcomeTaxonomyTest {
         results: List<ProbeResult>,
     ): String =
         json.encodeToString(
-            ScanReport.serializer(),
+            EngineScanReportWire.serializer(),
             ScanReport(
                 sessionId = sessionId,
                 profileId = "profile-1",
@@ -431,7 +432,7 @@ class DiagnosticsOutcomeTaxonomyTest {
                 finishedAt = 20L,
                 summary = "summary",
                 results = results,
-            ),
+            ).toEngineScanReportWire(),
         )
 }
 
