@@ -52,7 +52,7 @@ impl EventRing {
         match value.trim().to_ascii_lowercase().as_str() {
             "proxy" => Some(Self::Proxy),
             "relay" => Some(Self::Relay),
-            "warp" => Some(Self::Warp),
+            "warp" | "amneziawg" => Some(Self::Warp),
             "tunnel" => Some(Self::Tunnel),
             "diagnostics" | "monitor" => Some(Self::Diagnostics),
             _ => None,
@@ -281,5 +281,17 @@ mod tests {
         rings.clear_diagnostics();
 
         assert!(rings.drain_diagnostics().is_empty());
+    }
+
+    #[test]
+    fn routing_domains_include_amneziawg_on_the_warp_ring() {
+        assert_eq!(EventRing::from_routing_field("proxy"), Some(EventRing::Proxy));
+        assert_eq!(EventRing::from_routing_field("relay"), Some(EventRing::Relay));
+        assert_eq!(EventRing::from_routing_field("warp"), Some(EventRing::Warp));
+        assert_eq!(EventRing::from_routing_field("amneziawg"), Some(EventRing::Warp));
+        assert_eq!(EventRing::from_routing_field("tunnel"), Some(EventRing::Tunnel));
+        assert_eq!(EventRing::from_routing_field("diagnostics"), Some(EventRing::Diagnostics));
+        assert_eq!(EventRing::from_routing_field("monitor"), Some(EventRing::Diagnostics));
+        assert_eq!(EventRing::from_routing_field("unknown"), None);
     }
 }

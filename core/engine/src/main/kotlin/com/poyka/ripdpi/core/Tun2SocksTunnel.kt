@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
+import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -180,8 +181,9 @@ class Tun2SocksNativeBindings
 class Tun2SocksTunnel(
     private val nativeBindings: Tun2SocksBindings,
 ) {
-    private val json =
+    private val configJson =
         RipDpiEncodeDefaultsJson
+    private val telemetryJson = RipDpiJson
     private val reservations = HandleReservation()
     private var handle = 0L
 
@@ -201,7 +203,7 @@ class Tun2SocksTunnel(
 
             val createdHandle =
                 withContext(Dispatchers.IO) {
-                    nativeBindings.create(json.encodeToString(config))
+                    nativeBindings.create(configJson.encodeToString(config))
                 }
             if (createdHandle == 0L) {
                 Logger.e { "Tunnel native session creation returned null handle" }
@@ -290,7 +292,7 @@ class Tun2SocksTunnel(
                     nativeBindings.getTelemetry(currentHandle)
                 }
             }?.takeIf { it.isNotBlank() }
-            ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
+            ?.let { telemetryJson.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
             ?: NativeRuntimeSnapshot.idle(source = "tunnel")
 }
 

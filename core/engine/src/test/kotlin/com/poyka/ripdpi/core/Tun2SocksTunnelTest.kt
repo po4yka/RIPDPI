@@ -112,4 +112,23 @@ class Tun2SocksTunnelTest {
             assertEquals(listOf(1L, 2L), bindings.stoppedHandles)
             assertEquals(listOf(1L, 2L), bindings.destroyedHandles)
         }
+
+    @Test
+    fun telemetryDecodeIgnoresAdditiveTopLevelAndEventFields() =
+        runTest {
+            val bindings =
+                FakeTun2SocksBindings().apply {
+                    telemetryJson =
+                        """{"source":"tunnel","state":"running","futureSnapshot":{"version":2},"nativeEvents":[""" +
+                        """{"source":"tunnel","level":"info","message":"ready","createdAt":1,"futureEvent":"native"}]}"""
+                }
+            val tunnel = Tun2SocksTunnel(bindings)
+            tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 42)
+
+            val snapshot = tunnel.telemetry()
+
+            assertEquals("running", snapshot.state)
+            assertEquals("ready", snapshot.nativeEvents.single().message)
+            tunnel.stop()
+        }
 }

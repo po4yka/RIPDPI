@@ -3,6 +3,7 @@
 //! Kotlin `NativeRuntimeSnapshot` parser consumes. Non-blocking; returns the
 //! idle constant for an unknown handle.
 
+use android_support::{NativeEventRecord, drain_warp_events};
 use jni::sys::jlong;
 use jni::{EnvUnowned, Outcome};
 use ripdpi_warp_core::{AmneziaWgRuntime, AmneziaWgTelemetry};
@@ -23,11 +24,56 @@ struct AmneziaWgNativeRuntimeSnapshot {
     schema_version: u32,
     #[serde(flatten)]
     telemetry: AmneziaWgTelemetry,
+    native_events: Vec<NativeRuntimeEvent>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeRuntimeEvent {
+    source: String,
+    level: String,
+    message: String,
+    created_at: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    runtime_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mode: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    policy_signature: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fingerprint_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    diagnostics_session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    subsystem: Option<String>,
+}
+
+impl From<NativeEventRecord> for NativeRuntimeEvent {
+    fn from(value: NativeEventRecord) -> Self {
+        Self {
+            source: value.source,
+            level: value.level,
+            message: value.message,
+            created_at: value.created_at,
+            kind: value.kind,
+            runtime_id: value.runtime_id,
+            mode: value.mode,
+            policy_signature: value.policy_signature,
+            fingerprint_hash: value.fingerprint_hash,
+            diagnostics_session_id: value.diagnostics_session_id,
+            subsystem: value.subsystem,
+        }
+    }
 }
 
 fn serialize(session: &AmneziaWgRuntime) -> Option<String> {
-    let snapshot =
-        AmneziaWgNativeRuntimeSnapshot { schema_version: SNAPSHOT_SCHEMA_VERSION, telemetry: session.telemetry() };
+    let snapshot = AmneziaWgNativeRuntimeSnapshot {
+        schema_version: SNAPSHOT_SCHEMA_VERSION,
+        telemetry: session.telemetry(),
+        native_events: drain_warp_events().into_iter().map(NativeRuntimeEvent::from).collect(),
+    };
     serde_json::to_string(&snapshot).ok()
 }
 
@@ -69,8 +115,11 @@ mod tests {
 
     #[test]
     fn snapshot_json_carries_schema_version_and_flattened_telemetry() {
-        let snapshot =
-            AmneziaWgNativeRuntimeSnapshot { schema_version: SNAPSHOT_SCHEMA_VERSION, telemetry: sample_telemetry() };
+        let snapshot = AmneziaWgNativeRuntimeSnapshot {
+            schema_version: SNAPSHOT_SCHEMA_VERSION,
+            telemetry: sample_telemetry(),
+            native_events: vec![],
+        };
         let value = serde_json::to_value(&snapshot).expect("serialize snapshot");
         assert_eq!(value["schemaVersion"], serde_json::json!(1));
         assert_eq!(value["source"], serde_json::json!("amneziawg"));
@@ -86,8 +135,11 @@ mod tests {
 
     #[test]
     fn snapshot_json_does_not_expose_awg_endpoint_host_or_port() {
-        let snapshot =
-            AmneziaWgNativeRuntimeSnapshot { schema_version: SNAPSHOT_SCHEMA_VERSION, telemetry: sample_telemetry() };
+        let snapshot = AmneziaWgNativeRuntimeSnapshot {
+            schema_version: SNAPSHOT_SCHEMA_VERSION,
+            telemetry: sample_telemetry(),
+            native_events: vec![],
+        };
         let json = serde_json::to_string(&snapshot).expect("serialize snapshot");
         assert!(!json.contains("vpn.example.test"), "AWG endpoint host leaked in telemetry JSON: {json}");
         assert!(!json.contains("51820"), "AWG endpoint port leaked in telemetry JSON: {json}");
