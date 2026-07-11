@@ -36,6 +36,9 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
         &vless.vless_flow,
         &config.common.tls_fingerprint_profile,
     )?;
+    if !vless.vless_mux_protocol.trim().is_empty() {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS mux is only supported over Reality TCP"));
+    }
     Ok(RelayBackend::Xhttp(PooledRelayBackend::new(
         XhttpSessionFactory {
             mode: XhttpSessionMode::Reality(ripdpi_xhttp::XhttpRealityConfig {
@@ -75,6 +78,16 @@ fn build_reality(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) ->
         &vless.vless_flow,
         &config.common.tls_fingerprint_profile,
     )?;
+    if !vless.vless_mux_protocol.trim().is_empty() {
+        vless_config = vless_config
+            .with_mux_strings(
+                &vless.vless_mux_protocol,
+                vless.vless_mux_max_concurrent_streams,
+                vless.vless_mux_per_connection_kbps,
+                vless.vless_mux_padding_max,
+            )
+            .map_err(invalid_input)?;
+    }
     vless_config.socket_protection = context.socket_protection;
     Ok(RelayBackend::VlessReality(PooledRelayBackend::new(
         VlessRealitySessionFactory { config: vless_config, outbound_bind_ip: context.outbound_bind_ip },

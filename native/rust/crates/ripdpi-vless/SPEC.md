@@ -41,7 +41,7 @@ Vision is an addon string carried in the request `Addons` field. It controls TLS
 
 ## Known divergences from upstream
 
-- VLESS-mux protocol may lag upstream framing tweaks; see `docs/tasks/issues/add-vless-mux-conformance-tests-against-xray-core.md`.
+- VLESS mux supports only the SagerNet sing-mux version-0 carrier with the yamux inner protocol. `smux` and `h2mux` are rejected explicitly; they are distinct protocols and must never be coerced to yamux.
 - UDP forwarding (`Command = 0x02`) is not implemented; only TCP CONNECT.
 - `VlessRealityConfig::flow` supports empty flow, `xtls-rprx-vision`, and `xtls-rprx-vision-udp443`; Android profile UX may expose only a subset.
 

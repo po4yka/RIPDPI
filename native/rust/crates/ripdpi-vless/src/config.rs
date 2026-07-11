@@ -26,7 +26,7 @@ impl fmt::Display for ConfigError {
             Self::InvalidPort(port) => write!(f, "invalid port: {port}"),
             Self::InvalidPublicKey(_) => f.write_str("invalid reality public key (base64)"),
             Self::InvalidShortId(_) => f.write_str("invalid reality short ID (hex)"),
-            Self::InvalidMux(error) => write!(f, "invalid mux config: {error}"),
+            Self::InvalidMux(error) => write!(f, "invalid VLESS mux config: {error}"),
             Self::InvalidFlow(error) => write!(f, "invalid flow: {error}"),
         }
     }
@@ -72,8 +72,7 @@ pub struct VlessRealityConfig {
     pub reality_public_key: [u8; 32],
     /// Decoded short ID (0-8 bytes).
     pub reality_short_id: Vec<u8>,
-    /// Wire-multiplexing config when the subscription requested `mux:
-    /// sing-mux` / `mux: yamux`; `None` for one-connection-per-flow.
+    /// Optional reusable SagerNet sing-mux/yamux carrier.
     pub mux: Option<VlessMuxConfig>,
     /// Selected VLESS flow. Defaults to [`VlessFlow::Vision`] for
     /// historical back-compatibility; profiles can override it instead
@@ -177,17 +176,8 @@ impl VlessRealityConfig {
         Ok(self.with_flow(parsed))
     }
 
-    /// Attach a wire-multiplexing config (builder style). NekoBox / sing-box
-    /// subscriptions that carry a `mux` block produce a [`VlessMuxConfig`]
-    /// which is threaded onto the profile here.
-    pub fn with_mux(mut self, mux: VlessMuxConfig) -> Self {
-        self.mux = Some(mux);
-        self
-    }
-
-    /// Parse a `mux` block from its string fields and attach it to this
-    /// config. The field semantics match [`VlessMuxConfig::from_strings`]:
-    /// `0` for the numeric fields means "use the default".
+    /// Parses and attaches a mux carrier request. Unsupported inner protocols
+    /// fail during profile resolution rather than falling back to direct TCP.
     pub fn with_mux_strings(
         self,
         protocol: &str,
@@ -197,7 +187,7 @@ impl VlessRealityConfig {
     ) -> Result<Self, ConfigError> {
         let mux =
             VlessMuxConfig::from_strings(protocol, max_concurrent_streams, per_connection_kbps, sing_mux_padding_max)?;
-        Ok(self.with_mux(mux))
+        Ok(Self { mux: Some(mux), ..self })
     }
 }
 
@@ -253,8 +243,6 @@ mod tests {
         .unwrap();
         assert_eq!(cfg.port, 443);
         assert_eq!(cfg.reality_short_id.len(), 4);
-        // A plain `from_strings` profile carries no mux block by default.
-        assert!(cfg.mux.is_none());
     }
 
     #[test]
@@ -289,26 +277,16 @@ mod tests {
     }
 
     #[test]
-    fn with_mux_strings_attaches_a_sing_mux_block() {
-        let cfg = sample_config().with_mux_strings("sing-mux", 16, 4096, 256).expect("valid mux block");
-        let mux = cfg.mux.expect("mux block present");
-        assert_eq!(mux.protocol, crate::mux::VlessMuxProtocol::SingMux);
-        assert_eq!(mux.max_concurrent_streams, 16);
-        assert_eq!(mux.per_connection_kbps, Some(4096));
-        assert_eq!(mux.sing_mux_padding_max, Some(256));
+    fn with_mux_strings_attaches_supported_yamux_carrier() {
+        let config = sample_config().with_mux_strings("yamux", 16, 0, 0).unwrap();
+        assert_eq!(config.mux.unwrap().max_concurrent_streams, 16);
     }
 
     #[test]
-    fn with_mux_strings_attaches_a_yamux_block() {
-        let cfg = sample_config().with_mux_strings("yamux", 0, 0, 0).expect("valid mux block");
-        let mux = cfg.mux.expect("mux block present");
-        assert_eq!(mux.protocol, crate::mux::VlessMuxProtocol::Yamux);
-    }
-
-    #[test]
-    fn with_mux_strings_rejects_unknown_protocol() {
-        let err = sample_config().with_mux_strings("not-a-mux", 0, 0, 0).expect_err("unknown mux must be rejected");
-        assert!(matches!(err, ConfigError::InvalidMux(_)));
+    fn with_mux_strings_rejects_unsupported_protocol_without_downgrade() {
+        for protocol in ["sing-mux", "smux", "h2mux", "not-a-mux"] {
+            assert!(matches!(sample_config().with_mux_strings(protocol, 16, 0, 0), Err(ConfigError::InvalidMux(_))));
+        }
     }
 
     #[test]
@@ -359,13 +337,6 @@ mod tests {
             assert!(!display.contains(supplied), "Display output exposes supplied value: {display}");
             assert!(!debug.contains(supplied), "Debug output exposes supplied value: {debug}");
         }
-    }
-
-    #[test]
-    fn with_mux_builder_threads_a_config_through() {
-        let mux = VlessMuxConfig::new(crate::mux::VlessMuxProtocol::SingMux);
-        let cfg = sample_config().with_mux(mux);
-        assert_eq!(cfg.mux, Some(mux));
     }
 
     #[test]

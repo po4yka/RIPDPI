@@ -31,12 +31,14 @@ use std::thread::{self, JoinHandle};
 use boring::pkey::{PKey, Private};
 use boring::ssl::{SslAcceptor, SslMethod, SslVerifyMode};
 use boring::x509::X509;
+use futures::future::poll_fn;
 use rcgen::generate_simple_self_signed;
 use ripdpi_vless::wire::{ParseRequestError, encode_response, parse_request_header};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::oneshot;
 use tokio_boring::SslStream;
+use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 const SERVER_NAME: &str = "vless.fixture.test";
 
@@ -217,13 +219,20 @@ async fn handle_connection(
 
     *observed_target.lock().expect("fixture observation") = Some(header.target.clone());
 
-    // 2. Connect to the proxy target FIRST; a failure here closes the
+    // 2. A VLESS mux carrier has a fixed reserved VLESS destination. It is
+    // acknowledged before the SagerNet sing-mux/yamux session is driven.
+    if header.target == ripdpi_vless::mux::SING_MUX_DESTINATION {
+        tls.write_all(&encode_response(&[])).await?;
+        return serve_yamux_carrier(tls, &buf[header.consumed_len..]).await;
+    }
+
+    // 3. Connect to the proxy target FIRST; a failure here closes the
     //    connection without a VLESS response, so the client's `read_response`
     //    surfaces the second-hop failure as a recognizable handshake error
     //    rather than hanging.
     let mut upstream = TcpStream::connect(header.target.as_str()).await?;
 
-    // 3. Acknowledge with the VLESS response header, then splice. Any bytes
+    // 4. Acknowledge with the VLESS response header, then splice. Any bytes
     //    already buffered past the header (e.g. the next hop's ClientHello in a
     //    chained connect) are forwarded before the bidirectional copy.
     tls.write_all(&encode_response(&[])).await?;
@@ -233,4 +242,65 @@ async fn handle_connection(
     }
     let _ = tokio::io::copy_bidirectional(&mut tls, &mut upstream).await;
     Ok(())
+}
+
+async fn serve_yamux_carrier(mut tls: SslStream<TcpStream>, leftover: &[u8]) -> io::Result<()> {
+    if !leftover.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "mux preamble arrived before VLESS response"));
+    }
+    let mut preamble = [0u8; 2];
+    tls.read_exact(&mut preamble).await?;
+    if preamble != ripdpi_vless::mux::encode_session_request() {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported sing-mux preamble"));
+    }
+    let mut session = yamux::Connection::new(tls.compat(), yamux::Config::default(), yamux::Mode::Server);
+    loop {
+        let Some(stream) = poll_fn(|cx| session.poll_next_inbound(cx)).await else {
+            return Ok(());
+        };
+        let stream = stream.map_err(|error| io::Error::new(io::ErrorKind::ConnectionAborted, error.to_string()))?;
+        tokio::spawn(async move {
+            let _ = handle_yamux_stream(stream).await;
+        });
+    }
+}
+
+async fn handle_yamux_stream(stream: yamux::Stream) -> io::Result<()> {
+    let mut stream = stream.compat();
+    let mut flags = [0u8; 2];
+    stream.read_exact(&mut flags).await?;
+    if flags != [0, 0] {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "fixture supports only mux TCP streams"));
+    }
+    let target = read_socksaddr(&mut stream).await?;
+    let mut upstream = TcpStream::connect(target).await?;
+    stream.write_all(&[0]).await?;
+    stream.flush().await?;
+    let _ = tokio::io::copy_bidirectional(&mut stream, &mut upstream).await;
+    Ok(())
+}
+
+async fn read_socksaddr(stream: &mut tokio_util::compat::Compat<yamux::Stream>) -> io::Result<String> {
+    let family = stream.read_u8().await?;
+    let host = match family {
+        1 => {
+            let mut raw = [0u8; 4];
+            stream.read_exact(&mut raw).await?;
+            std::net::Ipv4Addr::from(raw).to_string()
+        }
+        3 => {
+            let length = usize::from(stream.read_u8().await?);
+            let mut raw = vec![0u8; length];
+            stream.read_exact(&mut raw).await?;
+            String::from_utf8(raw).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid mux hostname"))?
+        }
+        4 => {
+            let mut raw = [0u8; 16];
+            stream.read_exact(&mut raw).await?;
+            format!("[{}]", std::net::Ipv6Addr::from(raw))
+        }
+        _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "unknown mux Socksaddr family")),
+    };
+    let port = stream.read_u16().await?;
+    Ok(format!("{host}:{port}"))
 }

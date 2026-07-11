@@ -298,6 +298,7 @@ md5 = "0.8"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "std"] }
 url = "2"
+yamux = "0.14"
 # BoringSSL has no stable ABI; the Reality TLS path in ripdpi-vless
 # declares six BoringSSL symbols by hand (see reality_hook.rs extern block).
 # Pin boring and tokio-boring to exact versions so a transitive cargo

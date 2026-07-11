@@ -13,6 +13,7 @@ pub(crate) struct VlessRealitySessionFactory {
 pub(crate) struct VlessRealitySession {
     pub(crate) config: ripdpi_vless::config::VlessRealityConfig,
     pub(crate) outbound_bind_ip: Option<IpAddr>,
+    pub(crate) mux: Option<ripdpi_vless::VlessYamuxSession>,
 }
 
 impl RelaySession for VlessRealitySession {
@@ -21,6 +22,10 @@ impl RelaySession for VlessRealitySession {
     type Error = io::Error;
 
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
+        if let Some(mux) = &self.mux {
+            let stream: Box<dyn ripdpi_vless::AsyncIo> = Box::new(mux.open_stream(target).await?);
+            return Ok(stream);
+        }
         let stream = match self.outbound_bind_ip {
             Some(bind_ip) => ripdpi_vless::VlessRealityClient::connect_with_bind(&self.config, bind_ip, target).await?,
             None => ripdpi_vless::VlessRealityClient::connect(&self.config, target).await?,
@@ -39,12 +44,17 @@ impl RelaySessionFactory for VlessRealitySessionFactory {
     type Error = io::Error;
 
     fn capabilities(&self) -> RelayCapabilities {
-        RelayCapabilities { tcp: true, udp: false, reusable: false }
+        RelayCapabilities { tcp: true, udp: false, reusable: self.config.mux.is_some() }
     }
 
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         let config = self.config.clone();
         let outbound_bind_ip = self.outbound_bind_ip;
-        Ok(Arc::new(VlessRealitySession { config, outbound_bind_ip }))
+        let mux = if config.mux.is_some() {
+            Some(ripdpi_vless::VlessRealityClient::connect_mux(&config, outbound_bind_ip).await?)
+        } else {
+            None
+        };
+        Ok(Arc::new(VlessRealitySession { config, outbound_bind_ip, mux }))
     }
 }

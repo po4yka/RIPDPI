@@ -121,6 +121,14 @@ struct FlatResolvedRelayRuntimeConfig {
     pub xhttp_host: String,
     #[serde(default = "default_xhttp_mode")]
     pub xhttp_mode: String,
+    #[serde(default)]
+    pub vless_mux_protocol: String,
+    #[serde(default)]
+    pub vless_mux_max_concurrent_streams: u32,
+    #[serde(default)]
+    pub vless_mux_per_connection_kbps: u32,
+    #[serde(default)]
+    pub vless_mux_padding_max: u32,
     #[serde(default = "default_cloudflare_tunnel_mode")]
     pub cloudflare_tunnel_mode: String,
     #[serde(default)]

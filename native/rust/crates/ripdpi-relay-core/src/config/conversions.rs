@@ -46,6 +46,10 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 xhttp_path: flat.xhttp_path,
                 xhttp_host: flat.xhttp_host,
                 xhttp_mode: flat.xhttp_mode,
+                vless_mux_protocol: flat.vless_mux_protocol,
+                vless_mux_max_concurrent_streams: flat.vless_mux_max_concurrent_streams,
+                vless_mux_per_connection_kbps: flat.vless_mux_per_connection_kbps,
+                vless_mux_padding_max: flat.vless_mux_padding_max,
                 uuid: flat.vless_uuid,
             }),
             "mieru" => RelayBackendConfig::Mieru(MieruRelayConfig {
@@ -175,6 +179,10 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             xhttp_path: String::new(),
             xhttp_host: String::new(),
             xhttp_mode: "auto".to_string(),
+            vless_mux_protocol: String::new(),
+            vless_mux_max_concurrent_streams: 0,
+            vless_mux_per_connection_kbps: 0,
+            vless_mux_padding_max: 0,
             cloudflare_tunnel_mode: String::new(),
             cloudflare_publish_local_origin_url: String::new(),
             cloudflare_credentials_ref: String::new(),
@@ -285,6 +293,10 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.xhttp_path = config.xhttp_path.clone();
                 flat.xhttp_host = config.xhttp_host.clone();
                 flat.xhttp_mode = config.xhttp_mode.clone();
+                flat.vless_mux_protocol = config.vless_mux_protocol.clone();
+                flat.vless_mux_max_concurrent_streams = config.vless_mux_max_concurrent_streams;
+                flat.vless_mux_per_connection_kbps = config.vless_mux_per_connection_kbps;
+                flat.vless_mux_padding_max = config.vless_mux_padding_max;
                 flat.vless_uuid = config.uuid.clone();
             }
             RelayBackendConfig::Mieru(config) => {

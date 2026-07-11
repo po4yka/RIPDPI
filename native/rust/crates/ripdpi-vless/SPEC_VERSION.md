@@ -10,7 +10,7 @@ This crate's wire format (VLESS, REALITY, XTLS-Vision) is pinned against the fol
 
 ## Scope
 
-This crate implements the VLESS client wire protocol, the REALITY TLS handshake (X25519 + HKDF-SHA256 session_id), the XTLS-Vision flow addon, and VLESS-mux framing. The xHTTP transport that layers on top of this is implemented in `ripdpi-xhttp`.
+This crate implements the VLESS client wire protocol, the REALITY TLS handshake (X25519 + HKDF-SHA256 session_id), the XTLS-Vision flow addon, and the SagerNet sing-mux version-0 carrier with yamux inner sessions. The xHTTP transport that layers on top of this is implemented in `ripdpi-xhttp`.
 
 ## Drift policy
 

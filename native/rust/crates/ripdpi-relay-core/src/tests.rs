@@ -85,6 +85,10 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             xhttp_path: String::new(),
             xhttp_host: String::new(),
             xhttp_mode: "auto".to_string(),
+            vless_mux_protocol: String::new(),
+            vless_mux_max_concurrent_streams: 0,
+            vless_mux_per_connection_kbps: 0,
+            vless_mux_padding_max: 0,
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
         }),
         "mieru" => RelayBackendConfig::Mieru(MieruRelayConfig {
@@ -448,6 +452,71 @@ fn vless_xhttp_mode_round_trips_through_flat_native_config() {
     let mut round_trip: ResolvedRelayRuntimeConfig =
         serde_json::from_value(serialized).expect("deserialize VLESS config");
     assert_eq!("stream-one", vless_config_mut(&mut round_trip).xhttp_mode);
+}
+
+#[test]
+fn vless_mux_round_trips_through_flat_native_config_without_xhttp_fallback() {
+    let mut config = sample_config("vless_reality");
+    let vless = vless_config_mut(&mut config);
+    vless.vless_mux_protocol = "yamux".to_string();
+    vless.vless_mux_max_concurrent_streams = 3;
+
+    let serialized = serde_json::to_value(&config).expect("serialize VLESS mux config");
+    assert_eq!(serde_json::json!("yamux"), serialized["vlessMuxProtocol"]);
+    assert_eq!(serde_json::json!(3), serialized["vlessMuxMaxConcurrentStreams"]);
+
+    let mut round_trip: ResolvedRelayRuntimeConfig =
+        serde_json::from_value(serialized).expect("deserialize VLESS mux config");
+    let vless = vless_config_mut(&mut round_trip);
+    assert_eq!("yamux", vless.vless_mux_protocol);
+    assert_eq!(3, vless.vless_mux_max_concurrent_streams);
+    assert_eq!("reality_tcp", vless.vless_transport, "mux must not coerce the transport to xHTTP");
+}
+
+#[tokio::test]
+async fn vless_reality_mux_interleaves_three_streams_over_one_carrier() {
+    let fixture = VlessRealityLoopback::start().await.expect("start VLESS Reality mux fixture");
+    let mut config = sample_config("vless_reality");
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    config.common.server_name = fixture.server_name().to_string();
+    let vless = vless_config_mut(&mut config);
+    vless.reality_public_key = valid_reality_public_key();
+    vless.vless_flow = "none".to_string();
+    vless.vless_mux_protocol = "yamux".to_string();
+    vless.vless_mux_max_concurrent_streams = 3;
+
+    let backend = build_backend(&config).await.expect("build VLESS Reality mux backend");
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
+    let (first, second, third) =
+        tokio::join!(backend.connect_tcp(&target), backend.connect_tcp(&target), backend.connect_tcp(&target));
+    let (mut first, mut second, mut third) = (
+        first.expect("open first mux stream"),
+        second.expect("open second mux stream"),
+        third.expect("open third mux stream"),
+    );
+
+    let (first_write, second_write, third_write) =
+        tokio::join!(first.write_all(b"one"), second.write_all(b"two"), third.write_all(b"tri"),);
+    first_write.expect("write first");
+    second_write.expect("write second");
+    third_write.expect("write third");
+
+    let mut first_reply = [0u8; 3];
+    let mut second_reply = [0u8; 3];
+    let mut third_reply = [0u8; 3];
+    let (first_read, second_read, third_read) = tokio::join!(
+        first.read_exact(&mut first_reply),
+        second.read_exact(&mut second_reply),
+        third.read_exact(&mut third_reply),
+    );
+    first_read.expect("read first");
+    second_read.expect("read second");
+    third_read.expect("read third");
+    assert_eq!(first_reply, *b"one");
+    assert_eq!(second_reply, *b"two");
+    assert_eq!(third_reply, *b"tri");
+    assert_eq!(fixture.observed_target(), Some(ripdpi_vless::mux::SING_MUX_DESTINATION.to_string()));
 }
 
 #[test]

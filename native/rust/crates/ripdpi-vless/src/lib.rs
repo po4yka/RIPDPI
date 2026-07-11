@@ -21,8 +21,10 @@ pub(crate) mod reality_seal;
 pub mod scoped_handle;
 pub mod vision;
 pub mod wire;
+mod yamux_session;
 
 pub use mux::{MuxConfigError, VlessMuxConfig, VlessMuxProtocol};
+pub use yamux_session::VlessYamuxSession;
 
 use std::io;
 use std::net::{IpAddr, SocketAddr};
@@ -47,6 +49,20 @@ impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 pub struct VlessRealityClient;
 
 impl VlessRealityClient {
+    /// Establish one VLESS+Reality carrier for the configured SagerNet
+    /// sing-mux/yamux session. The carrier's VLESS destination is fixed by the
+    /// upstream protocol; individual destinations are requested on yamux
+    /// substreams afterwards.
+    pub async fn connect_mux(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<VlessYamuxSession> {
+        let mux = config.mux.ok_or_else(|| {
+            io::Error::new(io::ErrorKind::InvalidInput, "VLESS mux session requested without mux config")
+        })?;
+        let tcp = connect_tcp(config, bind_ip).await?;
+        let tls = reality::connect_reality_tls(tcp, config).await?;
+        let carrier = Self::vless_handshake_and_wrap(tls, config, mux::SING_MUX_DESTINATION).await?;
+        VlessYamuxSession::establish(Box::new(carrier), mux.max_concurrent_streams).await
+    }
+
     /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream`.
     pub async fn connect(config: &VlessRealityConfig, target: &str) -> io::Result<VisionStream<SslStream<TcpStream>>> {
         Self::connect_with_optional_bind(config, None, target).await

@@ -1,12 +1,11 @@
 # ripdpi-vless
 
 **Responsibility:** the VLESS protocol transport — Reality TLS, the Vision flow,
-the xHTTP addon hook, and stream mux.
+the xHTTP addon hook, and the VLESS mux carrier.
 **Layer:** L7 — relay transports.
 
 Implements VLESS with Reality (`reality.rs` / `reality_hook.rs` /
-`reality_seal.rs`), the Vision flow-control addon, the wire format, and the mux
-integration.
+`reality_seal.rs`), the Vision flow-control addon, and the wire format. VLESS mux uses the SagerNet sing-mux carrier with the yamux inner protocol; unsupported inner protocols fail during configuration resolution.
 
 ## Stable identifiers / contracts
 

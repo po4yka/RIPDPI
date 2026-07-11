@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 crypto_box = { workspace = true }
+futures = { workspace = true }
 h3 = { workspace = true }
 h3-quinn = { workspace = true }
 hickory-proto = { workspace = true }
@@ -36,6 +37,8 @@ sha2 = { workspace = true }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "time", "io-util", "macros", "net", "sync"] }
 tokio-boring = { workspace = true }
 tokio-rustls = { workspace = true }
+tokio-util = { workspace = true, features = ["compat"] }
+yamux = { workspace = true }
 
 [dev-dependencies]
 ripdpi-dns-resolver = { workspace = true }

@@ -4,7 +4,7 @@ _Generated from `docs/tasks/issues/*.md` frontmatter. Do not edit by hand; updat
 
 _Legacy issue statuses are normalized while their source files are triaged: `in-progress` -> `doing`, `in-review` -> `review`, `device-smoke-pending` -> `blocked`; `done` and `dropped` issue files are omitted._
 
-## Doing (24)
+## Doing (23)
 
 | Priority | Area | Issue | Owner | Updated |
 |---|---|---|---|---|
@@ -31,7 +31,6 @@ _Legacy issue statuses are normalized while their source files are triaged: `in-
 | medium | testing | [Add QUIC path-MTU discovery regression test](issues/add-quic-path-mtu-discovery-regression-test.md) | unassigned | 2026-06-11 |
 | medium | transport | [Audit relay transports for MUX-default posture against TLS-in-TLS fingerprinting and add nested-handshake conformance fixture](issues/audit-relay-mux-default-nested-handshake-conformance.md) | unassigned | 2026-06-17 |
 | medium | transport | [Wire AmneziaWG RTK South cohort (Jc=4) into Android client](issues/wire-amneziawg-rtk-south-jc4-cohort-into-android-client.md) | unassigned | 2026-06-21 |
-| low | testing | [Add cross-stack chain tests (VLESS over xHTTP over Reality)](issues/add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality.md) | unassigned | 2026-06-10 |
 
 ## Review (5)
 

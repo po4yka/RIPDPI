@@ -1,0 +1,182 @@
+//! Async SagerNet sing-mux carrier using its yamux inner protocol.
+
+use std::io;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+
+use futures::future::poll_fn;
+use futures::io::AsyncWriteExt as FuturesAsyncWriteExt;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
+
+use crate::AsyncIo;
+
+type Carrier = tokio_util::compat::Compat<Box<dyn AsyncIo>>;
+type Connection = yamux::Connection<Carrier>;
+
+/// Shared client-side mux carrier. The yamux implementation owns flow control,
+/// stream lifecycle and the carrier I/O state; this wrapper serializes session
+/// operations and fails all subsequent opens after carrier failure.
+#[derive(Clone)]
+pub struct VlessYamuxSession {
+    connection: Arc<Mutex<Connection>>,
+    closed: Arc<AtomicBool>,
+}
+
+impl VlessYamuxSession {
+    pub(crate) async fn establish(carrier: Box<dyn AsyncIo>, max_streams: usize) -> io::Result<Self> {
+        let mut config = yamux::Config::default();
+        config.set_max_num_streams(max_streams);
+        let mut carrier = carrier.compat();
+        carrier.write_all(&crate::mux::encode_session_request()).await?;
+        carrier.flush().await?;
+        let connection = Arc::new(Mutex::new(yamux::Connection::new(carrier, config, yamux::Mode::Client)));
+        let closed = Arc::new(AtomicBool::new(false));
+        let driver_connection = Arc::clone(&connection);
+        let driver_closed = Arc::clone(&closed);
+        tokio::spawn(async move {
+            loop {
+                let next = poll_fn(|cx| {
+                    driver_connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_next_inbound(cx)
+                })
+                .await;
+                match next {
+                    Some(Ok(_)) => {
+                        // Client VLESS mux sessions do not accept peer-opened
+                        // streams. Dropping the unexpected stream sends a
+                        // reset through yamux rather than exposing it.
+                    }
+                    Some(Err(_)) | None => {
+                        driver_closed.store(true, Ordering::Release);
+                        break;
+                    }
+                }
+            }
+        });
+        Ok(Self { connection, closed })
+    }
+
+    /// Opens a TCP stream and completes the sing-mux stream request before
+    /// exposing application bytes to the caller.
+    pub async fn open_stream(&self, destination: &str) -> io::Result<tokio_util::compat::Compat<yamux::Stream>> {
+        if self.closed.load(Ordering::Acquire) {
+            return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "VLESS mux carrier closed"));
+        }
+        let stream = poll_fn(|cx| {
+            self.connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_new_outbound(cx)
+        })
+        .await
+        .map_err(|error| {
+            io::Error::new(io::ErrorKind::ConnectionAborted, format!("VLESS mux carrier closed: {error}"))
+        })?;
+        let mut stream = stream.compat();
+        stream.write_all(&crate::mux::encode_tcp_stream_request(destination)?).await?;
+        stream.flush().await?;
+        crate::mux::read_stream_response(&mut stream).await?;
+        Ok(stream)
+    }
+}
+
+/// Compile-time contract for the stream handed to relay-core.
+fn _assert_tokio_stream<T: AsyncRead + AsyncWrite + Unpin + Send>() {}
+
+#[allow(dead_code)]
+fn assert_stream_contract() {
+    _assert_tokio_stream::<tokio_util::compat::Compat<yamux::Stream>>();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio_util::compat::TokioAsyncReadCompatExt;
+
+    #[tokio::test]
+    async fn three_streams_interleave_over_one_sing_mux_yamux_carrier() {
+        let (client, mut server) = tokio::io::duplex(64 * 1024);
+        let server_task = tokio::spawn(async move {
+            let mut preamble = [0u8; 2];
+            server.read_exact(&mut preamble).await.unwrap();
+            assert_eq!(preamble, crate::mux::encode_session_request());
+
+            let connection = Arc::new(Mutex::new(yamux::Connection::new(
+                server.compat(),
+                yamux::Config::default(),
+                yamux::Mode::Server,
+            )));
+            let mut workers = Vec::new();
+            for _ in 0..3 {
+                let stream = poll_fn(|cx| {
+                    connection.lock().unwrap_or_else(std::sync::PoisonError::into_inner).poll_next_inbound(cx)
+                })
+                .await
+                .expect("carrier stays open")
+                .expect("valid inbound yamux stream");
+                workers.push(tokio::spawn(async move {
+                    let mut stream = stream.compat();
+                    let mut flags = [0u8; 2];
+                    stream.read_exact(&mut flags).await.unwrap();
+                    assert_eq!(flags, [0, 0]);
+                    let family = stream.read_u8().await.unwrap();
+                    assert_eq!(family, 3);
+                    let host_len = usize::from(stream.read_u8().await.unwrap());
+                    let mut host = vec![0u8; host_len];
+                    stream.read_exact(&mut host).await.unwrap();
+                    assert_eq!(host, b"interleave.test");
+                    assert_eq!(stream.read_u16().await.unwrap(), 443);
+                    stream.write_all(&[0]).await.unwrap();
+                    let mut payload = [0u8; 3];
+                    stream.read_exact(&mut payload).await.unwrap();
+                    stream.write_all(&payload).await.unwrap();
+                    stream.flush().await.unwrap();
+                }));
+            }
+            let driver_connection = Arc::clone(&connection);
+            let driver = tokio::spawn(async move {
+                loop {
+                    let _ = poll_fn(|cx| {
+                        driver_connection
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner)
+                            .poll_next_inbound(cx)
+                    })
+                    .await;
+                }
+            });
+            for worker in workers {
+                worker.await.unwrap();
+            }
+            driver.abort();
+        });
+
+        let client = VlessYamuxSession::establish(Box::new(client), 3).await.unwrap();
+        let (first, second, third) = tokio::join!(
+            client.open_stream("interleave.test:443"),
+            client.open_stream("interleave.test:443"),
+            client.open_stream("interleave.test:443"),
+        );
+        let mut first = first.unwrap();
+        let mut second = second.unwrap();
+        let mut third = third.unwrap();
+        let (first_write, second_write, third_write) =
+            tokio::join!(first.write_all(b"one"), second.write_all(b"two"), third.write_all(b"tri"));
+        first_write.unwrap();
+        second_write.unwrap();
+        third_write.unwrap();
+        let mut first_reply = [0u8; 3];
+        let mut second_reply = [0u8; 3];
+        let mut third_reply = [0u8; 3];
+        let (first_read, second_read, third_read) = tokio::join!(
+            first.read_exact(&mut first_reply),
+            second.read_exact(&mut second_reply),
+            third.read_exact(&mut third_reply),
+        );
+        first_read.unwrap();
+        second_read.unwrap();
+        third_read.unwrap();
+        assert_eq!(first_reply, *b"one");
+        assert_eq!(second_reply, *b"two");
+        assert_eq!(third_reply, *b"tri");
+        server_task.await.unwrap();
+    }
+}

@@ -532,6 +532,10 @@ class RelayNativeConfigTest {
             vlessTransport = "xhttp",
             xhttpPath = "/wire/path",
             xhttpHost = "wire.host",
+            vlessMuxProtocol = "yamux",
+            vlessMuxMaxConcurrentStreams = 3,
+            vlessMuxPerConnectionKbps = 1,
+            vlessMuxPaddingMax = 1,
             cloudflareTunnelMode = "publish_managed",
             cloudflarePublishLocalOriginUrl = "http://origin.local",
             cloudflareCredentialsRef = "credentials-ref",
@@ -674,13 +678,17 @@ class RelayNativeConfigTest {
                 "schemaVersion",
             )
 
-        // The 57 keys carrying a default; emitted only when set off-default.
+        // The 61 keys carrying a default; emitted only when set off-default.
         private val defaultedWireKeys =
             setOf(
                 "outboundBindIp",
                 "vlessTransport",
                 "xhttpPath",
                 "xhttpHost",
+                "vlessMuxProtocol",
+                "vlessMuxMaxConcurrentStreams",
+                "vlessMuxPerConnectionKbps",
+                "vlessMuxPaddingMax",
                 "cloudflareTunnelMode",
                 "cloudflarePublishLocalOriginUrl",
                 "cloudflareCredentialsRef",
@@ -736,7 +744,7 @@ class RelayNativeConfigTest {
                 "finalmask",
             )
 
-        // The complete flat wire object: required + defaulted = 83 keys.
+        // The complete flat wire object: required + defaulted = 87 keys.
         private val expectedWireKeys = requiredWireKeys + defaultedWireKeys
     }
 }

@@ -1,4 +1,4 @@
-//! Wire-level stream multiplexing: sing-mux and yamux.
+//! Experimental wire-level stream-multiplexing primitives.
 //!
 //! # Why this lives in `ripdpi-relay-mux`
 //!
@@ -21,8 +21,8 @@
 //!
 //! * [`yamux`] -- the hashicorp yamux frame codec (12-byte header,
 //!   `Data`/`WindowUpdate`/`Ping`/`GoAway`, `SYN`/`ACK`/`FIN`/`RST` flags).
-//! * [`sing_mux`] -- the sing-box sing-mux frame codec (4-byte stream id +
-//!   command + length-delimited data, optional v2 padding).
+//! * [`sing_mux`] -- a legacy internal frame codec. It is not the sing-box
+//!   sing-mux protocol and must not be selected by any relay backend.
 //! * [`session`] -- the protocol-agnostic session layer: stream-id
 //!   allocation, the [`MuxLimits`] config block outbounds carry, the
 //!   [`MuxTransport`] trait outbounds plug a protocol into, and
@@ -31,8 +31,8 @@
 //!   guarantee.
 //!
 //! Both codecs are pure (no I/O, no async); the session layer composes them
-//! with the bounded-mailbox backpressure model. An outbound crate (VLESS,
-//! Trojan, VMess) selects a [`MuxProtocol`], carries a [`MuxLimits`], and
+//! with the bounded-mailbox backpressure model. A future outbound crate must
+//! validate the selected protocol against an upstream-compatible session before it carries a [`MuxLimits`] block and
 //! drives logical flows through the [`MuxTransport`] surface.
 
 pub mod session;

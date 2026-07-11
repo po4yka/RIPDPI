@@ -32,6 +32,10 @@ The yamux fixture-walker tests pick new yamux files up automatically on the next
 
 ## Current vectors
 
+### `sing-mux-6fb501d/mux/yamux/`
+
+Eight pinned SagerNet sing-mux version-0/yamux carrier and TCP stream-request vectors, derived from `protocol.go` at upstream commit `6fb501d02534177fed5567ee8f63afbc825e2861` and `sing` v0.7.14's Socksaddr serializer. They are stored as lowercase hex because the carrier fields include NUL bytes; `ripdpi-vless::mux::pinned_yamux_fixtures_match_encoder` decodes and verifies every vector.
+
 ### `v1.260206.0/mux/yamux/`
 
 - `syn-data-stream1-abc.bin` — SYN Data frame on stream id 1 carrying the 3-byte payload `abc`. Hand-assembled regression boundary; not from an upstream packet capture.
