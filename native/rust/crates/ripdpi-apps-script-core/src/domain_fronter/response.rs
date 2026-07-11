@@ -79,7 +79,9 @@ where
                 .await
                 .map_err(|_| FronterError::Timeout)??;
             if read == 0 {
-                break;
+                return Err(FronterError::BadResponse(
+                    "connection closed before declared response body length".to_string(),
+                ));
             }
             append_body_bytes(&mut body, &scratch[..read], max_body_bytes)?;
         }
@@ -299,6 +301,15 @@ mod tests {
             read_with_body_limit(&mut stream, TEST_BODY_LIMIT).await.expect("response at the body limit must succeed");
 
         assert_eq!(response.body, vec![b'a'; TEST_BODY_LIMIT]);
+    }
+
+    #[tokio::test]
+    async fn rejects_truncated_fixed_content_length_at_eof() {
+        let mut stream = MemoryReader::new([b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nabc".to_vec()]);
+
+        let result = read_with_body_limit(&mut stream, TEST_BODY_LIMIT).await;
+
+        assert_bad_response(result, "connection closed before declared response body length");
     }
 
     #[tokio::test]
