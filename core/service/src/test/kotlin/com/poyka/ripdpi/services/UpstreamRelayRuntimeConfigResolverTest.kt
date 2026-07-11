@@ -491,6 +491,48 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
         }
 
     @Test
+    fun `resolve default family preserves vless mux settings`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "default",
+                                    vlessUuid = "44444444-4444-4444-4444-444444444444",
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindVlessReality,
+                            profileId = "default",
+                            server = "relay.example",
+                            serverPort = 443,
+                            serverName = "relay.example",
+                            realityPublicKey = TestVlessRealityPublicKey,
+                            realityShortId = TestVlessRealityShortId,
+                            vlessMuxProtocol = "yamux",
+                            vlessMuxMaxConcurrentStreams = 7,
+                            vlessMuxPerConnectionKbps = 512,
+                            vlessMuxPaddingMax = 64,
+                        ),
+                    quicMigrationConfig = OwnedRelayQuicMigrationConfig(),
+                )
+
+            assertEquals("yamux", resolved.vlessMuxProtocol)
+            assertEquals(7, resolved.vlessMuxMaxConcurrentStreams)
+            assertEquals(512, resolved.vlessMuxPerConnectionKbps)
+            assertEquals(64, resolved.vlessMuxPaddingMax)
+        }
+
+    @Test
     fun `resolve default family rejects unsupported vless reality xhttp mode`() =
         runTest {
             val resolver =

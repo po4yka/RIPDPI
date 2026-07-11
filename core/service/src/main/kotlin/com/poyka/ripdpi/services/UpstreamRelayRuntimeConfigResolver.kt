@@ -260,6 +260,10 @@ private class ResolvedRelayConfigBuilder(
             xhttpPath = effectiveConfig.xhttpPath,
             xhttpHost = effectiveConfig.xhttpHost,
             xhttpMode = effectiveConfig.xhttpMode,
+            vlessMuxProtocol = effectiveConfig.vlessMuxProtocol,
+            vlessMuxMaxConcurrentStreams = effectiveConfig.vlessMuxMaxConcurrentStreams,
+            vlessMuxPerConnectionKbps = effectiveConfig.vlessMuxPerConnectionKbps,
+            vlessMuxPaddingMax = effectiveConfig.vlessMuxPaddingMax,
             vlessUuid = credentials?.vlessUuid,
         )
 
